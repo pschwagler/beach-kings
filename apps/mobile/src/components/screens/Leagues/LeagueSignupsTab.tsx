@@ -39,28 +39,28 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
   return (
     <View
       testID={`event-card-${event.id}`}
-      className="flex-row bg-white dark:bg-dark-surface rounded-[12px] mx-4 mb-3 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden"
+      className="flex-row bg-surface rounded-[12px] mx-4 mb-3 border border-divider overflow-hidden"
     >
       {/* Date badge */}
-      <View className="w-[60px] items-center justify-center py-4 bg-[#1a3a4a] dark:bg-brand-teal/20">
-        <Text className="text-[11px] font-bold text-white dark:text-brand-teal uppercase">
+      <View className="w-[60px] items-center justify-center py-4 bg-brand-teal">
+        <Text className="text-[11px] font-bold text-white uppercase">
           {event.month_abbr}
         </Text>
-        <Text className="text-[22px] font-extrabold text-white dark:text-brand-teal leading-tight">
+        <Text className="text-[22px] font-extrabold text-white leading-tight">
           {event.day}
         </Text>
       </View>
 
       {/* Content */}
       <View className="flex-1 px-4 py-3">
-        <Text className="text-[14px] font-bold text-text-default dark:text-content-primary mb-[2px]">
+        <Text className="text-[14px] font-bold text-default mb-[2px]">
           {event.title}
         </Text>
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary">
+        <Text className="text-[12px] text-muted">
           {event.time_label}
         </Text>
         {event.court_name != null && (
-          <Text className="text-[12px] text-text-secondary dark:text-content-secondary">
+          <Text className="text-[12px] text-muted">
             {event.court_name}
           </Text>
         )}
@@ -71,15 +71,15 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
             <View
               className={`rounded-[6px] px-2 py-[2px] ${
                 (event.spots_remaining ?? 0) <= 3
-                  ? 'bg-orange-100 dark:bg-orange-900/30'
-                  : 'bg-[#f0f0f0] dark:bg-dark-elevated'
+                  ? 'bg-warning-tint'
+                  : 'bg-elevated'
               }`}
             >
               <Text
                 className={`text-[10px] font-semibold ${
                   (event.spots_remaining ?? 0) <= 3
-                    ? 'text-orange-700 dark:text-orange-400'
-                    : 'text-text-secondary dark:text-content-secondary'
+                    ? 'text-warning'
+                    : 'text-muted'
                 }`}
               >
                 {spotsLabel}
@@ -87,8 +87,8 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
             </View>
           )}
           {event.spots_remaining === 0 && (
-            <View className="bg-red-100 dark:bg-red-900/30 rounded-[6px] px-2 py-[2px]">
-              <Text className="text-[10px] font-semibold text-red-600 dark:text-red-400">
+            <View className="bg-danger-tint rounded-[6px] px-2 py-[2px]">
+              <Text className="text-[10px] font-semibold text-danger">
                 Full
               </Text>
             </View>
@@ -99,8 +99,8 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
         <View className="mt-3">
           {event.user_status === 'signed_up' ? (
             <View className="flex-row items-center justify-between">
-              <View className="bg-green-100 dark:bg-green-900/30 rounded-[6px] px-3 py-[5px]">
-                <Text className="text-[12px] font-semibold text-green-700 dark:text-green-400">
+              <View className="bg-success-tint rounded-[6px] px-3 py-[5px]">
+                <Text className="text-[12px] font-semibold text-success">
                   Signed Up
                 </Text>
               </View>
@@ -110,17 +110,17 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
                   void hapticMedium();
                   void onDrop(event.id);
                 }}
-                className="px-3 py-[5px] rounded-[6px] border border-red-300 dark:border-red-700 active:opacity-70"
+                className="px-3 py-[5px] rounded-[6px] border border-danger-tint active:opacity-70"
               >
-                <Text className="text-[12px] font-semibold text-red-600 dark:text-red-400">
+                <Text className="text-[12px] font-semibold text-danger">
                   Drop
                 </Text>
               </Pressable>
             </View>
           ) : event.user_status === 'waitlisted' ? (
             <View className="flex-row items-center justify-between">
-              <View className="bg-yellow-100 dark:bg-yellow-900/30 rounded-[6px] px-3 py-[5px]">
-                <Text className="text-[12px] font-semibold text-yellow-700 dark:text-yellow-400">
+              <View className="bg-warning-tint rounded-[6px] px-3 py-[5px]">
+                <Text className="text-[12px] font-semibold text-warning">
                   Waitlisted
                 </Text>
               </View>
@@ -130,16 +130,16 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
                   void hapticMedium();
                   void onDrop(event.id);
                 }}
-                className="px-3 py-[5px] rounded-[6px] border border-[#ddd] dark:border-border-strong active:opacity-70"
+                className="px-3 py-[5px] rounded-[6px] border border-strong active:opacity-70"
               >
-                <Text className="text-[12px] text-text-secondary dark:text-content-secondary">
+                <Text className="text-[12px] text-muted">
                   Leave Waitlist
                 </Text>
               </Pressable>
             </View>
           ) : (
             <View className="flex-row items-center justify-between">
-              <Text className="text-[12px] text-text-secondary dark:text-content-secondary">
+              <Text className="text-[12px] text-muted">
                 {event.attendee_count} going
               </Text>
               <Pressable
@@ -151,14 +151,14 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
                 disabled={event.spots_remaining === 0}
                 className={`px-4 py-[7px] rounded-[8px] ${
                   event.spots_remaining === 0
-                    ? 'bg-[#ddd] dark:bg-dark-elevated'
-                    : 'bg-[#1a3a4a] dark:bg-brand-teal active:opacity-80'
+                    ? 'bg-elevated'
+                    : 'bg-brand-teal active:opacity-80'
                 }`}
               >
                 <Text
                   className={`text-[12px] font-bold ${
                     event.spots_remaining === 0
-                      ? 'text-text-muted dark:text-content-tertiary'
+                      ? 'text-tertiary'
                       : 'text-white'
                   }`}
                 >
@@ -185,16 +185,16 @@ interface ScheduleRowProps {
 
 function ScheduleRow({ day, time, court }: ScheduleRowProps): React.ReactNode {
   return (
-    <View className="flex-row items-center px-4 py-[12px] border-b border-[#f0f0f0] dark:border-border-subtle">
-      <Text className="w-[90px] text-[13px] font-semibold text-text-default dark:text-content-primary">
+    <View className="flex-row items-center px-4 py-[12px] border-b border-divider">
+      <Text className="w-[90px] text-[13px] font-semibold text-default">
         {day}
       </Text>
       <View className="flex-1">
-        <Text className="text-[13px] text-text-secondary dark:text-content-secondary">
+        <Text className="text-[13px] text-muted">
           {time}
         </Text>
         {court != null && (
-          <Text className="text-[12px] text-text-muted dark:text-content-tertiary">
+          <Text className="text-[12px] text-tertiary">
             {court}
           </Text>
         )}
@@ -209,7 +209,7 @@ function ScheduleRow({ day, time, court }: ScheduleRowProps): React.ReactNode {
 
 function SectionLabel({ title }: { readonly title: string }): React.ReactNode {
   return (
-    <Text className="text-[12px] font-semibold text-text-secondary dark:text-content-secondary uppercase tracking-wider px-4 pt-5 pb-2">
+    <Text className="text-[12px] font-semibold text-muted uppercase tracking-wider px-4 pt-5 pb-2">
       {title}
     </Text>
   );
@@ -241,7 +241,7 @@ export default function LeagueSignupsTab({ leagueId }: LeagueSignupsTabProps): R
         testID="signups-error"
         className="flex-1 items-center justify-center px-8"
       >
-        <Text className="text-[16px] font-bold text-text-default dark:text-content-primary text-center">
+        <Text className="text-[16px] font-bold text-default text-center">
           Failed to load events
         </Text>
       </View>
@@ -251,7 +251,7 @@ export default function LeagueSignupsTab({ leagueId }: LeagueSignupsTabProps): R
   return (
     <ScrollView
       testID="signups-tab"
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 32 }}
     >
@@ -269,7 +269,7 @@ export default function LeagueSignupsTab({ leagueId }: LeagueSignupsTabProps): R
       {schedule.length > 0 && (
         <>
           <SectionLabel title="Weekly Schedule" />
-          <View className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden">
+          <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
             {schedule.map((row, idx) => (
               <ScheduleRow
                 key={`${row.day_of_week}-${idx}`}
@@ -284,10 +284,10 @@ export default function LeagueSignupsTab({ leagueId }: LeagueSignupsTabProps): R
 
       {events.length === 0 && schedule.length === 0 && (
         <View className="flex-1 items-center justify-center px-8 py-16">
-          <Text className="text-[18px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+          <Text className="text-[18px] font-bold text-default mb-2 text-center">
             No Upcoming Events
           </Text>
-          <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center">
+          <Text className="text-[14px] text-muted text-center">
             Check back later for scheduled sessions.
           </Text>
         </View>

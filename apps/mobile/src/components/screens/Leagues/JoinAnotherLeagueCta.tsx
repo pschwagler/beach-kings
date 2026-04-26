@@ -23,15 +23,15 @@ export default function JoinAnotherLeagueCta({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel="Join Another League"
-      className="bg-white dark:bg-dark-surface rounded-card p-lg mt-xs items-center border border-dashed border-gray-300 dark:border-border-subtle active:opacity-80"
+      className="bg-surface rounded-card p-lg mt-xs items-center border border-dashed border-divider active:opacity-80"
     >
       <View className="mb-xs">
         <TrophyIcon size={24} color="#2a7d9c" />
       </View>
-      <Text className="text-footnote font-semibold text-accent dark:text-info-text">
+      <Text className="text-footnote font-semibold text-info">
         Join Another League
       </Text>
-      <Text className="text-[12px] text-gray-500 dark:text-content-tertiary mt-[4px]">
+      <Text className="text-[12px] text-tertiary mt-[4px]">
         Browse open leagues near you
       </Text>
     </Pressable>

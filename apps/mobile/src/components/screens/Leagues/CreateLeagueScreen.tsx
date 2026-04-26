@@ -39,7 +39,7 @@ import type { Location, Court } from '@beach-kings/shared';
 
 function SectionHeader({ title }: { readonly title: string }): React.ReactNode {
   return (
-    <Text className="text-[12px] font-semibold text-text-secondary dark:text-content-secondary uppercase tracking-wider px-4 pt-5 pb-1">
+    <Text className="text-[12px] font-semibold text-muted uppercase tracking-wider px-4 pt-5 pb-1">
       {title}
     </Text>
   );
@@ -61,7 +61,7 @@ function AccessToggle({ value, onChange }: AccessToggleProps): React.ReactNode {
   ];
 
   return (
-    <View className="mx-4 rounded-[12px] border border-[#e8e8e8] dark:border-border-subtle overflow-hidden bg-white dark:bg-dark-surface">
+    <View className="mx-4 rounded-[12px] border border-divider overflow-hidden bg-surface">
       {options.map(({ key, label, desc }, idx) => {
         const isActive = value === key;
         return (
@@ -73,7 +73,7 @@ function AccessToggle({ value, onChange }: AccessToggleProps): React.ReactNode {
               onChange(key);
             }}
             className={`flex-row items-center px-4 py-[14px] ${
-              idx > 0 ? 'border-t border-[#f0f0f0] dark:border-border-subtle' : ''
+              idx > 0 ? 'border-t border-divider' : ''
             } active:opacity-70`}
             accessibilityRole="radio"
             accessibilityState={{ checked: isActive }}
@@ -81,19 +81,19 @@ function AccessToggle({ value, onChange }: AccessToggleProps): React.ReactNode {
             <View
               className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
                 isActive
-                  ? 'border-[#1a3a4a] dark:border-brand-teal'
-                  : 'border-[#ccc] dark:border-border-strong'
+                  ? 'border-brand-teal'
+                  : 'border-strong'
               }`}
             >
               {isActive && (
-                <View className="w-2.5 h-2.5 rounded-full bg-[#1a3a4a] dark:bg-brand-teal" />
+                <View className="w-2.5 h-2.5 rounded-full bg-brand-teal" />
               )}
             </View>
             <View className="flex-1">
-              <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary">
+              <Text className="text-[14px] font-semibold text-default">
                 {label}
               </Text>
-              <Text className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]">
+              <Text className="text-[12px] text-muted mt-[2px]">
                 {desc}
               </Text>
             </View>
@@ -134,8 +134,8 @@ function GenderPills({ value, onChange }: GenderPillsProps): React.ReactNode {
             }}
             className={`px-4 py-[10px] rounded-full border ${
               isActive
-                ? 'bg-[#1a3a4a] dark:bg-brand-teal border-[#1a3a4a] dark:border-brand-teal'
-                : 'bg-white dark:bg-dark-surface border-[#ddd] dark:border-border-strong'
+                ? 'bg-brand-teal border-brand-teal'
+                : 'bg-surface border-strong'
             } active:opacity-70`}
             accessibilityRole="radio"
             accessibilityState={{ checked: isActive }}
@@ -144,7 +144,7 @@ function GenderPills({ value, onChange }: GenderPillsProps): React.ReactNode {
               className={`text-[13px] font-semibold ${
                 isActive
                   ? 'text-white'
-                  : 'text-text-secondary dark:text-content-secondary'
+                  : 'text-muted'
               }`}
             >
               {label}
@@ -182,15 +182,15 @@ function LevelSelector({ value, onChange }: LevelSelectorProps): React.ReactNode
             }}
             className={`px-4 py-[10px] rounded-[8px] border ${
               isActive
-                ? 'bg-[#1a3a4a] dark:bg-brand-teal border-[#1a3a4a] dark:border-brand-teal'
-                : 'bg-white dark:bg-dark-surface border-[#ddd] dark:border-border-strong'
+                ? 'bg-brand-teal border-brand-teal'
+                : 'bg-surface border-strong'
             } active:opacity-70`}
           >
             <Text
               className={`text-[13px] font-semibold ${
                 isActive
                   ? 'text-white'
-                  : 'text-text-secondary dark:text-content-secondary'
+                  : 'text-muted'
               }`}
             >
               {lvl}
@@ -224,10 +224,10 @@ function LocationPicker({ value, locations, loading, onChange }: LocationPickerP
   return (
     <View
       testID="location-picker"
-      className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden"
+      className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden"
     >
       <View className="px-4 pt-[10px] pb-[6px]">
-        <Text className="text-[11px] font-semibold text-text-secondary dark:text-content-secondary uppercase tracking-wide mb-1">
+        <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
           Location (optional)
         </Text>
       </View>
@@ -238,22 +238,22 @@ function LocationPicker({ value, locations, loading, onChange }: LocationPickerP
           void hapticLight();
           onChange('');
         }}
-        className={`flex-row items-center px-4 py-[12px] border-t border-[#f0f0f0] dark:border-border-subtle active:opacity-70 ${
-          value === '' ? 'bg-[#f0f6f8] dark:bg-[#1a3a4a]/20' : ''
+        className={`flex-row items-center px-4 py-[12px] border-t border-divider active:opacity-70 ${
+          value === '' ? 'bg-brand-teal/10' : ''
         }`}
       >
         <View
           className={`w-4 h-4 rounded-full border-2 mr-3 items-center justify-center ${
             value === ''
-              ? 'border-[#1a3a4a] dark:border-brand-teal'
-              : 'border-[#ccc] dark:border-border-strong'
+              ? 'border-brand-teal'
+              : 'border-strong'
           }`}
         >
           {value === '' && (
-            <View className="w-2 h-2 rounded-full bg-[#1a3a4a] dark:bg-brand-teal" />
+            <View className="w-2 h-2 rounded-full bg-brand-teal" />
           )}
         </View>
-        <Text className="text-[14px] text-text-secondary dark:text-content-secondary">
+        <Text className="text-[14px] text-muted">
           None
         </Text>
       </Pressable>
@@ -273,26 +273,26 @@ function LocationPicker({ value, locations, loading, onChange }: LocationPickerP
                 void hapticLight();
                 onChange(loc.id);
               }}
-              className={`flex-row items-center px-4 py-[12px] border-t border-[#f0f0f0] dark:border-border-subtle active:opacity-70 ${
-                isActive ? 'bg-[#f0f6f8] dark:bg-[#1a3a4a]/20' : ''
+              className={`flex-row items-center px-4 py-[12px] border-t border-divider active:opacity-70 ${
+                isActive ? 'bg-brand-teal/10' : ''
               }`}
             >
               <View
                 className={`w-4 h-4 rounded-full border-2 mr-3 items-center justify-center ${
                   isActive
-                    ? 'border-[#1a3a4a] dark:border-brand-teal'
-                    : 'border-[#ccc] dark:border-border-strong'
+                    ? 'border-brand-teal'
+                    : 'border-strong'
                 }`}
               >
                 {isActive && (
-                  <View className="w-2 h-2 rounded-full bg-[#1a3a4a] dark:bg-brand-teal" />
+                  <View className="w-2 h-2 rounded-full bg-brand-teal" />
                 )}
               </View>
               <Text
                 className={`text-[14px] ${
                   isActive
-                    ? 'font-semibold text-text-default dark:text-content-primary'
-                    : 'text-text-default dark:text-content-primary'
+                    ? 'font-semibold text-default'
+                    : 'text-default'
                 }`}
               >
                 {name}
@@ -323,10 +323,10 @@ function CourtPicker({ value, courts, loading, locationSelected, onChange }: Cou
   return (
     <View
       testID="court-picker"
-      className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden mt-3"
+      className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden mt-3"
     >
       <View className="px-4 pt-[10px] pb-[6px]">
-        <Text className="text-[11px] font-semibold text-text-secondary dark:text-content-secondary uppercase tracking-wide mb-1">
+        <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
           Home Court (optional)
         </Text>
       </View>
@@ -337,22 +337,22 @@ function CourtPicker({ value, courts, loading, locationSelected, onChange }: Cou
           void hapticLight();
           onChange(null);
         }}
-        className={`flex-row items-center px-4 py-[12px] border-t border-[#f0f0f0] dark:border-border-subtle active:opacity-70 ${
-          value === null ? 'bg-[#f0f6f8] dark:bg-[#1a3a4a]/20' : ''
+        className={`flex-row items-center px-4 py-[12px] border-t border-divider active:opacity-70 ${
+          value === null ? 'bg-brand-teal/10' : ''
         }`}
       >
         <View
           className={`w-4 h-4 rounded-full border-2 mr-3 items-center justify-center ${
             value === null
-              ? 'border-[#1a3a4a] dark:border-brand-teal'
-              : 'border-[#ccc] dark:border-border-strong'
+              ? 'border-brand-teal'
+              : 'border-strong'
           }`}
         >
           {value === null && (
-            <View className="w-2 h-2 rounded-full bg-[#1a3a4a] dark:bg-brand-teal" />
+            <View className="w-2 h-2 rounded-full bg-brand-teal" />
           )}
         </View>
-        <Text className="text-[14px] text-text-secondary dark:text-content-secondary">
+        <Text className="text-[14px] text-muted">
           None
         </Text>
       </Pressable>
@@ -362,7 +362,7 @@ function CourtPicker({ value, courts, loading, locationSelected, onChange }: Cou
         </View>
       ) : courts.length === 0 ? (
         <View className="px-4 py-3">
-          <Text className="text-[13px] text-text-secondary dark:text-content-secondary italic">
+          <Text className="text-[13px] text-muted italic">
             No courts found for this location.
           </Text>
         </View>
@@ -378,26 +378,26 @@ function CourtPicker({ value, courts, loading, locationSelected, onChange }: Cou
                 void hapticLight();
                 onChange(isActive ? null : courtId);
               }}
-              className={`flex-row items-center px-4 py-[12px] border-t border-[#f0f0f0] dark:border-border-subtle active:opacity-70 ${
-                isActive ? 'bg-[#f0f6f8] dark:bg-[#1a3a4a]/20' : ''
+              className={`flex-row items-center px-4 py-[12px] border-t border-divider active:opacity-70 ${
+                isActive ? 'bg-brand-teal/10' : ''
               }`}
             >
               <View
                 className={`w-4 h-4 rounded-full border-2 mr-3 items-center justify-center ${
                   isActive
-                    ? 'border-[#1a3a4a] dark:border-brand-teal'
-                    : 'border-[#ccc] dark:border-border-strong'
+                    ? 'border-brand-teal'
+                    : 'border-strong'
                 }`}
               >
                 {isActive && (
-                  <View className="w-2 h-2 rounded-full bg-[#1a3a4a] dark:bg-brand-teal" />
+                  <View className="w-2 h-2 rounded-full bg-brand-teal" />
                 )}
               </View>
               <Text
                 className={`text-[14px] flex-1 ${
                   isActive
-                    ? 'font-semibold text-text-default dark:text-content-primary'
-                    : 'text-text-default dark:text-content-primary'
+                    ? 'font-semibold text-default'
+                    : 'text-default'
                 }`}
               >
                 {court.name}
@@ -482,13 +482,13 @@ export default function CreateLeagueScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Create League" leftAction={cancelAction} rightAction={createAction} />
       <KeyboardAvoidingView
         testID="create-league-screen"
-        className="flex-1 bg-[#f5f5f5] dark:bg-base"
+        className="flex-1 bg-page"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
@@ -499,10 +499,10 @@ export default function CreateLeagueScreen(): React.ReactNode {
           {/* ---- League Details ---- */}
           <SectionHeader title="League Details" />
 
-          <View className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden">
+          <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
             {/* Name */}
             <View className="px-4 pt-[14px] pb-[10px]">
-              <Text className="text-[11px] font-semibold text-text-secondary dark:text-content-secondary uppercase tracking-wide mb-1">
+              <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
                 League Name *
               </Text>
               <TextInput
@@ -511,7 +511,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
                 onChangeText={onChangeName}
                 placeholder="e.g. QBK Open Men"
                 placeholderTextColor="#aaa"
-                className="text-[16px] text-text-default dark:text-content-primary"
+                className="text-[16px] text-default"
                 returnKeyType="next"
                 autoCapitalize="words"
                 autoCorrect={false}
@@ -522,11 +522,11 @@ export default function CreateLeagueScreen(): React.ReactNode {
               />
             </View>
 
-            <View className="h-[1px] bg-[#f0f0f0] dark:bg-border-subtle mx-4" />
+            <View className="h-[1px] bg-divider mx-4" />
 
             {/* Description */}
             <View className="px-4 pt-[14px] pb-[10px]">
-              <Text className="text-[11px] font-semibold text-text-secondary dark:text-content-secondary uppercase tracking-wide mb-1">
+              <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
                 Description (optional)
               </Text>
               <TextInput
@@ -536,7 +536,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
                 onChangeText={onChangeDescription}
                 placeholder="Describe your league…"
                 placeholderTextColor="#aaa"
-                className="text-[15px] text-text-default dark:text-content-primary"
+                className="text-[15px] text-default"
                 multiline
                 numberOfLines={3}
                 returnKeyType="default"
@@ -556,14 +556,14 @@ export default function CreateLeagueScreen(): React.ReactNode {
           <SectionHeader title="Settings" />
 
           <View className="mb-3">
-            <Text className="text-[12px] text-text-secondary dark:text-content-secondary px-4 mb-2">
+            <Text className="text-[12px] text-muted px-4 mb-2">
               Gender
             </Text>
             <GenderPills value={form.gender} onChange={onChangeGender} />
           </View>
 
           <View className="mb-3">
-            <Text className="text-[12px] text-text-secondary dark:text-content-secondary px-4 mb-2">
+            <Text className="text-[12px] text-muted px-4 mb-2">
               Skill Level
             </Text>
             <LevelSelector value={form.level} onChange={onChangeLevel} />
@@ -592,9 +592,9 @@ export default function CreateLeagueScreen(): React.ReactNode {
           {submitError != null && (
             <View
               testID="submit-error"
-              className="mx-4 mt-4 bg-red-50 dark:bg-red-900/20 rounded-[10px] p-3"
+              className="mx-4 mt-4 bg-danger-tint rounded-[10px] p-3"
             >
-              <Text className="text-[13px] text-red-600 dark:text-red-400">
+              <Text className="text-[13px] text-danger">
                 {submitError}
               </Text>
             </View>
@@ -609,8 +609,8 @@ export default function CreateLeagueScreen(): React.ReactNode {
             accessibilityLabel="Create league"
             className={`mx-4 mt-6 rounded-[12px] py-[16px] items-center justify-center ${
               isValid && !isSubmitting
-                ? 'bg-[#c8a84b] active:opacity-80'
-                : 'bg-[#e0d5b4] dark:bg-[#4a4030]'
+                ? 'bg-brand-gold active:opacity-80'
+                : 'bg-brand-gold/30'
             }`}
           >
             {isSubmitting ? (
@@ -618,7 +618,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
             ) : (
               <Text
                 className={`text-[16px] font-bold ${
-                  isValid ? 'text-white' : 'text-[#a0906e] dark:text-[#7a6a4e]'
+                  isValid ? 'text-white' : 'text-tertiary'
                 }`}
               >
                 Create League

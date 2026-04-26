@@ -34,7 +34,7 @@ import type { InvitablePlayer } from '@/lib/mockApi';
 
 function SectionLabel({ title }: { readonly title: string }): React.ReactNode {
   return (
-    <Text className="text-[11px] font-bold text-text-secondary dark:text-content-secondary uppercase tracking-wider px-4 pt-4 pb-2">
+    <Text className="text-[11px] font-bold text-muted uppercase tracking-wider px-4 pt-4 pb-2">
       {title}
     </Text>
   );
@@ -57,18 +57,18 @@ function StatusBadge({
   > = {
     member: {
       label: 'Member',
-      className: 'bg-green-100 dark:bg-green-900/30',
-      textClassName: 'text-green-700 dark:text-green-400',
+      className: 'bg-success-tint',
+      textClassName: 'text-success',
     },
     invited: {
       label: 'Invited',
-      className: 'bg-[#c8a84b]/20',
-      textClassName: 'text-[#c8a84b]',
+      className: 'bg-warning-tint',
+      textClassName: 'text-warning',
     },
     requested: {
       label: 'Requested',
-      className: 'bg-[#f0f0f0] dark:bg-dark-elevated',
-      textClassName: 'text-text-secondary dark:text-content-secondary',
+      className: 'bg-elevated',
+      textClassName: 'text-muted',
     },
   };
 
@@ -108,7 +108,7 @@ function PlayerRow({ player, isSelected, onToggle }: PlayerRowProps): React.Reac
       testID={`invite-player-row-${player.player_id}`}
       onPress={handlePress}
       disabled={isDisabled}
-      className={`flex-row items-center px-4 py-[12px] border-b border-[#f0f0f0] dark:border-border-subtle gap-3 ${
+      className={`flex-row items-center px-4 py-[12px] border-b border-divider gap-3 ${
         isDisabled ? 'opacity-50' : 'active:opacity-70'
       }`}
     >
@@ -117,8 +117,8 @@ function PlayerRow({ player, isSelected, onToggle }: PlayerRowProps): React.Reac
         testID={`invite-checkbox-${player.player_id}`}
         className={`w-5 h-5 rounded-[4px] border-2 items-center justify-center flex-shrink-0 ${
           isSelected
-            ? 'bg-[#1a3a4a] dark:bg-brand-teal border-[#1a3a4a] dark:border-brand-teal'
-            : 'border-[#ccc] dark:border-border-strong'
+            ? 'bg-brand-teal border-brand-teal'
+            : 'border-strong'
         }`}
       >
         {isSelected && (
@@ -127,8 +127,8 @@ function PlayerRow({ player, isSelected, onToggle }: PlayerRowProps): React.Reac
       </View>
 
       {/* Avatar */}
-      <View className="w-9 h-9 rounded-full bg-[#1a3a4a] dark:bg-brand-teal/40 items-center justify-center flex-shrink-0">
-        <Text className="text-[10px] font-bold text-white dark:text-brand-teal">
+      <View className="w-9 h-9 rounded-full bg-brand-teal items-center justify-center flex-shrink-0">
+        <Text className="text-[10px] font-bold text-white">
           {player.initials}
         </Text>
       </View>
@@ -136,12 +136,12 @@ function PlayerRow({ player, isSelected, onToggle }: PlayerRowProps): React.Reac
       {/* Name / meta */}
       <View className="flex-1 min-w-0">
         <Text
-          className="text-[14px] font-semibold text-text-default dark:text-content-primary"
+          className="text-[14px] font-semibold text-default"
           numberOfLines={1}
         >
           {player.display_name}
         </Text>
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary">
+        <Text className="text-[12px] text-muted">
           {[player.level, player.location_name].filter(Boolean).join(' · ')}
         </Text>
       </View>
@@ -225,19 +225,19 @@ export default function LeagueInviteScreen({
 
   return (
     <SafeAreaView
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Invite Players" showBack />
       <KeyboardAvoidingView
       testID="league-invite-screen"
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Search bar */}
-      <View className="bg-white dark:bg-dark-surface px-4 py-3 border-b border-[#e8e8e8] dark:border-border-subtle">
-        <View className="flex-row items-center bg-[#f0f0f0] dark:bg-dark-elevated rounded-[10px] px-3 py-[10px] gap-2">
-          <Text className="text-[14px] text-text-muted dark:text-content-tertiary">🔍</Text>
+      <View className="bg-surface px-4 py-3 border-b border-divider">
+        <View className="flex-row items-center bg-elevated rounded-[10px] px-3 py-[10px] gap-2">
+          <Text className="text-[14px] text-tertiary">🔍</Text>
           <TextInput
             testID="invite-search-input"
             value={searchQuery}
@@ -247,7 +247,7 @@ export default function LeagueInviteScreen({
             returnKeyType="search"
             autoCapitalize="none"
             autoCorrect={false}
-            className="flex-1 text-[14px] text-text-default dark:text-content-primary"
+            className="flex-1 text-[14px] text-default"
           />
         </View>
       </View>
@@ -259,16 +259,16 @@ export default function LeagueInviteScreen({
         </View>
       ) : isError ? (
         <View testID="invite-error" className="flex-1 items-center justify-center px-8">
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary text-center">
+          <Text className="text-[15px] font-bold text-default text-center">
             Failed to load players
           </Text>
         </View>
       ) : listItems.length === 0 ? (
         <View testID="invite-empty" className="flex-1 items-center justify-center px-8">
-          <Text className="text-[18px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+          <Text className="text-[18px] font-bold text-default mb-2 text-center">
             No Players Found
           </Text>
-          <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center">
+          <Text className="text-[14px] text-tertiary text-center">
             Try a different search term.
           </Text>
         </View>
@@ -280,22 +280,22 @@ export default function LeagueInviteScreen({
             item.type === 'header' ? `header-${item.section}` : `player-${item.player.player_id}-${idx}`
           }
           renderItem={renderItem}
-          className="flex-1 bg-white dark:bg-dark-surface"
+          className="flex-1 bg-surface"
           showsVerticalScrollIndicator={false}
         />
       )}
 
       {/* Bottom action bar */}
-      <View className="bg-white dark:bg-dark-surface px-4 py-4 border-t border-[#e8e8e8] dark:border-border-subtle flex-row gap-3">
+      <View className="bg-surface px-4 py-4 border-t border-divider flex-row gap-3">
         <Pressable
           testID="share-link-button"
           onPress={() => {
             void hapticLight();
             // TODO(backend): share league invite link
           }}
-          className="flex-1 rounded-[12px] py-[12px] items-center border border-[#1a3a4a] dark:border-brand-teal active:opacity-70"
+          className="flex-1 rounded-[12px] py-[12px] items-center border border-brand-teal active:opacity-70"
         >
-          <Text className="text-[14px] font-semibold text-[#1a3a4a] dark:text-brand-teal">
+          <Text className="text-[14px] font-semibold text-brand-teal">
             Share Link
           </Text>
         </Pressable>
@@ -309,8 +309,8 @@ export default function LeagueInviteScreen({
           disabled={selectedIds.size === 0 || isSending}
           className={`flex-1 rounded-[12px] py-[12px] items-center ${
             selectedIds.size > 0 && !isSending
-              ? 'bg-[#1a3a4a] dark:bg-brand-teal active:opacity-80'
-              : 'bg-[#ccc] dark:bg-dark-elevated'
+              ? 'bg-brand-teal active:opacity-80'
+              : 'bg-elevated'
           }`}
         >
           {isSending ? (
@@ -318,7 +318,7 @@ export default function LeagueInviteScreen({
           ) : (
             <Text
               className={`text-[14px] font-bold ${
-                selectedIds.size > 0 ? 'text-white' : 'text-text-muted dark:text-content-tertiary'
+                selectedIds.size > 0 ? 'text-white' : 'text-tertiary'
               }`}
             >
               {selectedIds.size > 0 ? `Send (${selectedIds.size})` : 'Send'}

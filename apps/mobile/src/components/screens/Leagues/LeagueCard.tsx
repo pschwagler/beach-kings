@@ -29,10 +29,10 @@ function StatBlock({
 }): React.ReactNode {
   return (
     <View className="items-center">
-      <Text className="text-[16px] font-bold text-navy dark:text-content-primary">
+      <Text className="text-[16px] font-bold text-default">
         {value}
       </Text>
-      <Text className="text-[11px] text-gray-500 dark:text-content-tertiary uppercase tracking-wide mt-[2px]">
+      <Text className="text-[11px] text-tertiary uppercase tracking-wide mt-[2px]">
         {label}
       </Text>
     </View>
@@ -60,31 +60,31 @@ export default function LeagueCard({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${league.name} league`}
-      className="bg-white dark:bg-dark-surface rounded-card p-md mb-sm shadow-sm dark:shadow-none dark:border dark:border-border-subtle active:opacity-80"
+      className="bg-surface rounded-card p-md mb-sm shadow-sm dark:shadow-none dark:border border-divider active:opacity-80"
     >
       {/* Top row */}
       <View className="flex-row items-start mb-sm">
-        <View className="w-11 h-11 rounded-[12px] bg-teal-tint dark:bg-info-bg items-center justify-center flex-shrink-0">
+        <View className="w-11 h-11 rounded-[12px] bg-info-tint items-center justify-center flex-shrink-0">
           <TrophyIcon size={20} color="#2a7d9c" />
         </View>
 
         <View className="flex-1 ml-md">
           <Text
-            className="text-callout font-bold text-text-default dark:text-content-primary"
+            className="text-callout font-bold text-default"
             numberOfLines={2}
           >
             {league.name}
           </Text>
           {locationDisplay != null && (
-            <Text className="text-[12px] text-gray-500 dark:text-content-tertiary mt-[2px]">
+            <Text className="text-[12px] text-tertiary mt-[2px]">
               {locationDisplay}
             </Text>
           )}
         </View>
 
         {isActive && (
-          <View className="bg-green-100 dark:bg-green-900/30 rounded-[10px] px-sm py-[2px] ml-sm">
-            <Text className="text-[11px] font-semibold text-green-700 dark:text-green-400">
+          <View className="bg-success-tint rounded-[10px] px-sm py-[2px] ml-sm">
+            <Text className="text-[11px] font-semibold text-success">
               Active
             </Text>
           </View>
@@ -99,10 +99,10 @@ export default function LeagueCard({
       </View>
 
       {/* Rank bar */}
-      <View className="flex-row items-center justify-between mt-md pt-md border-t border-gray-100 dark:border-border-subtle">
+      <View className="flex-row items-center justify-between mt-md pt-md border-t border-divider">
         {userRank != null ? (
-          <View className="bg-teal-tint dark:bg-info-bg rounded-[10px] px-sm py-[4px]">
-            <Text className="text-[12px] font-semibold text-accent dark:text-info-text">
+          <View className="bg-info-tint rounded-[10px] px-sm py-[4px]">
+            <Text className="text-[12px] font-semibold text-info">
               {formatOrdinal(userRank)} Ranked
             </Text>
           </View>
@@ -110,7 +110,7 @@ export default function LeagueCard({
           <View />
         )}
 
-        <Text className="text-[12px] text-gray-500 dark:text-content-tertiary">
+        <Text className="text-[12px] text-tertiary">
           {memberCount} {memberCount === 1 ? 'member' : 'members'}
         </Text>
 

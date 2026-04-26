@@ -33,19 +33,19 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
   return (
     <View
       testID={`game-row-${game.id}`}
-      className="px-4 py-[10px] border-b border-[#f0f0f0] dark:border-border-subtle"
+      className="px-4 py-[10px] border-b border-divider"
     >
       <View className="flex-row items-center">
         {/* Teams */}
         <View className="flex-1 min-w-0">
           <Text
-            className="text-[13px] font-semibold text-text-default dark:text-content-primary"
+            className="text-[13px] font-semibold text-default"
             numberOfLines={1}
           >
             {myTeam}
           </Text>
           <Text
-            className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]"
+            className="text-[12px] text-muted mt-[2px]"
             numberOfLines={1}
           >
             vs {oppTeam}
@@ -54,7 +54,7 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
 
         {/* Score */}
         <View className="flex-row items-center gap-2 mr-2">
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary">
+          <Text className="text-[15px] font-bold text-default">
             {game.my_score} – {game.opponent_score}
           </Text>
         </View>
@@ -63,19 +63,19 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
         <View
           className={`rounded-[6px] px-[8px] py-[3px] ${
             isWin
-              ? 'bg-green-100 dark:bg-green-900/30'
+              ? 'bg-success-tint'
               : isDraw
-                ? 'bg-gray-100 dark:bg-gray-800/40'
-                : 'bg-red-100 dark:bg-red-900/30'
+                ? 'bg-elevated'
+                : 'bg-danger-tint'
           }`}
         >
           <Text
             className={`text-[11px] font-bold ${
               isWin
-                ? 'text-green-700 dark:text-green-400'
+                ? 'text-success'
                 : isDraw
-                  ? 'text-gray-600 dark:text-gray-400'
-                  : 'text-red-600 dark:text-red-400'
+                  ? 'text-muted'
+                  : 'text-danger'
             }`}
           >
             {game.result}
@@ -88,8 +88,8 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
         <Text
           className={`text-[11px] mt-[2px] ${
             game.rating_change >= 0
-              ? 'text-green-600 dark:text-green-400'
-              : 'text-red-500 dark:text-red-400'
+              ? 'text-success'
+              : 'text-danger'
           }`}
         >
           {game.rating_change >= 0 ? '+' : ''}
@@ -110,17 +110,17 @@ function SessionCard({ session }: { readonly session: SessionGroup }): React.Rea
   return (
     <View
       testID={`session-card-${session.session_id}`}
-      className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 mb-3 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden"
+      className="bg-surface rounded-[12px] mx-4 mb-3 border border-divider overflow-hidden"
     >
       {/* Header */}
-      <View className="flex-row items-center px-4 py-[12px] bg-[#f8f8f8] dark:bg-dark-elevated border-b border-[#e8e8e8] dark:border-border-subtle">
+      <View className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider">
         <View className="flex-1">
-          <Text className="text-[13px] font-bold text-text-default dark:text-content-primary">
+          <Text className="text-[13px] font-bold text-default">
             Session #{session.session_number ?? session.session_id}
           </Text>
         </View>
-        <View className="bg-blue-100 dark:bg-blue-900/30 rounded-[8px] px-2 py-[2px]">
-          <Text className="text-[11px] font-semibold text-blue-700 dark:text-blue-400">
+        <View className="bg-info-tint rounded-[8px] px-2 py-[2px]">
+          <Text className="text-[11px] font-semibold text-info">
             Completed
           </Text>
         </View>
@@ -132,32 +132,32 @@ function SessionCard({ session }: { readonly session: SessionGroup }): React.Rea
       ))}
 
       {/* Footer stats */}
-      <View className="flex-row px-4 py-[10px] gap-4 border-t border-[#f0f0f0] dark:border-border-subtle">
+      <View className="flex-row px-4 py-[10px] gap-4 border-t border-divider">
         <View>
-          <Text className="text-[10px] text-text-secondary dark:text-content-tertiary uppercase tracking-wide">
+          <Text className="text-[10px] text-tertiary uppercase tracking-wide">
             Games
           </Text>
-          <Text className="text-[14px] font-bold text-text-default dark:text-content-primary">
+          <Text className="text-[14px] font-bold text-default">
             {session.games.length}
           </Text>
         </View>
         <View>
-          <Text className="text-[10px] text-text-secondary dark:text-content-tertiary uppercase tracking-wide">
+          <Text className="text-[10px] text-tertiary uppercase tracking-wide">
             Your W-L
           </Text>
-          <Text className="text-[14px] font-bold text-text-default dark:text-content-primary">
+          <Text className="text-[14px] font-bold text-default">
             {session.userWins}-{session.userLosses}
           </Text>
         </View>
         <View>
-          <Text className="text-[10px] text-text-secondary dark:text-content-tertiary uppercase tracking-wide">
+          <Text className="text-[10px] text-tertiary uppercase tracking-wide">
             Rating
           </Text>
           <Text
             className={`text-[14px] font-bold ${
               totalRating >= 0
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-red-500 dark:text-red-400'
+                ? 'text-success'
+                : 'text-danger'
             }`}
           >
             {totalRating >= 0 ? '+' : ''}
@@ -194,7 +194,7 @@ export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): R
         testID="matches-error"
         className="flex-1 items-center justify-center px-8"
       >
-        <Text className="text-[16px] font-bold text-text-default dark:text-content-primary text-center">
+        <Text className="text-[16px] font-bold text-default text-center">
           Failed to load games
         </Text>
       </View>
@@ -207,10 +207,10 @@ export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): R
         testID="matches-empty"
         className="flex-1 items-center justify-center px-8 py-16"
       >
-        <Text className="text-[18px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+        <Text className="text-[18px] font-bold text-default mb-2 text-center">
           No Games Yet
         </Text>
-        <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center">
+        <Text className="text-[14px] text-muted text-center">
           Games will appear here after sessions are submitted.
         </Text>
       </View>
@@ -220,7 +220,7 @@ export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): R
   return (
     <ScrollView
       testID="matches-tab"
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 32 }}
     >

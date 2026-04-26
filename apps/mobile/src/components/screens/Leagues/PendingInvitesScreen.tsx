@@ -36,18 +36,18 @@ function InviteStatusBadge({
   > = {
     pending: {
       label: 'Pending',
-      wrapClass: 'bg-[#c8a84b]/20',
-      textClass: 'text-[#c8a84b]',
+      wrapClass: 'bg-warning-tint',
+      textClass: 'text-warning',
     },
     accepted: {
       label: 'Joined',
-      wrapClass: 'bg-green-100 dark:bg-green-900/30',
-      textClass: 'text-green-700 dark:text-green-400',
+      wrapClass: 'bg-success-tint',
+      textClass: 'text-success',
     },
     declined: {
       label: 'Declined',
-      wrapClass: 'bg-red-100 dark:bg-red-900/30',
-      textClass: 'text-red-600 dark:text-red-400',
+      wrapClass: 'bg-danger-tint',
+      textClass: 'text-danger',
     },
   };
 
@@ -74,11 +74,11 @@ function InviteRow({ invite }: { readonly invite: LeagueInviteItem }): React.Rea
   return (
     <View
       testID={`invite-row-${invite.id}`}
-      className="flex-row items-center bg-white dark:bg-dark-surface mx-4 mb-3 px-4 py-[14px] rounded-[12px] border border-[#e8e8e8] dark:border-border-subtle gap-3"
+      className="flex-row items-center bg-surface mx-4 mb-3 px-4 py-[14px] rounded-[12px] border border-divider gap-3"
     >
       {/* Avatar */}
-      <View className="w-10 h-10 rounded-full bg-[#1a3a4a] dark:bg-brand-teal/40 items-center justify-center flex-shrink-0">
-        <Text className="text-[11px] font-bold text-white dark:text-brand-teal">
+      <View className="w-10 h-10 rounded-full bg-brand-teal items-center justify-center flex-shrink-0">
+        <Text className="text-[11px] font-bold text-white">
           {invite.initials}
         </Text>
       </View>
@@ -86,18 +86,18 @@ function InviteRow({ invite }: { readonly invite: LeagueInviteItem }): React.Rea
       {/* Content */}
       <View className="flex-1 min-w-0">
         <Text
-          className="text-[14px] font-semibold text-text-default dark:text-content-primary"
+          className="text-[14px] font-semibold text-default"
           numberOfLines={1}
         >
           {invite.display_name}
         </Text>
         <Text
-          className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]"
+          className="text-[12px] text-muted mt-[2px]"
           numberOfLines={1}
         >
           {invite.league_name}
         </Text>
-        <Text className="text-[11px] text-text-muted dark:text-content-tertiary mt-[2px]">
+        <Text className="text-[11px] text-tertiary mt-[2px]">
           Invited {dateLabel}
         </Text>
       </View>
@@ -130,7 +130,7 @@ export default function PendingInvitesScreen(): React.ReactNode {
           testID="pending-invites-error"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[16px] font-bold text-text-default dark:text-content-primary text-center">
+          <Text className="text-[16px] font-bold text-default text-center">
             Failed to load invites
           </Text>
         </View>
@@ -143,10 +143,10 @@ export default function PendingInvitesScreen(): React.ReactNode {
           testID="pending-invites-empty"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[20px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+          <Text className="text-[20px] font-bold text-default mb-2 text-center">
             No Invites Sent
           </Text>
-          <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center">
+          <Text className="text-[14px] text-muted text-center">
             Invite players to your leagues from the league detail screen.
           </Text>
         </View>
@@ -168,7 +168,7 @@ export default function PendingInvitesScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Pending Invites" showBack />

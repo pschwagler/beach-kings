@@ -17,10 +17,10 @@ export default function LeaguesErrorState({
       testID="leagues-error-state"
       className="flex-1 items-center justify-center px-lg"
     >
-      <Text className="text-headline font-bold text-text-default dark:text-content-primary text-center mb-xs">
+      <Text className="text-headline font-bold text-default text-center mb-xs">
         Could not load leagues
       </Text>
-      <Text className="text-footnote text-gray-500 dark:text-content-tertiary text-center mb-xl">
+      <Text className="text-footnote text-tertiary text-center mb-xl">
         Check your connection and try again.
       </Text>
       <Pressable
@@ -28,7 +28,7 @@ export default function LeaguesErrorState({
         onPress={onRetry}
         accessibilityRole="button"
         accessibilityLabel="Retry loading leagues"
-        className="bg-accent dark:bg-brand-teal rounded-card px-xl py-sm min-h-touch items-center justify-center active:opacity-80"
+        className="bg-brand-teal rounded-card px-xl py-sm min-h-touch items-center justify-center active:opacity-80"
       >
         <Text className="text-white font-semibold text-callout">Try Again</Text>
       </Pressable>

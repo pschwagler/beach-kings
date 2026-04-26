@@ -10,7 +10,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 function LeagueCardSkeleton(): React.ReactNode {
   return (
     <View
-      className="bg-white dark:bg-dark-surface rounded-card p-md mb-sm shadow-sm"
+      className="bg-surface rounded-card p-md mb-sm shadow-sm"
       accessibilityRole="none"
       accessible={false}
     >
@@ -41,7 +41,7 @@ function LeagueCardSkeleton(): React.ReactNode {
       </View>
 
       {/* Rank bar */}
-      <View className="flex-row items-center justify-between mt-md pt-md border-t border-gray-100 dark:border-border-subtle">
+      <View className="flex-row items-center justify-between mt-md pt-md border-t border-divider">
         <LoadingSkeleton width={80} height={22} borderRadius={10} />
         <LoadingSkeleton width={60} height={12} borderRadius={4} />
       </View>

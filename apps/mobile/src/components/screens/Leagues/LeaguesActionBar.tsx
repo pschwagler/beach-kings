@@ -17,16 +17,16 @@ export default function LeaguesActionBar({
   onCreateLeague,
 }: LeaguesActionBarProps): React.ReactNode {
   return (
-    <View className="flex-row gap-sm px-lg py-sm bg-white dark:bg-dark-surface border-b border-gray-100 dark:border-border-subtle">
+    <View className="flex-row gap-sm px-lg py-sm bg-surface border-b border-divider">
       <Pressable
         testID="find-leagues-btn"
         onPress={onFindLeagues}
         accessibilityRole="button"
         accessibilityLabel="Find Leagues"
-        className="flex-1 flex-row items-center justify-center gap-xs bg-teal-tint dark:bg-info-bg rounded-[10px] py-sm min-h-touch active:opacity-80"
+        className="flex-1 flex-row items-center justify-center gap-xs bg-info-tint rounded-[10px] py-sm min-h-touch active:opacity-80"
       >
         <SearchIcon size={14} color="#2a7d9c" />
-        <Text className="text-footnote font-semibold text-accent dark:text-info-text">
+        <Text className="text-footnote font-semibold text-info">
           Find Leagues
         </Text>
       </Pressable>
@@ -36,7 +36,7 @@ export default function LeaguesActionBar({
         onPress={onCreateLeague}
         accessibilityRole="button"
         accessibilityLabel="Create League"
-        className="flex-1 flex-row items-center justify-center gap-xs bg-[#1a3a4a] dark:bg-brand-teal rounded-[10px] py-sm min-h-touch active:opacity-80"
+        className="flex-1 flex-row items-center justify-center gap-xs bg-brand-teal rounded-[10px] py-sm min-h-touch active:opacity-80"
       >
         <PlusIcon size={14} color="#ffffff" />
         <Text className="text-footnote font-semibold text-white">
