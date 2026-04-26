@@ -73,8 +73,8 @@ const mockSendLeagueInvites = jest.fn();
 
 jest.mock('@/lib/mockApi', () => ({
   mockApi: {
-    getInvitablePlayers: (...args: unknown[]) => mockGetInvitablePlayers(...args),
-    sendLeagueInvites: (...args: unknown[]) => mockSendLeagueInvites(...args),
+    getInvitablePlayers: (...args) => mockGetInvitablePlayers(...args),
+    sendLeagueInvites: (...args) => mockSendLeagueInvites(...args),
   },
 }));
 

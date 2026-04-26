@@ -30,6 +30,7 @@ from backend.models.schemas import (
     JoinRequestsResponse,
     RequestJoinResponse,
     LeagueJoinResponse,
+    LeagueStandingsResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -880,3 +881,17 @@ async def create_league_message(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating message: {str(e)}")
+
+
+@router.get("/api/leagues/{league_id}/standings", response_model=LeagueStandingsResponse)
+async def get_league_standings(
+    league_id: int,
+    season_id: Optional[int] = None,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get league standings, optionally filtered by season (league_member)."""
+    try:
+        return await data_service.get_league_standings(session, league_id, season_id=season_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching standings: {str(e)}")

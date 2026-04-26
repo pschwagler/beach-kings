@@ -19,6 +19,10 @@ export interface JoinRequest {
   status: 'pending' | 'approved' | 'rejected';
   /** ISO date string. */
   requested_at: string;
+  /** Two-letter initials derived from display_name (presentation field, optional on backend). */
+  initials?: string | null;
+  /** Optional free-text note attached when the player requested to join. */
+  message?: string | null;
 }
 
 /**
@@ -27,6 +31,34 @@ export interface JoinRequest {
 export interface JoinRequestsResponse {
   pending: JoinRequest[];
   rejected: JoinRequest[];
+}
+
+// ---------------------------------------------------------------------------
+// Find leagues (POST /api/leagues/query)
+// ---------------------------------------------------------------------------
+
+/** A single league card returned by the find-leagues search, adapted from the raw query response. */
+export interface FindLeagueResult {
+  readonly id: number;
+  readonly name: string;
+  readonly gender: 'mens' | 'womens' | 'coed';
+  readonly level: string | null;
+  /** Derived from backend `is_open`: true → 'open', false → 'invite_only'. */
+  readonly access_type: 'open' | 'invite_only';
+  readonly location_name: string | null;
+  readonly member_count: number;
+  /** Friends currently in this league (derived from backend `friends_preview`). */
+  readonly friends_in_league: ReadonlyArray<{ readonly player_id: number; readonly initials: string }>;
+  /** Derived from backend `has_pending_request`. 'member' is not returned by this endpoint. */
+  readonly user_status: 'none' | 'member' | 'requested';
+}
+
+/** Paginated response from POST /api/leagues/query (with items adapted to FindLeagueResult). */
+export interface LeagueQueryResponse {
+  readonly items: readonly FindLeagueResult[];
+  readonly page: number;
+  readonly page_size: number;
+  readonly total_count: number;
 }
 
 export interface LeagueMember {
@@ -84,6 +116,73 @@ export interface LeagueMatchRow {
   is_ranked: boolean | null;
   ranked_intent: boolean | null;
   elo_changes: Record<string, { elo_before?: number; elo_after: number; elo_change: number }>;
+}
+
+// ---------------------------------------------------------------------------
+// Chat messages
+// ---------------------------------------------------------------------------
+
+/**
+ * A single chat message returned from `GET /api/leagues/:id/messages`.
+ *
+ * Backend (apps/backend/services/message_data.py) populates everything except
+ * `initials`, which is derived client-side from `player_name` for presentation.
+ */
+export interface LeagueChatMessage {
+  readonly id: number;
+  readonly league_id: number;
+  readonly user_id: number;
+  readonly player_id: number | null;
+  readonly player_name: string | null;
+  readonly message: string;
+  readonly created_at: string | null;
+  /** Server-computed: true when row.user_id == authenticated caller. */
+  readonly is_mine: boolean;
+  /** Client-derived from player_name (e.g. "Patrick Schwagler" -> "PS"). */
+  readonly initials: string;
+}
+
+// ---------------------------------------------------------------------------
+// Standings (GET /api/leagues/:id/standings)
+// ---------------------------------------------------------------------------
+
+export interface LeagueStanding {
+  readonly rank: number;
+  readonly player_id: number;
+  readonly display_name: string;
+  readonly initials: string;
+  readonly avatar_url: string | null;
+  readonly wins: number;
+  readonly losses: number;
+  readonly win_rate: number;
+  readonly rating: number | null;
+  readonly rating_delta: number | null;
+  readonly games_played: number;
+}
+
+export interface LeagueSeasonInfo {
+  readonly id: number;
+  readonly name: string;
+  readonly started_at: string | null;
+  readonly ended_at: string | null;
+  readonly session_count: number;
+  readonly game_count: number;
+}
+
+/** A season entry as rendered in the League Info tab seasons list. */
+export interface LeagueSeason {
+  readonly id: number;
+  readonly name: string;
+  readonly is_active: boolean;
+  readonly started_at: string;
+  readonly ended_at: string | null;
+  readonly session_count: number;
+  readonly game_count: number;
+}
+
+export interface LeagueStandingsResponse {
+  readonly standings: readonly LeagueStanding[];
+  readonly season_info: LeagueSeasonInfo | null;
 }
 
 export interface League {

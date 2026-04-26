@@ -21,9 +21,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: mockBack }),
+  useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
   useLocalSearchParams: () => ({ id: '1' }),
 }));
 
@@ -96,29 +97,29 @@ const mockRejectJoinRequest = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getLeagueSeasons: (...args: unknown[]) => mockGetLeagueSeasons(...args),
-    getLeagueMessages: (...args: unknown[]) => mockGetLeagueMessages(...args),
-    createLeagueMessage: (...args: unknown[]) => mockCreateLeagueMessage(...args),
-    getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
-    leaveLeague: (...args: unknown[]) => mockLeaveLeague(...args),
-    getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
-    getLeague: (...args: unknown[]) => mockGetLeague(...args),
-    getLeagueMembers: (...args: unknown[]) => mockGetLeagueMembers(...args),
-    getLeagueJoinRequests: (...args: unknown[]) => mockGetLeagueJoinRequests(...args),
-    approveJoinRequest: (...args: unknown[]) => mockApproveJoinRequest(...args),
-    rejectJoinRequest: (...args: unknown[]) => mockRejectJoinRequest(...args),
-    getLeagueSignups: (...args: unknown[]) => mockGetLeagueSignups(...args),
-    joinSignup: (...args: unknown[]) => mockJoinSignup(...args),
-    dropSignup: (...args: unknown[]) => mockDropSignup(...args),
+    getLeagueSeasons: (...args) => mockGetLeagueSeasons(...args),
+    getLeagueStandings: (...args) => mockGetLeagueStandings(...args),
+    getLeagueMessages: (...args) => mockGetLeagueMessages(...args),
+    createLeagueMessage: (...args) => mockCreateLeagueMessage(...args),
+    getCurrentUserPlayer: (...args) => mockGetCurrentUserPlayer(...args),
+    leaveLeague: (...args) => mockLeaveLeague(...args),
+    getMyGames: (...args) => mockGetMyGames(...args),
+    getLeague: (...args) => mockGetLeague(...args),
+    getLeagueMembers: (...args) => mockGetLeagueMembers(...args),
+    getLeagueJoinRequests: (...args) => mockGetLeagueJoinRequests(...args),
+    approveJoinRequest: (...args) => mockApproveJoinRequest(...args),
+    rejectJoinRequest: (...args) => mockRejectJoinRequest(...args),
+    getLeagueSignups: (...args) => mockGetLeagueSignups(...args),
+    joinSignup: (...args) => mockJoinSignup(...args),
+    dropSignup: (...args) => mockDropSignup(...args),
   },
 }));
 
 jest.mock('@/lib/mockApi', () => ({
   mockApi: {
-    getLeagueDetail: (...args: unknown[]) => mockGetLeagueDetail(...args),
-    getLeagueStandings: (...args: unknown[]) => mockGetLeagueStandings(...args),
-    getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
-    getLeagueSignupEvents: (...args: unknown[]) => mockGetLeagueSignupEvents(...args),
+    getLeagueDetail: (...args) => mockGetLeagueDetail(...args),
+    getLeaguePlayerStats: (...args) => mockGetLeaguePlayerStats(...args),
+    getLeagueSignupEvents: (...args) => mockGetLeagueSignupEvents(...args),
   },
 }));
 
@@ -176,7 +177,7 @@ const MOCK_LEAGUE_FOR_INFO = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetLeagueDetail.mockResolvedValue(MOCK_DETAIL);
-  mockGetLeagueStandings.mockResolvedValue([]);
+  mockGetLeagueStandings.mockResolvedValue({ standings: [], season_info: null });
   mockGetLeagueSeasons.mockResolvedValue([]);
   mockGetLeagueMessages.mockResolvedValue([]);
   mockCreateLeagueMessage.mockResolvedValue({});

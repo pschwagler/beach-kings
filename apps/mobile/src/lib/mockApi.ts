@@ -19,6 +19,7 @@ import type {
   KobTournamentDetail,
   KobMatch,
   KobStanding,
+  LeagueSeason,
   SessionType,
 } from '@beach-kings/shared';
 
@@ -55,39 +56,7 @@ export interface LeagueDetail {
   readonly user_rating: number | null;
 }
 
-/** A single row in the standings table. */
-export interface LeagueStanding {
-  readonly rank: number;
-  readonly player_id: number;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly wins: number;
-  readonly losses: number;
-  readonly win_rate: number;
-  readonly rating: number;
-  readonly rating_delta: number | null;
-  readonly games_played: number;
-}
-
-/** Season summary for the season picker / info tab. */
-export interface LeagueSeason {
-  readonly id: number;
-  readonly name: string;
-  readonly is_active: boolean;
-  readonly started_at: string;
-  readonly ended_at: string | null;
-  readonly session_count: number;
-  readonly game_count: number;
-}
-
-/** Season info card shown below standings. */
-export interface LeagueSeasonInfo {
-  readonly id: number;
-  readonly name: string;
-  readonly started_at: string;
-  readonly session_count: number;
-  readonly game_count: number;
-}
+// LeagueStanding, LeagueSeasonInfo, LeagueStandingsResponse promoted to '@beach-kings/shared'.
 
 // LeagueChatMessage type promoted to '@beach-kings/shared' (see types/league.ts).
 // Real api-client methods getLeagueMessages/createLeagueMessage already back this
@@ -166,20 +135,6 @@ export interface InvitablePlayer {
   readonly invite_status: 'none' | 'member' | 'invited' | 'requested';
   /** section grouping: 'friends' | 'recent_opponents' | 'suggested' */
   readonly section: 'friends' | 'recent_opponents' | 'suggested';
-}
-
-/** A league card in the find-leagues search results. */
-export interface FindLeagueResult {
-  readonly id: number;
-  readonly name: string;
-  readonly gender: 'mens' | 'womens' | 'coed';
-  readonly level: string | null;
-  readonly access_type: LeagueAccessType;
-  readonly location_name: string | null;
-  readonly member_count: number;
-  readonly friends_in_league: readonly { player_id: number; initials: string }[];
-  /** 'none' | 'member' | 'requested' */
-  readonly user_status: 'none' | 'member' | 'requested';
 }
 
 /** Player stats in context of a specific league (from standings row tap). */
@@ -323,32 +278,6 @@ const MOCK_LEAGUE_DETAIL: LeagueDetail = {
   user_rating: 1438,
 };
 
-const MOCK_LEAGUE_STANDINGS: LeagueStanding[] = [
-  { rank: 1, player_id: 10, display_name: 'C. Gulla', initials: 'CG', wins: 18, losses: 2, win_rate: 90, rating: 1520, rating_delta: 12, games_played: 20 },
-  { rank: 2, player_id: 11, display_name: 'K. Fawwar', initials: 'KF', wins: 16, losses: 4, win_rate: 80, rating: 1490, rating_delta: 8, games_played: 20 },
-  { rank: 3, player_id: 1, display_name: 'P. Schwagler', initials: 'PS', wins: 14, losses: 6, win_rate: 70, rating: 1438, rating_delta: -4, games_played: 20 },
-  { rank: 4, player_id: 12, display_name: 'A. Marthey', initials: 'AM', wins: 12, losses: 8, win_rate: 60, rating: 1400, rating_delta: 2, games_played: 20 },
-  { rank: 5, player_id: 13, display_name: 'S. Jindash', initials: 'SJ', wins: 10, losses: 10, win_rate: 50, rating: 1368, rating_delta: -6, games_played: 20 },
-  { rank: 6, player_id: 14, display_name: 'J. Drabos', initials: 'JD', wins: 8, losses: 12, win_rate: 40, rating: 1330, rating_delta: 3, games_played: 20 },
-  { rank: 7, player_id: 15, display_name: 'M. Salizar', initials: 'MS', wins: 6, losses: 14, win_rate: 30, rating: 1295, rating_delta: -2, games_played: 20 },
-  { rank: 8, player_id: 16, display_name: 'R. Torres', initials: 'RT', wins: 4, losses: 16, win_rate: 20, rating: 1255, rating_delta: -10, games_played: 20 },
-];
-
-const MOCK_LEAGUE_SEASONS: LeagueSeason[] = [
-  { id: 4, name: 'Season 4', is_active: true, started_at: '2026-03-01', ended_at: null, session_count: 3, game_count: 36 },
-  { id: 3, name: 'Season 3', is_active: false, started_at: '2025-11-01', ended_at: '2026-02-28', session_count: 10, game_count: 120 },
-  { id: 2, name: 'Season 2', is_active: false, started_at: '2025-06-01', ended_at: '2025-10-31', session_count: 12, game_count: 148 },
-  { id: 1, name: 'Season 1', is_active: false, started_at: '2025-01-01', ended_at: '2025-05-31', session_count: 8, game_count: 96 },
-];
-
-const MOCK_LEAGUE_SEASON_INFO: LeagueSeasonInfo = {
-  id: 4,
-  name: 'Season 4',
-  started_at: '2026-03-01',
-  session_count: 3,
-  game_count: 36,
-};
-
 const MOCK_PENDING_INVITES: LeagueInviteItem[] = [
   { id: 1, league_id: 1, league_name: 'QBK Open Men', player_id: 50, display_name: 'D. Thompson', initials: 'DT', invited_at: '2026-03-15', status: 'pending' },
   { id: 2, league_id: 1, league_name: 'QBK Open Men', player_id: 51, display_name: 'R. Martinez', initials: 'RM', invited_at: '2026-03-16', status: 'accepted' },
@@ -362,53 +291,6 @@ const MOCK_INVITABLE_PLAYERS: InvitablePlayer[] = [
   { player_id: 63, display_name: 'Rafael Torres', initials: 'RT', location_name: 'Queens, NY', level: 'A', invite_status: 'requested', section: 'recent_opponents' },
   { player_id: 64, display_name: 'Brian Nguyen', initials: 'BN', location_name: 'Queens, NY', level: 'AA', invite_status: 'member', section: 'suggested' },
   { player_id: 65, display_name: 'Derek Park', initials: 'DP', location_name: 'Queens, NY', level: 'Open', invite_status: 'none', section: 'suggested' },
-];
-
-const MOCK_FIND_LEAGUES: FindLeagueResult[] = [
-  {
-    id: 1,
-    name: 'QBK Open Men',
-    gender: 'mens',
-    level: 'Open',
-    access_type: 'open',
-    location_name: 'Queens, NY',
-    member_count: 24,
-    friends_in_league: [{ player_id: 10, initials: 'CG' }, { player_id: 11, initials: 'KF' }],
-    user_status: 'member',
-  },
-  {
-    id: 2,
-    name: 'Brooklyn Coed Summer',
-    gender: 'coed',
-    level: 'AA',
-    access_type: 'open',
-    location_name: 'Brooklyn, NY',
-    member_count: 18,
-    friends_in_league: [{ player_id: 60, initials: 'JD' }],
-    user_status: 'none',
-  },
-  {
-    id: 3,
-    name: 'Manhattan Beach Ladies',
-    gender: 'womens',
-    level: 'A',
-    access_type: 'invite_only',
-    location_name: 'Manhattan Beach, CA',
-    member_count: 14,
-    friends_in_league: [],
-    user_status: 'none',
-  },
-  {
-    id: 4,
-    name: 'Astoria Competitive Men',
-    gender: 'mens',
-    level: 'Open',
-    access_type: 'open',
-    location_name: 'Queens, NY',
-    member_count: 20,
-    friends_in_league: [{ player_id: 62, initials: 'SJ' }],
-    user_status: 'requested',
-  },
 ];
 
 const MOCK_LEAGUE_PLAYER_STATS = (leagueId: number, playerId: number): LeaguePlayerStats => ({
@@ -1036,27 +918,8 @@ export const mockApi = {
     return Promise.resolve({ ...MOCK_LEAGUE_DETAIL });
   },
 
-  /**
-   * Returns standings for a league season.
-   * TODO(backend): GET /api/leagues/:id/standings?season_id=
-   */
-  async getLeagueStandings(
-    _id: number | string,
-    _seasonId?: number | null,
-  ): Promise<{ standings: LeagueStanding[]; season_info: LeagueSeasonInfo }> {
-    return Promise.resolve({
-      standings: [...MOCK_LEAGUE_STANDINGS],
-      season_info: { ...MOCK_LEAGUE_SEASON_INFO },
-    });
-  },
-
-  /**
-   * Returns league seasons list for the season picker.
-   * TODO(backend): GET /api/leagues/:id/seasons
-   */
-  async getLeagueSeasonsList(_id: number | string): Promise<LeagueSeason[]> {
-    return Promise.resolve([...MOCK_LEAGUE_SEASONS]);
-  },
+  // getLeagueStandings removed — real api.getLeagueStandings exists in packages/api-client/src/methods.ts.
+  // getLeagueSeasonsList removed — real api.getLeagueSeasons exists in packages/api-client/src/methods.ts.
 
   // getLeagueChat / sendLeagueMessage removed — real getLeagueMessages /
   // createLeagueMessage exist in packages/api-client/src/methods.ts.
@@ -1101,33 +964,6 @@ export const mockApi = {
     _playerIds: number[],
   ): Promise<void> {
     return notImplemented('POST /api/leagues/:id/invites');
-  },
-
-  /**
-   * Search/filter public leagues.
-   * TODO(backend): GET /api/leagues/find?q=&gender=&level=&access_type=
-   */
-  async findLeagues(params?: {
-    query?: string | null;
-    gender?: string | null;
-    level?: string | null;
-    access_type?: LeagueAccessType | null;
-  }): Promise<FindLeagueResult[]> {
-    let results = [...MOCK_FIND_LEAGUES];
-    if (params?.gender != null) {
-      results = results.filter((l) => l.gender === params.gender);
-    }
-    if (params?.level != null) {
-      results = results.filter((l) => l.level?.toLowerCase() === params.level?.toLowerCase());
-    }
-    if (params?.access_type != null) {
-      results = results.filter((l) => l.access_type === params.access_type);
-    }
-    if (params?.query != null && params.query.length > 0) {
-      const q = params.query.toLowerCase();
-      results = results.filter((l) => l.name.toLowerCase().includes(q) || (l.location_name?.toLowerCase().includes(q) ?? false));
-    }
-    return Promise.resolve(results);
   },
 
   /**

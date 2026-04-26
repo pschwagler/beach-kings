@@ -33,6 +33,9 @@ import type {
   JoinRequest,
   JoinRequestsResponse,
   LeagueSignupsApiResponse,
+  FindLeagueResult,
+  LeagueQueryResponse,
+  LeagueStandingsResponse,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -404,6 +407,14 @@ export function createApiMethods(client: ApiClient) {
 
     async getLeagueSeasons(leagueId: number) {
       const response = await api.get<Season[]>(`/api/leagues/${leagueId}/seasons`);
+      return response.data;
+    },
+
+    async getLeagueStandings(leagueId: number, seasonId?: number) {
+      const params = seasonId != null ? `?season_id=${seasonId}` : '';
+      const response = await api.get<LeagueStandingsResponse>(
+        `/api/leagues/${leagueId}/standings${params}`,
+      );
       return response.data;
     },
 
@@ -1039,6 +1050,66 @@ export function createApiMethods(client: ApiClient) {
      */
     async dropSignup(signupId: number): Promise<void> {
       await api.post(`/api/signups/${encodeURIComponent(signupId)}/dropout`);
+    },
+
+    /**
+     * Search and filter leagues.
+     * Maps to POST /api/leagues/query.
+     * Adapts the raw backend response to the UI-ready FindLeagueResult shape:
+     *   - is_open → access_type ('open' | 'invite_only')
+     *   - has_pending_request → user_status ('requested' | 'none')
+     *   - friends_preview[].first_name → friends_in_league[].initials
+     */
+    async queryLeagues(params: {
+      q?: string | null;
+      gender?: string | null;
+      level?: string | null;
+      is_open?: boolean | null;
+      page?: number;
+      page_size?: number;
+    }): Promise<LeagueQueryResponse> {
+      const body: Record<string, unknown> = {};
+      if (params.q) body.q = params.q;
+      if (params.gender) body.gender = params.gender;
+      if (params.level) body.level = params.level;
+      if (params.is_open != null) body.is_open = params.is_open;
+      if (params.page != null) body.page = params.page;
+      if (params.page_size != null) body.page_size = params.page_size;
+
+      const response = await api.post<{
+        items: Array<{
+          id: number;
+          name: string;
+          gender: string;
+          level: string | null;
+          is_open: boolean;
+          location_name: string | null;
+          member_count: number;
+          has_pending_request: boolean;
+          friends_preview: Array<{ player_id: number; first_name: string; last_name: string | null; avatar: string | null }>;
+        }>;
+        page: number;
+        page_size: number;
+        total_count: number;
+      }>('/api/leagues/query', body);
+
+      const data = response.data;
+      const items: FindLeagueResult[] = data.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        gender: item.gender as 'mens' | 'womens' | 'coed',
+        level: item.level,
+        access_type: item.is_open ? 'open' : 'invite_only',
+        location_name: item.location_name,
+        member_count: item.member_count,
+        friends_in_league: item.friends_preview.map((f) => ({
+          player_id: f.player_id,
+          initials: (f.first_name.charAt(0) + (f.last_name?.charAt(0) ?? '')).toUpperCase(),
+        })),
+        user_status: item.has_pending_request ? 'requested' : 'none',
+      }));
+
+      return { items, page: data.page, page_size: data.page_size, total_count: data.total_count };
     },
   };
 }

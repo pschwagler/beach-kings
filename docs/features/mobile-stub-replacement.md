@@ -177,10 +177,12 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Endpoint: `GET /api/leagues/:id/detail` OR enrich `GET /api/leagues/:id`
   - Reuse check: strongly prefer enriching the existing `getLeague(id)` response over adding a `/detail` suffix route. Check web client's league page to see what fields it already consumes.
 
-- [ ] **P2.2 — League Standings tab**
+- [x] **P2.2 — League Standings tab**
   - File: `useLeagueDashboardTab.ts`
   - Endpoint: `GET /api/leagues/:id/standings?season_id=`
-  - Reuse check: standings computation may already exist in backend for the web standings page — grep for `standings` and see if the existing query is reusable.
+  - Added "All" chip (aggregate view via `PlayerLeagueStats`); latest season auto-selected on load.
+  - `LeagueSeason`, `LeagueStanding`, `LeagueSeasonInfo`, `LeagueStandingsResponse` promoted to `@beach-kings/shared`.
+  - 13 new tests in `dashboard.test.tsx`; 5 backend tests in `TestGetLeagueStandings`.
 
 - [ ] **P2.3 — League Info tab (rules, join requests, invites, payment)**
   - File: `useLeagueInfoTab.ts`
@@ -197,11 +199,10 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Endpoint: `GET /api/leagues/:id/events` (must include signup status for current user)
   - Reuse check: same reuse check as P1.7 — events may map onto existing sessions.
 
-- [ ] **P2.6 — Find Leagues search** *(backend done; mobile wiring pending after P1.8 commits)*
+- [x] **P2.6 — Find Leagues search**
   - File: `useFindLeaguesScreen.ts`
-  - Endpoint: extended existing `POST /api/leagues/query` — added `q` (ILIKE on name/description) and `is_open` (boolean) params; 4 new route tests (45 total pass). No migration, no model changes.
-  - Mobile wiring remaining: replace `mockApi.findLeagues` with real `api.queryLeagues({q, is_open, gender, level})`; add `queryLeagues` method to api-client. Blocked on `methods.ts` being dirty from P1.8.
-  - Reuse check done: extended `POST /api/leagues/query` per plan guidance; no `/find` route needed.
+  - Endpoint: `POST /api/leagues/query` (extended with `q` + `is_open` params)
+  - `FindLeagueResult` + `LeagueQueryResponse` moved to `@beach-kings/shared`; `queryLeagues` method added to api-client with backend→UI shape adaptation (`is_open` → `access_type`, `friends_preview` → `friends_in_league` initials, `has_pending_request` → `user_status`). Mock and type deleted from `mockApi.ts`.
 
 - [ ] **P2.7 — Invitable Players + Pending Invites**
   - Files: `useLeagueInviteScreen.ts`, `usePendingInvitesScreen.ts`
@@ -271,20 +272,19 @@ Per Ground Rule 7 (*Types follow their mocks*), each remaining type leaves `mock
 - ~~`LeagueChatMessage`~~ → orphan sweep 2026-04-25 (P0.2 wired the hook to real api-client; type was the last thing pinning it to mockApi)
 - ~~`LeagueJoinRequest`~~ → orphan sweep 2026-04-25 (reconciled with shared `JoinRequest`; status enum aligned to `'rejected'`; optional `initials`/`message` added to shared type)
 - ~~`SessionSummary`~~ → orphan sweep 2026-04-25 (deleted outright — only consumer was the dead `MOCK_SESSIONS` constant)
+- ~~`LeagueStanding`, `LeagueSeasonInfo`, `LeagueStandingsResponse`~~ → P2.2 (promoted to `@beach-kings/shared`)
+- ~~`LeagueSeason`~~ → P2.2 (promoted to `@beach-kings/shared`; consumed by info tab and dashboard season picker)
 
 **Remaining — owned by their phase task:**
 
 | Type | Owning task |
 |---|---|
 | `LeagueDetail` | P2.1 |
-| `LeagueStanding` | P2.2 |
-| `LeagueSeason` | P2.1 (and consumed by P2.2, P2.3) |
-| `LeagueSeasonInfo` | P2.2 |
-| `LeagueEvent`, `LeagueScheduleRow` | P2.5 (or P1.7) |
+| `LeagueEvent`, `LeagueScheduleRow` | P2.5 |
 | `LeagueMemberRow`, `LeagueInfoDetail` | P2.3 |
 | `LeagueInviteItem` | P2.7 |
 | `InvitablePlayer` | P2.7 |
-| `FindLeagueResult` | P2.6 |
+| `FindLeagueResult` | ~~P2.6~~ — promoted to `@beach-kings/shared` |
 | `LeaguePlayerStats` | P2.4 |
 | `SessionPlayer`, `SessionGame`, `SessionDetail` | P2.8 |
 | `PushNotificationPrefs` | P3.4 |

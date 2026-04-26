@@ -64,18 +64,13 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
-const mockFindLeagues = jest.fn();
+const mockQueryLeagues = jest.fn();
 const mockRequestToJoin = jest.fn();
-
-jest.mock('@/lib/mockApi', () => ({
-  mockApi: {
-    findLeagues: (...args: unknown[]) => mockFindLeagues(...args),
-  },
-}));
 
 jest.mock('@/lib/api', () => ({
   api: {
-    requestToJoinLeague: (...args: unknown[]) => mockRequestToJoin(...args),
+    queryLeagues: (...args) => mockQueryLeagues(...args),
+    requestToJoinLeague: (...args) => mockRequestToJoin(...args),
   },
 }));
 
@@ -107,7 +102,7 @@ const MOCK_LEAGUES = [
     access_type: 'open',
     location_name: 'Manhattan, NY',
     member_count: 24,
-    friends_in_league: 2,
+    friends_in_league: [],
     user_status: 'none',
   },
   {
@@ -118,14 +113,16 @@ const MOCK_LEAGUES = [
     access_type: 'invite_only',
     location_name: 'Brooklyn, NY',
     member_count: 16,
-    friends_in_league: 0,
+    friends_in_league: [],
     user_status: 'none',
   },
 ];
 
+const MOCK_RESPONSE = { items: MOCK_LEAGUES, page: 1, page_size: 25, total_count: 2 };
+
 beforeEach(() => {
   jest.clearAllMocks();
-  mockFindLeagues.mockResolvedValue(MOCK_LEAGUES);
+  mockQueryLeagues.mockResolvedValue(MOCK_RESPONSE);
   mockRequestToJoin.mockResolvedValue(undefined);
 });
 
@@ -173,13 +170,13 @@ describe('FindLeaguesScreen — render', () => {
 // ---------------------------------------------------------------------------
 
 describe('FindLeaguesScreen — filter chips', () => {
-  it('pressing a filter chip calls findLeagues with correct params', async () => {
+  it('pressing a filter chip calls queryLeagues with correct params', async () => {
     render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('filter-chip-public')).toBeTruthy());
     fireEvent.press(screen.getByTestId('filter-chip-public'));
     await waitFor(() => {
-      expect(mockFindLeagues).toHaveBeenCalledWith(
-        expect.objectContaining({ access_type: 'open' }),
+      expect(mockQueryLeagues).toHaveBeenCalledWith(
+        expect.objectContaining({ is_open: true }),
       );
     });
   });
@@ -190,8 +187,8 @@ describe('FindLeaguesScreen — filter chips', () => {
     fireEvent.press(screen.getByTestId('filter-chip-public'));
     fireEvent.press(screen.getByTestId('filter-chip-all'));
     await waitFor(() => {
-      const lastCall = mockFindLeagues.mock.calls[mockFindLeagues.mock.calls.length - 1][0];
-      expect(lastCall?.access_type).toBeFalsy();
+      const lastCall = mockQueryLeagues.mock.calls[mockQueryLeagues.mock.calls.length - 1][0];
+      expect(lastCall?.is_open).toBeFalsy();
     });
   });
 });
@@ -224,7 +221,7 @@ describe('FindLeaguesScreen — request to join', () => {
 
 describe('FindLeaguesScreen — empty state', () => {
   it('renders empty state when no leagues found', async () => {
-    mockFindLeagues.mockResolvedValue([]);
+    mockQueryLeagues.mockResolvedValue({ items: [], page: 1, page_size: 25, total_count: 0 });
     render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('find-leagues-empty')).toBeTruthy();
@@ -238,7 +235,7 @@ describe('FindLeaguesScreen — empty state', () => {
 
 describe('FindLeaguesScreen — error state', () => {
   it('renders error state when query fails', async () => {
-    mockFindLeagues.mockRejectedValue(new Error('network error'));
+    mockQueryLeagues.mockRejectedValue(new Error('network error'));
     render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('find-leagues-error')).toBeTruthy();
