@@ -14,7 +14,6 @@ import type {
   GameCreateResponse,
   SessionParticipant,
   SessionDetail,
-  SessionDetailFull,
   Location,
   Court,
   Friend,
@@ -617,11 +616,10 @@ export function createApiMethods(client: ApiClient) {
     async getSessionById(sessionId: number): Promise<SessionDetail> {
       const response = await api.get<SessionDetail>(`/api/sessions/${sessionId}`);
       const raw = response.data;
-      // Normalise status to lowercase to match the SessionDetail union type.
-      return {
-        ...raw,
-        status: (raw.status?.toLowerCase() ?? 'active') as SessionDetail['status'],
-      };
+      const normalized = (raw.status ?? '').toString().toLowerCase();
+      const status: SessionDetail['status'] =
+        normalized === 'submitted' ? 'submitted' : 'active';
+      return { ...raw, status };
     },
 
     /**

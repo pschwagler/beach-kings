@@ -126,20 +126,6 @@ export interface SessionPlayerEntry {
   readonly is_placeholder: boolean;
 }
 
-/**
- * Full session detail returned by GET /api/sessions/:id.
- * Tailored for the Manage Players (roster) screen.
- */
-export interface SessionDetailFull {
-  readonly id: number;
-  readonly court_name: string | null;
-  readonly court_id: number | null;
-  readonly session_type: string | null;
-  readonly status: string;
-  readonly league_id: number | null;
-  readonly players: readonly SessionPlayerEntry[];
-}
-
 // ---------------------------------------------------------------------------
 // Session detail types (used by the Session Detail / overview screen)
 // ---------------------------------------------------------------------------

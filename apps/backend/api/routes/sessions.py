@@ -1,6 +1,7 @@
 """Session management route handlers (league and non-league)."""
 
 import logging
+import re
 from datetime import datetime
 from typing import Optional, Union
 
@@ -48,8 +49,6 @@ from backend.models.schemas import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-import re as _re
-
 
 def _parse_session_number(session_name: str) -> int:
     """
@@ -61,7 +60,7 @@ def _parse_session_number(session_name: str) -> int:
 
     Returns 1 if no number suffix is found.
     """
-    match = _re.search(r"Session #(\d+)", session_name)
+    match = re.search(r"Session #(\d+)", session_name)
     return int(match.group(1)) if match else 1
 
 
