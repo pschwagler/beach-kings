@@ -230,10 +230,9 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Endpoint (new): `GET /api/courts/:id/photos`
   - Reuse check: if court reviews already carry photo uploads, the photos may live on the court record — check the existing court detail response before designing a separate photos endpoint.
 
-- [ ] **P3.2 — Player Trophies**
-  - File: `usePlayerProfileScreen.ts` (remove `MOCK_TROPHIES`)
-  - Endpoint (new): `GET /api/players/:id/trophies`
-  - Reuse check: trophies may be derivable from game history + league season results — consider whether the backend should compute this or whether a materialized `trophies` table exists.
+- [x] **P3.2 — Player Trophies** *(scope flipped to delete-only)*
+  - Decision: trophies are not shown on other players' profiles. Section removed from `PlayerProfileScreen` and `usePlayerProfileScreen` (`MOCK_TROPHIES`, `PlayerTrophy` type, `trophies` field). `PlayerTrophiesList.tsx` deleted. The signed-in user's own awards continue to live on `MyStatsScreen` (already real-data).
+  - No new endpoint added.
 
 - [ ] **P3.3 — Player Leagues list**
   - File: `usePlayerProfileScreen.ts` (remove `MOCK_LEAGUES`)
@@ -326,7 +325,7 @@ Grouped for backend sprint planning. Tournament/KOB endpoints intentionally omit
 **Medium (Phase 3):**
 - `GET /api/leagues/:leagueId/players/:playerId/stats`
 - `GET /api/users/me/push-prefs` + `PATCH`
-- `GET /api/players/:id/trophies`
+- ~~`GET /api/players/:id/trophies`~~ (P3.2 dropped — trophies not shown on other players' profiles)
 - `GET /api/players/:id/leagues` (or extend existing)
 - `GET /api/courts/:id/photos`
 

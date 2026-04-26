@@ -26,7 +26,6 @@ import { routes } from '@/lib/navigation';
 import { usePlayerProfileScreen } from './usePlayerProfileScreen';
 import PlayerProfileHeader from './PlayerProfileHeader';
 import PlayerMutualFriends from './PlayerMutualFriends';
-import PlayerTrophiesList from './PlayerTrophiesList';
 import PlayerStatsGrid from './PlayerStatsGrid';
 import PlayerLeaguesList from './PlayerLeaguesList';
 import PlayerProfileSkeleton from './PlayerProfileSkeleton';
@@ -146,10 +145,6 @@ export default function PlayerProfileScreen({
           />
 
           <PlayerMutualFriends mutualFriends={profileData.mutualFriends} />
-
-          {profileData.trophies.length > 0 && (
-            <PlayerTrophiesList trophies={profileData.trophies} />
-          )}
 
           <PlayerStatsGrid player={profileData.player} />
 

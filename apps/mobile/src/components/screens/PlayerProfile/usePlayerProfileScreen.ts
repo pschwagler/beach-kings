@@ -2,7 +2,7 @@
  * Data hook for the Player Profile screen.
  *
  * Fetches a public player profile by ID, including their stats, mutual friends,
- * trophies, and leagues. Also manages the friend action state (add / pending / friends).
+ * and leagues. Also manages the friend action state (add / pending / friends).
  */
 
 import { useState, useCallback } from 'react';
@@ -21,18 +21,10 @@ export interface PlayerLeague {
   readonly games_played: number;
 }
 
-export interface PlayerTrophy {
-  readonly league_id: number;
-  readonly league_name: string;
-  readonly season_name: string;
-  readonly place: number;
-}
-
 export interface PlayerProfileData {
   readonly player: Player;
   readonly mutualFriends: readonly FriendInLeague[];
   readonly leagues: readonly PlayerLeague[];
-  readonly trophies: readonly PlayerTrophy[];
   /** 'none' | 'pending' | 'friends' */
   readonly friendStatus: 'none' | 'pending' | 'friends';
 }
@@ -55,11 +47,6 @@ export interface UsePlayerProfileScreenResult {
 const MOCK_LEAGUES: PlayerLeague[] = [
   { id: 1, name: 'QBK Open Men - Mornings', rank: 1, games_played: 47 },
   { id: 2, name: 'NYC Fun League', rank: 3, games_played: 12 },
-];
-
-const MOCK_TROPHIES: PlayerTrophy[] = [
-  { league_id: 1, league_name: 'QBK Open Men - Mornings', season_name: 'Season 3', place: 2 },
-  { league_id: 1, league_name: 'QBK Open Men - Mornings', season_name: 'Season 2', place: 2 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -93,13 +80,11 @@ export function usePlayerProfileScreen(
         rawStatus === 'friends' ? 'friends' :
         rawStatus === 'pending' ? 'pending' : 'none';
 
-      // TODO(backend): GET /api/players/:id/trophies
       // TODO(backend): GET /api/players/:id/leagues
       return {
         player: playerData as Player,
         mutualFriends: mutualFriendsData as FriendInLeague[],
         leagues: MOCK_LEAGUES,
-        trophies: MOCK_TROPHIES,
         friendStatus,
       };
     },
