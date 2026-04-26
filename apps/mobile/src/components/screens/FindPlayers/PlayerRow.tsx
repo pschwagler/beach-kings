@@ -63,43 +63,43 @@ export default function PlayerRow({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`View profile of ${player.full_name}`}
-      className="flex-row items-center gap-3 px-4 py-[14px] bg-white dark:bg-dark-surface border-b border-[#f0f0f0] dark:border-border-strong active:opacity-70"
+      className="flex-row items-center gap-3 px-4 py-[14px] bg-surface border-b border-divider active:opacity-70"
     >
       {/* Avatar */}
-      <View className="w-12 h-12 rounded-full bg-[#ddd] dark:bg-dark-elevated items-center justify-center flex-shrink-0">
-        <Text className="text-[#666] dark:text-content-secondary font-bold text-base">
+      <View className="w-12 h-12 rounded-full bg-elevated items-center justify-center flex-shrink-0">
+        <Text className="text-muted font-bold text-base">
           {getInitials(player.full_name)}
         </Text>
       </View>
 
       {/* Info */}
       <View className="flex-1 min-w-0">
-        <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary" numberOfLines={1}>
+        <Text className="text-[14px] font-semibold text-default" numberOfLines={1}>
           {player.full_name}
         </Text>
         {player.city != null && (
-          <Text className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]" numberOfLines={1}>
+          <Text className="text-[12px] text-muted mt-[2px]" numberOfLines={1}>
             {player.city}
           </Text>
         )}
         <View className="flex-row gap-[6px] mt-1 flex-wrap">
           {player.level != null && (
-            <View className="bg-[#e8f4f8] dark:bg-teal-900 rounded-[8px] px-2 py-[2px]">
-              <Text className="text-[10px] font-bold text-[#2a7d9c] dark:text-teal-300">
+            <View className="bg-info-tint rounded-[8px] px-2 py-[2px]">
+              <Text className="text-[10px] font-bold text-info">
                 {player.level}
               </Text>
             </View>
           )}
           {player.mutual_friends_count > 0 && (
-            <View className="bg-[#f0f0f0] dark:bg-dark-elevated rounded-[8px] px-2 py-[2px]">
-              <Text className="text-[10px] font-bold text-[#666] dark:text-content-secondary">
+            <View className="bg-elevated rounded-[8px] px-2 py-[2px]">
+              <Text className="text-[10px] font-bold text-muted">
                 {player.mutual_friends_count} mutual
               </Text>
             </View>
           )}
         </View>
         {(player.games_played > 0 || player.last_active_label != null) && (
-          <Text className="text-[11px] text-[#999] dark:text-content-tertiary mt-1">
+          <Text className="text-[11px] text-tertiary mt-1">
             {player.games_played > 0 ? `${player.games_played} games` : ''}
             {player.games_played > 0 && player.last_active_label != null
               ? ' · '
@@ -116,9 +116,9 @@ export default function PlayerRow({
           onPress={handleAdd}
           accessibilityRole="button"
           accessibilityLabel={`Add ${player.full_name} as friend`}
-          className="px-[14px] py-[10px] rounded-[8px] border border-[#1a3a4a] dark:border-brand-teal bg-transparent min-h-[44px] justify-center active:opacity-70"
+          className="px-[14px] py-[10px] rounded-[8px] border border-brand-teal bg-transparent min-h-[44px] justify-center active:opacity-70"
         >
-          <Text className="text-[12px] font-bold text-[#1a3a4a] dark:text-brand-teal">
+          <Text className="text-[12px] font-bold text-brand-teal">
             Add
           </Text>
         </Pressable>
@@ -126,9 +126,9 @@ export default function PlayerRow({
       {(friendStatus === 'pending') && (
         <View
           testID={`pending-btn-${player.player_id}`}
-          className="px-[14px] py-[10px] rounded-[8px] bg-[#e8f4f8] dark:bg-teal-900 min-h-[44px] justify-center"
+          className="px-[14px] py-[10px] rounded-[8px] bg-info-tint min-h-[44px] justify-center"
         >
-          <Text className="text-[12px] font-bold text-[#2a7d9c] dark:text-teal-300">
+          <Text className="text-[12px] font-bold text-info">
             Pending
           </Text>
         </View>
@@ -136,9 +136,9 @@ export default function PlayerRow({
       {friendStatus === 'friend' && (
         <View
           testID={`friends-badge-${player.player_id}`}
-          className="px-[14px] py-[10px] rounded-[8px] bg-[#e8f4f8] dark:bg-teal-900 min-h-[44px] justify-center"
+          className="px-[14px] py-[10px] rounded-[8px] bg-info-tint min-h-[44px] justify-center"
         >
-          <Text className="text-[12px] font-bold text-[#2a7d9c] dark:text-teal-300">
+          <Text className="text-[12px] font-bold text-info">
             Friends
           </Text>
         </View>

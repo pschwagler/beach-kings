@@ -43,8 +43,8 @@ function FindPlayersSearchBar({
   placeholder = 'Search players…',
 }: SearchBarProps): React.ReactNode {
   return (
-    <View className="px-4 py-3 bg-white dark:bg-dark-surface border-b border-[#f0f0f0] dark:border-border-strong">
-      <View className="flex-row items-center bg-[#f5f5f5] dark:bg-dark-elevated rounded-[10px] px-[12px] h-[40px] gap-[8px]">
+    <View className="px-4 py-3 bg-surface border-b border-divider">
+      <View className="flex-row items-center bg-elevated rounded-[10px] px-[12px] h-[40px] gap-[8px]">
         <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
           <Circle cx="11" cy="11" r="8" stroke="#999" strokeWidth={2} />
           <Path
@@ -60,7 +60,7 @@ function FindPlayersSearchBar({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#999"
-          className="flex-1 text-[14px] text-text-default dark:text-content-primary"
+          className="flex-1 text-[14px] text-default"
           returnKeyType="search"
           autoCapitalize="none"
           autoCorrect={false}
@@ -101,21 +101,21 @@ function FriendRequestCard({
   return (
     <View
       testID={`friend-request-card-${request.id}`}
-      className="flex-row items-center gap-3 px-4 py-[14px] bg-white dark:bg-dark-surface border-b border-[#f0f0f0] dark:border-border-strong"
+      className="flex-row items-center gap-3 px-4 py-[14px] bg-surface border-b border-divider"
     >
-      <View className="w-12 h-12 rounded-full bg-[#ddd] dark:bg-dark-elevated items-center justify-center flex-shrink-0">
-        <Text className="text-[#666] dark:text-content-secondary font-bold text-base">
+      <View className="w-12 h-12 rounded-full bg-elevated items-center justify-center flex-shrink-0">
+        <Text className="text-muted font-bold text-base">
           {getInitials(request.sender_name)}
         </Text>
       </View>
       <View className="flex-1 min-w-0">
         <Text
-          className="text-[14px] font-semibold text-text-default dark:text-content-primary"
+          className="text-[14px] font-semibold text-default"
           numberOfLines={1}
         >
           {request.sender_name}
         </Text>
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]">
+        <Text className="text-[12px] text-muted mt-[2px]">
           Wants to be friends
         </Text>
       </View>
@@ -125,7 +125,7 @@ function FriendRequestCard({
           onPress={() => onAccept(request.id)}
           accessibilityRole="button"
           accessibilityLabel={`Accept friend request from ${request.sender_name}`}
-          className="px-[14px] py-[10px] rounded-[8px] bg-[#1a3a4a] dark:bg-brand-teal min-h-[44px] justify-center active:opacity-80"
+          className="px-[14px] py-[10px] rounded-[8px] bg-brand-teal min-h-[44px] justify-center active:opacity-80"
         >
           <Text className="text-[12px] font-bold text-white">Accept</Text>
         </Pressable>
@@ -134,9 +134,9 @@ function FriendRequestCard({
           onPress={() => onDecline(request.id)}
           accessibilityRole="button"
           accessibilityLabel={`Decline friend request from ${request.sender_name}`}
-          className="px-[14px] py-[10px] rounded-[8px] border border-[#ccc] dark:border-border-strong min-h-[44px] justify-center active:opacity-70"
+          className="px-[14px] py-[10px] rounded-[8px] border border-strong min-h-[44px] justify-center active:opacity-70"
         >
-          <Text className="text-[12px] font-bold text-text-secondary dark:text-content-secondary">
+          <Text className="text-[12px] font-bold text-muted">
             Decline
           </Text>
         </Pressable>
@@ -175,23 +175,23 @@ function FriendRow({ friend, onPress }: FriendRowProps): React.ReactNode {
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`View profile of ${friend.full_name}`}
-      className="flex-row items-center gap-3 px-4 py-[14px] bg-white dark:bg-dark-surface border-b border-[#f0f0f0] dark:border-border-strong active:opacity-70"
+      className="flex-row items-center gap-3 px-4 py-[14px] bg-surface border-b border-divider active:opacity-70"
     >
-      <View className="w-12 h-12 rounded-full bg-[#ddd] dark:bg-dark-elevated items-center justify-center flex-shrink-0">
-        <Text className="text-[#666] dark:text-content-secondary font-bold text-base">
+      <View className="w-12 h-12 rounded-full bg-elevated items-center justify-center flex-shrink-0">
+        <Text className="text-muted font-bold text-base">
           {getInitials(friend.full_name)}
         </Text>
       </View>
       <View className="flex-1 min-w-0">
         <Text
-          className="text-[14px] font-semibold text-text-default dark:text-content-primary"
+          className="text-[14px] font-semibold text-default"
           numberOfLines={1}
         >
           {friend.full_name}
         </Text>
         {friend.location_name != null && (
           <Text
-            className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]"
+            className="text-[12px] text-muted mt-[2px]"
             numberOfLines={1}
           >
             {friend.location_name}
@@ -199,8 +199,8 @@ function FriendRow({ friend, onPress }: FriendRowProps): React.ReactNode {
         )}
       </View>
       {friend.level != null && (
-        <View className="bg-[#e8f4f8] dark:bg-teal-900 rounded-[8px] px-2 py-[2px]">
-          <Text className="text-[10px] font-bold text-[#2a7d9c] dark:text-teal-300">
+        <View className="bg-info-tint rounded-[8px] px-2 py-[2px]">
+          <Text className="text-[10px] font-bold text-info">
             {friend.level}
           </Text>
         </View>
@@ -219,10 +219,10 @@ function PlayersEmptyState(): React.ReactNode {
       testID="players-empty-state"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <Text className="text-[18px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+      <Text className="text-[18px] font-bold text-default mb-2 text-center">
         No Players Found
       </Text>
-      <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center leading-[1.5]">
+      <Text className="text-[14px] text-muted text-center leading-[1.5]">
         Try adjusting your search to discover more players.
       </Text>
     </View>
@@ -235,10 +235,10 @@ function FriendsEmptyState(): React.ReactNode {
       testID="friends-empty-state"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <Text className="text-[18px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+      <Text className="text-[18px] font-bold text-default mb-2 text-center">
         No Friends Yet
       </Text>
-      <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center leading-[1.5]">
+      <Text className="text-[14px] text-muted text-center leading-[1.5]">
         Switch to the Players tab to discover and add friends.
       </Text>
     </View>
@@ -264,7 +264,7 @@ function FindPlayersTabBar({
   ];
 
   return (
-    <View className="flex-row border-b border-[#f0f0f0] dark:border-border-strong bg-white dark:bg-dark-surface">
+    <View className="flex-row border-b border-divider bg-surface">
       {tabs.map(({ key, label }) => {
         const isActive = key === activeTab;
         return (
@@ -283,14 +283,14 @@ function FindPlayersTabBar({
             <Text
               className={`text-[14px] font-semibold ${
                 isActive
-                  ? 'text-[#1a3a4a] dark:text-brand-teal'
-                  : 'text-text-secondary dark:text-content-secondary'
+                  ? 'text-brand-teal'
+                  : 'text-muted'
               }`}
             >
               {label}
             </Text>
             {isActive && (
-              <View className="absolute bottom-0 left-4 right-4 h-[2px] bg-[#1a3a4a] dark:bg-brand-teal" />
+              <View className="absolute bottom-0 left-4 right-4 h-[2px] bg-brand-teal" />
             )}
           </Pressable>
         );
@@ -422,7 +422,7 @@ export default function FindPlayersScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Find Players" showBack />

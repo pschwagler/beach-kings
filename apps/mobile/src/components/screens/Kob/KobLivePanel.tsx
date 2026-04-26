@@ -21,7 +21,7 @@ import type { KobTournamentDetail, KobMatch } from '@beach-kings/shared';
 
 function SectionLabel({ text }: { text: string }): React.ReactNode {
   return (
-    <Text className="text-[13px] font-semibold text-text-muted dark:text-content-secondary uppercase tracking-wide px-4 py-2 mt-2">
+    <Text className="text-[13px] font-semibold text-muted uppercase tracking-wide px-4 py-2 mt-2">
       {text}
     </Text>
   );
@@ -35,10 +35,10 @@ function MatchCard({ match }: { match: KobMatch }): React.ReactNode {
   return (
     <View
       testID={`kob-match-card-${match.id}`}
-      className="bg-white dark:bg-dark-surface rounded-xl p-4 shadow-sm dark:shadow-none dark:border dark:border-border-subtle mb-3 mx-4"
+      className="bg-surface rounded-xl p-4 shadow-sm dark:shadow-none dark:border border-divider mb-3 mx-4"
     >
       {/* Court label */}
-      <Text className="text-[12px] font-medium text-text-muted dark:text-content-tertiary uppercase tracking-wide mb-2">
+      <Text className="text-[12px] font-medium text-muted uppercase tracking-wide mb-2">
         Court {match.court_num}
       </Text>
 
@@ -47,14 +47,14 @@ function MatchCard({ match }: { match: KobMatch }): React.ReactNode {
         <Text
           className={`text-[14px] font-semibold flex-1 ${
             isCompleted && match.winner === 1
-              ? 'text-primary dark:text-brand-teal'
-              : 'text-text-default dark:text-content-primary'
+              ? 'text-brand-teal'
+              : 'text-default'
           }`}
           numberOfLines={2}
         >
           {team1Name}
         </Text>
-        <Text className="text-[13px] font-bold text-text-muted dark:text-content-secondary mx-2">
+        <Text className="text-[13px] font-bold text-muted mx-2">
           {isCompleted
             ? `${match.team1_score} - ${match.team2_score}`
             : 'vs'}
@@ -62,8 +62,8 @@ function MatchCard({ match }: { match: KobMatch }): React.ReactNode {
         <Text
           className={`text-[14px] font-semibold flex-1 text-right ${
             isCompleted && match.winner === 2
-              ? 'text-primary dark:text-brand-teal'
-              : 'text-text-default dark:text-content-primary'
+              ? 'text-brand-teal'
+              : 'text-default'
           }`}
           numberOfLines={2}
         >
@@ -75,10 +75,10 @@ function MatchCard({ match }: { match: KobMatch }): React.ReactNode {
       {!isCompleted && (
         <View
           testID={`kob-submit-score-${match.id}`}
-          className="py-2 px-4 rounded-lg bg-gray-100 dark:bg-base items-center"
+          className="py-2 px-4 rounded-lg bg-page items-center"
           accessibilityLabel="Submit Score (director only)"
         >
-          <Text className="text-[13px] text-text-muted dark:text-content-tertiary">
+          <Text className="text-[13px] text-muted">
             Score Entry (Director Only)
           </Text>
         </View>
@@ -116,10 +116,10 @@ export default function KobLivePanel({
         testID="kob-live-empty"
         className="flex-1 items-center justify-center py-16 px-8"
       >
-        <Text className="text-[16px] font-semibold text-text-default dark:text-content-primary mb-2 text-center">
+        <Text className="text-[16px] font-semibold text-default mb-2 text-center">
           No Matches in Progress
         </Text>
-        <Text className="text-[14px] text-text-muted dark:text-content-secondary text-center">
+        <Text className="text-[14px] text-muted text-center">
           Waiting for the tournament director to start Round {currentRound}.
         </Text>
       </View>
@@ -152,19 +152,19 @@ export default function KobLivePanel({
       {/* Director panel — view-only footer */}
       <View
         testID="kob-director-panel"
-        className="mx-4 mt-4 p-4 rounded-xl border border-border dark:border-border-strong bg-gray-50 dark:bg-dark-surface items-center gap-3"
+        className="mx-4 mt-4 p-4 rounded-xl border border-strong bg-surface items-center gap-3"
       >
-        <Text className="text-[13px] text-text-muted dark:text-content-tertiary font-medium">
+        <Text className="text-[13px] text-muted font-medium">
           Director Controls
         </Text>
         <View className="flex-row gap-3 w-full">
-          <View className="flex-1 py-3 rounded-lg bg-gray-200 dark:bg-base items-center">
-            <Text className="text-[13px] text-text-muted dark:text-content-tertiary">
+          <View className="flex-1 py-3 rounded-lg bg-page items-center">
+            <Text className="text-[13px] text-muted">
               Advance Round
             </Text>
           </View>
-          <View className="flex-1 py-3 rounded-lg border border-red-200 dark:border-red-900 items-center">
-            <Text className="text-[13px] text-red-400 dark:text-red-500">
+          <View className="flex-1 py-3 rounded-lg border border-danger-tint items-center">
+            <Text className="text-[13px] text-danger">
               End Tournament
             </Text>
           </View>

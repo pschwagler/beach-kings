@@ -22,9 +22,9 @@ export default function PlayerMutualFriends({
   return (
     <View
       testID="player-mutual-friends"
-      className="bg-white dark:bg-elevated px-lg py-md border-b border-border dark:border-border-strong"
+      className="bg-elevated px-lg py-md border-b border-strong"
     >
-      <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-md">
+      <Text className="text-[15px] font-bold text-default mb-md">
         {label}
       </Text>
 
@@ -40,12 +40,12 @@ export default function PlayerMutualFriends({
                 testID={`mutual-friend-${friend.player_id}`}
                 className="items-center gap-xs"
               >
-                <View className="w-[44px] h-[44px] rounded-full bg-neutral-200 dark:bg-elevated-2 items-center justify-center">
-                  <Text className="text-sm font-bold text-text-muted dark:text-text-tertiary">
+                <View className="w-[44px] h-[44px] rounded-full bg-page items-center justify-center">
+                  <Text className="text-sm font-bold text-muted">
                     {initial}
                   </Text>
                 </View>
-                <Text className="text-[11px] text-text-muted dark:text-text-tertiary max-w-[60px] text-center">
+                <Text className="text-[11px] text-muted max-w-[60px] text-center">
                   {name.trim()}
                 </Text>
               </View>

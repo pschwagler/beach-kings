@@ -26,18 +26,18 @@ function StatusBadge({
   const config = {
     complete: {
       label: 'Complete',
-      className: 'bg-green-100 dark:bg-green-900/30',
-      textClassName: 'text-green-700 dark:text-green-400',
+      className: 'bg-success-tint',
+      textClassName: 'text-success',
     },
     in_progress: {
       label: 'In Progress',
-      className: 'bg-teal-50 dark:bg-info-bg',
-      textClassName: 'text-primary dark:text-brand-teal',
+      className: 'bg-info-tint',
+      textClassName: 'text-brand-teal',
     },
     upcoming: {
       label: 'Upcoming',
-      className: 'bg-gray-100 dark:bg-dark-surface',
-      textClassName: 'text-text-muted dark:text-content-tertiary',
+      className: 'bg-elevated',
+      textClassName: 'text-muted',
     },
   }[status];
 
@@ -58,10 +58,10 @@ function MatchRow({ match }: { match: KobMatch }): React.ReactNode {
   return (
     <View
       testID={`kob-schedule-match-${match.id}`}
-      className="flex-row items-center py-2 px-4 border-b border-border dark:border-border-strong last:border-0"
+      className="flex-row items-center py-2 px-4 border-b border-strong last:border-0"
     >
       {/* Court */}
-      <Text className="text-[12px] text-text-muted dark:text-content-tertiary w-14">
+      <Text className="text-[12px] text-muted w-14">
         Ct {match.court_num}
       </Text>
 
@@ -70,15 +70,15 @@ function MatchRow({ match }: { match: KobMatch }): React.ReactNode {
         <Text
           className={`text-[13px] flex-1 ${
             team1Won
-              ? 'font-bold text-text-default dark:text-content-primary'
-              : 'text-text-default dark:text-content-primary'
+              ? 'font-bold text-default'
+              : 'text-default'
           }`}
           numberOfLines={1}
         >
           {match.team1_player1_name} / {match.team1_player2_name}
         </Text>
 
-        <Text className="text-[13px] font-bold text-text-muted dark:text-content-secondary mx-2 min-w-[40px] text-center">
+        <Text className="text-[13px] font-bold text-muted mx-2 min-w-[40px] text-center">
           {isCompleted
             ? `${match.team1_score}-${match.team2_score}`
             : 'vs'}
@@ -87,8 +87,8 @@ function MatchRow({ match }: { match: KobMatch }): React.ReactNode {
         <Text
           className={`text-[13px] flex-1 text-right ${
             team2Won
-              ? 'font-bold text-text-default dark:text-content-primary'
-              : 'text-text-default dark:text-content-primary'
+              ? 'font-bold text-default'
+              : 'text-default'
           }`}
           numberOfLines={1}
         >
@@ -125,21 +125,21 @@ function RoundCard({
   return (
     <View
       testID={`kob-round-card-${roundNum}`}
-      className="mx-4 mb-3 bg-white dark:bg-dark-surface rounded-xl shadow-sm dark:shadow-none dark:border dark:border-border-subtle overflow-hidden"
+      className="mx-4 mb-3 bg-surface rounded-xl shadow-sm dark:shadow-none dark:border border-divider overflow-hidden"
     >
       {/* Header */}
       <Pressable
         onPress={toggleExpanded}
         accessibilityRole="button"
         accessibilityLabel={`${title} — ${status.replace('_', ' ')}`}
-        className="flex-row items-center justify-between px-4 py-3 active:bg-gray-50 dark:active:bg-base"
+        className="flex-row items-center justify-between px-4 py-3 active:bg-page"
       >
-        <Text className="text-[15px] font-semibold text-text-default dark:text-content-primary">
+        <Text className="text-[15px] font-semibold text-default">
           {title}
         </Text>
         <View className="flex-row items-center gap-2">
           <StatusBadge status={status} />
-          <Text className="text-[16px] text-text-muted dark:text-content-tertiary">
+          <Text className="text-[16px] text-muted">
             {expanded ? '▲' : '▼'}
           </Text>
         </View>
@@ -147,9 +147,9 @@ function RoundCard({
 
       {/* Matches */}
       {expanded && (
-        <View className="border-t border-border dark:border-border-strong">
+        <View className="border-t border-strong">
           {matches.length === 0 || status === 'upcoming' ? (
-            <Text className="px-4 py-3 text-[13px] text-text-muted dark:text-content-tertiary italic">
+            <Text className="px-4 py-3 text-[13px] text-muted italic">
               Pairings TBD
             </Text>
           ) : (
@@ -206,10 +206,10 @@ export default function KobSchedulePanel({
         testID="kob-schedule-empty"
         className="flex-1 items-center justify-center py-16 px-8"
       >
-        <Text className="text-[16px] font-semibold text-text-default dark:text-content-primary mb-2 text-center">
+        <Text className="text-[16px] font-semibold text-default mb-2 text-center">
           Schedule Not Available
         </Text>
-        <Text className="text-[14px] text-text-muted dark:text-content-secondary text-center">
+        <Text className="text-[14px] text-muted text-center">
           The tournament schedule will appear here once it begins.
         </Text>
       </View>

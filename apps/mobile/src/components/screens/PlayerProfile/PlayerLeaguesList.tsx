@@ -22,9 +22,9 @@ export default function PlayerLeaguesList({
   return (
     <View
       testID="player-leagues-list"
-      className="bg-white dark:bg-elevated px-lg pt-md pb-lg mt-sm mb-[100px]"
+      className="bg-elevated px-lg pt-md pb-lg mt-sm mb-[100px]"
     >
-      <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-md">
+      <Text className="text-[15px] font-bold text-default mb-md">
         Leagues
       </Text>
 
@@ -38,7 +38,7 @@ export default function PlayerLeaguesList({
           }}
           accessibilityRole="button"
           accessibilityLabel={league.name}
-          className="flex-row items-center gap-md py-sm border-b border-border dark:border-border-strong last:border-0 active:opacity-70"
+          className="flex-row items-center gap-md py-sm border-b border-strong last:border-0 active:opacity-70"
         >
           {/* Icon */}
           <View className="w-[40px] h-[40px] rounded-xl bg-brand-teal/10 items-center justify-center flex-shrink-0">
@@ -47,10 +47,10 @@ export default function PlayerLeaguesList({
 
           {/* Info */}
           <View className="flex-1">
-            <Text className="text-sm font-semibold text-text-default dark:text-content-primary">
+            <Text className="text-sm font-semibold text-default">
               {league.name}
             </Text>
-            <Text className="text-xs text-text-muted dark:text-text-tertiary mt-[2px]">
+            <Text className="text-xs text-muted mt-[2px]">
               {league.rank != null ? `Ranked #${league.rank} · ` : ''}
               {league.games_played} games
             </Text>

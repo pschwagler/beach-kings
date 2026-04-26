@@ -31,9 +31,9 @@ export default function PlayerTrophiesList({
   return (
     <View
       testID="player-trophies-list"
-      className="bg-white dark:bg-elevated px-lg pt-md pb-lg"
+      className="bg-elevated px-lg pt-md pb-lg"
     >
-      <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-md">
+      <Text className="text-[15px] font-bold text-default mb-md">
         Trophies
       </Text>
 
@@ -47,7 +47,7 @@ export default function PlayerTrophiesList({
               <View
                 key={`${trophy.league_id}-${trophy.season_name}-${index}`}
                 testID={`trophy-card-${index}`}
-                className="min-w-[120px] bg-gold/10 dark:bg-gold/10 rounded-xl p-sm items-center border border-gold/30"
+                className="min-w-[120px] bg-brand-gold/10 rounded-xl p-sm items-center border border-brand-gold/30"
               >
                 <Text className="text-[28px] mb-xs">T</Text>
                 <Text
@@ -56,10 +56,10 @@ export default function PlayerTrophiesList({
                 >
                   {placeLabel}
                 </Text>
-                <Text className="text-[11px] text-text-muted dark:text-text-tertiary mt-[3px] text-center leading-[1.3]">
+                <Text className="text-[11px] text-muted mt-[3px] text-center leading-[1.3]">
                   {trophy.league_name}
                 </Text>
-                <Text className="text-[10px] text-text-disabled mt-[2px]">
+                <Text className="text-[10px] text-tertiary mt-[2px]">
                   {trophy.season_name}
                 </Text>
               </View>

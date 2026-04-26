@@ -8,7 +8,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 
 function SkeletonPlayerRow(): React.ReactNode {
   return (
-    <View className="flex-row items-center gap-3 px-4 py-[14px] bg-white dark:bg-dark-surface border-b border-border dark:border-border-strong">
+    <View className="flex-row items-center gap-3 px-4 py-[14px] bg-surface border-b border-strong">
       <LoadingSkeleton width={48} height={48} borderRadius={24} />
       <View className="flex-1 gap-[6px]">
         <LoadingSkeleton width={140} height={14} borderRadius={6} />

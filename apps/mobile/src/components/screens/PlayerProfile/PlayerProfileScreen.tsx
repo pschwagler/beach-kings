@@ -120,7 +120,7 @@ export default function PlayerProfileScreen({
   return (
     <SafeAreaView
       testID="player-profile-screen"
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Player" showBack rightAction={rightAction} />
@@ -196,9 +196,9 @@ function ActionSheet({
       className="absolute inset-0 bg-black/50 justify-end"
     >
       <View className="mx-sm mb-[34px]">
-        <View className="bg-white dark:bg-elevated rounded-[14px] overflow-hidden mb-sm">
-          <View className="items-center px-lg py-md border-b border-border dark:border-border-strong">
-            <Text className="text-sm font-bold text-text-default dark:text-content-primary">
+        <View className="bg-elevated rounded-[14px] overflow-hidden mb-sm">
+          <View className="items-center px-lg py-md border-b border-strong">
+            <Text className="text-sm font-bold text-default">
               {playerName}
             </Text>
           </View>
@@ -207,7 +207,7 @@ function ActionSheet({
             testID="action-sheet-block"
             onPress={onBlock}
             accessibilityRole="button"
-            className="flex-row items-center justify-center gap-sm px-lg min-h-[56px] border-b border-border dark:border-border-strong active:opacity-70"
+            className="flex-row items-center justify-center gap-sm px-lg min-h-[56px] border-b border-strong active:opacity-70"
           >
             <Text className="text-[17px] text-blue-500">Block User</Text>
           </Pressable>
@@ -226,7 +226,7 @@ function ActionSheet({
           testID="action-sheet-cancel"
           onPress={onCancel}
           accessibilityRole="button"
-          className="bg-white dark:bg-elevated rounded-[14px] min-h-[56px] items-center justify-center active:opacity-70"
+          className="bg-elevated rounded-[14px] min-h-[56px] items-center justify-center active:opacity-70"
         >
           <Text className="text-[17px] font-semibold text-blue-500">Cancel</Text>
         </Pressable>

@@ -25,23 +25,21 @@ function StatCard({ value, label, hero = false, secondary = false, testID }: Sta
       testID={testID}
       className={`rounded-xl p-md items-center ${
         hero
-          ? 'bg-brand-teal/10 dark:bg-brand-teal/20 col-span-2 py-lg'
-          : secondary
-          ? 'bg-bg-card dark:bg-elevated-2'
-          : 'bg-bg-card dark:bg-elevated-2'
+          ? 'bg-brand-teal/10 col-span-2 py-lg'
+          : 'bg-page'
       }`}
       style={hero ? { flex: 1 } : { width: '48%' }}
     >
       <Text
-        className={`font-bold text-navy dark:text-content-primary ${
-          hero ? 'text-[28px]' : secondary ? 'text-base text-text-muted dark:text-text-tertiary' : 'text-[22px]'
+        className={`font-bold text-default ${
+          hero ? 'text-[28px]' : secondary ? 'text-base text-muted' : 'text-[22px]'
         }`}
       >
         {value}
       </Text>
       <Text
         className={`text-[11px] uppercase tracking-wider mt-[3px] ${
-          secondary ? 'text-text-disabled dark:text-text-disabled' : 'text-text-muted dark:text-text-tertiary'
+          secondary ? 'text-tertiary' : 'text-muted'
         }`}
       >
         {label}
@@ -62,9 +60,9 @@ export default function PlayerStatsGrid({ player }: PlayerStatsGridProps): React
   return (
     <View
       testID="player-stats-grid"
-      className="bg-white dark:bg-elevated px-lg pt-md pb-lg mt-sm"
+      className="bg-elevated px-lg pt-md pb-lg mt-sm"
     >
-      <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-md">
+      <Text className="text-[15px] font-bold text-default mb-md">
         Stats
       </Text>
 

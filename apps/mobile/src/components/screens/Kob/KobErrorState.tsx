@@ -45,15 +45,15 @@ export default function KobErrorState({
       testID="kob-error-state"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <View className="w-16 h-16 rounded-full bg-red-50 dark:bg-error-bg items-center justify-center mb-5">
+      <View className="w-16 h-16 rounded-full bg-danger-tint items-center justify-center mb-5">
         <AlertIcon />
       </View>
 
-      <Text className="text-[18px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+      <Text className="text-[18px] font-bold text-default mb-2 text-center">
         Could Not Load Tournament
       </Text>
 
-      <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center leading-[1.5] mb-8">
+      <Text className="text-[14px] text-muted text-center leading-[1.5] mb-8">
         Something went wrong while loading tournament data. Check your connection
         and try again.
       </Text>
@@ -63,7 +63,7 @@ export default function KobErrorState({
         onPress={handleRetry}
         accessibilityRole="button"
         accessibilityLabel="Try Again"
-        className="bg-accent dark:bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
+        className="bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
       >
         <Text className="text-white font-bold text-[15px]">Try Again</Text>
       </Pressable>

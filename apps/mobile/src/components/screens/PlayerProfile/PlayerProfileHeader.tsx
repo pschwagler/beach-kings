@@ -35,7 +35,7 @@ export default function PlayerProfileHeader({
   return (
     <View
       testID="player-profile-header"
-      className="bg-white dark:bg-elevated px-lg pt-xl pb-lg items-center border-b border-border dark:border-border-strong"
+      className="bg-elevated px-lg pt-xl pb-lg items-center border-b border-strong"
     >
       {/* Avatar */}
       <View
@@ -50,7 +50,7 @@ export default function PlayerProfileHeader({
       {/* Name */}
       <Text
         testID="player-profile-name"
-        className="text-[22px] font-bold text-text-default dark:text-content-primary"
+        className="text-[22px] font-bold text-default"
       >
         {displayName}
       </Text>
@@ -58,12 +58,12 @@ export default function PlayerProfileHeader({
       {/* Meta row: location + level badge */}
       <View className="flex-row items-center gap-sm mt-xs">
         {location.length > 0 && (
-          <Text className="text-sm text-text-muted dark:text-text-tertiary">
+          <Text className="text-sm text-muted">
             {location}
           </Text>
         )}
         {location.length > 0 && level != null && (
-          <Text className="text-text-muted dark:text-text-tertiary">--</Text>
+          <Text className="text-muted">--</Text>
         )}
         {level != null && (
           <View className="bg-brand-teal/10 px-sm py-[3px] rounded-xl">
@@ -84,9 +84,9 @@ export default function PlayerProfileHeader({
           onPress={onMessage}
           accessibilityRole="button"
           accessibilityLabel={`Send message to ${displayName}`}
-          className="px-xl py-sm rounded-xl border-[1.5px] border-navy dark:border-content-primary min-h-touch items-center justify-center active:opacity-70"
+          className="px-xl py-sm rounded-xl border-[1.5px] border-default min-h-touch items-center justify-center active:opacity-70"
         >
-          <Text className="text-sm font-semibold text-navy dark:text-content-primary">
+          <Text className="text-sm font-semibold text-default">
             Message
           </Text>
         </Pressable>
@@ -125,8 +125,8 @@ function FriendButton({
       disabled={isDisabled}
       className={`px-xl py-sm rounded-xl min-h-touch items-center justify-center active:opacity-70 ${
         isFriends || isPending
-          ? 'bg-navy/20 dark:bg-content-primary/20'
-          : 'bg-navy dark:bg-content-primary'
+          ? 'bg-default/20'
+          : 'bg-default'
       }`}
     >
       {isLoading ? (
@@ -135,8 +135,8 @@ function FriendButton({
         <Text
           className={`text-sm font-semibold ${
             isFriends || isPending
-              ? 'text-navy dark:text-content-primary'
-              : 'text-white'
+              ? 'text-default'
+              : 'text-inverse'
           }`}
         >
           {label}

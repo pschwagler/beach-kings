@@ -14,7 +14,7 @@ export default function PlayerProfileSkeleton(): React.ReactNode {
       scrollEnabled={false}
     >
       {/* Header */}
-      <View className="bg-white dark:bg-elevated p-lg pb-xl items-center border-b border-border dark:border-border-strong">
+      <View className="bg-elevated p-lg pb-xl items-center border-b border-strong">
         <LoadingSkeleton width={88} height={88} borderRadius={44} className="mb-sm" />
         <LoadingSkeleton width={160} height={22} borderRadius={6} className="mb-xs" />
         <LoadingSkeleton width={120} height={16} borderRadius={4} className="mb-md" />
@@ -25,7 +25,7 @@ export default function PlayerProfileSkeleton(): React.ReactNode {
       </View>
 
       {/* Mutual friends */}
-      <View className="bg-white dark:bg-elevated p-lg border-b border-border dark:border-border-strong">
+      <View className="bg-elevated p-lg border-b border-strong">
         <LoadingSkeleton width={120} height={16} borderRadius={4} className="mb-md" />
         <View className="flex-row gap-lg">
           {[1, 2, 3].map((i) => (
@@ -38,7 +38,7 @@ export default function PlayerProfileSkeleton(): React.ReactNode {
       </View>
 
       {/* Stats */}
-      <View className="bg-white dark:bg-elevated p-lg mt-sm">
+      <View className="bg-elevated p-lg mt-sm">
         <LoadingSkeleton width={80} height={16} borderRadius={4} className="mb-md" />
         <View className="flex-row flex-wrap gap-sm">
           {[1, 2, 3, 4, 5].map((i) => (

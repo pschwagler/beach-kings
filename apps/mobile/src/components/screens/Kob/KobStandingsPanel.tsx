@@ -37,43 +37,43 @@ const COL_WIDTHS = {
 
 function TableHeader(): React.ReactNode {
   return (
-    <View className="flex-row items-center px-4 py-2 bg-gray-50 dark:bg-base border-b border-border dark:border-border-strong">
+    <View className="flex-row items-center px-4 py-2 bg-page border-b border-strong">
       <Text
         style={{ width: COL_WIDTHS.rank }}
-        className="text-[12px] font-bold text-text-muted dark:text-content-tertiary text-center"
+        className="text-[12px] font-bold text-muted text-center"
       >
         #
       </Text>
-      <Text className="text-[12px] font-bold text-text-muted dark:text-content-tertiary flex-1">
+      <Text className="text-[12px] font-bold text-muted flex-1">
         Player
       </Text>
       <Text
         style={{ width: COL_WIDTHS.w }}
-        className="text-[12px] font-bold text-text-muted dark:text-content-tertiary text-center"
+        className="text-[12px] font-bold text-muted text-center"
       >
         W
       </Text>
       <Text
         style={{ width: COL_WIDTHS.l }}
-        className="text-[12px] font-bold text-text-muted dark:text-content-tertiary text-center"
+        className="text-[12px] font-bold text-muted text-center"
       >
         L
       </Text>
       <Text
         style={{ width: COL_WIDTHS.pf }}
-        className="text-[12px] font-bold text-text-muted dark:text-content-tertiary text-center"
+        className="text-[12px] font-bold text-muted text-center"
       >
         PF
       </Text>
       <Text
         style={{ width: COL_WIDTHS.pa }}
-        className="text-[12px] font-bold text-text-muted dark:text-content-tertiary text-center"
+        className="text-[12px] font-bold text-muted text-center"
       >
         PA
       </Text>
       <Text
         style={{ width: COL_WIDTHS.diff }}
-        className="text-[12px] font-bold text-text-muted dark:text-content-tertiary text-center"
+        className="text-[12px] font-bold text-muted text-center"
       >
         +/-
       </Text>
@@ -95,10 +95,10 @@ function StandingRow({
   return (
     <View
       testID={`kob-standing-row-${standing.player_id}`}
-      className={`flex-row items-center px-4 py-3 border-b border-border dark:border-border-strong ${
+      className={`flex-row items-center px-4 py-3 border-b border-strong ${
         isCurrentUser
-          ? 'bg-yellow-50 dark:bg-yellow-900/10'
-          : 'bg-white dark:bg-dark-surface'
+          ? 'bg-warning-tint'
+          : 'bg-surface'
       }`}
       style={
         isCurrentUser
@@ -111,7 +111,7 @@ function StandingRow({
         {isFirst ? (
           <Text className="text-[16px]">🏆</Text>
         ) : (
-          <Text className="text-[13px] font-semibold text-text-muted dark:text-content-secondary">
+          <Text className="text-[13px] font-semibold text-muted">
             {standing.rank}
           </Text>
         )}
@@ -121,8 +121,8 @@ function StandingRow({
       <Text
         className={`flex-1 text-[13px] ${
           isCurrentUser
-            ? 'font-bold text-text-default dark:text-content-primary'
-            : 'font-medium text-text-default dark:text-content-primary'
+            ? 'font-bold text-default'
+            : 'font-medium text-default'
         }`}
         numberOfLines={1}
       >
@@ -132,7 +132,7 @@ function StandingRow({
       {/* W */}
       <Text
         style={{ width: COL_WIDTHS.w }}
-        className="text-[13px] font-semibold text-text-default dark:text-content-primary text-center"
+        className="text-[13px] font-semibold text-default text-center"
       >
         {standing.wins}
       </Text>
@@ -140,7 +140,7 @@ function StandingRow({
       {/* L */}
       <Text
         style={{ width: COL_WIDTHS.l }}
-        className="text-[13px] text-text-muted dark:text-content-secondary text-center"
+        className="text-[13px] text-muted text-center"
       >
         {standing.losses}
       </Text>
@@ -148,7 +148,7 @@ function StandingRow({
       {/* PF */}
       <Text
         style={{ width: COL_WIDTHS.pf }}
-        className="text-[13px] text-text-default dark:text-content-primary text-center"
+        className="text-[13px] text-default text-center"
       >
         {standing.points_for}
       </Text>
@@ -156,7 +156,7 @@ function StandingRow({
       {/* PA */}
       <Text
         style={{ width: COL_WIDTHS.pa }}
-        className="text-[13px] text-text-muted dark:text-content-secondary text-center"
+        className="text-[13px] text-muted text-center"
       >
         {standing.points_against}
       </Text>
@@ -166,10 +166,10 @@ function StandingRow({
         style={{ width: COL_WIDTHS.diff }}
         className={`text-[13px] font-semibold text-center ${
           diffPositive
-            ? 'text-green-600 dark:text-green-400'
+            ? 'text-success'
             : diffNegative
-              ? 'text-red-500 dark:text-red-400'
-              : 'text-text-muted dark:text-content-tertiary'
+              ? 'text-danger'
+              : 'text-muted'
         }`}
       >
         {(standing.point_diff ?? 0) > 0 ? '+' : ''}
@@ -201,10 +201,10 @@ export default function KobStandingsPanel({
         testID="kob-standings-empty"
         className="flex-1 items-center justify-center py-16 px-8"
       >
-        <Text className="text-[16px] font-semibold text-text-default dark:text-content-primary mb-2 text-center">
+        <Text className="text-[16px] font-semibold text-default mb-2 text-center">
           Standings Not Available
         </Text>
-        <Text className="text-[14px] text-text-muted dark:text-content-secondary text-center">
+        <Text className="text-[14px] text-muted text-center">
           Standings will appear here once the tournament begins.
         </Text>
       </View>
@@ -228,7 +228,7 @@ export default function KobStandingsPanel({
 
       {/* Tiebreaker note */}
       <View className="px-4 pt-3 pb-2">
-        <Text className="text-[11px] text-text-muted dark:text-content-tertiary italic">
+        <Text className="text-[11px] text-muted italic">
           Tiebreakers: Head-to-head record, then point differential (+/-), then
           points for (PF).
         </Text>

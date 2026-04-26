@@ -9,7 +9,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 
 function SkeletonMatchCard(): React.ReactNode {
   return (
-    <View className="bg-white dark:bg-dark-surface rounded-xl p-4 shadow-sm dark:shadow-none dark:border dark:border-border-subtle mb-3 mx-4">
+    <View className="bg-surface rounded-xl p-4 shadow-sm dark:shadow-none dark:border border-divider mb-3 mx-4">
       {/* Court label */}
       <LoadingSkeleton width={64} height={13} borderRadius={6} className="mb-3" />
       {/* Teams row */}
@@ -28,14 +28,14 @@ export default function KobSkeleton(): React.ReactNode {
   return (
     <View testID="kob-loading">
       {/* Tournament header skeleton */}
-      <View className="px-4 py-4 border-b border-border dark:border-border-strong">
+      <View className="px-4 py-4 border-b border-strong">
         <LoadingSkeleton width="60%" height={22} borderRadius={6} className="mb-2" />
         <LoadingSkeleton width={80} height={20} borderRadius={10} className="mb-2" />
         <LoadingSkeleton width={120} height={14} borderRadius={6} />
       </View>
 
       {/* Tab bar skeleton */}
-      <View className="flex-row gap-4 px-4 py-3 border-b border-border dark:border-border-strong">
+      <View className="flex-row gap-4 px-4 py-3 border-b border-strong">
         <LoadingSkeleton width={80} height={16} borderRadius={6} />
         <LoadingSkeleton width={72} height={16} borderRadius={6} />
         <LoadingSkeleton width={88} height={16} borderRadius={6} />

@@ -51,17 +51,17 @@ function TournamentHeader({
       : 'Upcoming';
 
   const statusClass = isActive
-    ? 'bg-teal-50 dark:bg-info-bg border-teal-200 dark:border-brand-teal text-primary dark:text-brand-teal'
+    ? 'bg-info-tint border-brand-teal text-brand-teal'
     : isCompleted
-      ? 'bg-gray-100 dark:bg-dark-surface border-gray-200 dark:border-border-strong text-text-muted dark:text-content-secondary'
-      : 'bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-700 text-yellow-700 dark:text-yellow-400';
+      ? 'bg-elevated border-strong text-muted'
+      : 'bg-warning-tint border-warning text-warning';
 
   return (
     <View
       testID="kob-tournament-header"
-      className="px-4 py-4 border-b border-border dark:border-border-strong"
+      className="px-4 py-4 border-b border-strong"
     >
-      <Text className="text-[20px] font-bold text-text-default dark:text-content-primary mb-2">
+      <Text className="text-[20px] font-bold text-default mb-2">
         {name}
       </Text>
 
@@ -75,7 +75,7 @@ function TournamentHeader({
         </View>
 
         {currentRound != null && maxRounds != null && isActive && (
-          <Text className="text-[13px] text-text-muted dark:text-content-secondary">
+          <Text className="text-[13px] text-muted">
             Round {currentRound} of {maxRounds}
           </Text>
         )}
@@ -120,7 +120,7 @@ export default function KobScreen({
   if (isLoading && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="kob-screen"
       >
@@ -134,7 +134,7 @@ export default function KobScreen({
   if (error != null || tournament == null) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="kob-screen"
       >
@@ -164,7 +164,7 @@ export default function KobScreen({
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="kob-screen"
     >
