@@ -1028,7 +1028,7 @@ class TestDeleteSession:
 
 
 class TestGetSessionDetail:
-    """GET /api/sessions/{session_id} — session roster with game counts."""
+    """GET /api/sessions/{session_id} — full session detail with roster and games."""
 
     _ROSTER_PLAYER = {
         "entry_id": _PLAYER_ID,
@@ -1039,14 +1039,25 @@ class TestGetSessionDetail:
         "is_placeholder": False,
     }
 
-    def test_returns_session_detail(self, monkeypatch):
-        """Happy path: participant gets full session detail with roster."""
-        from sqlalchemy.ext.asyncio import AsyncSession
+    _GAME_ROW = {
+        "id": 201,
+        "team1_player1_name": "Test Player",
+        "team1_player2_name": "Partner P.",
+        "team2_player1_name": "Opp A.",
+        "team2_player2_name": "Opp B.",
+        "team1_score": 21,
+        "team2_score": 14,
+        "winner": 1,
+        "is_ranked": True,
+    }
 
-        client, headers = _make_user_client(monkeypatch)
+    def _patch_shared(self, monkeypatch, session_name="Test Session", games=None):
+        """Patch data_service methods shared by happy-path tests."""
+        if games is None:
+            games = [self._GAME_ROW]
 
         async def fake_get_session(session, session_id):
-            return _ACTIVE_SESSION
+            return {**_ACTIVE_SESSION, "name": session_name}
 
         async def fake_can_add(session, session_id, sess, user_id):
             return True
@@ -1054,28 +1065,11 @@ class TestGetSessionDetail:
         async def fake_get_roster(session, session_id):
             return [self._ROSTER_PLAYER]
 
-        call_count = [0]
+        async def fake_get_games(session, session_id):
+            return games
 
-        async def fake_execute(self_session, query, *args, **kwargs):
-            """Return session-type/court on first call, league_id on second."""
-            call_count[0] += 1
-
-            class RowOne:
-                session_type = "pickup"
-                court_id = None
-                court_name = None
-
-            class ResultFirst:
-                def one_or_none(self_r):
-                    return RowOne()
-
-            class ResultSecond:
-                def scalar_one_or_none(self_r):
-                    return None  # no league
-
-            if call_count[0] == 1:
-                return ResultFirst()
-            return ResultSecond()
+        async def fake_get_player(session, user_id):
+            return _FAKE_PLAYER
 
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(
@@ -1087,7 +1081,63 @@ class TestGetSessionDetail:
             fake_get_roster,
             raising=True,
         )
+        monkeypatch.setattr(
+            data_service, "get_session_matches", fake_get_games, raising=True
+        )
+        monkeypatch.setattr(
+            data_service, "get_player_by_user_id", fake_get_player, raising=True
+        )
+
+    def _patch_execute_league(self, monkeypatch, league_id=None, league_name=None):
+        """Patch AsyncSession.execute for session-type/court + league queries."""
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        call_count = [0]
+
+        async def fake_execute(self_session, query, *args, **kwargs):
+            call_count[0] += 1
+
+            class RowOne:
+                session_type = "pickup"
+                court_id = None
+                court_name = None
+                date = "3/19/2026"
+                start_time = None
+                max_players = None
+                notes = None
+
+            class ResultFirst:
+                def one_or_none(self_r):
+                    return RowOne()
+
+            class ResultLeague:
+                def scalar_one_or_none(self_r):
+                    return league_id
+
+                def one_or_none(self_r):
+                    # Used by the enriched endpoint to get league_id + league_name
+                    if league_id is None:
+                        return None
+
+                    class Row:
+                        pass
+
+                    row = Row()
+                    row.league_id = league_id
+                    row.league_name = league_name
+                    return row
+
+            if call_count[0] == 1:
+                return ResultFirst()
+            return ResultLeague()
+
         monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
+
+    def test_returns_session_detail(self, monkeypatch):
+        """Happy path: participant gets full session detail with roster and games."""
+        self._patch_shared(monkeypatch)
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
 
         response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
         assert response.status_code == 200
@@ -1099,6 +1149,152 @@ class TestGetSessionDetail:
         assert len(data["players"]) == 1
         assert data["players"][0]["player_id"] == _PLAYER_ID
         assert data["players"][0]["game_count"] == 3
+
+    def test_response_includes_games_list(self, monkeypatch):
+        """Response includes a 'games' list with game detail."""
+        self._patch_shared(monkeypatch)
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "games" in data
+        assert isinstance(data["games"], list)
+        assert len(data["games"]) == 1
+        game = data["games"][0]
+        assert game["id"] == 201
+        assert game["game_number"] == 1
+        assert game["team1_player1_name"] == "Test Player"
+        assert game["team1_score"] == 21
+        assert game["team2_score"] == 14
+        assert game["winner"] == 1
+
+    def test_games_list_empty_when_no_matches(self, monkeypatch):
+        """Response includes an empty 'games' list when session has no matches."""
+        self._patch_shared(monkeypatch, games=[])
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["games"] == []
+
+    def test_response_includes_session_metadata(self, monkeypatch):
+        """Response includes date, start_time, max_players, notes fields."""
+        self._patch_shared(monkeypatch)
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "date" in data
+        assert "start_time" in data
+        assert "max_players" in data
+        assert "notes" in data
+
+    def test_response_includes_league_name(self, monkeypatch):
+        """Response includes league_name when session belongs to a league."""
+        self._patch_shared(monkeypatch)
+        self._patch_execute_league(monkeypatch, league_id=5, league_name="QBK Open Men")
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["league_id"] == 5
+        assert data["league_name"] == "QBK Open Men"
+
+    def test_league_name_null_for_pickup_session(self, monkeypatch):
+        """Response has null league_name when session has no league."""
+        self._patch_shared(monkeypatch)
+        self._patch_execute_league(monkeypatch, league_id=None, league_name=None)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["league_name"] is None
+
+    def test_session_number_parsed_from_name(self, monkeypatch):
+        """session_number is 1 for first session of the day (plain date name)."""
+        self._patch_shared(monkeypatch, session_name="3/19/2026")
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["session_number"] == 1
+
+    def test_session_number_parsed_from_name_second(self, monkeypatch):
+        """session_number is 2 for second session of the day."""
+        self._patch_shared(monkeypatch, session_name="3/19/2026 Session #2")
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["session_number"] == 2
+
+    def test_user_stats_computed_from_games(self, monkeypatch):
+        """user_wins, user_losses, user_rating_change computed from matches."""
+        # User player_id = _PLAYER_ID (10). Team 1 wins this game.
+        # Player 10 is on team1 → win.
+        games = [
+            {
+                **self._GAME_ROW,
+                "id": 201,
+                "team1_player1_id": _PLAYER_ID,
+                "team1_player2_id": 11,
+                "team2_player1_id": 12,
+                "team2_player2_id": 13,
+                "winner": 1,  # team1 wins → user wins
+            }
+        ]
+        self._patch_shared(monkeypatch, games=games)
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_wins"] == 1
+        assert data["user_losses"] == 0
+
+    def test_user_stats_loss_counted(self, monkeypatch):
+        """user_losses incremented when user is on losing team."""
+        games = [
+            {
+                **self._GAME_ROW,
+                "id": 201,
+                "team1_player1_id": _PLAYER_ID,
+                "team1_player2_id": 11,
+                "team2_player1_id": 12,
+                "team2_player2_id": 13,
+                "winner": 2,  # team2 wins → user on team1 loses
+            }
+        ]
+        self._patch_shared(monkeypatch, games=games)
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_wins"] == 0
+        assert data["user_losses"] == 1
+
+    def test_user_stats_zero_when_no_games(self, monkeypatch):
+        """user_wins and user_losses are 0 when session has no games."""
+        self._patch_shared(monkeypatch, games=[])
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_wins"] == 0
+        assert data["user_losses"] == 0
 
     def test_non_participant_returns_403(self, monkeypatch):
         """Returns 403 when caller is not a session participant."""

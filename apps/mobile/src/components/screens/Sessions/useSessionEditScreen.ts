@@ -8,11 +8,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
-import { mockApi } from '@/lib/mockApi';
 import { hapticMedium } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
-import type { SessionType } from '@beach-kings/shared';
-import type { SessionDetail } from '@/lib/mockApi';
+import type { SessionDetail, SessionType } from '@beach-kings/shared';
 
 export interface UseSessionEditScreenResult {
   readonly session: SessionDetail | null;
@@ -40,12 +37,8 @@ export interface UseSessionEditScreenResult {
 export function useSessionEditScreen(sessionId: number): UseSessionEditScreenResult {
   const router = useRouter();
 
-  // TODO(backend): replace with real full-session-detail endpoint when it
-  // exists. The real api.getSessionById returns SessionDetailFull (roster only);
-  // this screen needs richer data (date, start_time, session_type, notes) until
-  // a dedicated GET /api/sessions/:id/detail endpoint is built.
   const { data: session, isLoading } = useApi<SessionDetail>(
-    () => mockApi.getSessionDetailMock(sessionId),
+    () => api.getSessionById(sessionId),
     [sessionId],
   );
 

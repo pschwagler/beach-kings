@@ -140,6 +140,77 @@ export interface SessionDetailFull {
   readonly players: readonly SessionPlayerEntry[];
 }
 
+// ---------------------------------------------------------------------------
+// Session detail types (used by the Session Detail / overview screen)
+// ---------------------------------------------------------------------------
+
+/**
+ * A player entry in a session's roster, as returned by the full session
+ * detail endpoint (GET /api/sessions/:id).
+ */
+export interface SessionPlayer {
+  readonly id: number;
+  readonly player_id: number | null;
+  readonly display_name: string;
+  readonly initials: string;
+  readonly is_placeholder: boolean;
+  /** Number of games played by this player in this session. */
+  readonly game_count: number;
+}
+
+/**
+ * A single game (match) within a session, as returned by the full session
+ * detail endpoint (GET /api/sessions/:id).
+ */
+export interface SessionGame {
+  readonly id: number;
+  /** 1-based sequential number within the session. */
+  readonly game_number: number;
+  readonly team1_player1_name: string;
+  readonly team1_player2_name: string;
+  readonly team2_player1_name: string;
+  readonly team2_player2_name: string;
+  readonly team1_score: number | null;
+  readonly team2_score: number | null;
+  /** 1 = team1 won, 2 = team2 won, null = pending/unscored. */
+  readonly winner: 1 | 2 | null;
+  /** Net ELO change for the calling user in this game; null until submitted. */
+  readonly rating_change: number | null;
+}
+
+/**
+ * Full session detail (active or submitted) returned by GET /api/sessions/:id.
+ *
+ * Used by the Session Detail overview screen. Includes roster, games, and
+ * aggregate stats for the calling user.
+ *
+ * Status values are normalised to lowercase on the client:
+ *   'active'    — session is still in progress
+ *   'submitted' — session is locked/closed
+ */
+export interface SessionDetail {
+  readonly id: number;
+  readonly league_id: number | null;
+  readonly league_name: string | null;
+  readonly court_name: string | null;
+  readonly date: string;
+  readonly start_time: string | null;
+  /** 1-based sequential session number within the day. */
+  readonly session_number: number;
+  readonly status: 'active' | 'submitted';
+  readonly session_type: SessionType;
+  readonly max_players: number | null;
+  readonly notes: string | null;
+  readonly players: readonly SessionPlayer[];
+  readonly games: readonly SessionGame[];
+  /** Total wins for the calling user in this session. */
+  readonly user_wins: number;
+  /** Total losses for the calling user in this session. */
+  readonly user_losses: number;
+  /** Net ELO change for the calling user across the session; null until submitted. */
+  readonly user_rating_change: number | null;
+}
+
 export interface EloChange {
   elo_before: number;
   elo_after: number;

@@ -13,6 +13,7 @@ import type {
   GameCreatePayload,
   GameCreateResponse,
   SessionParticipant,
+  SessionDetail,
   SessionDetailFull,
   Location,
   Court,
@@ -605,14 +606,22 @@ export function createApiMethods(client: ApiClient) {
     },
 
     /**
-     * Fetch full session detail including the player roster with game counts.
-     * Used by the Manage Players (Session Roster) screen.
+     * Fetch full session detail including roster, games, and user stats.
+     *
+     * The backend normalises status to uppercase ('ACTIVE', 'SUBMITTED').
+     * The client normalises to lowercase to match the SessionDetail type and
+     * existing screen-component comparisons.
      *
      * Maps to GET /api/sessions/:id.
      */
-    async getSessionById(sessionId: number): Promise<SessionDetailFull> {
-      const response = await api.get<SessionDetailFull>(`/api/sessions/${sessionId}`);
-      return response.data;
+    async getSessionById(sessionId: number): Promise<SessionDetail> {
+      const response = await api.get<SessionDetail>(`/api/sessions/${sessionId}`);
+      const raw = response.data;
+      // Normalise status to lowercase to match the SessionDetail union type.
+      return {
+        ...raw,
+        status: (raw.status?.toLowerCase() ?? 'active') as SessionDetail['status'],
+      };
     },
 
     /**

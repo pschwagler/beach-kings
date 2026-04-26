@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import type { SessionGame } from '@/lib/mockApi';
+import type { SessionGame } from '@beach-kings/shared';
 
 interface Props {
   readonly game: SessionGame;

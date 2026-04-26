@@ -20,6 +20,7 @@ import type {
   KobMatch,
   KobStanding,
   LeagueSeason,
+  SessionDetail,
   SessionType,
 } from '@beach-kings/shared';
 
@@ -181,61 +182,9 @@ export interface LeaguePlayerStats {
   readonly is_self: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Session mock shapes
-// NOTE: These represent future backend endpoint responses.
-// ---------------------------------------------------------------------------
-
-export type SessionStatus = 'active' | 'submitted';
-// SessionType promoted to @beach-kings/shared (migration 046). Import from there.
-
-/** A player entry in a session's roster. */
-export interface SessionPlayer {
-  readonly id: number;
-  readonly player_id: number | null;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly is_placeholder: boolean;
-  /** number of games played in this session */
-  readonly game_count: number;
-}
-
-/** A single game/match within a session. */
-export interface SessionGame {
-  readonly id: number;
-  readonly game_number: number;
-  readonly team1_player1_name: string;
-  readonly team1_player2_name: string;
-  readonly team2_player1_name: string;
-  readonly team2_player2_name: string;
-  readonly team1_score: number | null;
-  readonly team2_score: number | null;
-  /** 1 = team1 won, 2 = team2 won, null = pending */
-  readonly winner: 1 | 2 | null;
-  /** null until submitted */
-  readonly rating_change: number | null;
-}
-
-/** A full session detail (active or submitted). */
-export interface SessionDetail {
-  readonly id: number;
-  readonly league_id: number | null;
-  readonly league_name: string | null;
-  readonly court_name: string | null;
-  readonly date: string;
-  readonly start_time: string | null;
-  readonly session_number: number;
-  readonly status: SessionStatus;
-  readonly session_type: SessionType;
-  readonly max_players: number | null;
-  readonly notes: string | null;
-  readonly players: readonly SessionPlayer[];
-  readonly games: readonly SessionGame[];
-  /** Aggregate stats for the current user within this session */
-  readonly user_wins: number;
-  readonly user_losses: number;
-  readonly user_rating_change: number | null;
-}
+// SessionStatus, SessionPlayer, SessionGame, SessionDetail promoted to
+// @beach-kings/shared (P2.8). Import from there:
+//   import type { SessionDetail, SessionPlayer, SessionGame } from '@beach-kings/shared';
 
 // SessionSummary type removed — its only consumer was the dead MOCK_SESSIONS
 // constant. The real `getSessions` method in packages/api-client/src/methods.ts
@@ -326,61 +275,8 @@ const MOCK_LEAGUE_PLAYER_STATS = (leagueId: number, playerId: number): LeaguePla
   is_self: playerId === 1,
 });
 
-// ---------------------------------------------------------------------------
-// Session mock data
-// ---------------------------------------------------------------------------
-
-// MOCK_SESSION_DETAIL is retained for getSessionDetailMock (session detail
-// screen with games/scores). The real getSessionById returns roster-only
-// (SessionDetailFull). A richer detail endpoint is tracked as TODO(backend).
-
-const MOCK_SESSION_PLAYERS: SessionPlayer[] = [
-  { id: 1, player_id: 1, display_name: 'You', initials: 'PS', is_placeholder: false, game_count: 5 },
-  { id: 2, player_id: 2, display_name: 'K. Fawwar', initials: 'KF', is_placeholder: false, game_count: 5 },
-  { id: 3, player_id: 3, display_name: 'A. Marthey', initials: 'AM', is_placeholder: false, game_count: 4 },
-  { id: 4, player_id: null, display_name: 'Player 4', initials: 'P4', is_placeholder: true, game_count: 3 },
-  { id: 5, player_id: 5, display_name: 'C. Gulla', initials: 'CG', is_placeholder: false, game_count: 2 },
-];
-
-const MOCK_SESSION_GAMES: SessionGame[] = [
-  {
-    id: 1001, game_number: 1,
-    team1_player1_name: 'You', team1_player2_name: 'K. Fawwar',
-    team2_player1_name: 'A. Marthey', team2_player2_name: 'C. Gulla',
-    team1_score: 21, team2_score: 16, winner: 1, rating_change: 4.2,
-  },
-  {
-    id: 1002, game_number: 2,
-    team1_player1_name: 'You', team1_player2_name: 'A. Marthey',
-    team2_player1_name: 'K. Fawwar', team2_player2_name: 'Player 4',
-    team1_score: 18, team2_score: 21, winner: 2, rating_change: -3.1,
-  },
-  {
-    id: 1003, game_number: 3,
-    team1_player1_name: 'K. Fawwar', team1_player2_name: 'C. Gulla',
-    team2_player1_name: 'A. Marthey', team2_player2_name: 'Player 4',
-    team1_score: null, team2_score: null, winner: null, rating_change: null,
-  },
-];
-
-const MOCK_SESSION_DETAIL: SessionDetail = {
-  id: 42,
-  league_id: 1,
-  league_name: 'QBK Open Men',
-  court_name: 'QBK Sports',
-  date: '2026-03-19',
-  start_time: '3:00 PM',
-  session_number: 3,
-  status: 'active',
-  session_type: 'league',
-  max_players: 16,
-  notes: null,
-  players: MOCK_SESSION_PLAYERS,
-  games: MOCK_SESSION_GAMES,
-  user_wins: 5,
-  user_losses: 2,
-  user_rating_change: 8.9,
-};
+// Session mock data removed — SessionDetail is now a real backend response.
+// See packages/api-client/src/methods.ts :: getSessionById().
 
 // ---------------------------------------------------------------------------
 // Tournaments (top-level, distinct from league/session tournaments)
@@ -855,20 +751,9 @@ export const mockApi = {
   // ---- Sessions — TODO(backend): session endpoints ----
 
   // getSessions removed — real `getSessions` exists in packages/api-client/src/methods.ts.
-  // getSessionById (session roster) removed — now a real backend call.
+  // getSessionById removed — now a real backend call returning SessionDetail.
+  // getSessionDetailMock removed — P2.8 wired getSessionById to the enriched endpoint.
   // See packages/api-client/src/methods.ts :: getSessionById().
-
-  /**
-   * Returns full session detail (including games, scores, user stats) by id.
-   * This is a RICHER mock than the real getSessionById (which returns roster
-   * only). Used by session detail and edit screens until a dedicated backend
-   * endpoint for full session detail is implemented.
-   *
-   * TODO(backend): GET /api/sessions/:id/detail (full session with games)
-   */
-  async getSessionDetailMock(id: number): Promise<SessionDetail> {
-    return Promise.resolve({ ...MOCK_SESSION_DETAIL, id });
-  },
 
   // addSessionPlayer, removeSessionPlayer removed — now real backend calls.
   // See packages/api-client/src/methods.ts :: inviteSessionPlayer(),

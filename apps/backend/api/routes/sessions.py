@@ -35,6 +35,7 @@ from backend.models.schemas import (
     DeleteSessionResponse,
     OpenSessionResponse,
     SessionDetailResponse,
+    SessionGameResponse,
     SessionListItemResponse,
     SessionMatchItemResponse,
     SessionParticipantItemResponse,
@@ -46,6 +47,87 @@ from backend.models.schemas import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+import re as _re
+
+
+def _parse_session_number(session_name: str) -> int:
+    """
+    Extract the session number from a session name.
+
+    Session names follow the convention:
+      - "M/D/YYYY"            → session #1 (first session of the day)
+      - "M/D/YYYY Session #N" → session #N
+
+    Returns 1 if no number suffix is found.
+    """
+    match = _re.search(r"Session #(\d+)", session_name)
+    return int(match.group(1)) if match else 1
+
+
+def _build_games_and_user_stats(
+    raw_games: list[dict],
+    player_id: int | None,
+) -> tuple[list[dict], int, int]:
+    """
+    Build the ordered games list and compute user wins/losses.
+
+    Games are numbered sequentially starting at 1 in insertion order
+    (oldest first — raw_games comes in reverse-id order from
+    get_session_matches, so we reverse it here).
+
+    Args:
+        raw_games: Raw match dicts from data_service.get_session_matches.
+        player_id: The calling user's player id (for win/loss counting).
+
+    Returns:
+        (games, user_wins, user_losses)
+    """
+    ordered = list(reversed(raw_games))
+    games: list[dict] = []
+    user_wins = 0
+    user_losses = 0
+
+    for idx, g in enumerate(ordered, start=1):
+        games.append(
+            {
+                "id": g["id"],
+                "game_number": idx,
+                "team1_player1_name": g.get("team1_player1_name") or "",
+                "team1_player2_name": g.get("team1_player2_name") or "",
+                "team2_player1_name": g.get("team2_player1_name") or "",
+                "team2_player2_name": g.get("team2_player2_name") or "",
+                "team1_score": g.get("team1_score"),
+                "team2_score": g.get("team2_score"),
+                "winner": g.get("winner"),
+                "rating_change": None,  # ELO per-game join deferred; nullable per spec
+            }
+        )
+
+        if player_id is None or g.get("winner") is None:
+            continue
+
+        on_team1 = player_id in (
+            g.get("team1_player1_id"),
+            g.get("team1_player2_id"),
+        )
+        on_team2 = player_id in (
+            g.get("team2_player1_id"),
+            g.get("team2_player2_id"),
+        )
+        winner = g["winner"]
+        if on_team1:
+            if winner == 1:
+                user_wins += 1
+            else:
+                user_losses += 1
+        elif on_team2:
+            if winner == 2:
+                user_wins += 1
+            else:
+                user_losses += 1
+
+    return games, user_wins, user_losses
 
 
 async def _resolve_session_context(
@@ -337,10 +419,11 @@ async def get_session_detail(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Get full session detail including roster with per-player game counts.
+    Get full session detail including roster, games, and user stats.
 
-    Returns session metadata and all participants enriched with game counts.
-    Only accessible to session participants and session creators.
+    Returns session metadata, all participants enriched with game counts,
+    the list of games played with scores, and aggregate stats for the
+    calling user. Only accessible to session participants and creators.
     """
     sess = await data_service.get_session(session, session_id)
     if not sess:
@@ -352,11 +435,15 @@ async def get_session_detail(
             status_code=403, detail="Only session participants can view session detail"
         )
 
-    # Fetch session-type and court in one query
+    # Fetch session-type, court, and extended metadata in one query
     sess_row = await session.execute(
         select(
             Session.session_type,
             Session.court_id,
+            Session.date,
+            Session.start_time,
+            Session.max_players,
+            Session.notes,
             Court.name.label("court_name"),
         )
         .outerjoin(Court, Session.court_id == Court.id)
@@ -366,20 +453,39 @@ async def get_session_detail(
     session_type: str | None = sess_extra.session_type if sess_extra else None
     court_id: int | None = sess_extra.court_id if sess_extra else None
     court_name: str | None = sess_extra.court_name if sess_extra else None
+    session_date: str | None = sess_extra.date if sess_extra else None
+    start_time: str | None = sess_extra.start_time if sess_extra else None
+    max_players: int | None = sess_extra.max_players if sess_extra else None
+    notes: str | None = sess_extra.notes if sess_extra else None
 
-    # Resolve league_id through the session's season
+    # Resolve league_id and league_name through the session's season
     league_id: int | None = None
+    league_name: str | None = None
     season_id = sess.get("season_id")
     if season_id is not None:
         league_result = await session.execute(
-            select(Season.league_id).where(Season.id == season_id)
+            select(Season.league_id, League.name.label("league_name"))
+            .outerjoin(League, Season.league_id == League.id)
+            .where(Season.id == season_id)
         )
-        league_id = league_result.scalar_one_or_none()
+        league_row = league_result.one_or_none()
+        if league_row is not None:
+            league_id = league_row.league_id
+            league_name = league_row.league_name
+
+    # Parse session number from the session name (e.g. "3/19/2026 Session #3" → 3)
+    session_number = _parse_session_number(sess.get("name") or "")
 
     # Fetch participants enriched with game counts
     players = await data_service.get_session_roster_with_game_counts(
         session, session_id
     )
+
+    # Fetch matches and compute per-game numbers + user stats
+    raw_games = await data_service.get_session_matches(session, session_id)
+    player = await data_service.get_player_by_user_id(session, current_user["id"])
+    player_id: int | None = player.get("id") if player else None
+    games, user_wins, user_losses = _build_games_and_user_stats(raw_games, player_id)
 
     return {
         "id": sess["id"],
@@ -388,7 +494,17 @@ async def get_session_detail(
         "session_type": session_type,
         "status": sess.get("status") or "ACTIVE",
         "league_id": league_id,
+        "league_name": league_name,
+        "date": session_date,
+        "start_time": start_time,
+        "session_number": session_number,
+        "max_players": max_players,
+        "notes": notes,
         "players": players,
+        "games": games,
+        "user_wins": user_wins,
+        "user_losses": user_losses,
+        "user_rating_change": None,  # ELO history not yet joined; nullable per spec
     }
 
 

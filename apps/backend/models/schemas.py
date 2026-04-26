@@ -1217,8 +1217,25 @@ class SessionRosterPlayerResponse(BaseModel):
     is_placeholder: bool = False
 
 
+class SessionGameResponse(BaseModel):
+    """A single game/match within a session, returned as part of session detail."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    game_number: int
+    team1_player1_name: str = ""
+    team1_player2_name: str = ""
+    team2_player1_name: str = ""
+    team2_player2_name: str = ""
+    team1_score: Optional[int] = None
+    team2_score: Optional[int] = None
+    winner: Optional[int] = None
+    rating_change: Optional[float] = None
+
+
 class SessionRosterDetailResponse(BaseModel):
-    """Full session detail including roster, returned by GET /api/sessions/:id."""
+    """Full session detail including roster and games, returned by GET /api/sessions/:id."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -1228,7 +1245,17 @@ class SessionRosterDetailResponse(BaseModel):
     session_type: Optional[str] = None
     status: str
     league_id: Optional[int] = None
+    league_name: Optional[str] = None
+    date: Optional[str] = None
+    start_time: Optional[str] = None
+    session_number: int = 1
+    max_players: Optional[int] = None
+    notes: Optional[str] = None
     players: List[SessionRosterPlayerResponse]
+    games: List[SessionGameResponse] = []
+    user_wins: int = 0
+    user_losses: int = 0
+    user_rating_change: Optional[float] = None
 
 
 # Weekly Schedule schemas

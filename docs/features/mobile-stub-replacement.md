@@ -211,10 +211,10 @@ Each of these screens currently renders mock data; the feature *works* but value
 
 ### Session aggregated views
 
-- [ ] **P2.8 — Session Detail + Roster**
-  - Files: `useSessionDetailScreen.ts`, `useSessionRosterScreen.ts`
-  - Endpoint: `GET /api/sessions/:id` (full detail including roster and games played)
-  - Reuse check: a session-detail endpoint likely exists (web client has session management). Confirm shape before adding `getSessionById`.
+- [x] **P2.8 — Session Detail + Roster**
+  - Files: `useSessionDetailScreen.ts`, `useSessionRosterScreen.ts`, `useSessionEditScreen.ts`
+  - Endpoint: `GET /api/sessions/:id` (enriched with league_name, session_number, games, user W/L/rating)
+  - Also updated: `SessionDetailScreen.tsx`, `SessionGameCard.tsx`, `SessionPlayerChip.tsx`
 
 - [x] **P2.9 — Add Player to Session**
   - File: `useSessionRosterScreen.ts` (also wire the currently empty `onAddPlayer` callback)
@@ -363,6 +363,8 @@ _Update this section as tasks complete._
   - **P1.3+P1.4** Join Requests: `POST /api/leagues/:id/join-request`, approve/deny endpoints, `requestToJoinLeague`/`approveJoinRequest`/`rejectJoinRequest` api-client methods, `useLeagueInfoTab` rewired.
   - **P1.9+P2.9** Session Roster: `GET /api/sessions/:id`, `DELETE /api/sessions/:id/players/:playerId`, `inviteSessionPlayer` (stub), `getSessionById`/`removeSessionPlayer`/`inviteSessionPlayer` api-client methods, `useSessionRosterScreen` rewired.
   - **P1.7** League Signups: `GET /api/leagues/:id/signups` (joins through active season), `joinSignup`/`dropSignup`/`getLeagueSignups` api-client methods, `useLeagueSignupsTab` rewired, mock stubs removed. No cap/waitlist in scope.
+
+- 2026-04-26: **P2.8 Session Detail + Roster** complete. Enriched `GET /api/sessions/:id` to return `league_name`, `session_number` (parsed from `Session.name`), `games` list (`SessionGameResponse`), `user_wins`, `user_losses`, `user_rating_change`. New Pydantic model `SessionGameResponse` + extended `SessionRosterDetailResponse`. New shared types `SessionPlayer`, `SessionGame`, `SessionDetail` promoted to `packages/shared/src/types/session.ts`. `api-client.getSessionById` now returns `SessionDetail` (status normalised to lowercase). `useSessionDetailScreen` switched from `mockApi.getSessionDetailMock` → `api.getSessionById`. `useSessionRosterScreen` and `useSessionEditScreen` migrated to `SessionDetail`. `SessionDetailScreen`, `SessionGameCard`, `SessionPlayerChip` import types from `@beach-kings/shared`. Mock types/data/function deleted from `mockApi.ts`. Pre-existing test failures fixed: `home-scrollers` (wrong route assertion), `AuthContext` (missing `getCurrentUserPlayer` mock in email-login test, route guard tests updated to reflect `isNewUser` guard logic). `edit.test.tsx` updated to mock `api.getSessionById`. Full mobile suite: 1321 pass, 0 pre-existing regressions. 45 backend session tests pass.
 
 - 2026-04-25: **P1.10 Change Password** complete. Full delivery:
   - **Backend** (branch `feat/ps/p1-change-password`): `POST /api/auth/change-password` — bcrypt verify, 8-char min, 400 for OAuth accounts, revokes all refresh tokens on success, sets `password_changed_at` (nullable TIMESTAMPTZ). Alembic migration `040_add_password_changed_at` with `_column_exists` idempotency guard. 20 tests (happy path, bad current password, too short, OAuth block, unauth).

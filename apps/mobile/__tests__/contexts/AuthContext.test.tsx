@@ -607,8 +607,8 @@ describe('AuthProvider — route guard', () => {
       accessToken: 'valid',
       refreshToken: 'ref',
     });
-    mockGetMe.mockResolvedValue(mockMeResponse);
     mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerIncomplete);
+    mockGetStoredTokens.mockResolvedValue({ accessToken: null, refreshToken: null });
     mockSegments.push('(tabs)');
 
     const { getByTestId } = render(
@@ -683,24 +683,25 @@ describe('AuthProvider — route guard', () => {
     expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
-  it('stays on onboarding when authenticated with incomplete profile', async () => {
-    mockGetStoredTokens.mockResolvedValue({
-      accessToken: 'valid',
-      refreshToken: 'ref',
+  it('stays on onboarding when new user with incomplete profile is already on onboarding', async () => {
+    // New user (is_new_user=true) already navigated to onboarding — guard should not redirect
+    mockGoogleAuth.mockResolvedValue({
+      ...mockAuthResponse,
+      is_new_user: true,
     });
-    mockGetMe.mockResolvedValue(mockMeResponse);
     mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerIncomplete);
+    mockGetStoredTokens.mockResolvedValue({ accessToken: null, refreshToken: null });
     mockSegments.push('(auth)', 'onboarding');
 
-    const { getByTestId } = render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.loginWithGoogle('id-token');
+    });
 
     await waitFor(() => {
-      const parsed = JSON.parse(getByTestId('output').props.children);
-      expect(parsed.isLoading).toBe(false);
+      expect(result.current.isLoading).toBe(false);
     });
 
     // Should NOT redirect away from onboarding

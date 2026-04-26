@@ -32,7 +32,7 @@ import SessionPlayerChip from './SessionPlayerChip';
 import SessionGameCard from './SessionGameCard';
 import SessionBottomSheet from './SessionBottomSheet';
 import { useSessionDetailScreen } from './useSessionDetailScreen';
-import type { SessionDetail } from '@/lib/mockApi';
+import type { SessionDetail } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Stats bar

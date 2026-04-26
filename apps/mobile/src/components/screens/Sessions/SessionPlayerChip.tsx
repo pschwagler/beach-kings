@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { View, Text } from 'react-native';
-import type { SessionPlayer } from '@/lib/mockApi';
+import type { SessionPlayer } from '@beach-kings/shared';
 
 interface Props {
   readonly player: SessionPlayer;

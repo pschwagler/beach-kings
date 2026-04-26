@@ -7,10 +7,10 @@ import { useRouter } from 'expo-router';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { hapticMedium } from '@/utils/haptics';
-import type { SessionDetailFull, SessionPlayerEntry } from '@beach-kings/shared';
+import type { SessionDetail, SessionPlayerEntry } from '@beach-kings/shared';
 
 export interface UseSessionRosterScreenResult {
-  readonly session: SessionDetailFull | null;
+  readonly session: SessionDetail | null;
   readonly players: readonly SessionPlayerEntry[];
   readonly isLoading: boolean;
   readonly error: Error | null;
@@ -32,7 +32,7 @@ export function useSessionRosterScreen(
   const [isRemoving, setIsRemoving] = useState<number | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
-  const { data: session, isLoading, error, refetch } = useApi<SessionDetailFull>(
+  const { data: session, isLoading, error, refetch } = useApi<SessionDetail>(
     () => api.getSessionById(sessionId),
     [sessionId],
   );
