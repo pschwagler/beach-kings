@@ -58,24 +58,20 @@ function MessageBubble({ message, isOwn }: MessageBubbleProps): React.ReactNode 
         testID={`msg-bubble-${message.id}`}
         className={`max-w-[280px] px-[14px] py-[10px] rounded-2xl ${
           isOwn
-            ? 'bg-[#1a3a4a] rounded-br-sm'
-            : 'bg-white dark:bg-dark-surface rounded-bl-sm shadow-sm'
+            ? 'bg-brand-teal rounded-br-sm'
+            : 'bg-surface rounded-bl-sm shadow-sm'
         }`}
       >
         <Text
           className={`text-[14px] leading-[1.4] ${
-            isOwn
-              ? 'text-white'
-              : 'text-text-default dark:text-content-primary'
+            isOwn ? 'text-white' : 'text-default'
           }`}
         >
           {message.message_text}
         </Text>
         <Text
           className={`text-[11px] mt-1 ${
-            isOwn
-              ? 'text-white/50'
-              : 'text-text-secondary dark:text-content-secondary'
+            isOwn ? 'text-white/50' : 'text-muted'
           }`}
         >
           {formatMsgTime(message.created_at)}
@@ -92,7 +88,7 @@ function MessageBubble({ message, isOwn }: MessageBubbleProps): React.ReactNode 
 function DateDivider({ date }: { date: string }): React.ReactNode {
   return (
     <View className="items-center py-2">
-      <Text className="text-[11px] text-text-secondary dark:text-content-secondary">
+      <Text className="text-[11px] text-muted">
         {date}
       </Text>
     </View>
@@ -129,7 +125,7 @@ function ThreadEmptyState(): React.ReactNode {
       testID="thread-empty-state"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <Text className="text-[14px] text-text-muted dark:text-content-secondary text-center">
+      <Text className="text-[14px] text-muted text-center">
         No messages yet. Say hello!
       </Text>
     </View>
@@ -260,10 +256,10 @@ export default function MessageThreadScreen({
 
   return (
     <SafeAreaView
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
-      <View className="h-12 bg-nav dark:bg-nav-dark flex-row items-center px-3 gap-2 dark:border-b dark:border-border-subtle">
+      <View className="h-12 bg-nav flex-row items-center px-3 gap-2 dark:border-b border-divider">
         <Pressable
           testID="thread-back-btn"
           onPress={onBack}

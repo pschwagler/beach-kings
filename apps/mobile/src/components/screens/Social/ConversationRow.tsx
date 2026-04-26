@@ -52,8 +52,8 @@ export default function ConversationRow({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`Conversation with ${conversation.full_name}`}
-      className={`flex-row items-center px-4 py-3 border-b border-gray-100 dark:border-gray-800 ${
-        hasUnread ? 'bg-amber-50 dark:bg-gray-800' : 'bg-white dark:bg-elevated'
+      className={`flex-row items-center px-4 py-3 border-b border-divider ${
+        hasUnread ? 'bg-warning-tint' : 'bg-elevated'
       } active:opacity-70`}
     >
       {/* Avatar */}
@@ -70,14 +70,14 @@ export default function ConversationRow({
           <Text
             className={`text-sm flex-1 mr-2 ${
               hasUnread
-                ? 'font-bold text-text-default dark:text-content-primary'
-                : 'font-semibold text-text-default dark:text-content-primary'
+                ? 'font-bold text-default'
+                : 'font-semibold text-default'
             }`}
             numberOfLines={1}
           >
             {conversation.full_name}
           </Text>
-          <Text className="text-xs text-text-muted dark:text-text-tertiary flex-shrink-0">
+          <Text className="text-xs text-muted flex-shrink-0">
             {formatTimestamp(conversation.last_message_at)}
           </Text>
         </View>
@@ -85,8 +85,8 @@ export default function ConversationRow({
         <Text
           className={`text-xs mt-0.5 ${
             hasUnread
-              ? 'font-medium text-text-default dark:text-content-primary'
-              : 'text-text-muted dark:text-text-tertiary'
+              ? 'font-medium text-default'
+              : 'text-muted'
           }`}
           numberOfLines={1}
         >
@@ -98,7 +98,7 @@ export default function ConversationRow({
       {hasUnread && (
         <View
           testID="unread-dot"
-          className="w-2.5 h-2.5 rounded-full bg-primary dark:bg-brand-teal ml-2 flex-shrink-0"
+          className="w-2.5 h-2.5 rounded-full bg-brand-teal ml-2 flex-shrink-0"
         />
       )}
     </Pressable>

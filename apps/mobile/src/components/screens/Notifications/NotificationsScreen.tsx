@@ -53,7 +53,7 @@ function FilterTabBar({
   onFilterPress,
 }: FilterTabBarProps): React.ReactNode {
   return (
-    <View className="flex-row bg-white dark:bg-dark-surface border-b border-[#f0f0f0] dark:border-border-strong">
+    <View className="flex-row bg-surface border-b border-divider">
       {FILTER_TABS.map(({ key, label }) => {
         const isActive = key === activeFilter;
         const showBadge = key === 'all' && unreadCount > 0;
@@ -73,15 +73,13 @@ function FilterTabBar({
             <View className="flex-row items-center gap-1">
               <Text
                 className={`text-[13px] font-semibold ${
-                  isActive
-                    ? 'text-[#1a3a4a] dark:text-brand-teal'
-                    : 'text-text-secondary dark:text-content-secondary'
+                  isActive ? 'text-brand-teal' : 'text-muted'
                 }`}
               >
                 {label}
               </Text>
               {showBadge && (
-                <View className="w-[18px] h-[18px] rounded-full bg-[#c0892a] dark:bg-brand-gold items-center justify-center">
+                <View className="w-[18px] h-[18px] rounded-full bg-brand-gold items-center justify-center">
                   <Text className="text-[10px] font-bold text-white">
                     {unreadCount > 9 ? '9+' : String(unreadCount)}
                   </Text>
@@ -89,7 +87,7 @@ function FilterTabBar({
               )}
             </View>
             {isActive && (
-              <View className="absolute bottom-0 left-2 right-2 h-[2px] bg-[#1a3a4a] dark:bg-brand-teal" />
+              <View className="absolute bottom-0 left-2 right-2 h-[2px] bg-brand-teal" />
             )}
           </Pressable>
         );
@@ -117,10 +115,10 @@ function NotificationsEmptyState({
       testID="notifications-empty-state"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <Text className="text-[18px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+      <Text className="text-[18px] font-bold text-default mb-2 text-center">
         No Notifications
       </Text>
-      <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center leading-[1.5]">
+      <Text className="text-[14px] text-tertiary text-center leading-[1.5]">
         {message}
       </Text>
     </View>
@@ -195,7 +193,7 @@ export default function NotificationsScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Notifications" showBack rightAction={markAllReadAction} />

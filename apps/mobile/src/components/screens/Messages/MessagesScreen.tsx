@@ -47,9 +47,9 @@ function MessagesSearchBar({
   return (
     <View
       testID="messages-search-bar"
-      className="px-4 py-3 bg-white dark:bg-dark-surface border-b border-border dark:border-border-strong"
+      className="px-4 py-3 bg-surface border-b border-strong"
     >
-      <View className="flex-row items-center h-[40px] px-3 rounded-[10px] border border-[#e0e0e0] dark:border-border-strong bg-[#f8f9fa] dark:bg-dark-elevated gap-2">
+      <View className="flex-row items-center h-[40px] px-3 rounded-[10px] border border-strong bg-elevated gap-2">
         <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
           <Circle cx={11} cy={11} r={8} stroke="#999" strokeWidth={2} />
           <Path d="M21 21l-4.35-4.35" stroke="#999" strokeWidth={2} strokeLinecap="round" />
@@ -60,7 +60,7 @@ function MessagesSearchBar({
           onChangeText={onChangeText}
           placeholder="Search messages..."
           placeholderTextColor="#999"
-          className="flex-1 text-[14px] text-text-default dark:text-content-primary"
+          className="flex-1 text-[14px] text-default"
           keyboardType="default"
           autoComplete="off"
           textContentType="none"
@@ -108,10 +108,10 @@ function MessagesEmptyState(): React.ReactNode {
           strokeLinejoin="round"
         />
       </Svg>
-      <Text className="text-[16px] font-bold text-text-default dark:text-content-primary mt-4 mb-[6px] text-center">
+      <Text className="text-[16px] font-bold text-default mt-4 mb-[6px] text-center">
         No Messages Yet
       </Text>
-      <Text className="text-[13px] text-text-muted dark:text-content-secondary text-center leading-[1.5]">
+      <Text className="text-[13px] text-muted text-center leading-[1.5]">
         Start a conversation with a friend or league member
       </Text>
     </View>
@@ -210,7 +210,7 @@ export default function MessagesScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Messages" showBack rightAction={composeAction} />

@@ -65,10 +65,8 @@ export default function ConversationRow({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`Conversation with ${conversation.full_name}`}
-      className={`flex-row items-center gap-3 px-4 py-[14px] border-b border-[#f0f0f0] dark:border-border-strong active:opacity-70 ${
-        isUnread
-          ? 'bg-[#fdf8ed] dark:bg-yellow-950'
-          : 'bg-white dark:bg-dark-surface'
+      className={`flex-row items-center gap-3 px-4 py-[14px] border-b border-divider active:opacity-70 ${
+        isUnread ? 'bg-warning-tint' : 'bg-surface'
       }`}
     >
       {/* Avatar */}
@@ -82,22 +80,22 @@ export default function ConversationRow({
           <Text
             className={`text-[15px] ${
               isUnread
-                ? 'font-bold text-text-default dark:text-content-primary'
-                : 'font-semibold text-text-default dark:text-content-primary'
+                ? 'font-bold text-default'
+                : 'font-semibold text-default'
             }`}
             numberOfLines={1}
           >
             {conversation.full_name}
           </Text>
-          <Text className="text-[11px] text-text-secondary dark:text-content-secondary flex-shrink-0 ml-2">
+          <Text className="text-[11px] text-muted flex-shrink-0 ml-2">
             {formatConvoTime(conversation.last_message_at)}
           </Text>
         </View>
         <Text
           className={`text-[13px] mt-[3px] ${
             isUnread
-              ? 'text-text-default dark:text-content-primary font-medium'
-              : 'text-text-secondary dark:text-content-secondary'
+              ? 'text-default font-medium'
+              : 'text-muted'
           }`}
           numberOfLines={1}
         >

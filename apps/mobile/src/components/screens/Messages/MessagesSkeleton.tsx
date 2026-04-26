@@ -9,7 +9,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 
 function SkeletonRow(): React.ReactNode {
   return (
-    <View className="flex-row items-center gap-3 px-4 py-[14px] bg-white dark:bg-dark-surface border-b border-border dark:border-border-strong">
+    <View className="flex-row items-center gap-3 px-4 py-[14px] bg-surface border-b border-strong">
       {/* Avatar */}
       <LoadingSkeleton width={48} height={48} borderRadius={24} />
       {/* Body */}

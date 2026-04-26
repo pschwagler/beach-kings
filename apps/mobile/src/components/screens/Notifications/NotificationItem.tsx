@@ -26,27 +26,27 @@ function getIconConfig(type: NotificationType): NotificationIconConfig {
   switch (type) {
     case 'friend_request':
     case 'friend_accepted':
-      return { bgClass: 'bg-[#e8f4f8] dark:bg-teal-900', iconColor: '#2a7d9c' };
+      return { bgClass: 'bg-info-tint', iconColor: '#2a7d9c' };
     case 'direct_message':
-      return { bgClass: 'bg-[#e8f4f8] dark:bg-teal-900', iconColor: '#2a7d9c' };
+      return { bgClass: 'bg-info-tint', iconColor: '#2a7d9c' };
     case 'league_message':
     case 'league_invite':
     case 'league_join_request':
     case 'league_join_rejected':
     case 'member_joined':
     case 'member_removed':
-      return { bgClass: 'bg-[#fdf8ed] dark:bg-yellow-900', iconColor: '#c0892a' };
+      return { bgClass: 'bg-warning-tint', iconColor: '#c0892a' };
     case 'season_start':
     case 'season_activated':
     case 'season_award':
-      return { bgClass: 'bg-[#fdf8ed] dark:bg-yellow-900', iconColor: '#c0892a' };
+      return { bgClass: 'bg-warning-tint', iconColor: '#c0892a' };
     case 'session_submitted':
     case 'session_auto_submitted':
     case 'session_auto_deleted':
     case 'placeholder_claimed':
-      return { bgClass: 'bg-[#edf7ee] dark:bg-green-900', iconColor: '#2d7a3a' };
+      return { bgClass: 'bg-success-tint', iconColor: '#2d7a3a' };
     default:
-      return { bgClass: 'bg-[#f0f0f0] dark:bg-dark-elevated', iconColor: '#666' };
+      return { bgClass: 'bg-elevated', iconColor: '#666' };
   }
 }
 
@@ -205,10 +205,8 @@ export default function NotificationItem({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={notification.title}
-      className={`flex-row items-start gap-3 px-4 py-[14px] border-b border-[#f0f0f0] dark:border-border-strong active:opacity-70 ${
-        notification.is_read
-          ? 'bg-white dark:bg-dark-surface'
-          : 'bg-[#fdf8ed] dark:bg-yellow-950'
+      className={`flex-row items-start gap-3 px-4 py-[14px] border-b border-divider active:opacity-70 ${
+        notification.is_read ? 'bg-surface' : 'bg-warning-tint'
       }`}
     >
       {/* Icon */}
@@ -223,8 +221,8 @@ export default function NotificationItem({
         <Text
           className={`text-[14px] leading-[1.4] ${
             notification.is_read
-              ? 'font-normal text-text-default dark:text-content-primary'
-              : 'font-semibold text-text-default dark:text-content-primary'
+              ? 'font-normal text-default'
+              : 'font-semibold text-default'
           }`}
           numberOfLines={2}
         >
@@ -232,13 +230,13 @@ export default function NotificationItem({
         </Text>
         {notification.message.length > 0 && (
           <Text
-            className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]"
+            className="text-[12px] text-muted mt-[2px]"
             numberOfLines={2}
           >
             {notification.message}
           </Text>
         )}
-        <Text className="text-[11px] text-[#999] dark:text-content-tertiary mt-[4px]">
+        <Text className="text-[11px] text-tertiary mt-[4px]">
           {formatNotificationTime(notification.created_at)}
         </Text>
 
@@ -250,7 +248,7 @@ export default function NotificationItem({
               onPress={handleAccept}
               accessibilityRole="button"
               accessibilityLabel="Accept friend request"
-              className="px-[14px] py-[8px] rounded-[8px] bg-[#1a3a4a] dark:bg-brand-teal min-h-[40px] justify-center active:opacity-80"
+              className="px-[14px] py-[8px] rounded-[8px] bg-brand-teal min-h-[40px] justify-center active:opacity-80"
             >
               <Text className="text-[12px] font-bold text-white">Accept</Text>
             </Pressable>
@@ -259,9 +257,9 @@ export default function NotificationItem({
               onPress={handleDecline}
               accessibilityRole="button"
               accessibilityLabel="Decline friend request"
-              className="px-[14px] py-[8px] rounded-[8px] border border-[#ccc] dark:border-border-strong min-h-[40px] justify-center active:opacity-70"
+              className="px-[14px] py-[8px] rounded-[8px] border border-strong min-h-[40px] justify-center active:opacity-70"
             >
-              <Text className="text-[12px] font-bold text-text-secondary dark:text-content-secondary">
+              <Text className="text-[12px] font-bold text-muted">
                 Decline
               </Text>
             </Pressable>
@@ -273,7 +271,7 @@ export default function NotificationItem({
       {!notification.is_read && (
         <View
           testID={`unread-dot-${notification.id}`}
-          className="w-2 h-2 rounded-full bg-[#c0892a] dark:bg-brand-gold mt-[6px] flex-shrink-0"
+          className="w-2 h-2 rounded-full bg-brand-gold mt-[6px] flex-shrink-0"
         />
       )}
     </Pressable>

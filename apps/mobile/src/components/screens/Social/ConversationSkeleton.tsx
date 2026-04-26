@@ -15,7 +15,7 @@ function SkeletonRow(): React.ReactNode {
   return (
     <View
       testID="conversation-skeleton-row"
-      className="flex-row items-center px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-elevated"
+      className="flex-row items-center px-4 py-3 border-b border-divider bg-elevated"
     >
       {/* Avatar circle */}
       <LoadingSkeleton width={40} height={40} borderRadius={20} />

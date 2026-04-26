@@ -8,7 +8,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 
 function SkeletonNotificationRow(): React.ReactNode {
   return (
-    <View className="flex-row items-start gap-3 px-4 py-[14px] bg-white dark:bg-dark-surface border-b border-border dark:border-border-strong">
+    <View className="flex-row items-start gap-3 px-4 py-[14px] bg-surface border-b border-strong">
       <LoadingSkeleton width={44} height={44} borderRadius={22} />
       <View className="flex-1 gap-[6px] pt-[2px]">
         <LoadingSkeleton width={180} height={14} borderRadius={6} />

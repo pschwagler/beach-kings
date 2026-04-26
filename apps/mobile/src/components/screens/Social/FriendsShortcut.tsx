@@ -50,10 +50,10 @@ export default function FriendsShortcut({
         <FriendsIcon />
       </View>
 
-      <Text className="text-base font-bold text-center text-text-default dark:text-content-primary mb-2">
+      <Text className="text-base font-bold text-center text-default mb-2">
         Connect with players
       </Text>
-      <Text className="text-sm text-center text-text-muted dark:text-text-tertiary mb-6">
+      <Text className="text-sm text-center text-muted mb-6">
         Find friends, send requests, and see who you know on the court.
       </Text>
 
@@ -62,7 +62,7 @@ export default function FriendsShortcut({
         onPress={onFindPlayers}
         accessibilityRole="button"
         accessibilityLabel="Find Players"
-        className="bg-primary dark:bg-brand-teal rounded-xl px-8 py-3 active:opacity-70"
+        className="bg-brand-teal rounded-xl px-8 py-3 active:opacity-70"
       >
         <Text className="text-white font-bold text-sm">Find Players</Text>
       </Pressable>

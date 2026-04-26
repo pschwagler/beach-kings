@@ -115,10 +115,10 @@ export default function SocialScreen({
           testID="social-error"
           className="flex-1 items-center justify-center px-6 py-10"
         >
-          <Text className="text-base font-semibold text-center text-text-default dark:text-content-primary mb-2">
+          <Text className="text-base font-semibold text-center text-default mb-2">
             Could not load messages
           </Text>
-          <Text className="text-sm text-center text-text-muted dark:text-text-tertiary mb-4">
+          <Text className="text-sm text-center text-muted mb-4">
             {error.message}
           </Text>
           <Pressable
@@ -126,7 +126,7 @@ export default function SocialScreen({
             onPress={handleRetry}
             accessibilityRole="button"
             accessibilityLabel="Retry loading messages"
-            className="bg-primary dark:bg-brand-teal rounded-xl px-6 py-3 active:opacity-70"
+            className="bg-brand-teal rounded-xl px-6 py-3 active:opacity-70"
           >
             <Text className="text-white font-semibold text-sm">Retry</Text>
           </Pressable>
@@ -167,11 +167,11 @@ export default function SocialScreen({
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-page" edges={['top']}>
       <TopNav title="Social" />
 
       {/* Segmented control */}
-      <View className="px-4 py-2 bg-white dark:bg-elevated border-b border-gray-100 dark:border-gray-800">
+      <View className="px-4 py-2 bg-elevated border-b border-divider">
         <SegmentControl
           segments={[...SEGMENTS]}
           selectedIndex={selectedSegment}

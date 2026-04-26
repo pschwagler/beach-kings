@@ -240,7 +240,7 @@ Source of truth for the role table: `packages/shared/src/tokens/semantic.ts`.
 | Leagues | 3.3 | ⏳ Pending |
 | Games & AddGames | 3.4 | ⏳ Pending |
 | Venues (`components/screens/Venues/*` — Court* screens) | 3.5 | ✅ Migrated |
-| Social / Messages / Notifications | 3.6 | ⏳ Pending |
+| Social / Messages / Notifications | 3.6 | ✅ Migrated |
 | PlayerProfile / FindPlayers / KOB | 3.7 | ⏳ Pending |
 | Settings + invite | 3.8 | ⏳ Pending |
 | Shared UI primitives (`components/ui/*`) | 3.9 | ⏳ Pending |
