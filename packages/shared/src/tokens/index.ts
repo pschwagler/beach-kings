@@ -12,6 +12,7 @@ export * from './layout';
 export * from './opacity';
 export * from './animation';
 export * from './zIndex';
+export * from './semantic';
 
 import { colors, darkColors } from './colors';
 import { spacing } from './spacing';

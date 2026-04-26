@@ -16,6 +16,10 @@
     "./tokens/*": {
       "types": "./src/tokens/*.ts",
       "default": "./src/tokens/*.ts"
+    },
+    "./tailwind/*": {
+      "types": "./src/tailwind/*.ts",
+      "default": "./src/tailwind/*.ts"
     }
   },
   "scripts": {

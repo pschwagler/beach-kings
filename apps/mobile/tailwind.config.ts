@@ -15,6 +15,7 @@ import {
   duration,
   zIndex,
 } from '@beach-kings/shared/tokens';
+import { semanticColors } from '@beach-kings/shared/tailwind/semantic-colors';
 
 /**
  * Tailwind config wired to shared design tokens.
@@ -68,7 +69,6 @@ const config: Config = {
         // Light surfaces
         surface: colors.bgSurface,
         'dark-surface': darkColors.bgSurface,
-        'spike-surface': 'rgb(var(--spike-surface) / <alpha-value>)',
         nav: colors.bgNav,
         border: colors.border,
 
@@ -119,6 +119,12 @@ const config: Config = {
         'warning-text': darkColors.warningText,
         'info-bg': darkColors.infoBg,
         'info-text': darkColors.infoText,
+
+        /* ── Semantic theme tokens (CSS-var-backed, theme-flipping) ──
+         * Spread last so these win over any same-named legacy entry above
+         * (e.g., `surface`, `nav`, `success`). Resolved via vars() bag
+         * mounted by ThemeProvider. */
+        ...semanticColors(),
       },
 
       /* ── Typography ─────────────────────────────────────────── */

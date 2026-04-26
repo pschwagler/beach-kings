@@ -19,7 +19,7 @@ export default function ProfileSkeleton(): React.ReactNode {
   return (
     <View accessibilityLabel="Loading profile" accessibilityRole="none">
       {/* Header skeleton */}
-      <View className="bg-white dark:bg-dark-surface items-center px-lg pt-xl pb-lg">
+      <View className="bg-surface items-center px-lg pt-xl pb-lg">
         <LoadingSkeleton width={88} height={88} borderRadius={44} />
         <View className="mt-md items-center gap-sm" style={{ width: '100%' }}>
           <LoadingSkeleton width={180} height={22} borderRadius={6} />
@@ -28,7 +28,7 @@ export default function ProfileSkeleton(): React.ReactNode {
       </View>
 
       {/* Stats bar skeleton */}
-      <View className="flex-row bg-white dark:bg-dark-surface border-t border-border-subtle border-b">
+      <View className="flex-row bg-surface border-t border-divider border-b">
         {[0, 1, 2, 3].map((i) => (
           <View key={i} className="flex-1 items-center py-md px-sm">
             <LoadingSkeleton width={40} height={18} borderRadius={4} />

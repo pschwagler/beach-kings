@@ -6,13 +6,8 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { View } from 'react-native';
-import { useColorScheme as useNativeWindColorScheme, vars } from 'nativewind';
-
-// Phase 0.1 spike: prove NativeWind v4 vars() drives a CSS-var-backed Tailwind
-// class through a live theme toggle. Pre-computed at module scope so the var
-// bag isn't recreated on every ThemeProvider render.
-const lightSpikeBag = vars({ '--spike-surface': '255 255 255' });
-const darkSpikeBag = vars({ '--spike-surface': '22 27 34' });
+import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
+import { lightVarBag, darkVarBag } from '@/theme/varBags';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -125,7 +120,7 @@ export default function ThemeProvider({ children }: ThemeProviderProps): React.R
 
   return (
     <ThemeContext.Provider value={value}>
-      <View style={isDark ? darkSpikeBag : lightSpikeBag} className="flex-1">
+      <View style={isDark ? darkVarBag : lightVarBag} className="flex-1">
         {children}
       </View>
     </ThemeContext.Provider>
