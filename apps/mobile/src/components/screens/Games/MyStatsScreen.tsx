@@ -38,27 +38,27 @@ interface ProfileHeaderProps {
 
 function ProfileHeader({ name, city, level }: ProfileHeaderProps): React.ReactNode {
   return (
-    <View className="flex-row items-center gap-[14px] px-4 py-4 bg-white dark:bg-dark-surface">
+    <View className="flex-row items-center gap-[14px] px-4 py-4 bg-surface">
       {/* Avatar placeholder */}
-      <View className="w-14 h-14 rounded-full bg-teal-200 dark:bg-info-bg border-[2.5px] border-teal-100 dark:border-border-subtle items-center justify-center">
-        <Text className="text-[20px] font-bold text-accent dark:text-brand-teal">
+      <View className="w-14 h-14 rounded-full bg-info-tint border-[2.5px] border-divider items-center justify-center">
+        <Text className="text-[20px] font-bold text-brand-teal">
           {name.slice(0, 1).toUpperCase()}
         </Text>
       </View>
 
       <View className="flex-1">
-        <Text className="text-[18px] font-bold text-text-default dark:text-content-primary">
+        <Text className="text-[18px] font-bold text-default">
           {name}
         </Text>
         <View className="flex-row items-center gap-[6px] mt-[2px]">
           {city != null && (
-            <Text className="text-[12px] text-text-muted dark:text-content-tertiary">
+            <Text className="text-[12px] text-muted">
               {city}
             </Text>
           )}
           {level != null && (
-            <View className="px-2 py-[2px] rounded-[10px] bg-teal-50 dark:bg-info-bg">
-              <Text className="text-[11px] font-bold text-accent dark:text-brand-teal">
+            <View className="px-2 py-[2px] rounded-[10px] bg-info-tint">
+              <Text className="text-[11px] font-bold text-brand-teal">
                 {level}
               </Text>
             </View>
@@ -81,10 +81,10 @@ interface StatsBarItemProps {
 function StatsBarItem({ value, label }: StatsBarItemProps): React.ReactNode {
   return (
     <View className="flex-1 items-center py-[10px] px-1">
-      <Text className="text-[18px] font-bold text-navy dark:text-content-primary">
+      <Text className="text-[18px] font-bold text-default">
         {value}
       </Text>
-      <Text className="text-[10px] text-text-muted dark:text-content-tertiary uppercase tracking-wide mt-[2px]">
+      <Text className="text-[10px] text-muted uppercase tracking-wide mt-[2px]">
         {label}
       </Text>
     </View>
@@ -119,15 +119,15 @@ function TimeChips({ active, onSelect }: TimeChipsProps): React.ReactNode {
           accessibilityLabel={label}
           className={`px-[14px] rounded-[16px] min-h-[36px] items-center justify-center border ${
             active === value
-              ? 'bg-navy dark:bg-content-primary border-navy dark:border-content-primary'
-              : 'bg-white dark:bg-dark-surface border-gray-200 dark:border-border-subtle'
+              ? 'bg-default border-default'
+              : 'bg-surface border-divider'
           }`}
         >
           <Text
             className={`text-[12px] font-bold ${
               active === value
-                ? 'text-white'
-                : 'text-text-muted dark:text-content-secondary'
+                ? 'text-inverse'
+                : 'text-muted'
             }`}
           >
             {label}
@@ -160,7 +160,7 @@ export default function MyStatsScreen(): React.ReactNode {
   if (isLoading && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="my-stats-screen"
       >
@@ -174,7 +174,7 @@ export default function MyStatsScreen(): React.ReactNode {
   if (error != null && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="my-stats-screen"
       >
@@ -188,7 +188,7 @@ export default function MyStatsScreen(): React.ReactNode {
   if (stats == null) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="my-stats-screen"
       >
@@ -202,7 +202,7 @@ export default function MyStatsScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="my-stats-screen"
     >
@@ -223,13 +223,13 @@ export default function MyStatsScreen(): React.ReactNode {
         />
 
         {/* Stats bar */}
-        <View className="flex-row bg-white dark:bg-dark-surface border-t border-b border-gray-100 dark:border-border-subtle">
+        <View className="flex-row bg-surface border-t border-b border-divider">
           <StatsBarItem value={String(overall.games_played)} label="Games" />
-          <View className="w-px bg-gray-100 dark:bg-border-subtle" />
+          <View className="w-px bg-divider" />
           <StatsBarItem value={String(overall.rating)} label="Rating" />
-          <View className="w-px bg-gray-100 dark:bg-border-subtle" />
+          <View className="w-px bg-divider" />
           <StatsBarItem value={`${overall.wins}-${overall.losses}`} label="W-L" />
-          <View className="w-px bg-gray-100 dark:bg-border-subtle" />
+          <View className="w-px bg-divider" />
           <StatsBarItem value={`${overall.win_rate.toFixed(0)}%`} label="Win Rate" />
         </View>
 
@@ -238,7 +238,7 @@ export default function MyStatsScreen(): React.ReactNode {
           {/* Trophies */}
           {stats.trophies.length > 0 && (
             <View className="mb-4">
-              <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px]">
+              <Text className="text-[15px] font-bold text-default mb-[10px]">
                 Trophies
               </Text>
               <TrophyRow trophies={stats.trophies} />
@@ -246,7 +246,7 @@ export default function MyStatsScreen(): React.ReactNode {
           )}
 
           {/* Overview section */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px]">
+          <Text className="text-[15px] font-bold text-default mb-[10px]">
             Overview
           </Text>
 
@@ -266,7 +266,7 @@ export default function MyStatsScreen(): React.ReactNode {
           )}
 
           {/* Partners / Opponents breakdown */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px]">
+          <Text className="text-[15px] font-bold text-default mb-[10px]">
             Breakdown
           </Text>
           <BreakdownTable

@@ -23,15 +23,15 @@ function ResultBadge({ result }: { result: 'W' | 'L' | 'D' }): React.ReactNode {
   const isWin = result === 'W';
   const isDraw = result === 'D';
   const bgClass = isWin
-    ? 'bg-green-100 dark:bg-green-900/30'
+    ? 'bg-success-tint'
     : isDraw
-      ? 'bg-gray-100 dark:bg-gray-800/40'
-      : 'bg-red-100 dark:bg-red-900/30';
+      ? 'bg-elevated'
+      : 'bg-danger-tint';
   const textClass = isWin
-    ? 'text-green-700 dark:text-green-400'
+    ? 'text-success'
     : isDraw
-      ? 'text-gray-600 dark:text-gray-400'
-      : 'text-red-700 dark:text-red-400';
+      ? 'text-muted'
+      : 'text-danger';
   const label = isWin ? 'WIN' : isDraw ? 'DRAW' : 'LOSS';
 
   return (
@@ -51,8 +51,8 @@ function RatingChange({
   if (!submitted || change == null) {
     return (
       <View className="flex-row items-center gap-[3px]">
-        <View className="px-2 py-[2px] rounded-[8px] bg-amber-50 dark:bg-warning-bg border border-amber-200 dark:border-amber-700">
-          <Text className="text-[10px] font-bold text-amber-700 dark:text-amber-400">
+        <View className="px-2 py-[2px] rounded-[8px] bg-warning-tint border border-warning-tint">
+          <Text className="text-[10px] font-bold text-warning">
             PENDING
           </Text>
         </View>
@@ -61,13 +61,13 @@ function RatingChange({
   }
   const isUp = change >= 0;
   return (
-    <Text className="text-[11px] text-text-muted dark:text-content-tertiary">
+    <Text className="text-[11px] text-muted">
       Rating:{' '}
       <Text
         className={`font-bold ${
           isUp
-            ? 'text-green-700 dark:text-green-400'
-            : 'text-red-700 dark:text-red-400'
+            ? 'text-success'
+            : 'text-danger'
         }`}
       >
         {isUp ? '+' : ''}
@@ -83,8 +83,8 @@ function TeamLine({ game }: { game: GameHistoryEntry }): React.ReactNode {
   const mySide = partners.length > 0 ? `You / ${partners}` : 'You';
 
   return (
-    <Text className="text-[12px] text-text-muted dark:text-content-secondary leading-[1.5]">
-      <Text className="font-bold text-text-default dark:text-content-primary">
+    <Text className="text-[12px] text-muted leading-[1.5]">
+      <Text className="font-bold text-default">
         You
       </Text>
       {partners.length > 0 ? ` / ${partners}` : ''}
@@ -105,7 +105,7 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`Game result: ${game.result}, score: ${game.my_score}-${game.opponent_score}`}
-      className="bg-white dark:bg-dark-surface rounded-[12px] px-[14px] py-[14px] shadow-sm dark:shadow-none dark:border dark:border-border-subtle mb-[10px] active:opacity-80"
+      className="bg-surface rounded-[12px] px-[14px] py-[14px] shadow-sm dark:shadow-none dark:border border-divider mb-[10px] active:opacity-80"
     >
       {/* Top row: result badge */}
       <View className="flex-row justify-between items-center mb-2">
@@ -113,7 +113,7 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
       </View>
 
       {/* Score */}
-      <Text className="text-[20px] font-bold text-navy dark:text-content-primary mb-1">
+      <Text className="text-[20px] font-bold text-default mb-1">
         {game.my_score} - {game.opponent_score}
       </Text>
 
@@ -122,19 +122,19 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
 
       {/* Pending note — session not yet submitted */}
       {!game.session_submitted && (
-        <Text className="text-[11px] text-amber-700 dark:text-amber-400 mt-[3px]">
+        <Text className="text-[11px] text-warning mt-[3px]">
           Awaiting session submission
         </Text>
       )}
 
       {/* Meta row */}
-      <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-gray-100 dark:border-border-subtle">
+      <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-divider">
         {game.league_name != null ? (
-          <Text className="text-[11px] font-bold text-accent dark:text-brand-teal">
+          <Text className="text-[11px] font-bold text-brand-teal">
             {game.league_name}
           </Text>
         ) : (
-          <Text className="text-[11px] text-text-muted dark:text-content-tertiary">
+          <Text className="text-[11px] text-muted">
             Pickup
           </Text>
         )}

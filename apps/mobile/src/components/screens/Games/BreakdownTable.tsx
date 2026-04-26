@@ -21,7 +21,7 @@ interface ToggleProps {
 
 function TableToggle({ tab, onTabChange }: ToggleProps): React.ReactNode {
   return (
-    <View className="flex-row bg-gray-100 dark:bg-dark-surface rounded-[8px] p-[2px] mb-[10px]">
+    <View className="flex-row bg-elevated rounded-[8px] p-[2px] mb-[10px]">
       {(['partners', 'opponents'] as const).map((t) => (
         <Pressable
           key={t}
@@ -31,15 +31,15 @@ function TableToggle({ tab, onTabChange }: ToggleProps): React.ReactNode {
           accessibilityLabel={t === 'partners' ? 'Partners' : 'Opponents'}
           className={`flex-1 items-center py-2 rounded-[6px] ${
             tab === t
-              ? 'bg-white dark:bg-dark-card shadow-sm'
+              ? 'bg-surface shadow-sm'
               : ''
           }`}
         >
           <Text
             className={`text-[12px] font-bold ${
               tab === t
-                ? 'text-text-default dark:text-content-primary'
-                : 'text-text-muted dark:text-content-tertiary'
+                ? 'text-default'
+                : 'text-muted'
             }`}
           >
             {t === 'partners' ? 'Partners' : 'Opponents'}
@@ -60,31 +60,31 @@ interface RowProps {
 
 function DataRow({ row }: RowProps): React.ReactNode {
   return (
-    <View className="flex-row items-center px-[14px] py-[11px] border-b border-gray-100 dark:border-border-subtle last:border-b-0">
+    <View className="flex-row items-center px-[14px] py-[11px] border-b border-divider last:border-b-0">
       {/* Avatar initials + name */}
       <View className="flex-1 flex-row items-center gap-2">
-        <View className="w-7 h-7 rounded-full bg-teal-100 dark:bg-info-bg items-center justify-center">
-          <Text className="text-[11px] font-bold text-accent dark:text-brand-teal">
+        <View className="w-7 h-7 rounded-full bg-info-tint items-center justify-center">
+          <Text className="text-[11px] font-bold text-brand-teal">
             {row.initials}
           </Text>
         </View>
-        <Text className="text-[13px] font-bold text-text-default dark:text-content-primary">
+        <Text className="text-[13px] font-bold text-default">
           {row.display_name}
         </Text>
       </View>
 
       {/* G */}
-      <Text className="w-[36px] text-center text-[12px] text-text-muted dark:text-content-tertiary">
+      <Text className="w-[36px] text-center text-[12px] text-muted">
         {row.games_played}
       </Text>
 
       {/* W-L */}
-      <Text className="w-[44px] text-center text-[12px] text-text-muted dark:text-content-secondary">
+      <Text className="w-[44px] text-center text-[12px] text-muted">
         {row.wins}-{row.losses}
       </Text>
 
       {/* W% */}
-      <Text className="w-[40px] text-center text-[12px] text-text-muted dark:text-content-secondary">
+      <Text className="w-[40px] text-center text-[12px] text-muted">
         {row.win_rate}%
       </Text>
     </View>
@@ -115,23 +115,23 @@ export default function BreakdownTable({
       <TableToggle tab={tab} onTabChange={onTabChange} />
 
       {rows.length === 0 ? (
-        <Text className="text-[13px] text-text-muted dark:text-content-tertiary italic py-4 text-center">
+        <Text className="text-[13px] text-muted italic py-4 text-center">
           No data for this period.
         </Text>
       ) : (
-        <View className="bg-white dark:bg-dark-surface rounded-[12px] shadow-sm dark:shadow-none dark:border dark:border-border-subtle overflow-hidden">
+        <View className="bg-surface rounded-[12px] shadow-sm dark:shadow-none dark:border border-divider overflow-hidden">
           {/* Header */}
-          <View className="flex-row px-[14px] py-[10px] bg-gray-50 dark:bg-dark-card">
-            <Text className="flex-1 text-[11px] font-bold text-text-muted dark:text-content-tertiary uppercase tracking-wider">
+          <View className="flex-row px-[14px] py-[10px] bg-page">
+            <Text className="flex-1 text-[11px] font-bold text-muted uppercase tracking-wider">
               Name
             </Text>
-            <Text className="w-[36px] text-center text-[11px] font-bold text-text-muted dark:text-content-tertiary uppercase tracking-wider">
+            <Text className="w-[36px] text-center text-[11px] font-bold text-muted uppercase tracking-wider">
               G
             </Text>
-            <Text className="w-[44px] text-center text-[11px] font-bold text-text-muted dark:text-content-tertiary uppercase tracking-wider">
+            <Text className="w-[44px] text-center text-[11px] font-bold text-muted uppercase tracking-wider">
               W-L
             </Text>
-            <Text className="w-[40px] text-center text-[11px] font-bold text-text-muted dark:text-content-tertiary uppercase tracking-wider">
+            <Text className="w-[40px] text-center text-[11px] font-bold text-muted uppercase tracking-wider">
               W%
             </Text>
           </View>

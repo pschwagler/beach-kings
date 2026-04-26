@@ -39,17 +39,17 @@ export default function GamesEmptyState(): React.ReactNode {
       className="flex-1 items-center justify-center px-8 py-16"
     >
       {/* Icon */}
-      <View className="w-20 h-20 rounded-full bg-teal-50 dark:bg-info-bg items-center justify-center mb-5">
+      <View className="w-20 h-20 rounded-full bg-info-tint items-center justify-center mb-5">
         <VolleyballIcon />
       </View>
 
       {/* Title */}
-      <Text className="text-[20px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+      <Text className="text-[20px] font-bold text-default mb-2 text-center">
         No Games Yet
       </Text>
 
       {/* Subtitle */}
-      <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center leading-[1.5] mb-8">
+      <Text className="text-[14px] text-muted text-center leading-[1.5] mb-8">
         Record your beach volleyball games to start tracking your stats and
         climbing the rankings.
       </Text>
@@ -60,7 +60,7 @@ export default function GamesEmptyState(): React.ReactNode {
         onPress={handleAddGame}
         accessibilityRole="button"
         accessibilityLabel="Add Your First Game"
-        className="bg-accent dark:bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
+        className="bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
       >
         <Text className="text-white font-bold text-[15px]">
           Add Your First Game
