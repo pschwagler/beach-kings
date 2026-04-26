@@ -36,18 +36,18 @@ function RosterChip({
 }: RosterChipProps): React.ReactNode {
   const handlePress = useCallback(() => onPress(player), [onPress, player]);
 
-  let bgClass = 'bg-white dark:bg-dark-surface border border-gray-200 dark:border-border-subtle';
+  let bgClass = 'bg-surface border border-divider';
   if (onTeam1) {
-    bgClass = 'bg-teal-100 dark:bg-teal-900/30 border border-teal-400 dark:border-teal-600';
+    bgClass = 'bg-info-tint border border-brand-teal';
   } else if (onTeam2) {
-    bgClass = 'bg-amber-100 dark:bg-amber-900/30 border border-amber-400 dark:border-amber-600';
+    bgClass = 'bg-warning-tint border border-brand-gold';
   }
 
   const avatarBg = onTeam1
-    ? 'bg-teal-400'
+    ? 'bg-brand-teal'
     : onTeam2
-    ? 'bg-amber-400'
-    : 'bg-gray-300 dark:bg-gray-600';
+    ? 'bg-brand-gold'
+    : 'bg-elevated';
 
   return (
     <Pressable
@@ -65,10 +65,10 @@ function RosterChip({
       <Text
         className={`text-[12px] font-bold ${
           onTeam1
-            ? 'text-navy dark:text-teal-200'
+            ? 'text-brand-teal'
             : onTeam2
-            ? 'text-amber-800 dark:text-amber-200'
-            : 'text-text-muted dark:text-content-secondary'
+            ? 'text-warning'
+            : 'text-muted'
         }`}
       >
         {player.display_name}
@@ -98,15 +98,15 @@ export default function RosterPicker({
   return (
     <View
       testID="roster-picker"
-      className="bg-gray-50 dark:bg-base px-4 py-3"
+      className="bg-page px-4 py-3"
     >
-      <Text className="text-[11px] font-bold text-text-muted dark:text-content-tertiary uppercase tracking-wider mb-2">
+      <Text className="text-[11px] font-bold text-muted uppercase tracking-wider mb-2">
         Add Players
       </Text>
 
       {/* Search */}
-      <View className="flex-row items-center gap-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-border-subtle rounded-[10px] px-3 py-[10px] mb-[10px]">
-        <Text className="text-text-muted dark:text-content-tertiary text-[14px]">
+      <View className="flex-row items-center gap-2 bg-surface border border-divider rounded-[10px] px-3 py-[10px] mb-[10px]">
+        <Text className="text-muted text-[14px]">
           {'\uD83D\uDD0D'}
         </Text>
         <TextInput
@@ -115,7 +115,7 @@ export default function RosterPicker({
           onChangeText={onSearch}
           placeholder="Search players..."
           placeholderTextColor="#bbb"
-          className="flex-1 text-[14px] text-text-default dark:text-content-primary"
+          className="flex-1 text-[14px] text-default"
           autoCapitalize="none"
           autoCorrect={false}
         />
@@ -133,7 +133,7 @@ export default function RosterPicker({
           />
         ))}
         {roster.length === 0 && (
-          <Text className="text-[13px] text-text-muted dark:text-content-tertiary italic">
+          <Text className="text-[13px] text-muted italic">
             No players match your search.
           </Text>
         )}

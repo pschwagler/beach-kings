@@ -82,12 +82,12 @@ export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
     return (
       <View
         testID="rating-chart"
-        className="bg-white dark:bg-dark-surface rounded-[12px] p-4 shadow-sm dark:shadow-none dark:border dark:border-border-subtle mb-4"
+        className="bg-surface rounded-[12px] p-4 shadow-sm dark:shadow-none dark:border border-divider mb-4"
       >
-        <Text className="text-[13px] font-bold text-text-default dark:text-content-primary mb-2">
+        <Text className="text-[13px] font-bold text-default mb-2">
           Rating History
         </Text>
-        <Text className="text-[12px] text-text-muted dark:text-content-tertiary">
+        <Text className="text-[12px] text-muted">
           Play more games to see your rating trend.
         </Text>
       </View>
@@ -109,14 +109,14 @@ export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
     >
       {/* Header */}
       <View className="flex-row justify-between items-baseline mb-3">
-        <Text className="text-[13px] font-bold text-text-default dark:text-content-primary">
+        <Text className="text-[13px] font-bold text-default">
           Rating History
         </Text>
         <Text
           className={`text-[11px] font-bold ${
             deltaUp
-              ? 'text-green-700 dark:text-green-400'
-              : 'text-red-700 dark:text-red-400'
+              ? 'text-success'
+              : 'text-danger'
           }`}
         >
           {deltaLabel}
@@ -151,10 +151,10 @@ export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
 
       {/* Date labels */}
       <View className="flex-row justify-between mt-1">
-        <Text className="text-[10px] text-text-muted dark:text-content-tertiary">
+        <Text className="text-[10px] text-muted">
           {firstLabel}
         </Text>
-        <Text className="text-[10px] text-text-muted dark:text-content-tertiary">
+        <Text className="text-[10px] text-muted">
           {lastLabel}
         </Text>
       </View>
