@@ -57,7 +57,7 @@ function PlaceholderMatchCard({ index }: { readonly index: number }): React.Reac
   return (
     <View
       testID={`invite-match-card-${index}`}
-      className="bg-surface rounded-card p-md mb-sm shadow-sm dark:shadow-none border border-divider"
+      className="bg-surface rounded-card p-md mb-sm shadow-sm dark:shadow-none dark:border dark:border-divider"
     >
       <View className="flex-row justify-between items-center mb-xs">
         <Text className="text-footnote font-semibold text-muted">

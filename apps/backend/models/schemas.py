@@ -622,6 +622,21 @@ class LeagueResponse(LeagueBase):
     home_courts: List[HomeCourtResponse] = []
 
 
+class LeagueDetailResponse(LeagueResponse):
+    """Enriched league detail including membership context and current-season stats."""
+
+    member_count: int = 0
+    season_count: int = 0
+    current_season_id: Optional[int] = None
+    current_season_name: Optional[str] = None
+    is_active: bool = False
+    user_role: Optional[str] = None  # 'admin' | 'member' | None
+    user_rank: Optional[int] = None
+    user_wins: Optional[int] = None
+    user_losses: Optional[int] = None
+    user_rating: Optional[float] = None
+
+
 class LeagueMemberBase(BaseModel):
     """Base league member model."""
 

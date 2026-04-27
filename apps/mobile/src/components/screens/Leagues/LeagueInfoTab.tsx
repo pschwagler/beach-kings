@@ -208,7 +208,7 @@ function InfoRow({
 
 interface LeagueInfoTabProps {
   readonly leagueId: number | string;
-  readonly userRole: 'admin' | 'member' | 'visitor';
+  readonly userRole: 'admin' | 'member' | null;
 }
 
 export default function LeagueInfoTab({

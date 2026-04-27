@@ -18,6 +18,7 @@ __all__ = [
     "list_leagues",
     "query_leagues",
     "get_league",
+    "get_league_detail",
     "get_user_leagues",
     "update_league",
     "delete_league",
@@ -488,6 +489,165 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
         "created_at": league.created_at.isoformat() if league.created_at else None,
         "updated_at": league.updated_at.isoformat() if league.updated_at else None,
         "home_courts": home_courts,
+    }
+
+
+async def get_league_detail(
+    session: AsyncSession, league_id: int, user_id: int
+) -> Optional[Dict]:
+    """Get enriched league detail including membership context and current-season stats.
+
+    Returns all fields from get_league plus:
+    - member_count, season_count
+    - current_season_id/name/is_active (most recent season by start_date)
+    - user_role, user_rank, user_wins, user_losses, user_rating (null for non-members)
+    """
+    # Base league + location
+    result = await session.execute(
+        select(League, Location.name.label("location_name"))
+        .outerjoin(Location, Location.id == League.location_id)
+        .where(League.id == league_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        return None
+    league, location_name = row
+
+    home_courts = await get_league_home_courts(session, league_id)
+
+    # Member count
+    mc_result = await session.execute(
+        select(func.count(LeagueMember.id)).where(LeagueMember.league_id == league_id)
+    )
+    member_count = int(mc_result.scalar() or 0)
+
+    # Season count + most-recent season (by start_date desc, id desc)
+    sc_result = await session.execute(
+        select(func.count(Season.id)).where(Season.league_id == league_id)
+    )
+    season_count = int(sc_result.scalar() or 0)
+
+    current_season_id: Optional[int] = None
+    current_season_name: Optional[str] = None
+    is_active = False
+    if season_count > 0:
+        season_rn = (
+            select(
+                Season.id.label("id"),
+                Season.name.label("name"),
+                Season.start_date.label("start_date"),
+                Season.end_date.label("end_date"),
+                func.row_number()
+                .over(order_by=(Season.start_date.desc(), Season.id.desc()))
+                .label("rn"),
+            )
+            .where(Season.league_id == league_id)
+            .subquery()
+        )
+        latest_result = await session.execute(
+            select(
+                season_rn.c.id,
+                season_rn.c.name,
+                season_rn.c.start_date,
+                season_rn.c.end_date,
+            ).where(season_rn.c.rn == 1)
+        )
+        latest = latest_result.one_or_none()
+        if latest:
+            current_season_id = latest.id
+            current_season_name = latest.name
+            today = date.today()
+            sd, ed = latest.start_date, latest.end_date
+            is_active = bool(sd and ed and sd <= today <= ed)
+
+    # Resolve the caller's player_id (None if the user has no player profile)
+    player_id_result = await session.execute(
+        select(Player.id).where(Player.user_id == user_id)
+    )
+    caller_player_id: Optional[int] = player_id_result.scalar_one_or_none()
+
+    user_role: Optional[str] = None
+    user_rank: Optional[int] = None
+    user_wins: Optional[int] = None
+    user_losses: Optional[int] = None
+    user_rating: Optional[float] = None
+
+    if caller_player_id is not None:
+        # Membership role
+        role_result = await session.execute(
+            select(LeagueMember.role).where(
+                LeagueMember.league_id == league_id,
+                LeagueMember.player_id == caller_player_id,
+            )
+        )
+        role_row = role_result.scalar_one_or_none()
+        if role_row is not None:
+            user_role = str(role_row)
+
+        # Current-season stats + rank
+        if current_season_id is not None:
+            stats_result = await session.execute(
+                select(
+                    PlayerSeasonStats.wins,
+                    PlayerSeasonStats.games,
+                    PlayerSeasonStats.points,
+                ).where(
+                    PlayerSeasonStats.season_id == current_season_id,
+                    PlayerSeasonStats.player_id == caller_player_id,
+                )
+            )
+            stats = stats_result.one_or_none()
+            if stats:
+                w = int(stats.wins or 0)
+                g = int(stats.games or 0)
+                user_wins = w
+                user_losses = max(0, g - w)
+                user_rating = float(stats.points or 0.0)
+
+                # Rank within the season
+                ranked_sq = (
+                    select(
+                        PlayerSeasonStats.player_id.label("player_id"),
+                        func.row_number()
+                        .over(order_by=_SEASON_RANK_ORDER)
+                        .label("season_rank"),
+                    )
+                    .where(PlayerSeasonStats.season_id == current_season_id)
+                    .subquery()
+                )
+                rank_result = await session.execute(
+                    select(ranked_sq.c.season_rank).where(
+                        ranked_sq.c.player_id == caller_player_id
+                    )
+                )
+                rank_row = rank_result.scalar_one_or_none()
+                if rank_row is not None:
+                    user_rank = int(rank_row)
+
+    return {
+        "id": league.id,
+        "name": league.name,
+        "description": league.description,
+        "location_id": league.location_id,
+        "location_name": location_name,
+        "is_open": league.is_open,
+        "is_public": getattr(league, "is_public", True),
+        "whatsapp_group_id": league.whatsapp_group_id,
+        "gender": league.gender,
+        "level": league.level,
+        "created_at": league.created_at.isoformat() if league.created_at else None,
+        "updated_at": league.updated_at.isoformat() if league.updated_at else None,
+        "home_courts": home_courts,
+        "member_count": member_count,
+        "season_count": season_count,
+        "current_season_id": current_season_id,
+        "current_season_name": current_season_name,
+        "is_active": is_active,
+        "user_role": user_role,
+        "user_rank": user_rank,
+        "user_wins": user_wins,
+        "user_losses": user_losses,
+        "user_rating": user_rating,
     }
 
 

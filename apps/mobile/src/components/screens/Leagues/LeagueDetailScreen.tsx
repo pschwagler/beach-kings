@@ -108,7 +108,7 @@ interface LeagueHeaderProps {
   readonly currentSeasonName: string | null;
   readonly isActive: boolean;
   readonly userRank: number | null;
-  readonly userRole: 'admin' | 'member' | 'visitor';
+  readonly userRole: 'admin' | 'member' | null;
   readonly onInvite: () => void;
   readonly onStartSession: () => void;
 }
@@ -209,7 +209,7 @@ function LeagueHeader({
 
 interface TabContentProps {
   readonly leagueId: number | string;
-  readonly userRole: 'admin' | 'member' | 'visitor';
+  readonly userRole: 'admin' | 'member' | null;
   readonly activeTab: LeagueDetailTab;
   readonly statsPlayerId: number | string | null;
   readonly onPressPlayer: (id: number | string) => void;

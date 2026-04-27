@@ -150,8 +150,7 @@ const MOCK_DETAIL = {
   gender: 'coed',
   level: 'Open',
   location_name: 'Manhattan, NY',
-  home_court_name: 'Central Park Courts',
-  home_court_id: 5,
+  home_courts: [],
   member_count: 24,
   season_count: 3,
   current_season_id: 10,
@@ -164,19 +163,9 @@ const MOCK_DETAIL = {
   user_rating: 1520,
 };
 
-const MOCK_LEAGUE_FOR_INFO = {
-  id: 1,
-  name: 'Manhattan Open',
-  description: null,
-  is_open: true,
-  level: null,
-  location_name: null,
-  home_courts: [],
-};
-
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetLeagueDetail.mockResolvedValue(MOCK_DETAIL);
+  mockGetLeague.mockResolvedValue(MOCK_DETAIL);
   mockGetLeagueStandings.mockResolvedValue({ standings: [], season_info: null });
   mockGetLeagueSeasons.mockResolvedValue([]);
   mockGetLeagueMessages.mockResolvedValue([]);
@@ -189,7 +178,6 @@ beforeEach(() => {
   mockGetLeaguePlayerStats.mockResolvedValue({});
   mockGetMyGames.mockResolvedValue({ games: [], total: 0 });
   mockGetLeagueSignupEvents.mockResolvedValue([]);
-  mockGetLeague.mockResolvedValue(MOCK_LEAGUE_FOR_INFO);
   mockGetLeagueMembers.mockResolvedValue([]);
   mockGetLeagueJoinRequests.mockResolvedValue({ pending: [], rejected: [] });
   mockApproveJoinRequest.mockResolvedValue({ success: true });
@@ -202,7 +190,7 @@ beforeEach(() => {
 
 describe('LeagueDetailScreen — loading', () => {
   it('renders loading indicator while detail is fetching', () => {
-    mockGetLeagueDetail.mockReturnValue(new Promise(() => {}));
+    mockGetLeague.mockReturnValue(new Promise(() => {}));
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     expect(screen.getByTestId('league-detail-loading')).toBeTruthy();
   });
@@ -243,7 +231,7 @@ describe('LeagueDetailScreen — header', () => {
   });
 
   it('does NOT render start session button for member', async () => {
-    mockGetLeagueDetail.mockResolvedValue({ ...MOCK_DETAIL, user_role: 'member' });
+    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, user_role: 'member' });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-header')).toBeTruthy());
     expect(screen.queryByTestId('start-session-button')).toBeNull();
@@ -338,7 +326,7 @@ describe('LeagueDetailScreen — navigation', () => {
 
 describe('LeagueDetailScreen — error', () => {
   it('renders error state when detail query fails', async () => {
-    mockGetLeagueDetail.mockRejectedValue(new Error('not found'));
+    mockGetLeague.mockRejectedValue(new Error('not found'));
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('league-detail-error')).toBeTruthy();

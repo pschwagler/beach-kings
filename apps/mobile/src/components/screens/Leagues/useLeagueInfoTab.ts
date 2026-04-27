@@ -100,7 +100,7 @@ export function useLeagueInfoTab(
       return {
         id: league.id,
         description: league.description ?? null,
-        access_type: league.is_open ? 'open' : 'invite_only',
+        access_type: league.access_type,
         level: league.level ?? null,
         location_name: league.location_name ?? null,
         home_court_name:

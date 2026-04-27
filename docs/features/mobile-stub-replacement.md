@@ -245,10 +245,10 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Endpoints (new): `GET /api/users/me/push-prefs`, `PATCH /api/users/me/push-prefs`
   - Reuse check: if the user profile already has notification-preference fields, patch via `updateUserProfile` instead of a new sub-resource.
 
-- [ ] **P3.5 — My Stats filters (league_id, days)**
+- [x] **P3.5 — My Stats filters (league_id, days)** — completed 2026-04-26
   - File: `useMyStatsScreen.ts`
-  - Endpoint: extend existing `GET /api/users/me/stats` with `?league_id=&days=`
-  - Reuse check: this is a parameter extension on an existing method — do not add a new method.
+  - Endpoint: extended existing `GET /api/users/me/stats` with `?league_id=&days=`
+  - Backend: three computation paths in `my_stats_service` (fast / league-only / recompute). Trophies are not windowed by `days`.
 
 ---
 
@@ -363,6 +363,8 @@ _Update this section as tasks complete._
   - **P1.3+P1.4** Join Requests: `POST /api/leagues/:id/join-request`, approve/deny endpoints, `requestToJoinLeague`/`approveJoinRequest`/`rejectJoinRequest` api-client methods, `useLeagueInfoTab` rewired.
   - **P1.9+P2.9** Session Roster: `GET /api/sessions/:id`, `DELETE /api/sessions/:id/players/:playerId`, `inviteSessionPlayer` (stub), `getSessionById`/`removeSessionPlayer`/`inviteSessionPlayer` api-client methods, `useSessionRosterScreen` rewired.
   - **P1.7** League Signups: `GET /api/leagues/:id/signups` (joins through active season), `joinSignup`/`dropSignup`/`getLeagueSignups` api-client methods, `useLeagueSignupsTab` rewired, mock stubs removed. No cap/waitlist in scope.
+
+- 2026-04-26: **P3.5 My Stats filters** complete. `GET /api/users/me/stats` now accepts `?league_id=&days=` (`days` validated `1..3650`). Service rewritten with three computation paths: fast (no filters → aggregate tables), league-only (`PlayerLeagueStats`/`PartnershipStatsLeague`/`OpponentStatsLeague`), recompute (raw `Match` rows joined to `Session` for the windowed date cutoff — partners/opponents/elo timeline derived from the same match-id set). Trophies are not windowed by `days` (filter only by `league_id`). Streak helper extended to honour both filters. Tests: 7 integration tests in `test_my_stats_service_filters.py` (no filters baseline, `league_id=A`, `days=30`, both, days with no recent activity, league with no matches, streak bounded) + 6 new route tests (param forwarding, invalid `days`, non-int `league_id`). 16/16 backend pass; service coverage 96%. Mobile MyStats suite (19 tests) green. Mobile time-chip refetch wired in earlier sprint already passes the new params via existing `getMyStats(opts)` path. `API_ROUTES.md` updated with `me/stats` and `me/games` rows.
 
 - 2026-04-26: **P2.8 Session Detail + Roster** complete. Enriched `GET /api/sessions/:id` to return `league_name`, `session_number` (parsed from `Session.name`), `games` list (`SessionGameResponse`), `user_wins`, `user_losses`, `user_rating_change`. New Pydantic model `SessionGameResponse` + extended `SessionRosterDetailResponse`. New shared types `SessionPlayer`, `SessionGame`, `SessionDetail` promoted to `packages/shared/src/types/session.ts`. `api-client.getSessionById` now returns `SessionDetail` (status normalised to lowercase). `useSessionDetailScreen` switched from `mockApi.getSessionDetailMock` → `api.getSessionById`. `useSessionRosterScreen` and `useSessionEditScreen` migrated to `SessionDetail`. `SessionDetailScreen`, `SessionGameCard`, `SessionPlayerChip` import types from `@beach-kings/shared`. Mock types/data/function deleted from `mockApi.ts`. Pre-existing test failures fixed: `home-scrollers` (wrong route assertion), `AuthContext` (missing `getCurrentUserPlayer` mock in email-login test, route guard tests updated to reflect `isNewUser` guard logic). `edit.test.tsx` updated to mock `api.getSessionById`. Full mobile suite: 1321 pass, 0 pre-existing regressions. 45 backend session tests pass.
 

@@ -83,7 +83,7 @@ function makeWrapper() {
 const MOCK_LEAGUE = {
   id: 1,
   description: 'Monday night beach volleyball league.',
-  is_open: true,
+  access_type: 'open',
   level: 'Intermediate',
   location_name: 'San Diego, CA',
   home_courts: [{ id: 'court-1', name: 'Kearny Mesa Park', address: null, position: 0 }],
@@ -286,7 +286,7 @@ describe('LeagueInfoTab — league info section', () => {
   });
 
   it('shows "Invite Only" for closed league', async () => {
-    mockGetLeague.mockResolvedValue({ ...MOCK_LEAGUE, is_open: false });
+    mockGetLeague.mockResolvedValue({ ...MOCK_LEAGUE, access_type: 'invite_only' });
 
     render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
 

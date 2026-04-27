@@ -1319,7 +1319,7 @@ class TestGetLeague:
         """Response includes location_name resolved from the joined Location row."""
         client, headers = _make_admin_client(monkeypatch)
 
-        async def fake_get_league(session, league_id):
+        async def fake_get_league_detail(session, league_id, user_id):
             return {
                 "id": league_id,
                 "name": "Test League",
@@ -1327,20 +1327,175 @@ class TestGetLeague:
                 "location_id": "socal_sd",
                 "location_name": "San Diego, CA",
                 "is_open": True,
+                "is_public": True,
                 "whatsapp_group_id": None,
                 "gender": None,
                 "level": "Intermediate",
                 "created_at": None,
                 "updated_at": None,
                 "home_courts": [],
+                "member_count": 0,
+                "season_count": 0,
+                "current_season_id": None,
+                "current_season_name": None,
+                "is_active": False,
+                "user_role": None,
+                "user_rank": None,
+                "user_wins": None,
+                "user_losses": None,
+                "user_rating": None,
             }
 
-        monkeypatch.setattr(data_service, "get_league", fake_get_league, raising=True)
+        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
 
         response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
         assert response.status_code == 200
         body = response.json()
         assert body["location_name"] == "San Diego, CA"
+
+
+# ---------------------------------------------------------------------------
+# GET /api/leagues/{league_id} — enriched detail (LeagueDetailResponse)
+# ---------------------------------------------------------------------------
+
+_LEAGUE_DETAIL_BASE = {
+    "id": LEAGUE_ID,
+    "name": "Test League",
+    "description": "A test league",
+    "location_id": "socal_sd",
+    "location_name": "San Diego, CA",
+    "is_open": True,
+    "is_public": True,
+    "whatsapp_group_id": None,
+    "gender": None,
+    "level": "Intermediate",
+    "created_at": None,
+    "updated_at": None,
+    "home_courts": [],
+    "member_count": 5,
+    "season_count": 3,
+    "current_season_id": 10,
+    "current_season_name": "Summer 2025",
+    "is_active": True,
+    "user_role": "admin",
+    "user_rank": 2,
+    "user_wins": 8,
+    "user_losses": 2,
+    "user_rating": 120.5,
+}
+
+
+class TestGetLeagueDetail:
+    """Tests for the enriched GET /api/leagues/{league_id} (LeagueDetailResponse)."""
+
+    def test_happy_path_admin_member(self, monkeypatch):
+        """Returns full detail including membership context for an admin member."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_league_detail(session, league_id, user_id):
+            return {**_LEAGUE_DETAIL_BASE}
+
+        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["member_count"] == 5
+        assert body["season_count"] == 3
+        assert body["current_season_id"] == 10
+        assert body["current_season_name"] == "Summer 2025"
+        assert body["is_active"] is True
+        assert body["user_role"] == "admin"
+        assert body["user_rank"] == 2
+        assert body["user_wins"] == 8
+        assert body["user_losses"] == 2
+        assert body["user_rating"] == 120.5
+
+    def test_visitor_null_user_fields(self, monkeypatch):
+        """Non-member visitor gets null for all user_* fields and user_role."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_league_detail(session, league_id, user_id):
+            return {
+                **_LEAGUE_DETAIL_BASE,
+                "user_role": None,
+                "user_rank": None,
+                "user_wins": None,
+                "user_losses": None,
+                "user_rating": None,
+            }
+
+        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["user_role"] is None
+        assert body["user_rank"] is None
+        assert body["user_wins"] is None
+        assert body["user_losses"] is None
+        assert body["user_rating"] is None
+
+    def test_zero_seasons(self, monkeypatch):
+        """League with no seasons returns season_count=0 and null current_season fields."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_league_detail(session, league_id, user_id):
+            return {
+                **_LEAGUE_DETAIL_BASE,
+                "season_count": 0,
+                "current_season_id": None,
+                "current_season_name": None,
+                "is_active": False,
+                "user_rank": None,
+                "user_wins": None,
+                "user_losses": None,
+                "user_rating": None,
+            }
+
+        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["season_count"] == 0
+        assert body["current_season_id"] is None
+        assert body["is_active"] is False
+
+    def test_no_active_season(self, monkeypatch):
+        """League has seasons but none are currently active."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_league_detail(session, league_id, user_id):
+            return {
+                **_LEAGUE_DETAIL_BASE,
+                "is_active": False,
+            }
+
+        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["is_active"] is False
+
+    def test_league_not_found_returns_404(self, monkeypatch):
+        """Returns 404 when the service returns None."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_league_detail(session, league_id, user_id):
+            return None
+
+        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
+        assert response.status_code == 404
+
+    def test_requires_authentication(self, monkeypatch):
+        """Returns 401 or 403 when no auth token is provided."""
+        client = TestClient(app)
+        response = client.get(f"/api/leagues/{LEAGUE_ID}")
+        assert response.status_code in (401, 403)
 
 
 # ---------------------------------------------------------------------------

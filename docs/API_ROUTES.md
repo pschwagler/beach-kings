@@ -48,6 +48,8 @@ Source: `apps/backend/api/routes/` (~169 endpoints across 14 domain modules) + `
 | POST | `/api/users/me/avatar` | User | Upload avatar image (multipart) |
 | DELETE | `/api/users/me/avatar` | User | Remove avatar |
 | GET | `/api/users/me/leagues` | User | List leagues for current user |
+| GET | `/api/users/me/stats` | Verified Player | My Stats payload (overall, trophies, partners, opponents, elo timeline). Optional `?league_id=&days=` filter every aggregate (trophies are not windowed by `days`). |
+| GET | `/api/users/me/games` | Verified Player | My Games match history. Optional `?league_id=&result=W\|L\|D&limit=&offset=`. |
 | POST | `/api/users/me/delete` | User | Schedule account deletion (30-day grace period) |
 | POST | `/api/users/me/cancel-deletion` | User | Cancel pending account deletion |
 

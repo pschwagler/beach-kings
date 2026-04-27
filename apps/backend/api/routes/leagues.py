@@ -21,6 +21,7 @@ from backend.api.auth_dependencies import (
 from backend.models.schemas import (
     LeagueCreate,
     LeagueResponse,
+    LeagueDetailResponse,
     LeagueMemberResponse,
     LeagueMemberDetailResponse,
     HomeCourtResponse,
@@ -130,20 +131,19 @@ async def query_leagues(
         raise HTTPException(status_code=500, detail=f"Error querying leagues: {str(e)}")
 
 
-@router.get("/api/leagues/{league_id}", response_model=LeagueResponse)
+@router.get("/api/leagues/{league_id}", response_model=LeagueDetailResponse)
 async def get_league(
     league_id: int,
     session: AsyncSession = Depends(get_db_session),
     user: dict = Depends(require_user),
 ):
     """
-    Get a league by id. Requires authentication.
-    Returns basic league information for any authenticated user,
-    allowing non-members to see the league and decide if they want to join.
+    Get enriched league detail. Requires authentication.
+    Returns league info plus membership context and current-season stats for the caller.
+    Non-members receive null for all user_* fields.
     """
     try:
-        # Check if league exists
-        league = await data_service.get_league(session, league_id)
+        league = await data_service.get_league_detail(session, league_id, user["id"])
         if not league:
             raise HTTPException(status_code=404, detail="League not found")
         return league

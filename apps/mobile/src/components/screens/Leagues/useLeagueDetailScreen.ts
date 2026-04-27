@@ -8,7 +8,8 @@
 import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { mockApi } from '@/lib/mockApi';
+import type { LeagueDetail } from '@beach-kings/shared';
+import { api } from '@/lib/api';
 import { leagueKeys } from './leagueKeys';
 import { routes } from '@/lib/navigation';
 
@@ -16,7 +17,7 @@ export type LeagueDetailTab = 'games' | 'standings' | 'chat' | 'signups' | 'info
 
 export interface UseLeagueDetailScreenResult {
   readonly leagueId: number | string;
-  readonly detail: import('@/lib/mockApi').LeagueDetail | null;
+  readonly detail: LeagueDetail | null;
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly activeTab: LeagueDetailTab;
@@ -37,7 +38,7 @@ export function useLeagueDetailScreen(
 
   const detailQuery = useQuery({
     queryKey: leagueKeys.detail(leagueId),
-    queryFn: () => mockApi.getLeagueDetail(leagueId), // TODO(backend): GET /api/leagues/:id
+    queryFn: () => api.getLeague(Number(leagueId)),
   });
 
   const onSetTab = useCallback((tab: LeagueDetailTab) => {
@@ -49,7 +50,6 @@ export function useLeagueDetailScreen(
   }, [router, leagueId]);
 
   const onStartSession = useCallback(() => {
-    // TODO(backend): navigate to create-session flow with leagueId pre-filled
     router.push(routes.createSession() as never);
   }, [router]);
 

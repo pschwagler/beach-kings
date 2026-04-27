@@ -34,27 +34,8 @@ export type LeagueInviteStatus = 'pending' | 'accepted' | 'declined';
 export type LeagueEventStatus = 'upcoming' | 'in_progress' | 'completed';
 
 /** Full detail for a single league (header + metadata). */
-export interface LeagueDetail {
-  readonly id: number;
-  readonly name: string;
-  readonly description: string | null;
-  readonly access_type: LeagueAccessType;
-  readonly gender: 'mens' | 'womens' | 'coed';
-  readonly level: string | null;
-  readonly location_name: string | null;
-  readonly home_court_name: string | null;
-  readonly home_court_id: number | null;
-  readonly member_count: number;
-  readonly season_count: number;
-  readonly current_season_id: number | null;
-  readonly current_season_name: string | null;
-  readonly is_active: boolean;
-  readonly user_role: LeagueMemberRole;
-  readonly user_rank: number | null;
-  readonly user_wins: number;
-  readonly user_losses: number;
-  readonly user_rating: number | null;
-}
+// LeagueDetail promoted to '@beach-kings/shared' (see types/league.ts).
+// Use api.getLeague(id) from packages/api-client/src/methods.ts.
 
 // LeagueStanding, LeagueSeasonInfo, LeagueStandingsResponse promoted to '@beach-kings/shared'.
 
@@ -203,28 +184,6 @@ const notImplemented = (endpoint: string): never => {
 // ---------------------------------------------------------------------------
 // League mock data
 // ---------------------------------------------------------------------------
-
-const MOCK_LEAGUE_DETAIL: LeagueDetail = {
-  id: 1,
-  name: 'QBK Open Men',
-  description: 'Competitive open-level men\'s beach volleyball league at QBK Sports.',
-  access_type: 'open',
-  gender: 'mens',
-  level: 'Open',
-  location_name: 'Queens, NY',
-  home_court_name: 'QBK Sports',
-  home_court_id: 3,
-  member_count: 24,
-  season_count: 4,
-  current_season_id: 4,
-  current_season_name: 'Season 4',
-  is_active: true,
-  user_role: 'member',
-  user_rank: 3,
-  user_wins: 14,
-  user_losses: 6,
-  user_rating: 1438,
-};
 
 const MOCK_PENDING_INVITES: LeagueInviteItem[] = [
   { id: 1, league_id: 1, league_name: 'QBK Open Men', player_id: 50, display_name: 'D. Thompson', initials: 'DT', invited_at: '2026-03-15', status: 'pending' },
@@ -766,14 +725,7 @@ export const mockApi = {
 
   // ---- League detail ----
 
-  /**
-   * Returns full detail for a single league.
-   * TODO(backend): GET /api/leagues/:id/detail
-   */
-  async getLeagueDetail(_id: number | string): Promise<LeagueDetail> {
-    return Promise.resolve({ ...MOCK_LEAGUE_DETAIL });
-  },
-
+  // getLeagueDetail removed — real api.getLeague(id) exists in packages/api-client/src/methods.ts.
   // getLeagueStandings removed — real api.getLeagueStandings exists in packages/api-client/src/methods.ts.
   // getLeagueSeasonsList removed — real api.getLeagueSeasons exists in packages/api-client/src/methods.ts.
 

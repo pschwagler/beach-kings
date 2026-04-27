@@ -185,6 +185,38 @@ export interface LeagueStandingsResponse {
   readonly season_info: LeagueSeasonInfo | null;
 }
 
+// ---------------------------------------------------------------------------
+// League Detail (GET /api/leagues/:id)
+// ---------------------------------------------------------------------------
+
+/**
+ * Enriched league detail returned by GET /api/leagues/:id.
+ * Includes membership context and current-season stats for the authenticated caller.
+ * All user_* fields are null for non-members.
+ */
+export interface LeagueDetail {
+  readonly id: number;
+  readonly name: string;
+  readonly description: string | null;
+  /** Derived from backend `is_open`: true → 'open', false → 'invite_only'. */
+  readonly access_type: 'open' | 'invite_only';
+  readonly gender: 'mens' | 'womens' | 'coed' | null;
+  readonly level: string | null;
+  readonly location_name: string | null;
+  readonly home_courts: readonly HomeCourtResponse[];
+  readonly member_count: number;
+  readonly season_count: number;
+  readonly current_season_id: number | null;
+  readonly current_season_name: string | null;
+  readonly is_active: boolean;
+  /** 'admin' | 'member' | null (null = non-member / visitor). */
+  readonly user_role: 'admin' | 'member' | null;
+  readonly user_rank: number | null;
+  readonly user_wins: number | null;
+  readonly user_losses: number | null;
+  readonly user_rating: number | null;
+}
+
 export interface League {
   id: number;
   name: string;

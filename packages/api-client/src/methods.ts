@@ -37,6 +37,7 @@ import type {
   FindLeagueResult,
   LeagueQueryResponse,
   LeagueStandingsResponse,
+  LeagueDetail,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -391,9 +392,48 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async getLeague(leagueId: number) {
-      const response = await api.get<League>(`/api/leagues/${leagueId}`);
-      return response.data;
+    async getLeague(leagueId: number): Promise<LeagueDetail> {
+      const response = await api.get<{
+        id: number;
+        name: string;
+        description: string | null;
+        is_open: boolean;
+        gender: string | null;
+        level: string | null;
+        location_name: string | null;
+        home_courts: Array<{ id: number; name: string; address: string | null; position: number }>;
+        member_count: number;
+        season_count: number;
+        current_season_id: number | null;
+        current_season_name: string | null;
+        is_active: boolean;
+        user_role: string | null;
+        user_rank: number | null;
+        user_wins: number | null;
+        user_losses: number | null;
+        user_rating: number | null;
+      }>(`/api/leagues/${leagueId}`);
+      const raw = response.data;
+      return {
+        id: raw.id,
+        name: raw.name,
+        description: raw.description,
+        access_type: raw.is_open ? 'open' : 'invite_only',
+        gender: raw.gender as 'mens' | 'womens' | 'coed' | null,
+        level: raw.level,
+        location_name: raw.location_name,
+        home_courts: raw.home_courts,
+        member_count: raw.member_count,
+        season_count: raw.season_count,
+        current_season_id: raw.current_season_id,
+        current_season_name: raw.current_season_name,
+        is_active: raw.is_active,
+        user_role: raw.user_role as 'admin' | 'member' | null,
+        user_rank: raw.user_rank,
+        user_wins: raw.user_wins,
+        user_losses: raw.user_losses,
+        user_rating: raw.user_rating,
+      };
     },
 
     async createLeague(leagueData: Partial<League>) {
