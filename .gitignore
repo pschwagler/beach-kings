@@ -3,6 +3,12 @@
 coverage.xml
 htmlcov/
 *.lcov
+coverage/
+apps/*/coverage/
+
+# Local screenshots / dev artifacts (root only — keeps app assets tracked)
+screenshots/
+/*.png
 
 # Python
 __pycache__/

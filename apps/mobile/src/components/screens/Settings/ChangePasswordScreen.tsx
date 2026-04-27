@@ -113,7 +113,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
   return (
     <SafeAreaView
       testID="change-password-screen"
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Change Password" showBack />
@@ -135,13 +135,13 @@ export default function ChangePasswordScreen(): React.ReactNode {
               testID={banner.type === 'success' ? 'change-password-success' : 'change-password-error'}
               className={`mb-lg px-md py-sm rounded-xl border ${
                 banner.type === 'success'
-                  ? 'bg-green-50 border-green-300 dark:bg-green-900/20 dark:border-green-700'
-                  : 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  ? 'bg-success-tint border-success'
+                  : 'bg-danger-tint border-danger'
               }`}
             >
               <Text
                 className={`text-sm font-medium text-center ${
-                  banner.type === 'success' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+                  banner.type === 'success' ? 'text-success' : 'text-danger'
                 }`}
               >
                 {banner.message}
@@ -151,7 +151,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
 
           {/* Current Password */}
           <View className="mb-lg">
-            <Text className="text-[13px] font-semibold text-text-muted dark:text-text-tertiary uppercase tracking-wider mb-sm">
+            <Text className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
               Current Password
             </Text>
             <Input
@@ -172,7 +172,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
 
           {/* New Password */}
           <View className="mb-lg">
-            <Text className="text-[13px] font-semibold text-text-muted dark:text-text-tertiary uppercase tracking-wider mb-sm">
+            <Text className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
               New Password
             </Text>
             <Input
@@ -194,7 +194,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
 
           {/* Confirm New Password */}
           <View className="mb-xl">
-            <Text className="text-[13px] font-semibold text-text-muted dark:text-text-tertiary uppercase tracking-wider mb-sm">
+            <Text className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
               Confirm New Password
             </Text>
             <Input
@@ -224,7 +224,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
               isSubmitting ? 'opacity-50' : ''
             }`}
           >
-            <Text className="text-navy font-bold text-[15px]">
+            <Text className="text-white font-bold text-[15px]">
               {isSubmitting ? 'Updating…' : 'Update Password'}
             </Text>
           </Pressable>

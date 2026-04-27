@@ -78,13 +78,13 @@ export default function AppearanceSettingsScreen(): React.ReactNode {
                 accessibilityRole="button"
                 accessibilityLabel={`${option.label} theme`}
                 accessibilityState={{ selected: isActive }}
-                className="flex-row items-center justify-between px-lg py-[14px] bg-white dark:bg-elevated border-b border-border dark:border-border-strong last:border-0 active:opacity-70"
+                className="flex-row items-center justify-between px-lg py-[14px] bg-surface border-b border-divider last:border-0 active:opacity-70"
               >
                 <View className="flex-1 pr-md">
-                  <Text className="text-[15px] text-text-default dark:text-content-primary">
+                  <Text className="text-[15px] text-default">
                     {option.label}
                   </Text>
-                  <Text className="text-[13px] text-text-muted dark:text-text-tertiary mt-[2px]">
+                  <Text className="text-[13px] text-muted mt-[2px]">
                     {option.description}
                   </Text>
                 </View>
