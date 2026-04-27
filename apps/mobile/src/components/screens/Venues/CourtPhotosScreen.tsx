@@ -2,13 +2,14 @@
  * CourtPhotosScreen — photo gallery for a court.
  *
  * Renders:
- *   - TopNav with "+ Add" right-action
- *   - Court name + address bar
- *   - Photo count bar
+ *   - TopNav with "+ Add" right-action that picks + uploads a photo
+ *   - Court name + address bar (resolved by the hook)
+ *   - Guidance text + photo count bar
  *   - 3-col square photo grid
  *   - Skeleton while loading
- *   - Empty state
- *   - Error state
+ *   - Empty state with CTA
+ *   - Error state with retry
+ *   - Pull-to-refresh
  *
  * Wireframe ref: court-photos.html
  */
@@ -21,6 +22,9 @@ import {
   Image,
   Pressable,
   Dimensions,
+  RefreshControl,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -51,13 +55,19 @@ function PhotoSkeleton(): React.ReactNode {
   );
 }
 
+interface PhotoGridProps {
+  readonly photos: readonly CourtPhoto[];
+  readonly onAddPhoto: () => void;
+  readonly refreshing: boolean;
+  readonly onRefresh: () => void;
+}
+
 function PhotoGrid({
   photos,
   onAddPhoto,
-}: {
-  photos: readonly CourtPhoto[];
-  onAddPhoto: () => void;
-}): React.ReactNode {
+  refreshing,
+  onRefresh,
+}: PhotoGridProps): React.ReactNode {
   if (photos.length === 0) {
     return (
       <View
@@ -100,10 +110,13 @@ function PhotoGrid({
             backgroundColor: '#e5e7eb',
           }}
           accessibilityIgnoresInvertColors
-          accessibilityLabel="Court photo"
+          accessibilityLabel={item.caption ?? 'Court photo'}
         />
       )}
       contentContainerStyle={{ paddingBottom: 100 }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
     />
   );
 }
@@ -114,21 +127,37 @@ function PhotoGrid({
 
 interface CourtPhotosScreenProps {
   readonly idOrSlug: number | string;
-  readonly courtName?: string;
-  readonly courtAddress?: string;
 }
 
 export default function CourtPhotosScreen({
   idOrSlug,
-  courtName = 'Court Photos',
-  courtAddress,
 }: CourtPhotosScreenProps): React.ReactNode {
-  const { photos, isLoading, error, onRetry } = useCourtPhotosScreen(idOrSlug);
+  const {
+    photos,
+    header,
+    isLoading,
+    error,
+    isRefreshing,
+    isUploading,
+    uploadError,
+    onRefresh,
+    onRetry,
+    onUploadPhoto,
+  } = useCourtPhotosScreen(idOrSlug);
 
   const handleAddPhoto = useCallback(() => {
     void hapticMedium();
-    // TODO(backend): launch image picker → POST /api/courts/:id/photos
-  }, []);
+    void onUploadPhoto().catch(() => {
+      // Errors are surfaced via uploadError state; nothing to do here.
+    });
+  }, [onUploadPhoto]);
+
+  // Surface upload failures via Alert so users see them immediately.
+  React.useEffect(() => {
+    if (uploadError != null) {
+      Alert.alert('Upload Failed', uploadError.message, [{ text: 'OK' }]);
+    }
+  }, [uploadError]);
 
   const addButton = (
     <Pressable
@@ -136,10 +165,17 @@ export default function CourtPhotosScreen({
       onPress={handleAddPhoto}
       accessibilityRole="button"
       accessibilityLabel="Add photo"
+      disabled={isUploading}
     >
-      <Text className="text-brand-teal font-semibold text-[15px]">
-        + Add
-      </Text>
+      {isUploading ? (
+        <ActivityIndicator
+          testID="court-photos-upload-spinner"
+          size="small"
+          color="#0ea5a5"
+        />
+      ) : (
+        <Text className="text-brand-teal font-semibold text-[15px]">+ Add</Text>
+      )}
     </Pressable>
   );
 
@@ -201,11 +237,11 @@ export default function CourtPhotosScreen({
         className="px-4 py-3 border-b border-strong"
       >
         <Text className="text-[15px] font-semibold text-default">
-          {courtName}
+          {header.name}
         </Text>
-        {courtAddress != null && (
+        {header.address != null && (
           <Text className="text-[13px] text-muted mt-0.5">
-            {courtAddress}
+            {header.address}
           </Text>
         )}
       </View>
@@ -227,7 +263,12 @@ export default function CourtPhotosScreen({
         </Text>
       </View>
 
-      <PhotoGrid photos={photos} onAddPhoto={handleAddPhoto} />
+      <PhotoGrid
+        photos={photos}
+        onAddPhoto={handleAddPhoto}
+        refreshing={isRefreshing}
+        onRefresh={onRefresh}
+      />
     </SafeAreaView>
   );
 }

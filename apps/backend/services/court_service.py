@@ -515,6 +515,7 @@ async def add_court_photo(
     player_id: int,
     s3_key: str,
     url: str,
+    caption: Optional[str] = None,
 ) -> Dict:
     """
     Create a standalone court photo record.
@@ -525,9 +526,10 @@ async def add_court_photo(
         player_id: ID of the player uploading
         s3_key: S3 object key
         url: Public URL of the photo
+        caption: Optional uploader caption (max 280 chars).
 
     Returns:
-        Dict with id, url, sort_order
+        Dict with id, url, caption, sort_order, created_at.
     """
     # Verify court exists
     court = await session.get(Court, court_id)
@@ -551,11 +553,46 @@ async def add_court_photo(
         url=url,
         uploaded_by=player_id,
         sort_order=next_order,
+        caption=caption,
     )
     session.add(photo)
     await session.commit()
 
-    return {"id": photo.id, "url": photo.url, "sort_order": photo.sort_order}
+    return {
+        "id": photo.id,
+        "url": photo.url,
+        "caption": photo.caption,
+        "sort_order": photo.sort_order,
+        "created_at": photo.created_at.isoformat() if photo.created_at else None,
+    }
+
+
+async def list_court_photos(
+    session: AsyncSession,
+    court_id: int,
+) -> List[Dict]:
+    """
+    List standalone court photos for a court, oldest sort_order first.
+
+    Returns an empty list if the court has no photos. Caller is responsible
+    for verifying that the court itself exists.
+    """
+    result = await session.execute(
+        select(CourtPhoto)
+        .where(CourtPhoto.court_id == court_id)
+        .order_by(CourtPhoto.sort_order.asc(), CourtPhoto.id.asc())
+    )
+    photos = result.scalars().all()
+    return [
+        {
+            "id": p.id,
+            "url": p.url,
+            "caption": p.caption,
+            "sort_order": p.sort_order,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        }
+        for p in photos
+    ]
 
 
 async def get_court_leaderboard(

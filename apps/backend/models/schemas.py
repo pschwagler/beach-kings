@@ -2148,12 +2148,24 @@ class CourtDetailResponse(BaseModel):
     updated_at: Optional[str] = None
 
 
+class CourtPhotoResponse(BaseModel):
+    """A standalone court photo as returned by the public photos endpoint."""
+
+    id: int
+    url: str
+    caption: Optional[str] = None
+    sort_order: int = 0
+    created_at: Optional[str] = None
+
+
 class CourtPhotoUploadResponse(BaseModel):
     """Response for a successfully uploaded court photo."""
 
     id: int
     url: str
+    caption: Optional[str] = None
     sort_order: int = 0
+    created_at: Optional[str] = None
 
 
 class ReorderCourtPhotosRequest(BaseModel):

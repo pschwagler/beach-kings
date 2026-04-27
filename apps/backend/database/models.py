@@ -1511,6 +1511,7 @@ class CourtPhoto(Base):
     url = Column(String(500), nullable=False)
     uploaded_by = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
     sort_order = Column(Integer, nullable=False, server_default="0")
+    caption = Column(String(280), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

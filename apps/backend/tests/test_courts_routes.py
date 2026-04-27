@@ -749,6 +749,120 @@ class TestUploadReviewPhoto:
 
 
 # ============================================================================
+# POST /api/courts/{court_id}/photos  — upload standalone court photo
+# ============================================================================
+
+
+class TestUploadCourtPhoto:
+    """Tests for POST /api/courts/{court_id}/photos."""
+
+    def test_upload_court_photo_with_caption_succeeds(self, monkeypatch):
+        """Verified player can upload a standalone court photo with a caption."""
+        captured_kwargs = {}
+
+        async def fake_get(_self, court_id):
+            return MagicMock(id=court_id)
+
+        async def fake_process(_file):
+            return b"processed_image_data"
+
+        def fake_upload(_data, _key, _content_type):
+            return "https://s3.example.com/photo.jpg"
+
+        async def fake_add_photo(_session, **kwargs):
+            captured_kwargs.update(kwargs)
+            return {
+                "id": 42,
+                "url": kwargs["url"],
+                "caption": kwargs.get("caption"),
+                "sort_order": 0,
+                "created_at": "2026-04-26T00:00:00+00:00",
+            }
+
+        monkeypatch.setattr(
+            "backend.api.routes.courts.AsyncSession.get", fake_get, raising=False
+        )
+        monkeypatch.setattr(
+            court_photo_service, "process_court_photo", fake_process, raising=True
+        )
+        monkeypatch.setattr(s3_service, "upload_file", fake_upload, raising=True)
+        monkeypatch.setattr(court_service, "add_court_photo", fake_add_photo, raising=True)
+
+        client, headers = _make_verified_player_client(monkeypatch)
+        fake_file = io.BytesIO(b"fake image data")
+        response = client.post(
+            "/api/courts/1/photos",
+            files={"file": ("photo.jpg", fake_file, "image/jpeg")},
+            data={"caption": "  Morning light  "},
+            headers=headers,
+        )
+        _restore_verified_player()
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == 42
+        assert body["caption"] == "Morning light"
+        # Caption is normalized (trimmed) before reaching the service.
+        assert captured_kwargs.get("caption") == "Morning light"
+
+    def test_upload_court_photo_blank_caption_treated_as_none(self, monkeypatch):
+        """A whitespace-only caption is normalized to None before persisting."""
+        captured_kwargs = {}
+
+        async def fake_get(_self, court_id):
+            return MagicMock(id=court_id)
+
+        async def fake_process(_file):
+            return b"processed_image_data"
+
+        def fake_upload(_data, _key, _content_type):
+            return "https://s3.example.com/photo.jpg"
+
+        async def fake_add_photo(_session, **kwargs):
+            captured_kwargs.update(kwargs)
+            return {
+                "id": 1,
+                "url": kwargs["url"],
+                "caption": kwargs.get("caption"),
+                "sort_order": 0,
+                "created_at": None,
+            }
+
+        monkeypatch.setattr(
+            "backend.api.routes.courts.AsyncSession.get", fake_get, raising=False
+        )
+        monkeypatch.setattr(
+            court_photo_service, "process_court_photo", fake_process, raising=True
+        )
+        monkeypatch.setattr(s3_service, "upload_file", fake_upload, raising=True)
+        monkeypatch.setattr(court_service, "add_court_photo", fake_add_photo, raising=True)
+
+        client, headers = _make_verified_player_client(monkeypatch)
+        fake_file = io.BytesIO(b"fake image data")
+        response = client.post(
+            "/api/courts/1/photos",
+            files={"file": ("photo.jpg", fake_file, "image/jpeg")},
+            data={"caption": "   "},
+            headers=headers,
+        )
+        _restore_verified_player()
+
+        assert response.status_code == 200
+        assert captured_kwargs.get("caption") is None
+
+    def test_upload_court_photo_no_auth_returns_403(self):
+        """Unauthenticated request returns 401/403."""
+        _restore_verified_player()
+        client = TestClient(app)
+        fake_file = io.BytesIO(b"data")
+        response = client.post(
+            "/api/courts/1/photos",
+            files={"file": ("photo.jpg", fake_file, "image/jpeg")},
+        )
+        assert response.status_code in (401, 403)
+
+
+# ============================================================================
 # POST /api/courts/{court_id}/suggest-edit
 # ============================================================================
 

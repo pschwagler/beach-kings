@@ -20,6 +20,7 @@ from backend.models.schemas import (
     CourtLeaderboardEntry,
     CourtLeagueItem,
     CourtNearbyItem,
+    CourtPhotoResponse,
     CourtTagResponse,
     PaginatedCourtsResponse,
     PaginatedPublicLeaguesResponse,
@@ -274,6 +275,35 @@ async def get_nearby_courts(
     return await court_service.get_nearby_courts(
         session, lat, lng, exclude_court_id=exclude, radius_miles=radius
     )
+
+
+async def _resolve_court_id(session: AsyncSession, id_or_slug: str) -> Optional[int]:
+    """Resolve a court reference (numeric id or url slug) to a primary key."""
+    if id_or_slug.isdigit():
+        return int(id_or_slug)
+    return await court_service.get_court_id_by_slug(session, id_or_slug)
+
+
+@public_router.get(
+    "/courts/{id_or_slug}/photos", response_model=List[CourtPhotoResponse]
+)
+@limiter.limit("60/minute")
+async def list_court_photos(
+    request: Request,
+    id_or_slug: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    List standalone photos uploaded for a court (no auth).
+
+    Accepts either the numeric court id or its url slug. Returns photos
+    ordered by sort_order ascending. Returns 404 when the court does not
+    exist.
+    """
+    court_id = await _resolve_court_id(session, id_or_slug)
+    if court_id is None:
+        raise HTTPException(status_code=404, detail="Court not found")
+    return await court_service.list_court_photos(session, court_id)
 
 
 @public_router.get("/courts/{slug}/leaderboard", response_model=List[CourtLeaderboardEntry])

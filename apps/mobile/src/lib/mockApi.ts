@@ -13,7 +13,6 @@
 
 import type {
   Court,
-  CourtPhoto,
   JoinRequest,
   KobTournament,
   KobTournamentDetail,
@@ -346,23 +345,6 @@ const MOCK_TOURNAMENT_DETAIL = (id: number): KobTournamentDetail => {
 };
 
 // ---------------------------------------------------------------------------
-// Court photos (standalone mock — used by getCourtPhotos until backend lands)
-// ---------------------------------------------------------------------------
-
-const MOCK_COURT_PHOTOS: CourtPhoto[] = [
-  {
-    id: 1,
-    url: 'https://picsum.photos/seed/court1/800/600',
-    created_at: '2026-04-01T09:00:00Z',
-  },
-  {
-    id: 2,
-    url: 'https://picsum.photos/seed/court2/800/600',
-    created_at: '2026-04-05T14:00:00Z',
-  },
-];
-
-// ---------------------------------------------------------------------------
 // Courts list mock data
 // ---------------------------------------------------------------------------
 
@@ -680,18 +662,7 @@ export const mockApi = {
     return notImplemented('DELETE /api/tournaments/:id');
   },
 
-  // ---- Court photos (getCourtById is now a real method in api-client) ----
-  async getCourtPhotos(_idOrSlug: number | string): Promise<CourtPhoto[]> {
-    return Promise.resolve(MOCK_COURT_PHOTOS);
-  },
-
-  async uploadCourtPhoto(
-    _idOrSlug: number | string,
-    _file: { uri: string; name: string; type: string },
-    _caption?: string,
-  ): Promise<CourtPhoto> {
-    return notImplemented('POST /api/courts/:id/photos');
-  },
+  // ---- Court photos (getCourtPhotos + uploadCourtPhoto are real now) ----
 
   async deleteCourtPhoto(
     _idOrSlug: number | string,

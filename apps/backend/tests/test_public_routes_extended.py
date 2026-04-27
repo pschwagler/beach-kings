@@ -553,6 +553,68 @@ def test_get_court_leaderboard_empty(mock_id, mock_lb, client):
 
 
 # ===========================================================================
+# GET /api/public/courts/{id_or_slug}/photos
+# ===========================================================================
+
+
+@patch("backend.services.court_service.list_court_photos", new_callable=AsyncMock)
+def test_list_court_photos_by_numeric_id_returns_200(mock_list, client):
+    """Numeric id is resolved without a slug lookup."""
+    mock_list.return_value = [
+        {
+            "id": 1,
+            "url": "https://s3.example.com/p1.jpg",
+            "caption": "Morning light",
+            "sort_order": 0,
+            "created_at": "2026-04-01T09:00:00+00:00",
+        },
+        {
+            "id": 2,
+            "url": "https://s3.example.com/p2.jpg",
+            "caption": None,
+            "sort_order": 1,
+            "created_at": "2026-04-05T14:00:00+00:00",
+        },
+    ]
+
+    response = client.get("/api/public/courts/42/photos")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 2
+    assert data[0]["caption"] == "Morning light"
+    assert data[1]["caption"] is None
+    mock_list.assert_awaited_once()
+    # second positional arg is the resolved court_id
+    assert mock_list.await_args.args[1] == 42
+
+
+@patch("backend.services.court_service.list_court_photos", new_callable=AsyncMock)
+@patch("backend.services.court_service.get_court_id_by_slug", new_callable=AsyncMock)
+def test_list_court_photos_by_slug_returns_200(mock_slug, mock_list, client):
+    """Slug is resolved through get_court_id_by_slug, then photos returned."""
+    mock_slug.return_value = 7
+    mock_list.return_value = []
+
+    response = client.get("/api/public/courts/pacific-beach-park/photos")
+    assert response.status_code == 200
+    assert response.json() == []
+    mock_slug.assert_awaited_once()
+    mock_list.assert_awaited_once()
+    assert mock_list.await_args.args[1] == 7
+
+
+@patch("backend.services.court_service.get_court_id_by_slug", new_callable=AsyncMock)
+def test_list_court_photos_unknown_slug_returns_404(mock_slug, client):
+    """An unknown slug yields 404."""
+    mock_slug.return_value = None
+
+    response = client.get("/api/public/courts/ghost-court/photos")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Court not found"
+
+
+# ===========================================================================
 # Cache headers — spot check on a representative endpoint
 # ===========================================================================
 

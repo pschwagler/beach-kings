@@ -16,6 +16,7 @@ import type {
   SessionDetail,
   Location,
   Court,
+  CourtPhoto,
   Friend,
   FriendListResponse,
   FriendRequest,
@@ -732,6 +733,44 @@ export function createApiMethods(client: ApiClient) {
      */
     async getCourtById(idOrSlug: string | number): Promise<Court> {
       const response = await api.get<Court>(`/api/courts/${idOrSlug}`);
+      return response.data;
+    },
+
+    /**
+     * List standalone photos for a court (public — no auth required).
+     * Accepts numeric id or url slug.
+     */
+    async getCourtPhotos(idOrSlug: string | number): Promise<CourtPhoto[]> {
+      const response = await api.get<CourtPhoto[]>(
+        `/api/public/courts/${idOrSlug}/photos`,
+      );
+      return response.data;
+    },
+
+    /**
+     * Upload a standalone photo to a court (multipart form data).
+     *
+     * `file` accepts either a web `File` / `Blob` or the React Native shape
+     * `{ uri, name, type }` produced by image pickers — both are valid
+     * `FormData.append` payloads at runtime.
+     */
+    async uploadCourtPhoto(
+      courtId: number,
+      file: File | Blob | { uri: string; name: string; type: string },
+      caption?: string,
+    ): Promise<CourtPhoto> {
+      const form = new FormData();
+      // FormData accepts native-style `{ uri, name, type }` on React Native
+      // even though the DOM lib types only allow Blob/File.
+      form.append('file', file as unknown as Blob);
+      if (caption != null && caption.trim().length > 0) {
+        form.append('caption', caption.trim());
+      }
+      const response = await api.post<CourtPhoto>(
+        `/api/courts/${courtId}/photos`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
       return response.data;
     },
 

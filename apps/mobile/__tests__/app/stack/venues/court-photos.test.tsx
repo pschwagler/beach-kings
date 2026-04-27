@@ -85,11 +85,26 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockGetCourtPhotos = jest.fn();
+const mockGetCourtById = jest.fn();
+const mockUploadCourtPhoto = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     getCourtPhotos: (...args) => mockGetCourtPhotos(...args),
+    getCourtById: (...args) => mockGetCourtById(...args),
+    uploadCourtPhoto: (...args) => mockUploadCourtPhoto(...args),
   },
+}));
+
+const mockRequestMediaLibraryPermissionsAsync = jest.fn();
+const mockLaunchImageLibraryAsync = jest.fn();
+
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: (...args: unknown[]) =>
+    mockRequestMediaLibraryPermissionsAsync(...args),
+  launchImageLibraryAsync: (...args: unknown[]) =>
+    mockLaunchImageLibraryAsync(...args),
+  MediaTypeOptions: { Images: 'Images' },
 }));
 
 jest.mock('@/components/ui/icons', () => {
@@ -142,6 +157,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockHapticMedium.mockResolvedValue(undefined);
   mockGetCourtPhotos.mockResolvedValue([]);
+  mockGetCourtById.mockResolvedValue(null);
+  mockUploadCourtPhoto.mockResolvedValue({ id: 99, url: 'https://x' });
+  mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true });
+  mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: [] });
 });
 
 // ---------------------------------------------------------------------------
@@ -277,5 +296,88 @@ describe('CourtPhotosScreen — photos grid', () => {
         screen.getByText(/Add photos that help other players/i),
       ).toBeTruthy();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Upload flow
+// ---------------------------------------------------------------------------
+
+describe('CourtPhotosScreen — upload flow', () => {
+  it('uploads a picked photo and refetches the list', async () => {
+    mockGetCourtPhotos.mockResolvedValueOnce(MOCK_PHOTOS);
+    mockGetCourtById.mockResolvedValue({ id: 1, name: 'Court A' });
+    mockLaunchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///tmp/photo.jpg',
+          fileName: 'photo.jpg',
+          mimeType: 'image/jpeg',
+        },
+      ],
+    });
+    mockUploadCourtPhoto.mockResolvedValue({ id: 4, url: 'https://x' });
+    mockGetCourtPhotos.mockResolvedValueOnce([
+      ...MOCK_PHOTOS,
+      { id: 4, url: 'https://x', caption: null, created_at: null },
+    ]);
+
+    render(<CourtPhotosRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('court-photos-add-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('court-photos-add-btn'));
+
+    await waitFor(() => {
+      expect(mockUploadCourtPhoto).toHaveBeenCalledTimes(1);
+    });
+    expect(mockUploadCourtPhoto.mock.calls[0][0]).toBe(1);
+    expect(mockUploadCourtPhoto.mock.calls[0][1]).toMatchObject({
+      uri: 'file:///tmp/photo.jpg',
+      name: 'photo.jpg',
+      type: 'image/jpeg',
+    });
+  });
+
+  it('does not upload when user cancels the picker', async () => {
+    mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
+    mockLaunchImageLibraryAsync.mockResolvedValue({
+      canceled: true,
+      assets: [],
+    });
+
+    render(<CourtPhotosRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('court-photos-add-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('court-photos-add-btn'));
+
+    await waitFor(() => {
+      expect(mockLaunchImageLibraryAsync).toHaveBeenCalled();
+    });
+    expect(mockUploadCourtPhoto).not.toHaveBeenCalled();
+  });
+
+  it('does not upload when permission is denied', async () => {
+    mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
+    mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({
+      granted: false,
+    });
+
+    render(<CourtPhotosRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('court-photos-add-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('court-photos-add-btn'));
+
+    await waitFor(() => {
+      expect(mockRequestMediaLibraryPermissionsAsync).toHaveBeenCalled();
+    });
+    expect(mockLaunchImageLibraryAsync).not.toHaveBeenCalled();
+    expect(mockUploadCourtPhoto).not.toHaveBeenCalled();
   });
 });

@@ -225,10 +225,11 @@ Each of these screens currently renders mock data; the feature *works* but value
 
 ## Phase 3 — P3 medium (partial data / hardcoded values)
 
-- [ ] **P3.1 — Court Photos**
-  - File: `apps/mobile/src/components/screens/Venues/useCourtPhotosScreen.ts`
-  - Endpoint (new): `GET /api/courts/:id/photos`
-  - Reuse check: if court reviews already carry photo uploads, the photos may live on the court record — check the existing court detail response before designing a separate photos endpoint.
+- [x] **P3.1 — Court Photos**
+  - Hook: `apps/mobile/src/components/screens/Venues/useCourtPhotosScreen.ts` now fetches photos + court header in parallel and exposes an `onUploadPhoto` helper that picks an image (`expo-image-picker`) and POSTs it.
+  - Backend: new public endpoint `GET /api/public/courts/{id_or_slug}/photos` (accepts numeric id or slug, no auth, 5-min cache). The existing authenticated `POST /api/courts/{court_id}/photos` now also accepts an optional `caption` form field (max 280 chars).
+  - Schema: migration `047` adds nullable `caption VARCHAR(280)` to `court_photos`. `created_at` was already on the table from migration `023`. `CourtPhoto` shared type now exposes `caption`, `sort_order`, and `created_at` on the wire.
+  - Mocks: removed `getCourtPhotos` + `uploadCourtPhoto` from `mockApi.ts` (proxied to real api-client now).
 
 - [x] **P3.2 — Player Trophies** *(scope flipped to delete-only)*
   - Decision: trophies are not shown on other players' profiles. Section removed from `PlayerProfileScreen` and `usePlayerProfileScreen` (`MOCK_TROPHIES`, `PlayerTrophy` type, `trophies` field). `PlayerTrophiesList.tsx` deleted. The signed-in user's own awards continue to live on `MyStatsScreen` (already real-data).
@@ -327,7 +328,7 @@ Grouped for backend sprint planning. Tournament/KOB endpoints intentionally omit
 - `GET /api/users/me/push-prefs` + `PATCH`
 - ~~`GET /api/players/:id/trophies`~~ (P3.2 dropped — trophies not shown on other players' profiles)
 - `GET /api/players/:id/leagues` (or extend existing)
-- `GET /api/courts/:id/photos`
+- ~~`GET /api/courts/:id/photos`~~ (P3.1 landed as `GET /api/public/courts/:id_or_slug/photos`)
 
 **Low (Phase 4):**
 - `DELETE /api/users/me`

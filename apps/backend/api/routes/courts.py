@@ -10,6 +10,7 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     Request,
@@ -434,6 +435,7 @@ async def upload_court_photo(
     request: Request,
     court_id: int,
     file: UploadFile = File(...),
+    caption: Optional[str] = Form(default=None, max_length=280),
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -441,6 +443,7 @@ async def upload_court_photo(
     Upload a standalone photo to a court.
 
     Photos are resized to max 1200px and converted to JPEG 85%.
+    Optionally accepts a `caption` form field (max 280 chars).
     Requires a verified player account.
     """
     try:
@@ -453,6 +456,8 @@ async def upload_court_photo(
         s3_key = f"court-photos/{court_id}/{uuid.uuid4()}.jpg"
         url = await asyncio.to_thread(s3_service.upload_file, processed, s3_key, "image/jpeg")
 
+        normalized_caption = caption.strip() if caption and caption.strip() else None
+
         try:
             result = await court_service.add_court_photo(
                 session,
@@ -460,6 +465,7 @@ async def upload_court_photo(
                 player_id=user["player_id"],
                 s3_key=s3_key,
                 url=url,
+                caption=normalized_caption,
             )
             return result
         except Exception:
