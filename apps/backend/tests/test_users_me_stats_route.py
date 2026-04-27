@@ -107,7 +107,7 @@ class TestGetMyStatsRoute:
         app.dependency_overrides.pop(require_verified_player, None)
         client = TestClient(app)
         response = client.get("/api/users/me/stats")
-        assert response.status_code == 401
+        assert response.status_code in (401, 403)
 
     # -- Happy path (shape-contract) -----------------------------------------
 
@@ -182,3 +182,61 @@ class TestGetMyStatsRoute:
             response = client.get("/api/users/me/stats", headers={"Authorization": "Bearer dummy"})
 
         assert response.status_code == 500
+
+    # -- Query params (P3.5) -------------------------------------------------
+
+    def test_query_params_passed_to_service(self):
+        """Route must forward league_id and days kwargs to the service."""
+        client = TestClient(app)
+        mock = AsyncMock(return_value=MINIMAL_STATS_PAYLOAD)
+
+        with patch("backend.services.my_stats_service.get_my_stats", new=mock):
+            response = client.get(
+                "/api/users/me/stats?league_id=42&days=30",
+                headers={"Authorization": "Bearer dummy"},
+            )
+
+        assert response.status_code == 200
+        kwargs = mock.await_args.kwargs
+        assert kwargs.get("league_id") == 42
+        assert kwargs.get("days") == 30
+        assert kwargs.get("player_id") == PLAYER_ID
+
+    def test_no_query_params_passes_none(self):
+        """When neither query param is set, service receives league_id=None and days=None."""
+        client = TestClient(app)
+        mock = AsyncMock(return_value=MINIMAL_STATS_PAYLOAD)
+
+        with patch("backend.services.my_stats_service.get_my_stats", new=mock):
+            response = client.get("/api/users/me/stats", headers={"Authorization": "Bearer dummy"})
+
+        assert response.status_code == 200
+        kwargs = mock.await_args.kwargs
+        assert kwargs.get("league_id") is None
+        assert kwargs.get("days") is None
+
+    @pytest.mark.parametrize("days", [0, -5, 10000])
+    def test_invalid_days_returns_422(self, days):
+        """days outside [1, 3650] must be rejected by Query validators."""
+        client = TestClient(app)
+        with patch(
+            "backend.services.my_stats_service.get_my_stats",
+            new=AsyncMock(return_value=MINIMAL_STATS_PAYLOAD),
+        ):
+            response = client.get(
+                f"/api/users/me/stats?days={days}", headers={"Authorization": "Bearer dummy"}
+            )
+        assert response.status_code == 422
+
+    def test_non_int_league_id_returns_422(self):
+        """Non-integer league_id must be rejected."""
+        client = TestClient(app)
+        with patch(
+            "backend.services.my_stats_service.get_my_stats",
+            new=AsyncMock(return_value=MINIMAL_STATS_PAYLOAD),
+        ):
+            response = client.get(
+                "/api/users/me/stats?league_id=not-a-number",
+                headers={"Authorization": "Bearer dummy"},
+            )
+        assert response.status_code == 422

@@ -80,17 +80,37 @@ async def get_current_user_player(
 async def get_my_stats(
     current_user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
+    league_id: Optional[int] = Query(
+        default=None, description="Filter all stats to a single league"
+    ),
+    days: Optional[int] = Query(
+        default=None,
+        ge=1,
+        le=3650,
+        description="Time window in days (recomputes from raw match rows)",
+    ),
 ):
     """
     Get the authenticated player's full stats payload for the My Stats screen.
 
     Returns overall stats, trophies, partner/opponent breakdowns, and ELO
     timeline. Requires a linked player profile.
+
+    Query parameters:
+        league_id: Restrict every aggregate to a single league.
+        days: Restrict every aggregate to matches in the last ``days`` days.
+            When set, the service recomputes stats from raw match rows so that
+            partners/opponents/elo_timeline reflect only the windowed activity.
     """
     player_id = current_user["player_id"]
 
     try:
-        payload = await my_stats_service.get_my_stats(session=session, player_id=player_id)
+        payload = await my_stats_service.get_my_stats(
+            session=session,
+            player_id=player_id,
+            league_id=league_id,
+            days=days,
+        )
     except Exception as e:
         logger.error(f"Error fetching my stats for player {player_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch stats.")
