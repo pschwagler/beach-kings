@@ -43,7 +43,7 @@ export default function GameTypeCard({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={title}
-      className="flex-row items-center gap-[14px] bg-white dark:bg-dark-surface rounded-[14px] px-4 py-[18px] shadow-sm dark:shadow-none dark:border dark:border-border-subtle mb-3 active:border active:border-accent"
+      className="flex-row items-center gap-[14px] bg-surface rounded-[14px] px-4 py-[18px] shadow-sm dark:shadow-none dark:border border-divider mb-3 active:border active:border-brand-teal"
     >
       {/* Icon container */}
       <View
@@ -54,10 +54,10 @@ export default function GameTypeCard({
 
       {/* Text block */}
       <View className="flex-1">
-        <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[3px]">
+        <Text className="text-[15px] font-bold text-default mb-[3px]">
           {title}
         </Text>
-        <Text className="text-[12px] text-text-muted dark:text-content-tertiary leading-[1.4]">
+        <Text className="text-[12px] text-muted leading-[1.4]">
           {description}
         </Text>
       </View>

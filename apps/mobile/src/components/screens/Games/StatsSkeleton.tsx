@@ -11,7 +11,7 @@ export default function StatsSkeleton(): React.ReactNode {
   return (
     <View testID="stats-loading" className="flex-1">
       {/* Profile header */}
-      <View className="flex-row items-center gap-4 px-4 py-4 bg-white dark:bg-dark-surface">
+      <View className="flex-row items-center gap-4 px-4 py-4 bg-surface">
         <LoadingSkeleton width={56} height={56} borderRadius={28} />
         <View className="flex-1 gap-2">
           <LoadingSkeleton width={160} height={20} borderRadius={6} />
@@ -20,7 +20,7 @@ export default function StatsSkeleton(): React.ReactNode {
       </View>
 
       {/* Stats bar */}
-      <View className="flex-row bg-white dark:bg-dark-surface border-t border-b border-gray-100 dark:border-border-subtle">
+      <View className="flex-row bg-surface border-t border-b border-divider">
         {[1, 2, 3, 4].map((i) => (
           <View key={i} className="flex-1 items-center py-3">
             <LoadingSkeleton width={40} height={20} borderRadius={4} className="mb-1" />
@@ -30,7 +30,7 @@ export default function StatsSkeleton(): React.ReactNode {
       </View>
 
       {/* Segment control */}
-      <View className="mx-4 mt-3 mb-2 h-[42px] rounded-[10px] bg-gray-100 dark:bg-dark-surface overflow-hidden">
+      <View className="mx-4 mt-3 mb-2 h-[42px] rounded-[10px] bg-elevated overflow-hidden">
         <LoadingSkeleton width="100%" height={42} borderRadius={10} />
       </View>
 

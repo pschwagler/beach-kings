@@ -127,25 +127,25 @@ function ActiveSessionBanner({
 }: ActiveSessionBannerProps): React.ReactNode {
   return (
     <View className="mb-5">
-      <Text className="text-[12px] font-semibold text-text-muted dark:text-content-tertiary uppercase tracking-wide mb-[10px]">
+      <Text className="text-[12px] font-semibold text-muted uppercase tracking-wide mb-[10px]">
         Active Session
       </Text>
-      <View className="bg-white dark:bg-dark-surface rounded-[14px] p-4 shadow-sm border-l-4 border-l-green-500 dark:shadow-none dark:border dark:border-border-subtle">
+      <View className="bg-surface rounded-[14px] p-4 shadow-sm border-l-4 border-l-success dark:shadow-none dark:border border-divider">
         {/* Header row */}
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-[5px]">
             <View className="w-[7px] h-[7px] rounded-full bg-green-500" />
-            <Text className="text-[11px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wide">
+            <Text className="text-[11px] font-bold text-success uppercase tracking-wide">
               Active
             </Text>
           </View>
-          <Text className="text-[11px] text-text-muted dark:text-content-tertiary">
+          <Text className="text-[11px] text-muted">
             {session.date != null ? session.date : 'In progress'}
           </Text>
         </View>
 
         {/* Session name */}
-        <Text className="text-[16px] font-bold text-text-default dark:text-content-primary mb-1">
+        <Text className="text-[16px] font-bold text-default mb-1">
           {session.name ?? `Session #${session.id}`}
         </Text>
 
@@ -155,7 +155,7 @@ function ActiveSessionBanner({
           onPress={onContinue}
           accessibilityRole="button"
           accessibilityLabel="Continue Session"
-          className="w-full py-[14px] rounded-[10px] bg-accent dark:bg-brand-gold items-center mt-3"
+          className="w-full py-[14px] rounded-[10px] bg-brand-gold items-center mt-3"
         >
           <Text className="text-white font-bold text-[15px]">Continue Session</Text>
         </Pressable>
@@ -171,11 +171,11 @@ function ActiveSessionBanner({
 function OrStartNewDivider(): React.ReactNode {
   return (
     <View className="flex-row items-center gap-3 mb-5">
-      <View className="flex-1 h-px bg-gray-200 dark:bg-border-subtle" />
-      <Text className="text-[12px] font-semibold text-text-muted dark:text-content-tertiary uppercase tracking-wide">
+      <View className="flex-1 h-px bg-divider" />
+      <Text className="text-[12px] font-semibold text-muted uppercase tracking-wide">
         or start new
       </Text>
-      <View className="flex-1 h-px bg-gray-200 dark:bg-border-subtle" />
+      <View className="flex-1 h-px bg-divider" />
     </View>
   );
 }
@@ -258,13 +258,13 @@ export default function AddGamesScreen(): React.ReactNode {
   if (view === 'league-select') {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="add-games-screen"
       >
         <TopNav title="Select League" showBack onBack={handleBack} />
         <View className="flex-1 px-4 pt-4">
-          <Text className="text-[13px] text-text-muted dark:text-content-tertiary mb-4 leading-[1.4]">
+          <Text className="text-[13px] text-muted mb-4 leading-[1.4]">
             Choose a league to record a game in.
           </Text>
           <LeagueSelectList
@@ -285,7 +285,7 @@ export default function AddGamesScreen(): React.ReactNode {
   // ---- Chooser view ----
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="add-games-screen"
     >
@@ -314,11 +314,11 @@ export default function AddGamesScreen(): React.ReactNode {
         {/* No session description */}
         {(activeSession == null && !sessionLoading) && (
           <>
-            <Text className="text-[14px] text-text-muted dark:text-content-tertiary mb-6 leading-[1.5]">
+            <Text className="text-[14px] text-muted mb-6 leading-[1.5]">
               Record your beach volleyball games to track your stats and climb
               the rankings.
             </Text>
-            <Text className="text-[12px] font-semibold text-text-muted dark:text-content-tertiary uppercase tracking-wide mb-[10px]">
+            <Text className="text-[12px] font-semibold text-muted uppercase tracking-wide mb-[10px]">
               What are you playing?
             </Text>
           </>
@@ -328,7 +328,7 @@ export default function AddGamesScreen(): React.ReactNode {
         <GameTypeCard
           testID="tile-league-game"
           icon={<LeagueIconSvg />}
-          iconBgClass="bg-teal-50 dark:bg-info-bg"
+          iconBgClass="bg-info-tint"
           title="League Game"
           description="Record a game in one of your leagues"
           onPress={handleLeagueGame}
@@ -337,7 +337,7 @@ export default function AddGamesScreen(): React.ReactNode {
         <GameTypeCard
           testID="tile-pickup-game"
           icon={<PickupIconSvg />}
-          iconBgClass="bg-yellow-50 dark:bg-warning-bg"
+          iconBgClass="bg-warning-tint"
           title="Pickup Game"
           description="Start a new session for casual play"
           onPress={handlePickupGame}

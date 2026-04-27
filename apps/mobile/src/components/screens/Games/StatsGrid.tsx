@@ -19,19 +19,19 @@ interface StatCardProps {
 
 function StatCard({ label, value, trend, trendUp }: StatCardProps): React.ReactNode {
   return (
-    <View className="flex-1 bg-white dark:bg-dark-surface rounded-[12px] p-[14px] shadow-sm dark:shadow-none dark:border dark:border-border-subtle">
-      <Text className="text-[11px] text-text-muted dark:text-content-tertiary uppercase tracking-wider">
+    <View className="flex-1 bg-surface rounded-[12px] p-[14px] shadow-sm dark:shadow-none dark:border border-divider">
+      <Text className="text-[11px] text-muted uppercase tracking-wider">
         {label}
       </Text>
-      <Text className="text-[22px] font-bold text-navy dark:text-content-primary mt-1">
+      <Text className="text-[22px] font-bold text-default mt-1">
         {value}
       </Text>
       {trend != null && (
         <Text
           className={`text-[11px] font-bold mt-[3px] ${
             trendUp
-              ? 'text-green-700 dark:text-green-400'
-              : 'text-red-700 dark:text-red-400'
+              ? 'text-success'
+              : 'text-danger'
           }`}
         >
           {trend}

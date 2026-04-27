@@ -23,7 +23,7 @@ import { hapticMedium } from '@/utils/haptics';
 
 function LeagueRowSkeleton(): React.ReactNode {
   return (
-    <View className="flex-row items-center gap-[14px] bg-white dark:bg-dark-surface rounded-[14px] p-4 mb-[10px]">
+    <View className="flex-row items-center gap-[14px] bg-surface rounded-[14px] p-4 mb-[10px]">
       <LoadingSkeleton width={44} height={44} borderRadius={10} />
       <View className="flex-1 gap-[6px]">
         <LoadingSkeleton width="70%" height={15} />
@@ -54,28 +54,28 @@ function LeagueRow({ league, onSelect }: LeagueRowProps): React.ReactNode {
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`Select ${league.name}`}
-      className="flex-row items-center gap-[14px] bg-white dark:bg-dark-surface rounded-[14px] p-4 mb-[10px] shadow-sm dark:shadow-none dark:border dark:border-border-subtle active:border active:border-accent"
+      className="flex-row items-center gap-[14px] bg-surface rounded-[14px] p-4 mb-[10px] shadow-sm dark:shadow-none dark:border border-divider active:border active:border-brand-teal"
     >
       {/* Icon */}
-      <View className="w-11 h-11 rounded-[10px] bg-teal-50 dark:bg-info-bg items-center justify-center">
+      <View className="w-11 h-11 rounded-[10px] bg-info-tint items-center justify-center">
         <TrophyIcon size={22} color="#2a7d9c" />
       </View>
 
       {/* Info */}
       <View className="flex-1">
         <Text
-          className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[2px]"
+          className="text-[15px] font-bold text-default mb-[2px]"
           numberOfLines={1}
         >
           {league.name}
         </Text>
         {location != null && (
-          <Text className="text-[12px] text-text-muted dark:text-content-tertiary">
+          <Text className="text-[12px] text-muted">
             {location}
           </Text>
         )}
         {activeSeasonName != null && (
-          <Text className="text-[11px] font-semibold text-accent dark:text-brand-teal mt-[3px]">
+          <Text className="text-[11px] font-semibold text-brand-teal mt-[3px]">
             {activeSeasonName} - Active
           </Text>
         )}
@@ -126,7 +126,7 @@ export default function LeagueSelectList({
         testID="league-list-error"
         className="items-center py-xl px-lg"
       >
-        <Text className="text-body text-text-muted dark:text-content-tertiary mb-md text-center">
+        <Text className="text-body text-muted mb-md text-center">
           Could not load your leagues. Please try again.
         </Text>
         <Pressable
@@ -134,7 +134,7 @@ export default function LeagueSelectList({
           onPress={onRetry}
           accessibilityRole="button"
           accessibilityLabel="Retry"
-          className="px-lg py-sm bg-primary dark:bg-brand-teal rounded-lg"
+          className="px-lg py-sm bg-brand-teal rounded-lg"
         >
           <Text className="text-white font-semibold text-body">Retry</Text>
         </Pressable>
@@ -150,10 +150,10 @@ export default function LeagueSelectList({
         testID="league-list-empty"
         className="items-center py-xl px-lg"
       >
-        <Text className="text-body font-bold text-text-default dark:text-content-primary mb-sm text-center">
+        <Text className="text-body font-bold text-default mb-sm text-center">
           No leagues yet
         </Text>
-        <Text className="text-body text-text-muted dark:text-content-tertiary mb-xl text-center">
+        <Text className="text-body text-muted mb-xl text-center">
           You&apos;re not in any leagues yet. Join one to start recording games.
         </Text>
         <Pressable
@@ -161,7 +161,7 @@ export default function LeagueSelectList({
           onPress={onJoinLeague}
           accessibilityRole="button"
           accessibilityLabel="Find leagues"
-          className="px-lg py-sm bg-primary dark:bg-brand-teal rounded-lg"
+          className="px-lg py-sm bg-brand-teal rounded-lg"
         >
           <Text className="text-white font-semibold text-body">Find Leagues</Text>
         </Pressable>
@@ -177,7 +177,7 @@ export default function LeagueSelectList({
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
     >
-      <Text className="text-[12px] font-semibold text-text-muted dark:text-content-tertiary uppercase tracking-wide mb-[10px]">
+      <Text className="text-[12px] font-semibold text-muted uppercase tracking-wide mb-[10px]">
         Your Leagues
       </Text>
       {leagues!.map((league) => (

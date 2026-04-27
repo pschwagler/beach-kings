@@ -51,15 +51,15 @@ function SuccessView({
       className="flex-1 items-center justify-center px-6 py-16 gap-5"
     >
       {/* Icon */}
-      <View className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/20 border-[3px] border-green-500 items-center justify-center">
+      <View className="w-20 h-20 rounded-full bg-success-tint border-[3px] border-success items-center justify-center">
         <Text className="text-[36px]">{'\u2713'}</Text>
       </View>
 
-      <Text className="text-[22px] font-black text-text-default dark:text-content-primary text-center">
+      <Text className="text-[22px] font-black text-default text-center">
         Game Saved!
       </Text>
 
-      <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center leading-[1.55] max-w-[280px]">
+      <Text className="text-[14px] text-muted text-center leading-[1.55] max-w-[280px]">
         Your game has been recorded. Ratings will update after the session is
         processed.
       </Text>
@@ -67,23 +67,23 @@ function SuccessView({
       {/* Score summary */}
       <View className="flex-row gap-5 mt-2">
         <View className="items-center">
-          <Text className="text-[20px] font-black text-navy dark:text-content-primary">
+          <Text className="text-[20px] font-black text-default">
             {score1}
           </Text>
-          <Text className="text-[11px] text-text-muted dark:text-content-tertiary uppercase tracking-wide mt-[2px]">
+          <Text className="text-[11px] text-muted uppercase tracking-wide mt-[2px]">
             Team 1
           </Text>
         </View>
         <View className="items-center justify-center">
-          <Text className="text-[16px] font-bold text-text-muted dark:text-content-tertiary">
+          <Text className="text-[16px] font-bold text-muted">
             -
           </Text>
         </View>
         <View className="items-center">
-          <Text className="text-[20px] font-black text-navy dark:text-content-primary">
+          <Text className="text-[20px] font-black text-default">
             {score2}
           </Text>
-          <Text className="text-[11px] text-text-muted dark:text-content-tertiary uppercase tracking-wide mt-[2px]">
+          <Text className="text-[11px] text-muted uppercase tracking-wide mt-[2px]">
             Team 2
           </Text>
         </View>
@@ -96,7 +96,7 @@ function SuccessView({
           onPress={onAddAnother}
           accessibilityRole="button"
           accessibilityLabel="Add Another Game"
-          className="w-full py-4 rounded-[12px] bg-brand-gold dark:bg-brand-gold items-center"
+          className="w-full py-4 rounded-[12px] bg-brand-gold items-center"
         >
           <Text className="text-white font-bold text-[16px]">
             Add Another Game
@@ -108,9 +108,9 @@ function SuccessView({
           onPress={onDone}
           accessibilityRole="button"
           accessibilityLabel="Done"
-          className="w-full py-[14px] rounded-[12px] border border-gray-200 dark:border-border-subtle items-center"
+          className="w-full py-[14px] rounded-[12px] border border-divider items-center"
         >
-          <Text className="text-[14px] font-bold text-text-muted dark:text-content-secondary">
+          <Text className="text-[14px] font-bold text-muted">
             Done
           </Text>
         </Pressable>
@@ -135,15 +135,15 @@ function ErrorView({ message, onRetry, onDiscard }: ErrorViewProps): React.React
       testID="score-error-view"
       className="flex-1 items-center justify-center px-6 py-16 gap-5"
     >
-      <View className="w-[72px] h-[72px] rounded-full bg-red-100 dark:bg-error-bg border-[3px] border-red-500 items-center justify-center">
+      <View className="w-[72px] h-[72px] rounded-full bg-danger-tint border-[3px] border-danger items-center justify-center">
         <Text className="text-[30px] text-red-500">!</Text>
       </View>
 
-      <Text className="text-[20px] font-black text-text-default dark:text-content-primary text-center">
+      <Text className="text-[20px] font-black text-default text-center">
         Could Not Save
       </Text>
 
-      <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center leading-[1.55] max-w-[300px]">
+      <Text className="text-[14px] text-muted text-center leading-[1.55] max-w-[300px]">
         {message ?? 'Something went wrong. Please try again.'}
       </Text>
 
@@ -153,7 +153,7 @@ function ErrorView({ message, onRetry, onDiscard }: ErrorViewProps): React.React
           onPress={onRetry}
           accessibilityRole="button"
           accessibilityLabel="Try Again"
-          className="w-full py-4 rounded-[12px] bg-brand-gold dark:bg-brand-gold items-center"
+          className="w-full py-4 rounded-[12px] bg-brand-gold items-center"
         >
           <Text className="text-white font-bold text-[16px]">Try Again</Text>
         </Pressable>
@@ -163,9 +163,9 @@ function ErrorView({ message, onRetry, onDiscard }: ErrorViewProps): React.React
           onPress={onDiscard}
           accessibilityRole="button"
           accessibilityLabel="Discard"
-          className="w-full py-[14px] rounded-[12px] border border-gray-200 dark:border-border-subtle items-center"
+          className="w-full py-[14px] rounded-[12px] border border-divider items-center"
         >
-          <Text className="text-[14px] font-bold text-text-muted dark:text-content-secondary">
+          <Text className="text-[14px] font-bold text-muted">
             Discard
           </Text>
         </Pressable>
@@ -252,7 +252,7 @@ export default function ScoreGameScreen({
   if (submitState === 'success') {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="score-game-screen"
       >
@@ -271,7 +271,7 @@ export default function ScoreGameScreen({
   if (submitState === 'error') {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="score-game-screen"
       >
@@ -288,7 +288,7 @@ export default function ScoreGameScreen({
   // --- Idle / Loading ---
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="score-game-screen"
     >
@@ -316,9 +316,9 @@ export default function ScoreGameScreen({
         {leagueId != null && (
           <View
             testID="ranked-toggle-row"
-            className="flex-row items-center justify-between px-4 py-3 mx-4 mt-2 rounded-xl bg-gray-50 dark:bg-dark-surface"
+            className="flex-row items-center justify-between px-4 py-3 mx-4 mt-2 rounded-xl bg-surface"
           >
-            <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary">
+            <Text className="text-[14px] font-semibold text-default">
               Ranked Game
             </Text>
             <Switch
@@ -342,7 +342,7 @@ export default function ScoreGameScreen({
       </ScrollView>
 
       {/* Bottom bar */}
-      <View className="bg-white dark:bg-dark-surface border-t border-gray-100 dark:border-border-subtle px-4 pt-3 pb-8">
+      <View className="bg-surface border-t border-divider px-4 pt-3 pb-8">
         <Pressable
           testID="save-game-btn"
           onPress={handleSave}
@@ -351,8 +351,8 @@ export default function ScoreGameScreen({
           accessibilityLabel="Save Game"
           className={`w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2 ${
             canSubmit && submitState !== 'loading'
-              ? 'bg-brand-gold dark:bg-brand-gold'
-              : 'bg-gray-200 dark:bg-gray-700'
+              ? 'bg-brand-gold'
+              : 'bg-elevated'
           }`}
         >
           {submitState === 'loading' && (
@@ -362,7 +362,7 @@ export default function ScoreGameScreen({
             className={`font-bold text-[16px] ${
               canSubmit && submitState !== 'loading'
                 ? 'text-white'
-                : 'text-gray-400 dark:text-gray-500'
+                : 'text-muted'
             }`}
           >
             {submitState === 'loading' ? 'Saving...' : 'Save Game'}

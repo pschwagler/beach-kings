@@ -17,15 +17,15 @@ function placeMedal(place: number): string {
 }
 
 function trophyBg(place: number): string {
-  if (place === 1) return 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700/50';
-  if (place === 2) return 'bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-600/50';
-  return 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700/50';
+  if (place === 1) return 'bg-warning-tint border border-brand-gold';
+  if (place === 2) return 'bg-elevated border border-divider';
+  return 'bg-warning-tint border border-divider';
 }
 
 function trophyPlaceColor(place: number): string {
-  if (place === 1) return 'text-yellow-700 dark:text-yellow-400';
-  if (place === 2) return 'text-gray-500 dark:text-gray-400';
-  return 'text-orange-700 dark:text-orange-400';
+  if (place === 1) return 'text-warning';
+  if (place === 2) return 'text-muted';
+  return 'text-warning';
 }
 
 interface TrophyCardProps {
@@ -44,10 +44,10 @@ function TrophyCard({ trophy }: TrophyCardProps): React.ReactNode {
       <Text className={`text-[10px] font-bold ${trophyPlaceColor(trophy.place)}`}>
         {placeMedal(trophy.place)} Place
       </Text>
-      <Text className="text-[10px] text-text-muted dark:text-content-tertiary mt-[2px] text-center leading-[1.3]">
+      <Text className="text-[10px] text-muted mt-[2px] text-center leading-[1.3]">
         {trophy.league_name}
       </Text>
-      <Text className="text-[9px] text-text-muted dark:text-content-tertiary text-center leading-[1.3]">
+      <Text className="text-[9px] text-muted text-center leading-[1.3]">
         {trophy.season_name}
       </Text>
     </View>
@@ -61,7 +61,7 @@ interface TrophyRowProps {
 export default function TrophyRow({ trophies }: TrophyRowProps): React.ReactNode {
   if (trophies.length === 0) {
     return (
-      <Text className="text-[13px] text-text-muted dark:text-content-tertiary italic">
+      <Text className="text-[13px] text-muted italic">
         No trophies yet — keep playing!
       </Text>
     );
