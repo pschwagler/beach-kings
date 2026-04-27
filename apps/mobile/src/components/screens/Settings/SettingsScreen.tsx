@@ -52,8 +52,8 @@ interface SettingsRowProps {
 function SettingsRow({
   label,
   value,
-  valueColor = 'text-text-muted dark:text-text-tertiary',
-  labelColor = 'text-text-default dark:text-content-primary',
+  valueColor = 'text-muted',
+  labelColor = 'text-default',
   rightElement,
   onPress,
   testID,
@@ -64,7 +64,7 @@ function SettingsRow({
       onPress={onPress}
       accessibilityRole={onPress != null ? 'button' : undefined}
       accessibilityLabel={label}
-      className="flex-row items-center justify-between px-lg py-[14px] bg-white dark:bg-elevated border-b border-border dark:border-border-strong last:border-0 active:opacity-70"
+      className="flex-row items-center justify-between px-lg py-[14px] bg-surface border-b border-divider last:border-0 active:opacity-70"
     >
       <Text className={`text-[15px] ${labelColor}`}>{label}</Text>
 
@@ -76,7 +76,7 @@ function SettingsRow({
             <Text className={`text-[13px] ${valueColor}`}>{value}</Text>
           )}
           {onPress != null && (
-            <Text className="text-text-disabled text-lg">›</Text>
+            <Text className="text-muted text-lg">›</Text>
           )}
         </View>
       )}
@@ -93,7 +93,7 @@ function SectionLabel({ title, danger = false }: SectionLabelProps): React.React
   return (
     <Text
       className={`text-[15px] font-bold px-lg pt-xl pb-sm ${
-        danger ? 'text-red-500' : 'text-text-default dark:text-content-primary'
+        danger ? 'text-red-500' : 'text-default'
       }`}
     >
       {title}
@@ -199,7 +199,7 @@ export default function SettingsScreen(): React.ReactNode {
   return (
     <SafeAreaView
       testID="settings-screen"
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Settings" showBack />
@@ -252,9 +252,9 @@ export default function SettingsScreen(): React.ReactNode {
                   // TODO(backend): Apple sign-in connect
                 }}
                 accessibilityRole="button"
-                className="px-md py-[6px] rounded-lg border-[1.5px] border-navy dark:border-content-primary active:opacity-70"
+                className="px-md py-[6px] rounded-lg border-[1.5px] border-default active:opacity-70"
               >
-                <Text className="text-[13px] font-semibold text-navy dark:text-content-primary">
+                <Text className="text-[13px] font-semibold text-default">
                   Connect
                 </Text>
               </Pressable>
@@ -321,7 +321,7 @@ export default function SettingsScreen(): React.ReactNode {
           <Text className="text-[15px] font-semibold text-red-500">Log Out</Text>
         </Pressable>
 
-        <Text className="text-center text-[12px] text-text-disabled pb-lg">
+        <Text className="text-center text-[12px] text-muted pb-lg">
           Beach League v1.0.0
         </Text>
 
@@ -368,11 +368,11 @@ function LogoutModal({ onConfirm, onCancel }: LogoutModalProps): React.ReactNode
       testID="logout-modal"
       className="absolute inset-0 bg-black/50 items-center justify-center px-xl"
     >
-      <View className="w-full bg-white dark:bg-elevated rounded-2xl p-xl">
-        <Text className="text-[18px] font-bold text-text-default dark:text-content-primary text-center mb-sm">
+      <View className="w-full bg-surface rounded-2xl p-xl">
+        <Text className="text-[18px] font-bold text-default text-center mb-sm">
           Log Out?
         </Text>
-        <Text className="text-sm text-text-muted dark:text-text-tertiary text-center mb-lg">
+        <Text className="text-sm text-muted text-center mb-lg">
           Are you sure you want to log out of Beach League?
         </Text>
 
@@ -389,7 +389,7 @@ function LogoutModal({ onConfirm, onCancel }: LogoutModalProps): React.ReactNode
           onPress={onCancel}
           className="py-sm rounded-xl items-center active:opacity-70"
         >
-          <Text className="text-text-muted dark:text-text-tertiary font-semibold">Cancel</Text>
+          <Text className="text-muted font-semibold">Cancel</Text>
         </Pressable>
       </View>
     </View>
