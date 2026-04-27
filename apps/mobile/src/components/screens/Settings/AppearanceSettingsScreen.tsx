@@ -57,13 +57,13 @@ export default function AppearanceSettingsScreen(): React.ReactNode {
   return (
     <SafeAreaView
       testID="appearance-settings-screen"
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Appearance" showBack />
 
       <ScrollView className="flex-1">
-        <Text className="text-[15px] font-bold px-lg pt-xl pb-sm text-text-default dark:text-content-primary">
+        <Text className="text-[15px] font-bold px-lg pt-xl pb-sm text-default">
           Theme
         </Text>
 
