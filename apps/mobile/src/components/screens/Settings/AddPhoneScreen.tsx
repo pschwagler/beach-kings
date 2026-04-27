@@ -220,7 +220,7 @@ export default function AddPhoneScreen(): React.ReactNode {
   return (
     <SafeAreaView
       testID="add-phone-screen"
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Add Phone Number" showBack />
@@ -238,9 +238,9 @@ export default function AddPhoneScreen(): React.ReactNode {
           {banner != null && (
             <View
               testID="add-phone-banner"
-              className="mb-lg px-md py-sm rounded-xl border bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700"
+              className="mb-lg px-md py-sm rounded-xl border bg-danger-tint border-danger"
             >
-              <Text className="text-sm font-medium text-center text-red-700 dark:text-red-400">
+              <Text className="text-sm font-medium text-center text-danger">
                 {banner.message}
               </Text>
             </View>
@@ -248,11 +248,11 @@ export default function AddPhoneScreen(): React.ReactNode {
 
           {step === 'input' ? (
             <View>
-              <Text className="text-body text-text-muted dark:text-content-secondary mb-lg">
+              <Text className="text-body text-muted mb-lg">
                 We'll send a 6-digit code to verify the number.
               </Text>
 
-              <Text className="text-[13px] font-semibold text-text-muted dark:text-text-tertiary uppercase tracking-wider mb-sm">
+              <Text className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
                 Phone Number
               </Text>
               <Controller
@@ -287,16 +287,16 @@ export default function AddPhoneScreen(): React.ReactNode {
                   phoneForm.formState.isSubmitting ? 'opacity-50' : ''
                 }`}
               >
-                <Text className="text-navy font-bold text-[15px]">
+                <Text className="text-white font-bold text-[15px]">
                   {phoneForm.formState.isSubmitting ? 'Sending…' : 'Send code'}
                 </Text>
               </Pressable>
             </View>
           ) : (
             <View>
-              <Text className="text-body text-text-muted dark:text-content-secondary text-center mb-lg">
+              <Text className="text-body text-muted text-center mb-lg">
                 We sent a 6-digit code to{' '}
-                <Text className="font-semibold text-text-default dark:text-content-primary">
+                <Text className="font-semibold text-default">
                   {maskPhone(phone)}
                 </Text>
               </Text>
@@ -332,7 +332,7 @@ export default function AddPhoneScreen(): React.ReactNode {
                   otpForm.formState.isSubmitting ? 'opacity-50' : ''
                 }`}
               >
-                <Text className="text-navy font-bold text-[15px]">
+                <Text className="text-white font-bold text-[15px]">
                   {otpForm.formState.isSubmitting ? 'Verifying…' : 'Verify'}
                 </Text>
               </Pressable>
@@ -352,8 +352,8 @@ export default function AddPhoneScreen(): React.ReactNode {
                 <Text
                   className={`text-footnote font-medium ${
                     resendDisabled
-                      ? 'text-gray-400 dark:text-content-tertiary'
-                      : 'text-primary dark:text-brand-teal'
+                      ? 'text-muted'
+                      : 'text-brand-teal'
                   }`}
                 >
                   {resendDisabled
@@ -369,7 +369,7 @@ export default function AddPhoneScreen(): React.ReactNode {
                 accessibilityLabel="Use a different number"
                 className="min-h-touch items-center justify-center"
               >
-                <Text className="text-footnote font-medium text-gray-500 dark:text-content-secondary">
+                <Text className="text-footnote font-medium text-muted">
                   Use a different number
                 </Text>
               </Pressable>

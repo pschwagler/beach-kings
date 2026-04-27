@@ -57,27 +57,27 @@ function PlaceholderMatchCard({ index }: { readonly index: number }): React.Reac
   return (
     <View
       testID={`invite-match-card-${index}`}
-      className="bg-white dark:bg-dark-surface rounded-card p-md mb-sm shadow-sm dark:shadow-none dark:border dark:border-border-subtle"
+      className="bg-surface rounded-card p-md mb-sm shadow-sm dark:shadow-none border border-divider"
     >
       <View className="flex-row justify-between items-center mb-xs">
-        <Text className="text-footnote font-semibold text-gray-500 dark:text-content-secondary">
+        <Text className="text-footnote font-semibold text-muted">
           Match #{index + 1}
         </Text>
       </View>
       <View className="flex-row items-center justify-between">
         <View className="flex-1">
-          <Text className="text-caption font-bold text-brand-gold dark:text-brand-gold">
+          <Text className="text-caption font-bold text-brand-gold">
             You
           </Text>
-          <Text className="text-caption text-gray-400 dark:text-content-tertiary">
+          <Text className="text-caption text-muted">
             Partner —
           </Text>
         </View>
-        <Text className="text-title3 font-extrabold text-primary dark:text-content-primary mx-sm">
+        <Text className="text-title3 font-extrabold text-default mx-sm">
           — : —
         </Text>
         <View className="flex-1 items-end">
-          <Text className="text-caption text-gray-400 dark:text-content-tertiary">
+          <Text className="text-caption text-muted">
             Opponents
           </Text>
         </View>
@@ -227,14 +227,14 @@ export default function InviteClaimScreen(): React.ReactNode {
   const isClaimed = invite?.status === 'claimed';
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base">
+    <SafeAreaView className="flex-1 bg-page">
       <TopNav title="Claim Your Games" showBack />
 
       {/* Loading */}
       {screenState === 'loading' && (
         <View testID="invite-loading" className="flex-1 items-center justify-center px-lg">
           <ActivityIndicator size="large" />
-          <Text className="text-body text-gray-500 dark:text-content-secondary mt-md">
+          <Text className="text-body text-muted mt-md">
             Loading invite...
           </Text>
         </View>
@@ -243,13 +243,13 @@ export default function InviteClaimScreen(): React.ReactNode {
       {/* Error */}
       {screenState === 'error' && (
         <View className="flex-1 items-center justify-center px-lg gap-md">
-          <View className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30 border-2 border-red-500 dark:border-red-400 items-center justify-center mb-sm">
-            <Text className="text-3xl font-black text-red-500 dark:text-red-400">!</Text>
+          <View className="w-20 h-20 rounded-full bg-danger-tint border-2 border-danger items-center justify-center mb-sm">
+            <Text className="text-3xl font-black text-danger">!</Text>
           </View>
-          <Text className="text-title2 font-bold text-primary dark:text-content-primary text-center">
+          <Text className="text-title2 font-bold text-default text-center">
             Invite not found
           </Text>
-          <Text className="text-body text-gray-500 dark:text-content-secondary text-center">
+          <Text className="text-body text-muted text-center">
             {errorMessage}
           </Text>
         </View>
@@ -262,16 +262,16 @@ export default function InviteClaimScreen(): React.ReactNode {
           showsVerticalScrollIndicator={false}
         >
           {/* Welcome header */}
-          <View className="bg-white dark:bg-dark-surface px-lg py-xl items-center border-b border-border-subtle dark:border-border-subtle">
-            <Text className="text-title2 font-extrabold text-primary dark:text-content-primary text-center mb-xs">
+          <View className="bg-surface px-lg py-xl items-center border-b border-divider">
+            <Text className="text-title2 font-extrabold text-default text-center mb-xs">
               Welcome to Beach League!
             </Text>
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-sm">
+            <Text className="text-body text-muted text-center mb-sm">
               {invite.inviter_name} recorded games with you as {invite.placeholder_name}. Claim them to start tracking your stats.
             </Text>
             {invite.league_names.length > 0 && (
-              <View className="flex-row items-center gap-xs mt-xs px-md py-xs rounded-full bg-[#e8f4f8] dark:bg-[#1a3a4a]">
-                <Text className="text-footnote font-semibold text-[#1a3a4a] dark:text-[#7fb3c8]">
+              <View className="flex-row items-center gap-xs mt-xs px-md py-xs rounded-full bg-info-tint">
+                <Text className="text-footnote font-semibold text-brand-teal">
                   {invite.league_names[0]}
                   {invite.league_names.length > 1 ? ` +${invite.league_names.length - 1}` : ''}
                 </Text>
@@ -283,25 +283,25 @@ export default function InviteClaimScreen(): React.ReactNode {
             {isClaimed ? (
               // Already-claimed sub-state (shown while in 'loaded' if status === 'claimed')
               <View className="items-center gap-md mt-xl">
-                <Text className="text-title2 font-bold text-gray-600 dark:text-content-secondary text-center mb-sm">
+                <Text className="text-title2 font-bold text-muted text-center mb-sm">
                   This invite has already been claimed
                 </Text>
-                <Text className="text-body text-gray-500 dark:text-content-tertiary text-center">
+                <Text className="text-body text-muted text-center">
                   The invite from {invite.inviter_name} for {invite.placeholder_name} has already been used.
                 </Text>
               </View>
             ) : (
               <>
                 {/* Claim summary count */}
-                <View className="flex-row items-center gap-md p-md mb-md bg-[#fdf8ed] dark:bg-[#2a2010] rounded-card border border-[#f0e0b0] dark:border-[#5a4010]">
+                <View className="flex-row items-center gap-md p-md mb-md bg-warning-tint rounded-card border border-brand-gold/30">
                   <Text className="text-4xl font-black text-brand-gold leading-none">
                     {invite.match_count}
                   </Text>
                   <View>
-                    <Text className="text-sm font-bold text-primary dark:text-content-primary">
+                    <Text className="text-sm font-bold text-default">
                       {invite.match_count} unclaimed {invite.match_count === 1 ? 'game' : 'games'}
                     </Text>
-                    <Text className="text-xs text-gray-500 dark:text-content-secondary mt-[2px]">
+                    <Text className="text-xs text-muted mt-[2px]">
                       Ready to link to your account
                     </Text>
                   </View>
@@ -316,7 +316,7 @@ export default function InviteClaimScreen(): React.ReactNode {
                 )}
 
                 {/* Match cards section */}
-                <Text className="text-footnote font-bold text-primary dark:text-content-primary mb-sm mt-xs">
+                <Text className="text-footnote font-bold text-default mb-sm mt-xs">
                   Your Games
                 </Text>
 
@@ -353,7 +353,7 @@ export default function InviteClaimScreen(): React.ReactNode {
                     accessibilityLabel="Not me, skip this invite"
                     className="items-center justify-center min-h-touch py-sm"
                   >
-                    <Text className="text-body font-semibold text-gray-500 dark:text-content-secondary">
+                    <Text className="text-body font-semibold text-muted">
                       Not me — skip
                     </Text>
                   </Pressable>
@@ -372,25 +372,25 @@ export default function InviteClaimScreen(): React.ReactNode {
         >
           <View testID="invite-success" className="flex-1 items-center px-lg pt-[40px] pb-[36px] gap-lg">
             {/* Success icon */}
-            <View className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 border-[3px] border-green-500 dark:border-green-400 items-center justify-center">
+            <View className="w-20 h-20 rounded-full bg-success-tint border-[3px] border-success items-center justify-center">
               <CheckCircleIcon size={40} color="#22c55e" />
             </View>
 
             {/* Badge */}
-            <View className="flex-row items-center gap-xs px-md py-xs rounded-full bg-green-100 dark:bg-green-900/30 border border-green-500 dark:border-green-400">
-              <View className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400" />
-              <Text className="text-[11px] font-bold tracking-widest uppercase text-green-700 dark:text-green-400">
+            <View className="flex-row items-center gap-xs px-md py-xs rounded-full bg-success-tint border border-success">
+              <View className="w-2 h-2 rounded-full bg-success" />
+              <Text className="text-[11px] font-bold tracking-widest uppercase text-success">
                 Account linked successfully
               </Text>
             </View>
 
             {/* Headline */}
-            <Text className="text-[24px] font-black text-primary dark:text-content-primary text-center">
+            <Text className="text-[24px] font-black text-default text-center">
               You're all set!
             </Text>
 
             {/* Body */}
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center max-w-[300px]">
+            <Text className="text-body text-muted text-center max-w-[300px]">
               Your game history and rating have been merged into your account. Welcome to the league.
             </Text>
 

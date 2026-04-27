@@ -64,7 +64,7 @@ export default function FeedbackScreen(): React.ReactNode {
   return (
     <SafeAreaView
       testID="feedback-screen"
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav
@@ -122,7 +122,7 @@ export default function FeedbackScreen(): React.ReactNode {
             keyboardShouldPersistTaps="handled"
             contentContainerClassName="px-lg pt-xl pb-xxxl"
           >
-            <Text className="text-[15px] text-text-muted dark:text-text-tertiary mb-lg">
+            <Text className="text-[15px] text-muted mb-lg">
               Tell us what you think, what's broken, or what you'd like to see.
             </Text>
 
@@ -147,7 +147,7 @@ export default function FeedbackScreen(): React.ReactNode {
               autoFocus
               scrollEnabled
               style={{ height: inputHeight }}
-              className="bg-white dark:bg-elevated rounded-xl px-md py-md text-[15px] text-text-default dark:text-content-primary border border-border dark:border-border-strong"
+              className="bg-surface rounded-xl px-md py-md text-[15px] text-default border border-divider"
               textAlignVertical="top"
             />
 
@@ -159,7 +159,7 @@ export default function FeedbackScreen(): React.ReactNode {
                   </Text>
                 )}
               </View>
-              <Text className="text-[12px] text-text-disabled">
+              <Text className="text-[12px] text-muted">
                 {text.length}/{MAX_LENGTH}
               </Text>
             </View>

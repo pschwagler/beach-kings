@@ -48,7 +48,7 @@ interface SectionHeaderProps {
 
 function SectionHeader({ title }: SectionHeaderProps): React.ReactNode {
   return (
-    <Text className="text-[12px] font-bold uppercase tracking-wider px-lg pt-xl pb-sm text-text-muted dark:text-text-tertiary">
+    <Text className="text-[12px] font-bold uppercase tracking-wider px-lg pt-xl pb-sm text-muted">
       {title}
     </Text>
   );
@@ -71,11 +71,11 @@ function ToggleRow({
 }: ToggleRowProps): React.ReactNode {
   return (
     <View
-      className={`flex-row items-center justify-between px-lg bg-white dark:bg-elevated border-b border-border dark:border-border-strong min-h-[48px] ${
+      className={`flex-row items-center justify-between px-lg bg-surface border-b border-divider min-h-[48px] ${
         disabled ? 'opacity-40' : ''
       }`}
     >
-      <Text className="text-[15px] text-text-default dark:text-content-primary">{label}</Text>
+      <Text className="text-[15px] text-default">{label}</Text>
       <Switch
         testID={testID}
         value={value}
@@ -102,7 +102,7 @@ function NotificationsSkeleton(): React.ReactNode {
   return (
     <ScrollView testID="notifications-skeleton" className="flex-1" scrollEnabled={false}>
       {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-        <View key={i} className="px-lg py-md bg-white dark:bg-elevated border-b border-border dark:border-border-strong">
+        <View key={i} className="px-lg py-md bg-surface border-b border-divider">
           <LoadingSkeleton width="100%" height={20} borderRadius={4} />
         </View>
       ))}
@@ -124,13 +124,13 @@ function NotificationsErrorState({ onRetry }: ErrorStateProps): React.ReactNode 
       testID="notifications-error"
       className="flex-1 items-center justify-center px-xl py-xxxl"
     >
-      <Text className="text-base font-semibold text-text-default dark:text-content-primary text-center mb-sm">
+      <Text className="text-base font-semibold text-default text-center mb-sm">
         Could not load notification settings
       </Text>
       <Pressable
         testID="notifications-retry-btn"
         onPress={onRetry}
-        className="bg-primary dark:bg-brand-teal px-xl py-sm rounded-xl active:opacity-80"
+        className="bg-brand-teal px-xl py-sm rounded-xl active:opacity-80"
       >
         <Text className="text-white font-semibold text-sm">Retry</Text>
       </Pressable>
@@ -163,7 +163,7 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
 
   if (isLoading) {
     return (
-      <SafeAreaView testID="notifications-settings-screen" className="flex-1 bg-bg-page dark:bg-base" edges={['top']}>
+      <SafeAreaView testID="notifications-settings-screen" className="flex-1 bg-page" edges={['top']}>
         <TopNav title="Notifications" showBack />
         <NotificationsSkeleton />
       </SafeAreaView>
@@ -172,7 +172,7 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
 
   if (error != null) {
     return (
-      <SafeAreaView testID="notifications-settings-screen" className="flex-1 bg-bg-page dark:bg-base" edges={['top']}>
+      <SafeAreaView testID="notifications-settings-screen" className="flex-1 bg-page" edges={['top']}>
         <TopNav title="Notifications" showBack />
         <NotificationsErrorState onRetry={onRetry} />
       </SafeAreaView>
@@ -182,7 +182,7 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
   return (
     <SafeAreaView
       testID="notifications-settings-screen"
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <TopNav title="Notifications" showBack />
@@ -198,7 +198,7 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
             onToggle={handleMasterToggle}
           />
           {!allEnabled && prefs != null && (
-            <Text className="text-[12px] text-text-muted dark:text-text-tertiary px-lg py-sm">
+            <Text className="text-[12px] text-muted px-lg py-sm">
               Enable push notifications to customize alerts
             </Text>
           )}
@@ -232,16 +232,16 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
             onPress={() => {
               // TODO(backend): quiet hours picker
             }}
-            className="flex-row items-center justify-between px-lg bg-white dark:bg-elevated border-b border-border dark:border-border-strong min-h-[48px] active:opacity-70"
+            className="flex-row items-center justify-between px-lg bg-surface border-b border-divider min-h-[48px] active:opacity-70"
           >
-            <Text className="text-[15px] text-text-default dark:text-content-primary">
+            <Text className="text-[15px] text-default">
               Quiet Hours
             </Text>
             <View className="flex-row items-center gap-sm">
-              <Text className="text-[14px] text-text-muted dark:text-text-tertiary">
+              <Text className="text-[14px] text-muted">
                 10 PM - 7 AM
               </Text>
-              <Text className="text-text-disabled text-lg">›</Text>
+              <Text className="text-muted text-lg">›</Text>
             </View>
           </Pressable>
         </View>
