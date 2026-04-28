@@ -61,13 +61,13 @@ function FilterChips({ selected, onChange }: FilterChipsProps): React.ReactNode 
             onPress={() => onChange(key)}
             className={`px-[14px] py-[6px] rounded-[20px] border ${
               isActive
-                ? 'border-[#1a3a4a] bg-[#1a3a4a]'
-                : 'border-[#ddd] dark:border-[#333] bg-white dark:bg-[#1a1a1a]'
+                ? 'border-brand-teal bg-brand-teal'
+                : 'border-divider bg-surface'
             }`}
           >
             <Text
               className={`text-[13px] font-semibold ${
-                isActive ? 'text-white' : 'text-text-secondary dark:text-content-secondary'
+                isActive ? 'text-white' : 'text-muted'
               }`}
             >
               {label}
@@ -87,12 +87,12 @@ function UpcomingEmptyState(): React.ReactNode {
   return (
     <View
       testID="tournaments-upcoming-empty"
-      className="bg-white dark:bg-[#1a1a1a] rounded-[12px] border border-[#eee] dark:border-[#2a2a2a] p-[20px] items-center"
+      className="bg-surface rounded-[12px] border border-divider p-[20px] items-center"
     >
-      <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary mb-[4px]">
+      <Text className="text-[14px] font-semibold text-default mb-[4px]">
         No Upcoming Tournaments
       </Text>
-      <Text className="text-[12px] text-text-secondary dark:text-content-secondary text-center">
+      <Text className="text-[12px] text-muted text-center">
         Browse nearby tournaments or create your own.
       </Text>
     </View>
@@ -113,13 +113,13 @@ function TournamentsErrorState({ onRetry }: ErrorStateProps): React.ReactNode {
       testID="tournaments-error"
       className="flex-1 items-center justify-center px-[24px] gap-[16px]"
     >
-      <Text className="text-[16px] font-semibold text-text-default dark:text-content-primary text-center">
+      <Text className="text-[16px] font-semibold text-default text-center">
         Could not load tournaments
       </Text>
       <TouchableOpacity
         testID="tournaments-retry-btn"
         onPress={onRetry}
-        className="bg-[#1a3a4a] px-[24px] py-[12px] rounded-[10px]"
+        className="bg-brand-teal px-[24px] py-[12px] rounded-[10px]"
       >
         <Text className="text-white text-[14px] font-semibold">Retry</Text>
       </TouchableOpacity>
@@ -151,7 +151,7 @@ export default function TournamentsListScreen(): React.ReactNode {
   if (isLoading && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="tournaments-screen"
       >
@@ -164,7 +164,7 @@ export default function TournamentsListScreen(): React.ReactNode {
               testID="tournaments-create-btn"
               className="px-[12px] py-[6px]"
             >
-              <Text className="text-[14px] font-semibold text-[#d4a843]">+ New</Text>
+              <Text className="text-[14px] font-semibold text-brand-gold">+ New</Text>
             </TouchableOpacity>
           }
         />
@@ -176,7 +176,7 @@ export default function TournamentsListScreen(): React.ReactNode {
   if (error != null && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="tournaments-screen"
       >
@@ -188,7 +188,7 @@ export default function TournamentsListScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="tournaments-screen"
     >
@@ -201,7 +201,7 @@ export default function TournamentsListScreen(): React.ReactNode {
             testID="tournaments-create-btn"
             className="px-[12px] py-[6px]"
           >
-            <Text className="text-[14px] font-semibold text-[#d4a843]">+ New</Text>
+            <Text className="text-[14px] font-semibold text-brand-gold">+ New</Text>
           </TouchableOpacity>
         }
       />
@@ -216,7 +216,7 @@ export default function TournamentsListScreen(): React.ReactNode {
         {/* Active Now */}
         {activeTournament != null && (
           <View className="px-[16px] pt-[16px]">
-            <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px]">
+            <Text className="text-[15px] font-bold text-default mb-[10px]">
               Active Now
             </Text>
             <ActiveCard
@@ -228,7 +228,7 @@ export default function TournamentsListScreen(): React.ReactNode {
 
         {/* My Upcoming */}
         <View className="px-[16px] pt-[16px]">
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px]">
+          <Text className="text-[15px] font-bold text-default mb-[10px]">
             My Upcoming
           </Text>
           {upcomingTournaments.length === 0 ? (
@@ -242,7 +242,7 @@ export default function TournamentsListScreen(): React.ReactNode {
 
         {/* Nearby section with filter chips */}
         <View className="pt-[16px]">
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px] px-[16px]">
+          <Text className="text-[15px] font-bold text-default mb-[10px] px-[16px]">
             Nearby
           </Text>
           <FilterChips selected={filter} onChange={setFilter} />
@@ -250,7 +250,7 @@ export default function TournamentsListScreen(): React.ReactNode {
             {nearbyTournaments.length === 0 ? (
               <Text
                 testID="tournaments-nearby-empty"
-                className="text-[14px] text-text-secondary dark:text-content-secondary text-center py-[20px]"
+                className="text-[14px] text-muted text-center py-[20px]"
               >
                 No tournaments found nearby.
               </Text>
@@ -265,7 +265,7 @@ export default function TournamentsListScreen(): React.ReactNode {
         {/* Past Tournaments */}
         {pastTournaments.length > 0 && (
           <View className="px-[16px] pt-[16px]">
-            <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px]">
+            <Text className="text-[15px] font-bold text-default mb-[10px]">
               Past Tournaments
             </Text>
             {pastTournaments.map((t) => (

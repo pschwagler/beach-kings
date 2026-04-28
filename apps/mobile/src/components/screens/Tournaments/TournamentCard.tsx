@@ -49,7 +49,7 @@ function ActiveCard({ tournament, onPress }: ActiveCardProps): React.ReactNode {
     <TouchableOpacity
       onPress={onPress}
       testID={`tournament-active-card-${tournament.id}`}
-      className="bg-white dark:bg-[#1a1a1a] rounded-[14px] border border-[#eee] dark:border-[#2a2a2a] p-[14px] mb-[12px]"
+      className="bg-surface rounded-[14px] border border-divider p-[14px] mb-[12px]"
     >
       <View className="flex-row items-center gap-[6px] mb-[8px]">
         <View className="w-[8px] h-[8px] rounded-full bg-[#dc2626]" />
@@ -57,20 +57,20 @@ function ActiveCard({ tournament, onPress }: ActiveCardProps): React.ReactNode {
           Live · Round {tournament.current_round} of {tournament.num_courts * 2}
         </Text>
       </View>
-      <Text className="text-[16px] font-bold text-text-default dark:text-content-primary mb-[6px]">
+      <Text className="text-[16px] font-bold text-default mb-[6px]">
         {tournament.name}
       </Text>
       <View className="flex-row gap-[6px] flex-wrap">
-        <View className="bg-[#e8f4f8] px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] font-semibold text-[#2a7d9c]">{formatBadge(tournament)}</Text>
+        <View className="bg-info-tint px-[8px] py-[3px] rounded-[10px]">
+          <Text className="text-[11px] font-semibold text-brand-teal">{formatBadge(tournament)}</Text>
         </View>
-        <View className="bg-[#f0f0f0] dark:bg-[#2a2a2a] px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] text-text-secondary dark:text-content-secondary">
+        <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
+          <Text className="text-[11px] text-muted">
             {tournament.player_count} players
           </Text>
         </View>
-        <View className="bg-[#f0f0f0] dark:bg-[#2a2a2a] px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] text-text-secondary dark:text-content-secondary">
+        <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
+          <Text className="text-[11px] text-muted">
             {GENDER_LABELS[tournament.gender] ?? tournament.gender}
           </Text>
         </View>
@@ -93,30 +93,30 @@ function ListCard({ tournament, onPress }: ListCardProps): React.ReactNode {
     <TouchableOpacity
       onPress={onPress}
       testID={`tournament-list-card-${tournament.id}`}
-      className="bg-white dark:bg-[#1a1a1a] rounded-[12px] border border-[#eee] dark:border-[#2a2a2a] p-[12px] mb-[8px] flex-row items-center gap-[12px]"
+      className="bg-surface rounded-[12px] border border-divider p-[12px] mb-[8px] flex-row items-center gap-[12px]"
     >
       {/* Icon block */}
-      <View className="w-[44px] h-[44px] rounded-[10px] bg-[#e8f4f8] items-center justify-center">
+      <View className="w-[44px] h-[44px] rounded-[10px] bg-info-tint items-center justify-center">
         <Text className="text-[18px]">🏐</Text>
       </View>
 
       {/* Info */}
       <View className="flex-1">
-        <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary" numberOfLines={1}>
+        <Text className="text-[14px] font-semibold text-default" numberOfLines={1}>
           {tournament.name}
         </Text>
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]">
+        <Text className="text-[12px] text-muted mt-[2px]">
           {formatBadge(tournament)} · {GENDER_LABELS[tournament.gender] ?? tournament.gender}
         </Text>
       </View>
 
       {/* Date + badge */}
       <View className="items-end">
-        <Text className="text-[11px] text-text-secondary dark:text-content-secondary">
+        <Text className="text-[11px] text-muted">
           {formatDate(tournament.scheduled_date)}
         </Text>
-        <View className="bg-[#f0f0f0] dark:bg-[#2a2a2a] px-[6px] py-[2px] rounded-[6px] mt-[4px]">
-          <Text className="text-[10px] font-semibold text-text-secondary dark:text-content-secondary">
+        <View className="bg-elevated px-[6px] py-[2px] rounded-[6px] mt-[4px]">
+          <Text className="text-[10px] font-semibold text-muted">
             {tournament.player_count} / {tournament.player_count + 4}
           </Text>
         </View>
@@ -139,16 +139,16 @@ function PastCard({ tournament, onPress }: PastCardProps): React.ReactNode {
     <TouchableOpacity
       onPress={onPress}
       testID={`tournament-past-card-${tournament.id}`}
-      className="bg-white dark:bg-[#1a1a1a] rounded-[12px] border border-[#eee] dark:border-[#2a2a2a] p-[12px] mb-[8px] flex-row items-center gap-[12px]"
+      className="bg-surface rounded-[12px] border border-divider p-[12px] mb-[8px] flex-row items-center gap-[12px]"
     >
-      <View className="w-[44px] h-[44px] rounded-[10px] bg-[#f5f5f5] dark:bg-[#2a2a2a] items-center justify-center">
+      <View className="w-[44px] h-[44px] rounded-[10px] bg-elevated items-center justify-center">
         <Text className="text-[18px]">🏆</Text>
       </View>
       <View className="flex-1">
-        <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary" numberOfLines={1}>
+        <Text className="text-[14px] font-semibold text-default" numberOfLines={1}>
           {tournament.name}
         </Text>
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]">
+        <Text className="text-[12px] text-muted mt-[2px]">
           {formatDate(tournament.scheduled_date)} · {tournament.player_count} players
         </Text>
       </View>

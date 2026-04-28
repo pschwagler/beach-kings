@@ -66,33 +66,33 @@ function Hero({ tournament }: HeroProps): React.ReactNode {
 
   return (
     <View className="px-[16px] pt-[16px]">
-      <Text className="text-[22px] font-bold text-text-default dark:text-content-primary">
+      <Text className="text-[22px] font-bold text-default">
         {tournament.name}
       </Text>
-      <Text className="text-[13px] text-text-secondary dark:text-content-secondary mt-[4px]">
+      <Text className="text-[13px] text-muted mt-[4px]">
         {formatDate(tournament.scheduled_date)}
       </Text>
       {tournament.director_name != null && (
-        <Text className="text-[13px] text-text-secondary dark:text-content-secondary mt-[2px]">
+        <Text className="text-[13px] text-muted mt-[2px]">
           Organized by {tournament.director_name}
         </Text>
       )}
       <View className="flex-row gap-[6px] flex-wrap mt-[10px]">
-        <View className="bg-[#e8f4f8] px-[10px] py-[4px] rounded-[12px]">
-          <Text className="text-[12px] font-semibold text-[#2a7d9c]">
+        <View className="bg-info-tint px-[10px] py-[4px] rounded-[12px]">
+          <Text className="text-[12px] font-semibold text-brand-teal">
             {FORMAT_LABELS[tournament.format] ?? tournament.format}
           </Text>
         </View>
-        <View className="bg-[#f0f0f0] dark:bg-[#2a2a2a] px-[10px] py-[4px] rounded-[12px]">
-          <Text className="text-[12px] text-text-secondary dark:text-content-secondary">{spotsLabel}</Text>
+        <View className="bg-elevated px-[10px] py-[4px] rounded-[12px]">
+          <Text className="text-[12px] text-muted">{spotsLabel}</Text>
         </View>
-        <View className="bg-[#f0f0f0] dark:bg-[#2a2a2a] px-[10px] py-[4px] rounded-[12px]">
-          <Text className="text-[12px] text-text-secondary dark:text-content-secondary">
+        <View className="bg-elevated px-[10px] py-[4px] rounded-[12px]">
+          <Text className="text-[12px] text-muted">
             {GENDER_LABELS[tournament.gender] ?? tournament.gender}
           </Text>
         </View>
-        <View className="bg-[#f0f0f0] dark:bg-[#2a2a2a] px-[10px] py-[4px] rounded-[12px]">
-          <Text className="text-[12px] text-text-secondary dark:text-content-secondary">
+        <View className="bg-elevated px-[10px] py-[4px] rounded-[12px]">
+          <Text className="text-[12px] text-muted">
             {tournament.status === 'ACTIVE' ? 'In Progress' : tournament.status === 'SETUP' ? 'Upcoming' : tournament.status}
           </Text>
         </View>
@@ -125,7 +125,7 @@ function ActionBar({
           testID="tournament-request-join-btn"
           onPress={onRequestJoin}
           disabled={isActioning}
-          className="bg-[#1a3a4a] rounded-[12px] py-[14px] items-center"
+          className="bg-brand-teal rounded-[12px] py-[14px] items-center"
         >
           {isActioning ? (
             <ActivityIndicator color="#fff" />
@@ -142,9 +142,9 @@ function ActionBar({
       <View className="px-[16px] mt-[16px]">
         <View
           testID="tournament-pending-badge"
-          className="bg-[#fff8e6] border border-[#d4a843] rounded-[12px] py-[14px] items-center"
+          className="bg-warning-tint border border-brand-gold/30 rounded-[12px] py-[14px] items-center"
         >
-          <Text className="text-[#8b6914] text-[15px] font-semibold">Request Pending</Text>
+          <Text className="text-warning text-[15px] font-semibold">Request Pending</Text>
         </View>
       </View>
     );
@@ -155,16 +155,16 @@ function ActionBar({
       <View className="px-[16px] mt-[16px] gap-[8px]">
         <View
           testID="tournament-registered-badge"
-          className="bg-[#dcfce7] border border-[#86efac] rounded-[12px] py-[14px] items-center"
+          className="bg-success-tint border border-success/30 rounded-[12px] py-[14px] items-center"
         >
-          <Text className="text-[#15803d] text-[15px] font-semibold">Registered</Text>
+          <Text className="text-success text-[15px] font-semibold">Registered</Text>
         </View>
         <TouchableOpacity
           testID="tournament-invite-friends-btn"
           onPress={onInviteFriends}
-          className="border border-[#1a3a4a] dark:border-[#4a6a7a] rounded-[12px] py-[12px] items-center"
+          className="border border-brand-teal rounded-[12px] py-[12px] items-center"
         >
-          <Text className="text-[#1a3a4a] dark:text-content-primary text-[14px] font-semibold">
+          <Text className="text-brand-teal text-[14px] font-semibold">
             Invite Friends
           </Text>
         </TouchableOpacity>
@@ -177,9 +177,9 @@ function ActionBar({
       <View className="px-[16px] mt-[16px]">
         <View
           testID="tournament-waitlist-badge"
-          className="bg-[#f0f0f0] dark:bg-[#2a2a2a] border border-[#ddd] dark:border-[#333] rounded-[12px] py-[14px] items-center"
+          className="bg-elevated border border-divider rounded-[12px] py-[14px] items-center"
         >
-          <Text className="text-text-secondary dark:text-content-secondary text-[15px] font-semibold">
+          <Text className="text-muted text-[15px] font-semibold">
             On Waitlist
           </Text>
         </View>
@@ -210,22 +210,22 @@ function DetailsGrid({ tournament }: DetailsGridProps): React.ReactNode {
 
   return (
     <View className="px-[16px] mt-[20px]">
-      <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px]">
+      <Text className="text-[15px] font-bold text-default mb-[10px]">
         Details
       </Text>
       <View
         testID="tournament-details-grid"
-        className="bg-white dark:bg-[#1a1a1a] rounded-[12px] border border-[#eee] dark:border-[#2a2a2a] overflow-hidden"
+        className="bg-surface rounded-[12px] border border-divider overflow-hidden"
       >
         {items.map(({ label, value }, i) => (
           <View
             key={label}
             className={`flex-row items-center px-[14px] py-[12px] ${
-              i < items.length - 1 ? 'border-b border-[#f0f0f0] dark:border-[#2a2a2a]' : ''
+              i < items.length - 1 ? 'border-b border-divider' : ''
             }`}
           >
-            <Text className="text-[13px] text-text-secondary dark:text-content-secondary flex-1">{label}</Text>
-            <Text className="text-[13px] font-semibold text-text-default dark:text-content-primary">{value}</Text>
+            <Text className="text-[13px] text-muted flex-1">{label}</Text>
+            <Text className="text-[13px] font-semibold text-default">{value}</Text>
           </View>
         ))}
       </View>
@@ -247,13 +247,13 @@ function TournamentDetailErrorState({ onRetry }: ErrorStateProps): React.ReactNo
       testID="tournament-detail-error"
       className="flex-1 items-center justify-center px-[24px] gap-[16px]"
     >
-      <Text className="text-[16px] font-semibold text-text-default dark:text-content-primary text-center">
+      <Text className="text-[16px] font-semibold text-default text-center">
         Could not load tournament
       </Text>
       <TouchableOpacity
         testID="tournament-detail-retry-btn"
         onPress={onRetry}
-        className="bg-[#1a3a4a] px-[24px] py-[12px] rounded-[10px]"
+        className="bg-brand-teal px-[24px] py-[12px] rounded-[10px]"
       >
         <Text className="text-white text-[14px] font-semibold">Retry</Text>
       </TouchableOpacity>
@@ -286,7 +286,7 @@ export default function TournamentDetailScreen({ tournamentId }: Props): React.R
   if (isLoading && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="tournament-detail-screen"
       >
@@ -299,7 +299,7 @@ export default function TournamentDetailScreen({ tournamentId }: Props): React.R
   if (error != null && tournament == null) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="tournament-detail-screen"
       >
@@ -311,7 +311,7 @@ export default function TournamentDetailScreen({ tournamentId }: Props): React.R
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="tournament-detail-screen"
     >
@@ -338,14 +338,14 @@ export default function TournamentDetailScreen({ tournamentId }: Props): React.R
             {/* Players section */}
             {tournament.players.length > 0 && (
               <View className="px-[16px] mt-[20px]">
-                <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px]">
+                <Text className="text-[15px] font-bold text-default mb-[10px]">
                   Players ({tournament.players.length})
                 </Text>
                 <View
                   testID="tournament-players-section"
-                  className="bg-white dark:bg-[#1a1a1a] rounded-[12px] border border-[#eee] dark:border-[#2a2a2a] p-[14px]"
+                  className="bg-surface rounded-[12px] border border-divider p-[14px]"
                 >
-                  <Text className="text-[13px] text-text-secondary dark:text-content-secondary">
+                  <Text className="text-[13px] text-muted">
                     {tournament.players.length} player{tournament.players.length !== 1 ? 's' : ''} registered
                   </Text>
                 </View>

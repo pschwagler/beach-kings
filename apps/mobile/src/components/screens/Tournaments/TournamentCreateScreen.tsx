@@ -46,19 +46,19 @@ function Stepper({ value, min, max, onChange, testID }: StepperProps): React.Rea
       <TouchableOpacity
         onPress={() => onChange(Math.max(min, value - 1))}
         testID="stepper-decrement"
-        className="w-[44px] h-[44px] rounded-[10px] border border-[#ddd] dark:border-[#333] bg-white dark:bg-[#1a1a1a] items-center justify-center"
+        className="w-[44px] h-[44px] rounded-[10px] border border-divider bg-surface items-center justify-center"
       >
-        <Text className="text-[18px] font-bold text-[#1a3a4a] dark:text-content-primary">−</Text>
+        <Text className="text-[18px] font-bold text-brand-teal">−</Text>
       </TouchableOpacity>
-      <Text testID="stepper-value" className="text-[20px] font-bold text-text-default dark:text-content-primary min-w-[40px] text-center">
+      <Text testID="stepper-value" className="text-[20px] font-bold text-default min-w-[40px] text-center">
         {value}
       </Text>
       <TouchableOpacity
         onPress={() => onChange(max != null ? Math.min(max, value + 1) : value + 1)}
         testID="stepper-increment"
-        className="w-[44px] h-[44px] rounded-[10px] border border-[#ddd] dark:border-[#333] bg-white dark:bg-[#1a1a1a] items-center justify-center"
+        className="w-[44px] h-[44px] rounded-[10px] border border-divider bg-surface items-center justify-center"
       >
-        <Text className="text-[18px] font-bold text-[#1a3a4a] dark:text-content-primary">+</Text>
+        <Text className="text-[18px] font-bold text-brand-teal">+</Text>
       </TouchableOpacity>
     </View>
   );
@@ -73,7 +73,7 @@ interface ToggleRowProps {
 
 function ToggleRow({ options, selected, onSelect, testIDPrefix }: ToggleRowProps): React.ReactNode {
   return (
-    <View className="flex-row rounded-[10px] overflow-hidden border border-[#ddd] dark:border-[#333]">
+    <View className="flex-row rounded-[10px] overflow-hidden border border-divider">
       {options.map(({ key, label }) => {
         const isActive = selected === key;
         return (
@@ -81,10 +81,10 @@ function ToggleRow({ options, selected, onSelect, testIDPrefix }: ToggleRowProps
             key={key}
             testID={testIDPrefix != null ? `${testIDPrefix}-${key}` : key}
             onPress={() => onSelect(key)}
-            className={`flex-1 py-[10px] items-center ${isActive ? 'bg-[#1a3a4a]' : 'bg-white dark:bg-[#1a1a1a]'}`}
+            className={`flex-1 py-[10px] items-center ${isActive ? 'bg-brand-teal' : 'bg-surface'}`}
           >
             <Text
-              className={`text-[13px] font-semibold ${isActive ? 'text-white' : 'text-text-secondary dark:text-content-secondary'}`}
+              className={`text-[13px] font-semibold ${isActive ? 'text-white' : 'text-muted'}`}
             >
               {label}
             </Text>
@@ -117,11 +117,11 @@ function GenderPills({ selected, onChange }: GenderPillsProps): React.ReactNode 
             onPress={() => onChange(key)}
             className={`px-[18px] py-[8px] rounded-[20px] border ${
               isActive
-                ? 'border-[#2a7d9c] bg-[#e8f4f8]'
-                : 'border-[#ddd] bg-white dark:bg-[#1a1a1a] dark:border-[#333]'
+                ? 'border-brand-teal bg-info-tint'
+                : 'border-divider bg-surface'
             }`}
           >
-            <Text className={`text-[13px] font-semibold ${isActive ? 'text-[#2a7d9c]' : 'text-text-secondary dark:text-content-secondary'}`}>
+            <Text className={`text-[13px] font-semibold ${isActive ? 'text-brand-teal' : 'text-muted'}`}>
               {label}
             </Text>
           </TouchableOpacity>
@@ -162,7 +162,7 @@ export default function TournamentCreateScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="tournament-create-screen"
     >
@@ -177,11 +177,11 @@ export default function TournamentCreateScreen(): React.ReactNode {
           keyboardShouldPersistTaps="handled"
         >
           {/* Tournament Setup */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[20px] mb-[10px]">
+          <Text className="text-[15px] font-bold text-default mt-[20px] mb-[10px]">
             Tournament Setup
           </Text>
 
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary mb-[6px]">
+          <Text className="text-[13px] font-semibold text-muted mb-[6px]">
             Tournament Name
           </Text>
           <TextInput
@@ -190,10 +190,10 @@ export default function TournamentCreateScreen(): React.ReactNode {
             onChangeText={setName}
             placeholder="e.g. Sunday Showdown KoB"
             placeholderTextColor="#999"
-            className="border border-[#ddd] dark:border-[#333] rounded-[10px] p-[12px] text-[14px] text-text-default dark:text-content-primary mb-[16px]"
+            className="border border-divider rounded-[10px] p-[12px] text-[14px] text-default mb-[16px]"
           />
 
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary mb-[6px]">
+          <Text className="text-[13px] font-semibold text-muted mb-[6px]">
             Date
           </Text>
           <TextInput
@@ -202,10 +202,10 @@ export default function TournamentCreateScreen(): React.ReactNode {
             onChangeText={setScheduledDate}
             placeholder="YYYY-MM-DD"
             placeholderTextColor="#999"
-            className="border border-[#ddd] dark:border-[#333] rounded-[10px] p-[12px] text-[14px] text-text-default dark:text-content-primary mb-[16px]"
+            className="border border-divider rounded-[10px] p-[12px] text-[14px] text-default mb-[16px]"
           />
 
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary mb-[8px]">
+          <Text className="text-[13px] font-semibold text-muted mb-[8px]">
             Max Players
           </Text>
           <Stepper
@@ -215,7 +215,7 @@ export default function TournamentCreateScreen(): React.ReactNode {
             testID="max-players-stepper"
           />
 
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary mt-[16px] mb-[8px]">
+          <Text className="text-[13px] font-semibold text-muted mt-[16px] mb-[8px]">
             Courts
           </Text>
           <Stepper
@@ -226,11 +226,11 @@ export default function TournamentCreateScreen(): React.ReactNode {
           />
 
           {/* Registration */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[24px] mb-[10px]">
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[10px]">
             Registration
           </Text>
 
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary mb-[8px]">
+          <Text className="text-[13px] font-semibold text-muted mb-[8px]">
             Registration Type
           </Text>
           <ToggleRow
@@ -242,16 +242,16 @@ export default function TournamentCreateScreen(): React.ReactNode {
             onSelect={(k) => setRegistrationType(k as RegistrationType)}
             testIDPrefix="tournament-registration"
           />
-          <Text className="text-[11px] text-text-secondary dark:text-content-secondary mt-[6px] mb-[16px]">
+          <Text className="text-[11px] text-muted mt-[6px] mb-[16px]">
             Open: players request to join, you approve. Invite Only: only players you invite can join.
           </Text>
 
           {/* Game Settings */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[8px] mb-[10px]">
+          <Text className="text-[15px] font-bold text-default mt-[8px] mb-[10px]">
             Game Settings
           </Text>
 
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary mb-[8px]">
+          <Text className="text-[13px] font-semibold text-muted mb-[8px]">
             Format
           </Text>
           <ToggleRow
@@ -264,22 +264,22 @@ export default function TournamentCreateScreen(): React.ReactNode {
             testIDPrefix="tournament-format"
           />
 
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary mt-[16px] mb-[8px]">
+          <Text className="text-[13px] font-semibold text-muted mt-[16px] mb-[8px]">
             Game To
           </Text>
           <Stepper value={gameTo} min={1} onChange={setGameTo} testID="game-to-stepper" />
 
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary mt-[16px] mb-[8px]">
+          <Text className="text-[13px] font-semibold text-muted mt-[16px] mb-[8px]">
             Score Cap
           </Text>
           <Stepper value={scoreCap} min={1} onChange={setScoreCap} testID="score-cap-stepper" />
 
           {/* Additional */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[24px] mb-[10px]">
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[10px]">
             Additional
           </Text>
 
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary mb-[8px]">
+          <Text className="text-[13px] font-semibold text-muted mb-[8px]">
             Gender
           </Text>
           <GenderPills selected={gender} onChange={setGender} />
@@ -295,12 +295,12 @@ export default function TournamentCreateScreen(): React.ReactNode {
         </ScrollView>
 
         {/* Fixed bottom CTA */}
-        <View className="absolute bottom-0 left-0 right-0 bg-white dark:bg-base border-t border-[#eee] dark:border-[#2a2a2a] px-[16px] pt-[12px] pb-[34px]">
+        <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[12px] pb-[34px]">
           <TouchableOpacity
             testID="tournament-create-submit-btn"
             onPress={() => { void onSubmit(); }}
             disabled={isSubmitting}
-            className="bg-[#1a3a4a] rounded-[12px] items-center justify-center py-[16px]"
+            className="bg-brand-teal rounded-[12px] items-center justify-center py-[16px]"
           >
             {isSubmitting ? (
               <ActivityIndicator color="#fff" testID="tournament-create-loading" />
