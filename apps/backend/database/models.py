@@ -785,6 +785,17 @@ class Match(Base):
         """Get original scores (for calculation service compatibility)."""
         return [self.team1_score, self.team2_score]
 
+    @property
+    def team1_diff(self) -> int:
+        """Signed point differential from team1's perspective."""
+        return self.team1_score - self.team2_score
+
+    def signed_diff_for_player(self, player_id: int) -> int:
+        """Signed point diff for `player_id` (positive = won by N, negative = lost by N)."""
+        if player_id in (self.team1_player1_id, self.team1_player2_id):
+            return self.team1_diff
+        return -self.team1_diff
+
     __table_args__ = (
         Index("idx_matches_session", "session_id"),
         Index("idx_matches_team1_p1", "team1_player1_id"),

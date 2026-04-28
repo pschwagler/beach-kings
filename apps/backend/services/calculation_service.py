@@ -408,39 +408,23 @@ class StatsTracker:
 
     def _record_point_differentials(self, match: Match) -> None:
         """Record point differentials for all players."""
-        # Calculate point differential for each team
-        point_diff_team1 = match.team1_score - match.team2_score
-        point_diff_team2 = match.team2_score - match.team1_score
-
         teams = match.player_ids
-        team1 = teams[0]
-        team2 = teams[1]
+        team1, team2 = teams[0], teams[1]
+        team1_diff = match.team1_score - match.team2_score
 
-        # Record for team 1
-        for player_id in team1:
-            player = self.get_player(player_id)
-            player.total_point_diff += point_diff_team1
+        for own_team, opponent_team, signed_diff in (
+            (team1, team2, team1_diff),
+            (team2, team1, -team1_diff),
+        ):
+            for player_id in own_team:
+                player = self.get_player(player_id)
+                player.total_point_diff += signed_diff
 
-            # Record with partner
-            partner_id = team1[1] if player_id == team1[0] else team1[0]
-            player.record_point_diff_with(partner_id, point_diff_team1)
+                partner_id = own_team[1] if player_id == own_team[0] else own_team[0]
+                player.record_point_diff_with(partner_id, signed_diff)
 
-            # Record against opponents
-            for opponent_id in team2:
-                player.record_point_diff_against(opponent_id, point_diff_team1)
-
-        # Record for team 2
-        for player_id in team2:
-            player = self.get_player(player_id)
-            player.total_point_diff += point_diff_team2
-
-            # Record with partner
-            partner_id = team2[1] if player_id == team2[0] else team2[0]
-            player.record_point_diff_with(partner_id, point_diff_team2)
-
-            # Record against opponents
-            for opponent_id in team1:
-                player.record_point_diff_against(opponent_id, point_diff_team2)
+                for opponent_id in opponent_team:
+                    player.record_point_diff_against(opponent_id, signed_diff)
 
     def _calculate_elo_deltas(
         self,

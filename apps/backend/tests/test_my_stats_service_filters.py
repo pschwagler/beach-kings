@@ -29,6 +29,7 @@ from backend.database.models import (
     Match,
     Player,
     PlayerGlobalStats,
+    PlayerLeagueStats,
     Season,
     Session,
     SessionStatus,
@@ -285,6 +286,42 @@ async def test_league_a_only(db_session, seeded):
     assert payload["overall"]["peak_rating"] == 1540
     # Only league A elo dates: -200, -10
     assert len(payload["elo_timeline"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_league_overall_win_rate_units(db_session, seeded):
+    """league-only path reads ``PlayerLeagueStats`` and must return win_rate
+    in 0–100 percentage units, derived from raw wins/games (not the stored
+    0–1 ``win_rate`` column).
+
+    Regression guard: the stored ``win_rate`` is canonically 0–1; reading it
+    raw would have returned 0.7 for a 4/6 record instead of 66.7.
+    """
+    db_session.add(
+        PlayerLeagueStats(
+            player_id=seeded["player"].id,
+            league_id=seeded["league_a"].id,
+            games=6,
+            wins=4,
+            win_rate=0.667,  # canonical 0–1 storage
+            avg_point_diff=2.5,
+        )
+    )
+    await db_session.commit()
+
+    payload = await my_stats_service.get_my_stats(
+        session=db_session,
+        player_id=seeded["player"].id,
+        league_id=seeded["league_a"].id,
+    )
+
+    assert payload is not None
+    overall = payload["overall"]
+    assert overall["games_played"] == 6
+    assert overall["wins"] == 4
+    assert overall["losses"] == 2
+    assert overall["win_rate"] == pytest.approx(66.7, abs=0.1)
+    assert overall["avg_point_diff"] == pytest.approx(2.5, abs=0.1)
 
 
 @pytest.mark.asyncio

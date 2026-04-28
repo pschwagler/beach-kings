@@ -231,13 +231,8 @@ async def upsert_player_global_stats_async(
                 if pid is not None:
                     player_wins[pid] = player_wins.get(pid, 0) + 1
 
-        team1_diff = match.team1_score - match.team2_score
-        for pid in team1_ids:
-            if pid is not None:
-                player_point_diff[pid] = player_point_diff.get(pid, 0) + team1_diff
-        for pid in team2_ids:
-            if pid is not None:
-                player_point_diff[pid] = player_point_diff.get(pid, 0) - team1_diff
+        for pid in all_pids:
+            player_point_diff[pid] = player_point_diff.get(pid, 0) + match.signed_diff_for_player(pid)
 
     all_pids = set(player_latest_elo.keys()) | set(player_games.keys())
     rows = [

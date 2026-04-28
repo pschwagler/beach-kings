@@ -56,6 +56,12 @@ logger = logging.getLogger(__name__)
 _SUBMITTED_STATUSES = (SessionStatus.SUBMITTED, SessionStatus.EDITED)
 
 
+def _signed_diff_for_row(row, player_id: int) -> int:
+    """Signed point diff for `player_id` from a Core ``Row`` of Match columns."""
+    on_team1 = player_id in (row.team1_player1_id, row.team1_player2_id)
+    return (row.team1_score - row.team2_score) if on_team1 else (row.team2_score - row.team1_score)
+
+
 async def get_my_stats(
     session: AsyncSession,
     player_id: int,
@@ -231,12 +237,14 @@ async def _overall_from_aggregates(
     row = result.scalar_one_or_none()
     games_played = row.games if row else 0
     wins = row.wins if row else 0
+    win_rate = (wins / games_played * 100) if games_played else 0.0
+    avg_point_diff = float(row.avg_point_diff) if row else 0.0
     return {
         "wins": wins,
         "losses": games_played - wins,
         "games_played": games_played,
-        "win_rate": round(float(row.win_rate), 1) if row else 0.0,
-        "avg_point_diff": round(float(row.avg_point_diff), 1) if row else 0.0,
+        "win_rate": round(win_rate, 1),
+        "avg_point_diff": round(avg_point_diff, 1),
     }
 
 
@@ -424,14 +432,10 @@ async def _overall_from_matches(
         on_team1 = (
             row.team1_player1_id == player_id or row.team1_player2_id == player_id
         )
+        point_diff_total += _signed_diff_for_row(row, player_id)
         if row.winner == -1:
             # Tie — counts toward games_played but not wins/losses.
             games_played += 1
-            point_diff_total += (
-                row.team1_score - row.team2_score
-                if on_team1
-                else row.team2_score - row.team1_score
-            )
             continue
 
         games_played += 1
@@ -442,11 +446,6 @@ async def _overall_from_matches(
             wins += 1
         else:
             losses += 1
-        point_diff_total += (
-            row.team1_score - row.team2_score
-            if on_team1
-            else row.team2_score - row.team1_score
-        )
 
     win_rate = round((wins / games_played) * 100, 1) if games_played else 0.0
     avg_point_diff = round(point_diff_total / games_played, 1) if games_played else 0.0

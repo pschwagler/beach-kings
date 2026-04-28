@@ -699,6 +699,30 @@ async def test_global_stats_avg_point_diff(db_session, test_players, test_sessio
     assert by_pid[dave.id].avg_point_diff == pytest.approx(-1.5)
 
 
+def test_match_signed_diff_for_player():
+    """Match.signed_diff_for_player returns +(team1_score - team2_score) for
+    team1 players and the negation for team2 players. Unknown players follow
+    the team2 branch (negation) — this matches the existing point-diff
+    convention which treats non-team1 ids as the opponent perspective.
+    """
+    from backend.database.models import Match
+
+    m = Match(
+        team1_player1_id=1,
+        team1_player2_id=2,
+        team2_player1_id=3,
+        team2_player2_id=4,
+        team1_score=21,
+        team2_score=15,
+        winner=1,
+    )
+    assert m.team1_diff == 6
+    assert m.signed_diff_for_player(1) == 6
+    assert m.signed_diff_for_player(2) == 6
+    assert m.signed_diff_for_player(3) == -6
+    assert m.signed_diff_for_player(4) == -6
+
+
 @pytest.mark.asyncio
 async def test_elo_calculation_accuracy(db_session, test_players, test_session):
     """Test that ELO calculations are mathematically correct."""
