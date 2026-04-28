@@ -67,7 +67,7 @@ export default function BottomSheet({
       {/* Sheet content */}
       <Animated.View
         style={animatedStyle}
-        className={`absolute bottom-0 left-0 right-0 bg-white dark:bg-dark-surface rounded-t-2xl ${className}`}
+        className={`absolute bottom-0 left-0 right-0 bg-surface rounded-t-2xl ${className}`}
       >
         {/* Handle bar */}
         <View className="items-center pt-sm pb-xs">

@@ -60,7 +60,7 @@ export default function Avatar({
   return (
     <View
       style={{ width: dimension, height: dimension, borderRadius: dimension / 2 }}
-      className={`bg-primary dark:bg-brand-teal items-center justify-center ${className}`}
+      className={`bg-brand-teal items-center justify-center ${className}`}
       accessibilityLabel={name}
     >
       <Text className={`text-white font-semibold ${textSizes[size]}`}>

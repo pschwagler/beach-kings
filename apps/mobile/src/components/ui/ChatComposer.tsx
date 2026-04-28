@@ -62,17 +62,17 @@ export default function ChatComposer({
     <View
       testID={testID}
       style={{ paddingBottom: bottomInset }}
-      className="bg-white dark:bg-dark-surface border-t border-border dark:border-border-strong"
+      className="bg-surface border-t border-divider"
     >
       {sendError != null && (
-        <View className="px-4 py-2 bg-red-50 dark:bg-error-bg">
-          <Text className="text-[12px] text-red-600 dark:text-red-400">
+        <View className="px-4 py-2 bg-danger-tint">
+          <Text className="text-[12px] text-danger">
             {sendError}
           </Text>
         </View>
       )}
       <View className="flex-row items-end gap-[8px] px-3 py-[8px]">
-        <View className="flex-1 min-h-[36px] max-h-[120px] flex-row items-end pr-[6px] rounded-[18px] border border-[#e0e0e0] dark:border-border-strong bg-[#f8f9fa] dark:bg-dark-elevated">
+        <View className="flex-1 min-h-[36px] max-h-[120px] flex-row items-end pr-[6px] rounded-[18px] border border-divider bg-elevated">
           <TextInput
             testID={inputTestID}
             ref={inputRef}
@@ -80,7 +80,7 @@ export default function ChatComposer({
             onChangeText={onChangeText}
             placeholder={placeholder}
             placeholderTextColor="#999"
-            className="flex-1 min-h-[36px] pl-[14px] py-[8px] text-[15px] text-text-default dark:text-content-primary"
+            className="flex-1 min-h-[36px] pl-[14px] py-[8px] text-[15px] text-default"
             multiline
             keyboardType="default"
             autoComplete="off"
@@ -99,8 +99,8 @@ export default function ChatComposer({
             accessibilityLabel="Send message"
             className={`w-[28px] h-[28px] rounded-full items-center justify-center my-[4px] ${
               canSend
-                ? 'bg-[#1a3a4a] dark:bg-brand-teal active:opacity-80'
-                : 'bg-[#cfd4d8] dark:bg-dark-elevated'
+                ? 'bg-brand-teal active:opacity-80'
+                : 'bg-elevated'
             }`}
           >
             {isSending ? (

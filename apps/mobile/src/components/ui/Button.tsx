@@ -7,8 +7,7 @@
 
 import React, { useCallback } from 'react';
 import { Pressable, Text, ActivityIndicator } from 'react-native';
-import { useTheme } from '@/contexts/ThemeContext';
-import { colors, darkColors } from '@beach-kings/shared/tokens';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -24,24 +23,24 @@ interface ButtonProps {
 
 const variantStyles: Record<ButtonVariant, { container: string; text: string }> = {
   primary: {
-    container: 'bg-primary dark:bg-brand-teal',
+    container: 'bg-brand-teal',
     text: 'text-white',
   },
   secondary: {
-    container: 'bg-accent dark:bg-brand-gold',
-    text: 'text-white dark:text-gray-900',
+    container: 'bg-brand-gold',
+    text: 'text-white',
   },
   outline: {
-    container: 'bg-transparent border border-primary dark:border-brand-teal',
-    text: 'text-primary dark:text-brand-teal',
+    container: 'bg-transparent border border-brand-teal',
+    text: 'text-brand-teal',
   },
   ghost: {
     container: 'bg-transparent',
-    text: 'text-primary dark:text-brand-teal',
+    text: 'text-brand-teal',
   },
   danger: {
-    container: 'bg-danger dark:bg-danger-bg',
-    text: 'text-white dark:text-danger-text',
+    container: 'bg-danger',
+    text: 'text-white',
   },
 };
 
@@ -53,17 +52,14 @@ export default function Button({
   loading = false,
   className = '',
 }: ButtonProps): React.ReactNode {
-  const { isDark } = useTheme();
+  const palette = usePaletteColors();
   const styles = variantStyles[variant];
 
   const spinnerColor = (() => {
     if (variant === 'outline' || variant === 'ghost') {
-      return isDark ? darkColors.brandTeal : colors.primary;
+      return palette.brandTeal;
     }
-    if (variant === 'secondary') {
-      return isDark ? colors.textPrimary : colors.textInverse;
-    }
-    return colors.textInverse;
+    return palette.textInverse;
   })();
 
   const handlePress = useCallback(() => {

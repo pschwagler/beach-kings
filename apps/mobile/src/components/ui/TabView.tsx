@@ -23,7 +23,7 @@ export default function TabView({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      className={`border-b border-border dark:border-border-strong ${className}`}
+      className={`border-b border-divider ${className}`}
       contentContainerClassName="flex-row"
     >
       {tabs.map((tab, index) => {
@@ -40,14 +40,14 @@ export default function TabView({
             <Text
               className={`text-sm font-medium ${
                 isActive
-                  ? 'text-primary dark:text-brand-teal'
-                  : 'text-text-secondary dark:text-content-secondary'
+                  ? 'text-brand-teal'
+                  : 'text-muted'
               }`}
             >
               {tab}
             </Text>
             {isActive && (
-              <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary dark:bg-brand-teal" />
+              <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-teal" />
             )}
           </Pressable>
         );

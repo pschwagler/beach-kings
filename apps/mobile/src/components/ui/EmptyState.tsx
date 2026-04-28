@@ -31,11 +31,11 @@ export default function EmptyState({
       {icon != null && (
         <View className="mb-lg">{icon}</View>
       )}
-      <Text className="text-lg font-bold text-center text-text-default dark:text-content-primary mb-sm">
+      <Text className="text-lg font-bold text-center text-default mb-sm">
         {title}
       </Text>
       {description != null && (
-        <Text className="text-body text-center text-text-muted dark:text-text-tertiary mb-xl">
+        <Text className="text-body text-center text-muted mb-xl">
           {description}
         </Text>
       )}

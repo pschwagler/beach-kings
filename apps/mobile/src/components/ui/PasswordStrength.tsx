@@ -45,13 +45,13 @@ export default function PasswordStrength({
           <View
             key={index}
             className={`flex-1 h-1.5 rounded-full ${
-              index < strength ? color : 'bg-gray-200 dark:bg-gray-700'
+              index < strength ? color : 'bg-elevated'
             }`}
           />
         ))}
       </View>
       {strength > 0 && (
-        <Text className="text-xs text-text-secondary dark:text-content-secondary">
+        <Text className="text-xs text-muted">
           {LABELS[strength]}
         </Text>
       )}

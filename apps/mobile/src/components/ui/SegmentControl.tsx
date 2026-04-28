@@ -22,7 +22,7 @@ export default function SegmentControl({
 }: SegmentControlProps): React.ReactNode {
   return (
     <View
-      className={`flex-row bg-gray-100 dark:bg-gray-800 rounded-lg p-1 ${className}`}
+      className={`flex-row bg-elevated rounded-lg p-1 ${className}`}
     >
       {segments.map((segment, index) => (
         <Pressable
@@ -30,7 +30,7 @@ export default function SegmentControl({
           onPress={() => onSelect(index)}
           className={`flex-1 min-h-touch items-center justify-center rounded-md ${
             index === selectedIndex
-              ? 'bg-primary dark:bg-brand-teal'
+              ? 'bg-brand-teal'
               : 'bg-transparent'
           }`}
           accessibilityRole="tab"
@@ -41,7 +41,7 @@ export default function SegmentControl({
             className={`text-sm font-medium ${
               index === selectedIndex
                 ? 'text-white'
-                : 'text-text-muted dark:text-text-tertiary'
+                : 'text-muted'
             }`}
           >
             {segment}

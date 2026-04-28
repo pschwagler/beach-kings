@@ -25,8 +25,8 @@ export default function Chip({
       onPress={onPress}
       className={`min-h-touch items-center justify-center px-md rounded-full ${
         active
-          ? 'bg-primary dark:bg-brand-teal'
-          : 'bg-gray-200 dark:bg-gray-700'
+          ? 'bg-brand-teal'
+          : 'bg-elevated'
       } ${className}`}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
@@ -36,7 +36,7 @@ export default function Chip({
         className={`text-sm font-medium ${
           active
             ? 'text-white'
-            : 'text-text-default dark:text-content-primary'
+            : 'text-default'
         }`}
       >
         {label}

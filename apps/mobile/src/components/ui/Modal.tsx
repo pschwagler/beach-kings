@@ -34,15 +34,15 @@ export default function Modal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView className={`flex-1 bg-white dark:bg-dark-bg ${className}`}>
+      <SafeAreaView className={`flex-1 bg-page ${className}`}>
         {/* Handle bar */}
         <View className="items-center pt-sm pb-xs">
           <View className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
         </View>
 
         {/* Title row — always rendered so the X close button is always accessible */}
-        <View className="flex-row items-center justify-between px-lg py-md border-b border-gray-100 dark:border-gray-800">
-          <Text className="text-lg font-bold text-text-default dark:text-content-primary flex-1">
+        <View className="flex-row items-center justify-between px-lg py-md border-b border-divider">
+          <Text className="text-lg font-bold text-default flex-1">
             {title ?? ''}
           </Text>
           <Pressable
@@ -51,7 +51,7 @@ export default function Modal({
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <Text className="text-2xl text-text-muted dark:text-text-tertiary leading-none">
+            <Text className="text-2xl text-muted leading-none">
               x
             </Text>
           </Pressable>

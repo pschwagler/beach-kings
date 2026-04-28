@@ -16,9 +16,9 @@ interface StatCardProps {
 }
 
 const trendConfig: Record<Trend, { symbol: string; color: string }> = {
-  up: { symbol: '\u2191', color: 'text-success dark:text-success-text' },
-  down: { symbol: '\u2193', color: 'text-danger dark:text-danger-text' },
-  neutral: { symbol: '\u2014', color: 'text-text-muted dark:text-text-tertiary' },
+  up: { symbol: '\u2191', color: 'text-success' },
+  down: { symbol: '\u2193', color: 'text-danger' },
+  neutral: { symbol: '\u2014', color: 'text-muted' },
 };
 
 export default function StatCard({
@@ -31,10 +31,10 @@ export default function StatCard({
 
   return (
     <View
-      className={`bg-white dark:bg-dark-surface rounded-card p-lg shadow-sm dark:shadow-none dark:border dark:border-border-subtle items-center ${className}`}
+      className={`bg-surface rounded-card p-lg shadow-sm dark:shadow-none dark:border dark:border-divider items-center ${className}`}
     >
       <View className="flex-row items-center gap-xs">
-        <Text className="text-3xl font-bold text-text-default dark:text-content-primary">
+        <Text className="text-3xl font-bold text-default">
           {value}
         </Text>
         {trendInfo != null && (
@@ -43,7 +43,7 @@ export default function StatCard({
           </Text>
         )}
       </View>
-      <Text className="text-caption text-text-muted dark:text-text-tertiary mt-xs text-center">
+      <Text className="text-caption text-muted mt-xs text-center">
         {label}
       </Text>
     </View>

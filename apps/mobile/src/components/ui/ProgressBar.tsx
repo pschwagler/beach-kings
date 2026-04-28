@@ -23,7 +23,7 @@ export default function ProgressBar({
   const clampedProgress = Math.min(1, Math.max(0, progress));
 
   return (
-    <View className={`h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden ${className}`}>
+    <View className={`h-1.5 rounded-full bg-elevated overflow-hidden ${className}`}>
       <View
         className="h-full rounded-full"
         style={{

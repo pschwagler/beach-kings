@@ -16,28 +16,28 @@ interface BadgeProps {
 
 const variantStyles: Record<BadgeVariant, { bg: string; text: string }> = {
   default: {
-    bg: 'bg-gray-200 dark:bg-elevated',
-    text: 'text-text-default dark:text-content-primary',
+    bg: 'bg-elevated',
+    text: 'text-default',
   },
   success: {
-    bg: 'bg-green-100 dark:bg-success-bg',
-    text: 'text-success dark:text-success-text',
+    bg: 'bg-success-tint',
+    text: 'text-success',
   },
   danger: {
-    bg: 'bg-red-100 dark:bg-danger-bg',
-    text: 'text-danger dark:text-danger-text',
+    bg: 'bg-danger-tint',
+    text: 'text-danger',
   },
   warning: {
-    bg: 'bg-amber-100 dark:bg-warning-bg',
-    text: 'text-warning dark:text-warning-text',
+    bg: 'bg-warning-tint',
+    text: 'text-warning',
   },
   info: {
-    bg: 'bg-blue-100 dark:bg-info-bg',
-    text: 'text-info dark:text-info-text',
+    bg: 'bg-info-tint',
+    text: 'text-info',
   },
   accent: {
-    bg: 'bg-amber-100 dark:bg-elevated',
-    text: 'text-accent dark:text-brand-gold',
+    bg: 'bg-warning-tint',
+    text: 'text-brand-gold',
   },
 };
 

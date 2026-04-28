@@ -6,8 +6,7 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useTheme } from '@/contexts/ThemeContext';
-import { colors, darkColors } from '@beach-kings/shared/tokens';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface ListItemProps {
   readonly title: string;
@@ -38,8 +37,8 @@ export default function ListItem({
   badge,
   className = '',
 }: ListItemProps): React.ReactNode {
-  const { isDark } = useTheme();
-  const chevronColor = isDark ? darkColors.textTertiary : colors.textTertiary;
+  const palette = usePaletteColors();
+  const chevronColor = palette.textTertiary;
 
   const content = (
     <View className="flex-row items-center px-4 gap-3 min-h-[56px] py-2">
@@ -48,14 +47,14 @@ export default function ListItem({
       )}
       <View className="flex-1">
         <Text
-          className="text-sm font-medium text-text-default dark:text-content-primary"
+          className="text-sm font-medium text-default"
           numberOfLines={1}
         >
           {title}
         </Text>
         {subtitle && (
           <Text
-            className="text-xs text-text-secondary dark:text-content-secondary mt-0.5"
+            className="text-xs text-muted mt-0.5"
             numberOfLines={1}
           >
             {subtitle}
@@ -63,7 +62,7 @@ export default function ListItem({
         )}
       </View>
       {badge !== undefined && (
-        <View className="bg-primary dark:bg-brand-teal rounded-full px-2 py-0.5 min-w-[20px] items-center">
+        <View className="bg-brand-teal rounded-full px-2 py-0.5 min-w-[20px] items-center">
           <Text className="text-white text-xs font-semibold">{badge}</Text>
         </View>
       )}
@@ -74,14 +73,14 @@ export default function ListItem({
 
   if (!onPress) {
     return (
-      <View className={`bg-white dark:bg-elevated ${className}`}>{content}</View>
+      <View className={`bg-surface ${className}`}>{content}</View>
     );
   }
 
   return (
     <Pressable
       onPress={onPress}
-      className={`bg-white dark:bg-elevated active:opacity-70 ${className}`}
+      className={`bg-surface active:opacity-70 ${className}`}
       accessibilityRole="button"
       accessibilityLabel={title}
     >

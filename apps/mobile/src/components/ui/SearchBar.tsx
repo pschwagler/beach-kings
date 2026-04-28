@@ -7,7 +7,7 @@ import React from 'react';
 import { View, TextInput, Pressable } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '@/contexts/ThemeContext';
-import { colors, darkColors } from '@beach-kings/shared/tokens';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface SearchBarProps {
   readonly value: string;
@@ -47,8 +47,9 @@ export default function SearchBar({
   className = '',
 }: SearchBarProps): React.ReactNode {
   const { isDark } = useTheme();
-  const iconColor = isDark ? darkColors.textTertiary : colors.textTertiary;
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const palette = usePaletteColors();
+  const iconColor = palette.textTertiary;
+  const textColor = palette.textDefault;
 
   const handleClear = () => {
     onChangeText('');
@@ -57,7 +58,7 @@ export default function SearchBar({
 
   return (
     <View
-      className={`flex-row items-center h-11 px-3 rounded-xl bg-gray-100 dark:bg-gray-800 gap-2 ${className}`}
+      className={`flex-row items-center h-11 px-3 rounded-xl bg-elevated gap-2 ${className}`}
     >
       <SearchIcon color={iconColor} />
       <TextInput
