@@ -33,6 +33,33 @@ jest.mock('@beach-kings/shared/tokens', () => ({
   },
 }));
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    bgPage: '#f2f2f7',
+    bgSurface: '#ffffff',
+    bgElevated: '#ffffff',
+    bgInset: '#f2f2f7',
+    bgNav: '#1a3a4a',
+    bgTabbar: '#ffffff',
+    textDefault: '#1a1a1a',
+    textMuted: '#6e6e73',
+    textTertiary: '#8e8e93',
+    textInverse: '#ffffff',
+    borderStrong: '#c6c6c8',
+    borderDivider: '#c6c6c8',
+    brandTeal: '#1a3a4a',
+    brandGold: '#d4a843',
+    success: '#34c759',
+    danger: '#ff3b30',
+    warning: '#ff9500',
+    info: '#007aff',
+    successTint: '#e6f9ec',
+    dangerTint: '#fff0ef',
+    warningTint: '#fff8e6',
+    infoTint: '#e6f2ff',
+  }),
+}));
+
 // ---------------------------------------------------------------------------
 // Component imports
 // ---------------------------------------------------------------------------

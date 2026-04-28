@@ -1,7 +1,6 @@
 import type { Config } from 'tailwindcss';
 import {
   colors,
-  darkColors,
   spacing,
   layout,
   fontFamily,
@@ -56,13 +55,8 @@ const config: Config = {
         'disabled-bg': colors.disabledBg,
         'disabled-text': colors.disabledText,
 
-        // Light surfaces (legacy — kept for screens not yet migrated)
-        'dark-surface': darkColors.bgSurface,
+        // Border (not yet in semantic var system)
         border: colors.border,
-
-        // Light semantic aliases (legacy prefixed — generate `.bg-bg-page`, `.text-text-default`)
-        'bg-page': colors.bgPrimary,
-        'text-default': colors.textPrimary,
 
         // Gray scale (full)
         gray: {
@@ -77,34 +71,6 @@ const config: Config = {
           800: colors.gray800,
           900: colors.gray900,
         },
-
-        // Dark surfaces (legacy — kept for screens not yet migrated;
-        // `elevated` / `inset` collide with semantic basenames and were removed)
-        base: darkColors.bgBase,
-        tabbar: darkColors.bgTabbar,
-        'nav-dark': darkColors.bgNav,
-
-        // Dark text
-        'content-primary': darkColors.textPrimary,
-        'content-secondary': darkColors.textSecondary,
-        'content-tertiary': darkColors.textTertiary,
-
-        // (legacy `brand-teal` / `brand-gold` removed — collide with
-        // semantic basenames; values now flow through CSS vars)
-
-        // Dark borders
-        'border-strong': darkColors.border,
-        'border-subtle': darkColors.borderSubtle,
-
-        // Dark semantic pairs
-        'success-bg': darkColors.successBg,
-        'success-text': darkColors.successText,
-        'danger-bg': darkColors.dangerBg,
-        'danger-text': darkColors.dangerText,
-        'warning-bg': darkColors.warningBg,
-        'warning-text': darkColors.warningText,
-        'info-bg': darkColors.infoBg,
-        'info-text': darkColors.infoText,
 
         /* ── Semantic theme tokens (CSS-var-backed, theme-flipping) ──
          * Spread last so these win over any same-named legacy entry above
