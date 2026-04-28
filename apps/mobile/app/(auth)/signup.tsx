@@ -119,7 +119,7 @@ export default function SignupScreen(): React.ReactNode {
   const showApple = Platform.OS === 'ios' && appleAvailable;
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base">
+    <SafeAreaView className="flex-1 bg-page">
       <TopNav title="Create Account" showBack />
 
       <KeyboardAvoidingView
@@ -148,13 +148,13 @@ export default function SignupScreen(): React.ReactNode {
 
         <View className="flex-row items-center my-md">
           <Divider className="flex-1" />
-          <Text className="mx-md text-footnote text-gray-500 dark:text-content-secondary">
+          <Text className="mx-md text-footnote text-muted">
             OR
           </Text>
           <Divider className="flex-1" />
         </View>
 
-        <View className="bg-white dark:bg-dark-surface rounded-card p-lg gap-md">
+        <View className="bg-surface rounded-card p-lg gap-md">
           <View className="flex-row gap-md">
             <View className="flex-1">
               <Controller
@@ -173,7 +173,7 @@ export default function SignupScreen(): React.ReactNode {
                     blurOnSubmit={false}
                     onSubmitEditing={() => lastNameRef.current?.focus()}
                     className={
-                      errors.firstName ? 'border-red-500 dark:border-red-500' : ''
+                      errors.firstName ? 'border-red-500' : ''
                     }
                   />
                 )}
@@ -198,7 +198,7 @@ export default function SignupScreen(): React.ReactNode {
                     blurOnSubmit={false}
                     onSubmitEditing={() => emailRef.current?.focus()}
                     className={
-                      errors.lastName ? 'border-red-500 dark:border-red-500' : ''
+                      errors.lastName ? 'border-red-500' : ''
                     }
                   />
                 )}
@@ -226,7 +226,7 @@ export default function SignupScreen(): React.ReactNode {
                   blurOnSubmit={false}
                   onSubmitEditing={() => passwordRef.current?.focus()}
                   className={
-                    errors.email ? 'border-red-500 dark:border-red-500' : ''
+                    errors.email ? 'border-red-500' : ''
                   }
                 />
               )}
@@ -252,7 +252,7 @@ export default function SignupScreen(): React.ReactNode {
                   returnKeyType="go"
                   onSubmitEditing={handleSubmit(onSubmit)}
                   className={
-                    errors.password ? 'border-red-500 dark:border-red-500' : ''
+                    errors.password ? 'border-red-500' : ''
                   }
                 />
               )}
@@ -260,7 +260,7 @@ export default function SignupScreen(): React.ReactNode {
             {errors.password ? (
               <FormError message={errors.password.message} />
             ) : (
-              <Text className="text-caption text-gray-400 dark:text-content-tertiary mt-xxs">
+              <Text className="text-caption text-muted mt-xxs">
                 At least 8 characters.
               </Text>
             )}
@@ -275,20 +275,20 @@ export default function SignupScreen(): React.ReactNode {
         </View>
 
         <View className="items-center mt-md px-lg">
-          <Text className="text-caption text-gray-400 dark:text-content-tertiary text-center">
+          <Text className="text-caption text-muted text-center">
             By creating an account, you agree to our
           </Text>
           <View className="flex-row gap-xs mt-xxs">
             <Pressable onPress={handleTos} accessibilityRole="link">
-              <Text className="text-caption text-primary dark:text-brand-teal underline">
+              <Text className="text-caption text-brand-teal underline">
                 Terms of Service
               </Text>
             </Pressable>
-            <Text className="text-caption text-gray-400 dark:text-content-tertiary">
+            <Text className="text-caption text-muted">
               and
             </Text>
             <Pressable onPress={handlePrivacy} accessibilityRole="link">
-              <Text className="text-caption text-primary dark:text-brand-teal underline">
+              <Text className="text-caption text-brand-teal underline">
                 Privacy Policy
               </Text>
             </Pressable>
@@ -301,10 +301,10 @@ export default function SignupScreen(): React.ReactNode {
             accessibilityLabel="Sign in to existing account"
             accessibilityRole="link"
           >
-            <Text className="text-gray-500 dark:text-content-secondary">
+            <Text className="text-muted">
               Already have an account?{' '}
             </Text>
-            <Text className="text-primary dark:text-brand-teal font-semibold">
+            <Text className="text-brand-teal font-semibold">
               Sign In
             </Text>
           </Pressable>

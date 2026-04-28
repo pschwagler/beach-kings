@@ -176,7 +176,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
       : 'We sent a 6-digit code to your phone.';
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base">
+    <SafeAreaView className="flex-1 bg-page">
       <TopNav title="Reset Password" showBack />
 
       <KeyboardAvoidingView
@@ -190,16 +190,16 @@ export default function ForgotPasswordScreen(): React.ReactNode {
       >
         {step === 'request' && (
           <View className="gap-md">
-            <Text className="text-title2 font-bold text-primary dark:text-content-primary text-center mb-sm">
+            <Text className="text-title2 font-bold text-default text-center mb-sm">
               Forgot your password?
             </Text>
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-md">
+            <Text className="text-body text-muted text-center mb-md">
               {method === 'email'
                 ? "Enter your email and we'll send you a code to reset it."
                 : "Enter your phone number and we'll send you a code to reset it."}
             </Text>
 
-            <View className="flex-row bg-white dark:bg-dark-surface rounded-card p-xs">
+            <View className="flex-row bg-surface rounded-card p-xs">
               <Pressable
                 onPress={() => setMethod('email')}
                 accessibilityRole="button"
@@ -207,7 +207,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
                 accessibilityState={{ selected: method === 'email' }}
                 className={`flex-1 py-sm rounded-card items-center justify-center ${
                   method === 'email'
-                    ? 'bg-primary dark:bg-brand-teal'
+                    ? 'bg-brand-teal'
                     : 'bg-transparent'
                 }`}
               >
@@ -215,7 +215,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
                   className={`text-footnote font-medium ${
                     method === 'email'
                       ? 'text-white'
-                      : 'text-gray-500 dark:text-content-secondary'
+                      : 'text-muted'
                   }`}
                 >
                   Email
@@ -228,7 +228,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
                 accessibilityState={{ selected: method === 'phone' }}
                 className={`flex-1 py-sm rounded-card items-center justify-center ${
                   method === 'phone'
-                    ? 'bg-primary dark:bg-brand-teal'
+                    ? 'bg-brand-teal'
                     : 'bg-transparent'
                 }`}
               >
@@ -236,7 +236,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
                   className={`text-footnote font-medium ${
                     method === 'phone'
                       ? 'text-white'
-                      : 'text-gray-500 dark:text-content-secondary'
+                      : 'text-muted'
                   }`}
                 >
                   Phone
@@ -244,7 +244,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
               </Pressable>
             </View>
 
-            <View className="bg-white dark:bg-dark-surface rounded-card p-lg gap-md">
+            <View className="bg-surface rounded-card p-lg gap-md">
               <View style={method === 'email' ? undefined : { display: 'none' }}>
                 <Controller
                   control={emailForm.control}
@@ -263,7 +263,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
                       onSubmitEditing={emailForm.handleSubmit(onSubmitEmail)}
                       className={
                         emailForm.formState.errors.email
-                          ? 'border-red-500 dark:border-red-500'
+                          ? 'border-red-500'
                           : ''
                       }
                     />
@@ -290,7 +290,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
                       onSubmitEditing={phoneForm.handleSubmit(onSubmitPhone)}
                       className={
                         phoneForm.formState.errors.phoneNumber
-                          ? 'border-red-500 dark:border-red-500'
+                          ? 'border-red-500'
                           : ''
                       }
                     />
@@ -323,7 +323,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
               accessibilityLabel="Go back to sign in"
               accessibilityRole="link"
             >
-              <Text className="text-footnote text-primary dark:text-brand-teal font-medium">
+              <Text className="text-footnote text-brand-teal font-medium">
                 Back to Sign In
               </Text>
             </Pressable>
@@ -332,10 +332,10 @@ export default function ForgotPasswordScreen(): React.ReactNode {
 
         {step === 'otp' && (
           <View className="gap-md">
-            <Text className="text-title2 font-bold text-primary dark:text-content-primary text-center mb-sm">
+            <Text className="text-title2 font-bold text-default text-center mb-sm">
               Enter Verification Code
             </Text>
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-md">
+            <Text className="text-body text-muted text-center mb-md">
               {otpSubtitle}
             </Text>
 
@@ -379,8 +379,8 @@ export default function ForgotPasswordScreen(): React.ReactNode {
               <Text
                 className={`text-footnote font-medium ${
                   resendCountdown > 0
-                    ? 'text-gray-400 dark:text-content-tertiary'
-                    : 'text-primary dark:text-brand-teal'
+                    ? 'text-muted'
+                    : 'text-brand-teal'
                 }`}
               >
                 {resendCountdown > 0
@@ -393,14 +393,14 @@ export default function ForgotPasswordScreen(): React.ReactNode {
 
         {step === 'newPassword' && (
           <View className="gap-md">
-            <Text className="text-title2 font-bold text-primary dark:text-content-primary text-center mb-sm">
+            <Text className="text-title2 font-bold text-default text-center mb-sm">
               Set New Password
             </Text>
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-md">
+            <Text className="text-body text-muted text-center mb-md">
               Choose a strong password with at least 8 characters.
             </Text>
 
-            <View className="bg-white dark:bg-dark-surface rounded-card p-lg gap-md">
+            <View className="bg-surface rounded-card p-lg gap-md">
               <View>
                 <Controller
                   control={passwordForm.control}
@@ -420,7 +420,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
                       onSubmitEditing={() => confirmPasswordRef.current?.focus()}
                       className={
                         passwordForm.formState.errors.newPassword
-                          ? 'border-red-500 dark:border-red-500'
+                          ? 'border-red-500'
                           : ''
                       }
                     />
@@ -449,7 +449,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
                       onSubmitEditing={passwordForm.handleSubmit(onSubmitNewPassword)}
                       className={
                         passwordForm.formState.errors.confirmPassword
-                          ? 'border-red-500 dark:border-red-500'
+                          ? 'border-red-500'
                           : ''
                       }
                     />
@@ -479,7 +479,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
             <Text className="text-title2 font-bold text-green-700 dark:text-green-400 text-center">
               Password Reset!
             </Text>
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-md">
+            <Text className="text-body text-muted text-center mb-md">
               Your password has been updated. You can now sign in with your new password.
             </Text>
             <View className="w-full">

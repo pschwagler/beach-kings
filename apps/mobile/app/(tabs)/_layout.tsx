@@ -18,7 +18,7 @@ interface TabIconProps {
 function TabIcon({ icon: Icon, focused, isAddGames, isDark, badge }: TabIconProps): React.ReactNode {
   if (isAddGames) {
     return (
-      <View className="w-11 h-11 -mt-3 rounded-full bg-accent dark:bg-brand-gold items-center justify-center">
+      <View className="w-11 h-11 -mt-3 rounded-full bg-brand-gold items-center justify-center">
         <Icon size={22} color={isDark ? '#1a1a2e' : '#ffffff'} />
       </View>
     );

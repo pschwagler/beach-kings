@@ -109,7 +109,7 @@ export default function LoginScreen(): React.ReactNode {
   const showApple = Platform.OS === 'ios' && appleAvailable;
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base">
+    <SafeAreaView className="flex-1 bg-page">
       <TopNav title="Log In" showBack />
 
       <KeyboardAvoidingView
@@ -122,12 +122,12 @@ export default function LoginScreen(): React.ReactNode {
           keyboardShouldPersistTaps="handled"
         >
         <View className="items-center mb-xxxl">
-          <Text className="text-large-title font-bold text-primary dark:text-brand-teal">
+          <Text className="text-large-title font-bold text-brand-teal">
             Beach League
           </Text>
         </View>
 
-        <View className="bg-white dark:bg-dark-surface rounded-card p-lg gap-md">
+        <View className="bg-surface rounded-card p-lg gap-md">
           <View>
             <Controller
               control={control}
@@ -146,7 +146,7 @@ export default function LoginScreen(): React.ReactNode {
                   blurOnSubmit={false}
                   onSubmitEditing={() => passwordRef.current?.focus()}
                   className={
-                    errors.email ? 'border-red-500 dark:border-red-500' : ''
+                    errors.email ? 'border-red-500' : ''
                   }
                 />
               )}
@@ -172,7 +172,7 @@ export default function LoginScreen(): React.ReactNode {
                   returnKeyType="go"
                   onSubmitEditing={handleSubmit(onSubmit)}
                   className={
-                    errors.password ? 'border-red-500 dark:border-red-500' : ''
+                    errors.password ? 'border-red-500' : ''
                   }
                 />
               )}
@@ -186,7 +186,7 @@ export default function LoginScreen(): React.ReactNode {
             accessibilityLabel="Forgot password"
             accessibilityRole="link"
           >
-            <Text className="text-footnote text-primary dark:text-brand-teal font-medium">
+            <Text className="text-footnote text-brand-teal font-medium">
               Forgot Password?
             </Text>
           </Pressable>
@@ -201,7 +201,7 @@ export default function LoginScreen(): React.ReactNode {
 
         <View className="flex-row items-center my-lg">
           <Divider className="flex-1" />
-          <Text className="mx-md text-footnote text-gray-500 dark:text-content-secondary">
+          <Text className="mx-md text-footnote text-muted">
             OR
           </Text>
           <Divider className="flex-1" />
@@ -228,10 +228,10 @@ export default function LoginScreen(): React.ReactNode {
             accessibilityLabel="Sign up for a new account"
             accessibilityRole="link"
           >
-            <Text className="text-gray-500 dark:text-content-secondary">
+            <Text className="text-muted">
               Don't have an account?{' '}
             </Text>
-            <Text className="text-primary dark:text-brand-teal font-semibold">
+            <Text className="text-brand-teal font-semibold">
               Sign Up
             </Text>
           </Pressable>

@@ -63,7 +63,7 @@ export default function LeaguesScreen(): React.ReactNode {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-page" edges={['top']}>
       <TopNav title="Leagues" />
 
       {/* Action bar — always visible (not part of scroll) */}
@@ -97,7 +97,7 @@ export default function LeaguesScreen(): React.ReactNode {
             />
           ) : (
             <View className="px-lg pt-md pb-xxxl">
-              <Text className="text-callout font-bold text-text-default dark:text-content-primary mb-md">
+              <Text className="text-callout font-bold text-default mb-md">
                 My Leagues
               </Text>
 

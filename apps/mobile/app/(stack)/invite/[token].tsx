@@ -100,7 +100,7 @@ function InheritedRatingCallout({
   return (
     <View
       testID="invite-inherited-rating"
-      className="bg-[#1a3a4a] dark:bg-[#0f2535] rounded-card p-md mb-md"
+      className="bg-brand-teal rounded-card p-md mb-md"
     >
       <View className="flex-row items-center gap-xs mb-sm">
         <Text className="text-[11px] font-bold tracking-widest uppercase text-[#7fb3c8]">

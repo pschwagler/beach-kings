@@ -202,19 +202,19 @@ export default function OnboardingScreen(): React.ReactNode {
 
   if (screen === 'success') {
     return (
-      <SafeAreaView className="flex-1 bg-bg-page dark:bg-base">
+      <SafeAreaView className="flex-1 bg-page">
         <View className="flex-1 items-center justify-center px-lg">
-          <View className="bg-white dark:bg-dark-surface rounded-2xl px-lg py-xl items-center w-full max-w-md">
+          <View className="bg-surface rounded-2xl px-lg py-xl items-center w-full max-w-md">
             <View
               testID="onboarding-success-check"
               className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 items-center justify-center mb-md"
             >
               <CheckIcon size={32} color="#15803d" />
             </View>
-            <Text className="text-title3 font-bold text-primary dark:text-content-primary text-center mb-xs">
+            <Text className="text-title3 font-bold text-default text-center mb-xs">
               Profile Complete!
             </Text>
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-lg">
+            <Text className="text-body text-muted text-center mb-lg">
               You're all set. Find leagues near you, connect with players, and
               start tracking your games.
             </Text>
@@ -228,7 +228,7 @@ export default function OnboardingScreen(): React.ReactNode {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-dark-surface">
+    <SafeAreaView className="flex-1 bg-surface">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -241,17 +241,17 @@ export default function OnboardingScreen(): React.ReactNode {
             accessibilityLabel="Skip for now"
             hitSlop={8}
           >
-            <Text className="text-footnote font-semibold text-accent dark:text-brand-gold">
+            <Text className="text-footnote font-semibold text-brand-gold">
               Skip for now
             </Text>
           </Pressable>
           <View className="items-center mb-sm">
             <CrownIcon size={36} color="#d4a843" />
           </View>
-          <Text className="text-title3 font-bold text-primary dark:text-content-primary text-center mb-xs">
+          <Text className="text-title3 font-bold text-default text-center mb-xs">
             Complete Your Profile
           </Text>
-          <Text className="text-footnote text-gray-500 dark:text-content-secondary text-center">
+          <Text className="text-footnote text-muted text-center">
             Tell us about yourself so we can match you with the right leagues
             and players.
           </Text>
@@ -332,7 +332,7 @@ export default function OnboardingScreen(): React.ReactNode {
             {errors.locationId ? (
               <FormError message={errors.locationId.message} />
             ) : (
-              <Text className="text-caption text-gray-400 dark:text-content-tertiary mt-xxs">
+              <Text className="text-caption text-muted mt-xxs">
                 Closest region auto-selected from your city — change if needed
               </Text>
             )}
@@ -359,7 +359,7 @@ export default function OnboardingScreen(): React.ReactNode {
 
             <View className="h-px bg-gray-100 dark:bg-border-strong my-lg" />
 
-            <Text className="text-caption font-semibold text-gray-400 dark:text-content-tertiary uppercase tracking-wider mb-md">
+            <Text className="text-caption font-semibold text-muted uppercase tracking-wider mb-md">
               Optional
             </Text>
 

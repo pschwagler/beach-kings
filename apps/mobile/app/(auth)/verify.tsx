@@ -137,7 +137,7 @@ export default function VerifyScreen(): React.ReactNode {
       : 'Use a different phone number';
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base">
+    <SafeAreaView className="flex-1 bg-page">
       <TopNav title={title} showBack />
 
       <KeyboardAvoidingView
@@ -146,10 +146,10 @@ export default function VerifyScreen(): React.ReactNode {
       >
       <View className="flex-1 justify-center px-lg">
         <View className="items-center mb-xl">
-          <Text className="text-title2 font-bold text-primary dark:text-content-primary mb-sm">
+          <Text className="text-title2 font-bold text-default mb-sm">
             Enter Verification Code
           </Text>
-          <Text className="text-body text-gray-500 dark:text-content-secondary text-center">
+          <Text className="text-body text-muted text-center">
             We sent a 6-digit code to {masked}
           </Text>
         </View>
@@ -197,8 +197,8 @@ export default function VerifyScreen(): React.ReactNode {
             <Text
               className={`text-footnote font-medium ${
                 resendDisabled
-                  ? 'text-gray-400 dark:text-content-tertiary'
-                  : 'text-primary dark:text-brand-teal'
+                  ? 'text-muted'
+                  : 'text-brand-teal'
               }`}
             >
               {resendDisabled
@@ -213,7 +213,7 @@ export default function VerifyScreen(): React.ReactNode {
             accessibilityLabel={useDifferentA11y}
             accessibilityRole="link"
           >
-            <Text className="text-footnote font-medium text-gray-500 dark:text-content-secondary">
+            <Text className="text-footnote font-medium text-muted">
               {useDifferentLabel}
             </Text>
           </Pressable>

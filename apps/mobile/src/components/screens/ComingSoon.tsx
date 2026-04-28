@@ -20,7 +20,7 @@ export default function ComingSoon({
   description = 'This screen is under construction.',
 }: ComingSoonProps): React.ReactNode {
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-page" edges={['top']}>
       <TopNav title={title} showBack />
       <View className="flex-1">
         <EmptyState title={title} description={description} />
