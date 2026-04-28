@@ -54,14 +54,14 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
     }
 
     return (
-      <SafeAreaView className="flex-1 bg-white dark:bg-surface-dark">
+      <SafeAreaView className="flex-1 bg-surface">
         <View className="flex-1 items-center justify-center px-xl gap-lg">
           <AlertTriangleIcon size={48} color="#f59e0b" />
-          <Text className="text-xl font-semibold text-gray-900 dark:text-white text-center">
+          <Text className="text-xl font-semibold text-default text-center">
             Something went wrong
           </Text>
           {__DEV__ && error !== null && (
-            <Text className="text-sm text-danger dark:text-danger-text text-center font-mono">
+            <Text className="text-sm text-danger text-center font-mono">
               {error.message}
             </Text>
           )}
