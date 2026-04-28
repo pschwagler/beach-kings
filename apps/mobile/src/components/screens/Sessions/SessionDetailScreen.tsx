@@ -32,7 +32,33 @@ import SessionPlayerChip from './SessionPlayerChip';
 import SessionGameCard from './SessionGameCard';
 import SessionBottomSheet from './SessionBottomSheet';
 import { useSessionDetailScreen } from './useSessionDetailScreen';
-import type { SessionDetail } from '@beach-kings/shared';
+import type { SessionDetail, SessionGame } from '@beach-kings/shared';
+
+/**
+ * Determine which team the calling user is on for a given game by matching
+ * their canonical display name against the four team-player names. Returns
+ * `null` if no name match is found, which maps to a "PENDING"-styled badge.
+ */
+function getUserTeamForGame(
+  game: SessionGame,
+  currentPlayerName: string | null,
+): 1 | 2 | null {
+  if (!currentPlayerName) return null;
+  const norm = currentPlayerName.trim().toLowerCase();
+  if (
+    game.team1_player1_name.trim().toLowerCase() === norm ||
+    game.team1_player2_name.trim().toLowerCase() === norm
+  ) {
+    return 1;
+  }
+  if (
+    game.team2_player1_name.trim().toLowerCase() === norm ||
+    game.team2_player2_name.trim().toLowerCase() === norm
+  ) {
+    return 2;
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Stats bar
@@ -161,12 +187,15 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     isRefreshing,
     isMenuOpen,
     isSubmitting,
+    submitError,
+    currentPlayerName,
     onRefresh,
     onRetry,
     openMenu,
     closeMenu,
     onAddGame,
     onSubmitSession,
+    onClearSubmitError,
   } = useSessionDetailScreen(sessionId);
 
   const hasPlaceholders =
@@ -259,13 +288,31 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
                 </Text>
               ) : (
                 session.games.map((game) => (
-                  <SessionGameCard key={game.id} game={game} userTeam={1} />
+                  <SessionGameCard
+                    key={game.id}
+                    game={game}
+                    userTeam={getUserTeamForGame(game, currentPlayerName)}
+                  />
                 ))
               )}
             </View>
           </>
         )}
       </ScrollView>
+
+      {/* Submit error banner */}
+      {submitError != null && (
+        <TouchableOpacity
+          testID="session-submit-error"
+          onPress={onClearSubmitError}
+          className="absolute bottom-[80px] left-0 right-0 mx-[16px] bg-danger-tint rounded-[10px] px-[12px] py-[10px]"
+        >
+          <Text className="text-[13px] text-danger font-semibold">
+            {submitError}
+          </Text>
+          <Text className="text-[11px] text-danger mt-[2px]">Tap to dismiss</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Sticky action bar — active sessions only */}
       {session?.status === 'active' && (

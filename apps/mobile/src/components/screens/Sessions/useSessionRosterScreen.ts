@@ -64,14 +64,20 @@ export function useSessionRosterScreen(
     router.back();
   }, [router]);
 
-  const players: readonly SessionPlayerEntry[] = (session?.players ?? []).map(p => ({
-    entry_id: p.player_id ?? p.id,
-    player_id: p.player_id ?? 0,
-    display_name: p.display_name,
-    initials: p.initials,
-    game_count: p.game_count,
-    is_placeholder: p.is_placeholder,
-  }));
+  const players: readonly SessionPlayerEntry[] = (session?.players ?? []).map(p => {
+    // Backend returns `player_id` populated for both real and placeholder players.
+    // `p.id` is the same value (Player primary key); we fall back defensively in case
+    // the shape ever drifts. The DELETE endpoint requires the player_id, never `0`.
+    const playerId = p.player_id ?? p.id;
+    return {
+      entry_id: playerId,
+      player_id: playerId,
+      display_name: p.display_name,
+      initials: p.initials,
+      game_count: p.game_count,
+      is_placeholder: p.is_placeholder,
+    };
+  });
 
   return {
     session: session ?? null,

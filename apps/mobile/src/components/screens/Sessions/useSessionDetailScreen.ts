@@ -4,7 +4,7 @@
  * Fetches session detail by id, exposes menu state, and submit session handler.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
@@ -19,12 +19,16 @@ export interface UseSessionDetailScreenResult {
   readonly isRefreshing: boolean;
   readonly isMenuOpen: boolean;
   readonly isSubmitting: boolean;
+  readonly submitError: string | null;
+  /** Display name of the authenticated user, used to derive per-game team membership. */
+  readonly currentPlayerName: string | null;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly openMenu: () => void;
   readonly closeMenu: () => void;
   readonly onAddGame: () => void;
   readonly onSubmitSession: () => Promise<void>;
+  readonly onClearSubmitError: () => void;
 }
 
 /**
@@ -38,11 +42,30 @@ export function useSessionDetailScreen(
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [currentPlayerName, setCurrentPlayerName] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useApi<SessionDetail>(
     () => api.getSessionById(sessionId),
     [sessionId],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .getCurrentUserPlayer()
+      .then((player) => {
+        if (!cancelled && player != null) {
+          setCurrentPlayerName(player.full_name ?? player.name ?? null);
+        }
+      })
+      .catch(() => {
+        // Non-fatal: per-game team highlight will fall back to "pending".
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -71,16 +94,25 @@ export function useSessionDetailScreen(
 
   const onSubmitSession = useCallback(async () => {
     setIsSubmitting(true);
+    setSubmitError(null);
     await hapticMedium();
     try {
       await api.lockInSession(sessionId);
       void refetch();
-    } catch {
-      // TODO(backend): handle submit error
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Could not submit session. Please try again.';
+      setSubmitError(message);
     } finally {
       setIsSubmitting(false);
     }
   }, [sessionId, refetch]);
+
+  const onClearSubmitError = useCallback(() => {
+    setSubmitError(null);
+  }, []);
 
   return {
     session: data ?? null,
@@ -89,11 +121,14 @@ export function useSessionDetailScreen(
     isRefreshing,
     isMenuOpen,
     isSubmitting,
+    submitError,
+    currentPlayerName,
     onRefresh,
     onRetry,
     openMenu,
     closeMenu,
     onAddGame,
     onSubmitSession,
+    onClearSubmitError,
   };
 }
