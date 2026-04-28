@@ -195,7 +195,7 @@ const CityAutocomplete = forwardRef<TextInput, CityAutocompleteProps>(
             returnKeyType="search"
             onSubmitEditing={handleSubmitEditing}
             blurOnSubmit={false}
-            className={error ? 'border-red-500 dark:border-red-500' : ''}
+            className={error ? 'border-danger' : ''}
           />
           {isLoading ? (
             <View
@@ -210,24 +210,24 @@ const CityAutocomplete = forwardRef<TextInput, CityAutocompleteProps>(
         {showSuggestions && suggestions.length > 0 ? (
           <View
             testID={testID ? `${testID}-suggestions` : undefined}
-            className="mt-xs border border-border dark:border-border-strong rounded-lg bg-white dark:bg-elevated overflow-hidden"
+            className="mt-xs border border-divider rounded-lg bg-surface overflow-hidden"
           >
             {suggestions.map((s) => (
               <Pressable
                 key={`${s.city}|${s.state}|${s.lat}|${s.lon}`}
                 onPress={() => handleSelect(s)}
-                className="px-md py-sm border-b border-border dark:border-border-strong active:bg-gray-50 dark:active:bg-dark-surface"
+                className="px-md py-sm border-b border-divider active:bg-elevated"
                 accessibilityRole="button"
                 accessibilityLabel={`Select ${s.formatted}`}
                 testID={
                   testID ? `${testID}-suggestion-${s.city}-${s.state}` : undefined
                 }
               >
-                <Text className="text-body text-primary dark:text-content-primary">
+                <Text className="text-body text-default">
                   {s.city}
                 </Text>
                 {s.state ? (
-                  <Text className="text-caption text-gray-500 dark:text-content-secondary">
+                  <Text className="text-caption text-muted">
                     {s.state}
                   </Text>
                 ) : null}

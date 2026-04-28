@@ -111,14 +111,12 @@ const DateOfBirthField = forwardRef<TextInput, DateOfBirthFieldProps>(
       return fallback;
     }, [value]);
 
-    const borderClass = error
-      ? 'border-red-500'
-      : 'border-border dark:border-border-strong';
+    const borderClass = error ? 'border-danger' : 'border-divider';
 
     return (
       <>
         <View
-          className={`h-12 flex-row items-center rounded-lg border bg-white dark:bg-elevated ${borderClass}`}
+          className={`h-12 flex-row items-center rounded-lg border bg-surface ${borderClass}`}
         >
           <TextInput
             ref={ref}
@@ -179,12 +177,12 @@ const DateOfBirthField = forwardRef<TextInput, DateOfBirthFieldProps>(
               onPress={closePicker}
             >
               <Pressable
-                className="bg-white dark:bg-dark-surface rounded-t-2xl pb-xl"
+                className="bg-surface rounded-t-2xl pb-xl"
                 onPress={(e) => e.stopPropagation()}
               >
                 <View className="flex-row justify-end px-lg pt-md">
                   <Pressable onPress={closePicker} hitSlop={8}>
-                    <Text className="text-body font-semibold text-primary dark:text-brand-teal">
+                    <Text className="text-body font-semibold text-brand-teal">
                       Done
                     </Text>
                   </Pressable>

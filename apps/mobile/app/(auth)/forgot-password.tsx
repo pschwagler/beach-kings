@@ -473,10 +473,10 @@ export default function ForgotPasswordScreen(): React.ReactNode {
 
         {step === 'success' && (
           <View className="items-center gap-md">
-            <View className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900 items-center justify-center mb-md">
+            <View className="w-20 h-20 rounded-full bg-success-tint items-center justify-center mb-md">
               <CheckIcon size={48} color="#15803d" />
             </View>
-            <Text className="text-title2 font-bold text-green-700 dark:text-green-400 text-center">
+            <Text className="text-title2 font-bold text-success text-center">
               Password Reset!
             </Text>
             <Text className="text-body text-muted text-center mb-md">

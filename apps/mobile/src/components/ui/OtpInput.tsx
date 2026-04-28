@@ -143,10 +143,8 @@ export default function OtpInput({
             selectTextOnFocus
             returnKeyType={isLast ? 'done' : 'next'}
             onSubmitEditing={isLast ? Keyboard.dismiss : undefined}
-            className={`w-11 h-12 border-2 rounded-lg text-center text-xl font-semibold bg-white dark:bg-elevated ${
-              isFocused
-                ? 'border-primary dark:border-brand-teal'
-                : 'border-border dark:border-border-strong'
+            className={`w-11 h-12 border-2 rounded-lg text-center text-xl font-semibold bg-surface ${
+              isFocused ? 'border-brand-teal' : 'border-divider'
             }`}
             style={{ color: textColor }}
             accessibilityLabel={`OTP digit ${index + 1}`}

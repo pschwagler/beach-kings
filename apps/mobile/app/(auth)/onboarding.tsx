@@ -207,7 +207,7 @@ export default function OnboardingScreen(): React.ReactNode {
           <View className="bg-surface rounded-2xl px-lg py-xl items-center w-full max-w-md">
             <View
               testID="onboarding-success-check"
-              className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 items-center justify-center mb-md"
+              className="w-16 h-16 rounded-full bg-success-tint items-center justify-center mb-md"
             >
               <CheckIcon size={32} color="#15803d" />
             </View>
@@ -357,7 +357,7 @@ export default function OnboardingScreen(): React.ReactNode {
             />
             <FormError message={errors.level?.message} />
 
-            <View className="h-px bg-gray-100 dark:bg-border-strong my-lg" />
+            <View className="h-px bg-divider my-lg" />
 
             <Text className="text-caption font-semibold text-muted uppercase tracking-wider mb-md">
               Optional

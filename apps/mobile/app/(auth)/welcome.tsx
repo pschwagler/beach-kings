@@ -61,7 +61,7 @@ export default function WelcomeScreen(): React.ReactNode {
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-primary dark:bg-base">
+    <SafeAreaView className="flex-1 bg-primary">
       <View className="flex-1 justify-between px-lg py-xl">
         <View className="flex-1 justify-center">
           <View className="items-center mb-xxl">

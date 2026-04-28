@@ -22,10 +22,8 @@ export default function SelectField({
   const hasValue = !!value;
   return (
     <Pressable
-      className={`h-12 px-md flex-row items-center justify-between rounded-lg border bg-white dark:bg-elevated ${
-        error
-          ? 'border-red-500 dark:border-red-500'
-          : 'border-border dark:border-border-strong'
+      className={`h-12 px-md flex-row items-center justify-between rounded-lg border bg-surface ${
+        error ? 'border-danger' : 'border-divider'
       } ${disabled ? 'opacity-50' : ''}`}
       onPress={onPress}
       disabled={disabled}
@@ -36,9 +34,7 @@ export default function SelectField({
     >
       <Text
         className={`text-body flex-1 ${
-          hasValue
-            ? 'text-primary dark:text-content-primary'
-            : 'text-gray-400 dark:text-content-tertiary'
+          hasValue ? 'text-default' : 'text-tertiary'
         }`}
         numberOfLines={1}
       >

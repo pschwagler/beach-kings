@@ -134,8 +134,8 @@ function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
           </Text>
         </View>
         {session.court_name != null && (
-          <View className="bg-[#f0f0f0] dark:bg-[#2a2a2a] px-[8px] py-[3px] rounded-[10px]">
-            <Text className="text-[11px] text-text-secondary dark:text-content-secondary">
+          <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
+            <Text className="text-[11px] text-muted">
               {session.court_name}
             </Text>
           </View>
@@ -200,7 +200,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="session-detail-screen"
     >

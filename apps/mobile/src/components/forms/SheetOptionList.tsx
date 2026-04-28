@@ -61,12 +61,12 @@ export default function SheetOptionList({
 
   return (
     <View className="px-lg pb-xl pt-sm">
-      <Text className="text-footnote font-semibold text-gray-500 dark:text-content-secondary uppercase tracking-wider mb-md">
+      <Text className="text-footnote font-semibold text-muted uppercase tracking-wider mb-md">
         {title}
       </Text>
 
       {searchable ? (
-        <View className="flex-row items-center border border-border dark:border-border-strong rounded-lg px-md mb-md h-10 bg-white dark:bg-elevated">
+        <View className="flex-row items-center border border-divider rounded-lg px-md mb-md h-10 bg-surface">
           <SearchIcon
             size={16}
             color={isDark ? darkColors.textTertiary : colors.textTertiary}
@@ -98,7 +98,7 @@ export default function SheetOptionList({
           {loading ? (
             <ActivityIndicator />
           ) : (
-            <Text className="text-body text-gray-500 dark:text-content-secondary">
+            <Text className="text-body text-muted">
               {searchable && query
                 ? 'No matches'
                 : (emptyMessage ?? 'No options')}
@@ -116,9 +116,7 @@ export default function SheetOptionList({
               <Pressable
                 key={opt.value}
                 className={`flex-row items-center justify-between py-md px-md rounded-lg ${
-                  selected
-                    ? 'bg-primary/10 dark:bg-brand-teal/10'
-                    : 'bg-transparent'
+                  selected ? 'bg-brand-teal/10' : 'bg-transparent'
                 }`}
                 onPress={() => onSelect(opt.value)}
                 accessibilityRole="radio"
@@ -128,15 +126,13 @@ export default function SheetOptionList({
                 <View className="flex-1">
                   <Text
                     className={`text-body font-medium ${
-                      selected
-                        ? 'text-primary dark:text-brand-teal'
-                        : 'text-primary dark:text-content-primary'
+                      selected ? 'text-brand-teal' : 'text-default'
                     }`}
                   >
                     {opt.label}
                   </Text>
                   {opt.sublabel ? (
-                    <Text className="text-caption text-gray-500 dark:text-content-secondary mt-xxs">
+                    <Text className="text-caption text-muted mt-xxs">
                       {opt.sublabel}
                     </Text>
                   ) : null}

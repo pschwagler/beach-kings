@@ -14,7 +14,7 @@ export default function FormLabel({
 }: FormLabelProps): React.ReactNode {
   return (
     <Text
-      className={`text-footnote font-semibold text-gray-700 dark:text-content-secondary mb-xs ${className}`}
+      className={`text-footnote font-semibold text-muted mb-xs ${className}`}
     >
       {required ? <Text className="text-red-500">* </Text> : null}
       {children}
