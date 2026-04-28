@@ -119,6 +119,8 @@ async def _patch_missing_columns(conn):
         ("players", "last_name", "VARCHAR NOT NULL DEFAULT ''"),
         # Feedback category column
         ("feedback", "category", "VARCHAR(50) NOT NULL DEFAULT 'feedback'"),
+        # Migration 048 — lifetime average point differential
+        ("player_global_stats", "avg_point_diff", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
     ]
     # Migration 024 — make phone_number and password_hash nullable for Google SSO
     # Migration 045 — make verification_codes.phone_number nullable for email flows

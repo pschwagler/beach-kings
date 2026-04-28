@@ -673,6 +673,33 @@ async def test_placeholder_only_player_gets_global_stats(db_session, test_player
 
 
 @pytest.mark.asyncio
+async def test_global_stats_avg_point_diff(db_session, test_players, test_session):
+    """upsert_player_global_stats_async populates avg_point_diff as the mean
+    signed differential (per-player team score minus opponent team score).
+
+    Alice & Bob play two ranked matches vs Charlie & Dave:
+      - Match 1: 21-15 → +6 for Alice/Bob, -6 for Charlie/Dave
+      - Match 2: 18-21 → -3 for Alice/Bob, +3 for Charlie/Dave
+    Lifetime per-player avg = (+6 + -3) / 2 = 1.5 for Alice/Bob,
+    and (-6 + +3) / 2 = -1.5 for Charlie/Dave.
+    """
+    alice, bob, charlie, dave = test_players
+
+    await create_match(db_session, test_session, alice, bob, charlie, dave, 21, 15, is_ranked=True)
+    await create_match(db_session, test_session, alice, bob, charlie, dave, 18, 21, is_ranked=True)
+
+    await data_service.calculate_global_stats_async(db_session)
+
+    rows = await db_session.execute(select(PlayerGlobalStats))
+    by_pid = {row.player_id: row for row in rows.scalars().all()}
+
+    assert by_pid[alice.id].avg_point_diff == pytest.approx(1.5)
+    assert by_pid[bob.id].avg_point_diff == pytest.approx(1.5)
+    assert by_pid[charlie.id].avg_point_diff == pytest.approx(-1.5)
+    assert by_pid[dave.id].avg_point_diff == pytest.approx(-1.5)
+
+
+@pytest.mark.asyncio
 async def test_elo_calculation_accuracy(db_session, test_players, test_session):
     """Test that ELO calculations are mathematically correct."""
     alice, bob, charlie, dave = test_players

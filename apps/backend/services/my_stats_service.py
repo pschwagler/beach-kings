@@ -199,25 +199,36 @@ def _player_team_clause(player_id: int):
 async def _overall_from_aggregates(
     session: AsyncSession, player_id: int, league_id: Optional[int]
 ) -> Dict:
-    """Build the overall block from pre-aggregated tables."""
-    if league_id is None:
-        # Lifetime: use latest season-stats row (matches legacy behaviour).
-        result = await session.execute(
-            select(PlayerSeasonStats)
-            .where(PlayerSeasonStats.player_id == player_id)
-            .order_by(PlayerSeasonStats.updated_at.desc())
-            .limit(1)
-        )
-        row = result.scalar_one_or_none()
-    else:
-        result = await session.execute(
-            select(PlayerLeagueStats).where(
-                PlayerLeagueStats.player_id == player_id,
-                PlayerLeagueStats.league_id == league_id,
-            )
-        )
-        row = result.scalar_one_or_none()
+    """Build the overall block from pre-aggregated tables.
 
+    Lifetime (``league_id is None``) reads ``PlayerGlobalStats`` — a single row
+    holding true cross-league totals. League-scoped reads from
+    ``PlayerLeagueStats``.
+    """
+    if league_id is None:
+        result = await session.execute(
+            select(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id)
+        )
+        row = result.scalar_one_or_none()
+        games_played = row.total_games if row else 0
+        wins = row.total_wins if row else 0
+        win_rate = (wins / games_played * 100) if games_played else 0.0
+        avg_point_diff = float(row.avg_point_diff) if row else 0.0
+        return {
+            "wins": wins,
+            "losses": games_played - wins,
+            "games_played": games_played,
+            "win_rate": round(win_rate, 1),
+            "avg_point_diff": round(avg_point_diff, 1),
+        }
+
+    result = await session.execute(
+        select(PlayerLeagueStats).where(
+            PlayerLeagueStats.player_id == player_id,
+            PlayerLeagueStats.league_id == league_id,
+        )
+    )
+    row = result.scalar_one_or_none()
     games_played = row.games if row else 0
     wins = row.wins if row else 0
     return {

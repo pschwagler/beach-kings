@@ -894,6 +894,7 @@ class PlayerGlobalStats(Base):
     current_rating = Column(Float, default=1200.0, nullable=False)
     total_games = Column(Integer, default=0, nullable=False)
     total_wins = Column(Integer, default=0, nullable=False)
+    avg_point_diff = Column(Float, default=0.0, nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships

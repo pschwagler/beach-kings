@@ -202,6 +202,8 @@ async def upsert_player_global_stats_async(
     - current_rating: Latest elo_after from elo_history (INITIAL_ELO if none)
     - total_games: Count of matches participated in
     - total_wins: Count of matches won
+    - avg_point_diff: Mean signed point differential across all matches
+      (per-player team score minus opponent team score).
     """
     if not elo_history_list and not matches:
         return
@@ -212,6 +214,7 @@ async def upsert_player_global_stats_async(
 
     player_games: Dict[int, int] = {}
     player_wins: Dict[int, int] = {}
+    player_point_diff: Dict[int, int] = {}
 
     for match in matches:
         team1_ids = [match.team1_player1_id, match.team1_player2_id]
@@ -228,6 +231,14 @@ async def upsert_player_global_stats_async(
                 if pid is not None:
                     player_wins[pid] = player_wins.get(pid, 0) + 1
 
+        team1_diff = match.team1_score - match.team2_score
+        for pid in team1_ids:
+            if pid is not None:
+                player_point_diff[pid] = player_point_diff.get(pid, 0) + team1_diff
+        for pid in team2_ids:
+            if pid is not None:
+                player_point_diff[pid] = player_point_diff.get(pid, 0) - team1_diff
+
     all_pids = set(player_latest_elo.keys()) | set(player_games.keys())
     rows = [
         {
@@ -235,6 +246,11 @@ async def upsert_player_global_stats_async(
             "current_rating": player_latest_elo.get(pid, INITIAL_ELO),
             "total_games": player_games.get(pid, 0),
             "total_wins": player_wins.get(pid, 0),
+            "avg_point_diff": (
+                player_point_diff.get(pid, 0) / player_games[pid]
+                if player_games.get(pid)
+                else 0.0
+            ),
         }
         for pid in all_pids
     ]
@@ -246,6 +262,7 @@ async def upsert_player_global_stats_async(
                 current_rating=stmt.excluded.current_rating,
                 total_games=stmt.excluded.total_games,
                 total_wins=stmt.excluded.total_wins,
+                avg_point_diff=stmt.excluded.avg_point_diff,
                 updated_at=func.now(),
             ),
         )

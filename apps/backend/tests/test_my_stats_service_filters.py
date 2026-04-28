@@ -151,12 +151,15 @@ async def seeded(db_session):
     season_b = await _create_season(db_session, league_b, "Season B1")
 
     # Global stats row so current_rating doesn't fall back to INITIAL_ELO.
+    # Lifetime totals span both leagues so the (None, None) baseline test has
+    # something meaningful to assert against.
     db_session.add(
         PlayerGlobalStats(
             player_id=p.id,
             current_rating=1500.0,
-            total_games=0,
-            total_wins=0,
+            total_games=6,
+            total_wins=4,
+            avg_point_diff=3.5,
         )
     )
     await db_session.commit()
@@ -219,22 +222,55 @@ async def seeded(db_session):
 
 @pytest.mark.asyncio
 async def test_no_filters_baseline(db_session, seeded):
-    """No filters: recompute is not used; aggregates are zero (we did not
-    seed PlayerSeasonStats), but elo_timeline should reflect every match
-    across both leagues, and current rating comes from PlayerGlobalStats."""
+    """No filters: lifetime overall block is read from PlayerGlobalStats, and
+    elo_timeline reflects every match across both leagues."""
     payload = await my_stats_service.get_my_stats(
         session=db_session, player_id=seeded["player"].id
     )
 
     assert payload is not None
-    # current_rating from PlayerGlobalStats
-    assert payload["overall"]["rating"] == 1500
+    overall = payload["overall"]
+    # current_rating + lifetime totals from PlayerGlobalStats
+    assert overall["rating"] == 1500
+    assert overall["games_played"] == 6
+    assert overall["wins"] == 4
+    assert overall["losses"] == 2
+    # win_rate is percentage (0-100) — 4/6 ≈ 66.7
+    assert overall["win_rate"] == pytest.approx(66.7, abs=0.1)
+    assert overall["avg_point_diff"] == pytest.approx(3.5, abs=0.1)
     # peak_rating max across all matches: 1560
-    assert payload["overall"]["peak_rating"] == 1560
+    assert overall["peak_rating"] == 1560
     # elo_timeline has every distinct elo date: -300, -200, -10, -5
     dates = [pt["date"] for pt in payload["elo_timeline"]]
     assert len(dates) == 4
     assert dates == sorted(dates)
+
+
+@pytest.mark.asyncio
+async def test_no_filters_falls_back_when_global_stats_missing(db_session, seeded):
+    """If PlayerGlobalStats is missing the row, lifetime overall block is zeros.
+
+    Regression guard: previously this path read PlayerSeasonStats's most-recent
+    row and returned latest-season numbers as if they were lifetime.
+    """
+    # Drop the seeded PlayerGlobalStats row.
+    from sqlalchemy import delete
+
+    await db_session.execute(
+        delete(PlayerGlobalStats).where(PlayerGlobalStats.player_id == seeded["player"].id)
+    )
+    await db_session.commit()
+
+    payload = await my_stats_service.get_my_stats(
+        session=db_session, player_id=seeded["player"].id
+    )
+    assert payload is not None
+    overall = payload["overall"]
+    assert overall["games_played"] == 0
+    assert overall["wins"] == 0
+    assert overall["losses"] == 0
+    assert overall["win_rate"] == 0.0
+    assert overall["avg_point_diff"] == 0.0
 
 
 @pytest.mark.asyncio
