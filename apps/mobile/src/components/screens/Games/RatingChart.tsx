@@ -105,7 +105,7 @@ export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
   return (
     <View
       testID="rating-chart"
-      className="bg-white dark:bg-dark-surface rounded-[12px] p-4 shadow-sm dark:shadow-none dark:border dark:border-border-subtle mb-4"
+      className="bg-surface rounded-[12px] p-4 shadow-sm dark:shadow-none dark:border border-divider mb-4"
     >
       {/* Header */}
       <View className="flex-row justify-between items-baseline mb-3">

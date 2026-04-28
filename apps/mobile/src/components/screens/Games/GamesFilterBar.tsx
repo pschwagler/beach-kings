@@ -14,12 +14,12 @@ import {
   Pressable,
   Text,
   ScrollView,
-  useColorScheme,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type LayoutChangeEvent,
 } from 'react-native';
 import { ChevronRightIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import type { ResultFilter } from './useMyGamesScreen';
 
 interface FilterChipProps {
@@ -39,14 +39,14 @@ function FilterChip({ label, isActive, testID, onPress }: FilterChipProps): Reac
       style={{ flexShrink: 0 }}
       className={`px-3 py-[9px] rounded-[8px] border mr-2 ${
         isActive
-          ? 'bg-navy dark:bg-content-primary border-navy dark:border-content-primary'
-          : 'bg-white dark:bg-dark-surface border-gray-200 dark:border-border-subtle'
+          ? 'bg-brand-teal border-brand-teal'
+          : 'bg-surface border-divider'
       }`}
     >
       <Text
         numberOfLines={1}
         className={`text-[12px] font-semibold ${
-          isActive ? 'text-white' : 'text-text-muted dark:text-content-secondary'
+          isActive ? 'text-white' : 'text-muted'
         }`}
       >
         {label}
@@ -93,8 +93,8 @@ export default function GamesFilterBar({
   const showPartnerRow = resultFilter === 'partner' && availablePartners.length > 0;
   const showOpponentRow = resultFilter === 'opponent' && availableOpponents.length > 0;
 
-  const isDark = useColorScheme() === 'dark';
-  const surfaceColor = isDark ? '#161b22' : '#ffffff';
+  const palette = usePaletteColors();
+  const surfaceColor = palette.bgSurface;
 
   // Scroll affordance: show a right-edge fade when primary row has off-screen chips
   const [showRightFade, setShowRightFade] = useState(false);
@@ -122,7 +122,7 @@ export default function GamesFilterBar({
   return (
     <View
       testID="games-filter-bar"
-      className="bg-white dark:bg-dark-surface border-b border-gray-100 dark:border-border-subtle"
+      className="bg-surface border-b border-divider"
     >
       {/* Primary filter row with scroll-affordance overlay */}
       <View style={{ overflow: 'hidden' }} onLayout={handleLayout}>
@@ -182,7 +182,7 @@ export default function GamesFilterBar({
               <View style={{ flex: 1, backgroundColor: `${surfaceColor}88` }} />
               <View style={{ flex: 1, backgroundColor: `${surfaceColor}dd` }} />
             </View>
-            <ChevronRightIcon size={14} color={isDark ? '#666' : '#bbb'} />
+            <ChevronRightIcon size={14} color={palette.textMuted} />
           </View>
         )}
       </View>
@@ -190,7 +190,7 @@ export default function GamesFilterBar({
       {showPartnerRow && (
         <View
           testID="partner-filter-row"
-          className="border-t border-gray-100 dark:border-border-subtle"
+          className="border-t border-divider"
         >
           <ScrollView
             horizontal
@@ -217,7 +217,7 @@ export default function GamesFilterBar({
       {showOpponentRow && (
         <View
           testID="opponent-filter-row"
-          className="border-t border-gray-100 dark:border-border-subtle"
+          className="border-t border-divider"
         >
           <ScrollView
             horizontal

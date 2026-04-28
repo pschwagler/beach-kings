@@ -98,7 +98,7 @@ export default function MyGamesScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="my-games-screen"
     >
