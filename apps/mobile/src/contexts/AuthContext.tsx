@@ -101,7 +101,7 @@ interface AuthResponse {
   readonly email?: string | null;
   readonly is_verified: boolean;
   readonly auth_provider?: string;
-  readonly profile_complete?: boolean;
+  readonly profile_complete?: boolean | null;
   readonly is_new_user?: boolean;
   /** True when the user has a password set; absent or false for OAuth-only accounts. */
   readonly has_password?: boolean;
@@ -384,7 +384,7 @@ export default function AuthProvider({
       email: userData.email ?? null,
       is_verified: userData.is_verified,
       auth_provider: userData.auth_provider ?? 'phone',
-      has_password: (userData as Record<string, unknown>).has_password !== false,
+      has_password: userData.has_password !== false,
     };
     setState((prev) => ({ ...prev, user }));
   }, []);
