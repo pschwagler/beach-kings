@@ -41,8 +41,8 @@ const mockGetLeagueStandings = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getLeagueSeasons: (...args) => mockGetLeagueSeasons(...args),
-    getLeagueStandings: (...args) => mockGetLeagueStandings(...args),
+    getLeagueSeasons: (...args: unknown[]) => mockGetLeagueSeasons(...args),
+    getLeagueStandings: (...args: unknown[]) => mockGetLeagueStandings(...args),
   },
 }));
 

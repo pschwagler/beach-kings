@@ -35,10 +35,10 @@ const mockGetFriends = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    submitScoredGame: (...args) => mockSubmitScoredGame(...args),
-    getSessionParticipants: (...args) => mockGetSessionParticipants(...args),
-    getLeagueMembers: (...args) => mockGetLeagueMembers(...args),
-    getFriends: (...args) => mockGetFriends(...args),
+    submitScoredGame: (...args: unknown[]) => mockSubmitScoredGame(...args),
+    getSessionParticipants: (...args: unknown[]) => mockGetSessionParticipants(...args),
+    getLeagueMembers: (...args: unknown[]) => mockGetLeagueMembers(...args),
+    getFriends: (...args: unknown[]) => mockGetFriends(...args),
   },
 }));
 

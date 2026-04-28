@@ -46,12 +46,12 @@ const mockGetCityAutocomplete = jest.fn();
 const mockGetLocationDistances = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
-    getLocations: (...args) => mockGetLocations(...args),
-    updatePlayerProfile: (...args) =>
+    getLocations: (...args: unknown[]) => mockGetLocations(...args),
+    updatePlayerProfile: (...args: unknown[]) =>
       mockUpdatePlayerProfile(...args),
-    getCityAutocomplete: (...args) =>
+    getCityAutocomplete: (...args: unknown[]) =>
       mockGetCityAutocomplete(...args),
-    getLocationDistances: (...args) =>
+    getLocationDistances: (...args: unknown[]) =>
       mockGetLocationDistances(...args),
   },
 }));

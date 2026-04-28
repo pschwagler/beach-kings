@@ -43,8 +43,8 @@ const MockMobileStorageAdapter = jest.fn(
 );
 
 jest.mock('@beach-kings/api-client', () => ({
-  createApiClient: (...args) => mockCreateApiClient(...args),
-  MobileStorageAdapter: (...args) => {
+  createApiClient: (...args: unknown[]) => mockCreateApiClient(...args),
+  MobileStorageAdapter: (...args: unknown[]) => {
     MockMobileStorageAdapter(...args);
     return mockMobileStorageAdapterInstance;
   },

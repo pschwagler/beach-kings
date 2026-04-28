@@ -92,7 +92,7 @@ const mockListTournaments = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    listTournaments: (...args) => mockListTournaments(...args),
+    listTournaments: (...args: unknown[]) => mockListTournaments(...args),
   },
 }));
 

@@ -43,8 +43,8 @@ const mockGetCurrentUserPlayer = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getUserLeagues: (...args) => mockGetUserLeagues(...args),
-    getCurrentUserPlayer: (...args) =>
+    getUserLeagues: (...args: unknown[]) => mockGetUserLeagues(...args),
+    getCurrentUserPlayer: (...args: unknown[]) =>
       mockGetCurrentUserPlayer(...args),
   },
 }));

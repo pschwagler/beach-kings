@@ -97,12 +97,12 @@ const mockDeclineFriendRequest = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    discoverPlayers: (...args) => mockDiscoverPlayers(...args),
-    getFriends: (...args) => mockGetFriends(...args),
-    getFriendRequests: (...args) => mockGetFriendRequests(...args),
-    sendFriendRequest: (...args) => mockSendFriendRequest(...args),
-    acceptFriendRequest: (...args) => mockAcceptFriendRequest(...args),
-    declineFriendRequest: (...args) => mockDeclineFriendRequest(...args),
+    discoverPlayers: (...args: unknown[]) => mockDiscoverPlayers(...args),
+    getFriends: (...args: unknown[]) => mockGetFriends(...args),
+    getFriendRequests: (...args: unknown[]) => mockGetFriendRequests(...args),
+    sendFriendRequest: (...args: unknown[]) => mockSendFriendRequest(...args),
+    acceptFriendRequest: (...args: unknown[]) => mockAcceptFriendRequest(...args),
+    declineFriendRequest: (...args: unknown[]) => mockDeclineFriendRequest(...args),
   },
 }));
 

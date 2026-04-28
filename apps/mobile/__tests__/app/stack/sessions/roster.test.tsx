@@ -92,8 +92,8 @@ const mockRemoveSessionPlayer = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getSessionById: (...args) => mockGetSessionById(...args),
-    removeSessionPlayer: (...args) => mockRemoveSessionPlayer(...args),
+    getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
+    removeSessionPlayer: (...args: unknown[]) => mockRemoveSessionPlayer(...args),
   },
 }));
 

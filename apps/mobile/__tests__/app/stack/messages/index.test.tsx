@@ -89,7 +89,7 @@ const mockGetConversations = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getConversations: (...args) => mockGetConversations(...args),
+    getConversations: (...args: unknown[]) => mockGetConversations(...args),
   },
 }));
 

@@ -76,8 +76,8 @@ const mockUpdatePushNotificationPrefs = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getPushNotificationPrefs: (...args) => mockGetPushNotificationPrefs(...args),
-    updatePushNotificationPrefs: (...args) => mockUpdatePushNotificationPrefs(...args),
+    getPushNotificationPrefs: (...args: unknown[]) => mockGetPushNotificationPrefs(...args),
+    updatePushNotificationPrefs: (...args: unknown[]) => mockUpdatePushNotificationPrefs(...args),
   },
 }));
 

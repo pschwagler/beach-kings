@@ -85,10 +85,10 @@ const mockSendFriendRequest = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getPlayerStats: (...args) => mockGetPlayerStats(...args),
-    getMutualFriends: (...args) => mockGetMutualFriends(...args),
-    batchFriendStatus: (...args) => mockBatchFriendStatus(...args),
-    sendFriendRequest: (...args) => mockSendFriendRequest(...args),
+    getPlayerStats: (...args: unknown[]) => mockGetPlayerStats(...args),
+    getMutualFriends: (...args: unknown[]) => mockGetMutualFriends(...args),
+    batchFriendStatus: (...args: unknown[]) => mockBatchFriendStatus(...args),
+    sendFriendRequest: (...args: unknown[]) => mockSendFriendRequest(...args),
   },
 }));
 

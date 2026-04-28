@@ -41,7 +41,7 @@ const mockChangePassword = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    changePassword: (...args) => mockChangePassword(...args),
+    changePassword: (...args: unknown[]) => mockChangePassword(...args),
   },
 }));
 

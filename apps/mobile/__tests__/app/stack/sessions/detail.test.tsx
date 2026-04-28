@@ -84,11 +84,13 @@ jest.mock('@/utils/haptics', () => ({
 
 const mockGetSessionById = jest.fn();
 const mockLockInSession = jest.fn();
+const mockGetCurrentUserPlayer = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
     lockInSession: (...args: unknown[]) => mockLockInSession(...args),
+    getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
   },
 }));
 
@@ -173,6 +175,7 @@ const MOCK_SESSION_WITH_PLACEHOLDER = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetSessionById.mockResolvedValue(MOCK_SESSION_ACTIVE);
+  mockGetCurrentUserPlayer.mockResolvedValue({ id: 1, name: 'Test User', full_name: 'Test User' });
 });
 
 // ---------------------------------------------------------------------------

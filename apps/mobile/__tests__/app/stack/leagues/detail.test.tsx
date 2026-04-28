@@ -97,29 +97,29 @@ const mockRejectJoinRequest = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getLeagueSeasons: (...args) => mockGetLeagueSeasons(...args),
-    getLeagueStandings: (...args) => mockGetLeagueStandings(...args),
-    getLeagueMessages: (...args) => mockGetLeagueMessages(...args),
-    createLeagueMessage: (...args) => mockCreateLeagueMessage(...args),
-    getCurrentUserPlayer: (...args) => mockGetCurrentUserPlayer(...args),
-    leaveLeague: (...args) => mockLeaveLeague(...args),
-    getMyGames: (...args) => mockGetMyGames(...args),
-    getLeague: (...args) => mockGetLeague(...args),
-    getLeagueMembers: (...args) => mockGetLeagueMembers(...args),
-    getLeagueJoinRequests: (...args) => mockGetLeagueJoinRequests(...args),
-    approveJoinRequest: (...args) => mockApproveJoinRequest(...args),
-    rejectJoinRequest: (...args) => mockRejectJoinRequest(...args),
-    getLeagueSignups: (...args) => mockGetLeagueSignups(...args),
-    joinSignup: (...args) => mockJoinSignup(...args),
-    dropSignup: (...args) => mockDropSignup(...args),
+    getLeagueSeasons: (...args: unknown[]) => mockGetLeagueSeasons(...args),
+    getLeagueStandings: (...args: unknown[]) => mockGetLeagueStandings(...args),
+    getLeagueMessages: (...args: unknown[]) => mockGetLeagueMessages(...args),
+    createLeagueMessage: (...args: unknown[]) => mockCreateLeagueMessage(...args),
+    getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
+    leaveLeague: (...args: unknown[]) => mockLeaveLeague(...args),
+    getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
+    getLeague: (...args: unknown[]) => mockGetLeague(...args),
+    getLeagueMembers: (...args: unknown[]) => mockGetLeagueMembers(...args),
+    getLeagueJoinRequests: (...args: unknown[]) => mockGetLeagueJoinRequests(...args),
+    approveJoinRequest: (...args: unknown[]) => mockApproveJoinRequest(...args),
+    rejectJoinRequest: (...args: unknown[]) => mockRejectJoinRequest(...args),
+    getLeagueSignups: (...args: unknown[]) => mockGetLeagueSignups(...args),
+    joinSignup: (...args: unknown[]) => mockJoinSignup(...args),
+    dropSignup: (...args: unknown[]) => mockDropSignup(...args),
   },
 }));
 
 jest.mock('@/lib/mockApi', () => ({
   mockApi: {
-    getLeagueDetail: (...args) => mockGetLeagueDetail(...args),
-    getLeaguePlayerStats: (...args) => mockGetLeaguePlayerStats(...args),
-    getLeagueSignupEvents: (...args) => mockGetLeagueSignupEvents(...args),
+    getLeagueDetail: (...args: unknown[]) => mockGetLeagueDetail(...args),
+    getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
+    getLeagueSignupEvents: (...args: unknown[]) => mockGetLeagueSignupEvents(...args),
   },
 }));
 

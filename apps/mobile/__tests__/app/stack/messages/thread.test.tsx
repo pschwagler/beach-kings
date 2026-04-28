@@ -93,8 +93,8 @@ const mockSendDirectMessage = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getThread: (...args) => mockGetThread(...args),
-    sendDirectMessage: (...args) => mockSendDirectMessage(...args),
+    getThread: (...args: unknown[]) => mockGetThread(...args),
+    sendDirectMessage: (...args: unknown[]) => mockSendDirectMessage(...args),
   },
 }));
 

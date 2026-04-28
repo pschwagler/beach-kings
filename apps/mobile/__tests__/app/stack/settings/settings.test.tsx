@@ -94,8 +94,8 @@ const mockGetCurrentUserPlayer = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    submitFeedback: (...args) => mockSubmitFeedback(...args),
-    getCurrentUserPlayer: (...args) => mockGetCurrentUserPlayer(...args),
+    submitFeedback: (...args: unknown[]) => mockSubmitFeedback(...args),
+    getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
   },
 }));
 

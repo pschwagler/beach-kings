@@ -125,7 +125,7 @@ const mockGetMyGames = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getMyGames: (...args) => mockGetMyGames(...args),
+    getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
   },
 }));
 

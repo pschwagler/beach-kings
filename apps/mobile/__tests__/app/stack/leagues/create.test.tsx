@@ -73,10 +73,10 @@ const mockAddLeagueHomeCourt = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    createLeague: (...args) => mockCreateLeague(...args),
-    getLocations: (...args) => mockGetLocations(...args),
-    getCourts: (...args) => mockGetCourts(...args),
-    addLeagueHomeCourt: (...args) => mockAddLeagueHomeCourt(...args),
+    createLeague: (...args: unknown[]) => mockCreateLeague(...args),
+    getLocations: (...args: unknown[]) => mockGetLocations(...args),
+    getCourts: (...args: unknown[]) => mockGetCourts(...args),
+    addLeagueHomeCourt: (...args: unknown[]) => mockAddLeagueHomeCourt(...args),
   },
 }));
 

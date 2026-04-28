@@ -90,9 +90,9 @@ const mockUploadCourtPhoto = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getCourtPhotos: (...args) => mockGetCourtPhotos(...args),
-    getCourtById: (...args) => mockGetCourtById(...args),
-    uploadCourtPhoto: (...args) => mockUploadCourtPhoto(...args),
+    getCourtPhotos: (...args: unknown[]) => mockGetCourtPhotos(...args),
+    getCourtById: (...args: unknown[]) => mockGetCourtById(...args),
+    uploadCourtPhoto: (...args: unknown[]) => mockUploadCourtPhoto(...args),
   },
 }));
 
