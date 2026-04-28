@@ -80,6 +80,14 @@ export interface HomeCourtResponse {
   position: number;
 }
 
+/**
+ * Legacy standings row embedded in the old GET /api/leagues/:id response
+ * (consumed by the `League.standings` field below). New code should use
+ * `LeagueStanding` from `LeagueStandingsResponse` instead — this type only
+ * exists to keep the legacy `League` shape compilable.
+ *
+ * @deprecated Use `LeagueStanding` for any new consumer.
+ */
 export interface LeagueStandingRow {
   player_id: number;
   name: string;
@@ -160,6 +168,13 @@ export interface LeagueStanding {
   readonly games_played: number;
 }
 
+/**
+ * Compact season descriptor returned alongside `LeagueStandingsResponse`.
+ *
+ * Overlaps with `LeagueSeason` but with both timestamps nullable. New code
+ * should prefer `LeagueSeason` and treat `is_active` as optional; this type
+ * is retained for the standings endpoint until that response is widened.
+ */
 export interface LeagueSeasonInfo {
   readonly id: number;
   readonly name: string;
@@ -233,6 +248,26 @@ export interface LeagueMemberRow {
   readonly initials: string;
   readonly role: LeagueMemberRole;
   readonly joined_at: string;
+}
+
+/**
+ * Raw API row from `GET /api/leagues/:id/members`. The backend's
+ * `LeagueMemberDetailResponse` shape — used as the input that `LeagueMemberRow`
+ * is derived from in the mobile hook.
+ */
+export interface LeagueMemberApiRow {
+  id: number;
+  league_id?: number | null;
+  player_id: number;
+  role: string;
+  player_name?: string | null;
+  player_nickname?: string | null;
+  player_level?: string | null;
+  player_avatar?: string | null;
+  joined_at?: string | null;
+  /** Convenience alias used by some adapters; backend may emit either field. */
+  created_at?: string | null;
+  is_placeholder?: boolean;
 }
 
 /** Full info tab payload composed from multiple parallel API calls. */

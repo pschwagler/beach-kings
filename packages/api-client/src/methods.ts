@@ -38,6 +38,9 @@ import type {
   LeagueQueryResponse,
   LeagueStandingsResponse,
   LeagueDetail,
+  LeagueMemberApiRow,
+  AuthResponse,
+  UserMeResponse,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -55,8 +58,8 @@ export function createApiMethods(client: ApiClient) {
       phone_number?: string;
       email?: string;
       password: string;
-    }) {
-      const response = await api.post('/api/auth/login', credentials);
+    }): Promise<AuthResponse> {
+      const response = await api.post<AuthResponse>('/api/auth/login', credentials);
       return response.data;
     },
 
@@ -71,29 +74,29 @@ export function createApiMethods(client: ApiClient) {
       first_name?: string;
       last_name?: string;
       full_name?: string;
-    }) {
-      const response = await api.post('/api/auth/signup', data);
+    }): Promise<AuthResponse> {
+      const response = await api.post<AuthResponse>('/api/auth/signup', data);
       return response.data;
     },
 
-    async logout() {
-      const response = await api.post('/api/auth/logout');
+    async logout(): Promise<{ status: string }> {
+      const response = await api.post<{ status: string }>('/api/auth/logout');
       return response.data;
     },
 
     /**
      * Exchange a Google ID token for Beach League auth tokens.
      */
-    async googleAuth(idToken: string) {
-      const response = await api.post('/api/auth/google', { id_token: idToken });
+    async googleAuth(idToken: string): Promise<AuthResponse> {
+      const response = await api.post<AuthResponse>('/api/auth/google', { id_token: idToken });
       return response.data;
     },
 
     /**
      * Exchange an Apple ID token for Beach League auth tokens.
      */
-    async appleAuth(idToken: string) {
-      const response = await api.post('/api/auth/apple', { id_token: idToken });
+    async appleAuth(idToken: string): Promise<AuthResponse> {
+      const response = await api.post<AuthResponse>('/api/auth/apple', { id_token: idToken });
       return response.data;
     },
 
@@ -254,8 +257,8 @@ export function createApiMethods(client: ApiClient) {
     /**
      * Get the authenticated user's info.
      */
-    async getMe() {
-      const response = await api.get('/api/auth/me');
+    async getMe(): Promise<UserMeResponse> {
+      const response = await api.get<UserMeResponse>('/api/auth/me');
       return response.data;
     },
 
@@ -289,8 +292,8 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async getPlayerStats(playerId: number | string) {
-      const response = await api.get(`/api/players/${encodeURIComponent(playerId)}`);
+    async getPlayerStats(playerId: number | string): Promise<Player> {
+      const response = await api.get<Player>(`/api/players/${encodeURIComponent(playerId)}`);
       return response.data;
     },
 
@@ -461,8 +464,8 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async getLeagueMembers(leagueId: number) {
-      const response = await api.get(`/api/leagues/${leagueId}/members`);
+    async getLeagueMembers(leagueId: number): Promise<LeagueMemberApiRow[]> {
+      const response = await api.get<LeagueMemberApiRow[]>(`/api/leagues/${leagueId}/members`);
       return response.data;
     },
 
