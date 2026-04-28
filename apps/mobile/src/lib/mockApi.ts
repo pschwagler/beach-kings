@@ -67,31 +67,9 @@ export interface LeagueScheduleRow {
   readonly court_name: string | null;
 }
 
-/** A player row in the league info tab. */
-export interface LeagueMemberRow {
-  readonly player_id: number;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly role: LeagueMemberRole;
-  readonly joined_at: string;
-}
-
-// LeagueJoinRequest reconciled with shared `JoinRequest` (packages/shared/src/types/league.ts).
-// Same entity, same status enum ('pending' | 'approved' | 'rejected'); shared type now
-// includes the optional `initials` and `message` presentation fields.
-
-/** Full info tab payload. */
-export interface LeagueInfoDetail {
-  readonly id: number;
-  readonly description: string | null;
-  readonly access_type: LeagueAccessType;
-  readonly level: string | null;
-  readonly location_name: string | null;
-  readonly home_court_name: string | null;
-  readonly members: readonly LeagueMemberRow[];
-  readonly seasons: readonly LeagueSeason[];
-  readonly join_requests: readonly JoinRequest[];
-}
+// LeagueMemberRow promoted to '@beach-kings/shared' (see types/league.ts).
+// LeagueInfoDetail promoted to '@beach-kings/shared' (see types/league.ts).
+// Use useLeagueInfoTab hook; backed by real API calls.
 
 /** A pending invite item (pending-invites screen). */
 export interface LeagueInviteItem {

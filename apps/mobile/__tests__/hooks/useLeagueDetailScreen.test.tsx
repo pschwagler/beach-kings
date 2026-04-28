@@ -46,6 +46,7 @@ const LEAGUE_DETAIL: LeagueDetail = {
   access_type: 'open',
   gender: 'mens',
   level: 'Open',
+  location_id: 'socal_sd',
   location_name: 'San Diego, CA',
   home_courts: [],
   member_count: 10,

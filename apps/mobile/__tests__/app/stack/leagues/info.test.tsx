@@ -5,9 +5,16 @@
  *   - Loading state
  *   - Error state when API fails
  *   - Description section renders when present
+ *   - Description inline edit for admin (auto-save on blur)
  *   - Members list renders with roles
+ *   - Admin member row: role picker and remove button
+ *   - Self-remove button is disabled
  *   - Seasons list renders with active/past badge
+ *   - New Season button (Coming Soon stub)
  *   - League info section (access type, level, location)
+ *   - Admin: Access picker auto-saves
+ *   - Admin: Level picker auto-saves
+ *   - Home courts pill list (primary starred, remove button)
  *   - Join requests visible to admin, hidden from member
  *   - Approve/deny request calls correct API method
  *   - Leave League button visible for member, hidden for admin
@@ -44,6 +51,13 @@ const mockGetLeagueJoinRequests = jest.fn();
 const mockApproveJoinRequest = jest.fn();
 const mockRejectJoinRequest = jest.fn();
 const mockLeaveLeague = jest.fn();
+const mockUpdateLeagueMember = jest.fn();
+const mockRemoveLeagueMember = jest.fn();
+const mockUpdateLeague = jest.fn();
+const mockAddLeagueHomeCourt = jest.fn();
+const mockRemoveLeagueHomeCourt = jest.fn();
+const mockGetCurrentUserPlayer = jest.fn();
+const mockGetCourts = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -54,6 +68,13 @@ jest.mock('@/lib/api', () => ({
     approveJoinRequest: (...args) => mockApproveJoinRequest(...args),
     rejectJoinRequest: (...args) => mockRejectJoinRequest(...args),
     leaveLeague: (...args) => mockLeaveLeague(...args),
+    updateLeagueMember: (...args) => mockUpdateLeagueMember(...args),
+    removeLeagueMember: (...args) => mockRemoveLeagueMember(...args),
+    updateLeague: (...args) => mockUpdateLeague(...args),
+    addLeagueHomeCourt: (...args) => mockAddLeagueHomeCourt(...args),
+    removeLeagueHomeCourt: (...args) => mockRemoveLeagueHomeCourt(...args),
+    getCurrentUserPlayer: (...args) => mockGetCurrentUserPlayer(...args),
+    getCourts: (...args) => mockGetCourts(...args),
   },
 }));
 
@@ -85,13 +106,18 @@ const MOCK_LEAGUE = {
   description: 'Monday night beach volleyball league.',
   access_type: 'open',
   level: 'Intermediate',
+  location_id: 'socal_sd',
   location_name: 'San Diego, CA',
-  home_courts: [{ id: 'court-1', name: 'Kearny Mesa Park', address: null, position: 0 }],
+  home_courts: [
+    { id: 10, name: 'Kearny Mesa Park', address: null, position: 0 },
+    { id: 11, name: 'Mission Bay Park', address: null, position: 1 },
+  ],
 };
 
+// player_id 10 = current user (will be blocked from self-remove)
 const MOCK_MEMBERS = [
-  { player_id: 10, player_name: 'Patrick Schwagler', role: 'admin', joined_at: '2025-01-01' },
-  { player_id: 11, player_name: 'Jane Smith', role: 'member', joined_at: '2025-02-01' },
+  { id: 100, player_id: 10, player_name: 'Patrick Schwagler', role: 'admin', joined_at: '2025-01-01' },
+  { id: 101, player_id: 11, player_name: 'Jane Smith', role: 'member', joined_at: '2025-02-01' },
 ];
 
 const MOCK_SEASONS = [
@@ -138,6 +164,13 @@ beforeEach(() => {
   mockApproveJoinRequest.mockResolvedValue({ success: true });
   mockRejectJoinRequest.mockResolvedValue({ success: true });
   mockLeaveLeague.mockResolvedValue({ success: true });
+  mockUpdateLeagueMember.mockResolvedValue({ success: true });
+  mockRemoveLeagueMember.mockResolvedValue({ success: true });
+  mockUpdateLeague.mockResolvedValue({ success: true });
+  mockAddLeagueHomeCourt.mockResolvedValue({ success: true });
+  mockRemoveLeagueHomeCourt.mockResolvedValue({ success: true });
+  mockGetCurrentUserPlayer.mockResolvedValue({ id: 10 });
+  mockGetCourts.mockResolvedValue([{ id: 99, name: 'New Court' }]);
 });
 
 // ---------------------------------------------------------------------------
@@ -183,13 +216,47 @@ describe('LeagueInfoTab — description', () => {
     });
   });
 
-  it('does not show description section when null', async () => {
+  it('does not show description section when null and non-admin', async () => {
     mockGetLeague.mockResolvedValue({ ...MOCK_LEAGUE, description: null });
 
     render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('info-tab')).toBeTruthy());
     expect(screen.queryByText('Description')).toBeNull();
+  });
+
+  it('admin sees description edit button', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('description-edit-btn')).toBeTruthy();
+    });
+  });
+
+  it('admin can tap description to open text input', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('description-edit-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('description-edit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('description-input')).toBeTruthy();
+    });
+  });
+
+  it('admin description auto-saves on blur when changed', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('description-edit-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('description-edit-btn'));
+
+    const input = screen.getByTestId('description-input');
+    fireEvent.changeText(input, 'Updated description');
+    fireEvent(input, 'blur');
+
+    await waitFor(() => {
+      expect(mockUpdateLeague).toHaveBeenCalledWith(1, { description: 'Updated description' });
+    });
   });
 });
 
@@ -221,6 +288,94 @@ describe('LeagueInfoTab — members', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Admin')).toBeTruthy();
+    });
+  });
+
+  it('admin sees remove button on each member row', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('remove-member-btn-10')).toBeTruthy();
+      expect(screen.getByTestId('remove-member-btn-11')).toBeTruthy();
+    });
+  });
+
+  it('self-remove button does not call api when pressed', async () => {
+    // currentPlayerId = 10 — pressing the self-remove button should be a no-op
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('remove-member-btn-10')).toBeTruthy());
+
+    // Press is blocked by disabled; even if it fires, removeLeagueMember must not be called
+    fireEvent.press(screen.getByTestId('remove-member-btn-10'));
+    await waitFor(() => expect(mockRemoveLeagueMember).not.toHaveBeenCalled());
+  });
+
+  it('non-self remove button triggers confirmation alert', async () => {
+    jest.spyOn(Alert, 'alert');
+
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('remove-member-btn-11')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('remove-member-btn-11'));
+    expect(Alert.alert).toHaveBeenCalled();
+  });
+
+  it('admin can remove a non-self player after confirmation', async () => {
+    jest.spyOn(Alert, 'alert');
+
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('remove-member-btn-11')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('remove-member-btn-11'));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Remove Player',
+      expect.stringContaining('Jane Smith'),
+      expect.any(Array),
+    );
+
+    const alertArgs = jest.mocked(Alert.alert).mock.calls[0];
+    const buttons = alertArgs[2] as Array<{ text: string; style?: string; onPress?: () => void }>;
+    const removeBtn = buttons.find((b) => b.text === 'Remove');
+    await removeBtn?.onPress?.();
+
+    await waitFor(() => {
+      expect(mockRemoveLeagueMember).toHaveBeenCalledWith(1, 101);
+    });
+  });
+
+  it('admin role badge tap triggers role change alert', async () => {
+    jest.spyOn(Alert, 'alert');
+
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('role-badge-10')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('role-badge-10'));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Patrick Schwagler',
+      expect.any(String),
+      expect.any(Array),
+    );
+  });
+
+  it('admin confirms role change — calls updateLeagueMember', async () => {
+    jest.spyOn(Alert, 'alert');
+
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('role-badge-10')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('role-badge-10'));
+
+    const alertArgs = jest.mocked(Alert.alert).mock.calls[0];
+    const buttons = alertArgs[2] as Array<{ text: string; onPress?: () => void }>;
+    const changeBtn = buttons.find((b) => b.text !== 'Cancel');
+    await changeBtn?.onPress?.();
+
+    await waitFor(() => {
+      // admin (player_id 10, member_id 100) → toggled to 'member'
+      expect(mockUpdateLeagueMember).toHaveBeenCalledWith(1, 100, 'member');
     });
   });
 });
@@ -262,6 +417,25 @@ describe('LeagueInfoTab — seasons', () => {
       expect(screen.getByText(/8 sessions/)).toBeTruthy();
     });
   });
+
+  it('admin sees New Season button', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-season-btn')).toBeTruthy();
+    });
+  });
+
+  it('New Season button shows Coming Soon alert', async () => {
+    jest.spyOn(Alert, 'alert');
+
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('new-season-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('new-season-btn'));
+
+    expect(Alert.alert).toHaveBeenCalledWith('Coming Soon', expect.any(String));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -295,11 +469,50 @@ describe('LeagueInfoTab — league info section', () => {
     });
   });
 
-  it('shows home court name', async () => {
+  it('shows all home court names as pills', async () => {
     render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
+      expect(screen.getByTestId('court-pill-10')).toBeTruthy();
+      expect(screen.getByTestId('court-pill-11')).toBeTruthy();
       expect(screen.getByText('Kearny Mesa Park')).toBeTruthy();
+      expect(screen.getByText('Mission Bay Park')).toBeTruthy();
+    });
+  });
+
+  it('admin sees remove button on court pills', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('remove-court-btn-10')).toBeTruthy();
+      expect(screen.getByTestId('remove-court-btn-11')).toBeTruthy();
+    });
+  });
+
+  it('remove court calls removeLeagueHomeCourt', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('remove-court-btn-11')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('remove-court-btn-11'));
+
+    await waitFor(() => {
+      expect(mockRemoveLeagueHomeCourt).toHaveBeenCalledWith(1, 11);
+    });
+  });
+
+  it('admin sees add court button', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('add-court-btn')).toBeTruthy();
+    });
+  });
+
+  it('admin sees Edit hint on access row', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('info-row-access')).toBeTruthy();
     });
   });
 });
@@ -390,7 +603,6 @@ describe('LeagueInfoTab — leave league', () => {
       expect.any(Array),
     );
 
-    // Simulate pressing the destructive "Leave" button in the alert
     const alertArgs = jest.mocked(Alert.alert).mock.calls[0];
     const buttons = alertArgs[2] as Array<{ text: string; onPress?: () => void }>;
     const leaveBtn = buttons.find((b) => b.text === 'Leave');

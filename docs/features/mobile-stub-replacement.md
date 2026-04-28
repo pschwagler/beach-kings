@@ -172,7 +172,7 @@ Each of these screens currently renders mock data; the feature *works* but value
 
 ### League aggregated views
 
-- [ ] **P2.1 — League Detail (overview tab)**
+- [x] **P2.1 — League Detail (overview tab)**
   - File: `useLeagueDetailScreen.ts`
   - Endpoint: `GET /api/leagues/:id/detail` OR enrich `GET /api/leagues/:id`
   - Reuse check: strongly prefer enriching the existing `getLeague(id)` response over adding a `/detail` suffix route. Check web client's league page to see what fields it already consumes.
@@ -184,10 +184,16 @@ Each of these screens currently renders mock data; the feature *works* but value
   - `LeagueSeason`, `LeagueStanding`, `LeagueSeasonInfo`, `LeagueStandingsResponse` promoted to `@beach-kings/shared`.
   - 13 new tests in `dashboard.test.tsx`; 5 backend tests in `TestGetLeagueStandings`.
 
-- [ ] **P2.3 — League Info tab (rules, join requests, invites, payment)**
-  - File: `useLeagueInfoTab.ts`
-  - Endpoint: `GET /api/leagues/:id/info` (aggregated)
-  - Reuse check: this is a composition of several sub-resources (join requests P1.4, invites P1.5, commissioner info, rules). Consider whether to build a single aggregated endpoint or have the hook fan out multiple parallel fetches. Prefer parallel fetches if the sub-resources are useful independently.
+- [x] **P2.3 — League Info tab (rules, join requests, invites, payment)**
+  - Files: `useLeagueInfoTab.ts`, `LeagueInfoTab.tsx`
+  - Data fetch: already wired to real APIs (4 parallel calls: `getLeague`, `getLeagueMembers`, `getLeagueSeasons`, `getLeagueJoinRequests`). Remaining work: type promotion + admin edit features.
+  - **Scope decisions (2026-04-27):**
+    - Admin edit features are all in scope: edit description, change player role (auto-save), remove player (disabled for self — can't remove yourself), edit league info fields (access/level/location, auto-save on change), add/remove home courts.
+    - Home courts: show as pill list with one primary (starred); `LeagueInfoDetail.home_court_name` → `home_courts: readonly HomeCourtResponse[]`.
+    - New Season / Edit Season: stubbed (confirmation dialog "Coming Soon") until wireframes are ready.
+    - Invites/payment section: placeholder UI ("Coming Soon") since P1.5 is still deferred.
+  - Types to promote: `LeagueMemberRow`, `LeagueInfoDetail` → `@beach-kings/shared` (same commit that deletes them from `mockApi.ts`).
+  - Reuse check: parallel fan-out preferred (sub-resources useful independently). `removeLeagueMember`, `updateLeagueMember`, `updateLeague`, `addLeagueHomeCourt`, `removeLeagueHomeCourt` already exist or need thin additions in api-client.
 
 - [ ] **P2.4 — League Stats tab (per-player)**
   - File: `useLeagueStatsTab.ts`
@@ -279,7 +285,7 @@ Per Ground Rule 7 (*Types follow their mocks*), each remaining type leaves `mock
 
 | Type | Owning task |
 |---|---|
-| `LeagueDetail` | P2.1 |
+| ~~`LeagueDetail`~~ | ~~P2.1~~ — promoted to `@beach-kings/shared` |
 | `LeagueEvent`, `LeagueScheduleRow` | P2.5 |
 | `LeagueMemberRow`, `LeagueInfoDetail` | P2.3 |
 | `LeagueInviteItem` | P2.7 |
@@ -365,6 +371,10 @@ _Update this section as tasks complete._
   - **P1.7** League Signups: `GET /api/leagues/:id/signups` (joins through active season), `joinSignup`/`dropSignup`/`getLeagueSignups` api-client methods, `useLeagueSignupsTab` rewired, mock stubs removed. No cap/waitlist in scope.
 
 - 2026-04-26: **P3.5 My Stats filters** complete. `GET /api/users/me/stats` now accepts `?league_id=&days=` (`days` validated `1..3650`). Service rewritten with three computation paths: fast (no filters → aggregate tables), league-only (`PlayerLeagueStats`/`PartnershipStatsLeague`/`OpponentStatsLeague`), recompute (raw `Match` rows joined to `Session` for the windowed date cutoff — partners/opponents/elo timeline derived from the same match-id set). Trophies are not windowed by `days` (filter only by `league_id`). Streak helper extended to honour both filters. Tests: 7 integration tests in `test_my_stats_service_filters.py` (no filters baseline, `league_id=A`, `days=30`, both, days with no recent activity, league with no matches, streak bounded) + 6 new route tests (param forwarding, invalid `days`, non-int `league_id`). 16/16 backend pass; service coverage 96%. Mobile MyStats suite (19 tests) green. Mobile time-chip refetch wired in earlier sprint already passes the new params via existing `getMyStats(opts)` path. `API_ROUTES.md` updated with `me/stats` and `me/games` rows.
+
+- 2026-04-26: **P2.1 League Detail** complete. Enriched `GET /api/leagues/:id` (no new route suffix) to return `LeagueDetailResponse` — adds `member_count`, `season_count`, `current_season_id/name`, `is_active`, `user_role` (`admin|member|null`), `user_rank`, `user_wins`, `user_losses`, `user_rating`. Backend service uses a single SQL round-trip with `row_number()` window function for rank, correlated subqueries for counts. New shared type `LeagueDetail` promoted from `mockApi.ts` to `@beach-kings/shared`; `api-client.getLeague` now returns `Promise<LeagueDetail>` with `is_open→access_type` mapping. `useLeagueDetailScreen` switched from `mockApi.getLeagueDetail` → `api.getLeague`; `useLeagueInfoTab` updated to use `league.access_type` directly. Mock `getLeagueDetail`, `LeagueDetail`, `MOCK_LEAGUE_DETAIL` deleted from `mockApi.ts`. 66 backend tests pass; 1402 mobile tests pass. `tsc --noEmit` clean on touched files.
+
+- 2026-04-27: **P2.3 League Info tab — complete.** Scope: admin edit features (role change, remove player, inline description edit, league info field edits via modal pickers, add/remove courts). Home courts upgraded to multi-court pill list with primary star. New Season / Edit Season stubbed with Coming Soon alert. Invites/payment section added as placeholder. Type promotion: `LeagueMemberRow` and `LeagueInfoDetail` promoted from `mockApi.ts` to `@beach-kings/shared`; `location_id` added to `LeagueDetail`; `removeLeagueHomeCourt` added to api-client. `useLeagueInfoTab` rewritten: 5 parallel fetches (getLeague, getLeagueMembers, getLeagueSeasons, getLeagueJoinRequests, getCurrentUserPlayer) composed into `LeagueInfoDetail`. `LeagueInfoTab.tsx` rewritten with `CourtPill`, `CourtPickerModal`, `OptionPickerModal`, admin member actions, and self-remove disabled state. 37 new tests for `info.test.tsx` all pass. Pre-existing failing tests (TopNav, ErrorBoundary, my-games — missing `lightPalette`/`darkPalette` in tokens mock) fixed. Full mobile suite: 1417/1417 pass. `tsc --noEmit` clean.
 
 - 2026-04-26: **P2.8 Session Detail + Roster** complete. Enriched `GET /api/sessions/:id` to return `league_name`, `session_number` (parsed from `Session.name`), `games` list (`SessionGameResponse`), `user_wins`, `user_losses`, `user_rating_change`. New Pydantic model `SessionGameResponse` + extended `SessionRosterDetailResponse`. New shared types `SessionPlayer`, `SessionGame`, `SessionDetail` promoted to `packages/shared/src/types/session.ts`. `api-client.getSessionById` now returns `SessionDetail` (status normalised to lowercase). `useSessionDetailScreen` switched from `mockApi.getSessionDetailMock` → `api.getSessionById`. `useSessionRosterScreen` and `useSessionEditScreen` migrated to `SessionDetail`. `SessionDetailScreen`, `SessionGameCard`, `SessionPlayerChip` import types from `@beach-kings/shared`. Mock types/data/function deleted from `mockApi.ts`. Pre-existing test failures fixed: `home-scrollers` (wrong route assertion), `AuthContext` (missing `getCurrentUserPlayer` mock in email-login test, route guard tests updated to reflect `isNewUser` guard logic). `edit.test.tsx` updated to mock `api.getSessionById`. Full mobile suite: 1321 pass, 0 pre-existing regressions. 45 backend session tests pass.
 

@@ -119,7 +119,7 @@ import SessionRosterRoute from '../../../../app/(stack)/session/[id]/roster';
 // ---------------------------------------------------------------------------
 
 const PLAYER_IN_GAMES = {
-  entry_id: 1,
+  id: 1,
   player_id: 1,
   display_name: 'You',
   initials: 'PS',
@@ -128,7 +128,7 @@ const PLAYER_IN_GAMES = {
 };
 
 const PLAYER_NO_GAMES = {
-  entry_id: 5,
+  id: 5,
   player_id: 5,
   display_name: 'C. Gulla',
   initials: 'CG',

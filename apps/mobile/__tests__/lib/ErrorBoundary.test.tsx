@@ -24,6 +24,22 @@ jest.mock('@beach-kings/shared/tokens', () => ({
     brandTeal: '#4ecdc4',
     dangerText: '#ff6b6b',
   },
+  lightPalette: {
+    bgPage: '#f5f5f5', bgSurface: '#ffffff', bgElevated: '#ffffff', bgInset: '#f5f5f5',
+    bgNav: '#ffffff', bgTabbar: '#ffffff', textDefault: '#1a1a1a', textMuted: '#666666',
+    textTertiary: '#999999', textInverse: '#ffffff', borderStrong: '#d1d5db',
+    borderDivider: '#e5e7eb', brandTeal: '#1a3a4a', brandGold: '#c8a84b',
+    success: '#16a34a', danger: '#dc2626', warning: '#d97706', info: '#2563eb',
+    successTint: '#dcfce7', dangerTint: '#fee2e2', warningTint: '#fef3c7', infoTint: '#dbeafe',
+  },
+  darkPalette: {
+    bgPage: '#161b22', bgSurface: '#1c2333', bgElevated: '#21262d', bgInset: '#0d1117',
+    bgNav: '#161b22', bgTabbar: '#161b22', textDefault: '#e6edf3', textMuted: '#8b949e',
+    textTertiary: '#6e7681', textInverse: '#1a1a1a', borderStrong: '#30363d',
+    borderDivider: '#21262d', brandTeal: '#14b8a6', brandGold: '#d4a843',
+    success: '#4ade80', danger: '#f87171', warning: '#fbbf24', info: '#60a5fa',
+    successTint: '#14532d', dangerTint: '#7f1d1d', warningTint: '#78350f', infoTint: '#1e3a5f',
+  },
 }));
 
 // Mock ThemeContext — Button uses useTheme internally.

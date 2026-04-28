@@ -202,6 +202,7 @@ export interface LeagueDetail {
   readonly access_type: 'open' | 'invite_only';
   readonly gender: 'mens' | 'womens' | 'coed' | null;
   readonly level: string | null;
+  readonly location_id: string | null;
   readonly location_name: string | null;
   readonly home_courts: readonly HomeCourtResponse[];
   readonly member_count: number;
@@ -215,6 +216,37 @@ export interface LeagueDetail {
   readonly user_wins: number | null;
   readonly user_losses: number | null;
   readonly user_rating: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// League Info tab types (promoted from mobile mockApi)
+// ---------------------------------------------------------------------------
+
+/**
+ * A player row in the League Info tab.
+ * `id` is the league_member PK — required for updateLeagueMember / removeLeagueMember.
+ */
+export interface LeagueMemberRow {
+  readonly id: number;
+  readonly player_id: number;
+  readonly display_name: string;
+  readonly initials: string;
+  readonly role: LeagueMemberRole;
+  readonly joined_at: string;
+}
+
+/** Full info tab payload composed from multiple parallel API calls. */
+export interface LeagueInfoDetail {
+  readonly id: number;
+  readonly description: string | null;
+  readonly access_type: 'open' | 'invite_only';
+  readonly level: string | null;
+  readonly location_id: string | null;
+  readonly location_name: string | null;
+  readonly home_courts: readonly HomeCourtResponse[];
+  readonly members: readonly LeagueMemberRow[];
+  readonly seasons: readonly LeagueSeason[];
+  readonly join_requests: readonly JoinRequest[];
 }
 
 export interface League {

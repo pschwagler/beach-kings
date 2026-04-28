@@ -64,9 +64,18 @@ export function useSessionRosterScreen(
     router.back();
   }, [router]);
 
+  const players: readonly SessionPlayerEntry[] = (session?.players ?? []).map(p => ({
+    entry_id: p.player_id ?? p.id,
+    player_id: p.player_id ?? 0,
+    display_name: p.display_name,
+    initials: p.initials,
+    game_count: p.game_count,
+    is_placeholder: p.is_placeholder,
+  }));
+
   return {
     session: session ?? null,
-    players: session?.players ?? [],
+    players,
     isLoading,
     error,
     isRemoving,

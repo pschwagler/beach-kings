@@ -400,6 +400,7 @@ export function createApiMethods(client: ApiClient) {
         is_open: boolean;
         gender: string | null;
         level: string | null;
+        location_id: string | null;
         location_name: string | null;
         home_courts: Array<{ id: number; name: string; address: string | null; position: number }>;
         member_count: number;
@@ -421,6 +422,7 @@ export function createApiMethods(client: ApiClient) {
         access_type: raw.is_open ? 'open' : 'invite_only',
         gender: raw.gender as 'mens' | 'womens' | 'coed' | null,
         level: raw.level,
+        location_id: raw.location_id ?? null,
         location_name: raw.location_name,
         home_courts: raw.home_courts,
         member_count: raw.member_count,
@@ -505,6 +507,12 @@ export function createApiMethods(client: ApiClient) {
      */
     async addLeagueHomeCourt(leagueId: number, courtId: number) {
       const response = await api.post(`/api/leagues/${leagueId}/home-courts`, { court_id: courtId });
+      return response.data;
+    },
+
+    /** Remove a home court from a league (league_admin). */
+    async removeLeagueHomeCourt(leagueId: number, courtId: number) {
+      const response = await api.delete(`/api/leagues/${leagueId}/home-courts/${courtId}`);
       return response.data;
     },
 

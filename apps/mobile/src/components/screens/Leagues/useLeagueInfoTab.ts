@@ -1,22 +1,29 @@
 /**
  * Data hook for the League Info tab.
  *
- * Makes three parallel real API calls:
- *   1. api.getLeague          — league metadata (description, access, level, location)
- *   2. api.getLeagueMembers   — member roster
- *   3. api.getLeagueSeasons   — season list
- *   4. api.getLeagueJoinRequests — pending join requests (admin only; silently ignored on 403)
+ * Makes five parallel real API calls:
+ *   1. api.getLeague              — league metadata (description, access, level, location)
+ *   2. api.getLeagueMembers       — member roster
+ *   3. api.getLeagueSeasons       — season list
+ *   4. api.getLeagueJoinRequests  — pending join requests (admin only; silently ignored on 403)
+ *   5. api.getCurrentUserPlayer   — current player identity (for disabling self-remove)
  *
- * The four responses are composed into the LeagueInfoDetail shape consumed by
- * LeagueInfoTab.tsx.  Admin actions (approve/reject) call real endpoints.
+ * The five responses are composed into the LeagueInfoDetail shape consumed by
+ * LeagueInfoTab.tsx.  Admin actions (approve/reject/role-change/remove/edit) call
+ * real endpoints and invalidate the query on success.
  */
 
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { leagueKeys } from './leagueKeys';
-import type { JoinRequest, LeagueSeason } from '@beach-kings/shared';
-import type { LeagueInfoDetail, LeagueMemberRow } from '@/lib/mockApi';
+import type {
+  JoinRequest,
+  LeagueInfoDetail,
+  LeagueMemberRow,
+  LeagueSeason,
+  SkillLevel,
+} from '@beach-kings/shared';
 
 /** Derive two-letter initials from a player name ("Patrick Schwagler" → "PS"). */
 function toInitials(name: string | null | undefined): string {
@@ -30,13 +37,29 @@ export interface UseLeagueInfoTabResult {
   readonly info: LeagueInfoDetail | null;
   readonly isLoading: boolean;
   readonly isError: boolean;
+  /** Current authenticated player ID — used to disable self-remove in the UI. */
+  readonly currentPlayerId: number | null;
   readonly onApproveRequest: (requestId: number) => Promise<void>;
   readonly onDenyRequest: (requestId: number) => Promise<void>;
   readonly onLeaveLeague: () => Promise<void>;
+  /** Admin: change a member's role (auto-saves). */
+  readonly onChangeRole: (memberId: number, role: 'admin' | 'member') => Promise<void>;
+  /** Admin: remove a member from the league. */
+  readonly onRemovePlayer: (memberId: number) => Promise<void>;
+  /** Admin: update the league description (auto-saves). */
+  readonly onUpdateDescription: (description: string) => Promise<void>;
+  /** Admin: update access type — 'open' | 'invite_only' (auto-saves). */
+  readonly onUpdateAccess: (accessType: 'open' | 'invite_only') => Promise<void>;
+  /** Admin: update skill level label (auto-saves). */
+  readonly onUpdateLevel: (level: string | null) => Promise<void>;
+  /** Admin: add a home court (auto-saves). */
+  readonly onAddCourt: (courtId: number) => Promise<void>;
+  /** Admin: remove a home court (auto-saves). */
+  readonly onRemoveCourt: (courtId: number) => Promise<void>;
 }
 
 /**
- * Returns all data and handlers for the League Info tab.
+ * Returns all data and action handlers for the League Info tab.
  */
 export function useLeagueInfoTab(
   leagueId: number | string,
@@ -47,8 +70,6 @@ export function useLeagueInfoTab(
   const infoQuery = useQuery<LeagueInfoDetail>({
     queryKey: leagueKeys.info(leagueId),
     queryFn: async (): Promise<LeagueInfoDetail> => {
-      // Fetch league metadata, members, seasons, and join requests in parallel.
-      // Join requests are admin-only; a 403 is treated as an empty list.
       const [league, membersRaw, seasonsRaw, joinRequestsResult] =
         await Promise.all([
           api.getLeague(numericId),
@@ -59,19 +80,17 @@ export function useLeagueInfoTab(
 
       const members: LeagueMemberRow[] = (Array.isArray(membersRaw) ? membersRaw : []).map(
         (m): LeagueMemberRow => ({
+          id: m.id,
           player_id: m.player_id,
           display_name: m.player_name ?? `Player ${m.player_id}`,
           initials: toInitials(m.player_name),
-          role: (m.role as 'admin' | 'member' | 'visitor') ?? 'member',
+          role: (m.role as 'admin' | 'member') ?? 'member',
           joined_at: m.joined_at ?? m.created_at ?? '',
         }),
       );
 
       const seasons: LeagueSeason[] = (Array.isArray(seasonsRaw) ? seasonsRaw : []).map(
         (s): LeagueSeason => {
-          // The Season type only exposes start_date/end_date; some endpoints also
-          // return session_count and game_count as extra fields. Use a typed cast
-          // so TypeScript stays happy while we handle either shape.
           const raw = s as unknown as Record<string, unknown>;
           return {
             id: s.id,
@@ -102,14 +121,28 @@ export function useLeagueInfoTab(
         description: league.description ?? null,
         access_type: league.access_type,
         level: league.level ?? null,
+        location_id: league.location_id ?? null,
         location_name: league.location_name ?? null,
-        home_court_name:
-          league.home_courts?.[0]?.name ?? null,
+        home_courts: league.home_courts ?? [],
         members,
         seasons,
         join_requests: joinRequests,
       };
     },
+  });
+
+  // Fetch current player id separately so auth failures don't break the main query.
+  const playerQuery = useQuery<{ id: number } | null>({
+    queryKey: ['currentPlayer'],
+    queryFn: async () => {
+      try {
+        const player = await api.getCurrentUserPlayer();
+        return player ?? null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   const invalidateInfo = useCallback((): Promise<void> => {
@@ -137,12 +170,76 @@ export function useLeagueInfoTab(
     await invalidateInfo();
   }, [numericId, invalidateInfo]);
 
+  const onChangeRole = useCallback(
+    async (memberId: number, role: 'admin' | 'member'): Promise<void> => {
+      await api.updateLeagueMember(numericId, memberId, role);
+      await invalidateInfo();
+    },
+    [numericId, invalidateInfo],
+  );
+
+  const onRemovePlayer = useCallback(
+    async (memberId: number): Promise<void> => {
+      await api.removeLeagueMember(numericId, memberId);
+      await invalidateInfo();
+    },
+    [numericId, invalidateInfo],
+  );
+
+  const onUpdateDescription = useCallback(
+    async (description: string): Promise<void> => {
+      await api.updateLeague(numericId, { description });
+      await invalidateInfo();
+    },
+    [numericId, invalidateInfo],
+  );
+
+  const onUpdateAccess = useCallback(
+    async (accessType: 'open' | 'invite_only'): Promise<void> => {
+      await api.updateLeague(numericId, { is_open: accessType === 'open' });
+      await invalidateInfo();
+    },
+    [numericId, invalidateInfo],
+  );
+
+  const onUpdateLevel = useCallback(
+    async (level: string | null): Promise<void> => {
+      await api.updateLeague(numericId, { level: (level ?? undefined) as SkillLevel | undefined });
+      await invalidateInfo();
+    },
+    [numericId, invalidateInfo],
+  );
+
+  const onAddCourt = useCallback(
+    async (courtId: number): Promise<void> => {
+      await api.addLeagueHomeCourt(numericId, courtId);
+      await invalidateInfo();
+    },
+    [numericId, invalidateInfo],
+  );
+
+  const onRemoveCourt = useCallback(
+    async (courtId: number): Promise<void> => {
+      await api.removeLeagueHomeCourt(numericId, courtId);
+      await invalidateInfo();
+    },
+    [numericId, invalidateInfo],
+  );
+
   return {
     info: infoQuery.data ?? null,
     isLoading: infoQuery.isLoading,
     isError: infoQuery.isError,
+    currentPlayerId: playerQuery.data?.id ?? null,
     onApproveRequest,
     onDenyRequest,
     onLeaveLeague,
+    onChangeRole,
+    onRemovePlayer,
+    onUpdateDescription,
+    onUpdateAccess,
+    onUpdateLevel,
+    onAddCourt,
+    onRemoveCourt,
   };
 }
