@@ -27,6 +27,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
+import { api } from '@/lib/api';
 import { useLeagueInfoTab } from './useLeagueInfoTab';
 import type { HomeCourtResponse, JoinRequest, LeagueMemberRow, LeagueSeason } from '@beach-kings/shared';
 
@@ -541,9 +542,15 @@ export default function LeagueInfoTab({
   };
 
   const handleAddCourtPress = async (): Promise<void> => {
+    // No location ⇒ skip the API call; backend would receive `?location_id=` (empty
+    // string) and return an unfiltered list, which is not what the picker should show.
+    if (!info?.location_id) {
+      setAvailableCourts([]);
+      setShowCourtPicker(true);
+      return;
+    }
     try {
-      const { api: clientApi } = await import('@/lib/api');
-      const courts = await clientApi.getCourts({ location_id: info?.location_id ?? null });
+      const courts = await api.getCourts({ location_id: info.location_id });
       const normalized = Array.isArray(courts) ? courts : (courts as { items: typeof courts }).items ?? [];
       setAvailableCourts(
         (normalized as Array<{ id: number | string; name: string }>).map((c) => ({

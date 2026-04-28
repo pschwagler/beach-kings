@@ -203,9 +203,11 @@ export default function LeagueInviteScreen({
     searchQuery,
     selectedIds,
     isSending,
+    inviteError,
     onChangeSearch,
     onTogglePlayer,
     onSendInvites,
+    onClearInviteError,
   } = useLeagueInviteScreen(leagueId);
 
   const listItems = buildListItems(players);
@@ -284,6 +286,20 @@ export default function LeagueInviteScreen({
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      {/* Inline error banner */}
+      {inviteError ? (
+        <Pressable
+          testID="invite-error-banner"
+          onPress={onClearInviteError}
+          className="bg-danger-tint px-4 py-3 border-t border-divider"
+        >
+          <Text className="text-[13px] text-danger font-semibold">
+            {inviteError}
+          </Text>
+          <Text className="text-[11px] text-danger mt-[2px]">Tap to dismiss</Text>
+        </Pressable>
+      ) : null}
 
       {/* Bottom action bar */}
       <View className="bg-surface px-4 py-4 border-t border-divider flex-row gap-3">

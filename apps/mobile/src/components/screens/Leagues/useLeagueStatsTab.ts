@@ -50,7 +50,13 @@ export function useLeagueStatsTab(
   const statsQuery = useQuery({
     queryKey: leagueKeys.playerStats(leagueId, playerId, selectedSeasonId),
     queryFn: () =>
-      mockApi.getLeaguePlayerStats(leagueId, playerId, selectedSeasonId), // TODO(backend): GET /api/leagues/:leagueId/players/:playerId/stats
+      mockApi.getLeaguePlayerStats(leagueId, playerId, selectedSeasonId),
+    // Backend gap: GET /api/players/:player_id/league/:league_id/stats exists
+    // but returns only { games, wins, losses, win_rate, points, avg_pt_diff }.
+    // The UI consumes a richer shape (partners, opponents, game_history,
+    // ratings, season-scoped stats). Wiring the slim endpoint would render
+    // empty Partners/Opponents/History sections. Backend must extend the
+    // endpoint or the UI must be reduced before this can be wired.
   });
 
   const seasonsQuery = useQuery({
