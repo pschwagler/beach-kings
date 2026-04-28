@@ -19,7 +19,7 @@ export default function Card({
 }: CardProps): React.ReactNode {
   return (
     <View
-      className={`bg-white dark:bg-dark-surface rounded-card p-lg shadow-sm dark:shadow-none dark:border dark:border-border-subtle ${className}`}
+      className={`bg-surface rounded-card p-lg shadow-sm dark:shadow-none dark:border border-divider ${className}`}
       {...rest}
     >
       {children}

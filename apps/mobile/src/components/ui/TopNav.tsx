@@ -54,7 +54,7 @@ export default function TopNav({
 
   const containerClass = transparent
     ? 'h-11 flex-row items-center px-lg'
-    : 'h-11 bg-nav dark:bg-nav-dark flex-row items-center px-lg dark:border-b dark:border-border-subtle';
+    : 'h-11 bg-nav flex-row items-center px-lg dark:border-b border-divider';
 
   return (
     <View className={containerClass}>

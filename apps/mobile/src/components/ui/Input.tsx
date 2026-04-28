@@ -13,7 +13,7 @@
 import React, { forwardRef, useState } from 'react';
 import { TextInput, TextInputProps, Pressable, View } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { colors, darkColors } from '@beach-kings/shared/tokens';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import { EyeIcon, EyeOffIcon } from '@/components/ui/icons';
 
 interface InputProps {
@@ -55,27 +55,26 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
   ref,
 ) {
   const { isDark } = useTheme();
+  const palette = usePaletteColors();
   const [passwordVisible, setPasswordVisible] = useState(false);
 
   const showToggle = showPasswordToggle && secureTextEntry;
   const isSecure = showToggle ? !passwordVisible : secureTextEntry;
-
-  const iconColor = isDark ? darkColors.textTertiary : colors.textTertiary;
 
   if (!showToggle) {
     return (
       <TextInput
         ref={ref}
         testID={testID}
-        className={`h-12 border border-border dark:border-border-strong rounded-lg px-md bg-white dark:bg-elevated ${className}`}
+        className={`h-12 border border-strong rounded-lg px-md bg-elevated ${className}`}
         value={value}
         onChangeText={onChangeText}
         onBlur={onBlur}
         placeholder={placeholder}
-        placeholderTextColor={isDark ? darkColors.textTertiary : colors.textTertiary}
+        placeholderTextColor={palette.textTertiary}
         keyboardAppearance={isDark ? 'dark' : 'light'}
         style={{
-          color: isDark ? darkColors.textPrimary : colors.textPrimary,
+          color: palette.textDefault,
           fontSize: 15,
           paddingVertical: 0,
         }}
@@ -94,7 +93,7 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
 
   return (
     <View
-      className={`h-12 border border-border dark:border-border-strong rounded-lg flex-row items-center bg-white dark:bg-elevated ${className}`}
+      className={`h-12 border border-strong rounded-lg flex-row items-center bg-elevated ${className}`}
     >
       <TextInput
         ref={ref}
@@ -104,10 +103,10 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
         onChangeText={onChangeText}
         onBlur={onBlur}
         placeholder={placeholder}
-        placeholderTextColor={isDark ? darkColors.textTertiary : colors.textTertiary}
+        placeholderTextColor={palette.textTertiary}
         keyboardAppearance={isDark ? 'dark' : 'light'}
         style={{
-          color: isDark ? darkColors.textPrimary : colors.textPrimary,
+          color: palette.textDefault,
           fontSize: 15,
           paddingVertical: 0,
         }}
@@ -129,9 +128,9 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
         style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingRight: 8 }}
       >
         {passwordVisible ? (
-          <EyeOffIcon size={20} color={iconColor} />
+          <EyeOffIcon size={20} color={palette.textTertiary} />
         ) : (
-          <EyeIcon size={20} color={iconColor} />
+          <EyeIcon size={20} color={palette.textTertiary} />
         )}
       </Pressable>
     </View>
