@@ -62,7 +62,11 @@ interface HeroProps {
 }
 
 function Hero({ tournament }: HeroProps): React.ReactNode {
-  const spotsLabel = `${tournament.player_count}/${tournament.player_count + 4} spots`;
+  // KoB tournaments do not have a fixed max-players cap on the backend — the
+  // tournament fills based on courts/pool config. Show the registered count
+  // directly rather than fabricating a denominator.
+  const playerCount = tournament.player_count;
+  const spotsLabel = `${playerCount} player${playerCount === 1 ? '' : 's'}`;
 
   return (
     <View className="px-[16px] pt-[16px]">

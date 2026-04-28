@@ -117,7 +117,7 @@ function ListCard({ tournament, onPress }: ListCardProps): React.ReactNode {
         </Text>
         <View className="bg-elevated px-[6px] py-[2px] rounded-[6px] mt-[4px]">
           <Text className="text-[10px] font-semibold text-muted">
-            {tournament.player_count} / {tournament.player_count + 4}
+            {tournament.player_count} player{tournament.player_count === 1 ? '' : 's'}
           </Text>
         </View>
       </View>
