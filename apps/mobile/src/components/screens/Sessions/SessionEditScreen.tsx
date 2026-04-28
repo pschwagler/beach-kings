@@ -36,12 +36,12 @@ interface FormRowProps {
 
 function FormRow({ label, value, onChangeText, placeholder, testID }: FormRowProps): React.ReactNode {
   return (
-    <View className="flex-row items-center py-[14px] border-b border-[#eee] dark:border-[#2a2a2a]">
-      <Text className="text-[14px] font-semibold text-text-secondary dark:text-content-secondary w-[100px]">
+    <View className="flex-row items-center py-[14px] border-b border-divider">
+      <Text className="text-[14px] font-semibold text-muted w-[100px]">
         {label}
       </Text>
       <TextInput
-        className="flex-1 text-[14px] text-text-default dark:text-content-primary"
+        className="flex-1 text-[14px] text-default"
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder ?? label}
@@ -70,15 +70,15 @@ function TypePills({ selected, onChange }: TypePillsProps): React.ReactNode {
             testID={`edit-session-type-${type}`}
             className={`px-[18px] py-[8px] rounded-[20px] border ${
               isActive
-                ? 'border-[#2a7d9c] bg-[#e8f4f8]'
-                : 'border-[#ddd] bg-white dark:bg-[#1a1a1a] dark:border-[#333]'
+                ? 'border-brand-teal bg-info-tint'
+                : 'border-divider bg-surface'
             }`}
           >
             <Text
               className={`text-[13px] font-semibold ${
                 isActive
-                  ? 'text-[#2a7d9c]'
-                  : 'text-text-secondary dark:text-content-secondary'
+                  ? 'text-brand-teal'
+                  : 'text-muted'
               }`}
             >
               {label}
@@ -118,7 +118,7 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="session-edit-screen"
     >
@@ -130,7 +130,7 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
             testID="session-edit-close-btn"
             className="p-[8px]"
           >
-            <Text className="text-[16px] text-text-default dark:text-content-primary">✕</Text>
+            <Text className="text-[16px] text-default">✕</Text>
           </TouchableOpacity>
         }
       />
@@ -144,7 +144,7 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
           keyboardShouldPersistTaps="handled"
         >
           {/* Session Name (date as identifier) */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[20px] mb-[4px]">
+          <Text className="text-[15px] font-bold text-default mt-[20px] mb-[4px]">
             Date &amp; Time
           </Text>
           <FormRow
@@ -162,7 +162,7 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
             testID="edit-session-time-input"
           />
 
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[24px] mb-[4px]">
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">
             Location
           </Text>
           <FormRow
@@ -173,12 +173,12 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
             testID="edit-session-court-input"
           />
 
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[24px] mb-[4px]">
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">
             Session Type
           </Text>
           <TypePills selected={sessionType} onChange={setSessionType} />
 
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[24px] mb-[8px]">
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[8px]">
             Notes
           </Text>
           <TextInput
@@ -189,7 +189,7 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
             placeholderTextColor="#999"
             multiline
             numberOfLines={4}
-            className="border border-[#ddd] dark:border-[#333] rounded-[10px] p-[12px] text-[14px] text-text-default dark:text-content-primary min-h-[96px]"
+            className="border border-divider rounded-[10px] p-[12px] text-[14px] text-default min-h-[96px]"
             textAlignVertical="top"
           />
 
@@ -203,12 +203,12 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
           )}
         </ScrollView>
 
-        <View className="absolute bottom-0 left-0 right-0 bg-white dark:bg-base border-t border-[#eee] dark:border-[#2a2a2a] px-[16px] pt-[12px] pb-[34px] gap-[8px]">
+        <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[12px] pb-[34px] gap-[8px]">
           <TouchableOpacity
             testID="session-edit-save-btn"
             onPress={() => { void onSave(); }}
             disabled={isSubmitting}
-            className="bg-[#1a3a4a] rounded-[12px] items-center justify-center py-[16px]"
+            className="bg-brand-teal rounded-[12px] items-center justify-center py-[16px]"
           >
             {isSubmitting ? (
               <ActivityIndicator color="#fff" testID="session-edit-loading" />
@@ -220,9 +220,9 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
           <TouchableOpacity
             testID="session-edit-cancel-btn"
             onPress={onCancel}
-            className="border border-[#e0e0e0] dark:border-[#333] bg-[#f5f5f5] dark:bg-[#222] rounded-[12px] items-center justify-center py-[14px]"
+            className="border border-divider bg-elevated rounded-[12px] items-center justify-center py-[14px]"
           >
-            <Text className="text-[15px] font-semibold text-text-secondary dark:text-content-secondary">
+            <Text className="text-[15px] font-semibold text-muted">
               Cancel
             </Text>
           </TouchableOpacity>

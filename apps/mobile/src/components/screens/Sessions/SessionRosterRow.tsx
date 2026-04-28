@@ -32,7 +32,7 @@ export default function SessionRosterRow({
   return (
     <View
       testID={`roster-row-${player.entry_id}`}
-      className="flex-row items-center gap-[12px] py-[10px] border-b border-[#f0f0f0] dark:border-[#2a2a2a]"
+      className="flex-row items-center gap-[12px] py-[10px] border-b border-divider"
     >
       {/* Avatar */}
       <View
@@ -51,18 +51,18 @@ export default function SessionRosterRow({
 
       {/* Info */}
       <View className="flex-1">
-        <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary">
+        <Text className="text-[14px] font-semibold text-default">
           {player.display_name}
         </Text>
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary mt-[1px]">
+        <Text className="text-[12px] text-muted mt-[1px]">
           {player.is_placeholder ? `Unregistered · ${player.game_count} game${player.game_count !== 1 ? 's' : ''}` : `${player.game_count} game${player.game_count !== 1 ? 's' : ''}`}
         </Text>
       </View>
 
       {/* Game count badge */}
       {player.game_count > 0 && (
-        <View className="bg-[#f0f0f0] dark:bg-[#2a2a2a] px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] font-semibold text-text-secondary dark:text-content-secondary">
+        <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
+          <Text className="text-[11px] font-semibold text-muted">
             {player.game_count}
           </Text>
         </View>
@@ -76,9 +76,9 @@ export default function SessionRosterRow({
           <TouchableOpacity
             onPress={onRemove}
             testID={`roster-remove-${player.entry_id}`}
-            className="border border-[#fca5a5] bg-white dark:bg-[#1a1a1a] px-[12px] py-[6px] rounded-[8px]"
+            className="border border-danger-tint bg-surface px-[12px] py-[6px] rounded-[8px]"
           >
-            <Text className="text-[12px] font-semibold text-[#dc2626]">Remove</Text>
+            <Text className="text-[12px] font-semibold text-danger">Remove</Text>
           </TouchableOpacity>
         )
       )}

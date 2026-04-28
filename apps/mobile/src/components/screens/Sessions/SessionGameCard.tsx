@@ -26,18 +26,18 @@ function getResult(game: SessionGame, userTeam: 1 | 2 | null): GameResult {
 
 const RESULT_STYLES: Record<GameResult, { badge: string; text: string; label: string }> = {
   win: {
-    badge: 'bg-[#dcfce7]',
-    text: 'text-[#15803d]',
+    badge: 'bg-success-tint',
+    text: 'text-success',
     label: 'WIN',
   },
   loss: {
-    badge: 'bg-[#fee2e2]',
-    text: 'text-[#dc2626]',
+    badge: 'bg-danger-tint',
+    text: 'text-danger',
     label: 'LOSS',
   },
   pending: {
-    badge: 'bg-[#f5f5f5] dark:bg-[#2a2a2a]',
-    text: 'text-text-secondary dark:text-content-secondary',
+    badge: 'bg-elevated',
+    text: 'text-muted',
     label: 'PENDING',
   },
 };
@@ -65,11 +65,11 @@ export default function SessionGameCard({
   return (
     <View
       testID={`session-game-card-${game.id}`}
-      className="bg-white dark:bg-[#1a1a1a] rounded-[12px] p-[12px] mb-[8px] border border-[#eee] dark:border-[#2a2a2a]"
+      className="bg-surface rounded-[12px] p-[12px] mb-[8px] border border-divider"
     >
       {/* Header row */}
       <View className="flex-row items-center justify-between mb-[8px]">
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary font-semibold">
+        <Text className="text-[12px] text-muted font-semibold">
           Game {game.game_number}
         </Text>
         <View className="flex-row items-center gap-[8px]">
@@ -82,7 +82,7 @@ export default function SessionGameCard({
               testID={`session-game-edit-${game.id}`}
               className="p-[4px]"
             >
-              <Text className="text-[12px] text-[#2a7d9c]">Edit</Text>
+              <Text className="text-[12px] text-brand-teal">Edit</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -91,34 +91,34 @@ export default function SessionGameCard({
       {/* Matchup */}
       <View className="flex-row items-center justify-between">
         <View className="flex-1">
-          <Text className="text-[13px] font-semibold text-text-default dark:text-content-primary" numberOfLines={1}>
+          <Text className="text-[13px] font-semibold text-default" numberOfLines={1}>
             {game.team1_player1_name} / {game.team1_player2_name}
           </Text>
-          <Text className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]">
+          <Text className="text-[12px] text-muted mt-[2px]">
             vs
           </Text>
-          <Text className="text-[13px] font-semibold text-text-default dark:text-content-primary" numberOfLines={1}>
+          <Text className="text-[13px] font-semibold text-default" numberOfLines={1}>
             {game.team2_player1_name} / {game.team2_player2_name}
           </Text>
         </View>
 
         <View className="items-end">
           {scoreText != null && (
-            <Text className="text-[15px] font-bold text-text-default dark:text-content-primary">
+            <Text className="text-[15px] font-bold text-default">
               {scoreText}
             </Text>
           )}
           {ratingText != null ? (
             <Text
               className={`text-[12px] font-semibold mt-[2px] ${
-                (game.rating_change ?? 0) > 0 ? 'text-[#15803d]' : 'text-[#dc2626]'
+                (game.rating_change ?? 0) > 0 ? 'text-success' : 'text-danger'
               }`}
             >
               {ratingText}
             </Text>
           ) : result === 'pending' ? (
-            <View className="bg-[#f5f5f5] dark:bg-[#2a2a2a] px-[6px] py-[2px] rounded-[6px] mt-[4px]">
-              <Text className="text-[10px] text-text-secondary dark:text-content-secondary font-semibold">
+            <View className="bg-elevated px-[6px] py-[2px] rounded-[6px] mt-[4px]">
+              <Text className="text-[10px] text-muted font-semibold">
                 PENDING
               </Text>
             </View>

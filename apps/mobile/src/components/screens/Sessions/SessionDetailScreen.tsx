@@ -60,17 +60,17 @@ function StatsBar({ session }: StatsBarProps): React.ReactNode {
   return (
     <View
       testID="session-stats-bar"
-      className="flex-row bg-[#f8f8f8] dark:bg-[#111] rounded-[12px] mx-[16px] mt-[12px] py-[10px]"
+      className="flex-row bg-page rounded-[12px] mx-[16px] mt-[12px] py-[10px]"
     >
       {stats.map(({ label, value }, i) => (
         <View
           key={label}
-          className={`flex-1 items-center ${i < stats.length - 1 ? 'border-r border-[#eee] dark:border-[#2a2a2a]' : ''}`}
+          className={`flex-1 items-center ${i < stats.length - 1 ? 'border-r border-divider' : ''}`}
         >
-          <Text className="text-[16px] font-bold text-text-default dark:text-content-primary">
+          <Text className="text-[16px] font-bold text-default">
             {value}
           </Text>
-          <Text className="text-[11px] text-text-secondary dark:text-content-secondary mt-[2px]">
+          <Text className="text-[11px] text-muted mt-[2px]">
             {label}
           </Text>
         </View>
@@ -87,9 +87,9 @@ function InviteBanner(): React.ReactNode {
   return (
     <View
       testID="session-invite-banner"
-      className="mx-[16px] mt-[12px] bg-[#fff8e6] dark:bg-[#2a2000] border border-[#d4a843] rounded-[10px] p-[10px]"
+      className="mx-[16px] mt-[12px] bg-warning-tint border border-brand-gold/30 rounded-[10px] p-[10px]"
     >
-      <Text className="text-[12px] text-[#8b6914] dark:text-[#d4a843] font-semibold">
+      <Text className="text-[12px] text-warning font-semibold">
         Invite players to claim their spot and earn ELO
       </Text>
     </View>
@@ -116,20 +116,20 @@ function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
 
   return (
     <View className="px-[16px] pt-[16px]">
-      <Text className="text-[20px] font-bold text-text-default dark:text-content-primary">
+      <Text className="text-[20px] font-bold text-default">
         {dateLabel} · Session #{session.session_number}
       </Text>
       {session.league_name != null && (
-        <Text className="text-[13px] text-[#2a7d9c] mt-[2px]">{session.league_name}</Text>
+        <Text className="text-[13px] text-brand-teal mt-[2px]">{session.league_name}</Text>
       )}
       <View className="flex-row items-center gap-[8px] mt-[6px] flex-wrap">
-        <View className="bg-[#dcfce7] px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] font-bold text-[#15803d]">
+        <View className="bg-success-tint px-[8px] py-[3px] rounded-[10px]">
+          <Text className="text-[11px] font-bold text-success">
             {session.status === 'active' ? 'Active' : 'Submitted'}
           </Text>
         </View>
-        <View className="bg-[#f0f0f0] dark:bg-[#2a2a2a] px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] text-text-secondary dark:text-content-secondary">
+        <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
+          <Text className="text-[11px] text-muted">
             {session.session_type === 'pickup' ? 'Pickup' : 'League'}
           </Text>
         </View>
@@ -175,7 +175,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
   if (isLoading && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="session-detail-screen"
       >
@@ -188,7 +188,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
   if (error != null && session == null) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="session-detail-screen"
       >
@@ -213,7 +213,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
             testID="session-menu-btn"
             className="p-[8px]"
           >
-            <Text className="text-[20px] text-text-default dark:text-content-primary">···</Text>
+            <Text className="text-[20px] text-default">···</Text>
           </TouchableOpacity>
         }
       />
@@ -247,13 +247,13 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
 
             {/* Games list */}
             <View className="px-[16px] mt-[16px]">
-              <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mb-[10px]">
+              <Text className="text-[15px] font-bold text-default mb-[10px]">
                 Games
               </Text>
               {session.games.length === 0 ? (
                 <Text
                   testID="session-no-games"
-                  className="text-[14px] text-text-secondary dark:text-content-secondary text-center py-[24px]"
+                  className="text-[14px] text-muted text-center py-[24px]"
                 >
                   No games yet. Tap &quot;Add Game&quot; to record a game.
                 </Text>
@@ -269,13 +269,13 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
 
       {/* Sticky action bar — active sessions only */}
       {session?.status === 'active' && (
-        <View className="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#111] border-t border-[#eee] dark:border-[#2a2a2a] px-[16px] pt-[10px] pb-[34px] flex-row gap-[10px]">
+        <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[10px] pb-[34px] flex-row gap-[10px]">
           <TouchableOpacity
             testID="session-add-game-btn"
             onPress={onAddGame}
-            className="border border-[#1a3a4a] dark:border-[#4a6a7a] rounded-[12px] px-[16px] py-[12px]"
+            className="border border-brand-teal rounded-[12px] px-[16px] py-[12px]"
           >
-            <Text className="text-[14px] font-semibold text-[#1a3a4a] dark:text-content-primary">
+            <Text className="text-[14px] font-semibold text-brand-teal">
               Add Game
             </Text>
           </TouchableOpacity>

@@ -49,12 +49,12 @@ function FormRow({
   testID,
 }: FormRowProps): React.ReactNode {
   return (
-    <View className="flex-row items-center py-[14px] border-b border-[#eee] dark:border-[#2a2a2a]">
-      <Text className="text-[14px] font-semibold text-text-secondary dark:text-content-secondary w-[100px]">
+    <View className="flex-row items-center py-[14px] border-b border-divider">
+      <Text className="text-[14px] font-semibold text-muted w-[100px]">
         {label}
       </Text>
       <TextInput
-        className="flex-1 text-[14px] text-text-default dark:text-content-primary"
+        className="flex-1 text-[14px] text-default"
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder ?? label}
@@ -83,15 +83,15 @@ function TypePills({ selected, onChange }: TypePillsProps): React.ReactNode {
             testID={`session-type-${type}`}
             className={`px-[18px] py-[8px] rounded-[20px] border ${
               isActive
-                ? 'border-[#2a7d9c] bg-[#e8f4f8]'
-                : 'border-[#ddd] bg-white dark:bg-[#1a1a1a] dark:border-[#333]'
+                ? 'border-brand-teal bg-info-tint'
+                : 'border-divider bg-surface'
             }`}
           >
             <Text
               className={`text-[13px] font-semibold ${
                 isActive
-                  ? 'text-[#2a7d9c]'
-                  : 'text-text-secondary dark:text-content-secondary'
+                  ? 'text-brand-teal'
+                  : 'text-muted'
               }`}
             >
               {label}
@@ -117,24 +117,24 @@ function Stepper({ value, min, max, onChange, testID }: StepperProps): React.Rea
       <TouchableOpacity
         onPress={() => onChange(Math.max(min, value - 1))}
         testID="stepper-decrement"
-        className="w-[44px] h-[44px] rounded-[10px] border border-[#ddd] dark:border-[#333] bg-white dark:bg-[#1a1a1a] items-center justify-center"
+        className="w-[44px] h-[44px] rounded-[10px] border border-divider bg-surface items-center justify-center"
         accessibilityLabel="Decrease"
       >
-        <Text className="text-[18px] font-bold text-[#1a3a4a] dark:text-content-primary">−</Text>
+        <Text className="text-[18px] font-bold text-brand-teal">−</Text>
       </TouchableOpacity>
       <Text
         testID="stepper-value"
-        className="text-[20px] font-bold text-text-default dark:text-content-primary min-w-[40px] text-center"
+        className="text-[20px] font-bold text-default min-w-[40px] text-center"
       >
         {value}
       </Text>
       <TouchableOpacity
         onPress={() => onChange(Math.min(max, value + 1))}
         testID="stepper-increment"
-        className="w-[44px] h-[44px] rounded-[10px] border border-[#ddd] dark:border-[#333] bg-white dark:bg-[#1a1a1a] items-center justify-center"
+        className="w-[44px] h-[44px] rounded-[10px] border border-divider bg-surface items-center justify-center"
         accessibilityLabel="Increase"
       >
-        <Text className="text-[18px] font-bold text-[#1a3a4a] dark:text-content-primary">+</Text>
+        <Text className="text-[18px] font-bold text-brand-teal">+</Text>
       </TouchableOpacity>
     </View>
   );
@@ -165,7 +165,7 @@ export default function SessionCreateScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="session-create-screen"
     >
@@ -180,7 +180,7 @@ export default function SessionCreateScreen(): React.ReactNode {
           keyboardShouldPersistTaps="handled"
         >
           {/* Date / Time */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[20px] mb-[4px]">
+          <Text className="text-[15px] font-bold text-default mt-[20px] mb-[4px]">
             Date &amp; Time
           </Text>
           <FormRow
@@ -199,7 +199,7 @@ export default function SessionCreateScreen(): React.ReactNode {
           />
 
           {/* Location */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[24px] mb-[4px]">
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">
             Location
           </Text>
           <FormRow
@@ -211,17 +211,17 @@ export default function SessionCreateScreen(): React.ReactNode {
           />
 
           {/* Session Type */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[24px] mb-[4px]">
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">
             Session Type
           </Text>
           <TypePills selected={sessionType} onChange={setSessionType} />
 
           {/* Player Signups */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[24px] mb-[4px]">
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">
             Player Signups
           </Text>
-          <View className="flex-row items-center justify-between py-[14px] border-b border-[#eee] dark:border-[#2a2a2a]">
-            <Text className="text-[14px] font-semibold text-text-secondary dark:text-content-secondary">
+          <View className="flex-row items-center justify-between py-[14px] border-b border-divider">
+            <Text className="text-[14px] font-semibold text-muted">
               Max Players
             </Text>
             <Stepper
@@ -234,7 +234,7 @@ export default function SessionCreateScreen(): React.ReactNode {
           </View>
 
           {/* Notes */}
-          <Text className="text-[15px] font-bold text-text-default dark:text-content-primary mt-[24px] mb-[8px]">
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[8px]">
             Notes
           </Text>
           <TextInput
@@ -245,7 +245,7 @@ export default function SessionCreateScreen(): React.ReactNode {
             placeholderTextColor="#999"
             multiline
             numberOfLines={4}
-            className="border border-[#ddd] dark:border-[#333] rounded-[10px] p-[12px] text-[14px] text-text-default dark:text-content-primary min-h-[96px]"
+            className="border border-divider rounded-[10px] p-[12px] text-[14px] text-default min-h-[96px]"
             textAlignVertical="top"
           />
 
@@ -261,7 +261,7 @@ export default function SessionCreateScreen(): React.ReactNode {
         </ScrollView>
 
         {/* Fixed bottom CTA */}
-        <View className="absolute bottom-0 left-0 right-0 bg-white dark:bg-base border-t border-[#eee] dark:border-[#2a2a2a] px-[16px] pt-[12px] pb-[34px]">
+        <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[12px] pb-[34px]">
           <TouchableOpacity
             testID="session-create-submit-btn"
             onPress={onSubmit}

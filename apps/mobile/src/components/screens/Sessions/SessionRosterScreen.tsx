@@ -49,7 +49,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="session-roster-screen"
     >
@@ -61,7 +61,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
             testID="session-roster-close-btn"
             className="p-[8px]"
           >
-            <Text className="text-[16px] text-text-default dark:text-content-primary">✕</Text>
+            <Text className="text-[16px] text-default">✕</Text>
           </TouchableOpacity>
         }
       />
@@ -70,9 +70,9 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
       {sessionSubtitle != null && (
         <View
           testID="roster-subtitle-bar"
-          className="px-[16px] py-[12px] bg-white dark:bg-[#111] border-b border-[#eee] dark:border-[#2a2a2a]"
+          className="px-[16px] py-[12px] bg-surface border-b border-divider"
         >
-          <Text className="text-[13px] font-semibold text-text-secondary dark:text-content-secondary">
+          <Text className="text-[13px] font-semibold text-muted">
             {sessionSubtitle}
           </Text>
         </View>
@@ -87,7 +87,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           {/* In Games section */}
           {playersInGames.length > 0 && (
             <View className="px-[16px]">
-              <Text className="text-[13px] font-bold text-text-secondary dark:text-content-secondary uppercase tracking-wider pt-[14px] pb-[8px]">
+              <Text className="text-[13px] font-bold text-muted uppercase tracking-wider pt-[14px] pb-[8px]">
                 In Games (cannot remove)
               </Text>
               {playersInGames.map((player) => (
@@ -105,7 +105,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           {/* No Games Yet section */}
           {playersNoGames.length > 0 && (
             <View className="px-[16px]">
-              <Text className="text-[13px] font-bold text-text-secondary dark:text-content-secondary uppercase tracking-wider pt-[14px] pb-[8px]">
+              <Text className="text-[13px] font-bold text-muted uppercase tracking-wider pt-[14px] pb-[8px]">
                 No Games Yet
               </Text>
               {playersNoGames.map((player) => (
@@ -123,7 +123,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           {players.length === 0 && (
             <Text
               testID="roster-empty"
-              className="text-[14px] text-text-secondary dark:text-content-secondary text-center py-[32px]"
+              className="text-[14px] text-muted text-center py-[32px]"
             >
               No players in this session yet.
             </Text>
@@ -141,7 +141,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
       )}
 
       {/* Fixed bottom "+ Add Player" */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white dark:bg-base border-t border-[#eee] dark:border-[#2a2a2a] px-[16px] pt-[12px] pb-[34px]">
+      <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[12px] pb-[34px]">
         <TouchableOpacity
           testID="roster-add-player-btn"
           onPress={onAddPlayer}

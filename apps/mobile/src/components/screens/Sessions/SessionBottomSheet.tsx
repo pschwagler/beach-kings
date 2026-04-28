@@ -46,11 +46,11 @@ function MenuItem({ label, testID, onPress, destructive = false }: MenuItemProps
     <TouchableOpacity
       testID={testID}
       onPress={onPress}
-      className="py-[16px] border-b border-[#f0f0f0] dark:border-[#2a2a2a]"
+      className="py-[16px] border-b border-divider"
     >
       <Text
         className={`text-[16px] font-semibold text-center ${
-          destructive ? 'text-[#dc2626]' : 'text-[#1a3a4a] dark:text-content-primary'
+          destructive ? 'text-danger' : 'text-brand-teal'
         }`}
       >
         {label}
@@ -140,16 +140,16 @@ export default function SessionBottomSheet({
       />
       <View
         testID="session-bottom-sheet"
-        className="bg-white dark:bg-[#1a1a1a] rounded-t-[20px] px-[16px] pb-[34px] pt-[8px]"
+        className="bg-surface rounded-t-[20px] px-[16px] pb-[34px] pt-[8px]"
       >
         {/* Handle */}
         <View className="w-[36px] h-[4px] bg-[#e0e0e0] rounded-full self-center mb-[12px]" />
 
         {/* Header */}
-        <Text className="text-[15px] font-bold text-text-default dark:text-content-primary text-center mb-[2px]">
+        <Text className="text-[15px] font-bold text-default text-center mb-[2px]">
           {sessionLabel}
         </Text>
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary text-center mb-[16px]">
+        <Text className="text-[12px] text-muted text-center mb-[16px]">
           Active · {gameCount} games · {playerCount} players
         </Text>
 
@@ -188,9 +188,9 @@ export default function SessionBottomSheet({
         <TouchableOpacity
           testID="session-menu-cancel"
           onPress={onClose}
-          className="mt-[8px] py-[14px] rounded-[12px] border border-[#e0e0e0] dark:border-[#333] bg-[#f5f5f5] dark:bg-[#222]"
+          className="mt-[8px] py-[14px] rounded-[12px] border border-divider bg-elevated"
         >
-          <Text className="text-[15px] font-semibold text-text-secondary dark:text-content-secondary text-center">
+          <Text className="text-[15px] font-semibold text-muted text-center">
             Cancel
           </Text>
         </TouchableOpacity>
