@@ -71,6 +71,7 @@ export default function BottomSheet({
       >
         {/* Handle bar */}
         <View className="items-center pt-sm pb-xs">
+          {/* eslint-disable-next-line no-restricted-syntax -- drag handle: no semantic token for this gray pair */}
           <View className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
         </View>
 

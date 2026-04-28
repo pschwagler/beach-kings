@@ -43,6 +43,7 @@ export default function LoadingSkeleton({
   return (
     <Animated.View
       style={[{ width, height, borderRadius }, animatedStyle]}
+      // eslint-disable-next-line no-restricted-syntax -- skeleton shimmer: no semantic token for this gray pair
       className={`bg-gray-300 dark:bg-gray-600 ${className}`}
       accessibilityRole="none"
       accessible={false}
