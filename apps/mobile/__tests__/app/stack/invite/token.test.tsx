@@ -161,13 +161,13 @@ describe('InviteClaimScreen', () => {
     });
   });
 
-  it('shows success alert after claiming', async () => {
+  it('transitions to success state after claiming', async () => {
     mockClaimInvite.mockResolvedValueOnce({ success: true, message: 'Claimed!', player_id: 42 });
-    const { getByLabelText } = render(<InviteClaimScreen />);
+    const { getByLabelText, getByTestId } = render(<InviteClaimScreen />);
     await waitFor(() => expect(getByLabelText('Claim My Games')).toBeTruthy());
     fireEvent.press(getByLabelText('Claim My Games'));
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Success', expect.any(String));
+      expect(getByTestId('invite-success')).toBeTruthy();
     });
   });
 
