@@ -39,6 +39,9 @@ import type {
   LeagueStandingsResponse,
   LeagueDetail,
   LeagueMemberApiRow,
+  LeaguePlayerStats,
+  InvitablePlayer,
+  LeagueInviteItem,
   AuthResponse,
   UserMeResponse,
 } from '@beach-kings/shared';
@@ -464,6 +467,22 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
+    /**
+     * Aggregated stats for a player in the context of a league.
+     * Maps to GET /api/leagues/:leagueId/players/:playerId/stats[?season_id=].
+     */
+    async getLeaguePlayerStats(
+      leagueId: number,
+      playerId: number,
+      seasonId?: number | null,
+    ): Promise<LeaguePlayerStats> {
+      const params = seasonId != null ? `?season_id=${seasonId}` : '';
+      const response = await api.get<LeaguePlayerStats>(
+        `/api/leagues/${leagueId}/players/${playerId}/stats${params}`,
+      );
+      return response.data;
+    },
+
     async getLeagueMembers(leagueId: number): Promise<LeagueMemberApiRow[]> {
       const response = await api.get<LeagueMemberApiRow[]>(`/api/leagues/${leagueId}/members`);
       return response.data;
@@ -608,7 +627,7 @@ export function createApiMethods(client: ApiClient) {
     // -----------------------------------------------------------------------
 
     async getSessions() {
-      const response = await api.get<Session[]>('/api/sessions');
+      const response = await api.get<Session[]>('/api/sessions/open');
       return response.data;
     },
 
@@ -1207,6 +1226,50 @@ export function createApiMethods(client: ApiClient) {
       }));
 
       return { items, page: data.page, page_size: data.page_size, total_count: data.total_count };
+    },
+
+    // -----------------------------------------------------------------------
+    // League invites
+    // -----------------------------------------------------------------------
+
+    /**
+     * List players that an admin can invite to a league.
+     * Maps to GET /api/leagues/{leagueId}/invitable-players?q={query}.
+     */
+    async getInvitablePlayers(leagueId: number, query?: string): Promise<InvitablePlayer[]> {
+      const params: Record<string, string> = {};
+      if (query) params.q = query;
+      const response = await api.get<InvitablePlayer[]>(
+        `/api/leagues/${leagueId}/invitable-players`,
+        { params },
+      );
+      return response.data;
+    },
+
+    /**
+     * Send league invites to a list of players (admin only).
+     * Maps to POST /api/leagues/{leagueId}/invites.
+     */
+    async sendLeagueInvites(leagueId: number, playerIds: number[]): Promise<void> {
+      await api.post(`/api/leagues/${leagueId}/invites`, { player_ids: playerIds });
+    },
+
+    /**
+     * List all pending invites for a league (admin view).
+     * Maps to GET /api/leagues/{leagueId}/invites.
+     */
+    async getLeagueInvites(leagueId: number): Promise<LeagueInviteItem[]> {
+      const response = await api.get<LeagueInviteItem[]>(`/api/leagues/${leagueId}/invites`);
+      return response.data;
+    },
+
+    /**
+     * List league invites sent by the current user across all leagues.
+     * Maps to GET /api/users/me/league-invites/sent.
+     */
+    async getMySentLeagueInvites(): Promise<LeagueInviteItem[]> {
+      const response = await api.get<LeagueInviteItem[]>('/api/users/me/league-invites/sent');
+      return response.data;
     },
   };
 }
