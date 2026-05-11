@@ -8,6 +8,7 @@ import {
   TrendingUpIcon,
   UsersIcon,
   MapPinIcon,
+  AwardIcon,
 } from '@/components/ui/icons';
 import { Button } from '@/components/ui';
 import { routes } from '@/lib/navigation';
@@ -21,23 +22,28 @@ interface FeatureRow {
 const FEATURES: readonly FeatureRow[] = [
   {
     title: 'Join Leagues',
-    description: 'Compete in local beach volleyball leagues',
+    description: 'Compete in local beach volleyball leagues.',
     Icon: TrophyIcon,
   },
   {
     title: 'Track Your Rating',
-    description: 'ELO-based ratings across all your matches',
+    description: 'Track your progress. Make games more competitive.',
     Icon: TrendingUpIcon,
   },
   {
     title: 'Find Players',
-    description: 'Connect with players at your level near you',
+    description: 'Connect with new players in any area.',
     Icon: UsersIcon,
   },
   {
     title: 'Discover Courts',
-    description: 'Find and review beach volleyball courts',
+    description: 'Find beach volleyball courts across the country.',
     Icon: MapPinIcon,
+  },
+  {
+    title: 'Tournaments',
+    description: 'Create tournaments with friends.',
+    Icon: AwardIcon,
   },
 ];
 
@@ -72,7 +78,7 @@ export default function WelcomeScreen(): React.ReactNode {
               BEACH LEAGUE
             </Text>
             <Text className="text-body text-white/70 text-center">
-              Track your games. Climb the ranks.{'\n'}Rule the sand.
+              Track your games. Find new players.{'\n'}Rule the Sand.
             </Text>
           </View>
 

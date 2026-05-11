@@ -91,11 +91,13 @@ jest.mock('@/utils/haptics', () => ({
 // API mock
 const mockGetActiveSession = jest.fn();
 const mockGetUserLeagues = jest.fn();
+const mockGetSessions = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     getActiveSession: (...args: unknown[]) => mockGetActiveSession(...args),
     getUserLeagues: (...args: unknown[]) => mockGetUserLeagues(...args),
+    getSessions: (...args: unknown[]) => mockGetSessions(...args),
   },
 }));
 
@@ -137,6 +139,7 @@ const LEAGUE_1 = {
   name: 'QBK Open Men - Mornings',
   location_name: "Queen's Beach, Waikiki",
   current_season: { name: 'Season 4' },
+  current_season_id: 11,
 };
 
 const LEAGUE_2 = {
@@ -144,6 +147,7 @@ const LEAGUE_2 = {
   name: 'South Bay Doubles',
   location_name: 'Manhattan Beach',
   current_season: null,
+  current_season_id: null,
 };
 
 const ACTIVE_SESSION = {
@@ -151,8 +155,23 @@ const ACTIVE_SESSION = {
   season_id: 1,
   name: '3/19/2026 - Session #3',
   date: '2026-03-19',
+  league_name: null,
+  league_id: null,
+  court_name: null,
+  status: 'ACTIVE',
+  match_count: 0,
+};
+
+const LEAGUE_SESSION_1 = {
+  id: 100,
+  season_id: 1,
+  name: 'League Session 1',
+  date: '2026-03-20',
+  league_id: 1,
   league_name: 'QBK Open Men - Mornings',
-  status: 'open',
+  court_name: null,
+  status: 'ACTIVE',
+  match_count: 7,
 };
 
 // ---------------------------------------------------------------------------
@@ -164,6 +183,7 @@ beforeEach(() => {
   mockHapticMedium.mockResolvedValue(undefined);
   mockGetActiveSession.mockResolvedValue(null);
   mockGetUserLeagues.mockResolvedValue([]);
+  mockGetSessions.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -245,15 +265,20 @@ describe('AddGamesScreen — tile navigation', () => {
     });
   });
 
-  it('tapping Pickup Game navigates to /(stack)/session/create', async () => {
+  it('tapping Pickup Game navigates to score-game with "New Pickup Game" header (Flow 4)', async () => {
     renderAddGames();
     await waitFor(() => {
       expect(screen.getByTestId('tile-pickup-game')).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('tile-pickup-game'));
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/(stack)/session/create');
+      expect(mockPush).toHaveBeenCalled();
     });
+    const url = mockPush.mock.calls[0][0] as string;
+    expect(url).toContain('/(stack)/score-game');
+    expect(url).toContain('headerTitle=New%20Pickup%20Game');
+    expect(url).not.toContain('sessionId=');
+    expect(url).not.toContain('leagueId=');
   });
 
   it('tapping League Game calls hapticMedium', async () => {
@@ -309,15 +334,21 @@ describe('AddGamesScreen — active session state', () => {
     });
   });
 
-  it('tapping Continue Session navigates to the session route', async () => {
+  it('tapping Continue Session navigates to score-game with "Pickup Session" header (Flow 3)', async () => {
     renderAddGames();
     await waitFor(() => {
       expect(screen.getByTestId('continue-session-btn')).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('continue-session-btn'));
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(`/(stack)/session/${ACTIVE_SESSION.id}`);
+      expect(mockPush).toHaveBeenCalled();
     });
+    const url = mockPush.mock.calls[0][0] as string;
+    expect(url).toContain('/(stack)/score-game');
+    expect(url).toContain(`sessionId=${ACTIVE_SESSION.id}`);
+    expect(url).toContain('headerTitle=Pickup%20Session');
+    expect(url).toContain('gameNumber=1');
+    expect(url).not.toContain('leagueId=');
   });
 
   it('renders "or start new" divider', async () => {
@@ -361,6 +392,7 @@ describe('AddGamesScreen — league select: loading state', () => {
 describe('AddGamesScreen — league select: leagues loaded', () => {
   beforeEach(() => {
     mockGetUserLeagues.mockResolvedValue([LEAGUE_1, LEAGUE_2]);
+    mockGetSessions.mockResolvedValue([]);
   });
 
   async function openLeagueSelect() {
@@ -394,16 +426,57 @@ describe('AddGamesScreen — league select: leagues loaded', () => {
     });
   });
 
-  it('tapping a league row calls hapticMedium and navigates to create session', async () => {
+  it('shows "Start New Session" button for league without active session', async () => {
     await openLeagueSelect();
     await waitFor(() => {
-      expect(screen.getByTestId(`league-row-${LEAGUE_1.id}`)).toBeTruthy();
+      expect(screen.getByTestId(`league-new-${LEAGUE_1.id}`)).toBeTruthy();
     });
-    fireEvent.press(screen.getByTestId(`league-row-${LEAGUE_1.id}`));
+  });
+
+  it('tapping "Start New Session" navigates to score-game with "Create New Session" header (Flow 2)', async () => {
+    await openLeagueSelect();
+    await waitFor(() => {
+      expect(screen.getByTestId(`league-new-${LEAGUE_1.id}`)).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId(`league-new-${LEAGUE_1.id}`));
     await waitFor(() => {
       expect(mockHapticMedium).toHaveBeenCalled();
-      expect(mockPush).toHaveBeenCalledWith('/(stack)/session/create');
+      expect(mockPush).toHaveBeenCalled();
     });
+    const url = mockPush.mock.calls[0][0] as string;
+    expect(url).toContain('/(stack)/score-game');
+    expect(url).toContain(`leagueId=${LEAGUE_1.id}`);
+    expect(url).toContain(`seasonId=${LEAGUE_1.current_season_id}`);
+    expect(url).toContain('headerTitle=Create%20New%20Session');
+    expect(url).not.toContain('sessionId=');
+  });
+
+  it('shows "Continue" button for league with active session', async () => {
+    mockGetSessions.mockResolvedValue([LEAGUE_SESSION_1]);
+    await openLeagueSelect();
+    await waitFor(() => {
+      expect(screen.getByTestId(`league-continue-${LEAGUE_1.id}`)).toBeTruthy();
+    });
+  });
+
+  it('tapping "Continue" navigates to score-game with "Continue Session" header (Flow 1)', async () => {
+    mockGetSessions.mockResolvedValue([LEAGUE_SESSION_1]);
+    await openLeagueSelect();
+    await waitFor(() => {
+      expect(screen.getByTestId(`league-continue-${LEAGUE_1.id}`)).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId(`league-continue-${LEAGUE_1.id}`));
+    await waitFor(() => {
+      expect(mockHapticMedium).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalled();
+    });
+    const url = mockPush.mock.calls[0][0] as string;
+    expect(url).toContain('/(stack)/score-game');
+    expect(url).toContain(`sessionId=${LEAGUE_SESSION_1.id}`);
+    expect(url).toContain(`leagueId=${LEAGUE_SESSION_1.league_id}`);
+    expect(url).toContain(`seasonId=${LEAGUE_SESSION_1.season_id}`);
+    expect(url).toContain('headerTitle=Continue%20Session');
+    expect(url).toContain(`gameNumber=${(LEAGUE_SESSION_1.match_count ?? 0) + 1}`);
   });
 });
 
@@ -452,6 +525,7 @@ describe('AddGamesScreen — league select: empty state', () => {
 describe('AddGamesScreen — league select: error + retry', () => {
   beforeEach(() => {
     mockGetUserLeagues.mockRejectedValue(new Error('Network error'));
+    mockGetSessions.mockResolvedValue([]);
   });
 
   async function openLeagueSelect() {

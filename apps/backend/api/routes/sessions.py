@@ -92,6 +92,10 @@ def _build_games_and_user_stats(
             {
                 "id": g["id"],
                 "game_number": idx,
+                "team1_player1_id": g.get("team1_player1_id"),
+                "team1_player2_id": g.get("team1_player2_id"),
+                "team2_player1_id": g.get("team2_player1_id"),
+                "team2_player2_id": g.get("team2_player2_id"),
                 "team1_player1_name": g.get("team1_player1_name") or "",
                 "team1_player2_name": g.get("team1_player2_name") or "",
                 "team2_player1_name": g.get("team2_player1_name") or "",
@@ -100,6 +104,7 @@ def _build_games_and_user_stats(
                 "team2_score": g.get("team2_score"),
                 "winner": g.get("winner"),
                 "rating_change": None,  # ELO per-game join deferred; nullable per spec
+                "is_ranked": g.get("is_ranked"),
             }
         )
 
@@ -488,6 +493,7 @@ async def get_session_detail(
 
     return {
         "id": sess["id"],
+        "code": sess.get("code"),
         "court_name": court_name,
         "court_id": court_id,
         "session_type": session_type,
@@ -700,9 +706,18 @@ async def create_session(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Create a new non-league session (with shareable code).
-    Request body: { "date": "...", "name": "...", "court_id": ... } (all optional except date defaults to today).
-    Returns created session info including code.
+    Create (or get-or-create for league context) a session.
+
+    Pickup path (default): body without ``league_id`` creates a non-league
+    session via ``data_service.create_session``.
+    League path: body with ``league_id`` (and optional ``season_id``) routes
+    through ``get_or_create_active_league_session`` so the score-screen
+    "Manage Session" flow is idempotent — if an active session for the
+    league/date/season already exists, it is returned instead of erroring.
+
+    Request body: { "date": "...", "name": "...", "court_id": ...,
+    "league_id": ..., "season_id": ... } (all optional except date defaults
+    to today). Returns the session payload including its ``id`` and ``code``.
     """
     try:
         date = body.date or datetime.now().strftime("%-m/%-d/%Y")
@@ -710,19 +725,32 @@ async def create_session(
         court_id = body.court_id
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         created_by = player["id"] if player else None
-        new_session = await data_service.create_session(
-            session,
-            date,
-            name=name,
-            court_id=court_id,
-            created_by=created_by,
-            latitude=body.latitude,
-            longitude=body.longitude,
-            start_time=body.start_time,
-            session_type=body.session_type,
-            max_players=body.max_players,
-            notes=body.notes,
-        )
+
+        if body.league_id is not None:
+            new_session = await data_service.get_or_create_active_league_session(
+                session,
+                league_id=body.league_id,
+                session_date=date,
+                name=name,
+                created_by=created_by,
+                season_id=body.season_id,
+                latitude=body.latitude,
+                longitude=body.longitude,
+            )
+        else:
+            new_session = await data_service.create_session(
+                session,
+                date,
+                name=name,
+                court_id=court_id,
+                created_by=created_by,
+                latitude=body.latitude,
+                longitude=body.longitude,
+                start_time=body.start_time,
+                session_type=body.session_type,
+                max_players=body.max_players,
+                notes=body.notes,
+            )
         return {
             "status": "success",
             "message": "Session created successfully",

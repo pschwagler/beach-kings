@@ -184,7 +184,6 @@ export default function InviteClaimScreen(): React.ReactNode {
     setIsClaiming(true);
     try {
       await api.claimInvite(token);
-      Alert.alert('Success', 'Invite claimed! Your match history has been linked.');
       setScreenState('claimed_success');
     } catch {
       Alert.alert('Error', 'Failed to claim invite. Please try again.');

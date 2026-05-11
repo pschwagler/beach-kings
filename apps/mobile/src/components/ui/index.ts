@@ -8,6 +8,7 @@ export { default as Chip } from './Chip';
 export { default as EmptyState } from './EmptyState';
 export { default as LoadingSkeleton } from './LoadingSkeleton';
 export { default as Modal } from './Modal';
+export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as SegmentControl } from './SegmentControl';
 export { default as Avatar } from './Avatar';
 export { default as BottomSheet } from './BottomSheet';

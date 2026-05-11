@@ -13,6 +13,7 @@ from backend.database.models import Season as SeasonModel
 from backend.services import data_service, notification_service, season_awards_service
 from backend.api.auth_dependencies import (
     get_current_user,
+    get_current_user_optional,
     require_user,
     make_require_league_admin,
     make_require_league_admin_from_season,
@@ -308,14 +309,10 @@ async def get_player_league_stats(
     player_id: int, league_id: int, session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Get player statistics for a specific league.
-
-    Args:
-        player_id: ID of the player
-        league_id: ID of the league
-
-    Returns:
-        dict: Player league stats including ELO, games, wins, etc.
+    Legacy slim endpoint kept for the web app. Returns only counts/rates from
+    ``PlayerLeagueStats``. New clients should call
+    ``GET /api/leagues/{league_id}/players/{player_id}/stats`` which returns the
+    full aggregated shape (player profile, partners, opponents, etc.).
     """
     try:
         league_stats = await data_service.get_player_league_stats(session, player_id, league_id)
@@ -328,6 +325,45 @@ async def get_player_league_stats(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading player league stats: {str(e)}")
+
+
+@router.get("/api/leagues/{league_id}/players/{player_id}/stats", response_model=dict)
+async def get_league_player_stats_full(
+    league_id: int,
+    player_id: int,
+    season_id: int | None = None,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: dict | None = Depends(get_current_user_optional),
+):
+    """
+    Aggregated player stats in the context of a league (and optional season).
+
+    Returns the full shape consumed by the mobile League Player Stats view:
+    player profile (name/initials/level/location), league/season context,
+    overall record, partner/opponent breakdowns, and ``is_self`` when the
+    request is authenticated.
+
+    ``rank``, ``rating_delta``, and ``game_history`` are placeholders for now
+    and will be populated in follow-up work.
+    """
+    try:
+        viewer_player_id = current_user.get("player_id") if current_user else None
+        stats = await data_service.get_league_player_stats_full(
+            session,
+            league_id=league_id,
+            player_id=player_id,
+            season_id=season_id,
+            current_user_player_id=viewer_player_id,
+        )
+        if stats is None:
+            raise HTTPException(status_code=404, detail="Player, league, or season not found.")
+        return stats
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error loading league player stats: {str(e)}"
+        )
 
 
 @router.get(

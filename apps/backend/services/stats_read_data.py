@@ -24,6 +24,7 @@ from backend.database.models import (
     Court,
     EloHistory,
     League,
+    Location,
     Match,
     OpponentStats,
     OpponentStatsSeason,
@@ -59,6 +60,7 @@ __all__ = [
     "get_all_player_league_stats",
     "get_player_league_partnership_opponent_stats",
     "get_all_player_league_partnership_opponent_stats",
+    "get_league_player_stats_full",
     "export_matches_to_csv",
     "get_player_match_history_by_id",
 ]
@@ -1048,6 +1050,228 @@ async def get_all_player_league_partnership_opponent_stats(
         )
 
     return result_dict
+
+
+# ---------------------------------------------------------------------------
+# Aggregating reads
+# ---------------------------------------------------------------------------
+
+
+async def get_league_player_stats_full(
+    session: AsyncSession,
+    league_id: int,
+    player_id: int,
+    season_id: Optional[int] = None,
+    current_user_player_id: Optional[int] = None,
+) -> Optional[Dict]:
+    """
+    Aggregated player stats in the context of a league (and optionally a season).
+
+    Composes player profile, league/season totals, and partnership/opponent stats
+    into a single response shaped for the mobile League Player Stats view.
+
+    When ``season_id`` is provided, totals + partner/opponent rows are scoped to
+    that season (``PlayerSeasonStats``, ``PartnershipStatsSeason``,
+    ``OpponentStatsSeason``); otherwise league-wide rows are used.
+
+    Returns ``None`` if the player or league does not exist.
+
+    Fields not yet sourced from the database default to safe placeholders
+    (``rank``, ``rating_delta`` -> None; ``game_history`` -> []). Callers should
+    treat them as optional.
+    """
+    player_row = await session.execute(
+        select(Player, Location.city, Location.state)
+        .outerjoin(Location, Player.location_id == Location.id)
+        .where(Player.id == player_id)
+    )
+    player_record = player_row.first()
+    if not player_record:
+        return None
+
+    player: Player = player_record[0]
+    city: Optional[str] = player_record[1]
+    state: Optional[str] = player_record[2]
+
+    league_row = await session.execute(select(League).where(League.id == league_id))
+    league = league_row.scalar_one_or_none()
+    if not league:
+        return None
+
+    season_name: Optional[str] = None
+    if season_id is not None:
+        season_row = await session.execute(
+            select(Season).where(
+                and_(Season.id == season_id, Season.league_id == league_id)
+            )
+        )
+        season = season_row.scalar_one_or_none()
+        if season is None:
+            return None
+        season_name = season.name
+
+    games = wins = 0
+    win_rate = 0.0
+    avg_point_diff = 0.0
+    points: Optional[float] = None
+
+    if season_id is not None:
+        ss_row = await session.execute(
+            select(PlayerSeasonStats).where(
+                and_(
+                    PlayerSeasonStats.player_id == player_id,
+                    PlayerSeasonStats.season_id == season_id,
+                )
+            )
+        )
+        ss = ss_row.scalar_one_or_none()
+        if ss:
+            games = ss.games
+            wins = ss.wins
+            win_rate = ss.win_rate
+            avg_point_diff = ss.avg_point_diff
+            points = float(ss.points)
+    else:
+        ls_row = await session.execute(
+            select(PlayerLeagueStats).where(
+                and_(
+                    PlayerLeagueStats.player_id == player_id,
+                    PlayerLeagueStats.league_id == league_id,
+                )
+            )
+        )
+        ls = ls_row.scalar_one_or_none()
+        if ls:
+            games = ls.games
+            wins = ls.wins
+            win_rate = ls.win_rate
+            avg_point_diff = ls.avg_point_diff
+
+    if season_id is not None:
+        PartnerPlayer = aliased(Player)
+        partner_rows = await session.execute(
+            select(PartnershipStatsSeason, PartnerPlayer.id, PartnerPlayer.full_name)
+            .join(PartnerPlayer, PartnershipStatsSeason.partner_id == PartnerPlayer.id)
+            .where(
+                and_(
+                    PartnershipStatsSeason.player_id == player_id,
+                    PartnershipStatsSeason.season_id == season_id,
+                )
+            )
+            .order_by(
+                PartnershipStatsSeason.points.desc(),
+                PartnershipStatsSeason.win_rate.desc(),
+            )
+        )
+        OpponentPlayer = aliased(Player)
+        opponent_rows = await session.execute(
+            select(OpponentStatsSeason, OpponentPlayer.id, OpponentPlayer.full_name)
+            .join(OpponentPlayer, OpponentStatsSeason.opponent_id == OpponentPlayer.id)
+            .where(
+                and_(
+                    OpponentStatsSeason.player_id == player_id,
+                    OpponentStatsSeason.season_id == season_id,
+                )
+            )
+            .order_by(
+                OpponentStatsSeason.points.desc(),
+                OpponentStatsSeason.win_rate.desc(),
+            )
+        )
+    else:
+        PartnerPlayer = aliased(Player)
+        partner_rows = await session.execute(
+            select(PartnershipStatsLeague, PartnerPlayer.id, PartnerPlayer.full_name)
+            .join(PartnerPlayer, PartnershipStatsLeague.partner_id == PartnerPlayer.id)
+            .where(
+                and_(
+                    PartnershipStatsLeague.player_id == player_id,
+                    PartnershipStatsLeague.league_id == league_id,
+                )
+            )
+            .order_by(
+                PartnershipStatsLeague.points.desc(),
+                PartnershipStatsLeague.win_rate.desc(),
+            )
+        )
+        OpponentPlayer = aliased(Player)
+        opponent_rows = await session.execute(
+            select(OpponentStatsLeague, OpponentPlayer.id, OpponentPlayer.full_name)
+            .join(OpponentPlayer, OpponentStatsLeague.opponent_id == OpponentPlayer.id)
+            .where(
+                and_(
+                    OpponentStatsLeague.player_id == player_id,
+                    OpponentStatsLeague.league_id == league_id,
+                )
+            )
+            .order_by(
+                OpponentStatsLeague.points.desc(),
+                OpponentStatsLeague.win_rate.desc(),
+            )
+        )
+
+    partners = [
+        {
+            "player_id": row[1],
+            "display_name": row[2],
+            "initials": generate_player_initials(row[2] or ""),
+            "games_played": row[0].games,
+            "wins": row[0].wins,
+            "losses": row[0].games - row[0].wins,
+            "win_rate": row[0].win_rate,
+        }
+        for row in partner_rows.all()
+    ]
+    opponents = [
+        {
+            "player_id": row[1],
+            "display_name": row[2],
+            "initials": generate_player_initials(row[2] or ""),
+            "games_played": row[0].games,
+            "wins": row[0].wins,
+            "losses": row[0].games - row[0].wins,
+            "win_rate": row[0].win_rate,
+        }
+        for row in opponent_rows.all()
+    ]
+
+    display_name = player.full_name or player.nickname or f"Player {player_id}"
+    location_name: Optional[str] = None
+    if city and state:
+        location_name = f"{city}, {state}"
+    elif player.city and player.state:
+        location_name = f"{player.city}, {player.state}"
+
+    rating = int(round(points)) if points is not None else 0
+
+    return {
+        "player_id": player.id,
+        "display_name": display_name,
+        "initials": generate_player_initials(display_name),
+        "level": player.level,
+        "location_name": location_name,
+        "league_id": league.id,
+        "league_name": league.name,
+        "season_id": season_id,
+        "season_name": season_name,
+        "rank": None,
+        "rating": rating,
+        "rating_delta": None,
+        "points": points,
+        "overall": {
+            "wins": wins,
+            "losses": games - wins,
+            "win_rate": win_rate,
+            "games_played": games,
+            "point_diff": avg_point_diff,
+        },
+        "partners": partners,
+        "opponents": opponents,
+        "game_history": [],
+        "is_self": (
+            current_user_player_id is not None and current_user_player_id == player.id
+        ),
+    }
 
 
 # ---------------------------------------------------------------------------

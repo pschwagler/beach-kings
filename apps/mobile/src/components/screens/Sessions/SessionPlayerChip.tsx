@@ -19,7 +19,7 @@ export default function SessionPlayerChip({
   player,
   isCurrentUser = false,
 }: Props): React.ReactNode {
-  const colorIndex = (player.id % AVATAR_COLORS.length);
+  const colorIndex = (player.entry_id % AVATAR_COLORS.length);
   const bgColor = player.is_placeholder ? 'transparent' : AVATAR_COLORS[colorIndex];
 
   const borderStyle = isCurrentUser
@@ -30,7 +30,7 @@ export default function SessionPlayerChip({
 
   return (
     <View
-      testID={`player-chip-${player.id}`}
+      testID={`player-chip-${player.entry_id}`}
       className={`w-[44px] h-[44px] rounded-full items-center justify-center ${borderStyle}`}
       style={{ backgroundColor: bgColor }}
     >

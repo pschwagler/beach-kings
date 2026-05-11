@@ -30,7 +30,7 @@ import type {
 
 export type LeagueAccessType = 'open' | 'invite_only';
 export type LeagueMemberRole = 'admin' | 'member' | 'visitor';
-export type LeagueInviteStatus = 'pending' | 'accepted' | 'declined';
+// LeagueInviteStatus promoted to '@beach-kings/shared' (see types/league.ts).
 export type LeagueEventStatus = 'upcoming' | 'in_progress' | 'completed';
 
 /** Full detail for a single league (header + metadata). */
@@ -70,75 +70,8 @@ export interface LeagueScheduleRow {
 // LeagueMemberRow promoted to '@beach-kings/shared' (see types/league.ts).
 // LeagueInfoDetail promoted to '@beach-kings/shared' (see types/league.ts).
 // Use useLeagueInfoTab hook; backed by real API calls.
-
-/** A pending invite item (pending-invites screen). */
-export interface LeagueInviteItem {
-  readonly id: number;
-  readonly league_id: number;
-  readonly league_name: string;
-  readonly player_id: number;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly invited_at: string;
-  readonly status: LeagueInviteStatus;
-}
-
-/** A player that can be invited (invite screen). */
-export interface InvitablePlayer {
-  readonly player_id: number;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly location_name: string | null;
-  readonly level: string | null;
-  /** 'none' | 'member' | 'invited' | 'requested' */
-  readonly invite_status: 'none' | 'member' | 'invited' | 'requested';
-  /** section grouping: 'friends' | 'recent_opponents' | 'suggested' */
-  readonly section: 'friends' | 'recent_opponents' | 'suggested';
-}
-
-/** Player stats in context of a specific league (from standings row tap). */
-export interface LeaguePlayerStats {
-  readonly player_id: number;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly level: string | null;
-  readonly location_name: string | null;
-  readonly league_id: number;
-  readonly league_name: string;
-  readonly season_id: number;
-  readonly season_name: string;
-  readonly rank: number | null;
-  readonly rating: number;
-  readonly rating_delta: number | null;
-  readonly points: number | null;
-  readonly overall: {
-    readonly wins: number;
-    readonly losses: number;
-    readonly win_rate: number;
-    readonly games_played: number;
-    readonly point_diff: number;
-  };
-  readonly partners: readonly {
-    readonly player_id: number;
-    readonly display_name: string;
-    readonly initials: string;
-    readonly games_played: number;
-    readonly wins: number;
-    readonly losses: number;
-    readonly win_rate: number;
-  }[];
-  readonly opponents: readonly {
-    readonly player_id: number;
-    readonly display_name: string;
-    readonly initials: string;
-    readonly games_played: number;
-    readonly wins: number;
-    readonly losses: number;
-    readonly win_rate: number;
-  }[];
-  readonly game_history: readonly import('@beach-kings/shared').GameHistoryEntry[];
-  readonly is_self: boolean;
-}
+// InvitablePlayer promoted to '@beach-kings/shared' (see types/league.ts).
+// LeagueInviteItem promoted to '@beach-kings/shared' (see types/league.ts).
 
 // SessionStatus, SessionPlayer, SessionGame, SessionDetail promoted to
 // @beach-kings/shared (P2.8). Import from there:
@@ -158,58 +91,6 @@ export interface LeaguePlayerStats {
 const notImplemented = (endpoint: string): never => {
   throw new Error(`TODO(backend): ${endpoint}`);
 };
-
-// ---------------------------------------------------------------------------
-// League mock data
-// ---------------------------------------------------------------------------
-
-const MOCK_PENDING_INVITES: LeagueInviteItem[] = [
-  { id: 1, league_id: 1, league_name: 'QBK Open Men', player_id: 50, display_name: 'D. Thompson', initials: 'DT', invited_at: '2026-03-15', status: 'pending' },
-  { id: 2, league_id: 1, league_name: 'QBK Open Men', player_id: 51, display_name: 'R. Martinez', initials: 'RM', invited_at: '2026-03-16', status: 'accepted' },
-  { id: 3, league_id: 1, league_name: 'QBK Open Men', player_id: 52, display_name: 'G. Chen', initials: 'GC', invited_at: '2026-03-17', status: 'pending' },
-];
-
-const MOCK_INVITABLE_PLAYERS: InvitablePlayer[] = [
-  { player_id: 60, display_name: 'Jake Donovan', initials: 'JD', location_name: 'Queens, NY', level: 'Open', invite_status: 'none', section: 'friends' },
-  { player_id: 61, display_name: 'Marco Salvatore', initials: 'MS', location_name: 'Brooklyn, NY', level: 'AA', invite_status: 'invited', section: 'friends' },
-  { player_id: 62, display_name: 'Sam Joustra', initials: 'SJ', location_name: 'Manhattan, NY', level: 'Open', invite_status: 'none', section: 'recent_opponents' },
-  { player_id: 63, display_name: 'Rafael Torres', initials: 'RT', location_name: 'Queens, NY', level: 'A', invite_status: 'requested', section: 'recent_opponents' },
-  { player_id: 64, display_name: 'Brian Nguyen', initials: 'BN', location_name: 'Queens, NY', level: 'AA', invite_status: 'member', section: 'suggested' },
-  { player_id: 65, display_name: 'Derek Park', initials: 'DP', location_name: 'Queens, NY', level: 'Open', invite_status: 'none', section: 'suggested' },
-];
-
-const MOCK_LEAGUE_PLAYER_STATS = (leagueId: number, playerId: number): LeaguePlayerStats => ({
-  player_id: playerId,
-  display_name: playerId === 1 ? 'P. Schwagler' : 'C. Gulla',
-  initials: playerId === 1 ? 'PS' : 'CG',
-  level: 'Open',
-  location_name: 'Queens, NY',
-  league_id: leagueId,
-  league_name: 'QBK Open Men',
-  season_id: 4,
-  season_name: 'Season 4',
-  rank: playerId === 1 ? 3 : 1,
-  rating: playerId === 1 ? 1438 : 1520,
-  rating_delta: playerId === 1 ? -4 : 12,
-  points: null,
-  overall: {
-    wins: playerId === 1 ? 14 : 18,
-    losses: playerId === 1 ? 6 : 2,
-    win_rate: playerId === 1 ? 70 : 90,
-    games_played: 20,
-    point_diff: playerId === 1 ? 2.7 : 4.1,
-  },
-  partners: [
-    { player_id: 11, display_name: 'K. Fawwar', initials: 'KF', games_played: 10, wins: 8, losses: 2, win_rate: 80 },
-    { player_id: 12, display_name: 'A. Marthey', initials: 'AM', games_played: 6, wins: 4, losses: 2, win_rate: 67 },
-  ],
-  opponents: [
-    { player_id: 14, display_name: 'J. Drabos', initials: 'JD', games_played: 6, wins: 5, losses: 1, win_rate: 83 },
-    { player_id: 15, display_name: 'M. Salizar', initials: 'MS', games_played: 4, wins: 3, losses: 1, win_rate: 75 },
-  ],
-  game_history: [],
-  is_self: playerId === 1,
-});
 
 // Session mock data removed — SessionDetail is now a real backend response.
 // See packages/api-client/src/methods.ts :: getSessionById().
@@ -722,57 +603,6 @@ export const mockApi = {
     return notImplemented('DELETE /api/leagues/:id/members/me');
   },
 
-  /**
-   * Returns the list of pending invites for a league (admin view).
-   * TODO(backend): GET /api/leagues/:id/invites
-   */
-  async getLeagueInvites(_id: number | string): Promise<LeagueInviteItem[]> {
-    return Promise.resolve([...MOCK_PENDING_INVITES]);
-  },
-
-  /**
-   * Returns players that can be invited to a league.
-   * TODO(backend): GET /api/leagues/:id/invitable-players?q=
-   */
-  async getInvitablePlayers(
-    _id: number | string,
-    _query?: string,
-  ): Promise<InvitablePlayer[]> {
-    return Promise.resolve([...MOCK_INVITABLE_PLAYERS]);
-  },
-
-  /**
-   * Send invites to selected players.
-   * TODO(backend): POST /api/leagues/:id/invites
-   */
-  async sendLeagueInvites(
-    _id: number | string,
-    _playerIds: number[],
-  ): Promise<void> {
-    return notImplemented('POST /api/leagues/:id/invites');
-  },
-
-  /**
-   * Returns player stats within a specific league context.
-   * TODO(backend): GET /api/leagues/:leagueId/players/:playerId/stats?season_id=
-   */
-  async getLeaguePlayerStats(
-    leagueId: number | string,
-    playerId: number | string,
-    _seasonId?: number | null,
-  ): Promise<LeaguePlayerStats> {
-    return Promise.resolve(
-      MOCK_LEAGUE_PLAYER_STATS(Number(leagueId), Number(playerId)),
-    );
-  },
-
-  /**
-   * Returns pending invites sent by the current user across all leagues.
-   * TODO(backend): GET /api/users/me/league-invites/sent
-   */
-  async getPendingInvites(): Promise<LeagueInviteItem[]> {
-    return Promise.resolve([...MOCK_PENDING_INVITES]);
-  },
 } as const;
 
 export type MockApi = typeof mockApi;

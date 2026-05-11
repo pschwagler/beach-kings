@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Player Picker Sheet — Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+  /* ── State visibility ── */
+  .state-empty     { display: block; }
+  .state-results   { display: none; }
+  .state-notfound  { display: none; }
+  .state-guestform { display: none; }
+  .state-guestadded { display: none; }
+  body.s-results    .state-empty       { display: none; }
+  body.s-results    .state-results     { display: block; }
+  body.s-notfound   .state-empty       { display: none; }
+  body.s-notfound   .state-notfound    { display: block; }
+  body.s-guestform  .state-empty       { display: none; }
+  body.s-guestform  .state-guestform   { display: block; }
+  body.s-guestadded .state-empty       { display: none; }
+  body.s-guestadded .state-guestadded  { display: block; }
+
+  /* ── Context swaps ── */
+  .ctx-score   { display: inline; }
+  .ctx-session { display: none; }
+  body.ctx-session .ctx-score   { display: none; }
+  body.ctx-session .ctx-session { display: inline; }
+  /* Explicit overrides for non-inline element types so flex/grid layouts survive context swap */
+  .session-chip.ctx-score   { display: flex; }
+  .session-chip.ctx-session { display: none; }
+  body.ctx-session .session-chip.ctx-score   { display: none; }
+  body.ctx-session .session-chip.ctx-session { display: flex; }
+
+  /* ── Backdrop ── */
+  .screen-backdrop {
+    position: relative;
+    background: rgba(0,0,0,0.08);
+    height: 844px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Score context peek ── */
+  .scoreboard-peek { opacity: 0.45; padding: 16px 16px 12px; }
+  .sb-league-bar { background: #f0f7fa; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; font-weight: 600; color: #1a3a4a; }
+  .sb-teams { display: flex; gap: 8px; }
+  .sb-team  { flex: 1; background: #f5f5f5; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .sb-team.t1 { background: #daeef5; }
+  .sb-team.t2 { background: #fdf3d8; }
+  .sb-player { display: flex; align-items: center; gap: 6px; }
+  .sb-av     { width: 26px; height: 26px; border-radius: 50%; background: #1a3a4a; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .sb-av.empty { background: transparent; border: 1.5px dashed #c0c0c0; }
+  .sb-pname  { font-size: 12px; font-weight: 600; color: #1a1a1a; }
+  .sb-empty  { font-size: 12px; color: #aaa; }
+  .sb-vs     { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #999; padding-top: 6px; }
+
+  /* ── Session context peek ── */
+  .roster-peek { padding: 20px 16px 12px; opacity: 0.45; }
+  .roster-peek-title { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+  .roster-peek-sub   { font-size: 12px; color: #999; }
+  .roster-peek-row   { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .rp-avatar         { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+  .rp-name           { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+
+  /* ── Bottom Sheet ── */
+  .bottom-sheet {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 390px;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 36px;
+    max-height: 730px;
+  }
+  /* Scroll-fade at bottom of list to signal more content */
+  .sheet-scroll-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .sheet-scroll-wrap::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+    background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.95));
+    pointer-events: none;
+    z-index: 1;
+  }
+  body.dark-theme .sheet-scroll-wrap::after {
+    background: linear-gradient(to bottom, transparent, rgba(30,30,30,0.95));
+  }
+  .sheet-handle  { width: 36px; height: 4px; border-radius: 2px; background: #e0e0e0; margin: 12px auto 0; }
+  .sheet-header  { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
+  .sheet-title   { font-size: 17px; font-weight: 700; color: #1a1a1a; }
+  .sheet-close   { width: 32px; height: 32px; border-radius: 50%; background: #f0f0f0; border: none; display: flex; align-items: center; justify-content: center; color: #666; font-size: 18px; cursor: pointer; }
+
+  /* ── Slot indicator (which slot we're filling) ── */
+  .slot-indicator {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 16px 10px;
+    font-size: 12px; color: #666;
+  }
+  .slot-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 12px;
+    font-size: 12px; font-weight: 700;
+  }
+  .slot-pill.t1 { background: #daeef5; color: #1a3a4a; }
+  .slot-pill.t2 { background: #fdf3d8; color: #7a5200; }
+  .slot-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+  }
+
+  /* ── Search bar ── */
+  .sheet-search-wrap { padding: 0 16px 10px; display: flex; align-items: center; gap: 8px; }
+  .search-field { flex: 1; display: flex; align-items: center; gap: 8px; background: #f5f5f5; border-radius: 12px; padding: 10px 14px; min-height: 44px; }
+  .search-field svg { color: #bbb; flex-shrink: 0; }
+  .search-field input { flex: 1; border: none; background: transparent; font-size: 15px; color: #1a1a1a; outline: none; }
+  .search-field input::placeholder { color: #bbb; }
+  .search-field.active { background: #fff; border: 1.5px solid #2a7d9c; }
+  .search-cancel { color: #2a7d9c; font-size: 14px; font-weight: 600; background: none; border: none; cursor: pointer; min-height: 44px; padding-left: 4px; white-space: nowrap; }
+
+  /* ── Flat player list ── */
+  .sheet-content { padding: 0 16px; overflow-y: auto; flex: 1; min-height: 0; }
+
+  /* ── Section header ── */
+  .picker-section-label {
+    font-size: 11px; font-weight: 700; color: #999;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    padding: 14px 0 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .picker-section-label::after { content: ''; flex: 1; height: 1px; background: #f0f0f0; }
+  .picker-section-label .count { color: #ccc; font-weight: 600; }
+
+  /* ── In-session chips ── */
+  .session-chips { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 6px; }
+  .session-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px 8px 8px; border-radius: 24px;
+    background: #fff; border: 1.5px solid #e0e0e0;
+    cursor: pointer; min-height: 44px;
+  }
+  .session-chip:active { background: #f5f5f5; }
+  .session-chip .chip-av {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .session-chip .chip-name { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+  .session-chip.you { border-color: #d4a843; background: #fdf8ec; }
+  .session-chip.you .chip-name::after {
+    content: 'YOU'; font-size: 9px; font-weight: 700; color: #d4a843;
+    background: #fef3cd; padding: 2px 5px; border-radius: 4px; margin-left: 6px;
+  }
+  /* Already seated → muted, with team badge */
+  .session-chip.seated { opacity: 0.5; pointer-events: none; }
+  .session-chip.seated.t1 .chip-name::after {
+    content: 'TEAM 1'; font-size: 9px; font-weight: 700; color: #2a7d9c;
+    background: #daeef5; padding: 2px 5px; border-radius: 4px; margin-left: 6px;
+  }
+  .session-chip.seated.t2 .chip-name::after {
+    content: 'TEAM 2'; font-size: 9px; font-weight: 700; color: #8a6000;
+    background: #fdf3d8; padding: 2px 5px; border-radius: 4px; margin-left: 6px;
+  }
+
+  .player-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid #f5f5f5; min-height: 58px;
+  }
+  .player-row:last-child { border-bottom: none; }
+
+  .player-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .player-avatar.guest-av {
+    background: rgba(245,158,11,0.1) !important;
+    border: 1.5px dashed #f59e0b;
+    color: #f59e0b;
+  }
+
+  .player-info { flex: 1; min-width: 0; }
+  .player-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .player-meta { font-size: 12px; color: #999; margin-top: 3px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .meta-dot { width: 3px; height: 3px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+
+  /* ── Inline relationship tags ── */
+  .tag {
+    display: inline-flex; align-items: center;
+    font-size: 10px; font-weight: 700;
+    border-radius: 4px; padding: 1px 6px;
+    white-space: nowrap;
+  }
+  .tag-friend      { color: #2a7d9c; background: rgba(42,125,156,0.1); }
+  .tag-recent      { color: #666;    background: #f0f0f0; }
+  .tag-inleague    { color: #15803d; background: rgba(21,128,61,0.1); }
+  .tag-insession   { color: #15803d; background: rgba(21,128,61,0.1); }
+  .tag-guest       { color: #f59e0b; background: rgba(245,158,11,0.12); }
+  .tag-mutual      { color: #7c3aed; background: rgba(124,58,237,0.08); }
+
+  .btn-assign {
+    padding: 8px 16px; border-radius: 20px;
+    border: 1.5px solid #2a7d9c; background: transparent;
+    color: #2a7d9c; font-size: 13px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; min-height: 36px; flex-shrink: 0;
+  }
+  .btn-assign.disabled {
+    border-color: #ccc; color: #ccc; cursor: default;
+  }
+
+  /* ── Guest CTA at bottom ── */
+  .guest-divider {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 0 10px;
+  }
+  .guest-divider::before, .guest-divider::after { content: ''; flex: 1; height: 1px; background: #eee; }
+  .guest-divider span { font-size: 11px; color: #ccc; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .add-guest-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-radius: 12px;
+    background: #fffbeb; border: 1.5px dashed #f59e0b;
+    cursor: pointer; margin-bottom: 4px;
+  }
+  .ag-icon  { width: 30px; height: 30px; border-radius: 50%; background: #f59e0b; color: #fff; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ag-info  { flex: 1; }
+  .ag-title { font-size: 13px; font-weight: 700; color: #92400e; }
+  .ag-desc  { font-size: 11px; color: #b45309; margin-top: 1px; }
+
+  /* ── No results ── */
+  .no-results-wrap { padding: 32px 0 20px; text-align: center; }
+  .no-results-wrap .nr-icon { font-size: 32px; margin-bottom: 10px; }
+  .no-results-wrap .nr-text { font-size: 14px; color: #bbb; }
+
+  /* ── Guest form ── */
+  .guest-form-back { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #2a7d9c; font-weight: 600; cursor: pointer; margin: 4px 0 16px; background: none; border: none; padding: 0; }
+  .guest-form-title { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
+  .guest-form-sub   { font-size: 12px; color: #999; margin-bottom: 16px; line-height: 1.4; }
+  .gf-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+  .gf-input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #e0e0e0; background: #f9f9f9; font-size: 15px; color: #1a1a1a; box-sizing: border-box; margin-bottom: 16px; }
+  .gf-input.filled { border-color: #2a7d9c; background: #fff; }
+  .gf-pill-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .gf-pill { padding: 8px 14px; border-radius: 20px; border: 1.5px solid #e0e0e0; background: #f5f5f5; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; }
+  .gf-pill.selected { border-color: #2a7d9c; background: #e8f4f8; color: #2a7d9c; }
+  .gf-pill.autofill { border-color: #d4a843; background: #fdf8ec; color: #9a7012; }
+  .gf-autofill-note { font-size: 11px; color: #c8960e; margin-top: -10px; margin-bottom: 14px; display: flex; align-items: center; gap: 4px; }
+  .btn-add-guest-confirm { display: block; width: 100%; padding: 15px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 15px; font-weight: 700; text-align: center; cursor: pointer; }
+
+  /* ── Guest added ── */
+  .added-banner { margin: 0 0 12px; padding: 12px 16px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; display: flex; align-items: center; gap: 10px; }
+  .added-banner-icon { width: 28px; height: 28px; border-radius: 50%; background: #22c55e; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .added-banner-text { font-size: 13px; font-weight: 600; color: #15803d; }
+  .added-sub { font-size: 12px; color: #999; margin-top: 2px; }
+  .section-label-sm { font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 0 8px; display: flex; align-items: center; gap: 8px; }
+  .section-label-sm::after { content: ''; flex: 1; height: 1px; background: #f0f0f0; }
+  .btn-done { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #f0f0f0; color: #555; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; }
+
+  /* ── Dark theme ── */
+  body.dark-theme .screen-backdrop { background: rgba(0,0,0,0.5); }
+  body.dark-theme .sb-league-bar { background: #1a2a35; color: #7ab8cc; }
+  body.dark-theme .sb-team { background: #1e1e1e; }
+  body.dark-theme .sb-team.t1 { background: #1a2a35; }
+  body.dark-theme .sb-team.t2 { background: #2a2015; }
+  body.dark-theme .sb-pname { color: #ccc; }
+  body.dark-theme .sb-empty { color: #555; }
+  body.dark-theme .roster-peek-title { color: #ccc; }
+  body.dark-theme .rp-name { color: #ccc; }
+  body.dark-theme .roster-peek-row { border-color: #2a2a2a; }
+  body.dark-theme .bottom-sheet { background: #1e1e1e; box-shadow: 0 -4px 24px rgba(0,0,0,0.6); }
+  body.dark-theme .sheet-handle { background: #444; }
+  body.dark-theme .sheet-title { color: #fff; }
+  body.dark-theme .sheet-close { background: #333; color: #aaa; }
+  body.dark-theme .search-field { background: #2a2a2a; }
+  body.dark-theme .search-field input { color: #fff; }
+  body.dark-theme .search-field input::placeholder { color: #555; }
+  body.dark-theme .search-field svg { color: #555; }
+  body.dark-theme .search-field.active { background: #1e2d35; border-color: #2a7d9c; }
+  body.dark-theme .search-cancel { color: #4daacc; }
+  body.dark-theme .player-row { border-color: #2a2a2a; }
+  body.dark-theme .player-name { color: #fff; }
+  body.dark-theme .player-meta { color: #666; }
+  body.dark-theme .tag-recent   { background: #2a2a2a; color: #888; }
+  body.dark-theme .tag-friend   { background: rgba(77,170,204,0.1); color: #4daacc; }
+  body.dark-theme .tag-inleague, body.dark-theme .tag-insession { background: rgba(74,222,128,0.08); color: #4ade80; }
+  body.dark-theme .tag-guest    { background: rgba(245,158,11,0.1); color: #fbbf24; }
+  body.dark-theme .tag-mutual   { background: rgba(167,139,250,0.1); color: #a78bfa; }
+  body.dark-theme .btn-assign   { border-color: #4daacc; color: #4daacc; }
+  body.dark-theme .btn-assign.disabled { border-color: #333; color: #444; }
+  body.dark-theme .guest-divider::before, body.dark-theme .guest-divider::after { background: #2a2a2a; }
+  body.dark-theme .guest-divider span { color: #444; }
+  body.dark-theme .add-guest-row { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.35); }
+  body.dark-theme .ag-title { color: #fcd34d; }
+  body.dark-theme .ag-desc  { color: rgba(245,158,11,0.7); }
+  body.dark-theme .nr-text  { color: #444; }
+  body.dark-theme .guest-form-title { color: #fff; }
+  body.dark-theme .guest-form-sub   { color: #666; }
+  body.dark-theme .gf-label { color: #666; }
+  body.dark-theme .gf-input { background: #2a2a2a; border-color: #444; color: #fff; }
+  body.dark-theme .gf-input.filled { border-color: #2a7d9c; background: #1e2d35; }
+  body.dark-theme .gf-pill { background: #2a2a2a; border-color: #444; color: #888; }
+  body.dark-theme .gf-pill.selected { border-color: #4daacc; background: #1e2d35; color: #4daacc; }
+  body.dark-theme .gf-pill.autofill { border-color: #d4a843; background: rgba(212,168,67,0.1); color: #d4a843; }
+  body.dark-theme .gf-autofill-note { color: #c8960e; }
+  body.dark-theme .guest-form-back { color: #4daacc; }
+  body.dark-theme .added-banner { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.3); }
+  body.dark-theme .added-banner-text { color: #4ade80; }
+  body.dark-theme .added-sub { color: #555; }
+  body.dark-theme .section-label-sm { color: #555; }
+  body.dark-theme .section-label-sm::after { background: #2a2a2a; }
+  body.dark-theme .btn-done { background: #2a2a2a; color: #888; }
+  body.dark-theme .picker-section-label { color: #666; }
+  body.dark-theme .picker-section-label::after { background: #2a2a2a; }
+  body.dark-theme .picker-section-label .count { color: #444; }
+  body.dark-theme .session-chip { background: #2a2a2a; border-color: #3a3a3a; }
+  body.dark-theme .session-chip:active { background: #333; }
+  body.dark-theme .session-chip .chip-name { color: #ddd; }
+  body.dark-theme .session-chip.you { border-color: #d4a843; background: rgba(212,168,67,0.08); }
+  body.dark-theme .slot-pill.t1 { background: #1a3a4a; color: #7dd3ee; }
+  body.dark-theme .slot-pill.t2 { background: #5a4510; color: #fcd34d; }
+</style>
+</head>
+<body>
+
+<!-- ── Switchers ── -->
+<div class="state-switcher">
+  <div class="sw-label">State</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('')">Browse</button>
+    <button class="sw-pill" onclick="setState('s-results')">Search — results</button>
+    <button class="sw-pill" onclick="setState('s-notfound')">Search — no match</button>
+    <button class="sw-pill" onclick="setState('s-guestform')">New player form</button>
+    <button class="sw-pill" onclick="setState('s-guestadded')">New player added</button>
+  </div>
+</div>
+<div class="state-switcher" style="padding-top:0;">
+  <div class="sw-label">Context</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setCtx('score')">Score Entry</button>
+    <button class="sw-pill" onclick="setCtx('session')">Session Manage</button>
+  </div>
+</div>
+<div class="state-switcher" style="padding-top:0; border-bottom: 2px solid #d4a843;">
+  <div class="sw-label">Theme</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setTheme('light')">Light</button>
+    <button class="sw-pill" onclick="setTheme('dark')">Dark</button>
+  </div>
+</div>
+
+<div class="screen-backdrop">
+
+  <!-- Score entry context peek -->
+  <div class="ctx-score">
+    <div class="scoreboard-peek">
+      <a href="score-scoreboard.html" style="display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:#2a7d9c; text-decoration:none; padding:8px 16px 0; opacity:0.85;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to scoreboard
+      </a>
+      <div class="sb-league-bar">Sunday Morning Pickup · Spring 2025</div>
+      <div class="sb-teams">
+        <div class="sb-team t1">
+          <div class="sb-player"><div class="sb-av" style="background:#1a3a4a;">PS</div><div class="sb-pname">Pat S</div></div>
+          <div class="sb-player"><div class="sb-av" style="background:#2a7d9c;">KF</div><div class="sb-pname">Karim F</div></div>
+        </div>
+        <div class="sb-vs">vs</div>
+        <div class="sb-team t2">
+          <div class="sb-player"><div class="sb-av" style="background:#8a6000;">MB</div><div class="sb-pname">Mike B</div></div>
+          <div class="sb-player"><div class="sb-av empty"></div><div class="sb-empty">+ Add player</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session manage context peek -->
+  <div class="ctx-session">
+    <div class="roster-peek">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div class="roster-peek-title">Manage Players</div>
+        <div class="roster-peek-sub">Sunday at QBK · 3 players</div>
+      </div>
+      <div class="roster-peek-row"><div class="rp-avatar" style="background:#1a3a4a;">PS</div><div class="rp-name">Pat S <span style="font-size:10px; background:#fef3c7; color:#d4a843; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px;">YOU</span></div></div>
+      <div class="roster-peek-row"><div class="rp-avatar" style="background:#2a7d9c;">KF</div><div class="rp-name">Karim F</div></div>
+      <div class="roster-peek-row"><div class="rp-avatar" style="background:#15803d;">MB</div><div class="rp-name">Mike B</div></div>
+    </div>
+  </div>
+
+  <!-- ════════════ BOTTOM SHEET ════════════ -->
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title">Add Player</div>
+      <button class="sheet-close">&times;</button>
+    </div>
+
+    <!-- Slot indicator: tells the user which slot is being filled (score-entry context only) -->
+    <div class="slot-indicator ctx-score">
+      Filling
+      <span class="slot-pill t2">
+        <span class="dot"></span>
+        Team 2 &middot; Slot 2
+      </span>
+    </div>
+
+    <!-- Single search field, value set by setState() -->
+    <div class="sheet-search-wrap">
+      <div class="search-field" id="search-field" style="flex:1;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="search-input" type="text" placeholder="Search by name...">
+      </div>
+      <button class="search-cancel state-results state-notfound">Cancel</button>
+    </div>
+
+    <div class="sheet-scroll-wrap">
+    <!-- ══ BROWSE (no search query) ══ -->
+    <div class="sheet-content state-empty">
+
+      <!-- ─ In this session: tap chips to seat the active slot ─ -->
+      <div class="picker-section-label">
+        In this session
+        <span class="count ctx-score">3 of 7 already on a team</span>
+        <span class="count ctx-session">7 players</span>
+      </div>
+      <div class="session-chips">
+        <!-- Already seated (greyed + team badge) — score-entry context -->
+        <div class="session-chip seated t1 you ctx-score">
+          <div class="chip-av" style="background:#1a3a4a;">PS</div>
+          <div class="chip-name">Pat S</div>
+        </div>
+        <div class="session-chip seated t1 ctx-score">
+          <div class="chip-av" style="background:#2a7d9c;">KF</div>
+          <div class="chip-name">Karim F</div>
+        </div>
+        <div class="session-chip seated t2 ctx-score">
+          <div class="chip-av" style="background:#15803d;">MB</div>
+          <div class="chip-name">Mike B</div>
+        </div>
+        <!-- Available to seat -->
+        <div class="session-chip">
+          <div class="chip-av" style="background:#b91c1c;">JR</div>
+          <div class="chip-name">Jake R</div>
+        </div>
+        <div class="session-chip">
+          <div class="chip-av" style="background:#7c3aed;">AT</div>
+          <div class="chip-name">Alex T</div>
+        </div>
+        <div class="session-chip">
+          <div class="chip-av" style="background:#ea580c;">DM</div>
+          <div class="chip-name">Devon M</div>
+        </div>
+        <div class="session-chip">
+          <div class="chip-av" style="background:#db2777;">CL</div>
+          <div class="chip-name">Chris L</div>
+        </div>
+        <!-- Session-manage context: show "you" chip without team badge -->
+        <div class="session-chip you ctx-session">
+          <div class="chip-av" style="background:#1a3a4a;">PS</div>
+          <div class="chip-name">Pat S</div>
+        </div>
+      </div>
+
+      <!-- ─ Not in this session: friends, recent opps, etc. ─ -->
+      <div class="picker-section-label">Not in this session</div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#0d6b8c;">SH</div>
+        <div class="player-info">
+          <div class="player-name">Sam Henderson</div>
+          <div class="player-meta">
+            <span class="tag tag-recent">Recent opp</span>
+            <span class="meta-dot"></span>
+            Level B+ · San Diego
+          </div>
+        </div>
+        <button class="btn-assign">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#059669;">MR</div>
+        <div class="player-info">
+          <div class="player-name">Marcus R</div>
+          <div class="player-meta">
+            <span class="tag tag-recent">Recent opp</span>
+            <span class="meta-dot"></span>
+            Level A · San Diego
+          </div>
+        </div>
+        <button class="btn-assign">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#6d28d9;">TN</div>
+        <div class="player-info">
+          <div class="player-name">Tyler N</div>
+          <div class="player-meta">
+            <span class="tag tag-friend">Friend</span>
+            <span class="meta-dot"></span>
+            Level B · Orange County
+          </div>
+        </div>
+        <button class="btn-assign">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#b45309;">DW</div>
+        <div class="player-info">
+          <div class="player-name">Derek W</div>
+          <div class="player-meta">
+            <span class="tag tag-recent">Recent opp</span>
+            <span class="meta-dot"></span>
+            Level B+
+          </div>
+        </div>
+        <button class="btn-assign">Add</button>
+      </div>
+
+      <!-- Always-on "add new player" CTA — search-aware; default copy when no query -->
+      <div class="add-guest-row" onclick="setState('s-guestform')">
+        <div class="ag-icon">+</div>
+        <div class="ag-info">
+          <div class="ag-title">Add a New Player</div>
+          <div class="ag-desc">Creates a profile they can claim later</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══ SEARCH RESULTS ("Sam") — hybrid: in-session matches as chips, outside as rows ══ -->
+    <div class="sheet-content state-results">
+
+      <!-- ─ In-session matches ─ -->
+      <div class="picker-section-label">In this session &middot; matches</div>
+      <div class="session-chips">
+        <!-- No "Sam" in current session, so show empty hint -->
+        <div style="font-size: 13px; color: #bbb; padding: 4px 0 4px;">No matches in this session.</div>
+      </div>
+
+      <!-- ─ Outside-session matches ─ -->
+      <div class="picker-section-label">Not in this session &middot; matches</div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#0d6b8c;">SH</div>
+        <div class="player-info">
+          <div class="player-name">Sam Henderson</div>
+          <div class="player-meta">
+            <span class="tag tag-recent">Recent opp</span>
+            <span class="meta-dot"></span>
+            Level B+ · San Diego
+          </div>
+        </div>
+        <button class="btn-assign">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#7c3aed;">SW</div>
+        <div class="player-info">
+          <div class="player-name">Sam Williams</div>
+          <div class="player-meta">
+            <span class="tag tag-mutual">2 mutual friends</span>
+            <span class="meta-dot"></span>
+            Level A · LA · 38 games
+          </div>
+        </div>
+        <button class="btn-assign">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar guest-av">SK</div>
+        <div class="player-info">
+          <div class="player-name">Sam K</div>
+          <div class="player-meta">
+            <span class="tag tag-guest">New</span>
+            <span class="tag tag-mutual">1 mutual friend</span>
+            <span class="meta-dot"></span>
+            12 games
+          </div>
+        </div>
+        <button class="btn-assign">Add</button>
+      </div>
+
+      <div class="guest-divider"><span>or</span></div>
+      <div class="add-guest-row" onclick="setState('s-guestform')">
+        <div class="ag-icon">+</div>
+        <div class="ag-info">
+          <div class="ag-title">Add "Sam" as a New Player</div>
+          <div class="ag-desc">Not the right person? Creates a profile they can claim later</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══ SEARCH — NO MATCH ("Brad K") ══ -->
+    <div class="sheet-content state-notfound">
+
+      <div class="no-results-wrap">
+        <div class="nr-icon">🔍</div>
+        <div class="nr-text">No players found for "Brad K"</div>
+      </div>
+
+      <div class="add-guest-row" onclick="setState('s-guestform')">
+        <div class="ag-icon">+</div>
+        <div class="ag-info">
+          <div class="ag-title">Add "Brad K" as a New Player</div>
+          <div class="ag-desc">Not on Beach League yet — creates a profile they can claim later</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══ GUEST FORM ══ -->
+    <div class="sheet-content state-guestform">
+      <button class="guest-form-back" onclick="setState('')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <div class="guest-form-title">Add New Player</div>
+      <div class="guest-form-sub">Creates a profile they can claim later by joining Beach League.</div>
+      <div class="gf-label">First Name</div>
+      <input type="text" class="gf-input filled" value="Brad">
+      <div class="gf-label">Last Name <span style="font-weight:400; text-transform:none; letter-spacing:0;">(optional)</span></div>
+      <input type="text" class="gf-input filled" value="K" placeholder="Last name">
+      <div class="gf-label">Gender</div>
+      <div class="gf-pill-row">
+        <div class="gf-pill autofill">Men</div>
+        <div class="gf-pill">Women</div>
+      </div>
+      <div class="gf-autofill-note">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Auto-filled from session (4 of 6 players are Men)
+      </div>
+      <div class="gf-label">Skill Level <span style="font-weight:400; text-transform:none; letter-spacing:0;">(optional)</span></div>
+      <div class="gf-pill-row">
+        <div class="gf-pill">Beginner</div>
+        <div class="gf-pill autofill">Intermediate</div>
+        <div class="gf-pill">Advanced</div>
+        <div class="gf-pill">Open</div>
+      </div>
+      <div class="gf-autofill-note">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Auto-filled from session (majority Intermediate)
+      </div>
+      <button class="btn-add-guest-confirm" onclick="setState('s-guestadded')">Add Brad K to Game</button>
+    </div>
+
+    <!-- ══ GUEST ADDED ══ -->
+    <div class="sheet-content state-guestadded">
+      <div style="height:12px;"></div>
+      <div class="added-banner">
+        <div class="added-banner-icon">✓</div>
+        <div>
+          <div class="added-banner-text">Brad K added</div>
+          <div class="added-sub">They can claim their profile by joining Beach League</div>
+        </div>
+      </div>
+      <div class="section-label-sm">
+        <span class="ctx-score">Assigned to Team 2</span>
+        <span class="ctx-session">Added to session roster</span>
+      </div>
+      <div class="player-row">
+        <div class="player-avatar guest-av">BK</div>
+        <div class="player-info">
+          <div class="player-name">Brad K</div>
+          <div class="player-meta">
+            <span class="tag tag-guest">New</span>
+            <span class="meta-dot"></span>
+            New profile · 0 games
+          </div>
+        </div>
+      </div>
+      <button class="btn-done" onclick="setState('')">Done</button>
+    </div>
+
+    </div><!-- /sheet-scroll-wrap -->
+  </div><!-- /bottom-sheet -->
+</div><!-- /screen-backdrop -->
+
+<script src="dark-theme-toggle.js"></script>
+<script>
+  const STATE_SEARCH = {
+    '':            { value: '',      placeholder: 'Search by name...', disabled: false, active: false },
+    's-results':   { value: 'Sam',   placeholder: '',                  disabled: false, active: true  },
+    's-notfound':  { value: 'Brad K',placeholder: '',                  disabled: false, active: true  },
+    's-guestform': { value: '',      placeholder: 'Search by name...', disabled: true,  active: false },
+    's-guestadded':{ value: '',      placeholder: 'Search by name...', disabled: true,  active: false },
+  };
+
+  function setState(s) {
+    document.body.className = document.body.className
+      .split(' ').filter(c => !c.startsWith('s-')).join(' ');
+    if (s) document.body.classList.add(s);
+    document.querySelectorAll('.state-switcher:first-child .sw-pill').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('onclick') === `setState('${s}')`);
+    });
+    const cfg = STATE_SEARCH[s] ?? STATE_SEARCH[''];
+    const input = document.getElementById('search-input');
+    const field = document.getElementById('search-field');
+    input.value = cfg.value;
+    input.placeholder = cfg.placeholder;
+    input.disabled = cfg.disabled;
+    field.style.opacity = cfg.disabled ? '0.35' : '';
+    field.style.pointerEvents = cfg.disabled ? 'none' : '';
+    field.classList.toggle('active', cfg.active);
+  }
+  function setCtx(ctx) {
+    document.body.className = document.body.className
+      .split(' ').filter(c => !c.startsWith('ctx-')).join(' ');
+    if (ctx !== 'score') document.body.classList.add('ctx-' + ctx);
+    document.querySelectorAll('.state-switcher:nth-child(2) .sw-pill').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('onclick') === `setCtx('${ctx}')`);
+    });
+  }
+  function setTheme(t) {
+    document.body.classList.toggle('dark-theme', t === 'dark');
+    document.querySelectorAll('.state-switcher:nth-child(3) .sw-pill').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('onclick') === `setTheme('${t}')`);
+    });
+  }
+</script>
+</body>
+</html>

@@ -16,19 +16,38 @@
   body.empty .state-building { display: none !important; }
   body.scoring .state-building { display: none !important; }
   body.scoring .state-scoring { display: flex !important; }
+  /* searching states keep building scoreboard visible */
+  body.searching .state-scoring { display: none !important; }
+  body.searching-notfound .state-scoring { display: none !important; }
   .state-empty-block { display: none; }
   .state-building-block { display: block; }
   .state-scoring-block { display: none; }
+  .state-searching-block { display: none; }
+  .state-searching-notfound-block { display: none; }
+  .state-guest-form-block { display: none; }
+  .state-guest-added-block { display: none; }
   body.empty .state-empty-block { display: block !important; }
   body.empty .state-building-block { display: none !important; }
   body.scoring .state-building-block { display: none !important; }
   body.scoring .state-scoring-block { display: block !important; }
+  body.searching .state-building-block { display: none !important; }
+  body.searching .state-searching-block { display: block !important; }
+  body.searching-notfound .state-building-block { display: none !important; }
+  body.searching-notfound .state-searching-notfound-block { display: block !important; }
+  body.guest-form .state-building-block { display: none !important; }
+  body.guest-form .state-guest-form-block { display: block !important; }
+  body.guest-added .state-building-block { display: none !important; }
+  body.guest-added .state-guest-added-block { display: block !important; }
   body.error .state-empty { display: none !important; }
   body.error .state-building { display: none !important; }
   body.error .state-scoring { display: none !important; }
   body.error .state-empty-block { display: none !important; }
   body.error .state-building-block { display: none !important; }
   body.error .state-scoring-block { display: none !important; }
+  body.error .state-searching-block { display: none !important; }
+  body.error .state-searching-notfound-block { display: none !important; }
+  body.error .state-guest-form-block { display: none !important; }
+  body.error .state-guest-added-block { display: none !important; }
   .state-error { display: none; flex-direction: column; align-items: center; padding: 60px 24px 36px; gap: 20px; flex: 1; }
   body.error .state-error { display: flex !important; }
   .state-error-block { display: none; }
@@ -41,6 +60,10 @@
   body.success .state-building-block { display: none !important; }
   body.success .state-scoring-block { display: none !important; }
   body.success .state-error-block { display: none !important; }
+  body.success .state-searching-block { display: none !important; }
+  body.success .state-searching-notfound-block { display: none !important; }
+  body.success .state-guest-form-block { display: none !important; }
+  body.success .state-guest-added-block { display: none !important; }
   .state-success { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 60px 24px 36px; gap: 20px; flex: 1; }
   body.success .state-success { display: flex !important; }
   .state-success-block { display: none; }
@@ -126,6 +149,57 @@
   .roster-chip.selected-t1 .rc-name { color: #1a3a4a; }
   .roster-chip.selected-t2 .rc-name { color: #7a5200; }
 
+  /* Search result list (replaces chip grid when typing) */
+  .search-results-list { display: flex; flex-direction: column; gap: 2px; }
+  .search-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #e8e8e8; min-height: 52px; cursor: pointer; }
+  .sr-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .sr-info { flex: 1; min-width: 0; }
+  .sr-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .sr-meta { font-size: 12px; color: #888; margin-top: 1px; }
+  .btn-assign { padding: 7px 14px; border-radius: 8px; border: 1.5px solid #2a7d9c; background: transparent; color: #2a7d9c; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 36px; }
+  .search-no-league-match { font-size: 13px; color: #aaa; font-style: italic; padding: 6px 0 10px; }
+  .search-section-label { font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin: 10px 0 6px; }
+  .add-guest-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: #fffbeb; border: 1.5px dashed #f59e0b; cursor: pointer; min-height: 52px; margin-top: 6px; }
+  .add-guest-row .ag-icon { width: 28px; height: 28px; border-radius: 50%; background: #f59e0b; color: #fff; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .add-guest-row .ag-info { flex: 1; }
+  .add-guest-row .ag-title { font-size: 13px; font-weight: 700; color: #92400e; }
+  .add-guest-row .ag-desc { font-size: 11px; color: #b45309; margin-top: 1px; }
+  .search-bar-active { border-color: #2a7d9c !important; }
+
+  /* Guest form (inline in roster picker area) */
+  .guest-form-area { background: #f5f5f5; padding: 16px; }
+  .guest-form-back { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #2a7d9c; font-weight: 600; cursor: pointer; margin-bottom: 14px; background: none; border: none; padding: 0; }
+  .guest-form-back svg { flex-shrink: 0; }
+  .guest-form-title { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
+  .guest-form-subtitle { font-size: 12px; color: #888; margin-bottom: 14px; }
+  .gf-label { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .gf-input { width: 100%; padding: 11px 14px; border-radius: 10px; border: 1.5px solid #e0e0e0; background: #fff; font-size: 15px; color: #1a1a1a; margin-bottom: 14px; box-sizing: border-box; }
+  .gf-input:focus { outline: none; border-color: #2a7d9c; }
+  .gf-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .gf-chip { padding: 7px 13px; border-radius: 20px; border: 1.5px solid #e0e0e0; background: #fff; font-size: 13px; font-weight: 600; color: #555; cursor: pointer; min-height: 36px; }
+  .gf-chip.selected { background: #1a3a4a; border-color: #1a3a4a; color: #fff; }
+  .btn-add-guest-confirm { display: block; width: 100%; padding: 15px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 15px; font-weight: 700; text-align: center; cursor: pointer; margin-top: 4px; }
+  .btn-cancel-guest { display: block; width: 100%; padding: 12px; border-radius: 12px; border: none; background: transparent; color: #888; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 6px; }
+
+  /* Guest added — success banner */
+  .guest-added-banner { display: flex; align-items: center; gap: 10px; background: #f0fdf4; border-top: 1px solid #bbf7d0; padding: 12px 16px; }
+  .gab-icon { width: 28px; height: 28px; border-radius: 50%; background: #22c55e; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .gab-text { font-size: 13px; font-weight: 600; color: #15803d; }
+  .board-player-guest { border: 1.5px dashed rgba(245,158,11,0.7) !important; background: rgba(245,158,11,0.08) !important; }
+  .bp-guest-badge { font-size: 10px; font-weight: 600; color: #f59e0b; background: rgba(245,158,11,0.15); border-radius: 4px; padding: 1px 5px; margin-left: auto; }
+
+  /* Dark overrides for guest form */
+  body.dark-theme .guest-form-area { background: #111; }
+  body.dark-theme .guest-form-title { color: #fff; }
+  body.dark-theme .guest-form-subtitle { color: #666; }
+  body.dark-theme .gf-label { color: #888; }
+  body.dark-theme .gf-input { background: #2a2a2a; border-color: #444; color: #fff; }
+  body.dark-theme .gf-chip { background: #2a2a2a; border-color: #444; color: #ccc; }
+  body.dark-theme .gf-chip.selected { background: #2a7d9c; border-color: #2a7d9c; color: #fff; }
+  body.dark-theme .btn-cancel-guest { color: #666; }
+  body.dark-theme .guest-added-banner { background: rgba(34,197,94,0.08); border-top-color: rgba(34,197,94,0.2); }
+  body.dark-theme .gab-text { color: #4ade80; }
+
   /* Bottom bar */
   .bottom-bar { background: #fff; border-top: 1px solid #eee; padding: 12px 16px 36px; }
   .btn-save { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 16px; font-weight: 700; text-align: center; }
@@ -199,6 +273,15 @@
   body.dark-theme .success-stat .val { color: #4daacc; }
   body.dark-theme .success-stat .label { color: #666; }
   body.dark-theme .btn-done { border-color: #555; color: #999; }
+  body.dark-theme .search-result-row { background: #2a2a2a; border-color: #3a3a3a; }
+  body.dark-theme .sr-name { color: #fff; }
+  body.dark-theme .sr-meta { color: #888; }
+  body.dark-theme .btn-assign { border-color: #4daacc; color: #4daacc; }
+  body.dark-theme .search-no-league-match { color: #666; }
+  body.dark-theme .search-section-label { color: #555; }
+  body.dark-theme .add-guest-row { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.4); }
+  body.dark-theme .add-guest-row .ag-title { color: #fcd34d; }
+  body.dark-theme .add-guest-row .ag-desc { color: #d97706; }
 </style>
 </head>
 <body>
@@ -209,6 +292,10 @@
   <div class="sw-pills">
     <button class="sw-pill" onclick="setState('empty')">Empty</button>
     <button class="sw-pill active" onclick="setState('building')">Building Teams</button>
+    <button class="sw-pill" onclick="setState('searching')">Search (match)</button>
+    <button class="sw-pill" onclick="setState('searching-notfound')">Search (no match)</button>
+    <button class="sw-pill" onclick="setState('guest-form')">New Player Form</button>
+    <button class="sw-pill" onclick="setState('guest-added')">New Player Added</button>
     <button class="sw-pill" onclick="setState('scoring')">Scoring</button>
     <button class="sw-pill" onclick="setState('error')">Save Error</button>
     <button class="sw-pill" onclick="setState('success')">Game Saved</button>
@@ -508,6 +595,114 @@
   </div>
 </div>
 
+<!-- Roster picker (search — league match found: "Sam H") -->
+<div class="state-searching-block">
+  <div class="roster-picker">
+    <div class="roster-picker-label">Tap to assign &middot; 1 more needed</div>
+    <div class="search-bar search-bar-active">
+      <span class="search-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+      <input class="search-input" type="text" value="Sam H" />
+      <button style="background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;padding:0 4px;">&times;</button>
+    </div>
+
+    <div class="search-section-label">League Players</div>
+    <div class="search-results-list">
+      <div class="search-result-row">
+        <div class="sr-avatar" style="background:#0d9488;">SH</div>
+        <div class="sr-info">
+          <div class="sr-name">Sam Henderson</div>
+          <div class="sr-meta">Level B+ &middot; San Diego</div>
+        </div>
+        <button class="btn-assign">Add</button>
+      </div>
+    </div>
+
+    <div class="search-section-label">Or</div>
+    <div class="add-guest-row" onclick="setState('guest-form')" style="cursor:pointer;">
+      <div class="ag-icon">+</div>
+      <div class="ag-info">
+        <div class="ag-title">Add "Sam H" as a New Player</div>
+        <div class="ag-desc">Not in this league — creates a profile they can claim later</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-save disabled">Select 1 more player</button>
+  </div>
+</div>
+
+<!-- Roster picker (search — no league match: "Dan P") -->
+<div class="state-searching-notfound-block">
+  <div class="roster-picker">
+    <div class="roster-picker-label">Tap to assign &middot; 1 more needed</div>
+    <div class="search-bar search-bar-active">
+      <span class="search-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+      <input class="search-input" type="text" value="Dan P" />
+      <button style="background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;padding:0 4px;">&times;</button>
+    </div>
+
+    <div class="search-section-label">League Players</div>
+    <div class="search-no-league-match">No league members match "Dan P"</div>
+
+    <div class="add-guest-row" onclick="setState('guest-form')" style="cursor:pointer;">
+      <div class="ag-icon">+</div>
+      <div class="ag-info">
+        <div class="ag-title">Add "Dan P" as a New Player</div>
+        <div class="ag-desc">Not in this league — creates a profile they can claim later</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-save disabled">Select 1 more player</button>
+  </div>
+</div>
+
+<!-- Guest form (after tapping Add as Guest) -->
+<div class="state-guest-form-block">
+  <div class="guest-form-area">
+    <button class="guest-form-back" onclick="setState('searching-notfound')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to search
+    </button>
+    <div class="guest-form-title">Add New Player</div>
+    <div class="guest-form-subtitle">Creates a profile they can claim later</div>
+
+    <div class="gf-label">Name</div>
+    <input class="gf-input" type="text" value="Dan P" placeholder="Name or nickname">
+
+    <div class="gf-label">Level <span style="font-weight:400;color:#bbb;font-size:11px;text-transform:none;">(optional)</span></div>
+    <div class="gf-chips">
+      <div class="gf-chip">C</div>
+      <div class="gf-chip">B</div>
+      <div class="gf-chip selected">B+</div>
+      <div class="gf-chip">A</div>
+      <div class="gf-chip">A+</div>
+      <div class="gf-chip">Open</div>
+    </div>
+
+    <button class="btn-add-guest-confirm" onclick="setState('guest-added')">Add Dan P to Game</button>
+    <button class="btn-cancel-guest" onclick="setState('searching-notfound')">Cancel</button>
+  </div>
+</div>
+
+<!-- Guest added — back to building with guest slot filled -->
+<div class="state-guest-added-block">
+  <div class="guest-added-banner">
+    <div class="gab-icon">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+    </div>
+    <div class="gab-text">Dan P added as a new player</div>
+  </div>
+  <div class="roster-picker" style="padding: 10px 16px 12px;">
+    <div class="roster-picker-label" style="margin-bottom:0; color:#22c55e;">All 4 players set — ready to score</div>
+  </div>
+  <div class="bottom-bar">
+    <button class="btn-save gold" onclick="setState('scoring')">Start Scoring</button>
+  </div>
+</div>
+
 <!-- Save bar (scoring mode only) -->
 <div class="state-scoring-block">
   <div class="date-row">
@@ -557,11 +752,13 @@
 
 <script>
 function setState(state) {
-  document.body.classList.remove('scoring', 'empty', 'error', 'success');
+  document.body.classList.remove('scoring', 'empty', 'error', 'success', 'searching', 'searching-notfound');
   if (state === 'scoring') document.body.classList.add('scoring');
   if (state === 'empty') document.body.classList.add('empty');
   if (state === 'error') document.body.classList.add('error');
   if (state === 'success') document.body.classList.add('success');
+  if (state === 'searching') document.body.classList.add('searching');
+  if (state === 'searching-notfound') document.body.classList.add('searching-notfound');
   var statePills = document.querySelectorAll('.state-switcher:nth-child(1) .sw-pill');
   statePills.forEach(function(p) { p.classList.remove('active'); });
   event.target.classList.add('active');

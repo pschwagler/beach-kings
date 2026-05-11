@@ -7,11 +7,12 @@
 
 import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { mockApi } from '@/lib/mockApi';
+import { api } from '@/lib/api';
+import type { InvitablePlayer } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
 
 export interface UseLeagueInviteScreenResult {
-  readonly players: import('@/lib/mockApi').InvitablePlayer[];
+  readonly players: InvitablePlayer[];
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly searchQuery: string;
@@ -39,7 +40,7 @@ export function useLeagueInviteScreen(
   const playersQuery = useQuery({
     queryKey: leagueKeys.invitablePlayers(leagueId, searchQuery),
     queryFn: () =>
-      mockApi.getInvitablePlayers(leagueId, searchQuery || undefined), // TODO(backend): GET /api/leagues/:id/invitable-players?q=
+      api.getInvitablePlayers(Number(leagueId), searchQuery || undefined),
   });
 
   const onChangeSearch = useCallback((q: string) => {
@@ -63,7 +64,7 @@ export function useLeagueInviteScreen(
     setIsSending(true);
     setInviteError(null);
     try {
-      await mockApi.sendLeagueInvites(leagueId, [...selectedIds]); // TODO(backend): POST /api/leagues/:id/invites
+      await api.sendLeagueInvites(Number(leagueId), [...selectedIds]);
       await queryClient.invalidateQueries({
         queryKey: leagueKeys.invitablePlayers(leagueId, searchQuery),
       });

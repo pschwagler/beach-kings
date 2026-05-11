@@ -131,6 +131,86 @@ export function formatPlayerName(player: PlayerNameInput): string {
   return parts.join(' ');
 }
 
+/**
+ * Compact display name: first name plus last-name initial.
+ *
+ * @example formatPlayerShort('Patrick Schwagler') // "Patrick S"
+ * @example formatPlayerShort('Cher')              // "Cher"
+ * @example formatPlayerShort('')                  // ""
+ */
+export function formatPlayerShort(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0]!;
+  const first = parts[0]!;
+  const lastInitial = (parts[parts.length - 1]![0] ?? '').toUpperCase();
+  return lastInitial.length > 0 ? `${first} ${lastInitial}` : first;
+}
+
+// ---------------------------------------------------------------------------
+// Session subtitle formatting
+// ---------------------------------------------------------------------------
+
+const DAY_NAMES = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+] as const;
+
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const US_DATE_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+
+/**
+ * Parse a session date string into a local-timezone Date.
+ *
+ * The backend stores `Session.date` as either `YYYY-MM-DD` (ISO) or
+ * `M/D/YYYY` (US) depending on the create path, so this helper handles
+ * both. Both formats are constructed in local time so `getDay()` returns
+ * the calendar day the user expects regardless of timezone —
+ * `new Date('2026-04-01')` would otherwise parse as UTC midnight and
+ * shift a day for viewers west of UTC.
+ */
+export function parseSessionDate(date: string | Date): Date {
+  if (typeof date !== 'string') return date;
+  const iso = DATE_ONLY_RE.exec(date);
+  if (iso != null) {
+    return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  }
+  const us = US_DATE_RE.exec(date);
+  if (us != null) {
+    return new Date(Number(us[3]), Number(us[1]) - 1, Number(us[2]));
+  }
+  return new Date(date);
+}
+
+/**
+ * Builds the score-screen subtitle from session metadata.
+ *
+ * - date + courtName → `"{Day} at {court}"`
+ * - courtName missing, leagueName present → leagueName
+ * - nothing usable → `null`
+ *
+ * @example formatSessionSubtitle('2026-05-10', 'QBK', null)        // "Sunday at QBK"
+ * @example formatSessionSubtitle('2026-05-10', null, 'Sunday League') // "Sunday League"
+ * @example formatSessionSubtitle(null, null, null)                  // null
+ */
+export function formatSessionSubtitle(
+  date: string | Date | null | undefined,
+  courtName: string | null | undefined,
+  leagueName: string | null | undefined,
+): string | null {
+  const court = courtName?.trim() ?? '';
+  const league = leagueName?.trim() ?? '';
+
+  if (date != null && date !== '' && court.length > 0) {
+    const d = parseSessionDate(date);
+    if (!isNaN(d.getTime())) {
+      return `${DAY_NAMES[d.getDay()]} at ${court}`;
+    }
+  }
+
+  if (league.length > 0) return league;
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Ordinal formatting
 // ---------------------------------------------------------------------------

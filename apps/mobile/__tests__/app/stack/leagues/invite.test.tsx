@@ -71,8 +71,8 @@ jest.mock('@/utils/haptics', () => ({
 const mockGetInvitablePlayers = jest.fn();
 const mockSendLeagueInvites = jest.fn();
 
-jest.mock('@/lib/mockApi', () => ({
-  mockApi: {
+jest.mock('@/lib/api', () => ({
+  api: {
     getInvitablePlayers: (...args: unknown[]) => mockGetInvitablePlayers(...args),
     sendLeagueInvites: (...args: unknown[]) => mockSendLeagueInvites(...args),
   },

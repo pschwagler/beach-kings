@@ -125,7 +125,7 @@ describe('LeagueDashboardTab — loading', () => {
     mockGetLeagueSeasons.mockReturnValue(new Promise(() => {}));
     mockGetLeagueStandings.mockReturnValue(new Promise(() => {}));
 
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     expect(screen.getByTestId('standings-loading')).toBeTruthy();
   });
@@ -139,7 +139,7 @@ describe('LeagueDashboardTab — error', () => {
   it('shows error state when seasons query fails', async () => {
     mockGetLeagueSeasons.mockRejectedValue(new Error('Network error'));
 
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByTestId('standings-error')).toBeTruthy();
@@ -153,7 +153,7 @@ describe('LeagueDashboardTab — error', () => {
 
 describe('LeagueDashboardTab — season picker', () => {
   it('renders "All" chip', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByTestId('season-pill-all')).toBeTruthy();
@@ -161,7 +161,7 @@ describe('LeagueDashboardTab — season picker', () => {
   });
 
   it('renders a chip for each season', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByTestId('season-pill-3')).toBeTruthy();
@@ -171,7 +171,7 @@ describe('LeagueDashboardTab — season picker', () => {
   });
 
   it('auto-selects the latest season (index 0) on load', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(mockGetLeagueStandings).toHaveBeenCalledWith(1, 3);
@@ -179,7 +179,7 @@ describe('LeagueDashboardTab — season picker', () => {
   });
 
   it('calls getLeagueStandings without season_id when "All" is pressed', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('season-pill-all')).toBeTruthy());
     fireEvent.press(screen.getByTestId('season-pill-all'));
@@ -190,7 +190,7 @@ describe('LeagueDashboardTab — season picker', () => {
   });
 
   it('calls getLeagueStandings with season_id when a season chip is pressed', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('season-pill-2')).toBeTruthy());
     fireEvent.press(screen.getByTestId('season-pill-2'));
@@ -207,7 +207,7 @@ describe('LeagueDashboardTab — season picker', () => {
 
 describe('LeagueDashboardTab — standings', () => {
   it('renders standings rows after data loads', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByTestId('standings-row-10')).toBeTruthy();
@@ -216,7 +216,7 @@ describe('LeagueDashboardTab — standings', () => {
   });
 
   it('shows rank, W-L, and win% for each row', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByText('8-2')).toBeTruthy();
@@ -227,20 +227,21 @@ describe('LeagueDashboardTab — standings', () => {
   it('shows "No standings yet" when standings array is empty', async () => {
     mockGetLeagueStandings.mockResolvedValue({ standings: [], season_info: null });
 
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByText('No standings yet')).toBeTruthy();
     });
   });
 
-  it('navigates to player screen on row press', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+  it('invokes onPressPlayer callback with player id on row press', async () => {
+    const onPressPlayer = jest.fn();
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={onPressPlayer} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('standings-row-10')).toBeTruthy());
     fireEvent.press(screen.getByTestId('standings-row-10'));
 
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('10'));
+    expect(onPressPlayer).toHaveBeenCalledWith(10);
   });
 });
 
@@ -250,7 +251,7 @@ describe('LeagueDashboardTab — standings', () => {
 
 describe('LeagueDashboardTab — season info card', () => {
   it('renders season info card when season_info is present', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByTestId('season-info-card')).toBeTruthy();
@@ -260,7 +261,7 @@ describe('LeagueDashboardTab — season info card', () => {
   it('does not render season info card when season_info is null', async () => {
     mockGetLeagueStandings.mockResolvedValue({ standings: [], season_info: null });
 
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.queryByTestId('season-info-card')).toBeNull();
@@ -268,7 +269,7 @@ describe('LeagueDashboardTab — season info card', () => {
   });
 
   it('uses season name as card title', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByText('Summer 2025')).toBeTruthy();
@@ -282,7 +283,7 @@ describe('LeagueDashboardTab — season info card', () => {
 
 describe('LeagueDashboardTab — column label', () => {
   it('shows "Rating" header when "All" is selected', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('season-pill-all')).toBeTruthy());
     fireEvent.press(screen.getByTestId('season-pill-all'));
@@ -294,7 +295,7 @@ describe('LeagueDashboardTab — column label', () => {
   });
 
   it('shows "PTS" header when a specific season is selected', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByText('PTS')).toBeTruthy();
@@ -316,7 +317,7 @@ describe('LeagueDashboardTab — sort', () => {
       ],
     });
 
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('sort-by-win-rate')).toBeTruthy());
     fireEvent.press(screen.getByTestId('sort-by-win-rate'));
@@ -328,7 +329,7 @@ describe('LeagueDashboardTab — sort', () => {
   });
 
   it('sort header is pressable', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('sort-by-rating')).toBeTruthy());
     expect(() => fireEvent.press(screen.getByTestId('sort-by-rating'))).not.toThrow();
@@ -343,7 +344,7 @@ describe('LeagueDashboardTab — sort', () => {
       ],
     });
 
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('sort-by-name')).toBeTruthy());
     fireEvent.press(screen.getByTestId('sort-by-name'));
@@ -364,7 +365,7 @@ describe('LeagueDashboardTab — sort', () => {
   });
 
   it('# header press restores default rank ordering', async () => {
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('sort-by-rating')).toBeTruthy());
 
@@ -390,7 +391,7 @@ describe('LeagueDashboardTab — sort', () => {
       ],
     });
 
-    render(<LeagueDashboardTab leagueId={1} />, { wrapper: makeWrapper() });
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('sort-by-wins')).toBeTruthy());
     fireEvent.press(screen.getByTestId('sort-by-wins'));

@@ -54,7 +54,7 @@ describe('SignupScreen', () => {
 
   it('renders Google OAuth button at the top', () => {
     const { getByText } = render(<SignupScreen />);
-    expect(getByText('Continue with Google')).toBeTruthy();
+    expect(getByText('Sign Up with Google')).toBeTruthy();
   });
 
   it('renders Apple OAuth button on iOS when available', async () => {
@@ -63,7 +63,7 @@ describe('SignupScreen', () => {
     const Platform = require('react-native').Platform;
     Platform.OS = 'ios';
     const { findByText } = render(<SignupScreen />);
-    expect(await findByText('Continue with Apple')).toBeTruthy();
+    expect(await findByText('Sign Up with Apple')).toBeTruthy();
   });
 
   it('renders OR divider', () => {

@@ -25,8 +25,12 @@ import {
   useLeagueStatsTab,
   type StatsInnerTab,
 } from './useLeagueStatsTab';
-import type { LeaguePlayerStats } from '@/lib/mockApi';
-import type { GameHistoryEntry } from '@beach-kings/shared';
+import type { GameHistoryEntry, LeaguePlayerStats } from '@beach-kings/shared';
+
+// Backend returns win_rate as a 0–1 float; render as a 0–100 percentage.
+function formatWinRate(rate: number): string {
+  return `${(rate * 100).toFixed(1)}%`;
+}
 
 // ---------------------------------------------------------------------------
 // Season selector
@@ -174,7 +178,7 @@ function BreakdownTable({
             {row.wins}-{row.losses}
           </Text>
           <Text className="w-12 text-[12px] font-semibold text-default text-right">
-            {row.win_rate}%
+            {formatWinRate(row.win_rate)}
           </Text>
         </View>
       ))}
@@ -294,7 +298,7 @@ function StatsContent({ stats }: { readonly stats: LeaguePlayerStats }): React.R
           {[
             { label: 'Wins', value: String(stats.overall.wins) },
             { label: 'Losses', value: String(stats.overall.losses) },
-            { label: 'Win%', value: `${stats.overall.win_rate}%` },
+            { label: 'Win%', value: formatWinRate(stats.overall.win_rate) },
             { label: 'GP', value: String(stats.overall.games_played) },
             { label: '+/-', value: stats.overall.point_diff > 0 ? `+${stats.overall.point_diff.toFixed(1)}` : String(stats.overall.point_diff.toFixed(1)) },
           ].map(({ label, value }) => (

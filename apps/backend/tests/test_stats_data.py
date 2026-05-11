@@ -59,6 +59,7 @@ def test_stats_data_exports_read_functions():
         "get_all_player_league_stats",
         "export_matches_to_csv",
         "get_player_match_history_by_id",
+        "get_league_player_stats_full",
     ]:
         assert hasattr(stats_data, name), f"stats_data missing: {name}"
 

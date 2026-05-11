@@ -5,11 +5,10 @@
  * in the context of a league/season.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { Season } from '@beach-kings/shared';
+import type { LeaguePlayerStats, Season } from '@beach-kings/shared';
 import { api } from '@/lib/api';
-import { mockApi } from '@/lib/mockApi';
 import { leagueKeys } from './leagueKeys';
 
 interface SeasonSelectorEntry {
@@ -27,7 +26,7 @@ function toSeasonSelectorEntry(season: Season): SeasonSelectorEntry {
 export type StatsInnerTab = 'stats' | 'history';
 
 export interface UseLeagueStatsTabResult {
-  readonly stats: import('@/lib/mockApi').LeaguePlayerStats | null;
+  readonly stats: LeaguePlayerStats | null;
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly innerTab: StatsInnerTab;
@@ -39,6 +38,10 @@ export interface UseLeagueStatsTabResult {
 
 /**
  * Returns data and state for the league player stats view.
+ *
+ * Backed by GET /api/leagues/:leagueId/players/:playerId/stats[?season_id=].
+ * ``rank``, ``rating_delta``, and ``game_history`` are placeholders until the
+ * backend computes them — the UI handles the empty/null values gracefully.
  */
 export function useLeagueStatsTab(
   leagueId: number | string,
@@ -47,24 +50,31 @@ export function useLeagueStatsTab(
   const [innerTab, setInnerTab] = useState<StatsInnerTab>('stats');
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
 
-  const statsQuery = useQuery({
-    queryKey: leagueKeys.playerStats(leagueId, playerId, selectedSeasonId),
-    queryFn: () =>
-      mockApi.getLeaguePlayerStats(leagueId, playerId, selectedSeasonId),
-    // Backend gap: GET /api/players/:player_id/league/:league_id/stats exists
-    // but returns only { games, wins, losses, win_rate, points, avg_pt_diff }.
-    // The UI consumes a richer shape (partners, opponents, game_history,
-    // ratings, season-scoped stats). Wiring the slim endpoint would render
-    // empty Partners/Opponents/History sections. Backend must extend the
-    // endpoint or the UI must be reduced before this can be wired.
-  });
-
   const seasonsQuery = useQuery({
     queryKey: leagueKeys.seasons(leagueId),
     queryFn: async (): Promise<readonly SeasonSelectorEntry[]> => {
       const rows = await api.getLeagueSeasons(Number(leagueId));
       return rows.map(toSeasonSelectorEntry);
     },
+  });
+
+  // Auto-init: once seasons load, select the latest (first) season so the
+  // API call matches the visually highlighted pill.
+  useEffect(() => {
+    if (selectedSeasonId === null && seasonsQuery.data && seasonsQuery.data.length > 0) {
+      setSelectedSeasonId(seasonsQuery.data[0].id);
+    }
+  }, [selectedSeasonId, seasonsQuery.data]);
+
+  const statsQuery = useQuery({
+    queryKey: leagueKeys.playerStats(leagueId, playerId, selectedSeasonId),
+    queryFn: () =>
+      api.getLeaguePlayerStats(
+        Number(leagueId),
+        Number(playerId),
+        selectedSeasonId,
+      ),
+    enabled: selectedSeasonId !== null,
   });
 
   const onSelectSeason = useCallback((id: number) => {

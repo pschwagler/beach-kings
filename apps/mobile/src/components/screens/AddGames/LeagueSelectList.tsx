@@ -5,16 +5,19 @@
  *   loading  — shimmer skeletons (2 rows)
  *   error    — error message + retry button
  *   empty    — "You're not in any leagues yet" + Join CTA
- *   data     — scrollable list of league rows
+ *   data     — scrollable list of league cards with action buttons
+ *
+ * Each league card shows: header (icon + name + location + season) + optional
+ * active badge + action button ("Continue (N games)" or "Start New Session").
  *
  * Mirrors `add-games-league-select.html` `.league-card` style.
  */
 
 import React, { useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native';
-import type { League } from '@beach-kings/shared';
+import type { League, Session } from '@beach-kings/shared';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
-import { ChevronRightIcon, TrophyIcon } from '@/components/ui/icons';
+import { TrophyIcon } from '@/components/ui/icons';
 import { hapticMedium } from '@/utils/haptics';
 
 // ---------------------------------------------------------------------------
@@ -35,54 +38,89 @@ function LeagueRowSkeleton(): React.ReactNode {
 }
 
 interface LeagueRowProps {
-  readonly league: League;
-  readonly onSelect: (league: League) => void;
+  readonly league: League & { readonly activeSession?: Session | null };
+  readonly onContinue: (session: Session) => void;
+  readonly onStartNew: (league: League) => void;
 }
 
-function LeagueRow({ league, onSelect }: LeagueRowProps): React.ReactNode {
-  const handlePress = useCallback(() => {
+function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.ReactNode {
+  const handleContinue = useCallback(() => {
+    if (league.activeSession != null) {
+      void hapticMedium();
+      onContinue(league.activeSession);
+    }
+  }, [league, onContinue]);
+
+  const handleStartNew = useCallback(() => {
     void hapticMedium();
-    onSelect(league);
-  }, [league, onSelect]);
+    onStartNew(league);
+  }, [league, onStartNew]);
 
   const activeSeasonName = league.current_season?.name ?? null;
   const location = league.location_name ?? league.region_name ?? null;
+  const hasActiveSession = league.activeSession != null;
+  const matchCount = league.activeSession?.match_count ?? 0;
 
   return (
-    <Pressable
-      testID={`league-row-${league.id}`}
-      onPress={handlePress}
-      accessibilityRole="button"
-      accessibilityLabel={`Select ${league.name}`}
-      className="flex-row items-center gap-[14px] bg-surface rounded-[14px] p-4 mb-[10px] shadow-sm dark:shadow-none dark:border border-divider active:border active:border-brand-teal"
+    <View
+      testID={`league-card-${league.id}`}
+      className="bg-surface rounded-[14px] p-4 mb-[10px] shadow-sm dark:shadow-none dark:border border-divider"
     >
-      {/* Icon */}
-      <View className="w-11 h-11 rounded-[10px] bg-info-tint items-center justify-center">
-        <TrophyIcon size={22} color="#2a7d9c" />
+      {/* Card header: icon + name + location + season */}
+      <View className="flex-row items-center gap-[14px] mb-[14px]">
+        {/* Icon */}
+        <View className="w-11 h-11 rounded-[10px] bg-info-tint items-center justify-center flex-shrink-0">
+          <TrophyIcon size={22} color="#2a7d9c" />
+        </View>
+
+        {/* Info */}
+        <View className="flex-1">
+          <Text
+            className="text-[15px] font-bold text-default mb-[2px]"
+            numberOfLines={1}
+          >
+            {league.name}
+          </Text>
+          {location != null && (
+            <Text className="text-[12px] text-muted">
+              {location}
+            </Text>
+          )}
+          {activeSeasonName != null && (
+            <Text className="text-[11px] font-semibold text-brand-teal mt-[3px]">
+              {activeSeasonName}
+            </Text>
+          )}
+        </View>
       </View>
 
-      {/* Info */}
-      <View className="flex-1">
-        <Text
-          className="text-[15px] font-bold text-default mb-[2px]"
-          numberOfLines={1}
-        >
-          {league.name}
+      {/* Active session badge */}
+      {hasActiveSession && (
+        <View className="flex-row items-center gap-1 mb-[10px]">
+          <View className="w-1.5 h-1.5 rounded-full bg-success" />
+          <Text className="text-[10px] font-bold text-success uppercase tracking-wide">
+            Active Session
+          </Text>
+        </View>
+      )}
+
+      {/* Action button */}
+      <Pressable
+        testID={hasActiveSession ? `league-continue-${league.id}` : `league-new-${league.id}`}
+        onPress={hasActiveSession ? handleContinue : handleStartNew}
+        accessibilityRole="button"
+        accessibilityLabel={hasActiveSession ? `Continue session in ${league.name}` : `Start new session in ${league.name}`}
+        className={`w-full py-3 rounded-[10px] items-center justify-center ${
+          hasActiveSession ? 'bg-brand-gold' : 'bg-muted'
+        }`}
+      >
+        <Text className={`font-bold text-[15px] ${
+          hasActiveSession ? 'text-white' : 'text-default'
+        }`}>
+          {hasActiveSession ? `Continue (${matchCount} games)` : 'Start New Session'}
         </Text>
-        {location != null && (
-          <Text className="text-[12px] text-muted">
-            {location}
-          </Text>
-        )}
-        {activeSeasonName != null && (
-          <Text className="text-[11px] font-semibold text-brand-teal mt-[3px]">
-            {activeSeasonName} - Active
-          </Text>
-        )}
-      </View>
-
-      <ChevronRightIcon size={20} color="#cccccc" />
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
@@ -91,11 +129,12 @@ function LeagueRow({ league, onSelect }: LeagueRowProps): React.ReactNode {
 // ---------------------------------------------------------------------------
 
 interface LeagueSelectListProps {
-  readonly leagues: readonly League[] | undefined;
+  readonly leagues: readonly (League & { readonly activeSession?: Session | null })[] | undefined;
   readonly isLoading: boolean;
   readonly isRefreshing: boolean;
   readonly error: Error | null;
-  readonly onSelect: (league: League) => void;
+  readonly onContinueSession: (session: Session) => void;
+  readonly onStartNewSession: (league: League) => void;
   readonly onRetry: () => void;
   readonly onRefresh: () => void;
   readonly onJoinLeague: () => void;
@@ -106,7 +145,8 @@ export default function LeagueSelectList({
   isLoading,
   isRefreshing,
   error,
-  onSelect,
+  onContinueSession,
+  onStartNewSession,
   onRetry,
   onRefresh,
   onJoinLeague,
@@ -181,7 +221,12 @@ export default function LeagueSelectList({
         Your Leagues
       </Text>
       {leagues!.map((league) => (
-        <LeagueRow key={league.id} league={league} onSelect={onSelect} />
+        <LeagueRow
+          key={league.id}
+          league={league}
+          onContinue={onContinueSession}
+          onStartNew={onStartNewSession}
+        />
       ))}
     </ScrollView>
   );

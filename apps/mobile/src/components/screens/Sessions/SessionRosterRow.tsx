@@ -55,7 +55,7 @@ export default function SessionRosterRow({
           {player.display_name}
         </Text>
         <Text className="text-[12px] text-muted mt-[1px]">
-          {player.is_placeholder ? `Unregistered · ${player.game_count} game${player.game_count !== 1 ? 's' : ''}` : `${player.game_count} game${player.game_count !== 1 ? 's' : ''}`}
+          {player.is_placeholder ? `Guest · ${player.game_count} game${player.game_count !== 1 ? 's' : ''}` : `${player.game_count} game${player.game_count !== 1 ? 's' : ''}`}
         </Text>
       </View>
 

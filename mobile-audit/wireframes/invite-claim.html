@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
 <link rel="stylesheet" href="shared.css">
-<title>Claim Your Games - Beach League Mobile</title>
+<title>Claim Your Profile - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
 
@@ -16,35 +16,77 @@
 
   .top-nav .spacer { min-width: 44px; }
 
-  /* ── Welcome Header ── */
-  .welcome-header { background: #fff; padding: 24px 16px; text-align: center; border-bottom: 1px solid #eee; }
-  .welcome-icon { font-size: 40px; margin-bottom: 12px; }
-  .welcome-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
-  .welcome-sub { font-size: 14px; color: #666; line-height: 1.5; }
-  .welcome-league { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 14px; border-radius: 20px; background: #e8f4f8; }
-  .welcome-league .league-icon { font-size: 14px; }
-  .welcome-league .league-name { font-size: 13px; font-weight: 600; color: #1a3a4a; }
+  /* ── Inviter strip (trust signal) ── */
+  .inviter-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #f8f5ec;
+    border-bottom: 1px solid #f0e0b0;
+  }
+  .inviter-strip-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .inviter-strip-text { font-size: 13px; color: #5a4a1f; line-height: 1.35; }
+  .inviter-strip-text strong { color: #1a1a1a; font-weight: 700; }
 
   /* ── Content ── */
-  .content { padding: 0 16px 20px; }
+  .content { padding: 16px 16px 20px; }
 
   .claim-summary { display: flex; align-items: center; gap: 12px; padding: 16px; margin: 16px 0; background: #fdf8ed; border-radius: 12px; border: 1px solid #f0e0b0; }
   .claim-count { font-size: 32px; font-weight: 900; color: #d4a843; line-height: 1; }
   .claim-text { font-size: 14px; color: #666; line-height: 1.4; }
   .claim-text strong { color: #1a1a1a; }
 
-  /* ── Inherited Stats Callout ── */
-  .inherit-callout { background: #1a3a4a; border-radius: 12px; padding: 16px; margin: 0 0 16px; color: #fff; }
-  .inherit-callout-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-  .inherit-callout-icon { font-size: 18px; }
-  .inherit-callout-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #7fb3c8; }
-  .inherit-callout-body { display: flex; align-items: center; gap: 12px; }
-  .inherit-rating-badge { background: #d4a843; border-radius: 10px; padding: 10px 16px; text-align: center; flex-shrink: 0; }
-  .inherit-rating-value { font-size: 28px; font-weight: 900; color: #fff; line-height: 1; }
-  .inherit-rating-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-  .inherit-details { flex: 1; }
-  .inherit-headline { font-size: 14px; font-weight: 700; color: #fff; line-height: 1.4; margin-bottom: 4px; }
-  .inherit-sub { font-size: 12px; color: #7fb3c8; line-height: 1.4; }
+  /* ── Profile Claim Summary ── */
+  .profile-summary { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 18px 16px; margin: 0 0 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .profile-summary-hero { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .profile-summary-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .profile-summary-headline { font-size: 17px; font-weight: 800; color: #1a1a1a; line-height: 1.25; margin-bottom: 3px; }
+  .profile-summary-headline strong { color: #d4a843; }
+  .profile-summary-sub { font-size: 13px; color: #666; line-height: 1.45; }
+
+  /* ── People row (played-with / connected-to) ── */
+  .people-row { margin-top: 14px; }
+  .people-row-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #999; margin-bottom: 8px; }
+  .people-row-list { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+  .person-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 20px; background: #f6f6f6; border: 1px solid #ececec; }
+  .person-chip-avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .person-chip-name { font-size: 12px; font-weight: 600; color: #333; line-height: 1; }
+  .person-chip.is-hidden { display: none; }
+  .person-more {
+    font-size: 12px;
+    color: #2a7d9c;
+    font-weight: 600;
+    padding: 4px 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    font-family: inherit;
+  }
+  .person-more:hover { color: #1a3a4a; }
 
   /* ── Section Title ── */
   .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
@@ -61,10 +103,26 @@
   .claim-team.right { text-align: right; }
   .claim-score { text-align: center; min-width: 56px; flex-shrink: 0; }
   .claim-score .score { font-size: 18px; font-weight: 800; color: #1a3a4a; }
-  .claim-score .sep { color: #ccc; margin: 0 2px; }
+  .claim-score .sep { color: #8a8a8a; font-weight: 700; margin: 0 4px; }
 
-  /* ── Claim Actions ── */
-  .claim-actions { margin-top: 20px; }
+  /* ── Claim Actions ──
+     Default: in-flow at the end of content.
+     `.is-floating` is toggled by JS once the user scrolls past the first
+     match card, lifting the bar to a sticky bottom position. */
+  .claim-actions {
+    margin: 20px -16px 0;
+    padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, #fff 18%);
+    z-index: 10;
+  }
+  .claim-actions.is-floating {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+  /* Padding so last card isn't hidden behind sticky bar */
+  #state-review .content { padding-bottom: 8px; }
   .btn-primary { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; min-height: 54px; }
   .btn-secondary { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: transparent; color: #666; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; min-height: 44px; }
   .btn-dark { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; min-height: 54px; }
@@ -75,7 +133,7 @@
   .spinner { width: 64px; height: 64px; border: 4px solid #e8f4f8; border-top-color: #2a7d9c; border-radius: 50%; animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .processing-title { font-size: 20px; font-weight: 800; text-align: center; color: #1a3a4a; }
-  .processing-steps { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+  .processing-steps { width: 100%; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
   .processing-step { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
   .step-dot { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
   .step-dot.done { background: #22c55e; }
@@ -97,24 +155,63 @@
   .success-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.55; max-width: 300px; }
   .success-card { background: #fff; border-radius: 14px; padding: 20px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
   .success-card-title { font-size: 12px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
-  .success-rating-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
-  .success-rating-label { font-size: 14px; color: #555; }
-  .success-rating-badge { background: #d4a843; border-radius: 8px; padding: 6px 14px; }
-  .success-rating-number { font-size: 22px; font-weight: 900; color: #fff; }
-  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; }
+  .success-claim-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #f0f0f0; }
+  .success-claim-from { font-size: 13px; font-weight: 600; color: #888; }
+  .success-claim-arrow { color: #ccc; font-size: 14px; flex-shrink: 0; }
+  .success-claim-to { font-size: 14px; font-weight: 800; color: #1a1a1a; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; gap: 10px; }
   .stat-row:not(:last-child) { border-bottom: 1px solid #f5f5f5; }
   .stat-label { font-size: 13px; color: #666; }
   .stat-value { font-size: 13px; font-weight: 700; }
-
-  /* ── Error State ── */
+  /* ── Info State (was Error) ──
+     Used when the invite has already been claimed. Treated as
+     informational, not as a user error. */
   .error-area { display: flex; flex-direction: column; align-items: center; padding: 60px 24px 36px; gap: 20px; }
-  .error-icon-wrap { width: 80px; height: 80px; border-radius: 50%; background: #fee2e2; border: 3px solid #ef4444; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #ef4444; }
+  .error-icon-wrap { width: 80px; height: 80px; border-radius: 50%; background: #e8f4f8; border: 2px solid #2a7d9c; display: flex; align-items: center; justify-content: center; color: #2a7d9c; }
   .error-title { font-size: 22px; font-weight: 800; text-align: center; color: #1a1a1a; }
   .error-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.55; max-width: 300px; }
-  .error-detail-card { background: #fff; border-radius: 12px; padding: 16px; width: 100%; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 4px solid #ef4444; }
-  .error-detail-title { font-size: 12px; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+  .error-detail-card { background: #fff; border-radius: 12px; padding: 16px; width: 100%; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 4px solid #2a7d9c; }
+  .error-detail-title { font-size: 12px; font-weight: 700; color: #2a7d9c; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
   .error-detail-body { font-size: 13px; color: #555; line-height: 1.5; }
   .error-tip { font-size: 12px; color: #999; text-align: center; line-height: 1.5; padding: 0 8px; }
+
+  /* ── Decline confirmation sheet ── */
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+  .sheet-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 20px max(20px, env(safe-area-inset-bottom));
+    z-index: 101;
+    transform: translateY(100%);
+    transition: transform 0.22s ease;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+  }
+  .sheet.is-open { transform: translateY(0); }
+  .sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    margin: 0 auto 14px;
+  }
+  .sheet-title { font-size: 18px; font-weight: 800; color: #1a1a1a; margin-bottom: 8px; }
+  .sheet-body { font-size: 14px; color: #555; line-height: 1.5; margin-bottom: 18px; }
 
 </style>
 </head>
@@ -141,104 +238,104 @@
 
   <div class="top-nav">
     <a href="welcome.html" class="back">&larr;</a>
-    <div class="title">Claim Your Games</div>
+    <div class="title">Claim Your Profile</div>
     <div class="spacer"></div>
   </div>
 
-  <div class="welcome-header">
-    <div class="welcome-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg></div>
-    <div class="welcome-title">Welcome to Beach League!</div>
-    <div class="welcome-sub">Someone recorded games with you. Claim them to start tracking your stats.</div>
-    <div class="welcome-league">
-      <span class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></span>
-      <span class="league-name">QBK Open Men - Mornings</span>
-    </div>
+  <!-- Inviter trust signal -->
+  <div class="inviter-strip">
+    <span class="inviter-strip-avatar" style="background:#2a7d9c;">KF</span>
+    <span class="inviter-strip-text"><strong>Karim Fadel</strong> invited you to claim your profile</span>
   </div>
 
   <div class="content">
 
-    <div class="claim-summary">
-      <div class="claim-count">5</div>
-      <div class="claim-text"><strong>5 unclaimed games</strong><br/>from 2 sessions this week</div>
-    </div>
-
-    <!-- Inherited stats preview callout -->
-    <div class="inherit-callout">
-      <div class="inherit-callout-header">
-        <span class="inherit-callout-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></span>
-        <span class="inherit-callout-label">What you'll inherit</span>
-      </div>
-      <div class="inherit-callout-body">
-        <div class="inherit-rating-badge">
-          <div class="inherit-rating-value">1380</div>
-          <div class="inherit-rating-label">Rating</div>
-        </div>
-        <div class="inherit-details">
-          <div class="inherit-headline">You'll inherit a 1380 rating from 12 games</div>
-          <div class="inherit-sub">3W &ndash; 2L this week &middot; 8W &ndash; 4L overall</div>
+    <!-- Profile claim summary -->
+    <div class="profile-summary">
+      <div class="profile-summary-hero">
+        <span class="profile-summary-avatar" style="background:#1a3a4a;">BK</span>
+        <div>
+          <div class="profile-summary-headline">Claim <strong>Brad Kessler&rsquo;s</strong> profile</div>
+          <div class="profile-summary-sub"><span data-game-count>5 games</span> recorded &middot; Showing 3 most recent</div>
         </div>
       </div>
+
+      <div class="people-row" data-people-row>
+        <div class="people-row-label">You played with</div>
+        <div class="people-row-list">
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#2a7d9c;" aria-hidden="true">KF</span><span class="person-chip-name">Karim Fadel</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#15803d;" aria-hidden="true">MB</span><span class="person-chip-name">Mike Bennett</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#b45309;" aria-hidden="true">DP</span><span class="person-chip-name">Davis Park</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#7c3aed;" aria-hidden="true">ER</span><span class="person-chip-name">Eli Rosen</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#be185d;" aria-hidden="true">KT</span><span class="person-chip-name">Ken Tanaka</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#0ea5e9;" aria-hidden="true">JR</span><span class="person-chip-name">Jake Rivera</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#65a30d;" aria-hidden="true">DM</span><span class="person-chip-name">Devon Morris</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#ea580c;" aria-hidden="true">AT</span><span class="person-chip-name">Alex Tomlinson</span></span>
+          <button type="button" class="person-more" onclick="expandPeopleRow(this)" aria-expanded="false">+3 more</button>
+        </div>
+      </div>
+
     </div>
 
-    <div class="section-title">Your Games</div>
+    <div class="section-title">Recent games on this profile</div>
 
-    <div class="claim-card">
+    <div class="claim-card" data-first-card>
       <div class="claim-card-header">
-        <span class="claim-session">Sunday at QBK</span>
+        <span class="claim-session">Sunday morning</span>
         <span class="claim-date">Apr 6</span>
       </div>
       <div class="claim-teams">
         <div class="claim-team">
-          <div class="claim-team-names"><span class="you">You</span><br/>Karim F</div>
+          <div class="claim-team-names"><span class="you">You</span><br/>Karim Fadel</div>
         </div>
         <div class="claim-score">
-          <span class="score">21<span class="sep">-</span>18</span>
+          <span class="score">21<span class="sep" aria-hidden="true">&ndash;</span>18</span>
         </div>
         <div class="claim-team right">
-          <div class="claim-team-names">Mike B<br/>Jake R</div>
+          <div class="claim-team-names">Mike Bennett<br/>Jake Rivera</div>
         </div>
       </div>
     </div>
 
     <div class="claim-card">
       <div class="claim-card-header">
-        <span class="claim-session">Sunday at QBK</span>
+        <span class="claim-session">Sunday morning</span>
         <span class="claim-date">Apr 6</span>
       </div>
       <div class="claim-teams">
         <div class="claim-team">
-          <div class="claim-team-names"><span class="you">You</span><br/>Mike B</div>
+          <div class="claim-team-names"><span class="you">You</span><br/>Mike Bennett</div>
         </div>
         <div class="claim-score">
-          <span class="score">21<span class="sep">-</span>15</span>
+          <span class="score">21<span class="sep" aria-hidden="true">&ndash;</span>15</span>
         </div>
         <div class="claim-team right">
-          <div class="claim-team-names">Karim F<br/>Alex T</div>
+          <div class="claim-team-names">Karim Fadel<br/>Alex Tomlinson</div>
         </div>
       </div>
     </div>
 
     <div class="claim-card">
       <div class="claim-card-header">
-        <span class="claim-session">Saturday at QBK</span>
+        <span class="claim-session">Saturday morning</span>
         <span class="claim-date">Apr 5</span>
       </div>
       <div class="claim-teams">
         <div class="claim-team">
-          <div class="claim-team-names">Devon M<br/>Jake R</div>
+          <div class="claim-team-names">Devon Morris<br/>Jake Rivera</div>
         </div>
         <div class="claim-score">
-          <span class="score">21<span class="sep">-</span>19</span>
+          <span class="score">21<span class="sep" aria-hidden="true">&ndash;</span>19</span>
         </div>
         <div class="claim-team right">
-          <div class="claim-team-names"><span class="you">You</span><br/>Dan P</div>
+          <div class="claim-team-names"><span class="you">You</span><br/>Dan Park</div>
         </div>
       </div>
     </div>
 
     <div class="claim-actions">
-      <button class="btn-primary" onclick="setState('processing', null); setTimeout(function(){ setState('success', null); }, 1800)">Claim My Games</button>
-      <button class="btn-secondary" onclick="window.location.href='welcome.html'">Not me, skip</button>
+      <button class="btn-primary" onclick="setState('processing', null); setTimeout(function(){ setState('success', null); }, 1800)">Claim My Profile</button>
+      <button class="btn-secondary" onclick="openDeclineSheet()">This isn&rsquo;t me</button>
     </div>
 
   </div>
@@ -254,33 +351,25 @@
   </div>
 
   <div class="top-nav">
-    <a href="#" class="back" style="visibility: hidden;">&larr;</a>
-    <div class="title">Linking Account</div>
+    <div class="spacer"></div>
+    <div class="title">Claiming Your Profile</div>
     <div class="spacer"></div>
   </div>
 
   <div class="processing-area">
-    <div class="spinner"></div>
-    <div class="processing-title">Linking your account&hellip;</div>
+    <div class="spinner" role="status" aria-label="Claiming your profile"></div>
+    <div class="processing-title">Claiming your profile&hellip;</div>
 
-    <div class="processing-steps">
-      <div class="processing-step">
-        <div class="step-dot done"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
-        <span class="step-label">Token verified</span>
-      </div>
-      <div class="processing-step">
-        <div class="step-dot done"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
-        <span class="step-label">Placeholder profile found</span>
-      </div>
-      <div class="processing-step">
-        <div class="step-dot active">&#8226;</div>
-        <span class="step-label active">Merging game history &amp; stats&hellip;</span>
-      </div>
-      <div class="processing-step">
-        <div class="step-dot pending">&#8226;</div>
-        <span class="step-label pending">Updating your profile</span>
-      </div>
-    </div>
+    <ol class="processing-steps" aria-live="polite">
+      <li class="processing-step">
+        <div class="step-dot done" aria-hidden="true"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <span class="step-label">Invite verified</span>
+      </li>
+      <li class="processing-step" aria-current="step">
+        <div class="step-dot active" aria-hidden="true">&#8226;</div>
+        <span class="step-label active">Adding <span data-game-count>5 games</span> to your account&hellip;</span>
+      </li>
+    </ol>
 
     <p class="processing-note">This usually takes just a second.<br/>Please don&rsquo;t close this screen.</p>
   </div>
@@ -296,54 +385,56 @@
   </div>
 
   <div class="top-nav">
-    <a href="#" class="back" style="visibility: hidden;">&larr;</a>
-    <div class="title">Account Linked</div>
+    <div class="spacer"></div>
+    <div class="title">Profile Claimed</div>
     <div class="spacer"></div>
   </div>
 
   <div class="success-area">
 
-    <div class="success-icon-wrap"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <div class="success-icon-wrap" role="img" aria-label="Success"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
 
     <div class="success-badge">
-      <div class="success-badge-dot"></div>
-      <span class="success-badge-text">Account linked successfully</span>
+      <div class="success-badge-dot" aria-hidden="true"></div>
+      <span class="success-badge-text">Profile claimed</span>
     </div>
 
     <div class="success-title">You&rsquo;re all set!</div>
 
-    <div class="success-desc">Your game history and rating have been merged into your account. Welcome to the league.</div>
+    <div class="success-desc">Brad Kessler&rsquo;s profile is now part of your account. Welcome to the league.</div>
 
     <div class="success-card">
-      <div class="success-card-title">Your profile at a glance</div>
+      <div class="success-card-title">Profile merged</div>
 
-      <div class="success-rating-row">
-        <span class="success-rating-label">Current rating</span>
-        <div class="success-rating-badge">
-          <span class="success-rating-number">1380</span>
+      <div class="success-claim-row">
+        <span class="success-claim-from">Brad Kessler</span>
+        <span class="success-claim-arrow" aria-hidden="true">&rarr;</span>
+        <span class="success-claim-to">Patrick Schwagler</span>
+      </div>
+
+      <div class="people-row" style="margin-top: 0;" data-people-row>
+        <div class="people-row-label">Now connected to</div>
+        <div class="people-row-list">
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#2a7d9c;" aria-hidden="true">KF</span><span class="person-chip-name">Karim Fadel</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#15803d;" aria-hidden="true">MB</span><span class="person-chip-name">Mike Bennett</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#b45309;" aria-hidden="true">DP</span><span class="person-chip-name">Davis Park</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#7c3aed;" aria-hidden="true">ER</span><span class="person-chip-name">Eli Rosen</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#be185d;" aria-hidden="true">KT</span><span class="person-chip-name">Ken Tanaka</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#0ea5e9;" aria-hidden="true">JR</span><span class="person-chip-name">Jake Rivera</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#65a30d;" aria-hidden="true">DM</span><span class="person-chip-name">Devon Morris</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#ea580c;" aria-hidden="true">AT</span><span class="person-chip-name">Alex Tomlinson</span></span>
+          <button type="button" class="person-more" onclick="expandPeopleRow(this)" aria-expanded="false">+3 more</button>
         </div>
       </div>
 
-      <div class="stat-row">
-        <span class="stat-label">Games inherited</span>
-        <span class="stat-value">12</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Overall record</span>
-        <span class="stat-value" style="color: #15803d;">8W &ndash; 4L</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">League</span>
-        <span class="stat-value">QBK Open Men</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Season</span>
-        <span class="stat-value">Spring 2025</span>
+      <div class="stat-row" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f0f0;">
+        <span class="stat-label">Record added</span>
+        <span class="stat-value"><span data-game-count>5 games</span> &middot; <span style="color:#15803d;">3W &ndash; 2L</span></span>
       </div>
     </div>
 
-    <button class="btn-dark" style="width: 100%;" onclick="window.location.href='home.html'">Go to Dashboard</button>
-    <button class="btn-outline" style="width: 100%;" onclick="window.location.href='my-stats.html'">View My Stats</button>
+    <button class="btn-dark" style="width: 100%;" onclick="window.location.href='my-stats.html'">View My Stats</button>
+    <button class="btn-outline" style="width: 100%;" onclick="window.location.href='home.html'">Go to Dashboard</button>
 
   </div>
 
@@ -359,32 +450,42 @@
 
   <div class="top-nav">
     <a href="welcome.html" class="back">&larr;</a>
-    <div class="title">Claim Your Games</div>
+    <div class="title">Claim Your Profile</div>
     <div class="spacer"></div>
   </div>
 
   <div class="error-area">
 
-    <div class="error-icon-wrap">&#33;</div>
-
-    <div class="error-title">Invite Already Claimed</div>
-
-    <div class="error-desc">This invite link has already been used. Each token can only be claimed once to keep stats accurate.</div>
-
-    <div class="error-detail-card">
-      <div class="error-detail-title">What happened?</div>
-      <div class="error-detail-body">The token in this invite link was redeemed by another account. If that wasn&rsquo;t you, contact your league admin so they can send a new invite.</div>
+    <div class="error-icon-wrap" role="img" aria-label="Information">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     </div>
 
-    <button class="btn-dark" style="width: 100%;" onclick="window.location.href='home.html'">Go Home</button>
-    <button class="btn-outline" style="width: 100%;" onclick="window.location.href='message-thread.html'">Contact League Admin</button>
+    <div class="error-title">This invite has been used</div>
 
-    <p class="error-tip">Joined the league through a different link? Log in to your existing account to see your games.</p>
+    <div class="error-desc">Invite links can only be claimed once. Your games may already be on another account.</div>
+
+    <div class="error-detail-card">
+      <div class="error-detail-title">What to try</div>
+      <div class="error-detail-body">If you already have a Beach League account, sign in to find your games there. If you think this was a mistake, ask your league admin to send a fresh invite.</div>
+    </div>
+
+    <button class="btn-dark" style="width: 100%;" onclick="window.location.href='login.html'">Sign In</button>
+    <button class="btn-outline" style="width: 100%;" onclick="window.location.href='home.html'">Go Home</button>
 
   </div>
 
 </div>
 
+
+<!-- ══ Decline confirmation sheet ══ -->
+<div class="sheet-backdrop" id="decline-backdrop" onclick="closeDeclineSheet()" aria-hidden="true"></div>
+<div class="sheet" id="decline-sheet" role="dialog" aria-modal="true" aria-labelledby="decline-sheet-title" aria-hidden="true">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-title" id="decline-sheet-title">Not your games?</div>
+  <div class="sheet-body">We&rsquo;ll let <strong>Karim Fadel</strong> know so they can re-send to the right person. This invite link will be deactivated.</div>
+  <button class="btn-dark" onclick="confirmDecline()">Yes, this isn&rsquo;t me</button>
+  <button class="btn-secondary" onclick="closeDeclineSheet()">Cancel</button>
+</div>
 
 <script>
 function setState(state, pill) {
@@ -396,6 +497,111 @@ function setState(state, pill) {
   }
   window.scrollTo(0, 0);
 }
+
+// Sticky CTA: only float once user has scrolled past the first match card,
+// so first-time viewers always read at least one game before the commit prompt.
+(function setupDeferredStickyCta() {
+  var firstCard = document.querySelector('[data-first-card]');
+  var actions = document.querySelector('#state-review .claim-actions');
+  if (!firstCard || !actions || typeof IntersectionObserver === 'undefined') {
+    actions && actions.classList.add('is-floating');
+    return;
+  }
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (!entry.isIntersecting && entry.boundingClientRect.top < 0) {
+        actions.classList.add('is-floating');
+      } else if (entry.isIntersecting) {
+        actions.classList.remove('is-floating');
+      }
+    });
+  }, { threshold: 0 });
+  observer.observe(firstCard);
+})();
+
+// Expand the "+N more" people chip list inline.
+function expandPeopleRow(button) {
+  var row = button.closest('[data-people-row]');
+  if (!row) return;
+  row.querySelectorAll('.person-chip.is-hidden').forEach(function(chip) {
+    chip.classList.remove('is-hidden');
+  });
+  button.setAttribute('aria-expanded', 'true');
+  button.remove();
+}
+
+// Decline confirmation sheet — modal with Esc-to-close + focus trap.
+var declineSheetReturnFocus = null;
+
+function getSheetFocusables() {
+  var sheet = document.getElementById('decline-sheet');
+  return Array.prototype.slice.call(sheet.querySelectorAll(
+    'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  ));
+}
+
+function openDeclineSheet() {
+  declineSheetReturnFocus = document.activeElement;
+  document.getElementById('decline-backdrop').classList.add('is-open');
+  var sheet = document.getElementById('decline-sheet');
+  sheet.classList.add('is-open');
+  sheet.setAttribute('aria-hidden', 'false');
+  var focusables = getSheetFocusables();
+  if (focusables.length) focusables[0].focus();
+  document.addEventListener('keydown', onSheetKeydown);
+}
+
+function closeDeclineSheet() {
+  document.getElementById('decline-backdrop').classList.remove('is-open');
+  var sheet = document.getElementById('decline-sheet');
+  sheet.classList.remove('is-open');
+  sheet.setAttribute('aria-hidden', 'true');
+  document.removeEventListener('keydown', onSheetKeydown);
+  if (declineSheetReturnFocus && typeof declineSheetReturnFocus.focus === 'function') {
+    declineSheetReturnFocus.focus();
+  }
+  declineSheetReturnFocus = null;
+}
+
+function onSheetKeydown(e) {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeDeclineSheet();
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  var focusables = getSheetFocusables();
+  if (!focusables.length) return;
+  var first = focusables[0];
+  var last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+function confirmDecline() {
+  closeDeclineSheet();
+  // In production: POST to API to deactivate invite + notify inviter.
+  window.location.href = 'welcome.html';
+}
+
+// Pluralization helper. Single source-of-truth for game counts so a copy
+// change to "1 game" vs "5 games" only needs to edit GAME_COUNT.
+// In production the count comes from API; this just keeps the wireframe
+// internally consistent when designers tweak the demo number.
+var GAME_COUNT = 5;
+function pluralize(n, singular, plural) {
+  return n + ' ' + (n === 1 ? singular : (plural || singular + 's'));
+}
+(function applyGameCounts() {
+  document.querySelectorAll('[data-game-count]').forEach(function(el) {
+    el.textContent = pluralize(GAME_COUNT, 'game');
+  });
+})();
 </script>
 
 <script src="dark-theme-toggle.js"></script>

@@ -18,14 +18,25 @@
   .section-desc { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.4; }
 
   /* League Card */
-  .league-card { display: flex; align-items: center; gap: 14px; background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; text-decoration: none; color: inherit; border: 1.5px solid transparent; }
+  .league-card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; text-decoration: none; color: inherit; border: 1.5px solid transparent; }
   .league-card:active { border-color: #2a7d9c; background: #f8fcfd; }
+
+  /* League Card Header */
+  .league-card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
   .league-icon { width: 44px; height: 44px; border-radius: 10px; background: #e8f4f8; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
   .league-info { flex: 1; }
   .league-name { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
   .league-location { font-size: 12px; color: #666; }
   .league-season { font-size: 11px; color: #2a7d9c; font-weight: 600; margin-top: 3px; }
-  .league-chevron { color: #ccc; font-size: 18px; }
+
+  /* Action Buttons */
+  .league-action-btn { display: block; width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 700; text-align: center; cursor: pointer; }
+  .btn-continue { background: #d4a843; color: #fff; }
+  .btn-new-session { background: #e8e8e8; color: #1a1a1a; }
+
+  /* Active Session Badge */
+  .active-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; color: #15803d; text-transform: uppercase; margin-bottom: 10px; }
+  .active-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
 
 </style>
 </head>
@@ -48,35 +59,42 @@
 
   <div class="section-label">Your Leagues</div>
 
-  <a href="score-league.html" class="league-card">
-    <div class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
-    <div class="league-info">
-      <div class="league-name">QBK Open Men - Mornings</div>
-      <div class="league-location">Queen's Beach, Waikiki</div>
-      <div class="league-season">Season 4 - Active</div>
+  <div class="league-card">
+    <div class="league-card-header">
+      <div class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+      <div class="league-info">
+        <div class="league-name">QBK Open Men - Mornings</div>
+        <div class="league-location">Queen's Beach, Waikiki</div>
+        <div class="league-season">Season 4 - Active</div>
+      </div>
     </div>
-    <span class="league-chevron">&#8250;</span>
-  </a>
+    <div class="active-badge"><span class="dot"></span> Active Session</div>
+    <a href="score-league.html" class="league-action-btn btn-continue">Continue (7 games)</a>
+  </div>
 
-  <a href="score-league.html" class="league-card">
-    <div class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
-    <div class="league-info">
-      <div class="league-name">South Bay Doubles</div>
-      <div class="league-location">Manhattan Beach</div>
-      <div class="league-season">Season 2 - Active</div>
+  <div class="league-card">
+    <div class="league-card-header">
+      <div class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+      <div class="league-info">
+        <div class="league-name">South Bay Doubles</div>
+        <div class="league-location">Manhattan Beach</div>
+        <div class="league-season">Season 2 - Active</div>
+      </div>
     </div>
-    <span class="league-chevron">&#8250;</span>
-  </a>
+    <a href="score-league.html" class="league-action-btn btn-new-session">Start New Session</a>
+  </div>
 
-  <a href="score-league.html" class="league-card">
-    <div class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
-    <div class="league-info">
-      <div class="league-name">OB Sunset League</div>
-      <div class="league-location">Ocean Beach, San Diego</div>
-      <div class="league-season">Season 1 - Active</div>
+  <div class="league-card">
+    <div class="league-card-header">
+      <div class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+      <div class="league-info">
+        <div class="league-name">OB Sunset League</div>
+        <div class="league-location">Ocean Beach, San Diego</div>
+        <div class="league-season">Season 1 - Active</div>
+      </div>
     </div>
-    <span class="league-chevron">&#8250;</span>
-  </a>
+    <a href="score-league.html" class="league-action-btn btn-new-session">Start New Session</a>
+  </div>
 
 </div>
 

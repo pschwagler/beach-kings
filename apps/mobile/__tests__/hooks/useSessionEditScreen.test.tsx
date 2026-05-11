@@ -30,6 +30,7 @@ import type { SessionDetail } from '@beach-kings/shared';
 
 const SESSION: SessionDetail = {
   id: 5,
+  code: 'BK5TEST2',
   league_id: null,
   league_name: null,
   court_name: 'Court B',

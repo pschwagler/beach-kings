@@ -1,6 +1,8 @@
 /**
  * Profile header section for the Player Profile screen.
  * Shows avatar, name, location, level badge, and Add Friend / Message buttons.
+ * For guest players (is_placeholder), renders a "not on Beach League yet" banner
+ * and a Send Invite button instead of the social actions.
  */
 
 import React from 'react';
@@ -13,6 +15,7 @@ interface PlayerProfileHeaderProps {
   readonly isFriendActionLoading: boolean;
   readonly onAddFriend: () => void;
   readonly onMessage: () => void;
+  readonly onSendInvite?: () => void;
 }
 
 export default function PlayerProfileHeader({
@@ -21,6 +24,7 @@ export default function PlayerProfileHeader({
   isFriendActionLoading,
   onAddFriend,
   onMessage,
+  onSendInvite,
 }: PlayerProfileHeaderProps): React.ReactNode {
   const displayName = [player.first_name, player.last_name]
     .filter(Boolean)
@@ -31,18 +35,23 @@ export default function PlayerProfileHeader({
     .join(', ');
 
   const level = player.level ?? null;
+  const isGuest = player.is_placeholder === true;
 
   return (
     <View
       testID="player-profile-header"
       className="bg-elevated px-lg pt-xl pb-lg items-center border-b border-strong"
     >
-      {/* Avatar */}
+      {/* Avatar — dashed gold border for guests */}
       <View
-        className="w-[88px] h-[88px] rounded-full bg-brand-teal/30 items-center justify-center mb-sm border-2 border-brand-teal/20"
+        className={`w-[88px] h-[88px] rounded-full items-center justify-center mb-sm ${
+          isGuest
+            ? 'border-2 border-dashed border-brand-gold bg-brand-gold/10'
+            : 'border-2 border-brand-teal/20 bg-brand-teal/30'
+        }`}
         accessibilityLabel={`${displayName}'s avatar`}
       >
-        <Text className="text-[32px] font-bold text-brand-teal">
+        <Text className={`text-[32px] font-bold ${isGuest ? 'text-brand-gold' : 'text-brand-teal'}`}>
           {displayName.charAt(0).toUpperCase()}
         </Text>
       </View>
@@ -54,6 +63,13 @@ export default function PlayerProfileHeader({
       >
         {displayName}
       </Text>
+
+      {/* Guest badge */}
+      {isGuest && (
+        <View className="bg-brand-gold/15 px-sm py-[3px] rounded-xl mt-xs">
+          <Text className="text-xs font-semibold text-brand-gold">Guest</Text>
+        </View>
+      )}
 
       {/* Meta row: location + level badge */}
       <View className="flex-row items-center gap-sm mt-xs">
@@ -72,24 +88,50 @@ export default function PlayerProfileHeader({
         )}
       </View>
 
+      {/* Guest banner */}
+      {isGuest && (
+        <View
+          testID="guest-not-joined-banner"
+          className="mt-md px-md py-sm rounded-xl bg-brand-gold/10 border border-brand-gold/30 items-center"
+        >
+          <Text className="text-sm text-brand-gold text-center">
+            This player hasn't joined Beach League yet.
+          </Text>
+        </View>
+      )}
+
       {/* Action buttons */}
       <View className="flex-row gap-sm mt-md">
-        <FriendButton
-          friendStatus={friendStatus}
-          isLoading={isFriendActionLoading}
-          onPress={onAddFriend}
-        />
-        <Pressable
-          testID="player-message-btn"
-          onPress={onMessage}
-          accessibilityRole="button"
-          accessibilityLabel={`Send message to ${displayName}`}
-          className="px-xl py-sm rounded-xl border-[1.5px] border-default min-h-touch items-center justify-center active:opacity-70"
-        >
-          <Text className="text-sm font-semibold text-default">
-            Message
-          </Text>
-        </Pressable>
+        {isGuest ? (
+          <Pressable
+            testID="player-send-invite-btn"
+            onPress={onSendInvite}
+            accessibilityRole="button"
+            accessibilityLabel={`Invite ${displayName} to Beach League`}
+            className="px-xl py-sm rounded-xl bg-brand-gold min-h-touch items-center justify-center active:opacity-70"
+          >
+            <Text className="text-sm font-semibold text-white">Send Invite</Text>
+          </Pressable>
+        ) : (
+          <>
+            <FriendButton
+              friendStatus={friendStatus}
+              isLoading={isFriendActionLoading}
+              onPress={onAddFriend}
+            />
+            <Pressable
+              testID="player-message-btn"
+              onPress={onMessage}
+              accessibilityRole="button"
+              accessibilityLabel={`Send message to ${displayName}`}
+              className="px-xl py-sm rounded-xl border-[1.5px] border-default min-h-touch items-center justify-center active:opacity-70"
+            >
+              <Text className="text-sm font-semibold text-default">
+                Message
+              </Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );

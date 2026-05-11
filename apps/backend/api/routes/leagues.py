@@ -5,6 +5,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +33,8 @@ from backend.models.schemas import (
     RequestJoinResponse,
     LeagueJoinResponse,
     LeagueStandingsResponse,
+    InvitablePlayerResponse,
+    LeagueInviteItemResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -895,3 +898,127 @@ async def get_league_standings(
         return await data_service.get_league_standings(session, league_id, season_id=season_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching standings: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# League Invites
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/api/leagues/{league_id}/invitable-players",
+    response_model=list[InvitablePlayerResponse],
+)
+async def get_invitable_players(
+    league_id: int,
+    q: Optional[str] = None,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Return players that can be invited to the league (league admin only).
+
+    Grouped into sections: friends, recent_opponents, suggested.
+    Each player carries an invite_status reflecting their current league relationship.
+    """
+    try:
+        from backend.database.models import Player as PlayerModel
+
+        result = await session.execute(
+            select(PlayerModel).where(PlayerModel.user_id == user["id"])
+        )
+        admin_player = result.scalar_one_or_none()
+        if not admin_player:
+            raise HTTPException(status_code=404, detail="Player profile not found")
+
+        players = await data_service.get_invitable_players(
+            session, league_id, admin_player.id, query=q or None
+        )
+        return players
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching invitable players: {str(e)}")
+
+
+class SendInvitesRequest(BaseModel):
+    player_ids: list[int]
+
+
+@router.post("/api/leagues/{league_id}/invites", response_model=SuccessResponse)
+async def send_league_invites(
+    league_id: int,
+    body: SendInvitesRequest,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Send league invitations to selected players (league admin only).
+
+    Skips players that already have a pending invite. Fires a notification to
+    each invited player that has a user account; notification failure does not
+    fail the request.
+    """
+    if not body.player_ids:
+        raise HTTPException(status_code=400, detail="player_ids must not be empty")
+
+    try:
+        from backend.database.models import Player as PlayerModel
+
+        result = await session.execute(
+            select(PlayerModel).where(PlayerModel.user_id == user["id"])
+        )
+        admin_player = result.scalar_one_or_none()
+        if not admin_player:
+            raise HTTPException(status_code=404, detail="Player profile not found")
+
+        league = await data_service.get_league(session, league_id)
+        if not league:
+            raise HTTPException(status_code=404, detail="League not found")
+
+        await data_service.create_league_invites(
+            session, league_id, body.player_ids, invited_by_player_id=admin_player.id
+        )
+
+        # Notify each invited player that has a user account (fire-and-forget).
+        for pid in body.player_ids:
+            try:
+                player_result = await session.execute(
+                    select(PlayerModel).where(
+                        PlayerModel.id == pid, PlayerModel.user_id.isnot(None)
+                    )
+                )
+                invited_player = player_result.scalar_one_or_none()
+                if invited_player and invited_player.user_id:
+                    await notification_service.notify_player_about_league_invite(
+                        session=session,
+                        league_id=league_id,
+                        player_user_id=invited_player.user_id,
+                        league_name=league.get("name"),
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to notify player {pid} about league invite: {e}")
+
+        return {"success": True, "message": "Invites sent"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending invites: {str(e)}")
+
+
+@router.get(
+    "/api/leagues/{league_id}/invites",
+    response_model=list[LeagueInviteItemResponse],
+)
+async def get_league_invites(
+    league_id: int,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """List all invites for a league (league admin only)."""
+    try:
+        return await data_service.list_league_invites(session, league_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching league invites: {str(e)}")

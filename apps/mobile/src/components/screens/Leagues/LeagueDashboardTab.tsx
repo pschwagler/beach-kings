@@ -414,9 +414,13 @@ function SeasonInfoCard({ info }: SeasonInfoCardProps): React.ReactNode {
 
 interface LeagueDashboardTabProps {
   readonly leagueId: number | string;
+  readonly onPressPlayer: (playerId: number) => void;
 }
 
-export default function LeagueDashboardTab({ leagueId }: LeagueDashboardTabProps): React.ReactNode {
+export default function LeagueDashboardTab({
+  leagueId,
+  onPressPlayer,
+}: LeagueDashboardTabProps): React.ReactNode {
   const {
     standings,
     seasonInfo,
@@ -425,7 +429,6 @@ export default function LeagueDashboardTab({ leagueId }: LeagueDashboardTabProps
     isLoading,
     isError,
     onSelectSeason,
-    onPressPlayer,
   } = useLeagueDashboardTab(leagueId);
 
   const isSeasonView = typeof selectedSeasonId === 'number';

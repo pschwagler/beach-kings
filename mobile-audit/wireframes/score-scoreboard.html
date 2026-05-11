@@ -13,7 +13,7 @@
   .state-scoring { display: none; flex: 1; }
   body.scoring .state-building { display: none !important; }
   body.scoring .state-scoring { display: flex !important; }
-  .state-building-block { display: block; }
+  .state-building-block { display: flex; flex-direction: column; flex: 1; min-height: 0; }
   .state-scoring-block { display: none; }
   body.scoring .state-building-block { display: none !important; }
   body.scoring .state-scoring-block { display: block !important; }
@@ -54,9 +54,16 @@
 
   /* Modal Nav */
   .modal-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
-  .modal-nav .close { color: #fff; font-size: 22px; min-width: 44px; min-height: 44px; display: flex; align-items: center; }
+  .modal-nav .close { color: #fff; font-size: 22px; min-width: 44px; min-height: 44px; display: flex; align-items: center; background: none; border: none; cursor: pointer; }
+  .modal-nav .title-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 1px; }
   .modal-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
-  .modal-nav .match-num { font-size: 13px; color: #999; min-width: 44px; text-align: right; }
+  .modal-nav .match-num { font-size: 11px; color: rgba(255,255,255,0.55); font-weight: 600; }
+  .modal-nav .session-menu-btn {
+    color: #fff; min-width: 44px; min-height: 44px;
+    display: flex; align-items: center; justify-content: flex-end;
+    background: none; border: none; cursor: pointer; text-decoration: none;
+    font-size: 22px; line-height: 1;
+  }
 
   /* ── Scoreboard Split ── */
   .scoreboard { display: flex; flex: 1; min-height: 0; }
@@ -102,17 +109,168 @@
   .board-half.team2 .board-score-input { color: #7a5200; border-bottom-color: rgba(122,82,0,0.3); }
   .board-half.team2 .board-score-input:focus { border-bottom-color: rgba(122,82,0,0.7); }
 
-  /* ── Roster Picker Strip (building mode) ── */
-  .roster-picker { background: #f5f5f5; padding: 12px 16px; }
-  .roster-picker-label { font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-  .roster-grid { display: flex; gap: 8px; flex-wrap: wrap; }
-  .roster-chip { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 20px; background: #fff; border: 1px solid #e0e0e0; min-height: 44px; cursor: pointer; }
-  .roster-chip.selected-t1 { background: #daeef5; border: 1.5px solid #2a7d9c; }
-  .roster-chip.selected-t2 { background: #fdf3d8; border: 1.5px solid #d4a843; }
-  .rc-avatar { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
-  .rc-name { font-size: 12px; font-weight: 600; color: #555; }
-  .roster-chip.selected-t1 .rc-name { color: #1a3a4a; }
-  .roster-chip.selected-t2 .rc-name { color: #7a5200; }
+  /* ── Active-slot highlight ("Next") in building mode ── */
+  .board-player.active-slot {
+    border: 2px solid #d4a843;
+    background: rgba(212,168,67,0.12);
+    position: relative;
+    animation: nextPulse 1.6s ease-in-out infinite;
+  }
+  .board-player.active-slot::after {
+    content: 'NEXT';
+    position: absolute; top: -8px; right: 8px;
+    background: #d4a843; color: #fff;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.6px;
+    padding: 2px 6px; border-radius: 6px;
+  }
+  .board-player.active-slot .bp-placeholder { color: #8a6000; font-weight: 700; }
+  @keyframes nextPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(212,168,67,0); }
+    50%      { box-shadow: 0 0 0 6px rgba(212,168,67,0.18); }
+  }
+
+  /* ── Drag handle on seated players (swap-by-drag affordance) ── */
+  .bp-drag {
+    width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(0,0,0,0.25); flex-shrink: 0; cursor: grab;
+    margin-right: 2px; user-select: none;
+  }
+  .bp-drag:active { cursor: grabbing; color: rgba(0,0,0,0.55); }
+  .board-player.draggable { cursor: grab; }
+  .board-player.draggable:active { cursor: grabbing; }
+  body.dark-theme .bp-drag { color: rgba(255,255,255,0.3); }
+  body.dark-theme .bp-drag:active { color: rgba(255,255,255,0.7); }
+
+  /* ── Embedded picker (building mode — replaces old roster-picker) ── */
+  /* Slight grey wash distinguishes the picker panel from the colored
+     team halves above; the scoreboard's bottom edge thus reads as a
+     clear horizontal seam. */
+  .embedded-picker {
+    background: #f5f5f5;
+    border-top: 1px solid #e0e0e0;
+    box-shadow: inset 0 1px 0 rgba(0,0,0,0.04);
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .picker-slot-indicator {
+    display: flex; align-items: center; gap: 6px;
+    padding: 12px 16px 8px;
+    font-size: 12px; color: #666;
+  }
+  .slot-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 12px;
+    font-size: 12px; font-weight: 700;
+  }
+  .slot-pill.t1 { background: #daeef5; color: #1a3a4a; }
+  .slot-pill.t2 { background: #fdf3d8; color: #7a5200; }
+  .slot-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; animation: nextPulse 1.4s ease-in-out infinite;
+  }
+
+  .picker-search-wrap { padding: 12px 16px 8px; }
+  .picker-search {
+    display: flex; align-items: center; gap: 8px;
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 12px;
+    padding: 10px 14px; min-height: 44px;
+  }
+  .picker-search svg { color: #bbb; flex-shrink: 0; }
+  .picker-search input {
+    flex: 1; border: none; background: transparent;
+    font-size: 15px; color: #1a1a1a; outline: none;
+  }
+  .picker-search input::placeholder { color: #bbb; }
+
+  .picker-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px; }
+
+  /* Section labels inside embedded picker */
+  .ep-section-label {
+    font-size: 11px; font-weight: 700; color: #999;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    padding: 12px 0 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .ep-section-label::after { content: ''; flex: 1; height: 1px; background: #f0f0f0; }
+  .ep-section-label .count { color: #ccc; font-weight: 600; }
+
+  /* In-session chips (embedded) */
+  .ep-chips { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 4px; }
+  .ep-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px 8px 8px; border-radius: 24px;
+    background: #fff; border: 1.5px solid #e0e0e0;
+    cursor: pointer; min-height: 44px;
+  }
+  .ep-chip:active { background: #f5f5f5; }
+  .ep-chip .ec-av {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .ep-chip .ec-name { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+  .ep-chip.you { border-color: #d4a843; background: #fdf8ec; }
+  .ep-chip.you .ec-name::after {
+    content: 'YOU'; font-size: 9px; font-weight: 700; color: #d4a843;
+    background: #fef3cd; padding: 2px 5px; border-radius: 4px; margin-left: 6px;
+  }
+  .ep-chip.seated { opacity: 0.5; pointer-events: none; }
+  .ep-chip.seated.t1 .ec-name::after {
+    content: 'T1'; font-size: 9px; font-weight: 700; color: #2a7d9c;
+    background: #daeef5; padding: 2px 5px; border-radius: 4px; margin-left: 6px;
+  }
+  .ep-chip.seated.t2 .ec-name::after {
+    content: 'T2'; font-size: 9px; font-weight: 700; color: #8a6000;
+    background: #fdf3d8; padding: 2px 5px; border-radius: 4px; margin-left: 6px;
+  }
+
+  /* Player rows inside embedded picker (outside-session) */
+  .ep-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid #f5f5f5; min-height: 58px;
+  }
+  .ep-row:last-child { border-bottom: none; }
+  .ep-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .ep-info { flex: 1; min-width: 0; }
+  .ep-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .ep-meta { font-size: 12px; color: #999; margin-top: 3px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .ep-tag {
+    display: inline-flex; align-items: center;
+    font-size: 10px; font-weight: 700;
+    border-radius: 4px; padding: 1px 6px; white-space: nowrap;
+  }
+  .ep-tag.friend { color: #2a7d9c; background: rgba(42,125,156,0.1); }
+  .ep-tag.recent { color: #666;    background: #f0f0f0; }
+  .ep-meta-dot { width: 3px; height: 3px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+  .ep-add-btn {
+    padding: 8px 16px; border-radius: 20px;
+    border: 1.5px solid #2a7d9c; background: transparent;
+    color: #2a7d9c; font-size: 13px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; min-height: 36px; flex-shrink: 0;
+  }
+
+  /* Inline "Add a Guest Player" CTA at the bottom of the picker list */
+  .ep-add-guest {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; margin: 12px 0 8px;
+    border-radius: 12px; border: 1.5px dashed #f59e0b;
+    background: #fffbeb; cursor: pointer;
+  }
+  .ep-add-guest .ag-icon {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #f59e0b; color: #fff;
+    font-size: 18px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .ep-add-guest .ag-info { flex: 1; min-width: 0; }
+  .ep-add-guest .ag-title { font-size: 13px; font-weight: 700; color: #92400e; }
+  .ep-add-guest .ag-desc { font-size: 11px; color: #b45309; margin-top: 1px; }
 
   /* Bottom bar */
   .bottom-bar { background: #fff; border-top: 1px solid #eee; padding: 12px 16px 36px; }
@@ -124,12 +282,7 @@
   .page-layout { display: flex; flex-direction: column; min-height: 844px; }
   .scoreboard-area { display: flex; flex-direction: column; }
 
-  /* Placeholder / Unregistered Player */
-  .search-players { width: 100%; padding: 12px 14px; border: 1px solid #e0e0e0; border-radius: 10px; background: #fff; font-size: 15px; min-height: 44px; outline: none; margin-bottom: 12px; color: #1a1a1a; }
-  .search-players::placeholder { color: #bbb; }
-  .search-players:focus { border-color: #2a7d9c; background: #fff; }
-  .add-new-player { border: 1.5px dashed #f59e0b; border-radius: 10px; padding: 12px 16px; background: #fffbeb; color: #92400e; font-size: 14px; font-weight: 600; min-height: 44px; display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 8px; }
-  .add-new-player .add-icon { width: 24px; height: 24px; border-radius: 50%; background: #f59e0b; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+  /* Guest player indicator (used in scoring state) */
   .placeholder-indicator { font-size: 11px; color: #f59e0b; font-style: italic; }
 
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
@@ -171,20 +324,34 @@
   body.dark-theme .board-half.team2 .board-score-input:focus { border-bottom-color: rgba(255,255,255,0.7); }
   body.dark-theme .board-score-input:focus { border-bottom-color: rgba(255,255,255,0.7); }
   body.dark-theme .board-score-input::placeholder { color: rgba(255,255,255,0.2); }
-  body.dark-theme .roster-picker { background: #111; }
-  body.dark-theme .roster-picker-label { color: #666; }
-  body.dark-theme .roster-chip { background: #2a2a2a; border-color: transparent; }
-  body.dark-theme .roster-chip.selected-t1 { background: #1a3a4a; border-color: #2a7d9c; }
-  body.dark-theme .roster-chip.selected-t2 { background: #5a4510; border-color: #d4a843; }
-  body.dark-theme .rc-name { color: #ccc; }
-  body.dark-theme .roster-chip.selected-t1 .rc-name,
-  body.dark-theme .roster-chip.selected-t2 .rc-name { color: #fff; }
+  body.dark-theme .embedded-picker { background: #0a0a0a; border-top-color: #2a2a2a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
+  body.dark-theme .picker-slot-indicator { color: #888; }
+  body.dark-theme .slot-pill.t1 { background: #1a3a4a; color: #7dd3ee; }
+  body.dark-theme .slot-pill.t2 { background: #5a4510; color: #fcd34d; }
+  body.dark-theme .picker-search { background: #1a1a1a; border-color: #2a2a2a; }
+  body.dark-theme .picker-search input { color: #fff; }
+  body.dark-theme .picker-search input::placeholder { color: #555; }
+  body.dark-theme .picker-search svg { color: #555; }
+  body.dark-theme .ep-section-label { color: #666; }
+  body.dark-theme .ep-section-label::after { background: #2a2a2a; }
+  body.dark-theme .ep-section-label .count { color: #444; }
+  body.dark-theme .ep-chip { background: #2a2a2a; border-color: #3a3a3a; }
+  body.dark-theme .ep-chip:active { background: #333; }
+  body.dark-theme .ep-chip .ec-name { color: #ddd; }
+  body.dark-theme .ep-chip.you { border-color: #d4a843; background: rgba(212,168,67,0.08); }
+  body.dark-theme .ep-row { border-bottom-color: #222; }
+  body.dark-theme .ep-name { color: #fff; }
+  body.dark-theme .ep-meta { color: #666; }
+  body.dark-theme .ep-tag.friend { background: rgba(77,170,204,0.1); color: #4daacc; }
+  body.dark-theme .ep-tag.recent { background: #2a2a2a; color: #888; }
+  body.dark-theme .ep-add-btn { border-color: #4daacc; color: #4daacc; }
+  body.dark-theme .ep-add-guest { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.35); }
+  body.dark-theme .ep-add-guest .ag-title { color: #fcd34d; }
+  body.dark-theme .ep-add-guest .ag-desc { color: rgba(245,158,11,0.7); }
+  body.dark-theme .board-player.active-slot { background: rgba(212,168,67,0.18); border-color: #d4a843; }
+  body.dark-theme .board-player.active-slot .bp-placeholder { color: #fcd34d; }
   body.dark-theme .bottom-bar { background: #111; border-top: none; }
   body.dark-theme .btn-save.disabled { background: #333; color: #666; }
-  body.dark-theme .search-players { background: #2a2a2a; border-color: #444; color: #fff; }
-  body.dark-theme .search-players::placeholder { color: #666; }
-  body.dark-theme .search-players:focus { border-color: #d4a843; background: #333; }
-  body.dark-theme .add-new-player { background: rgba(245,158,11,0.08); color: #fcd34d; }
   body.dark-theme .modal-box { background: #1e1e1e; }
   body.dark-theme .modal-title { color: #fff; }
   body.dark-theme .modal-desc { color: #aaa; }
@@ -198,7 +365,6 @@
   body.dark-theme .success-stat .val { color: #4daacc; }
   body.dark-theme .success-stat .label { color: #666; }
   body.dark-theme .btn-done { border-color: #555; color: #999; }
-  body.dark-theme .session-bar { background: #2a2a2a; color: #999; }
 
   /* Editing state: swap nav title */
   body.editing .modal-nav .title-add { display: none; }
@@ -235,46 +401,55 @@
 </div>
 
 <div class="modal-nav">
-  <button class="close" onclick="document.getElementById('discard-modal').style.display='flex'" style="background:none; border:none; cursor:pointer;">&times;</button>
-  <div class="title"><span class="title-add">Add Game</span><span class="title-edit">Edit Game</span></div>
-  <div class="match-num">#4</div>
+  <button class="close" onclick="document.getElementById('discard-modal').style.display='flex'">&times;</button>
+  <div class="title-wrap">
+    <div class="title"><span class="title-add">Add Game</span><span class="title-edit">Edit Game</span></div>
+    <div class="match-num">Game #4 &middot; Sunday at QBK</div>
+  </div>
+  <a href="session-menu.html" class="session-menu-btn" aria-label="Session menu">&#8943;</a>
 </div>
-<div class="session-bar" style="background:#f5f5f5; padding:8px 16px; font-size:12px; color:#666; text-align:center;">Session: Saturday Morning Pickup</div>
 
 <div class="scoreboard-area">
 
-  <!-- ── BUILDING TEAMS: 3 of 4 selected ── -->
+  <!-- ── BUILDING TEAMS: 3 of 4 seated, next slot highlighted, score inputs hidden ── -->
   <div class="state-building">
     <div class="board-half team1">
       <div class="board-team-label">Team 1</div>
       <div class="board-players">
-        <div class="board-player">
+        <div class="board-player draggable" draggable="true">
+          <span class="bp-drag" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="6" r="0.5"/><circle cx="15" cy="6" r="0.5"/><circle cx="9" cy="12" r="0.5"/><circle cx="15" cy="12" r="0.5"/><circle cx="9" cy="18" r="0.5"/><circle cx="15" cy="18" r="0.5"/></svg>
+          </span>
           <div class="bp-avatar" style="background: rgba(255,255,255,0.25);">PS</div>
           <div class="bp-name">Pat S</div>
-          <button class="bp-remove">&times;</button>
+          <button class="bp-remove" aria-label="Remove">&times;</button>
         </div>
-        <div class="board-player">
+        <div class="board-player draggable" draggable="true">
+          <span class="bp-drag" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="6" r="0.5"/><circle cx="15" cy="6" r="0.5"/><circle cx="9" cy="12" r="0.5"/><circle cx="15" cy="12" r="0.5"/><circle cx="9" cy="18" r="0.5"/><circle cx="15" cy="18" r="0.5"/></svg>
+          </span>
           <div class="bp-avatar" style="background: rgba(255,255,255,0.25);">KF</div>
           <div class="bp-name">Karim F</div>
-          <button class="bp-remove">&times;</button>
+          <button class="bp-remove" aria-label="Remove">&times;</button>
         </div>
       </div>
-      <input type="number" class="board-score-input" placeholder="--" disabled>
     </div>
     <div class="board-divider"></div>
     <div class="board-half team2">
       <div class="board-team-label">Team 2</div>
       <div class="board-players">
-        <div class="board-player">
+        <div class="board-player draggable" draggable="true">
+          <span class="bp-drag" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="6" r="0.5"/><circle cx="15" cy="6" r="0.5"/><circle cx="9" cy="12" r="0.5"/><circle cx="15" cy="12" r="0.5"/><circle cx="9" cy="18" r="0.5"/><circle cx="15" cy="18" r="0.5"/></svg>
+          </span>
           <div class="bp-avatar" style="background: rgba(255,255,255,0.25);">MB</div>
           <div class="bp-name">Mike B</div>
-          <button class="bp-remove">&times;</button>
+          <button class="bp-remove" aria-label="Remove">&times;</button>
         </div>
-        <div class="board-player empty">
-          <span class="bp-placeholder">Select player</span>
+        <div class="board-player empty active-slot">
+          <span class="bp-placeholder">Tap a player</span>
         </div>
       </div>
-      <input type="number" class="board-score-input" placeholder="--" disabled>
     </div>
   </div>
 
@@ -315,7 +490,7 @@
           <div class="bp-avatar" style="background: rgba(245,158,11,0.2); border: 1.5px dashed #f59e0b;">DP</div>
           <div>
             <div class="bp-name" style="color: #fcd34d;">Dan P</div>
-            <div class="placeholder-indicator">unregistered</div>
+            <div class="placeholder-indicator">new</div>
           </div>
           <button class="bp-remove" style="color: rgba(245,158,11,0.5);">&times;</button>
         </div>
@@ -352,53 +527,103 @@
 
 </div>
 
-<!-- Roster picker (building mode only) -->
+<!-- Building mode: embedded picker (always open until 4 seated) -->
 <div class="state-building-block">
-  <div class="roster-picker">
-    <div class="roster-picker-label">Tap to assign &middot; 1 more needed</div>
-    <input class="search-players" type="text" placeholder="Search or add player..." value="Dan P">
-    <div class="roster-grid">
-      <div class="roster-chip selected-t1">
-        <div class="rc-avatar" style="background: #1a3a4a;">PS</div>
-        <div class="rc-name">Pat S</div>
-      </div>
-      <div class="roster-chip selected-t1">
-        <div class="rc-avatar" style="background: #2a7d9c;">KF</div>
-        <div class="rc-name">Karim</div>
-      </div>
-      <div class="roster-chip selected-t2">
-        <div class="rc-avatar" style="background: #15803d;">MB</div>
-        <div class="rc-name">Mike B</div>
-      </div>
-      <div class="roster-chip">
-        <div class="rc-avatar" style="background: #b91c1c;">JR</div>
-        <div class="rc-name">Jake R</div>
-      </div>
-      <div class="roster-chip">
-        <div class="rc-avatar" style="background: #7c3aed;">AT</div>
-        <div class="rc-name">Alex T</div>
-      </div>
-      <div class="roster-chip">
-        <div class="rc-avatar" style="background: #ea580c;">DM</div>
-        <div class="rc-name">Devon</div>
-      </div>
-      <div class="roster-chip">
-        <div class="rc-avatar" style="background: #db2777;">CL</div>
-        <div class="rc-name">Chris L</div>
+  <div class="embedded-picker">
+
+    <!-- Slot context conveyed by the pulsing "NEXT" highlight on the scoreboard above
+         and by the disabled save button copy below — no separate indicator needed. -->
+
+    <!-- Single search field — filters across both sections; updates "Add as new player" CTA below -->
+    <div class="picker-search-wrap">
+      <div class="picker-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="picker-search-input" type="text" placeholder="Search players..." oninput="updateAddNewCta(this.value)">
       </div>
     </div>
-    <div class="add-new-player">
-      <div class="add-icon">+</div>
-      Add "Dan P" as New Player
+
+    <div class="picker-scroll">
+
+      <!-- ─ In this session: tap to seat ─ -->
+      <div class="ep-section-label">
+        In this session
+        <span class="count">3 of 7 already on a team</span>
+      </div>
+      <div class="ep-chips">
+        <div class="ep-chip seated t1 you">
+          <div class="ec-av" style="background:#1a3a4a;">PS</div>
+          <div class="ec-name">Pat S</div>
+        </div>
+        <div class="ep-chip seated t1">
+          <div class="ec-av" style="background:#2a7d9c;">KF</div>
+          <div class="ec-name">Karim F</div>
+        </div>
+        <div class="ep-chip seated t2">
+          <div class="ec-av" style="background:#15803d;">MB</div>
+          <div class="ec-name">Mike B</div>
+        </div>
+        <div class="ep-chip">
+          <div class="ec-av" style="background:#b91c1c;">JR</div>
+          <div class="ec-name">Jake R</div>
+        </div>
+        <div class="ep-chip">
+          <div class="ec-av" style="background:#7c3aed;">AT</div>
+          <div class="ec-name">Alex T</div>
+        </div>
+        <div class="ep-chip">
+          <div class="ec-av" style="background:#ea580c;">DM</div>
+          <div class="ec-name">Devon M</div>
+        </div>
+        <div class="ep-chip">
+          <div class="ec-av" style="background:#db2777;">CL</div>
+          <div class="ec-name">Chris L</div>
+        </div>
+      </div>
+
+      <!-- ─ Friends & recent opponents (outside the session) ─ -->
+      <div class="ep-section-label">Friends &amp; recent opponents</div>
+
+      <div class="ep-row">
+        <div class="ep-avatar" style="background:#0d6b8c;">SH</div>
+        <div class="ep-info">
+          <div class="ep-name">Sam Henderson</div>
+          <div class="ep-meta">
+            <span class="ep-tag recent">Recent opp</span>
+            <span class="ep-meta-dot"></span>
+            Level B+ &middot; San Diego
+          </div>
+        </div>
+        <button class="ep-add-btn">Add</button>
+      </div>
+
+      <div class="ep-row">
+        <div class="ep-avatar" style="background:#6d28d9;">TN</div>
+        <div class="ep-info">
+          <div class="ep-name">Tyler N</div>
+          <div class="ep-meta">
+            <span class="ep-tag friend">Friend</span>
+            <span class="ep-meta-dot"></span>
+            Level B &middot; Orange County
+          </div>
+        </div>
+        <button class="ep-add-btn">Add</button>
+      </div>
+
+      <!-- Inline "add new player" CTA — copy updates with the search input.
+           Tapping this routes to the dedicated new-player form (score-add-guest.html). -->
+      <div class="ep-add-guest" id="ep-add-new-cta" onclick="window.location.href='score-add-guest.html'" style="cursor:pointer;">
+        <div class="ag-icon">+</div>
+        <div class="ag-info">
+          <div class="ag-title" id="ep-add-new-title">Add a New Player</div>
+          <div class="ag-desc">Creates a profile they can claim later</div>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <div class="bottom-bar">
     <button class="btn-save disabled">Select 1 more player</button>
-    <button style="display:flex; align-items:center; justify-content:center; gap:6px; width:100%; padding:12px; border-radius:12px; border:1.5px solid #e0e0e0; background:#fff; color:#555; font-size:14px; font-weight:600; cursor:pointer; margin-top:8px; min-height:44px;" onclick="window.location.href='ai-score-capture.html'">
-      <svg style="display:inline-block;vertical-align:middle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      Scan Scores Instead
-    </button>
   </div>
 </div>
 
@@ -499,6 +724,13 @@ function validateScores() {
 document.addEventListener('input', function(e) {
   if (e.target.classList.contains('board-score-input')) validateScores();
 });
+// Search-aware "Add as new player" CTA — updates copy with the typed query
+function updateAddNewCta(value) {
+  var title = document.getElementById('ep-add-new-title');
+  if (!title) return;
+  var q = (value || '').trim();
+  title.textContent = q ? 'Add "' + q + '" as a New Player' : 'Add a New Player';
+}
 </script>
 
 <script src="dark-theme-toggle.js"></script>

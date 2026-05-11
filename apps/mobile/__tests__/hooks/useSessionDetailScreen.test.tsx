@@ -25,6 +25,7 @@ jest.mock('@/lib/api', () => ({
 
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(() => ({ push: mockPush, back: mockBack })),
+  useFocusEffect: jest.fn(),
 }));
 
 jest.mock('@/utils/haptics', () => ({
@@ -37,6 +38,7 @@ import type { SessionDetail } from '@beach-kings/shared';
 
 const SESSION: SessionDetail = {
   id: 7,
+  code: 'BK7TEST1',
   league_id: 1,
   league_name: 'Test League',
   court_name: 'Court 1',
@@ -49,7 +51,7 @@ const SESSION: SessionDetail = {
   notes: null,
   players: [
     {
-      id: 1,
+      entry_id: 1,
       player_id: 1,
       display_name: 'You',
       initials: 'YO',
@@ -188,7 +190,7 @@ describe('useSessionDetailScreen', () => {
     expect(result.current.isMenuOpen).toBe(false);
   });
 
-  it('onAddGame navigates to the add-games tab', async () => {
+  it('onAddGame navigates to score-game with session context', async () => {
     const { result } = renderHook(() => useSessionDetailScreen(7));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -196,7 +198,32 @@ describe('useSessionDetailScreen', () => {
       result.current.onAddGame();
     });
 
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/add-games');
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    const url = mockPush.mock.calls[0][0] as string;
+    expect(url).toMatch(/^\/\(stack\)\/score-game\?/);
+    expect(url).toContain('sessionId=7');
+    expect(url).toContain('leagueId=1');
+    // Empty games array → next game number is 1
+    expect(url).toContain('gameNumber=1');
+    // sessionLabel: SESSION.date is '2026-04-01' (Wednesday), court is 'Court 1'.
+    // YYYY-MM-DD parses as local time, so the day name is stable across timezones.
+    expect(url).toContain('sessionLabel=Wednesday%20at%20Court%201');
+  });
+
+  it('onAddGame omits gameNumber when session has not loaded', async () => {
+    // Force getSessionById to never resolve in time
+    mockGetSessionById.mockImplementation(() => new Promise(() => {}));
+    const { result } = renderHook(() => useSessionDetailScreen(7));
+
+    act(() => {
+      result.current.onAddGame();
+    });
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    const url = mockPush.mock.calls[0][0] as string;
+    expect(url).toContain('sessionId=7');
+    expect(url).not.toContain('gameNumber=');
+    expect(url).not.toContain('sessionLabel=');
   });
 
   it('onRetry refetches the session', async () => {
@@ -208,5 +235,40 @@ describe('useSessionDetailScreen', () => {
       result.current.onRetry();
     });
     await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledTimes(2));
+  });
+
+  it('onEditGame navigates to score-game with matchId, gameNumber, sessionLabel, and headerTitle', async () => {
+    const { result } = renderHook(() => useSessionDetailScreen(7));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.onEditGame({
+        id: 555,
+        game_number: 3,
+        team1_player1_id: 10,
+        team1_player2_id: 11,
+        team2_player1_id: 12,
+        team2_player2_id: 13,
+        team1_player1_name: 'A',
+        team1_player2_name: 'B',
+        team2_player1_name: 'C',
+        team2_player2_name: 'D',
+        team1_score: 21,
+        team2_score: 15,
+        winner: 1,
+        rating_change: null,
+        is_ranked: true,
+      });
+    });
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    const url = mockPush.mock.calls[0][0] as string;
+    expect(url).toMatch(/^\/\(stack\)\/score-game\?/);
+    expect(url).toContain('sessionId=7');
+    expect(url).toContain('leagueId=1');
+    expect(url).toContain('matchId=555');
+    expect(url).toContain('gameNumber=3');
+    expect(url).toContain('sessionLabel=Wednesday%20at%20Court%201');
+    expect(url).toContain('headerTitle=Edit%20Game');
   });
 });

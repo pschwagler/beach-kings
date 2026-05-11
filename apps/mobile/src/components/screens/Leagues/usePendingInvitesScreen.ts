@@ -6,11 +6,12 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { mockApi } from '@/lib/mockApi';
+import { api } from '@/lib/api';
+import type { LeagueInviteItem } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
 
 export interface UsePendingInvitesScreenResult {
-  readonly invites: import('@/lib/mockApi').LeagueInviteItem[];
+  readonly invites: LeagueInviteItem[];
   readonly isLoading: boolean;
   readonly isError: boolean;
 }
@@ -21,7 +22,7 @@ export interface UsePendingInvitesScreenResult {
 export function usePendingInvitesScreen(): UsePendingInvitesScreenResult {
   const invitesQuery = useQuery({
     queryKey: leagueKeys.pendingInvites(),
-    queryFn: () => mockApi.getPendingInvites(), // TODO(backend): GET /api/users/me/league-invites/sent
+    queryFn: () => api.getMySentLeagueInvites(),
   });
 
   return {

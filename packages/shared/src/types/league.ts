@@ -303,4 +303,95 @@ export interface League {
   members?: LeagueMember[] | null;
   home_courts?: HomeCourtResponse[] | null;
   current_season?: { name?: string | null } | null;
+  /** Surfaced by GET /api/users/me/leagues so the Add Games flow can scope a session to the right season. */
+  current_season_id?: number | null;
+  current_season_name?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// League invites
+// ---------------------------------------------------------------------------
+
+/** Status of a pending invite. */
+export type LeagueInviteStatus = 'pending' | 'accepted' | 'declined';
+
+/** A player that can be invited to a league (GET /api/leagues/:id/invitable-players). */
+export interface InvitablePlayer {
+  readonly player_id: number;
+  readonly display_name: string;
+  readonly initials: string;
+  readonly location_name: string | null;
+  readonly level: string | null;
+  readonly invite_status: 'none' | 'member' | 'invited' | 'requested';
+  readonly section: 'friends' | 'recent_opponents' | 'suggested';
+}
+
+/** A sent invite row (GET /api/leagues/:id/invites or GET /api/users/me/league-invites/sent). */
+export interface LeagueInviteItem {
+  readonly id: number;
+  readonly league_id: number;
+  readonly league_name: string;
+  readonly player_id: number;
+  readonly display_name: string;
+  readonly initials: string;
+  readonly invited_at: string;
+  readonly status: LeagueInviteStatus;
+  readonly is_placeholder?: boolean;
+  readonly game_count?: number;
+}
+
+// ---------------------------------------------------------------------------
+// League player stats
+// ---------------------------------------------------------------------------
+
+/**
+ * A single partner or opponent row inside ``LeaguePlayerStats``.
+ * Matches the shape returned by GET /api/leagues/:leagueId/players/:playerId/stats.
+ */
+export interface LeaguePlayerRelationStat {
+  readonly player_id: number;
+  readonly display_name: string;
+  readonly initials: string;
+  readonly games_played: number;
+  readonly wins: number;
+  readonly losses: number;
+  readonly win_rate: number;
+}
+
+/** Overall record block in ``LeaguePlayerStats``. */
+export interface LeaguePlayerOverallStats {
+  readonly wins: number;
+  readonly losses: number;
+  readonly win_rate: number;
+  readonly games_played: number;
+  readonly point_diff: number;
+}
+
+/**
+ * Aggregated stats for a single player in the context of a league
+ * (and optionally a specific season). Backed by
+ * GET /api/leagues/:leagueId/players/:playerId/stats[?season_id=].
+ *
+ * ``rank``, ``rating_delta``, and ``game_history`` are placeholders for now
+ * and may be ``null`` / empty until the backend computes them.
+ */
+export interface LeaguePlayerStats {
+  readonly player_id: number;
+  readonly display_name: string;
+  readonly initials: string;
+  readonly level: string | null;
+  readonly location_name: string | null;
+  readonly league_id: number;
+  readonly league_name: string;
+  readonly season_id: number | null;
+  readonly season_name: string | null;
+  readonly rank: number | null;
+  readonly rating: number;
+  readonly rating_delta: number | null;
+  readonly points: number | null;
+  readonly overall: LeaguePlayerOverallStats;
+  readonly partners: readonly LeaguePlayerRelationStat[];
+  readonly opponents: readonly LeaguePlayerRelationStat[];
+  readonly game_history: readonly import('./game').GameHistoryEntry[];
+  readonly is_self: boolean;
 }

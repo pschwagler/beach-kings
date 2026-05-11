@@ -64,11 +64,11 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
-const mockGetPendingInvites = jest.fn();
+const mockGetMySentLeagueInvites = jest.fn();
 
-jest.mock('@/lib/mockApi', () => ({
-  mockApi: {
-    getPendingInvites: () => mockGetPendingInvites(),
+jest.mock('@/lib/api', () => ({
+  api: {
+    getMySentLeagueInvites: () => mockGetMySentLeagueInvites(),
   },
 }));
 
@@ -126,7 +126,7 @@ const MOCK_INVITES = [
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetPendingInvites.mockResolvedValue(MOCK_INVITES);
+  mockGetMySentLeagueInvites.mockResolvedValue(MOCK_INVITES);
 });
 
 // ---------------------------------------------------------------------------
@@ -201,7 +201,7 @@ describe('PendingInvitesScreen — status badges', () => {
 
 describe('PendingInvitesScreen — empty state', () => {
   it('renders empty state when no invites exist', async () => {
-    mockGetPendingInvites.mockResolvedValue([]);
+    mockGetMySentLeagueInvites.mockResolvedValue([]);
     render(<PendingInvitesRoute />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('pending-invites-empty')).toBeTruthy();
@@ -215,7 +215,7 @@ describe('PendingInvitesScreen — empty state', () => {
 
 describe('PendingInvitesScreen — loading state', () => {
   it('renders loading indicator while fetching', () => {
-    mockGetPendingInvites.mockReturnValue(new Promise(() => {}));
+    mockGetMySentLeagueInvites.mockReturnValue(new Promise(() => {}));
     render(<PendingInvitesRoute />, { wrapper: makeWrapper() });
     expect(screen.getByTestId('pending-invites-loading')).toBeTruthy();
   });
@@ -227,7 +227,7 @@ describe('PendingInvitesScreen — loading state', () => {
 
 describe('PendingInvitesScreen — error state', () => {
   it('renders error state when query fails', async () => {
-    mockGetPendingInvites.mockRejectedValue(new Error('network error'));
+    mockGetMySentLeagueInvites.mockRejectedValue(new Error('network error'));
     render(<PendingInvitesRoute />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('pending-invites-error')).toBeTruthy();

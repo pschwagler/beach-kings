@@ -212,7 +212,6 @@ interface TabContentProps {
   readonly userRole: 'admin' | 'member' | null;
   readonly activeTab: LeagueDetailTab;
   readonly statsPlayerId: number | string | null;
-  readonly onPressPlayer: (id: number | string) => void;
   readonly onViewPlayerStats: (id: number | string) => void;
 }
 
@@ -221,7 +220,6 @@ function TabContent({
   userRole,
   activeTab,
   statsPlayerId,
-  onPressPlayer,
   onViewPlayerStats,
 }: TabContentProps): React.ReactNode {
   // Stats sub-view is pushed from standings tab
@@ -238,7 +236,12 @@ function TabContent({
     case 'games':
       return <LeagueMatchesTab leagueId={leagueId} />;
     case 'standings':
-      return <LeagueDashboardTab leagueId={leagueId} />;
+      return (
+        <LeagueDashboardTab
+          leagueId={leagueId}
+          onPressPlayer={(id) => onViewPlayerStats(id)}
+        />
+      );
     case 'chat':
       return <LeagueChatTab leagueId={leagueId} />;
     case 'signups':
@@ -288,10 +291,9 @@ export default function LeagueDetailScreen({
   };
 
   const handleSetTab = (tab: LeagueDetailTab): void => {
-    // Clear stats sub-view when switching away from standings
-    if (tab !== 'standings') {
-      setStatsPlayerId(null);
-    }
+    // Always clear the stats sub-view on tab switch — including re-tapping
+    // Standings, which should drop the user back to the standings list.
+    setStatsPlayerId(null);
     onSetTab(tab);
   };
 
@@ -384,7 +386,6 @@ export default function LeagueDetailScreen({
             userRole={detail.user_role}
             activeTab={activeTab}
             statsPlayerId={statsPlayerId}
-            onPressPlayer={onPressPlayer}
             onViewPlayerStats={handlePressPlayer}
           />
         </View>

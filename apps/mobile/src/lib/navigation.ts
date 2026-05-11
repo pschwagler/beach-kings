@@ -59,10 +59,39 @@ export const routes = {
   // ---- Stack: personal ----
   myGames: () => '/(stack)/my-games' as const,
   myStats: () => '/(stack)/my-stats' as const,
-  scoreGame: (matchId?: number | string) =>
-    matchId !== undefined
-      ? (`/(stack)/score-game?matchId=${matchId}` as const)
-      : ('/(stack)/score-game' as const),
+  // Returns plain `string` rather than the `as const` literal used by other
+  // routes here. expo-router typed routes can't express dynamic query strings,
+  // so callers cast with `as never` at the push site. The runtime builder
+  // skips null/undefined values and `encodeURIComponent`s string params.
+  scoreGame: (params: {
+    sessionId?: number | null;
+    leagueId?: number | null;
+    seasonId?: number | null;
+    matchId?: number | null;
+    gameNumber?: number | null;
+    sessionLabel?: string | null;
+    headerTitle?: string | null;
+  } = {}): string => {
+    const qs: string[] = [];
+    const pushNum = (key: string, value?: number | null): void => {
+      if (value != null) qs.push(`${key}=${value}`);
+    };
+    const pushStr = (key: string, value?: string | null): void => {
+      if (value != null && value.length > 0) {
+        qs.push(`${key}=${encodeURIComponent(value)}`);
+      }
+    };
+    pushNum('sessionId', params.sessionId);
+    pushNum('leagueId', params.leagueId);
+    pushNum('seasonId', params.seasonId);
+    pushNum('matchId', params.matchId);
+    pushNum('gameNumber', params.gameNumber);
+    pushStr('sessionLabel', params.sessionLabel);
+    pushStr('headerTitle', params.headerTitle);
+    return qs.length > 0
+      ? `/(stack)/score-game?${qs.join('&')}`
+      : '/(stack)/score-game';
+  },
   settings: () => '/(stack)/settings' as const,
   settingsNotifications: () => '/(stack)/settings/notifications' as const,
   settingsAppearance: () => '/(stack)/settings/appearance' as const,

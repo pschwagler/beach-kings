@@ -19,7 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import { usePendingInvitesScreen } from './usePendingInvitesScreen';
-import type { LeagueInviteItem } from '@/lib/mockApi';
+import type { LeagueInviteItem } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Status badge
@@ -71,14 +71,25 @@ function InviteRow({ invite }: { readonly invite: LeagueInviteItem }): React.Rea
     year: 'numeric',
   });
 
+  const isGuest = invite.is_placeholder === true;
+  const gamesLabel = invite.game_count != null
+    ? `Guest · ${invite.game_count} game${invite.game_count !== 1 ? 's' : ''}`
+    : 'Guest';
+
   return (
     <View
       testID={`invite-row-${invite.id}`}
       className="flex-row items-center bg-surface mx-4 mb-3 px-4 py-[14px] rounded-[12px] border border-divider gap-3"
     >
-      {/* Avatar */}
-      <View className="w-10 h-10 rounded-full bg-brand-teal items-center justify-center flex-shrink-0">
-        <Text className="text-[11px] font-bold text-white">
+      {/* Avatar — dashed gold border for guests */}
+      <View
+        className={`w-10 h-10 rounded-full items-center justify-center flex-shrink-0 ${
+          isGuest
+            ? 'border-2 border-dashed border-brand-gold bg-brand-gold/10'
+            : 'bg-brand-teal'
+        }`}
+      >
+        <Text className={`text-[11px] font-bold ${isGuest ? 'text-brand-gold' : 'text-white'}`}>
           {invite.initials}
         </Text>
       </View>
@@ -91,12 +102,15 @@ function InviteRow({ invite }: { readonly invite: LeagueInviteItem }): React.Rea
         >
           {invite.display_name}
         </Text>
-        <Text
-          className="text-[12px] text-muted mt-[2px]"
-          numberOfLines={1}
-        >
-          {invite.league_name}
-        </Text>
+        {isGuest ? (
+          <Text className="text-[12px] text-brand-gold mt-[2px]" numberOfLines={1}>
+            {gamesLabel}
+          </Text>
+        ) : (
+          <Text className="text-[12px] text-muted mt-[2px]" numberOfLines={1}>
+            {invite.league_name}
+          </Text>
+        )}
         <Text className="text-[11px] text-tertiary mt-[2px]">
           Invited {dateLabel}
         </Text>

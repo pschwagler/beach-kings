@@ -1,13 +1,15 @@
 /**
  * SessionBottomSheet — iOS-style action sheet triggered by the ··· menu button.
  *
- * Menu options:
+ * Active session options:
  *   1. Edit Session Details → routes.sessionEdit(id)
  *   2. Manage Players → routes.sessionRoster(id)
  *   3. Share Session (clipboard)
- *   4. Copy Results (clipboard)
- *   5. Duplicate as New Session (TODO)
- *   6. Delete Session (destructive)
+ *   4. Delete Session (destructive)
+ *
+ * Submitted session also surfaces (results are stable enough to copy/duplicate):
+ *   5. Copy Results (clipboard)
+ *   6. Duplicate as New Session
  *
  * Wireframe ref: session-menu.html
  */
@@ -32,6 +34,11 @@ interface Props {
   readonly sessionLabel: string;
   readonly gameCount: number;
   readonly playerCount: number;
+  /**
+   * Session status. Copy Results + Duplicate are hidden while active —
+   * those actions only make sense once results are finalized.
+   */
+  readonly status: 'active' | 'submitted';
 }
 
 interface MenuItemProps {
@@ -66,7 +73,9 @@ export default function SessionBottomSheet({
   sessionLabel,
   gameCount,
   playerCount,
+  status,
 }: Props): React.ReactNode {
+  const isSubmitted = status === 'submitted';
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -150,7 +159,7 @@ export default function SessionBottomSheet({
           {sessionLabel}
         </Text>
         <Text className="text-[12px] text-muted text-center mb-[16px]">
-          Active · {gameCount} games · {playerCount} players
+          {isSubmitted ? 'Submitted' : 'Active'} · {gameCount} games · {playerCount} players
         </Text>
 
         <MenuItem
@@ -168,16 +177,20 @@ export default function SessionBottomSheet({
           testID="session-menu-share"
           onPress={() => { void handleShare(); }}
         />
-        <MenuItem
-          label="Copy Results"
-          testID="session-menu-copy-results"
-          onPress={() => { void handleCopyResults(); }}
-        />
-        <MenuItem
-          label="Duplicate as New Session"
-          testID="session-menu-duplicate"
-          onPress={() => { void handleDuplicate(); }}
-        />
+        {isSubmitted && (
+          <>
+            <MenuItem
+              label="Copy Results"
+              testID="session-menu-copy-results"
+              onPress={() => { void handleCopyResults(); }}
+            />
+            <MenuItem
+              label="Duplicate as New Session"
+              testID="session-menu-duplicate"
+              onPress={() => { void handleDuplicate(); }}
+            />
+          </>
+        )}
         <MenuItem
           label={isDeleting ? 'Deleting...' : 'Delete Session'}
           testID="session-menu-delete"

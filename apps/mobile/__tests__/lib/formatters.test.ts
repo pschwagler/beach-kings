@@ -7,8 +7,11 @@ import {
   formatWinRate,
   formatElo,
   formatPlayerName,
+  formatPlayerShort,
+  formatSessionSubtitle,
   formatOrdinal,
   formatDate,
+  parseSessionDate,
 } from '@/lib/formatters';
 
 // ---------------------------------------------------------------------------
@@ -95,6 +98,75 @@ describe('formatPlayerName', () => {
 });
 
 // ---------------------------------------------------------------------------
+// formatPlayerShort
+// ---------------------------------------------------------------------------
+describe('formatPlayerShort', () => {
+  it('returns "First L" for two-part name', () => {
+    expect(formatPlayerShort('Patrick Schwagler')).toBe('Patrick S');
+  });
+
+  it('returns single-part name unchanged', () => {
+    expect(formatPlayerShort('Cher')).toBe('Cher');
+  });
+
+  it('returns empty string for empty input', () => {
+    expect(formatPlayerShort('')).toBe('');
+  });
+
+  it('trims and collapses whitespace', () => {
+    expect(formatPlayerShort('  Jane   Doe  ')).toBe('Jane D');
+  });
+
+  it('uses last-name initial across multi-word names', () => {
+    expect(formatPlayerShort('Mary Anne Smith')).toBe('Mary S');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatSessionSubtitle
+// ---------------------------------------------------------------------------
+describe('formatSessionSubtitle', () => {
+  // Use local-time Date constructors so day-of-week is timezone-stable in tests.
+  const SUNDAY = new Date(2026, 4, 10); // 2026-05-10 local-time
+  const WEDNESDAY = new Date(2026, 4, 13); // 2026-05-13 local-time
+
+  it('returns "{Day} at {court}" when date and court provided', () => {
+    expect(formatSessionSubtitle(SUNDAY, 'QBK', null)).toBe('Sunday at QBK');
+    expect(formatSessionSubtitle(WEDNESDAY, 'QBK', null)).toBe('Wednesday at QBK');
+  });
+
+  it('returns league name when court missing', () => {
+    expect(formatSessionSubtitle(SUNDAY, null, 'Sunday League')).toBe('Sunday League');
+  });
+
+  it('returns league name when date is missing', () => {
+    expect(formatSessionSubtitle(null, null, 'Sunday League')).toBe('Sunday League');
+  });
+
+  it('prefers "Day at court" over league name when both court and date exist', () => {
+    expect(formatSessionSubtitle(SUNDAY, 'QBK', 'Sunday League')).toBe('Sunday at QBK');
+  });
+
+  it('returns null when nothing usable', () => {
+    expect(formatSessionSubtitle(null, null, null)).toBeNull();
+    expect(formatSessionSubtitle(undefined, undefined, undefined)).toBeNull();
+    expect(formatSessionSubtitle('', '', '')).toBeNull();
+  });
+
+  it('falls back to league name on invalid date when court present', () => {
+    expect(formatSessionSubtitle('not-a-date', 'QBK', 'Sunday League')).toBe('Sunday League');
+  });
+
+  it('parses YYYY-MM-DD strings as local time (timezone-stable day name)', () => {
+    // 2026-03-19 is a Thursday. UTC parsing would shift this to Wednesday for
+    // viewers west of UTC. Local-time parsing keeps it Thursday everywhere.
+    expect(formatSessionSubtitle('2026-03-19', 'QBK Sports', null)).toBe('Thursday at QBK Sports');
+    // 2026-04-01 is a Wednesday in local time.
+    expect(formatSessionSubtitle('2026-04-01', 'Court 1', null)).toBe('Wednesday at Court 1');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // formatOrdinal
 // ---------------------------------------------------------------------------
 describe('formatOrdinal', () => {
@@ -139,5 +211,38 @@ describe('formatDate', () => {
     const result = formatDate('2025-03-15T12:00:00Z', 'short');
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseSessionDate — handles both backend session-date formats
+// ---------------------------------------------------------------------------
+describe('parseSessionDate', () => {
+  it('parses ISO YYYY-MM-DD as a local-time date', () => {
+    const d = parseSessionDate('2026-05-11');
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(4); // May (0-indexed)
+    expect(d.getDate()).toBe(11);
+    expect(isNaN(d.getTime())).toBe(false);
+  });
+
+  it('parses US M/D/YYYY as a local-time date', () => {
+    const d = parseSessionDate('5/11/2026');
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(4);
+    expect(d.getDate()).toBe(11);
+    expect(isNaN(d.getTime())).toBe(false);
+  });
+
+  it('parses US MM/DD/YYYY with leading zeros', () => {
+    const d = parseSessionDate('05/11/2026');
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(4);
+    expect(d.getDate()).toBe(11);
+  });
+
+  it('passes Date instances through unchanged', () => {
+    const input = new Date(2026, 4, 11);
+    expect(parseSessionDate(input)).toBe(input);
   });
 });

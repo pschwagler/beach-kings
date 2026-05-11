@@ -1106,6 +1106,8 @@ async def test_league_session_numbering_for_same_date(db_session, test_player):
         created_by=test_player.id,
     )
     assert session1["name"] == session_date
+    assert session1.get("code") is not None
+    assert len(session1["code"]) > 0
 
     # Submit first session so we can create another
     from backend.database.models import Session as SessionModel, SessionStatus
@@ -1212,6 +1214,9 @@ async def test_get_or_create_active_league_session_numbering(db_session, test_pl
         created_by=test_player.id,
     )
     assert session1["name"] == the_session_date
+    # League sessions get a join code so the mobile "Share Session" flow works.
+    assert session1.get("code") is not None
+    assert len(session1["code"]) > 0
 
     # Second call with same date should return the same session
     session1_again = await data_service.get_or_create_active_league_session(
@@ -1222,6 +1227,8 @@ async def test_get_or_create_active_league_session_numbering(db_session, test_pl
     )
     assert session1_again["id"] == session1["id"]
     assert session1_again["name"] == the_session_date
+    # Existing code preserved across get-or-create.
+    assert session1_again["code"] == session1["code"]
 
     # Submit the session
     from backend.database.models import Session as SessionModel, SessionStatus

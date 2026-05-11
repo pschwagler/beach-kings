@@ -1,7 +1,5 @@
 /**
- * Tests for useLeagueInviteScreen — search, select, send invites with error
- * surfacing. Validates that the previously-silent throw from
- * mockApi.sendLeagueInvites now reaches the user via inviteError.
+ * Tests for useLeagueInviteScreen — search, select, send invites with error surfacing.
  */
 
 import React from 'react';
@@ -11,16 +9,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const mockGetInvitablePlayers = jest.fn();
 const mockSendLeagueInvites = jest.fn();
 
-jest.mock('@/lib/mockApi', () => ({
-  mockApi: {
-    getInvitablePlayers: (...args: unknown[]) =>
-      mockGetInvitablePlayers(...args),
+jest.mock('@/lib/api', () => ({
+  api: {
+    getInvitablePlayers: (...args: unknown[]) => mockGetInvitablePlayers(...args),
     sendLeagueInvites: (...args: unknown[]) => mockSendLeagueInvites(...args),
   },
 }));
 
 import { useLeagueInviteScreen } from '@/components/screens/Leagues/useLeagueInviteScreen';
-import type { InvitablePlayer } from '@/lib/mockApi';
+import type { InvitablePlayer } from '@beach-kings/shared';
 
 const PLAYERS: InvitablePlayer[] = [
   {
@@ -103,9 +100,7 @@ describe('useLeagueInviteScreen', () => {
   });
 
   it('onSendInvites surfaces an Error message in inviteError', async () => {
-    mockSendLeagueInvites.mockRejectedValue(
-      new Error('TODO(backend): POST /api/leagues/:id/invites'),
-    );
+    mockSendLeagueInvites.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useLeagueInviteScreen(7), {
       wrapper: makeWrapper(makeClient()),
@@ -120,7 +115,7 @@ describe('useLeagueInviteScreen', () => {
       await result.current.onSendInvites();
     });
 
-    expect(result.current.inviteError).toMatch(/TODO\(backend\)/);
+    expect(result.current.inviteError).toBe('Network error');
     expect(result.current.isSending).toBe(false);
   });
 
@@ -144,7 +139,7 @@ describe('useLeagueInviteScreen', () => {
   });
 
   it('onSendInvites clears selection on success and leaves inviteError null', async () => {
-    mockSendLeagueInvites.mockResolvedValue({ status: 'ok' });
+    mockSendLeagueInvites.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useLeagueInviteScreen(7), {
       wrapper: makeWrapper(makeClient()),

@@ -32,6 +32,12 @@ const mockSubmitScoredGame = jest.fn();
 const mockGetSessionParticipants = jest.fn();
 const mockGetLeagueMembers = jest.fn();
 const mockGetFriends = jest.fn();
+const mockGetCurrentUserPlayer = jest.fn();
+const mockUpdateMatch = jest.fn();
+const mockDeleteMatch = jest.fn();
+const mockGetSessionById = jest.fn();
+const mockCreateSession = jest.fn();
+const mockShareLink = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -39,7 +45,16 @@ jest.mock('@/lib/api', () => ({
     getSessionParticipants: (...args: unknown[]) => mockGetSessionParticipants(...args),
     getLeagueMembers: (...args: unknown[]) => mockGetLeagueMembers(...args),
     getFriends: (...args: unknown[]) => mockGetFriends(...args),
+    getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
+    updateMatch: (...args: unknown[]) => mockUpdateMatch(...args),
+    deleteMatch: (...args: unknown[]) => mockDeleteMatch(...args),
+    getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
+    createSession: (...args: unknown[]) => mockCreateSession(...args),
   },
+}));
+
+jest.mock('@/utils/share', () => ({
+  shareLink: (...args: unknown[]) => mockShareLink(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -80,10 +95,10 @@ const MOCK_FRIENDS_RESPONSE = {
 /** Assign all 4 player slots and set score > 0. */
 function fillSlots(result: ReturnType<typeof renderHook<ReturnType<typeof useScoreGameScreen>, unknown>>['result']) {
   act(() => {
-    result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'Chris Gulla', initials: 'CG' });
-    result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'Kyle Fawwar', initials: 'KF' });
-    result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'Alex Marthey', initials: 'AM' });
-    result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'Sam Jindash', initials: 'SJ' });
+    result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'Chris Gulla', initials: 'CG', source: 'friend' });
+    result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'Kyle Fawwar', initials: 'KF', source: 'friend' });
+    result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'Alex Marthey', initials: 'AM', source: 'friend' });
+    result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'Sam Jindash', initials: 'SJ', source: 'friend' });
     result.current.setScore1(5);
     result.current.setScore2(3);
   });
@@ -104,6 +119,12 @@ beforeEach(() => {
   mockGetSessionParticipants.mockResolvedValue(MOCK_PARTICIPANTS);
   mockGetLeagueMembers.mockResolvedValue(MOCK_LEAGUE_MEMBERS);
   mockGetFriends.mockResolvedValue(MOCK_FRIENDS_RESPONSE);
+  mockGetCurrentUserPlayer.mockResolvedValue({ id: 77, name: 'Test User' });
+  mockUpdateMatch.mockResolvedValue({});
+  mockDeleteMatch.mockResolvedValue({});
+  mockGetSessionById.mockResolvedValue({ id: 7, games: [] });
+  mockCreateSession.mockResolvedValue({ id: 555, code: 'BKABC123' });
+  mockShareLink.mockResolvedValue(undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -426,11 +447,15 @@ describe('useScoreGameScreen — is_ranked defaults', () => {
 // ---------------------------------------------------------------------------
 
 describe('useScoreGameScreen — roster source', () => {
-  it('fetches session participants when sessionId is provided', async () => {
+  it('fetches session participants + friends when sessionId is provided', async () => {
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
     await waitFor(() => {
       expect(mockGetSessionParticipants).toHaveBeenCalledWith(7);
-      expect(result.current.roster.length).toBe(MOCK_PARTICIPANTS.length);
+      expect(mockGetFriends).toHaveBeenCalled();
+      // roster = participants (4) + non-duplicate friends (2) = 6
+      expect(result.current.roster.length).toBe(
+        MOCK_PARTICIPANTS.length + MOCK_FRIENDS_RESPONSE.items.length,
+      );
     });
   });
 
@@ -510,10 +535,10 @@ describe('useScoreGameScreen — canSubmit', () => {
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
     act(() => {
-      result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A' });
-      result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'B', initials: 'B' });
-      result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'C', initials: 'C' });
-      result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'D', initials: 'D' });
+      result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A', source: 'friend' });
+      result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'B', initials: 'B', source: 'friend' });
+      result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'C', initials: 'C', source: 'friend' });
+      result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'D', initials: 'D', source: 'friend' });
     });
 
     expect(result.current.canSubmit).toBe(false);
@@ -536,5 +561,508 @@ describe('useScoreGameScreen — canSubmit', () => {
     });
 
     expect(mockSubmitScoredGame).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (h) scoreWarning — incomplete score (< 10 not tied)
+// ---------------------------------------------------------------------------
+
+/** Fill the 4 slots without setting any score. */
+function fillSlotsOnly(
+  result: ReturnType<typeof renderHook<ReturnType<typeof useScoreGameScreen>, unknown>>['result'],
+): void {
+  act(() => {
+    result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A', source: 'friend' });
+    result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'B', initials: 'B', source: 'friend' });
+    result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'C', initials: 'C', source: 'friend' });
+    result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'D', initials: 'D', source: 'friend' });
+  });
+}
+
+describe('useScoreGameScreen — scoreWarning incomplete', () => {
+  it('warns when both scores < 10 and not tied (5-3)', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    fillSlotsOnly(result);
+    act(() => {
+      result.current.setScore1(5);
+      result.current.setScore2(3);
+    });
+
+    expect(result.current.scoreWarning).toBe('Scores look incomplete — save anyway?');
+  });
+
+  it('warns when only one team has scored (0-5)', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    fillSlotsOnly(result);
+    act(() => {
+      result.current.setScore1(0);
+      result.current.setScore2(5);
+    });
+
+    expect(result.current.scoreWarning).toBe('Scores look incomplete — save anyway?');
+  });
+
+  it('warns when scores 9-5 (near but under threshold)', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    fillSlotsOnly(result);
+    act(() => {
+      result.current.setScore1(9);
+      result.current.setScore2(5);
+    });
+
+    expect(result.current.scoreWarning).toBe('Scores look incomplete — save anyway?');
+  });
+
+  it('does not warn when at least one score is >= 10 (10-8)', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    fillSlotsOnly(result);
+    act(() => {
+      result.current.setScore1(10);
+      result.current.setScore2(8);
+    });
+
+    expect(result.current.scoreWarning).toBeNull();
+  });
+
+  it('keeps both-zero warning ahead of incomplete check (0-0)', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    fillSlotsOnly(result);
+    expect(result.current.scoreWarning).toBe('Both scores are 0 — save anyway?');
+  });
+
+  it('keeps tied warning ahead of incomplete check (5-5)', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    fillSlotsOnly(result);
+    act(() => {
+      result.current.setScore1(5);
+      result.current.setScore2(5);
+    });
+
+    expect(result.current.scoreWarning).toBe('Scores are tied — beach volleyball has no ties');
+  });
+
+  it('does not warn while still building (<4 slots filled)', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A', source: 'friend' });
+      result.current.setScore1(5);
+      result.current.setScore2(3);
+    });
+
+    expect(result.current.scoreWarning).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (i) currentPlayerId — explicit option vs api fallback
+// ---------------------------------------------------------------------------
+
+describe('useScoreGameScreen — currentPlayerId', () => {
+  it('exposes currentPlayerId from the option without calling the API', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ currentPlayerId: 99 }),
+    );
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    expect(result.current.currentPlayerId).toBe(99);
+    expect(mockGetCurrentUserPlayer).not.toHaveBeenCalled();
+  });
+
+  it('fetches currentPlayerId from api.getCurrentUserPlayer when option not passed', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(mockGetCurrentUserPlayer).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.currentPlayerId).toBe(77));
+  });
+
+  it('stays null when api.getCurrentUserPlayer rejects', async () => {
+    mockGetCurrentUserPlayer.mockRejectedValue(new Error('network'));
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(mockGetCurrentUserPlayer).toHaveBeenCalled());
+    // currentPlayerId initial value is null; failure leaves it null
+    expect(result.current.currentPlayerId).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (j) Edit mode — pre-fill, update, delete
+// ---------------------------------------------------------------------------
+
+const MOCK_EDIT_GAME = {
+  id: 555,
+  game_number: 2,
+  team1_player1_id: 10,
+  team1_player2_id: 11,
+  team2_player1_id: 12,
+  team2_player2_id: 13,
+  team1_player1_name: 'Chris Gulla',
+  team1_player2_name: 'Kyle Fawwar',
+  team2_player1_name: 'Alex Marthey',
+  team2_player2_name: 'Sam Jindash',
+  team1_score: 21,
+  team2_score: 15,
+  winner: 1 as const,
+  rating_change: null,
+  is_ranked: true,
+};
+
+describe('useScoreGameScreen — edit mode', () => {
+  beforeEach(() => {
+    mockGetSessionById.mockResolvedValue({ id: 7, games: [MOCK_EDIT_GAME] });
+  });
+
+  it('sets isEditMode true when matchId is provided', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+    expect(result.current.isEditMode).toBe(true);
+  });
+
+  it('isEditMode is false without matchId', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    expect(result.current.isEditMode).toBe(false);
+  });
+
+  it('pre-fills slots from the matching game in session detail', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+
+    await waitFor(() => expect(result.current.team1[0].player_id).toBe(10));
+    expect(result.current.team1[1].player_id).toBe(11);
+    expect(result.current.team2[0].player_id).toBe(12);
+    expect(result.current.team2[1].player_id).toBe(13);
+    expect(result.current.team1[0].display_name).toBe('Chris Gulla');
+  });
+
+  it('pre-fills scores and is_ranked from the game', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+
+    await waitFor(() => expect(result.current.score1).toBe(21));
+    expect(result.current.score2).toBe(15);
+    expect(result.current.isRanked).toBe(true);
+  });
+
+  it('leaves form empty when matching game is not in session detail', async () => {
+    mockGetSessionById.mockResolvedValue({ id: 7, games: [] });
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+
+    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalled());
+    expect(result.current.team1[0].player_id).toBeNull();
+    expect(result.current.score1).toBe(0);
+  });
+
+  it('does not fetch session detail when matchId is null', async () => {
+    renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    // Give effects a chance to run
+    await waitFor(() => expect(mockGetSessionParticipants).toHaveBeenCalled());
+    expect(mockGetSessionById).not.toHaveBeenCalled();
+  });
+
+  it('onSubmit calls updateMatch (not submitScoredGame) with all 4 IDs + scores', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+
+    await waitFor(() => expect(result.current.team1[0].player_id).toBe(10));
+    await waitFor(() => expect(result.current.canSubmit).toBe(true));
+
+    await act(async () => {
+      result.current.onSubmit();
+    });
+
+    await waitFor(() => expect(mockUpdateMatch).toHaveBeenCalled());
+    expect(mockSubmitScoredGame).not.toHaveBeenCalled();
+
+    const [calledMatchId, payload] = mockUpdateMatch.mock.calls[0];
+    expect(calledMatchId).toBe(555);
+    expect(payload).toMatchObject({
+      team1_player1_id: 10,
+      team1_player2_id: 11,
+      team2_player1_id: 12,
+      team2_player2_id: 13,
+      team1_score: 21,
+      team2_score: 15,
+      is_ranked: true,
+    });
+  });
+
+  it('onSubmit success keeps existing sessionId in lastSessionId', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+
+    await waitFor(() => expect(result.current.team1[0].player_id).toBe(10));
+
+    await act(async () => {
+      result.current.onSubmit();
+    });
+
+    await waitFor(() => expect(result.current.submitState).toBe('success'));
+    expect(result.current.lastSessionId).toBe(7);
+  });
+
+  it('onSubmit captures updateMatch errors into errorMessage', async () => {
+    mockUpdateMatch.mockRejectedValue(new Error('Update boom'));
+
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+
+    await waitFor(() => expect(result.current.team1[0].player_id).toBe(10));
+
+    await act(async () => {
+      result.current.onSubmit();
+    });
+
+    await waitFor(() => expect(result.current.submitState).toBe('error'));
+    expect(result.current.errorMessage).toBe('Update boom');
+  });
+
+  it('onDelete calls deleteMatch and resets state to idle', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+
+    await waitFor(() => expect(result.current.team1[0].player_id).toBe(10));
+
+    await act(async () => {
+      await result.current.onDelete();
+    });
+
+    expect(mockDeleteMatch).toHaveBeenCalledWith(555);
+    expect(result.current.deleteState).toBe('idle');
+  });
+
+  it('onDelete sets deleteState to error and captures message on failure', async () => {
+    mockDeleteMatch.mockRejectedValue(new Error('Delete boom'));
+
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+
+    await waitFor(() => expect(result.current.team1[0].player_id).toBe(10));
+
+    await act(async () => {
+      await result.current.onDelete();
+    });
+
+    expect(result.current.deleteState).toBe('error');
+    expect(result.current.errorMessage).toBe('Delete boom');
+  });
+
+  it('onDelete is a no-op without matchId', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+
+    await act(async () => {
+      await result.current.onDelete();
+    });
+
+    expect(mockDeleteMatch).not.toHaveBeenCalled();
+  });
+
+  it('onDelete returns true on success, false on failure', async () => {
+    mockGetSessionById.mockResolvedValue({
+      id: 7,
+      games: [
+        {
+          id: 99,
+          game_number: 1,
+          team1_player1_id: 10,
+          team1_player2_id: 11,
+          team2_player1_id: 12,
+          team2_player2_id: 13,
+          team1_player1_name: 'A',
+          team1_player2_name: 'B',
+          team2_player1_name: 'C',
+          team2_player2_name: 'D',
+          team1_score: 21,
+          team2_score: 16,
+          winner: 1,
+          rating_change: null,
+          is_ranked: true,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 99 }),
+    );
+    await waitFor(() => expect(result.current.team1[0].player_id).toBe(10));
+
+    let okSuccess: boolean | undefined;
+    await act(async () => {
+      okSuccess = await result.current.onDelete();
+    });
+    expect(okSuccess).toBe(true);
+
+    mockDeleteMatch.mockRejectedValueOnce(new Error('boom'));
+    let okFail: boolean | undefined;
+    await act(async () => {
+      okFail = await result.current.onDelete();
+    });
+    expect(okFail).toBe(false);
+    expect(result.current.deleteState).toBe('error');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (j) Three-dot menu — Manage Session lazy create + Share
+// ---------------------------------------------------------------------------
+
+describe('useScoreGameScreen — onManageSession / onShareSession', () => {
+  it('canShare is false until a session exists', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
+    );
+    // Hook returns synchronously; assert on initial state.
+    expect(result.current.canShare).toBe(false);
+    expect(result.current.sessionId).toBeNull();
+  });
+
+  it('canShare is true when started with an existing sessionId', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    expect(result.current.canShare).toBe(true);
+  });
+
+  it('onManageSession lazily creates a session when none exists', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
+    );
+    await waitFor(() =>
+      expect(mockGetLeagueMembers).toHaveBeenCalledTimes(1),
+    );
+
+    let returnedId: number | null | undefined;
+    await act(async () => {
+      returnedId = await result.current.onManageSession();
+    });
+
+    expect(mockCreateSession).toHaveBeenCalledWith({
+      league_id: 3,
+      season_id: 8,
+    });
+    expect(returnedId).toBe(555);
+    expect(result.current.sessionId).toBe(555);
+    expect(result.current.canShare).toBe(true);
+  });
+
+  it('onManageSession is a no-op when sessionId is already set', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 42 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    let returnedId: number | null | undefined;
+    await act(async () => {
+      returnedId = await result.current.onManageSession();
+    });
+
+    expect(mockCreateSession).not.toHaveBeenCalled();
+    expect(returnedId).toBe(42);
+  });
+
+  it('onManageSession surfaces errorMessage on failure and returns null', async () => {
+    mockCreateSession.mockRejectedValue(new Error('Session create failed'));
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
+    );
+
+    let returnedId: number | null | undefined;
+    await act(async () => {
+      returnedId = await result.current.onManageSession();
+    });
+
+    expect(returnedId).toBeNull();
+    expect(result.current.errorMessage).toBe('Session create failed');
+    expect(result.current.sessionId).toBeNull();
+  });
+
+  it('after lazy-create, subsequent onSubmit uses the new sessionId (no double-create)', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
+    );
+    await waitFor(() =>
+      expect(mockGetLeagueMembers).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      await result.current.onManageSession();
+    });
+    expect(result.current.sessionId).toBe(555);
+
+    fillSlots(result);
+
+    act(() => {
+      result.current.onSubmit();
+    });
+    await waitFor(() => expect(result.current.submitState).toBe('success'));
+
+    expect(mockSubmitScoredGame).toHaveBeenCalledWith(
+      expect.objectContaining({ session_id: 555 }),
+    );
+    // Only one createSession call — the new sessionId carried through to submit.
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('onSubmit without sessionId captures the backend-created session into sessionId state', async () => {
+    mockSubmitScoredGame.mockResolvedValue({
+      status: 'success',
+      message: 'ok',
+      match_id: 1,
+      session_id: 777,
+    });
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    fillSlots(result);
+
+    act(() => {
+      result.current.onSubmit();
+    });
+    await waitFor(() => expect(result.current.submitState).toBe('success'));
+
+    expect(result.current.sessionId).toBe(777);
+    expect(result.current.canShare).toBe(true);
+  });
+
+  it('onShareSession fetches session and calls shareLink with the code', async () => {
+    mockGetSessionById.mockResolvedValue({ id: 7, code: 'BKABC123', games: [] });
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    await act(async () => {
+      await result.current.onShareSession();
+    });
+
+    expect(mockShareLink).toHaveBeenCalledTimes(1);
+    expect(mockShareLink.mock.calls[0][0]).toContain('BKABC123');
+  });
+
+  it('onShareSession is a no-op when no session exists', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
+    );
+
+    await act(async () => {
+      await result.current.onShareSession();
+    });
+
+    expect(mockShareLink).not.toHaveBeenCalled();
   });
 });

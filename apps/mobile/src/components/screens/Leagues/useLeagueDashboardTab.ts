@@ -10,9 +10,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
 import type { Season, LeagueStanding, LeagueSeasonInfo } from '@beach-kings/shared';
-import { routes } from '@/lib/navigation';
 import { api } from '@/lib/api';
 import { leagueKeys } from './leagueKeys';
 
@@ -38,14 +36,12 @@ export interface UseLeagueDashboardTabResult {
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly onSelectSeason: (id: number | 'all') => void;
-  readonly onPressPlayer: (playerId: number) => void;
 }
 
 /**
  * Returns all data and state needed by the Standings tab.
  */
 export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashboardTabResult {
-  const router = useRouter();
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | 'all' | null>(null);
 
   const standingsQuery = useQuery({
@@ -78,13 +74,6 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
     setSelectedSeasonId(id);
   }, []);
 
-  const onPressPlayer = useCallback(
-    (playerId: number) => {
-      router.push(routes.player(playerId));
-    },
-    [router],
-  );
-
   const isLoading = seasonsQuery.isLoading || standingsQuery.isLoading;
 
   const isError =
@@ -98,6 +87,5 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
     isLoading,
     isError,
     onSelectSeason,
-    onPressPlayer,
   };
 }

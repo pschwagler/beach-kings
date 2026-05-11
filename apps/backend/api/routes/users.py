@@ -14,7 +14,7 @@ from backend.database.db import get_db_session
 from backend.database.models import Player
 from backend.services import data_service, user_service, avatar_service, s3_service, my_stats_service, my_games_service
 from backend.api.auth_dependencies import get_current_user, require_verified_player
-from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload
+from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload, LeagueInviteItemResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -298,6 +298,29 @@ async def get_user_leagues(
         return await data_service.get_user_leagues(session, user["id"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting user leagues: {str(e)}")
+
+
+@router.get("/api/users/me/league-invites/sent", response_model=list[LeagueInviteItemResponse])
+async def get_my_sent_league_invites(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Return league invites sent by the current user across all leagues.
+    Requires authentication.
+    """
+    try:
+        result = await session.execute(
+            select(Player).where(Player.user_id == current_user["id"])
+        )
+        player = result.scalar_one_or_none()
+        if not player:
+            return []
+        return await data_service.list_my_sent_invites(session, player.id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching sent league invites: {str(e)}"
+        )
 
 
 @router.post("/api/users/me/delete", response_model=StatusResponse)

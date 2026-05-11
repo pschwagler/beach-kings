@@ -68,7 +68,7 @@ export function useSessionRosterScreen(
     // Backend returns `player_id` populated for both real and placeholder players.
     // `p.id` is the same value (Player primary key); we fall back defensively in case
     // the shape ever drifts. The DELETE endpoint requires the player_id, never `0`.
-    const playerId = p.player_id ?? p.id;
+    const playerId = p.player_id ?? p.entry_id;
     return {
       entry_id: playerId,
       player_id: playerId,

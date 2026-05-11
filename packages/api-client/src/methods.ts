@@ -637,14 +637,18 @@ export function createApiMethods(client: ApiClient) {
     },
 
     /**
-     * Create a new non-league session.
+     * Create (or get-or-create) a session.
      *
-     * Accepts the full session create payload. All fields are optional;
-     * `date` defaults to today on the backend when omitted.
+     * Backend returns `{ status, message, session }` — we unwrap to the
+     * inner session so callers can read `.id` directly. League payloads
+     * (with `league_id`) hit the idempotent get-or-create path.
      */
-    async createSession(payload?: SessionCreatePayload | null) {
-      const response = await api.post<Session>('/api/sessions', payload ?? {});
-      return response.data;
+    async createSession(payload?: SessionCreatePayload | null): Promise<Session | null> {
+      const response = await api.post<{ status: string; message: string; session: Session }>(
+        '/api/sessions',
+        payload ?? {},
+      );
+      return response.data?.session ?? null;
     },
 
     async lockInSession(sessionId: number) {

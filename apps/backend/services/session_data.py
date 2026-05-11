@@ -429,12 +429,17 @@ async def get_or_create_active_league_session(
         existing_session = result.scalar_one_or_none()
 
         if existing_session:
+            # Backfill code for legacy league sessions created before code support.
+            if existing_session.code is None:
+                existing_session.code = await _generate_session_code(session)
+                await session.flush()
             return {
                 "id": existing_session.id,
                 "date": existing_session.date,
                 "name": existing_session.name,
                 "status": existing_session.status.value if existing_session.status else None,
                 "season_id": existing_session.season_id,
+                "code": existing_session.code,
             }
     except Exception as e:
         logger.warning("SELECT FOR UPDATE failed, falling back to plain SELECT: %s", e)
@@ -449,12 +454,16 @@ async def get_or_create_active_league_session(
         )
         existing_session = result.scalar_one_or_none()
         if existing_session:
+            if existing_session.code is None:
+                existing_session.code = await _generate_session_code(session)
+                await session.flush()
             return {
                 "id": existing_session.id,
                 "date": existing_session.date,
                 "name": existing_session.name,
                 "status": existing_session.status.value if existing_session.status else None,
                 "season_id": existing_session.season_id,
+                "code": existing_session.code,
             }
 
     # No existing session found, create a new one
@@ -492,6 +501,7 @@ async def get_or_create_active_league_session(
         creator_player_id=created_by,
     )
 
+    code = await _generate_session_code(session)
     new_session = Session(
         date=session_date,
         name=session_name,
@@ -502,6 +512,7 @@ async def get_or_create_active_league_session(
         location_id=geo_location_id,
         latitude=geo_lat,
         longitude=geo_lon,
+        code=code,
     )
     session.add(new_session)
     await session.flush()
@@ -516,6 +527,7 @@ async def get_or_create_active_league_session(
         "location_id": new_session.location_id,
         "latitude": new_session.latitude,
         "longitude": new_session.longitude,
+        "code": new_session.code,
     }
 
 
@@ -591,6 +603,7 @@ async def create_league_session(
         creator_player_id=created_by,
     )
 
+    code = await _generate_session_code(session)
     new_session = Session(
         date=date,
         name=session_name,
@@ -601,6 +614,7 @@ async def create_league_session(
         location_id=geo_location_id,
         latitude=geo_lat,
         longitude=geo_lon,
+        code=code,
     )
     session.add(new_session)
     await session.commit()
@@ -615,6 +629,7 @@ async def create_league_session(
         "location_id": new_session.location_id,
         "latitude": new_session.latitude,
         "longitude": new_session.longitude,
+        "code": new_session.code,
     }
 
 

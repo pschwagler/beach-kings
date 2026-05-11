@@ -1239,6 +1239,10 @@ class SessionGameResponse(BaseModel):
 
     id: int
     game_number: int
+    team1_player1_id: Optional[int] = None
+    team1_player2_id: Optional[int] = None
+    team2_player1_id: Optional[int] = None
+    team2_player2_id: Optional[int] = None
     team1_player1_name: str = ""
     team1_player2_name: str = ""
     team2_player1_name: str = ""
@@ -1247,6 +1251,7 @@ class SessionGameResponse(BaseModel):
     team2_score: Optional[int] = None
     winner: Optional[int] = None
     rating_change: Optional[float] = None
+    is_ranked: Optional[bool] = None
 
 
 class SessionRosterDetailResponse(BaseModel):
@@ -1255,6 +1260,7 @@ class SessionRosterDetailResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     id: int
+    code: Optional[str] = None
     court_name: Optional[str] = None
     court_id: Optional[int] = None
     session_type: Optional[str] = None
@@ -1562,10 +1568,14 @@ class InviteBatchToSessionRequest(BaseModel):
 
 
 class CreateNonLeagueSessionRequest(BaseModel):
-    """Request to create a non-league session.
+    """Request to create a session (league or non-league).
 
+    Historically this was non-league only; ``league_id`` + ``season_id`` were
+    added so the score-screen "Manage Session" flow can lazily create a
+    league session before any matches are saved (see
+    apps/mobile/MOBILE_ADD_GAMES_VALIDATION.md Flow 2.3 / 4.3).
     All fields are optional. ``date`` defaults to today on the backend when
-    omitted.  ``session_type`` must be one of ``'pickup'`` or ``'league'``
+    omitted. ``session_type`` must be one of ``'pickup'`` or ``'league'``
     when provided.
     """
 
@@ -1579,6 +1589,10 @@ class CreateNonLeagueSessionRequest(BaseModel):
     session_type: Optional[str] = None
     max_players: Optional[int] = Field(default=None, ge=2, le=64)
     notes: Optional[str] = None
+    # League/season context — when provided, the session is attached to that
+    # season; otherwise a non-league session is created.
+    league_id: Optional[int] = None
+    season_id: Optional[int] = None
 
 
 class UpdateSessionRequest(BaseModel):
@@ -1928,6 +1942,35 @@ class LeagueJoinResponse(BaseModel):
     success: bool
     message: str
     member: LeagueMemberResponse
+
+
+class InvitablePlayerResponse(BaseModel):
+    """A player that can be invited to a league, with section and invite status."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    player_id: int
+    display_name: str
+    initials: str
+    location_name: Optional[str] = None
+    level: Optional[str] = None
+    invite_status: Literal["none", "member", "invited", "requested"]
+    section: Literal["friends", "recent_opponents", "suggested"]
+
+
+class LeagueInviteItemResponse(BaseModel):
+    """A league invite record, used by admin list and sent-invites views."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    league_id: int
+    league_name: str
+    player_id: int
+    display_name: str
+    initials: str
+    invited_at: str
+    status: Literal["pending", "accepted", "declined"]
 
 
 class PublicLocationDirectoryItem(BaseModel):

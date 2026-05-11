@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Score Game — Inline Player Search - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+  /* ── State visibility ── */
+  .state-default  { display: block; }
+  .state-session  { display: none; }
+  .state-global   { display: none; }
+  .state-notfound { display: none; }
+  body.s-session  .state-default  { display: none; }
+  body.s-session  .state-session  { display: block; }
+  body.s-global   .state-default  { display: none; }
+  body.s-global   .state-global   { display: block; }
+  body.s-notfound .state-default  { display: none; }
+  body.s-notfound .state-notfound { display: block; }
+
+  /* ── Modal Nav ── */
+  .modal-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .modal-nav .close { color: #fff; font-size: 22px; min-width: 44px; min-height: 44px; display: flex; align-items: center; background: none; border: none; cursor: pointer; }
+  .modal-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .modal-nav .match-num { font-size: 13px; color: #999; min-width: 44px; text-align: right; }
+
+  /* ── Session Context Bar ── */
+  .session-bar { background: #f5f5f5; padding: 8px 16px; font-size: 12px; color: #666; text-align: center; }
+
+  /* ── Compact Scoreboard (context only) ── */
+  .scoreboard-compact { display: flex; min-height: 110px; }
+  .board-half { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 10px; }
+  .board-half.team1 { background: #daeef5; }
+  .board-half.team2 { background: #fdf3d8; }
+  .board-divider { width: 2px; background: #c0c0c0; }
+  .board-team-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; }
+  .board-half.team1 .board-team-label { color: #1a3a4a; }
+  .board-half.team2 .board-team-label { color: #7a5200; }
+  .board-players { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .board-player { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: rgba(26,58,74,0.08); width: 100%; min-height: 36px; }
+  .board-player.empty { border: 1.5px dashed #c0c0c0; background: transparent; justify-content: center; }
+  .board-player.empty-active { border: 1.5px dashed #d4a843; background: rgba(212,168,67,0.06); justify-content: center; }
+  .bp-avatar { width: 26px; height: 26px; border-radius: 50%; background: rgba(26,58,74,0.2); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .bp-name { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+  .bp-placeholder { font-size: 11px; color: #bbb; }
+  .bp-placeholder-active { font-size: 11px; color: #d4a843; font-weight: 600; }
+
+  /* ── Roster Picker ── */
+  .roster-picker { background: #f5f5f5; padding: 12px 16px; flex: 1; }
+  .roster-picker-label { font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .search-wrap { position: relative; margin-bottom: 12px; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #bbb; display: flex; align-items: center; }
+  .search-players { width: 100%; padding: 11px 14px 11px 36px; border: 1.5px solid #e0e0e0; border-radius: 10px; background: #fff; font-size: 15px; min-height: 44px; outline: none; color: #1a1a1a; }
+  .search-players::placeholder { color: #bbb; }
+  .search-players:focus { border-color: #2a7d9c; }
+  .search-clear { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #bbb; font-size: 18px; cursor: pointer; background: none; border: none; min-width: 24px; min-height: 24px; display: flex; align-items: center; justify-content: center; }
+
+  /* ── Roster chip grid ── */
+  .roster-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+  .roster-chip { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 20px; background: #fff; border: 1px solid #e0e0e0; min-height: 44px; cursor: pointer; }
+  .roster-chip.selected-t1 { background: #daeef5; border: 1.5px solid #2a7d9c; }
+  .roster-chip.selected-t2 { background: #fdf3d8; border: 1.5px solid #d4a843; }
+  .roster-chip.faded { opacity: 0.4; }
+  .roster-chip.match { border-color: #2a7d9c; background: #f0f8fb; }
+  .rc-avatar { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .rc-name { font-size: 12px; font-weight: 600; color: #555; }
+  .roster-chip.selected-t1 .rc-name { color: #1a3a4a; }
+  .roster-chip.selected-t2 .rc-name { color: #7a5200; }
+
+  /* ── Section label ── */
+  .section-label { font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px; display: flex; align-items: center; gap: 8px; }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: #e8e8e8; }
+
+  /* ── Global search result rows ── */
+  .player-result { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: #fff; border: 1px solid #eee; margin-bottom: 8px; min-height: 56px; }
+  .pr-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .pr-info { flex: 1; min-width: 0; }
+  .pr-name { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+  .pr-meta { font-size: 12px; color: #999; margin-top: 2px; }
+  .btn-add-assign { padding: 8px 14px; border-radius: 20px; border: none; background: #d4a843; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; min-height: 36px; }
+  .btn-add-assign:active { background: #b8922e; }
+
+  /* ── No-match / Guest CTA ── */
+  .no-match-hint { font-size: 13px; color: #999; text-align: center; padding: 8px 0 12px; }
+  .add-guest-cta { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border: 1.5px dashed #f59e0b; border-radius: 12px; background: #fffbeb; cursor: pointer; }
+  .add-guest-icon { width: 32px; height: 32px; border-radius: 50%; background: #f59e0b; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; flex-shrink: 0; }
+  .add-guest-info { flex: 1; }
+  .add-guest-title { font-size: 14px; font-weight: 700; color: #92400e; }
+  .add-guest-desc { font-size: 12px; color: #b45309; margin-top: 2px; line-height: 1.4; }
+
+  /* ── Bottom bar ── */
+  .bottom-bar { background: #fff; border-top: 1px solid #eee; padding: 12px 16px 36px; }
+  .btn-save { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 16px; font-weight: 700; text-align: center; }
+  .btn-save.disabled { background: #e8e8e8; color: #aaa; cursor: default; }
+
+  /* ── Dark theme ── */
+  body.dark-theme .modal-nav { background: #111; }
+  body.dark-theme .modal-nav .match-num { color: #666; }
+  body.dark-theme .session-bar { background: #2a2a2a; color: #999; }
+  body.dark-theme .board-half.team1 { background: linear-gradient(180deg, #1a3a4a 0%, #234d60 100%); }
+  body.dark-theme .board-half.team2 { background: linear-gradient(180deg, #5a4510 0%, #7a5e18 100%); }
+  body.dark-theme .board-divider { background: rgba(255,255,255,0.12); }
+  body.dark-theme .board-player { background: rgba(255,255,255,0.1); }
+  body.dark-theme .board-player.empty { border-color: rgba(255,255,255,0.25); }
+  body.dark-theme .board-player.empty-active { border-color: #d4a843; background: rgba(212,168,67,0.1); }
+  body.dark-theme .bp-name { color: #fff; }
+  body.dark-theme .bp-placeholder { color: rgba(255,255,255,0.3); }
+  body.dark-theme .bp-placeholder-active { color: #d4a843; }
+  body.dark-theme .roster-picker { background: #111; }
+  body.dark-theme .roster-picker-label { color: #555; }
+  body.dark-theme .search-players { background: #2a2a2a; border-color: #444; color: #fff; }
+  body.dark-theme .search-players::placeholder { color: #555; }
+  body.dark-theme .search-players:focus { border-color: #d4a843; }
+  body.dark-theme .roster-chip { background: #2a2a2a; border-color: transparent; }
+  body.dark-theme .roster-chip.selected-t1 { background: #1a3a4a; border-color: #2a7d9c; }
+  body.dark-theme .roster-chip.selected-t2 { background: #5a4510; border-color: #d4a843; }
+  body.dark-theme .roster-chip.match { background: #1a3a4a; border-color: #4daacc; }
+  body.dark-theme .rc-name { color: #ccc; }
+  body.dark-theme .roster-chip.selected-t1 .rc-name,
+  body.dark-theme .roster-chip.selected-t2 .rc-name { color: #fff; }
+  body.dark-theme .section-label { color: #555; }
+  body.dark-theme .section-label::after { background: #333; }
+  body.dark-theme .player-result { background: #1e1e1e; border-color: #333; }
+  body.dark-theme .pr-name { color: #fff; }
+  body.dark-theme .pr-meta { color: #666; }
+  body.dark-theme .no-match-hint { color: #555; }
+  body.dark-theme .add-guest-cta { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.4); }
+  body.dark-theme .add-guest-title { color: #fcd34d; }
+  body.dark-theme .add-guest-desc { color: #f59e0b; opacity: 0.8; }
+  body.dark-theme .bottom-bar { background: #111; border-top: none; }
+  body.dark-theme .btn-save.disabled { background: #2a2a2a; color: #555; }
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher ── -->
+<div class="state-switcher">
+  <div class="sw-label">Search State</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('')">Default (empty search)</button>
+    <button class="sw-pill" onclick="setState('s-session')">In Session Match</button>
+    <button class="sw-pill" onclick="setState('s-global')">Not in Session — Found</button>
+    <button class="sw-pill" onclick="setState('s-notfound')">Not Found Anywhere</button>
+  </div>
+</div>
+<div class="state-switcher" style="padding-top:0; border-bottom: 2px solid #d4a843;">
+  <div class="sw-label">Theme</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setTheme('light')">Light</button>
+    <button class="sw-pill" onclick="setTheme('dark')">Dark</button>
+  </div>
+</div>
+
+<div style="display:flex; flex-direction:column; min-height:844px;">
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size:11px; font-weight:400;">* * *</span>
+</div>
+
+<div class="modal-nav">
+  <button class="close">&times;</button>
+  <div class="title">Add Game</div>
+  <div class="match-num">#5</div>
+</div>
+<div class="session-bar">Session: QBK Open Men &middot; Mornings</div>
+
+<!-- Compact scoreboard — context only -->
+<div class="scoreboard-compact">
+  <div class="board-half team1">
+    <div class="board-team-label">Team 1</div>
+    <div class="board-players">
+      <div class="board-player">
+        <div class="bp-avatar" style="background:#1a3a4a;">PS</div>
+        <div class="bp-name">Pat S</div>
+      </div>
+      <div class="board-player">
+        <div class="bp-avatar" style="background:#2a7d9c;">KF</div>
+        <div class="bp-name">Karim F</div>
+      </div>
+    </div>
+  </div>
+  <div class="board-divider"></div>
+  <div class="board-half team2">
+    <div class="board-team-label">Team 2</div>
+    <div class="board-players">
+      <div class="board-player">
+        <div class="bp-avatar" style="background:#15803d;">MB</div>
+        <div class="bp-name">Mike B</div>
+      </div>
+      <!-- Default: empty slot -->
+      <div class="board-player empty state-default" style="display:flex;">
+        <span class="bp-placeholder">Select player</span>
+      </div>
+      <!-- In-session match: slot still empty -->
+      <div class="board-player empty state-session" style="display:none;">
+        <span class="bp-placeholder">Select player</span>
+      </div>
+      <!-- Global / not-found: slot pulsing to indicate it's awaiting -->
+      <div class="board-player empty-active state-global" style="display:none;">
+        <span class="bp-placeholder-active">Searching...</span>
+      </div>
+      <div class="board-player empty-active state-notfound" style="display:none;">
+        <span class="bp-placeholder-active">Searching...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ROSTER PICKER
+     ══════════════════════════════════════════ -->
+<div class="roster-picker" style="flex:1;">
+
+  <!-- ── STATE: Default (empty search) ── -->
+  <div class="state-default">
+    <div class="roster-picker-label">Tap to assign &middot; 1 more needed</div>
+    <div class="search-wrap">
+      <div class="search-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <input class="search-players" type="text" placeholder="Search or add player...">
+    </div>
+    <div class="roster-grid">
+      <div class="roster-chip selected-t1">
+        <div class="rc-avatar" style="background:#1a3a4a;">PS</div>
+        <div class="rc-name">Pat S</div>
+      </div>
+      <div class="roster-chip selected-t1">
+        <div class="rc-avatar" style="background:#2a7d9c;">KF</div>
+        <div class="rc-name">Karim F</div>
+      </div>
+      <div class="roster-chip selected-t2">
+        <div class="rc-avatar" style="background:#15803d;">MB</div>
+        <div class="rc-name">Mike B</div>
+      </div>
+      <div class="roster-chip">
+        <div class="rc-avatar" style="background:#b91c1c;">JR</div>
+        <div class="rc-name">Jake R</div>
+      </div>
+      <div class="roster-chip">
+        <div class="rc-avatar" style="background:#7c3aed;">AT</div>
+        <div class="rc-name">Alex T</div>
+      </div>
+      <div class="roster-chip">
+        <div class="rc-avatar" style="background:#ea580c;">DM</div>
+        <div class="rc-name">Devon M</div>
+      </div>
+      <div class="roster-chip">
+        <div class="rc-avatar" style="background:#db2777;">CL</div>
+        <div class="rc-name">Chris L</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STATE: In-session match ("Mike" → highlights Mike B) ── -->
+  <div class="state-session">
+    <div class="roster-picker-label">Tap to assign &middot; 1 more needed</div>
+    <div class="search-wrap">
+      <div class="search-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <input class="search-players" type="text" value="Mike" style="border-color:#2a7d9c;">
+      <button class="search-clear">&times;</button>
+    </div>
+    <!-- Non-matches faded; Mike B highlighted -->
+    <div class="roster-grid">
+      <div class="roster-chip selected-t1 faded">
+        <div class="rc-avatar" style="background:#1a3a4a;">PS</div>
+        <div class="rc-name">Pat S</div>
+      </div>
+      <div class="roster-chip selected-t1 faded">
+        <div class="rc-avatar" style="background:#2a7d9c;">KF</div>
+        <div class="rc-name">Karim F</div>
+      </div>
+      <!-- Mike B: already selected (T2), highlight the match -->
+      <div class="roster-chip selected-t2 match" style="border-color:#d4a843; box-shadow: 0 0 0 2px rgba(212,168,67,0.3);">
+        <div class="rc-avatar" style="background:#15803d;">MB</div>
+        <div class="rc-name">Mike B</div>
+      </div>
+      <div class="roster-chip faded">
+        <div class="rc-avatar" style="background:#b91c1c;">JR</div>
+        <div class="rc-name">Jake R</div>
+      </div>
+      <div class="roster-chip faded">
+        <div class="rc-avatar" style="background:#7c3aed;">AT</div>
+        <div class="rc-name">Alex T</div>
+      </div>
+      <div class="roster-chip faded">
+        <div class="rc-avatar" style="background:#ea580c;">DM</div>
+        <div class="rc-name">Devon M</div>
+      </div>
+      <div class="roster-chip faded">
+        <div class="rc-avatar" style="background:#db2777;">CL</div>
+        <div class="rc-name">Chris L</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STATE: Not in session — found globally ("Sam") ── -->
+  <div class="state-global">
+    <div class="roster-picker-label">Tap to assign &middot; 1 more needed</div>
+    <div class="search-wrap">
+      <div class="search-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <input class="search-players" type="text" value="Sam" style="border-color:#2a7d9c;">
+      <button class="search-clear">&times;</button>
+    </div>
+
+    <!-- Current session — no matches, show faded -->
+    <div class="section-label" style="margin-top:4px;">In this session</div>
+    <div style="font-size:13px; color:#bbb; padding: 4px 0 8px; font-style:italic;">No matches in session</div>
+
+    <!-- Beach League results -->
+    <div class="section-label">From Beach League</div>
+
+    <div class="player-result">
+      <div class="pr-avatar" style="background:#0d6b8c;">SH</div>
+      <div class="pr-info">
+        <div class="pr-name">Sam Henderson</div>
+        <div class="pr-meta">Level B+ &middot; San Diego</div>
+      </div>
+      <button class="btn-add-assign">Add Sam Henderson</button>
+    </div>
+
+    <div class="player-result">
+      <div class="pr-avatar" style="background:#7c3aed;">SR</div>
+      <div class="pr-info">
+        <div class="pr-name">Sam Rodriguez</div>
+        <div class="pr-meta">Level A &middot; Orange County</div>
+      </div>
+      <button class="btn-add-assign">Add Sam Rodriguez</button>
+    </div>
+
+    <!-- New-player fallback always visible at bottom -->
+    <div class="section-label">Or</div>
+    <div class="add-guest-cta">
+      <div class="add-guest-icon">+</div>
+      <div class="add-guest-info">
+        <div class="add-guest-title">Add "Sam" as a New Player</div>
+        <div class="add-guest-desc">Creates a profile they can claim later</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STATE: Not found anywhere ("Brad K") ── -->
+  <div class="state-notfound">
+    <div class="roster-picker-label">Tap to assign &middot; 1 more needed</div>
+    <div class="search-wrap">
+      <div class="search-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <input class="search-players" type="text" value="Brad K" style="border-color:#2a7d9c;">
+      <button class="search-clear">&times;</button>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">In this session</div>
+    <div style="font-size:13px; color:#bbb; padding:4px 0 8px; font-style:italic;">No matches in session</div>
+
+    <div class="section-label">From Beach League</div>
+    <div class="no-match-hint">No players found for "Brad K"</div>
+
+    <div class="add-guest-cta">
+      <div class="add-guest-icon">+</div>
+      <div class="add-guest-info">
+        <div class="add-guest-title">Add "Brad K" as a New Player</div>
+        <div class="add-guest-desc">Creates a profile they can claim later</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom bar -->
+<div class="bottom-bar">
+  <button class="btn-save disabled">Select 1 more player</button>
+</div>
+
+</div>
+
+<script>
+function setState(cls) {
+  document.body.className = document.body.className
+    .split(' ')
+    .filter(c => !c.startsWith('s-'))
+    .join(' ');
+  if (cls) document.body.classList.add(cls);
+  document.querySelectorAll('.sw-pill').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+function setTheme(t) {
+  document.body.classList.toggle('dark-theme', t === 'dark');
+  document.querySelectorAll('.sw-pill').forEach(p => {
+    if (p.textContent.trim().toLowerCase() === t) p.classList.add('active');
+    else if (p.textContent.trim().toLowerCase() === (t === 'dark' ? 'light' : 'dark')) p.classList.remove('active');
+  });
+}
+</script>
+</body>
+</html>

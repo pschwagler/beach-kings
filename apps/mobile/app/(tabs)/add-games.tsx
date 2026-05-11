@@ -6,10 +6,11 @@
  *   2. Has active session — banner with "Continue Session" + "or start new" divider
  *                          above the same chooser.
  *
- * Chooser tiles:
- *   - League Game   → inline league picker (fetches user leagues), then navigate
- *                     to the active session for that league or session/create.
- *   - Pickup Game   → navigate to /(stack)/session/create
+ * All four flows navigate directly to score-game (per MOBILE_ADD_GAMES_VALIDATION.md):
+ *   - Flow 1 league-continue: sessionId + leagueId + seasonId, headerTitle "Continue Session"
+ *   - Flow 2 league-new:      leagueId + seasonId,             headerTitle "Create New Session"
+ *   - Flow 3 pickup-continue: sessionId,                       headerTitle "Pickup Session"
+ *   - Flow 4 pickup-new:      no IDs (backend lazy-creates),   headerTitle "New Pickup Game"
  *
  * Wireframe refs: add-games.html, add-games-league-select.html,
  *                 add-games-pickup.html
@@ -26,6 +27,7 @@ import { GameTypeCard, LeagueSelectList } from '@/components/screens/AddGames';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
+import { formatSessionSubtitle } from '@/lib/formatters';
 import { hapticMedium } from '@/utils/haptics';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -186,15 +188,19 @@ function OrStartNewDivider(): React.ReactNode {
 
 type ScreenView = 'chooser' | 'league-select';
 
+interface LeagueWithSession extends League {
+  readonly activeSession?: Session | null;
+}
+
 export default function AddGamesScreen(): React.ReactNode {
   const router = useRouter();
 
   // Which sub-view is active
   const [view, setView] = useState<ScreenView>('chooser');
 
-  // Active session fetch
+  // Pickup active session fetch (for chooser banner)
   const {
-    data: activeSession,
+    data: pickupSession,
     isLoading: sessionLoading,
     refetch: refetchSession,
   } = useApi<Session | null>(() => api.getActiveSession(), []);
@@ -211,6 +217,34 @@ export default function AddGamesScreen(): React.ReactNode {
     { enabled: view === 'league-select' },
   );
 
+  // All sessions fetch — to match active sessions to leagues
+  const {
+    data: allSessions,
+    isLoading: sessionsLoading,
+  } = useApi<readonly Session[]>(
+    () => api.getSessions(),
+    [view],
+    { enabled: view === 'league-select' },
+  );
+
+  // Compute leagues with their active sessions
+  const leaguesWithSessions = React.useMemo(() => {
+    if (!leagues || !allSessions) return undefined;
+
+    return leagues.map((league) => {
+      const activeSession = allSessions.find(
+        (session) =>
+          session.league_id === league.id &&
+          session.status === 'ACTIVE'
+      );
+
+      return {
+        ...league,
+        activeSession: activeSession ?? null,
+      } as LeagueWithSession;
+    });
+  }, [leagues, allSessions]);
+
   // Refresh both when pull-to-refresh on chooser
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -226,25 +260,71 @@ export default function AddGamesScreen(): React.ReactNode {
     setView('league-select');
   }, []);
 
+  // Flow 4 — pickup-new: no IDs, backend lazy-creates session on first match submit.
+  // Haptic is fired by the GameTypeCard tile press itself.
   const handlePickupGame = useCallback(() => {
-    router.push(routes.createSession());
+    router.push(
+      routes.scoreGame({
+        headerTitle: 'New Pickup Game',
+      }) as never,
+    );
   }, [router]);
 
-  const handleLeagueSelect = useCallback(
-    (_league: League) => {
-      // Navigate to create a session. A future iteration can pass the leagueId
-      // as a param once session/create supports it.
-      router.push(routes.createSession());
+  // Flow 1 — league-continue: pre-fill from existing session participants.
+  const handleContinueLeagueSession = useCallback(
+    (session: Session) => {
+      void hapticMedium();
+      router.push(
+        routes.scoreGame({
+          sessionId: session.id,
+          leagueId: session.league_id ?? null,
+          seasonId: session.season_id,
+          headerTitle: 'Continue Session',
+          sessionLabel: formatSessionSubtitle(
+            session.date,
+            session.court_name,
+            session.league_name,
+          ),
+          gameNumber: (session.match_count ?? 0) + 1,
+        }) as never,
+      );
     },
     [router],
   );
 
-  const handleContinueSession = useCallback(() => {
+  // Flow 2 — league-new: pre-fill from league members, backend lazy-creates session.
+  const handleStartNewLeagueSession = useCallback(
+    (league: League) => {
+      void hapticMedium();
+      router.push(
+        routes.scoreGame({
+          leagueId: league.id,
+          seasonId: league.current_season_id ?? null,
+          headerTitle: 'Create New Session',
+          sessionLabel: league.name,
+        }) as never,
+      );
+    },
+    [router],
+  );
+
+  // Flow 3 — pickup-continue: pre-fill from existing pickup session participants.
+  const handleContinuePickupSession = useCallback(() => {
     void hapticMedium();
-    if (activeSession != null) {
-      router.push(routes.session(activeSession.id));
-    }
-  }, [router, activeSession]);
+    if (pickupSession == null) return;
+    router.push(
+      routes.scoreGame({
+        sessionId: pickupSession.id,
+        headerTitle: 'Pickup Session',
+        sessionLabel: formatSessionSubtitle(
+          pickupSession.date,
+          pickupSession.court_name,
+          null,
+        ),
+        gameNumber: (pickupSession.match_count ?? 0) + 1,
+      }) as never,
+    );
+  }, [router, pickupSession]);
 
   const handleJoinLeague = useCallback(() => {
     router.push(routes.findLeagues());
@@ -268,11 +348,12 @@ export default function AddGamesScreen(): React.ReactNode {
             Choose a league to record a game in.
           </Text>
           <LeagueSelectList
-            leagues={leagues}
-            isLoading={leaguesLoading}
+            leagues={leaguesWithSessions}
+            isLoading={leaguesLoading || sessionsLoading}
             isRefreshing={false}
             error={leaguesError}
-            onSelect={handleLeagueSelect}
+            onContinueSession={handleContinueLeagueSession}
+            onStartNewSession={handleStartNewLeagueSession}
             onRetry={refetchLeagues}
             onRefresh={refetchLeagues}
             onJoinLeague={handleJoinLeague}
@@ -301,18 +382,18 @@ export default function AddGamesScreen(): React.ReactNode {
         }
       >
         {/* Active session banner (when present) */}
-        {activeSession != null && !sessionLoading && (
+        {pickupSession != null && !sessionLoading && (
           <>
             <ActiveSessionBanner
-              session={activeSession}
-              onContinue={handleContinueSession}
+              session={pickupSession}
+              onContinue={handleContinuePickupSession}
             />
             <OrStartNewDivider />
           </>
         )}
 
         {/* No session description */}
-        {(activeSession == null && !sessionLoading) && (
+        {(pickupSession == null && !sessionLoading) && (
           <>
             <Text className="text-[14px] text-muted mb-6 leading-[1.5]">
               Record your beach volleyball games to track your stats and climb

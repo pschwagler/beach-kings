@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Add New Player — Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+  /* ── State visibility ── */
+  .state-form    { display: block; }
+  .state-success { display: none; }
+  body.s-success .state-form    { display: none; }
+  body.s-success .state-success { display: block; }
+
+  /* ── Compact Scoreboard (context) ── */
+  .scoreboard-compact { display: flex; min-height: 100px; }
+  .board-half { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 10px; }
+  .board-half.team1 { background: #daeef5; }
+  .board-half.team2 { background: #fdf3d8; }
+  body.dark-theme .board-half.team1 { background: #0d3040; }
+  body.dark-theme .board-half.team2 { background: #2a1f00; }
+  .board-divider { width: 2px; background: #c0c0c0; }
+  .board-team-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; }
+  .board-half.team1 .board-team-label { color: #1a3a4a; }
+  .board-half.team2 .board-team-label { color: #7a5200; }
+  body.dark-theme .board-half.team1 .board-team-label { color: #7ec8e3; }
+  body.dark-theme .board-half.team2 .board-team-label { color: #d4a843; }
+  .board-player-row { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 8px; background: rgba(26,58,74,0.08); width: 100%; }
+  .board-player-row.empty { background: transparent; border: 1.5px dashed #d4a843; justify-content: center; }
+  body.dark-theme .board-player-row { background: rgba(255,255,255,0.06); }
+  .bp-avatar { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .bp-name { font-size: 12px; font-weight: 600; color: #1a1a1a; }
+  body.dark-theme .bp-name { color: #ddd; }
+  .bp-empty { font-size: 11px; color: #d4a843; font-weight: 600; }
+
+  /* ── Modal Nav (above the sheet) ── */
+  .modal-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .modal-nav .close { color: #fff; font-size: 22px; min-width: 44px; min-height: 44px; display: flex; align-items: center; background: none; border: none; cursor: pointer; }
+  .modal-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .modal-nav .match-num { font-size: 13px; color: #999; min-width: 44px; text-align: right; }
+
+  /* ── Search context row (what was typed) ── */
+  .search-context { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #f8f8f8; border-bottom: 1px solid #efefef; }
+  body.dark-theme .search-context { background: #1a1a1a; border-color: #2a2a2a; }
+  .search-context-icon svg { color: #bbb; }
+  .search-context-text { font-size: 14px; color: #999; flex: 1; }
+  .search-context-query { color: #1a1a1a; font-weight: 600; }
+  body.dark-theme .search-context-query { color: #fff; }
+  .search-context-hint { font-size: 12px; color: #bbb; }
+  body.dark-theme .search-context-hint { color: #555; }
+
+  /* ── Guest form sheet ── */
+  .guest-sheet { background: #fff; padding: 20px 16px 36px; }
+  body.dark-theme .guest-sheet { background: #111; }
+
+  .guest-sheet-header { margin-bottom: 20px; }
+  .guest-sheet-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+  body.dark-theme .guest-sheet-title { color: #fff; }
+  .guest-sheet-desc { font-size: 13px; color: #888; line-height: 1.4; }
+  body.dark-theme .guest-sheet-desc { color: #666; }
+
+  /* ── Form fields ── */
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  body.dark-theme .form-label { color: #555; }
+  .form-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 16px;
+    color: #1a1a1a;
+    background: #fff;
+    box-sizing: border-box;
+    outline: none;
+  }
+  .form-input:focus { border-color: #d4a843; }
+  body.dark-theme .form-input { background: #1e1e1e; border-color: #333; color: #fff; }
+  .form-input.filled { border-color: #d4a843; }
+
+  /* ── Level chips ── */
+  .level-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .level-chip {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1.5px solid #e0e0e0;
+    background: #fff;
+    color: #666;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .level-chip.selected { border-color: #2a7d9c; background: #daeef5; color: #1a3a4a; }
+  body.dark-theme .level-chip { border-color: #333; background: #1e1e1e; color: #666; }
+  body.dark-theme .level-chip.selected { border-color: #2a7d9c; background: rgba(42,125,156,0.15); color: #4daacc; }
+
+  /* ── Phone field (optional) ── */
+  .optional-expand { display: flex; align-items: center; gap: 6px; color: #2a7d9c; font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px 0 16px; }
+  body.dark-theme .optional-expand { color: #4daacc; }
+  .optional-expand svg { width: 16px; height: 16px; }
+  .form-hint { font-size: 12px; color: #aaa; margin-top: 6px; line-height: 1.4; }
+  body.dark-theme .form-hint { color: #555; }
+
+  /* ── Guest info callout ── */
+  .guest-callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    margin-bottom: 20px;
+  }
+  body.dark-theme .guest-callout { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.2); }
+  .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .callout-text { font-size: 12px; color: #92400e; line-height: 1.5; }
+  body.dark-theme .callout-text { color: rgba(245,158,11,0.8); }
+  .callout-text strong { font-weight: 700; }
+
+  /* ── CTA ── */
+  .btn-add-guest {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    background: #d4a843;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    box-sizing: border-box;
+    margin-bottom: 12px;
+  }
+  .btn-add-guest:active { background: #b8922e; }
+  .btn-cancel { display: block; width: 100%; padding: 12px; text-align: center; color: #888; font-size: 14px; font-weight: 600; cursor: pointer; background: none; border: none; }
+  body.dark-theme .btn-cancel { color: #555; }
+
+  /* ── Success state ── */
+  .success-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 32px 36px;
+    text-align: center;
+    background: #fff;
+    min-height: 340px;
+  }
+  body.dark-theme .success-screen { background: #111; }
+  .success-icon-wrap {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #f0fdf4;
+    border: 2px solid #86efac;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  body.dark-theme .success-icon-wrap { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.3); }
+  .success-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
+  body.dark-theme .success-title { color: #fff; }
+  .success-subtitle { font-size: 14px; color: #888; line-height: 1.5; margin-bottom: 8px; }
+  body.dark-theme .success-subtitle { color: #555; }
+  .success-guest-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    font-size: 12px;
+    font-weight: 700;
+    color: #92400e;
+    margin-bottom: 28px;
+  }
+  body.dark-theme .success-guest-badge { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.2); color: #d4a843; }
+  .success-btn-done {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    background: #1a3a4a;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    box-sizing: border-box;
+    margin-bottom: 12px;
+  }
+  body.dark-theme .success-btn-done { background: #2a7d9c; }
+  .success-btn-share {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1.5px solid #1a3a4a;
+    background: transparent;
+    color: #1a3a4a;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+  body.dark-theme .success-btn-share { border-color: #2a7d9c; color: #4daacc; }
+
+  /* ── Dark theme: status bar / nav ── */
+  body.dark-theme .modal-nav { background: #0d2233; }
+  body.dark-theme .search-context { background: #1a1a1a; border-color: #2a2a2a; }
+</style>
+</head>
+<body>
+
+<!-- ── State + Theme Switchers ── -->
+<div class="state-switcher">
+  <div class="sw-label">Screen State</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('')">New Player Form</button>
+    <button class="sw-pill" onclick="setState('s-success')">Success</button>
+  </div>
+</div>
+<div class="state-switcher" style="padding-top:0; border-bottom: 2px solid #d4a843;">
+  <div class="sw-label">Theme</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setTheme('light')">Light</button>
+    <button class="sw-pill" onclick="setTheme('dark')">Dark</button>
+  </div>
+</div>
+
+<!-- ── Status bar ── -->
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;font-weight:400;">* * *</span></div>
+
+<!-- ── Modal nav (score game header) ── -->
+<div class="modal-nav">
+  <button class="close">&times;</button>
+  <div class="title">Add Game</div>
+  <div class="match-num">#5</div>
+</div>
+
+<!-- ── Compact scoreboard (context — who's already placed) ── -->
+<div class="scoreboard-compact">
+  <div class="board-half team1">
+    <div class="board-team-label">Team 1</div>
+    <div class="board-player-row">
+      <div class="bp-avatar" style="background:#1a3a4a;">PS</div>
+      <div class="bp-name">Pat S</div>
+    </div>
+    <div class="board-player-row">
+      <div class="bp-avatar" style="background:#2a7d9c;">KF</div>
+      <div class="bp-name">Karim F</div>
+    </div>
+  </div>
+  <div class="board-divider"></div>
+  <div class="board-half team2">
+    <div class="board-team-label">Team 2</div>
+    <div class="board-player-row">
+      <div class="bp-avatar" style="background:#15803d;">MB</div>
+      <div class="bp-name">Mike B</div>
+    </div>
+    <div class="board-player-row empty">
+      <div class="bp-empty">Adding player...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Search query that triggered this (context) ── -->
+<div class="search-context">
+  <div class="search-context-icon">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  </div>
+  <div class="search-context-text">Searched for <span class="search-context-query">"Brad K"</span></div>
+  <div class="search-context-hint">No Beach League match</div>
+</div>
+
+<!-- ════════════════════════════════════════
+     GUEST FORM STATE
+     ════════════════════════════════════════ -->
+<div class="guest-sheet state-form">
+
+  <div class="guest-sheet-header">
+    <div class="guest-sheet-title">Add New Player</div>
+    <div class="guest-sheet-desc">Creates a profile they can claim later by joining Beach League.</div>
+  </div>
+
+  <!-- Name — matches data model (first_name + last_name) -->
+  <div class="form-group">
+    <div class="form-label">First Name <span style="color:#ef4444;">*</span></div>
+    <input class="form-input filled" type="text" value="Brad" placeholder="First name">
+  </div>
+  <div class="form-group">
+    <div class="form-label">Last Name <span style="color:#aaa; font-size:11px; font-weight:400; text-transform:none;">(optional)</span></div>
+    <input class="form-input filled" type="text" value="K" placeholder="Last name">
+  </div>
+
+  <!-- Level (optional) -->
+  <div class="form-group">
+    <div class="form-label">Level <span style="color:#aaa; font-size:11px; font-weight:400; text-transform:none;">(optional)</span></div>
+    <div class="level-chips">
+      <div class="level-chip">C</div>
+      <div class="level-chip">B</div>
+      <div class="level-chip selected">B+</div>
+      <div class="level-chip">A</div>
+      <div class="level-chip">A+</div>
+      <div class="level-chip">Open</div>
+    </div>
+  </div>
+
+  <!-- Phone (optional, collapsed by default) -->
+  <div class="optional-expand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add phone number (optional)
+  </div>
+
+  <!-- Info callout -->
+  <div class="guest-callout">
+    <div class="callout-icon">&#128100;</div>
+    <div class="callout-text">
+      <strong>New players</strong> appear in session rosters with a "New" label. Share a link after the session so they can join Beach League and own their stats.
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <button class="btn-add-guest">Add Brad K to Game</button>
+  <button class="btn-cancel">Cancel</button>
+
+</div>
+
+<!-- ════════════════════════════════════════
+     SUCCESS STATE
+     ════════════════════════════════════════ -->
+<div class="success-screen state-success">
+  <div class="success-icon-wrap">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+  </div>
+  <div class="success-title">Brad K added!</div>
+  <div class="success-subtitle">Added to Team 2 as a new player.</div>
+  <div class="success-guest-badge">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+    New · B+
+  </div>
+  <button class="success-btn-done">Done — Back to Scoreboard</button>
+  <button class="success-btn-share">Share Invite Link</button>
+</div>
+
+<script>
+function setState(cls) {
+  document.body.className = document.body.className
+    .split(' ')
+    .filter(c => !c.startsWith('s-'))
+    .join(' ');
+  if (cls) document.body.classList.add(cls);
+  document.querySelectorAll('.sw-pill').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+function setTheme(t) {
+  document.body.classList.toggle('dark-theme', t === 'dark');
+  document.querySelectorAll('.sw-pill').forEach(p => {
+    const label = p.textContent.trim().toLowerCase();
+    if (label === t) p.classList.add('active');
+    else if (label === (t === 'dark' ? 'light' : 'dark')) p.classList.remove('active');
+  });
+}
+// Chip selection
+document.querySelectorAll('.level-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.level-chip').forEach(c => c.classList.remove('selected'));
+    chip.classList.add('selected');
+  });
+});
+</script>
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

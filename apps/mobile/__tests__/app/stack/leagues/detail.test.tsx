@@ -112,13 +112,13 @@ jest.mock('@/lib/api', () => ({
     getLeagueSignups: (...args: unknown[]) => mockGetLeagueSignups(...args),
     joinSignup: (...args: unknown[]) => mockJoinSignup(...args),
     dropSignup: (...args: unknown[]) => mockDropSignup(...args),
+    getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
   },
 }));
 
 jest.mock('@/lib/mockApi', () => ({
   mockApi: {
     getLeagueDetail: (...args: unknown[]) => mockGetLeagueDetail(...args),
-    getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
     getLeagueSignupEvents: (...args: unknown[]) => mockGetLeagueSignupEvents(...args),
   },
 }));

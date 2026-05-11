@@ -2,30 +2,126 @@
  * ScoreGameScreen — main orchestrator for the score entry modal.
  *
  * States:
- *   idle / loading — shows scoreboard + roster picker + Save Game bar
+ *   idle / loading — shows scoreboard + roster picker (building) or score steppers (scoring)
  *   error          — shows error card with retry / discard
- *   success        — shows success card with game stats + Done / Add Another
+ *   success        — shows success card with winner + Done / Add Another
  *
  * Wireframe refs: score-league.html, score-scoreboard.html
  */
 
-import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Switch } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, Pressable, ActivityIndicator, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 
-import TopNav from '@/components/ui/TopNav';
+import { XIcon } from '@/components/ui/icons';
+import { ConfirmDialog } from '@/components/ui';
+import { routes } from '@/lib/navigation';
+import { formatPlayerShort } from '@/lib/formatters';
 import { useScoreGameScreen } from './useScoreGameScreen';
-import ScoreBoard from './ScoreBoard';
+import ScoreBoard, { MAX_SCORE } from './ScoreBoard';
 import RosterPicker from './RosterPicker';
-import { hapticMedium } from '@/utils/haptics';
-import type { RosterPlayer } from './useScoreGameScreen';
+import ScoreGameMenu from './ScoreGameMenu';
+import { hapticLight, hapticMedium } from '@/utils/haptics';
+import type { RosterPlayer, PlayerSlot } from './useScoreGameScreen';
 
 export interface ScoreGameScreenProps {
-  /** Existing session to add the game to. Null/undefined → backend creates a new session. */
   readonly sessionId?: number | null;
-  /** League context — enables ranked toggle and scopes roster. */
   readonly leagueId?: number | null;
+  readonly seasonId?: number | null;
+  /** When set, the screen is in edit mode for this match. */
+  readonly matchId?: number | null;
+  readonly gameNumber?: number | null;
+  readonly sessionLabel?: string | null;
+  readonly headerTitle?: string | null;
+}
+
+/** Format the success-state description: "P S / Q M beat R T / S U", or tied form on a tie. */
+function buildSuccessDesc(
+  team1: readonly [PlayerSlot, PlayerSlot],
+  team2: readonly [PlayerSlot, PlayerSlot],
+  score1: number,
+  score2: number,
+): string {
+  const t1 = `${formatPlayerShort(team1[0].display_name)} / ${formatPlayerShort(team1[1].display_name)}`;
+  const t2 = `${formatPlayerShort(team2[0].display_name)} / ${formatPlayerShort(team2[1].display_name)}`;
+  if (score1 === score2) return `${t1} tied ${t2}`;
+  const winner = score1 > score2 ? t1 : t2;
+  const loser = score1 > score2 ? t2 : t1;
+  return `${winner} beat ${loser}`;
+}
+
+/** Build the modal-nav subtitle from route params, falling back to legacy text. */
+function buildNavSubtitle(
+  gameNumber: number | null | undefined,
+  sessionLabel: string | null | undefined,
+  leagueId: number | null | undefined,
+): string | null {
+  const label = sessionLabel != null && sessionLabel.length > 0 ? sessionLabel : null;
+  if (gameNumber != null && label != null) return `Game #${gameNumber} · ${label}`;
+  if (label != null) return label;
+  // Fallback preserves prior behavior when callers haven't been updated yet.
+  return leagueId != null ? 'League Game' : 'Pickup Game';
+}
+
+// ---------------------------------------------------------------------------
+// Modal nav
+// ---------------------------------------------------------------------------
+
+interface ModalNavProps {
+  readonly title: string;
+  readonly subtitle?: string;
+  readonly onClose: () => void;
+  readonly onOpenMenu?: () => void;
+  readonly disabled?: boolean;
+}
+
+function ModalNav({
+  title,
+  subtitle,
+  onClose,
+  onOpenMenu,
+  disabled = false,
+}: ModalNavProps): React.ReactNode {
+  return (
+    <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider bg-page">
+      <Pressable
+        testID="modal-close-btn"
+        onPress={onClose}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+        accessibilityState={{ disabled }}
+        hitSlop={8}
+        className={`w-9 h-9 items-center justify-center ${disabled ? 'opacity-40' : ''}`}
+      >
+        <XIcon size={20} color="#888" />
+      </Pressable>
+
+      <View className="absolute left-0 right-0 items-center pointer-events-none">
+        <Text className="text-[15px] font-bold text-default">{title}</Text>
+        {subtitle != null && (
+          <Text className="text-[11px] text-muted mt-[1px]">{subtitle}</Text>
+        )}
+      </View>
+
+      {onOpenMenu != null ? (
+        <Pressable
+          testID="score-menu-btn"
+          onPress={onOpenMenu}
+          accessibilityRole="button"
+          accessibilityLabel="Score game menu"
+          hitSlop={8}
+          className="w-9 h-9 items-center justify-center"
+        >
+          <Text className="text-[20px] text-default">···</Text>
+        </Pressable>
+      ) : (
+        // Placeholder to balance the X button
+        <View className="w-9 h-9" />
+      )}
+    </View>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -35,6 +131,7 @@ export interface ScoreGameScreenProps {
 interface SuccessViewProps {
   readonly score1: number;
   readonly score2: number;
+  readonly desc: string;
   readonly onDone: () => void;
   readonly onAddAnother: () => void;
 }
@@ -42,6 +139,7 @@ interface SuccessViewProps {
 function SuccessView({
   score1,
   score2,
+  desc,
   onDone,
   onAddAnother,
 }: SuccessViewProps): React.ReactNode {
@@ -50,46 +148,30 @@ function SuccessView({
       testID="score-success-view"
       className="flex-1 items-center justify-center px-6 py-16 gap-5"
     >
-      {/* Icon */}
       <View className="w-20 h-20 rounded-full bg-success-tint border-[3px] border-success items-center justify-center">
-        <Text className="text-[36px]">{'\u2713'}</Text>
+        <Text className="text-[36px]">{'✓'}</Text>
       </View>
 
       <Text className="text-[22px] font-black text-default text-center">
         Game Saved!
       </Text>
 
-      <Text className="text-[14px] text-muted text-center leading-[1.55] max-w-[280px]">
-        Your game has been recorded. Ratings will update after the session is
-        processed.
+      <Text
+        testID="score-success-desc"
+        className="text-[14px] text-muted text-center leading-[1.55] max-w-[280px]"
+      >
+        {desc}
       </Text>
 
-      {/* Score summary */}
-      <View className="flex-row gap-5 mt-2">
-        <View className="items-center">
-          <Text className="text-[20px] font-black text-default">
-            {score1}
-          </Text>
-          <Text className="text-[11px] text-muted uppercase tracking-wide mt-[2px]">
-            Team 1
-          </Text>
-        </View>
-        <View className="items-center justify-center">
-          <Text className="text-[16px] font-bold text-muted">
-            -
-          </Text>
-        </View>
-        <View className="items-center">
-          <Text className="text-[20px] font-black text-default">
-            {score2}
-          </Text>
-          <Text className="text-[11px] text-muted uppercase tracking-wide mt-[2px]">
-            Team 2
-          </Text>
-        </View>
+      <View className="items-center mt-2">
+        <Text testID="score-success-final" className="text-[28px] font-black text-default">
+          {score1}–{score2}
+        </Text>
+        <Text className="text-[11px] text-muted uppercase tracking-wide mt-[2px]">
+          Final Score
+        </Text>
       </View>
 
-      {/* CTAs */}
       <View className="w-full gap-2 mt-3">
         <Pressable
           testID="add-another-btn"
@@ -98,9 +180,7 @@ function SuccessView({
           accessibilityLabel="Add Another Game"
           className="w-full py-4 rounded-[12px] bg-brand-gold items-center"
         >
-          <Text className="text-white font-bold text-[16px]">
-            Add Another Game
-          </Text>
+          <Text className="text-white font-bold text-[16px]">Add Another Game</Text>
         </Pressable>
 
         <Pressable
@@ -110,9 +190,7 @@ function SuccessView({
           accessibilityLabel="Done"
           className="w-full py-[14px] rounded-[12px] border border-divider items-center"
         >
-          <Text className="text-[14px] font-bold text-muted">
-            Done
-          </Text>
+          <Text className="text-[14px] font-bold text-muted">Done</Text>
         </Pressable>
       </View>
     </View>
@@ -140,7 +218,7 @@ function ErrorView({ message, onRetry, onDiscard }: ErrorViewProps): React.React
       </View>
 
       <Text className="text-[20px] font-black text-default text-center">
-        Could Not Save
+        Couldn't Save Game
       </Text>
 
       <Text className="text-[14px] text-muted text-center leading-[1.55] max-w-[300px]">
@@ -165,9 +243,7 @@ function ErrorView({ message, onRetry, onDiscard }: ErrorViewProps): React.React
           accessibilityLabel="Discard"
           className="w-full py-[14px] rounded-[12px] border border-divider items-center"
         >
-          <Text className="text-[14px] font-bold text-muted">
-            Discard
-          </Text>
+          <Text className="text-[14px] font-bold text-muted">Discard</Text>
         </Pressable>
       </View>
     </View>
@@ -179,8 +255,13 @@ function ErrorView({ message, onRetry, onDiscard }: ErrorViewProps): React.React
 // ---------------------------------------------------------------------------
 
 export default function ScoreGameScreen({
-  sessionId,
+  sessionId: routeSessionId,
   leagueId,
+  seasonId,
+  matchId,
+  gameNumber,
+  sessionLabel,
+  headerTitle,
 }: ScoreGameScreenProps = {}): React.ReactNode {
   const router = useRouter();
   const {
@@ -195,47 +276,175 @@ export default function ScoreGameScreen({
     canSubmit,
     isRanked,
     lastSessionId,
+    filledCount,
+    isBuilding,
+    activeNextSlot,
+    scoreWarning,
+    currentPlayerId,
+    isEditMode,
+    deleteState,
+    sessionId,
+    isCreatingSession,
+    canShare,
+    onManageSession,
+    onShareSession,
     setScore1,
     setScore2,
     assignPlayer,
+    removePlayer,
     setSearch,
     setIsRanked,
     onSubmit,
     onRetry,
-    onDismissError,
     onAddAnother: hookOnAddAnother,
-  } = useScoreGameScreen({ sessionId, leagueId });
+    onDelete,
+  } = useScoreGameScreen({
+    sessionId: routeSessionId,
+    leagueId,
+    seasonId,
+    matchId,
+  });
 
-  // Track which slot is "active" for the roster picker
+  const navigation = useNavigation();
   const [activeSlot, setActiveSlot] = useState<{
-    team: 1 | 2;
-    slot: 0 | 1;
+    readonly team: 1 | 2;
+    readonly slot: 0 | 1;
   } | null>(null);
+  const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
-  const handleClose = useCallback(() => {
-    router.back();
-  }, [router]);
+  // Captured navigation action from a back-gesture / hardware-back that the
+  // beforeRemove listener intercepted. Replayed on confirm to honor the user's
+  // original navigation intent (e.g. swipe back to whichever screen pushed us).
+  const pendingActionRef = useRef<unknown>(null);
+  // Bypass flag so dispatching the captured action below doesn't re-enter the
+  // listener and re-open the dialog.
+  const skipGuardRef = useRef(false);
 
-  const handleDone = useCallback(() => {
-    if (lastSessionId != null) {
-      router.replace(`/session-active?sessionId=${lastSessionId}` as never);
+  // Auto-advance: use explicitly selected slot or the next empty one
+  const effectiveActiveSlot = activeSlot ?? activeNextSlot;
+
+  // Ref keeps handlePlayerSelect stable while always reading the latest slot
+  const effectiveActiveSlotRef = useRef(effectiveActiveSlot);
+  useEffect(() => {
+    effectiveActiveSlotRef.current = effectiveActiveSlot;
+  }, [effectiveActiveSlot]);
+
+  // Navigation policy on close (matches MOBILE_ADD_GAMES_VALIDATION.md):
+  // - sessionId known (existing or post-save) → replace into SessionDetail.
+  // - otherwise → back to the Add Games tab.
+  const navigateOnClose = useCallback(() => {
+    const targetSessionId = lastSessionId ?? sessionId ?? null;
+    if (targetSessionId != null) {
+      router.replace(routes.session(targetSessionId) as never);
     } else {
       router.back();
     }
-  }, [router, lastSessionId]);
+  }, [router, lastSessionId, sessionId]);
+
+  // Only guard while the user is mid-build/score. In success state the data is
+  // saved; in error state the user has already chosen between Retry/Discard, so
+  // a second "discard?" prompt would be redundant.
+  const hasProgress = useMemo(
+    () =>
+      submitState === 'idle' &&
+      (filledCount > 0 || score1 > 0 || score2 > 0),
+    [submitState, filledCount, score1, score2],
+  );
+
+  const isSaving = submitState === 'loading';
+
+  // Guard hardware-back, swipe-back gesture, and any other navigation removal:
+  // - mid-save → block silently (no dialog over a pending request).
+  // - has unsaved progress → capture the action, show confirm dialog.
+  useEffect(() => {
+    // expo-router exposes the underlying React Navigation prop. addListener's
+    // type union doesn't include 'beforeRemove' in every stack flavor, so we
+    // cast through unknown for that one call.
+    const unsubscribe = (
+      navigation as unknown as {
+        addListener: (
+          event: 'beforeRemove',
+          cb: (e: {
+            preventDefault: () => void;
+            data: { action: unknown };
+          }) => void,
+        ) => () => void;
+      }
+    ).addListener('beforeRemove', (e) => {
+      if (skipGuardRef.current) {
+        skipGuardRef.current = false;
+        return;
+      }
+      if (isSaving) {
+        e.preventDefault();
+        return;
+      }
+      if (!hasProgress) return;
+      e.preventDefault();
+      pendingActionRef.current = e.data.action;
+      setDiscardConfirmVisible(true);
+    });
+    return unsubscribe;
+  }, [navigation, hasProgress, isSaving]);
+
+  const handleClose = useCallback(() => {
+    if (isSaving) return;
+    if (hasProgress) {
+      setDiscardConfirmVisible(true);
+      return;
+    }
+    navigateOnClose();
+  }, [isSaving, hasProgress, navigateOnClose]);
+
+  const handleDiscardConfirm = useCallback(() => {
+    setDiscardConfirmVisible(false);
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    if (action != null) {
+      // Came from beforeRemove (gesture / hardware-back) — replay the captured
+      // navigation so we land where the user originally intended.
+      skipGuardRef.current = true;
+      (
+        navigation as unknown as { dispatch: (a: unknown) => void }
+      ).dispatch(action);
+      return;
+    }
+    // Came from the in-screen X button — apply navigation policy.
+    navigateOnClose();
+  }, [navigation, navigateOnClose]);
+
+  const handleDiscardCancel = useCallback(() => {
+    setDiscardConfirmVisible(false);
+    pendingActionRef.current = null;
+  }, []);
+
+  const handleDone = useCallback(() => {
+    navigateOnClose();
+  }, [navigateOnClose]);
 
   const handleSlotPress = useCallback((team: 1 | 2, slot: 0 | 1) => {
     setActiveSlot({ team, slot });
   }, []);
 
+  const handleRemovePlayer = useCallback(
+    (team: 1 | 2, slot: 0 | 1) => {
+      removePlayer(team, slot);
+      setActiveSlot(null);
+    },
+    [removePlayer],
+  );
+
   const handlePlayerSelect = useCallback(
     (player: RosterPlayer) => {
-      if (activeSlot != null) {
-        assignPlayer(activeSlot.team, activeSlot.slot, player);
+      const target = effectiveActiveSlotRef.current;
+      if (target != null) {
+        assignPlayer(target.team, target.slot, player);
         setActiveSlot(null);
       }
     },
-    [activeSlot, assignPlayer],
+    [assignPlayer],
   );
 
   const handleAddAnother = useCallback(() => {
@@ -248,71 +457,123 @@ export default function ScoreGameScreen({
     onSubmit();
   }, [onSubmit]);
 
-  // --- Success ---
+  const handleIncScore1 = useCallback(() => setScore1(Math.min(MAX_SCORE, score1 + 1)), [setScore1, score1]);
+  const handleDecScore1 = useCallback(() => setScore1(Math.max(0, score1 - 1)), [setScore1, score1]);
+  const handleIncScore2 = useCallback(() => setScore2(Math.min(MAX_SCORE, score2 + 1)), [setScore2, score2]);
+  const handleDecScore2 = useCallback(() => setScore2(Math.max(0, score2 - 1)), [setScore2, score2]);
+
+  const handleErrorDiscard = useCallback(() => {
+    navigateOnClose();
+  }, [navigateOnClose]);
+
+  const handleDeletePress = useCallback(() => {
+    setDeleteConfirmVisible(true);
+  }, []);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteConfirmVisible(false);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    setDeleteConfirmVisible(false);
+    void onDelete().then((ok) => {
+      if (!ok) return; // Stay on screen so the user can see the error.
+      // After a successful delete, return to wherever this screen was opened
+      // from. SessionDetail refetches on focus, so it picks up the removed game.
+      // The pre-filled slots still count as "progress" to the close-guard, so
+      // bypass it explicitly — the data we'd warn about is already gone.
+      skipGuardRef.current = true;
+      router.back();
+    });
+  }, [onDelete, router]);
+
+  // --- Three-dot menu wiring ---
+  const handleOpenMenu = useCallback(() => {
+    void hapticLight();
+    setMenuVisible(true);
+  }, []);
+
+  const handleCloseMenu = useCallback(() => {
+    setMenuVisible(false);
+  }, []);
+
+  // "Manage Session": ensure a session exists, then route to its detail screen
+  // so the user can rename it / invite players. On failure the menu closes;
+  // errorMessage from the hook will surface in the error view if the user
+  // proceeds to submit.
+  const handleManageSession = useCallback(() => {
+    void onManageSession().then((id) => {
+      setMenuVisible(false);
+      if (id == null) return;
+      router.push(routes.session(id) as never);
+    });
+  }, [onManageSession, router]);
+
+  const handleShareSession = useCallback(() => {
+    setMenuVisible(false);
+    void onShareSession();
+  }, [onShareSession]);
+
+  const isDeleting = deleteState === 'loading';
+
+  const remaining = 4 - filledCount;
+  const saveButtonLabel = isBuilding
+    ? `Select ${remaining} more player${remaining === 1 ? '' : 's'}`
+    : isSaving
+    ? 'Saving...'
+    : 'Save Game';
+
+  const successDesc = buildSuccessDesc(team1, team2, score1, score2);
+
+  const navTitle =
+    headerTitle != null && headerTitle.length > 0
+      ? headerTitle
+      : isEditMode
+      ? 'Edit Game'
+      : 'Add Game';
+  const navSubtitle = buildNavSubtitle(gameNumber, sessionLabel, leagueId);
+
+  let content: React.ReactNode;
   if (submitState === 'success') {
-    return (
-      <SafeAreaView
-        className="flex-1 bg-page"
-        edges={['top']}
-        testID="score-game-screen"
-      >
-        <TopNav title="Score Game" showBack onBack={handleClose} />
-        <SuccessView
-          score1={score1}
-          score2={score2}
-          onDone={handleDone}
-          onAddAnother={handleAddAnother}
-        />
-      </SafeAreaView>
+    content = (
+      <SuccessView
+        score1={score1}
+        score2={score2}
+        desc={successDesc}
+        onDone={handleDone}
+        onAddAnother={handleAddAnother}
+      />
     );
-  }
-
-  // --- Error ---
-  if (submitState === 'error') {
-    return (
-      <SafeAreaView
-        className="flex-1 bg-page"
-        edges={['top']}
-        testID="score-game-screen"
-      >
-        <TopNav title="Score Game" showBack onBack={handleClose} />
-        <ErrorView
-          message={errorMessage}
-          onRetry={onRetry}
-          onDiscard={onDismissError}
-        />
-      </SafeAreaView>
+  } else if (submitState === 'error') {
+    content = (
+      <ErrorView
+        message={errorMessage}
+        onRetry={onRetry}
+        onDiscard={handleErrorDiscard}
+      />
     );
-  }
-
-  // --- Idle / Loading ---
-  return (
-    <SafeAreaView
-      className="flex-1 bg-page"
-      edges={['top']}
-      testID="score-game-screen"
-    >
-      <TopNav title="Score Game" showBack onBack={handleClose} />
-
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 100 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Scoreboard */}
+  } else {
+    content = (
+      <>
+        {/* Scoreboard — fixed at top */}
         <ScoreBoard
           team1Slots={team1}
           team2Slots={team2}
           score1={score1}
           score2={score2}
-          onIncScore1={() => setScore1(score1 + 1)}
-          onDecScore1={() => setScore1(Math.max(0, score1 - 1))}
-          onIncScore2={() => setScore2(score2 + 1)}
-          onDecScore2={() => setScore2(Math.max(0, score2 - 1))}
+          isBuilding={isBuilding}
+          activeSlot={effectiveActiveSlot}
+          onIncScore1={handleIncScore1}
+          onDecScore1={handleDecScore1}
+          onIncScore2={handleIncScore2}
+          onDecScore2={handleDecScore2}
+          onChangeScore1={setScore1}
+          onChangeScore2={setScore2}
           onSlotPress={handleSlotPress}
+          onRemovePlayer={handleRemovePlayer}
         />
 
-        {/* Ranked toggle — only shown for league games */}
+        {/* Ranked toggle — only for league context */}
         {leagueId != null && (
           <View
             testID="ranked-toggle-row"
@@ -330,45 +591,116 @@ export default function ScoreGameScreen({
           </View>
         )}
 
-        {/* Roster picker */}
-        <RosterPicker
-          roster={filteredRoster}
-          team1={team1}
-          team2={team2}
-          search={search}
-          onSearch={setSearch}
-          onSelectPlayer={handlePlayerSelect}
-        />
-      </ScrollView>
+        {/* Roster picker — only visible in building mode */}
+        {isBuilding && (
+          <RosterPicker
+            roster={filteredRoster}
+            team1={team1}
+            team2={team2}
+            search={search}
+            onSearch={setSearch}
+            onSelectPlayer={handlePlayerSelect}
+            currentPlayerId={currentPlayerId}
+          />
+        )}
 
-      {/* Bottom bar */}
-      <View className="bg-surface border-t border-divider px-4 pt-3 pb-8">
-        <Pressable
-          testID="save-game-btn"
-          onPress={handleSave}
-          disabled={!canSubmit || submitState === 'loading'}
-          accessibilityRole="button"
-          accessibilityLabel="Save Game"
-          className={`w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2 ${
-            canSubmit && submitState !== 'loading'
-              ? 'bg-brand-gold'
-              : 'bg-elevated'
-          }`}
-        >
-          {submitState === 'loading' && (
-            <ActivityIndicator size="small" color="#fff" />
-          )}
-          <Text
-            className={`font-bold text-[16px] ${
-              canSubmit && submitState !== 'loading'
-                ? 'text-white'
-                : 'text-muted'
+        {/* Score validation warning */}
+        {scoreWarning != null && (
+          <View className="mx-4 my-2 px-3 py-2 rounded-[8px] bg-warning-tint border border-brand-gold flex-row items-center gap-2">
+            <Text className="text-[13px] font-semibold text-warning flex-1">
+              {scoreWarning}
+            </Text>
+          </View>
+        )}
+
+        {/* Bottom bar */}
+        <View className="bg-surface border-t border-divider px-4 pt-3 pb-8">
+          <Pressable
+            testID="save-game-btn"
+            onPress={handleSave}
+            disabled={!canSubmit || isSaving}
+            accessibilityRole="button"
+            accessibilityLabel={saveButtonLabel}
+            className={`w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2 ${
+              canSubmit && !isSaving ? 'bg-brand-gold' : 'bg-elevated'
             }`}
           >
-            {submitState === 'loading' ? 'Saving...' : 'Save Game'}
-          </Text>
-        </Pressable>
-      </View>
+            {isSaving && <ActivityIndicator size="small" color="#fff" />}
+            <Text
+              className={`font-bold text-[16px] ${
+                canSubmit && !isSaving ? 'text-white' : 'text-muted'
+              }`}
+            >
+              {saveButtonLabel}
+            </Text>
+          </Pressable>
+
+          {isEditMode && (
+            <Pressable
+              testID="delete-game-link"
+              onPress={handleDeletePress}
+              disabled={isDeleting || isSaving}
+              accessibilityRole="button"
+              accessibilityLabel="Delete Game"
+              hitSlop={8}
+              className="mt-3 items-center"
+            >
+              <Text className="text-[14px] font-semibold text-danger">
+                {isDeleting ? 'Deleting…' : 'Delete Game'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </>
+    );
+  }
+
+  return (
+    <SafeAreaView
+      className="flex-1 bg-page"
+      edges={['top']}
+      testID="score-game-screen"
+    >
+      <ModalNav
+        title={navTitle}
+        subtitle={navSubtitle ?? undefined}
+        onClose={handleClose}
+        // Three-dot menu hidden in success/error screens — the entry-point
+        // actions (Done / Retry) are the only meaningful follow-ups there.
+        onOpenMenu={submitState === 'idle' ? handleOpenMenu : undefined}
+        disabled={isSaving}
+      />
+      {content}
+      <ConfirmDialog
+        testID="discard-confirm-dialog"
+        visible={discardConfirmVisible}
+        title="Discard this game?"
+        message="You haven't saved this game yet. Your players and scores will be lost."
+        confirmLabel="Discard"
+        confirmVariant="destructive"
+        cancelLabel="Keep Scoring"
+        onConfirm={handleDiscardConfirm}
+        onCancel={handleDiscardCancel}
+      />
+      <ConfirmDialog
+        testID="delete-confirm-dialog"
+        visible={deleteConfirmVisible}
+        title="Delete this game?"
+        message="This game will be removed from the session. This can't be undone."
+        confirmLabel="Delete"
+        confirmVariant="destructive"
+        cancelLabel="Keep Game"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
+      <ScoreGameMenu
+        visible={menuVisible}
+        onClose={handleCloseMenu}
+        onManageSession={handleManageSession}
+        onShareSession={handleShareSession}
+        canShare={canShare}
+        isCreatingSession={isCreatingSession}
+      />
     </SafeAreaView>
   );
 }

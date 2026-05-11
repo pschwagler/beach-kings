@@ -32,6 +32,7 @@ jest.mock('expo-router', () => {
     useLocalSearchParams: () => ({ id: '42' }),
     useSegments: () => [],
     Slot: ({ children }: { children?: React.ReactNode }) => <View testID="slot">{children}</View>,
+    useFocusEffect: jest.fn(),
   };
 });
 
@@ -116,21 +117,24 @@ import SessionDetailRoute from '../../../../app/(stack)/session/[id]';
 // ---------------------------------------------------------------------------
 
 const MOCK_PLAYERS = [
-  { id: 1, player_id: 1, display_name: 'You', initials: 'PS', is_placeholder: false, game_count: 5 },
-  { id: 2, player_id: 2, display_name: 'K. Fawwar', initials: 'KF', is_placeholder: false, game_count: 5 },
+  { entry_id: 1, player_id: 1, display_name: 'You', initials: 'PS', is_placeholder: false, game_count: 5 },
+  { entry_id: 2, player_id: 2, display_name: 'K. Fawwar', initials: 'KF', is_placeholder: false, game_count: 5 },
 ];
 
 const MOCK_PLAYERS_WITH_PLACEHOLDER = [
   ...MOCK_PLAYERS,
-  { id: 4, player_id: null, display_name: 'Player 4', initials: 'P4', is_placeholder: true, game_count: 0 },
+  { entry_id: 4, player_id: null, display_name: 'Player 4', initials: 'P4', is_placeholder: true, game_count: 0 },
 ];
 
 const MOCK_GAMES = [
   {
     id: 1001, game_number: 1,
+    team1_player1_id: 1, team1_player2_id: 2,
+    team2_player1_id: 3, team2_player2_id: 4,
     team1_player1_name: 'You', team1_player2_name: 'K. Fawwar',
     team2_player1_name: 'A. Marthey', team2_player2_name: 'C. Gulla',
     team1_score: 21, team2_score: 16, winner: 1, rating_change: 4.2,
+    is_ranked: true,
   },
 ];
 
@@ -310,13 +314,20 @@ describe('SessionDetailScreen — active session actions', () => {
     });
   });
 
-  it('navigates to add-games when Add Game is pressed', async () => {
+  it('navigates to score-game with session context when Add Game is pressed', async () => {
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('session-add-game-btn')).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('session-add-game-btn'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/add-games');
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    const url = mockPush.mock.calls[0][0] as string;
+    expect(url).toMatch(/^\/\(stack\)\/score-game\?/);
+    expect(url).toContain('sessionId=42');
+    expect(url).toMatch(/gameNumber=\d+/);
+    // Fixture date '2026-03-19' (Thursday) + court 'QBK Sports'.
+    // YYYY-MM-DD parses as local time → stable Thursday across timezones.
+    expect(url).toContain('sessionLabel=Thursday%20at%20QBK%20Sports');
   });
 });
 
@@ -398,5 +409,37 @@ describe('SessionDetailScreen — menu', () => {
     await waitFor(() => {
       expect(screen.getByTestId('session-bottom-sheet')).toBeTruthy();
     });
+  });
+
+  it('hides Copy Results and Duplicate while the session is active', async () => {
+    mockGetSessionById.mockResolvedValue(MOCK_SESSION_ACTIVE);
+    render(<SessionDetailRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('session-menu-btn')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('session-menu-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('session-bottom-sheet')).toBeTruthy();
+    });
+    expect(screen.queryByTestId('session-menu-copy-results')).toBeNull();
+    expect(screen.queryByTestId('session-menu-duplicate')).toBeNull();
+    expect(screen.getByTestId('session-menu-edit')).toBeTruthy();
+    expect(screen.getByTestId('session-menu-roster')).toBeTruthy();
+    expect(screen.getByTestId('session-menu-share')).toBeTruthy();
+    expect(screen.getByTestId('session-menu-delete')).toBeTruthy();
+  });
+
+  it('shows Copy Results and Duplicate once the session is submitted', async () => {
+    mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
+    render(<SessionDetailRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('session-menu-btn')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('session-menu-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('session-bottom-sheet')).toBeTruthy();
+    });
+    expect(screen.getByTestId('session-menu-copy-results')).toBeTruthy();
+    expect(screen.getByTestId('session-menu-duplicate')).toBeTruthy();
   });
 });

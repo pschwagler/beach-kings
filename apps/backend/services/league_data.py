@@ -62,6 +62,10 @@ __all__ = [
     "get_setting",
     "set_setting",
     "get_league_standings",
+    "get_invitable_players",
+    "create_league_invites",
+    "list_league_invites",
+    "list_my_sent_invites",
 ]
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,6 +79,7 @@ from backend.database.models import (
     LeagueMessage,
     LeagueConfig,
     LeagueRequest,
+    LeagueInvite,
     LeagueHomeCourt,
     PlayerHomeCourt,
     Season,
@@ -2207,3 +2212,292 @@ async def get_league_standings(
         })
 
     return {"standings": standings, "season_info": None}
+
+
+# ---------------------------------------------------------------------------
+# League Invites
+# ---------------------------------------------------------------------------
+
+
+async def get_invitable_players(
+    session: AsyncSession,
+    league_id: int,
+    admin_player_id: int,
+    query: Optional[str] = None,
+) -> List[Dict]:
+    """
+    Return players that an admin can invite to a league, grouped by section.
+
+    Sections (in priority order):
+    - 'friends': players who are friends with the admin
+    - 'recent_opponents': players the admin faced in recent matches (not friends)
+    - 'suggested': all other players (capped at 20)
+
+    Each player carries an ``invite_status`` indicating their relationship to the
+    league: 'member', 'invited', 'requested', or 'none'.
+
+    Args:
+        session: Async database session.
+        league_id: The league being administered.
+        admin_player_id: Player ID of the admin performing the lookup.
+        query: Optional name search string (case-insensitive prefix/substring).
+
+    Returns:
+        List of player dicts matching InvitablePlayerResponse shape.
+    """
+    from backend.services.player_data import generate_player_initials
+
+    # 1. Pre-fetch exclusion sets in parallel via separate queries.
+    member_result = await session.execute(
+        select(LeagueMember.player_id).where(LeagueMember.league_id == league_id)
+    )
+    member_ids: set[int] = {r[0] for r in member_result.all()}
+
+    invited_result = await session.execute(
+        select(LeagueInvite.player_id).where(
+            and_(LeagueInvite.league_id == league_id, LeagueInvite.status == "pending")
+        )
+    )
+    invited_ids: set[int] = {r[0] for r in invited_result.all()}
+
+    requested_result = await session.execute(
+        select(LeagueRequest.player_id).where(
+            and_(LeagueRequest.league_id == league_id, LeagueRequest.status == "pending")
+        )
+    )
+    requested_ids: set[int] = {r[0] for r in requested_result.all()}
+
+    # 2. Friend IDs for the admin.
+    friend_result = await session.execute(
+        select(Friend).where(
+            or_(Friend.player1_id == admin_player_id, Friend.player2_id == admin_player_id)
+        )
+    )
+    friend_ids: set[int] = set()
+    for row in friend_result.scalars().all():
+        other = row.player2_id if row.player1_id == admin_player_id else row.player1_id
+        friend_ids.add(other)
+
+    # 3. Recent opponent IDs (last 50 matches, not already friends).
+    opponent_result = await session.execute(
+        select(
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
+        )
+        .where(
+            or_(
+                Match.team1_player1_id == admin_player_id,
+                Match.team1_player2_id == admin_player_id,
+                Match.team2_player1_id == admin_player_id,
+                Match.team2_player2_id == admin_player_id,
+            )
+        )
+        .order_by(Match.id.desc())
+        .limit(50)
+    )
+    recent_opponent_ids: set[int] = set()
+    for t1p1, t1p2, t2p1, t2p2 in opponent_result.all():
+        for pid in (t1p1, t1p2, t2p1, t2p2):
+            if pid is not None and pid != admin_player_id and pid not in friend_ids:
+                recent_opponent_ids.add(pid)
+
+    # 4. Build player query (non-placeholder, non-self).
+    player_q = (
+        select(
+            Player.id,
+            Player.full_name,
+            Player.level,
+            Location.name.label("location_name"),
+        )
+        .outerjoin(Location, Location.id == Player.location_id)
+        .where(
+            and_(
+                Player.id != admin_player_id,
+                or_(Player.is_placeholder.is_(None), Player.is_placeholder.is_(False)),
+            )
+        )
+    )
+    if query:
+        player_q = player_q.where(Player.full_name.ilike(f"%{query}%"))
+
+    player_result = await session.execute(player_q.order_by(Player.full_name.asc()))
+    rows = player_result.all()
+
+    # 5. Assign sections and statuses.
+    friends_list: List[Dict] = []
+    opponents_list: List[Dict] = []
+    suggested_list: List[Dict] = []
+
+    for pid, full_name, level, location_name in rows:
+        name = full_name or f"Player {pid}"
+        initials = generate_player_initials(name)
+
+        if pid in member_ids:
+            inv_status = "member"
+        elif pid in invited_ids:
+            inv_status = "invited"
+        elif pid in requested_ids:
+            inv_status = "requested"
+        else:
+            inv_status = "none"
+
+        player_dict = {
+            "player_id": pid,
+            "display_name": name,
+            "initials": initials,
+            "location_name": location_name,
+            "level": level,
+            "invite_status": inv_status,
+        }
+
+        if pid in friend_ids:
+            friends_list.append({**player_dict, "section": "friends"})
+        elif pid in recent_opponent_ids:
+            opponents_list.append({**player_dict, "section": "recent_opponents"})
+        else:
+            suggested_list.append({**player_dict, "section": "suggested"})
+
+    return friends_list + opponents_list + suggested_list[:20]
+
+
+async def create_league_invites(
+    session: AsyncSession,
+    league_id: int,
+    player_ids: List[int],
+    invited_by_player_id: Optional[int] = None,
+) -> int:
+    """
+    Bulk-insert league invite rows, skipping duplicates.
+
+    Args:
+        session: Async database session.
+        league_id: The league being administered.
+        player_ids: Players to invite.
+        invited_by_player_id: Admin player who is sending the invites.
+
+    Returns:
+        Number of new invite rows actually inserted.
+    """
+    if not player_ids:
+        return 0
+
+    # Filter out players that already have a pending invite.
+    existing_result = await session.execute(
+        select(LeagueInvite.player_id).where(
+            and_(
+                LeagueInvite.league_id == league_id,
+                LeagueInvite.player_id.in_(player_ids),
+                LeagueInvite.status == "pending",
+            )
+        )
+    )
+    existing_ids: set[int] = {r[0] for r in existing_result.all()}
+    new_ids = [pid for pid in player_ids if pid not in existing_ids]
+
+    if not new_ids:
+        return 0
+
+    new_invites = [
+        LeagueInvite(
+            league_id=league_id,
+            player_id=pid,
+            invited_by_player_id=invited_by_player_id,
+            status="pending",
+        )
+        for pid in new_ids
+    ]
+    session.add_all(new_invites)
+    await session.commit()
+    return len(new_invites)
+
+
+async def list_league_invites(session: AsyncSession, league_id: int) -> List[Dict]:
+    """
+    List all invites for a league (admin view).
+
+    Args:
+        session: Async database session.
+        league_id: The league to query.
+
+    Returns:
+        List of dicts matching LeagueInviteItemResponse shape.
+    """
+    from backend.services.player_data import generate_player_initials
+
+    InvitedPlayer = Player.__table__.alias("invited_player")
+
+    result = await session.execute(
+        select(
+            LeagueInvite.id,
+            LeagueInvite.league_id,
+            League.name.label("league_name"),
+            LeagueInvite.player_id,
+            Player.full_name.label("display_name"),
+            LeagueInvite.status,
+            LeagueInvite.created_at.label("invited_at"),
+        )
+        .join(League, League.id == LeagueInvite.league_id)
+        .join(Player, Player.id == LeagueInvite.player_id)
+        .where(LeagueInvite.league_id == league_id)
+        .order_by(LeagueInvite.created_at.desc())
+    )
+    rows = result.all()
+    return [
+        {
+            "id": row.id,
+            "league_id": row.league_id,
+            "league_name": row.league_name or "Unknown League",
+            "player_id": row.player_id,
+            "display_name": row.display_name or f"Player {row.player_id}",
+            "initials": generate_player_initials(row.display_name or ""),
+            "invited_at": row.invited_at.isoformat() if row.invited_at else "",
+            "status": row.status,
+        }
+        for row in rows
+    ]
+
+
+async def list_my_sent_invites(session: AsyncSession, player_id: int) -> List[Dict]:
+    """
+    List all invites sent by a given player across all leagues.
+
+    Args:
+        session: Async database session.
+        player_id: The player whose sent invites to return.
+
+    Returns:
+        List of dicts matching LeagueInviteItemResponse shape.
+    """
+    from backend.services.player_data import generate_player_initials
+
+    result = await session.execute(
+        select(
+            LeagueInvite.id,
+            LeagueInvite.league_id,
+            League.name.label("league_name"),
+            LeagueInvite.player_id,
+            Player.full_name.label("display_name"),
+            LeagueInvite.status,
+            LeagueInvite.created_at.label("invited_at"),
+        )
+        .join(League, League.id == LeagueInvite.league_id)
+        .join(Player, Player.id == LeagueInvite.player_id)
+        .where(LeagueInvite.invited_by_player_id == player_id)
+        .order_by(LeagueInvite.created_at.desc())
+    )
+    rows = result.all()
+    return [
+        {
+            "id": row.id,
+            "league_id": row.league_id,
+            "league_name": row.league_name or "Unknown League",
+            "player_id": row.player_id,
+            "display_name": row.display_name or f"Player {row.player_id}",
+            "initials": generate_player_initials(row.display_name or ""),
+            "invited_at": row.invited_at.isoformat() if row.invited_at else "",
+            "status": row.status,
+        }
+        for row in rows
+    ]

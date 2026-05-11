@@ -26,7 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { useLeagueInviteScreen } from './useLeagueInviteScreen';
-import type { InvitablePlayer } from '@/lib/mockApi';
+import type { InvitablePlayer } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Section label used between player groups

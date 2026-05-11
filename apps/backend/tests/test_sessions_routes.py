@@ -853,6 +853,71 @@ class TestCreateSession:
         response = client.post("/api/sessions", json={"name": "Test"})
         assert response.status_code == 401
 
+    def test_creates_league_session_via_get_or_create(self, monkeypatch):
+        """With league_id, routes through get_or_create_active_league_session
+        (idempotent — supports the score-screen "Manage Session" flow)."""
+        client, headers = _make_user_client(monkeypatch)
+        _patch_player(monkeypatch)
+
+        captured: dict = {}
+        created_session = {
+            "id": _SESSION_ID,
+            "name": "League Saturday",
+            "code": "LGE00001",
+            "status": "ACTIVE",
+            "season_id": 9,
+        }
+
+        async def fake_get_or_create(
+            session,
+            league_id,
+            session_date,
+            name=None,
+            created_by=None,
+            season_id=None,
+            latitude=None,
+            longitude=None,
+        ):
+            captured["league_id"] = league_id
+            captured["season_id"] = season_id
+            captured["session_date"] = session_date
+            captured["name"] = name
+            return created_session
+
+        async def fake_create_session(*args, **kwargs):  # should NOT be called
+            captured["non_league_called"] = True
+            return {"id": -1}
+
+        monkeypatch.setattr(
+            data_service,
+            "get_or_create_active_league_session",
+            fake_get_or_create,
+            raising=True,
+        )
+        monkeypatch.setattr(
+            data_service, "create_session", fake_create_session, raising=True
+        )
+
+        response = client.post(
+            "/api/sessions",
+            json={
+                "league_id": 4,
+                "season_id": 9,
+                "date": "5/10/2026",
+                "name": "League Saturday",
+            },
+            headers=headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["session"]["id"] == _SESSION_ID
+        assert data["session"]["season_id"] == 9
+        assert captured["league_id"] == 4
+        assert captured["season_id"] == 9
+        assert captured["session_date"] == "5/10/2026"
+        assert captured["name"] == "League Saturday"
+        assert "non_league_called" not in captured
+
 
 class TestUpdateSession:
     """PATCH /api/sessions/{session_id}"""
@@ -1041,6 +1106,10 @@ class TestGetSessionDetail:
 
     _GAME_ROW = {
         "id": 201,
+        "team1_player1_id": 101,
+        "team1_player2_id": 102,
+        "team2_player1_id": 103,
+        "team2_player2_id": 104,
         "team1_player1_name": "Test Player",
         "team1_player2_name": "Partner P.",
         "team2_player1_name": "Opp A.",
@@ -1169,6 +1238,21 @@ class TestGetSessionDetail:
         assert game["team1_score"] == 21
         assert game["team2_score"] == 14
         assert game["winner"] == 1
+
+    def test_response_includes_game_player_ids_and_ranked(self, monkeypatch):
+        """Response 'games[]' entries include player IDs and is_ranked for edit mode."""
+        self._patch_shared(monkeypatch)
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        game = response.json()["games"][0]
+        assert game["team1_player1_id"] == 101
+        assert game["team1_player2_id"] == 102
+        assert game["team2_player1_id"] == 103
+        assert game["team2_player2_id"] == 104
+        assert game["is_ranked"] is True
 
     def test_games_list_empty_when_no_matches(self, monkeypatch):
         """Response includes an empty 'games' list when session has no matches."""

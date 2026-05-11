@@ -32,6 +32,7 @@ import SessionPlayerChip from './SessionPlayerChip';
 import SessionGameCard from './SessionGameCard';
 import SessionBottomSheet from './SessionBottomSheet';
 import { useSessionDetailScreen } from './useSessionDetailScreen';
+import { parseSessionDate } from '@/lib/formatters';
 import type { SessionDetail, SessionGame } from '@beach-kings/shared';
 
 /**
@@ -132,8 +133,9 @@ interface SessionHeaderProps {
 
 function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
   const dateLabel = (() => {
-    const [year, month, day] = session.date.split('-').map(Number);
-    return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+    const d = parseSessionDate(session.date);
+    if (isNaN(d.getTime())) return session.date;
+    return d.toLocaleDateString('en-US', {
       month: 'numeric',
       day: 'numeric',
       year: 'numeric',
@@ -194,6 +196,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     openMenu,
     closeMenu,
     onAddGame,
+    onEditGame,
     onSubmitSession,
     onClearSubmitError,
   } = useSessionDetailScreen(sessionId);
@@ -263,7 +266,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
             <FlatList
               horizontal
               data={session.players}
-              keyExtractor={(p) => String(p.id)}
+              keyExtractor={(p) => String(p.entry_id)}
               renderItem={({ item, index }) => (
                 <SessionPlayerChip player={item} isCurrentUser={index === 0} />
               )}
@@ -292,6 +295,11 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
                     key={game.id}
                     game={game}
                     userTeam={getUserTeamForGame(game, currentPlayerName)}
+                    onEdit={
+                      session.status === 'active'
+                        ? () => onEditGame(game)
+                        : undefined
+                    }
                   />
                 ))
               )}
@@ -351,6 +359,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           sessionLabel={`Session #${session.session_number}`}
           gameCount={session.games.length}
           playerCount={session.players.length}
+          status={session.status}
         />
       )}
     </SafeAreaView>

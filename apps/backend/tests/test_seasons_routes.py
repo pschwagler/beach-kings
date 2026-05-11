@@ -624,6 +624,118 @@ class TestPublicStatsEndpoints:
         assert "partnerships" in body
         assert "opponents" in body
 
+    def test_league_player_stats_full_success(self, monkeypatch):
+        """GET /api/leagues/{league_id}/players/{player_id}/stats returns full shape."""
+        client = TestClient(app)
+
+        captured: dict = {}
+
+        async def fake_full(session, **kwargs):
+            captured.update(kwargs)
+            return {
+                "player_id": kwargs["player_id"],
+                "display_name": "Pat S.",
+                "initials": "PS",
+                "level": "Open",
+                "location_name": "San Diego, CA",
+                "league_id": kwargs["league_id"],
+                "league_name": "QBK Open Men",
+                "season_id": kwargs["season_id"],
+                "season_name": None,
+                "rank": None,
+                "rating": 0,
+                "rating_delta": None,
+                "points": None,
+                "overall": {
+                    "wins": 5,
+                    "losses": 2,
+                    "win_rate": 71.4,
+                    "games_played": 7,
+                    "point_diff": 1.2,
+                },
+                "partners": [],
+                "opponents": [],
+                "game_history": [],
+                "is_self": False,
+            }
+
+        monkeypatch.setattr(
+            data_service, "get_league_player_stats_full", fake_full, raising=True
+        )
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}/players/{PLAYER_ID}/stats")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["player_id"] == PLAYER_ID
+        assert body["league_id"] == LEAGUE_ID
+        assert body["overall"]["wins"] == 5
+        assert body["overall"]["losses"] == 2
+        assert body["partners"] == []
+        assert body["is_self"] is False
+        # Anonymous request should not pass a viewer player id.
+        assert captured["current_user_player_id"] is None
+        assert captured["season_id"] is None
+
+    def test_league_player_stats_full_with_season_id(self, monkeypatch):
+        """Optional season_id query param is forwarded to the service."""
+        client = TestClient(app)
+
+        captured: dict = {}
+
+        async def fake_full(session, **kwargs):
+            captured.update(kwargs)
+            return {
+                "player_id": kwargs["player_id"],
+                "display_name": "Pat S.",
+                "initials": "PS",
+                "level": None,
+                "location_name": None,
+                "league_id": kwargs["league_id"],
+                "league_name": "L",
+                "season_id": kwargs["season_id"],
+                "season_name": "Spring 2024",
+                "rank": None,
+                "rating": 0,
+                "rating_delta": None,
+                "points": None,
+                "overall": {
+                    "wins": 0,
+                    "losses": 0,
+                    "win_rate": 0.0,
+                    "games_played": 0,
+                    "point_diff": 0.0,
+                },
+                "partners": [],
+                "opponents": [],
+                "game_history": [],
+                "is_self": False,
+            }
+
+        monkeypatch.setattr(
+            data_service, "get_league_player_stats_full", fake_full, raising=True
+        )
+
+        response = client.get(
+            f"/api/leagues/{LEAGUE_ID}/players/{PLAYER_ID}/stats?season_id={SEASON_ID}"
+        )
+        assert response.status_code == 200
+        assert captured["season_id"] == SEASON_ID
+        assert response.json()["season_name"] == "Spring 2024"
+
+    def test_league_player_stats_full_not_found(self, monkeypatch):
+        """Missing player/league/season returns 404."""
+        client = TestClient(app)
+
+        async def fake_full(session, **kwargs):
+            return None
+
+        monkeypatch.setattr(
+            data_service, "get_league_player_stats_full", fake_full, raising=True
+        )
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}/players/{PLAYER_ID}/stats")
+        assert response.status_code == 404
+
 
 # ---------------------------------------------------------------------------
 # Awards endpoints

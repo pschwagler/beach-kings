@@ -35,6 +35,7 @@ function makeSession(
 ): SessionDetail {
   return {
     id: 9,
+    code: 'BK9TEST3',
     league_id: null,
     league_name: null,
     court_name: 'Court 2',
@@ -61,7 +62,7 @@ describe('useSessionRosterScreen', () => {
   it('maps entry_id and player_id to the player_id field for real players', async () => {
     mockGetSessionById.mockResolvedValue(
       makeSession([
-        { id: 11, player_id: 11, display_name: 'A', initials: 'A', is_placeholder: false, game_count: 0 },
+        { entry_id: 11, player_id: 11, display_name: 'A', initials: 'A', is_placeholder: false, game_count: 0 },
       ]),
     );
 
@@ -78,7 +79,7 @@ describe('useSessionRosterScreen', () => {
     mockGetSessionById.mockResolvedValue(
       makeSession([
         {
-          id: 22,
+          entry_id: 22,
           player_id: null,
           display_name: 'Placeholder',
           initials: 'P',
@@ -98,7 +99,7 @@ describe('useSessionRosterScreen', () => {
   it('onRemovePlayer calls api.removeSessionPlayer with sessionId and entryId', async () => {
     mockGetSessionById.mockResolvedValue(
       makeSession([
-        { id: 5, player_id: 5, display_name: 'P', initials: 'P', is_placeholder: false, game_count: 0 },
+        { entry_id: 5, player_id: 5, display_name: 'P', initials: 'P', is_placeholder: false, game_count: 0 },
       ]),
     );
     mockRemoveSessionPlayer.mockResolvedValue(undefined);
@@ -117,7 +118,7 @@ describe('useSessionRosterScreen', () => {
   it('onRemovePlayer surfaces error message when removeSessionPlayer throws', async () => {
     mockGetSessionById.mockResolvedValue(
       makeSession([
-        { id: 5, player_id: 5, display_name: 'P', initials: 'P', is_placeholder: false, game_count: 0 },
+        { entry_id: 5, player_id: 5, display_name: 'P', initials: 'P', is_placeholder: false, game_count: 0 },
       ]),
     );
     mockRemoveSessionPlayer.mockRejectedValue(new Error('Cannot remove player in active games'));

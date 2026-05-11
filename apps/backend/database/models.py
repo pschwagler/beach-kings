@@ -1374,6 +1374,32 @@ class LeagueRequest(Base):
     )
 
 
+class LeagueInvite(Base):
+    """Admin-initiated invitations for players to join a league."""
+
+    __tablename__ = "league_invites"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    invited_by_player_id = Column(Integer, ForeignKey("players.id"), nullable=True)
+    status = Column(String, default="pending", nullable=False)  # 'pending', 'accepted', 'declined'
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    league = relationship("League", backref="invites")
+    player = relationship("Player", foreign_keys=[player_id], backref="league_invites")
+    invited_by = relationship("Player", foreign_keys=[invited_by_player_id])
+
+    __table_args__ = (
+        UniqueConstraint("league_id", "player_id", name="uq_league_invite_league_player"),
+        Index("idx_league_invites_league_id", "league_id"),
+        Index("idx_league_invites_player_id", "player_id"),
+        Index("idx_league_invites_invited_by", "invited_by_player_id"),
+    )
+
+
 class Feedback(Base):
     """User feedback submissions."""
 

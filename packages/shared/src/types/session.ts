@@ -91,7 +91,16 @@ export interface Session {
   notes?: string | null;
 }
 
-/** Payload accepted by POST /api/sessions (create non-league session). */
+/**
+ * Payload accepted by POST /api/sessions.
+ *
+ * Historically non-league only; ``league_id`` + ``season_id`` were added so
+ * the mobile score-screen "Manage Session" flow can lazily create a league
+ * session before any matches exist (see
+ * apps/mobile/MOBILE_ADD_GAMES_VALIDATION.md Flow 2.3 / 4.3). When
+ * ``league_id`` is set the backend routes through a get-or-create path, so
+ * the call is idempotent.
+ */
 export interface SessionCreatePayload {
   date?: string | null;
   name?: string | null;
@@ -102,6 +111,8 @@ export interface SessionCreatePayload {
   notes?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  league_id?: number | null;
+  season_id?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +146,7 @@ export interface SessionPlayerEntry {
  * detail endpoint (GET /api/sessions/:id).
  */
 export interface SessionPlayer {
-  readonly id: number;
+  readonly entry_id: number;
   readonly player_id: number | null;
   readonly display_name: string;
   readonly initials: string;
@@ -152,6 +163,10 @@ export interface SessionGame {
   readonly id: number;
   /** 1-based sequential number within the session. */
   readonly game_number: number;
+  readonly team1_player1_id: number | null;
+  readonly team1_player2_id: number | null;
+  readonly team2_player1_id: number | null;
+  readonly team2_player2_id: number | null;
   readonly team1_player1_name: string;
   readonly team1_player2_name: string;
   readonly team2_player1_name: string;
@@ -162,6 +177,8 @@ export interface SessionGame {
   readonly winner: 1 | 2 | null;
   /** Net ELO change for the calling user in this game; null until submitted. */
   readonly rating_change: number | null;
+  /** Whether the game was ranked (ELO-affecting). Null when unknown. */
+  readonly is_ranked: boolean | null;
 }
 
 /**
@@ -176,6 +193,8 @@ export interface SessionGame {
  */
 export interface SessionDetail {
   readonly id: number;
+  /** Shareable join code, e.g. "BK4XJ9P2". Null when the session does not have one. */
+  readonly code: string | null;
   readonly league_id: number | null;
   readonly league_name: string | null;
   readonly court_name: string | null;

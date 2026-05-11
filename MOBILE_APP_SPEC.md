@@ -831,6 +831,24 @@ const results = await api.queryLeagues(filters);
 
 ---
 
+## Concepts
+
+### Concept: Guest Player
+
+A **guest player** is a persistent player profile created by a league organizer or session scorer when they add someone who is not yet a Beach League member. Key properties:
+
+- Created inline during score entry or roster management (name required; phone and level optional).
+- Accumulates real game history, stats, and ELO immediately — stats are not provisional.
+- Displayed throughout the app with a "Guest" label/badge wherever they appear.
+- Not searchable in Find Players or friend search (no app account to link to).
+- Has a public profile page that shows their stats, with a "Not on Beach League yet" banner and "Send Invite" CTA.
+- Claimable via two paths: (1) invite-link token sent by an organizer, or (2) name-match detection at signup (see Task 1.7.2).
+- After a successful claim, the guest record is merged into the new user account.
+
+**Terminology:** The database and API use the term "placeholder"; all user-facing copy and UI components use "guest." Code should follow the API term (`placeholder`) in types and service calls, but use "guest" in all copy and component names (e.g., `<GuestBadge>`, "Add Guest Player" button label).
+
+---
+
 ## Phase 1 — Authentication & Onboarding
 
 > Goal: Complete auth flow matching wireframes — welcome, login, signup,
@@ -1079,30 +1097,111 @@ AuthContext sends `email` + `password` — this MUST be fixed to send `phone_num
 **File:** `app/(stack)/invite/[token].tsx`
 **Wireframe:** `invite-claim.html`
 
-**UI:**
-- Deep-linked screen (opened via `beachleague://invite/{token}` or web link)
-- If unauthenticated: redirect to login/signup, then return to claim flow
-- If authenticated:
-  - Show invite details: who invited, which league/matches
-  - "Claim Matches" button — merges placeholder player's match history into current user
-  - Success state: "Matches claimed!" + "View My Stats" CTA
-  - Error state: expired/invalid token message
+**Copy contract:** user-facing language is "profile" for the high-level concept (titles, CTAs, badges). The literal game count appears as a metadata detail (e.g. "5 games recorded"). The placeholder player's name (e.g. "Brad Kessler") is shown as the thing being claimed, not as the action target.
+
+**Flow & states:**
+- Deep-linked screen (opened via `beachleague://invite/{token}` or web link).
+- If unauthenticated: redirect to login/signup, then return to claim flow.
+- If authenticated, screen is a single-route state machine with four states: **Review**, **Processing**, **Success**, **Already Claimed**.
+
+**Review state:**
+- Top nav: back arrow + title "Claim Your Profile".
+- Inviter trust strip directly under top nav: avatar + "[Inviter Name] invited you to claim your profile" — anti-phishing signal so the user sees who sent them.
+- Profile-summary card:
+  - Hero row: placeholder avatar + headline "Claim **[Placeholder Name]'s** profile" + sub "N games recorded · Showing 3 most recent".
+  - "You played with" people-chip row: up to 5 chips visible inline, remainder collapsed behind a `+N more` button that expands inline (no nav).
+- "Recent games on this profile" section: list of up to 3 most-recent claim cards (date + "Sunday morning"-style session label + team names with current user highlighted as "You" + score with en-dash separator).
+- Sticky action bar at bottom: gold primary "Claim My Profile" + secondary text "This isn't me".
+  - Sticky behavior is **deferred**: bar is in-flow on first paint and only sticks to the bottom after the user scrolls past the first match card (IntersectionObserver). Forces at least one game to be read before the commit prompt.
+  - Bottom padding respects `env(safe-area-inset-bottom)`.
+
+**Processing state:**
+- Top nav: title "Claiming Your Profile" (no back).
+- Centered spinner + heading "Claiming your profile…".
+- Step list (`<ol>` with `aria-live="polite"`): "Invite verified" (done) and "Adding N games to your account…" (`aria-current="step"`).
+- Helper line: "This usually takes just a second. Please don't close this screen.".
+
+**Success state:**
+- Top nav: title "Profile Claimed" (no back).
+- Large green check icon + "Profile claimed" pill badge + headline "You're all set!" + body "[Placeholder Name]'s profile is now part of your account. Welcome to the league.".
+- Detail card "Profile merged":
+  - Identity row: `Brad Kessler → Patrick Schwagler` (placeholder → current user).
+  - "Now connected to" people-chip row (same expand pattern as Review).
+  - Stat row: "Record added · N games · 3W – 2L".
+- CTAs: dark primary "View My Stats" (navigates to my-stats) + outline "Go to Dashboard".
+
+**Already Claimed state (informational, not error):**
+- Top nav: back + "Claim Your Profile".
+- Blue info circle (not red), title "This invite has been used", body "Invite links can only be claimed once. Your games may already be on another account.".
+- "What to try" detail card with recovery guidance.
+- CTAs: dark primary "Sign In" (recovery path — most likely they have an account already) + outline "Go Home".
+
+**Decline confirmation sheet ("This isn't me"):**
+- Bottom sheet (`role="dialog"`, `aria-modal="true"`) sliding up from below with a 45% backdrop.
+- Body: "We'll let [Inviter Name] know so they can re-send to the right person. This invite link will be deactivated.".
+- CTAs: dark "Yes, this isn't me" (POST decline → navigate to welcome) + secondary "Cancel".
+- A11y: focus moves into the sheet on open, traps inside while open, restores to the trigger button on close, Esc closes.
 
 **API:**
-- `GET /api/players/invite/{token}` (get invite details)
-- `POST /api/players/invite/{token}/claim` (claim placeholder matches)
+- `GET /api/players/invite/{token}` — returns inviter, placeholder player, game count, recent-game previews, played-with roster.
+- `POST /api/players/invite/{token}/claim` — merges placeholder into current user, returns final stats for success state.
+- `POST /api/players/invite/{token}/decline` — deactivates link, notifies inviter.
 
 **Requirements:**
-- Handle expired tokens gracefully
-- Show match count being claimed
-- After claim, navigate to home or league where matches originated
-- Works as both deep link and in-app navigation
+- Handle expired/invalid tokens by routing to the Already Claimed state (or a token-expired variant if differentiated by API).
+- Pluralize count strings via a single helper so 1/N renders correctly ("1 game" vs "5 games").
+- Work as both deep link and in-app navigation.
+- Decline POSTs before navigating away — do not silently drop the request.
 
 **Tests:**
-- Valid token shows invite details and claim button
-- Claim merges matches and navigates to success
-- Expired token shows error
-- Unauthenticated user redirected to login, returns after auth
+- Valid token renders Review state with inviter strip, hero, people chips, recent games.
+- "+N more" expand reveals hidden chips and removes the toggle.
+- Sticky CTA is in-flow on initial render; becomes sticky after scrolling past the first card; un-sticks when scrolled back to top.
+- Claim flow: tap "Claim My Profile" → Processing renders with `aria-live` step list → Success renders with merged-profile card and "View My Stats" CTA.
+- Decline flow: tap "This isn't me" → sheet opens, first focusable focused, Tab/Shift+Tab cycles inside sheet, Esc closes and restores focus to the trigger, "Yes, this isn't me" POSTs decline and navigates to welcome.
+- Already Claimed state shows info icon (blue, not red), "Sign In" recovery CTA, no exception/danger styling.
+- Pluralization: 1 game and 5 games both render correctly across review/processing/success.
+- Unauthenticated user redirected to login, returns after auth.
+
+---
+
+#### Task 1.7.2 — Claim at Signup (Name Match)
+
+**File:** `app/(stack)/claim-match.tsx`
+**Wireframe:** `claim-at-signup.html`
+
+**Trigger:** Immediately after phone verification succeeds and before onboarding, the backend checks whether any guest profiles match the new user's `first_name + last_name` (case-insensitive). If the backend also has a `phone_number` on the guest profile that matches, that guest is surfaced as a high-confidence match.
+
+**UI:**
+- Full-screen interstitial — cannot be dismissed without choosing
+- Header: "We found games logged under your name"
+- Sub-header showing the matched name
+- For each matched guest profile:
+  - League name + season
+  - Game count and record (e.g. "8W – 4L, 12 games")
+  - Inherited ELO rating badge
+- "Yes, that's me — Claim my games" primary button (gold)
+- "No, that's not me" secondary text button (skips, marks user as non-claimable for those profiles)
+- If multiple candidate profiles: show as a list; user can claim one, all, or none
+
+**API:**
+- `GET /api/users/me/guest-matches` — called post-verify, returns candidate guest profiles matched by name (+ phone if available). Returns empty array if no matches (skip this screen entirely).
+- `POST /api/users/me/guest-matches/{placeholder_id}/claim` — merges that guest profile into the authenticated user. Idempotent.
+- `POST /api/users/me/guest-matches/{placeholder_id}/reject` — marks profile as rejected; suppresses future prompts for this pairing.
+
+**Requirements:**
+- Screen only shown if `GET /api/users/me/guest-matches` returns at least one candidate.
+- If no matches, proceed directly to onboarding without showing this screen.
+- After all claims/rejections are resolved, navigate to onboarding.
+- High-confidence matches (name + phone) surface first with a "Strong match" indicator.
+- If the API call fails, log the error and proceed to onboarding (do not block signup).
+
+**Tests:**
+- No matches → onboarding shown directly (this screen never mounts)
+- Single match → shown, claim succeeds → onboarding
+- Single match → user rejects → onboarding
+- Multiple matches → user claims one, rejects others → onboarding
+- API failure → onboarding shown, error logged
 
 ---
 
@@ -1629,6 +1728,8 @@ Run the `/simplify` skill (or equivalent manual review) across all code written 
 - `GET /api/players/{id}/invite-url`
 - `DELETE /api/players/placeholder/{id}`
 
+**Note:** The Pending Invites screen shows two distinct types of entries: (a) guests who have accumulated game history and need a claim invite, and (b) league members who were invited but have not yet joined. Guests with game history should be visually distinguished and listed first, as their situation is more urgent. The dashboard "Pending" count badge should reflect the total of both types.
+
 ---
 
 ---
@@ -1777,9 +1878,7 @@ Run the `/simplify` skill (or equivalent manual review) across all code written 
 
 **UI (bottom sheet):**
 - Current participants list with remove button
-- "Add Player" section: search input
-  - Search results: player cards with "Add" button
-  - "Create Placeholder" option for unknown players
+- "Add Player" button → opens `PlayerPickerSheet` (see Task 4.3.0)
 - Batch invite option
 
 **API:**
@@ -1791,6 +1890,100 @@ Run the `/simplify` skill (or equivalent manual review) across all code written 
 
 ### Epic 4.3 — Score Entry
 
+#### Task 4.3.0 — PlayerPickerSheet (Shared)
+
+**File:** `src/components/sessions/PlayerPickerSheet.tsx`
+**Wireframe:** `player-picker-sheet.html`
+
+A shared bottom-sheet component for selecting or adding a player. Used in two contexts:
+- **Score entry** — picking a player for a team slot
+- **Session manage** — adding a player to the session roster
+
+The sheet's behavior is identical in both contexts; only the callback differs (`onPlayerSelected(player)` for score entry, `onPlayerAdded(player)` for roster).
+
+**UI states (5):**
+
+1. **Browse** — default on open; shows a flat, sorted list of suggested players with inline relationship tags. Search field is active and empty. No section headers — tags on each row communicate context.
+2. **Search — results** — triggered when user types; filters the list to matching players.
+3. **Search — no match** — shown when search returns no results; offers "Add as Guest" CTA.
+4. **Guest form** — inline form for creating a guest (placeholder) player.
+5. **Guest added** — confirmation state after guest is created.
+
+**Browse list — player rows:**
+
+Each row shows: avatar (initials), display name, level/location meta, and inline tag pills.
+
+Tag pills (all can coexist):
+- `Friend` (teal) — in the current user's friends list
+- `Recent opp` (grey) — played against in the last 30 days
+- `In session` (green) — already in this session's roster (score-entry context)
+- `In league` (green) — member of the active league (session-manage context)
+- `Guest` (gold) — placeholder player
+- `X mutual` (purple) — mutual friends count
+
+**Browse list — sort order:**
+
+1. Friends played recently (recency of shared game, desc)
+2. Recent opponents (recency of shared game, desc)
+3. Other friends (no recent shared game)
+4. Guests the current user has previously added
+
+Rows with `In session`/`In league` tag are non-selectable (dimmed, no press handler) to prevent duplicate additions.
+
+**Guest form — fields:**
+
+- First Name (required)
+- Last Initial (optional)
+- Gender (pill selector: Men, Women) — **auto-filled** based on context:
+  - If the active league has a non-Coed gender setting, pre-select that gender.
+  - Otherwise, if ≥ 60% of the session's current players share a gender, pre-select that majority gender.
+  - If neither condition is met, leave unselected.
+- Skill Level (pill selector: Beginner, Intermediate, Advanced, Open) — **auto-filled** based on context:
+  - If the active league has a specific level, pre-select that level.
+  - Otherwise, if ≥ 60% of the session's current players share a level, pre-select that majority level.
+  - Auto-fills are pre-selections only — the user can override before submitting.
+- "Add [Name] as Guest" confirm button (disabled until First Name filled)
+
+**Props:**
+
+```typescript
+interface PlayerPickerSheetProps {
+  context: 'score-entry' | 'session-manage';
+  sessionId?: number;
+  leagueId?: number;
+  leagueGender?: 'mens' | 'womens' | 'coed';
+  leagueLevel?: string;
+  sessionPlayers?: Player[];  // for auto-fill majority detection
+  onPlayerSelected: (player: Player) => void;
+  onDismiss: () => void;
+}
+```
+
+**API:**
+- `GET /api/players/search?q=&session_id=&league_id=` — search with relationship context
+- `POST /api/players/placeholder` — create guest player
+
+**Requirements:**
+- Search is debounced (300ms)
+- Sheet is swipe-dismissible
+- After guest is added, sheet auto-closes after 1.5s or on "Done" tap
+- Keyboard avoidance: search field stays above keyboard
+
+**Tests:**
+- Browse renders flat list with correct tags per player relationship
+- Search filters list
+- No-match state triggers guest CTA
+- Guest form: gender auto-fills from league gender setting
+- Guest form: gender auto-fills from session majority when no league gender
+- Guest form: level auto-fills from league level
+- Guest form: level auto-fills from session majority when no league level
+- Guest form: auto-fills are overridable
+- Guest form: confirm button disabled until first name filled
+- Selecting a player calls `onPlayerSelected`
+- Creating a guest calls `onPlayerSelected` with new placeholder
+
+---
+
 #### Task 4.3.1 — Score Entry Screen
 
 **File:** `src/components/sessions/ScoreEntryScreen.tsx`
@@ -1799,7 +1992,7 @@ Run the `/simplify` skill (or equivalent manual review) across all code written 
 **UI:**
 - Full-screen score entry (modal presentation)
 - Team 1 section:
-  - Player 1 picker (search/select from session participants)
+  - Player 1 picker — tap empty slot → `PlayerPickerSheet` (context: `score-entry`)
   - Player 2 picker
   - Score input (large number, +/- steppers or direct input)
 - Team 2 section (same layout)
@@ -1808,19 +2001,25 @@ Run the `/simplify` skill (or equivalent manual review) across all code written 
 - "Cancel" top-left
 
 **Requirements:**
-- Players searchable from session participants + league members + all players
+- Player slots open `PlayerPickerSheet` on tap (see Task 4.3.0)
 - Score validation: both scores required, reasonable range (0-99)
 - Haptic feedback on score change
-- Quick-entry: tap player name to cycle through recent players
-- Create placeholder player inline if player not found
+- Duplicate player guard: same player cannot appear on both teams
+- Create guest player inline via `PlayerPickerSheet` guest form
 
 **API:** `POST /api/matches`
 
 **Tests:**
-- Player selection works
+- Tapping empty player slot opens PlayerPickerSheet
+- Player selection fills slot
+- Duplicate player on same game rejected with inline error
 - Score input validates
 - Save creates match and returns to session
 - Cancel discards without saving
+
+**Guest player rendering (enforced in all session/league/match list components):**
+
+Wherever a guest player appears in a list (session participant list, match scoreboard, league roster, standings), render a "Guest" label adjacent to their name using the `<GuestBadge>` primitive (gold pill, "Guest" text). Guest avatar uses initials with a dashed border to visually distinguish from registered players. Guest players must not appear in Find Players results or friend search autocomplete.
 
 ---
 
@@ -2253,6 +2452,15 @@ Manually test (or write E2E tests for) these critical user journeys:
 - Friend action is context-aware
 - Message button only shown if friends
 - Mutual friends tappable → their profiles
+
+**Guest Profile State:**
+
+If the fetched player profile has `is_placeholder: true`:
+- Show a banner below the profile header: "This player hasn't joined Beach League yet."
+- Replace "Add Friend" / "Message" buttons with a single "Send Invite" button that opens the share sheet with the guest's claim link.
+- Hide: mutual friends row, message thread access.
+- Show stats and match history tabs normally (guest has real stats).
+- Profile is publicly accessible — no auth wall for guest profiles.
 
 ---
 
