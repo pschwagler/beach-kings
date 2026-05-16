@@ -1007,6 +1007,23 @@ class FriendListResponse(BaseModel):
     total_count: int
 
 
+class PlayerSearchItem(BaseModel):
+    """Player picker search hit, annotated with relation to the caller."""
+
+    id: int
+    full_name: Optional[str] = None
+    nickname: Optional[str] = None
+    initials: str = ""
+    relation: str  # friend | friend_of_friend | recent_opponent | session | league | other
+
+
+class PlayerSearchResponse(BaseModel):
+    """Relevance-ranked player search response."""
+
+    items: List[PlayerSearchItem]
+    total_count: int
+
+
 class FriendBatchStatusRequest(BaseModel):
     """Request to check friend status for multiple players."""
 

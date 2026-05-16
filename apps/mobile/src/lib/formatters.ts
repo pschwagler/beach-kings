@@ -132,9 +132,9 @@ export function formatPlayerName(player: PlayerNameInput): string {
 }
 
 /**
- * Compact display name: first name plus last-name initial.
+ * Compact display name: first name plus last-name initial with a trailing dot.
  *
- * @example formatPlayerShort('Patrick Schwagler') // "Patrick S"
+ * @example formatPlayerShort('Patrick Schwagler') // "Patrick S."
  * @example formatPlayerShort('Cher')              // "Cher"
  * @example formatPlayerShort('')                  // ""
  */
@@ -144,7 +144,7 @@ export function formatPlayerShort(displayName: string): string {
   if (parts.length === 1) return parts[0]!;
   const first = parts[0]!;
   const lastInitial = (parts[parts.length - 1]![0] ?? '').toUpperCase();
-  return lastInitial.length > 0 ? `${first} ${lastInitial}` : first;
+  return lastInitial.length > 0 ? `${first} ${lastInitial}.` : first;
 }
 
 // ---------------------------------------------------------------------------

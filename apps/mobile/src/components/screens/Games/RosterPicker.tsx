@@ -1,20 +1,30 @@
 /**
  * RosterPicker — embedded picker shown in building mode.
  *
- * Two sections:
- *   "In this session" — session/league players (source='session'), chip layout
- *   "Friends & recent opponents" — friends (source='friend'|'recent'), row layout
+ * Renders players grouped by their relation bucket (friend > friend of
+ * friend > recent opponent > in this session > league member > other). Order
+ * mirrors the backend's relevance ranking from `/api/players/search`.
  *
- * Falls back to a single "Players" section when all players share the same source.
+ * When the search box is empty we show the locally-loaded roster (session
+ * participants + friends or league members). When the user types, results
+ * come from the relevance-ranked backend search so they can find anyone.
  *
- * testID="roster-picker" and testID="roster-chip-{id}" are preserved for existing tests.
+ * testID="roster-picker" and testID="roster-chip-{id}" are preserved for
+ * existing tests.
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
-import type { RosterPlayer } from './useScoreGameScreen';
+import {
+  View,
+  Text,
+  Pressable,
+  TextInput,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
+import type { RosterPlayer, RosterPlayerSource } from './useScoreGameScreen';
 import type { PlayerSlot } from './useScoreGameScreen';
-import { SearchIcon, PlusIcon } from '@/components/ui/icons';
+import { SearchIcon, PlusIcon, XIcon } from '@/components/ui/icons';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -138,9 +148,42 @@ interface FriendRowProps {
   readonly onPress: (player: RosterPlayer) => void;
 }
 
+/** Small relation pill rendered next to each row's name. */
+const SOURCE_LABEL: Record<RosterPlayerSource, string | null> = {
+  friend: 'Friend',
+  friend_of_friend: 'Friend of friend',
+  recent_opponent: 'Recent opp',
+  session: 'In session',
+  league: 'In league',
+  other: null,
+};
+
+const SOURCE_PILL_TONE: Record<RosterPlayerSource, 'teal' | 'gold' | 'muted'> = {
+  friend: 'teal',
+  friend_of_friend: 'teal',
+  recent_opponent: 'gold',
+  session: 'teal',
+  league: 'teal',
+  other: 'muted',
+};
+
 function FriendRow({ player, badge, onPress }: FriendRowProps): React.ReactNode {
   const handlePress = useCallback(() => onPress(player), [onPress, player]);
   const isSeated = badge != null;
+  const label = SOURCE_LABEL[player.source];
+  const tone = SOURCE_PILL_TONE[player.source];
+  const pillClasses =
+    tone === 'teal'
+      ? 'bg-info-tint'
+      : tone === 'gold'
+        ? 'bg-warning-tint'
+        : 'bg-elevated';
+  const pillText =
+    tone === 'teal'
+      ? 'text-brand-teal'
+      : tone === 'gold'
+        ? 'text-warning'
+        : 'text-muted';
 
   return (
     <View
@@ -157,21 +200,13 @@ function FriendRow({ player, badge, onPress }: FriendRowProps): React.ReactNode 
         <Text className="text-[14px] font-semibold text-default">
           {player.display_name}
         </Text>
-        <View className="flex-row items-center gap-[5px] mt-[3px]">
-          <View
-            className={`px-[6px] py-[1px] rounded-[4px] ${
-              player.source === 'friend' ? 'bg-info-tint' : 'bg-elevated'
-            }`}
-          >
-            <Text
-              className={`text-[10px] font-bold ${
-                player.source === 'friend' ? 'text-brand-teal' : 'text-muted'
-              }`}
-            >
-              {player.source === 'friend' ? 'Friend' : 'Recent opp'}
-            </Text>
+        {label != null && (
+          <View className="flex-row items-center gap-[5px] mt-[3px]">
+            <View className={`px-[6px] py-[1px] rounded-[4px] ${pillClasses}`}>
+              <Text className={`text-[10px] font-bold ${pillText}`}>{label}</Text>
+            </View>
           </View>
-        </View>
+        )}
       </View>
       <Pressable
         testID={`roster-chip-${player.player_id}`}
@@ -196,12 +231,17 @@ function FriendRow({ player, badge, onPress }: FriendRowProps): React.ReactNode 
 function SectionLabel({
   label,
   count,
+  testID,
 }: {
   readonly label: string;
   readonly count?: string;
+  readonly testID?: string;
 }): React.ReactNode {
   return (
-    <View className="flex-row items-center gap-2 pt-3 pb-2">
+    <View
+      testID={testID}
+      className="flex-row items-center gap-2 pt-3 pb-2"
+    >
       <Text className="text-[11px] font-bold text-muted uppercase tracking-wider">
         {label}
       </Text>
@@ -265,7 +305,49 @@ interface RosterPickerProps {
   readonly onAddNewPlayer?: () => void;
   /** Logged-in player ID — drives the gold "YOU" pill on the matching chip. */
   readonly currentPlayerId?: number | null;
+  /** True while a debounced backend search is in flight. */
+  readonly isSearching?: boolean;
+  /**
+   * League match context — when true, the "League members" section is shown
+   * first, mirroring the backend's league-first relevance ranking.
+   */
+  readonly isLeagueMatch?: boolean;
+  /**
+   * Called when the search input gains/loses focus. The parent uses this to
+   * collapse the scoreboard while the keyboard is up, freeing vertical space
+   * for the results list.
+   */
+  readonly onSearchFocusChange?: (focused: boolean) => void;
 }
+
+interface RowSection {
+  readonly source: RosterPlayerSource;
+  readonly label: string;
+}
+
+/**
+ * Section titles shown above each relation bucket of rows. Order mirrors the
+ * relevance ranking used by the backend search — friends first by default.
+ */
+const ROW_SECTIONS: ReadonlyArray<RowSection> = [
+  { source: 'friend', label: 'Friends' },
+  { source: 'friend_of_friend', label: 'Friends of friends' },
+  { source: 'recent_opponent', label: 'Recent opponents' },
+  { source: 'league', label: 'League members' },
+  { source: 'other', label: 'Other players' },
+];
+
+/**
+ * In a league match the backend promotes league members to the top, so the
+ * picker mirrors that by rendering "League members" first.
+ */
+const LEAGUE_MATCH_ROW_SECTIONS: ReadonlyArray<RowSection> = [
+  { source: 'league', label: 'League members' },
+  { source: 'friend', label: 'Friends' },
+  { source: 'friend_of_friend', label: 'Friends of friends' },
+  { source: 'recent_opponent', label: 'Recent opponents' },
+  { source: 'other', label: 'Other players' },
+];
 
 export default function RosterPicker({
   roster,
@@ -276,17 +358,43 @@ export default function RosterPicker({
   onSelectPlayer,
   onAddNewPlayer,
   currentPlayerId,
+  isSearching = false,
+  isLeagueMatch = false,
+  onSearchFocusChange,
 }: RosterPickerProps): React.ReactNode {
-  const sessionPlayers = roster.filter((p) => p.source === 'session');
-  const friendPlayers = roster.filter(
-    (p) => p.source === 'friend' || p.source === 'recent',
+  const handleClearSearch = useCallback(() => onSearch(''), [onSearch]);
+  const handleSearchFocus = useCallback(
+    () => onSearchFocusChange?.(true),
+    [onSearchFocusChange],
   );
+  const handleSearchBlur = useCallback(
+    () => onSearchFocusChange?.(false),
+    [onSearchFocusChange],
+  );
+
+  const showClear = search.length > 0;
+  const sessionPlayers = roster.filter((p) => p.source === 'session');
   const hasSessionSection = sessionPlayers.length > 0;
-  const hasFriendSection = friendPlayers.length > 0;
+
+  // Group the row-style players (everything that's not "in this session")
+  // by their source, preserving the order the backend returned them in.
+  // In a league match, "League members" leads the list.
+  const sectionOrder = isLeagueMatch
+    ? LEAGUE_MATCH_ROW_SECTIONS
+    : ROW_SECTIONS;
+  const rowSections = sectionOrder
+    .map((section) => ({
+      ...section,
+      players: roster.filter((p) => p.source === section.source),
+    }))
+    .filter((section) => section.players.length > 0);
 
   const seatedCount = sessionPlayers.filter(
     (p) => isOnTeam(p, team1) || isOnTeam(p, team2),
   ).length;
+
+  const showEmpty =
+    !hasSessionSection && rowSections.length === 0 && !isSearching;
 
   return (
     <View testID="roster-picker" className="flex-1 bg-page border-t border-divider">
@@ -298,12 +406,35 @@ export default function RosterPicker({
             testID="roster-search-input"
             value={search}
             onChangeText={onSearch}
+            onFocus={handleSearchFocus}
+            onBlur={handleSearchBlur}
             placeholder="Search players..."
             placeholderTextColor="#bbb"
             className="flex-1 text-[15px] text-default"
             autoCapitalize="none"
             autoCorrect={false}
+            returnKeyType="search"
           />
+          {isSearching && (
+            <ActivityIndicator
+              testID="roster-search-spinner"
+              size="small"
+              color="#bbb"
+            />
+          )}
+          {showClear && (
+            <Pressable
+              testID="roster-search-clear"
+              onPress={handleClearSearch}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+              className="w-6 h-6 rounded-full items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
+            >
+              <XIcon size={12} color="#666" />
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -312,7 +443,7 @@ export default function RosterPicker({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
       >
-        {/* In this session */}
+        {/* In this session — compact chip layout, shown only when relevant. */}
         {hasSessionSection && (
           <>
             <SectionLabel
@@ -340,11 +471,14 @@ export default function RosterPicker({
           </>
         )}
 
-        {/* Friends & recent opponents */}
-        {hasFriendSection && (
-          <>
-            <SectionLabel label="Friends & recent opponents" />
-            {friendPlayers.map((player) => (
+        {/* Relation-bucket sections — friends, FoFs, recent opps, etc. */}
+        {rowSections.map((section) => (
+          <React.Fragment key={section.source}>
+            <SectionLabel
+              label={section.label}
+              testID={`roster-section-${section.source}`}
+            />
+            {section.players.map((player) => (
               <FriendRow
                 key={player.player_id}
                 player={player}
@@ -352,13 +486,14 @@ export default function RosterPicker({
                 onPress={onSelectPlayer}
               />
             ))}
-          </>
-        )}
+          </React.Fragment>
+        ))}
 
-        {/* Single flat section when no source split */}
-        {!hasSessionSection && !hasFriendSection && (
+        {showEmpty && (
           <Text className="text-[13px] text-muted italic py-4 text-center">
-            {search.trim() ? 'No players match your search.' : 'No players available.'}
+            {search.trim()
+              ? 'No players match your search.'
+              : 'Search for a player to add them.'}
           </Text>
         )}
 

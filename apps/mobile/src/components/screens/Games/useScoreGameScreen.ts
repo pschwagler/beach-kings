@@ -39,13 +39,31 @@ const EMPTY_SLOT: PlayerSlot = {
   initials: '',
 };
 
+/**
+ * Where a roster player came from. Drives which section they appear in and
+ * the small "Friend" / "Friend of friend" / etc. label next to their name.
+ *
+ *   session           — in the current session
+ *   league            — member of the current league
+ *   friend            — direct friend of the caller
+ *   friend_of_friend  — 1 hop away in the friend graph
+ *   recent_opponent   — played a match with the caller recently
+ *   other             — no relation, surfaced only via search
+ */
+export type RosterPlayerSource =
+  | 'session'
+  | 'league'
+  | 'friend'
+  | 'friend_of_friend'
+  | 'recent_opponent'
+  | 'other';
+
 /** Minimal roster player shape used within this hook. */
 export interface RosterPlayer {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
-  /** Where this player came from — drives which section they appear in. */
-  readonly source: 'session' | 'friend' | 'recent';
+  readonly source: RosterPlayerSource;
 }
 
 /** Context passed into the hook from the parent screen/route. */
@@ -81,9 +99,19 @@ export interface UseScoreGameScreenResult {
   readonly roster: readonly RosterPlayer[];
   readonly search: string;
   readonly filteredRoster: readonly RosterPlayer[];
+  /** True while a backend search is in flight (debounced). */
+  readonly isSearching: boolean;
   readonly submitState: SubmitState;
   readonly errorMessage: string | null;
   readonly canSubmit: boolean;
+  /**
+   * Whether the game is counted toward rankings.
+   *
+   * TODO(session-settings): currently hardcoded — true when leagueId is set,
+   * false for pickup. Once the SessionDetail screen exposes a Ranked toggle,
+   * source this from the session record instead. The per-screen toggle was
+   * removed 2026-05-15 because it belongs at the session, not the game.
+   */
   readonly isRanked: boolean;
   /** session_id returned by the last successful submit (new or existing). */
   readonly lastSessionId: number | null;
@@ -131,7 +159,6 @@ export interface UseScoreGameScreenResult {
   readonly assignPlayer: (team: 1 | 2, slot: 0 | 1, player: RosterPlayer | null) => void;
   readonly removePlayer: (team: 1 | 2, slot: 0 | 1) => void;
   readonly setSearch: (q: string) => void;
-  readonly setIsRanked: (ranked: boolean) => void;
   readonly onSubmit: () => void;
   readonly onRetry: () => void;
   readonly onDismissError: () => void;
@@ -234,10 +261,11 @@ export function useScoreGameScreen(
   const [deleteState, setDeleteState] = useState<DeleteState>('idle');
   const [isCreatingSession, setIsCreatingSession] = useState(false);
 
-  // is_ranked defaults to true when a league context is present, false for
-  // pickup. In edit mode we initialize to `false` and let the hydration effect
-  // below overwrite it once the game loads — guessing `true` then snapping
-  // back to `false` would visibly flip the toggle on slow networks.
+  // TODO(session-settings): is_ranked is currently hardcoded — true when this
+  // screen is opened from a league context, false otherwise. In edit mode we
+  // start at false and let the session-detail hydration effect below set the
+  // actual value from the persisted match. Once the SessionDetail screen
+  // surfaces a Ranked toggle, drop this state in favor of session.is_ranked.
   const [isRanked, setIsRanked] = useState<boolean>(
     matchId == null ? leagueId != null : false,
   );
@@ -330,22 +358,27 @@ export function useScoreGameScreen(
             setRoster([...sessionPlayers, ...friendPlayers]);
           }
         } else if (leagueId != null) {
-          // Priority 2: league members (source='session')
-          const members = await api.getLeagueMembers(leagueId);
+          // Priority 2: ranked default roster for the league context.
+          // /api/players/search with empty q returns the caller's network
+          // (friends, FoFs, recent opponents, league members) ranked by
+          // relevance — replaces the old league-members-only call which
+          // showed "No players available" when the league was sparse.
+          const response = await api.searchPlayers('', {
+            leagueId,
+            limit: 50,
+          });
           if (!cancelled) {
-            const list = Array.isArray(members) ? members : [];
+            const items = response?.items ?? [];
             setRoster(
-              list.map(
-                (m: { player_id: number; player_name?: string | null }) => {
-                  const name = m.player_name ?? '';
-                  return {
-                    player_id: m.player_id,
-                    display_name: name,
-                    initials: toInitials(name),
-                    source: 'session' as const,
-                  };
-                },
-              ),
+              items.map((item) => ({
+                player_id: item.id,
+                display_name: item.full_name ?? `Player ${item.id}`,
+                initials:
+                  item.initials && item.initials.length > 0
+                    ? item.initials
+                    : toInitials(item.full_name ?? ''),
+                source: item.relation as RosterPlayerSource,
+              })),
             );
           }
         } else {
@@ -375,14 +408,89 @@ export function useScoreGameScreen(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, leagueId]);
 
+  // --- Search results (relevance-ranked, fetched from backend) ---
+  // When the user types, we query the full player table so they can find
+  // anyone — not just folks pre-loaded into the local roster. Results are
+  // debounced to avoid hammering the API on every keystroke.
+  const [searchResults, setSearchResults] = useState<RosterPlayer[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    const trimmed = search.trim();
+    if (trimmed === '') {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      try {
+        const response = await api.searchPlayers(trimmed, {
+          sessionId: sessionId ?? undefined,
+          leagueId: leagueId ?? undefined,
+          limit: 20,
+        });
+        if (cancelled) return;
+        const items = response?.items ?? [];
+        setSearchResults(
+          items.map((item) => ({
+            player_id: item.id,
+            display_name: item.full_name ?? `Player ${item.id}`,
+            initials:
+              item.initials && item.initials.length > 0
+                ? item.initials
+                : toInitials(item.full_name ?? ''),
+            source: item.relation as RosterPlayerSource,
+          })),
+        );
+      } catch {
+        // Network error or endpoint unavailable — fall back to the local
+        // filter against the pre-loaded roster (handled in filteredRoster).
+        if (!cancelled) setSearchResults([]);
+      } finally {
+        if (!cancelled) setIsSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [search, sessionId, leagueId]);
+
+  // --- Seated player IDs (those already on a team) ---
+  // Seated players are shown on the scoreboard with their team — repeating
+  // them in the picker just steals scroll space from the search results.
+  const seatedPlayerIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const slot of [team1[0], team1[1], team2[0], team2[1]]) {
+      if (slot.player_id != null) ids.add(slot.player_id);
+    }
+    return ids;
+  }, [team1, team2]);
+
   // --- Filtered roster ---
+  // Empty search           → pre-loaded roster (session + friends/league).
+  // Backend results ready  → backend search (so the user can find anyone).
+  // Backend not back yet   → local filter of the pre-loaded roster as a
+  //   stopgap so the picker isn't blank during the debounce window.
+  // In every case, exclude already-seated players to free up real estate.
   const filteredRoster = useMemo(() => {
-    if (search.trim() === '') return roster;
-    const q = search.toLowerCase();
-    return roster.filter((p) =>
-      p.display_name.toLowerCase().includes(q),
+    const trimmed = search.trim();
+    if (trimmed === '') {
+      return roster.filter((p) => !seatedPlayerIds.has(p.player_id));
+    }
+    if (searchResults.length > 0) {
+      return searchResults.filter((p) => !seatedPlayerIds.has(p.player_id));
+    }
+    const q = trimmed.toLowerCase();
+    return roster.filter(
+      (p) =>
+        !seatedPlayerIds.has(p.player_id) &&
+        p.display_name.toLowerCase().includes(q),
     );
-  }, [roster, search]);
+  }, [roster, searchResults, search, seatedPlayerIds]);
 
   // --- Building mode derived state ---
   const filledCount = useMemo(
@@ -625,6 +733,7 @@ export function useScoreGameScreen(
     roster,
     search,
     filteredRoster,
+    isSearching,
     submitState,
     errorMessage,
     canSubmit,
@@ -647,7 +756,6 @@ export function useScoreGameScreen(
     assignPlayer,
     removePlayer,
     setSearch,
-    setIsRanked,
     onSubmit: onSubmitVoid,
     onRetry,
     onDismissError,

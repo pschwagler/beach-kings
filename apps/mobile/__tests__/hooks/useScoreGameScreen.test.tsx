@@ -38,6 +38,7 @@ const mockDeleteMatch = jest.fn();
 const mockGetSessionById = jest.fn();
 const mockCreateSession = jest.fn();
 const mockShareLink = jest.fn();
+const mockSearchPlayers = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -50,6 +51,7 @@ jest.mock('@/lib/api', () => ({
     deleteMatch: (...args: unknown[]) => mockDeleteMatch(...args),
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
     createSession: (...args: unknown[]) => mockCreateSession(...args),
+    searchPlayers: (...args: unknown[]) => mockSearchPlayers(...args),
   },
 }));
 
@@ -92,6 +94,20 @@ const MOCK_FRIENDS_RESPONSE = {
   total_count: 2,
 };
 
+/**
+ * Default ranked roster returned by `searchPlayers('', { leagueId })` —
+ * the league-only path uses this to populate the picker on mount.
+ */
+const MOCK_LEAGUE_DEFAULT_ROSTER = {
+  items: [
+    { id: 10, full_name: 'Chris Gulla', nickname: null, initials: 'CG', relation: 'friend' },
+    { id: 11, full_name: 'Kyle Fawwar', nickname: null, initials: 'KF', relation: 'league' },
+    { id: 12, full_name: 'Alex Marthey', nickname: null, initials: 'AM', relation: 'league' },
+    { id: 13, full_name: 'Sam Jindash', nickname: null, initials: 'SJ', relation: 'league' },
+  ],
+  total_count: 4,
+};
+
 /** Assign all 4 player slots and set score > 0. */
 function fillSlots(result: ReturnType<typeof renderHook<ReturnType<typeof useScoreGameScreen>, unknown>>['result']) {
   act(() => {
@@ -125,6 +141,15 @@ beforeEach(() => {
   mockGetSessionById.mockResolvedValue({ id: 7, games: [] });
   mockCreateSession.mockResolvedValue({ id: 555, code: 'BKABC123' });
   mockShareLink.mockResolvedValue(undefined);
+  // For initial roster load with leagueId-only, the hook calls searchPlayers
+  // with q=''. Live search calls pass a non-empty q. Default both: empty q
+  // returns the league default roster; everything else returns empty.
+  mockSearchPlayers.mockImplementation((q: string) => {
+    if (q === '') {
+      return Promise.resolve(MOCK_LEAGUE_DEFAULT_ROSTER);
+    }
+    return Promise.resolve({ items: [], total_count: 0 });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -415,30 +440,16 @@ describe('useScoreGameScreen — is_ranked defaults', () => {
     expect(payload.is_ranked).toBe(true);
   });
 
-  it('exposes isRanked state', async () => {
+  it('exposes isRanked=true for league context', async () => {
     const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
     expect(result.current.isRanked).toBe(true);
   });
 
-  it('isRanked toggles when setIsRanked is called', async () => {
-    const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
+  it('exposes isRanked=false for pickup context', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
-
-    act(() => {
-      result.current.setIsRanked(false);
-    });
-
     expect(result.current.isRanked).toBe(false);
-
-    // Override should be reflected in submit payload
-    fillSlots(result);
-    await act(async () => {
-      result.current.onSubmit();
-    });
-    await waitFor(() => expect(mockSubmitScoredGame).toHaveBeenCalled());
-    const payload = mockSubmitScoredGame.mock.calls[0][0];
-    expect(payload.is_ranked).toBe(false);
   });
 });
 
@@ -469,12 +480,25 @@ describe('useScoreGameScreen — roster source', () => {
     expect(first.player_id).toBe(10);
   });
 
-  it('fetches league members when only leagueId is provided (no sessionId)', async () => {
+  it('fetches the ranked default roster via searchPlayers when only leagueId is provided', async () => {
+    mockSearchPlayers.mockResolvedValueOnce({
+      items: [
+        { id: 50, full_name: 'Marisol Hart', nickname: null, initials: 'MH', relation: 'friend' },
+        { id: 51, full_name: 'Jordan Lee', nickname: null, initials: 'JL', relation: 'league' },
+      ],
+      total_count: 2,
+    });
+
     const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
     await waitFor(() => {
-      expect(mockGetLeagueMembers).toHaveBeenCalledWith(3);
-      expect(result.current.roster.length).toBe(MOCK_PARTICIPANTS.length);
+      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.objectContaining({ leagueId: 3 }));
+      expect(result.current.roster.length).toBe(2);
     });
+    // Source comes from `relation`; league context returns mixed buckets,
+    // not just league members.
+    const sources = result.current.roster.map((p) => p.source).sort();
+    expect(sources).toEqual(['friend', 'league']);
+    expect(mockGetLeagueMembers).not.toHaveBeenCalled();
     expect(mockGetSessionParticipants).not.toHaveBeenCalled();
   });
 
@@ -493,6 +517,8 @@ describe('useScoreGameScreen — roster source', () => {
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
     expect(mockGetSessionParticipants).toHaveBeenCalledWith(7);
     expect(mockGetLeagueMembers).not.toHaveBeenCalled();
+    // searchPlayers with empty q is only used by the league-only path.
+    expect(mockSearchPlayers).not.toHaveBeenCalledWith('', expect.anything());
   });
 
   it('filters roster by search query', async () => {
@@ -949,7 +975,7 @@ describe('useScoreGameScreen — onManageSession / onShareSession', () => {
       useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
     );
     await waitFor(() =>
-      expect(mockGetLeagueMembers).toHaveBeenCalledTimes(1),
+      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.objectContaining({ leagueId: 3 })),
     );
 
     let returnedId: number | null | undefined;
@@ -1000,7 +1026,7 @@ describe('useScoreGameScreen — onManageSession / onShareSession', () => {
       useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
     );
     await waitFor(() =>
-      expect(mockGetLeagueMembers).toHaveBeenCalledTimes(1),
+      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.objectContaining({ leagueId: 3 })),
     );
 
     await act(async () => {

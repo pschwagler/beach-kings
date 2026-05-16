@@ -101,11 +101,11 @@ describe('formatPlayerName', () => {
 // formatPlayerShort
 // ---------------------------------------------------------------------------
 describe('formatPlayerShort', () => {
-  it('returns "First L" for two-part name', () => {
-    expect(formatPlayerShort('Patrick Schwagler')).toBe('Patrick S');
+  it('returns "First L." for two-part name', () => {
+    expect(formatPlayerShort('Patrick Schwagler')).toBe('Patrick S.');
   });
 
-  it('returns single-part name unchanged', () => {
+  it('returns single-part name unchanged (no dot)', () => {
     expect(formatPlayerShort('Cher')).toBe('Cher');
   });
 
@@ -114,11 +114,11 @@ describe('formatPlayerShort', () => {
   });
 
   it('trims and collapses whitespace', () => {
-    expect(formatPlayerShort('  Jane   Doe  ')).toBe('Jane D');
+    expect(formatPlayerShort('  Jane   Doe  ')).toBe('Jane D.');
   });
 
   it('uses last-name initial across multi-word names', () => {
-    expect(formatPlayerShort('Mary Anne Smith')).toBe('Mary S');
+    expect(formatPlayerShort('Mary Anne Smith')).toBe('Mary S.');
   });
 });
 

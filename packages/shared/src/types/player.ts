@@ -68,6 +68,37 @@ export interface Player {
   stats?: Record<string, number | null | undefined>;
 }
 
+/**
+ * Relation bucket from the relevance-ranked player search.
+ *
+ *   friend            — the caller is direct friends with this player
+ *   friend_of_friend  — 1 hop away in the friend graph
+ *   recent_opponent   — has played a match with the caller recently
+ *   session           — currently in the session context
+ *   league            — member of the league context
+ *   other             — name match only
+ */
+export type PlayerSearchRelation =
+  | 'friend'
+  | 'friend_of_friend'
+  | 'recent_opponent'
+  | 'session'
+  | 'league'
+  | 'other';
+
+export interface PlayerSearchItem {
+  id: number;
+  full_name: string | null;
+  nickname: string | null;
+  initials: string;
+  relation: PlayerSearchRelation;
+}
+
+export interface PlayerSearchResponse {
+  items: PlayerSearchItem[];
+  total_count: number;
+}
+
 export interface PublicPlayerStats {
   current_rating: number;
   total_games: number;

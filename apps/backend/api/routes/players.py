@@ -28,6 +28,7 @@ from backend.models.schemas import (
     PaginatedPlayersResponse,
     PlaceholderListResponse,
     PlaceholderPlayerResponse,
+    PlayerSearchResponse,
     PlayerHomeCourtResponse,
     SetPlayerHomeCourts,
     ReorderPlayerHomeCourts,
@@ -78,6 +79,45 @@ async def list_players(
         return {"items": items, "total_count": total}
     except Exception as e:
         logger.error("Error loading players: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/api/players/search", response_model=PlayerSearchResponse)
+@limiter.limit("60/minute")
+async def search_players(
+    request: Request,
+    q: str = Query("", max_length=100),
+    session_id: Optional[int] = None,
+    league_id: Optional[int] = None,
+    limit: int = Query(20, ge=1, le=50),
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Relevance-ranked player search for pickers.
+
+    Returns players sorted by relation to the caller:
+    friend > friend_of_friend > recent_opponent > session > league > other.
+
+    When ``q`` is empty, returns the caller's default roster (friends, FoF,
+    recent opponents, plus session/league members) — never "other", since
+    there's no name match to surface those. Excludes the caller, placeholders,
+    and system rows.
+    """
+    try:
+        caller = await data_service.get_player_by_user_id(session, current_user["id"])
+        caller_player_id = caller["id"] if caller else None
+        items = await data_service.search_players_with_relevance(
+            session,
+            q=q,
+            caller_player_id=caller_player_id,
+            session_id=session_id,
+            league_id=league_id,
+            limit=limit,
+        )
+        return {"items": items, "total_count": len(items)}
+    except Exception as e:
+        logger.error("Error searching players: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

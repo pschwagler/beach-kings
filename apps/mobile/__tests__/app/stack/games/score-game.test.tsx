@@ -133,6 +133,7 @@ const MOCK_FRIENDS_ROSTER = {
 
 const mockCreateSession = jest.fn();
 const mockShareLink = jest.fn();
+const mockSearchPlayers = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -145,6 +146,7 @@ jest.mock('@/lib/api', () => ({
     deleteMatch: (...args: unknown[]) => mockDeleteMatch(...args),
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
     createSession: (...args: unknown[]) => mockCreateSession(...args),
+    searchPlayers: (...args: unknown[]) => mockSearchPlayers(...args),
   },
 }));
 
@@ -193,6 +195,7 @@ beforeEach(() => {
   mockGetSessionById.mockResolvedValue({ id: 7, games: [] });
   mockCreateSession.mockResolvedValue({ id: 555, code: 'BKTEST01' });
   mockShareLink.mockResolvedValue(undefined);
+  mockSearchPlayers.mockResolvedValue({ items: [], total_count: 0 });
   // Reset route params to empty between tests
   mockLocalSearchParams.mockReturnValue({});
   // Drop any beforeRemove listeners captured by the previous test so each
@@ -303,6 +306,92 @@ describe('ScoreGameScreen — roster picker', () => {
       expect(screen.getByTestId('roster-chip-10')).toBeTruthy();
       expect(screen.queryByTestId('roster-chip-11')).toBeNull();
     });
+  });
+
+  it('queries the backend search endpoint when the user types', async () => {
+    // Backend returns a player who is NOT in the pre-loaded roster — proving
+    // the picker now reaches beyond locally-cached friends.
+    mockSearchPlayers.mockResolvedValue({
+      items: [
+        {
+          id: 999,
+          full_name: 'Daniel M',
+          nickname: null,
+          initials: 'DM',
+          relation: 'other',
+        },
+      ],
+      total_count: 1,
+    });
+
+    render(<ScoreGameScreen />);
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
+
+    fireEvent.changeText(screen.getByTestId('roster-search-input'), 'Daniel');
+
+    await waitFor(() => {
+      expect(mockSearchPlayers).toHaveBeenCalled();
+      expect(screen.getByTestId('roster-chip-999')).toBeTruthy();
+    });
+  });
+
+  it('removes seated players from the picker to free up search space', async () => {
+    render(<ScoreGameScreen />);
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
+
+    // Seat player 10 in team1 slot 0
+    fireEvent.press(screen.getByTestId('team1-slot0'));
+    fireEvent.press(screen.getByTestId('roster-chip-10'));
+
+    // After being seated, player 10 should disappear from the picker — they're
+    // already visible on the scoreboard.
+    await waitFor(() => {
+      expect(screen.queryByTestId('roster-chip-10')).toBeNull();
+      // Other players still visible
+      expect(screen.getByTestId('roster-chip-11')).toBeTruthy();
+    });
+  });
+
+  it('shows the League members section first in a league match', async () => {
+    mockLocalSearchParams.mockReturnValue({ leagueId: '3' });
+    // Backend returns a friend and a league member; in a league match the
+    // league section must render ahead of the friends section.
+    mockSearchPlayers.mockResolvedValue({
+      items: [
+        {
+          id: 901,
+          full_name: 'Liam League',
+          nickname: null,
+          initials: 'LL',
+          relation: 'league',
+        },
+        {
+          id: 902,
+          full_name: 'Fiona Friend',
+          nickname: null,
+          initials: 'FF',
+          relation: 'friend',
+        },
+      ],
+      total_count: 2,
+    });
+
+    render(<ScoreGameScreen />);
+    await waitFor(() => expect(screen.getByTestId('roster-picker')).toBeTruthy());
+
+    fireEvent.changeText(screen.getByTestId('roster-search-input'), 'i');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('roster-section-league')).toBeTruthy();
+      expect(screen.getByTestId('roster-section-friend')).toBeTruthy();
+    });
+
+    const sectionOrder = screen
+      .getAllByTestId(/^roster-section-/)
+      .map((node) => node.props.testID as string);
+    expect(sectionOrder.indexOf('roster-section-league')).toBeLessThan(
+      sectionOrder.indexOf('roster-section-friend'),
+    );
   });
 });
 
@@ -663,6 +752,41 @@ describe('ScoreGameScreen — discard-on-close guard', () => {
     await waitFor(() => {
       expect(mockBack).toHaveBeenCalled();
     });
+  });
+
+  it('does not re-open the dialog when Discard fires beforeRemove', async () => {
+    // Regression: a previous version cleared the dialog and called
+    // router.back(), which fired the beforeRemove listener. Because slots
+    // were still filled, the listener re-opened the dialog — forcing the
+    // user to tap Discard twice. Replay that here and assert the dialog
+    // doesn't come back.
+    render(<ScoreGameScreen />);
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('team1-slot0'));
+    fireEvent.press(screen.getByTestId('roster-chip-10'));
+    fireEvent.press(screen.getByTestId('modal-close-btn'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('discard-confirm-dialog-confirm')).toBeTruthy(),
+    );
+    fireEvent.press(screen.getByTestId('discard-confirm-dialog-confirm'));
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+
+    // Simulate what router.back() triggers internally — the beforeRemove
+    // listener firing on the in-progress slots. With the bug, this would
+    // re-open the dialog; with the fix, skipGuardRef is set and the
+    // listener short-circuits.
+    const preventDefault = jest.fn();
+    const listener = beforeRemoveListeners[beforeRemoveListeners.length - 1];
+    if (listener != null) {
+      act(() => {
+        listener({ preventDefault, data: { action: { type: 'GO_BACK' } } });
+      });
+    }
+
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('discard-confirm-dialog-confirm')).toBeNull();
   });
 
   it('replaces to session detail on close when sessionId is present and no progress', async () => {

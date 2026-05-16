@@ -7,13 +7,14 @@ Extracted from data_service.py.  Covers:
 - Home-court management per player
 """
 
-from typing import List, Dict, Optional, Tuple
-from datetime import date
+from typing import List, Dict, Optional, Set, Tuple
+from datetime import date, datetime, timedelta, timezone
 
 __all__ = [
     "resolve_name_fields",
     "generate_player_initials",
     "list_players_search",
+    "search_players_with_relevance",
     "get_all_player_names",
     "get_player_by_user_id",
     "get_player_by_user_id_with_stats",
@@ -37,6 +38,10 @@ from backend.database.models import (
     PlayerHomeCourt,
     PlayerGlobalStats,
     Court,
+    Friend,
+    Match,
+    Session,
+    SessionParticipant,
 )
 
 
@@ -274,6 +279,364 @@ async def list_players_search(
             }
         )
     return items, total
+
+
+# ---------------------------------------------------------------------------
+# Relevance-ranked player search (for player pickers)
+# ---------------------------------------------------------------------------
+
+
+_RELATION_SCORES = {
+    "friend": 6,
+    "friend_of_friend": 5,
+    "recent_opponent": 4,
+    "session": 3,
+    "league": 2,
+    "other": 1,
+}
+
+# In a league match the most relevant pick is "someone in this league" — those
+# members outrank even direct friends, since the roster is league-scoped.
+_LEAGUE_MATCH_RELATION_SCORES = {
+    "league": 7,
+    "friend": 6,
+    "friend_of_friend": 5,
+    "recent_opponent": 4,
+    "session": 3,
+    "other": 1,
+}
+
+
+def _relation_scores(league_id: Optional[int]) -> Dict[str, int]:
+    """
+    Pick the bucket-score map for the relevance sort.
+
+    When a ``league_id`` context is present (a league match), league members
+    are ranked first; otherwise the default friend-first ordering applies.
+    """
+    return (
+        _LEAGUE_MATCH_RELATION_SCORES if league_id is not None else _RELATION_SCORES
+    )
+
+
+async def _collect_relation_buckets(
+    session: AsyncSession,
+    *,
+    caller_player_id: Optional[int],
+    session_id: Optional[int],
+    league_id: Optional[int],
+    recent_days: int,
+    restrict_to: Optional[Set[int]] = None,
+) -> Dict[str, Set[int]]:
+    """
+    Build the friend / FoF / recent-opponent / session / league bucket sets.
+
+    When ``restrict_to`` is provided, returned sets are intersected with it
+    (useful for filtering an over-fetched name-search candidate list).
+    Otherwise the bucket sets are returned unconstrained — that's the right
+    shape for the "no search query" default-roster path.
+    """
+    friend_ids: Set[int] = set()
+    fof_ids: Set[int] = set()
+    recent_opponent_ids: Set[int] = set()
+    session_member_ids: Set[int] = set()
+    league_member_ids: Set[int] = set()
+
+    if caller_player_id is not None:
+        friend_rows = (
+            await session.execute(
+                select(Friend.player1_id, Friend.player2_id).where(
+                    or_(
+                        Friend.player1_id == caller_player_id,
+                        Friend.player2_id == caller_player_id,
+                    ),
+                )
+            )
+        ).all()
+        all_friends: Set[int] = set()
+        for p1, p2 in friend_rows:
+            all_friends.add(p2 if p1 == caller_player_id else p1)
+        friend_ids = set(all_friends)
+
+        if all_friends:
+            fof_rows = (
+                await session.execute(
+                    select(Friend.player1_id, Friend.player2_id).where(
+                        or_(
+                            Friend.player1_id.in_(all_friends),
+                            Friend.player2_id.in_(all_friends),
+                        ),
+                    )
+                )
+            ).all()
+            for p1, p2 in fof_rows:
+                if p1 in all_friends:
+                    fof_ids.add(p2)
+                if p2 in all_friends:
+                    fof_ids.add(p1)
+            fof_ids -= friend_ids
+            fof_ids.discard(caller_player_id)
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=recent_days)
+        opp_rows = (
+            await session.execute(
+                select(
+                    Match.team1_player1_id,
+                    Match.team1_player2_id,
+                    Match.team2_player1_id,
+                    Match.team2_player2_id,
+                )
+                .join(Session, Session.id == Match.session_id)
+                .where(
+                    Session.created_at >= cutoff,
+                    or_(
+                        Match.team1_player1_id == caller_player_id,
+                        Match.team1_player2_id == caller_player_id,
+                        Match.team2_player1_id == caller_player_id,
+                        Match.team2_player2_id == caller_player_id,
+                    ),
+                )
+            )
+        ).all()
+        for row in opp_rows:
+            for pid in row:
+                if pid is not None and pid != caller_player_id:
+                    recent_opponent_ids.add(pid)
+
+    if session_id is not None:
+        sp_rows = (
+            await session.execute(
+                select(SessionParticipant.player_id).where(
+                    SessionParticipant.session_id == session_id,
+                )
+            )
+        ).all()
+        session_member_ids = {row[0] for row in sp_rows if row[0] is not None}
+
+    if league_id is not None:
+        lm_rows = (
+            await session.execute(
+                select(LeagueMember.player_id).where(
+                    LeagueMember.league_id == league_id,
+                )
+            )
+        ).all()
+        league_member_ids = {row[0] for row in lm_rows if row[0] is not None}
+
+    if restrict_to is not None:
+        friend_ids &= restrict_to
+        fof_ids &= restrict_to
+        recent_opponent_ids &= restrict_to
+        session_member_ids &= restrict_to
+        league_member_ids &= restrict_to
+
+    return {
+        "friend": friend_ids,
+        "friend_of_friend": fof_ids,
+        "recent_opponent": recent_opponent_ids,
+        "session": session_member_ids,
+        "league": league_member_ids,
+    }
+
+
+def _make_relation_classifier(buckets: Dict[str, Set[int]]):
+    """Return a function mapping a player id to its highest-priority bucket."""
+
+    def _relation(pid: int) -> str:
+        if pid in buckets["friend"]:
+            return "friend"
+        if pid in buckets["friend_of_friend"]:
+            return "friend_of_friend"
+        if pid in buckets["recent_opponent"]:
+            return "recent_opponent"
+        if pid in buckets["session"]:
+            return "session"
+        if pid in buckets["league"]:
+            return "league"
+        return "other"
+
+    return _relation
+
+
+async def _default_ranked_roster(
+    session: AsyncSession,
+    *,
+    caller_player_id: Optional[int],
+    session_id: Optional[int],
+    league_id: Optional[int],
+    limit: int,
+    recent_days: int,
+) -> List[Dict]:
+    """
+    Return the caller's relevance-ranked roster when no search query was
+    provided. Includes only players from the caller's network (friends,
+    FoF, recent opponents, session/league members) — never the "other"
+    bucket, since there's no name match to surface them.
+    """
+    buckets = await _collect_relation_buckets(
+        session,
+        caller_player_id=caller_player_id,
+        session_id=session_id,
+        league_id=league_id,
+        recent_days=recent_days,
+    )
+
+    candidate_ids: Set[int] = (
+        buckets["friend"]
+        | buckets["friend_of_friend"]
+        | buckets["recent_opponent"]
+        | buckets["session"]
+        | buckets["league"]
+    )
+    if caller_player_id is not None:
+        candidate_ids.discard(caller_player_id)
+
+    if not candidate_ids:
+        return []
+
+    rows = (
+        await session.execute(
+            select(Player.id, Player.full_name, Player.nickname).where(
+                Player.id.in_(candidate_ids),
+                or_(Player.status != "system", Player.status.is_(None)),
+                Player.is_placeholder.is_(False),
+            )
+        )
+    ).all()
+
+    classify = _make_relation_classifier(buckets)
+    scores = _relation_scores(league_id)
+    annotated = [(row, classify(row.id)) for row in rows]
+    annotated.sort(
+        key=lambda t: (
+            -scores[t[1]],
+            (t[0].full_name or "").lower(),
+            t[0].id,
+        )
+    )
+    annotated = annotated[: max(1, min(limit, 50))]
+
+    return [
+        {
+            "id": row.id,
+            "full_name": row.full_name,
+            "nickname": row.nickname,
+            "initials": generate_player_initials(row.full_name or ""),
+            "relation": relation,
+        }
+        for row, relation in annotated
+    ]
+
+
+async def search_players_with_relevance(
+    session: AsyncSession,
+    q: str,
+    *,
+    caller_player_id: Optional[int],
+    session_id: Optional[int] = None,
+    league_id: Optional[int] = None,
+    limit: int = 20,
+    recent_days: int = 90,
+) -> List[Dict]:
+    """
+    Search players by name, ranked by relevance to the caller.
+
+    Buckets (highest priority first):
+        friend > friend_of_friend > recent_opponent > session > league > other
+
+    In a league match (``league_id`` set), league members are promoted to the
+    top: league > friend > friend_of_friend > recent_opponent > session > other.
+
+    When ``q`` is empty or whitespace, returns the caller's default ranked
+    roster — friends, FoF, recent opponents, and session/league members —
+    excluding the ``other`` bucket (no name match to surface them).
+
+    Otherwise the query over-fetches alphabetical name matches, then
+    annotates and re-ranks them in Python so all buckets are considered
+    without writing multi-CTE SQL. Placeholder and system players are
+    excluded throughout.
+
+    Args:
+        session: Async DB session.
+        q: Search term (matched ILIKE against full_name and nickname). Empty
+            string returns the caller's default ranked roster.
+        caller_player_id: Caller's player id; ``None`` skips friend/opponent
+            scoring (everyone falls into ``other``).
+        session_id: Optional session context; members get bucket ``session``.
+        league_id: Optional league context; members get bucket ``league``.
+        limit: Max items to return (capped at 50).
+        recent_days: Window (days) for the ``recent_opponent`` bucket.
+
+    Returns:
+        List of dicts with ``id``, ``full_name``, ``nickname``, ``initials``,
+        and ``relation``.
+    """
+    term = (q or "").strip()
+    capped = max(1, min(limit, 50))
+
+    if not term:
+        return await _default_ranked_roster(
+            session,
+            caller_player_id=caller_player_id,
+            session_id=session_id,
+            league_id=league_id,
+            limit=capped,
+            recent_days=recent_days,
+        )
+
+    over_fetch = min(capped * 5, 200)
+    like = f"%{term}%"
+
+    name_stmt = (
+        select(Player.id, Player.full_name, Player.nickname)
+        .where(
+            or_(Player.full_name.ilike(like), Player.nickname.ilike(like)),
+            or_(Player.status != "system", Player.status.is_(None)),
+            Player.is_placeholder.is_(False),
+        )
+        .order_by(Player.full_name.asc(), Player.id.asc())
+        .limit(over_fetch)
+    )
+    if caller_player_id is not None:
+        name_stmt = name_stmt.where(Player.id != caller_player_id)
+
+    rows = (await session.execute(name_stmt)).all()
+    if not rows:
+        return []
+
+    candidate_set: Set[int] = {r.id for r in rows}
+
+    buckets = await _collect_relation_buckets(
+        session,
+        caller_player_id=caller_player_id,
+        session_id=session_id,
+        league_id=league_id,
+        recent_days=recent_days,
+        restrict_to=candidate_set,
+    )
+
+    classify = _make_relation_classifier(buckets)
+    scores = _relation_scores(league_id)
+    annotated = [(row, classify(row.id)) for row in rows]
+    annotated.sort(
+        key=lambda t: (
+            -scores[t[1]],
+            (t[0].full_name or "").lower(),
+            t[0].id,
+        )
+    )
+    annotated = annotated[:capped]
+
+    return [
+        {
+            "id": row.id,
+            "full_name": row.full_name,
+            "nickname": row.nickname,
+            "initials": generate_player_initials(row.full_name or ""),
+            "relation": relation,
+        }
+        for row, relation in annotated
+    ]
 
 
 async def get_all_player_names(session: AsyncSession) -> List[str]:

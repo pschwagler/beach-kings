@@ -10,7 +10,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRouter } from 'expo-router';
 
@@ -270,11 +270,11 @@ export default function ScoreGameScreen({
     score1,
     score2,
     filteredRoster,
+    isSearching,
     search,
     submitState,
     errorMessage,
     canSubmit,
-    isRanked,
     lastSessionId,
     filledCount,
     isBuilding,
@@ -293,7 +293,6 @@ export default function ScoreGameScreen({
     assignPlayer,
     removePlayer,
     setSearch,
-    setIsRanked,
     onSubmit,
     onRetry,
     onAddAnother: hookOnAddAnother,
@@ -313,6 +312,9 @@ export default function ScoreGameScreen({
   const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  // When the roster search is focused, the scoreboard collapses to a single
+  // strip so the on-screen keyboard doesn't hide the search results.
+  const [searchFocused, setSearchFocused] = useState(false);
 
   // Captured navigation action from a back-gesture / hardware-back that the
   // beforeRemove listener intercepted. Replayed on confirm to honor the user's
@@ -402,10 +404,13 @@ export default function ScoreGameScreen({
     setDiscardConfirmVisible(false);
     const action = pendingActionRef.current;
     pendingActionRef.current = null;
+    // Bypass the beforeRemove guard for the navigation we're about to fire —
+    // hasProgress is still true (we haven't cleared slots), so without this the
+    // listener would intercept and re-show the discard dialog.
+    skipGuardRef.current = true;
     if (action != null) {
       // Came from beforeRemove (gesture / hardware-back) — replay the captured
       // navigation so we land where the user originally intended.
-      skipGuardRef.current = true;
       (
         navigation as unknown as { dispatch: (a: unknown) => void }
       ).dispatch(action);
@@ -555,7 +560,8 @@ export default function ScoreGameScreen({
   } else {
     content = (
       <>
-        {/* Scoreboard — fixed at top */}
+        {/* Scoreboard — fixed at top. Collapses to a compact strip while the
+            search is focused so the keyboard doesn't hide the results. */}
         <ScoreBoard
           team1Slots={team1}
           team2Slots={team2}
@@ -563,6 +569,7 @@ export default function ScoreGameScreen({
           score2={score2}
           isBuilding={isBuilding}
           activeSlot={effectiveActiveSlot}
+          compact={searchFocused}
           onIncScore1={handleIncScore1}
           onDecScore1={handleDecScore1}
           onIncScore2={handleIncScore2}
@@ -573,23 +580,10 @@ export default function ScoreGameScreen({
           onRemovePlayer={handleRemovePlayer}
         />
 
-        {/* Ranked toggle — only for league context */}
-        {leagueId != null && (
-          <View
-            testID="ranked-toggle-row"
-            className="flex-row items-center justify-between px-4 py-3 mx-4 mt-2 rounded-xl bg-surface"
-          >
-            <Text className="text-[14px] font-semibold text-default">
-              Ranked Game
-            </Text>
-            <Switch
-              testID="ranked-toggle"
-              value={isRanked}
-              onValueChange={setIsRanked}
-              accessibilityLabel="Toggle ranked game"
-            />
-          </View>
-        )}
+        {/* TODO(session-settings): ranked/unranked is a session-level attribute.
+            Until the Session settings screen exposes a toggle, is_ranked is
+            hardcoded in useScoreGameScreen — true for league context, false
+            for pickup. See discussion 2026-05-15. */}
 
         {/* Roster picker — only visible in building mode */}
         {isBuilding && (
@@ -601,6 +595,9 @@ export default function ScoreGameScreen({
             onSearch={setSearch}
             onSelectPlayer={handlePlayerSelect}
             currentPlayerId={currentPlayerId}
+            isSearching={isSearching}
+            isLeagueMatch={leagueId != null}
+            onSearchFocusChange={setSearchFocused}
           />
         )}
 

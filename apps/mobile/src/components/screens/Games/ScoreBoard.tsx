@@ -18,6 +18,7 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
+import { formatPlayerShort } from '@/lib/formatters';
 import type { PlayerSlot } from './useScoreGameScreen';
 
 /** Upper bound for a single team's score in a game. Display is 2-digit; product cap. */
@@ -168,8 +169,9 @@ function PlayerChip({
       <View className="flex-1">
         <Text
           className={`text-[14px] font-bold ${isGuest ? 'text-warning' : 'text-default'}`}
+          numberOfLines={1}
         >
-          {slot.display_name}
+          {formatPlayerShort(slot.display_name)}
         </Text>
         {isGuest && (
           <Text className="text-[11px] text-warning italic">new</Text>
@@ -365,6 +367,12 @@ interface ScoreBoardProps {
   readonly score2: number;
   readonly isBuilding: boolean;
   readonly activeSlot?: { readonly team: 1 | 2; readonly slot: 0 | 1 } | null;
+  /**
+   * Compact mode renders a single-row team strip instead of the full board.
+   * Used when the roster search input is focused so the keyboard doesn't
+   * eat the search results. Only takes effect in building mode.
+   */
+  readonly compact?: boolean;
   readonly onIncScore1: () => void;
   readonly onDecScore1: () => void;
   readonly onIncScore2: () => void;
@@ -375,6 +383,96 @@ interface ScoreBoardProps {
   readonly onRemovePlayer?: (team: 1 | 2, slot: 0 | 1) => void;
 }
 
+// ---------------------------------------------------------------------------
+// Compact mode (rendered while the roster search is focused)
+// ---------------------------------------------------------------------------
+
+interface CompactBoardHalfProps {
+  readonly team: 1 | 2;
+  readonly slots: readonly [PlayerSlot, PlayerSlot];
+  readonly activeSlot: { readonly team: 1 | 2; readonly slot: 0 | 1 } | null;
+  readonly onSlotPress?: (slot: 0 | 1) => void;
+}
+
+function CompactBoardHalf({
+  team,
+  slots,
+  activeSlot,
+  onSlotPress,
+}: CompactBoardHalfProps): React.ReactNode {
+  const isTeal = team === 1;
+  return (
+    <View
+      className={`flex-1 flex-row items-center gap-2 px-3 py-2 ${
+        isTeal ? 'bg-info-tint' : 'bg-warning-tint'
+      }`}
+    >
+      <Text
+        className={`text-[10px] font-bold uppercase tracking-wider ${
+          isTeal ? 'text-brand-teal' : 'text-warning'
+        }`}
+      >
+        T{team}
+      </Text>
+      {[0, 1].map((idx) => {
+        const slot = slots[idx as 0 | 1];
+        const isEmpty = slot.player_id == null;
+        const isActive =
+          activeSlot?.team === team && activeSlot?.slot === (idx as 0 | 1);
+        const handlePress = (): void => onSlotPress?.(idx as 0 | 1);
+
+        if (isEmpty) {
+          return (
+            <Pressable
+              key={idx}
+              testID={`compact-slot-team${team}-${idx}`}
+              onPress={handlePress}
+              accessibilityRole="button"
+              accessibilityLabel={`Add player ${idx + 1}`}
+              className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-[26px] border ${
+                isActive
+                  ? 'border-brand-gold'
+                  : 'border-dashed border-divider'
+              }`}
+              style={
+                isActive ? { backgroundColor: 'rgba(212,168,67,0.18)' } : undefined
+              }
+            >
+              <Text
+                className={`text-[11px] ${
+                  isActive ? 'font-bold text-warning' : 'text-muted'
+                }`}
+              >
+                {isActive ? 'Tap below' : '+ Add'}
+              </Text>
+            </Pressable>
+          );
+        }
+
+        return (
+          <Pressable
+            key={idx}
+            testID={`compact-slot-team${team}-${idx}`}
+            onPress={handlePress}
+            accessibilityRole="button"
+            accessibilityLabel={slot.display_name}
+            className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-[26px] ${
+              isTeal ? 'bg-brand-teal' : 'bg-brand-gold'
+            }`}
+          >
+            <Text
+              className="text-[11px] font-bold text-white"
+              numberOfLines={1}
+            >
+              {formatPlayerShort(slot.display_name)}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function ScoreBoard({
   team1Slots,
   team2Slots,
@@ -382,6 +480,7 @@ export default function ScoreBoard({
   score2,
   isBuilding,
   activeSlot,
+  compact = false,
   onIncScore1,
   onDecScore1,
   onIncScore2,
@@ -407,6 +506,28 @@ export default function ScoreBoard({
     (slot: 0 | 1) => onRemovePlayer?.(2, slot),
     [onRemovePlayer],
   );
+
+  // Compact mode only applies while building — once all 4 seats are filled the
+  // picker (and its search input) is gone, so there's no keyboard to dodge.
+  if (compact && isBuilding) {
+    return (
+      <View testID="scoreboard" className="flex-row border-b border-divider">
+        <CompactBoardHalf
+          team={1}
+          slots={team1Slots}
+          activeSlot={activeSlot ?? null}
+          onSlotPress={handleSlot1Press}
+        />
+        <View className="w-[1px] bg-divider" />
+        <CompactBoardHalf
+          team={2}
+          slots={team2Slots}
+          activeSlot={activeSlot ?? null}
+          onSlotPress={handleSlot2Press}
+        />
+      </View>
+    );
+  }
 
   return (
     <View testID="scoreboard" className="flex-row">

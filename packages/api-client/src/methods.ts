@@ -5,6 +5,7 @@
 import type { ApiClient } from './client';
 import type {
   Player,
+  PlayerSearchResponse,
   Match,
   League,
   Season,
@@ -287,6 +288,23 @@ export function createApiMethods(client: ApiClient) {
 
     async getPlayers() {
       const response = await api.get<Player[]>('/api/players');
+      return response.data;
+    },
+
+    /**
+     * Relevance-ranked player search for pickers. Returns players whose name
+     * matches `q`, sorted: friend > friend_of_friend > recent_opponent >
+     * session > league > other.
+     */
+    async searchPlayers(
+      q: string,
+      opts: { sessionId?: number | null; leagueId?: number | null; limit?: number } = {},
+    ): Promise<PlayerSearchResponse> {
+      const params: Record<string, string | number> = { q };
+      if (opts.sessionId != null) params.session_id = opts.sessionId;
+      if (opts.leagueId != null) params.league_id = opts.leagueId;
+      if (opts.limit != null) params.limit = opts.limit;
+      const response = await api.get<PlayerSearchResponse>('/api/players/search', { params });
       return response.data;
     },
 
