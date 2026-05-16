@@ -1,15 +1,24 @@
 """
-Integration tests for :func:`search_players_with_relevance`.
+Integration tests for :func:`player_data.search_players_with_relevance`.
 
-Verifies the relevance bucket assignment (friend > friend_of_friend >
-recent_opponent > session > league > other) and the resulting sort order
-returned by the picker search.
+The picker search is **additive** (every relationship to the caller adds
+points; see :mod:`backend.services.player_search_scoring`) and returns **one
+bounded, deduped, score-ranked list** — no pagination cursor. The caller's
+whole network is returned ranked; a name term additionally appends capped
+score-0 strangers.
+
+Two invariants are pinned as property tests because they are the whole point
+of the design:
+
+  * no duplicate player ids, ever;
+  * a session / league member is always present and correctly flagged even
+    off an empty or stale cache (membership is queried live, never cached).
 """
 
 import pytest
 import pytest_asyncio
 
-from backend.services import player_data
+from backend.services import player_data, player_search_cache
 from backend.database.models import (
     Friend,
     League,
@@ -22,14 +31,20 @@ from backend.database.models import (
     User,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
 
 
-async def _create_player(db_session, name: str, *, with_user: bool = False) -> int:
-    """Create a Player (optionally backed by a User) and return its id."""
+async def _create_player(
+    db_session,
+    name: str,
+    *,
+    with_user: bool = False,
+    is_placeholder: bool = False,
+    status: str | None = None,
+) -> int:
+    """Create a Player (optionally user-backed / placeholder / system)."""
     user_id = None
     if with_user:
         user = User(
@@ -41,364 +56,277 @@ async def _create_player(db_session, name: str, *, with_user: bool = False) -> i
         await db_session.flush()
         user_id = user.id
 
-    player = Player(full_name=name, user_id=user_id)
+    player = Player(
+        full_name=name,
+        user_id=user_id,
+        is_placeholder=is_placeholder,
+        status=status,
+    )
     db_session.add(player)
     await db_session.flush()
     await db_session.refresh(player)
     return player.id
 
 
-async def _add_friendship(db_session, player_a: int, player_b: int) -> None:
+async def _add_friendship(db_session, a: int, b: int) -> None:
     """Insert a Friend row (player1_id < player2_id per CheckConstraint)."""
-    p1, p2 = sorted([player_a, player_b])
+    p1, p2 = sorted([a, b])
     db_session.add(Friend(player1_id=p1, player2_id=p2))
     await db_session.flush()
 
 
-@pytest_asyncio.fixture
-async def daniel_universe(db_session):
-    """
-    Fixture: a caller plus six 'Daniel' candidates, each in a distinct bucket
-    so a single search('Daniel') hits every code path.
+async def _recent_match(db_session, *, t1: tuple[int, int], t2: tuple[int, int]):
+    """A match in a fresh session (created_at = now → inside the window)."""
+    s = Session(date="2026-05-11", name="Recent", status=SessionStatus.ACTIVE)
+    db_session.add(s)
+    await db_session.flush()
+    db_session.add(
+        Match(
+            session_id=s.id,
+            team1_player1_id=t1[0],
+            team1_player2_id=t1[1],
+            team2_player1_id=t2[0],
+            team2_player2_id=t2[1],
+            team1_score=21,
+            team2_score=15,
+            winner=1,
+        )
+    )
+    await db_session.flush()
+    return s.id
 
-    Returns the dict of player ids.
+
+def _assert_no_dupes(items: list[dict]) -> None:
+    ids = [i["id"] for i in items]
+    assert len(ids) == len(set(ids)), "search returned duplicate players"
+
+
+@pytest_asyncio.fixture
+async def universe(db_session):
     """
-    caller_id = await _create_player(db_session, "Test Caller", with_user=True)
+    One caller plus eight 'Daniel' candidates spanning every signal, used to
+    assert additive scoring, pills, and ordering in one search.
+    """
+    caller = await _create_player(db_session, "Test Caller", with_user=True)
 
     friend = await _create_player(db_session, "Daniel Friend")
     fof = await _create_player(db_session, "Daniel FoF")
     opp = await _create_player(db_session, "Daniel Opponent")
     sess = await _create_player(db_session, "Daniel Session")
     lg = await _create_player(db_session, "Daniel League")
+    jane = await _create_player(db_session, "Daniel Jane")  # league+friend+opp
+    shared = await _create_player(db_session, "Daniel Shared")  # non-ctx league
     other = await _create_player(db_session, "Daniel Other")
 
-    # Friend graph: caller <-> friend; friend <-> fof  (fof is 1 hop away)
-    await _add_friendship(db_session, caller_id, friend)
+    await _add_friendship(db_session, caller, friend)
     await _add_friendship(db_session, friend, fof)
+    await _add_friendship(db_session, caller, jane)
 
-    # Recent match (today) — caller + opp on opposing teams.
-    placeholder_a = await _create_player(db_session, "Fill A")
-    placeholder_b = await _create_player(db_session, "Fill B")
-    sess_row = Session(
-        date="2026-05-11",
-        name="Recent",
-        status=SessionStatus.ACTIVE,
-    )
-    db_session.add(sess_row)
-    await db_session.flush()
-    db_session.add(
-        Match(
-            session_id=sess_row.id,
-            team1_player1_id=caller_id,
-            team1_player2_id=placeholder_a,
-            team2_player1_id=opp,
-            team2_player2_id=placeholder_b,
-            team1_score=21,
-            team2_score=15,
-            winner=1,
-        )
-    )
+    pa = await _create_player(db_session, "Fill A")
+    pb = await _create_player(db_session, "Fill B")
+    await _recent_match(db_session, t1=(caller, pa), t2=(opp, pb))
+    await _recent_match(db_session, t1=(caller, pa), t2=(jane, pb))
 
-    # Session membership — independent session
-    other_session = Session(
+    ctx_session = Session(
         date="2026-05-11", name="Picker Ctx", status=SessionStatus.ACTIVE
     )
-    db_session.add(other_session)
+    db_session.add(ctx_session)
     await db_session.flush()
-    db_session.add(SessionParticipant(session_id=other_session.id, player_id=sess))
+    db_session.add(SessionParticipant(session_id=ctx_session.id, player_id=sess))
 
-    # League membership
-    league = League(name="Test League", is_open=True)
-    db_session.add(league)
+    ctx_league = League(name="Ctx League", is_open=True)
+    other_league = League(name="Other League", is_open=True)
+    db_session.add_all([ctx_league, other_league])
     await db_session.flush()
-    db_session.add(LeagueMember(league_id=league.id, player_id=lg))
-
+    db_session.add_all(
+        [
+            LeagueMember(league_id=ctx_league.id, player_id=lg),
+            LeagueMember(league_id=ctx_league.id, player_id=jane),
+            # caller + `shared` share a non-context league.
+            LeagueMember(league_id=other_league.id, player_id=caller),
+            LeagueMember(league_id=other_league.id, player_id=shared),
+        ]
+    )
     await db_session.flush()
 
     return {
-        "caller": caller_id,
+        "caller": caller,
         "friend": friend,
         "fof": fof,
         "opp": opp,
         "session": sess,
         "league": lg,
+        "jane": jane,
+        "shared": shared,
         "other": other,
-        "session_id": other_session.id,
-        "league_id": league.id,
+        "session_id": ctx_session.id,
+        "league_id": ctx_league.id,
     }
 
 
 # ---------------------------------------------------------------------------
-# Empty-query (default roster) behavior
+# Additive scoring + the reported bug
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_empty_query_with_no_caller_returns_empty(db_session):
-    """No caller + no context → nothing to rank, return empty."""
-    result = await player_data.search_players_with_relevance(
-        db_session, q="", caller_player_id=None
-    )
-    assert result == []
-
-
-@pytest.mark.asyncio
-async def test_empty_query_returns_caller_network(db_session, daniel_universe):
+async def test_league_match_scores_are_additive_and_ranked(db_session, universe):
     """
-    Empty q should return the caller's network — friends, FoF, recent
-    opponents, plus session/league members when those contexts are set.
+    League match, q='Daniel'. Expected scores:
+      session 1000 > jane 185 (150+15+20) > league 150 > opp 20 >
+      friend 15 > shared 5 (no pill here) > fof 1 > other 0 (stranger)
     """
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session,
-        q="",
-        caller_player_id=ids["caller"],
-        session_id=ids["session_id"],
-        league_id=ids["league_id"],
-    )
-    returned_ids = {item["id"] for item in result}
-    # In-network players appear.
-    assert ids["friend"] in returned_ids
-    assert ids["fof"] in returned_ids
-    assert ids["opp"] in returned_ids
-    assert ids["session"] in returned_ids
-    assert ids["league"] in returned_ids
-    # Out-of-network player (no relation) does NOT appear — no name match
-    # to surface them.
-    assert ids["other"] not in returned_ids
-
-
-@pytest.mark.asyncio
-async def test_empty_query_sort_order(db_session, daniel_universe):
-    """
-    Empty-q results in a league match lead with league members, then fall
-    back to the friend > FoF > opp > session ordering.
-    """
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session,
-        q="",
-        caller_player_id=ids["caller"],
-        session_id=ids["session_id"],
-        league_id=ids["league_id"],
-    )
-    relations = [item["relation"] for item in result]
-    seen = []
-    for r in relations:
-        if r not in seen:
-            seen.append(r)
-    assert seen == ["league", "friend", "friend_of_friend", "recent_opponent", "session"]
-
-
-@pytest.mark.asyncio
-async def test_empty_query_excludes_caller(db_session, daniel_universe):
-    """The caller themselves never appears in the default-roster results."""
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session,
-        q="",
-        caller_player_id=ids["caller"],
-        league_id=ids["league_id"],
-    )
-    returned_ids = {item["id"] for item in result}
-    assert ids["caller"] not in returned_ids
-
-
-@pytest.mark.asyncio
-async def test_empty_query_excludes_placeholders(db_session, daniel_universe):
-    """Placeholder league members shouldn't surface in the empty-q default roster."""
-    ids = daniel_universe
-    placeholder = Player(
-        full_name="Daniel Placeholder Member",
-        is_placeholder=True,
-        created_by_player_id=ids["caller"],
-    )
-    db_session.add(placeholder)
-    await db_session.flush()
-    db_session.add(
-        LeagueMember(league_id=ids["league_id"], player_id=placeholder.id)
-    )
-    await db_session.flush()
-
-    result = await player_data.search_players_with_relevance(
-        db_session,
-        q="",
-        caller_player_id=ids["caller"],
-        league_id=ids["league_id"],
-    )
-    returned_ids = {item["id"] for item in result}
-    assert placeholder.id not in returned_ids
-    # Real league member still appears.
-    assert ids["league"] in returned_ids
-
-
-@pytest.mark.asyncio
-async def test_empty_query_respects_limit(db_session):
-    """The `limit` arg caps the empty-q default-roster size."""
-    caller_id = await _create_player(db_session, "Caller", with_user=True)
-    for i in range(5):
-        friend_id = await _create_player(db_session, f"Friend {i:02d}")
-        await _add_friendship(db_session, caller_id, friend_id)
-
-    result = await player_data.search_players_with_relevance(
-        db_session, q="", caller_player_id=caller_id, limit=3
-    )
-    assert len(result) == 3
-    assert all(item["relation"] == "friend" for item in result)
-
-
-@pytest.mark.asyncio
-async def test_whitespace_only_query_uses_default_roster(db_session, daniel_universe):
-    """Whitespace-only term is treated as empty (default-roster path)."""
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session, q="   ", caller_player_id=ids["caller"]
-    )
-    returned_ids = {item["id"] for item in result}
-    # Friend (caller has one in the fixture) should surface even on whitespace q.
-    assert ids["friend"] in returned_ids
-
-
-# ---------------------------------------------------------------------------
-# Relation buckets
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_assigns_friend_bucket(db_session, daniel_universe):
-    """A direct friend matching the query is bucketed as 'friend'."""
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session, q="Daniel", caller_player_id=ids["caller"]
-    )
-    by_id = {item["id"]: item for item in result}
-    assert by_id[ids["friend"]]["relation"] == "friend"
-
-
-@pytest.mark.asyncio
-async def test_assigns_friend_of_friend_bucket(db_session, daniel_universe):
-    """A friend-of-a-friend (not a direct friend) is bucketed as 'friend_of_friend'."""
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session, q="Daniel", caller_player_id=ids["caller"]
-    )
-    by_id = {item["id"]: item for item in result}
-    assert by_id[ids["fof"]]["relation"] == "friend_of_friend"
-
-
-@pytest.mark.asyncio
-async def test_assigns_recent_opponent_bucket(db_session, daniel_universe):
-    """A player who shared a recent match with the caller is 'recent_opponent'."""
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session, q="Daniel", caller_player_id=ids["caller"]
-    )
-    by_id = {item["id"]: item for item in result}
-    assert by_id[ids["opp"]]["relation"] == "recent_opponent"
-
-
-@pytest.mark.asyncio
-async def test_assigns_session_bucket(db_session, daniel_universe):
-    """A player in the picker's session context is bucketed as 'session'."""
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
+    u = universe
+    items = await player_data.search_players_with_relevance(
         db_session,
         q="Daniel",
-        caller_player_id=ids["caller"],
-        session_id=ids["session_id"],
+        caller_player_id=u["caller"],
+        session_id=u["session_id"],
+        league_id=u["league_id"],
     )
-    by_id = {item["id"]: item for item in result}
-    assert by_id[ids["session"]]["relation"] == "session"
+    _assert_no_dupes(items)
+    by_id = {i["id"]: i for i in items}
 
+    assert by_id[u["session"]]["score"] == 1000
+    assert by_id[u["jane"]]["score"] == 185
+    assert by_id[u["league"]]["score"] == 150
+    assert by_id[u["opp"]]["score"] == 20
+    assert by_id[u["friend"]]["score"] == 15
+    assert by_id[u["shared"]]["score"] == 5
+    assert by_id[u["fof"]]["score"] == 1
+    assert by_id[u["other"]]["score"] == 0
 
-@pytest.mark.asyncio
-async def test_assigns_league_bucket(db_session, daniel_universe):
-    """A player in the picker's league context is bucketed as 'league'."""
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session,
-        q="Daniel",
-        caller_player_id=ids["caller"],
-        league_id=ids["league_id"],
-    )
-    by_id = {item["id"]: item for item in result}
-    assert by_id[ids["league"]]["relation"] == "league"
-
-
-@pytest.mark.asyncio
-async def test_assigns_other_bucket(db_session, daniel_universe):
-    """A bare name match with no caller relation falls through to 'other'."""
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session, q="Daniel", caller_player_id=ids["caller"]
-    )
-    by_id = {item["id"]: item for item in result}
-    assert by_id[ids["other"]]["relation"] == "other"
-
-
-# ---------------------------------------------------------------------------
-# Ordering
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_default_sort_order_no_league(db_session, daniel_universe):
-    """
-    Outside a league match (no ``league_id``), friend outranks FoF, FoF
-    outranks recent opponent, and so on. The league-only candidate has no
-    other relation, so it falls through to ``other``.
-    """
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
-        db_session,
-        q="Daniel",
-        caller_player_id=ids["caller"],
-        session_id=ids["session_id"],
-    )
-    ordered_relations = [item["relation"] for item in result]
-    seen = []
-    for r in ordered_relations:
-        if r not in seen:
-            seen.append(r)
-    assert seen == [
-        "friend",
-        "friend_of_friend",
-        "recent_opponent",
-        "session",
-        "other",
+    order = [i["id"] for i in items]
+    assert order == [
+        u["session"],
+        u["jane"],
+        u["league"],
+        u["opp"],
+        u["friend"],
+        u["shared"],
+        u["fof"],
+        u["other"],
     ]
 
 
 @pytest.mark.asyncio
-async def test_league_match_promotes_league_first(db_session, daniel_universe):
+async def test_friend_league_member_outranks_pure_league_member(db_session, universe):
     """
-    In a league match (``league_id`` set), league members are the most
-    relevant pick and rank ahead of even direct friends.
+    THE regression: Jane (league member who is ALSO a friend + recent opp)
+    must sort ABOVE pure league member `league`, and still carry the
+    'in_league' pill — never demoted out of the league group.
     """
-    ids = daniel_universe
-    result = await player_data.search_players_with_relevance(
+    u = universe
+    items = await player_data.search_players_with_relevance(
         db_session,
         q="Daniel",
-        caller_player_id=ids["caller"],
-        session_id=ids["session_id"],
-        league_id=ids["league_id"],
+        caller_player_id=u["caller"],
+        session_id=u["session_id"],
+        league_id=u["league_id"],
     )
-    ordered_relations = [item["relation"] for item in result]
-    seen = []
-    for r in ordered_relations:
-        if r not in seen:
-            seen.append(r)
-    assert seen == [
-        "league",
-        "friend",
-        "friend_of_friend",
-        "recent_opponent",
-        "session",
-        "other",
-    ]
-    # The league member is the very first result.
-    assert result[0]["relation"] == "league"
-    assert result[0]["id"] == ids["league"]
+    order = [i["id"] for i in items]
+    assert order.index(u["jane"]) < order.index(u["league"])
+    jane = next(i for i in items if i["id"] == u["jane"])
+    assert jane["tags"] == ["in_league", "friend", "recent_opp"]
+
+
+@pytest.mark.asyncio
+async def test_pure_league_member_has_in_league_pill(db_session, universe):
+    u = universe
+    items = await player_data.search_players_with_relevance(
+        db_session,
+        q="Daniel",
+        caller_player_id=u["caller"],
+        league_id=u["league_id"],
+    )
+    lg = next(i for i in items if i["id"] == u["league"])
+    assert lg["tags"] == ["in_league"]
+
+
+# ---------------------------------------------------------------------------
+# Context-aware pills
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_shared_league_pill_only_in_casual_match(db_session, universe):
+    """Casual match (no league_id): a common league shows 'shared_league'."""
+    u = universe
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=u["caller"]
+    )
+    shared = next(i for i in items if i["id"] == u["shared"])
+    assert shared["tags"] == ["shared_league"]
+    assert shared["score"] == 5
+
+
+@pytest.mark.asyncio
+async def test_shared_league_member_has_no_pill_in_league_match(db_session, universe):
+    """In a league match the only league pill is the context one."""
+    u = universe
+    items = await player_data.search_players_with_relevance(
+        db_session,
+        q="Daniel",
+        caller_player_id=u["caller"],
+        league_id=u["league_id"],
+    )
+    shared = next(i for i in items if i["id"] == u["shared"])
+    assert shared["tags"] == []
+    assert shared["score"] == 5  # still scored, just no pill
+
+
+@pytest.mark.asyncio
+async def test_friend_and_recent_opp_pills(db_session, universe):
+    u = universe
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=u["caller"]
+    )
+    by_id = {i["id"]: i for i in items}
+    assert by_id[u["friend"]]["tags"] == ["friend"]
+    assert by_id[u["opp"]]["tags"] == ["recent_opp"]
+    assert by_id[u["fof"]]["tags"] == []  # FoF scores but no pill
+
+
+# ---------------------------------------------------------------------------
+# Name fields on the wire
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_result_item_shape(db_session, universe):
+    u = universe
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=u["caller"], league_id=u["league_id"]
+    )
+    item = items[0]
+    assert set(item.keys()) == {
+        "id",
+        "first_name",
+        "last_name",
+        "full_name",
+        "nickname",
+        "initials",
+        "tags",
+        "score",
+        "in_session",
+    }
+    assert isinstance(item["tags"], list)
+    assert isinstance(item["score"], int)
+    assert isinstance(item["in_session"], bool)
+
+
+@pytest.mark.asyncio
+async def test_first_and_last_name_are_split_for_client(db_session):
+    """first/last are sent so the client can render last-initial etc."""
+    caller = await _create_player(db_session, "Caller", with_user=True)
+    await _create_player(db_session, "Sandra Bullock")
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Sandra", caller_player_id=caller
+    )
+    s = next(i for i in items if i["full_name"] == "Sandra Bullock")
+    assert s["first_name"] == "Sandra"
+    assert s["last_name"] == "Bullock"
+    assert s["initials"] == "SB"
 
 
 # ---------------------------------------------------------------------------
@@ -407,47 +335,222 @@ async def test_league_match_promotes_league_first(db_session, daniel_universe):
 
 
 @pytest.mark.asyncio
-async def test_excludes_caller_themselves(db_session):
-    """The caller should never appear in their own search results."""
-    caller_id = await _create_player(db_session, "Daniel Caller", with_user=True)
-    other_id = await _create_player(db_session, "Daniel Other")
-
-    result = await player_data.search_players_with_relevance(
-        db_session, q="Daniel", caller_player_id=caller_id
-    )
-    returned_ids = {item["id"] for item in result}
-    assert caller_id not in returned_ids
-    assert other_id in returned_ids
-
-
-@pytest.mark.asyncio
-async def test_excludes_placeholders(db_session):
-    """Placeholder players (invite stubs) should never surface in search."""
+async def test_excludes_caller_placeholder_and_system(db_session):
+    caller = await _create_player(db_session, "Daniel Caller", with_user=True)
     real = await _create_player(db_session, "Daniel Real")
-    creator_id = await _create_player(db_session, "Creator")
-    placeholder = Player(
-        full_name="Daniel Placeholder",
-        is_placeholder=True,
-        created_by_player_id=creator_id,
-    )
-    db_session.add(placeholder)
-    await db_session.flush()
+    ph = await _create_player(db_session, "Daniel Ghost", is_placeholder=True)
+    sysp = await _create_player(db_session, "Daniel System", status="system")
 
-    result = await player_data.search_players_with_relevance(
-        db_session, q="Daniel", caller_player_id=None
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller
     )
-    returned_ids = {item["id"] for item in result}
-    assert real in returned_ids
-    assert placeholder.id not in returned_ids
+    ids = {i["id"] for i in items}
+    assert real in ids
+    assert caller not in ids
+    assert ph not in ids
+    assert sysp not in ids
+
+
+# ---------------------------------------------------------------------------
+# Single bounded list — query semantics
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_limit_caps_results(db_session):
-    """The `limit` arg caps the number of items returned."""
-    for i in range(5):
-        await _create_player(db_session, f"Daniel {i:02d}")
+async def test_empty_query_returns_full_network_no_strangers(db_session):
+    """
+    Empty q => the caller's whole ranked network, and *no* strangers
+    (returning the entire player table unbounded is the thing we removed).
+    """
+    caller = await _create_player(db_session, "Caller", with_user=True)
+    fr = await _create_player(db_session, "Aaa Friend")
+    await _add_friendship(db_session, caller, fr)
+    s1 = await _create_player(db_session, "Bbb Stranger")
+    s2 = await _create_player(db_session, "Ccc Stranger")
 
-    result = await player_data.search_players_with_relevance(
-        db_session, q="Daniel", caller_player_id=None, limit=2
+    items = await player_data.search_players_with_relevance(
+        db_session, q="", caller_player_id=caller
     )
-    assert len(result) == 2
+    ids = {i["id"] for i in items}
+    assert ids == {fr}  # network only
+    assert s1 not in ids and s2 not in ids
+    assert caller not in ids
+
+
+@pytest.mark.asyncio
+async def test_name_query_appends_score0_strangers_after_network(db_session):
+    """A name term appends capped score-0 strangers after the ranked network."""
+    caller = await _create_player(db_session, "Caller", with_user=True)
+    fr = await _create_player(db_session, "Daniel Friend")
+    await _add_friendship(db_session, caller, fr)
+    st = await _create_player(db_session, "Daniel Stranger")
+
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller
+    )
+    _assert_no_dupes(items)
+    order = [i["id"] for i in items]
+    assert order == [fr, st]  # network (15) before stranger (0)
+    assert next(i for i in items if i["id"] == st)["score"] == 0
+
+
+@pytest.mark.asyncio
+async def test_stranger_cap_is_respected(db_session):
+    caller = await _create_player(db_session, "Caller", with_user=True)
+    for i in range(8):
+        await _create_player(db_session, f"Daniel S{i:02d}")
+
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller, limit=3
+    )
+    assert len(items) == 3  # no network, capped strangers
+    assert all(i["score"] == 0 for i in items)
+
+
+@pytest.mark.asyncio
+async def test_no_caller_empty_query_returns_empty(db_session):
+    """No identity and no search term => nothing to show in a picker."""
+    await _create_player(db_session, "Solo Player")
+    items = await player_data.search_players_with_relevance(
+        db_session, q="", caller_player_id=None
+    )
+    assert items == []
+
+
+@pytest.mark.asyncio
+async def test_no_caller_name_query_returns_strangers(db_session):
+    """No caller + name term => score-0 name matches."""
+    await _create_player(db_session, "Solo Player")
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Solo", caller_player_id=None
+    )
+    assert any(i["full_name"] == "Solo Player" for i in items)
+    assert all(i["score"] == 0 for i in items)
+
+
+@pytest.mark.asyncio
+async def test_no_name_match_returns_empty(db_session):
+    caller = await _create_player(db_session, "Caller", with_user=True)
+    await _create_player(db_session, "Daniel One")
+    items = await player_data.search_players_with_relevance(
+        db_session, q="zzzznomatch", caller_player_id=caller
+    )
+    assert items == []
+
+
+# ---------------------------------------------------------------------------
+# in_session is a layout signal, not a pill
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_in_session_flag_is_a_distinct_layout_signal(db_session, universe):
+    """
+    Session membership is exposed as a boolean (for the compact-chip group),
+    NOT as a pill — it never appears in `tags`.
+    """
+    u = universe
+    items = await player_data.search_players_with_relevance(
+        db_session,
+        q="Daniel",
+        caller_player_id=u["caller"],
+        session_id=u["session_id"],
+        league_id=u["league_id"],
+    )
+    by_id = {i["id"]: i for i in items}
+    assert by_id[u["session"]]["in_session"] is True
+    assert by_id[u["session"]]["tags"] == []  # no pill for session
+    assert by_id[u["friend"]]["in_session"] is False
+    assert by_id[u["other"]]["in_session"] is False  # stranger
+
+
+# ---------------------------------------------------------------------------
+# Property tests — the structural guarantees (cache-independent)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_no_duplicates_even_when_member_is_also_network(db_session, universe):
+    """
+    `jane` is a friend (network) AND a context-league member (live set).
+    She must appear exactly once, never duplicated across the two sources.
+    """
+    u = universe
+    items = await player_data.search_players_with_relevance(
+        db_session,
+        q="Daniel",
+        caller_player_id=u["caller"],
+        session_id=u["session_id"],
+        league_id=u["league_id"],
+    )
+    _assert_no_dupes(items)
+    assert sum(1 for i in items if i["id"] == u["jane"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_session_league_member_present_off_empty_cache(
+    db_session, universe, monkeypatch
+):
+    """
+    THE safety property. Force a cache hit of an *empty* network (simulating
+    a totally stale / cold cache). Session and league members must STILL be
+    present and correctly flagged, because membership is queried live and is
+    never cached.
+    """
+    u = universe
+
+    async def _empty_cache(_caller):
+        return {}  # cache "hit", but stale/empty
+
+    monkeypatch.setattr(player_search_cache, "load_network", _empty_cache)
+
+    items = await player_data.search_players_with_relevance(
+        db_session,
+        q="Daniel",
+        caller_player_id=u["caller"],
+        session_id=u["session_id"],
+        league_id=u["league_id"],
+    )
+    by_id = {i["id"]: i for i in items}
+
+    # Present despite an empty cached network:
+    assert u["session"] in by_id
+    assert by_id[u["session"]]["in_session"] is True
+    assert by_id[u["session"]]["score"] == 1000  # live session signal
+    assert u["league"] in by_id
+    assert by_id[u["league"]]["tags"] == ["in_league"]
+    assert by_id[u["league"]]["score"] == 150  # live league signal
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_matches_cache_miss(db_session, universe, monkeypatch):
+    """A populated cache must yield byte-identical results to an empty one."""
+    u = universe
+    kwargs = dict(
+        q="Daniel",
+        caller_player_id=u["caller"],
+        session_id=u["session_id"],
+        league_id=u["league_id"],
+    )
+
+    # Miss path (no Redis): compute live.
+    miss = await player_data.search_players_with_relevance(db_session, **kwargs)
+
+    # Hit path: back the cache with a dict and prime it.
+    store: dict = {}
+
+    async def _set(key, value, expiry_seconds=None):
+        store[key] = value
+        return True
+
+    async def _get(key):
+        return store.get(key)
+
+    monkeypatch.setattr(player_search_cache.redis_service, "redis_set", _set)
+    monkeypatch.setattr(player_search_cache.redis_service, "redis_get", _get)
+
+    primed = await player_data.search_players_with_relevance(db_session, **kwargs)
+    cached = await player_data.search_players_with_relevance(db_session, **kwargs)
+
+    assert store, "expected the network to be cached after the first call"
+    assert miss == primed == cached

@@ -89,20 +89,20 @@ async def search_players(
     q: str = Query("", max_length=100),
     session_id: Optional[int] = None,
     league_id: Optional[int] = None,
-    limit: int = Query(20, ge=1, le=50),
+    limit: int = Query(50, ge=1, le=100),
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Relevance-ranked player search for pickers.
+    Relevance-ranked player search for pickers — one bounded list.
 
-    Returns players sorted by relation to the caller:
-    friend > friend_of_friend > recent_opponent > session > league > other.
-
-    When ``q`` is empty, returns the caller's default roster (friends, FoF,
-    recent opponents, plus session/league members) — never "other", since
-    there's no name match to surface those. Excludes the caller, placeholders,
-    and system rows.
+    Players are scored additively by their relationship to the caller (in
+    session, in the context league, recent partner/opponent, friend, etc.)
+    and returned as a single ranked list annotated with up to three pills.
+    The caller's whole network is returned ranked (the client scrolls it
+    locally); a name ``q`` additionally appends up to ``limit`` score-0
+    strangers. Empty ``q`` returns just the network. Excludes the caller,
+    placeholders, and system rows.
     """
     try:
         caller = await data_service.get_player_by_user_id(session, current_user["id"])
@@ -115,7 +115,7 @@ async def search_players(
             league_id=league_id,
             limit=limit,
         )
-        return {"items": items, "total_count": len(items)}
+        return {"items": items}
     except Exception as e:
         logger.error("Error searching players: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")

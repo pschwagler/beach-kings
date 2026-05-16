@@ -6,7 +6,7 @@ Extracted from data_service.py.  Provides read/write access to the
 session-code generation and participant management helpers.
 """
 
-from typing import List, Dict, Optional, TYPE_CHECKING
+from typing import Iterable, List, Dict, Optional, TYPE_CHECKING
 from datetime import date
 import secrets
 import string
@@ -39,6 +39,7 @@ __all__ = [
     "get_session_match_player_user_ids",
 ]
 
+from backend.services import player_search_cache
 from backend.services.session_geo_service import resolve_session_geo
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1125,6 +1126,50 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
 
 
 # ============================================================================
+# Player-picker cache invalidation
+# ============================================================================
+
+
+async def _invalidate_picker_caches(
+    db_session: AsyncSession,
+    *,
+    player_ids: Iterable[int],
+    session_id: Optional[int] = None,
+) -> None:
+    """
+    Best-effort: drop the player-picker cache for the affected callers.
+
+    Runs synchronously *after* the write has committed, so a failure here
+    can never roll back or break the write. A missed invalidation only
+    leaves a caller's *ranking* mildly stale until the entry TTLs out;
+    membership/correctness signals (in-session, in-context-league) are
+    computed live and are never cached, so they cannot go stale.
+
+    Args:
+        db_session: Database session (read-only use here).
+        player_ids: Explicitly affected players (e.g. match participants).
+        session_id: If given, every current participant of the session is
+            invalidated too (a roster change shifts their recent-session
+            signal).
+    """
+    try:
+        affected: set[int] = {pid for pid in player_ids if pid is not None}
+        if session_id is not None:
+            result = await db_session.execute(
+                select(SessionParticipant.player_id).where(
+                    SessionParticipant.session_id == session_id
+                )
+            )
+            affected.update(result.scalars().all())
+        if affected:
+            await player_search_cache.invalidate(affected)
+    except Exception:  # noqa: BLE001 - cache invalidation must never break a write
+        logger.warning(
+            "Player-picker cache invalidation failed (non-fatal)", exc_info=True
+        )
+
+
+# ============================================================================
 # Match write operations
 # ============================================================================
 
@@ -1191,6 +1236,16 @@ async def create_match_async(
 
     await session.commit()
     await session.refresh(new_match)
+
+    await _invalidate_picker_caches(
+        session,
+        player_ids=(
+            match_request.team1_player1_id,
+            match_request.team1_player2_id,
+            match_request.team2_player1_id,
+            match_request.team2_player2_id,
+        ),
+    )
 
     return new_match.id
 
@@ -1491,7 +1546,12 @@ async def remove_session_participant(
         )
     )
     await db_session.commit()
-    return result.rowcount > 0
+    removed = result.rowcount > 0
+    if removed:
+        await _invalidate_picker_caches(
+            db_session, player_ids=(player_id,), session_id=session_id
+        )
+    return removed
 
 
 async def add_session_participant(
@@ -1514,6 +1574,9 @@ async def add_session_participant(
     rec = SessionParticipant(session_id=session_id, player_id=player_id, invited_by=invited_by)
     db_session.add(rec)
     await db_session.commit()
+    await _invalidate_picker_caches(
+        db_session, player_ids=(player_id,), session_id=session_id
+    )
     return True
 
 

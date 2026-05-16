@@ -11,6 +11,7 @@ Tests Epic 2 deliverables:
 
 import pytest
 import pytest_asyncio
+from unittest.mock import AsyncMock, patch
 from sqlalchemy import select
 
 from backend.database.models import (
@@ -715,3 +716,50 @@ class TestGetPlayerById:
         result = await data_service.get_player_by_id(db_session, 999999)
 
         assert result is None
+
+
+# ============================================================================
+# 9. Gender inference integration tests
+# ============================================================================
+
+
+class TestCreatePlaceholderGenderInference:
+    """Tests for gender inference integration in create_placeholder."""
+
+    @pytest.mark.asyncio
+    async def test_gender_none_inferred_via_service(self, db_session, creator_player):
+        """When gender=None, inference is called and its result is stored on the player."""
+        with patch.object(
+            placeholder_service,
+            "infer_gender_from_name",
+            new=AsyncMock(return_value="male"),
+        ):
+            result = await placeholder_service.create_placeholder(
+                db_session,
+                name="James",
+                created_by_player_id=creator_player.id,
+                gender=None,
+            )
+
+        player = await db_session.get(Player, result.player_id)
+        assert player.gender == "male"
+
+    @pytest.mark.asyncio
+    async def test_gender_explicitly_provided_skips_inference(self, db_session, creator_player):
+        """When gender is explicitly provided, inference is NOT called."""
+        mock_infer = AsyncMock(return_value="male")
+        with patch.object(
+            placeholder_service,
+            "infer_gender_from_name",
+            new=mock_infer,
+        ):
+            result = await placeholder_service.create_placeholder(
+                db_session,
+                name="Maria",
+                created_by_player_id=creator_player.id,
+                gender="female",
+            )
+
+        mock_infer.assert_not_awaited()
+        player = await db_session.get(Player, result.player_id)
+        assert player.gender == "female"

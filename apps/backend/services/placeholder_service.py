@@ -12,6 +12,8 @@ import secrets
 import logging
 from typing import Optional
 
+from backend.services.gender_inference import infer_gender_from_name
+
 from backend.utils.constants import APP_NAME
 from backend.utils.slugify import slugify
 
@@ -116,6 +118,10 @@ async def create_placeholder(
             raise ValueError(
                 "Invalid phone number format. Expected 7-15 digits, optionally prefixed with +"
             )
+
+    # Best-effort gender inference when gender is not explicitly provided
+    if gender is None:
+        gender = await infer_gender_from_name(name)
 
     # Create the placeholder player record
     player = Player(

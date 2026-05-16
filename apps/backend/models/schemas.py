@@ -1008,20 +1008,37 @@ class FriendListResponse(BaseModel):
 
 
 class PlayerSearchItem(BaseModel):
-    """Player picker search hit, annotated with relation to the caller."""
+    """
+    Player picker search hit.
+
+    ``tags`` are the (at most three) pills to render: any of ``in_league``,
+    ``shared_league``, ``friend``, ``recent_opp``. ``score`` is the additive
+    relevance score (debug/telemetry; clients keep the response order).
+    ``first_name``/``last_name`` are sent so the client can render a
+    last-initial etc.; ``full_name`` is the canonical display + sort string.
+    """
 
     id: int
+    first_name: str = ""
+    last_name: str = ""
     full_name: Optional[str] = None
     nickname: Optional[str] = None
     initials: str = ""
-    relation: str  # friend | friend_of_friend | recent_opponent | session | league | other
+    tags: List[str] = []
+    score: int = 0
+    in_session: bool = False  # layout signal for the compact-chip group; not a pill
 
 
 class PlayerSearchResponse(BaseModel):
-    """Relevance-ranked player search response."""
+    """
+    Relevance-ranked player picker response — one bounded list.
+
+    The caller's whole network is returned ranked by score (the client
+    scrolls it locally); a name term additionally appends capped score-0
+    strangers. There is no pagination cursor.
+    """
 
     items: List[PlayerSearchItem]
-    total_count: int
 
 
 class FriendBatchStatusRequest(BaseModel):
@@ -1675,12 +1692,6 @@ class ConfirmPhotoMatchesRequest(BaseModel):
     season_id: int
     match_date: str
     player_overrides: Optional[list] = None
-
-
-class UnreadCountResponse(BaseModel):
-    """Unread notification count response."""
-
-    count: int
 
 
 # ============================================================================

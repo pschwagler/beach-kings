@@ -43,6 +43,15 @@ from backend.database.models import (
     Session,
     SessionParticipant,
 )
+from backend.services.player_search_scoring import (
+    RECENT_WINDOW_DAYS,
+    PlayerSignalMetrics,
+    ScoreContext,
+    score_player,
+    tags_for,
+)
+from backend.services import player_search_cache
+from backend.services.player_search_cache import CallerNetworkSignals
 
 
 # ---------------------------------------------------------------------------
@@ -284,248 +293,263 @@ async def list_players_search(
 # ---------------------------------------------------------------------------
 # Relevance-ranked player search (for player pickers)
 # ---------------------------------------------------------------------------
+#
+# One bounded, deduped, score-ranked list — no pagination cursor. The pure
+# scoring rules live in player_search_scoring; the cacheable caller-global
+# signal collection is split from the live, per-request context lookups so:
+#
+#   * the expensive part (friends / fof / shared-league / recent_*) is
+#     collected once per caller and cached (player_search_cache);
+#   * session / league membership is recomputed live every call, so an
+#     in-session / in-league player is *always* present and correctly
+#     flagged even off a totally stale or empty cache — a structural
+#     guarantee, not a tested-happy-path one;
+#   * strangers (a name search's score-0 matches) are appended after the
+#     network and explicitly exclude every candidate id, so no row can
+#     ever appear twice.
 
 
-_RELATION_SCORES = {
-    "friend": 6,
-    "friend_of_friend": 5,
-    "recent_opponent": 4,
-    "session": 3,
-    "league": 2,
-    "other": 1,
-}
+# Full network is returned (the client scrolls it); this only guards
+# pathological data, never normal use.
+_NETWORK_HARD_CAP = 500
+# Default cap on score-0 strangers appended to a name search.
+_DEFAULT_STRANGER_LIMIT = 50
 
-# In a league match the most relevant pick is "someone in this league" — those
-# members outrank even direct friends, since the roster is league-scoped.
-_LEAGUE_MATCH_RELATION_SCORES = {
-    "league": 7,
-    "friend": 6,
-    "friend_of_friend": 5,
-    "recent_opponent": 4,
-    "session": 3,
-    "other": 1,
-}
+_NON_SYSTEM = or_(Player.status != "system", Player.status.is_(None))
 
 
-def _relation_scores(league_id: Optional[int]) -> Dict[str, int]:
-    """
-    Pick the bucket-score map for the relevance sort.
-
-    When a ``league_id`` context is present (a league match), league members
-    are ranked first; otherwise the default friend-first ordering applies.
-    """
-    return (
-        _LEAGUE_MATCH_RELATION_SCORES if league_id is not None else _RELATION_SCORES
+def _resolved_names(row) -> Dict[str, str]:
+    """First/last/full for a Player row, back-filling legacy rows from full_name."""
+    resolved = resolve_name_fields(
+        first_name=row.first_name,
+        last_name=row.last_name,
+        full_name=row.full_name,
     )
+    if resolved is None:
+        return {"first_name": "", "last_name": "", "full_name": ""}
+    return resolved
 
 
-async def _collect_relation_buckets(
+def _name_matches(row, term: str) -> bool:
+    """Case-insensitive substring match on full name or nickname (term is lowered)."""
+    return term in (row.full_name or "").lower() or term in (row.nickname or "").lower()
+
+
+async def _collect_caller_network(
     session: AsyncSession,
     *,
-    caller_player_id: Optional[int],
-    session_id: Optional[int],
-    league_id: Optional[int],
+    caller_player_id: int,
     recent_days: int,
-    restrict_to: Optional[Set[int]] = None,
-) -> Dict[str, Set[int]]:
+) -> Dict[int, CallerNetworkSignals]:
     """
-    Build the friend / FoF / recent-opponent / session / league bucket sets.
+    Build the caller-global signal map — the cacheable, expensive part.
 
-    When ``restrict_to`` is provided, returned sets are intersected with it
-    (useful for filtering an over-fetched name-search candidate list).
-    Otherwise the bucket sets are returned unconstrained — that's the right
-    shape for the "no search query" default-roster path.
+    Excludes ``is_session`` / ``is_context_league`` by design: those are
+    request-context and recomputed live by the caller. Counts (not booleans)
+    are aggregated so future graded scoring needs no change here.
     """
     friend_ids: Set[int] = set()
     fof_ids: Set[int] = set()
-    recent_opponent_ids: Set[int] = set()
-    session_member_ids: Set[int] = set()
-    league_member_ids: Set[int] = set()
+    shared_league_ids: Set[int] = set()
+    recent_partner: Dict[int, int] = {}
+    recent_opp: Dict[int, int] = {}
+    recent_session: Dict[int, int] = {}
 
-    if caller_player_id is not None:
-        friend_rows = (
-            await session.execute(
-                select(Friend.player1_id, Friend.player2_id).where(
-                    or_(
-                        Friend.player1_id == caller_player_id,
-                        Friend.player2_id == caller_player_id,
-                    ),
-                )
-            )
-        ).all()
-        all_friends: Set[int] = set()
-        for p1, p2 in friend_rows:
-            all_friends.add(p2 if p1 == caller_player_id else p1)
-        friend_ids = set(all_friends)
-
-        if all_friends:
-            fof_rows = (
-                await session.execute(
-                    select(Friend.player1_id, Friend.player2_id).where(
-                        or_(
-                            Friend.player1_id.in_(all_friends),
-                            Friend.player2_id.in_(all_friends),
-                        ),
-                    )
-                )
-            ).all()
-            for p1, p2 in fof_rows:
-                if p1 in all_friends:
-                    fof_ids.add(p2)
-                if p2 in all_friends:
-                    fof_ids.add(p1)
-            fof_ids -= friend_ids
-            fof_ids.discard(caller_player_id)
-
-        cutoff = datetime.now(timezone.utc) - timedelta(days=recent_days)
-        opp_rows = (
-            await session.execute(
-                select(
-                    Match.team1_player1_id,
-                    Match.team1_player2_id,
-                    Match.team2_player1_id,
-                    Match.team2_player2_id,
-                )
-                .join(Session, Session.id == Match.session_id)
-                .where(
-                    Session.created_at >= cutoff,
-                    or_(
-                        Match.team1_player1_id == caller_player_id,
-                        Match.team1_player2_id == caller_player_id,
-                        Match.team2_player1_id == caller_player_id,
-                        Match.team2_player2_id == caller_player_id,
-                    ),
-                )
-            )
-        ).all()
-        for row in opp_rows:
-            for pid in row:
-                if pid is not None and pid != caller_player_id:
-                    recent_opponent_ids.add(pid)
-
-    if session_id is not None:
-        sp_rows = (
-            await session.execute(
-                select(SessionParticipant.player_id).where(
-                    SessionParticipant.session_id == session_id,
-                )
-            )
-        ).all()
-        session_member_ids = {row[0] for row in sp_rows if row[0] is not None}
-
-    if league_id is not None:
-        lm_rows = (
-            await session.execute(
-                select(LeagueMember.player_id).where(
-                    LeagueMember.league_id == league_id,
-                )
-            )
-        ).all()
-        league_member_ids = {row[0] for row in lm_rows if row[0] is not None}
-
-    if restrict_to is not None:
-        friend_ids &= restrict_to
-        fof_ids &= restrict_to
-        recent_opponent_ids &= restrict_to
-        session_member_ids &= restrict_to
-        league_member_ids &= restrict_to
-
-    return {
-        "friend": friend_ids,
-        "friend_of_friend": fof_ids,
-        "recent_opponent": recent_opponent_ids,
-        "session": session_member_ids,
-        "league": league_member_ids,
-    }
-
-
-def _make_relation_classifier(buckets: Dict[str, Set[int]]):
-    """Return a function mapping a player id to its highest-priority bucket."""
-
-    def _relation(pid: int) -> str:
-        if pid in buckets["friend"]:
-            return "friend"
-        if pid in buckets["friend_of_friend"]:
-            return "friend_of_friend"
-        if pid in buckets["recent_opponent"]:
-            return "recent_opponent"
-        if pid in buckets["session"]:
-            return "session"
-        if pid in buckets["league"]:
-            return "league"
-        return "other"
-
-    return _relation
-
-
-async def _default_ranked_roster(
-    session: AsyncSession,
-    *,
-    caller_player_id: Optional[int],
-    session_id: Optional[int],
-    league_id: Optional[int],
-    limit: int,
-    recent_days: int,
-) -> List[Dict]:
-    """
-    Return the caller's relevance-ranked roster when no search query was
-    provided. Includes only players from the caller's network (friends,
-    FoF, recent opponents, session/league members) — never the "other"
-    bucket, since there's no name match to surface them.
-    """
-    buckets = await _collect_relation_buckets(
-        session,
-        caller_player_id=caller_player_id,
-        session_id=session_id,
-        league_id=league_id,
-        recent_days=recent_days,
-    )
-
-    candidate_ids: Set[int] = (
-        buckets["friend"]
-        | buckets["friend_of_friend"]
-        | buckets["recent_opponent"]
-        | buckets["session"]
-        | buckets["league"]
-    )
-    if caller_player_id is not None:
-        candidate_ids.discard(caller_player_id)
-
-    if not candidate_ids:
-        return []
-
-    rows = (
+    friend_rows = (
         await session.execute(
-            select(Player.id, Player.full_name, Player.nickname).where(
-                Player.id.in_(candidate_ids),
-                or_(Player.status != "system", Player.status.is_(None)),
-                Player.is_placeholder.is_(False),
+            select(Friend.player1_id, Friend.player2_id).where(
+                or_(
+                    Friend.player1_id == caller_player_id,
+                    Friend.player2_id == caller_player_id,
+                )
             )
         )
     ).all()
+    for p1, p2 in friend_rows:
+        friend_ids.add(p2 if p1 == caller_player_id else p1)
 
-    classify = _make_relation_classifier(buckets)
-    scores = _relation_scores(league_id)
-    annotated = [(row, classify(row.id)) for row in rows]
-    annotated.sort(
-        key=lambda t: (
-            -scores[t[1]],
-            (t[0].full_name or "").lower(),
-            t[0].id,
+    if friend_ids:
+        fof_rows = (
+            await session.execute(
+                select(Friend.player1_id, Friend.player2_id).where(
+                    or_(
+                        Friend.player1_id.in_(friend_ids),
+                        Friend.player2_id.in_(friend_ids),
+                    )
+                )
+            )
+        ).all()
+        for p1, p2 in fof_rows:
+            if p1 in friend_ids:
+                fof_ids.add(p2)
+            if p2 in friend_ids:
+                fof_ids.add(p1)
+        fof_ids -= friend_ids
+        fof_ids.discard(caller_player_id)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=recent_days)
+    match_rows = (
+        await session.execute(
+            select(
+                Match.team1_player1_id,
+                Match.team1_player2_id,
+                Match.team2_player1_id,
+                Match.team2_player2_id,
+            )
+            .join(Session, Session.id == Match.session_id)
+            .where(
+                Session.created_at >= cutoff,
+                or_(
+                    Match.team1_player1_id == caller_player_id,
+                    Match.team1_player2_id == caller_player_id,
+                    Match.team2_player1_id == caller_player_id,
+                    Match.team2_player2_id == caller_player_id,
+                ),
+            )
         )
-    )
-    annotated = annotated[: max(1, min(limit, 50))]
+    ).all()
+    for t1p1, t1p2, t2p1, t2p2 in match_rows:
+        team1 = [t1p1, t1p2]
+        team2 = [t2p1, t2p2]
+        partners, opponents = (team1, team2) if caller_player_id in team1 else (team2, team1)
+        for pid in partners:
+            if pid is not None and pid != caller_player_id:
+                recent_partner[pid] = recent_partner.get(pid, 0) + 1
+        for pid in opponents:
+            if pid is not None and pid != caller_player_id:
+                recent_opp[pid] = recent_opp.get(pid, 0) + 1
 
-    return [
-        {
-            "id": row.id,
-            "full_name": row.full_name,
-            "nickname": row.nickname,
-            "initials": generate_player_initials(row.full_name or ""),
-            "relation": relation,
-        }
-        for row, relation in annotated
-    ]
+    my_recent = (
+        await session.execute(
+            select(SessionParticipant.session_id)
+            .join(Session, Session.id == SessionParticipant.session_id)
+            .where(
+                SessionParticipant.player_id == caller_player_id,
+                Session.created_at >= cutoff,
+            )
+        )
+    ).all()
+    recent_sids = {r[0] for r in my_recent}
+    if recent_sids:
+        co_rows = (
+            await session.execute(
+                select(SessionParticipant.player_id).where(
+                    SessionParticipant.session_id.in_(recent_sids)
+                )
+            )
+        ).all()
+        for (pid,) in co_rows:
+            if pid is not None and pid != caller_player_id:
+                recent_session[pid] = recent_session.get(pid, 0) + 1
+
+    my_leagues = (
+        await session.execute(
+            select(LeagueMember.league_id).where(LeagueMember.player_id == caller_player_id)
+        )
+    ).all()
+    my_league_ids = {r[0] for r in my_leagues}
+    if my_league_ids:
+        co_league = (
+            await session.execute(
+                select(LeagueMember.player_id).where(LeagueMember.league_id.in_(my_league_ids))
+            )
+        ).all()
+        for (pid,) in co_league:
+            if pid is not None and pid != caller_player_id:
+                shared_league_ids.add(pid)
+
+    all_ids = (
+        friend_ids
+        | fof_ids
+        | shared_league_ids
+        | set(recent_partner)
+        | set(recent_opp)
+        | set(recent_session)
+    )
+    all_ids.discard(caller_player_id)
+    return {
+        pid: CallerNetworkSignals(
+            is_friend=pid in friend_ids,
+            is_fof=pid in fof_ids,
+            is_shared_league=pid in shared_league_ids,
+            recent_partner_count=recent_partner.get(pid, 0),
+            recent_opp_count=recent_opp.get(pid, 0),
+            recent_session_count=recent_session.get(pid, 0),
+        )
+        for pid in all_ids
+    }
+
+
+async def _caller_network(
+    session: AsyncSession,
+    *,
+    caller_player_id: int,
+    recent_days: int,
+) -> Dict[int, CallerNetworkSignals]:
+    """
+    Caller-global network, served from Redis when possible.
+
+    The cache is only consulted for the production recency window; a custom
+    ``recent_days`` (tests / tuning) always recomputes. A miss / garbage /
+    Redis-down all fall through to a live collect, so behaviour with no Redis
+    is identical to the uncached path.
+    """
+    use_cache = recent_days == RECENT_WINDOW_DAYS
+    if use_cache:
+        cached = await player_search_cache.load_network(caller_player_id)
+        if cached is not None:
+            return cached
+    network = await _collect_caller_network(
+        session,
+        caller_player_id=caller_player_id,
+        recent_days=recent_days,
+    )
+    if use_cache:
+        await player_search_cache.store_network(caller_player_id, network)
+    return network
+
+
+async def _session_member_ids(session: AsyncSession, session_id: int) -> Set[int]:
+    """Live picker-session membership (never cached → never stale)."""
+    rows = (
+        await session.execute(
+            select(SessionParticipant.player_id).where(SessionParticipant.session_id == session_id)
+        )
+    ).all()
+    return {r[0] for r in rows if r[0] is not None}
+
+
+async def _league_member_ids(session: AsyncSession, league_id: int) -> Set[int]:
+    """Live league-match membership (never cached → never stale)."""
+    rows = (
+        await session.execute(
+            select(LeagueMember.player_id).where(LeagueMember.league_id == league_id)
+        )
+    ).all()
+    return {r[0] for r in rows if r[0] is not None}
+
+
+def _serialize(row, *, tags: List[str], score: int, in_session: bool) -> Dict:
+    """
+    Shape a Player row into a picker result item.
+
+    ``in_session`` is a distinct layout signal (drives the compact-chip
+    group) — deliberately *not* a pill, so it never appears in ``tags``.
+    first/last name are sent so the client can render last-initial etc.;
+    full_name is retained as the canonical display + sort key.
+    """
+    names = _resolved_names(row)
+    return {
+        "id": row.id,
+        "first_name": names["first_name"],
+        "last_name": names["last_name"],
+        "full_name": row.full_name,
+        "nickname": row.nickname,
+        "initials": generate_player_initials(row.full_name or ""),
+        "tags": tags,
+        "score": score,
+        "in_session": in_session,
+    }
 
 
 async def search_players_with_relevance(
@@ -535,108 +559,134 @@ async def search_players_with_relevance(
     caller_player_id: Optional[int],
     session_id: Optional[int] = None,
     league_id: Optional[int] = None,
-    limit: int = 20,
-    recent_days: int = 90,
+    limit: int = _DEFAULT_STRANGER_LIMIT,
+    recent_days: int = RECENT_WINDOW_DAYS,
 ) -> List[Dict]:
     """
-    Search players by name, ranked by relevance to the caller.
+    Relevance-ranked player search for pickers — one bounded list.
 
-    Buckets (highest priority first):
-        friend > friend_of_friend > recent_opponent > session > league > other
+    Players are scored additively (see :mod:`player_search_scoring`): every
+    relationship to the caller adds points. The caller's whole network is
+    returned ranked by score (the client scrolls it locally); when a name
+    term is given, score-0 strangers matching it are appended after the
+    network, capped at ``limit``. There is no pagination cursor.
 
-    In a league match (``league_id`` set), league members are promoted to the
-    top: league > friend > friend_of_friend > recent_opponent > session > other.
+    Two invariants hold *structurally*, independent of cache state:
 
-    When ``q`` is empty or whitespace, returns the caller's default ranked
-    roster — friends, FoF, recent opponents, and session/league members —
-    excluding the ``other`` bucket (no name match to surface them).
-
-    Otherwise the query over-fetches alphabetical name matches, then
-    annotates and re-ranks them in Python so all buckets are considered
-    without writing multi-CTE SQL. Placeholder and system players are
-    excluded throughout.
+      * **No duplicates** — strangers explicitly exclude every candidate id.
+      * **Session / league members always present & flagged** — that
+        membership is queried live every call, never cached, so it cannot
+        be stale even off an empty cache.
 
     Args:
         session: Async DB session.
-        q: Search term (matched ILIKE against full_name and nickname). Empty
-            string returns the caller's default ranked roster.
-        caller_player_id: Caller's player id; ``None`` skips friend/opponent
-            scoring (everyone falls into ``other``).
-        session_id: Optional session context; members get bucket ``session``.
-        league_id: Optional league context; members get bucket ``league``.
-        limit: Max items to return (capped at 50).
-        recent_days: Window (days) for the ``recent_opponent`` bucket.
+        q: Name term (case-insensitive substring on full_name/nickname).
+            Empty -> the caller's full network, no strangers.
+        caller_player_id: Caller's player id; ``None`` => no network signals.
+        session_id: Picker session context (members get the in-session flag).
+        league_id: League-match context (members get the league signal/pill).
+        limit: Cap on appended score-0 strangers (clamped 1..100).
+        recent_days: Recency window; non-default bypasses the cache.
 
     Returns:
-        List of dicts with ``id``, ``full_name``, ``nickname``, ``initials``,
-        and ``relation``.
+        A list of result dicts: id, first_name, last_name, full_name,
+        nickname, initials, tags (list[str]), score (int), in_session (bool).
+        Network (ranked) first, then strangers (alphabetical, score 0).
     """
-    term = (q or "").strip()
-    capped = max(1, min(limit, 50))
+    term = (q or "").strip().lower()
+    stranger_cap = max(1, min(limit, 100))
+    ctx = ScoreContext(is_league_match=league_id is not None)
 
-    if not term:
-        return await _default_ranked_roster(
+    # 1. Caller-global network — cached when possible (expensive, stable).
+    network: Dict[int, CallerNetworkSignals] = {}
+    if caller_player_id is not None:
+        network = await _caller_network(
             session,
             caller_player_id=caller_player_id,
-            session_id=session_id,
-            league_id=league_id,
-            limit=capped,
             recent_days=recent_days,
         )
 
-    over_fetch = min(capped * 5, 200)
-    like = f"%{term}%"
+    # 2. Request-context membership — always live, never cached, never stale.
+    session_ids = (
+        await _session_member_ids(session, session_id) if session_id is not None else set()
+    )
+    league_ids = await _league_member_ids(session, league_id) if league_id is not None else set()
 
-    name_stmt = (
-        select(Player.id, Player.full_name, Player.nickname)
-        .where(
+    # 3. Candidate id set = network ∪ live context, caller removed.
+    candidate: Set[int] = set(network) | session_ids | league_ids
+    if caller_player_id is not None:
+        candidate.discard(caller_player_id)
+
+    network_items: List[Dict] = []
+    if candidate:
+        rows = (
+            await session.execute(
+                select(
+                    Player.id,
+                    Player.first_name,
+                    Player.last_name,
+                    Player.full_name,
+                    Player.nickname,
+                ).where(
+                    Player.id.in_(candidate),
+                    _NON_SYSTEM,
+                    Player.is_placeholder.is_(False),
+                )
+            )
+        ).all()
+        for r in rows:
+            if term and not _name_matches(r, term):
+                continue
+            sig = network.get(r.id)
+            metrics = PlayerSignalMetrics(
+                is_session=r.id in session_ids,
+                is_context_league=r.id in league_ids,
+                is_friend=sig.is_friend if sig else False,
+                is_fof=sig.is_fof if sig else False,
+                is_shared_league=sig.is_shared_league if sig else False,
+                recent_partner_count=sig.recent_partner_count if sig else 0,
+                recent_opp_count=sig.recent_opp_count if sig else 0,
+                recent_session_count=sig.recent_session_count if sig else 0,
+            )
+            network_items.append(
+                _serialize(
+                    r,
+                    tags=tags_for(metrics, ctx),
+                    score=score_player(metrics, ctx),
+                    in_session=metrics.is_session,
+                )
+            )
+        network_items.sort(key=lambda d: (-d["score"], (d["full_name"] or "").lower(), d["id"]))
+        network_items = network_items[:_NETWORK_HARD_CAP]
+
+    # 4. Strangers: only with a name term (it bounds the scan). Explicitly
+    #    disjoint from every candidate id, so no row can be duplicated.
+    stranger_items: List[Dict] = []
+    if term:
+        seen: Set[int] = {d["id"] for d in network_items} | candidate
+        if caller_player_id is not None:
+            seen.add(caller_player_id)
+        like = f"%{term}%"
+        s_stmt = select(
+            Player.id,
+            Player.first_name,
+            Player.last_name,
+            Player.full_name,
+            Player.nickname,
+        ).where(
             or_(Player.full_name.ilike(like), Player.nickname.ilike(like)),
-            or_(Player.status != "system", Player.status.is_(None)),
+            _NON_SYSTEM,
             Player.is_placeholder.is_(False),
         )
-        .order_by(Player.full_name.asc(), Player.id.asc())
-        .limit(over_fetch)
-    )
-    if caller_player_id is not None:
-        name_stmt = name_stmt.where(Player.id != caller_player_id)
-
-    rows = (await session.execute(name_stmt)).all()
-    if not rows:
-        return []
-
-    candidate_set: Set[int] = {r.id for r in rows}
-
-    buckets = await _collect_relation_buckets(
-        session,
-        caller_player_id=caller_player_id,
-        session_id=session_id,
-        league_id=league_id,
-        recent_days=recent_days,
-        restrict_to=candidate_set,
-    )
-
-    classify = _make_relation_classifier(buckets)
-    scores = _relation_scores(league_id)
-    annotated = [(row, classify(row.id)) for row in rows]
-    annotated.sort(
-        key=lambda t: (
-            -scores[t[1]],
-            (t[0].full_name or "").lower(),
-            t[0].id,
+        if seen:
+            s_stmt = s_stmt.where(Player.id.notin_(seen))
+        s_stmt = s_stmt.order_by(func.lower(Player.full_name).asc(), Player.id.asc()).limit(
+            stranger_cap
         )
-    )
-    annotated = annotated[:capped]
+        s_rows = (await session.execute(s_stmt)).all()
+        stranger_items = [_serialize(r, tags=[], score=0, in_session=False) for r in s_rows]
 
-    return [
-        {
-            "id": row.id,
-            "full_name": row.full_name,
-            "nickname": row.nickname,
-            "initials": generate_player_initials(row.full_name or ""),
-            "relation": relation,
-        }
-        for row, relation in annotated
-    ]
+    return network_items + stranger_items
 
 
 async def get_all_player_names(session: AsyncSession) -> List[str]:
