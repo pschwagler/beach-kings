@@ -69,34 +69,48 @@ export interface Player {
 }
 
 /**
- * Relation bucket from the relevance-ranked player search.
+ * Pill shown on a relevance-ranked player search row. At most three appear
+ * per player; every other relationship signal contributes to the score
+ * silently. The league pill is context-exclusive:
  *
- *   friend            — the caller is direct friends with this player
- *   friend_of_friend  — 1 hop away in the friend graph
- *   recent_opponent   — has played a match with the caller recently
- *   session           — currently in the session context
- *   league            — member of the league context
- *   other             — name match only
+ *   in_league      — member of the current league-match context
+ *   shared_league  — shares a league with the caller (casual match only)
+ *   friend         — the caller is direct friends with this player
+ *   recent_opp     — has played against the caller recently
  */
-export type PlayerSearchRelation =
+export type PlayerSearchTag =
+  | 'in_league'
+  | 'shared_league'
   | 'friend'
-  | 'friend_of_friend'
-  | 'recent_opponent'
-  | 'session'
-  | 'league'
-  | 'other';
+  | 'recent_opp';
 
 export interface PlayerSearchItem {
   id: number;
+  /** Split name parts for client rendering (e.g. last-initial). */
+  first_name: string;
+  last_name: string;
+  /** Canonical display name; the search index + sort key. */
   full_name: string | null;
   nickname: string | null;
   initials: string;
-  relation: PlayerSearchRelation;
+  /** Up to three pills, in display order. */
+  tags: PlayerSearchTag[];
+  /** Additive relevance score (debug/telemetry; sort by response order). */
+  score: number;
+  /**
+   * Whether this player is in the current session context. A layout signal
+   * for the compact-chip group — deliberately not a pill (never in `tags`).
+   */
+  in_session: boolean;
 }
 
 export interface PlayerSearchResponse {
+  /**
+   * One bounded, deduped, relevance-ranked list: the caller's whole network
+   * first, then (only on a name query) capped score-0 strangers. No cursor —
+   * the client scrolls this set locally.
+   */
   items: PlayerSearchItem[];
-  total_count: number;
 }
 
 export interface PublicPlayerStats {
@@ -118,4 +132,20 @@ export interface PublicPlayerResponse {
   league_memberships: Array<{ league_id: number; league_name: string }>;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/** Request body for POST /api/players/placeholder. */
+export interface CreatePlaceholderRequest {
+  readonly name: string;
+  readonly league_id?: number | null;
+  readonly gender?: PlayerGender | null;
+  readonly level?: SkillLevel | null;
+}
+
+/** Response from POST /api/players/placeholder (placeholder/guest player + claim invite). */
+export interface PlaceholderPlayerResponse {
+  readonly player_id: number;
+  readonly name: string;
+  readonly invite_token: string;
+  readonly invite_url: string;
 }

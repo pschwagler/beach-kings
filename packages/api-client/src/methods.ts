@@ -45,6 +45,8 @@ import type {
   LeagueInviteItem,
   AuthResponse,
   UserMeResponse,
+  CreatePlaceholderRequest,
+  PlaceholderPlayerResponse,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -292,13 +294,21 @@ export function createApiMethods(client: ApiClient) {
     },
 
     /**
-     * Relevance-ranked player search for pickers. Returns players whose name
-     * matches `q`, sorted: friend > friend_of_friend > recent_opponent >
-     * session > league > other.
+     * Relevance-ranked player search for pickers.
+     *
+     * Players are scored additively by their relationship to the caller and
+     * returned as a single bounded, deduped list with up to three pills
+     * (`item.tags`): the caller's whole network first, then (only on a name
+     * query) capped score-0 strangers. There is no cursor — the client
+     * scrolls the returned set locally.
      */
     async searchPlayers(
       q: string,
-      opts: { sessionId?: number | null; leagueId?: number | null; limit?: number } = {},
+      opts: {
+        sessionId?: number | null;
+        leagueId?: number | null;
+        limit?: number;
+      } = {},
     ): Promise<PlayerSearchResponse> {
       const params: Record<string, string | number> = { q };
       if (opts.sessionId != null) params.session_id = opts.sessionId;
@@ -310,6 +320,11 @@ export function createApiMethods(client: ApiClient) {
 
     async createPlayer(name: string) {
       const response = await api.post<Player>('/api/players', { name });
+      return response.data;
+    },
+
+    async createPlaceholder(payload: CreatePlaceholderRequest): Promise<PlaceholderPlayerResponse> {
+      const response = await api.post<PlaceholderPlayerResponse>('/api/players/placeholder', payload);
       return response.data;
     },
 
