@@ -21,7 +21,14 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { shareLink } from '@/utils/share';
-import type { SessionGame } from '@beach-kings/shared';
+import type {
+  SessionGame,
+  PlayerSearchTag,
+  PlayerSearchItem,
+  PlayerGender,
+  SkillLevel,
+} from '@beach-kings/shared';
+import { SKILL_LEVEL_OPTIONS } from '@beach-kings/shared';
 
 export type SubmitState = 'idle' | 'loading' | 'success' | 'error';
 export type DeleteState = 'idle' | 'loading' | 'error';
@@ -39,31 +46,19 @@ const EMPTY_SLOT: PlayerSlot = {
   initials: '',
 };
 
-/**
- * Where a roster player came from. Drives which section they appear in and
- * the small "Friend" / "Friend of friend" / etc. label next to their name.
+/** Minimal roster player shape used within this hook.
  *
- *   session           — in the current session
- *   league            — member of the current league
- *   friend            — direct friend of the caller
- *   friend_of_friend  — 1 hop away in the friend graph
- *   recent_opponent   — played a match with the caller recently
- *   other             — no relation, surfaced only via search
- */
-export type RosterPlayerSource =
-  | 'session'
-  | 'league'
-  | 'friend'
-  | 'friend_of_friend'
-  | 'recent_opponent'
-  | 'other';
-
-/** Minimal roster player shape used within this hook. */
+ * `tags` are the (≤3) pills to render, mirroring the backend's additive
+ * relevance result. `isSession` is a distinct layout signal (not a pill):
+ * session players render as compact chips, everyone else as ranked rows.
+ * `is_guest` marks placeholder players created via the "Add New Player" flow. */
 export interface RosterPlayer {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
-  readonly source: RosterPlayerSource;
+  readonly tags: readonly PlayerSearchTag[];
+  readonly isSession: boolean;
+  readonly is_guest?: boolean;
 }
 
 /** Context passed into the hook from the parent screen/route. */
@@ -169,6 +164,57 @@ export interface UseScoreGameScreenResult {
    * see the error) or there was nothing to delete.
    */
   readonly onDelete: () => Promise<boolean>;
+
+  // --- AddNewPlayer sheet ---
+
+  /** Whether the "Add New Player" sheet is visible. */
+  readonly addNewPlayerVisible: boolean;
+  /**
+   * The name search string captured at the moment `openAddNewPlayer` was called —
+   * pre-fills the First Name field in the sheet.
+   */
+  readonly addNewPlayerPrefillName: string;
+  /**
+   * Best-effort inferred gender for the active game context (league → session →
+   * none). `null` when no clue is available — chip group renders unselected.
+   */
+  readonly inferredGender: PlayerGender | null;
+  /**
+   * Best-effort inferred skill level for the active game context (league →
+   * session → none). `null` when no clue is available.
+   */
+  readonly inferredLevel: SkillLevel | null;
+  /**
+   * Stashed share invite produced after a successful `onCreateNewPlayer` call.
+   * Drives the `ScoreboardToast` "Share" action. Null until a placeholder is
+   * created, and cleared again by `clearPendingShareInvite`.
+   *
+   * `team` indicates which team the new player was assigned to, for the toast
+   * message "Brad K added to Team 2".
+   */
+  readonly pendingShareInvite: { readonly name: string; readonly invite_url: string; readonly team: 1 | 2 } | null;
+  /**
+   * Open the "Add New Player" sheet for the given team/slot target. Captures
+   * the current `search` string as the pre-fill name.
+   */
+  readonly openAddNewPlayer: (target: { team: 1 | 2; slot: 0 | 1 }) => void;
+  /** Close the "Add New Player" sheet without creating a player. */
+  readonly closeAddNewPlayer: () => void;
+  /** Dismiss the scoreboard toast by clearing the pending share invite. */
+  readonly clearPendingShareInvite: () => void;
+  /**
+   * Create a placeholder player from the sheet form data, assign them to the
+   * target slot, and stash the invite for the toast.
+   *
+   * Errors propagate to the caller (the sheet catches and displays them).
+   * The sheet stays open on failure.
+   */
+  readonly onCreateNewPlayer: (data: {
+    readonly first: string;
+    readonly last: string;
+    readonly gender: PlayerGender | null;
+    readonly level: SkillLevel | null;
+  }) => Promise<void>;
 }
 
 /**
@@ -222,6 +268,20 @@ function toInitials(fullName: string): string {
   );
 }
 
+/** Map a backend relevance-search hit to the picker's roster shape. */
+function mapSearchItem(item: PlayerSearchItem): RosterPlayer {
+  return {
+    player_id: item.id,
+    display_name: item.full_name ?? `Player ${item.id}`,
+    initials:
+      item.initials && item.initials.length > 0
+        ? item.initials
+        : toInitials(item.full_name ?? ''),
+    tags: item.tags ?? [],
+    isSession: item.in_session ?? false,
+  };
+}
+
 export function useScoreGameScreen(
   options: UseScoreGameScreenOptions = {},
 ): UseScoreGameScreenResult {
@@ -260,6 +320,21 @@ export function useScoreGameScreen(
   const [lastSessionId, setLastSessionId] = useState<number | null>(null);
   const [deleteState, setDeleteState] = useState<DeleteState>('idle');
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+
+  // --- AddNewPlayer sheet state ---
+  const [addNewPlayerVisible, setAddNewPlayerVisible] = useState(false);
+  const [addNewPlayerTarget, setAddNewPlayerTarget] = useState<{
+    team: 1 | 2;
+    slot: 0 | 1;
+  } | null>(null);
+  const [addNewPlayerPrefillName, setAddNewPlayerPrefillName] = useState('');
+  const [inferredGender, setInferredGender] = useState<PlayerGender | null>(null);
+  const [inferredLevel, setInferredLevel] = useState<SkillLevel | null>(null);
+  const [pendingShareInvite, setPendingShareInvite] = useState<{
+    readonly name: string;
+    readonly invite_url: string;
+    readonly team: 1 | 2;
+  } | null>(null);
 
   // TODO(session-settings): is_ranked is currently hardcoded — true when this
   // screen is opened from a league context, false otherwise. In edit mode we
@@ -333,7 +408,7 @@ export function useScoreGameScreen(
     async function loadRoster(): Promise<void> {
       try {
         if (sessionId != null) {
-          // Priority 1: session participants (source='session') + friends appended
+          // Priority 1: session participants (compact chips) + friends.
           const [participants, friendsResp] = await Promise.all([
             api.getSessionParticipants(sessionId),
             api.getFriends().catch(() => ({ items: [] })),
@@ -343,7 +418,8 @@ export function useScoreGameScreen(
               player_id: p.player_id,
               display_name: p.full_name,
               initials: toInitials(p.full_name),
-              source: 'session' as const,
+              tags: [],
+              isSession: true,
             }));
             const sessionIds = new Set(sessionPlayers.map((p) => p.player_id));
             const friendItems = (friendsResp as { items?: { player_id: number; full_name: string }[] })?.items ?? [];
@@ -353,36 +429,45 @@ export function useScoreGameScreen(
                 player_id: f.player_id,
                 display_name: f.full_name,
                 initials: toInitials(f.full_name),
-                source: 'friend' as const,
+                tags: ['friend'],
+                isSession: false,
               }));
             setRoster([...sessionPlayers, ...friendPlayers]);
+
+            // Infer gender + level from participant modal values (session signal).
+            // League signal (separate effect) will override these if present.
+            const validLevels = new Set<string>(
+              SKILL_LEVEL_OPTIONS.map((o) => o.value),
+            );
+            const genderCounts = new Map<string, number>();
+            const levelCounts = new Map<string, number>();
+            for (const p of participants as Array<{ gender?: string | null; level?: string | null }>) {
+              if (p.gender != null && p.gender !== '') {
+                genderCounts.set(p.gender, (genderCounts.get(p.gender) ?? 0) + 1);
+              }
+              if (p.level != null && p.level !== '' && validLevels.has(p.level)) {
+                levelCounts.set(p.level, (levelCounts.get(p.level) ?? 0) + 1);
+              }
+            }
+            const topGender = [...genderCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+            const topLevel = [...levelCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+            if (topGender === 'male' || topGender === 'female') {
+              setInferredGender(topGender);
+            }
+            if (topLevel != null && validLevels.has(topLevel)) {
+              setInferredLevel(topLevel as SkillLevel);
+            }
           }
         } else if (leagueId != null) {
-          // Priority 2: ranked default roster for the league context.
-          // /api/players/search with empty q returns the caller's network
-          // (friends, FoFs, recent opponents, league members) ranked by
-          // relevance — replaces the old league-members-only call which
-          // showed "No players available" when the league was sparse.
-          const response = await api.searchPlayers('', {
-            leagueId,
-            limit: 50,
-          });
+          // Priority 2: relevance-ranked default roster for the league
+          // context. Empty q returns one bounded list — the caller's whole
+          // network ranked, league members included. No paging.
+          const response = await api.searchPlayers('', { leagueId });
           if (!cancelled) {
-            const items = response?.items ?? [];
-            setRoster(
-              items.map((item) => ({
-                player_id: item.id,
-                display_name: item.full_name ?? `Player ${item.id}`,
-                initials:
-                  item.initials && item.initials.length > 0
-                    ? item.initials
-                    : toInitials(item.full_name ?? ''),
-                source: item.relation as RosterPlayerSource,
-              })),
-            );
+            setRoster((response?.items ?? []).map(mapSearchItem));
           }
         } else {
-          // Fallback: friends list (source='friend')
+          // Fallback: friends list.
           const response = await api.getFriends();
           if (!cancelled) {
             const items = response?.items ?? [];
@@ -391,7 +476,8 @@ export function useScoreGameScreen(
                 player_id: f.player_id,
                 display_name: f.full_name,
                 initials: toInitials(f.full_name),
-                source: 'friend' as const,
+                tags: ['friend'],
+                isSession: false,
               })),
             );
           }
@@ -407,6 +493,40 @@ export function useScoreGameScreen(
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, leagueId]);
+
+  // --- League inference effect ---
+  // Fetches league details when leagueId is set and overrides the session-derived
+  // inferred gender/level when the league provides a non-null value. Cancel-safe.
+  useEffect(() => {
+    if (leagueId == null) return;
+    let cancelled = false;
+    const validLevels = new Set<string>(SKILL_LEVEL_OPTIONS.map((o) => o.value));
+    void api.getLeague(leagueId).then((league) => {
+      if (cancelled) return;
+      // Map league gender to PlayerGender; coed → null (ambiguous).
+      const leagueGender: PlayerGender | null =
+        league.gender === 'mens' ? 'male' :
+        league.gender === 'womens' ? 'female' :
+        null;
+      const leagueLevel: SkillLevel | null =
+        league.level != null && validLevels.has(league.level)
+          ? (league.level as SkillLevel)
+          : null;
+      // League signal overrides session signal when present.
+      if (leagueGender != null) {
+        setInferredGender(leagueGender);
+      }
+      if (leagueLevel != null) {
+        setInferredLevel(leagueLevel);
+      }
+    }).catch(() => {
+      // Non-fatal — inferred values stay as-is from the session signal.
+    });
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueId]);
 
   // --- Search results (relevance-ranked, fetched from backend) ---
   // When the user types, we query the full player table so they can find
@@ -429,25 +549,16 @@ export function useScoreGameScreen(
         const response = await api.searchPlayers(trimmed, {
           sessionId: sessionId ?? undefined,
           leagueId: leagueId ?? undefined,
-          limit: 20,
+          limit: 50,
         });
         if (cancelled) return;
-        const items = response?.items ?? [];
-        setSearchResults(
-          items.map((item) => ({
-            player_id: item.id,
-            display_name: item.full_name ?? `Player ${item.id}`,
-            initials:
-              item.initials && item.initials.length > 0
-                ? item.initials
-                : toInitials(item.full_name ?? ''),
-            source: item.relation as RosterPlayerSource,
-          })),
-        );
+        setSearchResults((response?.items ?? []).map(mapSearchItem));
       } catch {
         // Network error or endpoint unavailable — fall back to the local
         // filter against the pre-loaded roster (handled in filteredRoster).
-        if (!cancelled) setSearchResults([]);
+        if (!cancelled) {
+          setSearchResults([]);
+        }
       } finally {
         if (!cancelled) setIsSearching(false);
       }
@@ -534,6 +645,7 @@ export function useScoreGameScreen(
               player_id: player.player_id,
               display_name: player.display_name,
               initials: player.initials,
+              ...(player.is_guest != null ? { is_guest: player.is_guest } : {}),
             }
           : EMPTY_SLOT;
 
@@ -725,6 +837,78 @@ export function useScoreGameScreen(
     void onSubmit();
   }, [onSubmit]);
 
+  // --- AddNewPlayer sheet handlers ---
+
+  /** Open the "Add New Player" sheet for the given team/slot, capturing search as prefill. */
+  const openAddNewPlayer = useCallback(
+    (target: { team: 1 | 2; slot: 0 | 1 }) => {
+      setAddNewPlayerTarget(target);
+      setAddNewPlayerPrefillName(search);
+      setAddNewPlayerVisible(true);
+    },
+    [search],
+  );
+
+  /** Close the "Add New Player" sheet without creating a player. */
+  const closeAddNewPlayer = useCallback(() => {
+    setAddNewPlayerVisible(false);
+    setAddNewPlayerTarget(null);
+  }, []);
+
+  /** Dismiss the pending share invite (drives ScoreboardToast dismiss). */
+  const clearPendingShareInvite = useCallback(() => {
+    setPendingShareInvite(null);
+  }, []);
+
+  /**
+   * Create a placeholder player from the sheet form data, assign them to the
+   * target slot, and stash the invite for the ScoreboardToast.
+   *
+   * Errors propagate — the sheet is responsible for catching and displaying
+   * them. The sheet stays open on failure (no state change on error).
+   */
+  const onCreateNewPlayer = useCallback(
+    async (data: {
+      readonly first: string;
+      readonly last: string;
+      readonly gender: PlayerGender | null;
+      readonly level: SkillLevel | null;
+    }): Promise<void> => {
+      const name = `${data.first} ${data.last}`.trim();
+      if (!name) {
+        throw new Error('First name is required');
+      }
+
+      const payload = {
+        name,
+        ...(leagueId != null ? { league_id: leagueId } : {}),
+        ...(data.gender != null ? { gender: data.gender } : {}),
+        ...(data.level != null ? { level: data.level } : {}),
+      };
+
+      // Let errors propagate — the sheet catches them; submitState is not touched.
+      const resp = await api.createPlaceholder(payload);
+
+      // Only assign if there is still a valid target (guard against stale closures).
+      if (addNewPlayerTarget == null) return;
+
+      const guestPlayer: RosterPlayer = {
+        player_id: resp.player_id,
+        display_name: name,
+        initials: toInitials(name),
+        tags: [],
+        isSession: false,
+        is_guest: true,
+      };
+      assignPlayer(addNewPlayerTarget.team, addNewPlayerTarget.slot, guestPlayer);
+      setPendingShareInvite({ name, invite_url: resp.invite_url, team: addNewPlayerTarget.team });
+      setSearch('');
+      setAddNewPlayerVisible(false);
+      setAddNewPlayerTarget(null);
+    },
+    [leagueId, addNewPlayerTarget, assignPlayer],
+  );
+
   return {
     team1,
     team2,
@@ -761,5 +945,14 @@ export function useScoreGameScreen(
     onDismissError,
     onAddAnother,
     onDelete,
+    addNewPlayerVisible,
+    addNewPlayerPrefillName,
+    inferredGender,
+    inferredLevel,
+    pendingShareInvite,
+    openAddNewPlayer,
+    closeAddNewPlayer,
+    clearPendingShareInvite,
+    onCreateNewPlayer,
   };
 }

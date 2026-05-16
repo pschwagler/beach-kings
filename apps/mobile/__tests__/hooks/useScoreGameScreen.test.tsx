@@ -39,6 +39,8 @@ const mockGetSessionById = jest.fn();
 const mockCreateSession = jest.fn();
 const mockShareLink = jest.fn();
 const mockSearchPlayers = jest.fn();
+const mockCreatePlaceholder = jest.fn();
+const mockGetLeague = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -52,6 +54,8 @@ jest.mock('@/lib/api', () => ({
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
     createSession: (...args: unknown[]) => mockCreateSession(...args),
     searchPlayers: (...args: unknown[]) => mockSearchPlayers(...args),
+    createPlaceholder: (...args: unknown[]) => mockCreatePlaceholder(...args),
+    getLeague: (...args: unknown[]) => mockGetLeague(...args),
   },
 }));
 
@@ -96,25 +100,25 @@ const MOCK_FRIENDS_RESPONSE = {
 
 /**
  * Default ranked roster returned by `searchPlayers('', { leagueId })` —
- * the league-only path uses this to populate the picker on mount.
+ * the league-only path uses this single bounded list to populate the picker
+ * on mount. No cursor: the client scrolls the returned set locally.
  */
 const MOCK_LEAGUE_DEFAULT_ROSTER = {
   items: [
-    { id: 10, full_name: 'Chris Gulla', nickname: null, initials: 'CG', relation: 'friend' },
-    { id: 11, full_name: 'Kyle Fawwar', nickname: null, initials: 'KF', relation: 'league' },
-    { id: 12, full_name: 'Alex Marthey', nickname: null, initials: 'AM', relation: 'league' },
-    { id: 13, full_name: 'Sam Jindash', nickname: null, initials: 'SJ', relation: 'league' },
+    { id: 10, first_name: 'Chris', last_name: 'Gulla', full_name: 'Chris Gulla', nickname: null, initials: 'CG', tags: ['friend'], score: 15, in_session: false },
+    { id: 11, first_name: 'Kyle', last_name: 'Fawwar', full_name: 'Kyle Fawwar', nickname: null, initials: 'KF', tags: ['in_league'], score: 150, in_session: false },
+    { id: 12, first_name: 'Alex', last_name: 'Marthey', full_name: 'Alex Marthey', nickname: null, initials: 'AM', tags: ['in_league'], score: 150, in_session: false },
+    { id: 13, first_name: 'Sam', last_name: 'Jindash', full_name: 'Sam Jindash', nickname: null, initials: 'SJ', tags: ['in_league'], score: 150, in_session: false },
   ],
-  total_count: 4,
 };
 
 /** Assign all 4 player slots and set score > 0. */
 function fillSlots(result: ReturnType<typeof renderHook<ReturnType<typeof useScoreGameScreen>, unknown>>['result']) {
   act(() => {
-    result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'Chris Gulla', initials: 'CG', source: 'friend' });
-    result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'Kyle Fawwar', initials: 'KF', source: 'friend' });
-    result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'Alex Marthey', initials: 'AM', source: 'friend' });
-    result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'Sam Jindash', initials: 'SJ', source: 'friend' });
+    result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'Chris Gulla', initials: 'CG', tags: [], isSession: false });
+    result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'Kyle Fawwar', initials: 'KF', tags: [], isSession: false });
+    result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'Alex Marthey', initials: 'AM', tags: [], isSession: false });
+    result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'Sam Jindash', initials: 'SJ', tags: [], isSession: false });
     result.current.setScore1(5);
     result.current.setScore2(3);
   });
@@ -148,7 +152,34 @@ beforeEach(() => {
     if (q === '') {
       return Promise.resolve(MOCK_LEAGUE_DEFAULT_ROSTER);
     }
-    return Promise.resolve({ items: [], total_count: 0 });
+    return Promise.resolve({ items: [] });
+  });
+  mockCreatePlaceholder.mockResolvedValue({
+    player_id: 99,
+    name: 'New Player',
+    invite_token: 'tok',
+    invite_url: 'https://x/invite/tok',
+  });
+  mockGetLeague.mockResolvedValue({
+    id: 1,
+    name: 'L',
+    description: null,
+    access_type: 'open' as const,
+    gender: null,
+    level: null,
+    location_id: null,
+    location_name: null,
+    home_courts: [],
+    member_count: 0,
+    season_count: 0,
+    current_season_id: null,
+    current_season_name: null,
+    is_active: true,
+    user_role: null,
+    user_rank: null,
+    user_wins: null,
+    user_losses: null,
+    user_rating: null,
   });
 });
 
@@ -483,10 +514,9 @@ describe('useScoreGameScreen — roster source', () => {
   it('fetches the ranked default roster via searchPlayers when only leagueId is provided', async () => {
     mockSearchPlayers.mockResolvedValueOnce({
       items: [
-        { id: 50, full_name: 'Marisol Hart', nickname: null, initials: 'MH', relation: 'friend' },
-        { id: 51, full_name: 'Jordan Lee', nickname: null, initials: 'JL', relation: 'league' },
+        { id: 50, first_name: 'Marisol', last_name: 'Hart', full_name: 'Marisol Hart', nickname: null, initials: 'MH', tags: ['friend'], score: 15, in_session: false },
+        { id: 51, first_name: 'Jordan', last_name: 'Lee', full_name: 'Jordan Lee', nickname: null, initials: 'JL', tags: ['in_league'], score: 150, in_session: false },
       ],
-      total_count: 2,
     });
 
     const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
@@ -494,12 +524,37 @@ describe('useScoreGameScreen — roster source', () => {
       expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.objectContaining({ leagueId: 3 }));
       expect(result.current.roster.length).toBe(2);
     });
-    // Source comes from `relation`; league context returns mixed buckets,
-    // not just league members.
-    const sources = result.current.roster.map((p) => p.source).sort();
-    expect(sources).toEqual(['friend', 'league']);
+    // Pills come straight from the backend `tags`; the league context
+    // returns an additively-ranked mix, not just league members.
+    const tags = result.current.roster.map((p) => p.tags.join(',')).sort();
+    expect(tags).toEqual(['friend', 'in_league']);
+    expect(result.current.roster.every((p) => p.isSession === false)).toBe(true);
     expect(mockGetLeagueMembers).not.toHaveBeenCalled();
     expect(mockGetSessionParticipants).not.toHaveBeenCalled();
+  });
+
+  it('loads one bounded ranked list with no cursor paging', async () => {
+    mockSearchPlayers.mockReset();
+    mockSearchPlayers.mockResolvedValue({
+      items: [
+        { id: 60, first_name: 'Page', last_name: 'One', full_name: 'Page One', nickname: null, initials: 'PO', tags: ['in_league'], score: 150, in_session: false },
+        { id: 61, first_name: 'Page', last_name: 'Two', full_name: 'Page Two', nickname: null, initials: 'PT', tags: [], score: 0, in_session: false },
+      ],
+    });
+
+    const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
+    await waitFor(() => expect(result.current.roster.length).toBe(2));
+
+    // The whole set arrives in one call; no cursor is ever passed.
+    expect(result.current.roster.map((p) => p.player_id)).toEqual([60, 61]);
+    expect(mockSearchPlayers).toHaveBeenCalledTimes(1);
+    expect(mockSearchPlayers).toHaveBeenCalledWith(
+      '',
+      expect.not.objectContaining({ cursor: expect.anything() }),
+    );
+    // loadMore / hasMore / isLoadingMore no longer exist on the result.
+    expect('loadMore' in result.current).toBe(false);
+    expect('hasMore' in result.current).toBe(false);
   });
 
   it('falls back to friends when neither sessionId nor leagueId is provided', async () => {
@@ -561,10 +616,10 @@ describe('useScoreGameScreen — canSubmit', () => {
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
     act(() => {
-      result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A', source: 'friend' });
-      result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'B', initials: 'B', source: 'friend' });
-      result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'C', initials: 'C', source: 'friend' });
-      result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'D', initials: 'D', source: 'friend' });
+      result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A', tags: [], isSession: false });
+      result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'B', initials: 'B', tags: [], isSession: false });
+      result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'C', initials: 'C', tags: [], isSession: false });
+      result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'D', initials: 'D', tags: [], isSession: false });
     });
 
     expect(result.current.canSubmit).toBe(false);
@@ -599,10 +654,10 @@ function fillSlotsOnly(
   result: ReturnType<typeof renderHook<ReturnType<typeof useScoreGameScreen>, unknown>>['result'],
 ): void {
   act(() => {
-    result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A', source: 'friend' });
-    result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'B', initials: 'B', source: 'friend' });
-    result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'C', initials: 'C', source: 'friend' });
-    result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'D', initials: 'D', source: 'friend' });
+    result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A', tags: [], isSession: false });
+    result.current.assignPlayer(1, 1, { player_id: 11, display_name: 'B', initials: 'B', tags: [], isSession: false });
+    result.current.assignPlayer(2, 0, { player_id: 12, display_name: 'C', initials: 'C', tags: [], isSession: false });
+    result.current.assignPlayer(2, 1, { player_id: 13, display_name: 'D', initials: 'D', tags: [], isSession: false });
   });
 }
 
@@ -685,7 +740,7 @@ describe('useScoreGameScreen — scoreWarning incomplete', () => {
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
     act(() => {
-      result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A', source: 'friend' });
+      result.current.assignPlayer(1, 0, { player_id: 10, display_name: 'A', initials: 'A', tags: [], isSession: false });
       result.current.setScore1(5);
       result.current.setScore2(3);
     });
@@ -1090,5 +1145,213 @@ describe('useScoreGameScreen — onManageSession / onShareSession', () => {
     });
 
     expect(mockShareLink).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (k) AddNewPlayer sheet — open/close/create
+// ---------------------------------------------------------------------------
+
+describe('useScoreGameScreen — addNewPlayer sheet', () => {
+  // (a) onCreateNewPlayer success
+  it('fills slot with placeholder player and sets pendingShareInvite on success', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    // Set search so prefillName captures it
+    act(() => {
+      result.current.setSearch('Brad');
+    });
+
+    // Open the sheet targeting team1, slot0
+    act(() => {
+      result.current.openAddNewPlayer({ team: 1, slot: 0 });
+    });
+
+    expect(result.current.addNewPlayerVisible).toBe(true);
+    expect(result.current.addNewPlayerPrefillName).toBe('Brad');
+
+    await act(async () => {
+      await result.current.onCreateNewPlayer({ first: 'Brad', last: 'K', gender: null, level: null });
+    });
+
+    // Slot filled with placeholder player
+    expect(result.current.team1[0].player_id).toBe(99);
+    expect(result.current.team1[0].display_name).toBe('Brad K');
+    expect(result.current.team1[0].is_guest).toBe(true);
+
+    // pendingShareInvite set
+    expect(result.current.pendingShareInvite).toEqual({
+      name: 'Brad K',
+      invite_url: 'https://x/invite/tok',
+      team: 1,
+    });
+
+    // search cleared
+    expect(result.current.search).toBe('');
+
+    // sheet closed
+    expect(result.current.addNewPlayerVisible).toBe(false);
+  });
+
+  // (b) league context → league_id sent in payload
+  it('sends league_id in createPlaceholder payload when leagueId is set', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.openAddNewPlayer({ team: 1, slot: 0 });
+    });
+
+    await act(async () => {
+      await result.current.onCreateNewPlayer({ first: 'Brad', last: 'K', gender: null, level: null });
+    });
+
+    expect(mockCreatePlaceholder).toHaveBeenCalledWith(
+      expect.objectContaining({ league_id: 3 }),
+    );
+  });
+
+  // (c) inference: league gender 'mens' + level 'advanced' → inferredGender 'male', inferredLevel 'advanced'
+  it('infers gender male and level advanced from a mens/advanced league', async () => {
+    mockGetLeague.mockResolvedValueOnce({
+      id: 1,
+      name: 'Mens Advanced',
+      description: null,
+      access_type: 'open' as const,
+      gender: 'mens',
+      level: 'advanced',
+      location_id: null,
+      location_name: null,
+      home_courts: [],
+      member_count: 0,
+      season_count: 0,
+      current_season_id: null,
+      current_season_name: null,
+      is_active: true,
+      user_role: null,
+      user_rank: null,
+      user_wins: null,
+      user_losses: null,
+      user_rating: null,
+    });
+
+    const { result } = renderHook(() => useScoreGameScreen({ leagueId: 1 }));
+
+    await waitFor(() => {
+      expect(result.current.inferredGender).toBe('male');
+      expect(result.current.inferredLevel).toBe('advanced');
+    });
+  });
+
+  // (d) inference: no league, session participants mostly female + beginner
+  it('infers gender and level from session participant modal values', async () => {
+    const femaleBeginnerParticipants = [
+      { player_id: 10, full_name: 'Alice A', level: 'beginner', gender: 'female', location_name: null, is_placeholder: false },
+      { player_id: 11, full_name: 'Bob B', level: 'beginner', gender: 'female', location_name: null, is_placeholder: false },
+      { player_id: 12, full_name: 'Carol C', level: 'intermediate', gender: 'male', location_name: null, is_placeholder: false },
+      { player_id: 13, full_name: 'Dana D', level: 'beginner', gender: 'female', location_name: null, is_placeholder: false },
+    ];
+    mockGetSessionParticipants.mockResolvedValueOnce(femaleBeginnerParticipants);
+
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+
+    await waitFor(() => {
+      expect(result.current.inferredGender).toBe('female');
+      expect(result.current.inferredLevel).toBe('beginner');
+    });
+  });
+
+  // (e) inference: neither session clues nor league → both null
+  it('leaves inferred values null when no gender/level clues exist', async () => {
+    // MOCK_PARTICIPANTS all have null gender + level (from beforeEach)
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    expect(result.current.inferredGender).toBeNull();
+    expect(result.current.inferredLevel).toBeNull();
+  });
+
+  // (f) createPlaceholder rejects → onCreateNewPlayer rejects, slot NOT filled, sheet stays visible
+  it('propagates createPlaceholder errors and keeps the sheet open', async () => {
+    mockCreatePlaceholder.mockRejectedValueOnce(new Error('Server error'));
+
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.openAddNewPlayer({ team: 1, slot: 0 });
+    });
+
+    await expect(
+      act(async () => {
+        await result.current.onCreateNewPlayer({ first: 'Brad', last: 'K', gender: null, level: null });
+      }),
+    ).rejects.toThrow('Server error');
+
+    // Slot NOT filled
+    expect(result.current.team1[0].player_id).toBeNull();
+
+    // Sheet stays visible
+    expect(result.current.addNewPlayerVisible).toBe(true);
+
+    // No pending invite
+    expect(result.current.pendingShareInvite).toBeNull();
+  });
+
+  it('closeAddNewPlayer hides the sheet without side effects', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.openAddNewPlayer({ team: 2, slot: 1 });
+    });
+    expect(result.current.addNewPlayerVisible).toBe(true);
+
+    act(() => {
+      result.current.closeAddNewPlayer();
+    });
+    expect(result.current.addNewPlayerVisible).toBe(false);
+    // Slot not touched
+    expect(result.current.team2[1].player_id).toBeNull();
+  });
+
+  it('clearPendingShareInvite nulls the invite', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.openAddNewPlayer({ team: 1, slot: 0 });
+    });
+
+    await act(async () => {
+      await result.current.onCreateNewPlayer({ first: 'Brad', last: 'K', gender: null, level: null });
+    });
+
+    expect(result.current.pendingShareInvite).not.toBeNull();
+
+    act(() => {
+      result.current.clearPendingShareInvite();
+    });
+
+    expect(result.current.pendingShareInvite).toBeNull();
+  });
+
+  it('is_guest is threaded through assignPlayer for regular (non-guest) players', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.assignPlayer(1, 0, {
+        player_id: 10,
+        display_name: 'Chris Gulla',
+        initials: 'CG',
+        tags: [],
+        isSession: true,
+      });
+    });
+
+    // Regular players should not have is_guest set (undefined, not true)
+    expect(result.current.team1[0].is_guest).toBeUndefined();
   });
 });

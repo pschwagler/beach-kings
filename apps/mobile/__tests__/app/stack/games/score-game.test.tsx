@@ -90,9 +90,13 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (v: unknown) => ({ value: v }),
     useAnimatedStyle: () => ({}),
     withRepeat: (v: unknown) => v,
+    // Never fire the completion callback synchronously — doing so would trigger
+    // onDismiss immediately and clear the toast before test assertions run.
     withTiming: (v: unknown) => v,
+    withDelay: (_delay: unknown, v: unknown) => v,
     cancelAnimation: jest.fn(),
-    Easing: { inOut: () => ({}), ease: {} },
+    runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
+    Easing: { inOut: () => ({}), ease: {}, out: () => ({}) },
   };
 });
 
@@ -115,6 +119,7 @@ const mockSubmitScoredGame = jest.fn();
 const mockGetFriends = jest.fn();
 const mockGetSessionParticipants = jest.fn();
 const mockGetLeagueMembers = jest.fn();
+const mockGetLeague = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();
 const mockUpdateMatch = jest.fn();
 const mockDeleteMatch = jest.fn();
@@ -134,6 +139,7 @@ const MOCK_FRIENDS_ROSTER = {
 const mockCreateSession = jest.fn();
 const mockShareLink = jest.fn();
 const mockSearchPlayers = jest.fn();
+const mockCreatePlaceholder = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -141,17 +147,29 @@ jest.mock('@/lib/api', () => ({
     getFriends: (...args: unknown[]) => mockGetFriends(...args),
     getSessionParticipants: (...args: unknown[]) => mockGetSessionParticipants(...args),
     getLeagueMembers: (...args: unknown[]) => mockGetLeagueMembers(...args),
+    getLeague: (...args: unknown[]) => mockGetLeague(...args),
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
     updateMatch: (...args: unknown[]) => mockUpdateMatch(...args),
     deleteMatch: (...args: unknown[]) => mockDeleteMatch(...args),
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
     createSession: (...args: unknown[]) => mockCreateSession(...args),
     searchPlayers: (...args: unknown[]) => mockSearchPlayers(...args),
+    createPlaceholder: (...args: unknown[]) => mockCreatePlaceholder(...args),
   },
 }));
 
 jest.mock('@/utils/share', () => ({
   shareLink: (...args: unknown[]) => mockShareLink(...args),
+}));
+
+jest.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({
+    colorScheme: 'light' as const,
+    themeMode: 'system' as const,
+    setThemeMode: jest.fn(),
+    isDark: false,
+  }),
+  default: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 jest.mock('@/components/ui/icons', () => {
@@ -165,6 +183,8 @@ jest.mock('@/components/ui/icons', () => {
     XIcon: makeIcon('XIcon'),
     SearchIcon: makeIcon('SearchIcon'),
     PlusIcon: makeIcon('PlusIcon'),
+    CheckIcon: makeIcon('CheckIcon'),
+    ShareIcon: makeIcon('ShareIcon'),
   };
 });
 
@@ -187,6 +207,9 @@ beforeEach(() => {
   mockGetFriends.mockResolvedValue(MOCK_FRIENDS_ROSTER);
   mockGetSessionParticipants.mockResolvedValue([]);
   mockGetLeagueMembers.mockResolvedValue([]);
+  // League-inference effect calls api.getLeague when leagueId is set; a
+  // null gender/level means "no inference override" (coed / unknown).
+  mockGetLeague.mockResolvedValue({ id: 3, gender: 'coed', level: null });
   // Default: current user is none of the roster players so the YOU badge
   // doesn't accidentally interfere with other test assertions.
   mockGetCurrentUserPlayer.mockResolvedValue({ id: 9999, name: 'Test User' });
@@ -196,6 +219,11 @@ beforeEach(() => {
   mockCreateSession.mockResolvedValue({ id: 555, code: 'BKTEST01' });
   mockShareLink.mockResolvedValue(undefined);
   mockSearchPlayers.mockResolvedValue({ items: [], total_count: 0 });
+  mockCreatePlaceholder.mockResolvedValue({
+    player_id: 888,
+    display_name: 'Brad K',
+    invite_url: 'https://beachleague.app/invite/tok123',
+  });
   // Reset route params to empty between tests
   mockLocalSearchParams.mockReturnValue({});
   // Drop any beforeRemove listeners captured by the previous test so each
@@ -352,28 +380,37 @@ describe('ScoreGameScreen — roster picker', () => {
     });
   });
 
-  it('shows the League members section first in a league match', async () => {
+  it('ranks a league member above a friend in a league match (one ranked list, in_league pill)', async () => {
     mockLocalSearchParams.mockReturnValue({ leagueId: '3' });
-    // Backend returns a friend and a league member; in a league match the
-    // league section must render ahead of the friends section.
+    // Relevance-ranked design: a single bounded list ordered by the backend's
+    // additive score. The league member outscores the friend, so its row
+    // renders first and carries the `in_league` pill — there is no separate
+    // "League members" section anymore.
     mockSearchPlayers.mockResolvedValue({
       items: [
         {
           id: 901,
+          first_name: 'Liam',
+          last_name: 'League',
           full_name: 'Liam League',
           nickname: null,
           initials: 'LL',
-          relation: 'league',
+          tags: ['in_league'],
+          score: 150,
+          in_session: false,
         },
         {
           id: 902,
+          first_name: 'Fiona',
+          last_name: 'Friend',
           full_name: 'Fiona Friend',
           nickname: null,
           initials: 'FF',
-          relation: 'friend',
+          tags: ['friend'],
+          score: 15,
+          in_session: false,
         },
       ],
-      total_count: 2,
     });
 
     render(<ScoreGameScreen />);
@@ -382,15 +419,19 @@ describe('ScoreGameScreen — roster picker', () => {
     fireEvent.changeText(screen.getByTestId('roster-search-input'), 'i');
 
     await waitFor(() => {
-      expect(screen.getByTestId('roster-section-league')).toBeTruthy();
-      expect(screen.getByTestId('roster-section-friend')).toBeTruthy();
+      expect(screen.getByTestId('roster-row-901')).toBeTruthy();
+      expect(screen.getByTestId('roster-row-902')).toBeTruthy();
     });
 
-    const sectionOrder = screen
-      .getAllByTestId(/^roster-section-/)
+    // League membership is conveyed by a pill, not a bucket section.
+    expect(screen.getByTestId('roster-pill-in_league')).toBeTruthy();
+
+    // Single ranked list: the higher-scored league member renders first.
+    const rowOrder = screen
+      .getAllByTestId(/^roster-row-/)
       .map((node) => node.props.testID as string);
-    expect(sectionOrder.indexOf('roster-section-league')).toBeLessThan(
-      sectionOrder.indexOf('roster-section-friend'),
+    expect(rowOrder.indexOf('roster-row-901')).toBeLessThan(
+      rowOrder.indexOf('roster-row-902'),
     );
   });
 });
@@ -1236,5 +1277,168 @@ describe('ScoreGameScreen — three-dot menu', () => {
 
     await waitFor(() => expect(mockShareLink).toHaveBeenCalled());
     expect(mockShareLink.mock.calls[0][0]).toContain('BKSHARE1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Add New Player (guest / placeholder) flow — Wave C1 integration
+// ---------------------------------------------------------------------------
+
+describe('ScoreGameScreen — Add New Player flow', () => {
+  /**
+   * Activates team 1 slot 0 (the first slot) then types a search query that
+   * won't match any roster player, triggering the "Add as New Player" CTA.
+   */
+  async function activateSlotAndSearch(query: string): Promise<void> {
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('team1-slot0'));
+    fireEvent.changeText(screen.getByTestId('roster-search-input'), query);
+  }
+
+  it('shows AddNewPlayerSheet when the Add CTA is tapped with a search query', async () => {
+    render(<ScoreGameScreen />);
+    await activateSlotAndSearch('Brad K');
+
+    // The CTA label is dynamic: Add "<query>" as a New Player
+    const cta = await waitFor(() =>
+      screen.getByLabelText('Add "Brad K" as a New Player'),
+    );
+    fireEvent.press(cta);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('add-new-player-sheet')).toBeTruthy();
+    });
+  });
+
+  it('calls createPlaceholder with correct payload on submit', async () => {
+    render(<ScoreGameScreen />);
+    await activateSlotAndSearch('Brad K');
+
+    const cta = await waitFor(() =>
+      screen.getByLabelText('Add "Brad K" as a New Player'),
+    );
+    fireEvent.press(cta);
+
+    // Sheet is open — prefill sets first="Brad" last="K"
+    await waitFor(() =>
+      expect(screen.getByTestId('add-new-player-first')).toBeTruthy(),
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('add-new-player-submit'));
+    });
+
+    await waitFor(() =>
+      expect(mockCreatePlaceholder).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Brad K' }),
+      ),
+    );
+  });
+
+  it('seats the guest player in the active slot after creation', async () => {
+    render(<ScoreGameScreen />);
+    await activateSlotAndSearch('Brad K');
+
+    const cta = await waitFor(() =>
+      screen.getByLabelText('Add "Brad K" as a New Player'),
+    );
+    fireEvent.press(cta);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('add-new-player-first')).toBeTruthy(),
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('add-new-player-submit'));
+    });
+
+    // Guest player should now occupy team1-slot0 — the slot label matches the
+    // display_name returned by createPlaceholder (accessibilityLabel = display_name).
+    await waitFor(() => {
+      expect(screen.getByLabelText('Brad K')).toBeTruthy();
+    });
+  });
+
+  it('shows ScoreboardToast with "added to Team 1" after creation', async () => {
+    render(<ScoreGameScreen />);
+    await activateSlotAndSearch('Brad K');
+
+    const cta = await waitFor(() =>
+      screen.getByLabelText('Add "Brad K" as a New Player'),
+    );
+    fireEvent.press(cta);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('add-new-player-first')).toBeTruthy(),
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('add-new-player-submit'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('scoreboard-toast')).toBeTruthy();
+      expect(screen.getByTestId('scoreboard-toast-message').props.children).toBe(
+        'Brad K added to Team 1',
+      );
+    });
+  });
+
+  it('tapping Share on the toast calls shareLink with the invite URL', async () => {
+    render(<ScoreGameScreen />);
+    await activateSlotAndSearch('Brad K');
+
+    const cta = await waitFor(() =>
+      screen.getByLabelText('Add "Brad K" as a New Player'),
+    );
+    fireEvent.press(cta);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('add-new-player-first')).toBeTruthy(),
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('add-new-player-submit'));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('scoreboard-toast-share')).toBeTruthy(),
+    );
+
+    // shareLink should NOT have been called yet (not via this flow — share menu
+    // is a separate interaction counted from call #0 forward)
+    const callsBefore = mockShareLink.mock.calls.length;
+
+    fireEvent.press(screen.getByTestId('scoreboard-toast-share'));
+
+    await waitFor(() => {
+      expect(mockShareLink.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+    const lastCall = mockShareLink.mock.calls[mockShareLink.mock.calls.length - 1];
+    expect(lastCall[0]).toBe('https://beachleague.app/invite/tok123');
+  });
+
+  it('AddNewPlayerSheet closes after successful creation', async () => {
+    render(<ScoreGameScreen />);
+    await activateSlotAndSearch('Brad K');
+
+    const cta = await waitFor(() =>
+      screen.getByLabelText('Add "Brad K" as a New Player'),
+    );
+    fireEvent.press(cta);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('add-new-player-sheet')).toBeTruthy(),
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('add-new-player-submit'));
+    });
+
+    // After successful creation the hook sets addNewPlayerVisible=false,
+    // which means the sheet's Modal renders null (RNModal with visible=false).
+    await waitFor(() => {
+      expect(screen.queryByTestId('add-new-player-sheet')).toBeNull();
+    });
   });
 });

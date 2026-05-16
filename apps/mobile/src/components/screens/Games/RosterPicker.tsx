@@ -1,13 +1,11 @@
 /**
  * RosterPicker — embedded picker shown in building mode.
  *
- * Renders players grouped by their relation bucket (friend > friend of
- * friend > recent opponent > in this session > league member > other). Order
- * mirrors the backend's relevance ranking from `/api/players/search`.
- *
- * When the search box is empty we show the locally-loaded roster (session
- * participants + friends or league members). When the user types, results
- * come from the relevance-ranked backend search so they can find anyone.
+ * Renders a single relevance-ranked list (order comes straight from the
+ * backend's additive scoring at `/api/players/search`). Session players lead
+ * as compact chips; everyone else is a row annotated with up to three pills
+ * derived from `player.tags`. The list is one bounded, deduped set — the
+ * client scrolls it locally; there is no paging.
  *
  * testID="roster-picker" and testID="roster-chip-{id}" are preserved for
  * existing tests.
@@ -22,7 +20,8 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import type { RosterPlayer, RosterPlayerSource } from './useScoreGameScreen';
+import type { PlayerSearchTag } from '@beach-kings/shared';
+import type { RosterPlayer } from './useScoreGameScreen';
 import type { PlayerSlot } from './useScoreGameScreen';
 import { SearchIcon, PlusIcon, XIcon } from '@/components/ui/icons';
 
@@ -48,6 +47,34 @@ function teamBadge(
   if (isOnTeam(player, team1)) return 'T1';
   if (isOnTeam(player, team2)) return 'T2';
   return null;
+}
+
+/** Pill copy + tone per relevance tag. Order in PILL_ORDER == display order. */
+const PILL_ORDER: readonly PlayerSearchTag[] = [
+  'in_league',
+  'shared_league',
+  'friend',
+  'recent_opp',
+];
+
+const TAG_LABEL: Record<PlayerSearchTag, string> = {
+  in_league: 'In league',
+  shared_league: 'Shared league',
+  friend: 'Friend',
+  recent_opp: 'Recent opp',
+};
+
+const TAG_TONE: Record<PlayerSearchTag, 'teal' | 'gold'> = {
+  in_league: 'teal',
+  shared_league: 'teal',
+  friend: 'teal',
+  recent_opp: 'gold',
+};
+
+function orderedTags(
+  tags: readonly PlayerSearchTag[],
+): readonly PlayerSearchTag[] {
+  return PILL_ORDER.filter((t) => tags.includes(t));
 }
 
 // ---------------------------------------------------------------------------
@@ -139,54 +166,37 @@ function SessionChip({
 }
 
 // ---------------------------------------------------------------------------
-// Friend / recent opponent row
+// Ranked row (with relevance pills)
 // ---------------------------------------------------------------------------
 
-interface FriendRowProps {
+interface PlayerRowProps {
   readonly player: RosterPlayer;
   readonly badge: 'T1' | 'T2' | null;
   readonly onPress: (player: RosterPlayer) => void;
 }
 
-/** Small relation pill rendered next to each row's name. */
-const SOURCE_LABEL: Record<RosterPlayerSource, string | null> = {
-  friend: 'Friend',
-  friend_of_friend: 'Friend of friend',
-  recent_opponent: 'Recent opp',
-  session: 'In session',
-  league: 'In league',
-  other: null,
-};
+function PillBadge({ tag }: { readonly tag: PlayerSearchTag }): React.ReactNode {
+  const tone = TAG_TONE[tag];
+  const box = tone === 'teal' ? 'bg-info-tint' : 'bg-warning-tint';
+  const text = tone === 'teal' ? 'text-brand-teal' : 'text-warning';
+  return (
+    <View
+      testID={`roster-pill-${tag}`}
+      className={`px-[6px] py-[1px] rounded-[4px] ${box}`}
+    >
+      <Text className={`text-[10px] font-bold ${text}`}>{TAG_LABEL[tag]}</Text>
+    </View>
+  );
+}
 
-const SOURCE_PILL_TONE: Record<RosterPlayerSource, 'teal' | 'gold' | 'muted'> = {
-  friend: 'teal',
-  friend_of_friend: 'teal',
-  recent_opponent: 'gold',
-  session: 'teal',
-  league: 'teal',
-  other: 'muted',
-};
-
-function FriendRow({ player, badge, onPress }: FriendRowProps): React.ReactNode {
+function PlayerRow({ player, badge, onPress }: PlayerRowProps): React.ReactNode {
   const handlePress = useCallback(() => onPress(player), [onPress, player]);
   const isSeated = badge != null;
-  const label = SOURCE_LABEL[player.source];
-  const tone = SOURCE_PILL_TONE[player.source];
-  const pillClasses =
-    tone === 'teal'
-      ? 'bg-info-tint'
-      : tone === 'gold'
-        ? 'bg-warning-tint'
-        : 'bg-elevated';
-  const pillText =
-    tone === 'teal'
-      ? 'text-brand-teal'
-      : tone === 'gold'
-        ? 'text-warning'
-        : 'text-muted';
+  const pills = orderedTags(player.tags);
 
   return (
     <View
+      testID={`roster-row-${player.player_id}`}
       className={`flex-row items-center gap-3 py-[10px] border-b border-divider min-h-[58px] ${
         isSeated ? 'opacity-50' : ''
       }`}
@@ -200,11 +210,11 @@ function FriendRow({ player, badge, onPress }: FriendRowProps): React.ReactNode 
         <Text className="text-[14px] font-semibold text-default">
           {player.display_name}
         </Text>
-        {label != null && (
-          <View className="flex-row items-center gap-[5px] mt-[3px]">
-            <View className={`px-[6px] py-[1px] rounded-[4px] ${pillClasses}`}>
-              <Text className={`text-[10px] font-bold ${pillText}`}>{label}</Text>
-            </View>
+        {pills.length > 0 && (
+          <View className="flex-row items-center flex-wrap gap-[5px] mt-[3px]">
+            {pills.map((tag) => (
+              <PillBadge key={tag} tag={tag} />
+            ))}
           </View>
         )}
       </View>
@@ -308,46 +318,12 @@ interface RosterPickerProps {
   /** True while a debounced backend search is in flight. */
   readonly isSearching?: boolean;
   /**
-   * League match context — when true, the "League members" section is shown
-   * first, mirroring the backend's league-first relevance ranking.
-   */
-  readonly isLeagueMatch?: boolean;
-  /**
    * Called when the search input gains/loses focus. The parent uses this to
    * collapse the scoreboard while the keyboard is up, freeing vertical space
    * for the results list.
    */
   readonly onSearchFocusChange?: (focused: boolean) => void;
 }
-
-interface RowSection {
-  readonly source: RosterPlayerSource;
-  readonly label: string;
-}
-
-/**
- * Section titles shown above each relation bucket of rows. Order mirrors the
- * relevance ranking used by the backend search — friends first by default.
- */
-const ROW_SECTIONS: ReadonlyArray<RowSection> = [
-  { source: 'friend', label: 'Friends' },
-  { source: 'friend_of_friend', label: 'Friends of friends' },
-  { source: 'recent_opponent', label: 'Recent opponents' },
-  { source: 'league', label: 'League members' },
-  { source: 'other', label: 'Other players' },
-];
-
-/**
- * In a league match the backend promotes league members to the top, so the
- * picker mirrors that by rendering "League members" first.
- */
-const LEAGUE_MATCH_ROW_SECTIONS: ReadonlyArray<RowSection> = [
-  { source: 'league', label: 'League members' },
-  { source: 'friend', label: 'Friends' },
-  { source: 'friend_of_friend', label: 'Friends of friends' },
-  { source: 'recent_opponent', label: 'Recent opponents' },
-  { source: 'other', label: 'Other players' },
-];
 
 export default function RosterPicker({
   roster,
@@ -359,7 +335,6 @@ export default function RosterPicker({
   onAddNewPlayer,
   currentPlayerId,
   isSearching = false,
-  isLeagueMatch = false,
   onSearchFocusChange,
 }: RosterPickerProps): React.ReactNode {
   const handleClearSearch = useCallback(() => onSearch(''), [onSearch]);
@@ -373,28 +348,19 @@ export default function RosterPicker({
   );
 
   const showClear = search.length > 0;
-  const sessionPlayers = roster.filter((p) => p.source === 'session');
-  const hasSessionSection = sessionPlayers.length > 0;
 
-  // Group the row-style players (everything that's not "in this session")
-  // by their source, preserving the order the backend returned them in.
-  // In a league match, "League members" leads the list.
-  const sectionOrder = isLeagueMatch
-    ? LEAGUE_MATCH_ROW_SECTIONS
-    : ROW_SECTIONS;
-  const rowSections = sectionOrder
-    .map((section) => ({
-      ...section,
-      players: roster.filter((p) => p.source === section.source),
-    }))
-    .filter((section) => section.players.length > 0);
+  // Single ranked list — session players lead as compact chips, everyone
+  // else follows as rows. Order is preserved from the backend ranking.
+  const sessionPlayers = roster.filter((p) => p.isSession);
+  const rowPlayers = roster.filter((p) => !p.isSession);
+  const hasSessionSection = sessionPlayers.length > 0;
 
   const seatedCount = sessionPlayers.filter(
     (p) => isOnTeam(p, team1) || isOnTeam(p, team2),
   ).length;
 
   const showEmpty =
-    !hasSessionSection && rowSections.length === 0 && !isSearching;
+    !hasSessionSection && rowPlayers.length === 0 && !isSearching;
 
   return (
     <View testID="roster-picker" className="flex-1 bg-page border-t border-divider">
@@ -447,6 +413,7 @@ export default function RosterPicker({
         {hasSessionSection && (
           <>
             <SectionLabel
+              testID="roster-section-session"
               label="In this session"
               count={
                 seatedCount > 0
@@ -471,23 +438,26 @@ export default function RosterPicker({
           </>
         )}
 
-        {/* Relation-bucket sections — friends, FoFs, recent opps, etc. */}
-        {rowSections.map((section) => (
-          <React.Fragment key={section.source}>
-            <SectionLabel
-              label={section.label}
-              testID={`roster-section-${section.source}`}
-            />
-            {section.players.map((player) => (
-              <FriendRow
+        {/* Single relevance-ranked list. No bucket headers — order is the
+            backend's additive score; pills convey the relationship. */}
+        {rowPlayers.length > 0 && (
+          <>
+            {hasSessionSection && (
+              <SectionLabel
+                testID="roster-section-ranked"
+                label="More players"
+              />
+            )}
+            {rowPlayers.map((player) => (
+              <PlayerRow
                 key={player.player_id}
                 player={player}
                 badge={teamBadge(player, team1, team2)}
                 onPress={onSelectPlayer}
               />
             ))}
-          </React.Fragment>
-        ))}
+          </>
+        )}
 
         {showEmpty && (
           <Text className="text-[13px] text-muted italic py-4 text-center">

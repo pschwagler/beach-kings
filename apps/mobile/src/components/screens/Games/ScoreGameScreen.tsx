@@ -22,7 +22,10 @@ import { useScoreGameScreen } from './useScoreGameScreen';
 import ScoreBoard, { MAX_SCORE } from './ScoreBoard';
 import RosterPicker from './RosterPicker';
 import ScoreGameMenu from './ScoreGameMenu';
+import AddNewPlayerSheet from './AddNewPlayerSheet';
+import ScoreboardToast from './ScoreboardToast';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
+import { shareLink } from '@/utils/share';
 import type { RosterPlayer, PlayerSlot } from './useScoreGameScreen';
 
 export interface ScoreGameScreenProps {
@@ -297,6 +300,15 @@ export default function ScoreGameScreen({
     onRetry,
     onAddAnother: hookOnAddAnother,
     onDelete,
+    addNewPlayerVisible,
+    addNewPlayerPrefillName,
+    inferredGender,
+    inferredLevel,
+    pendingShareInvite,
+    openAddNewPlayer,
+    closeAddNewPlayer,
+    clearPendingShareInvite,
+    onCreateNewPlayer,
   } = useScoreGameScreen({
     sessionId: routeSessionId,
     leagueId,
@@ -594,9 +606,13 @@ export default function ScoreGameScreen({
             search={search}
             onSearch={setSearch}
             onSelectPlayer={handlePlayerSelect}
+            onAddNewPlayer={
+              effectiveActiveSlot != null
+                ? () => { openAddNewPlayer(effectiveActiveSlot); }
+                : undefined
+            }
             currentPlayerId={currentPlayerId}
             isSearching={isSearching}
-            isLeagueMatch={leagueId != null}
             onSearchFocusChange={setSearchFocused}
           />
         )}
@@ -697,6 +713,30 @@ export default function ScoreGameScreen({
         onShareSession={handleShareSession}
         canShare={canShare}
         isCreatingSession={isCreatingSession}
+      />
+      <AddNewPlayerSheet
+        visible={addNewPlayerVisible}
+        prefillName={addNewPlayerPrefillName}
+        inferredGender={inferredGender}
+        inferredLevel={inferredLevel}
+        onCreate={onCreateNewPlayer}
+        onCancel={closeAddNewPlayer}
+      />
+      <ScoreboardToast
+        visible={pendingShareInvite != null}
+        message={
+          pendingShareInvite != null
+            ? `${pendingShareInvite.name} added to Team ${pendingShareInvite.team}`
+            : ''
+        }
+        onDismiss={clearPendingShareInvite}
+        onShare={
+          pendingShareInvite != null
+            ? () => {
+                void shareLink(pendingShareInvite.invite_url, 'Share invite');
+              }
+            : undefined
+        }
       />
     </SafeAreaView>
   );
