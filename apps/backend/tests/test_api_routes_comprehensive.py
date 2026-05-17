@@ -866,26 +866,35 @@ class TestLeagueEndpoints:
         """Test getting a specific league."""
         client, headers = make_client_with_auth(monkeypatch)
 
-        async def fake_get_league(session, league_id):
+        async def fake_get_league_detail(session, league_id, user_id):
             return {
                 "id": league_id,
                 "name": "Test League",
                 "description": None,
                 "location_id": None,
+                "location_name": None,
                 "is_open": True,
+                "is_public": True,
                 "whatsapp_group_id": None,
                 "gender": None,
                 "level": None,
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat(),
+                "created_at": None,
+                "updated_at": None,
+                "home_courts": [],
+                "member_count": 0,
+                "season_count": 0,
+                "current_season_id": None,
+                "current_season_name": None,
+                "is_active": False,
+                "user_role": None,
+                "user_rank": None,
+                "user_wins": None,
+                "user_losses": None,
+                "user_rating": None,
             }
 
-        async def fake_has_league_role(session, user_id, league_id, role):
-            return True
-
-        monkeypatch.setattr(data_service, "get_league", fake_get_league, raising=True)
         monkeypatch.setattr(
-            auth_dependencies, "_has_league_role", fake_has_league_role, raising=True
+            data_service, "get_league_detail", fake_get_league_detail, raising=True
         )
 
         response = client.get("/api/leagues/1", headers=headers)

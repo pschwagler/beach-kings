@@ -92,6 +92,9 @@ export const routes = {
       ? `/(stack)/score-game?${qs.join('&')}`
       : '/(stack)/score-game';
   },
+  // No params: AddNewPlayerContext carries the request/result, so the path
+  // stays a static `as const` literal (no `as never` cast at the push site).
+  addNewPlayer: () => '/(stack)/add-new-player' as const,
   settings: () => '/(stack)/settings' as const,
   settingsNotifications: () => '/(stack)/settings/notifications' as const,
   settingsAppearance: () => '/(stack)/settings/appearance' as const,

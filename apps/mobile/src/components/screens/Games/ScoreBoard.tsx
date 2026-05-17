@@ -3,13 +3,15 @@
  *
  * Two modes driven by the `isBuilding` prop:
  *   building  — team slots visible, score steppers hidden, active-slot NEXT badge shown
- *   scoring   — all 4 seats filled, score steppers visible with TextInput
+ *   scoring   — all 4 seats filled, tappable score display visible with numpad below
  *
  * The board is split horizontally. Each half occupies half the screen width.
  */
 
 import React, { useCallback, useEffect } from 'react';
-import { View, Text, Pressable, TextInput } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
+import Avatar from '@/components/ui/Avatar';
+import type { AvatarVariant } from '@/components/ui/Avatar';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -132,146 +134,104 @@ function PlayerChip({
     );
   }
 
-  // Filled slot
-  const isGuest = slot.is_guest === true;
+  // Filled slot — chip + remove button are siblings inside a wrapper View so iOS
+  // accessibility traversal doesn't drop the nested remove Pressable.
+  const avatarVariant: AvatarVariant = isTeal ? 'teal' : 'gold';
   return (
-    <Pressable
-      testID={`team${team}-slot${index}`}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={slot.display_name}
-      className={`flex-row items-center gap-2 px-3 py-2 rounded-[10px] min-h-[44px] w-full ${
-        isGuest
-          ? 'border border-dashed border-brand-gold'
-          : isTeal
-          ? 'bg-info-tint'
-          : 'bg-warning-tint'
+    <View
+      className={`flex-row items-center rounded-[10px] min-h-[44px] w-full ${
+        isTeal ? 'bg-info-tint' : 'bg-warning-tint'
       }`}
-      style={isGuest ? { backgroundColor: 'rgba(245,158,11,0.08)' } : undefined}
     >
-      <GripHandle />
-      <View
-        className={`w-8 h-8 rounded-full items-center justify-center ${
-          isGuest
-            ? 'border border-dashed border-brand-gold'
-            : isTeal
-            ? 'bg-brand-teal'
-            : 'bg-brand-gold'
-        }`}
-        style={isGuest ? { backgroundColor: 'rgba(245,158,11,0.2)' } : undefined}
+      <Pressable
+        testID={`team${team}-slot${index}`}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={slot.display_name}
+        className="flex-1 flex-row items-center gap-2 px-3 py-2"
       >
-        <Text
-          className={`text-[10px] font-bold ${isGuest ? 'text-warning' : 'text-white'}`}
-        >
-          {slot.initials}
-        </Text>
-      </View>
-      <View className="flex-1">
-        <Text
-          className={`text-[14px] font-bold ${isGuest ? 'text-warning' : 'text-default'}`}
-          numberOfLines={1}
-        >
-          {formatPlayerShort(slot.display_name)}
-        </Text>
-        {isGuest && (
-          <Text className="text-[11px] text-warning italic">new</Text>
-        )}
-      </View>
+        <GripHandle />
+        <Avatar
+          name={slot.display_name}
+          imageUrl={slot.avatar_url}
+          size="sm"
+          variant={avatarVariant}
+          accessible={false}
+        />
+        <View className="flex-1">
+          <Text
+            className="text-[14px] font-bold text-default"
+            numberOfLines={1}
+          >
+            {formatPlayerShort(slot.display_name)}
+            {slot.is_guest === true && (
+              <Text className="text-[12px] font-normal text-muted"> (guest)</Text>
+            )}
+          </Text>
+        </View>
+      </Pressable>
       <Pressable
         onPress={onRemove}
         accessibilityRole="button"
         accessibilityLabel={`Remove ${slot.display_name}`}
         hitSlop={8}
-        className="w-[22px] h-[22px] rounded-full items-center justify-center ml-auto"
+        className="w-[22px] h-[22px] rounded-full items-center justify-center mr-3"
         style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
       >
         <Text className="text-[13px] font-semibold" style={{ color: 'rgba(0,0,0,0.4)', lineHeight: 16 }}>
           ×
         </Text>
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Score stepper (scoring mode only)
+// Score display (scoring mode only — tappable score box)
 // ---------------------------------------------------------------------------
 
-interface ScoreStepperProps {
+const TEAL = '#4daacc';
+const GOLD = '#e0b44c';
+
+interface ScoreDisplayProps {
   readonly score: number;
   readonly team: 1 | 2;
-  readonly onInc: () => void;
-  readonly onDec: () => void;
-  readonly onScoreChange: (n: number) => void;
+  readonly isActive: boolean;
+  readonly onPress: () => void;
 }
 
-function ScoreStepper({
-  score,
-  team,
-  onInc,
-  onDec,
-  onScoreChange,
-}: ScoreStepperProps): React.ReactNode {
+function ScoreDisplay({ score, team, isActive, onPress }: ScoreDisplayProps): React.ReactNode {
   const isTeal = team === 1;
+  const ringColor = isTeal ? TEAL : GOLD;
 
   return (
-    <View className="items-center gap-2">
-      <TextInput
-        testID={`score-display-team${team}`}
-        value={String(score)}
-        onChangeText={(text) => {
-          const num = parseInt(text, 10);
-          onScoreChange(isNaN(num) ? 0 : Math.max(0, Math.min(MAX_SCORE, num)));
+    <Pressable
+      testID={`score-box-team${team}`}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Score for team ${team}`}
+      className="items-center py-2"
+    >
+      <View
+        style={{
+          borderWidth: 3,
+          borderColor: isActive ? ringColor : 'transparent',
+          borderRadius: 16,
+          paddingHorizontal: 12,
+          paddingVertical: 4,
         }}
-        keyboardType="number-pad"
-        accessibilityLabel={`Score for team ${team}`}
-        className={`text-[72px] font-black leading-none w-[90px] text-center border-b-2 bg-transparent p-0 ${
-          isTeal ? 'text-brand-teal border-brand-teal' : 'text-warning border-brand-gold'
-        }`}
-        style={{ opacity: 0.85 }}
-        maxLength={2}
-        selectTextOnFocus
-      />
-
-      <View className="flex-row items-center gap-4">
-        <Pressable
-          testID={`dec-score-team${team}`}
-          onPress={onDec}
-          disabled={score === 0}
-          accessibilityRole="button"
-          accessibilityLabel="Decrease score"
-          className={`w-11 h-11 rounded-full border-2 items-center justify-center ${
-            score === 0 ? 'opacity-20' : ''
-          } ${isTeal ? 'border-brand-teal' : 'border-brand-gold'}`}
-        >
-          <Text
-            className={`text-[24px] font-bold leading-none ${
-              isTeal ? 'text-brand-teal' : 'text-warning'
-            }`}
-          >
-            -
-          </Text>
-        </Pressable>
-
-        <Pressable
-          testID={`inc-score-team${team}`}
-          onPress={onInc}
-          accessibilityRole="button"
-          accessibilityLabel="Increase score"
-          className={`w-11 h-11 rounded-full border-2 items-center justify-center ${
-            isTeal ? 'border-brand-teal' : 'border-brand-gold'
+      >
+        <Text
+          testID={`score-display-team${team}`}
+          className={`text-[72px] font-black leading-none text-center ${
+            isTeal ? 'text-brand-teal' : 'text-warning'
           }`}
+          style={{ opacity: 0.85, minWidth: 90 }}
         >
-          <Text
-            className={`text-[24px] font-bold leading-none ${
-              isTeal ? 'text-brand-teal' : 'text-warning'
-            }`}
-          >
-            +
-          </Text>
-        </Pressable>
+          {String(score)}
+        </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -285,11 +245,10 @@ interface BoardHalfProps {
   readonly score: number;
   readonly isBuilding: boolean;
   readonly activeSlot: { readonly team: 1 | 2; readonly slot: 0 | 1 } | null;
-  readonly onInc: () => void;
-  readonly onDec: () => void;
-  readonly onScoreChange: (n: number) => void;
+  readonly activeScoreTeam?: 1 | 2 | null;
   readonly onSlotPress?: (slot: 0 | 1) => void;
   readonly onRemovePlayer?: (slot: 0 | 1) => void;
+  readonly onScoreTeamPress?: () => void;
 }
 
 function BoardHalf({
@@ -298,11 +257,10 @@ function BoardHalf({
   score,
   isBuilding,
   activeSlot,
-  onInc,
-  onDec,
-  onScoreChange,
+  activeScoreTeam,
   onSlotPress,
   onRemovePlayer,
+  onScoreTeamPress,
 }: BoardHalfProps): React.ReactNode {
   const isTeal = team === 1;
 
@@ -344,12 +302,11 @@ function BoardHalf({
       </View>
 
       {!isBuilding && (
-        <ScoreStepper
+        <ScoreDisplay
           score={score}
           team={team}
-          onInc={onInc}
-          onDec={onDec}
-          onScoreChange={onScoreChange}
+          isActive={activeScoreTeam === team}
+          onPress={() => onScoreTeamPress?.()}
         />
       )}
     </View>
@@ -373,12 +330,8 @@ interface ScoreBoardProps {
    * eat the search results. Only takes effect in building mode.
    */
   readonly compact?: boolean;
-  readonly onIncScore1: () => void;
-  readonly onDecScore1: () => void;
-  readonly onIncScore2: () => void;
-  readonly onDecScore2: () => void;
-  readonly onChangeScore1: (n: number) => void;
-  readonly onChangeScore2: (n: number) => void;
+  readonly activeScoreTeam?: 1 | 2 | null;
+  readonly onScoreTeamPress?: (team: 1 | 2) => void;
   readonly onSlotPress?: (team: 1 | 2, slot: 0 | 1) => void;
   readonly onRemovePlayer?: (team: 1 | 2, slot: 0 | 1) => void;
 }
@@ -481,15 +434,20 @@ export default function ScoreBoard({
   isBuilding,
   activeSlot,
   compact = false,
-  onIncScore1,
-  onDecScore1,
-  onIncScore2,
-  onDecScore2,
-  onChangeScore1,
-  onChangeScore2,
+  activeScoreTeam,
+  onScoreTeamPress,
   onSlotPress,
   onRemovePlayer,
 }: ScoreBoardProps): React.ReactNode {
+  const handleScoreTeam1Press = useCallback(
+    () => onScoreTeamPress?.(1),
+    [onScoreTeamPress],
+  );
+  const handleScoreTeam2Press = useCallback(
+    () => onScoreTeamPress?.(2),
+    [onScoreTeamPress],
+  );
+
   const handleSlot1Press = useCallback(
     (slot: 0 | 1) => onSlotPress?.(1, slot),
     [onSlotPress],
@@ -537,11 +495,10 @@ export default function ScoreBoard({
         score={score1}
         isBuilding={isBuilding}
         activeSlot={activeSlot ?? null}
-        onInc={onIncScore1}
-        onDec={onDecScore1}
-        onScoreChange={onChangeScore1}
+        activeScoreTeam={activeScoreTeam}
         onSlotPress={handleSlot1Press}
         onRemovePlayer={handleRemove1}
+        onScoreTeamPress={handleScoreTeam1Press}
       />
 
       <View className="w-[2px] bg-divider" />
@@ -552,11 +509,10 @@ export default function ScoreBoard({
         score={score2}
         isBuilding={isBuilding}
         activeSlot={activeSlot ?? null}
-        onInc={onIncScore2}
-        onDec={onDecScore2}
-        onScoreChange={onChangeScore2}
+        activeScoreTeam={activeScoreTeam}
         onSlotPress={handleSlot2Press}
         onRemovePlayer={handleRemove2}
+        onScoreTeamPress={handleScoreTeam2Press}
       />
     </View>
   );

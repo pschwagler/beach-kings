@@ -7,8 +7,10 @@
  *   empty    — "You're not in any leagues yet" + Join CTA
  *   data     — scrollable list of league cards with action buttons
  *
- * Each league card shows: header (icon + name + location + season) + optional
- * active badge + action button ("Continue (N games)" or "Start New Session").
+ * Each league card shows: header (icon + name + location + season). Sessions
+ * are only surfaced when one is active: a league with an active session gets
+ * the "Active Session" badge + a "Continue (N games)" button; a league with
+ * none just gets a plain "Add Game" button (no session wording at all).
  *
  * Mirrors `add-games-league-select.html` `.league-card` style.
  */
@@ -109,7 +111,7 @@ function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.Re
         testID={hasActiveSession ? `league-continue-${league.id}` : `league-new-${league.id}`}
         onPress={hasActiveSession ? handleContinue : handleStartNew}
         accessibilityRole="button"
-        accessibilityLabel={hasActiveSession ? `Continue session in ${league.name}` : `Start new session in ${league.name}`}
+        accessibilityLabel={hasActiveSession ? `Continue session in ${league.name}` : `Add game in ${league.name}`}
         className={`w-full py-3 rounded-[10px] items-center justify-center ${
           hasActiveSession ? 'bg-brand-gold' : 'bg-muted'
         }`}
@@ -117,7 +119,7 @@ function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.Re
         <Text className={`font-bold text-[15px] ${
           hasActiveSession ? 'text-white' : 'text-default'
         }`}>
-          {hasActiveSession ? `Continue (${matchCount} games)` : 'Start New Session'}
+          {hasActiveSession ? `Continue (${matchCount} games)` : 'Add Game'}
         </Text>
       </Pressable>
     </View>

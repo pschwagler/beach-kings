@@ -23,7 +23,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
-const mockLocalSearchParams = jest.fn<Record<string, string>, []>(() => ({}));
+const mockLocalSearchParams = jest.fn(() => ({}));
 
 type BeforeRemoveEvent = {
   preventDefault: () => void;
@@ -61,6 +61,7 @@ jest.mock('expo-router', () => {
     }),
     useLocalSearchParams: () => mockLocalSearchParams(),
     useSegments: () => [],
+    useFocusEffect: jest.fn(),
     Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,
     Slot: ({ children }: { children?: React.ReactNode }) => <View testID="slot">{children}</View>,
   };
@@ -193,6 +194,8 @@ jest.mock('@/components/ui/icons', () => {
 // ---------------------------------------------------------------------------
 
 import ScoreGameScreen from '../../../../app/(stack)/score-game';
+import AddNewPlayerProvider from '@/contexts/AddNewPlayerContext';
+import { AddNewPlayerScreen } from '@/components/screens/Games';
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -256,52 +259,94 @@ async function fillAllSlots(): Promise<void> {
   fireEvent.press(screen.getByTestId('roster-chip-13'));
 }
 
+/**
+ * Renders the score-game route wrapped in AddNewPlayerProvider — mirrors
+ * production, where `app/(stack)/_layout.tsx` supplies this context to every
+ * stack screen. `useScoreGameScreen` calls `useAddNewPlayer()`, so the
+ * provider is mandatory for the screen to mount at all.
+ */
+function renderScoreGame(): ReturnType<typeof render> {
+  return render(
+    <AddNewPlayerProvider>
+      <ScoreGameScreen />
+    </AddNewPlayerProvider>,
+  );
+}
+
+/**
+ * Like {@link renderScoreGame} but also wires a minimal navigation harness so
+ * the add-new-player formSheet (a sibling route in production) lives under the
+ * same provider. `router.push('/(stack)/add-new-player')` mounts the sheet
+ * component and `router.back()` unmounts it — the exact lifecycle the real
+ * stack navigator gives it. The AddNewPlayerContext bridge carries the request
+ * in and the created player back out, identical to production.
+ */
+function renderScoreGameWithSheet(): ReturnType<typeof render> {
+  function Harness(): React.ReactNode {
+    const [sheetOpen, setSheetOpen] = React.useState(false);
+    React.useEffect(() => {
+      mockPush.mockImplementation((href: unknown) => {
+        if (String(href).includes('add-new-player')) setSheetOpen(true);
+      });
+      mockBack.mockImplementation(() => setSheetOpen(false));
+    }, []);
+    return (
+      <AddNewPlayerProvider>
+        <ScoreGameScreen />
+        {sheetOpen ? <AddNewPlayerScreen /> : null}
+      </AddNewPlayerProvider>
+    );
+  }
+  return render(<Harness />);
+}
+
 // ---------------------------------------------------------------------------
 // Scoreboard
 // ---------------------------------------------------------------------------
 
 describe('ScoreGameScreen — scoreboard', () => {
   it('renders the scoreboard', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     expect(screen.getByTestId('scoreboard')).toBeTruthy();
   });
 
   it('renders initial score 0 for both teams after slots are filled', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await fillAllSlots();
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team1').props.value).toBe('0');
-      expect(screen.getByTestId('score-display-team2').props.value).toBe('0');
+      expect(screen.getByTestId('score-display-team1').props.children).toBe('0');
+      expect(screen.getByTestId('score-display-team2').props.children).toBe('0');
     });
   });
 
-  it('increments team 1 score when + button is pressed', async () => {
-    render(<ScoreGameScreen />);
+  it('enters team 1 score via numpad', async () => {
+    renderScoreGame();
     await fillAllSlots();
-    await waitFor(() => expect(screen.getByTestId('inc-score-team1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('inc-score-team1'));
+    await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-1'));
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team1').props.value).toBe('1');
+      expect(screen.getByTestId('score-display-team1').props.children).toBe('1');
     });
   });
 
-  it('increments team 2 score when + button is pressed', async () => {
-    render(<ScoreGameScreen />);
+  it('enters team 2 score via numpad after pressing NEXT', async () => {
+    renderScoreGame();
     await fillAllSlots();
-    await waitFor(() => expect(screen.getByTestId('inc-score-team2')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('inc-score-team2'));
+    await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-next')); // advance to team 2
+    fireEvent.press(screen.getByTestId('numpad-1'));
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team2').props.value).toBe('1');
+      expect(screen.getByTestId('score-display-team2').props.children).toBe('1');
     });
   });
 
-  it('does not decrement team 1 score below 0', async () => {
-    render(<ScoreGameScreen />);
+  it('delete on empty buffer resets team 1 score to 0', async () => {
+    renderScoreGame();
     await fillAllSlots();
-    await waitFor(() => expect(screen.getByTestId('dec-score-team1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('dec-score-team1'));
+    await waitFor(() => expect(screen.getByTestId('numpad-delete')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-delete'));
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team1').props.value).toBe('0');
+      expect(screen.getByTestId('score-display-team1').props.children).toBe('0');
     });
   });
 });
@@ -312,12 +357,12 @@ describe('ScoreGameScreen — scoreboard', () => {
 
 describe('ScoreGameScreen — roster picker', () => {
   it('renders the roster picker', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     expect(screen.getByTestId('roster-picker')).toBeTruthy();
   });
 
   it('renders player chips in the roster', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     // Roster is fetched async — wait for chips to appear
     await waitFor(() => {
       expect(screen.getByTestId('roster-chip-10')).toBeTruthy(); // C. Gulla
@@ -326,7 +371,7 @@ describe('ScoreGameScreen — roster picker', () => {
   });
 
   it('filters roster chips based on search input', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     // Wait for roster to load first
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
     fireEvent.changeText(screen.getByTestId('roster-search-input'), 'Gulla');
@@ -352,7 +397,7 @@ describe('ScoreGameScreen — roster picker', () => {
       total_count: 1,
     });
 
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
 
     fireEvent.changeText(screen.getByTestId('roster-search-input'), 'Daniel');
@@ -364,7 +409,7 @@ describe('ScoreGameScreen — roster picker', () => {
   });
 
   it('removes seated players from the picker to free up search space', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
 
     // Seat player 10 in team1 slot 0
@@ -413,7 +458,7 @@ describe('ScoreGameScreen — roster picker', () => {
       ],
     });
 
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-picker')).toBeTruthy());
 
     fireEvent.changeText(screen.getByTestId('roster-search-input'), 'i');
@@ -442,12 +487,12 @@ describe('ScoreGameScreen — roster picker', () => {
 
 describe('ScoreGameScreen — save game button', () => {
   it('renders the Save Game button', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     expect(screen.getByTestId('save-game-btn')).toBeTruthy();
   });
 
   it('Save Game button is disabled when no players are assigned', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     const btn = screen.getByTestId('save-game-btn');
     // The button is rendered but cannot submit (canSubmit=false)
     expect(btn).toBeTruthy();
@@ -465,13 +510,13 @@ describe('ScoreGameScreen — save game button', () => {
 
 describe('ScoreGameScreen — error state after submit', () => {
   async function fillAndSubmit(): Promise<void> {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
 
     await fillAllSlots();
 
     // Switch to scoring mode (all 4 filled) then set score > 0
-    await waitFor(() => expect(screen.getByTestId('inc-score-team1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('inc-score-team1'));
+    await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-1'));
 
     // Press Save Game
     await act(async () => {
@@ -532,12 +577,12 @@ describe('ScoreGameScreen — success state after submit', () => {
   });
 
   async function fillAndSubmit(): Promise<void> {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
 
     await fillAllSlots();
 
-    await waitFor(() => expect(screen.getByTestId('inc-score-team1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('inc-score-team1'));
+    await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-1'));
 
     await act(async () => {
       fireEvent.press(screen.getByTestId('save-game-btn'));
@@ -574,38 +619,26 @@ describe('ScoreGameScreen — success state after submit', () => {
 // ---------------------------------------------------------------------------
 
 describe('ScoreGameScreen — score upper clamp', () => {
-  async function pressIncN(testId: string, times: number): Promise<void> {
-    for (let i = 0; i < times; i += 1) {
-      fireEvent.press(screen.getByTestId(testId));
-    }
-  }
-
-  it('does not increment team 1 score above 99', async () => {
-    render(<ScoreGameScreen />);
+  it('entering two digits caps team 1 score and auto-advances to team 2', async () => {
+    renderScoreGame();
     await fillAllSlots();
-    await waitFor(() => expect(screen.getByTestId('inc-score-team1')).toBeTruthy());
-    // Bring team 1 to 99 via text input, then attempt to press + one more time
-    fireEvent.changeText(screen.getByTestId('score-display-team1'), '99');
+    await waitFor(() => expect(screen.getByTestId('numpad-9')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-9'));
+    fireEvent.press(screen.getByTestId('numpad-9'));
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team1').props.value).toBe('99');
-    });
-    await pressIncN('inc-score-team1', 1);
-    await waitFor(() => {
-      expect(screen.getByTestId('score-display-team1').props.value).toBe('99');
+      expect(screen.getByTestId('score-display-team1').props.children).toBe('99');
     });
   });
 
-  it('does not increment team 2 score above 99', async () => {
-    render(<ScoreGameScreen />);
+  it('entering two digits caps team 2 score at 99', async () => {
+    renderScoreGame();
     await fillAllSlots();
-    await waitFor(() => expect(screen.getByTestId('inc-score-team2')).toBeTruthy());
-    fireEvent.changeText(screen.getByTestId('score-display-team2'), '99');
+    await waitFor(() => expect(screen.getByTestId('numpad-9')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-next')); // advance to team 2
+    fireEvent.press(screen.getByTestId('numpad-9'));
+    fireEvent.press(screen.getByTestId('numpad-9'));
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team2').props.value).toBe('99');
-    });
-    await pressIncN('inc-score-team2', 3);
-    await waitFor(() => {
-      expect(screen.getByTestId('score-display-team2').props.value).toBe('99');
+      expect(screen.getByTestId('score-display-team2').props.children).toBe('99');
     });
   });
 });
@@ -625,10 +658,10 @@ describe('ScoreGameScreen — success view content', () => {
   });
 
   async function fillAndSubmit(): Promise<void> {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await fillAllSlots();
-    await waitFor(() => expect(screen.getByTestId('inc-score-team1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('inc-score-team1'));
+    await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-1'));
     await act(async () => {
       fireEvent.press(screen.getByTestId('save-game-btn'));
     });
@@ -651,11 +684,12 @@ describe('ScoreGameScreen — success view content', () => {
     // Build a tie by ignoring the warning and submitting anyway.
     // canSubmit allows submission with any (score1 > 0 || score2 > 0), even
     // when score1 === score2 > 0, so 1-1 reaches the success view.
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await fillAllSlots();
-    await waitFor(() => expect(screen.getByTestId('inc-score-team1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('inc-score-team1'));
-    fireEvent.press(screen.getByTestId('inc-score-team2'));
+    await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-1')); // team 1 score = 1
+    fireEvent.press(screen.getByTestId('numpad-next')); // advance to team 2
+    fireEvent.press(screen.getByTestId('numpad-1')); // team 2 score = 1
 
     await act(async () => {
       fireEvent.press(screen.getByTestId('save-game-btn'));
@@ -687,7 +721,7 @@ describe('ScoreGameScreen — success view content', () => {
 
 describe('ScoreGameScreen — header and subtitle from params', () => {
   it('renders "Add Game" by default', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => {
       expect(screen.getByText('Add Game')).toBeTruthy();
     });
@@ -695,7 +729,7 @@ describe('ScoreGameScreen — header and subtitle from params', () => {
 
   it('renders custom headerTitle when passed as route param', async () => {
     mockLocalSearchParams.mockReturnValue({ headerTitle: 'Continue Session' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => {
       expect(screen.getByText('Continue Session')).toBeTruthy();
     });
@@ -706,7 +740,7 @@ describe('ScoreGameScreen — header and subtitle from params', () => {
       gameNumber: '3',
       sessionLabel: 'Sunday at QBK',
     });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => {
       expect(screen.getByText('Game #3 · Sunday at QBK')).toBeTruthy();
     });
@@ -716,7 +750,7 @@ describe('ScoreGameScreen — header and subtitle from params', () => {
     mockLocalSearchParams.mockReturnValue({
       sessionLabel: 'Sunday League',
     });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => {
       expect(screen.getByText('Sunday League')).toBeTruthy();
     });
@@ -729,7 +763,7 @@ describe('ScoreGameScreen — header and subtitle from params', () => {
 
 describe('ScoreGameScreen — discard-on-close guard', () => {
   it('navigates back silently when X is pressed with an empty board', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     // Wait for the screen to be ready (modal-close-btn is part of the nav header).
     await waitFor(() => expect(screen.getByTestId('modal-close-btn')).toBeTruthy());
     fireEvent.press(screen.getByTestId('modal-close-btn'));
@@ -742,7 +776,7 @@ describe('ScoreGameScreen — discard-on-close guard', () => {
   });
 
   it('shows the discard dialog when X is pressed after a player is added', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
     // Add a single player (enough to register progress).
     fireEvent.press(screen.getByTestId('team1-slot0'));
@@ -760,7 +794,7 @@ describe('ScoreGameScreen — discard-on-close guard', () => {
   });
 
   it('Keep Scoring dismisses the dialog without navigating', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
     fireEvent.press(screen.getByTestId('team1-slot0'));
     fireEvent.press(screen.getByTestId('roster-chip-10'));
@@ -779,7 +813,7 @@ describe('ScoreGameScreen — discard-on-close guard', () => {
   });
 
   it('Discard confirms and navigates back', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
     fireEvent.press(screen.getByTestId('team1-slot0'));
     fireEvent.press(screen.getByTestId('roster-chip-10'));
@@ -801,7 +835,7 @@ describe('ScoreGameScreen — discard-on-close guard', () => {
     // were still filled, the listener re-opened the dialog — forcing the
     // user to tap Discard twice. Replay that here and assert the dialog
     // doesn't come back.
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
     fireEvent.press(screen.getByTestId('team1-slot0'));
     fireEvent.press(screen.getByTestId('roster-chip-10'));
@@ -832,7 +866,7 @@ describe('ScoreGameScreen — discard-on-close guard', () => {
 
   it('replaces to session detail on close when sessionId is present and no progress', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '42' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('modal-close-btn')).toBeTruthy());
     fireEvent.press(screen.getByTestId('modal-close-btn'));
 
@@ -864,7 +898,7 @@ function fireBeforeRemove(action: unknown = { type: 'GO_BACK' }): {
 
 describe('ScoreGameScreen — beforeRemove guard (back-gesture / hardware-back)', () => {
   it('lets navigation proceed with empty board (preventDefault not called)', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(mockNavAddListener).toHaveBeenCalled());
 
     const { preventDefault } = fireBeforeRemove();
@@ -874,7 +908,7 @@ describe('ScoreGameScreen — beforeRemove guard (back-gesture / hardware-back)'
   });
 
   it('prevents removal and shows discard dialog when there is progress', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
     fireEvent.press(screen.getByTestId('team1-slot0'));
     fireEvent.press(screen.getByTestId('roster-chip-10'));
@@ -888,7 +922,7 @@ describe('ScoreGameScreen — beforeRemove guard (back-gesture / hardware-back)'
   });
 
   it('replays the captured navigation action when Discard is confirmed', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
     fireEvent.press(screen.getByTestId('team1-slot0'));
     fireEvent.press(screen.getByTestId('roster-chip-10'));
@@ -911,7 +945,7 @@ describe('ScoreGameScreen — beforeRemove guard (back-gesture / hardware-back)'
   });
 
   it('clears the captured action when Keep Scoring is pressed', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
     fireEvent.press(screen.getByTestId('team1-slot0'));
     fireEvent.press(screen.getByTestId('roster-chip-10'));
@@ -939,7 +973,7 @@ describe('ScoreGameScreen — loading lock', () => {
     // Submit hangs forever so the screen stays in 'loading' for the test.
     mockSubmitScoredGame.mockReturnValue(new Promise(() => {}));
 
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('team1-slot0'));
@@ -951,8 +985,8 @@ describe('ScoreGameScreen — loading lock', () => {
     fireEvent.press(screen.getByTestId('team2-slot1'));
     fireEvent.press(screen.getByTestId('roster-chip-13'));
 
-    await waitFor(() => expect(screen.getByTestId('inc-score-team1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('inc-score-team1'));
+    await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-1'));
 
     await act(async () => {
       fireEvent.press(screen.getByTestId('save-game-btn'));
@@ -1016,7 +1050,7 @@ describe('ScoreGameScreen — current user YOU badge', () => {
   });
 
   it('renders YOU pill on the current user chip when not seated', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() =>
       expect(screen.getByTestId('roster-chip-10-you-badge')).toBeTruthy(),
     );
@@ -1026,7 +1060,7 @@ describe('ScoreGameScreen — current user YOU badge', () => {
   });
 
   it('hides YOU pill once the current user is seated on a team', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() =>
       expect(screen.getByTestId('roster-chip-10-you-badge')).toBeTruthy(),
     );
@@ -1040,10 +1074,16 @@ describe('ScoreGameScreen — current user YOU badge', () => {
     );
   });
 
-  it('does not render any YOU pill when the current user is not in the roster', async () => {
+  it('still seats the caller as their own YOU chip when the backend roster excludes them', async () => {
+    // The relevance search deliberately omits the caller; the picker injects
+    // them client-side so they can add themselves to a team.
     mockGetCurrentUserPlayer.mockResolvedValue({ id: 9999, name: 'Outsider' });
-    render(<ScoreGameScreen />);
-    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
+    renderScoreGame();
+    await waitFor(() =>
+      expect(screen.getByTestId('roster-chip-9999-you-badge')).toBeTruthy(),
+    );
+    expect(screen.getByTestId('roster-chip-9999')).toBeTruthy();
+    // No other chip is mistaken for the caller.
     expect(screen.queryByTestId('roster-chip-10-you-badge')).toBeNull();
     expect(screen.queryByTestId('roster-chip-11-you-badge')).toBeNull();
     expect(screen.queryByTestId('roster-chip-12-you-badge')).toBeNull();
@@ -1087,7 +1127,7 @@ describe('ScoreGameScreen — edit mode', () => {
 
   it('renders "Edit Game" title when matchId is set and headerTitle is not provided', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => {
       expect(screen.getByText('Edit Game')).toBeTruthy();
     });
@@ -1095,7 +1135,7 @@ describe('ScoreGameScreen — edit mode', () => {
 
   it('shows the Delete Game link only in edit mode', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => {
       expect(screen.getByTestId('delete-game-link')).toBeTruthy();
     });
@@ -1103,7 +1143,7 @@ describe('ScoreGameScreen — edit mode', () => {
 
   it('does not show the Delete Game link without a matchId', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '7' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     // Roster chips render once the screen settles; assert no Delete link is
     // present once we know the screen is fully rendered.
     await waitFor(() => expect(screen.getByTestId('save-game-btn')).toBeTruthy());
@@ -1112,7 +1152,7 @@ describe('ScoreGameScreen — edit mode', () => {
 
   it('tapping Delete opens the confirm dialog', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('delete-game-link')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('delete-game-link'));
@@ -1125,7 +1165,7 @@ describe('ScoreGameScreen — edit mode', () => {
 
   it('confirming Delete calls deleteMatch and navigates back', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('delete-game-link')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('delete-game-link'));
@@ -1143,7 +1183,7 @@ describe('ScoreGameScreen — edit mode', () => {
 
   it('cancelling Delete leaves the dialog and does not call deleteMatch', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('delete-game-link')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('delete-game-link'));
@@ -1162,7 +1202,7 @@ describe('ScoreGameScreen — edit mode', () => {
   it('failed delete keeps the screen open and surfaces the error', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
     mockDeleteMatch.mockRejectedValue(new Error('Cannot delete'));
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('delete-game-link')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('delete-game-link'));
@@ -1185,12 +1225,12 @@ describe('ScoreGameScreen — edit mode', () => {
 
 describe('ScoreGameScreen — three-dot menu', () => {
   it('renders the three-dot button in idle scoring state', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
   });
 
   it('opening the menu shows Manage Session (always) and hides Share when no session', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('score-menu-btn'));
@@ -1202,7 +1242,7 @@ describe('ScoreGameScreen — three-dot menu', () => {
 
   it('Share is visible when sessionId is provided', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '7' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('score-menu-btn'));
@@ -1213,7 +1253,7 @@ describe('ScoreGameScreen — three-dot menu', () => {
 
   it('Manage Session without an existing session lazily creates and navigates', async () => {
     mockLocalSearchParams.mockReturnValue({ leagueId: '3', seasonId: '8' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('score-menu-btn'));
@@ -1238,7 +1278,7 @@ describe('ScoreGameScreen — three-dot menu', () => {
 
   it('Manage Session with an existing sessionId skips create and just navigates', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '42' });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('score-menu-btn'));
@@ -1263,7 +1303,7 @@ describe('ScoreGameScreen — three-dot menu', () => {
       code: 'BKSHARE1',
       games: [],
     });
-    render(<ScoreGameScreen />);
+    renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('score-menu-btn'));
@@ -1296,7 +1336,7 @@ describe('ScoreGameScreen — Add New Player flow', () => {
   }
 
   it('shows AddNewPlayerSheet when the Add CTA is tapped with a search query', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGameWithSheet();
     await activateSlotAndSearch('Brad K');
 
     // The CTA label is dynamic: Add "<query>" as a New Player
@@ -1311,7 +1351,7 @@ describe('ScoreGameScreen — Add New Player flow', () => {
   });
 
   it('calls createPlaceholder with correct payload on submit', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGameWithSheet();
     await activateSlotAndSearch('Brad K');
 
     const cta = await waitFor(() =>
@@ -1336,7 +1376,7 @@ describe('ScoreGameScreen — Add New Player flow', () => {
   });
 
   it('seats the guest player in the active slot after creation', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGameWithSheet();
     await activateSlotAndSearch('Brad K');
 
     const cta = await waitFor(() =>
@@ -1352,15 +1392,15 @@ describe('ScoreGameScreen — Add New Player flow', () => {
       fireEvent.press(screen.getByTestId('add-new-player-submit'));
     });
 
-    // Guest player should now occupy team1-slot0 — the slot label matches the
-    // display_name returned by createPlaceholder (accessibilityLabel = display_name).
+    // Guest player should now occupy team1-slot0 — both the Pressable chip and
+    // the Avatar inside share the player's name as their accessibilityLabel.
     await waitFor(() => {
-      expect(screen.getByLabelText('Brad K')).toBeTruthy();
+      expect(screen.getAllByLabelText('Brad K').length).toBeGreaterThan(0);
     });
   });
 
   it('shows ScoreboardToast with "added to Team 1" after creation', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGameWithSheet();
     await activateSlotAndSearch('Brad K');
 
     const cta = await waitFor(() =>
@@ -1385,7 +1425,7 @@ describe('ScoreGameScreen — Add New Player flow', () => {
   });
 
   it('tapping Share on the toast calls shareLink with the invite URL', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGameWithSheet();
     await activateSlotAndSearch('Brad K');
 
     const cta = await waitFor(() =>
@@ -1419,7 +1459,7 @@ describe('ScoreGameScreen — Add New Player flow', () => {
   });
 
   it('AddNewPlayerSheet closes after successful creation', async () => {
-    render(<ScoreGameScreen />);
+    renderScoreGameWithSheet();
     await activateSlotAndSearch('Brad K');
 
     const cta = await waitFor(() =>
@@ -1435,8 +1475,9 @@ describe('ScoreGameScreen — Add New Player flow', () => {
       fireEvent.press(screen.getByTestId('add-new-player-submit'));
     });
 
-    // After successful creation the hook sets addNewPlayerVisible=false,
-    // which means the sheet's Modal renders null (RNModal with visible=false).
+    // After a successful create the sheet calls router.back(); in production
+    // that pops the formSheet route, and the harness unmounts AddNewPlayerScreen
+    // the same way, so its testID is gone.
     await waitFor(() => {
       expect(screen.queryByTestId('add-new-player-sheet')).toBeNull();
     });

@@ -19,10 +19,10 @@ import { ConfirmDialog } from '@/components/ui';
 import { routes } from '@/lib/navigation';
 import { formatPlayerShort } from '@/lib/formatters';
 import { useScoreGameScreen } from './useScoreGameScreen';
-import ScoreBoard, { MAX_SCORE } from './ScoreBoard';
+import ScoreBoard from './ScoreBoard';
+import ScoreNumpad from './ScoreNumpad';
 import RosterPicker from './RosterPicker';
 import ScoreGameMenu from './ScoreGameMenu';
-import AddNewPlayerSheet from './AddNewPlayerSheet';
 import ScoreboardToast from './ScoreboardToast';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { shareLink } from '@/utils/share';
@@ -300,15 +300,9 @@ export default function ScoreGameScreen({
     onRetry,
     onAddAnother: hookOnAddAnother,
     onDelete,
-    addNewPlayerVisible,
-    addNewPlayerPrefillName,
-    inferredGender,
-    inferredLevel,
     pendingShareInvite,
     openAddNewPlayer,
-    closeAddNewPlayer,
     clearPendingShareInvite,
-    onCreateNewPlayer,
   } = useScoreGameScreen({
     sessionId: routeSessionId,
     leagueId,
@@ -474,10 +468,56 @@ export default function ScoreGameScreen({
     onSubmit();
   }, [onSubmit]);
 
-  const handleIncScore1 = useCallback(() => setScore1(Math.min(MAX_SCORE, score1 + 1)), [setScore1, score1]);
-  const handleDecScore1 = useCallback(() => setScore1(Math.max(0, score1 - 1)), [setScore1, score1]);
-  const handleIncScore2 = useCallback(() => setScore2(Math.min(MAX_SCORE, score2 + 1)), [setScore2, score2]);
-  const handleDecScore2 = useCallback(() => setScore2(Math.max(0, score2 - 1)), [setScore2, score2]);
+  const [activeScoreTeam, setActiveScoreTeam] = useState<1 | 2 | null>(null);
+  const [digitBuffer, setDigitBuffer] = useState('');
+
+  // Default to team 1 the moment scoring mode begins — no useEffect needed.
+  const effectiveActiveScoreTeam: 1 | 2 | null = isBuilding
+    ? null
+    : (activeScoreTeam ?? 1);
+
+  const handleScoreTeamPress = useCallback((team: 1 | 2) => {
+    setActiveScoreTeam(team);
+    setDigitBuffer('');
+  }, []);
+
+  const handleDigit = useCallback(
+    (digit: number) => {
+      if (effectiveActiveScoreTeam === null) return;
+      if (digitBuffer.length >= 2) return;
+      const newBuffer = digitBuffer + String(digit);
+      const score = parseInt(newBuffer, 10);
+      if (effectiveActiveScoreTeam === 1) setScore1(score);
+      else setScore2(score);
+      if (newBuffer.length >= 2) {
+        setDigitBuffer('');
+        setActiveScoreTeam(effectiveActiveScoreTeam === 1 ? 2 : null);
+      } else {
+        setDigitBuffer(newBuffer);
+      }
+    },
+    [effectiveActiveScoreTeam, digitBuffer, setScore1, setScore2],
+  );
+
+  const handleDelete = useCallback(() => {
+    if (effectiveActiveScoreTeam === null) return;
+    if (digitBuffer.length === 0) {
+      if (effectiveActiveScoreTeam === 1) setScore1(0);
+      else setScore2(0);
+      return;
+    }
+    const newBuffer = digitBuffer.slice(0, -1);
+    const score = newBuffer.length > 0 ? parseInt(newBuffer, 10) : 0;
+    if (effectiveActiveScoreTeam === 1) setScore1(score);
+    else setScore2(score);
+    setDigitBuffer(newBuffer);
+  }, [effectiveActiveScoreTeam, digitBuffer, setScore1, setScore2]);
+
+  const handleNext = useCallback(() => {
+    if (effectiveActiveScoreTeam === null) return;
+    setDigitBuffer('');
+    setActiveScoreTeam(effectiveActiveScoreTeam === 1 ? 2 : null);
+  }, [effectiveActiveScoreTeam]);
 
   const handleErrorDiscard = useCallback(() => {
     navigateOnClose();
@@ -582,12 +622,8 @@ export default function ScoreGameScreen({
           isBuilding={isBuilding}
           activeSlot={effectiveActiveSlot}
           compact={searchFocused}
-          onIncScore1={handleIncScore1}
-          onDecScore1={handleDecScore1}
-          onIncScore2={handleIncScore2}
-          onDecScore2={handleDecScore2}
-          onChangeScore1={setScore1}
-          onChangeScore2={setScore2}
+          activeScoreTeam={effectiveActiveScoreTeam}
+          onScoreTeamPress={handleScoreTeamPress}
           onSlotPress={handleSlotPress}
           onRemovePlayer={handleRemovePlayer}
         />
@@ -617,6 +653,16 @@ export default function ScoreGameScreen({
           />
         )}
 
+        {/* Numpad — only visible in scoring mode */}
+        {!isBuilding && (
+          <ScoreNumpad
+            activeTeam={effectiveActiveScoreTeam}
+            onDigit={handleDigit}
+            onDelete={handleDelete}
+            onNext={handleNext}
+          />
+        )}
+
         {/* Score validation warning */}
         {scoreWarning != null && (
           <View className="mx-4 my-2 px-3 py-2 rounded-[8px] bg-warning-tint border border-brand-gold flex-row items-center gap-2">
@@ -634,15 +680,25 @@ export default function ScoreGameScreen({
             disabled={!canSubmit || isSaving}
             accessibilityRole="button"
             accessibilityLabel={saveButtonLabel}
-            className={`w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2 ${
-              canSubmit && !isSaving ? 'bg-brand-gold' : 'bg-elevated'
-            }`}
+            className="w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2"
+            style={
+              canSubmit && !isSaving
+                ? { backgroundColor: '#d4a843' }
+                : isSaving
+                ? { backgroundColor: '#d4a843', opacity: 0.6 }
+                : { backgroundColor: 'rgba(212,168,67,0.12)', borderWidth: 1, borderColor: 'rgba(212,168,67,0.35)' }
+            }
           >
             {isSaving && <ActivityIndicator size="small" color="#fff" />}
             <Text
-              className={`font-bold text-[16px] ${
-                canSubmit && !isSaving ? 'text-white' : 'text-muted'
-              }`}
+              className="font-bold text-[16px]"
+              style={
+                canSubmit && !isSaving
+                  ? { color: '#fff' }
+                  : isSaving
+                  ? { color: '#fff' }
+                  : { color: 'rgba(212,168,67,0.7)' }
+              }
             >
               {saveButtonLabel}
             </Text>
@@ -713,14 +769,6 @@ export default function ScoreGameScreen({
         onShareSession={handleShareSession}
         canShare={canShare}
         isCreatingSession={isCreatingSession}
-      />
-      <AddNewPlayerSheet
-        visible={addNewPlayerVisible}
-        prefillName={addNewPlayerPrefillName}
-        inferredGender={inferredGender}
-        inferredLevel={inferredLevel}
-        onCreate={onCreateNewPlayer}
-        onCancel={closeAddNewPlayer}
       />
       <ScoreboardToast
         visible={pendingShareInvite != null}

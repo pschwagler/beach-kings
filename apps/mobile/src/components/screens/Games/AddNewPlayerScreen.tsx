@@ -1,43 +1,23 @@
 /**
- * AddNewPlayerSheet — form sheet for creating a new placeholder player.
+ * AddNewPlayerScreen — form for creating a new placeholder player.
  *
- * Shown when the user types a name in RosterPicker that has no Beach League
- * match and taps "Add '<query>' as a New Player". Collects first/last name,
- * optional level and gender chips, then calls `onCreate` to persist the
- * placeholder. Stays open on failure and shows an inline error.
+ * Presented as a native `formSheet` route (see app/(stack)/add-new-player.tsx).
+ * Reads its request (target slot, prefill, inferred defaults) from
+ * AddNewPlayerContext, creates the placeholder via the API, hands the created
+ * player back through the same context, and pops itself.
  *
  * Mirrors mobile-audit/wireframes/score-add-guest.html for layout/copy.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Pressable, View, Text, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import type { PlayerGender, SkillLevel } from '@beach-kings/shared';
 import { GENDER_OPTIONS, SKILL_LEVEL_OPTIONS } from '@beach-kings/shared';
-import Modal from '@/components/ui/Modal';
+import { api } from '@/lib/api';
+import { useAddNewPlayer } from '@/contexts/AddNewPlayerContext';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface AddNewPlayerSheetProps {
-  readonly visible: boolean;
-  /** Raw search query that triggered the sheet, e.g. "Brad K". Split on first
-   *  space → first/last prefill. */
-  readonly prefillName: string;
-  readonly inferredGender: PlayerGender | null;
-  readonly inferredLevel: SkillLevel | null;
-  /** Rejects on failure → sheet shows inline error and STAYS open. On success
-   *  the parent flips `visible` to false. */
-  readonly onCreate: (data: {
-    readonly first: string;
-    readonly last: string;
-    readonly gender: PlayerGender | null;
-    readonly level: SkillLevel | null;
-  }) => Promise<void>;
-  readonly onCancel: () => void;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,7 +55,12 @@ interface SelectChipProps {
  * exposes a `testID` on the Pressable (the shared Chip primitive does not
  * forward testID).
  */
-function SelectChip({ label, active, onPress, testID }: SelectChipProps): React.ReactNode {
+function SelectChip({
+  label,
+  active,
+  onPress,
+  testID,
+}: SelectChipProps): React.ReactNode {
   return (
     <Pressable
       testID={testID}
@@ -111,7 +96,13 @@ interface SubmitButtonProps {
  * does not forward testID, so we render a Pressable directly matching its
  * primary variant style.
  */
-function SubmitButton({ title, onPress, disabled, loading, testID }: SubmitButtonProps): React.ReactNode {
+function SubmitButton({
+  title,
+  onPress,
+  disabled,
+  loading,
+  testID,
+}: SubmitButtonProps): React.ReactNode {
   return (
     <Pressable
       testID={testID}
@@ -130,17 +121,16 @@ function SubmitButton({ title, onPress, disabled, loading, testID }: SubmitButto
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// Screen
 // ---------------------------------------------------------------------------
 
-export default function AddNewPlayerSheet({
-  visible,
-  prefillName,
-  inferredGender,
-  inferredLevel,
-  onCreate,
-  onCancel,
-}: AddNewPlayerSheetProps): React.ReactNode {
+export default function AddNewPlayerScreen(): React.ReactNode {
+  const router = useRouter();
+  const { request, setResult } = useAddNewPlayer();
+
+  const prefillName = request?.prefillName ?? '';
+  const leagueId = request?.leagueId ?? null;
+
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
   const [gender, setGender] = useState<PlayerGender | null>(null);
@@ -148,20 +138,28 @@ export default function AddNewPlayerSheet({
   const [isCreating, setIsCreating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Seed local state each time the sheet becomes visible so it reflects the
-  // current search query and inferred values without retaining stale data.
+  // Don't touch state setters after the sheet has been dismissed/unmounted
+  // (e.g. the user swipes it away while the create request is in flight).
+  const mountedRef = useRef(true);
   useEffect(() => {
-    if (!visible) return;
-    const { first: f, last: l } = splitPrefillName(prefillName);
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Seed the form from the request when it arrives. Keyed on `request` so a
+  // re-presented sheet reflects the latest target/prefill/inferred values.
+  useEffect(() => {
+    if (request == null) return;
+    const { first: f, last: l } = splitPrefillName(request.prefillName);
     setFirst(f);
     setLast(l);
-    setGender(inferredGender);
-    setLevel(inferredLevel);
+    setGender(request.inferredGender);
+    setLevel(request.inferredLevel);
     setIsCreating(false);
     setErrorMsg(null);
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Intentionally depending only on `visible` — when the sheet re-opens we
-  // re-seed from the latest prefill/inferred props at that moment.
+  }, [request]);
 
   const trimmedFirst = first.trim();
   const trimmedLast = last.trim();
@@ -172,39 +170,66 @@ export default function AddNewPlayerSheet({
   const submitLabel = displayName ? `Add ${displayName} to Game` : 'Add Player';
   const isSubmitDisabled = trimmedFirst.length === 0 || isCreating;
 
-  const handleLevelPress = (value: SkillLevel) => {
+  const handleLevelPress = (value: SkillLevel): void => {
     setLevel((prev) => (prev === value ? null : value));
   };
 
-  const handleGenderPress = (value: PlayerGender) => {
+  const handleGenderPress = (value: PlayerGender): void => {
     setGender((prev) => (prev === value ? null : value));
   };
 
-  const handleSubmit = async () => {
+  const handleCancel = (): void => {
+    router.back();
+  };
+
+  const handleSubmit = async (): Promise<void> => {
+    if (request == null) return;
+    const name = `${trimmedFirst} ${trimmedLast}`.trim();
+    if (!name) {
+      setErrorMsg('First name is required');
+      return;
+    }
+
     setErrorMsg(null);
     setIsCreating(true);
     try {
-      await onCreate({
-        first: trimmedFirst,
-        last: trimmedLast,
-        gender,
-        level,
+      const payload = {
+        name,
+        ...(leagueId != null ? { league_id: leagueId } : {}),
+        ...(gender != null ? { gender } : {}),
+        ...(level != null ? { level } : {}),
+      };
+      const resp = await api.createPlaceholder(payload);
+      // The sheet may have been swiped away while this was in flight —
+      // don't assign a player the user backed out of.
+      if (!mountedRef.current) return;
+      setResult({
+        team: request.team,
+        slot: request.slot,
+        name,
+        player_id: resp.player_id,
+        invite_url: resp.invite_url,
       });
+      router.back();
     } catch (err: unknown) {
+      if (!mountedRef.current) return;
       const message =
         err instanceof Error ? err.message : 'Something went wrong';
       setErrorMsg(message);
     } finally {
-      setIsCreating(false);
+      if (mountedRef.current) {
+        setIsCreating(false);
+      }
     }
   };
 
   return (
-    <Modal
-      visible={visible}
-      onClose={onCancel}
-      title="Add New Player"
-    >
+    <View className="flex-1 bg-page">
+      {/* Title row — the formSheet grabber + swipe replaces the X close. */}
+      <View className="px-lg pt-md pb-md border-b border-divider">
+        <Text className="text-lg font-bold text-default">Add New Player</Text>
+      </View>
+
       <ScrollView
         testID="add-new-player-sheet"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 36 }}
@@ -228,7 +253,9 @@ export default function AddNewPlayerSheet({
         <View className="mb-md">
           <Text className="text-xs font-bold text-muted uppercase tracking-wide mb-xs">
             First Name{' '}
-            <Text className="text-danger normal-case font-normal text-xs">*</Text>
+            <Text className="text-danger normal-case font-normal text-xs">
+              *
+            </Text>
           </Text>
           <Input
             testID="add-new-player-first"
@@ -318,10 +345,10 @@ export default function AddNewPlayerSheet({
           >
             <Text style={{ fontWeight: '700', color: '#92400e' }}>
               New players
-            </Text>
-            {' '}appear in session rosters with a &ldquo;New&rdquo; label.
-            Share a link after the session so they can join Beach League and own
-            their stats.
+            </Text>{' '}
+            appear in session rosters with a &ldquo;New&rdquo; label. Share a
+            link after the session so they can join Beach League and own their
+            stats.
           </Text>
         </View>
 
@@ -339,20 +366,18 @@ export default function AddNewPlayerSheet({
         <SubmitButton
           testID="add-new-player-submit"
           title={submitLabel}
-          onPress={() => { void handleSubmit(); }}
+          onPress={() => {
+            void handleSubmit();
+          }}
           disabled={isSubmitDisabled}
           loading={isCreating}
         />
 
         {/* Cancel */}
         <View className="mt-sm">
-          <Button
-            title="Cancel"
-            onPress={onCancel}
-            variant="ghost"
-          />
+          <Button title="Cancel" onPress={handleCancel} variant="ghost" />
         </View>
       </ScrollView>
-    </Modal>
+    </View>
   );
 }

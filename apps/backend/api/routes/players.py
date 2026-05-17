@@ -101,8 +101,9 @@ async def search_players(
     and returned as a single ranked list annotated with up to three pills.
     The caller's whole network is returned ranked (the client scrolls it
     locally); a name ``q`` additionally appends up to ``limit`` score-0
-    strangers. Empty ``q`` returns just the network. Excludes the caller,
-    placeholders, and system rows.
+    strangers. Empty ``q`` returns just the network. Guests (placeholders)
+    the caller has played with or created are included and flagged
+    ``is_guest``; the caller themselves and system rows are excluded.
     """
     try:
         caller = await data_service.get_player_by_user_id(session, current_user["id"])

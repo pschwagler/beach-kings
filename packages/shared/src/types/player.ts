@@ -102,6 +102,14 @@ export interface PlayerSearchItem {
    * for the compact-chip group — deliberately not a pill (never in `tags`).
    */
   in_session: boolean;
+  /**
+   * Whether this is a placeholder/guest player (no linked user account).
+   * Mirrors the backend `Player.is_placeholder` so the client seats a
+   * searched guest the same way as one freshly added via "Add New Player".
+   */
+  is_guest: boolean;
+  /** Uploaded profile photo URL (S3). Null when the player has no account or hasn't uploaded one. */
+  profile_picture_url?: string | null;
 }
 
 export interface PlayerSearchResponse {
@@ -137,6 +145,8 @@ export interface PublicPlayerResponse {
 /** Request body for POST /api/players/placeholder. */
 export interface CreatePlaceholderRequest {
   readonly name: string;
+  /** Optional E.164 phone for the claim invite. Matches the backend schema; not yet surfaced in the mobile UI. */
+  readonly phone_number?: string | null;
   readonly league_id?: number | null;
   readonly gender?: PlayerGender | null;
   readonly level?: SkillLevel | null;

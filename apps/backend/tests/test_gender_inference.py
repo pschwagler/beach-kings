@@ -7,11 +7,17 @@ without raising.
 """
 
 import json
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from backend.services import gender_inference
+
+# The docker test-runner has no pytest.ini on its rootdir, so pytest-asyncio
+# falls back to strict mode. Every other backend test file declares an explicit
+# asyncio marker; this one must too or its async tests are collected as
+# "not natively supported" and fail.
+pytestmark = pytest.mark.asyncio
 
 
 def _make_mock_client(text: str) -> MagicMock:

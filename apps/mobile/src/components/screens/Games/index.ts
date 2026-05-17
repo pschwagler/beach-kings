@@ -4,6 +4,7 @@
 export { default as MyGamesScreen } from './MyGamesScreen';
 export { default as MyStatsScreen } from './MyStatsScreen';
 export { default as ScoreGameScreen } from './ScoreGameScreen';
+export { default as AddNewPlayerScreen } from './AddNewPlayerScreen';
 export { default as GameRow } from './GameRow';
 export { default as GamesSkeleton } from './GamesSkeleton';
 export { default as GamesEmptyState } from './GamesEmptyState';

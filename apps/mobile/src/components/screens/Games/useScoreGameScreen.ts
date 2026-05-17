@@ -19,14 +19,18 @@
  */
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { api } from '@/lib/api';
 import { shareLink } from '@/utils/share';
+import { routes } from '@/lib/navigation';
+import { useAddNewPlayer } from '@/contexts/AddNewPlayerContext';
 import type {
   SessionGame,
   PlayerSearchTag,
   PlayerSearchItem,
   PlayerGender,
   SkillLevel,
+  Player,
 } from '@beach-kings/shared';
 import { SKILL_LEVEL_OPTIONS } from '@beach-kings/shared';
 
@@ -38,6 +42,7 @@ export interface PlayerSlot {
   readonly display_name: string;
   readonly initials: string;
   readonly is_guest?: boolean;
+  readonly avatar_url?: string | null;
 }
 
 const EMPTY_SLOT: PlayerSlot = {
@@ -59,6 +64,7 @@ export interface RosterPlayer {
   readonly tags: readonly PlayerSearchTag[];
   readonly isSession: boolean;
   readonly is_guest?: boolean;
+  readonly avatar_url?: string | null;
 }
 
 /** Context passed into the hook from the parent screen/route. */
@@ -165,56 +171,26 @@ export interface UseScoreGameScreenResult {
    */
   readonly onDelete: () => Promise<boolean>;
 
-  // --- AddNewPlayer sheet ---
+  // --- AddNewPlayer formSheet route ---
 
-  /** Whether the "Add New Player" sheet is visible. */
-  readonly addNewPlayerVisible: boolean;
   /**
-   * The name search string captured at the moment `openAddNewPlayer` was called —
-   * pre-fills the First Name field in the sheet.
-   */
-  readonly addNewPlayerPrefillName: string;
-  /**
-   * Best-effort inferred gender for the active game context (league → session →
-   * none). `null` when no clue is available — chip group renders unselected.
-   */
-  readonly inferredGender: PlayerGender | null;
-  /**
-   * Best-effort inferred skill level for the active game context (league →
-   * session → none). `null` when no clue is available.
-   */
-  readonly inferredLevel: SkillLevel | null;
-  /**
-   * Stashed share invite produced after a successful `onCreateNewPlayer` call.
-   * Drives the `ScoreboardToast` "Share" action. Null until a placeholder is
-   * created, and cleared again by `clearPendingShareInvite`.
+   * Stashed share invite produced after the add-new-player sheet returns a
+   * created placeholder. Drives the `ScoreboardToast` "Share" action. Null
+   * until a placeholder is created, and cleared by `clearPendingShareInvite`.
    *
    * `team` indicates which team the new player was assigned to, for the toast
    * message "Brad K added to Team 2".
    */
   readonly pendingShareInvite: { readonly name: string; readonly invite_url: string; readonly team: 1 | 2 } | null;
   /**
-   * Open the "Add New Player" sheet for the given team/slot target. Captures
-   * the current `search` string as the pre-fill name.
+   * Navigate to the "Add New Player" formSheet route for the given team/slot
+   * target. Passes the current `search` string and inferred gender/level into
+   * the sheet via AddNewPlayerContext; the created player flows back through
+   * the same context (consumed here to seat the player + raise the toast).
    */
   readonly openAddNewPlayer: (target: { team: 1 | 2; slot: 0 | 1 }) => void;
-  /** Close the "Add New Player" sheet without creating a player. */
-  readonly closeAddNewPlayer: () => void;
   /** Dismiss the scoreboard toast by clearing the pending share invite. */
   readonly clearPendingShareInvite: () => void;
-  /**
-   * Create a placeholder player from the sheet form data, assign them to the
-   * target slot, and stash the invite for the toast.
-   *
-   * Errors propagate to the caller (the sheet catches and displays them).
-   * The sheet stays open on failure.
-   */
-  readonly onCreateNewPlayer: (data: {
-    readonly first: string;
-    readonly last: string;
-    readonly gender: PlayerGender | null;
-    readonly level: SkillLevel | null;
-  }) => Promise<void>;
 }
 
 /**
@@ -279,6 +255,8 @@ function mapSearchItem(item: PlayerSearchItem): RosterPlayer {
         : toInitials(item.full_name ?? ''),
     tags: item.tags ?? [],
     isSession: item.in_session ?? false,
+    is_guest: item.is_guest ?? false,
+    avatar_url: item.profile_picture_url ?? null,
   };
 }
 
@@ -294,6 +272,9 @@ export function useScoreGameScreen(
   } = options;
 
   const isEditMode = matchId != null;
+
+  const router = useRouter();
+  const addNewPlayerBridge = useAddNewPlayer();
 
   // sessionId lives in state because lazy create (Manage Session / first
   // Save) may produce one mid-session. Initial value comes from the prop and
@@ -321,13 +302,10 @@ export function useScoreGameScreen(
   const [deleteState, setDeleteState] = useState<DeleteState>('idle');
   const [isCreatingSession, setIsCreatingSession] = useState(false);
 
-  // --- AddNewPlayer sheet state ---
-  const [addNewPlayerVisible, setAddNewPlayerVisible] = useState(false);
-  const [addNewPlayerTarget, setAddNewPlayerTarget] = useState<{
-    team: 1 | 2;
-    slot: 0 | 1;
-  } | null>(null);
-  const [addNewPlayerPrefillName, setAddNewPlayerPrefillName] = useState('');
+  // --- AddNewPlayer formSheet state ---
+  // inferredGender/Level are computed here (the inference effects need
+  // sessionId/leagueId, which only exist on this screen) and handed to the
+  // sheet via AddNewPlayerContext when `openAddNewPlayer` navigates.
   const [inferredGender, setInferredGender] = useState<PlayerGender | null>(null);
   const [inferredLevel, setInferredLevel] = useState<SkillLevel | null>(null);
   const [pendingShareInvite, setPendingShareInvite] = useState<{
@@ -373,10 +351,16 @@ export function useScoreGameScreen(
     };
   }, [matchId, sessionId]);
 
-  // --- Current player ID for "YOU" badge ---
-  // Prefer the explicit option; fall back to one-shot fetch from the API.
-  const [fallbackCurrentPlayerId, setFallbackCurrentPlayerId] =
-    useState<number | null>(null);
+  // --- Current player (drives the "YOU" chip + badge) ---
+  // Prefer the explicit option for the id; otherwise one-shot fetch the full
+  // player. We keep the whole object (not just the id) because the caller is
+  // seated into the picker as a pickable chip — most score entries include
+  // the person logging them — and the chip needs their name + avatar. The
+  // backend relevance search deliberately excludes the caller, so this chip
+  // is injected client-side (see `selfRosterPlayer` / `filteredRoster`).
+  const [currentUserPlayer, setCurrentUserPlayer] = useState<Player | null>(
+    null,
+  );
 
   useEffect(() => {
     if (currentPlayerIdOption != null) return;
@@ -385,11 +369,11 @@ export function useScoreGameScreen(
       .getCurrentUserPlayer()
       .then((player) => {
         if (!cancelled && player != null && typeof player.id === 'number') {
-          setFallbackCurrentPlayerId(player.id);
+          setCurrentUserPlayer(player);
         }
       })
       .catch(() => {
-        // Non-fatal — badge simply won't render
+        // Non-fatal — the YOU chip simply won't render
       });
     return () => {
       cancelled = true;
@@ -397,7 +381,28 @@ export function useScoreGameScreen(
   }, [currentPlayerIdOption]);
 
   const currentPlayerId =
-    currentPlayerIdOption != null ? currentPlayerIdOption : fallbackCurrentPlayerId;
+    currentPlayerIdOption != null
+      ? currentPlayerIdOption
+      : currentUserPlayer?.id ?? null;
+
+  // The logged-in player shaped for the picker. `isSession: true` makes it
+  // render as a compact chip that leads the list; RosterPicker stamps the
+  // gold "YOU" badge via the existing `currentPlayerId` path. Null until the
+  // fetch resolves, or when only an id option was supplied (no name/avatar).
+  const selfRosterPlayer = useMemo<RosterPlayer | null>(() => {
+    const p = currentUserPlayer;
+    if (p == null) return null;
+    const name = p.full_name ?? p.name ?? 'You';
+    return {
+      player_id: p.id,
+      display_name: name,
+      initials: toInitials(name),
+      tags: [],
+      isSession: true,
+      is_guest: false,
+      avatar_url: p.profile_picture_url ?? null,
+    };
+  }, [currentUserPlayer]);
 
   // --- Roster ---
   const [roster, setRoster] = useState<RosterPlayer[]>([]);
@@ -408,31 +413,55 @@ export function useScoreGameScreen(
     async function loadRoster(): Promise<void> {
       try {
         if (sessionId != null) {
-          // Priority 1: session participants (compact chips) + friends.
-          const [participants, friendsResp] = await Promise.all([
-            api.getSessionParticipants(sessionId),
-            api.getFriends().catch(() => ({ items: [] })),
+          // Continuing / adding to a session. Use the SAME relevance-ranked
+          // source as the league path (passing sessionId + leagueId) so the
+          // picker shows the caller's whole ranked network — not just the
+          // handful already in this session plus their friends. Session
+          // members come back flagged in_session=true and render as compact
+          // chips; the rest is the full ranked roster.
+          //
+          // Participants are still fetched (in parallel) purely for the
+          // gender/level inference: PlayerSearchItem omits those fields.
+          const [searchResp, participants] = await Promise.all([
+            api
+              .searchPlayers('', {
+                sessionId,
+                leagueId: leagueId ?? undefined,
+              })
+              .catch(() => null),
+            api.getSessionParticipants(sessionId).catch(() => []),
           ]);
           if (!cancelled) {
-            const sessionPlayers: RosterPlayer[] = participants.map((p) => ({
-              player_id: p.player_id,
-              display_name: p.full_name,
-              initials: toInitials(p.full_name),
-              tags: [],
-              isSession: true,
-            }));
-            const sessionIds = new Set(sessionPlayers.map((p) => p.player_id));
-            const friendItems = (friendsResp as { items?: { player_id: number; full_name: string }[] })?.items ?? [];
-            const friendPlayers: RosterPlayer[] = friendItems
-              .filter((f) => !sessionIds.has(f.player_id))
-              .map((f) => ({
-                player_id: f.player_id,
-                display_name: f.full_name,
-                initials: toInitials(f.full_name),
-                tags: ['friend'],
-                isSession: false,
+            const searchItems = searchResp?.items ?? [];
+            if (searchItems.length > 0) {
+              setRoster(searchItems.map(mapSearchItem));
+            } else {
+              // Fallback: relevance search unavailable/empty → previous
+              // behavior (session participants as chips + friends).
+              const friendsResp = await api
+                .getFriends()
+                .catch(() => ({ items: [] }));
+              if (cancelled) return;
+              const sessionPlayers: RosterPlayer[] = participants.map((p) => ({
+                player_id: p.player_id,
+                display_name: p.full_name,
+                initials: toInitials(p.full_name),
+                tags: [],
+                isSession: true,
               }));
-            setRoster([...sessionPlayers, ...friendPlayers]);
+              const sessionIds = new Set(sessionPlayers.map((p) => p.player_id));
+              const friendItems = (friendsResp as { items?: { player_id: number; full_name: string }[] })?.items ?? [];
+              const friendPlayers: RosterPlayer[] = friendItems
+                .filter((f) => !sessionIds.has(f.player_id))
+                .map((f) => ({
+                  player_id: f.player_id,
+                  display_name: f.full_name,
+                  initials: toInitials(f.full_name),
+                  tags: ['friend'],
+                  isSession: false,
+                }));
+              setRoster([...sessionPlayers, ...friendPlayers]);
+            }
 
             // Infer gender + level from participant modal values (session signal).
             // League signal (separate effect) will override these if present.
@@ -589,19 +618,31 @@ export function useScoreGameScreen(
   // In every case, exclude already-seated players to free up real estate.
   const filteredRoster = useMemo(() => {
     const trimmed = search.trim();
-    if (trimmed === '') {
-      return roster.filter((p) => !seatedPlayerIds.has(p.player_id));
-    }
-    if (searchResults.length > 0) {
-      return searchResults.filter((p) => !seatedPlayerIds.has(p.player_id));
-    }
     const q = trimmed.toLowerCase();
-    return roster.filter(
-      (p) =>
-        !seatedPlayerIds.has(p.player_id) &&
-        p.display_name.toLowerCase().includes(q),
-    );
-  }, [roster, searchResults, search, seatedPlayerIds]);
+    const base =
+      trimmed === ''
+        ? roster.filter((p) => !seatedPlayerIds.has(p.player_id))
+        : searchResults.length > 0
+          ? searchResults.filter((p) => !seatedPlayerIds.has(p.player_id))
+          : roster.filter(
+              (p) =>
+                !seatedPlayerIds.has(p.player_id) &&
+                p.display_name.toLowerCase().includes(q),
+            );
+
+    // Seat the caller themselves at the head of the picker — the backend
+    // relevance search excludes them by design, but the person logging the
+    // game is almost always in it. Skipped once they're on a team (the
+    // scoreboard already shows them there) and, while searching, only when
+    // their own name matches the query. Deduped so a self that also came
+    // back via session/league membership isn't listed twice.
+    const self = selfRosterPlayer;
+    if (self == null || seatedPlayerIds.has(self.player_id)) return base;
+    const matchesQuery =
+      q === '' || self.display_name.toLowerCase().includes(q);
+    if (!matchesQuery) return base;
+    return [self, ...base.filter((p) => p.player_id !== self.player_id)];
+  }, [roster, searchResults, search, seatedPlayerIds, selfRosterPlayer]);
 
   // --- Building mode derived state ---
   const filledCount = useMemo(
@@ -627,7 +668,7 @@ export function useScoreGameScreen(
 
   const scoreWarning = useMemo<string | null>(() => {
     if (isBuilding) return null;
-    if (score1 === 0 && score2 === 0) return 'Both scores are 0 — save anyway?';
+    if (score1 === 0 && score2 === 0) return 'Enter scores to save';
     if (score1 === score2) return 'Scores are tied — beach volleyball has no ties';
     // Untied (handled above) + at least one non-zero (handled above) + both < 10
     if (score1 < 10 && score2 < 10) {
@@ -646,6 +687,7 @@ export function useScoreGameScreen(
               display_name: player.display_name,
               initials: player.initials,
               ...(player.is_guest != null ? { is_guest: player.is_guest } : {}),
+              avatar_url: player.avatar_url ?? null,
             }
           : EMPTY_SLOT;
 
@@ -837,76 +879,95 @@ export function useScoreGameScreen(
     void onSubmit();
   }, [onSubmit]);
 
-  // --- AddNewPlayer sheet handlers ---
+  // --- AddNewPlayer formSheet handlers ---
 
-  /** Open the "Add New Player" sheet for the given team/slot, capturing search as prefill. */
+  const { result: addNewPlayerResult, setRequest: setAddNewPlayerRequest } =
+    addNewPlayerBridge;
+  const consumeAddNewPlayerResult = addNewPlayerBridge.consumeResult;
+
+  /**
+   * Navigate to the add-new-player formSheet for the given target slot. The
+   * current search string + inferred gender/level ride along via context;
+   * the created player comes back through the result-consumption effect below.
+   */
   const openAddNewPlayer = useCallback(
     (target: { team: 1 | 2; slot: 0 | 1 }) => {
-      setAddNewPlayerTarget(target);
-      setAddNewPlayerPrefillName(search);
-      setAddNewPlayerVisible(true);
+      setAddNewPlayerRequest({
+        team: target.team,
+        slot: target.slot,
+        prefillName: search,
+        inferredGender,
+        inferredLevel,
+        leagueId: leagueId ?? null,
+      });
+      router.push(routes.addNewPlayer());
     },
-    [search],
+    [
+      setAddNewPlayerRequest,
+      router,
+      search,
+      inferredGender,
+      inferredLevel,
+      leagueId,
+    ],
   );
-
-  /** Close the "Add New Player" sheet without creating a player. */
-  const closeAddNewPlayer = useCallback(() => {
-    setAddNewPlayerVisible(false);
-    setAddNewPlayerTarget(null);
-  }, []);
 
   /** Dismiss the pending share invite (drives ScoreboardToast dismiss). */
   const clearPendingShareInvite = useCallback(() => {
     setPendingShareInvite(null);
   }, []);
 
-  /**
-   * Create a placeholder player from the sheet form data, assign them to the
-   * target slot, and stash the invite for the ScoreboardToast.
-   *
-   * Errors propagate — the sheet is responsible for catching and displaying
-   * them. The sheet stays open on failure (no state change on error).
-   */
-  const onCreateNewPlayer = useCallback(
-    async (data: {
-      readonly first: string;
-      readonly last: string;
-      readonly gender: PlayerGender | null;
-      readonly level: SkillLevel | null;
-    }): Promise<void> => {
-      const name = `${data.first} ${data.last}`.trim();
-      if (!name) {
-        throw new Error('First name is required');
-      }
+  // When the formSheet returns a created placeholder, seat them into the
+  // requested slot and stash the invite for the ScoreboardToast. Consuming
+  // the result clears it, so this runs exactly once per created player.
+  useEffect(() => {
+    if (addNewPlayerResult == null) return;
+    const consumed = consumeAddNewPlayerResult();
+    if (consumed == null) return;
+    const guestPlayer: RosterPlayer = {
+      player_id: consumed.player_id,
+      display_name: consumed.name,
+      initials: toInitials(consumed.name),
+      tags: [],
+      isSession: false,
+      is_guest: true,
+      avatar_url: null,
+    };
+    assignPlayer(consumed.team, consumed.slot, guestPlayer);
+    setPendingShareInvite({
+      name: consumed.name,
+      invite_url: consumed.invite_url,
+      team: consumed.team,
+    });
+    setSearch('');
+  }, [addNewPlayerResult, consumeAddNewPlayerResult, assignPlayer]);
 
-      const payload = {
-        name,
-        ...(leagueId != null ? { league_id: leagueId } : {}),
-        ...(data.gender != null ? { gender: data.gender } : {}),
-        ...(data.level != null ? { level: data.level } : {}),
-      };
-
-      // Let errors propagate — the sheet catches them; submitState is not touched.
-      const resp = await api.createPlaceholder(payload);
-
-      // Only assign if there is still a valid target (guard against stale closures).
-      if (addNewPlayerTarget == null) return;
-
+  // react-native-screens freezes the score-game screen's React tree while the
+  // formSheet is open, so the setResultState() call above never propagates and
+  // the useEffect above never fires. consumeResult() reads the synchronously-set
+  // resultRef, so it reliably captures the result even when state was frozen.
+  // This fires when the screen regains focus (formSheet dismissed); it's
+  // idempotent — if the useEffect above already consumed the result it no-ops.
+  useFocusEffect(
+    useCallback(() => {
+      const consumed = consumeAddNewPlayerResult();
+      if (consumed == null) return;
       const guestPlayer: RosterPlayer = {
-        player_id: resp.player_id,
-        display_name: name,
-        initials: toInitials(name),
+        player_id: consumed.player_id,
+        display_name: consumed.name,
+        initials: toInitials(consumed.name),
         tags: [],
         isSession: false,
         is_guest: true,
       };
-      assignPlayer(addNewPlayerTarget.team, addNewPlayerTarget.slot, guestPlayer);
-      setPendingShareInvite({ name, invite_url: resp.invite_url, team: addNewPlayerTarget.team });
+      assignPlayer(consumed.team, consumed.slot, guestPlayer);
+      setPendingShareInvite({
+        name: consumed.name,
+        invite_url: consumed.invite_url,
+        team: consumed.team,
+      });
       setSearch('');
-      setAddNewPlayerVisible(false);
-      setAddNewPlayerTarget(null);
-    },
-    [leagueId, addNewPlayerTarget, assignPlayer],
+    }, [consumeAddNewPlayerResult, assignPlayer]),
   );
 
   return {
@@ -945,14 +1006,8 @@ export function useScoreGameScreen(
     onDismissError,
     onAddAnother,
     onDelete,
-    addNewPlayerVisible,
-    addNewPlayerPrefillName,
-    inferredGender,
-    inferredLevel,
     pendingShareInvite,
     openAddNewPlayer,
-    closeAddNewPlayer,
     clearPendingShareInvite,
-    onCreateNewPlayer,
   };
 }

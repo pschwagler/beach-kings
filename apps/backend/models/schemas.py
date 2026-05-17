@@ -1016,6 +1016,8 @@ class PlayerSearchItem(BaseModel):
     relevance score (debug/telemetry; clients keep the response order).
     ``first_name``/``last_name`` are sent so the client can render a
     last-initial etc.; ``full_name`` is the canonical display + sort string.
+    ``is_guest`` flags placeholder players so the client seats them like a
+    freshly added "Add New Player" guest.
     """
 
     id: int
@@ -1027,6 +1029,7 @@ class PlayerSearchItem(BaseModel):
     tags: List[str] = []
     score: int = 0
     in_session: bool = False  # layout signal for the compact-chip group; not a pill
+    is_guest: bool = False  # mirrors Player.is_placeholder
 
 
 class PlayerSearchResponse(BaseModel):

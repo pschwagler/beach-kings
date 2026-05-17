@@ -36,15 +36,48 @@ from backend.database.models import (
 # ---------------------------------------------------------------------------
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def _isolate_player_search_cache():
+    """
+    Flush the caller-network Redis cache (`picker:*`) around every test.
+
+    `_caller_network` memoizes the per-caller signal map in Redis, keyed by
+    `caller_player_id`. The test DB is transactional and rolls back per test,
+    so caller ids are reused across tests — but Redis is *not* rolled back.
+    Without this, a prior test's cached network leaks into any later test
+    that reuses the same caller id, surfacing unrelated players as "network"
+    (scored, uncapped) and breaking the stranger / cap / ordering assertions.
+    Scoped to the `picker:` prefix so unrelated Redis state is untouched.
+    """
+    from backend.services.redis_service import get_redis_client
+
+    async def _purge() -> None:
+        client = await get_redis_client()
+        if client is None:
+            return
+        async for key in client.scan_iter(match="picker:*"):
+            await client.delete(key)
+
+    await _purge()
+    yield
+    await _purge()
+
+
 async def _create_player(
     db_session,
     name: str,
     *,
     with_user: bool = False,
     is_placeholder: bool = False,
+    created_by: int | None = None,
     status: str | None = None,
 ) -> int:
-    """Create a Player (optionally user-backed / placeholder / system)."""
+    """Create a Player (optionally user-backed / placeholder / system).
+
+    ``created_by`` sets ``created_by_player_id`` — the player who added this
+    placeholder/guest. Guests the caller created are searchable by name even
+    with no shared play history; other users' guests are not.
+    """
     user_id = None
     if with_user:
         user = User(
@@ -60,6 +93,7 @@ async def _create_player(
         full_name=name,
         user_id=user_id,
         is_placeholder=is_placeholder,
+        created_by_player_id=created_by,
         status=status,
     )
     db_session.add(player)
@@ -309,10 +343,14 @@ async def test_result_item_shape(db_session, universe):
         "tags",
         "score",
         "in_session",
+        "is_guest",
     }
     assert isinstance(item["tags"], list)
     assert isinstance(item["score"], int)
     assert isinstance(item["in_session"], bool)
+    assert isinstance(item["is_guest"], bool)
+    # Every universe member is a real (non-placeholder) player.
+    assert item["is_guest"] is False
 
 
 @pytest.mark.asyncio
@@ -335,10 +373,10 @@ async def test_first_and_last_name_are_split_for_client(db_session):
 
 
 @pytest.mark.asyncio
-async def test_excludes_caller_placeholder_and_system(db_session):
+async def test_excludes_caller_and_system_rows(db_session):
+    """The caller themselves and system rows never appear in results."""
     caller = await _create_player(db_session, "Daniel Caller", with_user=True)
     real = await _create_player(db_session, "Daniel Real")
-    ph = await _create_player(db_session, "Daniel Ghost", is_placeholder=True)
     sysp = await _create_player(db_session, "Daniel System", status="system")
 
     items = await player_data.search_players_with_relevance(
@@ -347,8 +385,111 @@ async def test_excludes_caller_placeholder_and_system(db_session):
     ids = {i["id"] for i in items}
     assert real in ids
     assert caller not in ids
-    assert ph not in ids
     assert sysp not in ids
+
+
+@pytest.mark.asyncio
+async def test_unrelated_placeholder_excluded(db_session):
+    """
+    A placeholder with no tie to the caller (not played, not created by
+    them, not a shared session/league member) stays out of a name search —
+    surfacing every guest anyone ever created would be noise.
+    """
+    caller = await _create_player(db_session, "Daniel Caller", with_user=True)
+    other = await _create_player(db_session, "Some Organizer", with_user=True)
+    ph = await _create_player(
+        db_session, "Daniel Ghost", is_placeholder=True, created_by=other
+    )
+
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller
+    )
+    assert ph not in {i["id"] for i in items}
+
+
+@pytest.mark.asyncio
+async def test_placeholder_opponent_appears_in_network_with_recent_opp(db_session):
+    """
+    The reported bug: a guest the caller has played against must surface in
+    the picker, scored (score > 0) and flagged with the recent_opp pill —
+    they're part of the caller's network even without a user account.
+    """
+    caller = await _create_player(db_session, "Test Caller", with_user=True)
+    partner = await _create_player(db_session, "My Partner")
+    guest = await _create_player(
+        db_session, "Daniel Guest", is_placeholder=True, created_by=caller
+    )
+    guest_partner = await _create_player(db_session, "Guest Partner")
+    await _recent_match(db_session, t1=(caller, partner), t2=(guest, guest_partner))
+
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller
+    )
+    by_id = {i["id"]: i for i in items}
+    assert guest in by_id, "guest opponent must appear in the picker"
+    assert by_id[guest]["score"] > 0
+    assert "recent_opp" in by_id[guest]["tags"]
+    assert by_id[guest]["is_guest"] is True
+
+
+@pytest.mark.asyncio
+async def test_placeholder_in_context_league_appears(db_session):
+    """A guest who is a member of the league being scored is pickable."""
+    caller = await _create_player(db_session, "Test Caller", with_user=True)
+    guest = await _create_player(
+        db_session, "Daniel Guest", is_placeholder=True, created_by=caller
+    )
+    league = League(name="Ctx League", is_open=True)
+    db_session.add(league)
+    await db_session.flush()
+    db_session.add(LeagueMember(league_id=league.id, player_id=guest))
+    await db_session.flush()
+
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller, league_id=league.id
+    )
+    by_id = {i["id"]: i for i in items}
+    assert guest in by_id
+    assert by_id[guest]["score"] > 0
+    assert by_id[guest]["is_guest"] is True
+
+
+@pytest.mark.asyncio
+async def test_caller_created_placeholder_searchable_as_stranger(db_session):
+    """
+    A guest the caller created is findable by name even with no shared play
+    history yet (score-0 stranger), so they can be re-picked into a game.
+    """
+    caller = await _create_player(db_session, "Test Caller", with_user=True)
+    guest = await _create_player(
+        db_session, "Daniel Guest", is_placeholder=True, created_by=caller
+    )
+
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller
+    )
+    by_id = {i["id"]: i for i in items}
+    assert guest in by_id
+    assert by_id[guest]["score"] == 0
+    assert by_id[guest]["is_guest"] is True
+
+
+@pytest.mark.asyncio
+async def test_other_users_placeholder_not_searchable_as_stranger(db_session):
+    """
+    A placeholder created by a *different* user, with no tie to the caller,
+    is not surfaced as a stranger (private to its creator's context).
+    """
+    caller = await _create_player(db_session, "Test Caller", with_user=True)
+    other = await _create_player(db_session, "Other Organizer", with_user=True)
+    guest = await _create_player(
+        db_session, "Daniel Guest", is_placeholder=True, created_by=other
+    )
+
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller
+    )
+    assert guest not in {i["id"] for i in items}
 
 
 # ---------------------------------------------------------------------------
@@ -405,6 +546,52 @@ async def test_stranger_cap_is_respected(db_session):
     )
     assert len(items) == 3  # no network, capped strangers
     assert all(i["score"] == 0 for i in items)
+
+
+@pytest.mark.asyncio
+async def test_strangers_ranked_by_match_quality_not_alphabetical(db_session):
+    """
+    Strangers (score 0) must surface the best name matches first — exact,
+    then prefix, then plain substring — so the player you typed stays
+    reachable within the cap even when they sort late alphabetically.
+
+    Regression: blind alphabetical order buried an exact "Daniel" behind an
+    unrelated "Bob Danielson" substring hit, making the wanted player
+    unreachable once enough A-name strangers matched.
+    """
+    caller = await _create_player(db_session, "Caller", with_user=True)
+    sub = await _create_player(db_session, "Bob Danielson")  # substring only
+    exact = await _create_player(db_session, "Daniel")  # exact name
+    prefix = await _create_player(db_session, "Daniel Smith")  # prefix
+
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller, limit=50
+    )
+    order = [i["id"] for i in items]
+    assert order == [exact, prefix, sub]
+    assert all(i["score"] == 0 for i in items)
+
+
+@pytest.mark.asyncio
+async def test_name_query_filters_network_to_matching_members(db_session):
+    """
+    A name term filters the network itself, not just strangers: network
+    members whose name doesn't match are excluded. Pins behavior across the
+    move of the name filter from Python into SQL (the scaling change — we
+    must fetch only matching candidates, not the whole network).
+    """
+    caller = await _create_player(db_session, "Caller", with_user=True)
+    match = await _create_player(db_session, "Daniel Friend")
+    nomatch = await _create_player(db_session, "Robert Friend")
+    await _add_friendship(db_session, caller, match)
+    await _add_friendship(db_session, caller, nomatch)
+
+    items = await player_data.search_players_with_relevance(
+        db_session, q="Daniel", caller_player_id=caller, limit=50
+    )
+    ids = {i["id"] for i in items}
+    assert match in ids
+    assert nomatch not in ids
 
 
 @pytest.mark.asyncio

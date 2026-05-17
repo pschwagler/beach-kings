@@ -426,14 +426,18 @@ describe('AddGamesScreen — league select: leagues loaded', () => {
     });
   });
 
-  it('shows "Start New Session" button for league without active session', async () => {
+  it('shows plain "Add Game" button (no session wording) for league without active session', async () => {
     await openLeagueSelect();
     await waitFor(() => {
       expect(screen.getByTestId(`league-new-${LEAGUE_1.id}`)).toBeTruthy();
     });
+    // No active session in any league → every row is a plain "Add Game".
+    expect(screen.getAllByText('Add Game').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Start New Session')).toBeNull();
+    expect(screen.queryByText('Active Session')).toBeNull();
   });
 
-  it('tapping "Start New Session" navigates to score-game with "Create New Session" header (Flow 2)', async () => {
+  it('tapping "Add Game" navigates to score-game with "Create New Session" header (Flow 2)', async () => {
     await openLeagueSelect();
     await waitFor(() => {
       expect(screen.getByTestId(`league-new-${LEAGUE_1.id}`)).toBeTruthy();

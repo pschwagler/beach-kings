@@ -29,7 +29,7 @@ __all__ = [
 ]
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, func, or_, and_
+from sqlalchemy import select, update, delete, func, or_, and_, case
 
 from backend.database.models import (
     Player,
@@ -330,11 +330,6 @@ def _resolved_names(row) -> Dict[str, str]:
     return resolved
 
 
-def _name_matches(row, term: str) -> bool:
-    """Case-insensitive substring match on full name or nickname (term is lowered)."""
-    return term in (row.full_name or "").lower() or term in (row.nickname or "").lower()
-
-
 async def _collect_caller_network(
     session: AsyncSession,
     *,
@@ -510,13 +505,34 @@ async def _caller_network(
 
 
 async def _session_member_ids(session: AsyncSession, session_id: int) -> Set[int]:
-    """Live picker-session membership (never cached → never stale)."""
-    rows = (
+    """Live picker-session membership (never cached → never stale).
+
+    Unions explicit session_participants rows with players who appear in any
+    match in the session — both paths indicate prior participation.
+    """
+    part_rows = (
         await session.execute(
             select(SessionParticipant.player_id).where(SessionParticipant.session_id == session_id)
         )
     ).all()
-    return {r[0] for r in rows if r[0] is not None}
+    ids: Set[int] = {r[0] for r in part_rows if r[0] is not None}
+
+    match_rows = (
+        await session.execute(
+            select(
+                Match.team1_player1_id,
+                Match.team1_player2_id,
+                Match.team2_player1_id,
+                Match.team2_player2_id,
+            ).where(Match.session_id == session_id)
+        )
+    ).all()
+    for row in match_rows:
+        for pid in (row[0], row[1], row[2], row[3]):
+            if pid is not None:
+                ids.add(pid)
+
+    return ids
 
 
 async def _league_member_ids(session: AsyncSession, league_id: int) -> Set[int]:
@@ -535,6 +551,8 @@ def _serialize(row, *, tags: List[str], score: int, in_session: bool) -> Dict:
 
     ``in_session`` is a distinct layout signal (drives the compact-chip
     group) — deliberately *not* a pill, so it never appears in ``tags``.
+    ``is_guest`` mirrors ``Player.is_placeholder`` so the client seats a
+    searched guest the same way as one freshly added via "Add New Player".
     first/last name are sent so the client can render last-initial etc.;
     full_name is retained as the canonical display + sort key.
     """
@@ -549,6 +567,7 @@ def _serialize(row, *, tags: List[str], score: int, in_session: bool) -> Dict:
         "tags": tags,
         "score": score,
         "in_session": in_session,
+        "is_guest": bool(getattr(row, "is_placeholder", False)),
     }
 
 
@@ -588,9 +607,16 @@ async def search_players_with_relevance(
         limit: Cap on appended score-0 strangers (clamped 1..100).
         recent_days: Recency window; non-default bypasses the cache.
 
+    Placeholders (guests) are first-class here: one in the caller's network
+    (recent opponent, shared picker session / league) is scored and ranked
+    like any real player; as a stranger, only placeholders the caller
+    created themselves are name-searchable (others stay private to their
+    creator's context).
+
     Returns:
         A list of result dicts: id, first_name, last_name, full_name,
-        nickname, initials, tags (list[str]), score (int), in_session (bool).
+        nickname, initials, tags (list[str]), score (int), in_session (bool),
+        is_guest (bool — mirrors Player.is_placeholder).
         Network (ranked) first, then strangers (alphabetical, score 0).
     """
     term = (q or "").strip().lower()
@@ -617,8 +643,30 @@ async def search_players_with_relevance(
     if caller_player_id is not None:
         candidate.discard(caller_player_id)
 
+    # Name predicate pushed into SQL rather than Python post-filtering: at
+    # thousands of network members the picker must fetch only matching rows,
+    # not the whole network on every debounced keystroke. Reused by the
+    # stranger query below so both branches share one definition.
+    name_like = f"%{term}%" if term else None
+    name_match = (
+        or_(Player.full_name.ilike(name_like), Player.nickname.ilike(name_like))
+        if name_like is not None
+        else None
+    )
+
     network_items: List[Dict] = []
     if candidate:
+        # Placeholders are NOT filtered here: a guest the caller has played
+        # against (or who shares the picker session / league) is a genuine
+        # member of the caller's network and must be re-pickable. They land
+        # in `candidate` via the same recent-opp / membership signals as any
+        # real player, and are scored identically.
+        network_where = [
+            Player.id.in_(candidate),
+            _NON_SYSTEM,
+        ]
+        if name_match is not None:
+            network_where.append(name_match)
         rows = (
             await session.execute(
                 select(
@@ -627,16 +675,11 @@ async def search_players_with_relevance(
                     Player.last_name,
                     Player.full_name,
                     Player.nickname,
-                ).where(
-                    Player.id.in_(candidate),
-                    _NON_SYSTEM,
-                    Player.is_placeholder.is_(False),
-                )
+                    Player.is_placeholder,
+                ).where(*network_where)
             )
         ).all()
         for r in rows:
-            if term and not _name_matches(r, term):
-                continue
             sig = network.get(r.id)
             metrics = PlayerSignalMetrics(
                 is_session=r.id in session_ids,
@@ -666,23 +709,57 @@ async def search_players_with_relevance(
         seen: Set[int] = {d["id"] for d in network_items} | candidate
         if caller_player_id is not None:
             seen.add(caller_player_id)
-        like = f"%{term}%"
+        # Surface the best name matches first so the typed player stays
+        # reachable within the cap: exact name, then prefix, then plain
+        # substring — never blind alphabetical (which buried exact matches).
+        match_rank = case(
+            (
+                or_(
+                    func.lower(Player.full_name) == term,
+                    func.lower(Player.nickname) == term,
+                ),
+                0,
+            ),
+            (
+                or_(
+                    func.lower(Player.full_name).like(f"{term}%"),
+                    func.lower(Player.nickname).like(f"{term}%"),
+                ),
+                1,
+            ),
+            else_=2,
+        )
+        # Strangers are score-0 name matches with no tie to the caller.
+        # Surfacing every guest anyone ever created here would be noise (and
+        # mildly leaky), so placeholders are excluded from the stranger pool
+        # *except* the ones the caller created themselves — those stay
+        # findable by name so a freshly-added guest can be re-picked before
+        # any game has been logged with them.
+        stranger_placeholder_ok = (
+            or_(
+                Player.is_placeholder.is_(False),
+                Player.created_by_player_id == caller_player_id,
+            )
+            if caller_player_id is not None
+            else Player.is_placeholder.is_(False)
+        )
         s_stmt = select(
             Player.id,
             Player.first_name,
             Player.last_name,
             Player.full_name,
             Player.nickname,
+            Player.is_placeholder,
         ).where(
-            or_(Player.full_name.ilike(like), Player.nickname.ilike(like)),
+            name_match,
             _NON_SYSTEM,
-            Player.is_placeholder.is_(False),
+            stranger_placeholder_ok,
         )
         if seen:
             s_stmt = s_stmt.where(Player.id.notin_(seen))
-        s_stmt = s_stmt.order_by(func.lower(Player.full_name).asc(), Player.id.asc()).limit(
-            stranger_cap
-        )
+        s_stmt = s_stmt.order_by(
+            match_rank.asc(), func.lower(Player.full_name).asc(), Player.id.asc()
+        ).limit(stranger_cap)
         s_rows = (await session.execute(s_stmt)).all()
         stranger_items = [_serialize(r, tags=[], score=0, in_session=False) for r in s_rows]
 

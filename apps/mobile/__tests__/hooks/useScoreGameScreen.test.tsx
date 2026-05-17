@@ -8,8 +8,11 @@
  *   (c) "Add Another Game" preserves session context, clears form
  *   (d) error path — errorMessage set, submitState = 'error'
  *   (e) is_ranked defaults — league variant = true, pickup = false
- *   (f) roster source — session → getSessionParticipants, league only →
- *       getLeagueMembers, neither → getFriends fallback
+ *   (f) roster source — session & league both → relevance-ranked
+ *       searchPlayers('', {sessionId?, leagueId?}); session also fetches
+ *       getSessionParticipants for gender/level inference; participants +
+ *       friends only as a fallback when search is empty; neither →
+ *       getFriends fallback
  */
 
 import React from 'react';
@@ -26,6 +29,7 @@ const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
   useLocalSearchParams: jest.fn(() => ({})),
+  useFocusEffect: jest.fn(),
 }));
 
 const mockSubmitScoredGame = jest.fn();
@@ -61,6 +65,54 @@ jest.mock('@/lib/api', () => ({
 
 jest.mock('@/utils/share', () => ({
   shareLink: (...args: unknown[]) => mockShareLink(...args),
+}));
+
+// Controllable AddNewPlayerContext bridge. The mock fns mutate module-level
+// vars so a test can drive `request`/`result` and then re-render the hook to
+// exercise openAddNewPlayer (sets request + navigates) and the
+// result-consumption effect (seats the guest + pendingShareInvite).
+interface MockBridgeRequest {
+  team: 1 | 2;
+  slot: 0 | 1;
+  prefillName: string;
+  inferredGender: string | null;
+  inferredLevel: string | null;
+  leagueId: number | null;
+}
+interface MockBridgeResult {
+  team: 1 | 2;
+  slot: 0 | 1;
+  name: string;
+  player_id: number;
+  invite_url: string;
+}
+let mockBridgeRequest: MockBridgeRequest | null = null;
+let mockBridgeResult: MockBridgeResult | null = null;
+const mockBridgeSetRequest = jest.fn((r: MockBridgeRequest) => {
+  mockBridgeRequest = r;
+});
+const mockBridgeClearRequest = jest.fn(() => {
+  mockBridgeRequest = null;
+});
+const mockBridgeSetResult = jest.fn((r: MockBridgeResult) => {
+  mockBridgeResult = r;
+});
+const mockBridgeConsumeResult = jest.fn(() => {
+  const r = mockBridgeResult;
+  mockBridgeResult = null;
+  return r;
+});
+jest.mock('@/contexts/AddNewPlayerContext', () => ({
+  __esModule: true,
+  useAddNewPlayer: () => ({
+    request: mockBridgeRequest,
+    result: mockBridgeResult,
+    setRequest: mockBridgeSetRequest,
+    clearRequest: mockBridgeClearRequest,
+    setResult: mockBridgeSetResult,
+    consumeResult: mockBridgeConsumeResult,
+  }),
+  default: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 // ---------------------------------------------------------------------------
@@ -130,6 +182,8 @@ function fillSlots(result: ReturnType<typeof renderHook<ReturnType<typeof useSco
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockBridgeRequest = null;
+  mockBridgeResult = null;
   mockSubmitScoredGame.mockResolvedValue({
     status: 'success',
     message: 'Game created successfully',
@@ -489,7 +543,28 @@ describe('useScoreGameScreen — is_ranked defaults', () => {
 // ---------------------------------------------------------------------------
 
 describe('useScoreGameScreen — roster source', () => {
-  it('fetches session participants + friends when sessionId is provided', async () => {
+  it('uses relevance-ranked searchPlayers for the session roster (not just participants + friends)', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => {
+      // Roster comes from the full ranked search (session members flagged
+      // in_session render as chips; the rest is the whole network) — so a
+      // user with few friends still gets the full selection.
+      expect(mockSearchPlayers).toHaveBeenCalledWith(
+        '',
+        expect.objectContaining({ sessionId: 7 }),
+      );
+      expect(result.current.roster.length).toBe(
+        MOCK_LEAGUE_DEFAULT_ROSTER.items.length,
+      );
+    });
+    // Participants are still fetched — for gender/level inference only.
+    expect(mockGetSessionParticipants).toHaveBeenCalledWith(7);
+    // Friends are NOT the session roster source when search succeeds.
+    expect(mockGetFriends).not.toHaveBeenCalled();
+  });
+
+  it('falls back to session participants + friends when relevance search is empty', async () => {
+    mockSearchPlayers.mockResolvedValue({ items: [] });
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
     await waitFor(() => {
       expect(mockGetSessionParticipants).toHaveBeenCalledWith(7);
@@ -567,13 +642,17 @@ describe('useScoreGameScreen — roster source', () => {
     expect(mockGetLeagueMembers).not.toHaveBeenCalled();
   });
 
-  it('does not call league members API when sessionId is also provided', async () => {
+  it('passes both sessionId and leagueId to searchPlayers, never calling league members API', async () => {
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7, leagueId: 3 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
     expect(mockGetSessionParticipants).toHaveBeenCalledWith(7);
     expect(mockGetLeagueMembers).not.toHaveBeenCalled();
-    // searchPlayers with empty q is only used by the league-only path.
-    expect(mockSearchPlayers).not.toHaveBeenCalledWith('', expect.anything());
+    // Session roster uses the relevance search, scoped to both contexts so
+    // session members are flagged and league members rank highly.
+    expect(mockSearchPlayers).toHaveBeenCalledWith(
+      '',
+      expect.objectContaining({ sessionId: 7, leagueId: 3 }),
+    );
   });
 
   it('filters roster by search query', async () => {
@@ -588,15 +667,45 @@ describe('useScoreGameScreen — roster source', () => {
     expect(result.current.filteredRoster[0].display_name).toBe('Chris Gulla');
   });
 
-  it('shows full roster when search is empty', async () => {
+  it('shows full roster (caller seated at the head) when search is empty', async () => {
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    // Wait for the caller fetch to resolve so the YOU chip is injected.
+    await waitFor(() => expect(result.current.currentPlayerId).toBe(77));
 
     act(() => {
       result.current.setSearch('');
     });
 
-    expect(result.current.filteredRoster.length).toBe(result.current.roster.length);
+    // The caller (id 77, not part of the backend roster) leads the list as a
+    // session chip, followed by the full backend roster.
+    expect(result.current.filteredRoster.length).toBe(
+      result.current.roster.length + 1,
+    );
+    expect(result.current.filteredRoster[0].player_id).toBe(77);
+    expect(result.current.filteredRoster[0].isSession).toBe(true);
+    expect(result.current.filteredRoster.slice(1)).toEqual(
+      result.current.roster,
+    );
+  });
+
+  it('seats the caller into the picker even though the backend search excludes them, and drops the chip once they are on a team', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.currentPlayerId).toBe(77));
+
+    // The caller appears as their own chip (the backend never returns them).
+    const self = result.current.filteredRoster.find((p) => p.player_id === 77);
+    expect(self).toBeDefined();
+    expect(self?.isSession).toBe(true);
+
+    // Once seated, the scoreboard owns their display — the chip leaves the
+    // picker so it doesn't steal scroll space.
+    act(() => {
+      result.current.assignPlayer(1, 0, self!);
+    });
+    expect(
+      result.current.filteredRoster.some((p) => p.player_id === 77),
+    ).toBe(false);
   });
 });
 
@@ -719,7 +828,7 @@ describe('useScoreGameScreen — scoreWarning incomplete', () => {
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
     fillSlotsOnly(result);
-    expect(result.current.scoreWarning).toBe('Both scores are 0 — save anyway?');
+    expect(result.current.scoreWarning).toBe('Enter scores to save');
   });
 
   it('keeps tied warning ahead of incomplete check (5-5)', async () => {
@@ -1149,53 +1258,98 @@ describe('useScoreGameScreen — onManageSession / onShareSession', () => {
 });
 
 // ---------------------------------------------------------------------------
-// (k) AddNewPlayer sheet — open/close/create
+// (k) AddNewPlayer formSheet — request hand-off + result consumption
 // ---------------------------------------------------------------------------
 
-describe('useScoreGameScreen — addNewPlayer sheet', () => {
-  // (a) onCreateNewPlayer success
-  it('fills slot with placeholder player and sets pendingShareInvite on success', async () => {
+describe('useScoreGameScreen — addNewPlayer formSheet', () => {
+  // (a) openAddNewPlayer captures the search/target into the bridge request
+  // and navigates to the formSheet route.
+  it('sets the bridge request from search/target and navigates to the route', async () => {
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
-    // Set search so prefillName captures it
     act(() => {
       result.current.setSearch('Brad');
     });
-
-    // Open the sheet targeting team1, slot0
     act(() => {
       result.current.openAddNewPlayer({ team: 1, slot: 0 });
     });
 
-    expect(result.current.addNewPlayerVisible).toBe(true);
-    expect(result.current.addNewPlayerPrefillName).toBe('Brad');
+    expect(mockBridgeSetRequest).toHaveBeenCalledWith({
+      team: 1,
+      slot: 0,
+      prefillName: 'Brad',
+      inferredGender: null,
+      inferredLevel: null,
+      leagueId: null,
+    });
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/add-new-player');
+  });
 
-    await act(async () => {
-      await result.current.onCreateNewPlayer({ first: 'Brad', last: 'K', gender: null, level: null });
+  // (b) consuming a returned result seats the guest into the requested slot,
+  // sets pendingShareInvite for the toast, and clears the search box.
+  it('seats the guest, sets pendingShareInvite, and clears search when a result returns', async () => {
+    const { result, rerender } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7 }),
+    );
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.setSearch('Brad');
     });
 
-    // Slot filled with placeholder player
-    expect(result.current.team1[0].player_id).toBe(99);
+    // Simulate the formSheet creating the placeholder and handing it back.
+    await act(async () => {
+      mockBridgeResult = {
+        team: 1,
+        slot: 0,
+        name: 'Brad K',
+        player_id: 99,
+        invite_url: 'https://x/invite/tok',
+      };
+      rerender({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.team1[0].player_id).toBe(99);
+    });
     expect(result.current.team1[0].display_name).toBe('Brad K');
     expect(result.current.team1[0].is_guest).toBe(true);
-
-    // pendingShareInvite set
     expect(result.current.pendingShareInvite).toEqual({
       name: 'Brad K',
       invite_url: 'https://x/invite/tok',
       team: 1,
     });
-
-    // search cleared
     expect(result.current.search).toBe('');
-
-    // sheet closed
-    expect(result.current.addNewPlayerVisible).toBe(false);
   });
 
-  // (b) league context → league_id sent in payload
-  it('sends league_id in createPlaceholder payload when leagueId is set', async () => {
+  // (b2) the result is consumed exactly once (consumeResult clears it).
+  it('consumes the result so it seats the guest only once', async () => {
+    const { result, rerender } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7 }),
+    );
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    await act(async () => {
+      mockBridgeResult = {
+        team: 2,
+        slot: 1,
+        name: 'Brad K',
+        player_id: 99,
+        invite_url: 'https://x/invite/tok',
+      };
+      rerender({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.team2[1].player_id).toBe(99);
+    });
+    expect(mockBridgeConsumeResult).toHaveBeenCalled();
+    expect(mockBridgeResult).toBeNull();
+  });
+
+  // (c) league context → leagueId carried into the request.
+  it('carries leagueId into the request when in a league context', async () => {
     const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
@@ -1203,16 +1357,12 @@ describe('useScoreGameScreen — addNewPlayer sheet', () => {
       result.current.openAddNewPlayer({ team: 1, slot: 0 });
     });
 
-    await act(async () => {
-      await result.current.onCreateNewPlayer({ first: 'Brad', last: 'K', gender: null, level: null });
-    });
-
-    expect(mockCreatePlaceholder).toHaveBeenCalledWith(
-      expect.objectContaining({ league_id: 3 }),
+    expect(mockBridgeSetRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ leagueId: 3 }),
     );
   });
 
-  // (c) inference: league gender 'mens' + level 'advanced' → inferredGender 'male', inferredLevel 'advanced'
+  // (d) inference: league gender 'mens' + level 'advanced' flows into request.
   it('infers gender male and level advanced from a mens/advanced league', async () => {
     mockGetLeague.mockResolvedValueOnce({
       id: 1,
@@ -1239,12 +1389,19 @@ describe('useScoreGameScreen — addNewPlayer sheet', () => {
     const { result } = renderHook(() => useScoreGameScreen({ leagueId: 1 }));
 
     await waitFor(() => {
-      expect(result.current.inferredGender).toBe('male');
-      expect(result.current.inferredLevel).toBe('advanced');
+      act(() => {
+        result.current.openAddNewPlayer({ team: 1, slot: 0 });
+      });
+      expect(mockBridgeSetRequest).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          inferredGender: 'male',
+          inferredLevel: 'advanced',
+        }),
+      );
     });
   });
 
-  // (d) inference: no league, session participants mostly female + beginner
+  // (e) inference: session participants mostly female + beginner.
   it('infers gender and level from session participant modal values', async () => {
     const femaleBeginnerParticipants = [
       { player_id: 10, full_name: 'Alice A', level: 'beginner', gender: 'female', location_name: null, is_placeholder: false },
@@ -1255,80 +1412,56 @@ describe('useScoreGameScreen — addNewPlayer sheet', () => {
     mockGetSessionParticipants.mockResolvedValueOnce(femaleBeginnerParticipants);
 
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
     await waitFor(() => {
-      expect(result.current.inferredGender).toBe('female');
-      expect(result.current.inferredLevel).toBe('beginner');
+      act(() => {
+        result.current.openAddNewPlayer({ team: 1, slot: 0 });
+      });
+      expect(mockBridgeSetRequest).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          inferredGender: 'female',
+          inferredLevel: 'beginner',
+        }),
+      );
     });
   });
 
-  // (e) inference: neither session clues nor league → both null
-  it('leaves inferred values null when no gender/level clues exist', async () => {
+  // (f) inference: neither session clues nor league → both null in request.
+  it('leaves inferred values null in the request when no clues exist', async () => {
     // MOCK_PARTICIPANTS all have null gender + level (from beforeEach)
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
-    expect(result.current.inferredGender).toBeNull();
-    expect(result.current.inferredLevel).toBeNull();
-  });
-
-  // (f) createPlaceholder rejects → onCreateNewPlayer rejects, slot NOT filled, sheet stays visible
-  it('propagates createPlaceholder errors and keeps the sheet open', async () => {
-    mockCreatePlaceholder.mockRejectedValueOnce(new Error('Server error'));
-
-    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
-    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
-
     act(() => {
       result.current.openAddNewPlayer({ team: 1, slot: 0 });
     });
 
-    await expect(
-      act(async () => {
-        await result.current.onCreateNewPlayer({ first: 'Brad', last: 'K', gender: null, level: null });
-      }),
-    ).rejects.toThrow('Server error');
-
-    // Slot NOT filled
-    expect(result.current.team1[0].player_id).toBeNull();
-
-    // Sheet stays visible
-    expect(result.current.addNewPlayerVisible).toBe(true);
-
-    // No pending invite
-    expect(result.current.pendingShareInvite).toBeNull();
-  });
-
-  it('closeAddNewPlayer hides the sheet without side effects', async () => {
-    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
-    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
-
-    act(() => {
-      result.current.openAddNewPlayer({ team: 2, slot: 1 });
-    });
-    expect(result.current.addNewPlayerVisible).toBe(true);
-
-    act(() => {
-      result.current.closeAddNewPlayer();
-    });
-    expect(result.current.addNewPlayerVisible).toBe(false);
-    // Slot not touched
-    expect(result.current.team2[1].player_id).toBeNull();
+    expect(mockBridgeSetRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ inferredGender: null, inferredLevel: null }),
+    );
   });
 
   it('clearPendingShareInvite nulls the invite', async () => {
-    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    const { result, rerender } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7 }),
+    );
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
-    act(() => {
-      result.current.openAddNewPlayer({ team: 1, slot: 0 });
-    });
-
     await act(async () => {
-      await result.current.onCreateNewPlayer({ first: 'Brad', last: 'K', gender: null, level: null });
+      mockBridgeResult = {
+        team: 1,
+        slot: 0,
+        name: 'Brad K',
+        player_id: 99,
+        invite_url: 'https://x/invite/tok',
+      };
+      rerender({});
     });
 
-    expect(result.current.pendingShareInvite).not.toBeNull();
+    await waitFor(() => {
+      expect(result.current.pendingShareInvite).not.toBeNull();
+    });
 
     act(() => {
       result.current.clearPendingShareInvite();

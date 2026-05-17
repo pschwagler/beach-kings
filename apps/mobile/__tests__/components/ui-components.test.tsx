@@ -109,7 +109,6 @@ import Divider from '@/components/ui/Divider';
 import Chip from '@/components/ui/Chip';
 import EmptyState from '@/components/ui/EmptyState';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
-import Modal from '@/components/ui/Modal';
 import SegmentControl from '@/components/ui/SegmentControl';
 import Avatar from '@/components/ui/Avatar';
 import BottomSheet from '@/components/ui/BottomSheet';
@@ -384,42 +383,6 @@ describe('LoadingSkeleton', () => {
   it('renders without crashing with explicit dimensions', () => {
     const { toJSON } = render(<LoadingSkeleton width={200} height={32} borderRadius={4} />);
     expect(toJSON()).toBeTruthy();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Modal
-// ---------------------------------------------------------------------------
-
-describe('Modal', () => {
-  it('renders children when visible', () => {
-    render(
-      <Modal visible onClose={jest.fn()}>
-        <></>
-      </Modal>
-    );
-    // Modal renders the close button even without a title
-    expect(screen.getByLabelText('Close')).toBeTruthy();
-  });
-
-  it('calls onClose when close button pressed', () => {
-    const onClose = jest.fn();
-    render(
-      <Modal visible onClose={onClose} title="Test Modal">
-        <></>
-      </Modal>
-    );
-    fireEvent.press(screen.getByLabelText('Close'));
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('renders title text', () => {
-    render(
-      <Modal visible onClose={jest.fn()} title="My Modal">
-        <></>
-      </Modal>
-    );
-    expect(screen.getByText('My Modal')).toBeTruthy();
   });
 });
 

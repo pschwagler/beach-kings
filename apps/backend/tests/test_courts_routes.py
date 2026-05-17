@@ -760,7 +760,7 @@ class TestUploadCourtPhoto:
         """Verified player can upload a standalone court photo with a caption."""
         captured_kwargs = {}
 
-        async def fake_get(_self, court_id):
+        async def fake_get(_self, _model, court_id):
             return MagicMock(id=court_id)
 
         async def fake_process(_file):
@@ -809,7 +809,7 @@ class TestUploadCourtPhoto:
         """A whitespace-only caption is normalized to None before persisting."""
         captured_kwargs = {}
 
-        async def fake_get(_self, court_id):
+        async def fake_get(_self, _model, court_id):
             return MagicMock(id=court_id)
 
         async def fake_process(_file):

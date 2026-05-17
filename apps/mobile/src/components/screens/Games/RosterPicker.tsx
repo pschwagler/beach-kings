@@ -17,12 +17,14 @@ import {
   Text,
   Pressable,
   TextInput,
-  ScrollView,
+  FlatList,
   ActivityIndicator,
 } from 'react-native';
 import type { PlayerSearchTag } from '@beach-kings/shared';
 import type { RosterPlayer } from './useScoreGameScreen';
 import type { PlayerSlot } from './useScoreGameScreen';
+import Avatar from '@/components/ui/Avatar';
+import type { AvatarVariant } from '@/components/ui/Avatar';
 import { SearchIcon, PlusIcon, XIcon } from '@/components/ui/icons';
 
 // ---------------------------------------------------------------------------
@@ -103,11 +105,11 @@ function SessionChip({
     ? 'bg-warning-tint border-brand-gold'
     : 'bg-surface border-divider';
 
-  const avatarBg = badge === 'T1'
-    ? 'bg-brand-teal'
+  const avatarVariant: AvatarVariant = badge === 'T1'
+    ? 'teal'
     : badge === 'T2'
-    ? 'bg-brand-gold'
-    : 'bg-elevated';
+    ? 'gold'
+    : 'muted';
 
   // YOU pill renders only when the current user isn't seated yet — once seated,
   // the T1/T2 pill takes its place and already conveys identity via position.
@@ -126,11 +128,12 @@ function SessionChip({
         isSeated ? 'opacity-50' : ''
       }`}
     >
-      <View className={`w-7 h-7 rounded-full items-center justify-center ${avatarBg}`}>
-        <Text className="text-[9px] font-bold text-white">
-          {player.initials}
-        </Text>
-      </View>
+      <Avatar
+        name={player.display_name}
+        imageUrl={player.avatar_url}
+        size="sm"
+        variant={avatarVariant}
+      />
       <Text
         className={`text-[13px] font-semibold ${
           badge === 'T1' ? 'text-brand-teal' : badge === 'T2' ? 'text-warning' : 'text-default'
@@ -201,11 +204,12 @@ function PlayerRow({ player, badge, onPress }: PlayerRowProps): React.ReactNode 
         isSeated ? 'opacity-50' : ''
       }`}
     >
-      <View className="w-[38px] h-[38px] rounded-full bg-elevated items-center justify-center">
-        <Text className="text-[11px] font-bold text-muted">
-          {player.initials}
-        </Text>
-      </View>
+      <Avatar
+        name={player.display_name}
+        imageUrl={player.avatar_url}
+        size="sm"
+        variant="muted"
+      />
       <View className="flex-1 min-w-0">
         <Text className="text-[14px] font-semibold text-default">
           {player.display_name}
@@ -404,72 +408,80 @@ export default function RosterPicker({
         </View>
       </View>
 
-      <ScrollView
+      {/* Virtualized: the ranked roster can run to hundreds of rows (whole
+          network, capped backend-side). Session players lead in the header as
+          compact chips; the Add-New CTA is a pinned footer so it's reachable
+          regardless of list length. */}
+      <FlatList
         className="flex-1"
+        data={rowPlayers}
+        keyExtractor={(item) => String(item.player_id)}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        // iOS floats the keyboard over content without resizing the window, so
+        // the bottom rows + the Add-New-Player CTA would otherwise be trapped
+        // behind it. This adds a matching bottom inset so they scroll into
+        // view. No-op on Android (window resizes via Expo's `resize` mode).
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-      >
-        {/* In this session — compact chip layout, shown only when relevant. */}
-        {hasSessionSection && (
-          <>
-            <SectionLabel
-              testID="roster-section-session"
-              label="In this session"
-              count={
-                seatedCount > 0
-                  ? `${seatedCount} of ${sessionPlayers.length} already on a team`
-                  : undefined
-              }
-            />
-            <View className="flex-row flex-wrap gap-2 pb-1">
-              {sessionPlayers.map((player) => (
-                <SessionChip
-                  key={player.player_id}
-                  player={player}
-                  badge={teamBadge(player, team1, team2)}
-                  isCurrentUser={
-                    currentPlayerId != null &&
-                    player.player_id === currentPlayerId
-                  }
-                  onPress={onSelectPlayer}
-                />
-              ))}
-            </View>
-          </>
+        renderItem={({ item }) => (
+          <PlayerRow
+            player={item}
+            badge={teamBadge(item, team1, team2)}
+            onPress={onSelectPlayer}
+          />
         )}
-
-        {/* Single relevance-ranked list. No bucket headers — order is the
-            backend's additive score; pills convey the relationship. */}
-        {rowPlayers.length > 0 && (
-          <>
-            {hasSessionSection && (
+        ListHeaderComponent={
+          hasSessionSection ? (
+            <>
+              {/* In this session — compact chip layout. */}
               <SectionLabel
-                testID="roster-section-ranked"
-                label="More players"
+                testID="roster-section-session"
+                label="In this session"
+                count={
+                  seatedCount > 0
+                    ? `${seatedCount} of ${sessionPlayers.length} already on a team`
+                    : undefined
+                }
               />
-            )}
-            {rowPlayers.map((player) => (
-              <PlayerRow
-                key={player.player_id}
-                player={player}
-                badge={teamBadge(player, team1, team2)}
-                onPress={onSelectPlayer}
-              />
-            ))}
-          </>
-        )}
-
-        {showEmpty && (
-          <Text className="text-[13px] text-muted italic py-4 text-center">
-            {search.trim()
-              ? 'No players match your search.'
-              : 'Search for a player to add them.'}
-          </Text>
-        )}
-
-        {/* Add new player CTA */}
-        <AddNewCta searchQuery={search} onPress={onAddNewPlayer} />
-      </ScrollView>
+              <View className="flex-row flex-wrap gap-2 pb-1">
+                {sessionPlayers.map((player) => (
+                  <SessionChip
+                    key={player.player_id}
+                    player={player}
+                    badge={teamBadge(player, team1, team2)}
+                    isCurrentUser={
+                      currentPlayerId != null &&
+                      player.player_id === currentPlayerId
+                    }
+                    onPress={onSelectPlayer}
+                  />
+                ))}
+              </View>
+              {/* Divider before the ranked rows. No bucket headers — order is
+                  the backend's additive score; pills convey the relationship. */}
+              {rowPlayers.length > 0 && (
+                <SectionLabel
+                  testID="roster-section-ranked"
+                  label="More players"
+                />
+              )}
+            </>
+          ) : null
+        }
+        ListEmptyComponent={
+          showEmpty ? (
+            <Text className="text-[13px] text-muted italic py-4 text-center">
+              {search.trim()
+                ? 'No players match your search.'
+                : 'Search for a player to add them.'}
+            </Text>
+          ) : null
+        }
+        ListFooterComponent={
+          <AddNewCta searchQuery={search} onPress={onAddNewPlayer} />
+        }
+      />
     </View>
   );
 }
