@@ -318,6 +318,19 @@ describe('LeagueDetailScreen — navigation', () => {
     fireEvent.press(screen.getByTestId('invite-button'));
     expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('invite'));
   });
+
+  it('pressing Add Game navigates directly to score-game with leagueId and seasonId', async () => {
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-add-game-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('league-add-game-btn'));
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    const url = mockPush.mock.calls[0][0] as string;
+    expect(url).toContain('/(stack)/score-game');
+    expect(url).toContain(`leagueId=${MOCK_DETAIL.id}`);
+    expect(url).toContain(`seasonId=${MOCK_DETAIL.current_season_id}`);
+    expect(url).toContain('headerTitle=Add%20Game');
+    expect(url).not.toContain('add-games');
+  });
 });
 
 // ---------------------------------------------------------------------------

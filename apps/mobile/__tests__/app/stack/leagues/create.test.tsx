@@ -3,10 +3,10 @@
  *
  * Covers:
  *   - Renders all form fields (name, description, access toggle, gender, level,
- *     location picker, court picker)
+ *     location picker row, court picker row)
  *   - Submit button disabled until name is long enough
  *   - access_type → is_open mapping: 'open' → true, 'invite_only' → false
- *   - Order of API calls: createLeague then optional addLeagueHomeCourt
+ *   - Order of API calls: createLeague → addLeagueHomeCourt → createLeagueSeason
  *   - Success navigation after submit
  *   - Error handling on submit failure
  */
@@ -70,6 +70,14 @@ const mockCreateLeague = jest.fn();
 const mockGetLocations = jest.fn();
 const mockGetCourts = jest.fn();
 const mockAddLeagueHomeCourt = jest.fn();
+const mockCreateLeagueSeason = jest.fn();
+const mockGetLocationDistances = jest.fn();
+
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
+  getCurrentPositionAsync: jest.fn(),
+  Accuracy: { Balanced: 3 },
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -77,6 +85,8 @@ jest.mock('@/lib/api', () => ({
     getLocations: (...args: unknown[]) => mockGetLocations(...args),
     getCourts: (...args: unknown[]) => mockGetCourts(...args),
     addLeagueHomeCourt: (...args: unknown[]) => mockAddLeagueHomeCourt(...args),
+    createLeagueSeason: (...args: unknown[]) => mockCreateLeagueSeason(...args),
+    getLocationDistances: (...args: unknown[]) => mockGetLocationDistances(...args),
   },
 }));
 
@@ -105,6 +115,8 @@ beforeEach(() => {
   mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
   mockGetCourts.mockResolvedValue(MOCK_COURTS);
   mockAddLeagueHomeCourt.mockResolvedValue({ id: 1, name: 'QBK Sports', position: 0 });
+  mockCreateLeagueSeason.mockResolvedValue({ id: 1, name: 'Season 1', is_active: true });
+  mockGetLocationDistances.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -145,9 +157,14 @@ describe('CreateLeagueScreen — render', () => {
     expect(screen.getByTestId('gender-pill-coed')).toBeTruthy();
   });
 
-  it('renders the location picker', () => {
+  it('renders the location picker row', () => {
     render(<CreateLeagueRoute />);
-    expect(screen.getByTestId('location-picker')).toBeTruthy();
+    expect(screen.getByTestId('location-picker-row')).toBeTruthy();
+  });
+
+  it('renders the court picker row', () => {
+    render(<CreateLeagueRoute />);
+    expect(screen.getByTestId('court-picker-row')).toBeTruthy();
   });
 });
 
@@ -275,6 +292,30 @@ describe('CreateLeagueScreen — submit', () => {
     await waitFor(() => {
       expect(mockCreateLeague).toHaveBeenCalled();
       expect(mockAddLeagueHomeCourt).not.toHaveBeenCalled();
+    });
+  });
+
+  it('calls createLeagueSeason with Season 1 after creating the league', async () => {
+    mockCreateLeague.mockResolvedValueOnce({ id: 55 });
+    render(<CreateLeagueRoute />);
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'Beach Kings');
+    fireEvent.press(screen.getByTestId('create-league-button'));
+    await waitFor(() => {
+      expect(mockCreateLeagueSeason).toHaveBeenCalledWith(
+        55,
+        expect.objectContaining({ name: 'Season 1', is_active: true }),
+      );
+    });
+  });
+
+  it('still navigates when createLeagueSeason fails', async () => {
+    mockCreateLeague.mockResolvedValueOnce({ id: 56 });
+    mockCreateLeagueSeason.mockRejectedValueOnce(new Error('season error'));
+    render(<CreateLeagueRoute />);
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'Beach Kings');
+    fireEvent.press(screen.getByTestId('create-league-button'));
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('56'));
     });
   });
 

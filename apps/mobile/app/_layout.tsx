@@ -5,6 +5,7 @@ import { Slot, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import AuthProvider from '@/contexts/AuthContext';
 import ThemeProvider, { useTheme } from '@/contexts/ThemeContext';
@@ -64,20 +65,22 @@ export default function RootLayout(): React.ReactNode {
   }
 
   return (
-    <KeyboardProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <AuthProvider>
-            <NotificationProvider>
-              <ToastProvider>
-                <ErrorBoundary>
-                  <RootLayoutInner onReady={handleReady} />
-                </ErrorBoundary>
-              </ToastProvider>
-            </NotificationProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </KeyboardProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <KeyboardProvider>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <AuthProvider>
+              <NotificationProvider>
+                <ToastProvider>
+                  <ErrorBoundary>
+                    <RootLayoutInner onReady={handleReady} />
+                  </ErrorBoundary>
+                </ToastProvider>
+              </NotificationProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </KeyboardProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -1,7 +1,7 @@
 /**
  * SessionGameCard — renders a single game/match row within a session.
  *
- * Shows: game number, WIN/LOSS/PENDING badge, team names, score, rating change.
+ * Shows: game number, WIN/LOSS/PENDING badge (omitted when user is not a participant), team names, score, rating change.
  * Wireframe ref: session-active.html, session-detail.html
  */
 
@@ -16,15 +16,15 @@ interface Props {
   readonly onEdit?: () => void;
 }
 
-type GameResult = 'win' | 'loss' | 'pending';
+type GameResult = 'win' | 'loss' | 'pending' | 'not-participant';
 
 function getResult(game: SessionGame, userTeam: 1 | 2 | null): GameResult {
+  if (userTeam == null) return 'not-participant';
   if (game.winner == null) return 'pending';
-  if (userTeam == null) return 'pending';
   return game.winner === userTeam ? 'win' : 'loss';
 }
 
-const RESULT_STYLES: Record<GameResult, { badge: string; text: string; label: string }> = {
+const RESULT_STYLES: Record<Exclude<GameResult, 'not-participant'>, { badge: string; text: string; label: string }> = {
   win: {
     badge: 'bg-success-tint',
     text: 'text-success',
@@ -48,7 +48,7 @@ export default function SessionGameCard({
   onEdit,
 }: Props): React.ReactNode {
   const result = getResult(game, userTeam);
-  const { badge, text, label } = RESULT_STYLES[result];
+  const resultStyles = result !== 'not-participant' ? RESULT_STYLES[result] : null;
 
   const scoreText =
     game.team1_score != null && game.team2_score != null
@@ -73,9 +73,11 @@ export default function SessionGameCard({
           Game {game.game_number}
         </Text>
         <View className="flex-row items-center gap-[8px]">
-          <View className={`px-[8px] py-[3px] rounded-[10px] ${badge}`}>
-            <Text className={`text-[10px] font-bold ${text}`}>{label}</Text>
-          </View>
+          {resultStyles != null && (
+            <View className={`px-[8px] py-[3px] rounded-[10px] ${resultStyles.badge}`}>
+              <Text className={`text-[10px] font-bold ${resultStyles.text}`}>{resultStyles.label}</Text>
+            </View>
+          )}
           {onEdit != null && (
             <TouchableOpacity
               onPress={onEdit}
@@ -118,9 +120,7 @@ export default function SessionGameCard({
             </Text>
           ) : result === 'pending' ? (
             <View className="bg-elevated px-[6px] py-[2px] rounded-[6px] mt-[4px]">
-              <Text className="text-[10px] text-muted font-semibold">
-                PENDING
-              </Text>
+              <Text className="text-[10px] text-muted font-semibold">PENDING</Text>
             </View>
           ) : null}
         </View>

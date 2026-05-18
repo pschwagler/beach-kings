@@ -116,6 +116,8 @@ export interface UseScoreGameScreenResult {
   readonly isRanked: boolean;
   /** session_id returned by the last successful submit (new or existing). */
   readonly lastSessionId: number | null;
+  /** match_id returned by the last successful submitScoredGame (null in edit mode or before first save). */
+  readonly savedMatchId: number | null;
   /** How many of the 4 slots are filled. */
   readonly filledCount: number;
   /** True while fewer than 4 slots are filled (picker shown, score hidden). */
@@ -159,6 +161,7 @@ export interface UseScoreGameScreenResult {
   readonly setScore2: (n: number) => void;
   readonly assignPlayer: (team: 1 | 2, slot: 0 | 1, player: RosterPlayer | null) => void;
   readonly removePlayer: (team: 1 | 2, slot: 0 | 1) => void;
+  readonly swapSlots: (from: { team: 1 | 2; slot: 0 | 1 }, to: { team: 1 | 2; slot: 0 | 1 }) => void;
   readonly setSearch: (q: string) => void;
   readonly onSubmit: () => void;
   readonly onRetry: () => void;
@@ -299,6 +302,7 @@ export function useScoreGameScreen(
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastSessionId, setLastSessionId] = useState<number | null>(null);
+  const [savedMatchId, setSavedMatchId] = useState<number | null>(null);
   const [deleteState, setDeleteState] = useState<DeleteState>('idle');
   const [isCreatingSession, setIsCreatingSession] = useState(false);
 
@@ -711,6 +715,36 @@ export function useScoreGameScreen(
     [assignPlayer],
   );
 
+  const swapSlots = useCallback(
+    (from: { team: 1 | 2; slot: 0 | 1 }, to: { team: 1 | 2; slot: 0 | 1 }): void => {
+      if (from.team === to.team && from.slot === to.slot) return;
+
+      const fromSlot = from.team === 1 ? team1[from.slot] : team2[from.slot];
+      const toSlot = to.team === 1 ? team1[to.slot] : team2[to.slot];
+
+      if (from.team === 1 && to.team === 1) {
+        setTeam1(() =>
+          from.slot === 0 ? [toSlot, fromSlot] : [fromSlot, toSlot],
+        );
+        return;
+      }
+      if (from.team === 2 && to.team === 2) {
+        setTeam2(() =>
+          from.slot === 0 ? [toSlot, fromSlot] : [fromSlot, toSlot],
+        );
+        return;
+      }
+      if (from.team === 1) {
+        setTeam1((prev) => (from.slot === 0 ? [toSlot, prev[1]] : [prev[0], toSlot]));
+        setTeam2((prev) => (to.slot === 0 ? [fromSlot, prev[1]] : [prev[0], fromSlot]));
+      } else {
+        setTeam2((prev) => (from.slot === 0 ? [toSlot, prev[1]] : [prev[0], toSlot]));
+        setTeam1((prev) => (to.slot === 0 ? [fromSlot, prev[1]] : [prev[0], fromSlot]));
+      }
+    },
+    [team1, team2],
+  );
+
   // --- canSubmit ---
   const canSubmit = useMemo(
     () =>
@@ -752,6 +786,7 @@ export function useScoreGameScreen(
           is_ranked: isRanked,
         });
         setLastSessionId(response.session_id);
+        setSavedMatchId(response.match_id);
         // Capture the session id the backend returned — for a brand-new
         // session this is what unlocks Share in the three-dot menu and
         // routes the close button to SessionDetail instead of Add Games.
@@ -984,6 +1019,7 @@ export function useScoreGameScreen(
     canSubmit,
     isRanked,
     lastSessionId,
+    savedMatchId,
     filledCount,
     isBuilding,
     activeNextSlot,
@@ -1000,6 +1036,7 @@ export function useScoreGameScreen(
     setScore2,
     assignPlayer,
     removePlayer,
+    swapSlots,
     setSearch,
     onSubmit: onSubmitVoid,
     onRetry,

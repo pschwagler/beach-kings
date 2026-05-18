@@ -310,12 +310,12 @@ describe('ScoreGameScreen — scoreboard', () => {
     expect(screen.getByTestId('scoreboard')).toBeTruthy();
   });
 
-  it('renders initial score 0 for both teams after slots are filled', async () => {
+  it('renders initial score 00 for both teams after slots are filled', async () => {
     renderScoreGame();
     await fillAllSlots();
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team1').props.children).toBe('0');
-      expect(screen.getByTestId('score-display-team2').props.children).toBe('0');
+      expect(screen.getByTestId('score-display-team1').props.children).toBe('00');
+      expect(screen.getByTestId('score-display-team2').props.children).toBe('00');
     });
   });
 
@@ -325,7 +325,7 @@ describe('ScoreGameScreen — scoreboard', () => {
     await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
     fireEvent.press(screen.getByTestId('numpad-1'));
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team1').props.children).toBe('1');
+      expect(screen.getByTestId('score-display-team1').props.children).toBe('01');
     });
   });
 
@@ -336,17 +336,17 @@ describe('ScoreGameScreen — scoreboard', () => {
     fireEvent.press(screen.getByTestId('numpad-next')); // advance to team 2
     fireEvent.press(screen.getByTestId('numpad-1'));
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team2').props.children).toBe('1');
+      expect(screen.getByTestId('score-display-team2').props.children).toBe('01');
     });
   });
 
-  it('delete on empty buffer resets team 1 score to 0', async () => {
+  it('delete on empty buffer resets team 1 score to 00', async () => {
     renderScoreGame();
     await fillAllSlots();
     await waitFor(() => expect(screen.getByTestId('numpad-delete')).toBeTruthy());
     fireEvent.press(screen.getByTestId('numpad-delete'));
     await waitFor(() => {
-      expect(screen.getByTestId('score-display-team1').props.children).toBe('0');
+      expect(screen.getByTestId('score-display-team1').props.children).toBe('00');
     });
   });
 });
@@ -1216,6 +1216,39 @@ describe('ScoreGameScreen — edit mode', () => {
     await waitFor(() => expect(mockDeleteMatch).toHaveBeenCalledWith(555));
     // No navigation away on failure — user stays on the score screen.
     expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('pressing X in edit mode navigates away without showing the discard dialog', async () => {
+    mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
+    renderScoreGame();
+    await waitFor(() => expect(screen.getByTestId('modal-close-btn')).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId('modal-close-btn'));
+
+    // No confirmation dialog — edit mode skips the guard.
+    expect(screen.queryByTestId('discard-confirm-dialog-confirm')).toBeNull();
+    // Navigation should have fired.
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalled(),
+    );
+  });
+
+  it('back-gesture in edit mode does not show the discard dialog', async () => {
+    mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
+    renderScoreGame();
+    await waitFor(() => expect(screen.getByTestId('modal-close-btn')).toBeTruthy());
+
+    const preventDefault = jest.fn();
+    const listener = beforeRemoveListeners[beforeRemoveListeners.length - 1];
+    if (listener == null) throw new Error('No beforeRemove listener registered');
+
+    act(() => {
+      listener({ preventDefault, data: { action: { type: 'GO_BACK' } } });
+    });
+
+    // Guard must NOT block navigation in edit mode.
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('discard-confirm-dialog-confirm')).toBeNull();
   });
 });
 

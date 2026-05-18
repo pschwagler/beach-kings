@@ -26,6 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import BottomTabBar from '@/components/navigation/BottomTabBar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
+import { routes } from '@/lib/navigation';
 import { useLeagueDetailScreen, type LeagueDetailTab } from './useLeagueDetailScreen';
 import LeagueDashboardTab from './LeagueDashboardTab';
 import LeagueChatTab from './LeagueChatTab';
@@ -310,7 +311,14 @@ export default function LeagueDetailScreen({
       testID="league-add-game-btn"
       onPress={() => {
         void hapticLight();
-        router.push(`/(tabs)/add-games?leagueId=${resolvedId}`);
+        router.push(
+          routes.scoreGame({
+            leagueId: Number(resolvedId),
+            seasonId: detail?.current_season_id ?? null,
+            headerTitle: 'Add Game',
+            sessionLabel: detail?.name,
+          }) as never,
+        );
       }}
       accessibilityRole="button"
       accessibilityLabel="Add game"

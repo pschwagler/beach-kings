@@ -8,7 +8,7 @@
  *   muted          — elevated/surface bg, muted text
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image } from 'react-native';
 
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
@@ -38,13 +38,19 @@ const textSizes: Record<AvatarSize, string> = {
   xl: 'text-2xl',
 };
 
-const variantBg: Record<AvatarVariant, string> = {
-  teal: 'bg-brand-teal',
-  gold: 'bg-brand-gold',
-  muted: 'bg-elevated',
+/**
+ * Avatar bg is an inline style rather than a NativeWind semantic class because
+ * `bg-brand-teal` in light mode resolves to the dark-navy primary text color
+ * (#1a3a4a), which is invisible against the team chip backgrounds. These are
+ * the bright team-identity colors used consistently in both themes.
+ */
+const variantBgColor: Record<AvatarVariant, string | undefined> = {
+  teal: '#4daacc',
+  gold: '#d4a843',
+  muted: undefined,
 };
 
-const variantText: Record<AvatarVariant, string> = {
+const variantTextClass: Record<AvatarVariant, string> = {
   teal: 'text-white',
   gold: 'text-white',
   muted: 'text-muted',
@@ -67,8 +73,9 @@ export default function Avatar({
 }: AvatarProps): React.ReactNode {
   const dimension = sizeDimensions[size];
   const initials = getInitials(name);
+  const [imgError, setImgError] = useState(false);
 
-  if (imageUrl != null && imageUrl.length > 0) {
+  if (imageUrl != null && imageUrl.length > 0 && !imgError) {
     return (
       <Image
         source={{ uri: imageUrl }}
@@ -76,18 +83,27 @@ export default function Avatar({
         className={className}
         accessible={accessible}
         accessibilityLabel={accessible ? name : undefined}
+        resizeMode="cover"
+        onError={() => setImgError(true)}
       />
     );
   }
 
+  const bgColor = variantBgColor[variant];
+
   return (
     <View
-      style={{ width: dimension, height: dimension, borderRadius: dimension / 2 }}
-      className={`${variantBg[variant]} items-center justify-center ${className}`}
+      style={{
+        width: dimension,
+        height: dimension,
+        borderRadius: dimension / 2,
+        ...(bgColor != null ? { backgroundColor: bgColor } : {}),
+      }}
+      className={`${bgColor == null ? 'bg-elevated' : ''} items-center justify-center ${className}`}
       accessible={accessible}
       accessibilityLabel={accessible ? name : undefined}
     >
-      <Text className={`font-semibold ${variantText[variant]} ${textSizes[size]}`}>
+      <Text className={`font-semibold ${variantTextClass[variant]} ${textSizes[size]}`}>
         {initials}
       </Text>
     </View>

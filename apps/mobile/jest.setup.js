@@ -34,6 +34,40 @@ jest.mock('@react-native-community/datetimepicker', () => {
   return { __esModule: true, default: () => null };
 });
 
+// Mock react-native-gesture-handler — native touch infrastructure not available in Jest.
+jest.mock('react-native-gesture-handler', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  function makePanGesture() {
+    const g = {
+      activateAfterLongPress: () => g,
+      minDistance: () => g,
+      onStart: () => g,
+      onChange: () => g,
+      onEnd: () => g,
+      onFinalize: () => g,
+      enabled: () => g,
+      simultaneousWithExternalGesture: () => g,
+    };
+    return g;
+  }
+
+  return {
+    __esModule: true,
+    GestureDetector: ({ children }) => children,
+    GestureHandlerRootView: ({ children, ...props }) =>
+      React.createElement(View, props, children),
+    Gesture: {
+      Pan: makePanGesture,
+      Tap: makePanGesture,
+      LongPress: makePanGesture,
+      Simultaneous: (...gestures) => gestures[0],
+      Race: (...gestures) => gestures[0],
+    },
+  };
+});
+
 // Mock react-native-keyboard-controller — native module unavailable in Jest.
 // KeyboardProvider and KeyboardStickyView render their children as plain views.
 jest.mock('react-native-keyboard-controller', () => {

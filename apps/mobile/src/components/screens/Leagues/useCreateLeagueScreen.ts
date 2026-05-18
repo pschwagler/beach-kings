@@ -1,20 +1,29 @@
 /**
  * Data hook for the Create League screen.
  *
- * Manages form state and submission. On success the caller receives the
- * new league id so the route can navigate to the league detail.
+ * On mount:
+ *   - Loads all locations
+ *   - Requests device location permission; if granted, fetches distances and
+ *     auto-selects the closest location + its first court.
  *
- * access_type is a UI concept; it is mapped to `is_open: boolean` before
- * sending to the backend ('open' → true, 'invite_only' → false).
+ * On submit:
+ *   - Creates the league
+ *   - Attaches home court (non-fatal if it fails)
+ *   - Creates an initial "Season 1" season (non-fatal if it fails)
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import * as ExpoLocation from 'expo-location';
 import { api } from '@/lib/api';
 import type { Location, Court } from '@beach-kings/shared';
 
 export type LeagueAccessType = 'open' | 'invite_only';
 export type GenderOption = 'mens' | 'womens' | 'coed';
 export type LevelOption = 'Open' | 'AA' | 'A' | 'BB' | 'B';
+
+export interface LocationWithDistance extends Location {
+  readonly distance_miles?: number | null;
+}
 
 export interface CreateLeagueForm {
   name: string;
@@ -31,10 +40,12 @@ export interface UseCreateLeagueScreenResult {
   readonly isSubmitting: boolean;
   readonly submitError: string | null;
   readonly isValid: boolean;
-  readonly locations: readonly Location[];
+  readonly locations: readonly LocationWithDistance[];
   readonly locationsLoading: boolean;
   readonly courts: readonly Court[];
   readonly courtsLoading: boolean;
+  readonly locationModalOpen: boolean;
+  readonly courtModalOpen: boolean;
   readonly onChangeName: (v: string) => void;
   readonly onChangeDescription: (v: string) => void;
   readonly onChangeAccessType: (v: LeagueAccessType) => void;
@@ -42,6 +53,10 @@ export interface UseCreateLeagueScreenResult {
   readonly onChangeLevel: (v: LevelOption | '') => void;
   readonly onChangeLocation: (v: string) => void;
   readonly onChangeCourt: (v: number | null) => void;
+  readonly onOpenLocationModal: () => void;
+  readonly onCloseLocationModal: () => void;
+  readonly onOpenCourtModal: () => void;
+  readonly onCloseCourtModal: () => void;
   readonly onSubmit: () => Promise<number | null>;
 }
 
@@ -55,44 +70,75 @@ const DEFAULT_FORM: CreateLeagueForm = {
   court_id: null,
 };
 
-/**
- * Returns form state and submission handler for the Create League screen.
- *
- * Loads locations on mount. Loads courts when location_id changes.
- * On submit: calls api.createLeague, then optionally api.addLeagueHomeCourt
- * if a court was selected.
- */
 export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
   const [form, setForm] = useState<CreateLeagueForm>({ ...DEFAULT_FORM });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const [locations, setLocations] = useState<readonly Location[]>([]);
+  const [locations, setLocations] = useState<readonly LocationWithDistance[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
 
   const [courts, setCourts] = useState<readonly Court[]>([]);
   const [courtsLoading, setCourtsLoading] = useState(false);
 
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [courtModalOpen, setCourtModalOpen] = useState(false);
+
   const isValid = form.name.trim().length >= 2;
 
-  // Load locations on mount
+  // Load locations, then attempt GPS auto-select
   useEffect(() => {
     let cancelled = false;
-    setLocationsLoading(true);
-    api.getLocations()
-      .then((data) => {
-        if (!cancelled) setLocations(data);
-      })
-      .catch(() => {
-        // Non-fatal — location picker will just be empty
-      })
-      .finally(() => {
+
+    const run = async () => {
+      setLocationsLoading(true);
+      let baseLocations: readonly Location[] = [];
+      try {
+        baseLocations = await api.getLocations();
+        if (!cancelled) setLocations(baseLocations);
+      } catch {
+        // Non-fatal
+      } finally {
         if (!cancelled) setLocationsLoading(false);
-      });
+      }
+
+      if (baseLocations.length === 0 || cancelled) return;
+
+      // Request location permission — don't prompt if already denied
+      try {
+        const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+        if (status !== 'granted' || cancelled) return;
+
+        const position = await ExpoLocation.getCurrentPositionAsync({
+          accuracy: ExpoLocation.Accuracy.Balanced,
+        });
+
+        const { latitude: lat, longitude: lon } = position.coords;
+        const ranked = await api.getLocationDistances(lat, lon);
+        if (cancelled || ranked.length === 0) return;
+
+        const byId = new Map(ranked.map((r) => [r.id, r.distance_miles ?? null]));
+        const withDistances: readonly LocationWithDistance[] = baseLocations.map((loc) => ({
+          ...loc,
+          distance_miles: byId.get(loc.id) ?? null,
+        }));
+
+        if (!cancelled) {
+          setLocations(withDistances);
+          // Auto-select closest location
+          const closestId = String(ranked[0].id);
+          setForm((prev) => ({ ...prev, location_id: closestId, court_id: null }));
+        }
+      } catch {
+        // Permission denied or location unavailable — leave user to pick manually
+      }
+    };
+
+    void run();
     return () => { cancelled = true; };
   }, []);
 
-  // Load courts when location changes
+  // Load courts when location changes; auto-select first court if set by GPS
   useEffect(() => {
     if (!form.location_id) {
       setCourts([]);
@@ -102,7 +148,19 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
     setCourtsLoading(true);
     api.getCourts({ location_id: form.location_id })
       .then((data) => {
-        if (!cancelled) setCourts(data);
+        if (!cancelled) {
+          setCourts(data);
+          // Auto-select first court only when no court is chosen yet
+          if (data.length > 0) {
+            setForm((prev) => {
+              if (prev.court_id != null) return prev;
+              const firstId = typeof data[0].id === 'string'
+                ? parseInt(data[0].id, 10)
+                : data[0].id;
+              return { ...prev, court_id: firstId };
+            });
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setCourts([]);
@@ -142,6 +200,11 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
     setForm((prev) => ({ ...prev, court_id: v }));
   }, []);
 
+  const onOpenLocationModal = useCallback(() => setLocationModalOpen(true), []);
+  const onCloseLocationModal = useCallback(() => setLocationModalOpen(false), []);
+  const onOpenCourtModal = useCallback(() => setCourtModalOpen(true), []);
+  const onCloseCourtModal = useCallback(() => setCourtModalOpen(false), []);
+
   const onSubmit = useCallback(async (): Promise<number | null> => {
     if (!isValid) return null;
     setIsSubmitting(true);
@@ -165,13 +228,20 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
       const league = await api.createLeague(payload);
       const newId: number = league.id;
 
-      // Attach the home court in a second call (creator is automatically admin)
+      // Attach home court (non-fatal)
       if (form.court_id != null) {
         try {
           await api.addLeagueHomeCourt(newId, form.court_id);
         } catch {
-          // Non-fatal: league was created successfully, home court can be added later
+          // League created successfully; home court can be added later
         }
+      }
+
+      // Create an initial active season (non-fatal)
+      try {
+        await api.createLeagueSeason(newId, { name: 'Season 1', is_active: true });
+      } catch {
+        // League created successfully; season can be added later
       }
 
       return newId;
@@ -194,6 +264,8 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
     locationsLoading,
     courts,
     courtsLoading,
+    locationModalOpen,
+    courtModalOpen,
     onChangeName,
     onChangeDescription,
     onChangeAccessType,
@@ -201,6 +273,10 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
     onChangeLevel,
     onChangeLocation,
     onChangeCourt,
+    onOpenLocationModal,
+    onCloseLocationModal,
+    onOpenCourtModal,
+    onCloseCourtModal,
     onSubmit,
   };
 }

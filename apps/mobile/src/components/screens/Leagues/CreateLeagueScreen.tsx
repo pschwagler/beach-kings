@@ -3,13 +3,15 @@
  *
  * Sections:
  *   League Details (Name, Description, Access toggle)
- *   Settings (Gender pills, Level select, Location picker, Home Court picker)
+ *   Settings (Gender pills, Level select, Location row, Home Court row)
  *   Create button (gold/disabled until valid)
  *
- * Wireframe ref: create-league.html
+ * Location and Home Court open full-screen search modals.
+ * On mount the hook requests device location and auto-selects the closest
+ * location + first court so the user rarely needs to touch these fields.
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +21,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,8 +34,9 @@ import {
   type LeagueAccessType,
   type GenderOption,
   type LevelOption,
+  type LocationWithDistance,
 } from './useCreateLeagueScreen';
-import type { Location, Court } from '@beach-kings/shared';
+import type { Court } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Section header
@@ -80,9 +85,7 @@ function AccessToggle({ value, onChange }: AccessToggleProps): React.ReactNode {
           >
             <View
               className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
-                isActive
-                  ? 'border-brand-teal'
-                  : 'border-strong'
+                isActive ? 'border-brand-teal' : 'border-strong'
               }`}
             >
               {isActive && (
@@ -90,12 +93,8 @@ function AccessToggle({ value, onChange }: AccessToggleProps): React.ReactNode {
               )}
             </View>
             <View className="flex-1">
-              <Text className="text-[14px] font-semibold text-default">
-                {label}
-              </Text>
-              <Text className="text-[12px] text-muted mt-[2px]">
-                {desc}
-              </Text>
+              <Text className="text-[14px] font-semibold text-default">{label}</Text>
+              <Text className="text-[12px] text-muted mt-[2px]">{desc}</Text>
             </View>
           </Pressable>
         );
@@ -133,18 +132,14 @@ function GenderPills({ value, onChange }: GenderPillsProps): React.ReactNode {
               onChange(key);
             }}
             className={`px-4 py-[10px] rounded-full border ${
-              isActive
-                ? 'bg-brand-teal border-brand-teal'
-                : 'bg-surface border-strong'
+              isActive ? 'bg-brand-teal border-brand-teal' : 'bg-surface border-strong'
             } active:opacity-70`}
             accessibilityRole="radio"
             accessibilityState={{ checked: isActive }}
           >
             <Text
               className={`text-[13px] font-semibold ${
-                isActive
-                  ? 'text-white'
-                  : 'text-muted'
+                isActive ? 'text-white' : 'text-muted'
               }`}
             >
               {label}
@@ -181,16 +176,12 @@ function LevelSelector({ value, onChange }: LevelSelectorProps): React.ReactNode
               onChange(isActive ? '' : lvl);
             }}
             className={`px-4 py-[10px] rounded-[8px] border ${
-              isActive
-                ? 'bg-brand-teal border-brand-teal'
-                : 'bg-surface border-strong'
+              isActive ? 'bg-brand-teal border-brand-teal' : 'bg-surface border-strong'
             } active:opacity-70`}
           >
             <Text
               className={`text-[13px] font-semibold ${
-                isActive
-                  ? 'text-white'
-                  : 'text-muted'
+                isActive ? 'text-white' : 'text-muted'
               }`}
             >
               {lvl}
@@ -203,210 +194,298 @@ function LevelSelector({ value, onChange }: LevelSelectorProps): React.ReactNode
 }
 
 // ---------------------------------------------------------------------------
-// Location picker
+// Compact picker row (tappable, opens a modal)
 // ---------------------------------------------------------------------------
 
-interface LocationPickerProps {
+interface PickerRowProps {
+  readonly label: string;
   readonly value: string;
-  readonly locations: readonly Location[];
-  readonly loading: boolean;
-  readonly onChange: (v: string) => void;
+  readonly placeholder: string;
+  readonly loading?: boolean;
+  readonly disabled?: boolean;
+  readonly testID?: string;
+  readonly onPress: () => void;
 }
 
-function LocationPicker({ value, locations, loading, onChange }: LocationPickerProps): React.ReactNode {
-  const selected = locations.find((l) => l.id === value);
-  const label = loading
-    ? 'Loading…'
-    : selected
-      ? selected.name ?? `${selected.city}, ${selected.state}`
-      : 'Select location…';
-
+function PickerRow({
+  label,
+  value,
+  placeholder,
+  loading = false,
+  disabled = false,
+  testID,
+  onPress,
+}: PickerRowProps): React.ReactNode {
+  const hasValue = value.length > 0;
   return (
-    <View
-      testID="location-picker"
-      className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden"
+    <Pressable
+      testID={testID}
+      onPress={() => {
+        if (disabled || loading) return;
+        void hapticLight();
+        onPress();
+      }}
+      disabled={disabled || loading}
+      className={`flex-row items-center px-4 py-[14px] ${
+        disabled ? 'opacity-40' : 'active:opacity-70'
+      }`}
+      accessibilityRole="button"
+      accessibilityLabel={label}
     >
-      <View className="px-4 pt-[10px] pb-[6px]">
-        <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
-          Location (optional)
+      <View className="flex-1">
+        <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-[2px]">
+          {label}
         </Text>
+        {loading ? (
+          <ActivityIndicator size="small" style={{ alignSelf: 'flex-start' }} />
+        ) : (
+          <Text className={`text-[15px] ${hasValue ? 'text-default' : 'text-muted'}`}>
+            {hasValue ? value : placeholder}
+          </Text>
+        )}
       </View>
-      {/* None option */}
-      <Pressable
-        testID="location-option-none"
-        onPress={() => {
-          void hapticLight();
-          onChange('');
-        }}
-        className={`flex-row items-center px-4 py-[12px] border-t border-divider active:opacity-70 ${
-          value === '' ? 'bg-brand-teal/10' : ''
-        }`}
-      >
-        <View
-          className={`w-4 h-4 rounded-full border-2 mr-3 items-center justify-center ${
-            value === ''
-              ? 'border-brand-teal'
-              : 'border-strong'
-          }`}
-        >
-          {value === '' && (
-            <View className="w-2 h-2 rounded-full bg-brand-teal" />
-          )}
-        </View>
-        <Text className="text-[14px] text-muted">
-          None
-        </Text>
-      </Pressable>
-      {loading ? (
-        <View className="py-3 items-center">
-          <ActivityIndicator size="small" />
-        </View>
-      ) : (
-        locations.map((loc) => {
-          const isActive = value === loc.id;
-          const name = loc.name ?? `${loc.city}, ${loc.state}`;
-          return (
-            <Pressable
-              key={loc.id}
-              testID={`location-option-${loc.id}`}
-              onPress={() => {
-                void hapticLight();
-                onChange(loc.id);
-              }}
-              className={`flex-row items-center px-4 py-[12px] border-t border-divider active:opacity-70 ${
-                isActive ? 'bg-brand-teal/10' : ''
-              }`}
-            >
-              <View
-                className={`w-4 h-4 rounded-full border-2 mr-3 items-center justify-center ${
-                  isActive
-                    ? 'border-brand-teal'
-                    : 'border-strong'
-                }`}
-              >
-                {isActive && (
-                  <View className="w-2 h-2 rounded-full bg-brand-teal" />
-                )}
-              </View>
-              <Text
-                className={`text-[14px] ${
-                  isActive
-                    ? 'font-semibold text-default'
-                    : 'text-default'
-                }`}
-              >
-                {name}
-              </Text>
-            </Pressable>
-          );
-        })
-      )}
-    </View>
+      <Text className="text-muted text-[18px] ml-2">›</Text>
+    </Pressable>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Court picker
+// Location picker modal
 // ---------------------------------------------------------------------------
 
-interface CourtPickerProps {
-  readonly value: number | null;
-  readonly courts: readonly Court[];
-  readonly loading: boolean;
-  readonly locationSelected: boolean;
-  readonly onChange: (v: number | null) => void;
+interface LocationPickerModalProps {
+  readonly visible: boolean;
+  readonly locations: readonly LocationWithDistance[];
+  readonly selectedId: string;
+  readonly onSelect: (id: string) => void;
+  readonly onClose: () => void;
 }
 
-function CourtPicker({ value, courts, loading, locationSelected, onChange }: CourtPickerProps): React.ReactNode {
-  if (!locationSelected) return null;
+function LocationPickerModal({
+  visible,
+  locations,
+  selectedId,
+  onSelect,
+  onClose,
+}: LocationPickerModalProps): React.ReactNode {
+  const [query, setQuery] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    const sorted = [...locations].sort((a, b) => {
+      const da = a.distance_miles ?? Infinity;
+      const db = b.distance_miles ?? Infinity;
+      return da - db;
+    });
+    if (!q) return sorted;
+    return sorted.filter((loc) => {
+      const name = loc.name ?? `${loc.city}, ${loc.state}`;
+      return name.toLowerCase().includes(q);
+    });
+  }, [locations, query]);
+
+  const formatLabel = (loc: LocationWithDistance): string => {
+    const name = loc.name ?? `${loc.city}, ${loc.state}`;
+    if (loc.distance_miles != null) {
+      return `${name} · ${loc.distance_miles.toFixed(0)} mi`;
+    }
+    return name;
+  };
 
   return (
-    <View
-      testID="court-picker"
-      className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden mt-3"
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
     >
-      <View className="px-4 pt-[10px] pb-[6px]">
-        <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
-          Home Court (optional)
-        </Text>
-      </View>
-      {/* None option */}
-      <Pressable
-        testID="court-option-none"
-        onPress={() => {
-          void hapticLight();
-          onChange(null);
-        }}
-        className={`flex-row items-center px-4 py-[12px] border-t border-divider active:opacity-70 ${
-          value === null ? 'bg-brand-teal/10' : ''
-        }`}
-      >
-        <View
-          className={`w-4 h-4 rounded-full border-2 mr-3 items-center justify-center ${
-            value === null
-              ? 'border-brand-teal'
-              : 'border-strong'
-          }`}
-        >
-          {value === null && (
-            <View className="w-2 h-2 rounded-full bg-brand-teal" />
-          )}
-        </View>
-        <Text className="text-[14px] text-muted">
-          None
-        </Text>
-      </Pressable>
-      {loading ? (
-        <View className="py-3 items-center">
-          <ActivityIndicator size="small" />
-        </View>
-      ) : courts.length === 0 ? (
-        <View className="px-4 py-3">
-          <Text className="text-[13px] text-muted italic">
-            No courts found for this location.
+      <SafeAreaView className="flex-1 bg-page" edges={['top']}>
+        <View className="flex-row items-center px-4 pt-2 pb-3 border-b border-divider">
+          <Text className="flex-1 text-[17px] font-semibold text-default">
+            Select Location
           </Text>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            className="active:opacity-70 py-1 pl-4"
+          >
+            <Text className="text-[15px] font-semibold text-brand-teal">Done</Text>
+          </Pressable>
         </View>
-      ) : (
-        courts.map((court) => {
-          const courtId = typeof court.id === 'string' ? parseInt(court.id, 10) : court.id;
-          const isActive = value === courtId;
-          return (
-            <Pressable
-              key={court.id}
-              testID={`court-option-${court.id}`}
-              onPress={() => {
-                void hapticLight();
-                onChange(isActive ? null : courtId);
-              }}
-              className={`flex-row items-center px-4 py-[12px] border-t border-divider active:opacity-70 ${
-                isActive ? 'bg-brand-teal/10' : ''
-              }`}
-            >
-              <View
-                className={`w-4 h-4 rounded-full border-2 mr-3 items-center justify-center ${
-                  isActive
-                    ? 'border-brand-teal'
-                    : 'border-strong'
-                }`}
+
+        <View className="px-4 py-3 border-b border-divider">
+          <View className="bg-surface rounded-[10px] flex-row items-center px-3 py-[10px]">
+            <Text className="text-muted mr-2">🔍</Text>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search locations…"
+              placeholderTextColor="#aaa"
+              className="flex-1 text-[15px] text-default"
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+          </View>
+        </View>
+
+        <FlatList
+          data={[{ id: '', name: 'None', city: '', state: '' } as LocationWithDistance, ...filtered]}
+          keyExtractor={(item) => item.id ?? 'none'}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item, index }) => {
+            const isNone = item.id === '';
+            const isActive = selectedId === item.id;
+            const label = isNone ? 'None' : formatLabel(item as LocationWithDistance);
+            return (
+              <Pressable
+                testID={`location-modal-option-${item.id || 'none'}`}
+                onPress={() => {
+                  void hapticLight();
+                  onSelect(item.id ?? '');
+                  onClose();
+                }}
+                className={`flex-row items-center px-4 py-[14px] ${
+                  index > 0 ? 'border-t border-divider' : ''
+                } active:opacity-70 ${isActive ? 'bg-brand-teal/10' : ''}`}
               >
-                {isActive && (
-                  <View className="w-2 h-2 rounded-full bg-brand-teal" />
-                )}
-              </View>
-              <Text
-                className={`text-[14px] flex-1 ${
-                  isActive
-                    ? 'font-semibold text-default'
-                    : 'text-default'
-                }`}
+                <View
+                  className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
+                    isActive ? 'border-brand-teal' : 'border-strong'
+                  }`}
+                >
+                  {isActive && (
+                    <View className="w-2.5 h-2.5 rounded-full bg-brand-teal" />
+                  )}
+                </View>
+                <Text
+                  className={`text-[15px] flex-1 ${
+                    isNone ? 'text-muted' : isActive ? 'font-semibold text-default' : 'text-default'
+                  }`}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Court picker modal
+// ---------------------------------------------------------------------------
+
+interface CourtPickerModalProps {
+  readonly visible: boolean;
+  readonly courts: readonly Court[];
+  readonly selectedId: number | null;
+  readonly onSelect: (id: number | null) => void;
+  readonly onClose: () => void;
+}
+
+function CourtPickerModal({
+  visible,
+  courts,
+  selectedId,
+  onSelect,
+  onClose,
+}: CourtPickerModalProps): React.ReactNode {
+  const [query, setQuery] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    if (!q) return courts;
+    return courts.filter((c) => c.name.toLowerCase().includes(q));
+  }, [courts, query]);
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView className="flex-1 bg-page" edges={['top']}>
+        <View className="flex-row items-center px-4 pt-2 pb-3 border-b border-divider">
+          <Text className="flex-1 text-[17px] font-semibold text-default">
+            Select Home Court
+          </Text>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            className="active:opacity-70 py-1 pl-4"
+          >
+            <Text className="text-[15px] font-semibold text-brand-teal">Done</Text>
+          </Pressable>
+        </View>
+
+        <View className="px-4 py-3 border-b border-divider">
+          <View className="bg-surface rounded-[10px] flex-row items-center px-3 py-[10px]">
+            <Text className="text-muted mr-2">🔍</Text>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search courts…"
+              placeholderTextColor="#aaa"
+              className="flex-1 text-[15px] text-default"
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+          </View>
+        </View>
+
+        <FlatList
+          data={[{ id: null, name: 'None' } as unknown as Court, ...filtered]}
+          keyExtractor={(item) => String(item.id ?? 'none')}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item, index }) => {
+            const isNone = item.id == null;
+            const courtId = isNone
+              ? null
+              : typeof item.id === 'string'
+                ? parseInt(item.id, 10)
+                : item.id;
+            const isActive = selectedId === courtId;
+            return (
+              <Pressable
+                testID={`court-modal-option-${item.id ?? 'none'}`}
+                onPress={() => {
+                  void hapticLight();
+                  onSelect(courtId);
+                  onClose();
+                }}
+                className={`flex-row items-center px-4 py-[14px] ${
+                  index > 0 ? 'border-t border-divider' : ''
+                } active:opacity-70 ${isActive ? 'bg-brand-teal/10' : ''}`}
               >
-                {court.name}
-              </Text>
-            </Pressable>
-          );
-        })
-      )}
-    </View>
+                <View
+                  className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
+                    isActive ? 'border-brand-teal' : 'border-strong'
+                  }`}
+                >
+                  {isActive && (
+                    <View className="w-2.5 h-2.5 rounded-full bg-brand-teal" />
+                  )}
+                </View>
+                <Text
+                  className={`text-[15px] flex-1 ${
+                    isNone ? 'text-muted' : isActive ? 'font-semibold text-default' : 'text-default'
+                  }`}
+                >
+                  {item.name}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
+      </SafeAreaView>
+    </Modal>
   );
 }
 
@@ -425,6 +504,8 @@ export default function CreateLeagueScreen(): React.ReactNode {
     locationsLoading,
     courts,
     courtsLoading,
+    locationModalOpen,
+    courtModalOpen,
     onChangeName,
     onChangeDescription,
     onChangeAccessType,
@@ -432,6 +513,10 @@ export default function CreateLeagueScreen(): React.ReactNode {
     onChangeLevel,
     onChangeLocation,
     onChangeCourt,
+    onOpenLocationModal,
+    onCloseLocationModal,
+    onOpenCourtModal,
+    onCloseCourtModal,
     onSubmit,
   } = useCreateLeagueScreen();
 
@@ -444,6 +529,17 @@ export default function CreateLeagueScreen(): React.ReactNode {
       router.push(routes.league(newId));
     }
   };
+
+  const selectedLocation = locations.find((l) => l.id === form.location_id);
+  const locationLabel = selectedLocation
+    ? selectedLocation.name ?? `${selectedLocation.city}, ${selectedLocation.state}`
+    : '';
+
+  const selectedCourt = courts.find((c) => {
+    const id = typeof c.id === 'string' ? parseInt(c.id, 10) : c.id;
+    return id === form.court_id;
+  });
+  const courtLabel = selectedCourt?.name ?? '';
 
   const cancelAction = (
     <Pressable
@@ -481,11 +577,9 @@ export default function CreateLeagueScreen(): React.ReactNode {
   );
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-page"
-      edges={['top']}
-    >
+    <SafeAreaView className="flex-1 bg-page" edges={['top']}>
       <TopNav title="Create League" leftAction={cancelAction} rightAction={createAction} />
+
       <KeyboardAvoidingView
         testID="create-league-screen"
         className="flex-1 bg-page"
@@ -500,7 +594,6 @@ export default function CreateLeagueScreen(): React.ReactNode {
           <SectionHeader title="League Details" />
 
           <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
-            {/* Name */}
             <View className="px-4 pt-[14px] pb-[10px]">
               <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
                 League Name *
@@ -524,7 +617,6 @@ export default function CreateLeagueScreen(): React.ReactNode {
 
             <View className="h-[1px] bg-divider mx-4" />
 
-            {/* Description */}
             <View className="px-4 pt-[14px] pb-[10px]">
               <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
                 Description (optional)
@@ -556,37 +648,36 @@ export default function CreateLeagueScreen(): React.ReactNode {
           <SectionHeader title="Settings" />
 
           <View className="mb-3">
-            <Text className="text-[12px] text-muted px-4 mb-2">
-              Gender
-            </Text>
+            <Text className="text-[12px] text-muted px-4 mb-2">Gender</Text>
             <GenderPills value={form.gender} onChange={onChangeGender} />
           </View>
 
           <View className="mb-3">
-            <Text className="text-[12px] text-muted px-4 mb-2">
-              Skill Level
-            </Text>
+            <Text className="text-[12px] text-muted px-4 mb-2">Skill Level</Text>
             <LevelSelector value={form.level} onChange={onChangeLevel} />
           </View>
 
-          {/* Location picker */}
-          <View className="mb-1">
-            <LocationPicker
-              value={form.location_id}
-              locations={locations}
+          {/* Location + Home Court picker rows */}
+          <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden mt-1">
+            <PickerRow
+              testID="location-picker-row"
+              label="Location (optional)"
+              value={locationLabel}
+              placeholder="Select location…"
               loading={locationsLoading}
-              onChange={onChangeLocation}
+              onPress={onOpenLocationModal}
+            />
+            <View className="h-[1px] bg-divider" />
+            <PickerRow
+              testID="court-picker-row"
+              label="Home Court (optional)"
+              value={courtLabel}
+              placeholder={form.location_id ? 'Select court…' : 'Select a location first'}
+              loading={courtsLoading}
+              disabled={!form.location_id}
+              onPress={onOpenCourtModal}
             />
           </View>
-
-          {/* Court picker — only visible once a location is selected */}
-          <CourtPicker
-            value={form.court_id}
-            courts={courts}
-            loading={courtsLoading}
-            locationSelected={form.location_id !== ''}
-            onChange={onChangeCourt}
-          />
 
           {/* ---- Error ---- */}
           {submitError != null && (
@@ -594,9 +685,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
               testID="submit-error"
               className="mx-4 mt-4 bg-danger-tint rounded-[10px] p-3"
             >
-              <Text className="text-[13px] text-danger">
-                {submitError}
-              </Text>
+              <Text className="text-[13px] text-danger">{submitError}</Text>
             </View>
           )}
 
@@ -608,9 +697,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
             accessibilityRole="button"
             accessibilityLabel="Create league"
             className={`mx-4 mt-6 rounded-[12px] py-[16px] items-center justify-center ${
-              isValid && !isSubmitting
-                ? 'bg-brand-gold active:opacity-80'
-                : 'bg-brand-gold/30'
+              isValid && !isSubmitting ? 'bg-brand-gold active:opacity-80' : 'bg-brand-gold/30'
             }`}
           >
             {isSubmitting ? (
@@ -627,6 +714,22 @@ export default function CreateLeagueScreen(): React.ReactNode {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modals */}
+      <LocationPickerModal
+        visible={locationModalOpen}
+        locations={locations}
+        selectedId={form.location_id}
+        onSelect={onChangeLocation}
+        onClose={onCloseLocationModal}
+      />
+      <CourtPickerModal
+        visible={courtModalOpen}
+        courts={courts}
+        selectedId={form.court_id}
+        onSelect={onChangeCourt}
+        onClose={onCloseCourtModal}
+      />
     </SafeAreaView>
   );
 }

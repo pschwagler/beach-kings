@@ -137,6 +137,7 @@ interface SuccessViewProps {
   readonly desc: string;
   readonly onDone: () => void;
   readonly onAddAnother: () => void;
+  readonly onEdit?: () => void;
 }
 
 function SuccessView({
@@ -145,6 +146,7 @@ function SuccessView({
   desc,
   onDone,
   onAddAnother,
+  onEdit,
 }: SuccessViewProps): React.ReactNode {
   return (
     <View
@@ -186,12 +188,24 @@ function SuccessView({
           <Text className="text-white font-bold text-[16px]">Add Another Game</Text>
         </Pressable>
 
+        {onEdit != null && (
+          <Pressable
+            testID="edit-game-btn"
+            onPress={onEdit}
+            accessibilityRole="button"
+            accessibilityLabel="Edit Game"
+            className="w-full py-[14px] rounded-[12px] border border-divider items-center"
+          >
+            <Text className="text-[14px] font-bold text-default">Edit Game</Text>
+          </Pressable>
+        )}
+
         <Pressable
           testID="done-btn"
           onPress={onDone}
           accessibilityRole="button"
           accessibilityLabel="Done"
-          className="w-full py-[14px] rounded-[12px] border border-divider items-center"
+          className="w-full py-[14px] rounded-[12px] items-center"
         >
           <Text className="text-[14px] font-bold text-muted">Done</Text>
         </Pressable>
@@ -279,6 +293,7 @@ export default function ScoreGameScreen({
     errorMessage,
     canSubmit,
     lastSessionId,
+    savedMatchId,
     filledCount,
     isBuilding,
     activeNextSlot,
@@ -295,6 +310,7 @@ export default function ScoreGameScreen({
     setScore2,
     assignPlayer,
     removePlayer,
+    swapSlots,
     setSearch,
     onSubmit,
     onRetry,
@@ -389,22 +405,22 @@ export default function ScoreGameScreen({
         e.preventDefault();
         return;
       }
-      if (!hasProgress) return;
+      if (!hasProgress || isEditMode) return;
       e.preventDefault();
       pendingActionRef.current = e.data.action;
       setDiscardConfirmVisible(true);
     });
     return unsubscribe;
-  }, [navigation, hasProgress, isSaving]);
+  }, [navigation, hasProgress, isSaving, isEditMode]);
 
   const handleClose = useCallback(() => {
     if (isSaving) return;
-    if (hasProgress) {
+    if (hasProgress && !isEditMode) {
       setDiscardConfirmVisible(true);
       return;
     }
     navigateOnClose();
-  }, [isSaving, hasProgress, navigateOnClose]);
+  }, [isSaving, hasProgress, isEditMode, navigateOnClose]);
 
   const handleDiscardConfirm = useCallback(() => {
     setDiscardConfirmVisible(false);
@@ -457,6 +473,13 @@ export default function ScoreGameScreen({
     },
     [assignPlayer],
   );
+
+  const handleEdit = useCallback(() => {
+    if (savedMatchId == null) return;
+    router.replace(
+      routes.scoreGame({ matchId: savedMatchId, sessionId: lastSessionId ?? undefined }) as never,
+    );
+  }, [savedMatchId, lastSessionId, router]);
 
   const handleAddAnother = useCallback(() => {
     hookOnAddAnother();
@@ -599,6 +622,7 @@ export default function ScoreGameScreen({
         desc={successDesc}
         onDone={handleDone}
         onAddAnother={handleAddAnother}
+        onEdit={savedMatchId != null ? handleEdit : undefined}
       />
     );
   } else if (submitState === 'error') {
@@ -626,6 +650,7 @@ export default function ScoreGameScreen({
           onScoreTeamPress={handleScoreTeamPress}
           onSlotPress={handleSlotPress}
           onRemovePlayer={handleRemovePlayer}
+          onSwapSlots={swapSlots}
         />
 
         {/* TODO(session-settings): ranked/unranked is a session-level attribute.
@@ -663,15 +688,6 @@ export default function ScoreGameScreen({
           />
         )}
 
-        {/* Score validation warning */}
-        {scoreWarning != null && (
-          <View className="mx-4 my-2 px-3 py-2 rounded-[8px] bg-warning-tint border border-brand-gold flex-row items-center gap-2">
-            <Text className="text-[13px] font-semibold text-warning flex-1">
-              {scoreWarning}
-            </Text>
-          </View>
-        )}
-
         {/* Bottom bar */}
         <View className="bg-surface border-t border-divider px-4 pt-3 pb-8">
           <Pressable
@@ -703,6 +719,15 @@ export default function ScoreGameScreen({
               {saveButtonLabel}
             </Text>
           </Pressable>
+
+          {scoreWarning != null && (
+            <Text
+              testID="score-warning"
+              className="text-[12px] text-tertiary text-center mt-2"
+            >
+              {scoreWarning}
+            </Text>
+          )}
 
           {isEditMode && (
             <Pressable

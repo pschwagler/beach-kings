@@ -10,6 +10,7 @@
 
 import React, { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   runOnJS,
@@ -42,6 +43,7 @@ export default function ScoreboardToast({
   onShare,
   onDismiss,
 }: ScoreboardToastProps): React.ReactNode {
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(12);
 
@@ -85,8 +87,8 @@ export default function ScoreboardToast({
   return (
     <Animated.View
       testID="scoreboard-toast"
-      style={[animatedStyle, { shadowColor: '#1a3a4a', shadowOpacity: 0.32, shadowRadius: 14, shadowOffset: { width: 0, height: 10 } }]}
-      className="absolute bottom-4 left-4 right-4 flex-row items-center rounded-full bg-brand-teal px-3 py-3 gap-3"
+      style={[animatedStyle, { bottom: 16 + bottomInset, left: 16, right: 16, shadowColor: '#1a3a4a', shadowOpacity: 0.32, shadowRadius: 14, shadowOffset: { width: 0, height: 10 } }]}
+      className="absolute flex-row items-center rounded-full bg-brand-teal px-3 py-3 gap-3"
       accessibilityLiveRegion="polite"
     >
       {/* Success check circle */}

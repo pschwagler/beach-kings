@@ -8,7 +8,7 @@
  * The board is split horizontally. Each half occupies half the screen width.
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import type { AvatarVariant } from '@/components/ui/Avatar';
@@ -18,22 +18,33 @@ import Animated, {
   withRepeat,
   withTiming,
   cancelAnimation,
+  runOnJS,
 } from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Svg, { Circle } from 'react-native-svg';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import { formatPlayerShort } from '@/lib/formatters';
 import type { PlayerSlot } from './useScoreGameScreen';
+import {
+  useScoreBoardDrag,
+  toChipKey,
+} from './useScoreBoardDrag';
+import type { SlotKey, ChipKey } from './useScoreBoardDrag';
 
 /** Upper bound for a single team's score in a game. Display is 2-digit; product cap. */
 export const MAX_SCORE = 99;
 
+const TEAL = '#4daacc';
+const GOLD = '#e0b44c';
+
 // ---------------------------------------------------------------------------
-// Drag handle (6-dot grip — visual affordance only, no drag impl yet)
+// Drag handle (6-dot grip)
 // ---------------------------------------------------------------------------
 
 function GripHandle(): React.ReactNode {
   return (
-    <View className="w-[18px] h-[18px] items-center justify-center mr-[2px] opacity-25">
-      <Svg width={14} height={14} viewBox="0 0 24 24">
+    <View className="w-[12px] h-[18px] items-center justify-center opacity-25">
+      <Svg width={10} height={14} viewBox="0 0 24 24">
         <Circle cx={9} cy={6} r={1.5} fill="#888" />
         <Circle cx={15} cy={6} r={1.5} fill="#888" />
         <Circle cx={9} cy={12} r={1.5} fill="#888" />
@@ -56,16 +67,132 @@ interface PlayerChipProps {
   readonly isActive: boolean;
   readonly onPress?: () => void;
   readonly onRemove?: () => void;
+  readonly containerRef?: React.RefObject<View | null>;
+  readonly isDragging?: boolean;
+  readonly isDragTarget?: boolean;
+  readonly onDragStart?: (absX: number, absY: number) => void;
+  readonly onDragMove?: (absX: number, absY: number) => void;
+  readonly onDragEnd?: (absX: number, absY: number) => void;
+  readonly onDragCancel?: () => void;
 }
 
-function PlayerChip({
+function FilledChip({
   slot,
   index,
   team,
   isActive,
   onPress,
   onRemove,
+  containerRef,
+  isDragging = false,
+  isDragTarget = false,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onDragCancel,
 }: PlayerChipProps): React.ReactNode {
+  const isTeal = team === 1;
+  const palette = usePaletteColors();
+  const avatarVariant: AvatarVariant = isTeal ? 'teal' : 'gold';
+
+  const stableDragStart = useCallback(
+    (absX: number, absY: number) => onDragStart?.(absX, absY),
+    [onDragStart],
+  );
+  const stableDragMove = useCallback(
+    (absX: number, absY: number) => onDragMove?.(absX, absY),
+    [onDragMove],
+  );
+  const stableDragEnd = useCallback(
+    (absX: number, absY: number) => onDragEnd?.(absX, absY),
+    [onDragEnd],
+  );
+  const stableDragCancel = useCallback(
+    () => onDragCancel?.(),
+    [onDragCancel],
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activateAfterLongPress(180)
+        .onStart((e) => {
+          runOnJS(stableDragStart)(e.absoluteX, e.absoluteY);
+        })
+        .onChange((e) => {
+          runOnJS(stableDragMove)(e.absoluteX, e.absoluteY);
+        })
+        .onEnd((e) => {
+          runOnJS(stableDragEnd)(e.absoluteX, e.absoluteY);
+        })
+        .onFinalize((e, success) => {
+          if (!success) {
+            runOnJS(stableDragCancel)();
+          } else {
+            runOnJS(stableDragEnd)(e.absoluteX, e.absoluteY);
+          }
+        }),
+    [stableDragStart, stableDragMove, stableDragEnd, stableDragCancel],
+  );
+
+  return (
+    <View
+      ref={containerRef}
+      className={`flex-row items-center rounded-[10px] min-h-[44px] w-full ${
+        isTeal ? 'bg-info-tint' : 'bg-warning-tint'
+      }`}
+      style={isDragTarget ? { borderWidth: 2, borderColor: TEAL } : undefined}
+    >
+      <GestureDetector gesture={panGesture}>
+        <Pressable
+          testID={`team${team}-slot${index}`}
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={slot.display_name}
+          className="flex-1 flex-row items-center gap-1 px-2 py-2"
+          style={isDragging ? { opacity: 0.35 } : undefined}
+        >
+          <GripHandle />
+          <Avatar
+            name={slot.display_name}
+            imageUrl={slot.avatar_url}
+            size="sm"
+            variant={avatarVariant}
+            accessible={false}
+          />
+          <View className="flex-1">
+            <Text
+              className="text-[14px] font-bold text-default"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              {formatPlayerShort(slot.display_name)}
+              {slot.is_guest === true && (
+                <Text className="text-[12px] font-normal text-muted"> (guest)</Text>
+              )}
+            </Text>
+          </View>
+        </Pressable>
+      </GestureDetector>
+      <Pressable
+        onPress={onRemove}
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${slot.display_name}`}
+        hitSlop={8}
+        className="w-[22px] h-[22px] rounded-full items-center justify-center mr-2"
+        style={{ backgroundColor: `${palette.textMuted}22` }}
+      >
+        <Text className="text-[13px] font-semibold" style={{ color: palette.textMuted, lineHeight: 16 }}>
+          ×
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function PlayerChip(props: PlayerChipProps): React.ReactNode {
+  const { slot, index, team, isActive, onPress } = props;
   const isEmpty = slot.player_id == null;
   const pulseOpacity = useSharedValue(1);
 
@@ -85,8 +212,6 @@ function PlayerChip({
   const badgeAnimStyle = useAnimatedStyle(() => ({
     opacity: pulseOpacity.value,
   }));
-
-  const isTeal = team === 1;
 
   if (isEmpty) {
     return (
@@ -134,64 +259,12 @@ function PlayerChip({
     );
   }
 
-  // Filled slot — chip + remove button are siblings inside a wrapper View so iOS
-  // accessibility traversal doesn't drop the nested remove Pressable.
-  const avatarVariant: AvatarVariant = isTeal ? 'teal' : 'gold';
-  return (
-    <View
-      className={`flex-row items-center rounded-[10px] min-h-[44px] w-full ${
-        isTeal ? 'bg-info-tint' : 'bg-warning-tint'
-      }`}
-    >
-      <Pressable
-        testID={`team${team}-slot${index}`}
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={slot.display_name}
-        className="flex-1 flex-row items-center gap-2 px-3 py-2"
-      >
-        <GripHandle />
-        <Avatar
-          name={slot.display_name}
-          imageUrl={slot.avatar_url}
-          size="sm"
-          variant={avatarVariant}
-          accessible={false}
-        />
-        <View className="flex-1">
-          <Text
-            className="text-[14px] font-bold text-default"
-            numberOfLines={1}
-          >
-            {formatPlayerShort(slot.display_name)}
-            {slot.is_guest === true && (
-              <Text className="text-[12px] font-normal text-muted"> (guest)</Text>
-            )}
-          </Text>
-        </View>
-      </Pressable>
-      <Pressable
-        onPress={onRemove}
-        accessibilityRole="button"
-        accessibilityLabel={`Remove ${slot.display_name}`}
-        hitSlop={8}
-        className="w-[22px] h-[22px] rounded-full items-center justify-center mr-3"
-        style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
-      >
-        <Text className="text-[13px] font-semibold" style={{ color: 'rgba(0,0,0,0.4)', lineHeight: 16 }}>
-          ×
-        </Text>
-      </Pressable>
-    </View>
-  );
+  return <FilledChip {...props} />;
 }
 
 // ---------------------------------------------------------------------------
 // Score display (scoring mode only — tappable score box)
 // ---------------------------------------------------------------------------
-
-const TEAL = '#4daacc';
-const GOLD = '#e0b44c';
 
 interface ScoreDisplayProps {
   readonly score: number;
@@ -228,7 +301,7 @@ function ScoreDisplay({ score, team, isActive, onPress }: ScoreDisplayProps): Re
           }`}
           style={{ opacity: 0.85, minWidth: 90 }}
         >
-          {String(score)}
+          {String(score).padStart(2, '0')}
         </Text>
       </View>
     </Pressable>
@@ -249,6 +322,13 @@ interface BoardHalfProps {
   readonly onSlotPress?: (slot: 0 | 1) => void;
   readonly onRemovePlayer?: (slot: 0 | 1) => void;
   readonly onScoreTeamPress?: () => void;
+  readonly setChipRef?: (key: ChipKey, ref: View | null) => void;
+  readonly dragFrom?: SlotKey | null;
+  readonly dragTarget?: SlotKey | null;
+  readonly onChipDragStart?: (slot: 0 | 1, absX: number, absY: number) => void;
+  readonly onChipDragMove?: (absX: number, absY: number) => void;
+  readonly onChipDragEnd?: (absX: number, absY: number) => void;
+  readonly onChipDragCancel?: () => void;
 }
 
 function BoardHalf({
@@ -261,8 +341,24 @@ function BoardHalf({
   onSlotPress,
   onRemovePlayer,
   onScoreTeamPress,
+  setChipRef,
+  dragFrom,
+  dragTarget,
+  onChipDragStart,
+  onChipDragMove,
+  onChipDragEnd,
+  onChipDragCancel,
 }: BoardHalfProps): React.ReactNode {
   const isTeal = team === 1;
+
+  const chipRef0 = useRef<View>(null);
+  const chipRef1 = useRef<View>(null);
+
+  useEffect(() => {
+    if (setChipRef == null) return;
+    setChipRef(toChipKey(team, 0), chipRef0.current);
+    setChipRef(toChipKey(team, 1), chipRef1.current);
+  });
 
   return (
     <View
@@ -283,21 +379,31 @@ function BoardHalf({
           slot={slots[0]}
           index={0}
           team={team}
-          isActive={
-            activeSlot?.team === team && activeSlot?.slot === 0
-          }
+          isActive={activeSlot?.team === team && activeSlot?.slot === 0}
           onPress={() => onSlotPress?.(0)}
           onRemove={() => onRemovePlayer?.(0)}
+          containerRef={chipRef0}
+          isDragging={dragFrom?.team === team && dragFrom?.slot === 0}
+          isDragTarget={dragTarget?.team === team && dragTarget?.slot === 0}
+          onDragStart={(x, y) => onChipDragStart?.(0, x, y)}
+          onDragMove={onChipDragMove}
+          onDragEnd={onChipDragEnd}
+          onDragCancel={onChipDragCancel}
         />
         <PlayerChip
           slot={slots[1]}
           index={1}
           team={team}
-          isActive={
-            activeSlot?.team === team && activeSlot?.slot === 1
-          }
+          isActive={activeSlot?.team === team && activeSlot?.slot === 1}
           onPress={() => onSlotPress?.(1)}
           onRemove={() => onRemovePlayer?.(1)}
+          containerRef={chipRef1}
+          isDragging={dragFrom?.team === team && dragFrom?.slot === 1}
+          isDragTarget={dragTarget?.team === team && dragTarget?.slot === 1}
+          onDragStart={(x, y) => onChipDragStart?.(1, x, y)}
+          onDragMove={onChipDragMove}
+          onDragEnd={onChipDragEnd}
+          onDragCancel={onChipDragCancel}
         />
       </View>
 
@@ -334,6 +440,7 @@ interface ScoreBoardProps {
   readonly onScoreTeamPress?: (team: 1 | 2) => void;
   readonly onSlotPress?: (team: 1 | 2, slot: 0 | 1) => void;
   readonly onRemovePlayer?: (team: 1 | 2, slot: 0 | 1) => void;
+  readonly onSwapSlots?: (from: { team: 1 | 2; slot: 0 | 1 }, to: { team: 1 | 2; slot: 0 | 1 }) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -426,6 +533,54 @@ function CompactBoardHalf({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Ghost chip overlay (follows finger during drag)
+// ---------------------------------------------------------------------------
+
+interface GhostChipProps {
+  readonly visible: boolean;
+  readonly label: string;
+  readonly team: 1 | 2 | null;
+  readonly ghostX: ReturnType<typeof useSharedValue<number>>;
+  readonly ghostY: ReturnType<typeof useSharedValue<number>>;
+}
+
+function GhostChip({ visible, label, team, ghostX, ghostY }: GhostChipProps): React.ReactNode {
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: ghostX.value - 50 },
+      { translateY: ghostY.value - 16 },
+    ],
+  }));
+
+  if (!visible) return null;
+
+  const bgColor = team === 1 ? 'rgba(77,170,204,0.92)' : 'rgba(224,180,76,0.92)';
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          zIndex: 100,
+          backgroundColor: bgColor,
+          borderRadius: 8,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+        },
+        animStyle,
+      ]}
+    >
+      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }} numberOfLines={1}>
+        {label}
+      </Text>
+    </Animated.View>
+  );
+}
+
 export default function ScoreBoard({
   team1Slots,
   team2Slots,
@@ -438,6 +593,7 @@ export default function ScoreBoard({
   onScoreTeamPress,
   onSlotPress,
   onRemovePlayer,
+  onSwapSlots,
 }: ScoreBoardProps): React.ReactNode {
   const handleScoreTeam1Press = useCallback(
     () => onScoreTeamPress?.(1),
@@ -465,6 +621,38 @@ export default function ScoreBoard({
     [onRemovePlayer],
   );
 
+  const handleSwap = useCallback(
+    (from: SlotKey, to: SlotKey) => onSwapSlots?.(from, to),
+    [onSwapSlots],
+  );
+
+  const {
+    boardRef,
+    setChipRef,
+    dragFrom,
+    dragTarget,
+    ghostX,
+    ghostY,
+    onChipDragStart,
+    onChipDragMove,
+    onChipDragEnd,
+    onChipDragCancel,
+  } = useScoreBoardDrag({ onSwap: handleSwap });
+
+  const handleTeam1DragStart = useCallback(
+    (slot: 0 | 1, x: number, y: number) => onChipDragStart(1, slot, x, y),
+    [onChipDragStart],
+  );
+  const handleTeam2DragStart = useCallback(
+    (slot: 0 | 1, x: number, y: number) => onChipDragStart(2, slot, x, y),
+    [onChipDragStart],
+  );
+
+  const ghostSlot = dragFrom != null
+    ? (dragFrom.team === 1 ? team1Slots[dragFrom.slot] : team2Slots[dragFrom.slot])
+    : null;
+  const ghostLabel = ghostSlot != null ? formatPlayerShort(ghostSlot.display_name) : '';
+
   // Compact mode only applies while building — once all 4 seats are filled the
   // picker (and its search input) is gone, so there's no keyboard to dodge.
   if (compact && isBuilding) {
@@ -488,7 +676,7 @@ export default function ScoreBoard({
   }
 
   return (
-    <View testID="scoreboard" className="flex-row">
+    <View testID="scoreboard" ref={boardRef} className="flex-row">
       <BoardHalf
         team={1}
         slots={team1Slots}
@@ -499,6 +687,13 @@ export default function ScoreBoard({
         onSlotPress={handleSlot1Press}
         onRemovePlayer={handleRemove1}
         onScoreTeamPress={handleScoreTeam1Press}
+        setChipRef={setChipRef}
+        dragFrom={dragFrom}
+        dragTarget={dragTarget}
+        onChipDragStart={handleTeam1DragStart}
+        onChipDragMove={onChipDragMove}
+        onChipDragEnd={onChipDragEnd}
+        onChipDragCancel={onChipDragCancel}
       />
 
       <View className="w-[2px] bg-divider" />
@@ -513,6 +708,21 @@ export default function ScoreBoard({
         onSlotPress={handleSlot2Press}
         onRemovePlayer={handleRemove2}
         onScoreTeamPress={handleScoreTeam2Press}
+        setChipRef={setChipRef}
+        dragFrom={dragFrom}
+        dragTarget={dragTarget}
+        onChipDragStart={handleTeam2DragStart}
+        onChipDragMove={onChipDragMove}
+        onChipDragEnd={onChipDragEnd}
+        onChipDragCancel={onChipDragCancel}
+      />
+
+      <GhostChip
+        visible={dragFrom != null}
+        label={ghostLabel}
+        team={dragFrom?.team ?? null}
+        ghostX={ghostX}
+        ghostY={ghostY}
       />
     </View>
   );
