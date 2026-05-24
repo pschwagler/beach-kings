@@ -24,7 +24,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
-import BottomTabBar from '@/components/navigation/BottomTabBar';
+import BottomTabBar, { BottomTabBarHeightContext } from '@/components/navigation/BottomTabBar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import { useLeagueDetailScreen, type LeagueDetailTab } from './useLeagueDetailScreen';
@@ -283,6 +283,10 @@ export default function LeagueDetailScreen({
   // Track which player row was tapped in standings to push stats sub-view
   const [statsPlayerId, setStatsPlayerId] = useState<number | string | null>(null);
 
+  // Measured at runtime so LeagueChatTab can align its composer to the keyboard
+  // top precisely (avoids hardcoded estimate drift across devices / iOS versions).
+  const [tabBarHeight, setTabBarHeight] = useState(0);
+
   const handlePressPlayer = (id: number | string): void => {
     if (activeTab === 'standings') {
       setStatsPlayerId(id);
@@ -301,10 +305,6 @@ export default function LeagueDetailScreen({
   const title = detail?.name != null && detail.name.trim().length > 0 ? detail.name : 'League';
   const canAddGame =
     detail != null && (detail.user_role === 'admin' || detail.user_role === 'member');
-
-  const handleBack = (): void => {
-    router.replace('/(tabs)/leagues');
-  };
 
   const addGameAction = canAddGame ? (
     <Pressable
@@ -328,77 +328,89 @@ export default function LeagueDetailScreen({
     </Pressable>
   ) : undefined;
 
+  const measuredTabBar = (
+    <View onLayout={(e) => setTabBarHeight(e.nativeEvent.layout.height)}>
+      <BottomTabBar active="leagues" />
+    </View>
+  );
+
   if (isLoading) {
     return (
-      <SafeAreaView
-        className="flex-1 bg-page"
-        edges={['top']}
-      >
-        <TopNav title="League" showBack onBack={handleBack} />
-        <View testID="league-detail-loading" className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" />
-        </View>
-        <BottomTabBar active="leagues" />
-      </SafeAreaView>
+      <BottomTabBarHeightContext.Provider value={tabBarHeight}>
+        <SafeAreaView
+          className="flex-1 bg-page"
+          edges={['top']}
+        >
+          <TopNav title="League" showBack backFallback={routes.leagues()} />
+          <View testID="league-detail-loading" className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" />
+          </View>
+          {measuredTabBar}
+        </SafeAreaView>
+      </BottomTabBarHeightContext.Provider>
     );
   }
 
   if (isError || detail == null) {
     return (
-      <SafeAreaView
-        className="flex-1 bg-page"
-        edges={['top']}
-      >
-        <TopNav title="League" showBack onBack={handleBack} />
-        <View
-          testID="league-detail-error"
-          className="flex-1 items-center justify-center px-8"
+      <BottomTabBarHeightContext.Provider value={tabBarHeight}>
+        <SafeAreaView
+          className="flex-1 bg-page"
+          edges={['top']}
         >
-          <Text className="text-[16px] font-bold text-default text-center">
-            Failed to load league
-          </Text>
-        </View>
-        <BottomTabBar active="leagues" />
-      </SafeAreaView>
+          <TopNav title="League" showBack backFallback={routes.leagues()} />
+          <View
+            testID="league-detail-error"
+            className="flex-1 items-center justify-center px-8"
+          >
+            <Text className="text-[16px] font-bold text-default text-center">
+              Failed to load league
+            </Text>
+          </View>
+          {measuredTabBar}
+        </SafeAreaView>
+      </BottomTabBarHeightContext.Provider>
     );
   }
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-page"
-      edges={['top']}
-    >
-      <TopNav title={title} showBack onBack={handleBack} rightAction={addGameAction} />
-      <View testID="league-detail-screen" className="flex-1 bg-page">
-        <LeagueHeader
-          name={detail.name}
-          locationName={detail.location_name}
-          memberCount={detail.member_count}
-          currentSeasonName={detail.current_season_name}
-          isActive={detail.is_active}
-          userRank={detail.user_rank}
-          userRole={detail.user_role}
-          onInvite={onInvite}
-          onStartSession={onStartSession}
-        />
-
-        <SegmentBar
-          tabs={TABS}
-          activeTab={activeTab}
-          onSetTab={handleSetTab}
-        />
-
-        <View className="flex-1">
-          <TabContent
-            leagueId={resolvedId}
+    <BottomTabBarHeightContext.Provider value={tabBarHeight}>
+      <SafeAreaView
+        className="flex-1 bg-page"
+        edges={['top']}
+      >
+        <TopNav title={title} showBack backFallback={routes.leagues()} rightAction={addGameAction} />
+        <View testID="league-detail-screen" className="flex-1 bg-page">
+          <LeagueHeader
+            name={detail.name}
+            locationName={detail.location_name}
+            memberCount={detail.member_count}
+            currentSeasonName={detail.current_season_name}
+            isActive={detail.is_active}
+            userRank={detail.user_rank}
             userRole={detail.user_role}
-            activeTab={activeTab}
-            statsPlayerId={statsPlayerId}
-            onViewPlayerStats={handlePressPlayer}
+            onInvite={onInvite}
+            onStartSession={onStartSession}
           />
+
+          <SegmentBar
+            tabs={TABS}
+            activeTab={activeTab}
+            onSetTab={handleSetTab}
+          />
+
+          <View className="flex-1">
+            <TabContent
+              leagueId={resolvedId}
+              userRole={detail.user_role}
+              activeTab={activeTab}
+              statsPlayerId={statsPlayerId}
+              onViewPlayerStats={handlePressPlayer}
+            />
+          </View>
         </View>
-      </View>
-      <BottomTabBar active="leagues" />
-    </SafeAreaView>
+        {measuredTabBar}
+      </SafeAreaView>
+    </BottomTabBarHeightContext.Provider>
   );
 }

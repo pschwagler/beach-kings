@@ -4,7 +4,7 @@
  * wireframes. Tapping a tab routes back to the corresponding (tabs) screen.
  */
 
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,17 @@ import { HomeIcon, TrophyIcon, PlusIcon, ChatIcon, UserIcon } from '@/components
 import { hapticLight } from '@/utils/haptics';
 
 export type BottomTabKey = 'home' | 'leagues' | 'add-games' | 'social' | 'profile';
+
+/**
+ * Provides the BottomTabBar's measured height to descendants. Mirrors
+ * @react-navigation/bottom-tabs' useBottomTabBarHeight() pattern. Populated
+ * via onLayout by whichever screen renders the BottomTabBar.
+ */
+export const BottomTabBarHeightContext = createContext<number>(0);
+
+export function useBottomTabBarHeight(): number {
+  return useContext(BottomTabBarHeightContext);
+}
 
 interface BottomTabBarProps {
   readonly active: BottomTabKey;

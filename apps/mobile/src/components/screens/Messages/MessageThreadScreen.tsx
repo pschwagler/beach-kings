@@ -12,18 +12,12 @@
  */
 
 import React, { useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useRouter } from 'expo-router';
 import Avatar from '@/components/ui/Avatar';
 import ChatComposer from '@/components/ui/ChatComposer';
+import ChatView from '@/components/ui/ChatView';
 import { ChevronLeftIcon } from '@/components/ui/icons';
 import { routes } from '@/lib/navigation';
 import { useMessageThreadScreen } from './useMessageThreadScreen';
@@ -52,7 +46,7 @@ function formatMsgTime(isoString: string): string {
 function MessageBubble({ message, isOwn }: MessageBubbleProps): React.ReactNode {
   return (
     <View
-      className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}
+      className={`mb-3 px-4 ${isOwn ? 'items-end' : 'items-start'}`}
     >
       <View
         testID={`msg-bubble-${message.id}`}
@@ -79,40 +73,6 @@ function MessageBubble({ message, isOwn }: MessageBubbleProps): React.ReactNode 
       </View>
     </View>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Date divider
-// ---------------------------------------------------------------------------
-
-function DateDivider({ date }: { date: string }): React.ReactNode {
-  return (
-    <View className="items-center py-2">
-      <Text className="text-[11px] text-muted">
-        {date}
-      </Text>
-    </View>
-  );
-}
-
-function formatDateDivider(isoString: string): string {
-  const d = new Date(isoString);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  const isSameDay = (a: Date, b: Date): boolean =>
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
-
-  if (isSameDay(d, today)) return 'Today';
-  if (isSameDay(d, yesterday)) return 'Yesterday';
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -167,10 +127,6 @@ export default function MessageThreadScreen({
   const displayName =
     playerName != null && playerName.trim().length > 0 ? playerName : 'Chat';
 
-  const onBack = useCallback(() => {
-    router.back();
-  }, [router]);
-
   const onProfile = useCallback(() => {
     router.push(routes.player(playerId));
   }, [router, playerId]);
@@ -184,73 +140,38 @@ export default function MessageThreadScreen({
       return <MessagesErrorState onRetry={onRetry} />;
     }
 
-    // Reversed so newest message is at the bottom when inverted=false with newest first data
-    const reversedMessages = [...messages].reverse();
-
-    // Insert date dividers by grouping consecutive messages on the same day.
-    type ListItem =
-      | { kind: 'message'; message: DirectMessage }
-      | { kind: 'divider'; label: string };
-
-    const listItems: ListItem[] = [];
-    let lastDateLabel: string | null = null;
-    for (const msg of reversedMessages) {
-      const label = formatDateDivider(msg.created_at);
-      if (label !== lastDateLabel) {
-        listItems.push({ kind: 'divider', label });
-        lastDateLabel = label;
-      }
-      listItems.push({ kind: 'message', message: msg });
-    }
+    // API returns newest-first; ChatView expects oldest-first.
+    const chronologicalMessages = [...messages].reverse();
 
     return (
-      <KeyboardAvoidingView
+      <ChatView<DirectMessage>
         testID="thread-screen"
-        behavior="padding"
-        style={{ flex: 1 }}
-      >
-        {messages.length === 0 ? (
-          <ThreadEmptyState />
-        ) : (
-          <FlatList<ListItem>
-            testID="messages-list"
-            data={listItems}
-            keyExtractor={(item, idx) =>
-              item.kind === 'message'
-                ? `msg-${item.message.id}`
-                : `divider-${idx}`
-            }
-            renderItem={({ item }) => {
-              if (item.kind === 'divider') {
-                return <DateDivider date={item.label} />;
-              }
-              return (
-                <MessageBubble
-                  message={item.message}
-                  isOwn={item.message.sender_player_id === currentPlayerId}
-                />
-              );
-            }}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-            }
+        listTestID="messages-list"
+        data={chronologicalMessages}
+        keyExtractor={(msg) => `msg-${msg.id}`}
+        renderBubble={(msg) => (
+          <MessageBubble
+            message={msg}
+            isOwn={msg.sender_player_id === currentPlayerId}
           />
         )}
-        <ChatComposer
-          value={messageText}
-          onChangeText={setMessageText}
-          onSend={onSend}
-          isSending={isSending}
-          sendError={sendError}
-          bottomInset={insets.bottom}
-          inputTestID="message-input"
-          sendTestID="send-btn"
-        />
-      </KeyboardAvoidingView>
+        getTimestamp={(msg) => msg.created_at}
+        renderComposer={() => (
+          <ChatComposer
+            value={messageText}
+            onChangeText={setMessageText}
+            onSend={onSend}
+            isSending={isSending}
+            sendError={sendError}
+            inputTestID="message-input"
+            sendTestID="send-btn"
+          />
+        )}
+        onRefresh={onRefresh}
+        isRefreshing={isRefreshing}
+        emptyState={<ThreadEmptyState />}
+        bottomInset={insets.bottom}
+      />
     );
   };
 
@@ -262,7 +183,7 @@ export default function MessageThreadScreen({
       <View className="h-12 bg-nav flex-row items-center px-3 gap-2 dark:border-b border-divider">
         <Pressable
           testID="thread-back-btn"
-          onPress={onBack}
+          onPress={() => { router.back(); }}
           accessibilityRole="button"
           accessibilityLabel="Back to Messages"
           className="min-w-touch min-h-touch flex-row items-center"

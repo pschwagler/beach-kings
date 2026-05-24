@@ -41,7 +41,7 @@ export default function ChatComposer({
   isSending = false,
   sendError = null,
   placeholder = 'Message',
-  autoFocus = true,
+  autoFocus = false,
   maxLength,
   bottomInset = 0,
   testID,

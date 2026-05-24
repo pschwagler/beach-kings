@@ -9,46 +9,12 @@
  */
 
 import React from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  ActivityIndicator,
-} from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { View, Text, ActivityIndicator } from 'react-native';
 import ChatComposer from '@/components/ui/ChatComposer';
+import ChatView from '@/components/ui/ChatView';
+import { useBottomTabBarHeight } from '@/components/navigation/BottomTabBar';
 import { useLeagueChatTab } from './useLeagueChatTab';
 import type { LeagueChatMessage } from '@beach-kings/shared';
-
-// ---------------------------------------------------------------------------
-// List item union type (divider or message)
-// ---------------------------------------------------------------------------
-
-type ListItem =
-  | { kind: 'divider'; key: string; date: string }
-  | { kind: 'message'; message: LeagueChatMessage; showSender: boolean };
-
-// ---------------------------------------------------------------------------
-// Date divider
-// ---------------------------------------------------------------------------
-
-function DateDivider({ date }: { readonly date: string }): React.ReactNode {
-  const label = new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
-  return (
-    <View className="flex-row items-center px-4 py-3 gap-3">
-      <View className="flex-1 h-[1px] bg-divider" />
-      <Text className="text-[11px] text-muted font-medium">
-        {label}
-      </Text>
-      <View className="flex-1 h-[1px] bg-divider" />
-    </View>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Message bubble
@@ -56,6 +22,10 @@ function DateDivider({ date }: { readonly date: string }): React.ReactNode {
 
 interface MessageBubbleProps {
   readonly message: LeagueChatMessage;
+  /**
+   * True when this is the last message in a consecutive run from this sender.
+   * Avatar + name appear below this bubble (bottom-of-run style).
+   */
   readonly showSender: boolean;
 }
 
@@ -85,26 +55,30 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
 
   return (
     <View testID={`message-bubble-${message.id}`} className="px-4 mb-[6px]">
-      {showSender && (
-        <View className="flex-row items-center gap-2 mb-[4px]">
+      <View className="flex-row items-end gap-2">
+        {showSender ? (
           <View className="w-7 h-7 rounded-full bg-elevated items-center justify-center">
             <Text className="text-[9px] font-bold text-muted">
               {message.initials}
             </Text>
           </View>
-          <Text className="text-[12px] font-semibold text-muted">
-            {message.player_name ?? 'Unknown'}
-          </Text>
-        </View>
-      )}
-      <View className="flex-row items-end gap-2">
-        {!showSender && <View className="w-7" />}
+        ) : (
+          <View className="w-7" />
+        )}
         <View className="max-w-[80%] bg-surface rounded-[16px] rounded-tl-[4px] px-4 py-[10px] border border-divider">
           <Text className="text-[14px] text-default">
             {message.message}
           </Text>
         </View>
       </View>
+      {showSender && (
+        <View className="flex-row items-center gap-2 mt-[2px]">
+          <View className="w-7" />
+          <Text className="text-[12px] font-semibold text-muted">
+            {message.player_name ?? 'Unknown'}
+          </Text>
+        </View>
+      )}
       <View className="flex-row items-center gap-2 mt-[2px]">
         <View className="w-7" />
         <Text className="text-[10px] text-tertiary">
@@ -124,6 +98,10 @@ interface LeagueChatTabProps {
 }
 
 export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.ReactNode {
+  // Composer starts above the BottomTabBar, so KeyboardStickyView overshoots
+  // the keyboard top by exactly the tab bar's height. Measured via onLayout in
+  // LeagueDetailScreen and provided through BottomTabBarHeightContext.
+  const keyboardOpenedOffset = useBottomTabBarHeight();
   const {
     messages,
     isLoading,
@@ -133,7 +111,6 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
     sendError,
     onChangeText,
     onSend,
-    flatListRef,
   } = useLeagueChatTab(leagueId);
 
   if (isLoading) {
@@ -157,71 +134,36 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
     );
   }
 
-  const listData: ListItem[] = [];
-  let lastDate = '';
-  let lastSenderId: number | null = null;
-
-  messages.forEach((msg) => {
-    const msgDate = msg.created_at?.split('T')[0] ?? '';
-    if (msgDate !== lastDate) {
-      listData.push({
-        kind: 'divider',
-        key: `divider-${msgDate}`,
-        date: msg.created_at ?? '',
-      });
-      lastDate = msgDate;
-      lastSenderId = null;
-    }
-    const showSender = !msg.is_mine && msg.player_id !== lastSenderId;
-    listData.push({ kind: 'message', message: msg, showSender });
-    lastSenderId = msg.player_id;
-  });
-
   return (
-    <KeyboardAvoidingView
+    <ChatView<LeagueChatMessage>
       testID="chat-tab"
-      behavior="padding"
-      style={{ flex: 1 }}
-      className="bg-page"
-    >
-      <FlatList<ListItem>
-        ref={flatListRef as React.RefObject<FlatList<ListItem> | null>}
-        testID="chat-messages-list"
-        data={listData}
-        keyExtractor={(item) =>
-          item.kind === 'divider' ? item.key : `msg-${item.message.id}`
-        }
-        renderItem={({ item }): React.ReactElement | null => {
-          if (item.kind === 'divider') {
-            return <DateDivider date={item.date} />;
+      listTestID="chat-messages-list"
+      keyboardOpenedOffset={keyboardOpenedOffset}
+      data={messages}
+      keyExtractor={(msg) => `msg-${msg.id}`}
+      renderBubble={(msg, nextMsg) => (
+        <MessageBubble
+          message={msg}
+          showSender={
+            !msg.is_mine &&
+            (nextMsg === null || nextMsg.player_id !== msg.player_id)
           }
-          return (
-            <MessageBubble
-              message={item.message}
-              showSender={item.showSender}
-            />
-          );
-        }}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 8 }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        onContentSizeChange={() => {
-          flatListRef.current?.scrollToEnd({ animated: false });
-        }}
-      />
-
-      <ChatComposer
-        value={messageText}
-        onChangeText={onChangeText}
-        onSend={() => { void onSend(); }}
-        isSending={isSending}
-        sendError={sendError}
-        autoFocus={false}
-        maxLength={1000}
-        inputTestID="chat-message-input"
-        sendTestID="chat-send-button"
-      />
-    </KeyboardAvoidingView>
+        />
+      )}
+      getTimestamp={(msg) => msg.created_at ?? ''}
+      renderComposer={() => (
+        <ChatComposer
+          value={messageText}
+          onChangeText={onChangeText}
+          onSend={() => { void onSend(); }}
+          isSending={isSending}
+          sendError={sendError}
+          autoFocus={false}
+          maxLength={1000}
+          inputTestID="chat-message-input"
+          sendTestID="chat-send-button"
+        />
+      )}
+    />
   );
 }

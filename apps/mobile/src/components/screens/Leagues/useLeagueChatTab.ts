@@ -2,9 +2,8 @@
  * Data hook for the League Chat tab.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { FlatList } from 'react-native';
 import { api } from '@/lib/api';
 import type { LeagueChatMessage } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
@@ -18,7 +17,6 @@ export interface UseLeagueChatTabResult {
   readonly sendError: string | null;
   readonly onChangeText: (v: string) => void;
   readonly onSend: () => Promise<void>;
-  readonly flatListRef: React.RefObject<FlatList<object> | null>;
 }
 
 /** Shape returned by the backend — identical to LeagueChatMessage minus initials. */
@@ -48,7 +46,6 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const flatListRef = useRef<FlatList<object> | null>(null);
 
   const chatQuery = useQuery({
     queryKey: leagueKeys.chat(leagueId),
@@ -75,9 +72,6 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
     try {
       await api.createLeagueMessage(Number(leagueId), text);
       await queryClient.invalidateQueries({ queryKey: leagueKeys.chat(leagueId) });
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
     } catch {
       setMessageText(text);
       setSendError('Failed to send message. Tap the arrow to retry.');
@@ -95,6 +89,5 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
     sendError,
     onChangeText,
     onSend,
-    flatListRef,
   };
 }
