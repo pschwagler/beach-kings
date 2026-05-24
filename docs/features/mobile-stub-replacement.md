@@ -28,6 +28,7 @@ Open design questions surfaced during P1 work. Implementations follow the curren
 
 - **Roster picker — adding non-registered players.** The pickup score wireframe (`score-scoreboard.html`) shows an "Add new player as placeholder" affordance. P1.1 ships with registered-player-only search. We need a real flow for: (a) searching across all players in the system to add to a session, (b) creating placeholder/guest players for people who don't have accounts yet, (c) what happens to ratings/stats for placeholder players, (d) merge/claim flow if a placeholder later signs up. Surface: missing wireframes for the search and create-placeholder flows.
 - **`is_ranked` toggle location — per-game vs per-session.** The current wireframes put ranked/unranked on the score entry screen (`score-league.html`). Product intuition is that it belongs on the session itself (session is ranked → all its games are ranked). Decide and update wireframes before refactoring.
+- **Invite Players screen — reusable, OS-share-based.** The Session Detail "Invite players to claim their Beach League profile" banner currently routes only for league sessions (and to a league-wide invite screen). Spec for the replacement is [docs/requirements/invite-players-screen.md](../requirements/invite-players-screen.md); wireframe at `mobile-audit/wireframes/session-invite-players.html` (states 2-4 are deprecated by the requirements doc — implement state 1 + state 5 only).
 
 ---
 

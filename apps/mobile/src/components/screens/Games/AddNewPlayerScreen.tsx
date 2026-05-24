@@ -10,8 +10,16 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Pressable, View, Text, ScrollView } from 'react-native';
+import {
+  Keyboard,
+  Pressable,
+  View,
+  Text,
+  ScrollView,
+  TextInput,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PlayerGender, SkillLevel } from '@beach-kings/shared';
 import { GENDER_OPTIONS, SKILL_LEVEL_OPTIONS } from '@beach-kings/shared';
 import { api } from '@/lib/api';
@@ -126,6 +134,7 @@ function SubmitButton({
 
 export default function AddNewPlayerScreen(): React.ReactNode {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { request, setResult } = useAddNewPlayer();
 
   const prefillName = request?.prefillName ?? '';
@@ -137,6 +146,8 @@ export default function AddNewPlayerScreen(): React.ReactNode {
   const [level, setLevel] = useState<SkillLevel | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const lastNameRef = useRef<TextInput>(null);
 
   // Don't touch state setters after the sheet has been dismissed/unmounted
   // (e.g. the user swipes it away while the create request is in flight).
@@ -210,6 +221,7 @@ export default function AddNewPlayerScreen(): React.ReactNode {
         player_id: resp.player_id,
         invite_url: resp.invite_url,
       });
+      Keyboard.dismiss();
       router.back();
     } catch (err: unknown) {
       if (!mountedRef.current) return;
@@ -225,8 +237,13 @@ export default function AddNewPlayerScreen(): React.ReactNode {
 
   return (
     <View className="flex-1 bg-page">
-      {/* Title row — the formSheet grabber + swipe replaces the X close. */}
-      <View className="px-lg pt-md pb-md border-b border-divider">
+      {/* Title row — the formSheet grabber + swipe replaces the X close.
+          At full detent (1.0) the sheet covers the status bar, so pad top
+          by the safe-area inset to keep the title below the system clock. */}
+      <View
+        className="px-lg pb-md border-b border-divider"
+        style={{ paddingTop: insets.top + 12 }}
+      >
         <Text className="text-lg font-bold text-default">Add New Player</Text>
       </View>
 
@@ -264,6 +281,9 @@ export default function AddNewPlayerScreen(): React.ReactNode {
             placeholder="First name"
             autoCapitalize="words"
             autoComplete="name-given"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => lastNameRef.current?.focus()}
           />
         </View>
 
@@ -277,11 +297,16 @@ export default function AddNewPlayerScreen(): React.ReactNode {
           </Text>
           <Input
             testID="add-new-player-last"
+            ref={lastNameRef}
             value={last}
             onChangeText={setLast}
             placeholder="Last name"
             autoCapitalize="words"
             autoComplete="name-family"
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              void handleSubmit();
+            }}
           />
         </View>
 

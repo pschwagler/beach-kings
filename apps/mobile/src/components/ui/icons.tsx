@@ -127,6 +127,17 @@ export function ChevronDownIcon({ size = 24, color = '#000' }: IconProps): React
   );
 }
 
+export function EllipsisIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+  const r = Math.max(1, Math.round(size / 12));
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={5} cy={12} r={r} fill={color} />
+      <Circle cx={12} cy={12} r={r} fill={color} />
+      <Circle cx={19} cy={12} r={r} fill={color} />
+    </Svg>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------

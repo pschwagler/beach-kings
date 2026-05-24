@@ -20,8 +20,14 @@ export interface GameHistoryEntry {
   readonly opponent_score: number;
   /** Display names of the current user's partner(s). */
   readonly partner_names: string[];
+  /** Player IDs of the current user's partner(s), parallel to partner_names. */
+  readonly partner_ids: readonly number[];
   /** Display names of the opponent players. */
   readonly opponent_names: string[];
+  /** Player IDs of the opponent players, parallel to opponent_names. */
+  readonly opponent_ids: readonly number[];
+  /** ISO date string of the session (YYYY-MM-DD). Null for legacy data. */
+  readonly session_date: string | null;
   /**
    * ELO rating change for this game.
    * Null when the session has not yet been submitted (no EloHistory row).

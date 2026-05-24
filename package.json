@@ -15,7 +15,9 @@
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
     "clean": "turbo run clean && rm -rf node_modules",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
@@ -35,6 +37,9 @@
     "react-test-renderer": "19.1.0"
   },
   "dependencies": {
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "expo": "~54.0.33",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }

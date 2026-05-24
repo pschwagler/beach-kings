@@ -13,9 +13,55 @@ import {
   Text,
   ScrollView,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useLeagueMatchesTab, type SessionGroup } from './useLeagueMatchesTab';
+import { routes } from '@/lib/navigation';
+import { ChevronRightIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import type { GameHistoryEntry } from '@beach-kings/shared';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatSessionDate(isoDate: string): string | null {
+  // Backend normalizes to YYYY-MM-DD; parse as local to avoid UTC drift.
+  const parts = isoDate.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return null;
+  }
+  const [year, month, day] = parts;
+  const d = new Date(year, month - 1, day);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ---------------------------------------------------------------------------
+// Tappable player name
+// ---------------------------------------------------------------------------
+
+interface PlayerNameProps {
+  readonly name: string;
+  readonly playerId: number | null;
+  readonly className?: string;
+}
+
+function PlayerName({ name, playerId, className = '' }: PlayerNameProps): React.ReactNode {
+  const router = useRouter();
+  if (playerId == null) {
+    return <Text className={className}>{name}</Text>;
+  }
+  return (
+    <Pressable
+      onPress={() => { router.push(routes.player(playerId)); }}
+      hitSlop={{ top: 6, bottom: 6, left: 2, right: 2 }}
+    >
+      <Text className={className}>{name}</Text>
+    </Pressable>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Game row
@@ -25,39 +71,48 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
   const isWin = game.result === 'W';
   const isDraw = game.result === 'D';
 
-  const myTeam = game.partner_names.length > 0
-    ? `You / ${game.partner_names.join(' / ')}`
-    : 'You';
-  const oppTeam = game.opponent_names.join(' / ');
-
   return (
     <View
       testID={`game-row-${game.id}`}
       className="px-4 py-[10px] border-b border-divider"
     >
-      <View className="flex-row items-center">
+      <View className="flex-row items-start">
         {/* Teams */}
-        <View className="flex-1 min-w-0">
-          <Text
-            className="text-[13px] font-semibold text-default"
-            numberOfLines={1}
-          >
-            {myTeam}
-          </Text>
-          <Text
-            className="text-[12px] text-muted mt-[2px]"
-            numberOfLines={1}
-          >
-            vs {oppTeam}
-          </Text>
+        <View className="flex-1 min-w-0 mr-2">
+          {/* My team: "You" + tappable partners */}
+          <View className="flex-row flex-wrap items-center">
+            <Text className="text-[13px] font-semibold text-default">You</Text>
+            {game.partner_names.map((partnerName, i) => (
+              <React.Fragment key={game.partner_ids[i] ?? `partner-${i}`}>
+                <Text className="text-[13px] text-muted"> / </Text>
+                <PlayerName
+                  name={partnerName}
+                  playerId={game.partner_ids[i] ?? null}
+                  className="text-[13px] font-semibold text-default"
+                />
+              </React.Fragment>
+            ))}
+          </View>
+          {/* Opponents: tappable names */}
+          <View className="flex-row flex-wrap items-center mt-[4px]">
+            <Text className="text-[12px] text-muted">vs </Text>
+            {game.opponent_names.map((oppName, i) => (
+              <React.Fragment key={game.opponent_ids[i] ?? `opp-${i}`}>
+                {i > 0 && <Text className="text-[12px] text-muted"> / </Text>}
+                <PlayerName
+                  name={oppName}
+                  playerId={game.opponent_ids[i] ?? null}
+                  className="text-[12px] text-muted"
+                />
+              </React.Fragment>
+            ))}
+          </View>
         </View>
 
         {/* Score */}
-        <View className="flex-row items-center gap-2 mr-2">
-          <Text className="text-[15px] font-bold text-default">
-            {game.my_score} – {game.opponent_score}
-          </Text>
-        </View>
+        <Text className="text-[14px] font-bold text-default mr-2">
+          {game.my_score} – {game.opponent_score}
+        </Text>
 
         {/* W/L/D badge */}
         <View
@@ -65,7 +120,7 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
             isWin
               ? 'bg-success-tint'
               : isDraw
-                ? 'bg-elevated'
+                ? 'bg-warning-tint'
                 : 'bg-danger-tint'
           }`}
         >
@@ -74,7 +129,7 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
               isWin
                 ? 'text-success'
                 : isDraw
-                  ? 'text-muted'
+                  ? 'text-warning'
                   : 'text-danger'
             }`}
           >
@@ -83,16 +138,18 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
         </View>
       </View>
 
-      {/* Rating change */}
+      {/* Rating change — neutral color when zero */}
       {game.rating_change != null && (
         <Text
-          className={`text-[11px] mt-[2px] ${
-            game.rating_change >= 0
+          className={`text-[11px] mt-[4px] ${
+            game.rating_change > 0
               ? 'text-success'
-              : 'text-danger'
+              : game.rating_change < 0
+                ? 'text-danger'
+                : 'text-muted'
           }`}
         >
-          {game.rating_change >= 0 ? '+' : ''}
+          {game.rating_change > 0 ? '+' : ''}
           {game.rating_change} pts
         </Text>
       )}
@@ -105,26 +162,34 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
 // ---------------------------------------------------------------------------
 
 function SessionCard({ session }: { readonly session: SessionGroup }): React.ReactNode {
+  const router = useRouter();
+  const palette = usePaletteColors();
   const totalRating = Math.round(session.ratingChange * 10) / 10;
+  const dateLabel = session.session_date != null
+    ? formatSessionDate(session.session_date)
+    : null;
 
   return (
     <View
       testID={`session-card-${session.session_id}`}
-      className="bg-surface rounded-[12px] mx-4 mb-3 border border-divider overflow-hidden"
+      className="bg-surface rounded-[12px] mx-4 mb-4 border border-divider overflow-hidden"
     >
-      {/* Header */}
-      <View className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider">
+      {/* Header — tappable to open session detail */}
+      <Pressable
+        onPress={() => { router.push(routes.session(session.session_id)); }}
+        style={({ pressed }) => (pressed ? { opacity: 0.65 } : undefined)}
+        className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider"
+      >
         <View className="flex-1">
           <Text className="text-[13px] font-bold text-default">
             Session #{session.session_number ?? session.session_id}
           </Text>
+          {dateLabel != null && (
+            <Text className="text-[11px] text-muted mt-[1px]">{dateLabel}</Text>
+          )}
         </View>
-        <View className="bg-info-tint rounded-[8px] px-2 py-[2px]">
-          <Text className="text-[11px] font-semibold text-info">
-            Completed
-          </Text>
-        </View>
-      </View>
+        <ChevronRightIcon size={18} color={palette.textMuted} />
+      </Pressable>
 
       {/* Game rows */}
       {session.games.map((g) => (
@@ -132,9 +197,9 @@ function SessionCard({ session }: { readonly session: SessionGroup }): React.Rea
       ))}
 
       {/* Footer stats */}
-      <View className="flex-row px-4 py-[10px] gap-4 border-t border-divider">
+      <View className="flex-row px-4 py-[12px] gap-4 border-t border-divider">
         <View>
-          <Text className="text-[10px] text-tertiary uppercase tracking-wide">
+          <Text className="text-[11px] text-tertiary uppercase tracking-wide">
             Games
           </Text>
           <Text className="text-[14px] font-bold text-default">
@@ -142,7 +207,7 @@ function SessionCard({ session }: { readonly session: SessionGroup }): React.Rea
           </Text>
         </View>
         <View>
-          <Text className="text-[10px] text-tertiary uppercase tracking-wide">
+          <Text className="text-[11px] text-tertiary uppercase tracking-wide">
             Your W-L
           </Text>
           <Text className="text-[14px] font-bold text-default">
@@ -150,17 +215,19 @@ function SessionCard({ session }: { readonly session: SessionGroup }): React.Rea
           </Text>
         </View>
         <View>
-          <Text className="text-[10px] text-tertiary uppercase tracking-wide">
+          <Text className="text-[11px] text-tertiary uppercase tracking-wide">
             Rating
           </Text>
           <Text
             className={`text-[14px] font-bold ${
-              totalRating >= 0
+              totalRating > 0
                 ? 'text-success'
-                : 'text-danger'
+                : totalRating < 0
+                  ? 'text-danger'
+                  : 'text-muted'
             }`}
           >
-            {totalRating >= 0 ? '+' : ''}
+            {totalRating > 0 ? '+' : ''}
             {totalRating}
           </Text>
         </View>
@@ -222,7 +289,7 @@ export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): R
       testID="matches-tab"
       className="flex-1 bg-page"
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: 32 }}
+      contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
     >
       {sessions.map((s) => (
         <SessionCard key={s.session_id} session={s} />

@@ -53,12 +53,16 @@ const roles = {
   danger: [colors.danger, darkColors.dangerText],
   warning: [colors.warning, darkColors.warningText],
   info: [colors.info, darkColors.infoText],
+  // "Live / in-progress" — warm amber. Distinct from success (completed) and
+  // warning (problem). Used on session "Active" badges, live-event chips, etc.
+  statusLive: ['#b87900', '#f4c060'],
 
   // Status tinted-surface colors (chip / row background pairs)
   successTint: [colors.successTint, darkColors.successBg],
   dangerTint: [colors.dangerTint, darkColors.dangerBg],
   warningTint: [colors.warningTint, darkColors.warningBg],
   infoTint: [colors.infoTint, darkColors.infoBg],
+  statusLiveTint: ['#fff1d6', '#3a2a14'],
 } as const satisfies Record<string, ThemeHexPair>;
 
 export type SemanticRole = keyof typeof roles;

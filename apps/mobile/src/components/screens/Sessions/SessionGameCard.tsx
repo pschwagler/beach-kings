@@ -1,7 +1,8 @@
 /**
  * SessionGameCard — renders a single game/match row within a session.
  *
- * Shows: game number, WIN/LOSS/PENDING badge (omitted when user is not a participant), team names, score, rating change.
+ * Shows: game number, WIN/LOSS badge (omitted when user is not a participant),
+ * boxscore rows (winner row highlighted), and rating change.
  * Wireframe ref: session-active.html, session-detail.html
  */
 
@@ -11,9 +12,10 @@ import type { SessionGame } from '@beach-kings/shared';
 
 interface Props {
   readonly game: SessionGame;
-  /** player ids on the current user's team for badge determination */
   readonly userTeam?: 1 | 2 | null;
   readonly onEdit?: () => void;
+  /** When provided, replaces the matching player's name with "You". Case-insensitive. */
+  readonly currentPlayerName?: string | null;
 }
 
 type GameResult = 'win' | 'loss' | 'pending' | 'not-participant';
@@ -24,36 +26,57 @@ function getResult(game: SessionGame, userTeam: 1 | 2 | null): GameResult {
   return game.winner === userTeam ? 'win' : 'loss';
 }
 
-const RESULT_STYLES: Record<Exclude<GameResult, 'not-participant'>, { badge: string; text: string; label: string }> = {
-  win: {
-    badge: 'bg-success-tint',
-    text: 'text-success',
-    label: 'WIN',
-  },
-  loss: {
-    badge: 'bg-danger-tint',
-    text: 'text-danger',
-    label: 'LOSS',
-  },
-  pending: {
-    badge: 'bg-elevated',
-    text: 'text-muted',
-    label: 'PENDING',
-  },
+const RESULT_BADGE: Record<Exclude<GameResult, 'not-participant' | 'pending'>, { badge: string; text: string; label: string }> = {
+  win: { badge: 'bg-success-tint', text: 'text-success', label: 'WIN' },
+  loss: { badge: 'bg-danger-tint', text: 'text-danger', label: 'LOSS' },
 };
+
+interface TeamRowProps {
+  readonly name: string;
+  readonly score: number | null;
+  readonly isWinner: boolean;
+  readonly isLoser: boolean;
+}
+
+function substituteYou(name: string, currentPlayerName: string | null): string {
+  if (currentPlayerName == null) return name;
+  return name.trim().toLowerCase() === currentPlayerName.trim().toLowerCase() ? 'You' : name;
+}
+
+function TeamRow({ name, score, isWinner, isLoser }: TeamRowProps): React.ReactNode {
+  return (
+    <View
+      className={`flex-row items-center justify-between px-[10px] py-[7px] rounded-[8px] ${
+        isWinner ? 'bg-success-tint' : ''
+      }`}
+    >
+      <Text
+        className={`flex-1 text-[13px] font-semibold pr-[8px] ${
+          isLoser ? 'text-muted' : 'text-default'
+        }`}
+        numberOfLines={1}
+      >
+        {name}
+      </Text>
+      <Text
+        className={`text-[18px] font-bold ${
+          isWinner ? 'text-success' : 'text-muted'
+        }`}
+      >
+        {score != null ? String(score) : '—'}
+      </Text>
+    </View>
+  );
+}
 
 export default function SessionGameCard({
   game,
   userTeam = null,
   onEdit,
+  currentPlayerName = null,
 }: Props): React.ReactNode {
   const result = getResult(game, userTeam);
-  const resultStyles = result !== 'not-participant' ? RESULT_STYLES[result] : null;
-
-  const scoreText =
-    game.team1_score != null && game.team2_score != null
-      ? `${game.team1_score} - ${game.team2_score}`
-      : null;
+  const badgeStyles = result === 'win' || result === 'loss' ? RESULT_BADGE[result] : null;
 
   const ratingText =
     game.rating_change != null
@@ -73,9 +96,9 @@ export default function SessionGameCard({
           Game {game.game_number}
         </Text>
         <View className="flex-row items-center gap-[8px]">
-          {resultStyles != null && (
-            <View className={`px-[8px] py-[3px] rounded-[10px] ${resultStyles.badge}`}>
-              <Text className={`text-[10px] font-bold ${resultStyles.text}`}>{resultStyles.label}</Text>
+          {badgeStyles != null && (
+            <View className={`px-[8px] py-[3px] rounded-[10px] ${badgeStyles.badge}`}>
+              <Text className={`text-[10px] font-bold ${badgeStyles.text}`}>{badgeStyles.label}</Text>
             </View>
           )}
           {onEdit != null && (
@@ -90,41 +113,31 @@ export default function SessionGameCard({
         </View>
       </View>
 
-      {/* Matchup */}
-      <View className="flex-row items-center justify-between">
-        <View className="flex-1">
-          <Text className="text-[13px] font-semibold text-default" numberOfLines={1}>
-            {game.team1_player1_name} / {game.team1_player2_name}
-          </Text>
-          <Text className="text-[12px] text-muted mt-[2px]">
-            vs
-          </Text>
-          <Text className="text-[13px] font-semibold text-default" numberOfLines={1}>
-            {game.team2_player1_name} / {game.team2_player2_name}
-          </Text>
-        </View>
-
-        <View className="items-end">
-          {scoreText != null && (
-            <Text className="text-[15px] font-bold text-default">
-              {scoreText}
-            </Text>
-          )}
-          {ratingText != null ? (
-            <Text
-              className={`text-[12px] font-semibold mt-[2px] ${
-                (game.rating_change ?? 0) > 0 ? 'text-success' : 'text-danger'
-              }`}
-            >
-              {ratingText}
-            </Text>
-          ) : result === 'pending' ? (
-            <View className="bg-elevated px-[6px] py-[2px] rounded-[6px] mt-[4px]">
-              <Text className="text-[10px] text-muted font-semibold">PENDING</Text>
-            </View>
-          ) : null}
-        </View>
+      {/* Boxscore rows */}
+      <View className="gap-[3px]">
+        <TeamRow
+          name={`${substituteYou(game.team1_player1_name, currentPlayerName)} / ${substituteYou(game.team1_player2_name, currentPlayerName)}`}
+          score={game.team1_score}
+          isWinner={game.winner === 1}
+          isLoser={game.winner === 2}
+        />
+        <TeamRow
+          name={`${substituteYou(game.team2_player1_name, currentPlayerName)} / ${substituteYou(game.team2_player2_name, currentPlayerName)}`}
+          score={game.team2_score}
+          isWinner={game.winner === 2}
+          isLoser={game.winner === 1}
+        />
       </View>
+
+      {ratingText != null && (
+        <Text
+          className={`text-[12px] font-semibold mt-[6px] text-right ${
+            (game.rating_change ?? 0) > 0 ? 'text-success' : 'text-danger'
+          }`}
+        >
+          {ratingText}
+        </Text>
+      )}
     </View>
   );
 }

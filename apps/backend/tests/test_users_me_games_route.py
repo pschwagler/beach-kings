@@ -39,6 +39,7 @@ MINIMAL_GAMES_RESPONSE = {
         {
             "id": 101,
             "session_id": 1,
+            "session_date": "2024-06-01",
             "court_label": "QBK Sports",
             "league_name": "Open Men",
             "league_id": 1,
@@ -46,7 +47,9 @@ MINIMAL_GAMES_RESPONSE = {
             "my_score": 21,
             "opponent_score": 18,
             "partner_names": ["K. Fawwar"],
+            "partner_ids": [5],
             "opponent_names": ["A. Marthey", "J. Zwyczca"],
+            "opponent_ids": [8, 9],
             "rating_change": 4,
             "session_submitted": True,
         }
@@ -118,6 +121,7 @@ class TestGetMyGamesRoute:
         required_keys = (
             "id",
             "session_id",
+            "session_date",
             "court_label",
             "league_name",
             "league_id",
@@ -125,7 +129,9 @@ class TestGetMyGamesRoute:
             "my_score",
             "opponent_score",
             "partner_names",
+            "partner_ids",
             "opponent_names",
+            "opponent_ids",
             "rating_change",
             "session_submitted",
         )
@@ -134,7 +140,9 @@ class TestGetMyGamesRoute:
 
         assert game["result"] in ("W", "L", "D")
         assert isinstance(game["partner_names"], list)
+        assert isinstance(game["partner_ids"], list)
         assert isinstance(game["opponent_names"], list)
+        assert isinstance(game["opponent_ids"], list)
 
     def test_happy_path_values_round_trip(self):
         """Values from the service are returned unchanged."""

@@ -17,6 +17,7 @@ const MATCHES_KEYS = {
 export interface SessionGroup {
   readonly session_id: number;
   readonly session_number: number | null;
+  readonly session_date: string | null;
   readonly games: readonly GameHistoryEntry[];
   readonly userWins: number;
   readonly userLosses: number;
@@ -48,6 +49,7 @@ function groupBySessions(games: readonly GameHistoryEntry[]): SessionGroup[] {
     return {
       session_id: sessionId,
       session_number: idx + 1,
+      session_date: sessionGames[0]?.session_date ?? null,
       games: sessionGames,
       userWins,
       userLosses,

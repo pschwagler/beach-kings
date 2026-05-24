@@ -13,7 +13,7 @@
  * Wireframe ref: session-active.html, session-detail.html
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -24,8 +24,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import TopNav from '@/components/ui/TopNav';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { EllipsisIcon, ChevronRightIcon } from '@/components/ui/icons';
 import SessionDetailSkeleton from './SessionDetailSkeleton';
 import SessionDetailErrorState from './SessionDetailErrorState';
 import SessionPlayerChip from './SessionPlayerChip';
@@ -33,6 +36,7 @@ import SessionGameCard from './SessionGameCard';
 import SessionBottomSheet from './SessionBottomSheet';
 import { useSessionDetailScreen } from './useSessionDetailScreen';
 import { parseSessionDate } from '@/lib/formatters';
+import { routes } from '@/lib/navigation';
 import type { SessionDetail, SessionGame } from '@beach-kings/shared';
 
 /**
@@ -110,16 +114,47 @@ function StatsBar({ session }: StatsBarProps): React.ReactNode {
 // Invite nudge banner
 // ---------------------------------------------------------------------------
 
-function InviteBanner(): React.ReactNode {
-  return (
-    <View
-      testID="session-invite-banner"
-      className="mx-[16px] mt-[12px] bg-warning-tint border border-brand-gold/30 rounded-[10px] p-[10px]"
-    >
-      <Text className="text-[12px] text-warning font-semibold">
-        Invite players to claim their spot and earn ELO
+interface InviteBannerProps {
+  readonly onPress?: () => void;
+}
+
+// Light-mode brand-teal hex; chevron lives on info-tint background and reads
+// well in both themes. Inlined to keep this leaf component theme-context-free.
+const INVITE_CHEVRON_COLOR = '#0D9488';
+
+function InviteBanner({ onPress }: InviteBannerProps): React.ReactNode {
+  const body = (
+    <View className="flex-row items-center">
+      <Text className="flex-1 text-[12px] text-info font-semibold pr-[8px]">
+        Invite players to claim their Beach League profile
       </Text>
+      {onPress != null && (
+        <ChevronRightIcon size={16} color={INVITE_CHEVRON_COLOR} />
+      )}
     </View>
+  );
+
+  if (onPress == null) {
+    return (
+      <View
+        testID="session-invite-banner"
+        className="mx-[16px] mt-[12px] bg-info-tint rounded-[10px] p-[10px]"
+      >
+        {body}
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      testID="session-invite-banner"
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Invite players"
+      className="mx-[16px] mt-[12px] bg-info-tint rounded-[10px] p-[10px]"
+    >
+      {body}
+    </TouchableOpacity>
   );
 }
 
@@ -147,12 +182,19 @@ function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
       <Text className="text-[20px] font-bold text-default">
         {dateLabel} · Session #{session.session_number}
       </Text>
-      {session.league_name != null && (
-        <Text className="text-[13px] text-brand-teal mt-[2px]">{session.league_name}</Text>
-      )}
       <View className="flex-row items-center gap-[8px] mt-[6px] flex-wrap">
-        <View className="bg-success-tint px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] font-bold text-success">
+        <View
+          className={`px-[8px] py-[3px] rounded-[10px] ${
+            session.status === 'active'
+              ? 'bg-status-live-tint'
+              : 'bg-success-tint'
+          }`}
+        >
+          <Text
+            className={`text-[11px] font-bold ${
+              session.status === 'active' ? 'text-status-live' : 'text-success'
+            }`}
+          >
             {session.status === 'active' ? 'Active' : 'Submitted'}
           </Text>
         </View>
@@ -174,6 +216,56 @@ function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
 }
 
 // ---------------------------------------------------------------------------
+// Games filter toggle
+// ---------------------------------------------------------------------------
+
+interface GamesFilterToggleProps {
+  readonly myCount: number;
+  readonly allCount: number;
+  readonly showMyGamesOnly: boolean;
+  readonly onToggle: (showMine: boolean) => void;
+}
+
+function GamesFilterToggle({
+  myCount,
+  allCount,
+  showMyGamesOnly,
+  onToggle,
+}: GamesFilterToggleProps): React.ReactNode {
+  return (
+    <View
+      testID="games-filter-toggle"
+      className="flex-row bg-elevated border border-divider rounded-[12px] mt-[8px] p-[3px]"
+    >
+      <TouchableOpacity
+        testID="games-filter-my"
+        onPress={() => { onToggle(true); }}
+        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[7px] rounded-[9px] ${showMyGamesOnly ? 'bg-brand-teal' : ''}`}
+      >
+        <Text className={`text-[13px] font-semibold ${showMyGamesOnly ? 'text-white' : 'text-muted'}`}>
+          My Games
+        </Text>
+        <Text className={`text-[12px] font-bold ${showMyGamesOnly ? 'text-white/80' : 'text-muted'}`}>
+          {myCount}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        testID="games-filter-all"
+        onPress={() => { onToggle(false); }}
+        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[7px] rounded-[9px] ${!showMyGamesOnly ? 'bg-brand-teal' : ''}`}
+      >
+        <Text className={`text-[13px] font-semibold ${!showMyGamesOnly ? 'text-white' : 'text-muted'}`}>
+          All Games
+        </Text>
+        <Text className={`text-[12px] font-bold ${!showMyGamesOnly ? 'text-white/80' : 'text-muted'}`}>
+          {allCount}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
 
@@ -182,6 +274,7 @@ interface Props {
 }
 
 export default function SessionDetailScreen({ sessionId }: Props): React.ReactNode {
+  const router = useRouter();
   const {
     session,
     isLoading,
@@ -201,8 +294,17 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     onClearSubmitError,
   } = useSessionDetailScreen(sessionId);
 
+  const [showMyGamesOnly, setShowMyGamesOnly] = useState(true);
+  const [submitConfirmVisible, setSubmitConfirmVisible] = useState(false);
+
   const hasPlaceholders =
     session?.players.some((p) => p.is_placeholder) ?? false;
+
+  const myGames = (session?.games ?? []).filter(
+    (g) => getUserTeamForGame(g, currentPlayerName) !== null,
+  );
+  const showToggle = currentPlayerName != null && myGames.length > 0;
+  const displayedGames = showMyGamesOnly && showToggle ? myGames : (session?.games ?? []);
 
   if (isLoading && !isRefreshing) {
     return (
@@ -211,7 +313,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
         edges={['top']}
         testID="session-detail-screen"
       >
-        <TopNav title="Session" showBack />
+        <TopNav title="Session" showBack backFallback={routes.home()} />
         <SessionDetailSkeleton />
       </SafeAreaView>
     );
@@ -224,7 +326,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
         edges={['top']}
         testID="session-detail-screen"
       >
-        <TopNav title="Session" showBack />
+        <TopNav title="Session" showBack backFallback={routes.home()} />
         <SessionDetailErrorState onRetry={onRetry} />
       </SafeAreaView>
     );
@@ -237,15 +339,18 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
       testID="session-detail-screen"
     >
       <TopNav
-        title="Session"
+        title={session?.league_name ?? 'Session'}
         showBack
+        backFallback={routes.home()}
         rightAction={
           <TouchableOpacity
             onPress={openMenu}
             testID="session-menu-btn"
-            className="p-[8px]"
+            accessibilityLabel="Session menu"
+            accessibilityRole="button"
+            className="min-w-touch min-h-touch items-center justify-center"
           >
-            <Text className="text-[20px] text-default">···</Text>
+            <EllipsisIcon size={22} color="#ffffff" />
           </TouchableOpacity>
         }
       />
@@ -268,41 +373,68 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
               data={session.players}
               keyExtractor={(p) => String(p.entry_id)}
               renderItem={({ item, index }) => (
-                <SessionPlayerChip player={item} isCurrentUser={index === 0} />
+                <SessionPlayerChip
+                  player={item}
+                  isCurrentUser={index === 0}
+                  onPress={
+                    item.player_id != null && !item.is_placeholder
+                      ? () => { router.push(routes.player(item.player_id!)); }
+                      : undefined
+                  }
+                />
               )}
               contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 8 }}
               showsHorizontalScrollIndicator={false}
               testID="session-roster-strip"
             />
 
-            {hasPlaceholders && <InviteBanner />}
+            {hasPlaceholders && (
+              <InviteBanner
+                onPress={
+                  session.league_id != null
+                    ? () => { router.push(routes.leagueInvite(session.league_id!)); }
+                    : undefined
+                }
+              />
+            )}
 
             {/* Games list */}
             <View className="px-[16px] mt-[16px]">
-              <Text className="text-[15px] font-bold text-default mb-[10px]">
+              <Text className="text-[15px] font-bold text-default">
                 Games
               </Text>
-              {session.games.length === 0 ? (
-                <Text
-                  testID="session-no-games"
-                  className="text-[14px] text-muted text-center py-[24px]"
-                >
-                  No games yet. Tap &quot;Add Game&quot; to record a game.
-                </Text>
-              ) : (
-                session.games.map((game) => (
-                  <SessionGameCard
-                    key={game.id}
-                    game={game}
-                    userTeam={getUserTeamForGame(game, currentPlayerName)}
-                    onEdit={
-                      session.status === 'active'
-                        ? () => onEditGame(game)
-                        : undefined
-                    }
-                  />
-                ))
+              {showToggle && (
+                <GamesFilterToggle
+                  myCount={myGames.length}
+                  allCount={session.games.length}
+                  showMyGamesOnly={showMyGamesOnly}
+                  onToggle={setShowMyGamesOnly}
+                />
               )}
+              <View className="mt-[10px]">
+                {session.games.length === 0 ? (
+                  <Text
+                    testID="session-no-games"
+                    className="text-[14px] text-muted text-center py-[24px]"
+                  >
+                    No games yet. Tap &quot;Add Game&quot; to record a game.
+                  </Text>
+                ) : (
+                  displayedGames.map((game) => (
+                    <SessionGameCard
+                      key={game.id}
+                      game={game}
+                      userTeam={getUserTeamForGame(game, currentPlayerName)}
+                      currentPlayerName={currentPlayerName}
+                      onEdit={
+                        session.status === 'active'
+                          ? () => onEditGame(game)
+                          : undefined
+                      }
+                    />
+                  ))
+                )}
+              </View>
             </View>
           </>
         )}
@@ -337,9 +469,9 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
 
           <TouchableOpacity
             testID="session-submit-btn"
-            onPress={() => { void onSubmitSession(); }}
+            onPress={() => { setSubmitConfirmVisible(true); }}
             disabled={isSubmitting}
-            className="flex-1 bg-[#d4a843] rounded-[12px] items-center justify-center py-[12px]"
+            className="flex-1 bg-brand-gold rounded-[12px] items-center justify-center py-[12px]"
           >
             {isSubmitting ? (
               <ActivityIndicator color="#fff" testID="session-submit-loading" />
@@ -349,6 +481,22 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Submit confirmation — locks scores + rating updates are irreversible. */}
+      <ConfirmDialog
+        testID="session-submit-confirm"
+        visible={submitConfirmVisible}
+        title="Submit session?"
+        message="Scores will be locked and ratings updated. This can't be undone."
+        confirmLabel="Submit"
+        confirmVariant="destructive"
+        cancelLabel="Keep editing"
+        onConfirm={() => {
+          setSubmitConfirmVisible(false);
+          void onSubmitSession();
+        }}
+        onCancel={() => { setSubmitConfirmVisible(false); }}
+      />
 
       {/* Bottom sheet menu */}
       {session != null && (

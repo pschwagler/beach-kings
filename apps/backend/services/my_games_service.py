@@ -8,6 +8,7 @@ screen, derived from the existing match/session/EloHistory tables.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, or_, select
@@ -26,6 +27,30 @@ from backend.database.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_session_date(raw: object) -> Optional[str]:
+    """
+    Normalize a session date value to ISO format YYYY-MM-DD.
+
+    Session.date is stored as a String with mixed legacy formats:
+    - ISO ("2025-11-04")
+    - US-style ("5/17/2026" or "12/11/2025")
+
+    Returns None when the value is empty or unparseable.
+    """
+    if raw is None:
+        return None
+    value = str(raw).strip()
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(value, fmt).date().isoformat()
+        except ValueError:
+            continue
+    logger.warning("Unrecognized session_date format: %r", value)
+    return None
 
 
 def _build_entry(
@@ -51,8 +76,19 @@ def _build_entry(
             ]
             if n is not None
         ]
+        partner_ids = [
+            pid
+            for pid in [
+                row.team1_player1_id if row.team1_player1_id != player_id else None,
+                row.team1_player2_id if row.team1_player2_id != player_id else None,
+            ]
+            if pid is not None
+        ]
         opponent_names = [
             n for n in [row.team2_player1_name, row.team2_player2_name] if n is not None
+        ]
+        opponent_ids = [
+            pid for pid in [row.team2_player1_id, row.team2_player2_id] if pid is not None
         ]
         if row.winner == 1:
             result = "W"
@@ -71,8 +107,19 @@ def _build_entry(
             ]
             if n is not None
         ]
+        partner_ids = [
+            pid
+            for pid in [
+                row.team2_player1_id if row.team2_player1_id != player_id else None,
+                row.team2_player2_id if row.team2_player2_id != player_id else None,
+            ]
+            if pid is not None
+        ]
         opponent_names = [
             n for n in [row.team1_player1_name, row.team1_player2_name] if n is not None
+        ]
+        opponent_ids = [
+            pid for pid in [row.team1_player1_id, row.team1_player2_id] if pid is not None
         ]
         if row.winner == 2:
             result = "W"
@@ -90,9 +137,12 @@ def _build_entry(
     if row.elo_change is not None:
         rating_change = int(round(row.elo_change))
 
+    session_date = _normalize_session_date(getattr(row, "session_date", None))
+
     return {
         "id": row.match_id,
         "session_id": row.session_id,
+        "session_date": session_date,
         "court_label": row.court_name,
         "league_name": row.league_name,
         "league_id": row.league_id,
@@ -100,7 +150,9 @@ def _build_entry(
         "my_score": my_score,
         "opponent_score": opp_score,
         "partner_names": partner_names,
+        "partner_ids": partner_ids,
         "opponent_names": opponent_names,
+        "opponent_ids": opponent_ids,
         "rating_change": rating_change,
         "session_submitted": session_submitted,
     }
@@ -167,6 +219,7 @@ async def get_my_games(
             p4.full_name.label("team2_player2_name"),
             eh.elo_change,
             Session.status.label("session_status"),
+            Session.date.label("session_date"),
             Season.league_id.label("league_id"),
             League.name.label("league_name"),
             Court.name.label("court_name"),
