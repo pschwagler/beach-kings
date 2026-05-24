@@ -23,6 +23,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hapticLight } from '@/utils/haptics';
 import TopNav from '@/components/ui/TopNav';
+import { routes } from '@/lib/navigation';
 import NotificationItem from './NotificationItem';
 import NotificationsSkeleton from './NotificationsSkeleton';
 import NotificationsErrorState from './NotificationsErrorState';
@@ -196,7 +197,7 @@ export default function NotificationsScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Notifications" showBack rightAction={markAllReadAction} />
+      <TopNav title="Notifications" showBack backFallback={routes.home()} rightAction={markAllReadAction} />
       <View testID="notifications-screen" className="flex-1">
         <FilterTabBar
           activeFilter={activeFilter}

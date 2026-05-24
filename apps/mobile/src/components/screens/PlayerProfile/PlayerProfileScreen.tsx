@@ -122,7 +122,7 @@ export default function PlayerProfileScreen({
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Player" showBack rightAction={rightAction} />
+      <TopNav title="Player" showBack backFallback={routes.social()} rightAction={rightAction} />
 
       {isLoading && !isRefreshing ? (
         <PlayerProfileSkeleton />

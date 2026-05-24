@@ -102,7 +102,7 @@ export default function MyGamesScreen(): React.ReactNode {
       edges={['top']}
       testID="my-games-screen"
     >
-      <TopNav title="My Games" showBack />
+      <TopNav title="My Games" showBack backFallback={routes.profile()} />
       {content}
     </SafeAreaView>
   );

@@ -24,6 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import TopNav from '@/components/ui/TopNav';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
+import { routes } from '@/lib/navigation';
 import {
   useFindLeaguesScreen,
   type FindLeaguesFilter,
@@ -401,7 +402,7 @@ export default function FindLeaguesScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Find Leagues" showBack />
+      <TopNav title="Find Leagues" showBack backFallback={routes.leagues()} />
       <View testID="find-leagues-screen" className="flex-1 bg-page">
         <FindLeaguesSearchBar value={searchQuery} onChangeText={onChangeSearch} />
         <FilterChips activeFilter={activeFilter} onSelect={onSelectFilter} />

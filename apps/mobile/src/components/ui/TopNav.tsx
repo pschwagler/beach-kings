@@ -9,18 +9,21 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ChevronLeftIcon } from './icons';
+import { View, Text } from 'react-native';
+import BackButton from './BackButton';
 import SearchBar from './SearchBar';
 
 interface TopNavProps {
   readonly title: string;
   readonly showBack?: boolean;
   /**
-   * Override the default `router.back()` call when the back button is pressed.
-   * Useful for inline state-based sub-views where router.back() would leave
-   * the screen entirely instead of returning to a previous view state.
+   * Fallback route when the screen has no back history (e.g. deep-linked).
+   * Passed to `BackButton`; when omitted, always calls `router.back()`.
+   */
+  readonly backFallback?: string;
+  /**
+   * Fully override the back-button press handler. Ignores `backFallback`.
+   * Use for inline sub-views where router.back() would leave the screen.
    */
   readonly onBack?: () => void;
   /**
@@ -41,6 +44,7 @@ interface TopNavProps {
 export default function TopNav({
   title,
   showBack = false,
+  backFallback,
   onBack,
   leftAction,
   rightAction,
@@ -50,8 +54,6 @@ export default function TopNav({
   searchPlaceholder,
   transparent = false,
 }: TopNavProps): React.ReactNode {
-  const router = useRouter();
-
   const containerClass = transparent
     ? 'h-11 flex-row items-center px-lg'
     : 'h-11 bg-nav flex-row items-center px-lg dark:border-b border-divider';
@@ -61,14 +63,7 @@ export default function TopNav({
       {/* Left slot — custom leftAction overrides showBack */}
       <View className="min-w-11 items-start justify-center">
         {leftAction != null ? leftAction : showBack && (
-          <Pressable
-            className="min-w-touch min-h-touch items-center justify-center"
-            onPress={() => (onBack != null ? onBack() : router.back())}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-          >
-            <ChevronLeftIcon size={20} color="#ffffff" />
-          </Pressable>
+          <BackButton fallback={backFallback} onPress={onBack} />
         )}
       </View>
 

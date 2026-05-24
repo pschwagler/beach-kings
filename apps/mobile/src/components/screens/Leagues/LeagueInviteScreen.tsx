@@ -25,6 +25,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
+import { routes } from '@/lib/navigation';
 import { useLeagueInviteScreen } from './useLeagueInviteScreen';
 import type { InvitablePlayer } from '@beach-kings/shared';
 
@@ -230,7 +231,7 @@ export default function LeagueInviteScreen({
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Invite Players" showBack />
+      <TopNav title="Invite Players" showBack backFallback={routes.league(leagueId)} />
       <KeyboardAvoidingView
       testID="league-invite-screen"
       className="flex-1 bg-page"

@@ -8,6 +8,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
+import { routes } from '@/lib/navigation';
 import EmptyState from '@/components/ui/EmptyState';
 
 interface ComingSoonProps {
@@ -21,7 +22,7 @@ export default function ComingSoon({
 }: ComingSoonProps): React.ReactNode {
   return (
     <SafeAreaView className="flex-1 bg-page" edges={['top']}>
-      <TopNav title={title} showBack />
+      <TopNav title={title} showBack backFallback={routes.home()} />
       <View className="flex-1">
         <EmptyState title={title} description={description} />
       </View>

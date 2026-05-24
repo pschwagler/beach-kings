@@ -25,6 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import TopNav from '@/components/ui/TopNav';
+import { routes } from '@/lib/navigation';
 import { useMessagesScreen } from './useMessagesScreen';
 import ConversationRow from './ConversationRow';
 import MessagesSkeleton from './MessagesSkeleton';
@@ -213,7 +214,7 @@ export default function MessagesScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Messages" showBack rightAction={composeAction} />
+      <TopNav title="Messages" showBack backFallback={routes.home()} rightAction={composeAction} />
       <View testID="messages-screen" className="flex-1">
         {renderBody()}
       </View>

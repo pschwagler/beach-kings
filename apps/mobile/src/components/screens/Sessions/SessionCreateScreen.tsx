@@ -26,6 +26,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
+import { routes } from '@/lib/navigation';
 import { useSessionCreateScreen } from './useSessionCreateScreen';
 import type { SessionType } from '@beach-kings/shared';
 
@@ -169,7 +170,7 @@ export default function SessionCreateScreen(): React.ReactNode {
       edges={['top']}
       testID="session-create-screen"
     >
-      <TopNav title="Start Session" showBack />
+      <TopNav title="Start Session" showBack backFallback={routes.addGames()} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -266,7 +267,7 @@ export default function SessionCreateScreen(): React.ReactNode {
             testID="session-create-submit-btn"
             onPress={onSubmit}
             disabled={isSubmitting}
-            className="bg-[#d4a843] rounded-[12px] items-center justify-center py-[16px]"
+            className="bg-brand-gold rounded-[12px] items-center justify-center py-[16px]"
           >
             {isSubmitting ? (
               <ActivityIndicator color="#fff" testID="session-create-loading" />

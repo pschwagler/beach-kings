@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { hapticLight } from '@/utils/haptics';
 import TopNav from '@/components/ui/TopNav';
+import { routes } from '@/lib/navigation';
 import PlayerRow from './PlayerRow';
 import FindPlayersSkeleton from './FindPlayersSkeleton';
 import FindPlayersErrorState from './FindPlayersErrorState';
@@ -425,7 +426,7 @@ export default function FindPlayersScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Find Players" showBack />
+      <TopNav title="Find Players" showBack backFallback={routes.social()} />
       <View testID="find-players-screen" className="flex-1">
         <FindPlayersSearchBar
           value={searchQuery}

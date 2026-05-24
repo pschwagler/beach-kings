@@ -18,6 +18,7 @@ import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
+import { routes } from '@/lib/navigation';
 import { useMyStatsScreen, type TimeFilter } from './useMyStatsScreen';
 import StatsSkeleton from './StatsSkeleton';
 import StatsErrorState from './StatsErrorState';
@@ -164,7 +165,7 @@ export default function MyStatsScreen(): React.ReactNode {
         edges={['top']}
         testID="my-stats-screen"
       >
-        <TopNav title="My Stats" showBack />
+        <TopNav title="My Stats" showBack backFallback={routes.profile()} />
         <StatsSkeleton />
       </SafeAreaView>
     );
@@ -178,7 +179,7 @@ export default function MyStatsScreen(): React.ReactNode {
         edges={['top']}
         testID="my-stats-screen"
       >
-        <TopNav title="My Stats" showBack />
+        <TopNav title="My Stats" showBack backFallback={routes.profile()} />
         <StatsErrorState onRetry={onRetry} />
       </SafeAreaView>
     );
@@ -192,7 +193,7 @@ export default function MyStatsScreen(): React.ReactNode {
         edges={['top']}
         testID="my-stats-screen"
       >
-        <TopNav title="My Stats" showBack />
+        <TopNav title="My Stats" showBack backFallback={routes.profile()} />
         <StatsSkeleton />
       </SafeAreaView>
     );

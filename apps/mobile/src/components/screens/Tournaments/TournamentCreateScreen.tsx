@@ -25,6 +25,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
+import { routes } from '@/lib/navigation';
 import { useTournamentCreateScreen } from './useTournamentCreateScreen';
 import type { TournamentGender, TournamentFormat, RegistrationType } from './useTournamentCreateScreen';
 
@@ -166,7 +167,7 @@ export default function TournamentCreateScreen(): React.ReactNode {
       edges={['top']}
       testID="tournament-create-screen"
     >
-      <TopNav title="Create Tournament" showBack />
+      <TopNav title="Create Tournament" showBack backFallback={routes.tournaments()} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

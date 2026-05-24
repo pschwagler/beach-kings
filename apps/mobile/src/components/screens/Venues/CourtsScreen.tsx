@@ -19,6 +19,7 @@ import { View, Text, FlatList, RefreshControl, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
+import { routes } from '@/lib/navigation';
 import { useCourtsScreen } from './useCourtsScreen';
 import CourtRow from './CourtRow';
 import CourtsSkeleton from './CourtsSkeleton';
@@ -99,6 +100,7 @@ export default function CourtsScreen(): React.ReactNode {
         <TopNav
           title="Find Courts"
           showBack
+          backFallback={routes.home()}
           searchMode
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
@@ -119,6 +121,7 @@ export default function CourtsScreen(): React.ReactNode {
         <TopNav
           title="Find Courts"
           showBack
+          backFallback={routes.home()}
           searchMode
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}

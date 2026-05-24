@@ -24,6 +24,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import TopNav from '@/components/ui/TopNav';
+import { routes } from '@/lib/navigation';
 import Input from '@/components/ui/Input';
 import OtpInput from '@/components/ui/OtpInput';
 import { FormError } from '@/components/forms';
@@ -223,7 +224,7 @@ export default function AddPhoneScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Add Phone Number" showBack />
+      <TopNav title="Add Phone Number" showBack backFallback={routes.settings()} />
 
       <KeyboardAvoidingView
         className="flex-1"
