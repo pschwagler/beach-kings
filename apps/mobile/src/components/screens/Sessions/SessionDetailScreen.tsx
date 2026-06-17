@@ -37,7 +37,8 @@ import SessionBottomSheet from './SessionBottomSheet';
 import { useSessionDetailScreen } from './useSessionDetailScreen';
 import { parseSessionDate } from '@/lib/formatters';
 import { routes } from '@/lib/navigation';
-import type { SessionDetail, SessionGame } from '@beach-kings/shared';
+import { useInvitePlayers } from '@/contexts/InvitePlayersContext';
+import type { SessionDetail, SessionGame, SessionPlayer } from '@beach-kings/shared';
 
 /**
  * Determine which team the calling user is on for a given game by matching
@@ -63,6 +64,20 @@ function getUserTeamForGame(
     return 2;
   }
   return null;
+}
+
+/**
+ * Build the "Sunday Pickup · Apr 6" context strip label for the invite screen.
+ * Pure helper so banner navigation stays declarative.
+ */
+function buildInviteContextLabel(session: SessionDetail): string {
+  const typeLabel = session.session_type === 'pickup' ? 'Pickup' : 'League';
+  const d = parseSessionDate(session.date);
+  const dateLabel = isNaN(d.getTime())
+    ? session.date
+    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const leaguePrefix = session.league_name ?? typeLabel;
+  return `${leaguePrefix} · ${dateLabel}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +290,7 @@ interface Props {
 
 export default function SessionDetailScreen({ sessionId }: Props): React.ReactNode {
   const router = useRouter();
+  const { setPending: setInvitePending } = useInvitePlayers();
   const {
     session,
     isLoading,
@@ -294,7 +310,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     onClearSubmitError,
   } = useSessionDetailScreen(sessionId);
 
-  const [showMyGamesOnly, setShowMyGamesOnly] = useState(true);
+  const [showMyGamesOverride, setShowMyGamesOverride] = useState<boolean | null>(null);
   const [submitConfirmVisible, setSubmitConfirmVisible] = useState(false);
 
   const hasPlaceholders =
@@ -304,6 +320,8 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     (g) => getUserTeamForGame(g, currentPlayerName) !== null,
   );
   const showToggle = currentPlayerName != null && myGames.length > 0;
+  const showMyGamesOnly =
+    showMyGamesOverride ?? (session?.status !== 'active' && myGames.length > 0);
   const displayedGames = showMyGamesOnly && showToggle ? myGames : (session?.games ?? []);
 
   if (isLoading && !isRefreshing) {
@@ -390,11 +408,28 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
 
             {hasPlaceholders && (
               <InviteBanner
-                onPress={
-                  session.league_id != null
-                    ? () => { router.push(routes.leagueInvite(session.league_id!)); }
-                    : undefined
-                }
+                onPress={() => {
+                  const placeholders = session.players.filter(
+                    (p: SessionPlayer) => p.is_placeholder && p.invite_url != null,
+                  );
+                  const contextLabel = buildInviteContextLabel(session);
+                  setInvitePending({
+                    contextLabel,
+                    contextSubLabel:
+                      placeholders.length === 1
+                        ? '1 unclaimed player'
+                        : `${placeholders.length} unclaimed players`,
+                    players: placeholders.map((p: SessionPlayer) => ({
+                      id: String(p.entry_id),
+                      name: p.display_name,
+                      initials: p.initials,
+                      metaLabel:
+                        p.game_count === 1 ? '1 game' : `${p.game_count} games`,
+                      inviteUrl: p.invite_url ?? '',
+                    })),
+                  });
+                  router.push(routes.invitePlayers());
+                }}
               />
             )}
 
@@ -408,7 +443,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
                   myCount={myGames.length}
                   allCount={session.games.length}
                   showMyGamesOnly={showMyGamesOnly}
-                  onToggle={setShowMyGamesOnly}
+                  onToggle={setShowMyGamesOverride}
                 />
               )}
               <View className="mt-[10px]">

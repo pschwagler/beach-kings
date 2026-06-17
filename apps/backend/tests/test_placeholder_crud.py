@@ -22,10 +22,17 @@ from backend.database.models import (
     LeagueMember,
     Match,
     Session,
+    SessionParticipant,
     SessionStatus,
 )
 from backend.models.schemas import CreateMatchRequest
-from backend.services import placeholder_service, data_service, user_service
+from backend.services import (
+    placeholder_service,
+    data_service,
+    session_data,
+    user_service,
+)
+from backend.services.placeholder_service import FRONTEND_BASE_URL
 
 
 # ============================================================================
@@ -763,3 +770,79 @@ class TestCreatePlaceholderGenderInference:
         mock_infer.assert_not_awaited()
         player = await db_session.get(Player, result.player_id)
         assert player.gender == "female"
+
+
+# ============================================================================
+# Session roster invite_url (get_session_roster_with_game_counts)
+# ============================================================================
+
+
+class TestSessionRosterInviteUrl:
+    """invite_url is surfaced only for placeholders with an OPEN invite."""
+
+    async def _add_participant(self, db_session, session_id, player_id):
+        db_session.add(
+            SessionParticipant(session_id=session_id, player_id=player_id)
+        )
+        await db_session.commit()
+
+    @pytest.mark.asyncio
+    async def test_pending_invite_yields_claim_url(
+        self, db_session, test_session, creator_player
+    ):
+        placeholder = Player(full_name="Ghost One", is_placeholder=True)
+        db_session.add(placeholder)
+        await db_session.commit()
+        await db_session.refresh(placeholder)
+        db_session.add(
+            PlayerInvite(
+                player_id=placeholder.id,
+                invite_token="tok_pending",
+                status=InviteStatus.PENDING.value,
+            )
+        )
+        await db_session.commit()
+        await self._add_participant(db_session, test_session.id, placeholder.id)
+
+        roster = await session_data.get_session_roster_with_game_counts(
+            db_session, test_session.id
+        )
+        entry = next(r for r in roster if r["entry_id"] == placeholder.id)
+        assert entry["invite_url"] == f"{FRONTEND_BASE_URL}/invite/tok_pending"
+
+    @pytest.mark.asyncio
+    async def test_claimed_invite_yields_no_url(
+        self, db_session, test_session, creator_player
+    ):
+        placeholder = Player(full_name="Ghost Two", is_placeholder=True)
+        db_session.add(placeholder)
+        await db_session.commit()
+        await db_session.refresh(placeholder)
+        db_session.add(
+            PlayerInvite(
+                player_id=placeholder.id,
+                invite_token="tok_claimed",
+                status=InviteStatus.CLAIMED.value,
+            )
+        )
+        await db_session.commit()
+        await self._add_participant(db_session, test_session.id, placeholder.id)
+
+        roster = await session_data.get_session_roster_with_game_counts(
+            db_session, test_session.id
+        )
+        entry = next(r for r in roster if r["entry_id"] == placeholder.id)
+        assert entry["invite_url"] is None
+
+    @pytest.mark.asyncio
+    async def test_real_player_has_no_url(
+        self, db_session, test_session, creator_player
+    ):
+        await self._add_participant(
+            db_session, test_session.id, creator_player.id
+        )
+        roster = await session_data.get_session_roster_with_game_counts(
+            db_session, test_session.id
+        )
+        entry = next(r for r in roster if r["entry_id"] == creator_player.id)
+        assert entry["invite_url"] is None

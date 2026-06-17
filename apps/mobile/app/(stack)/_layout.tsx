@@ -7,25 +7,29 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import AddNewPlayerProvider from '@/contexts/AddNewPlayerContext';
+import InvitePlayersProvider from '@/contexts/InvitePlayersContext';
 import { colors, darkColors } from '@beach-kings/shared/tokens';
 
 export default function StackLayout(): React.ReactNode {
   const { isDark } = useTheme();
 
   return (
-    // Bridges the score-game screen and the add-new-player formSheet route,
-    // which are sibling screens in this stack and can't share props directly.
+    // Bridges sibling screens in this stack that can't share props directly:
+    //   AddNewPlayerProvider — score-game ↔ add-new-player formSheet
+    //   InvitePlayersProvider — session-detail ↔ invite-players
     <AddNewPlayerProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          gestureEnabled: true,
-          contentStyle: {
-            backgroundColor: isDark ? darkColors.bgBase : colors.bgPrimary,
-          },
-          animation: 'slide_from_right',
-        }}
-      />
+      <InvitePlayersProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            gestureEnabled: true,
+            contentStyle: {
+              backgroundColor: isDark ? darkColors.bgBase : colors.bgPrimary,
+            },
+            animation: 'slide_from_right',
+          }}
+        />
+      </InvitePlayersProvider>
     </AddNewPlayerProvider>
   );
 }

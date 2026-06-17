@@ -4,6 +4,9 @@
 
 export { default as SessionCreateScreen } from './SessionCreateScreen';
 export { default as SessionDetailScreen } from './SessionDetailScreen';
+export { default as InvitePlayersScreen } from './InvitePlayersScreen';
+export { renderTemplate as renderInviteTemplate } from './InvitePlayersScreen';
+export type { InvitePlayersParams } from './InvitePlayersScreen';
 export { default as SessionDetailSkeleton } from './SessionDetailSkeleton';
 export { default as SessionDetailErrorState } from './SessionDetailErrorState';
 export { default as SessionEditScreen } from './SessionEditScreen';

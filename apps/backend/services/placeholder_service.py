@@ -42,7 +42,9 @@ from backend.models.schemas import (
 
 logger = logging.getLogger(__name__)
 
-FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://beachkings.com")
+# Canonical app domain. Override with the FRONTEND_URL env var per environment
+# (staging, preview). NEVER use beachkings.com — that is a stale legacy domain.
+FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://beachleaguevb.com")
 
 # --- Module-level constants ---
 

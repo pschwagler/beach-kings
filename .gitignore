@@ -10,6 +10,10 @@ apps/*/coverage/
 screenshots/
 /*.png
 
+# Stray Expo config auto-generated at the repo root by tooling/plugins. The
+# canonical app config (with the real bundle id) lives in apps/mobile/app.json.
+/app.json
+
 # Python
 __pycache__/
 *.py[cod]

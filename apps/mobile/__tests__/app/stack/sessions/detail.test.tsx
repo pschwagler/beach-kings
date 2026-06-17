@@ -104,8 +104,15 @@ jest.mock('@/components/ui/icons', () => {
     ChevronLeftIcon: makeIcon('ChevronLeftIcon'),
     ArrowLeftIcon: makeIcon('ArrowLeftIcon'),
     EllipsisIcon: makeIcon('EllipsisIcon'),
+    CheckIcon: makeIcon('CheckIcon'),
   };
 });
+
+// Stub the invite-players bridge so SessionDetailScreen can render outside an
+// InvitePlayersProvider in this route-level test.
+jest.mock('@/contexts/InvitePlayersContext', () => ({
+  useInvitePlayers: () => ({ pending: null, setPending: jest.fn(), clearPending: jest.fn() }),
+}));
 
 // ---------------------------------------------------------------------------
 // Module under test — imported AFTER all jest.mock() calls

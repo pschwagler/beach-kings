@@ -95,6 +95,8 @@ export const routes = {
   // No params: AddNewPlayerContext carries the request/result, so the path
   // stays a static `as const` literal (no `as never` cast at the push site).
   addNewPlayer: () => '/(stack)/add-new-player' as const,
+  // Params travel via InvitePlayersContext rather than the URL.
+  invitePlayers: () => '/(stack)/invite-players' as const,
   settings: () => '/(stack)/settings' as const,
   settingsNotifications: () => '/(stack)/settings/notifications' as const,
   settingsAppearance: () => '/(stack)/settings/appearance' as const,

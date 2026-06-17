@@ -38,6 +38,9 @@ Note - this is a public repo. Don't leak any PII or anything that could compromi
 - Prefer immutability
 - Many small files over few large ones (200-400 lines typical, 800 max)
 
+# Canonical domain
+- The app's production domain is `beachleaguevb.com` (web and API).
+
 # Mobile theming (NativeWind v4)
 - Components use one semantic class per role (`bg-surface`, `text-muted`) — no `dark:` color variants. See `apps/mobile/docs/theming.md`.
 - **NativeWind v4 collision rule:** if you add a new semantic role to `semanticColors()`, you must delete any same-named legacy entry in `tailwind.config.ts` in the same commit. Spread-last override silently fails — the bundler bakes in the legacy static hex instead of the CSS var.

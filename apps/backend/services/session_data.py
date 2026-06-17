@@ -41,6 +41,7 @@ __all__ = [
 
 from backend.services import player_search_cache
 from backend.services.session_geo_service import resolve_session_geo
+from backend.services.placeholder_service import FRONTEND_BASE_URL
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, and_, or_, cast, Integer
@@ -52,6 +53,8 @@ from backend.database.models import (
     Season,
     Court,
     Player,
+    PlayerInvite,
+    InviteStatus,
     Session,
     Match,
     SessionParticipant,
@@ -1426,6 +1429,8 @@ async def get_session_roster_with_game_counts(
     - initials: two-letter uppercase initials derived from display_name
     - game_count: number of matches this player appears in for the session
     - is_placeholder: whether the player is an unregistered placeholder
+    - invite_url: claim URL for placeholders that have an open PlayerInvite,
+      otherwise None
 
     Args:
         db_session: SQLAlchemy async session.
@@ -1472,6 +1477,15 @@ async def get_session_roster_with_game_counts(
         Player.full_name,
         Player.nickname,
         Player.is_placeholder,
+        PlayerInvite.invite_token,
+    ).select_from(Player).outerjoin(
+        PlayerInvite,
+        and_(
+            PlayerInvite.player_id == Player.id,
+            # Only join open invites — a claimed invite must not yield a live
+            # claim URL (the placeholder has already been converted).
+            PlayerInvite.status == InviteStatus.PENDING.value,
+        ),
     ).where(Player.id.in_(all_player_ids))
     players_result = await db_session.execute(players_q)
     rows = players_result.all()
@@ -1495,6 +1509,12 @@ async def get_session_roster_with_game_counts(
             display_name = f"Player {r.id}"
             initials = "??"
 
+        invite_url = (
+            f"{FRONTEND_BASE_URL}/invite/{r.invite_token}"
+            if r.invite_token is not None
+            else None
+        )
+
         roster.append(
             {
                 "entry_id": r.id,
@@ -1503,6 +1523,7 @@ async def get_session_roster_with_game_counts(
                 "initials": initials,
                 "game_count": game_counts.get(r.id, 0),
                 "is_placeholder": bool(r.is_placeholder),
+                "invite_url": invite_url,
             }
         )
 

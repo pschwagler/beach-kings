@@ -1267,6 +1267,10 @@ class SessionRosterPlayerResponse(BaseModel):
     initials: str
     game_count: int
     is_placeholder: bool = False
+    # Populated for placeholder players that have an open PlayerInvite row.
+    # Allows the mobile app to share an invite link straight from the
+    # session-detail roster without a follow-up fetch.
+    invite_url: Optional[str] = None
 
 
 class SessionGameResponse(BaseModel):

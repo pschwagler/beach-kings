@@ -153,6 +153,11 @@ export interface SessionPlayer {
   readonly is_placeholder: boolean;
   /** Number of games played by this player in this session. */
   readonly game_count: number;
+  /**
+   * Invite URL for placeholder players whose owner created a `PlayerInvite`
+   * row. Null/undefined for real players or placeholders with no invite token.
+   */
+  readonly invite_url?: string | null;
 }
 
 /**

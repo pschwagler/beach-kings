@@ -75,6 +75,12 @@ jest.mock('@/components/screens/Sessions/SessionDetailSkeleton', () => () => nul
 jest.mock('@/components/screens/Sessions/SessionDetailErrorState', () => () => null);
 jest.mock('@/components/screens/Sessions/SessionPlayerChip', () => () => null);
 
+// Stub the invite-players bridge so the SessionDetailScreen can be rendered
+// outside of an InvitePlayersProvider in these unit tests.
+jest.mock('@/contexts/InvitePlayersContext', () => ({
+  useInvitePlayers: () => ({ pending: null, setPending: jest.fn(), clearPending: jest.fn() }),
+}));
+
 const mockUseSessionDetailScreen = jest.fn();
 jest.mock(
   '@/components/screens/Sessions/useSessionDetailScreen',
@@ -206,6 +212,18 @@ describe('SessionDetailScreen — games filter toggle', () => {
     render(<SessionDetailScreen sessionId={42} />);
     expect(screen.queryByText('My Games')).toBeNull();
     expect(screen.queryByText('All Games')).toBeNull();
+  });
+
+  it('defaults to "All Games" when session is active', () => {
+    mockUseSessionDetailScreen.mockReturnValue({
+      ...defaultHookResult,
+      session: { ...baseSession, status: 'active' },
+    });
+    render(<SessionDetailScreen sessionId={42} />);
+    // All three games visible by default for active sessions.
+    expect(screen.getByTestId('session-game-card-1')).toBeTruthy();
+    expect(screen.getByTestId('session-game-card-2')).toBeTruthy();
+    expect(screen.getByTestId('session-game-card-3')).toBeTruthy();
   });
 
   it('hides toggle when user has no games in the session', () => {
