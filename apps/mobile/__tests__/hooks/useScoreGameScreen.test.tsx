@@ -525,6 +525,26 @@ describe('useScoreGameScreen — is_ranked defaults', () => {
     expect(payload.is_ranked).toBe(true);
   });
 
+  it('sends season_id in the submit payload for a league game', async () => {
+    // Without season_id the backend falls back to "the season covering today"
+    // and 400s when no season spans the current date. The screen already knows
+    // the season from the route param, so it must forward it.
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ leagueId: 3, seasonId: 9 }),
+    );
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    fillSlots(result);
+    await act(async () => {
+      result.current.onSubmit();
+    });
+
+    await waitFor(() => expect(mockSubmitScoredGame).toHaveBeenCalled());
+    const payload = mockSubmitScoredGame.mock.calls[0][0];
+    expect(payload.season_id).toBe(9);
+    expect(payload.league_id).toBe(3);
+  });
+
   it('exposes isRanked=true for league context', async () => {
     const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
@@ -560,6 +580,21 @@ describe('useScoreGameScreen — roster source', () => {
     // Participants are still fetched — for gender/level inference only.
     expect(mockGetSessionParticipants).toHaveBeenCalledWith(7);
     // Friends are NOT the session roster source when search succeeds.
+    expect(mockGetFriends).not.toHaveBeenCalled();
+  });
+
+  it('uses the same relevance-ranked searchPlayers for pickup-new (no session, no league)', async () => {
+    // Pickup with no IDs must surface the caller's full ranked network —
+    // identical to league/session flows — NOT a friends-only list.
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => {
+      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.any(Object));
+      expect(result.current.roster.length).toBe(
+        MOCK_LEAGUE_DEFAULT_ROSTER.items.length,
+      );
+    });
+    // No session/league context, and friends are NOT the primary source.
+    expect(mockGetSessionParticipants).not.toHaveBeenCalled();
     expect(mockGetFriends).not.toHaveBeenCalled();
   });
 
@@ -632,7 +667,23 @@ describe('useScoreGameScreen — roster source', () => {
     expect('hasMore' in result.current).toBe(false);
   });
 
-  it('falls back to friends when neither sessionId nor leagueId is provided', async () => {
+  it('uses the ranked network (not friends) when neither sessionId nor leagueId is provided', async () => {
+    // Pickup-new runs the identical relevance search as every other flow; it
+    // never special-cases the friends list as the primary roster source.
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => {
+      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.any(Object));
+      expect(result.current.roster.length).toBe(
+        MOCK_LEAGUE_DEFAULT_ROSTER.items.length,
+      );
+    });
+    expect(mockGetFriends).not.toHaveBeenCalled();
+    expect(mockGetSessionParticipants).not.toHaveBeenCalled();
+    expect(mockGetLeagueMembers).not.toHaveBeenCalled();
+  });
+
+  it('falls back to friends only when the ranked search returns nothing (pickup-new)', async () => {
+    mockSearchPlayers.mockResolvedValue({ items: [] });
     const { result } = renderHook(() => useScoreGameScreen({}));
     await waitFor(() => {
       expect(mockGetFriends).toHaveBeenCalled();

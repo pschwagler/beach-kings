@@ -179,13 +179,23 @@ function SuccessView({
 
       <View className="w-full gap-2 mt-3">
         <Pressable
+          testID="done-btn"
+          onPress={onDone}
+          accessibilityRole="button"
+          accessibilityLabel="Done"
+          className="w-full py-4 rounded-[12px] bg-brand-gold items-center"
+        >
+          <Text className="text-white font-bold text-[16px]">Done</Text>
+        </Pressable>
+
+        <Pressable
           testID="add-another-btn"
           onPress={onAddAnother}
           accessibilityRole="button"
           accessibilityLabel="Add Another Game"
-          className="w-full py-4 rounded-[12px] bg-brand-gold items-center"
+          className="w-full py-[14px] rounded-[12px] border border-brand-gold items-center"
         >
-          <Text className="text-white font-bold text-[16px]">Add Another Game</Text>
+          <Text className="text-[15px] font-bold text-brand-gold">Add Another Game</Text>
         </Pressable>
 
         {onEdit != null && (
@@ -194,21 +204,11 @@ function SuccessView({
             onPress={onEdit}
             accessibilityRole="button"
             accessibilityLabel="Edit Game"
-            className="w-full py-[14px] rounded-[12px] border border-divider items-center"
+            className="w-full py-3 items-center mt-1"
           >
-            <Text className="text-[14px] font-bold text-default">Edit Game</Text>
+            <Text className="text-[13px] font-medium text-muted underline">Edit Game</Text>
           </Pressable>
         )}
-
-        <Pressable
-          testID="done-btn"
-          onPress={onDone}
-          accessibilityRole="button"
-          accessibilityLabel="Done"
-          className="w-full py-[14px] rounded-[12px] items-center"
-        >
-          <Text className="text-[14px] font-bold text-muted">Done</Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -469,9 +469,12 @@ export default function ScoreGameScreen({
       if (target != null) {
         assignPlayer(target.team, target.slot, player);
         setActiveSlot(null);
+        // Reset the query so the picker returns to the default ranked roster,
+        // ready for the next player without manually clearing the input.
+        setSearch('');
       }
     },
-    [assignPlayer],
+    [assignPlayer, setSearch],
   );
 
   const handleEdit = useCallback(() => {

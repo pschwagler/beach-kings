@@ -18,6 +18,7 @@ from sqlalchemy import (
     UniqueConstraint,
     CheckConstraint,
     Index,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -408,7 +409,10 @@ class Season(Base):
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
     name = Column(String, nullable=True)
     start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=False)
+    # Nullable: an open-ended ("rolling") season has no end_date and stays
+    # active until an admin closes it by setting one. Auto-created seasons use
+    # this so a league always has a current season to log games into.
+    end_date = Column(Date, nullable=True)
     scoring_system = Column(
         String(50),
         default=ScoringSystem.POINTS_SYSTEM.value,  # Use enum value for Python default
@@ -446,6 +450,15 @@ class Season(Base):
             name="check_scoring_system_valid",
         ),
         Index("idx_seasons_league", "league_id"),
+        # At most one open-ended (rolling) season per league. Backstops the
+        # check-then-create in get_or_create_active_season against a concurrent
+        # double-create racing two simultaneous first-game submissions.
+        Index(
+            "uq_seasons_open_per_league",
+            "league_id",
+            unique=True,
+            postgresql_where=text("end_date IS NULL"),
+        ),
     )
 
 

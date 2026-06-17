@@ -128,6 +128,8 @@ async def _patch_missing_columns(conn):
         ("users", "phone_number"),
         ("users", "password_hash"),
         ("verification_codes", "phone_number"),
+        # Migration 050 — open-ended (rolling) seasons have no end_date
+        ("seasons", "end_date"),
     ]
     for table, column in nullable_patches:
         tbl_exists = await conn.execute(
@@ -164,6 +166,27 @@ async def _patch_missing_columns(conn):
                 await conn.execute(
                     text(f'CREATE UNIQUE INDEX "{idx_name}" ON {table} ("{column}")')
                 )
+
+    # Migration 051 — partial unique index: at most one open-ended season per
+    # league. create_all won't add it to a pre-existing seasons table.
+    partial_index_patches = [
+        (
+            "seasons",
+            "uq_seasons_open_per_league",
+            "CREATE UNIQUE INDEX uq_seasons_open_per_league "
+            "ON seasons (league_id) WHERE end_date IS NULL",
+        ),
+    ]
+    for table, idx_name, ddl in partial_index_patches:
+        idx_exists = await conn.execute(
+            text("SELECT 1 FROM pg_indexes WHERE indexname = :idx"), {"idx": idx_name}
+        )
+        if idx_exists.scalar() is None:
+            tbl_exists = await conn.execute(
+                text("SELECT 1 FROM information_schema.tables WHERE table_name = :t"), {"t": table}
+            )
+            if tbl_exists.scalar() is not None:
+                await conn.execute(text(ddl))
 
     # Migration 021 — change court_edit_suggestions.changes from Text to JSONB
     type_patches = [

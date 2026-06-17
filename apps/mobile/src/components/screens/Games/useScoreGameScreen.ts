@@ -263,6 +263,65 @@ function mapSearchItem(item: PlayerSearchItem): RosterPlayer {
   };
 }
 
+/**
+ * Best-effort roster used only when the relevance search is unavailable or
+ * returns nothing. Shared by every flow: session participants (rendered as
+ * chips) followed by any friends not already among them. A pickup game with
+ * no session simply yields the friends list here — but this is a degraded
+ * fallback, never the primary picker source.
+ */
+function buildFallbackRoster(
+  participants: ReadonlyArray<{ player_id: number; full_name: string }>,
+  friendItems: ReadonlyArray<{ player_id: number; full_name: string }>,
+): RosterPlayer[] {
+  const sessionPlayers: RosterPlayer[] = participants.map((p) => ({
+    player_id: p.player_id,
+    display_name: p.full_name,
+    initials: toInitials(p.full_name),
+    tags: [],
+    isSession: true,
+  }));
+  const seated = new Set(sessionPlayers.map((p) => p.player_id));
+  const friendPlayers: RosterPlayer[] = friendItems
+    .filter((f) => !seated.has(f.player_id))
+    .map((f) => ({
+      player_id: f.player_id,
+      display_name: f.full_name,
+      initials: toInitials(f.full_name),
+      tags: ['friend'],
+      isSession: false,
+    }));
+  return [...sessionPlayers, ...friendPlayers];
+}
+
+/**
+ * Infer the dominant gender and skill level from session participants via a
+ * simple majority vote, ignoring blanks and unrecognized levels. Returns only
+ * the signals that are present; used to pre-fill the new-player / placeholder
+ * modal from the session's makeup.
+ */
+function inferGenderLevel(
+  participants: ReadonlyArray<{ gender?: string | null; level?: string | null }>,
+): { gender?: 'male' | 'female'; level?: SkillLevel } {
+  const validLevels = new Set<string>(SKILL_LEVEL_OPTIONS.map((o) => o.value));
+  const genderCounts = new Map<string, number>();
+  const levelCounts = new Map<string, number>();
+  for (const p of participants) {
+    if (p.gender != null && p.gender !== '') {
+      genderCounts.set(p.gender, (genderCounts.get(p.gender) ?? 0) + 1);
+    }
+    if (p.level != null && p.level !== '' && validLevels.has(p.level)) {
+      levelCounts.set(p.level, (levelCounts.get(p.level) ?? 0) + 1);
+    }
+  }
+  const topGender = [...genderCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const topLevel = [...levelCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const result: { gender?: 'male' | 'female'; level?: SkillLevel } = {};
+  if (topGender === 'male' || topGender === 'female') result.gender = topGender;
+  if (topLevel != null && validLevels.has(topLevel)) result.level = topLevel as SkillLevel;
+  return result;
+}
+
 export function useScoreGameScreen(
   options: UseScoreGameScreenOptions = {},
 ): UseScoreGameScreenResult {
@@ -416,104 +475,54 @@ export function useScoreGameScreen(
 
     async function loadRoster(): Promise<void> {
       try {
-        if (sessionId != null) {
-          // Continuing / adding to a session. Use the SAME relevance-ranked
-          // source as the league path (passing sessionId + leagueId) so the
-          // picker shows the caller's whole ranked network — not just the
-          // handful already in this session plus their friends. Session
-          // members come back flagged in_session=true and render as compact
-          // chips; the rest is the full ranked roster.
-          //
-          // Participants are still fetched (in parallel) purely for the
-          // gender/level inference: PlayerSearchItem omits those fields.
-          const [searchResp, participants] = await Promise.all([
-            api
-              .searchPlayers('', {
-                sessionId,
-                leagueId: leagueId ?? undefined,
-              })
-              .catch(() => null),
-            api.getSessionParticipants(sessionId).catch(() => []),
-          ]);
-          if (!cancelled) {
-            const searchItems = searchResp?.items ?? [];
-            if (searchItems.length > 0) {
-              setRoster(searchItems.map(mapSearchItem));
-            } else {
-              // Fallback: relevance search unavailable/empty → previous
-              // behavior (session participants as chips + friends).
-              const friendsResp = await api
-                .getFriends()
-                .catch(() => ({ items: [] }));
-              if (cancelled) return;
-              const sessionPlayers: RosterPlayer[] = participants.map((p) => ({
-                player_id: p.player_id,
-                display_name: p.full_name,
-                initials: toInitials(p.full_name),
-                tags: [],
-                isSession: true,
-              }));
-              const sessionIds = new Set(sessionPlayers.map((p) => p.player_id));
-              const friendItems = (friendsResp as { items?: { player_id: number; full_name: string }[] })?.items ?? [];
-              const friendPlayers: RosterPlayer[] = friendItems
-                .filter((f) => !sessionIds.has(f.player_id))
-                .map((f) => ({
-                  player_id: f.player_id,
-                  display_name: f.full_name,
-                  initials: toInitials(f.full_name),
-                  tags: ['friend'],
-                  isSession: false,
-                }));
-              setRoster([...sessionPlayers, ...friendPlayers]);
-            }
+        // Unified roster source for every flow (league/pickup, new/continue):
+        // the caller's full relevance-ranked network. sessionId / leagueId are
+        // optional context that only add live-membership flags + ranking
+        // boosts (in_session, in_league); the network itself — friends, recent
+        // partners/opponents, shared leagues, FoF — is returned regardless. A
+        // pickup game with no IDs therefore gets the SAME ranked picker as a
+        // league game, not a friends-only list.
+        //
+        // Participants are fetched in parallel only when a session is in
+        // context — purely for gender/level inference and the fallback roster
+        // (PlayerSearchItem omits gender/level).
+        const [searchResp, participants] = await Promise.all([
+          api
+            .searchPlayers('', {
+              sessionId: sessionId ?? undefined,
+              leagueId: leagueId ?? undefined,
+            })
+            .catch(() => null),
+          sessionId != null
+            ? api.getSessionParticipants(sessionId).catch(() => [])
+            : Promise.resolve(
+                [] as Awaited<ReturnType<typeof api.getSessionParticipants>>,
+              ),
+        ]);
+        if (cancelled) return;
 
-            // Infer gender + level from participant modal values (session signal).
-            // League signal (separate effect) will override these if present.
-            const validLevels = new Set<string>(
-              SKILL_LEVEL_OPTIONS.map((o) => o.value),
-            );
-            const genderCounts = new Map<string, number>();
-            const levelCounts = new Map<string, number>();
-            for (const p of participants as Array<{ gender?: string | null; level?: string | null }>) {
-              if (p.gender != null && p.gender !== '') {
-                genderCounts.set(p.gender, (genderCounts.get(p.gender) ?? 0) + 1);
-              }
-              if (p.level != null && p.level !== '' && validLevels.has(p.level)) {
-                levelCounts.set(p.level, (levelCounts.get(p.level) ?? 0) + 1);
-              }
-            }
-            const topGender = [...genderCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-            const topLevel = [...levelCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-            if (topGender === 'male' || topGender === 'female') {
-              setInferredGender(topGender);
-            }
-            if (topLevel != null && validLevels.has(topLevel)) {
-              setInferredLevel(topLevel as SkillLevel);
-            }
-          }
-        } else if (leagueId != null) {
-          // Priority 2: relevance-ranked default roster for the league
-          // context. Empty q returns one bounded list — the caller's whole
-          // network ranked, league members included. No paging.
-          const response = await api.searchPlayers('', { leagueId });
-          if (!cancelled) {
-            setRoster((response?.items ?? []).map(mapSearchItem));
-          }
+        const searchItems = searchResp?.items ?? [];
+        if (searchItems.length > 0) {
+          setRoster(searchItems.map(mapSearchItem));
         } else {
-          // Fallback: friends list.
-          const response = await api.getFriends();
-          if (!cancelled) {
-            const items = response?.items ?? [];
-            setRoster(
-              items.map((f: { player_id: number; full_name: string }) => ({
-                player_id: f.player_id,
-                display_name: f.full_name,
-                initials: toInitials(f.full_name),
-                tags: ['friend'],
-                isSession: false,
-              })),
-            );
-          }
+          // Relevance search unavailable or empty → best-effort fallback,
+          // identical across flows: session participants (if any) + friends.
+          const friendsResp = await api.getFriends().catch(() => ({ items: [] }));
+          if (cancelled) return;
+          const friendItems =
+            (friendsResp as { items?: { player_id: number; full_name: string }[] })
+              ?.items ?? [];
+          setRoster(buildFallbackRoster(participants, friendItems));
+        }
+
+        // Session signal: infer gender/level from participants. The league
+        // effect (below) overrides these when the league provides values.
+        if (sessionId != null && participants.length > 0) {
+          const inferred = inferGenderLevel(
+            participants as Array<{ gender?: string | null; level?: string | null }>,
+          );
+          if (inferred.gender) setInferredGender(inferred.gender);
+          if (inferred.level) setInferredLevel(inferred.level);
         }
       } catch {
         // Non-fatal — roster stays empty; user can still manually search
@@ -777,6 +786,7 @@ export function useScoreGameScreen(
         const response = await api.submitScoredGame({
           session_id: sessionId ?? null,
           league_id: leagueId ?? null,
+          season_id: seasonId ?? null,
           team1_player1_id: team1[0].player_id!,
           team1_player2_id: team1[1].player_id!,
           team2_player1_id: team2[0].player_id!,
@@ -806,6 +816,7 @@ export function useScoreGameScreen(
     matchId,
     sessionId,
     leagueId,
+    seasonId,
     team1,
     team2,
     score1,

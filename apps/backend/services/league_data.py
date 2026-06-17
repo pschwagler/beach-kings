@@ -24,6 +24,7 @@ __all__ = [
     "delete_league",
     "is_database_empty",
     "create_season",
+    "get_or_create_active_season",
     "list_seasons",
     "get_season",
     "update_season",
@@ -70,6 +71,7 @@ __all__ = [
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, and_, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.sql import func as sql_func
 
@@ -138,8 +140,24 @@ async def create_league(
     # Add creator as admin member
     member = LeagueMember(league_id=league.id, player_id=player.id, role="admin")
     session.add(member)
-    await session.commit()
+    # Flush (not commit) so the league + member + seeded season all land in one
+    # transaction — if seeding fails, the whole league creation rolls back
+    # rather than leaving a league with no season.
+    await session.flush()
     await session.refresh(league)
+
+    # Seed an open-ended "Season 1" so the league has a current season from day
+    # one — games can be logged immediately and standings have somewhere to
+    # land. Admins close it by setting an end_date, which opens the next season
+    # on the next game (see get_or_create_active_season). create_season commits,
+    # finalizing the flushed league + member in the same transaction.
+    await create_season(
+        session=session,
+        league_id=league.id,
+        name=None,  # defaults to "Season 1"
+        start_date=date.today().isoformat(),
+        end_date=None,
+    )
 
     return {
         "id": league.id,
@@ -933,10 +951,89 @@ async def is_database_empty(session: AsyncSession) -> bool:
 
 
 def _is_season_active(season: Season, current_date: Optional[date] = None) -> bool:
-    """Check if a season is active based on date range."""
+    """Check if a season is active based on its date range.
+
+    Null bounds are treated as open: a season with no ``end_date`` (an
+    open-ended / rolling season) is active indefinitely until an admin sets one.
+    """
     if current_date is None:
         current_date = date.today()
-    return season.start_date <= current_date <= season.end_date
+    started = season.start_date is None or season.start_date <= current_date
+    not_ended = season.end_date is None or season.end_date >= current_date
+    return started and not_ended
+
+
+def _serialize_season(season: Season) -> Dict:
+    """Serialize a Season ORM row to the dict shape callers expect."""
+    return {
+        "id": season.id,
+        "league_id": season.league_id,
+        "name": season.name,
+        "start_date": season.start_date.isoformat() if season.start_date else None,
+        "end_date": season.end_date.isoformat() if season.end_date else None,
+        "scoring_system": season.scoring_system if season.scoring_system else None,
+        "point_system": season.point_system,
+        "created_at": season.created_at.isoformat() if season.created_at else None,
+        "updated_at": season.updated_at.isoformat() if season.updated_at else None,
+    }
+
+
+async def get_or_create_active_season(
+    session: AsyncSession,
+    league_id: int,
+    current_date: Optional[date] = None,
+) -> Dict:
+    """Return the league's currently-active season, creating one if none exists.
+
+    A season is active when today falls within ``[start_date, end_date]``,
+    treating null bounds as open. When no season is active — a date gap between
+    seasons, or a league that has never had one — an open-ended season starting
+    today is created so logging a league game never dead-ends. Ended seasons are
+    never reopened (their finalized awards stay frozen).
+
+    Returns the same dict shape as :func:`create_season`.
+    """
+    if current_date is None:
+        current_date = date.today()
+
+    result = await session.execute(
+        select(Season)
+        .where(
+            and_(
+                Season.league_id == league_id,
+                or_(Season.start_date.is_(None), Season.start_date <= current_date),
+                or_(Season.end_date.is_(None), Season.end_date >= current_date),
+            )
+        )
+        .order_by(Season.created_at.desc())
+        .limit(1)
+    )
+    active = result.scalar_one_or_none()
+    if active is not None:
+        return _serialize_season(active)
+
+    try:
+        return await create_season(
+            session=session,
+            league_id=league_id,
+            name=None,  # defaults to "Season N"
+            start_date=current_date.isoformat(),
+            end_date=None,  # open-ended / rolling
+        )
+    except IntegrityError:
+        # A concurrent request created the open-ended season first (blocked by
+        # uq_seasons_open_per_league). Roll back our failed insert and return
+        # the season that won the race rather than dead-ending the caller.
+        await session.rollback()
+        result = await session.execute(
+            select(Season)
+            .where(
+                and_(Season.league_id == league_id, Season.end_date.is_(None))
+            )
+            .order_by(Season.created_at.desc())
+            .limit(1)
+        )
+        return _serialize_season(result.scalar_one())
 
 
 async def create_season(
@@ -944,7 +1041,7 @@ async def create_season(
     league_id: int,
     name: Optional[str],
     start_date: str,
-    end_date: str,
+    end_date: Optional[str],
     point_system: Optional[str] = None,
     scoring_system: Optional[str] = None,
     points_per_win: Optional[int] = None,

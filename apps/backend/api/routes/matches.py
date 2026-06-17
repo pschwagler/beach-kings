@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from typing import Optional
 
 from fastapi import (
@@ -169,7 +169,6 @@ async def create_match(
                 session_id = new_session["id"]
             else:
                 season_id = match_request.season_id
-                selected_season = None
 
                 if season_id:
                     season_result = await session.execute(
@@ -183,33 +182,24 @@ async def create_match(
                             status_code=400,
                             detail=f"Season {season_id} not found or does not belong to league {league_id}",
                         )
+                    resolved_season_id = selected_season.id
                 else:
-                    current_date = date.today()
-                    season_result = await session.execute(
-                        select(Season)
-                        .where(
-                            and_(
-                                Season.league_id == league_id,
-                                Season.start_date <= current_date,
-                                Season.end_date >= current_date,
-                            )
-                        )
-                        .order_by(Season.created_at.desc())
-                        .limit(1)
+                    # No explicit season: use the league's active season, creating
+                    # an open-ended one when none is active (a date gap between
+                    # seasons, or a league with no season yet). Logging a game
+                    # never dead-ends on a missing season.
+                    active_season = await data_service.get_or_create_active_season(
+                        session=session,
+                        league_id=league_id,
                     )
-                    selected_season = season_result.scalar_one_or_none()
-                    if not selected_season:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"League {league_id} does not have an active season. Please provide a season_id or create a season with dates that include today's date.",
-                        )
+                    resolved_season_id = active_season["id"]
 
                 result = await session.execute(
                     select(Session)
                     .where(
                         and_(
                             Session.date == match_date,
-                            Session.season_id == selected_season.id,
+                            Session.season_id == resolved_season_id,
                             Session.status == SessionStatus.ACTIVE,
                         )
                     )
@@ -232,7 +222,7 @@ async def create_match(
                         league_id=league_id,
                         session_date=match_date,
                         created_by=player_id,
-                        season_id=selected_season.id,
+                        season_id=resolved_season_id,
                         latitude=match_request.latitude,
                         longitude=match_request.longitude,
                     )

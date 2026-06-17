@@ -383,19 +383,26 @@ describe('ScoreGameScreen — roster picker', () => {
 
   it('queries the backend search endpoint when the user types', async () => {
     // Backend returns a player who is NOT in the pre-loaded roster — proving
-    // the picker now reaches beyond locally-cached friends.
-    mockSearchPlayers.mockResolvedValue({
-      items: [
-        {
-          id: 999,
-          full_name: 'Daniel M',
-          nickname: null,
-          initials: 'DM',
-          relation: 'other',
-        },
-      ],
-      total_count: 1,
-    });
+    // the picker now reaches beyond locally-cached friends. The empty-q load
+    // (every flow's default roster source) must stay empty so the initial
+    // picker still comes from the friends fallback; only the typed query
+    // returns Daniel.
+    mockSearchPlayers.mockImplementation((q: string) =>
+      q === ''
+        ? Promise.resolve({ items: [], total_count: 0 })
+        : Promise.resolve({
+            items: [
+              {
+                id: 999,
+                full_name: 'Daniel M',
+                nickname: null,
+                initials: 'DM',
+                relation: 'other',
+              },
+            ],
+            total_count: 1,
+          }),
+    );
 
     renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
@@ -423,6 +430,21 @@ describe('ScoreGameScreen — roster picker', () => {
       // Other players still visible
       expect(screen.getByTestId('roster-chip-11')).toBeTruthy();
     });
+  });
+
+  it('clears the search input after a player is added so the next search starts fresh', async () => {
+    renderScoreGame();
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
+
+    // Activate a slot, then search for a player.
+    fireEvent.press(screen.getByTestId('team1-slot0'));
+    const input = screen.getByTestId('roster-search-input');
+    fireEvent.changeText(input, 'Gulla');
+    await waitFor(() => expect(input.props.value).toBe('Gulla'));
+
+    // Add the matched player — the search should reset for the next pick.
+    fireEvent.press(screen.getByTestId('roster-chip-10'));
+    await waitFor(() => expect(input.props.value).toBe(''));
   });
 
   it('ranks a league member above a friend in a league match (one ranked list, in_league pill)', async () => {
