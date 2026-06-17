@@ -4,14 +4,14 @@ import asyncio
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
 from backend.database.models import Player, LeagueMember
-from backend.services import data_service, notification_service
+from backend.services import data_service, league_games_service, notification_service
 from backend.api.auth_dependencies import (
     get_current_user_optional,
     require_user,
@@ -33,6 +33,7 @@ from backend.models.schemas import (
     RequestJoinResponse,
     LeagueJoinResponse,
     LeagueStandingsResponse,
+    LeagueGamesResponse,
     InvitablePlayerResponse,
     LeagueInviteItemResponse,
 )
@@ -898,6 +899,28 @@ async def get_league_standings(
         return await data_service.get_league_standings(session, league_id, season_id=season_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching standings: {str(e)}")
+
+
+@router.get("/api/leagues/{league_id}/games", response_model=LeagueGamesResponse)
+async def get_league_games(
+    league_id: int,
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """All matches in a league across every session (league_member)."""
+    try:
+        games, total = await league_games_service.get_league_games(
+            session=session,
+            league_id=league_id,
+            limit=limit,
+            offset=offset,
+        )
+        return {"games": games, "total": total}
+    except Exception as e:
+        logger.error(f"Error fetching league games for league {league_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch league games.")
 
 
 # ---------------------------------------------------------------------------

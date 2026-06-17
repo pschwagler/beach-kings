@@ -22,8 +22,6 @@ export interface UseLeagueDetailScreenResult {
   readonly isError: boolean;
   readonly activeTab: LeagueDetailTab;
   readonly onSetTab: (tab: LeagueDetailTab) => void;
-  readonly onInvite: () => void;
-  readonly onStartSession: () => void;
   readonly onPressPlayer: (playerId: number | string) => void;
 }
 
@@ -45,14 +43,6 @@ export function useLeagueDetailScreen(
     setActiveTab(tab);
   }, []);
 
-  const onInvite = useCallback(() => {
-    router.push(routes.leagueInvite(leagueId) as never);
-  }, [router, leagueId]);
-
-  const onStartSession = useCallback(() => {
-    router.push(routes.createSession() as never);
-  }, [router]);
-
   const onPressPlayer = useCallback(
     (playerId: number | string) => {
       router.push(routes.player(playerId) as never);
@@ -67,8 +57,6 @@ export function useLeagueDetailScreen(
     isError: detailQuery.isError,
     activeTab,
     onSetTab,
-    onInvite,
-    onStartSession,
     onPressPlayer,
   };
 }

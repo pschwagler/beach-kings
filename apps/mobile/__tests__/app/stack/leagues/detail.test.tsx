@@ -216,24 +216,10 @@ describe('LeagueDetailScreen — header', () => {
     });
   });
 
-  it('renders invite button for admin', async () => {
-    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
-    await waitFor(() => {
-      expect(screen.getByTestId('invite-button')).toBeTruthy();
-    });
-  });
-
-  it('renders start session button for admin', async () => {
-    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
-    await waitFor(() => {
-      expect(screen.getByTestId('start-session-button')).toBeTruthy();
-    });
-  });
-
-  it('does NOT render start session button for member', async () => {
-    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, user_role: 'member' });
+  it('does NOT render invite or start-session buttons in header', async () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-header')).toBeTruthy());
+    expect(screen.queryByTestId('invite-button')).toBeNull();
     expect(screen.queryByTestId('start-session-button')).toBeNull();
   });
 });
@@ -312,13 +298,6 @@ describe('LeagueDetailScreen — segment tabs', () => {
 // ---------------------------------------------------------------------------
 
 describe('LeagueDetailScreen — navigation', () => {
-  it('pressing invite button navigates to league invite route', async () => {
-    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
-    await waitFor(() => expect(screen.getByTestId('invite-button')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('invite-button'));
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('invite'));
-  });
-
   it('pressing Add Game navigates directly to score-game with leagueId and seasonId', async () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-add-game-btn')).toBeTruthy());

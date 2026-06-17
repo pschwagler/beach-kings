@@ -2,12 +2,12 @@
  * LeagueDetailScreen — Main orchestrator for the League Detail view.
  *
  * Shows:
- *   League header: name, location, member count, season badge, rank badge,
- *                  Invite button, Start Session button (admin)
+ *   Compact league header: name, location, member count
  *   5-tab segment: Games | Standings | Chat | Sign Ups | Info
  *
- * Each tab renders a dedicated component. The Standings tab also supports
- * tapping a player row to push LeagueStatsTab as a sub-view.
+ * The Add Game action lives in TopNav. Each tab renders a dedicated component.
+ * The Standings tab also supports tapping a player row to push LeagueStatsTab
+ * as a sub-view.
  *
  * Wireframe ref: league-detail.html
  */
@@ -19,13 +19,12 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import BottomTabBar, { BottomTabBarHeightContext } from '@/components/navigation/BottomTabBar';
-import { hapticLight, hapticMedium } from '@/utils/haptics';
+import { hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import { useLeagueDetailScreen, type LeagueDetailTab } from './useLeagueDetailScreen';
 import LeagueDashboardTab from './LeagueDashboardTab';
@@ -106,99 +105,34 @@ interface LeagueHeaderProps {
   readonly name: string;
   readonly locationName: string | null;
   readonly memberCount: number;
-  readonly currentSeasonName: string | null;
-  readonly isActive: boolean;
-  readonly userRank: number | null;
-  readonly userRole: 'admin' | 'member' | null;
-  readonly onInvite: () => void;
-  readonly onStartSession: () => void;
 }
 
 function LeagueHeader({
   name,
   locationName,
   memberCount,
-  currentSeasonName,
-  isActive,
-  userRank,
-  userRole,
-  onInvite,
-  onStartSession,
 }: LeagueHeaderProps): React.ReactNode {
   return (
     <View
       testID="league-header"
-      className="bg-surface px-4 pt-5 pb-4 border-b border-divider"
+      className="bg-surface px-4 pt-3 pb-3 border-b border-divider"
     >
-      {/* Title row */}
       <Text
         testID="league-header-name"
-        className="text-[22px] font-extrabold text-default"
-        numberOfLines={2}
+        className="text-[20px] font-extrabold text-default"
+        numberOfLines={1}
       >
         {name}
       </Text>
 
-      {/* Meta row */}
-      <View className="flex-row flex-wrap items-center gap-2 mt-[6px]">
+      <View className="flex-row flex-wrap items-center gap-x-2 mt-[2px]">
         {locationName != null && (
-          <Text className="text-[13px] text-muted">
-            {locationName}
-          </Text>
+          <Text className="text-[12px] text-muted">{locationName}</Text>
         )}
-        <Text className="text-[13px] text-muted">
-          {memberCount} members
-        </Text>
-      </View>
-
-      {/* Badge row */}
-      <View className="flex-row flex-wrap gap-2 mt-3">
-        {isActive && currentSeasonName != null && (
-          <View className="bg-success-tint rounded-[6px] px-[10px] py-[4px]">
-            <Text className="text-[11px] font-bold text-success">
-              {currentSeasonName} · Active
-            </Text>
-          </View>
+        {locationName != null && (
+          <Text className="text-[12px] text-muted">·</Text>
         )}
-        {userRank != null && (
-          <View className="bg-warning-tint rounded-[6px] px-[10px] py-[4px]">
-            <Text className="text-[11px] font-bold text-warning">
-              #{userRank} Ranked
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Action row */}
-      <View className="flex-row gap-2 mt-4">
-        {(userRole === 'admin' || userRole === 'member') && (
-          <Pressable
-            testID="invite-button"
-            onPress={() => {
-              void hapticLight();
-              onInvite();
-            }}
-            className="flex-1 rounded-[10px] py-[10px] items-center border border-brand-teal active:opacity-70"
-          >
-            <Text className="text-[13px] font-semibold text-brand-teal">
-              Invite Players
-            </Text>
-          </Pressable>
-        )}
-        {userRole === 'admin' && (
-          <Pressable
-            testID="start-session-button"
-            onPress={() => {
-              void hapticMedium();
-              onStartSession();
-            }}
-            className="flex-1 rounded-[10px] py-[10px] items-center bg-brand-teal active:opacity-80"
-          >
-            <Text className="text-[13px] font-bold text-white">
-              Start Session
-            </Text>
-          </Pressable>
-        )}
+        <Text className="text-[12px] text-muted">{memberCount} members</Text>
       </View>
     </View>
   );
@@ -275,8 +209,6 @@ export default function LeagueDetailScreen({
     isError,
     activeTab,
     onSetTab,
-    onInvite,
-    onStartSession,
     onPressPlayer,
   } = useLeagueDetailScreen(resolvedId);
 
@@ -385,12 +317,6 @@ export default function LeagueDetailScreen({
             name={detail.name}
             locationName={detail.location_name}
             memberCount={detail.member_count}
-            currentSeasonName={detail.current_season_name}
-            isActive={detail.is_active}
-            userRank={detail.user_rank}
-            userRole={detail.user_role}
-            onInvite={onInvite}
-            onStartSession={onStartSession}
           />
 
           <SegmentBar

@@ -2824,3 +2824,32 @@ class LeagueStandingsResponse(BaseModel):
 
     standings: List[LeagueStandingEntry]
     season_info: Optional[LeagueSeasonInfoResponse] = None
+
+
+class LeagueGameEntry(BaseModel):
+    """A single league-wide match, shaped symmetrically (team1 / team2).
+
+    Mirrors the shared LeagueGameEntry TS type consumed by the mobile
+    All Games view. ``winner`` is a discriminator: 1 = team1, 2 = team2,
+    -1 = tie, 0 = no result yet (in progress).
+    """
+
+    id: int
+    session_id: int
+    session_date: Optional[str] = None
+    session_status: str
+    court_label: Optional[str] = None
+    team1_player_names: List[str]
+    team1_player_ids: List[int]
+    team2_player_names: List[str]
+    team2_player_ids: List[int]
+    team1_score: int
+    team2_score: int
+    winner: int
+
+
+class LeagueGamesResponse(BaseModel):
+    """Response envelope for GET /api/leagues/{league_id}/games."""
+
+    games: List[LeagueGameEntry]
+    total: int

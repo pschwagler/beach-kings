@@ -32,6 +32,7 @@ import type {
   ChangePasswordResponse,
   MyGamesQueryParams,
   MyGamesResponse,
+  LeagueGamesResponse,
   JoinRequest,
   JoinRequestsResponse,
   LeagueSignupsApiResponse,
@@ -496,6 +497,24 @@ export function createApiMethods(client: ApiClient) {
       const params = seasonId != null ? `?season_id=${seasonId}` : '';
       const response = await api.get<LeagueStandingsResponse>(
         `/api/leagues/${leagueId}/standings${params}`,
+      );
+      return response.data;
+    },
+
+    /**
+     * All games in a league across every session, for the All Games view.
+     * Maps to GET /api/leagues/:leagueId/games.
+     *
+     * @param leagueId League to fetch games for.
+     * @param params Optional pagination: `limit` (1-500, default 200) and `offset`.
+     */
+    async getLeagueGames(
+      leagueId: number,
+      params?: { limit?: number; offset?: number },
+    ): Promise<LeagueGamesResponse> {
+      const response = await api.get<LeagueGamesResponse>(
+        `/api/leagues/${leagueId}/games`,
+        { params },
       );
       return response.data;
     },

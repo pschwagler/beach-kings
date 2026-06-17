@@ -50,3 +50,35 @@ export interface MyGamesResponse {
   readonly games: GameHistoryEntry[];
   readonly total: number;
 }
+
+import type { SessionStatus } from './enums';
+
+/**
+ * A single match entry for the league-wide All Games view.
+ *
+ * Unlike GameHistoryEntry (user-relative), this is symmetric: both teams are
+ * exposed as team1 / team2, and a `winner` discriminator indicates the result.
+ */
+export interface LeagueGameEntry {
+  /** Match id. */
+  readonly id: number;
+  readonly session_id: number;
+  readonly session_date: string | null;
+  /** Session lifecycle status — surfaces ACTIVE for in-progress sessions. */
+  readonly session_status: SessionStatus;
+  readonly court_label: string | null;
+  readonly team1_player_names: readonly string[];
+  readonly team1_player_ids: readonly number[];
+  readonly team2_player_names: readonly string[];
+  readonly team2_player_ids: readonly number[];
+  readonly team1_score: number;
+  readonly team2_score: number;
+  /** 1 = team1 won, 2 = team2 won, -1 = draw, 0 = no result (in progress). */
+  readonly winner: 0 | 1 | 2 | -1;
+}
+
+/** Response envelope for GET /api/leagues/{id}/games. */
+export interface LeagueGamesResponse {
+  readonly games: LeagueGameEntry[];
+  readonly total: number;
+}

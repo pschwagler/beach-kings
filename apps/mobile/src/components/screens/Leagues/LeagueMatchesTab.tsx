@@ -1,8 +1,10 @@
 /**
  * LeagueMatchesTab — Games tab of the League Detail screen.
  *
- * Shows session cards with game rows, score pairs, W/L badges,
- * and per-session stat footer.
+ * Top: compact segmented toggle — My Games | All Games — mirroring the
+ * pattern used inside Session Detail. Active sessions are visually
+ * distinguished from submitted ones via a left accent stripe, a "Live" pill
+ * in the card header, and a footer that hides finalized stats.
  *
  * Wireframe ref: league-matches.html
  */
@@ -14,20 +16,25 @@ import {
   ScrollView,
   ActivityIndicator,
   Pressable,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useLeagueMatchesTab, type SessionGroup } from './useLeagueMatchesTab';
+import {
+  useLeagueMatchesTab,
+  type SessionGroup,
+  type LeagueMatchesMode,
+} from './useLeagueMatchesTab';
 import { routes } from '@/lib/navigation';
 import { ChevronRightIcon } from '@/components/ui/icons';
 import { usePaletteColors } from '@/theme/usePaletteColors';
-import type { GameHistoryEntry } from '@beach-kings/shared';
+import { hapticLight } from '@/utils/haptics';
+import type { GameHistoryEntry, LeagueGameEntry } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function formatSessionDate(isoDate: string): string | null {
-  // Backend normalizes to YYYY-MM-DD; parse as local to avoid UTC drift.
   const parts = isoDate.split('-').map(Number);
   if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
     return null;
@@ -64,10 +71,15 @@ function PlayerName({ name, playerId, className = '' }: PlayerNameProps): React.
 }
 
 // ---------------------------------------------------------------------------
-// Game row
+// Game row — user-relative (My Games mode)
 // ---------------------------------------------------------------------------
 
-function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode {
+interface MyGameRowProps {
+  readonly game: GameHistoryEntry;
+  readonly hideRatingChange: boolean;
+}
+
+function MyGameRow({ game, hideRatingChange }: MyGameRowProps): React.ReactNode {
   const isWin = game.result === 'W';
   const isDraw = game.result === 'D';
 
@@ -77,9 +89,7 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
       className="px-4 py-[10px] border-b border-divider"
     >
       <View className="flex-row items-start">
-        {/* Teams */}
         <View className="flex-1 min-w-0 mr-2">
-          {/* My team: "You" + tappable partners */}
           <View className="flex-row flex-wrap items-center">
             <Text className="text-[13px] font-semibold text-default">You</Text>
             {game.partner_names.map((partnerName, i) => (
@@ -93,7 +103,6 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
               </React.Fragment>
             ))}
           </View>
-          {/* Opponents: tappable names */}
           <View className="flex-row flex-wrap items-center mt-[4px]">
             <Text className="text-[12px] text-muted">vs </Text>
             {game.opponent_names.map((oppName, i) => (
@@ -109,12 +118,10 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
           </View>
         </View>
 
-        {/* Score */}
         <Text className="text-[14px] font-bold text-default mr-2">
           {game.my_score} – {game.opponent_score}
         </Text>
 
-        {/* W/L/D badge */}
         <View
           className={`rounded-[6px] px-[8px] py-[3px] ${
             isWin
@@ -138,8 +145,7 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
         </View>
       </View>
 
-      {/* Rating change — neutral color when zero */}
-      {game.rating_change != null && (
+      {!hideRatingChange && game.rating_change != null && (
         <Text
           className={`text-[11px] mt-[4px] ${
             game.rating_change > 0
@@ -158,80 +164,280 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
 }
 
 // ---------------------------------------------------------------------------
+// Game row — team-neutral (All Games mode)
+// ---------------------------------------------------------------------------
+
+interface AllGameRowProps {
+  readonly game: LeagueGameEntry;
+}
+
+function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
+  const team1Won = game.winner === 1;
+  const team2Won = game.winner === 2;
+  const isTie = game.winner === -1;
+  const noResult = game.winner === 0;
+
+  return (
+    <View
+      testID={`league-game-row-${game.id}`}
+      className="px-4 py-[10px] border-b border-divider"
+    >
+      <View className="flex-row items-center">
+        <View className="flex-1 min-w-0 mr-2">
+          {/* Team 1 */}
+          <View className="flex-row flex-wrap items-center">
+            {game.team1_player_names.map((name, i) => (
+              <React.Fragment key={game.team1_player_ids[i] ?? `t1-${i}`}>
+                {i > 0 && <Text className="text-[13px] text-muted"> / </Text>}
+                <PlayerName
+                  name={name}
+                  playerId={game.team1_player_ids[i] ?? null}
+                  className={`text-[13px] ${team1Won ? 'font-bold text-default' : 'text-default'}`}
+                />
+              </React.Fragment>
+            ))}
+          </View>
+          {/* Team 2 */}
+          <View className="flex-row flex-wrap items-center mt-[4px]">
+            <Text className="text-[12px] text-muted">vs </Text>
+            {game.team2_player_names.map((name, i) => (
+              <React.Fragment key={game.team2_player_ids[i] ?? `t2-${i}`}>
+                {i > 0 && <Text className="text-[12px] text-muted"> / </Text>}
+                <PlayerName
+                  name={name}
+                  playerId={game.team2_player_ids[i] ?? null}
+                  className={`text-[12px] ${team2Won ? 'font-bold text-default' : 'text-muted'}`}
+                />
+              </React.Fragment>
+            ))}
+          </View>
+        </View>
+
+        {/* Score: bold the winning side's number */}
+        <View className="flex-row items-baseline mr-2">
+          <Text
+            className={`text-[14px] ${team1Won ? 'font-bold text-default' : 'text-muted'}`}
+          >
+            {game.team1_score}
+          </Text>
+          <Text className="text-[13px] text-muted mx-[3px]">–</Text>
+          <Text
+            className={`text-[14px] ${team2Won ? 'font-bold text-default' : 'text-muted'}`}
+          >
+            {game.team2_score}
+          </Text>
+        </View>
+
+        {noResult && (
+          <View
+            testID={`league-game-noresult-${game.id}`}
+            className="rounded-[6px] px-[8px] py-[3px] bg-elevated"
+          >
+            <Text className="text-[11px] font-bold text-muted">—</Text>
+          </View>
+        )}
+
+        {isTie && (
+          <View
+            testID={`league-game-tie-${game.id}`}
+            className="rounded-[6px] px-[8px] py-[3px] bg-elevated"
+          >
+            <Text className="text-[11px] font-bold text-muted">TIE</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Session card
 // ---------------------------------------------------------------------------
 
-function SessionCard({ session }: { readonly session: SessionGroup }): React.ReactNode {
+interface SessionCardProps {
+  readonly session: SessionGroup;
+}
+
+function SessionCard({ session }: SessionCardProps): React.ReactNode {
   const router = useRouter();
   const palette = usePaletteColors();
+  const isActive = session.session_status === 'ACTIVE';
   const totalRating = Math.round(session.ratingChange * 10) / 10;
   const dateLabel = session.session_date != null
     ? formatSessionDate(session.session_date)
     : null;
+  const gameCount =
+    session.mode === 'mine' ? session.myGames.length : session.allGames.length;
 
   return (
     <View
       testID={`session-card-${session.session_id}`}
-      className="bg-surface rounded-[12px] mx-4 mb-4 border border-divider overflow-hidden"
+      className="bg-surface rounded-[12px] mx-4 mb-4 border border-divider overflow-hidden flex-row"
     >
-      {/* Header — tappable to open session detail */}
-      <Pressable
-        onPress={() => { router.push(routes.session(session.session_id)); }}
-        style={({ pressed }) => (pressed ? { opacity: 0.65 } : undefined)}
-        className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider"
-      >
-        <View className="flex-1">
-          <Text className="text-[13px] font-bold text-default">
-            Session #{session.session_number ?? session.session_id}
-          </Text>
-          {dateLabel != null && (
-            <Text className="text-[11px] text-muted mt-[1px]">{dateLabel}</Text>
+      {/* Left accent stripe — visible only for active sessions */}
+      {isActive && (
+        <View
+          testID={`session-card-${session.session_id}-active-stripe`}
+          className="w-[4px] bg-status-live"
+        />
+      )}
+
+      <View className="flex-1">
+        {/* Header */}
+        <Pressable
+          onPress={() => { router.push(routes.session(session.session_id)); }}
+          style={({ pressed }) => (pressed ? { opacity: 0.65 } : undefined)}
+          className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider"
+        >
+          <View className="flex-1">
+            <Text className="text-[13px] font-bold text-default">
+              Session #{session.session_number ?? session.session_id}
+            </Text>
+            {isActive ? (
+              <View
+                testID={`session-card-${session.session_id}-live-pill`}
+                className="self-start mt-[3px] flex-row items-center bg-status-live-tint rounded-[6px] px-[8px] py-[2px]"
+              >
+                <View className="w-[6px] h-[6px] rounded-full bg-status-live mr-[5px]" />
+                <Text className="text-[10px] font-bold text-status-live uppercase tracking-wide">
+                  Live
+                </Text>
+              </View>
+            ) : (
+              dateLabel != null && (
+                <Text className="text-[11px] text-muted mt-[1px]">{dateLabel}</Text>
+              )
+            )}
+          </View>
+          <ChevronRightIcon size={18} color={palette.textMuted} />
+        </Pressable>
+
+        {/* Game rows */}
+        {session.mode === 'mine'
+          ? session.myGames.map((g) => (
+              <MyGameRow key={g.id} game={g} hideRatingChange={isActive} />
+            ))
+          : session.allGames.map((g) => <AllGameRow key={g.id} game={g} />)}
+
+        {/* Footer stats */}
+        <View className="flex-row px-4 py-[12px] gap-4 border-t border-divider">
+          <View>
+            <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+              Games
+            </Text>
+            <Text className="text-[14px] font-bold text-default">{gameCount}</Text>
+          </View>
+
+          {session.mode === 'mine' && !isActive && (
+            <>
+              <View>
+                <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+                  Your W-L
+                </Text>
+                <Text className="text-[14px] font-bold text-default">
+                  {session.userWins}-{session.userLosses}
+                </Text>
+              </View>
+              <View>
+                <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+                  Rating
+                </Text>
+                <Text
+                  className={`text-[14px] font-bold ${
+                    totalRating > 0
+                      ? 'text-success'
+                      : totalRating < 0
+                        ? 'text-danger'
+                        : 'text-muted'
+                  }`}
+                >
+                  {totalRating > 0 ? '+' : ''}
+                  {totalRating}
+                </Text>
+              </View>
+            </>
+          )}
+
+          {session.mode === 'mine' && isActive && (
+            <View>
+              <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+                Status
+              </Text>
+              <Text className="text-[14px] font-bold text-status-live">
+                In progress
+              </Text>
+            </View>
           )}
         </View>
-        <ChevronRightIcon size={18} color={palette.textMuted} />
-      </Pressable>
-
-      {/* Game rows */}
-      {session.games.map((g) => (
-        <GameRow key={g.id} game={g} />
-      ))}
-
-      {/* Footer stats */}
-      <View className="flex-row px-4 py-[12px] gap-4 border-t border-divider">
-        <View>
-          <Text className="text-[11px] text-tertiary uppercase tracking-wide">
-            Games
-          </Text>
-          <Text className="text-[14px] font-bold text-default">
-            {session.games.length}
-          </Text>
-        </View>
-        <View>
-          <Text className="text-[11px] text-tertiary uppercase tracking-wide">
-            Your W-L
-          </Text>
-          <Text className="text-[14px] font-bold text-default">
-            {session.userWins}-{session.userLosses}
-          </Text>
-        </View>
-        <View>
-          <Text className="text-[11px] text-tertiary uppercase tracking-wide">
-            Rating
-          </Text>
-          <Text
-            className={`text-[14px] font-bold ${
-              totalRating > 0
-                ? 'text-success'
-                : totalRating < 0
-                  ? 'text-danger'
-                  : 'text-muted'
-            }`}
-          >
-            {totalRating > 0 ? '+' : ''}
-            {totalRating}
-          </Text>
-        </View>
       </View>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Segmented toggle
+// ---------------------------------------------------------------------------
+
+interface ModeToggleProps {
+  readonly mode: LeagueMatchesMode;
+  readonly myCount: number;
+  readonly allCount: number;
+  readonly onChange: (mode: LeagueMatchesMode) => void;
+}
+
+function ModeToggle({
+  mode,
+  myCount,
+  allCount,
+  onChange,
+}: ModeToggleProps): React.ReactNode {
+  const handlePress = (next: LeagueMatchesMode) => {
+    if (next === mode) return;
+    void hapticLight();
+    onChange(next);
+  };
+
+  return (
+    <View
+      testID="league-games-mode-toggle"
+      className="flex-row bg-elevated border border-divider rounded-[10px] mx-4 mt-2 mb-2 p-[3px]"
+    >
+      <TouchableOpacity
+        testID="league-games-mode-mine"
+        onPress={() => { handlePress('mine'); }}
+        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === 'mine' ? 'bg-brand-teal' : ''}`}
+      >
+        <Text
+          className={`text-[12px] font-semibold ${mode === 'mine' ? 'text-white' : 'text-muted'}`}
+        >
+          My Games
+        </Text>
+        {myCount > 0 && (
+          <Text
+            className={`text-[11px] font-bold ${mode === 'mine' ? 'text-white/80' : 'text-muted'}`}
+          >
+            {myCount}
+          </Text>
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity
+        testID="league-games-mode-all"
+        onPress={() => { handlePress('all'); }}
+        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === 'all' ? 'bg-brand-teal' : ''}`}
+      >
+        <Text
+          className={`text-[12px] font-semibold ${mode === 'all' ? 'text-white' : 'text-muted'}`}
+        >
+          All Games
+        </Text>
+        {allCount > 0 && (
+          <Text
+            className={`text-[11px] font-bold ${mode === 'all' ? 'text-white/80' : 'text-muted'}`}
+          >
+            {allCount}
+          </Text>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -245,55 +451,80 @@ interface LeagueMatchesTabProps {
 }
 
 export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): React.ReactNode {
-  const { sessions, isLoading, isError } = useLeagueMatchesTab(leagueId);
+  const { mode, setMode, sessions, myCount, allCount, isLoading, isError } =
+    useLeagueMatchesTab(leagueId);
+
+  // The toggle should stay visible even while data loads/errors.
+  const toggle = (
+    <ModeToggle
+      mode={mode}
+      myCount={myCount}
+      allCount={allCount}
+      onChange={setMode}
+    />
+  );
 
   if (isLoading) {
     return (
-      <View testID="matches-loading" className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" />
+      <View className="flex-1 bg-page">
+        {toggle}
+        <View testID="matches-loading" className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" />
+        </View>
       </View>
     );
   }
 
   if (isError) {
     return (
-      <View
-        testID="matches-error"
-        className="flex-1 items-center justify-center px-8"
-      >
-        <Text className="text-[16px] font-bold text-default text-center">
-          Failed to load games
-        </Text>
+      <View className="flex-1 bg-page">
+        {toggle}
+        <View
+          testID="matches-error"
+          className="flex-1 items-center justify-center px-8"
+        >
+          <Text className="text-[16px] font-bold text-default text-center">
+            Failed to load games
+          </Text>
+        </View>
       </View>
     );
   }
 
   if (sessions.length === 0) {
     return (
-      <View
-        testID="matches-empty"
-        className="flex-1 items-center justify-center px-8 py-16"
-      >
-        <Text className="text-[18px] font-bold text-default mb-2 text-center">
-          No Games Yet
-        </Text>
-        <Text className="text-[14px] text-muted text-center">
-          Games will appear here after sessions are submitted.
-        </Text>
+      <View className="flex-1 bg-page">
+        {toggle}
+        <View
+          testID="matches-empty"
+          className="flex-1 items-center justify-center px-8 py-16"
+        >
+          <Text className="text-[18px] font-bold text-default mb-2 text-center">
+            {mode === 'mine' ? 'No Games Yet' : 'No League Games Yet'}
+          </Text>
+          <Text className="text-[14px] text-muted text-center">
+            {mode === 'mine'
+              ? 'Your games will appear here after sessions are submitted.'
+              : 'League games will appear here as sessions are played.'}
+          </Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <ScrollView
-      testID="matches-tab"
-      className="flex-1 bg-page"
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
-    >
-      {sessions.map((s) => (
-        <SessionCard key={s.session_id} session={s} />
-      ))}
-    </ScrollView>
+    <View className="flex-1 bg-page">
+      {toggle}
+      <ScrollView
+        testID="matches-tab"
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: 4, paddingBottom: 32 }}
+      >
+        {sessions.map((s) => (
+          <SessionCard key={s.session_id} session={s} />
+        ))}
+      </ScrollView>
+    </View>
   );
 }
