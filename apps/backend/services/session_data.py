@@ -387,36 +387,79 @@ async def get_or_create_active_league_session(
     Get or create an active session for a league and date atomically.
     Uses SELECT FOR UPDATE to prevent race conditions.
 
+    When ``season_id`` is explicitly provided, strict validation is applied:
+    the season must exist and belong to the league, or ValueError is raised.
+
+    When ``season_id`` is None, the active season is resolved via
+    ``resolve_active_season``.  If no active season exists the session is
+    created as a *gap game* (``season_id=NULL``) rather than raising.
+
+    Duplicate detection anchors on the gap-game key
+    (``league_id + date + season_id IS NULL``) when there is no resolved
+    season, and on ``season_id`` otherwise — guaranteeing idempotency for
+    both code paths.
+
     Args:
-        session: Database session
-        league_id: League ID
-        session_date: Session date
-        name: Optional session name
-        created_by: Optional player ID who created the session
-        season_id: Optional season ID - if provided, use this season instead of finding active season
+        session: Database session.
+        league_id: League ID.
+        session_date: Session date string (e.g. '6/19/2026').
+        name: Optional session name override.
+        created_by: Optional player ID of the creator.
+        season_id: Optional season ID.  When provided, strict validation is
+            applied.  When None, the active season is resolved automatically;
+            if none is found, a gap game is created.
+        latitude: Optional browser geolocation latitude.
+        longitude: Optional browser geolocation longitude.
 
     Returns:
-        Dict with session info
+        Dict with session info (``season_id`` may be None for gap games).
+
+    Raises:
+        ValueError: When the league does not exist, or when an explicit
+            ``season_id`` is provided that doesn't exist or belongs to a
+            different league.
     """
+    from backend.services.league_data import resolve_active_season
+
     # Verify league exists
     result = await session.execute(select(League).where(League.id == league_id))
     league = result.scalar_one_or_none()
     if not league:
         raise ValueError(f"League {league_id} not found")
 
-    active_season = await _get_active_season(session, league_id, season_id)
+    # Resolve the season_id to use for this session.
+    # Explicit season_id → strict validation (raises on miss/mismatch).
+    # No season_id → soft resolve; None means gap game.
+    if season_id is not None:
+        resolved_season_id: Optional[int] = (
+            await _get_active_season(session, league_id, season_id)
+        ).id
+    else:
+        active = await resolve_active_season(session, league_id)
+        resolved_season_id = active.id if active is not None else None
 
-    # Try to get existing active session for this date and season
+    # Build the WHERE clause for duplicate detection.
+    # Gap games anchor on league_id + date + season_id IS NULL.
+    # Season games anchor on season_id (existing behaviour).
+    def _dedup_where(include_status: bool = True):
+        """Return the list of WHERE conditions for the idempotency lookup."""
+        conditions = [Session.date == session_date]
+        if resolved_season_id is None:
+            conditions += [
+                Session.season_id.is_(None),
+                Session.league_id == league_id,
+            ]
+        else:
+            conditions.append(Session.season_id == resolved_season_id)
+        if include_status:
+            conditions.append(Session.status == SessionStatus.ACTIVE)
+        return conditions
+
+    # Try to get existing active session for this date and season (or gap key)
     try:
         result = await session.execute(
             select(Session)
-            .where(
-                and_(
-                    Session.date == session_date,
-                    Session.season_id == active_season.id,
-                    Session.status == SessionStatus.ACTIVE,
-                )
-            )
+            .where(and_(*_dedup_where()))
             .with_for_update()
         )
         existing_session = result.scalar_one_or_none()
@@ -438,13 +481,7 @@ async def get_or_create_active_league_session(
     except Exception as e:
         logger.warning("SELECT FOR UPDATE failed, falling back to plain SELECT: %s", e)
         result = await session.execute(
-            select(Session).where(
-                and_(
-                    Session.date == session_date,
-                    Session.season_id == active_season.id,
-                    Session.status == SessionStatus.ACTIVE,
-                )
-            )
+            select(Session).where(and_(*_dedup_where()))
         )
         existing_session = result.scalar_one_or_none()
         if existing_session:
@@ -461,11 +498,9 @@ async def get_or_create_active_league_session(
                 "code": existing_session.code,
             }
 
-    # No existing session found, create a new one
+    # No existing session found — count existing rows for the name suffix.
     count_result = await session.execute(
-        select(func.count(Session.id)).where(
-            and_(Session.date == session_date, Session.season_id == active_season.id)
-        )
+        select(func.count(Session.id)).where(and_(*_dedup_where(include_status=False)))
     )
     session_count = count_result.scalar() or 0
 
@@ -501,7 +536,7 @@ async def get_or_create_active_league_session(
         date=session_date,
         name=session_name,
         status=SessionStatus.ACTIVE,
-        season_id=active_season.id,
+        season_id=resolved_season_id,
         league_id=league_id,
         session_type="league",
         created_by=created_by,
@@ -540,37 +575,80 @@ async def create_league_session(
     longitude: Optional[float] = None,
 ) -> Dict:
     """
-    Create a league session. Automatically uses the league's most recent active season.
-    Defaults court_id to the league's primary home court (position=0) if not provided.
-    Includes duplicate prevention - will raise ValueError if active session already exists.
+    Create a league session.  Automatically resolves the league's most recent
+    active season.  When no active season exists the session is created as a
+    *gap game* (``season_id=NULL``) rather than raising.
+
+    Defaults ``court_id`` to the league's primary home court (position=0) if
+    not provided.  Includes duplicate prevention: raises ``ValueError`` if an
+    ACTIVE session already exists for the same league + date, anchored on
+    ``season_id IS NULL`` for gap games or ``season_id`` for season games.
+
+    Args:
+        session: Database session.
+        league_id: ID of the league for which to create the session.
+        date: Date string (e.g. '6/19/2026').
+        name: Optional session name override.
+        created_by: Optional player ID of the creator.
+        court_id: Optional court ID; defaults to the league's primary home court.
+        latitude: Optional browser geolocation latitude.
+        longitude: Optional browser geolocation longitude.
+
+    Returns:
+        Dict with created session info (``season_id`` may be None for gap games).
+
+    Raises:
+        ValueError: When the league does not exist or a duplicate ACTIVE session
+            already exists for the same league + date (gap-game or season key).
     """
+    from backend.services.league_data import resolve_active_season
+
     result = await session.execute(select(League).where(League.id == league_id))
     league = result.scalar_one_or_none()
     if not league:
         raise ValueError(f"League {league_id} not found")
 
-    active_season = await _get_active_season(session, league_id)
+    # Soft resolve: None means no active season → gap game.
+    active = await resolve_active_season(session, league_id)
+    resolved_season_id: Optional[int] = active.id if active is not None else None
 
-    # Check if active session already exists for this date and season
-    result = await session.execute(
-        select(Session).where(
-            and_(
-                Session.date == date,
-                Session.season_id == active_season.id,
-                Session.status == SessionStatus.ACTIVE,
-            )
+    # Duplicate-prevention anchor:
+    #   gap game  → league_id + date + season_id IS NULL
+    #   season game → season_id
+    if resolved_season_id is None:
+        dup_where = and_(
+            Session.date == date,
+            Session.league_id == league_id,
+            Session.season_id.is_(None),
+            Session.status == SessionStatus.ACTIVE,
         )
-    )
+        count_where = and_(
+            Session.date == date,
+            Session.league_id == league_id,
+            Session.season_id.is_(None),
+        )
+    else:
+        dup_where = and_(
+            Session.date == date,
+            Session.season_id == resolved_season_id,
+            Session.status == SessionStatus.ACTIVE,
+        )
+        count_where = and_(
+            Session.date == date,
+            Session.season_id == resolved_season_id,
+        )
+
+    # Check for duplicate active session
+    result = await session.execute(select(Session).where(dup_where))
     existing_session = result.scalar_one_or_none()
     if existing_session:
         raise ValueError(
-            f"An active session '{existing_session.name}' already exists for this date. Please submit the current session before creating a new one."
+            f"An active session '{existing_session.name}' already exists for this date. "
+            "Please submit the current session before creating a new one."
         )
 
     count_result = await session.execute(
-        select(func.count(Session.id)).where(
-            and_(Session.date == date, Session.season_id == active_season.id)
-        )
+        select(func.count(Session.id)).where(count_where)
     )
     session_count = count_result.scalar() or 0
 
@@ -606,7 +684,9 @@ async def create_league_session(
         date=date,
         name=session_name,
         status=SessionStatus.ACTIVE,
-        season_id=active_season.id,
+        season_id=resolved_season_id,
+        league_id=league_id,
+        session_type="league",
         created_by=created_by,
         court_id=court_id,
         location_id=geo_location_id,
@@ -623,6 +703,7 @@ async def create_league_session(
         "name": new_session.name,
         "status": new_session.status.value if new_session.status else None,
         "season_id": new_session.season_id,
+        "league_id": new_session.league_id,
         "court_id": new_session.court_id,
         "location_id": new_session.location_id,
         "latitude": new_session.latitude,
