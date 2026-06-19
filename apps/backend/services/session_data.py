@@ -362,26 +362,15 @@ async def _get_active_season(
             )
         return active_season
 
-    current_date = date.today()
-    result = await session.execute(
-        select(Season)
-        .where(
-            and_(
-                Season.league_id == league_id,
-                Season.start_date <= current_date,
-                Season.end_date >= current_date,
-            )
-        )
-        .order_by(Season.created_at.desc())
-        .limit(1)
-    )
-    active_season = result.scalar_one_or_none()
-    if not active_season:
+    from backend.services.league_data import resolve_active_season
+
+    s = await resolve_active_season(session, league_id)
+    if s is None:
         raise ValueError(
             f"League {league_id} does not have an active season. "
             "Please create a season with dates that include today's date."
         )
-    return active_season
+    return s
 
 
 async def get_or_create_active_league_session(

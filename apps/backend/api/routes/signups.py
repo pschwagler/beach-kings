@@ -6,11 +6,11 @@ from typing import List, Optional
 
 import pytz
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.database.models import Player, Season, Court
+from backend.database.models import Player, Court
 from backend.services import data_service
 from backend.api.auth_dependencies import (
     get_current_user_optional,
@@ -91,23 +91,8 @@ async def get_league_signups(
         if not player:
             raise HTTPException(status_code=404, detail="Player not found for user")
 
-        # Find the active season by date bounds (no is_active column on Season).
-        from datetime import date as date_type
-
-        today = date_type.today()
-        season_result = await session.execute(
-            select(Season)
-            .where(
-                and_(
-                    Season.league_id == league_id,
-                    Season.start_date <= today,
-                    Season.end_date >= today,
-                )
-            )
-            .order_by(Season.created_at.desc())
-            .limit(1)
-        )
-        active_season = season_result.scalar_one_or_none()
+        # Find the active season via the canonical resolver (null-safe, injectable).
+        active_season = await data_service.resolve_active_season(session, league_id)
 
         if not active_season:
             return LeagueSignupsResponse(signups=[], schedule=[])

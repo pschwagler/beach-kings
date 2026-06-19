@@ -184,15 +184,16 @@ async def create_match(
                         )
                     resolved_season_id = selected_season.id
                 else:
-                    # No explicit season: use the league's active season, creating
-                    # an open-ended one when none is active (a date gap between
-                    # seasons, or a league with no season yet). Logging a game
-                    # never dead-ends on a missing season.
-                    active_season = await data_service.get_or_create_active_season(
+                    # No explicit season: resolve the league's canonical active
+                    # season.  Returns None when no season qualifies — the caller
+                    # will then propagate season_id=None to _get_active_season,
+                    # which raises.  Phase 3 will handle the no-active-season gap
+                    # case; for now all seeded leagues have an open-ended season.
+                    active = await data_service.resolve_active_season(
                         session=session,
                         league_id=league_id,
                     )
-                    resolved_season_id = active_season["id"]
+                    resolved_season_id = active.id if active is not None else None
 
                 result = await session.execute(
                     select(Session)

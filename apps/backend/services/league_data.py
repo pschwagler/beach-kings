@@ -24,6 +24,7 @@ __all__ = [
     "delete_league",
     "is_database_empty",
     "create_season",
+    "resolve_active_season",
     "get_or_create_active_season",
     "list_seasons",
     "get_season",
@@ -579,9 +580,13 @@ async def get_league_detail(
         if latest:
             current_season_id = latest.id
             current_season_name = latest.name
-            today = date.today()
-            sd, ed = latest.start_date, latest.end_date
-            is_active = bool(sd and ed and sd <= today <= ed)
+            # Build a transient Season object so _is_season_active can apply the
+            # canonical null-safe rule without an extra DB round-trip.
+            _latest_season = Season(
+                start_date=latest.start_date,
+                end_date=latest.end_date,
+            )
+            is_active = _is_season_active(_latest_season)
 
     # Resolve the caller's player_id (None if the user has no player profile)
     player_id_result = await session.execute(
@@ -978,6 +983,45 @@ def _serialize_season(season: Season) -> Dict:
     }
 
 
+async def resolve_active_season(
+    session: AsyncSession,
+    league_id: int,
+    today: date | None = None,
+) -> Season | None:
+    """Single canonical resolver for a league's active season.
+
+    Active = (start_date IS NULL OR start_date <= today)
+             AND (end_date IS NULL OR end_date >= today).
+    Tiebreak: most-recently-created season. Returns None when none qualify;
+    never raises, never creates. ``today`` is injectable for tests.
+
+    Args:
+        session: Async database session.
+        league_id: ID of the league whose active season to resolve.
+        today: Reference date; defaults to ``date.today()``.  Inject in tests
+               to freeze time.
+
+    Returns:
+        The active :class:`Season` ORM object, or ``None`` if none qualifies.
+    """
+    if today is None:
+        today = date.today()
+
+    result = await session.execute(
+        select(Season)
+        .where(
+            and_(
+                Season.league_id == league_id,
+                or_(Season.start_date.is_(None), Season.start_date <= today),
+                or_(Season.end_date.is_(None), Season.end_date >= today),
+            )
+        )
+        .order_by(Season.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_or_create_active_season(
     session: AsyncSession,
     league_id: int,
@@ -1181,8 +1225,7 @@ async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
             "name": s.name,
             "start_date": s.start_date.isoformat() if s.start_date else None,
             "end_date": s.end_date.isoformat() if s.end_date else None,
-            "is_active": (s.start_date is None or s.start_date <= today)
-            and (s.end_date is None or s.end_date >= today),
+            "is_active": _is_season_active(s, today),
             "session_count": session_counts.get(s.id, 0),
             "game_count": game_counts.get(s.id, 0),
             "scoring_system": s.scoring_system,  # Now just a string, no enum conversion needed
