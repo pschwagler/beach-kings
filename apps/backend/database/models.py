@@ -652,6 +652,7 @@ class Session(Base):
         String(12), nullable=True, unique=True
     )  # Shareable code for non-league / invite links
     season_id = Column(Integer, ForeignKey("seasons.id"), nullable=True)
+    league_id = Column(Integer, ForeignKey("leagues.id", ondelete="SET NULL"), nullable=True)
     court_id = Column(Integer, ForeignKey("courts.id"), nullable=True)
     location_id = Column(String, ForeignKey("locations.id"), nullable=True)
     latitude = Column(Float, nullable=True)
@@ -673,6 +674,7 @@ class Session(Base):
 
     # Relationships
     season = relationship("Season", back_populates="sessions")
+    league = relationship("League", foreign_keys=[league_id])
     court = relationship("Court", back_populates="sessions")
     location = relationship("Location")
     matches = relationship("Match", back_populates="session")
@@ -686,6 +688,7 @@ class Session(Base):
         Index("idx_sessions_date", "date"),
         Index("idx_sessions_status", "status"),
         Index("idx_sessions_season", "season_id"),
+        Index("idx_sessions_league", "league_id"),
         Index("idx_sessions_court", "court_id"),
         Index("idx_sessions_code", "code"),
         Index("idx_sessions_location", "location_id"),

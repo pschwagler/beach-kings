@@ -121,6 +121,8 @@ async def _patch_missing_columns(conn):
         ("feedback", "category", "VARCHAR(50) NOT NULL DEFAULT 'feedback'"),
         # Migration 048 — lifetime average point differential
         ("player_global_stats", "avg_point_diff", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+        # Migration 052 — direct league ownership on sessions
+        ("sessions", "league_id", "INTEGER REFERENCES leagues(id) ON DELETE SET NULL"),
     ]
     # Migration 024 — make phone_number and password_hash nullable for Google SSO
     # Migration 045 — make verification_codes.phone_number nullable for email flows
@@ -177,6 +179,17 @@ async def _patch_missing_columns(conn):
             "ON seasons (league_id) WHERE end_date IS NULL",
         ),
     ]
+    # Plain column-level index patches — run after the column patches block below
+    # so the column is guaranteed to exist before the index is created.
+    column_index_patches = [
+        # Migration 052 — index on sessions.league_id (column added in patches list above)
+        (
+            "sessions",
+            "league_id",
+            "idx_sessions_league",
+            "CREATE INDEX IF NOT EXISTS idx_sessions_league ON sessions (league_id)",
+        ),
+    ]
     for table, idx_name, ddl in partial_index_patches:
         idx_exists = await conn.execute(
             text("SELECT 1 FROM pg_indexes WHERE indexname = :idx"), {"idx": idx_name}
@@ -228,6 +241,23 @@ async def _patch_missing_columns(conn):
         )
         if col_exists.scalar() is None:
             await conn.execute(text(f'ALTER TABLE {table} ADD COLUMN "{column}" {ddl}'))
+
+    # Column-level index patches — run after the patches loop so their columns exist.
+    for table, column, idx_name, ddl in column_index_patches:
+        col_exists = await conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = :t AND column_name = :c"
+            ),
+            {"t": table, "c": column},
+        )
+        if col_exists.scalar() is not None:
+            # Column exists; create the index only if it doesn't exist yet
+            idx_exists = await conn.execute(
+                text("SELECT 1 FROM pg_indexes WHERE indexname = :idx"), {"idx": idx_name}
+            )
+            if idx_exists.scalar() is None:
+                await conn.execute(text(ddl))
 
 
 @pytest_asyncio.fixture(scope="function")
