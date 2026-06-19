@@ -21,7 +21,6 @@ from backend.database.models import (
     Match,
     Player,
     NotificationType,
-    Season,
 )
 from backend.utils.datetime_utils import utcnow
 
@@ -110,21 +109,15 @@ class SessionCleanupService:
         session_id = stale_session.id
         created_by = stale_session.created_by
         session_name = stale_session.name
-        season_id = stale_session.season_id
+        # Read league_id directly off the ORM row — avoids a Season subquery and
+        # correctly resolves league_id for gap-game sessions (season_id=None).
+        league_id = stale_session.league_id
 
         # Count matches in this session
         match_count_result = await session.execute(
             select(func.count()).select_from(Match).where(Match.session_id == session_id)
         )
         match_count = match_count_result.scalar() or 0
-
-        # Resolve league_id for notification links
-        league_id = None
-        if season_id:
-            season_result = await session.execute(
-                select(Season.league_id).where(Season.id == season_id)
-            )
-            league_id = season_result.scalar_one_or_none()
 
         if match_count > 0:
             await self._auto_submit(session, session_id, session_name, match_count)

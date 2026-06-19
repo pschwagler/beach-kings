@@ -849,7 +849,11 @@ async def lock_in_session(
     if not session_obj:
         return None
 
+    # Read both before commit — ORM attributes expire afterwards. league_id is
+    # read directly (not derived via Season) so gap games (season_id NULL,
+    # league_id set) still trigger a league recalculation.
     season_id = session_obj.season_id
+    league_id = session_obj.league_id
 
     if session_obj.status == SessionStatus.ACTIVE:
         new_status = SessionStatus.SUBMITTED
@@ -874,13 +878,8 @@ async def lock_in_session(
     global_job_id = await queue.enqueue_calculation(session, "global", None)
 
     league_job_id = None
-    if season_id:
-        season_result = await session.execute(select(Season).where(Season.id == season_id))
-        season_obj = season_result.scalar_one_or_none()
-        if season_obj:
-            league_job_id = await queue.enqueue_calculation(
-                session, "league", season_obj.league_id
-            )
+    if league_id:
+        league_job_id = await queue.enqueue_calculation(session, "league", league_id)
 
     return {
         "success": True,
@@ -1022,7 +1021,10 @@ async def delete_session(session: AsyncSession, session_id: int) -> bool:
         return False
 
     was_submitted = session_obj.status != SessionStatus.ACTIVE
-    season_id = session_obj.season_id
+    # Read league_id directly off the ORM row before commit (objects expire post-commit).
+    # This captures gap-game sessions (league_id set, season_id=None) that the old
+    # Season-subquery approach silently missed.
+    league_id = session_obj.league_id
 
     match_ids_result = await session.execute(
         select(Match.id).where(Match.session_id == session_id)
@@ -1035,14 +1037,6 @@ async def delete_session(session: AsyncSession, session_id: int) -> bool:
             delete(SeasonRatingHistory).where(SeasonRatingHistory.match_id.in_(match_ids))
         )
         await session.execute(delete(Match).where(Match.session_id == session_id))
-
-    # Fetch league_id before commit (session expires objects post-commit)
-    league_id = None
-    if was_submitted and season_id:
-        season_result = await session.execute(
-            select(Season.league_id).where(Season.id == season_id)
-        )
-        league_id = season_result.scalar_one_or_none()
 
     await session.execute(delete(Session).where(Session.id == session_id))
     await session.commit()

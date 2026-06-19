@@ -83,13 +83,18 @@ async def test_league_and_season(db_session: AsyncSession, test_players):
 
 @pytest_asyncio.fixture
 async def test_session(db_session: AsyncSession, test_league_and_season):
-    """Create a test session."""
+    """Create a test session.
+
+    Phase 5: league_id is set directly on the session so league stats routing
+    uses Session.league_id rather than deriving it via the Season join.
+    """
     league, season = test_league_and_season
     session = Session(
         date="2024-01-15",
         name="Test Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session)
@@ -843,12 +848,13 @@ async def test_multiple_seasons_separate_stats(
     await db_session.commit()
     await db_session.refresh(season2)
 
-    # Create session 2 in season 2
+    # Create session 2 in season 2 (league_id required by Phase 5 routing)
     session2 = Session(
         date="2025-01-15",
         name="Session 2",
         status=SessionStatus.SUBMITTED,
         season_id=season2.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session2)
@@ -1047,12 +1053,13 @@ async def test_season_calculation_only_includes_season_matches(
     alice, bob, charlie, dave = test_players
     league, season1 = test_league_and_season
 
-    # Create session in season 1
+    # Create session in season 1 (league_id required by Phase 5 routing)
     session1 = Session(
         date="2024-01-15",
         name="Session 1",
         status=SessionStatus.SUBMITTED,
         season_id=season1.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session1)
@@ -1071,12 +1078,13 @@ async def test_season_calculation_only_includes_season_matches(
     await db_session.commit()
     await db_session.refresh(season2)
 
-    # Create session in season 2
+    # Create session in season 2 (league_id required by Phase 5 routing)
     session2 = Session(
         date="2025-01-15",
         name="Session 2",
         status=SessionStatus.SUBMITTED,
         season_id=season2.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session2)
@@ -1319,6 +1327,7 @@ async def test_season_stats_custom_points_per_win(db_session, test_players, cust
         name="Custom Scoring Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session_obj)
@@ -1376,6 +1385,7 @@ async def test_league_stats_use_league_scoring_config(
         name="League Config Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session_obj)
@@ -1435,6 +1445,7 @@ async def test_season_rating_mode_points_are_ratings(
         name="Rating Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session_obj)
@@ -1497,6 +1508,7 @@ async def test_season_rating_non_member_gets_same_initial_rating(
         name="Guest Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session_obj)

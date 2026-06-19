@@ -436,12 +436,11 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
-        .outerjoin(Season, Session.season_id == Season.id)
         .outerjoin(p1, Match.team1_player1_id == p1.id)
         .outerjoin(p2, Match.team1_player2_id == p2.id)
         .outerjoin(p3, Match.team2_player1_id == p3.id)
         .outerjoin(p4, Match.team2_player2_id == p4.id)
-        .where(Season.league_id == league_id)
+        .where(Session.league_id == league_id)
         .order_by(Match.id.desc())
     )
 
@@ -521,7 +520,6 @@ async def query_matches(
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
-        .outerjoin(Season, Session.season_id == Season.id)
         .outerjoin(p1, Match.team1_player1_id == p1.id)
         .outerjoin(p2, Match.team1_player2_id == p2.id)
         .outerjoin(p3, Match.team2_player1_id == p3.id)
@@ -541,7 +539,7 @@ async def query_matches(
     if not include_non_public:
         conditions.append(Match.is_public.is_(True))
     if league_id is not None:
-        conditions.append(and_(Session.season_id.isnot(None), Season.league_id == int(league_id)))
+        conditions.append(Session.league_id == int(league_id))
     if season_id is not None:
         conditions.append(Session.season_id == int(season_id))
     if conditions:
@@ -1384,7 +1382,7 @@ async def get_player_match_history_by_id(
             Session.name.label("session_name"),
             Session.code.label("session_code"),
             Session.season_id.label("season_id"),
-            Season.league_id.label("league_id"),
+            Session.league_id.label("league_id"),
             League.name.label("league_name"),
             Season.name.label("season_name"),
             Court.name.label("court_name"),
@@ -1397,7 +1395,7 @@ async def get_player_match_history_by_id(
         .outerjoin(eh, and_(eh.match_id == Match.id, eh.player_id == player_id))
         .outerjoin(Session, Match.session_id == Session.id)
         .outerjoin(Season, Session.season_id == Season.id)
-        .outerjoin(League, Season.league_id == League.id)
+        .outerjoin(League, Session.league_id == League.id)
         .outerjoin(Court, Session.court_id == Court.id)
         .where(
             or_(

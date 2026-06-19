@@ -140,8 +140,7 @@ async def load_stat_eligible_matches_async(
     )
 
     if league_id is not None:
-        query = query.outerjoin(Season, Session.season_id == Season.id)
-        conditions.append(Season.league_id == league_id)
+        conditions.append(Session.league_id == league_id)
 
     if season_id is not None:
         conditions.append(Session.season_id == season_id)
