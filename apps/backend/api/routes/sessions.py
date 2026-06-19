@@ -221,12 +221,17 @@ async def is_user_admin_of_session_league(
 ) -> bool:
     """Check if user is admin of the league that the session belongs to.
 
-    Uses a single joined query: Session -> Season -> LeagueMember -> Player.
+    Uses a single joined query: LeagueMember -> Session (via Session.league_id)
+    -> Player.  Derives the league directly from Session.league_id so that
+    gap-game sessions (league_id set, season_id NULL) resolve correctly.
+
+    Returns False for pickup sessions (league_id NULL) because the join on
+    Session.league_id == LeagueMember.league_id matches nothing when league_id
+    is NULL.  Returns False for nonexistent session_id without raising.
     """
     result = await session.execute(
         select(LeagueMember.role)
-        .join(Season, Season.league_id == LeagueMember.league_id)
-        .join(Session, Session.season_id == Season.id)
+        .join(Session, Session.league_id == LeagueMember.league_id)
         .join(Player, Player.id == LeagueMember.player_id)
         .where(
             Session.id == session_id,
