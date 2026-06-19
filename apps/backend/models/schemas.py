@@ -1637,7 +1637,12 @@ class CreateNonLeagueSessionRequest(BaseModel):
 
 
 class UpdateSessionRequest(BaseModel):
-    """Request to update a non-league session (submit, rename, re-date, re-season, re-court)."""
+    """Request to update a session (submit, rename, re-date, re-season, re-court).
+
+    A session's ``league_id`` is never set directly by the client on update — it
+    is derived authoritatively inside ``update_session`` from the attached
+    season (a session may only move between seasons of its own league).
+    """
 
     submit: Optional[bool] = None
     name: Optional[str] = None

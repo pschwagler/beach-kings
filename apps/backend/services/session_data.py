@@ -432,6 +432,7 @@ async def get_or_create_active_league_session(
                 "name": existing_session.name,
                 "status": existing_session.status.value if existing_session.status else None,
                 "season_id": existing_session.season_id,
+                "league_id": existing_session.league_id,
                 "code": existing_session.code,
             }
     except Exception as e:
@@ -456,6 +457,7 @@ async def get_or_create_active_league_session(
                 "name": existing_session.name,
                 "status": existing_session.status.value if existing_session.status else None,
                 "season_id": existing_session.season_id,
+                "league_id": existing_session.league_id,
                 "code": existing_session.code,
             }
 
@@ -500,6 +502,8 @@ async def get_or_create_active_league_session(
         name=session_name,
         status=SessionStatus.ACTIVE,
         season_id=active_season.id,
+        league_id=league_id,
+        session_type="league",
         created_by=created_by,
         court_id=default_court_id,
         location_id=geo_location_id,
@@ -516,6 +520,7 @@ async def get_or_create_active_league_session(
         "name": new_session.name,
         "status": new_session.status.value if new_session.status else None,
         "season_id": new_session.season_id,
+        "league_id": new_session.league_id,
         "court_id": new_session.court_id,
         "location_id": new_session.location_id,
         "latitude": new_session.latitude,
@@ -632,6 +637,7 @@ async def create_session(
     name: Optional[str] = None,
     court_id: Optional[int] = None,
     created_by: Optional[int] = None,
+    league_id: int | None = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
     start_time: Optional[str] = None,
@@ -640,8 +646,12 @@ async def create_session(
     notes: Optional[str] = None,
 ) -> Dict:
     """
-    Create a new non-league session (no season_id).
-    Generates a unique shareable code and optionally adds creator to participants.
+    Create a new session. Generates a unique shareable code and optionally
+    adds the creator to participants.
+
+    When ``league_id`` is provided the session is stamped as a league session:
+    ``league_id`` is persisted on the row and ``session_type`` defaults to
+    ``'league'`` unless the caller explicitly passes a different value.
 
     Args:
         session: Database session
@@ -649,19 +659,26 @@ async def create_session(
         name: Optional session name (defaults to date-based name)
         court_id: Optional court ID
         created_by: Optional player ID who created the session
+        league_id: Optional league ID; when set the session is a league session
         latitude: Optional browser geolocation latitude
         longitude: Optional browser geolocation longitude
         start_time: Optional start time string (e.g. '3:00 PM')
-        session_type: Optional access type ('pickup' or 'league')
+        session_type: Optional access type ('pickup' or 'league'); when
+            ``league_id`` is set and this is ``None``, defaults to ``'league'``
         max_players: Optional maximum number of players (2-64)
         notes: Optional free-text notes visible to participants
 
     Returns:
-        Dict with session info including code
+        Dict with session info including code and league_id
 
     Raises:
         ValueError: If code generation fails after retries
     """
+    # Resolve effective session_type: default to 'league' when league_id is
+    # present and the caller did not supply an explicit override.
+    effective_session_type = session_type if session_type is not None else (
+        "league" if league_id is not None else None
+    )
     result = await session.execute(
         select(func.count(Session.id)).where(
             and_(Session.date == date, Session.season_id.is_(None))
@@ -693,13 +710,14 @@ async def create_session(
         status=SessionStatus.ACTIVE,
         code=code,
         season_id=None,
+        league_id=league_id,
         court_id=court_id,
         created_by=created_by,
         location_id=geo_location_id,
         latitude=geo_lat,
         longitude=geo_lon,
         start_time=start_time,
-        session_type=session_type,
+        session_type=effective_session_type,
         max_players=max_players,
         notes=notes,
     )
@@ -721,6 +739,7 @@ async def create_session(
         "status": new_session.status.value if new_session.status else None,
         "code": new_session.code,
         "season_id": new_session.season_id,
+        "league_id": new_session.league_id,
         "court_id": new_session.court_id,
         "location_id": new_session.location_id,
         "latitude": new_session.latitude,
@@ -836,6 +855,23 @@ async def update_session(
             season_obj = season_result.scalar_one_or_none()
             if not season_obj:
                 raise ValueError(f"Season {season_id} not found")
+            # Cross-field invariant: a session's league_id must always match its
+            # season's league_id. A session may only be moved between seasons of
+            # its OWN league (the gap-game escape hatch); re-homing a session to a
+            # different league's season is nonsensical (its games/participants
+            # belong to the original league) and is rejected. A league-less
+            # session (pickup) adopts the season's league.
+            if (
+                session_obj.league_id is not None
+                and season_obj.league_id != session_obj.league_id
+            ):
+                raise ValueError(
+                    f"Season {season_id} belongs to league {season_obj.league_id}, "
+                    f"not this session's league {session_obj.league_id}"
+                )
+            update_values["league_id"] = season_obj.league_id
+        # When season_id is explicitly set to None we leave league_id unchanged —
+        # a league session with no season is a valid gap-game state (Phase 3).
         update_values["season_id"] = season_id
 
     if update_court_id or court_id is not None:
@@ -850,7 +886,10 @@ async def update_session(
         return {
             "id": session_obj.id,
             "season_id": session_obj.season_id,
+            "league_id": session_obj.league_id,
             "court_id": session_obj.court_id,
+            "court_name": None,
+            "court_slug": None,
             "status": session_obj.status.value if session_obj.status else None,
             "name": session_obj.name,
             "date": session_obj.date,
@@ -875,6 +914,7 @@ async def update_session(
     return {
         "id": updated_session.id,
         "season_id": updated_session.season_id,
+        "league_id": updated_session.league_id,
         "court_id": updated_session.court_id,
         "court_name": court_name,
         "court_slug": court_slug,
