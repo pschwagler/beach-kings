@@ -43,6 +43,7 @@ Note - this is a public repo. Don't leak any PII or anything that could compromi
 
 # Mobile theming (NativeWind v4)
 - Components use one semantic class per role (`bg-surface`, `text-muted`) — no `dark:` color variants. See `apps/mobile/docs/theming.md`.
+- Never hardcode hex colors. Use a semantic class on styled elements; for color values passed as props (icon `color=`, `style={{ ... }}`) read from `usePaletteColors()` so they track light/dark. The only exception is a deliberately non-semantic palette (e.g. per-item avatar variety), which must be commented as such.
 - **NativeWind v4 collision rule:** if you add a new semantic role to `semanticColors()`, you must delete any same-named legacy entry in `tailwind.config.ts` in the same commit. Spread-last override silently fails — the bundler bakes in the legacy static hex instead of the CSS var.
 
 # Tools

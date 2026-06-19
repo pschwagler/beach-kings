@@ -32,6 +32,7 @@ import { useRouter } from 'expo-router';
 import TopNav from '@/components/ui/TopNav';
 import { CheckIcon } from '@/components/ui/icons';
 import { routes } from '@/lib/navigation';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -44,7 +45,11 @@ const DEFAULT_TEMPLATE =
 /** Sent ✓ revert duration. */
 const SENT_REVERT_MS = 3_000;
 
-/** Avatar palette — cycled by row index to match the wireframe variety. */
+/**
+ * Avatar palette — cycled by row index for per-player variety. Deliberately
+ * non-semantic (decorative identity colors, not theme roles), so these are the
+ * documented exception to the no-hardcoded-hex rule and don't track dark mode.
+ */
 const AVATAR_COLORS = [
   { bg: '#bae6fd', fg: '#0c4a6e' },
   { bg: '#fed7aa', fg: '#9a3412' },
@@ -112,6 +117,7 @@ function InviteRow({
   avatar,
   onSend,
 }: InviteRowProps): React.ReactNode {
+  const palette = usePaletteColors();
   return (
     <TouchableOpacity
       testID={`invite-row-${player.id}`}
@@ -132,8 +138,7 @@ function InviteRow({
           {player.initials}
         </Text>
         <View
-          style={{ backgroundColor: '#f59e0b' }}
-          className="absolute top-0 right-0 w-[12px] h-[12px] rounded-full border-2 border-surface"
+          className="absolute top-0 right-0 w-[12px] h-[12px] rounded-full border-2 border-surface bg-status-live"
         />
       </View>
 
@@ -151,7 +156,7 @@ function InviteRow({
           testID={`invite-sent-indicator-${player.id}`}
           className="flex-row items-center bg-success-tint rounded-full px-[12px] py-[8px]"
         >
-          <CheckIcon size={14} color="#16a34a" />
+          <CheckIcon size={14} color={palette.success} />
           <Text className="text-[13px] font-semibold text-success ml-[4px]">
             Sent
           </Text>
@@ -177,13 +182,11 @@ interface EmptyStateProps {
 }
 
 function EmptyState({ title, onBack }: EmptyStateProps): React.ReactNode {
+  const palette = usePaletteColors();
   return (
     <View className="flex-1 items-center justify-center px-[32px] py-[48px]">
-      <View
-        style={{ backgroundColor: '#dcfce7' }}
-        className="w-[80px] h-[80px] rounded-full items-center justify-center mb-[20px]"
-      >
-        <CheckIcon size={34} color="#16a34a" />
+      <View className="w-[80px] h-[80px] rounded-full items-center justify-center mb-[20px] bg-success-tint">
+        <CheckIcon size={34} color={palette.success} />
       </View>
       <Text className="text-[20px] font-bold text-default text-center">
         {title}
