@@ -181,7 +181,8 @@ async def _is_system_admin(session: AsyncSession, user: dict) -> bool:
                 return True
 
         return False
-    except Exception:
+    except Exception as exc:
+        logger.warning("_is_system_admin check raised unexpectedly: %s", exc, exc_info=True)
         return False
 
 

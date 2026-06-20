@@ -171,6 +171,17 @@ async def create_match(
                 session_obj = new_session
                 session_id = new_session["id"]
             else:
+                # SECURITY 3 FIX: require league membership before injecting
+                # matches into a league session.  Pickup path (league_id=None)
+                # is intentionally unchanged.
+                from backend.api.auth_dependencies import _has_league_role as _hlr
+
+                if not await _hlr(session, current_user["id"], league_id, None):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="League membership required to add matches to a league session",
+                    )
+
                 season_id = match_request.season_id
 
                 if season_id:
@@ -188,22 +199,26 @@ async def create_match(
                     resolved_season_id = selected_season.id
                 else:
                     # No explicit season: resolve the league's canonical active
-                    # season.  Returns None when no season qualifies — the caller
-                    # will then propagate season_id=None to _get_active_season,
-                    # which raises.  Phase 3 will handle the no-active-season gap
-                    # case; for now all seeded leagues have an open-ended season.
+                    # season (open-ended or date-bounded).  Returns None when no
+                    # qualifying season exists — gap-game path (season_id=None,
+                    # league_id set).  get_or_create_active_league_session handles
+                    # all three states: pickup, gap game, and season game.
                     active = await data_service.resolve_active_season(
                         session=session,
                         league_id=league_id,
                     )
                     resolved_season_id = active.id if active is not None else None
 
+                # BUG 1 FIX: anchor the dedup lookup on league_id so a gap game
+                # (season_id IS NULL) from League B does not match League A's
+                # open session on the same date.
                 result = await session.execute(
                     select(Session)
                     .where(
                         and_(
                             Session.date == match_date,
                             Session.season_id == resolved_season_id,
+                            Session.league_id == league_id,
                             Session.status == SessionStatus.ACTIVE,
                         )
                     )
@@ -211,12 +226,16 @@ async def create_match(
                 )
                 session_orm = result.scalar_one_or_none()
                 if session_orm:
+                    # BUG 2 FIX: include league_id so downstream
+                    # can_user_add_match_to_session classifies this as a league
+                    # session (not a pickup).
                     session_obj = {
                         "id": session_orm.id,
                         "date": session_orm.date,
                         "name": session_orm.name,
                         "status": session_orm.status.value if session_orm.status else None,
                         "season_id": session_orm.season_id,
+                        "league_id": session_orm.league_id,
                     }
                 else:
                     session_obj = None

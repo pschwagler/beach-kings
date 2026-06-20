@@ -362,7 +362,7 @@ async def _get_active_season(
     session: AsyncSession, league_id: int, season_id: Optional[int] = None
 ) -> Season:
     """Get active season for a league, either by ID or by current date."""
-    if season_id:
+    if season_id is not None:
         result = await session.execute(
             select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
         )
@@ -773,7 +773,11 @@ async def create_session(
     )
     result = await session.execute(
         select(func.count(Session.id)).where(
-            and_(Session.date == date, Session.season_id.is_(None))
+            and_(
+                Session.date == date,
+                Session.season_id.is_(None),
+                Session.league_id.is_(None),  # exclude gap games (league_id SET, season_id NULL)
+            )
         )
     )
     count = result.scalar() or 0

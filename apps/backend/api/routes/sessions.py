@@ -358,6 +358,18 @@ async def end_league_session(
             if player:
                 player_id = player["id"]
 
+        # SECURITY 1 FIX: verify the target session actually belongs to the
+        # league in the URL path before doing anything destructive.  Respond
+        # with 404 (not 403) to avoid leaking cross-league session existence.
+        sess_check = await session.execute(
+            select(Session.league_id).where(Session.id == session_id)
+        )
+        sess_row = sess_check.scalar_one_or_none()
+        if sess_row is None:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        if sess_row != league_id:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
         # Resolve context before lock_in_session commits the transaction
         session_name, resolved_league_id, league_name = await _resolve_session_context(
             session,
@@ -591,7 +603,16 @@ async def remove_session_participant(
         raise HTTPException(
             status_code=403, detail="Session creator cannot remove themselves from the session"
         )
-    if not await data_service.can_user_add_match_to_session(
+    # SECURITY 4 FIX: for league sessions, require league membership rather than
+    # relying on can_user_add_match_to_session (which short-circuits to True for
+    # any league session, granting roster removal to every authenticated user).
+    session_league_id = sess.get("league_id")
+    if session_league_id is not None:
+        if not await _has_league_role(session, current_user["id"], session_league_id, None):
+            raise HTTPException(
+                status_code=403, detail="League membership required to modify this session's roster"
+            )
+    elif not await data_service.can_user_add_match_to_session(
         session, session_id, sess, current_user["id"]
     ):
         raise HTTPException(status_code=403, detail="Only session participants can remove players")
@@ -750,6 +771,16 @@ async def create_session(
         created_by = player["id"] if player else None
 
         if body.league_id is not None:
+            # SECURITY 2 FIX: require league membership before creating or
+            # fetching a league session.  Any authenticated user could otherwise
+            # bootstrap sessions for leagues they do not belong to.
+            if not await _has_league_role(
+                session, current_user["id"], body.league_id, None
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail="League membership required to create a league session",
+                )
             new_session = await data_service.get_or_create_active_league_session(
                 session,
                 league_id=body.league_id,
@@ -779,6 +810,8 @@ async def create_session(
             "message": "Session created successfully",
             "session": new_session,
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

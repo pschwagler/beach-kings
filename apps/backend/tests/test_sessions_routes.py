@@ -199,24 +199,41 @@ class TestEndLeagueSession:
     """PATCH /api/leagues/{league_id}/sessions/{session_id} — submit/lock"""
 
     def test_submit_true_locks_session(self, monkeypatch):
-        """Happy path: { submit: true } locks the session and returns job ids."""
+        """Happy path: { submit: true } locks the session and returns job ids.
+
+        execute() is called in order:
+          1. IDOR check — SELECT league_id FROM sessions WHERE id = ?
+             scalar_one_or_none() → _LEAGUE_ID (session belongs to this league)
+          2. _resolve_session_context — SELECT name, season_id, league_id FROM sessions WHERE id = ?
+             first() → ("Test Session", _SEASON_ID, _LEAGUE_ID)
+          3. League name lookup — SELECT name FROM leagues WHERE id = ?
+             scalar_one_or_none() → None (no name needed for test assertion)
+        """
         from sqlalchemy.ext.asyncio import AsyncSession
 
         client, headers = _make_admin_client(monkeypatch)
         _patch_player(monkeypatch)
         _patch_notifications(monkeypatch)
 
-        # Stub DB execute for _resolve_session_context
-        # Row now has 3 columns: (name, season_id, league_id)
+        _call_count = [0]
+
         async def fake_execute(self_session, query, *args, **kwargs):
-            class FakeScalar:
+            _call_count[0] += 1
+            call = _call_count[0]
+
+            class FakeResult:
                 def first(self_r):
+                    # Call 2: _resolve_session_context row
                     return ("Test Session", _SEASON_ID, _LEAGUE_ID)
 
                 def scalar_one_or_none(self_r):
+                    if call == 1:
+                        # IDOR check: return the league_id so the session is accepted
+                        return _LEAGUE_ID
+                    # Call 3+: league name lookup → None is fine
                     return None
 
-            return FakeScalar()
+            return FakeResult()
 
         monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
 
@@ -460,7 +477,14 @@ class TestRemoveSessionParticipant:
     _OTHER_PLAYER_ID = 20
 
     def test_removes_participant(self, monkeypatch):
-        """Happy path: removes a non-creator participant from an active session."""
+        """Happy path: a league member removes a non-creator participant from an active league session.
+
+        Security fix (SECURITY 4): league sessions now require league membership
+        for roster removal.  _has_league_role is patched to return True here to
+        simulate the caller being a member of the session's league.
+        """
+        import backend.api.routes.sessions as sessions_module
+
         client, headers = _make_user_client(monkeypatch)
 
         # Session where created_by is _PLAYER_ID; we remove _OTHER_PLAYER_ID
@@ -469,17 +493,16 @@ class TestRemoveSessionParticipant:
         async def fake_get_session(session, session_id):
             return active_session
 
-        async def fake_can_add(session, session_id, sess, user_id):
-            return True
-
         async def fake_remove(session, session_id, player_id):
             return True
 
+        async def fake_has_league_role(session, user_id, league_id, required_role):
+            return True  # simulate caller is a league member
+
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
-        monkeypatch.setattr(
-            data_service, "can_user_add_match_to_session", fake_can_add, raising=True
-        )
         monkeypatch.setattr(data_service, "remove_session_participant", fake_remove, raising=True)
+        # Patch the name as bound in the sessions module (imported via `from ... import`)
+        monkeypatch.setattr(sessions_module, "_has_league_role", fake_has_league_role, raising=True)
 
         response = client.delete(
             f"/api/sessions/{_SESSION_ID}/participants/{self._OTHER_PLAYER_ID}",
@@ -868,9 +891,22 @@ class TestCreateSession:
 
     def test_creates_league_session_via_get_or_create(self, monkeypatch):
         """With league_id, routes through get_or_create_active_league_session
-        (idempotent — supports the score-screen "Manage Session" flow)."""
+        (idempotent — supports the score-screen "Manage Session" flow).
+
+        Security fix (SECURITY 2): the route now checks league membership before
+        delegating to get_or_create.  _has_league_role is patched to True to
+        simulate a valid league member making this request.
+        """
+        import backend.api.routes.sessions as sessions_module
+
         client, headers = _make_user_client(monkeypatch)
         _patch_player(monkeypatch)
+
+        async def fake_has_league_role(session, user_id, league_id, required_role):
+            return True  # simulate caller is a league member
+
+        # Patch the name as bound in the sessions module (imported via `from ... import`)
+        monkeypatch.setattr(sessions_module, "_has_league_role", fake_has_league_role, raising=True)
 
         captured: dict = {}
         created_session = {
