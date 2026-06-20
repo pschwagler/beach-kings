@@ -122,7 +122,10 @@ async def create_match(
                     raise HTTPException(
                         status_code=400, detail="Cannot add games to a session with this status"
                     )
-                if session_obj.get("season_id") is None:
+                # League association is determined by league_id, not season_id.
+                # Gap games (league_id set, season_id NULL) are league sessions and
+                # require the league-admin check, not the pickup participant check.
+                if session_obj.get("league_id") is None:
                     if not await data_service.can_user_add_match_to_session(
                         session, session_id, session_obj, current_user["id"]
                     ):
@@ -139,7 +142,7 @@ async def create_match(
                             detail="Only league admins can add games to submitted sessions",
                         )
             else:
-                if session_obj.get("season_id") is None:
+                if session_obj.get("league_id") is None:
                     if not await data_service.can_user_add_match_to_session(
                         session, session_id, session_obj, current_user["id"]
                     ):
@@ -293,7 +296,9 @@ async def update_match(
             session_obj = await data_service.get_session(session, session_id)
             if not session_obj:
                 raise HTTPException(status_code=404, detail="Session not found")
-            if session_obj.get("season_id") is None:
+            # League association is determined by league_id, not season_id.
+            # Gap games (league_id set, season_id NULL) are league sessions.
+            if session_obj.get("league_id") is None:
                 player = await data_service.get_player_by_user_id(session, current_user["id"])
                 if not player or session_obj.get("created_by") != player["id"]:
                     raise HTTPException(
@@ -361,7 +366,9 @@ async def delete_match(
             session_obj = await data_service.get_session(session, session_id)
             if not session_obj:
                 raise HTTPException(status_code=404, detail="Session not found")
-            if session_obj.get("season_id") is None:
+            # League association is determined by league_id, not season_id.
+            # Gap games (league_id set, season_id NULL) are league sessions.
+            if session_obj.get("league_id") is None:
                 player = await data_service.get_player_by_user_id(session, current_user["id"])
                 if not player or session_obj.get("created_by") != player["id"]:
                     raise HTTPException(
@@ -645,8 +652,7 @@ async def confirm_photo_matches(
         match_date = body.match_date
         player_overrides = body.player_overrides
 
-        if not season_id:
-            raise HTTPException(status_code=400, detail="season_id is required")
+        # match_date is always required; season_id is optional (gap games omit it).
         if not match_date:
             raise HTTPException(status_code=400, detail="match_date is required")
 
@@ -657,13 +663,18 @@ async def confirm_photo_matches(
         if session_data.get("league_id") != league_id:
             raise HTTPException(status_code=403, detail="Session does not belong to this league")
 
-        season_result = await session.execute(
-            select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
-        )
-        if not season_result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=400, detail="Season not found or does not belong to this league"
+        # Only validate the season when one is explicitly provided.  Gap games
+        # (season_id=None) bypass this block; get_or_create_active_league_session
+        # will create the gap-game session automatically.
+        if season_id is not None:
+            season_result = await session.execute(
+                select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
             )
+            if not season_result.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Season not found or does not belong to this league",
+                )
 
         success, match_ids, message = await photo_match_service.create_matches_from_session(
             session, session_id, season_id, match_date, player_overrides=player_overrides

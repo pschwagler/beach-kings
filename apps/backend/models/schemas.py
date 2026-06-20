@@ -1699,9 +1699,14 @@ class EditPhotoResultsRequest(BaseModel):
 
 
 class ConfirmPhotoMatchesRequest(BaseModel):
-    """Request to confirm parsed photo matches and create them in the database."""
+    """Request to confirm parsed photo matches and create them in the database.
 
-    season_id: int
+    ``season_id`` is optional to support gap games (league_id set, season_id
+    NULL).  When omitted the matches are recorded as a gap game under the
+    league; when provided the season-belongs-to-league validation is applied.
+    """
+
+    season_id: Optional[int] = None
     match_date: str
     player_overrides: Optional[list] = None
 

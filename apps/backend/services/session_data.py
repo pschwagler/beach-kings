@@ -1734,11 +1734,16 @@ async def can_user_add_match_to_session(
     db_session: AsyncSession, session_id: int, session_obj: Dict, user_id: int
 ) -> bool:
     """
-    For non-league sessions (season_id is None), return True iff user's player is
+    For non-league sessions (league_id is None), return True iff user's player is
     creator, has a match in the session, or is in session_participants.
+
+    League association is determined by ``league_id``, not ``season_id``.  A gap
+    game (league_id set, season_id NULL) is still a league session and must return
+    True here so the caller applies the league-admin authorization check instead of
+    the pickup participant check.
     """
-    if session_obj.get("season_id") is not None:
-        return True  # League session: caller uses league-admin check
+    if session_obj.get("league_id") is not None:
+        return True  # League session (includes gap games): caller uses league-admin check
     player_result = await db_session.execute(select(Player.id).where(Player.user_id == user_id))
     player_id = player_result.scalar_one_or_none()
     if player_id is None:

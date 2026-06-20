@@ -1316,17 +1316,23 @@ def apply_player_overrides(parsed_matches: List[Dict], overrides: List[Dict]) ->
 async def create_matches_from_session(
     db_session: AsyncSession,
     session_id: str,
-    season_id: int,
+    season_id: Optional[int],
     match_date: str,
     player_overrides: Optional[List[Dict]] = None,
 ) -> Tuple[bool, List[int], str]:
     """
     Create matches from a confirmed photo session.
 
+    ``season_id`` is optional.  When ``None`` the session is created as a
+    *gap game* (league_id set, season_id NULL) via
+    ``get_or_create_active_league_session``.  When provided the season is
+    used directly and strict league-membership validation is applied by the
+    session-creation helper.
+
     Args:
         db_session: Database session
         session_id: Redis session ID
-        season_id: Season to create matches in
+        season_id: Season to create matches in, or None for a gap game
         match_date: Date for the matches
         player_overrides: Optional list of manual player resolutions
             [{raw_name, player_id, player_name}, ...]

@@ -936,10 +936,14 @@ class TestUpdateSession:
     """PATCH /api/sessions/{session_id}"""
 
     def test_update_name(self, monkeypatch):
-        """Happy path: updates the session name."""
+        """Happy path: updates the session name as a league admin."""
         client, headers = _make_user_client(monkeypatch)
 
         updated_session = {**_ACTIVE_SESSION, "name": "Renamed Session"}
+
+        async def fake_get_session(session, session_id):
+            # _ACTIVE_SESSION has league_id set — the route checks admin role.
+            return _ACTIVE_SESSION
 
         async def fake_update_session(
             session,
@@ -953,7 +957,19 @@ class TestUpdateSession:
         ):
             return updated_session
 
+        import backend.api.routes.sessions as sessions_module
+
+        async def fake_is_admin_of_session_league(session, user_id, session_id):
+            return True  # the test user acts as league admin
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(data_service, "update_session", fake_update_session, raising=True)
+        monkeypatch.setattr(
+            sessions_module,
+            "is_user_admin_of_session_league",
+            fake_is_admin_of_session_league,
+            raising=True,
+        )
 
         response = client.patch(
             f"/api/sessions/{_SESSION_ID}",

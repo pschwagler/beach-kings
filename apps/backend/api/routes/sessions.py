@@ -22,6 +22,8 @@ from backend.database.models import (
 from backend.services import data_service
 from backend.services.notification_service import notify_players_about_session_submitted
 from backend.api.auth_dependencies import (
+    _has_league_role,
+    _is_system_admin,
     get_current_user,
     make_require_league_member,
 )
@@ -865,6 +867,59 @@ async def update_session(
                 status_code=400,
                 detail="At least one field must be provided: submit, name, date, season_id, or court_id",
             )
+
+        # Authorization check for field updates.
+        #
+        # Case 1 — PROMOTION: pickup→league (update_season_id=True with a non-NULL
+        #   season_id value and the session has no current league_id).
+        #   Require admin of the TARGET league (derived from the new season).
+        #
+        # Case 2 — EXISTING LEAGUE SESSION EDIT: session already has a league_id
+        #   and no promotion is happening.
+        #   Require admin of the session's CURRENT league.
+        #
+        # Case 3 — PICKUP EDIT (no promotion): league_id is NULL and no new
+        #   season_id is being set.  No tightening; preserve existing behavior.
+        current_session = await data_service.get_session(session, session_id)
+        if not current_session:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+        is_promoting = update_season_id and processed_season_id is not None and (
+            current_session.get("league_id") is None
+        )
+
+        # System admins bypass the per-league admin checks, matching every other
+        # league-admin-protected route (see make_require_league_admin).
+        is_sys_admin = await _is_system_admin(session, current_user)
+
+        if is_promoting:
+            # Resolve the target league from the new season_id.  If the season
+            # is not found we still call _has_league_role with None — the check
+            # will return False (deny by default) which is the safe outcome.
+            season_row = await session.execute(
+                select(Season.league_id).where(Season.id == processed_season_id)
+            )
+            target_league_id = season_row.scalar_one_or_none()
+
+            if not is_sys_admin and not await _has_league_role(
+                session, current_user["id"], target_league_id, "admin"
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only league admins can promote a session to a league session",
+                )
+
+        elif current_session.get("league_id") is not None:
+            # Case 2: editing an existing league session (including a gap game,
+            # league_id set + season_id NULL) requires league-admin role.
+            if not is_sys_admin and not await is_user_admin_of_session_league(
+                session, current_user["id"], session_id
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only league admins can edit a league session",
+                )
+        # else: pickup edit with no promotion — no authz required (Case 3)
 
         result = await data_service.update_session(
             session,

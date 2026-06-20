@@ -236,18 +236,33 @@ class TestPhotoEndpointsRequireAuth:
 class TestConfirmPhotoSession:
     """Functional tests for POST photo-sessions/{id}/confirm."""
 
-    def test_confirm_missing_season_id_returns_400(self, monkeypatch):
-        """Omitting season_id from the request body returns 422 (schema) or 400."""
+    def test_confirm_missing_season_id_is_valid_gap_game(self, monkeypatch):
+        """Omitting season_id is valid for gap games (Bug #3 fix).
+
+        After the fix ``season_id`` is Optional[int]; a request without it
+        proceeds to the Redis session lookup.  With no Redis data available
+        the route returns 404 rather than 400/422.
+        """
         client, headers = _make_admin_client(monkeypatch)
 
-        # season_id is declared required in ConfirmPhotoMatchesRequest — FastAPI
-        # will reject the body at schema validation time (422).
+        async def fake_get_session_data(session_id: str):
+            return None  # Redis has no data for this session
+
+        monkeypatch.setattr(
+            photo_match_service, "get_session_data", fake_get_session_data, raising=True
+        )
+
         response = client.post(
             "/api/leagues/1/matches/photo-sessions/abc123/confirm",
             json={"match_date": "3/20/2026"},
             headers=headers,
         )
-        assert response.status_code in (400, 422)
+        # Gap game request (no season_id) must NOT be rejected with 400/422.
+        # It reaches the session lookup → 404 because Redis has no data.
+        assert response.status_code == 404, (
+            f"Omitting season_id should produce 404 (session not found) for a gap game, "
+            f"not 400/422.  Got {response.status_code}: {response.text}."
+        )
 
     def test_confirm_session_not_found_returns_404(self, monkeypatch):
         """Returns 404 when Redis session data does not exist."""

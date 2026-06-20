@@ -214,12 +214,19 @@ async def require_court_owner_or_admin(session: AsyncSession, court_id: int, use
 
 
 async def _has_league_role(
-    session: AsyncSession, user_id: int, league_id: int, required_role: Optional[str]
+    session: AsyncSession, user_id: int, league_id: Optional[int], required_role: Optional[str]
 ) -> bool:
     """
     Check if a user (by user_id) has a role within a league via players -> league_members.
     required_role: 'admin' for admin; None for any membership.
+
+    Returns False immediately when ``league_id`` is None (e.g. an unresolved
+    target league), making the deny-by-default contract explicit and avoiding a
+    pointless ``WHERE league_id IS NULL`` round-trip.
     """
+    if league_id is None:
+        return False
+
     query = (
         select(1)
         .select_from(

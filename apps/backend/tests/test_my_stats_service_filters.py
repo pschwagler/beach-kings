@@ -83,6 +83,10 @@ async def _create_session(
         name=name,
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        # A league session owns league_id directly (production backfill, migration
+        # 052).  League-scoped stats now filter on Session.league_id, so the
+        # fixture must mirror that — a season-only session would match nothing.
+        league_id=season.league_id,
     )
     db_session.add(s)
     await db_session.commit()

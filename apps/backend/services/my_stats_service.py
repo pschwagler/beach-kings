@@ -43,7 +43,6 @@ from backend.database.models import (
     PlayerGlobalStats,
     PlayerLeagueStats,
     PlayerSeasonStats,
-    Season,
     Session,
     SessionStatus,
 )
@@ -182,11 +181,6 @@ def _days_to_cutoff(days: Optional[int]) -> Optional[str]:
     return (date.today() - timedelta(days=days)).isoformat()
 
 
-def _seasons_in_league_subquery(league_id: int):
-    """Subquery returning all season ids in a given league."""
-    return select(Season.id).where(Season.league_id == league_id).scalar_subquery()
-
-
 def _player_team_clause(player_id: int):
     """Boolean clause matching matches where ``player_id`` is on either team."""
     return (
@@ -251,13 +245,18 @@ async def _overall_from_aggregates(
 async def _peak_rating_from_aggregates(
     session: AsyncSession, player_id: int, league_id: Optional[int]
 ) -> Optional[int]:
-    """Peak ``elo_after`` for a player, optionally constrained to a league."""
+    """Peak ``elo_after`` for a player, optionally constrained to a league.
+
+    Uses ``Session.league_id == league_id`` so that gap-game sessions
+    (league_id set, season_id NULL) are included.  The former
+    ``Season.id``-subquery excluded gap games because their season_id is NULL.
+    """
     query = select(func.max(EloHistory.elo_after)).where(EloHistory.player_id == player_id)
     if league_id is not None:
         query = (
             query.join(Match, EloHistory.match_id == Match.id)
             .join(Session, Match.session_id == Session.id)
-            .where(Session.season_id.in_(_seasons_in_league_subquery(league_id)))
+            .where(Session.league_id == league_id)
         )
     result = await session.execute(query)
     peak = result.scalar()
@@ -359,7 +358,11 @@ async def _opponents_from_aggregates(
 async def _elo_timeline_full(
     session: AsyncSession, player_id: int, league_id: Optional[int]
 ) -> List[Dict]:
-    """Per-player ELO timeline (lifetime or league-scoped)."""
+    """Per-player ELO timeline (lifetime or league-scoped).
+
+    Uses ``Session.league_id == league_id`` so that gap-game sessions
+    (league_id set, season_id NULL) are included in the timeline.
+    """
     query = (
         select(EloHistory.date, EloHistory.elo_after)
         .where(EloHistory.player_id == player_id)
@@ -369,7 +372,7 @@ async def _elo_timeline_full(
         query = (
             query.join(Match, EloHistory.match_id == Match.id)
             .join(Session, Match.session_id == Session.id)
-            .where(Session.season_id.in_(_seasons_in_league_subquery(league_id)))
+            .where(Session.league_id == league_id)
         )
     result = await session.execute(query)
     elo_by_date: Dict[str, float] = {}
@@ -417,7 +420,10 @@ async def _overall_from_matches(
     if date_cutoff is not None:
         query = query.where(Session.date >= date_cutoff)
     if league_id is not None:
-        query = query.where(Session.season_id.in_(_seasons_in_league_subquery(league_id)))
+        # Use Session.league_id directly so gap-game sessions (league_id set,
+        # season_id NULL) are included.  The former season-subquery excluded
+        # gap games because season_id=NULL is never IN a list of season ids.
+        query = query.where(Session.league_id == league_id)
 
     rows = (await session.execute(query)).all()
 
@@ -614,7 +620,9 @@ async def _compute_current_streak(
         .limit(50)
     )
     if league_id is not None:
-        query = query.where(Session.season_id.in_(_seasons_in_league_subquery(league_id)))
+        # Use Session.league_id directly so gap-game sessions (league_id set,
+        # season_id NULL) contribute to the league streak.
+        query = query.where(Session.league_id == league_id)
     if date_cutoff is not None:
         query = query.where(Session.date >= date_cutoff)
 
