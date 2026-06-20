@@ -510,7 +510,9 @@ async def get_league_detail(
 
     Returns all fields from get_league plus:
     - member_count, season_count
-    - current_season_id/name/is_active (most recent season by start_date)
+    - current_season_id/name/is_active: the genuinely-active season preferred;
+      falls back to the most-recent season by start_date when none is active
+      (e.g. an ended league), so the last season is still surfaced.
     - user_role, user_rank, user_wins, user_losses, user_rating (null for non-members)
     """
     # Base league + location
@@ -542,38 +544,13 @@ async def get_league_detail(
     current_season_name: Optional[str] = None
     is_active = False
     if season_count > 0:
-        season_rn = (
-            select(
-                Season.id.label("id"),
-                Season.name.label("name"),
-                Season.start_date.label("start_date"),
-                Season.end_date.label("end_date"),
-                func.row_number()
-                .over(order_by=(Season.start_date.desc(), Season.id.desc()))
-                .label("rn"),
-            )
-            .where(Season.league_id == league_id)
-            .subquery()
-        )
-        latest_result = await session.execute(
-            select(
-                season_rn.c.id,
-                season_rn.c.name,
-                season_rn.c.start_date,
-                season_rn.c.end_date,
-            ).where(season_rn.c.rn == 1)
-        )
-        latest = latest_result.one_or_none()
-        if latest:
-            current_season_id = latest.id
-            current_season_name = latest.name
-            # Build a transient Season object so _is_season_active can apply the
-            # canonical null-safe rule without an extra DB round-trip.
-            _latest_season = Season(
-                start_date=latest.start_date,
-                end_date=latest.end_date,
-            )
-            is_active = _is_season_active(_latest_season)
+        # Prefer the genuinely-active season; fall back to most-recent by
+        # start_date when nothing is active (e.g. an ended league).
+        display_season = await _current_display_season(session, league_id)
+        if display_season is not None:
+            current_season_id = display_season.id
+            current_season_name = display_season.name
+            is_active = _is_season_active(display_season)
 
     # Resolve the caller's player_id (None if the user has no player profile)
     player_id_result = await session.execute(
@@ -679,11 +656,19 @@ _SEASON_RANK_ORDER = (
 async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
     """Get all leagues a user is a member of, ordered by most recent session date.
 
-    Each entry includes the league's most recent season (with `is_active`
-    derived from today's date), and the user's stats in that season
-    (`games_played` plus a single-row `standings` array containing wins,
-    losses, win_rate, and `season_rank`). The standings row is included
-    so mobile clients can render the user's rank without a second request.
+    Each entry includes the league's current season (genuinely-active season
+    preferred; falls back to most-recent-by-start_date when none is active),
+    with ``is_active`` derived via the canonical ``_is_season_active`` helper.
+    The user's stats in that season are included (``games_played`` plus a
+    single-row ``standings`` array with wins, losses, win_rate, and
+    ``season_rank``).
+
+    Query budget: 2 queries regardless of how many leagues K the user belongs to.
+    - Phase 1: one query for league membership + ordering context.
+    - Phase 2a: one batch query for active seasons across all league IDs.
+    - Phase 2b: one batch fallback query for the most-recent season in leagues
+      that had no active season.
+    (Phases 2a/2b together = 2 queries; subsequent stats/ranks are also batched.)
     """
     from backend.database.models import Session as SessionModel
 
@@ -703,35 +688,10 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
         .subquery()
     )
 
-    # Most recent season per league (highest start_date, ties broken by id).
-    season_rn = (
-        select(
-            Season.id.label("id"),
-            Season.league_id.label("league_id"),
-            Season.name.label("name"),
-            Season.start_date.label("start_date"),
-            Season.end_date.label("end_date"),
-            func.row_number()
-            .over(
-                partition_by=Season.league_id,
-                order_by=(Season.start_date.desc(), Season.id.desc()),
-            )
-            .label("rn"),
-        )
-        .subquery()
-    )
-    latest_season_subq = (
-        select(
-            season_rn.c.id,
-            season_rn.c.league_id,
-            season_rn.c.name,
-            season_rn.c.start_date,
-            season_rn.c.end_date,
-        )
-        .where(season_rn.c.rn == 1)
-        .subquery()
-    )
-
+    # Phase 1: fetch league membership + ordering context.
+    # Exclude placeholder player rows so a user with both a placeholder and a
+    # real Player record for the same league only appears once, keyed on the
+    # real (non-placeholder) player.
     result = await session.execute(
         select(
             League,
@@ -741,30 +701,16 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
             func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
             Location.name.label("location_name"),
             latest_session_subq.c.latest_session_date,
-            latest_season_subq.c.id.label("season_id"),
-            latest_season_subq.c.name.label("season_name"),
-            latest_season_subq.c.start_date.label("season_start"),
-            latest_season_subq.c.end_date.label("season_end"),
-            PlayerSeasonStats.games.label("user_games"),
-            PlayerSeasonStats.wins.label("user_wins"),
-            PlayerSeasonStats.points.label("user_points"),
-            PlayerSeasonStats.win_rate.label("user_win_rate"),
-            PlayerSeasonStats.avg_point_diff.label("user_avg_pt_diff"),
         )
         .join(LeagueMember, LeagueMember.league_id == League.id)
         .join(Player, Player.id == LeagueMember.player_id)
         .outerjoin(member_count_subq, member_count_subq.c.league_id == League.id)
         .outerjoin(Location, Location.id == League.location_id)
         .outerjoin(latest_session_subq, latest_session_subq.c.league_id == League.id)
-        .outerjoin(latest_season_subq, latest_season_subq.c.league_id == League.id)
-        .outerjoin(
-            PlayerSeasonStats,
-            and_(
-                PlayerSeasonStats.season_id == latest_season_subq.c.id,
-                PlayerSeasonStats.player_id == Player.id,
-            ),
+        .where(
+            Player.user_id == user_id,
+            Player.is_placeholder.is_(False),
         )
-        .where(Player.user_id == user_id)
         .distinct()
         .order_by(
             latest_session_subq.c.latest_session_date.desc().nulls_last(),
@@ -773,15 +719,111 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
     )
     rows = result.all()
 
-    # Compute the user's season rank in each league's current season via
-    # a windowed query — one round-trip regardless of league count.
-    ranks_map: Dict[tuple, int] = {}
-    season_player_pairs = [
-        (r.season_id, r.player_id) for r in rows if r.season_id is not None
+    if not rows:
+        return []
+
+    # Collect the full set of league IDs for this user (deduplicated).
+    all_league_ids: list[int] = list({r[0].id for r in rows})
+
+    # Phase 2: resolve seasons in exactly 2 queries regardless of K leagues.
+    #
+    # 2a — ONE batch query for active seasons across all league IDs.
+    #      Dedup to one row per league using row_number() ordered by
+    #      created_at DESC (matching resolve_active_season's tiebreak).
+    today = date.today()
+    active_rn_sq = (
+        select(
+            Season,
+            func.row_number()
+            .over(
+                partition_by=Season.league_id,
+                order_by=Season.created_at.desc(),
+            )
+            .label("rn"),
+        )
+        .where(
+            Season.league_id.in_(all_league_ids),
+            *_active_season_conditions(today),
+        )
+        .subquery()
+    )
+    active_result = await session.execute(
+        select(Season).join(active_rn_sq, active_rn_sq.c.id == Season.id).where(
+            active_rn_sq.c.rn == 1
+        )
+    )
+    active_by_league: Dict[int, Season] = {
+        s.league_id: s for s in active_result.scalars().all()
+    }
+
+    # 2b — ONE fallback query: for leagues with NO active season, pick the
+    #      most-recent season by start_date DESC, id DESC (display order).
+    leagues_needing_fallback = [
+        lid for lid in all_league_ids if lid not in active_by_league
     ]
-    if season_player_pairs:
-        season_ids = list({sid for sid, _ in season_player_pairs})
-        player_ids = list({pid for _, pid in season_player_pairs})
+    fallback_by_league: Dict[int, Season] = {}
+    if leagues_needing_fallback:
+        fallback_rn_sq = (
+            select(
+                Season,
+                func.row_number()
+                .over(
+                    partition_by=Season.league_id,
+                    order_by=(Season.start_date.desc(), Season.id.desc()),
+                )
+                .label("rn"),
+            )
+            .where(Season.league_id.in_(leagues_needing_fallback))
+            .subquery()
+        )
+        fallback_result = await session.execute(
+            select(Season)
+            .join(fallback_rn_sq, fallback_rn_sq.c.id == Season.id)
+            .where(fallback_rn_sq.c.rn == 1)
+        )
+        fallback_by_league = {
+            s.league_id: s for s in fallback_result.scalars().all()
+        }
+
+    # Build the per-league season map: active wins, fallback for the rest.
+    league_seasons: Dict[int, Season | None] = {
+        lid: active_by_league.get(lid) or fallback_by_league.get(lid)
+        for lid in all_league_ids
+    }
+
+    # Build a per-row player_id map keyed by league_id so stats/rank are
+    # computed against the correct (non-placeholder) player for each league.
+    player_id_by_league: Dict[int, int] = {r[0].id: r.player_id for r in rows}
+
+    # Gather season IDs that have a resolved season.
+    season_ids_with_data: list[int] = [
+        s.id for s in league_seasons.values() if s is not None
+    ]
+
+    # Build the set of (season_id, player_id) pairs we need stats for.
+    # A user could theoretically have different player rows in different leagues
+    # (e.g. after claim), so we include all unique player_ids seen.
+    all_player_ids: list[int] = list({pid for pid in player_id_by_league.values()})
+
+    # Fetch PlayerSeasonStats for all relevant (player, season) combinations.
+    # Key: (season_id, player_id) → stats row.
+    stats_by_season_player: Dict[tuple[int, int], PlayerSeasonStats] = {}
+    if season_ids_with_data and all_player_ids:
+        stats_result = await session.execute(
+            select(PlayerSeasonStats).where(
+                and_(
+                    PlayerSeasonStats.player_id.in_(all_player_ids),
+                    PlayerSeasonStats.season_id.in_(season_ids_with_data),
+                )
+            )
+        )
+        for stats_row in stats_result.scalars().all():
+            stats_by_season_player[(stats_row.season_id, stats_row.player_id)] = stats_row
+
+    # Compute ranks: one windowed query covering all relevant seasons.
+    # Key: (season_id, player_id) → rank.
+    ranks_map: Dict[tuple[int, int], int] = {}
+    if season_ids_with_data:
         ranked_sq = (
             select(
                 PlayerSeasonStats.season_id.label("season_id"),
@@ -793,7 +835,7 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
                 )
                 .label("season_rank"),
             )
-            .where(PlayerSeasonStats.season_id.in_(season_ids))
+            .where(PlayerSeasonStats.season_id.in_(season_ids_with_data))
             .subquery()
         )
         rank_result = await session.execute(
@@ -801,49 +843,65 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
                 ranked_sq.c.season_id,
                 ranked_sq.c.player_id,
                 ranked_sq.c.season_rank,
-            ).where(ranked_sq.c.player_id.in_(player_ids))
+            ).where(ranked_sq.c.player_id.in_(all_player_ids))
         )
         for rank_row in rank_result.all():
             ranks_map[(rank_row.season_id, rank_row.player_id)] = int(
                 rank_row.season_rank
             )
 
-    today = date.today()
-
     output: List[Dict] = []
     for r in rows:
-        league = r[0]
+        league_obj = r[0]
+        # Use the per-row player_id to avoid mixing up stats when a user has
+        # more than one Player record (e.g. after claiming a placeholder).
+        row_player_id = r.player_id
+        display_season = league_seasons.get(league_obj.id)
 
         season_data: Optional[Dict] = None
-        if r.season_id is not None:
-            sd = r.season_start
-            ed = r.season_end
-            is_active = bool(sd and ed and sd <= today <= ed)
+        if display_season is not None:
             season_data = {
-                "id": r.season_id,
-                "name": r.season_name or f"Season {r.season_id}",
-                "start_date": sd.isoformat() if sd else None,
-                "end_date": ed.isoformat() if ed else None,
-                "is_active": is_active,
+                "id": display_season.id,
+                "name": display_season.name or f"Season {display_season.id}",
+                "start_date": (
+                    display_season.start_date.isoformat()
+                    if display_season.start_date
+                    else None
+                ),
+                "end_date": (
+                    display_season.end_date.isoformat()
+                    if display_season.end_date
+                    else None
+                ),
+                # Use the canonical null-safe rule — handles open-ended seasons.
+                "is_active": _is_season_active(display_season),
             }
 
-        user_games = int(r.user_games) if r.user_games is not None else 0
-        user_wins = int(r.user_wins) if r.user_wins is not None else 0
+        stats = (
+            stats_by_season_player.get((display_season.id, row_player_id))
+            if display_season
+            else None
+        )
+        user_games = int(stats.games) if stats and stats.games is not None else 0
+        user_wins = int(stats.wins) if stats and stats.wins is not None else 0
         user_losses = max(0, user_games - user_wins)
-        user_points = float(r.user_points) if r.user_points is not None else 0.0
+        user_points = float(stats.points) if stats and stats.points is not None else 0.0
         user_win_rate = (
-            float(r.user_win_rate) if r.user_win_rate is not None else 0.0
+            float(stats.win_rate) if stats and stats.win_rate is not None else 0.0
         )
         user_avg_pt_diff = (
-            float(r.user_avg_pt_diff) if r.user_avg_pt_diff is not None else 0.0
+            float(stats.avg_point_diff)
+            if stats and stats.avg_point_diff is not None
+            else 0.0
         )
-        user_rank = ranks_map.get((r.season_id, r.player_id))
+        season_id_for_rank = display_season.id if display_season else None
+        user_rank = ranks_map.get((season_id_for_rank, row_player_id))
 
         standings: List[Dict] = []
         if user_games > 0 or user_rank is not None:
             standings.append(
                 {
-                    "player_id": r.player_id,
+                    "player_id": row_player_id,
                     "name": r.player_full_name or "",
                     "elo": 0,
                     "points": user_points,
@@ -858,19 +916,23 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
 
         output.append(
             {
-                "id": league.id,
-                "name": league.name,
-                "description": league.description,
-                "location_id": league.location_id,
+                "id": league_obj.id,
+                "name": league_obj.name,
+                "description": league_obj.description,
+                "location_id": league_obj.location_id,
                 "location_name": r.location_name,
-                "is_open": league.is_open,
-                "whatsapp_group_id": league.whatsapp_group_id,
-                "gender": league.gender,
-                "level": league.level,
+                "is_open": league_obj.is_open,
+                "whatsapp_group_id": league_obj.whatsapp_group_id,
+                "gender": league_obj.gender,
+                "level": league_obj.level,
                 "membership_role": r.membership_role,
                 "member_count": int(r.member_count) if r.member_count is not None else 0,
-                "created_at": league.created_at.isoformat() if league.created_at else None,
-                "updated_at": league.updated_at.isoformat() if league.updated_at else None,
+                "created_at": (
+                    league_obj.created_at.isoformat() if league_obj.created_at else None
+                ),
+                "updated_at": (
+                    league_obj.updated_at.isoformat() if league_obj.updated_at else None
+                ),
                 "current_season": season_data,
                 "games_played": user_games,
                 "standings": standings,
@@ -955,6 +1017,29 @@ def _is_season_active(season: Season, current_date: Optional[date] = None) -> bo
     return started and not_ended
 
 
+def _active_season_conditions(today: date) -> list:
+    """Canonical SQL conditions for 'season is active on ``today``'.
+
+    A season is active when:
+      (start_date IS NULL OR start_date <= today)
+      AND (end_date IS NULL OR end_date >= today)
+
+    Null bounds are treated as open-ended — identical semantics to
+    :func:`_is_season_active`.  Use this in every query that filters for
+    active seasons so the predicate has a single source of truth.
+
+    Args:
+        today: The reference date to evaluate activity against.
+
+    Returns:
+        A list of SQLAlchemy column expressions suitable for ``and_(*...)``.
+    """
+    return [
+        or_(Season.start_date.is_(None), Season.start_date <= today),
+        or_(Season.end_date.is_(None), Season.end_date >= today),
+    ]
+
+
 async def resolve_active_season(
     session: AsyncSession,
     league_id: int,
@@ -984,11 +1069,39 @@ async def resolve_active_season(
         .where(
             and_(
                 Season.league_id == league_id,
-                or_(Season.start_date.is_(None), Season.start_date <= today),
-                or_(Season.end_date.is_(None), Season.end_date >= today),
+                *_active_season_conditions(today),
             )
         )
         .order_by(Season.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _current_display_season(
+    session: AsyncSession, league_id: int
+) -> Season | None:
+    """Return the season to display as a league's "current" season.
+
+    Prefers the genuinely-active season via the canonical resolver; only when
+    none qualifies does it fall back to the most-recent season by start_date
+    so that an ended league still shows its last season (flagged inactive).
+    Returns None when the league has no seasons at all.
+
+    Args:
+        session: Async database session.
+        league_id: ID of the target league.
+
+    Returns:
+        A :class:`Season` ORM object, or ``None`` when no seasons exist.
+    """
+    active = await resolve_active_season(session, league_id)
+    if active is not None:
+        return active
+    result = await session.execute(
+        select(Season)
+        .where(Season.league_id == league_id)
+        .order_by(Season.start_date.desc(), Season.id.desc())
         .limit(1)
     )
     return result.scalar_one_or_none()
