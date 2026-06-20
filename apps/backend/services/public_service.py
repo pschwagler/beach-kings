@@ -131,15 +131,16 @@ async def get_public_leagues(
         .subquery()
     )
 
-    # Subquery: games played per league (count matches across all seasons)
+    # Subquery: games played per league (count matches across all sessions,
+    # including gap-game sessions that have no season_id).
     games_played_subq = (
         select(
-            Season.league_id,
+            Session.league_id,
             func.count(Match.id).label("games_played"),
         )
-        .join(Session, Session.season_id == Season.id)
         .join(Match, Match.session_id == Session.id)
-        .group_by(Season.league_id)
+        .where(Session.league_id.isnot(None))
+        .group_by(Session.league_id)
         .subquery()
     )
 
@@ -297,13 +298,13 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
     }
 
     if not league.is_public:
-        # Private league: add games_played count and return limited data
+        # Private league: add games_played count and return limited data.
+        # Filter by Session.league_id so gap sessions (season_id=NULL) are counted.
         games_played = (
             await session.execute(
                 select(func.count(Match.id))
                 .join(Session, Match.session_id == Session.id)
-                .join(Season, Session.season_id == Season.id)
-                .where(Season.league_id == league_id)
+                .where(Session.league_id == league_id)
             )
         ).scalar() or 0
         response["games_played"] = games_played
@@ -337,14 +338,11 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
     ]
 
     # 4. Current season + standings
-    latest_season = (
-        await session.execute(
-            select(Season)
-            .where(Season.league_id == league_id)
-            .order_by(Season.start_date.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+    # Prefer the genuinely-active season; fall back to the most-recent by
+    # start_date so an ended league still shows its last season.
+    from backend.services.league_data import _current_display_season
+
+    latest_season = await _current_display_season(session, league_id)
 
     if latest_season:
         response["current_season"] = {
@@ -393,6 +391,8 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
     p2 = aliased(Player)
     p3 = aliased(Player)
     p4 = aliased(Player)
+    # Use Session.league_id to match gap sessions (season_id=NULL).
+    # The previous INNER join on Season silently excluded all gap games.
     matches_result = await session.execute(
         select(
             Match.id,
@@ -410,12 +410,11 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             p4.full_name.label("t2p2"),
         )
         .join(Session, Match.session_id == Session.id)
-        .join(Season, Session.season_id == Season.id)
         .outerjoin(p1, Match.team1_player1_id == p1.id)
         .outerjoin(p2, Match.team1_player2_id == p2.id)
         .outerjoin(p3, Match.team2_player1_id == p3.id)
         .outerjoin(p4, Match.team2_player2_id == p4.id)
-        .where(Season.league_id == league_id)
+        .where(Session.league_id == league_id)
         .order_by(Match.id.desc())
         .limit(20)
     )
@@ -752,11 +751,12 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
         .correlate()
         .scalar_subquery()
     )
+    # Join Session → League directly via Session.league_id so that gap-game
+    # sessions (season_id=NULL) are counted in the location's match total.
     match_count_subq = (
         select(func.count(Match.id))
         .join(Session, Match.session_id == Session.id)
-        .join(Season, Session.season_id == Season.id)
-        .join(League, Season.league_id == League.id)
+        .join(League, Session.league_id == League.id)
         .where(League.location_id == location.id)
         .correlate()
         .scalar_subquery()

@@ -55,6 +55,18 @@ _ACTIVE_SESSION = {
     "name": "Test Session",
     "status": "ACTIVE",
     "season_id": _SEASON_ID,
+    "league_id": _LEAGUE_ID,
+    "court_id": None,
+    "created_by": _PLAYER_ID,
+    "code": "ABCD1234",
+}
+
+# Pre-migration session dict: no league_id key, so route uses Season→League fallback.
+_LEGACY_SESSION = {
+    "id": _SESSION_ID,
+    "name": "Test Session",
+    "status": "ACTIVE",
+    "season_id": _SEASON_ID,
     "court_id": None,
     "created_by": _PLAYER_ID,
     "code": "ABCD1234",
@@ -195,10 +207,11 @@ class TestEndLeagueSession:
         _patch_notifications(monkeypatch)
 
         # Stub DB execute for _resolve_session_context
+        # Row now has 3 columns: (name, season_id, league_id)
         async def fake_execute(self_session, query, *args, **kwargs):
             class FakeScalar:
                 def first(self_r):
-                    return ("Test Session", _SEASON_ID)
+                    return ("Test Session", _SEASON_ID, _LEAGUE_ID)
 
                 def scalar_one_or_none(self_r):
                     return None
@@ -960,10 +973,11 @@ class TestUpdateSession:
         _patch_player(monkeypatch)
         _patch_notifications(monkeypatch)
 
+        # Row now has 3 columns: (name, season_id, league_id)
         async def fake_execute(self_session, query, *args, **kwargs):
             class FakeScalar:
                 def first(self_r):
-                    return ("Test Session", _SEASON_ID)
+                    return ("Test Session", _SEASON_ID, None)
 
                 def scalar_one_or_none(self_r):
                     return None
@@ -1157,11 +1171,60 @@ class TestGetSessionDetail:
             data_service, "get_player_by_user_id", fake_get_player, raising=True
         )
 
-    def _patch_execute_league(self, monkeypatch, league_id=None, league_name=None):
-        """Patch AsyncSession.execute for session-type/court + league queries."""
+    def _patch_execute_league(self, monkeypatch, league_name=None):
+        """Patch AsyncSession.execute for the DIRECT path (league_id on session dict).
+
+        Call sequence when sess["league_id"] is set (post-migration sessions):
+          1 - court/session-type query  → one_or_none()
+          2 - League.name lookup        → scalar_one_or_none() returns league_name
+
+        No Season.league_id call is made in this path.
+        """
         from sqlalchemy.ext.asyncio import AsyncSession
 
         call_count = [0]
+        season_lookup_called = [False]
+
+        async def fake_execute(self_session, query, *args, **kwargs):
+            call_count[0] += 1
+
+            class RowOne:
+                session_type = "pickup"
+                court_id = None
+                court_name = None
+                date = "3/19/2026"
+                start_time = None
+                max_players = None
+                notes = None
+
+            class ResultFirst:
+                def one_or_none(self_r):
+                    return RowOne()
+
+            class ResultLeagueName:
+                def scalar_one_or_none(self_r):
+                    return league_name
+
+            if call_count[0] == 1:
+                return ResultFirst()
+            # Any subsequent call is the League.name lookup (direct path only)
+            return ResultLeagueName()
+
+        monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
+        return season_lookup_called
+
+    def _patch_execute_league_legacy(self, monkeypatch, league_id=None, league_name=None):
+        """Patch AsyncSession.execute for the LEGACY Season-fallback path.
+
+        Call sequence when sess has no "league_id" key (pre-migration sessions):
+          1 - court/session-type query       → one_or_none()
+          2 - Season.league_id fallback      → scalar_one_or_none() returns league_id
+          3 - League.name lookup             → scalar_one_or_none() returns league_name
+        """
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        call_count = [0]
+        scalar_call_count = [0]
 
         async def fake_execute(self_session, query, *args, **kwargs):
             call_count[0] += 1
@@ -1181,20 +1244,12 @@ class TestGetSessionDetail:
 
             class ResultLeague:
                 def scalar_one_or_none(self_r):
-                    return league_id
-
-                def one_or_none(self_r):
-                    # Used by the enriched endpoint to get league_id + league_name
-                    if league_id is None:
-                        return None
-
-                    class Row:
-                        pass
-
-                    row = Row()
-                    row.league_id = league_id
-                    row.league_name = league_name
-                    return row
+                    scalar_call_count[0] += 1
+                    # First scalar call: Season.league_id legacy fallback
+                    if scalar_call_count[0] == 1:
+                        return league_id
+                    # Second scalar call: League.name lookup
+                    return league_name
 
             if call_count[0] == 1:
                 return ResultFirst()
@@ -1279,26 +1334,135 @@ class TestGetSessionDetail:
         assert "notes" in data
 
     def test_response_includes_league_name(self, monkeypatch):
-        """Response includes league_name when session belongs to a league."""
+        """Direct path: league_id from session dict; league_name from single League.name
+        scalar call (no Season lookup).  _ACTIVE_SESSION carries league_id=_LEAGUE_ID.
+        """
         self._patch_shared(monkeypatch)
-        self._patch_execute_league(monkeypatch, league_id=5, league_name="QBK Open Men")
+        # Direct path: only one scalar call (League.name); no Season.league_id call.
+        self._patch_execute_league(monkeypatch, league_name="QBK Open Men")
         client, headers = _make_user_client(monkeypatch)
 
         response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
         assert response.status_code == 200
         data = response.json()
-        assert data["league_id"] == 5
+        # league_id comes straight from the session dict (_LEAGUE_ID == 5)
+        assert data["league_id"] == _LEAGUE_ID
         assert data["league_name"] == "QBK Open Men"
 
     def test_league_name_null_for_pickup_session(self, monkeypatch):
-        """Response has null league_name when session has no league."""
-        self._patch_shared(monkeypatch)
-        self._patch_execute_league(monkeypatch, league_id=None, league_name=None)
+        """Response has null league_name when session has no league (league_id absent)."""
+        # Use a session dict with no league_id to exercise the no-league branch.
+        no_league_session = {
+            "id": _SESSION_ID,
+            "name": "Test Session",
+            "status": "ACTIVE",
+            "season_id": None,
+            "court_id": None,
+            "created_by": _PLAYER_ID,
+            "code": "ABCD1234",
+            # No "league_id" key — pickup session
+        }
+
+        async def fake_get_session_no_league(session, session_id):
+            return no_league_session
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session_no_league, raising=True)
+
+        async def fake_can_add(session, session_id, sess, user_id):
+            return True
+
+        async def fake_get_roster(session, session_id):
+            return []
+
+        async def fake_get_games(session, session_id):
+            return []
+
+        async def fake_get_player(session, user_id):
+            return _FAKE_PLAYER
+
+        monkeypatch.setattr(data_service, "can_user_add_match_to_session", fake_can_add, raising=True)
+        monkeypatch.setattr(
+            data_service, "get_session_roster_with_game_counts", fake_get_roster, raising=True
+        )
+        monkeypatch.setattr(data_service, "get_session_matches", fake_get_games, raising=True)
+        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
+
+        # No scalar calls expected (no league_id, no season_id → no DB lookups for league)
+        from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession
+
+        call_count = [0]
+
+        async def fake_execute_no_league(self_session, query, *args, **kwargs):
+            call_count[0] += 1
+
+            class RowOne:
+                session_type = "pickup"
+                court_id = None
+                court_name = None
+                date = "3/19/2026"
+                start_time = None
+                max_players = None
+                notes = None
+
+            class ResultFirst:
+                def one_or_none(self_r):
+                    return RowOne()
+
+            return ResultFirst()
+
+        monkeypatch.setattr(_AsyncSession, "execute", fake_execute_no_league, raising=True)
+
+        client, headers = _make_user_client(monkeypatch)
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["league_name"] is None
+        assert data["league_id"] is None
+        # Only the court/session-type query should have fired (no league DB calls)
+        assert call_count[0] == 1, (
+            f"Expected exactly 1 DB execute call for pickup session (court query only), "
+            f"got {call_count[0]}"
+        )
+
+    def test_response_includes_league_name_legacy_path(self, monkeypatch):
+        """Legacy path: session has no league_id key (pre-migration).
+        Route falls back to Season → league_id → League.name (two scalar calls).
+        """
+
+        async def fake_get_session_legacy(session, session_id):
+            return _LEGACY_SESSION
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session_legacy, raising=True)
+
+        async def fake_can_add(session, session_id, sess, user_id):
+            return True
+
+        async def fake_get_roster(session, session_id):
+            return []
+
+        async def fake_get_games(session, session_id):
+            return []
+
+        async def fake_get_player(session, user_id):
+            return _FAKE_PLAYER
+
+        monkeypatch.setattr(data_service, "can_user_add_match_to_session", fake_can_add, raising=True)
+        monkeypatch.setattr(
+            data_service, "get_session_roster_with_game_counts", fake_get_roster, raising=True
+        )
+        monkeypatch.setattr(data_service, "get_session_matches", fake_get_games, raising=True)
+        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
+
+        self._patch_execute_league_legacy(
+            monkeypatch, league_id=_LEAGUE_ID, league_name="Legacy League"
+        )
         client, headers = _make_user_client(monkeypatch)
 
         response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
         assert response.status_code == 200
-        assert response.json()["league_name"] is None
+        data = response.json()
+        assert data["league_id"] == _LEAGUE_ID
+        assert data["league_name"] == "Legacy League"
 
     def test_session_number_parsed_from_name(self, monkeypatch):
         """session_number is 1 for first session of the day (plain date name)."""

@@ -678,13 +678,16 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
         .subquery()
     )
 
+    # Derive league from Session.league_id directly so that gap sessions
+    # (season_id=NULL, league_id set) contribute to a league's latest_session_date
+    # ordering.  The previous Season join excluded all gap sessions.
     latest_session_subq = (
         select(
-            Season.league_id,
+            SessionModel.league_id,
             func.max(SessionModel.date).label("latest_session_date"),
         )
-        .join(SessionModel, SessionModel.season_id == Season.id)
-        .group_by(Season.league_id)
+        .where(SessionModel.league_id.isnot(None))
+        .group_by(SessionModel.league_id)
         .subquery()
     )
 

@@ -322,6 +322,7 @@ async def test_get_public_leagues_with_games_played(db_session, test_location, t
         name="Sess 1",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
     )
     db_session.add(sess)
     await db_session.commit()
@@ -513,9 +514,13 @@ async def public_league_full(db_session, test_location, test_player):
     )
     db_session.add_all([stats1, stats2])
 
-    # Session + match
+    # Session + match (league_id set so gap-game-aware queries can find it)
     sess = Session(
-        date="2026-02-01", name="Session 1", status=SessionStatus.SUBMITTED, season_id=season.id
+        date="2026-02-01",
+        name="Session 1",
+        status=SessionStatus.SUBMITTED,
+        season_id=season.id,
+        league_id=league.id,
     )
     db_session.add(sess)
     await db_session.commit()
@@ -1099,7 +1104,11 @@ async def test_get_public_location_match_count(db_session, test_location, test_p
     await db_session.refresh(season)
 
     sess = Session(
-        date="2026-02-01", name="Session 1", status=SessionStatus.SUBMITTED, season_id=season.id
+        date="2026-02-01",
+        name="Session 1",
+        status=SessionStatus.SUBMITTED,
+        season_id=season.id,
+        league_id=league.id,
     )
     db_session.add(sess)
     await db_session.commit()

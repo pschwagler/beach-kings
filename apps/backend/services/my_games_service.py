@@ -21,7 +21,6 @@ from backend.database.models import (
     League,
     Match,
     Player,
-    Season,
     Session,
     SessionStatus,
 )
@@ -220,7 +219,7 @@ async def get_my_games(
             eh.elo_change,
             Session.status.label("session_status"),
             Session.date.label("session_date"),
-            Season.league_id.label("league_id"),
+            Session.league_id.label("league_id"),
             League.name.label("league_name"),
             Court.name.label("court_name"),
         )
@@ -231,14 +230,13 @@ async def get_my_games(
         .outerjoin(p4, Match.team2_player2_id == p4.id)
         .outerjoin(eh, and_(eh.match_id == Match.id, eh.player_id == player_id))
         .outerjoin(Session, Match.session_id == Session.id)
-        .outerjoin(Season, Session.season_id == Season.id)
-        .outerjoin(League, Season.league_id == League.id)
+        .outerjoin(League, Session.league_id == League.id)
         .outerjoin(Court, Session.court_id == Court.id)
         .where(base_where)
     )
 
     if league_id is not None:
-        query = query.where(Season.league_id == league_id)
+        query = query.where(Session.league_id == league_id)
 
     all_rows = (await session.execute(query)).all()
 

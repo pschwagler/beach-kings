@@ -20,7 +20,6 @@ from backend.database.models import (
     Court,
     Match,
     Player,
-    Season,
     Session,
 )
 
@@ -140,18 +139,17 @@ async def get_league_games(
         .outerjoin(p3, Match.team2_player1_id == p3.id)
         .outerjoin(p4, Match.team2_player2_id == p4.id)
         .outerjoin(Session, Match.session_id == Session.id)
-        .outerjoin(Season, Session.season_id == Season.id)
         .outerjoin(Court, Session.court_id == Court.id)
-        .where(Season.league_id == league_id)
+        .where(Session.league_id == league_id)
     )
 
     # Count the full filtered set independently of the page window.
+    # Plain join; the WHERE on Session.league_id includes gap sessions (season_id NULL).
     count_query = (
         select(func.count())
         .select_from(Match)
         .join(Session, Match.session_id == Session.id)
-        .join(Season, Session.season_id == Season.id)
-        .where(Season.league_id == league_id)
+        .where(Session.league_id == league_id)
     )
     total = (await session.execute(count_query)).scalar_one()
 

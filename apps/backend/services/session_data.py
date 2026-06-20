@@ -102,7 +102,12 @@ async def get_sessions(session: AsyncSession) -> List[Dict]:
 
 
 async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
-    """Get a session by ID."""
+    """Get a session by ID.
+
+    Returns a dict with session fields including ``league_id`` read directly
+    from the sessions table (not derived via Season) so that gap sessions
+    (season_id=NULL, league_id set) expose their league correctly.
+    """
     result = await session.execute(select(Session).where(Session.id == session_id))
     s = result.scalar_one_or_none()
     if not s:
@@ -114,6 +119,7 @@ async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
         "status": s.status.value if s.status else None,
         "code": s.code,
         "season_id": s.season_id,
+        "league_id": s.league_id,
         "court_id": s.court_id,
         "created_by": s.created_by,
         "created_at": s.created_at.isoformat() if s.created_at else None,
@@ -147,16 +153,18 @@ async def get_session_by_code(db_session: AsyncSession, code: str) -> Optional[D
     updated_by_name; None if not found."""
     creator = aliased(Player)
     updater = aliased(Player)
+    # Select Session.league_id directly so gap sessions (season_id=NULL) report
+    # their league correctly.  The Season join was the only derivation of
+    # league_id here — it is no longer needed.
     q = (
         select(
             Session,
-            Season.league_id,
+            Session.league_id,
             creator.full_name,
             updater.full_name,
             Court.name.label("court_name"),
             Court.slug.label("court_slug"),
         )
-        .outerjoin(Season, Session.season_id == Season.id)
         .outerjoin(creator, Session.created_by == creator.id)
         .outerjoin(updater, Session.updated_by == updater.id)
         .outerjoin(Court, Session.court_id == Court.id)
@@ -218,6 +226,10 @@ async def get_open_sessions_for_user(
     )
 
     creator_alias = aliased(Player)
+    # Derive league info from Session.league_id directly so that gap sessions
+    # (season_id=NULL, league_id set) surface with their correct league_id and
+    # league_name.  The previous Season outerjoin caused NULL for both fields on
+    # gap sessions.
     q = (
         select(
             Session.id,
@@ -229,14 +241,13 @@ async def get_open_sessions_for_user(
             Session.created_by,
             Session.updated_at,
             Session.court_id,
-            Season.league_id,
+            Session.league_id,
             League.name.label("league_name"),
             creator_alias.full_name.label("created_by_name"),
             Court.name.label("court_name"),
             Court.slug.label("court_slug"),
         )
-        .outerjoin(Season, Session.season_id == Season.id)
-        .outerjoin(League, Season.league_id == League.id)
+        .outerjoin(League, Session.league_id == League.id)
         .outerjoin(creator_alias, Session.created_by == creator_alias.id)
         .outerjoin(Court, Session.court_id == Court.id)
         .where(

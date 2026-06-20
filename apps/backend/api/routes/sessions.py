@@ -154,20 +154,28 @@ async def _resolve_session_context(
         Tuple of (session_name, league_id, league_name)
     """
     sess_result = await db_session.execute(
-        select(Session.name, Session.season_id).where(Session.id == session_id)
+        select(Session.name, Session.season_id, Session.league_id).where(
+            Session.id == session_id
+        )
     )
     row = sess_result.first()
     session_name = (row[0] if row else None) or "a session"
     season_id = row[1] if row else None
+    session_league_id = row[2] if row else None
 
     league_name = None
 
-    # If league_id not provided, resolve from session's season
-    if league_id is None and season_id:
-        season_result = await db_session.execute(
-            select(Season.league_id).where(Season.id == season_id)
-        )
-        league_id = season_result.scalar_one_or_none()
+    # Prefer Session.league_id directly (set for both season sessions and gap
+    # sessions).  Only fall back to the Season join for pre-migration rows where
+    # Session.league_id may be NULL but a season link exists.
+    if league_id is None:
+        if session_league_id is not None:
+            league_id = session_league_id
+        elif season_id:
+            season_result = await db_session.execute(
+                select(Season.league_id).where(Season.id == season_id)
+            )
+            league_id = season_result.scalar_one_or_none()
 
     # Look up league name
     if league_id:
@@ -267,15 +275,17 @@ async def get_league_sessions(
         List of session objects for the league
     """
     try:
+        # Filter by Session.league_id directly so gap sessions (season_id=NULL,
+        # league_id set) appear in the league's session list.  The previous
+        # INNER join on Season silently excluded all gap sessions.
         query = (
             select(
                 Session,
                 Court.name.label("court_name"),
                 Court.slug.label("court_slug"),
             )
-            .join(Season, Session.season_id == Season.id)
             .outerjoin(Court, Session.court_id == Court.id)
-            .where(Season.league_id == league_id)
+            .where(Session.league_id == league_id)
         )
 
         if active is True:
@@ -467,20 +477,26 @@ async def get_session_detail(
     max_players: int | None = sess_extra.max_players if sess_extra else None
     notes: str | None = sess_extra.notes if sess_extra else None
 
-    # Resolve league_id and league_name through the session's season
-    league_id: int | None = None
+    # Resolve league_id directly from the session (available for both season
+    # sessions and gap sessions — season_id=NULL but league_id set).
+    # Only fall back to a Season-based lookup if Session.league_id is absent,
+    # which should not occur for sessions created after migration 052.
+    league_id: int | None = sess.get("league_id")
     league_name: str | None = None
-    season_id = sess.get("season_id")
-    if season_id is not None:
-        league_result = await session.execute(
-            select(Season.league_id, League.name.label("league_name"))
-            .outerjoin(League, Season.league_id == League.id)
-            .where(Season.id == season_id)
+    if league_id is None:
+        # Legacy fallback: derive from season (pre-migration sessions)
+        season_id = sess.get("season_id")
+        if season_id is not None:
+            league_result = await session.execute(
+                select(Season.league_id)
+                .where(Season.id == season_id)
+            )
+            league_id = league_result.scalar_one_or_none()
+    if league_id is not None:
+        league_name_result = await session.execute(
+            select(League.name).where(League.id == league_id)
         )
-        league_row = league_result.one_or_none()
-        if league_row is not None:
-            league_id = league_row.league_id
-            league_name = league_row.league_name
+        league_name = league_name_result.scalar_one_or_none()
 
     # Parse session number from the session name (e.g. "3/19/2026 Session #3" → 3)
     session_number = _parse_session_number(sess.get("name") or "")
