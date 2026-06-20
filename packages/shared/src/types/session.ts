@@ -59,7 +59,7 @@ export interface SessionParticipant {
 
 export interface Session {
   id: number;
-  season_id: number;
+  season_id?: number | null;
   date?: string | null;
   status?: SessionStatus | null;
   code?: string | null;

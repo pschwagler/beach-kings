@@ -6,7 +6,7 @@
  *     location picker row, court picker row)
  *   - Submit button disabled until name is long enough
  *   - access_type → is_open mapping: 'open' → true, 'invite_only' → false
- *   - Order of API calls: createLeague → addLeagueHomeCourt → createLeagueSeason
+ *   - Order of API calls: createLeague → addLeagueHomeCourt (createLeagueSeason NOT called)
  *   - Success navigation after submit
  *   - Error handling on submit failure
  */
@@ -295,28 +295,15 @@ describe('CreateLeagueScreen — submit', () => {
     });
   });
 
-  it('calls createLeagueSeason with Season 1 after creating the league', async () => {
+  it('does NOT call createLeagueSeason on league creation (backend owns season seeding)', async () => {
     mockCreateLeague.mockResolvedValueOnce({ id: 55 });
     render(<CreateLeagueRoute />);
     fireEvent.changeText(screen.getByTestId('league-name-input'), 'Beach Kings');
     fireEvent.press(screen.getByTestId('create-league-button'));
     await waitFor(() => {
-      expect(mockCreateLeagueSeason).toHaveBeenCalledWith(
-        55,
-        expect.objectContaining({ name: 'Season 1', is_active: true }),
-      );
+      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('55'));
     });
-  });
-
-  it('still navigates when createLeagueSeason fails', async () => {
-    mockCreateLeague.mockResolvedValueOnce({ id: 56 });
-    mockCreateLeagueSeason.mockRejectedValueOnce(new Error('season error'));
-    render(<CreateLeagueRoute />);
-    fireEvent.changeText(screen.getByTestId('league-name-input'), 'Beach Kings');
-    fireEvent.press(screen.getByTestId('create-league-button'));
-    await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('56'));
-    });
+    expect(mockCreateLeagueSeason).not.toHaveBeenCalled();
   });
 
   it('shows error text when createLeague fails', async () => {

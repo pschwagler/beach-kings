@@ -393,10 +393,12 @@ export default function LeagueStatsTab({
         </View>
       </View>
 
-      {/* Context banner */}
+      {/* Context banner — season_name is null for all-time stats */}
       <View className="bg-brand-teal/20 px-4 py-2 mb-2">
         <Text className="text-[12px] font-semibold text-white">
-          {stats.league_name} · {stats.season_name}
+          {stats.season_name != null
+            ? `${stats.league_name} · ${stats.season_name}`
+            : `${stats.league_name} · All-time`}
         </Text>
       </View>
 

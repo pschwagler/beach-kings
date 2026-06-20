@@ -63,10 +63,13 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
     },
   });
 
-  // Auto-init: once seasons load, select the latest (first) season if still uninitialised.
+  // Auto-init: once seasons resolve, select the latest (first) season if any,
+  // or fall back to 'all' (all-time) when the league has no seasons yet.
   useEffect(() => {
-    if (selectedSeasonId === null && seasonsQuery.data && seasonsQuery.data.length > 0) {
-      setSelectedSeasonId(seasonsQuery.data[0].id);
+    if (selectedSeasonId === null && seasonsQuery.data) {
+      setSelectedSeasonId(
+        seasonsQuery.data.length > 0 ? seasonsQuery.data[0].id : 'all',
+      );
     }
   }, [selectedSeasonId, seasonsQuery.data]);
 

@@ -199,6 +199,28 @@ describe('LeagueDashboardTab — season picker', () => {
       expect(mockGetLeagueStandings).toHaveBeenCalledWith(1, 2);
     });
   });
+
+  it('still renders the "All" pill when the league has zero seasons', async () => {
+    mockGetLeagueSeasons.mockResolvedValue([]);
+    mockGetLeagueStandings.mockResolvedValue({ standings: [], season_info: null });
+
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('season-pill-all')).toBeTruthy();
+    });
+  });
+
+  it('fires all-time standings query automatically for zero-season league', async () => {
+    mockGetLeagueSeasons.mockResolvedValue([]);
+    mockGetLeagueStandings.mockResolvedValue({ standings: [], season_info: null });
+
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(mockGetLeagueStandings).toHaveBeenCalledWith(1, undefined);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

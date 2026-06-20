@@ -9,7 +9,7 @@
  * On submit:
  *   - Creates the league
  *   - Attaches home court (non-fatal if it fails)
- *   - Creates an initial "Season 1" season (non-fatal if it fails)
+ *   - Does NOT seed a Season 1 — the backend owns season creation.
  */
 
 import { useState, useCallback, useEffect } from 'react';
@@ -235,13 +235,6 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
         } catch {
           // League created successfully; home court can be added later
         }
-      }
-
-      // Create an initial active season (non-fatal)
-      try {
-        await api.createLeagueSeason(newId, { name: 'Season 1', is_active: true });
-      } catch {
-        // League created successfully; season can be added later
       }
 
       return newId;

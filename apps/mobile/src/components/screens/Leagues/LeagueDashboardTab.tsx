@@ -40,7 +40,9 @@ interface SeasonPickerProps {
 }
 
 function SeasonPicker({ seasons, selectedId, onSelect }: SeasonPickerProps): React.ReactNode {
-  if (seasons.length === 0) return null;
+  // Always render so the "All" pill remains visible and selectable, even when
+  // the league has no seasons yet. Season pills simply do not appear for an
+  // empty seasons array.
 
   const allActive = selectedId === 'all';
 
