@@ -450,9 +450,9 @@ class Season(Base):
             name="check_scoring_system_valid",
         ),
         Index("idx_seasons_league", "league_id"),
-        # At most one open-ended (rolling) season per league. Backstops the
-        # check-then-create in get_or_create_active_season against a concurrent
-        # double-create racing two simultaneous first-game submissions.
+        # At most one open-ended (rolling) season per league. Guards against an
+        # admin (or concurrent requests) creating two simultaneous open-ended
+        # seasons, which would make "the active season" ambiguous.
         Index(
             "uq_seasons_open_per_league",
             "league_id",
