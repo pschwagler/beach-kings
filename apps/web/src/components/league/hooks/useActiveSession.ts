@@ -65,14 +65,16 @@ export function useActiveSession({
     }
   }, [loadActiveSession, loadAllSessions, selectedSeasonId, refreshMatchData]);
 
-  // Load active session and all sessions on mount and when dependencies change
+  // Load active session and all sessions on mount and when dependencies change.
+  // A zero-season league can still have gap-game sessions, so we load whenever
+  // leagueId is available regardless of season count.
   useEffect(() => {
-    if (leagueId && seasons?.length > 0) {
+    if (leagueId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch on mount
       loadActiveSession();
       loadAllSessions();
     }
-  }, [leagueId, seasons, loadActiveSession, loadAllSessions]);
+  }, [leagueId, loadActiveSession, loadAllSessions]);
 
   // Polling: Check for new matches every 5 seconds if there's an active session
   // Uses refreshMatchData to update context - component will automatically update via selectedSeasonData

@@ -167,11 +167,12 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
 
   // Auto-open AddMatchModal when navigated from CreateGameModal with autoAddMatch param.
   // Uses refs for values that change during init but are only read inside the effect body.
-  // Only `autoOpenAddMatch`, `seasons`, and stable callbacks remain in the dep array.
+  // `seasons` is intentionally excluded: a zero-season league can still log gap games,
+  // so member count is the only meaningful readiness gate here.
   useEffect(() => {
     if (!autoOpenAddMatch || autoOpenFiredRef.current) return;
     const currentMembers = membersRef.current;
-    if (!currentMembers || currentMembers.length < MIN_PLAYERS_FOR_MATCH || !seasons || seasons.length === 0) return;
+    if (!currentMembers || currentMembers.length < MIN_PLAYERS_FOR_MATCH) return;
 
     autoOpenFiredRef.current = true;
 
@@ -200,7 +201,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     // safe because autoOpenFiredRef gates this to a single fire per mount and
     // the closures are only invoked after the full render completes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenAddMatch, seasons, leagueId, setSelectedSeasonId, openModal, router]);
+  }, [autoOpenAddMatch, leagueId, setSelectedSeasonId, openModal, router]);
 
   // Transform matches from context for display
   const matches = useMemo(() => {
@@ -439,33 +440,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
 
   // Check if there are less than 4 players
   const hasLessThanFourPlayers = !members || members.length < MIN_PLAYERS_FOR_MATCH;
-
-  // Show empty state if no seasons
-  if (!seasons || seasons.length === 0) {
-    return (
-      <>
-        <div className="league-section">
-          <div className="empty-state">
-            <Swords size={48} className="large-empty-state-icon" />
-            <p>No seasons found. Please create a season to log league games.</p>
-            <button 
-              className="league-text-button primary" 
-              onClick={() => setShowCreateSeasonModal(true)}
-              style={{ marginTop: '16px' }}
-            >
-              <Plus size={16} />
-              Create Season
-            </button>
-          </div>
-        </div>
-        <CreateSeasonModal
-          isOpen={showCreateSeasonModal}
-          onClose={() => setShowCreateSeasonModal(false)}
-          onSuccess={handleCreateSeasonSuccess}
-        />
-      </>
-    );
-  }
 
   // Show message if less than 4 players
   if (hasLessThanFourPlayers) {

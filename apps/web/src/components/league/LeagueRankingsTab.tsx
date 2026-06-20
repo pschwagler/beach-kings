@@ -113,33 +113,6 @@ export default function LeagueRankingsTab() {
   // Check if there are less than 4 players
   const hasLessThanFourPlayers = !members || members.length < 4;
 
-  // Show empty state if no seasons
-  if (!seasons || seasons.length === 0) {
-    return (
-      <>
-        <div className="league-section">
-          <div className="empty-state">
-            <Trophy size={48} className="large-empty-state-icon" />
-            <p>No seasons found. Please create a season to view rankings.</p>
-            <button 
-              className="league-text-button primary" 
-              onClick={() => setShowCreateSeasonModal(true)}
-              style={{ marginTop: '16px' }}
-            >
-              <Plus size={16} />
-              Create Season
-            </button>
-          </div>
-        </div>
-        <CreateSeasonModal
-          isOpen={showCreateSeasonModal}
-          onClose={() => setShowCreateSeasonModal(false)}
-          onSuccess={handleCreateSeasonSuccess}
-        />
-      </>
-    );
-  }
-
   // Show message if less than 4 players
   if (hasLessThanFourPlayers) {
     return (

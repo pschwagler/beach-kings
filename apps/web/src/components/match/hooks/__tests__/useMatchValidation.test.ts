@@ -166,6 +166,49 @@ describe('useMatchValidation', () => {
     });
   });
 
+  describe('validateForm — zero-season gap game', () => {
+    it('returns isValid: true for a league match when allSeasons is empty (gap game)', () => {
+      const scoresValidation = { isValid: true, errorMessage: null, score1: 21, score2: 15 };
+      validateScores.mockReturnValue(scoresValidation);
+
+      const props = makeDefaultProps({
+        matchType: 'league',
+        editMatch: false,
+        selectedLeagueId: 10,
+        selectedSeasonId: null,
+        allSeasons: [], // zero seasons — gap game
+      });
+      const { result } = renderHook(() => useMatchValidation(props));
+
+      let returnVal;
+      act(() => {
+        returnVal = result.current.validateForm();
+      });
+
+      // Gap game must pass validation — no season required when there are none
+      expect(returnVal.isValid).toBe(true);
+    });
+
+    it('does not set a form error for a zero-season league match', () => {
+      const setFormError = vi.fn();
+      const props = makeDefaultProps({
+        matchType: 'league',
+        editMatch: false,
+        selectedLeagueId: 10,
+        selectedSeasonId: null,
+        allSeasons: [],
+        setFormError,
+      });
+      const { result } = renderHook(() => useMatchValidation(props));
+
+      act(() => {
+        result.current.validateForm();
+      });
+
+      expect(setFormError).not.toHaveBeenCalledWith(expect.stringMatching(/season/i));
+    });
+  });
+
   describe('validateForm — success path', () => {
     it('returns isValid: true with scoresValidation for a fully valid casual match', () => {
       const scoresValidation = { isValid: true, errorMessage: null, score1: 21, score2: 15 };
