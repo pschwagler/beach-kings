@@ -11,7 +11,6 @@ import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
 import { transformMatchData, buildPlaceholderIdSet, type RawMatch } from './utils/matchUtils';
 import { lockInLeagueSession, deleteSession, updateSession } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
-import CreateSeasonModal from './CreateSeasonModal';
 import AddPlayersModal from './AddPlayersModal';
 
 // Import custom hooks
@@ -55,7 +54,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     playerSeasonStats,
     playerMatchHistory,
     setSelectedPlayer,
-    refreshSeasons,
     refreshMembers,
   } = useLeague();
   const { showToast } = useToast();
@@ -64,7 +62,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   const MATCHES_VIEW_STORAGE_KEY = 'beach-kings:league-matches-view';
 
   // State for modals
-  const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
 
   const [viewMode, setViewMode] = usePersistedViewMode(MATCHES_VIEW_STORAGE_KEY, 'cards');
@@ -78,9 +75,9 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   // Use custom hooks
   const activeSessionHook = useActiveSession({
     leagueId,
-    seasons,
     selectedSeasonId,
-    refreshMatchData
+    refreshMatchData,
+    refreshAllSeasonsMatches,
   });
   const { activeSession, allSessions, loadActiveSession, loadAllSessions, refreshSession } = activeSessionHook;
 
@@ -428,11 +425,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     return transformMatchData(matchesData as RawMatch[], placeholderPlayerIds);
   }, [activeSession, selectedSeasonId, seasonData, seasons, seasonDataLoadingMap, placeholderPlayerIds]);
 
-  const handleCreateSeasonSuccess = async () => {
-    await refreshSeasons();
-    setShowCreateSeasonModal(false);
-  };
-
   const handleAddPlayersSuccess = async () => {
     await refreshMembers();
     setShowAddPlayerModal(false);
@@ -553,11 +545,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         onSeasonChange={setSelectedSeasonId}
         onRefreshData={refreshData}
         contentVariant={viewMode === 'clipboard' ? 'clipboard' : 'cards'}
-      />
-      <CreateSeasonModal
-        isOpen={showCreateSeasonModal}
-        onClose={() => setShowCreateSeasonModal(false)}
-        onSuccess={handleCreateSeasonSuccess}
       />
       <AddPlayersModal
         isOpen={showAddPlayerModal}

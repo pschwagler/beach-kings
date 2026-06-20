@@ -76,6 +76,22 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('useLeagueDashboardTab — zero seasons', () => {
+  it('reports isLoading=true while selectedSeasonId is still null (no false empty-state frame)', () => {
+    // Seasons query never resolves during this synchronous check so selectedSeasonId
+    // stays null — the hook must report isLoading=true rather than showing empty standings.
+    mockGetLeagueSeasons.mockReturnValue(new Promise(() => {})); // never resolves
+    mockGetLeagueStandings.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useLeagueDashboardTab(1), {
+      wrapper: makeWrapper(makeClient()),
+    });
+
+    // Immediately after first render selectedSeasonId is null (uninitialised).
+    // isLoading must be true and isError must be false — no false empty-state flash.
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.isError).toBe(false);
+  });
+
   it('sets selectedSeasonId to "all" when seasons resolve as empty array', async () => {
     mockGetLeagueSeasons.mockResolvedValue([]);
     mockGetLeagueStandings.mockResolvedValue(MOCK_STANDINGS_RESPONSE);

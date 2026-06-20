@@ -77,7 +77,14 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
     setSelectedSeasonId(id);
   }, []);
 
-  const isLoading = seasonsQuery.isLoading || standingsQuery.isLoading;
+  // True while the auto-init effect hasn't yet resolved selectedSeasonId.
+  // Keeps the loading spinner up until the effect settles to a real id or 'all',
+  // preventing a false empty-state flash for zero-season leagues. Excludes the
+  // seasons-query-error case: if the seasons fetch failed the effect never runs,
+  // so we must fall through to the error state rather than spin forever.
+  const isUninitialised = selectedSeasonId === null && !seasonsQuery.isError;
+
+  const isLoading = isUninitialised || seasonsQuery.isLoading || standingsQuery.isLoading;
 
   const isError =
     (standingsQuery.isError || seasonsQuery.isError) && !isLoading;

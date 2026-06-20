@@ -80,6 +80,35 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('useLeagueStatsTab — zero seasons', () => {
+  it('reports isLoading=true while selectedSeasonId is still null (no false error frame)', () => {
+    // Seasons query never resolves during this synchronous check so selectedSeasonId
+    // stays null — the hook must report isLoading=true instead of surfacing an error.
+    mockGetLeagueSeasons.mockReturnValue(new Promise(() => {})); // never resolves
+    mockGetLeaguePlayerStats.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useLeagueStatsTab(1, 10), {
+      wrapper: makeWrapper(makeClient()),
+    });
+
+    // Immediately after first render selectedSeasonId is null (uninitialised).
+    // isLoading must be true and isError must be false — no false error flash.
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('surfaces isError (not infinite loading) when the seasons query fails', async () => {
+    // A failed seasons fetch leaves selectedSeasonId null forever (auto-init only
+    // runs on resolved data). The hook must report the error, not spin endlessly.
+    mockGetLeagueSeasons.mockRejectedValue(new Error('boom'));
+
+    const { result } = renderHook(() => useLeagueStatsTab(1, 10), {
+      wrapper: makeWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.isLoading).toBe(false);
+  });
+
   it('fires stats query with null season_id (all-time) for zero-season league', async () => {
     mockGetLeagueSeasons.mockResolvedValue([]);
     mockGetLeaguePlayerStats.mockResolvedValue(MOCK_STATS);

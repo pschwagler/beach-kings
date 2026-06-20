@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +29,7 @@ vi.mock('../../../contexts/LeagueContext', () => ({
       { player_id: 4, player_name: 'Dave' },
     ],
     isSeasonActive: vi.fn(() => false),
+    isLeagueAdmin: true,
     seasonData: {},
     seasonDataLoadingMap: {},
     loadSeasonData: vi.fn(),
@@ -112,6 +113,7 @@ function makeLeagueContext(overrides: Record<string, unknown> = {}) {
       { player_id: 4, player_name: 'Dave' },
     ],
     isSeasonActive: vi.fn(() => false),
+    isLeagueAdmin: true,
     seasonData: {},
     seasonDataLoadingMap: {},
     loadSeasonData: vi.fn(),
@@ -168,13 +170,30 @@ describe('LeagueRankingsTab — zero-season league (gap-game all-time view)', ()
     expect(select.querySelector('option')?.textContent).toMatch(/All Seasons/i);
   });
 
-  it('still shows the season <select> and Create Season affordance alongside rankings', () => {
+  it('admin can open the CreateSeasonModal via the Create Season button', () => {
     render(<LeagueRankingsTab />);
 
     // RankingsTable rendered (not a wall)
     expect(screen.getByTestId('rankings-table')).toBeInTheDocument();
-    // CreateSeasonModal is mounted (available to open) even for zero-season leagues
-    expect(screen.getByTestId('create-season-modal')).toBeInTheDocument();
+
+    // Modal is closed initially
+    const modal = screen.getByTestId('create-season-modal');
+    expect(modal).toHaveAttribute('data-open', 'false');
+
+    // Clicking the Create Season button opens the modal
+    const btn = screen.getByTestId('create-season-button');
+    fireEvent.click(btn);
+    expect(modal).toHaveAttribute('data-open', 'true');
+  });
+
+  it('does NOT show the Create Season button for non-admin users', () => {
+    (useLeague as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeLeagueContext({ isLeagueAdmin: false }),
+    );
+
+    render(<LeagueRankingsTab />);
+
+    expect(screen.queryByTestId('create-season-button')).not.toBeInTheDocument();
   });
 
   it('renders normally when seasons has entries (regression guard)', () => {

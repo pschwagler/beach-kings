@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Trophy, Search, Plus } from 'lucide-react';
+import { Trophy, Search, Plus, CalendarPlus } from 'lucide-react';
 import { useLeague, ALL_SEASONS_KEY } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
@@ -10,12 +10,13 @@ import AddPlayersModal from './AddPlayersModal';
 import { buildPlaceholderIdSet } from './utils/matchUtils';
 
 export default function LeagueRankingsTab() {
-  const { 
+  const {
     league,
     leagueId,
     seasons,
     members,
     isSeasonActive,
+    isLeagueAdmin,
     seasonData,
     seasonDataLoadingMap,
     loadSeasonData,
@@ -157,7 +158,19 @@ export default function LeagueRankingsTab() {
             id="rankings-player-search"
           />
         </div>
-        
+
+        {/* Create Season — admin only */}
+        {isLeagueAdmin && (
+          <button
+            className="league-text-button"
+            onClick={() => setShowCreateSeasonModal(true)}
+            data-testid="create-season-button"
+          >
+            <CalendarPlus size={16} />
+            Create Season
+          </button>
+        )}
+
         {/* Season Selector */}
         <div className="season-selector-wrapper">
           <select

@@ -91,6 +91,13 @@ export function useLeagueStatsTab(
     enabled: selectedSeasonId !== null,
   });
 
+  // True while the auto-init effect hasn't yet resolved selectedSeasonId.
+  // Keeps the loading spinner up until the effect settles to a real id or 'all',
+  // preventing a false error/empty-state flash for zero-season leagues. Excludes
+  // the seasons-query-error case: if the seasons fetch failed the effect never
+  // runs, so we must surface the error rather than spin forever.
+  const isUninitialised = selectedSeasonId === null && !seasonsQuery.isError;
+
   // The Stats sub-view is per-season by design: its SeasonSelector renders only
   // season pills (no "All" pill) and hides entirely for <=1 season. So
   // onSelectSeason accepts only a concrete season id. The 'all' (all-time)
@@ -106,8 +113,8 @@ export function useLeagueStatsTab(
 
   return {
     stats: statsQuery.data ?? null,
-    isLoading: statsQuery.isLoading || seasonsQuery.isLoading,
-    isError: statsQuery.isError,
+    isLoading: isUninitialised || statsQuery.isLoading || seasonsQuery.isLoading,
+    isError: statsQuery.isError || seasonsQuery.isError,
     innerTab,
     // Map internal 'all' sentinel back to null for the stable public interface.
     selectedSeasonId: selectedSeasonId === 'all' ? null : selectedSeasonId,

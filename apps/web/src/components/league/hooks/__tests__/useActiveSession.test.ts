@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 
 vi.mock('../../../../services/api', () => ({
   getActiveSession: vi.fn(),
@@ -31,9 +31,9 @@ describe('useActiveSession — zero-season league', () => {
     renderHook(() =>
       useActiveSession({
         leagueId: 42,
-        seasons: [], // zero seasons — gap-game league
         selectedSeasonId: null,
         refreshMatchData: null,
+        refreshAllSeasonsMatches: null,
       })
     );
 
@@ -47,9 +47,9 @@ describe('useActiveSession — zero-season league', () => {
     renderHook(() =>
       useActiveSession({
         leagueId: null,
-        seasons: [],
         selectedSeasonId: null,
         refreshMatchData: null,
+        refreshAllSeasonsMatches: null,
       })
     );
 
@@ -64,9 +64,9 @@ describe('useActiveSession — zero-season league', () => {
     renderHook(() =>
       useActiveSession({
         leagueId: 7,
-        seasons: [{ id: 1, name: 'Season 1' }],
         selectedSeasonId: null,
         refreshMatchData: null,
+        refreshAllSeasonsMatches: null,
       })
     );
 
@@ -83,9 +83,9 @@ describe('useActiveSession — zero-season league', () => {
     const { result } = renderHook(() =>
       useActiveSession({
         leagueId: 42,
-        seasons: [],
         selectedSeasonId: null,
         refreshMatchData: null,
+        refreshAllSeasonsMatches: null,
       })
     );
 
@@ -101,14 +101,85 @@ describe('useActiveSession — zero-season league', () => {
     const { result } = renderHook(() =>
       useActiveSession({
         leagueId: 42,
-        seasons: [],
         selectedSeasonId: null,
         refreshMatchData: null,
+        refreshAllSeasonsMatches: null,
       })
     );
 
     await waitFor(() => {
       expect(result.current.allSessions).toEqual(sessions);
     });
+  });
+});
+
+describe('useActiveSession — polling for zero-season active gap-game session', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('polls via refreshAllSeasonsMatches when selectedSeasonId is null and an active session exists', async () => {
+    const gapSession = { id: 5, league_id: 42, season_id: null };
+    (getActiveSession as ReturnType<typeof vi.fn>).mockResolvedValue(gapSession);
+    (getSessions as ReturnType<typeof vi.fn>).mockResolvedValue([gapSession]);
+
+    const refreshAllSeasonsMatches = vi.fn().mockResolvedValue(undefined);
+
+    renderHook(() =>
+      useActiveSession({
+        leagueId: 42,
+        selectedSeasonId: null, // all-time / zero-season view
+        refreshMatchData: null,
+        refreshAllSeasonsMatches,
+      })
+    );
+
+    // Let the initial load effects settle so activeSession is set
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Advance past the first poll interval
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+
+    expect(refreshAllSeasonsMatches).toHaveBeenCalled();
+  });
+
+  it('polls via refreshMatchData when selectedSeasonId is set and an active session exists', async () => {
+    const seasonSession = { id: 6, league_id: 7, season_id: 3 };
+    (getActiveSession as ReturnType<typeof vi.fn>).mockResolvedValue(seasonSession);
+    (getSessions as ReturnType<typeof vi.fn>).mockResolvedValue([seasonSession]);
+
+    const refreshMatchData = vi.fn().mockResolvedValue(undefined);
+    const refreshAllSeasonsMatches = vi.fn().mockResolvedValue(undefined);
+
+    renderHook(() =>
+      useActiveSession({
+        leagueId: 7,
+        selectedSeasonId: 3,
+        refreshMatchData,
+        refreshAllSeasonsMatches,
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+
+    expect(refreshMatchData).toHaveBeenCalledWith(3);
+    expect(refreshAllSeasonsMatches).not.toHaveBeenCalled();
   });
 });
