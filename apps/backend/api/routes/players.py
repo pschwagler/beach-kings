@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
-from backend.services import data_service, placeholder_service
+from backend.services import data_service, placeholder_service, league_data
 from backend.api.auth_dependencies import (
     get_current_user,
     get_current_user_optional,
@@ -413,6 +413,30 @@ async def get_player_match_history(
         raise
     except Exception as e:
         logger.error("Error loading match history: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/api/players/{player_id}/leagues", response_model=List[Any])
+async def get_player_leagues(
+    player_id: int, session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get public leagues for a specific player.
+
+    Returns only leagues where is_public=True.
+    Returns 404 if the player does not exist.
+    """
+    try:
+        result = await league_data.get_player_public_leagues(session, player_id)
+        if result is None:
+            raise HTTPException(
+                status_code=404, detail=f"Player with ID {player_id} not found."
+            )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error loading player leagues: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

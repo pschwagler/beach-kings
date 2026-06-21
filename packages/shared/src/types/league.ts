@@ -341,6 +341,21 @@ export interface LeagueInviteItem {
 }
 
 // ---------------------------------------------------------------------------
+// Player profile leagues (GET /api/players/:id/leagues)
+// ---------------------------------------------------------------------------
+
+/**
+ * Slim league row returned by GET /api/players/:id/leagues.
+ * Public leagues only; rank and games_played reflect the current season.
+ */
+export interface PlayerLeague {
+  readonly id: number;
+  readonly name: string;
+  readonly rank: number | null;
+  readonly games_played: number;
+}
+
+// ---------------------------------------------------------------------------
 // League player stats
 // ---------------------------------------------------------------------------
 

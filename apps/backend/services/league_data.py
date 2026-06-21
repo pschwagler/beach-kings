@@ -67,6 +67,7 @@ __all__ = [
     "create_league_invites",
     "list_league_invites",
     "list_my_sent_invites",
+    "get_player_public_leagues",
 ]
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -939,6 +940,178 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
                 "current_season": season_data,
                 "games_played": user_games,
                 "standings": standings,
+            }
+        )
+    return output
+
+
+async def get_player_public_leagues(
+    session: AsyncSession, player_id: int
+) -> list[dict] | None:
+    """Get public leagues for a player by player ID.
+
+    Returns None if the player does not exist (caller should return 404).
+    Returns a list of slim dicts (id, name, rank, games_played) for all
+    public leagues the player belongs to, ordered by most-recent session date.
+    rank and games_played reflect the current (or most-recent) season.
+    """
+    # Verify player exists.
+    player_exists = (
+        await session.execute(select(Player.id).where(Player.id == player_id))
+    ).scalar_one_or_none()
+    if player_exists is None:
+        return None
+
+    # Phase 1: fetch leagues for this player (public only).
+    latest_session_subq = (
+        select(
+            SessionModel.league_id,
+            func.max(SessionModel.date).label("latest_session_date"),
+        )
+        .where(SessionModel.league_id.isnot(None))
+        .group_by(SessionModel.league_id)
+        .subquery()
+    )
+
+    result = await session.execute(
+        select(
+            League,
+            latest_session_subq.c.latest_session_date,
+        )
+        .join(LeagueMember, LeagueMember.league_id == League.id)
+        .outerjoin(latest_session_subq, latest_session_subq.c.league_id == League.id)
+        .where(
+            LeagueMember.player_id == player_id,
+            League.is_public.is_(True),
+        )
+        .distinct()
+        .order_by(
+            latest_session_subq.c.latest_session_date.desc().nulls_last(),
+            League.created_at.desc(),
+        )
+    )
+    rows = result.all()
+
+    if not rows:
+        return []
+
+    all_league_ids: list[int] = [r[0].id for r in rows]
+    today = date.today()
+
+    # Phase 2a: active seasons.
+    active_rn_sq = (
+        select(
+            Season,
+            func.row_number()
+            .over(
+                partition_by=Season.league_id,
+                order_by=Season.created_at.desc(),
+            )
+            .label("rn"),
+        )
+        .where(
+            Season.league_id.in_(all_league_ids),
+            *_active_season_conditions(today),
+        )
+        .subquery()
+    )
+    active_result = await session.execute(
+        select(Season).join(active_rn_sq, active_rn_sq.c.id == Season.id).where(
+            active_rn_sq.c.rn == 1
+        )
+    )
+    active_by_league: dict[int, Season] = {
+        s.league_id: s for s in active_result.scalars().all()
+    }
+
+    # Phase 2b: fallback seasons for leagues with no active season.
+    leagues_needing_fallback = [lid for lid in all_league_ids if lid not in active_by_league]
+    fallback_by_league: dict[int, Season] = {}
+    if leagues_needing_fallback:
+        fallback_rn_sq = (
+            select(
+                Season,
+                func.row_number()
+                .over(
+                    partition_by=Season.league_id,
+                    order_by=(Season.start_date.desc(), Season.id.desc()),
+                )
+                .label("rn"),
+            )
+            .where(Season.league_id.in_(leagues_needing_fallback))
+            .subquery()
+        )
+        fallback_result = await session.execute(
+            select(Season)
+            .join(fallback_rn_sq, fallback_rn_sq.c.id == Season.id)
+            .where(fallback_rn_sq.c.rn == 1)
+        )
+        fallback_by_league = {
+            s.league_id: s for s in fallback_result.scalars().all()
+        }
+
+    league_seasons: dict[int, Season | None] = {
+        lid: active_by_league.get(lid) or fallback_by_league.get(lid)
+        for lid in all_league_ids
+    }
+
+    season_ids_with_data: list[int] = [
+        s.id for s in league_seasons.values() if s is not None
+    ]
+
+    # Fetch stats for this player across all relevant seasons.
+    stats_by_season: dict[int, PlayerSeasonStats] = {}
+    if season_ids_with_data:
+        stats_result = await session.execute(
+            select(PlayerSeasonStats).where(
+                and_(
+                    PlayerSeasonStats.player_id == player_id,
+                    PlayerSeasonStats.season_id.in_(season_ids_with_data),
+                )
+            )
+        )
+        for stats_row in stats_result.scalars().all():
+            stats_by_season[stats_row.season_id] = stats_row
+
+    # Compute rank per season using a windowed row_number over all players.
+    ranks_by_season: dict[int, int] = {}
+    if season_ids_with_data:
+        ranked_sq = (
+            select(
+                PlayerSeasonStats.season_id.label("season_id"),
+                PlayerSeasonStats.player_id.label("player_id"),
+                func.row_number()
+                .over(
+                    partition_by=PlayerSeasonStats.season_id,
+                    order_by=_SEASON_RANK_ORDER,
+                )
+                .label("season_rank"),
+            )
+            .where(PlayerSeasonStats.season_id.in_(season_ids_with_data))
+            .subquery()
+        )
+        rank_result = await session.execute(
+            select(
+                ranked_sq.c.season_id,
+                ranked_sq.c.season_rank,
+            ).where(ranked_sq.c.player_id == player_id)
+        )
+        for rank_row in rank_result.all():
+            ranks_by_season[rank_row.season_id] = int(rank_row.season_rank)
+
+    output: list[dict] = []
+    for r in rows:
+        league_obj = r[0]
+        display_season = league_seasons.get(league_obj.id)
+        stats = stats_by_season.get(display_season.id) if display_season else None
+        games_played = int(stats.games) if stats and stats.games is not None else 0
+        rank = ranks_by_season.get(display_season.id) if display_season else None
+        output.append(
+            {
+                "id": league_obj.id,
+                "name": league_obj.name,
+                "rank": rank,
+                "games_played": games_played,
             }
         )
     return output

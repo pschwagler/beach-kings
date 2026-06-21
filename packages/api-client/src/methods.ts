@@ -48,6 +48,7 @@ import type {
   UserMeResponse,
   CreatePlaceholderRequest,
   PlaceholderPlayerResponse,
+  PlayerLeague,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -346,6 +347,15 @@ export function createApiMethods(client: ApiClient) {
 
     async getPlayerSeasonPartnershipOpponentStats(playerId: number, seasonId: number) {
       const response = await api.get(`/api/players/${playerId}/season/${seasonId}/partnership-opponent-stats`);
+      return response.data;
+    },
+
+    /**
+     * Get public leagues for a given player (public-only, no auth required).
+     * Returns [] if the player has no public league memberships.
+     */
+    async getPlayerLeagues(playerId: number): Promise<PlayerLeague[]> {
+      const response = await api.get<PlayerLeague[]>(`/api/players/${playerId}/leagues`);
       return response.data;
     },
 

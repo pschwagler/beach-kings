@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.main import app
 from backend.api.auth_dependencies import require_verified_player
-from backend.services import data_service
+from backend.services import data_service, league_data
 
 
 # ---------------------------------------------------------------------------
@@ -439,3 +439,85 @@ class TestReorderPlayerHomeCourts:
             json={"court_positions": [{"court_id": 1, "position": 0}]},
         )
         assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# GET /api/players/{player_id}/leagues
+# ---------------------------------------------------------------------------
+
+
+class TestPlayerLeagues:
+    """Tests for GET /api/players/{player_id}/leagues."""
+
+    def test_returns_leagues_list(self, monkeypatch):
+        """Happy path: service returns leagues list, 200 response with data."""
+        fake_leagues = [
+            {"id": 1, "name": "QBK Open Men", "rank": 2, "games_played": 30},
+            {"id": 5, "name": "NYC Fun League", "rank": None, "games_played": 0},
+        ]
+
+        async def fake_get(session, pid):
+            return fake_leagues
+
+        monkeypatch.setattr(
+            league_data, "get_player_public_leagues", fake_get, raising=True
+        )
+
+        client = TestClient(app)
+        response = client.get(f"/api/players/{PLAYER_ID}/leagues")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body) == 2
+        assert body[0]["id"] == 1
+        assert body[0]["name"] == "QBK Open Men"
+        assert body[0]["rank"] == 2
+        assert body[0]["games_played"] == 30
+        assert body[1]["rank"] is None
+
+    def test_returns_empty_list_for_player_with_no_public_leagues(self, monkeypatch):
+        """Service returning [] yields 200 with an empty list."""
+
+        async def fake_get(session, pid):
+            return []
+
+        monkeypatch.setattr(
+            league_data, "get_player_public_leagues", fake_get, raising=True
+        )
+
+        client = TestClient(app)
+        response = client.get(f"/api/players/{PLAYER_ID}/leagues")
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_returns_404_when_player_not_found(self, monkeypatch):
+        """Service returning None triggers 404."""
+
+        async def fake_get(session, pid):
+            return None
+
+        monkeypatch.setattr(
+            league_data, "get_player_public_leagues", fake_get, raising=True
+        )
+
+        client = TestClient(app)
+        response = client.get("/api/players/9999/leagues")
+
+        assert response.status_code == 404
+        assert "9999" in response.json()["detail"]
+
+    def test_service_error_returns_500(self, monkeypatch):
+        """Unexpected service exception surfaces as HTTP 500."""
+
+        async def fake_get(session, pid):
+            raise RuntimeError("db exploded")
+
+        monkeypatch.setattr(
+            league_data, "get_player_public_leagues", fake_get, raising=True
+        )
+
+        client = TestClient(app)
+        response = client.get(f"/api/players/{PLAYER_ID}/leagues")
+
+        assert response.status_code == 500

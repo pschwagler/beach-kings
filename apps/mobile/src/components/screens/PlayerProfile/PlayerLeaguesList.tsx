@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
-import type { PlayerLeague } from './usePlayerProfileScreen';
+import type { PlayerLeague } from '@beach-kings/shared';
 
 interface PlayerLeaguesListProps {
   readonly leagues: readonly PlayerLeague[];

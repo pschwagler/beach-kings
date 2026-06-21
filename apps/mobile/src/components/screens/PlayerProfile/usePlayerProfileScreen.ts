@@ -8,18 +8,11 @@
 import { useState, useCallback } from 'react';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
-import type { Player, FriendInLeague } from '@beach-kings/shared';
+import type { Player, FriendInLeague, PlayerLeague } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-export interface PlayerLeague {
-  readonly id: number;
-  readonly name: string;
-  readonly rank: number | null;
-  readonly games_played: number;
-}
 
 export interface PlayerProfileData {
   readonly player: Player;
@@ -41,15 +34,6 @@ export interface UsePlayerProfileScreenResult {
 }
 
 // ---------------------------------------------------------------------------
-// Mock data helpers
-// ---------------------------------------------------------------------------
-
-const MOCK_LEAGUES: PlayerLeague[] = [
-  { id: 1, name: 'QBK Open Men - Mornings', rank: 1, games_played: 47 },
-  { id: 2, name: 'NYC Fun League', rank: 3, games_played: 12 },
-];
-
-// ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
@@ -68,11 +52,12 @@ export function usePlayerProfileScreen(
     async () => {
       const numericId = typeof playerId === 'string' ? parseInt(playerId, 10) : playerId;
 
-      // Fetch player stats + mutual friends in parallel
-      const [playerData, mutualFriendsData, batchStatus] = await Promise.all([
+      // Fetch player stats, mutual friends, friend status, and leagues in parallel
+      const [playerData, mutualFriendsData, batchStatus, leaguesData] = await Promise.all([
         api.getPlayerStats(numericId),
         api.getMutualFriends(numericId).catch(() => []),
         api.batchFriendStatus([numericId]).catch(() => ({})),
+        api.getPlayerLeagues(numericId).catch(() => []),
       ]);
 
       const rawStatus = (batchStatus as Record<string, string>)[String(numericId)] ?? 'none';
@@ -80,11 +65,10 @@ export function usePlayerProfileScreen(
         rawStatus === 'friends' ? 'friends' :
         rawStatus === 'pending' ? 'pending' : 'none';
 
-      // TODO(backend): GET /api/players/:id/leagues
       return {
         player: playerData as Player,
         mutualFriends: mutualFriendsData as FriendInLeague[],
-        leagues: MOCK_LEAGUES,
+        leagues: leaguesData as PlayerLeague[],
         friendStatus,
       };
     },
