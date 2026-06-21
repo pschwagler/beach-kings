@@ -1916,3 +1916,43 @@ class CourtCheckIn(Base):
         Index("idx_court_check_ins_court", "court_id"),
         Index("idx_court_check_ins_expires", "expires_at"),
     )
+
+
+class PushNotificationPreference(Base):
+    """Per-user push notification preference row.
+
+    One row per user (enforced by unique constraint on user_id).
+    When no row exists for a user, defaults apply:
+      push_enabled=True, direct_messages=True, league_messages=True,
+      friend_requests=True, match_invites=True, tournament_updates=False,
+      ranking_changes=False.
+    """
+
+    __tablename__ = "push_notification_preferences"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    # Master kill-switch — when False, ALL push is suppressed for this user.
+    push_enabled = Column(Boolean, nullable=False, server_default="true", default=True)
+    # Per-type toggles
+    direct_messages = Column(Boolean, nullable=False, server_default="true", default=True)
+    league_messages = Column(Boolean, nullable=False, server_default="true", default=True)
+    friend_requests = Column(Boolean, nullable=False, server_default="true", default=True)
+    match_invites = Column(Boolean, nullable=False, server_default="true", default=True)
+    tournament_updates = Column(Boolean, nullable=False, server_default="false", default=False)
+    ranking_changes = Column(Boolean, nullable=False, server_default="false", default=False)
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    user = relationship("User", backref="push_notification_preference")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_push_prefs_user_id"),
+        Index("idx_push_notification_preferences_user_id", "user_id", unique=True),
+    )

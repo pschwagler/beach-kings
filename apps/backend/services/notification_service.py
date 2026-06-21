@@ -111,13 +111,15 @@ async def create_notification(
         # Log error but don't fail notification creation
         logger.warning(f"Failed to broadcast notification via WebSocket for user {user_id}: {e}")
 
-    # Send push notification (best-effort, non-blocking)
+    # Send push notification (best-effort, non-blocking; gated by user prefs)
     try:
-        from backend.services import push_service
+        from backend.services import push_service, push_prefs_service
 
-        await push_service.send_push_to_user(
-            session, user_id, title, message, data=data
-        )
+        prefs = await push_prefs_service.get_prefs(session, user_id)
+        if push_prefs_service.should_send_push(prefs, type):
+            await push_service.send_push_to_user(
+                session, user_id, title, message, data=data
+            )
     except Exception as e:
         logger.warning(f"Failed to send push notification to user {user_id}: {e}")
 
@@ -222,12 +224,22 @@ async def create_notifications_bulk(
     except Exception as e:
         logger.warning(f"Failed to broadcast bulk notifications via WebSocket: {e}")
 
-    # Send push notifications (best-effort, non-blocking)
+    # Send push notifications (best-effort, non-blocking; gated by user prefs)
     try:
-        from backend.services import push_service
+        from backend.services import push_service, push_prefs_service
 
         for push_user_id, user_notifications in notifications_by_user.items():
+            # Load prefs once per recipient; no stored row → defaults
+            try:
+                prefs = await push_prefs_service.get_prefs(session, push_user_id)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load push prefs for user {push_user_id}, skipping push: {e}"
+                )
+                continue
             for notif_dict in user_notifications:
+                if not push_prefs_service.should_send_push(prefs, notif_dict["type"]):
+                    continue
                 try:
                     await push_service.send_push_to_user(
                         session,

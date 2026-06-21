@@ -8,7 +8,7 @@
 import { useCallback } from 'react';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
-import type { PushNotificationPrefs } from '@/lib/mockApi';
+import type { PushNotificationPrefs } from '@beach-kings/shared';
 
 export interface UseNotificationsScreenResult {
   readonly prefs: PushNotificationPrefs | null;

@@ -16,3 +16,21 @@ export interface Notification {
   link_url: string | null;
   created_at: string;
 }
+
+/**
+ * Per-user push notification preferences.
+ *
+ * `push_enabled` is the master kill-switch. When false, no push is sent
+ * regardless of the per-type toggles.
+ *
+ * Matches the `push_notification_preferences` DB table (migration 053).
+ */
+export interface PushNotificationPrefs {
+  push_enabled: boolean;
+  direct_messages: boolean;
+  league_messages: boolean;
+  friend_requests: boolean;
+  match_invites: boolean;
+  tournament_updates: boolean;
+  ranking_changes: boolean;
+}

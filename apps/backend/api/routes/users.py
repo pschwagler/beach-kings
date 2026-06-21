@@ -13,8 +13,9 @@ from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.database.models import Player
 from backend.services import data_service, user_service, avatar_service, s3_service, my_stats_service, my_games_service
+from backend.services import push_prefs_service
 from backend.api.auth_dependencies import get_current_user, require_verified_player
-from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload, LeagueInviteItemResponse
+from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload, LeagueInviteItemResponse, PushPrefsResponse, PushPrefsUpdate
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -408,3 +409,43 @@ async def get_my_games(
 
     games, total = result_data
     return {"games": games, "total": total}
+
+
+@router.get("/api/users/me/push-prefs", response_model=PushPrefsResponse)
+async def get_push_prefs(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> PushPrefsResponse:
+    """Return the authenticated user's push notification preferences.
+
+    When no preferences row exists yet, returns the defaults (all common
+    types enabled; tournament_updates and ranking_changes disabled).
+    """
+    try:
+        prefs = await push_prefs_service.get_prefs(session, current_user["id"])
+        return PushPrefsResponse(**prefs)
+    except Exception as e:
+        logger.error(f"Error fetching push prefs for user {current_user['id']}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch push notification preferences.")
+
+
+@router.patch("/api/users/me/push-prefs", response_model=PushPrefsResponse)
+async def update_push_prefs(
+    payload: PushPrefsUpdate,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> PushPrefsResponse:
+    """Partially update the authenticated user's push notification preferences.
+
+    Only fields included in the request body are changed. Omitted fields
+    retain their current (or default) values. Creates the preference row
+    on first call if it doesn't exist yet.
+    """
+    try:
+        updates = payload.model_dump(exclude_none=True)
+        prefs = await push_prefs_service.update_prefs(session, current_user["id"], updates)
+        await session.commit()
+        return PushPrefsResponse(**prefs)
+    except Exception as e:
+        logger.error(f"Error updating push prefs for user {current_user['id']}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update push notification preferences.")

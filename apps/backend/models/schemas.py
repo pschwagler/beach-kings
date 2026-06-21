@@ -2867,3 +2867,35 @@ class LeagueGamesResponse(BaseModel):
 
     games: List[LeagueGameEntry]
     total: int
+
+
+class PushPrefsResponse(BaseModel):
+    """Response schema for GET /api/users/me/push-prefs.
+
+    Returns the full push notification preference row. When no DB row
+    exists for the authenticated user, the service returns all defaults.
+    """
+
+    push_enabled: bool
+    direct_messages: bool
+    league_messages: bool
+    friend_requests: bool
+    match_invites: bool
+    tournament_updates: bool
+    ranking_changes: bool
+
+
+class PushPrefsUpdate(BaseModel):
+    """Request schema for PATCH /api/users/me/push-prefs.
+
+    All fields are optional. Only provided fields are applied (partial
+    update / upsert semantics).
+    """
+
+    push_enabled: Optional[bool] = None
+    direct_messages: Optional[bool] = None
+    league_messages: Optional[bool] = None
+    friend_requests: Optional[bool] = None
+    match_invites: Optional[bool] = None
+    tournament_updates: Optional[bool] = None
+    ranking_changes: Optional[bool] = None

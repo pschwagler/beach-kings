@@ -18,7 +18,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import { useNotificationsScreen } from './useNotificationsScreen';
-import type { PushNotificationPrefs } from '@/lib/mockApi';
+import type { PushNotificationPrefs } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,13 +29,13 @@ interface ToggleRowConfig {
   readonly label: string;
 }
 
-// Map PushNotificationPrefs keys → display labels
+// Map PushNotificationPrefs keys → display labels (excludes push_enabled master toggle)
 const TOGGLE_ROWS: ToggleRowConfig[] = [
   { key: 'direct_messages', label: 'Chat Messages' },
   { key: 'league_messages', label: 'League Updates' },
   { key: 'friend_requests', label: 'Friend Requests' },
   { key: 'match_invites', label: 'Game Results' },
-  { key: 'session_updates', label: 'Session Updates' },
+  { key: 'ranking_changes', label: 'Ranking Changes' },
   { key: 'tournament_updates', label: 'Tournament Alerts' },
 ];
 
@@ -146,21 +146,14 @@ function NotificationsErrorState({ onRetry }: ErrorStateProps): React.ReactNode 
 export default function NotificationsSettingsScreen(): React.ReactNode {
   const { prefs, isLoading, error, onToggle, onRetry } = useNotificationsScreen();
 
-  // Compute master toggle: true if ALL prefs are on
-  const allEnabled =
-    prefs != null && Object.values(prefs).every(Boolean);
+  // Master toggle is backed by the dedicated push_enabled field.
+  const allEnabled = prefs?.push_enabled ?? false;
 
   const handleMasterToggle = useCallback(() => {
     if (prefs == null) return;
     void hapticLight();
-    // Toggle all off when all are on, or all on when any are off
-    const newValue = !allEnabled;
-    TOGGLE_ROWS.forEach(({ key }) => {
-      if (prefs[key] !== newValue) {
-        onToggle(key);
-      }
-    });
-  }, [prefs, allEnabled, onToggle]);
+    onToggle('push_enabled');
+  }, [prefs, onToggle]);
 
   if (isLoading) {
     return (

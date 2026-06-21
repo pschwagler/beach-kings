@@ -107,17 +107,18 @@ import NotificationsRoute from '../../../../app/(stack)/settings/notifications';
 // ---------------------------------------------------------------------------
 
 const ALL_ON_PREFS = {
+  push_enabled: true,
   direct_messages: true,
   league_messages: true,
   friend_requests: true,
   match_invites: true,
-  session_updates: true,
+  ranking_changes: true,
   tournament_updates: true,
 };
 
 const MIXED_PREFS = {
   ...ALL_ON_PREFS,
-  direct_messages: false,
+  push_enabled: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -196,12 +197,12 @@ describe('NotificationsSettingsScreen — toggles', () => {
       expect(screen.getByTestId('toggle-league_messages')).toBeTruthy();
       expect(screen.getByTestId('toggle-friend_requests')).toBeTruthy();
       expect(screen.getByTestId('toggle-match_invites')).toBeTruthy();
-      expect(screen.getByTestId('toggle-session_updates')).toBeTruthy();
+      expect(screen.getByTestId('toggle-ranking_changes')).toBeTruthy();
       expect(screen.getByTestId('toggle-tournament_updates')).toBeTruthy();
     });
   });
 
-  it('master toggle is on when all prefs are true', async () => {
+  it('master toggle is on when push_enabled is true', async () => {
     mockGetPushNotificationPrefs.mockResolvedValue(ALL_ON_PREFS);
     render(<NotificationsRoute />);
     await waitFor(() => {
@@ -210,7 +211,7 @@ describe('NotificationsSettingsScreen — toggles', () => {
     });
   });
 
-  it('master toggle is off when any pref is false', async () => {
+  it('master toggle is off when push_enabled is false', async () => {
     mockGetPushNotificationPrefs.mockResolvedValue(MIXED_PREFS);
     render(<NotificationsRoute />);
     await waitFor(() => {
@@ -233,6 +234,17 @@ describe('NotificationsSettingsScreen — toggles', () => {
     await waitFor(() => {
       expect(mockUpdatePushNotificationPrefs).toHaveBeenCalledWith(
         expect.objectContaining({ direct_messages: false }),
+      );
+    });
+  });
+
+  it('master toggle calls updatePushNotificationPrefs with push_enabled', async () => {
+    render(<NotificationsRoute />);
+    await waitFor(() => expect(screen.getByTestId('toggle-master')).toBeTruthy());
+    fireEvent(screen.getByTestId('toggle-master'), 'valueChange', false);
+    await waitFor(() => {
+      expect(mockUpdatePushNotificationPrefs).toHaveBeenCalledWith(
+        expect.objectContaining({ push_enabled: false }),
       );
     });
   });

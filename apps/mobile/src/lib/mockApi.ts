@@ -407,27 +407,10 @@ const MOCK_KOB_STANDINGS: KobStanding[] = [
   { player_id: 8, player_name: 'Rafael T.', player_avatar: null, rank: 8, wins: 0, losses: 4, points_for: 47, points_against: 84, point_diff: -37, pool_id: null },
 ];
 
-// ---------------------------------------------------------------------------
-// Push notification preferences
-// ---------------------------------------------------------------------------
-
-export interface PushNotificationPrefs {
-  direct_messages: boolean;
-  league_messages: boolean;
-  friend_requests: boolean;
-  match_invites: boolean;
-  session_updates: boolean;
-  tournament_updates: boolean;
-}
-
-const DEFAULT_PUSH_PREFS: PushNotificationPrefs = {
-  direct_messages: true,
-  league_messages: true,
-  friend_requests: true,
-  match_invites: true,
-  session_updates: true,
-  tournament_updates: false,
-};
+// PushNotificationPrefs interface removed (P3.4) — promoted to '@beach-kings/shared'.
+// getPushNotificationPrefs / updatePushNotificationPrefs removed (P3.4) — real
+// methods now live in packages/api-client/src/methods.ts backed by
+// GET/PATCH /api/users/me/push-prefs (migration 053).
 
 // MOCK_GAMES removed — getMyGames is now a real backend call via api-client.
 // MOCK_STATS removed — getMyStats is now a real backend call via api-client.
@@ -505,16 +488,8 @@ export const mockApi = {
     return Promise.resolve(MOCK_KOB_STANDINGS);
   },
 
-  // ---- Push notification preferences ----
-  async getPushNotificationPrefs(): Promise<PushNotificationPrefs> {
-    return Promise.resolve({ ...DEFAULT_PUSH_PREFS });
-  },
-
-  async updatePushNotificationPrefs(
-    _prefs: Partial<PushNotificationPrefs>,
-  ): Promise<PushNotificationPrefs> {
-    return notImplemented('PUT /api/users/me/push-prefs');
-  },
+  // getPushNotificationPrefs / updatePushNotificationPrefs removed (P3.4).
+  // Real methods live in packages/api-client/src/methods.ts.
 
   // ---- Sessions — TODO(backend): session endpoints ----
 

@@ -23,6 +23,7 @@ import type {
   FriendRequest,
   FriendInLeague,
   Notification,
+  PushNotificationPrefs,
   Conversation,
   ConversationListResponse,
   DirectMessage,
@@ -1335,6 +1336,38 @@ export function createApiMethods(client: ApiClient) {
      */
     async getMySentLeagueInvites(): Promise<LeagueInviteItem[]> {
       const response = await api.get<LeagueInviteItem[]>('/api/users/me/league-invites/sent');
+      return response.data;
+    },
+
+    // -----------------------------------------------------------------------
+    // Push notification preferences
+    // -----------------------------------------------------------------------
+
+    /**
+     * Fetch the authenticated user's push notification preferences.
+     * Maps to GET /api/users/me/push-prefs.
+     *
+     * Returns defaults when no preference row has been saved yet.
+     */
+    async getPushNotificationPrefs(): Promise<PushNotificationPrefs> {
+      const response = await api.get<PushNotificationPrefs>('/api/users/me/push-prefs');
+      return response.data;
+    },
+
+    /**
+     * Partially update the authenticated user's push notification preferences.
+     * Maps to PATCH /api/users/me/push-prefs.
+     *
+     * Only fields included in `partial` are changed; omitted fields keep
+     * their current (or default) values.
+     */
+    async updatePushNotificationPrefs(
+      partial: Partial<PushNotificationPrefs>,
+    ): Promise<PushNotificationPrefs> {
+      const response = await api.patch<PushNotificationPrefs>(
+        '/api/users/me/push-prefs',
+        partial,
+      );
       return response.data;
     },
   };
