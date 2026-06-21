@@ -32,7 +32,13 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.services import auth_service, data_service, season_awards_service, user_service
+from backend.services import (
+    auth_service,
+    data_service,
+    friend_service,
+    season_awards_service,
+    user_service,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -905,3 +911,72 @@ class TestFinalizeSeasonAwards:
         client = TestClient(app)
         response = client.post(f"/api/seasons/{SEASON_ID}/finalize-awards")
         assert response.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/leagues/{league_id}/players/{player_id}/stats — caller resolution
+# ---------------------------------------------------------------------------
+
+
+class TestLeaguePlayerStatsCallerResolution:
+    """
+    Regression tests for the league-player-stats endpoint's caller resolution.
+
+    The optional-auth user dict does NOT contain ``player_id`` (only
+    ``require_verified_player`` adds it). The route must resolve the caller's
+    player_id from ``user["id"]`` via friend_service.get_player_id_for_user;
+    otherwise the private-league gate would 403 legitimate members and
+    ``is_self`` would always be False.
+    """
+
+    VIEWED_PLAYER_ID = 2
+    CALLER_PLAYER_ID = 777
+
+    def _capture_stats_call(self, monkeypatch):
+        """Patch the service to capture kwargs; return the captured dict."""
+        captured: dict = {}
+
+        async def fake_stats(session, **kwargs):
+            captured.update(kwargs)
+            return {"player_id": kwargs.get("player_id"), "is_self": False}
+
+        monkeypatch.setattr(
+            data_service, "get_league_player_stats_full", fake_stats, raising=True
+        )
+        return captured
+
+    def test_authenticated_caller_player_id_resolved_from_user_id(self, monkeypatch):
+        """An authed caller's player_id is resolved and passed to the service."""
+        client, headers = _make_user_client(monkeypatch)
+        captured = self._capture_stats_call(monkeypatch)
+
+        async def fake_resolve(session, user_id):
+            assert user_id == USER_ID
+            return self.CALLER_PLAYER_ID
+
+        monkeypatch.setattr(
+            friend_service, "get_player_id_for_user", fake_resolve, raising=True
+        )
+
+        response = client.get(
+            f"/api/leagues/{LEAGUE_ID}/players/{self.VIEWED_PLAYER_ID}/stats",
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        # The resolved player_id (not None) must reach BOTH gate + is_self params.
+        assert captured["caller_player_id"] == self.CALLER_PLAYER_ID
+        assert captured["current_user_player_id"] == self.CALLER_PLAYER_ID
+
+    def test_unauthenticated_caller_passes_none(self, monkeypatch):
+        """An anonymous request passes caller_player_id=None (public read)."""
+        client = TestClient(app)
+        captured = self._capture_stats_call(monkeypatch)
+
+        response = client.get(
+            f"/api/leagues/{LEAGUE_ID}/players/{self.VIEWED_PLAYER_ID}/stats"
+        )
+
+        assert response.status_code == 200
+        assert captured["caller_player_id"] is None
+        assert captured["current_user_player_id"] is None

@@ -368,37 +368,44 @@ async def _match(
 @pytest.mark.asyncio
 async def test_rank_league_scope_matches_standings_ordering(db_session):
     """
-    rank is populated via row_number() in league scope and matches the
-    ordering used by get_league_standings (points desc, avg_point_diff desc,
-    win_rate desc).
+    rank in league (all-time) scope matches get_league_standings' all-time
+    ordering: wins desc, win_rate desc.
 
-    Player B has more points → rank 1. Player A has fewer points → rank 2.
+    Points are a season-only concept (PlayerLeagueStats.points is always 0
+    league-wide), so league-scope rank must NOT order by points. This setup
+    deliberately makes the wins-leader differ from the (would-be) points-leader
+    to prove the ordering follows wins, not points.
+
+    Player A has MORE wins but FEWER points. Player B has FEWER wins but MORE
+    points. Standings ranks by wins → Player A is rank 1, Player B is rank 2.
     """
     player_a = await _player(db_session, "Alice A")
     player_b = await _player(db_session, "Bob B")
     league = await _league(db_session, "Rank League")
 
-    # Player B outranks Player A on points
+    # Player A: more wins, fewer points (wins-leader)
     db_session.add(
         PlayerLeagueStats(
             player_id=player_a.id,
             league_id=league.id,
             games=10,
-            wins=5,
-            points=50.0,
-            win_rate=50.0,
+            wins=8,
+            points=10.0,
+            win_rate=80.0,
             avg_point_diff=1.0,
         )
     )
+    # Player B: fewer wins, more points + higher avg_point_diff (would win a
+    # points-based sort, but must lose a wins-based sort)
     db_session.add(
         PlayerLeagueStats(
             player_id=player_b.id,
             league_id=league.id,
             games=10,
-            wins=8,
-            points=80.0,
-            win_rate=80.0,
-            avg_point_diff=3.0,
+            wins=5,
+            points=99.0,
+            win_rate=50.0,
+            avg_point_diff=9.0,
         )
     )
     await db_session.commit()
@@ -412,8 +419,9 @@ async def test_rank_league_scope_matches_standings_ordering(db_session):
 
     assert result_b is not None
     assert result_a is not None
-    assert result_b["rank"] == 1
-    assert result_a["rank"] == 2
+    # Wins-based ordering: A (8 wins) outranks B (5 wins), regardless of points.
+    assert result_a["rank"] == 1
+    assert result_b["rank"] == 2
 
 
 @pytest.mark.asyncio
@@ -481,18 +489,20 @@ async def test_rank_none_when_no_stats_row(db_session):
 @pytest.mark.asyncio
 async def test_rank_tiebreak_by_avg_point_diff_then_win_rate(db_session):
     """
-    When points are equal, avg_point_diff is the tiebreaker; if also equal,
-    win_rate is the final tiebreaker.
+    Season scope: when points are equal, avg_point_diff is the tiebreaker
+    (per _SEASON_RANK_ORDER). avg_point_diff only participates in season-scope
+    ranking — league/all-time scope ranks by wins + win_rate only.
     """
     player_a = await _player(db_session, "Tie A")
     player_b = await _player(db_session, "Tie B")
     league = await _league(db_session, "Tie League")
+    season = await _season(db_session, league, "Tie Season")
 
     # Same points, player_b has higher avg_point_diff
     db_session.add(
-        PlayerLeagueStats(
+        PlayerSeasonStats(
             player_id=player_a.id,
-            league_id=league.id,
+            season_id=season.id,
             games=10,
             wins=5,
             points=50.0,
@@ -501,9 +511,9 @@ async def test_rank_tiebreak_by_avg_point_diff_then_win_rate(db_session):
         )
     )
     db_session.add(
-        PlayerLeagueStats(
+        PlayerSeasonStats(
             player_id=player_b.id,
-            league_id=league.id,
+            season_id=season.id,
             games=10,
             wins=5,
             points=50.0,
@@ -514,10 +524,10 @@ async def test_rank_tiebreak_by_avg_point_diff_then_win_rate(db_session):
     await db_session.commit()
 
     result_a = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_a.id
+        db_session, league_id=league.id, player_id=player_a.id, season_id=season.id
     )
     result_b = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_b.id
+        db_session, league_id=league.id, player_id=player_b.id, season_id=season.id
     )
 
     assert result_b is not None and result_a is not None

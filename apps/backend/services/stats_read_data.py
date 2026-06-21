@@ -1417,9 +1417,13 @@ async def get_league_player_stats_full(
             rank = int(rank_row)
     else:
         # League scope: rank within PlayerLeagueStats for this league.
+        # Points and rank are season-scoped concepts only — PlayerLeagueStats.points
+        # is always 0 league-wide (see the column comment on the model), so ordering
+        # by it would be degenerate. Mirror get_league_standings' all-time ordering
+        # (wins desc, win_rate desc) so this rank never disagrees with the standings
+        # tab when the user selects the "All" season view.
         _league_order = (
-            PlayerLeagueStats.points.desc(),
-            PlayerLeagueStats.avg_point_diff.desc(),
+            PlayerLeagueStats.wins.desc(),
             PlayerLeagueStats.win_rate.desc(),
         )
         ranked_sq = (

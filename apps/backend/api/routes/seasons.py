@@ -10,7 +10,12 @@ from sqlalchemy import select as sa_select
 
 from backend.database.db import get_db_session
 from backend.database.models import Season as SeasonModel
-from backend.services import data_service, notification_service, season_awards_service
+from backend.services import (
+    data_service,
+    notification_service,
+    season_awards_service,
+    friend_service,
+)
 from backend.api.auth_dependencies import (
     get_current_user,
     get_current_user_optional,
@@ -382,7 +387,15 @@ async def get_league_player_stats_full(
     ``rank`` and ``game_history`` are populated; ``rating_delta`` is always None.
     """
     try:
-        viewer_player_id = current_user.get("player_id") if current_user else None
+        # Resolve the caller's player_id from their user_id. The optional-auth
+        # user dict does NOT carry player_id (only require_verified_player adds
+        # it), so we look it up explicitly — needed for both the private-league
+        # access gate and the ``is_self`` flag.
+        viewer_player_id = (
+            await friend_service.get_player_id_for_user(session, current_user["id"])
+            if current_user
+            else None
+        )
         stats = await data_service.get_league_player_stats_full(
             session,
             league_id=league_id,
