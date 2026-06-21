@@ -196,10 +196,10 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Types to promote: `LeagueMemberRow`, `LeagueInfoDetail` → `@beach-kings/shared` (same commit that deletes them from `mockApi.ts`).
   - Reuse check: parallel fan-out preferred (sub-resources useful independently). `removeLeagueMember`, `updateLeagueMember`, `updateLeague`, `addLeagueHomeCourt`, `removeLeagueHomeCourt` already exist or need thin additions in api-client.
 
-- [ ] **P2.4 — League Stats tab (per-player)**
-  - File: `useLeagueStatsTab.ts`
+- [x] **P2.4 — League Stats tab (per-player)** *(done — see 2026-06-21 log)*
+  - File: `useLeagueStatsTab.ts` (already wired to `api.getLeaguePlayerStats`)
   - Endpoint: `GET /api/leagues/:leagueId/players/:playerId/stats?season_id=`
-  - Reuse check: `/api/users/me/stats` already exists. Check whether it accepts `league_id` or can be extended to support arbitrary player IDs (respecting privacy settings).
+  - Resolution: the endpoint existed but returned placeholder `rank: null`, `game_history: []`, `rating_delta: null`. Populated `rank` (reusing `_SEASON_RANK_ORDER` window-fn pattern, consistent with the Standings tab) and `game_history` (reusing `my_games_service._build_entry`, from the viewed player's perspective). `rating` kept = points; `rating_delta` intentionally dropped for MVP. Also closed an access hole: private leagues (`is_public == False`) now require caller membership (403 otherwise); public leagues stay open.
 
 - [x] **P2.5 — League Events / Signups list** *(done — see 2026-06-21 log)*
   - File: `useLeagueSignupsTab.ts`
@@ -242,15 +242,15 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Decision: trophies are not shown on other players' profiles. Section removed from `PlayerProfileScreen` and `usePlayerProfileScreen` (`MOCK_TROPHIES`, `PlayerTrophy` type, `trophies` field). `PlayerTrophiesList.tsx` deleted. The signed-in user's own awards continue to live on `MyStatsScreen` (already real-data).
   - No new endpoint added.
 
-- [ ] **P3.3 — Player Leagues list**
-  - File: `usePlayerProfileScreen.ts` (remove `MOCK_LEAGUES`)
-  - Endpoint: extend `getUserLeagues(userId)` to accept a player ID param (if it only serves `me` today) OR add `GET /api/players/:id/leagues`
-  - Reuse check: `getUserLeagues` exists — prefer parameterizing it.
+- [x] **P3.3 — Player Leagues list** *(done — see 2026-06-21 log)*
+  - File: `usePlayerProfileScreen.ts` (`MOCK_LEAGUES` removed)
+  - Endpoint: new `GET /api/players/:id/leagues` (parameterizing `getUserLeagues` wasn't clean — it keys off `user_id`, an auth concept). New `get_player_public_leagues(session, player_id)` reuses the season-resolution + `_SEASON_RANK_ORDER` rank logic, filters `League.is_public == True` (mirrors web), returns slim `{id, name, rank, games_played}`. `PlayerLeague` promoted to `@beach-kings/shared`.
 
-- [ ] **P3.4 — Push Notification Preferences**
+- [x] **P3.4 — Push Notification Preferences** *(done — see 2026-06-21 log)*
   - File: `apps/mobile/src/components/screens/Settings/useNotificationsScreen.ts`
   - Endpoints (new): `GET /api/users/me/push-prefs`, `PATCH /api/users/me/push-prefs`
-  - Reuse check: if the user profile already has notification-preference fields, patch via `updateUserProfile` instead of a new sub-resource.
+  - Resolution: no pref fields existed on the user record → new `push_notification_preferences` table (migration `053`) + `push_prefs_service`. Sub-resource (not `updateUserProfile`) per the namespace pattern. Push send path in `notification_service` now gated by `should_send_push(prefs, type)` — a disabled toggle (or the master `push_enabled`) suppresses the push, but the in-app notification row is still created. Defaults apply when no row exists. Toggle set follows the wireframe (`ranking_changes` replaces `session_updates`). `PushNotificationPrefs` promoted to `@beach-kings/shared`.
+  - Deferred (not MVP): Quiet Hours (UI row left as no-op); `tournament_updates`/`ranking_changes` are stored but currently map to few/no live notification types.
 
 - [x] **P3.5 — My Stats filters (league_id, days)** — completed 2026-04-26
   - File: `useMyStatsScreen.ts`
@@ -292,9 +292,9 @@ Per Ground Rule 7 (*Types follow their mocks*), each remaining type leaves `mock
 | ~~`LeagueInviteItem`~~ | ~~P2.7~~ — already in `@beach-kings/shared` |
 | ~~`InvitablePlayer`~~ | ~~P2.7~~ — already in `@beach-kings/shared` |
 | `FindLeagueResult` | ~~P2.6~~ — promoted to `@beach-kings/shared` |
-| `LeaguePlayerStats` | P2.4 |
+| ~~`LeaguePlayerStats`~~ | ~~P2.4~~ — already in `@beach-kings/shared`; backend now populates rank + game_history |
 | `SessionPlayer`, `SessionGame`, `SessionDetail` | P2.8 |
-| `PushNotificationPrefs` | P3.4 |
+| ~~`PushNotificationPrefs`~~ | ~~P3.4~~ — promoted to `@beach-kings/shared` (added `push_enabled`/`ranking_changes`, dropped `session_updates`) |
 
 **Tournaments (out of scope — leave in mockApi.ts):** `Tournament`, `TournamentTeam`, `TournamentGame`, `TournamentStanding`, `KobScheduleRow`
 
@@ -347,6 +347,12 @@ Grouped for backend sprint planning. Tournament/KOB endpoints intentionally omit
 ## Status log
 
 _Update this section as tasks complete._
+
+- 2026-06-21: **Phase II + III completed.** Remaining open tasks closed (commits on `feat/ps/mobile-app-creation`):
+  - **P2.4** (`998099f`) — backend populates league-player `rank` (window-fn, consistent with Standings) + `game_history` (viewed-player perspective, reusing `my_games_service`); private-league access gate added. `rating_delta` dropped for MVP. 22 backend tests.
+  - **P3.3** (`5499c37`) — new `GET /api/players/:id/leagues` (public-only), `PlayerLeague` promoted to shared, `MOCK_LEAGUES` removed. 25 backend + 4 mobile tests.
+  - **P3.4** (`fa10e34`) — real push prefs: migration `053` + table + `GET/PATCH /api/users/me/push-prefs` + send-path gating in `notification_service` (push only, not in-app rows). `PushNotificationPrefs` promoted to shared. 24 backend + 7 api-client + 40 mobile tests.
+  - Implementation delegated to Sonnet sub-agents, one per task (sequential, per the shared-file blast-radius rule). All verified: backend via test-runner, mobile `tsc --noEmit` clean.
 
 - 2026-06-21: **Plan reconciliation + P2.5 type hygiene.** Audit found the status log was stale: **P2.5** and **P2.7** were already functionally complete (hooks wired to real APIs; the "deferred" P1.5 invite backend had in fact landed — `league_invites` table, migration `049`, four routes, tests). Marked both done. P2.5 cleanup: `LeagueEvent`/`LeagueEventStatus` moved from `mockApi.ts` → `Leagues/signupsTypes.ts`; `LeagueScheduleRow` deleted in favor of shared `LeagueScheduleItem`; consumers re-pointed; `tsc --noEmit` clean. MVP scope cuts recorded: "N spots left" capacity badge, event end-time, per-invite `game_count`/Share link, invitee accept/decline — all deferred. Remaining Phase II/III: P2.4 (populate rank + game history), P3.3 (player leagues endpoint), P3.4 (real push prefs).
 
