@@ -50,7 +50,42 @@ import type {
   CreatePlaceholderRequest,
   PlaceholderPlayerResponse,
   PlayerLeague,
+  PublicPlayerResponse,
 } from '@beach-kings/shared';
+
+/**
+ * Maps a public player profile response (GET /api/public/players/{id}) onto the
+ * flat {@link Player} shape consumed by the mobile profile screen.
+ *
+ * The public endpoint nests rating/games under `stats` and city/state under
+ * `location`, whereas the profile header + stats grid read them as top-level
+ * Player fields. This adapter bridges that gap (and mirrors how the web
+ * PublicPlayerPage consumes the same endpoint).
+ */
+export function mapPublicPlayerToPlayer(res: PublicPlayerResponse): Player {
+  const wins = res.stats.total_wins;
+  const games = res.stats.total_games;
+  return {
+    id: res.id,
+    name: res.full_name,
+    full_name: res.full_name,
+    avatar: res.avatar,
+    gender: res.gender,
+    level: res.level,
+    is_placeholder: res.is_placeholder,
+    city: res.location?.city ?? null,
+    state: res.location?.state ?? null,
+    location_id: res.location?.id ?? null,
+    location_name: res.location?.name ?? null,
+    location_slug: res.location?.slug ?? null,
+    current_rating: res.stats.current_rating,
+    total_games: games,
+    total_wins: wins,
+    wins,
+    losses: games - wins,
+    league_memberships: res.league_memberships,
+  };
+}
 
 export function createApiMethods(client: ApiClient) {
   const api = client.axiosInstance;
@@ -331,9 +366,16 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async getPlayerStats(playerId: number | string): Promise<Player> {
-      const response = await api.get<Player>(`/api/players/${encodeURIComponent(playerId)}`);
-      return response.data;
+    /**
+     * Fetch a public player profile (no auth required) and adapt it to the flat
+     * Player shape. Maps to GET /api/public/players/{id}; 404s for unknown
+     * players or players with no games. Used by the mobile PlayerProfile screen.
+     */
+    async getPublicPlayer(playerId: number | string): Promise<Player> {
+      const response = await api.get<PublicPlayerResponse>(
+        `/api/public/players/${encodeURIComponent(playerId)}`,
+      );
+      return mapPublicPlayerToPlayer(response.data);
     },
 
     async getPlayerSeasonStats(playerId: number, seasonId: number) {

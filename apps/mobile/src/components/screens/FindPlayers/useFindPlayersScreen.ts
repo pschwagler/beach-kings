@@ -22,6 +22,47 @@ import type { DiscoverPlayer } from './PlayerRow';
 
 export type FindPlayersTab = 'players' | 'friends';
 
+/**
+ * Raw shape of a single item from GET /api/friends/discover. The backend serializes
+ * `id`/`location_name`/`total_games`/`mutual_friend_count`, which differ from the
+ * flat {@link DiscoverPlayer} the row component reads — so it must be adapted.
+ * Both field spellings are accepted so the mapper is resilient to either source.
+ */
+interface RawDiscoverItem {
+  readonly id?: number;
+  readonly player_id?: number;
+  readonly full_name?: string | null;
+  readonly avatar?: string | null;
+  readonly city?: string | null;
+  readonly location_name?: string | null;
+  readonly level?: string | null;
+  readonly games_played?: number;
+  readonly total_games?: number;
+  readonly mutual_friends_count?: number;
+  readonly mutual_friend_count?: number;
+  readonly last_active_label?: string | null;
+  readonly friend_status?: DiscoverPlayer['friend_status'];
+}
+
+/**
+ * Maps a raw discover item onto the flat DiscoverPlayer shape the UI consumes.
+ * Critically, resolves `player_id` (backend sends `id`) so list keys, profile
+ * navigation, and add-friend all target a real player.
+ */
+function mapDiscoverItem(it: RawDiscoverItem): DiscoverPlayer {
+  return {
+    player_id: it.player_id ?? it.id ?? 0,
+    full_name: it.full_name ?? '',
+    avatar: it.avatar ?? null,
+    city: it.city ?? it.location_name ?? null,
+    level: it.level ?? null,
+    games_played: it.games_played ?? it.total_games ?? 0,
+    mutual_friends_count: it.mutual_friends_count ?? it.mutual_friend_count ?? 0,
+    last_active_label: it.last_active_label ?? null,
+    friend_status: it.friend_status ?? 'none',
+  };
+}
+
 export interface UseFindPlayersScreenResult {
   readonly activeTab: FindPlayersTab;
   readonly setActiveTab: (tab: FindPlayersTab) => void;
@@ -68,7 +109,13 @@ export function useFindPlayersScreen(): UseFindPlayersScreenResult {
     error: playersError,
     refetch: refetchPlayers,
   } = useApi<DiscoverPlayer[]>(
-    () => api.discoverPlayers() as Promise<DiscoverPlayer[]>,
+    () =>
+      api
+        .discoverPlayers()
+        .then((r: { items?: RawDiscoverItem[] } | RawDiscoverItem[]) => {
+          const items = Array.isArray(r) ? r : (r?.items ?? []);
+          return items.map(mapDiscoverItem);
+        }),
     [],
   );
 

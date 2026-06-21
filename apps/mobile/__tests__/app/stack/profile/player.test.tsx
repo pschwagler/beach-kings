@@ -78,17 +78,19 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
-const mockGetPlayerStats = jest.fn();
+const mockGetPublicPlayer = jest.fn();
 const mockGetMutualFriends = jest.fn();
 const mockBatchFriendStatus = jest.fn();
 const mockSendFriendRequest = jest.fn();
+const mockGetPlayerLeagues = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getPlayerStats: (...args: unknown[]) => mockGetPlayerStats(...args),
+    getPublicPlayer: (...args: unknown[]) => mockGetPublicPlayer(...args),
     getMutualFriends: (...args: unknown[]) => mockGetMutualFriends(...args),
     batchFriendStatus: (...args: unknown[]) => mockBatchFriendStatus(...args),
     sendFriendRequest: (...args: unknown[]) => mockSendFriendRequest(...args),
+    getPlayerLeagues: (...args: unknown[]) => mockGetPlayerLeagues(...args),
   },
 }));
 
@@ -147,10 +149,11 @@ const MOCK_MUTUAL_FRIEND = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetPlayerStats.mockResolvedValue(MOCK_PLAYER);
+  mockGetPublicPlayer.mockResolvedValue(MOCK_PLAYER);
   mockGetMutualFriends.mockResolvedValue([]);
   mockBatchFriendStatus.mockResolvedValue({});
   mockSendFriendRequest.mockResolvedValue({});
+  mockGetPlayerLeagues.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -159,7 +162,7 @@ beforeEach(() => {
 
 describe('PlayerProfileScreen — loading state', () => {
   it('renders loading skeleton while data is fetching', async () => {
-    mockGetPlayerStats.mockReturnValue(new Promise(() => {}));
+    mockGetPublicPlayer.mockReturnValue(new Promise(() => {}));
     render(<PlayerProfileRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('player-profile-skeleton')).toBeTruthy();
@@ -173,7 +176,7 @@ describe('PlayerProfileScreen — loading state', () => {
 
 describe('PlayerProfileScreen — error state', () => {
   it('renders error state when fetch fails', async () => {
-    mockGetPlayerStats.mockRejectedValue(new Error('Network error'));
+    mockGetPublicPlayer.mockRejectedValue(new Error('Network error'));
     render(<PlayerProfileRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('player-profile-error')).toBeTruthy();
@@ -181,7 +184,7 @@ describe('PlayerProfileScreen — error state', () => {
   });
 
   it('renders retry button in error state', async () => {
-    mockGetPlayerStats.mockRejectedValue(new Error('Network error'));
+    mockGetPublicPlayer.mockRejectedValue(new Error('Network error'));
     render(<PlayerProfileRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('player-profile-retry-btn')).toBeTruthy();
@@ -189,13 +192,13 @@ describe('PlayerProfileScreen — error state', () => {
   });
 
   it('calls api again when retry is pressed', async () => {
-    mockGetPlayerStats.mockRejectedValueOnce(new Error('fail'));
-    mockGetPlayerStats.mockResolvedValue(MOCK_PLAYER);
+    mockGetPublicPlayer.mockRejectedValueOnce(new Error('fail'));
+    mockGetPublicPlayer.mockResolvedValue(MOCK_PLAYER);
     render(<PlayerProfileRoute />);
     await waitFor(() => expect(screen.getByTestId('player-profile-retry-btn')).toBeTruthy());
     fireEvent.press(screen.getByTestId('player-profile-retry-btn'));
     await waitFor(() => {
-      expect(mockGetPlayerStats).toHaveBeenCalledTimes(2);
+      expect(mockGetPublicPlayer).toHaveBeenCalledTimes(2);
     });
   });
 });

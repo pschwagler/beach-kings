@@ -38,7 +38,7 @@ export default function MessageThreadRoute(): React.ReactNode {
   const id = Number(playerId ?? '0');
 
   const { data: otherPlayer } = useApi<PlayerLite>(
-    () => api.getPlayerStats(id) as Promise<PlayerLite>,
+    () => api.getPublicPlayer(id) as Promise<PlayerLite>,
     [id],
     { enabled: id > 0 },
   );

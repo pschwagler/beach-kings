@@ -1224,7 +1224,8 @@ async def get_league_player_stats_full(
         return None
 
     # Access-control gate: private leagues require the caller to be a member.
-    if not getattr(league, "is_public", True):
+    # Default to False (deny) so a missing/unknown attribute never leaks a private league.
+    if not getattr(league, "is_public", False):
         is_member = False
         if caller_player_id is not None:
             member_row = await session.execute(

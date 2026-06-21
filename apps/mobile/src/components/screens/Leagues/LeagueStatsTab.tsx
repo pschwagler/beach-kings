@@ -190,13 +190,33 @@ function BreakdownTable({
 // Game history card
 // ---------------------------------------------------------------------------
 
-function GameHistoryCard({ game }: { readonly game: GameHistoryEntry }): React.ReactNode {
+/**
+ * Derives the display label for the viewed player's team slot in a game card.
+ *
+ * - Own profile (is_self=true): always "You"
+ * - Other player (is_self=false): first token of display_name (e.g. "Alex Torres" → "Alex");
+ *   falls back to full display_name when it is a single token, and to "Player" when empty.
+ */
+function deriveSelfLabel(isSelf: boolean, displayName: string): string {
+  if (isSelf) return 'You';
+  if (!displayName) return 'Player';
+  const spaceIndex = displayName.indexOf(' ');
+  return spaceIndex > 0 ? displayName.slice(0, spaceIndex) : displayName;
+}
+
+interface GameHistoryCardProps {
+  readonly game: GameHistoryEntry;
+  /** Label to use for the viewed player's team slot (e.g. "You" or "Alex"). */
+  readonly selfLabel: string;
+}
+
+function GameHistoryCard({ game, selfLabel }: GameHistoryCardProps): React.ReactNode {
   const isWin = game.result === 'W';
   const isDraw = game.result === 'D';
 
   const myTeam = game.partner_names.length > 0
-    ? `You / ${game.partner_names.join(' / ')}`
-    : 'You';
+    ? `${selfLabel} / ${game.partner_names.join(' / ')}`
+    : selfLabel;
   const oppTeam = game.opponent_names.join(' / ');
 
   return (
@@ -444,7 +464,11 @@ export default function LeagueStatsTab({
             </View>
           ) : (
             stats.game_history.map((g) => (
-              <GameHistoryCard key={g.id} game={g} />
+              <GameHistoryCard
+                key={g.id}
+                game={g}
+                selfLabel={deriveSelfLabel(stats.is_self, stats.display_name)}
+              />
             ))
           )}
         </View>

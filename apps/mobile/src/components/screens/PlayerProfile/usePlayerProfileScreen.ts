@@ -52,9 +52,9 @@ export function usePlayerProfileScreen(
     async () => {
       const numericId = typeof playerId === 'string' ? parseInt(playerId, 10) : playerId;
 
-      // Fetch player stats, mutual friends, friend status, and leagues in parallel
+      // Fetch player profile, mutual friends, friend status, and leagues in parallel
       const [playerData, mutualFriendsData, batchStatus, leaguesData] = await Promise.all([
-        api.getPlayerStats(numericId),
+        api.getPublicPlayer(numericId),
         api.getMutualFriends(numericId).catch(() => []),
         api.batchFriendStatus([numericId]).catch(() => ({})),
         api.getPlayerLeagues(numericId).catch(() => []),

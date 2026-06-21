@@ -216,7 +216,7 @@ class TestUpdatePrefs:
 
     @pytest.mark.asyncio
     async def test_unknown_field_is_ignored(self) -> None:
-        """Unknown field names in updates are silently ignored via hasattr guard."""
+        """Unknown field names in updates are silently ignored via allowlist guard."""
         from backend.database.models import PushNotificationPreference
 
         row = PushNotificationPreference(
@@ -233,6 +233,37 @@ class TestUpdatePrefs:
         # Should not raise even with an unknown key
         result = await update_prefs(session, user_id=1, updates={"bogus_field": True})
         assert result["push_enabled"] is True  # unchanged
+
+    @pytest.mark.asyncio
+    async def test_allowlist_blocks_non_pref_orm_attribute(self) -> None:
+        """Fields that exist on the ORM model but are NOT pref columns must be blocked.
+
+        The allowlist (_WRITABLE_PREF_FIELDS) should prevent writing ORM
+        attributes like 'id' or 'user_id' even though hasattr() would pass them.
+        """
+        from backend.database.models import PushNotificationPreference
+        from backend.services.push_prefs_service import _WRITABLE_PREF_FIELDS
+
+        row = PushNotificationPreference(
+            user_id=1,
+            push_enabled=True,
+            direct_messages=True,
+            league_messages=True,
+            friend_requests=True,
+            match_invites=True,
+            tournament_updates=False,
+            ranking_changes=False,
+        )
+        session = _make_session_mock(existing_row=row)
+
+        # 'id' and 'user_id' exist on the model (hasattr passes) but must NOT be writable
+        assert "id" not in _WRITABLE_PREF_FIELDS
+        assert "user_id" not in _WRITABLE_PREF_FIELDS
+
+        original_user_id = row.user_id
+        # Attempt to overwrite user_id via updates — must be silently ignored
+        await update_prefs(session, user_id=1, updates={"user_id": 999})
+        assert row.user_id == original_user_id
 
 
 # ---------------------------------------------------------------------------

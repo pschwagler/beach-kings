@@ -14,7 +14,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getPlayerStats: jest.fn(),
+    getPublicPlayer: jest.fn(),
     getMutualFriends: jest.fn(),
     batchFriendStatus: jest.fn(),
     getPlayerLeagues: jest.fn(),
@@ -34,7 +34,7 @@ import { api } from '@/lib/api';
 // ---------------------------------------------------------------------------
 
 const mockApi = api as unknown as {
-  getPlayerStats: jest.Mock;
+  getPublicPlayer: jest.Mock;
   getMutualFriends: jest.Mock;
   batchFriendStatus: jest.Mock;
   getPlayerLeagues: jest.Mock;
@@ -67,7 +67,7 @@ const noop = () => {};
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockApi.getPlayerStats.mockResolvedValue(FAKE_PLAYER);
+  mockApi.getPublicPlayer.mockResolvedValue(FAKE_PLAYER);
   mockApi.getMutualFriends.mockResolvedValue([]);
   mockApi.batchFriendStatus.mockResolvedValue({});
   mockApi.getPlayerLeagues.mockResolvedValue(FAKE_LEAGUES);

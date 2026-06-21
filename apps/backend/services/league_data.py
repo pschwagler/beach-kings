@@ -624,7 +624,7 @@ async def get_league_detail(
         "location_id": league.location_id,
         "location_name": location_name,
         "is_open": league.is_open,
-        "is_public": getattr(league, "is_public", True),
+        "is_public": getattr(league, "is_public", False),
         "whatsapp_group_id": league.whatsapp_group_id,
         "gender": league.gender,
         "level": league.level,

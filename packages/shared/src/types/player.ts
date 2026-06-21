@@ -135,7 +135,13 @@ export interface PublicPlayerResponse {
   gender: PlayerGender | null;
   level: SkillLevel | null;
   is_placeholder: boolean;
-  location: { id: string; name: string; slug: string | null } | null;
+  location: {
+    id: string;
+    name: string;
+    city?: string | null;
+    state?: string | null;
+    slug?: string | null;
+  } | null;
   stats: PublicPlayerStats;
   league_memberships: Array<{ league_id: number; league_name: string }>;
   created_at: string | null;

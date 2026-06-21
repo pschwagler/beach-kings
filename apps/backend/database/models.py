@@ -1931,8 +1931,10 @@ class PushNotificationPreference(Base):
     __tablename__ = "push_notification_preferences"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    # unique=True is intentionally omitted here; uniqueness is declared once below
+    # via UniqueConstraint + Index in __table_args__ (matching migration 053).
     user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     # Master kill-switch — when False, ALL push is suppressed for this user.
     push_enabled = Column(Boolean, nullable=False, server_default="true", default=True)

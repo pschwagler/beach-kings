@@ -67,6 +67,12 @@ _DEFAULTS: Dict[str, bool] = {
     "ranking_changes": False,
 }
 
+# Explicit allowlist of ORM columns that update_prefs is permitted to write.
+# Derived from _DEFAULTS so it stays in sync with the preference schema.
+# Using an allowlist (rather than hasattr) prevents arbitrary ORM attribute
+# writes if update_prefs is ever called with untrusted field names.
+_WRITABLE_PREF_FIELDS: frozenset[str] = frozenset(_DEFAULTS.keys())
+
 
 def _row_to_dict(row: PushNotificationPreference) -> Dict[str, bool]:
     """Serialize a PushNotificationPreference ORM row to a plain dict."""
@@ -137,9 +143,11 @@ async def update_prefs(
         )
         session.add(row)
 
-    # Apply only provided (non-None) fields
+    # Apply only provided (non-None) fields that are in the explicit allowlist.
+    # Gating on _WRITABLE_PREF_FIELDS (not just hasattr) prevents arbitrary
+    # ORM attribute writes if this function is ever called with untrusted input.
     for field, value in updates.items():
-        if value is not None and hasattr(row, field):
+        if value is not None and field in _WRITABLE_PREF_FIELDS:
             setattr(row, field, value)
 
     await session.flush()
