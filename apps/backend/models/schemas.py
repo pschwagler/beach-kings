@@ -2203,6 +2203,7 @@ class CourtListItem(BaseModel):
     top_tags: List[str] = []
     photo_url: Optional[str] = None  # First review photo as thumbnail
     distance_miles: Optional[float] = None  # Present when user_lat/user_lng provided
+    is_saved: Optional[bool] = None  # Caller's "My Courts" state (auth requests only)
 
 
 class PaginatedCourtsResponse(BaseModel):

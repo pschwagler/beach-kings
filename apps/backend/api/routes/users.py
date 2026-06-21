@@ -13,9 +13,9 @@ from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.database.models import Player
 from backend.services import data_service, user_service, avatar_service, s3_service, my_stats_service, my_games_service
-from backend.services import push_prefs_service
+from backend.services import push_prefs_service, court_service
 from backend.api.auth_dependencies import get_current_user, require_verified_player
-from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload, LeagueInviteItemResponse, PushPrefsResponse, PushPrefsUpdate
+from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload, LeagueInviteItemResponse, PushPrefsResponse, PushPrefsUpdate, AddPlayerHomeCourt
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -449,3 +449,57 @@ async def update_push_prefs(
     except Exception as e:
         logger.error(f"Error updating push prefs for user {current_user['id']}: {e}")
         raise HTTPException(status_code=500, detail="Failed to update push notification preferences.")
+
+
+# ---------------------------------------------------------------------------
+# Saved courts ("My Courts")
+#
+# A player's saved courts ARE their home courts (shared player_home_courts
+# table). These "me" endpoints give the mobile app a clean, self-scoped surface
+# that resolves the player from the auth context.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/users/me/courts", response_model=list)
+async def list_my_courts(
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """List the authenticated player's saved courts ("My Courts") as court cards."""
+    try:
+        return await court_service.get_saved_court_cards(session, user["player_id"])
+    except Exception as e:
+        logger.error("Error listing saved courts: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error listing saved courts")
+
+
+@router.post("/api/users/me/courts", response_model=dict)
+async def save_my_court(
+    payload: AddPlayerHomeCourt,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Save a court to the authenticated player's "My Courts" (idempotent)."""
+    try:
+        return await court_service.save_court(session, user["player_id"], payload.court_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error saving court: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error saving court")
+
+
+@router.delete("/api/users/me/courts/{court_id}", response_model=dict)
+async def unsave_my_court(
+    court_id: int,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Remove a court from the authenticated player's "My Courts" (idempotent)."""
+    try:
+        return await court_service.unsave_court(session, user["player_id"], court_id)
+    except Exception as e:
+        logger.error("Error unsaving court: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error unsaving court")

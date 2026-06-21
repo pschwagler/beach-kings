@@ -35,6 +35,7 @@ from backend.models.schemas import (
     SitemapPlayerItem,
 )
 from backend.services import court_service, public_service
+from backend.api.auth_dependencies import get_current_user_optional
 
 logger = logging.getLogger(__name__)
 
@@ -389,6 +390,7 @@ async def list_public_courts(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=500, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
+    caller: Optional[dict] = Depends(get_current_user_optional),
 ):
     """
     List approved courts with optional filters and pagination.
@@ -396,8 +398,11 @@ async def list_public_courts(
     Supports filtering by location, surface type, amenities, rating, and free/paid.
     When user_lat/user_lng are provided, results are sorted by distance and include
     distance_miles in each item.
-    Returns court cards with average rating, top tags, and thumbnail photo.
+    Returns court cards with average rating, top tags, and thumbnail photo. When the
+    request is authenticated, each card includes ``is_saved`` (the caller's "My
+    Courts" state).
     """
+    player_id = await court_service.get_player_id_for_user(session, caller)
     return await court_service.list_courts_public(
         session,
         region_id=region_id,
@@ -412,6 +417,7 @@ async def list_public_courts(
         search=search,
         user_lat=user_lat,
         user_lng=user_lng,
+        player_id=player_id,
         page=page,
         page_size=page_size,
     )

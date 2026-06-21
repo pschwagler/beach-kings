@@ -455,3 +455,113 @@ class TestCancelAccountDeletion:
         client = TestClient(app)
         response = client.post("/api/users/me/cancel-deletion")
         assert response.status_code == 401
+
+
+# ============================================================================
+# My Courts — /api/users/me/courts  (saved courts / favorites)
+# ============================================================================
+
+import pytest  # noqa: E402
+from backend.api.auth_dependencies import require_verified_player  # noqa: E402
+from backend.services import court_service  # noqa: E402
+
+MC_PLAYER_ID = 7
+
+
+@pytest.fixture
+def _authed_player():
+    """Override require_verified_player with a verified player for My Courts tests."""
+
+    async def _fake():
+        return {**FAKE_USER, "player_id": MC_PLAYER_ID}
+
+    app.dependency_overrides[require_verified_player] = _fake
+    yield
+    app.dependency_overrides.pop(require_verified_player, None)
+
+
+class TestListMyCourts:
+    """Tests for GET /api/users/me/courts."""
+
+    def test_returns_saved_court_cards(self, monkeypatch, _authed_player):
+        """Happy path: returns the player's saved court cards."""
+        cards = [{"id": 3, "name": "Saved Court", "is_saved": True}]
+
+        async def fake_cards(session, player_id):
+            assert player_id == MC_PLAYER_ID
+            return cards
+
+        monkeypatch.setattr(court_service, "get_saved_court_cards", fake_cards, raising=True)
+
+        client = TestClient(app)
+        response = client.get("/api/users/me/courts")
+        assert response.status_code == 200
+        assert response.json() == cards
+
+    def test_requires_auth(self):
+        """Returns 401/403 when unauthenticated (no override active)."""
+        app.dependency_overrides.pop(require_verified_player, None)
+        client = TestClient(app)
+        response = client.get("/api/users/me/courts")
+        assert response.status_code in (401, 403)
+
+
+class TestSaveMyCourt:
+    """Tests for POST /api/users/me/courts."""
+
+    def test_save_success(self, monkeypatch, _authed_player):
+        """Happy path: saves a court for the authenticated player."""
+
+        async def fake_save(session, player_id, court_id):
+            assert player_id == MC_PLAYER_ID
+            return {"court_id": court_id, "saved": True}
+
+        monkeypatch.setattr(court_service, "save_court", fake_save, raising=True)
+
+        client = TestClient(app)
+        response = client.post("/api/users/me/courts", json={"court_id": 5})
+        assert response.status_code == 200
+        assert response.json() == {"court_id": 5, "saved": True}
+
+    def test_save_missing_court_returns_404(self, monkeypatch, _authed_player):
+        """A nonexistent court id surfaces as 404."""
+
+        async def fake_save(session, player_id, court_id):
+            raise ValueError(f"Court {court_id} not found")
+
+        monkeypatch.setattr(court_service, "save_court", fake_save, raising=True)
+
+        client = TestClient(app)
+        response = client.post("/api/users/me/courts", json={"court_id": 999})
+        assert response.status_code == 404
+
+    def test_save_missing_body_returns_422(self, _authed_player):
+        """Missing court_id is a validation error."""
+        client = TestClient(app)
+        response = client.post("/api/users/me/courts", json={})
+        assert response.status_code == 422
+
+
+class TestUnsaveMyCourt:
+    """Tests for DELETE /api/users/me/courts/{court_id}."""
+
+    def test_unsave_success(self, monkeypatch, _authed_player):
+        """Happy path: removes a saved court for the authenticated player."""
+
+        async def fake_unsave(session, player_id, court_id):
+            assert player_id == MC_PLAYER_ID
+            return {"court_id": court_id, "saved": False}
+
+        monkeypatch.setattr(court_service, "unsave_court", fake_unsave, raising=True)
+
+        client = TestClient(app)
+        response = client.delete("/api/users/me/courts/5")
+        assert response.status_code == 200
+        assert response.json() == {"court_id": 5, "saved": False}
+
+    def test_unsave_requires_auth(self):
+        """Returns 401/403 when unauthenticated."""
+        app.dependency_overrides.pop(require_verified_player, None)
+        client = TestClient(app)
+        response = client.delete("/api/users/me/courts/5")
+        assert response.status_code in (401, 403)

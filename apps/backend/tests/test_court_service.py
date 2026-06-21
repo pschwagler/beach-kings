@@ -925,3 +925,118 @@ class TestLeaguesAtCourt:
         """Court with no leagues returns empty list."""
         result = await court_service.get_leagues_at_court(db_session, court["id"])
         assert result == []
+
+
+# ============================================================================
+# Saved Courts ("My Courts")
+# ============================================================================
+
+
+class TestSavedCourts:
+    """Tests for saved courts ("My Courts"), backed by player_home_courts."""
+
+    @pytest.mark.asyncio
+    async def test_save_court_creates_record(self, db_session, court, test_player):
+        """Saving a court records it and is_court_saved reflects it."""
+        result = await court_service.save_court(db_session, test_player.id, court["id"])
+        assert result == {"court_id": court["id"], "saved": True}
+        assert (
+            await court_service.is_court_saved(db_session, test_player.id, court["id"])
+            is True
+        )
+
+    @pytest.mark.asyncio
+    async def test_save_court_idempotent(self, db_session, court, test_player):
+        """Saving the same court twice does not create a duplicate."""
+        await court_service.save_court(db_session, test_player.id, court["id"])
+        await court_service.save_court(db_session, test_player.id, court["id"])
+        ids = await court_service.get_saved_court_ids(db_session, test_player.id)
+        assert ids == {court["id"]}
+
+    @pytest.mark.asyncio
+    async def test_save_court_missing_raises(self, db_session, test_player):
+        """Saving a nonexistent court raises ValueError (mapped to 404 at route)."""
+        with pytest.raises(ValueError):
+            await court_service.save_court(db_session, test_player.id, 999999)
+
+    @pytest.mark.asyncio
+    async def test_unsave_court(self, db_session, court, test_player):
+        """Unsaving removes the record."""
+        await court_service.save_court(db_session, test_player.id, court["id"])
+        result = await court_service.unsave_court(db_session, test_player.id, court["id"])
+        assert result == {"court_id": court["id"], "saved": False}
+        assert (
+            await court_service.is_court_saved(db_session, test_player.id, court["id"])
+            is False
+        )
+
+    @pytest.mark.asyncio
+    async def test_unsave_court_idempotent(self, db_session, court, test_player):
+        """Unsaving a court that was never saved is a no-op (no error)."""
+        result = await court_service.unsave_court(db_session, test_player.id, court["id"])
+        assert result == {"court_id": court["id"], "saved": False}
+
+    @pytest.mark.asyncio
+    async def test_get_saved_court_ids_subset(self, db_session, court, test_player):
+        """get_saved_court_ids restricts to the provided court_ids subset."""
+        await court_service.save_court(db_session, test_player.id, court["id"])
+        ids = await court_service.get_saved_court_ids(
+            db_session, test_player.id, [court["id"], 999999]
+        )
+        assert ids == {court["id"]}
+
+    @pytest.mark.asyncio
+    async def test_get_saved_court_cards(self, db_session, court, test_player):
+        """Saved court cards include card fields and is_saved=True."""
+        await court_service.save_court(db_session, test_player.id, court["id"])
+        cards = await court_service.get_saved_court_cards(db_session, test_player.id)
+        assert len(cards) == 1
+        assert cards[0]["id"] == court["id"]
+        assert cards[0]["is_saved"] is True
+        assert "average_rating" in cards[0]
+        assert "top_tags" in cards[0]
+
+    @pytest.mark.asyncio
+    async def test_list_courts_public_embeds_is_saved(
+        self, db_session, court, test_player
+    ):
+        """A saved court is flagged is_saved=True in the authenticated list."""
+        await court_service.save_court(db_session, test_player.id, court["id"])
+        result = await court_service.list_courts_public(
+            db_session, player_id=test_player.id
+        )
+        items = {c["id"]: c for c in result["items"]}
+        assert items[court["id"]]["is_saved"] is True
+
+    @pytest.mark.asyncio
+    async def test_list_courts_public_unsaved_is_false(
+        self, db_session, court, test_player
+    ):
+        """An unsaved court is flagged is_saved=False for an authenticated caller."""
+        result = await court_service.list_courts_public(
+            db_session, player_id=test_player.id
+        )
+        items = {c["id"]: c for c in result["items"]}
+        assert items[court["id"]]["is_saved"] is False
+
+    @pytest.mark.asyncio
+    async def test_list_courts_public_no_player_omits_is_saved(self, db_session, court):
+        """Anonymous listing does not include is_saved."""
+        result = await court_service.list_courts_public(db_session)
+        for item in result["items"]:
+            assert "is_saved" not in item
+
+    @pytest.mark.asyncio
+    async def test_get_player_id_for_user_none(self, db_session):
+        """No user resolves to no player id."""
+        assert await court_service.get_player_id_for_user(db_session, None) is None
+
+    @pytest.mark.asyncio
+    async def test_get_player_id_for_user_resolves(
+        self, db_session, test_user, test_player
+    ):
+        """A user dict resolves to its non-placeholder player id."""
+        pid = await court_service.get_player_id_for_user(
+            db_session, {"id": test_user["id"]}
+        )
+        assert pid == test_player.id

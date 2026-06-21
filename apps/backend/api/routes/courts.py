@@ -29,6 +29,7 @@ from backend.services import (
     geocoding_service,
 )
 from backend.api.auth_dependencies import (
+    get_current_user_optional,
     require_system_admin,
     require_verified_player,
     require_court_owner_or_admin,
@@ -118,12 +119,15 @@ async def get_placeholder_court(
 async def get_court_detail(
     id_or_slug: str,
     session: AsyncSession = Depends(get_db_session),
+    caller: Optional[dict] = Depends(get_current_user_optional),
 ) -> dict:
     """
-    Fetch full detail for a single court by numeric id or slug (public, no auth).
+    Fetch full detail for a single court by numeric id or slug (optional auth).
 
     Returns all fields consumed by CourtDetailScreen including photo_count and
-    top_tags.  Returns 404 if the court is not found or is inactive.
+    top_tags.  When the request is authenticated, ``is_saved`` reflects the
+    caller's "My Courts" state.  Returns 404 if the court is not found or is
+    inactive.
     """
     try:
         court = await court_service.get_court_by_slug(session, id_or_slug)
@@ -133,10 +137,17 @@ async def get_court_detail(
         tags_map = await court_service._batch_get_top_tags(
             session, [court["id"]], limit=3
         )
+        player_id = await court_service.get_player_id_for_user(session, caller)
+        is_saved = (
+            await court_service.is_court_saved(session, player_id, court["id"])
+            if player_id is not None
+            else False
+        )
         return {
             **court,
             "photo_count": len(court.get("all_photos", [])),
             "top_tags": tags_map.get(court["id"], []),
+            "is_saved": is_saved,
         }
     except HTTPException:
         raise

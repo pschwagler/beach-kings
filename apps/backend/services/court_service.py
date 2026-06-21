@@ -9,9 +9,9 @@ import logging
 import math
 import re
 import unicodedata
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
-from sqlalchemy import and_, case, func, literal, or_, select, update
+from sqlalchemy import and_, case, delete, func, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,6 +30,7 @@ from backend.database.models import (
     Location,
     Match,
     Player,
+    PlayerHomeCourt,
     Session,
     SessionStatus,
 )
@@ -116,6 +117,7 @@ async def list_courts_public(
     search: Optional[str] = None,
     user_lat: Optional[float] = None,
     user_lng: Optional[float] = None,
+    player_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Dict:
@@ -125,6 +127,11 @@ async def list_courts_public(
     When ``user_lat`` and ``user_lng`` are provided, results are sorted by
     distance (nearest first) and each item includes ``distance_miles``.
     Otherwise results are sorted alphabetically by name.
+
+    When ``player_id`` is provided (the authenticated caller), each item gets an
+    ``is_saved`` flag reflecting whether the court is in that player's saved
+    "My Courts" set, so the client can render toggle state without an extra
+    round-trip.
 
     Args:
         session: Database session.
@@ -269,6 +276,12 @@ async def list_courts_public(
             d = row[5]
             item["distance_miles"] = round(d, 1) if d < 999999.0 else None
         items.append(item)
+
+    # Flag saved ("My Courts") state for the authenticated caller.
+    if player_id is not None:
+        saved_ids = await get_saved_court_ids(session, player_id, court_ids)
+        for item in items:
+            item["is_saved"] = item["id"] in saved_ids
 
     return {
         "items": items,
@@ -1716,6 +1729,196 @@ async def get_active_check_ins(
     ]
 
     return {"count": len(players), "checked_in_players": players}
+
+
+# ---------------------------------------------------------------------------
+# Saved courts ("My Courts")
+#
+# Backed by the shared ``player_home_courts`` table: a player's saved courts ARE
+# their home courts (the same set surfaced publicly on the web profile). These
+# helpers power the mobile "My Courts" feature and the ``is_saved`` flag embedded
+# on court list/detail responses.
+# ---------------------------------------------------------------------------
+
+
+async def get_player_id_for_user(
+    session: AsyncSession, user: Optional[Dict]
+) -> Optional[int]:
+    """
+    Resolve the non-placeholder player id for an (optionally authenticated) user.
+
+    Returns None when ``user`` is None or has no real player profile, so callers
+    can pair this with ``get_current_user_optional`` to derive ``is_saved``
+    without forcing authentication on otherwise-public endpoints.
+    """
+    if not user:
+        return None
+    result = await session.execute(
+        select(Player.id).where(
+            Player.user_id == user["id"],
+            Player.is_placeholder == False,  # noqa: E712
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def save_court(session: AsyncSession, player_id: int, court_id: int) -> Dict:
+    """
+    Save a court to the player's "My Courts" (idempotent).
+
+    Adds the court to ``player_home_courts`` if not already present, appending it
+    after any existing entries. Saving an already-saved court is a no-op.
+
+    Args:
+        session: Database session.
+        player_id: The saving player's id.
+        court_id: Court to save.
+
+    Returns:
+        ``{"court_id": court_id, "saved": True}``.
+
+    Raises:
+        ValueError: If the court does not exist.
+    """
+    court = await session.get(Court, court_id)
+    if not court:
+        raise ValueError(f"Court {court_id} not found")
+
+    existing = await session.execute(
+        select(PlayerHomeCourt.id).where(
+            and_(
+                PlayerHomeCourt.player_id == player_id,
+                PlayerHomeCourt.court_id == court_id,
+            )
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        return {"court_id": court_id, "saved": True}
+
+    max_pos = (
+        await session.execute(
+            select(func.max(PlayerHomeCourt.position)).where(
+                PlayerHomeCourt.player_id == player_id
+            )
+        )
+    ).scalar()
+    next_pos = (max_pos if max_pos is not None else -1) + 1
+
+    session.add(PlayerHomeCourt(player_id=player_id, court_id=court_id, position=next_pos))
+    await session.commit()
+    return {"court_id": court_id, "saved": True}
+
+
+async def unsave_court(session: AsyncSession, player_id: int, court_id: int) -> Dict:
+    """
+    Remove a court from the player's "My Courts" (idempotent).
+
+    Returns ``{"court_id": court_id, "saved": False}`` whether or not a row was
+    actually deleted, so the toggle endpoint is safe to call repeatedly.
+    """
+    await session.execute(
+        delete(PlayerHomeCourt).where(
+            and_(
+                PlayerHomeCourt.player_id == player_id,
+                PlayerHomeCourt.court_id == court_id,
+            )
+        )
+    )
+    await session.commit()
+    return {"court_id": court_id, "saved": False}
+
+
+async def get_saved_court_ids(
+    session: AsyncSession,
+    player_id: int,
+    court_ids: Optional[List[int]] = None,
+) -> Set[int]:
+    """
+    Return the set of court ids the player has saved.
+
+    When ``court_ids`` is provided, the result is restricted to that subset (used
+    to flag ``is_saved`` on a page of list results without scanning the player's
+    entire saved set).
+    """
+    q = select(PlayerHomeCourt.court_id).where(PlayerHomeCourt.player_id == player_id)
+    if court_ids is not None:
+        if not court_ids:
+            return set()
+        q = q.where(PlayerHomeCourt.court_id.in_(court_ids))
+    result = await session.execute(q)
+    return {row[0] for row in result.all()}
+
+
+async def is_court_saved(session: AsyncSession, player_id: int, court_id: int) -> bool:
+    """Return True if the player has saved the given court."""
+    result = await session.execute(
+        select(PlayerHomeCourt.id).where(
+            and_(
+                PlayerHomeCourt.player_id == player_id,
+                PlayerHomeCourt.court_id == court_id,
+            )
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def get_saved_court_cards(session: AsyncSession, player_id: int) -> List[Dict]:
+    """
+    Return the player's saved courts as court cards, ordered by saved position.
+
+    Each card mirrors the shape produced by :func:`list_courts_public` (rating,
+    top tags, thumbnail, location) with ``is_saved`` set to True, so the mobile
+    "My Courts" list can reuse the same row component.
+    """
+    rows = (
+        await session.execute(
+            select(
+                PlayerHomeCourt.position,
+                Court,
+                Location.name.label("location_name"),
+                Location.slug.label("location_slug"),
+                Location.city.label("city"),
+                Location.state.label("state"),
+            )
+            .join(Court, Court.id == PlayerHomeCourt.court_id)
+            .outerjoin(Location, Court.location_id == Location.id)
+            .where(PlayerHomeCourt.player_id == player_id)
+            .order_by(PlayerHomeCourt.position.asc(), Court.name.asc())
+        )
+    ).all()
+
+    court_ids = [row[1].id for row in rows]
+    tags_map = await _batch_get_top_tags(session, court_ids, limit=3)
+    photos_map = await _batch_get_thumbnails(session, court_ids)
+
+    cards = []
+    for _position, court, loc_name, loc_slug, loc_city, loc_state in rows:
+        cards.append(
+            {
+                "id": court.id,
+                "name": court.name,
+                "slug": court.slug or "",
+                "address": court.address,
+                "location_id": court.location_id,
+                "location_name": loc_name,
+                "location_slug": loc_slug,
+                "city": loc_city,
+                "state": loc_state,
+                "court_count": court.court_count,
+                "surface_type": court.surface_type,
+                "is_free": court.is_free,
+                "has_lights": court.has_lights,
+                "nets_provided": court.nets_provided,
+                "latitude": court.latitude,
+                "longitude": court.longitude,
+                "average_rating": court.average_rating,
+                "review_count": court.review_count or 0,
+                "top_tags": tags_map.get(court.id, []),
+                "photo_url": photos_map.get(court.id),
+                "is_saved": True,
+            }
+        )
+    return cards
 
 
 # ---------------------------------------------------------------------------
