@@ -16,6 +16,8 @@ import io
 import logging
 from typing import Dict, List, Optional
 
+from fastapi import HTTPException
+
 from sqlalchemy import Integer, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -24,6 +26,7 @@ from backend.database.models import (
     Court,
     EloHistory,
     League,
+    LeagueMember,
     Location,
     Match,
     OpponentStats,
@@ -103,7 +106,9 @@ def _sort_rankings_single_season(rankings: List[Dict]) -> List[Dict]:
     )
 
 
-async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> List[Dict]:
+async def get_rankings(
+    session: AsyncSession, body: Optional[Dict] = None
+) -> List[Dict]:
     """
     Get current player rankings ordered by points.
 
@@ -145,10 +150,13 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
                 latest_stats_subq = latest_stats_subq.where(
                     PlayerSeasonStats.season_id == int(season_id)
                 )
-            latest_stats_subq = latest_stats_subq.group_by(PlayerSeasonStats.player_id).subquery()
+            latest_stats_subq = latest_stats_subq.group_by(
+                PlayerSeasonStats.player_id
+            ).subquery()
 
             latest_id_subq = select(
-                PlayerSeasonStats.player_id, func.max(PlayerSeasonStats.id).label("max_id")
+                PlayerSeasonStats.player_id,
+                func.max(PlayerSeasonStats.id).label("max_id"),
             ).join(
                 latest_stats_subq,
                 and_(
@@ -160,7 +168,9 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
                 latest_id_subq = latest_id_subq.where(
                     PlayerSeasonStats.season_id == int(season_id)
                 )
-            latest_id_subq = latest_id_subq.group_by(PlayerSeasonStats.player_id).subquery()
+            latest_id_subq = latest_id_subq.group_by(
+                PlayerSeasonStats.player_id
+            ).subquery()
 
             stats_subq = (
                 select(
@@ -220,7 +230,9 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
                     "avatar": row.profile_picture_url or row.avatar or initials,
                     "initials": initials,
                     "is_placeholder": row.is_placeholder or False,
-                    "elo": round(row.current_rating) if row.current_rating else INITIAL_ELO,
+                    "elo": round(row.current_rating)
+                    if row.current_rating
+                    else INITIAL_ELO,
                     "points": row.points or 0,
                     "games": row.games or 0,
                     "wins": row.wins or 0,
@@ -291,7 +303,9 @@ async def get_elo_timeline(session: AsyncSession) -> List[Dict]:
     # For each player, track the current elo as we walk through dates
     # Using a pointer per player into their sorted history
     player_pointers: Dict[int, int] = {pid: 0 for pid in player_id_to_name}
-    player_current_elo: Dict[int, float] = {pid: INITIAL_ELO for pid in player_id_to_name}
+    player_current_elo: Dict[int, float] = {
+        pid: INITIAL_ELO for pid in player_id_to_name
+    }
 
     timeline = []
     for d in dates:
@@ -352,7 +366,9 @@ def _match_row_to_elo_dict(row, elo_by_match: Dict) -> Dict:
     }
 
 
-async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> List[Dict]:
+async def get_season_matches_with_elo(
+    session: AsyncSession, season_id: int
+) -> List[Dict]:
     """Get all matches for a season with ELO changes per player."""
     p1 = aliased(Player)
     p2 = aliased(Player)
@@ -397,7 +413,10 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
 
     elo_result = await session.execute(
         select(
-            EloHistory.match_id, EloHistory.player_id, EloHistory.elo_after, EloHistory.elo_change
+            EloHistory.match_id,
+            EloHistory.player_id,
+            EloHistory.elo_after,
+            EloHistory.elo_change,
         ).where(EloHistory.match_id.in_(match_ids))
     )
     elo_by_match = _build_elo_by_match(elo_result.all())
@@ -405,7 +424,9 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
     return [_match_row_to_elo_dict(row, elo_by_match) for row in match_rows]
 
 
-async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> List[Dict]:
+async def get_league_matches_with_elo(
+    session: AsyncSession, league_id: int
+) -> List[Dict]:
     """Get all matches for a league (across all seasons) with ELO changes per player."""
     p1 = aliased(Player)
     p2 = aliased(Player)
@@ -450,7 +471,10 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
 
     elo_result = await session.execute(
         select(
-            EloHistory.match_id, EloHistory.player_id, EloHistory.elo_after, EloHistory.elo_change
+            EloHistory.match_id,
+            EloHistory.player_id,
+            EloHistory.elo_after,
+            EloHistory.elo_change,
         ).where(EloHistory.match_id.in_(match_ids))
     )
     elo_by_match = _build_elo_by_match(elo_result.all())
@@ -592,7 +616,9 @@ async def query_matches(
 # ---------------------------------------------------------------------------
 
 
-async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optional[Dict]:
+async def get_player_stats_by_id(
+    session: AsyncSession, player_id: int
+) -> Optional[Dict]:
     """
     Get detailed stats for a player by ID including partnerships and opponents.
 
@@ -703,7 +729,9 @@ async def get_player_season_partnership_opponent_stats(
                 PartnershipStatsSeason.season_id == season_id,
             )
         )
-        .order_by(PartnershipStatsSeason.points.desc(), PartnershipStatsSeason.win_rate.desc())
+        .order_by(
+            PartnershipStatsSeason.points.desc(), PartnershipStatsSeason.win_rate.desc()
+        )
     )
     partnerships = [
         {
@@ -728,7 +756,9 @@ async def get_player_season_partnership_opponent_stats(
                 OpponentStatsSeason.season_id == season_id,
             )
         )
-        .order_by(OpponentStatsSeason.points.desc(), OpponentStatsSeason.win_rate.desc())
+        .order_by(
+            OpponentStatsSeason.points.desc(), OpponentStatsSeason.win_rate.desc()
+        )
     )
     opponents = [
         {
@@ -746,7 +776,9 @@ async def get_player_season_partnership_opponent_stats(
     return {"partnerships": partnerships, "opponents": opponents}
 
 
-async def get_all_player_season_stats(session: AsyncSession, season_id: int) -> Dict[int, Dict]:
+async def get_all_player_season_stats(
+    session: AsyncSession, season_id: int
+) -> Dict[int, Dict]:
     """
     Get season stats for all players in a season.
 
@@ -786,7 +818,9 @@ async def get_all_player_season_partnership_opponent_stats(
         select(PartnershipStatsSeason, PartnerPlayer.full_name.label("partner_name"))
         .join(PartnerPlayer, PartnershipStatsSeason.partner_id == PartnerPlayer.id)
         .where(PartnershipStatsSeason.season_id == season_id)
-        .order_by(PartnershipStatsSeason.points.desc(), PartnershipStatsSeason.win_rate.desc())
+        .order_by(
+            PartnershipStatsSeason.points.desc(), PartnershipStatsSeason.win_rate.desc()
+        )
     )
     partnership_rows = result.all()
 
@@ -795,7 +829,9 @@ async def get_all_player_season_partnership_opponent_stats(
         select(OpponentStatsSeason, OpponentPlayer.full_name.label("opponent_name"))
         .join(OpponentPlayer, OpponentStatsSeason.opponent_id == OpponentPlayer.id)
         .where(OpponentStatsSeason.season_id == season_id)
-        .order_by(OpponentStatsSeason.points.desc(), OpponentStatsSeason.win_rate.desc())
+        .order_by(
+            OpponentStatsSeason.points.desc(), OpponentStatsSeason.win_rate.desc()
+        )
     )
     opponent_rows = result.all()
 
@@ -898,7 +934,9 @@ async def get_player_league_stats(
     }
 
 
-async def get_all_player_league_stats(session: AsyncSession, league_id: int) -> Dict[int, Dict]:
+async def get_all_player_league_stats(
+    session: AsyncSession, league_id: int
+) -> Dict[int, Dict]:
     """
     Get league stats for all players in a league.
 
@@ -943,7 +981,9 @@ async def get_player_league_partnership_opponent_stats(
                 PartnershipStatsLeague.league_id == league_id,
             )
         )
-        .order_by(PartnershipStatsLeague.points.desc(), PartnershipStatsLeague.win_rate.desc())
+        .order_by(
+            PartnershipStatsLeague.points.desc(), PartnershipStatsLeague.win_rate.desc()
+        )
     )
     partnerships = [
         {
@@ -968,7 +1008,9 @@ async def get_player_league_partnership_opponent_stats(
                 OpponentStatsLeague.league_id == league_id,
             )
         )
-        .order_by(OpponentStatsLeague.points.desc(), OpponentStatsLeague.win_rate.desc())
+        .order_by(
+            OpponentStatsLeague.points.desc(), OpponentStatsLeague.win_rate.desc()
+        )
     )
     opponents = [
         {
@@ -1000,7 +1042,9 @@ async def get_all_player_league_partnership_opponent_stats(
         select(PartnershipStatsLeague, PartnerPlayer.full_name.label("partner_name"))
         .join(PartnerPlayer, PartnershipStatsLeague.partner_id == PartnerPlayer.id)
         .where(PartnershipStatsLeague.league_id == league_id)
-        .order_by(PartnershipStatsLeague.points.desc(), PartnershipStatsLeague.win_rate.desc())
+        .order_by(
+            PartnershipStatsLeague.points.desc(), PartnershipStatsLeague.win_rate.desc()
+        )
     )
     partnership_rows = result.all()
 
@@ -1009,7 +1053,9 @@ async def get_all_player_league_partnership_opponent_stats(
         select(OpponentStatsLeague, OpponentPlayer.full_name.label("opponent_name"))
         .join(OpponentPlayer, OpponentStatsLeague.opponent_id == OpponentPlayer.id)
         .where(OpponentStatsLeague.league_id == league_id)
-        .order_by(OpponentStatsLeague.points.desc(), OpponentStatsLeague.win_rate.desc())
+        .order_by(
+            OpponentStatsLeague.points.desc(), OpponentStatsLeague.win_rate.desc()
+        )
     )
     opponent_rows = result.all()
 
@@ -1055,12 +1101,88 @@ async def get_all_player_league_partnership_opponent_stats(
 # ---------------------------------------------------------------------------
 
 
+async def _build_league_player_game_history(
+    session: AsyncSession,
+    player_id: int,
+    league_id: int,
+    season_id: Optional[int] = None,
+) -> List[Dict]:
+    """
+    Build game history for ``player_id`` scoped to ``league_id`` (and optionally
+    ``season_id``).
+
+    Reuses the same query shape as ``my_games_service.get_my_games`` and the
+    ``my_games_service._build_entry`` transformer so perspective logic (team
+    assignment, result, partner/opponent names) is shared rather than duplicated.
+    Returns entries ordered newest-first by match id.
+    """
+    from backend.services.my_games_service import _build_entry
+
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    eh = aliased(EloHistory)
+
+    query = (
+        select(
+            Match.id.label("match_id"),
+            Match.session_id,
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            eh.elo_change,
+            Session.status.label("session_status"),
+            Session.date.label("session_date"),
+            Session.league_id.label("league_id"),
+            League.name.label("league_name"),
+            Court.name.label("court_name"),
+        )
+        .select_from(Match)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .outerjoin(eh, and_(eh.match_id == Match.id, eh.player_id == player_id))
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(League, Session.league_id == League.id)
+        .outerjoin(Court, Session.court_id == Court.id)
+        .where(
+            and_(
+                Session.league_id == league_id,
+                or_(
+                    Match.team1_player1_id == player_id,
+                    Match.team1_player2_id == player_id,
+                    Match.team2_player1_id == player_id,
+                    Match.team2_player2_id == player_id,
+                ),
+            )
+        )
+    )
+
+    if season_id is not None:
+        query = query.where(Session.season_id == season_id)
+
+    query = query.order_by(Match.id.desc())
+    rows = (await session.execute(query)).all()
+    return [_build_entry(row, player_id) for row in rows]
+
+
 async def get_league_player_stats_full(
     session: AsyncSession,
     league_id: int,
     player_id: int,
     season_id: Optional[int] = None,
     current_user_player_id: Optional[int] = None,
+    caller_player_id: Optional[int] = None,
 ) -> Optional[Dict]:
     """
     Aggregated player stats in the context of a league (and optionally a season).
@@ -1074,9 +1196,14 @@ async def get_league_player_stats_full(
 
     Returns ``None`` if the player or league does not exist.
 
-    Fields not yet sourced from the database default to safe placeholders
-    (``rank``, ``rating_delta`` -> None; ``game_history`` -> []). Callers should
-    treat them as optional.
+    Access control:
+    - Public leagues are readable by anyone (``caller_player_id`` may be None).
+    - Private leagues require ``caller_player_id`` to be a league member; otherwise
+      raises ``HTTPException(403)``.
+
+    ``rating_delta`` is always ``None`` (MVP decision, not computed).
+    ``rank`` is populated via ``row_number()`` matching the standings tab ordering.
+    ``game_history`` is populated for the viewed player, scoped to this league/season.
     """
     player_row = await session.execute(
         select(Player, Location.city, Location.state)
@@ -1095,6 +1222,24 @@ async def get_league_player_stats_full(
     league = league_row.scalar_one_or_none()
     if not league:
         return None
+
+    # Access-control gate: private leagues require the caller to be a member.
+    if not getattr(league, "is_public", True):
+        is_member = False
+        if caller_player_id is not None:
+            member_row = await session.execute(
+                select(LeagueMember.id).where(
+                    and_(
+                        LeagueMember.league_id == league_id,
+                        LeagueMember.player_id == caller_player_id,
+                    )
+                )
+            )
+            is_member = member_row.scalar_one_or_none() is not None
+        if not is_member:
+            raise HTTPException(
+                status_code=403, detail="Not a member of this private league."
+            )
 
     season_name: Optional[str] = None
     if season_id is not None:
@@ -1242,6 +1387,69 @@ async def get_league_player_stats_full(
 
     rating = int(round(points)) if points is not None else 0
 
+    # ------------------------------------------------------------------
+    # Rank — mirrors the ordering used by get_league_standings / standings
+    # tab so this field is always consistent with what the player sees there.
+    # Only populated when the player has a stats row (games > 0 is implied
+    # by the row existing). Uses row_number() (1-based, no gaps).
+    # ------------------------------------------------------------------
+    rank: Optional[int] = None
+    if season_id is not None:
+        # Season scope: rank within PlayerSeasonStats for this season.
+        _season_order = (
+            PlayerSeasonStats.points.desc(),
+            PlayerSeasonStats.avg_point_diff.desc(),
+            PlayerSeasonStats.win_rate.desc(),
+        )
+        ranked_sq = (
+            select(
+                PlayerSeasonStats.player_id.label("player_id"),
+                func.row_number().over(order_by=_season_order).label("rn"),
+            )
+            .where(PlayerSeasonStats.season_id == season_id)
+            .subquery()
+        )
+        rank_result = await session.execute(
+            select(ranked_sq.c.rn).where(ranked_sq.c.player_id == player_id)
+        )
+        rank_row = rank_result.scalar_one_or_none()
+        if rank_row is not None:
+            rank = int(rank_row)
+    else:
+        # League scope: rank within PlayerLeagueStats for this league.
+        _league_order = (
+            PlayerLeagueStats.points.desc(),
+            PlayerLeagueStats.avg_point_diff.desc(),
+            PlayerLeagueStats.win_rate.desc(),
+        )
+        ranked_sq = (
+            select(
+                PlayerLeagueStats.player_id.label("player_id"),
+                func.row_number().over(order_by=_league_order).label("rn"),
+            )
+            .where(PlayerLeagueStats.league_id == league_id)
+            .subquery()
+        )
+        rank_result = await session.execute(
+            select(ranked_sq.c.rn).where(ranked_sq.c.player_id == player_id)
+        )
+        rank_row = rank_result.scalar_one_or_none()
+        if rank_row is not None:
+            rank = int(rank_row)
+
+    # ------------------------------------------------------------------
+    # game_history — reuses the my_games_service query/transformer logic.
+    # Scoped to this league and (when given) season. Entries are from the
+    # VIEWED player's perspective (partner_names, my_score, result relative
+    # to player_id). Ordered newest-first by match id.
+    # ------------------------------------------------------------------
+    game_history = await _build_league_player_game_history(
+        session,
+        player_id=player_id,
+        league_id=league_id,
+        season_id=season_id,
+    )
+
     return {
         "player_id": player.id,
         "display_name": display_name,
@@ -1252,7 +1460,7 @@ async def get_league_player_stats_full(
         "league_name": league.name,
         "season_id": season_id,
         "season_name": season_name,
-        "rank": None,
+        "rank": rank,
         "rating": rating,
         "rating_delta": None,
         "points": points,
@@ -1265,7 +1473,7 @@ async def get_league_player_stats_full(
         },
         "partners": partners,
         "opponents": opponents,
-        "game_history": [],
+        "game_history": game_history,
         "is_self": (
             current_user_player_id is not None and current_user_player_id == player.id
         ),
@@ -1318,7 +1526,9 @@ async def export_matches_to_csv(session: AsyncSession) -> str:
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Date", "Team 1", "", "Team 2", "", "Team 1 Score", "Team 2 Score"])
+    writer.writerow(
+        ["Date", "Team 1", "", "Team 2", "", "Team 1 Score", "Team 2 Score"]
+    )
     for match in matches:
         writer.writerow(
             [
