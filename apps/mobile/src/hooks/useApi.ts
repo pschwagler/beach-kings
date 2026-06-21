@@ -86,7 +86,6 @@ function useApi<T>(
       return;
     }
     void execute();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, execute]);
 
   const refetch = useCallback(async () => {

@@ -198,7 +198,6 @@ describe('ErrorBoundary — reset behavior', () => {
       const [throwing, setThrowing] = React.useState(true);
       return (
         <ErrorBoundary>
-          {/* eslint-disable-next-line react/jsx-no-bind */}
           <BombComponent shouldThrow={throwing} />
           {/* Provide a way to stop throwing from outside the boundary */}
           <Text testID="stop-throwing" onPress={() => setThrowing(false)}>stop</Text>

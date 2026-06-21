@@ -57,21 +57,13 @@ const mockSetAuthTokens = api.setAuthTokens as jest.MockedFunction<
 const mockClearAuthTokens = api.clearAuthTokens as jest.MockedFunction<
   typeof api.clearAuthTokens
 >;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetMe = api.getMe as jest.MockedFunction<any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetCurrentUserPlayer = api.getCurrentUserPlayer as jest.MockedFunction<any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockLogin = api.login as jest.MockedFunction<any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockSignup = api.signup as jest.MockedFunction<any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGoogleAuth = api.googleAuth as jest.MockedFunction<any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockAppleAuth = api.appleAuth as jest.MockedFunction<any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockVerifyPhone = api.verifyPhone as jest.MockedFunction<any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockLogout = api.logout as jest.MockedFunction<any>;
 
 // ---------------------------------------------------------------------------

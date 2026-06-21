@@ -365,7 +365,6 @@ export default function AddNewPlayerScreen(): React.ReactNode {
         >
           <Text
             className="text-sm leading-5"
-            // eslint-disable-next-line no-restricted-syntax -- wireframe amber callout: no semantic token covers #92400e
             style={{ color: '#92400e' }}
           >
             <Text style={{ fontWeight: '700', color: '#92400e' }}>

@@ -61,7 +61,6 @@ jest.mock('@beach-kings/api-client', () => ({
 function loadApiModule(): { api: typeof mockApiObject } {
   let mod: { api: typeof mockApiObject } | undefined;
   jest.isolateModules(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     mod = require('@/lib/api');
   });
   return mod!;

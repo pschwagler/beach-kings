@@ -421,7 +421,6 @@ describe('app/index — redirect', () => {
   let Index: React.ComponentType;
 
   beforeAll(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     Index = require('../../app/index').default;
   });
 
@@ -440,7 +439,6 @@ describe('app/(auth)/_layout — AuthLayout', () => {
   let AuthLayout: React.ComponentType;
 
   beforeAll(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     AuthLayout = require('../../app/(auth)/_layout').default;
   });
 
@@ -464,7 +462,6 @@ describe('app/(stack)/_layout — StackLayout', () => {
   let StackLayout: React.ComponentType;
 
   beforeAll(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     StackLayout = require('../../app/(stack)/_layout').default;
   });
 
@@ -490,12 +487,9 @@ describe('app/_layout — RootLayout', () => {
   let FontModule: { loadAsync: jest.Mock };
 
   beforeAll(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     SplashScreen = require('expo-router').SplashScreen;
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     FontModule = require('expo-font');
     // Import AFTER mocks are in place
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     RootLayout = require('../../app/_layout').default;
   });
 
@@ -572,7 +566,6 @@ describe('app/(auth)/login — LoginScreen', () => {
   let LoginScreen: React.ComponentType;
 
   beforeAll(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     LoginScreen = require('../../app/(auth)/login').default;
   });
 
@@ -649,7 +642,6 @@ describe('app/(auth)/signup — SignupScreen', () => {
   let SignupScreen: React.ComponentType;
 
   beforeAll(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     SignupScreen = require('../../app/(auth)/signup').default;
   });
 
@@ -737,21 +729,18 @@ describe('app/(auth)/signup — SignupScreen', () => {
 
 describe('Tab screens', () => {
   it('HomeScreen renders the HomeHeader', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const HomeScreen = require('../../app/(tabs)/home').default;
     const { getByTestId } = render(<HomeScreen />);
     expect(getByTestId('home-header')).toBeTruthy();
   });
 
   it('HomeScreen renders the loading skeleton on first paint', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const HomeScreen = require('../../app/(tabs)/home').default;
     const { getByTestId } = render(<HomeScreen />);
     expect(getByTestId('dashboard-skeleton')).toBeTruthy();
   });
 
   it('LeaguesScreen renders title text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const LeaguesScreen = require('../../app/(tabs)/leagues').default;
     const { getAllByText } = render(<LeaguesScreen />);
     // TopNav mock also renders the title, so expect at least one match
@@ -759,21 +748,18 @@ describe('Tab screens', () => {
   });
 
   it('AddGamesScreen renders title text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const AddGamesScreen = require('../../app/(tabs)/add-games').default;
     const { getAllByText } = render(<AddGamesScreen />);
     expect(getAllByText('Add Games').length).toBeGreaterThanOrEqual(1);
   });
 
   it('SocialScreen renders title text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const SocialScreen = require('../../app/(tabs)/social').default;
     const { getAllByText } = render(<SocialScreen />);
     expect(getAllByText('Social').length).toBeGreaterThanOrEqual(1);
   });
 
   it('ProfileScreen renders title text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const ProfileScreen = require('../../app/(tabs)/profile').default;
     const { getAllByText } = render(<ProfileScreen />);
     expect(getAllByText('Profile').length).toBeGreaterThanOrEqual(1);
@@ -919,7 +905,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   }
 
   it('renders TabLayout with all five Tabs.Screen entries', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TabLayout = require('../../app/(tabs)/_layout').default;
     render(<TabLayout />);
     const names = mockCapturedScreens.map((s) => s.name);
@@ -939,14 +924,12 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
       }),
       default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     }));
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TabLayout = require('../../app/(tabs)/_layout').default;
     const { getByTestId } = render(<TabLayout />);
     expect(getByTestId('tabs')).toBeTruthy();
   });
 
   it('TabIcon — regular icon focused renders icon', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TabLayout = require('../../app/(tabs)/_layout').default;
     render(<TabLayout />);
     const renderer = getTabIconRenderer('home');
@@ -956,7 +939,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   });
 
   it('TabIcon — regular icon unfocused renders icon', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TabLayout = require('../../app/(tabs)/_layout').default;
     render(<TabLayout />);
     const renderer = getTabIconRenderer('home');
@@ -966,7 +948,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   });
 
   it('TabIcon — add-games renders FAB-style (isAddGames) icon', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TabLayout = require('../../app/(tabs)/_layout').default;
     render(<TabLayout />);
     const renderer = getTabIconRenderer('add-games');
@@ -988,7 +969,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
       }),
       default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     }));
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TabLayout = require('../../app/(tabs)/_layout').default;
     render(<TabLayout />);
     const renderer = getTabIconRenderer('social');
@@ -1010,7 +990,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
       }),
       default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     }));
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TabLayout = require('../../app/(tabs)/_layout').default;
     render(<TabLayout />);
     const renderer = getTabIconRenderer('social');
@@ -1020,7 +999,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   });
 
   it('TabIcon — badge with count 0 does not render badge text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TabLayout = require('../../app/(tabs)/_layout').default;
     render(<TabLayout />);
     const renderer = getTabIconRenderer('social');

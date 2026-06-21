@@ -533,7 +533,6 @@ export function useScoreGameScreen(
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, leagueId]);
 
   // --- League inference effect ---
@@ -567,7 +566,6 @@ export function useScoreGameScreen(
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId]);
 
   // --- Search results (relevance-ranked, fetched from backend) ---

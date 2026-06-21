@@ -32,7 +32,6 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     // Log error details without leaking sensitive context to the user.
     if (__DEV__) {
-      // eslint-disable-next-line no-console
       console.error('[ErrorBoundary] Caught error:', error, info);
     }
   }

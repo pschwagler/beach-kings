@@ -1,4 +1,6 @@
 const tsParser = require('@typescript-eslint/parser');
+const reactPlugin = require('eslint-plugin-react');
+const reactHooksPlugin = require('eslint-plugin-react-hooks');
 
 /**
  * Semantic token enforcement for NativeWind v4.
@@ -47,7 +49,11 @@ module.exports = [
     ignores: ['dist/**', 'coverage/**', 'node_modules/**', '.expo/**'],
   },
   {
-    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
+    // TypeScript parser + React plugins apply to every TS/TSX file —
+    // app code, hooks, tests, and root config files (e.g. tailwind.config.ts).
+    // Scoping the parser too narrowly is what previously left test and config
+    // files on the default parser, which choked on TS syntax.
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -56,6 +62,22 @@ module.exports = [
         sourceType: 'module',
       },
     },
+    plugins: {
+      react: reactPlugin,
+      'react-hooks': reactHooksPlugin,
+    },
+    settings: {
+      react: { version: 'detect' },
+    },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+      'react/no-array-index-key': 'warn',
+    },
+  },
+  {
+    // Semantic-token enforcement only applies to shipped UI under app/ and src/.
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': darkColorRule,
     },

@@ -48,7 +48,6 @@ describe('app/(stack)/add-new-player — route wrapper', () => {
   let AddNewPlayerRoute: React.ComponentType;
 
   beforeAll(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     AddNewPlayerRoute = require('../../../app/(stack)/add-new-player').default;
   });
 
