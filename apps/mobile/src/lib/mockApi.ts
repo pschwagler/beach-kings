@@ -31,7 +31,10 @@ import type {
 export type LeagueAccessType = 'open' | 'invite_only';
 export type LeagueMemberRole = 'admin' | 'member' | 'visitor';
 // LeagueInviteStatus promoted to '@beach-kings/shared' (see types/league.ts).
-export type LeagueEventStatus = 'upcoming' | 'in_progress' | 'completed';
+// LeagueEventStatus + LeagueEvent moved to Leagues/signupsTypes.ts (P2.5) —
+// they are mobile display DTOs, not backend contracts. The signups feature is
+// backed by real api.getLeagueSignups/joinSignup/dropSignup.
+// LeagueScheduleRow removed (P2.5) — use shared LeagueScheduleItem instead.
 
 /** Full detail for a single league (header + metadata). */
 // LeagueDetail promoted to '@beach-kings/shared' (see types/league.ts).
@@ -42,30 +45,6 @@ export type LeagueEventStatus = 'upcoming' | 'in_progress' | 'completed';
 // LeagueChatMessage type promoted to '@beach-kings/shared' (see types/league.ts).
 // Real api-client methods getLeagueMessages/createLeagueMessage already back this
 // resource, so the type lives with the contract, not in this transitional module.
-
-/** An upcoming event in the sign-ups tab. */
-export interface LeagueEvent {
-  readonly id: number;
-  readonly title: string;
-  readonly date: string;
-  readonly month_abbr: string;
-  readonly day: number;
-  readonly time_label: string;
-  readonly spots_total: number | null;
-  readonly spots_remaining: number | null;
-  readonly court_name: string | null;
-  readonly status: LeagueEventStatus;
-  /** 'signed_up' | 'waitlisted' | 'none' */
-  readonly user_status: 'signed_up' | 'waitlisted' | 'none';
-  readonly attendee_count: number;
-}
-
-/** Weekly schedule row in the sign-ups tab. */
-export interface LeagueScheduleRow {
-  readonly day_of_week: string;
-  readonly time_label: string;
-  readonly court_name: string | null;
-}
 
 // LeagueMemberRow promoted to '@beach-kings/shared' (see types/league.ts).
 // LeagueInfoDetail promoted to '@beach-kings/shared' (see types/league.ts).

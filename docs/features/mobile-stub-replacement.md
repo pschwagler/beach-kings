@@ -201,20 +201,20 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Endpoint: `GET /api/leagues/:leagueId/players/:playerId/stats?season_id=`
   - Reuse check: `/api/users/me/stats` already exists. Check whether it accepts `league_id` or can be extended to support arbitrary player IDs (respecting privacy settings).
 
-- [ ] **P2.5 — League Events / Signups list**
+- [x] **P2.5 — League Events / Signups list** *(done — see 2026-06-21 log)*
   - File: `useLeagueSignupsTab.ts`
-  - Endpoint: `GET /api/leagues/:id/events` (must include signup status for current user)
-  - Reuse check: same reuse check as P1.7 — events may map onto existing sessions.
+  - Resolution: no separate "events" endpoint exists or is needed — "events" ARE signups. The hook already calls real `api.getLeagueSignups`/`joinSignup`/`dropSignup` (wired in P1.7). Remaining work was type hygiene: `LeagueEvent`/`LeagueEventStatus` moved from `mockApi.ts` to `Leagues/signupsTypes.ts` (mobile display DTOs, not contracts); `LeagueScheduleRow` deleted in favor of shared `LeagueScheduleItem`.
+  - Deferred (not MVP): "N spots left" capacity badge (needs `max_players` exposed on `LeagueSignupItem` + waitlist logic) and event end-time display.
 
 - [x] **P2.6 — Find Leagues search**
   - File: `useFindLeaguesScreen.ts`
   - Endpoint: `POST /api/leagues/query` (extended with `q` + `is_open` params)
   - `FindLeagueResult` + `LeagueQueryResponse` moved to `@beach-kings/shared`; `queryLeagues` method added to api-client with backend→UI shape adaptation (`is_open` → `access_type`, `friends_preview` → `friends_in_league` initials, `has_pending_request` → `user_status`). Mock and type deleted from `mockApi.ts`.
 
-- [ ] **P2.7 — Invitable Players + Pending Invites**
+- [x] **P2.7 — Invitable Players + Pending Invites** *(already complete — see 2026-06-21 log)*
   - Files: `useLeagueInviteScreen.ts`, `usePendingInvitesScreen.ts`
-  - Endpoints: `GET /api/leagues/:id/invitable-players?q=`, `GET /api/leagues/:id/invites/sent`
-  - Reuse check: player search likely exists in a "find players" feature elsewhere — reuse that search with a league-context filter rather than building a parallel endpoint.
+  - Endpoints: `GET /api/leagues/:id/invitable-players?q=`, `GET /api/users/me/league-invites/sent` — both built (the "deferred" P1.5 invite backend actually landed: `league_invites` table, migration `049`, four routes, tests). Both hooks call real APIs; `InvitablePlayer`/`LeagueInviteItem` already in `@beach-kings/shared`.
+  - Deferred (not MVP): `game_count` per invite row ("N matches"), per-invite Share link, invitee-side accept/decline flow.
 
 ### Session aggregated views
 
@@ -287,10 +287,10 @@ Per Ground Rule 7 (*Types follow their mocks*), each remaining type leaves `mock
 | Type | Owning task |
 |---|---|
 | ~~`LeagueDetail`~~ | ~~P2.1~~ — promoted to `@beach-kings/shared` |
-| `LeagueEvent`, `LeagueScheduleRow` | P2.5 |
-| `LeagueMemberRow`, `LeagueInfoDetail` | P2.3 |
-| `LeagueInviteItem` | P2.7 |
-| `InvitablePlayer` | P2.7 |
+| ~~`LeagueEvent`, `LeagueScheduleRow`~~ | ~~P2.5~~ — `LeagueEvent` moved to `Leagues/signupsTypes.ts` (local UI DTO); `LeagueScheduleRow` deleted for shared `LeagueScheduleItem` |
+| ~~`LeagueMemberRow`, `LeagueInfoDetail`~~ | ~~P2.3~~ — promoted to `@beach-kings/shared` |
+| ~~`LeagueInviteItem`~~ | ~~P2.7~~ — already in `@beach-kings/shared` |
+| ~~`InvitablePlayer`~~ | ~~P2.7~~ — already in `@beach-kings/shared` |
 | `FindLeagueResult` | ~~P2.6~~ — promoted to `@beach-kings/shared` |
 | `LeaguePlayerStats` | P2.4 |
 | `SessionPlayer`, `SessionGame`, `SessionDetail` | P2.8 |
@@ -347,6 +347,8 @@ Grouped for backend sprint planning. Tournament/KOB endpoints intentionally omit
 ## Status log
 
 _Update this section as tasks complete._
+
+- 2026-06-21: **Plan reconciliation + P2.5 type hygiene.** Audit found the status log was stale: **P2.5** and **P2.7** were already functionally complete (hooks wired to real APIs; the "deferred" P1.5 invite backend had in fact landed — `league_invites` table, migration `049`, four routes, tests). Marked both done. P2.5 cleanup: `LeagueEvent`/`LeagueEventStatus` moved from `mockApi.ts` → `Leagues/signupsTypes.ts`; `LeagueScheduleRow` deleted in favor of shared `LeagueScheduleItem`; consumers re-pointed; `tsc --noEmit` clean. MVP scope cuts recorded: "N spots left" capacity badge, event end-time, per-invite `game_count`/Share link, invitee accept/decline — all deferred. Remaining Phase II/III: P2.4 (populate rank + game history), P3.3 (player leagues endpoint), P3.4 (real push prefs).
 
 - 2026-04-23: Plan created. No tasks started.
 - 2026-04-23: Phase 0 (P0.1–P0.5) complete. All 5 quick-win rewires landed:

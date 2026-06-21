@@ -9,13 +9,13 @@
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { LeagueEvent, LeagueScheduleRow } from '@/lib/mockApi';
-import type { LeagueSignupItem } from '@beach-kings/shared';
+import type { LeagueSignupItem, LeagueScheduleItem } from '@beach-kings/shared';
+import type { LeagueEvent } from './signupsTypes';
 import { leagueKeys } from './leagueKeys';
 
 export interface UseLeagueSignupsTabResult {
   readonly events: readonly LeagueEvent[];
-  readonly schedule: readonly LeagueScheduleRow[];
+  readonly schedule: readonly LeagueScheduleItem[];
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly onSignUp: (eventId: number) => Promise<void>;

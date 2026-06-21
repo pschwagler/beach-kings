@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { hapticMedium } from '@/utils/haptics';
 import { useLeagueSignupsTab } from './useLeagueSignupsTab';
-import type { LeagueEvent } from '@/lib/mockApi';
+import type { LeagueEvent } from './signupsTypes';
 
 // ---------------------------------------------------------------------------
 // Event card
