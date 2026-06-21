@@ -31,6 +31,44 @@ export interface ReviewActionResponse {
   review_count: number;
 }
 
+/** A single active court check-in record returned by POST /api/courts/{id}/check-in. */
+export interface CourtCheckIn {
+  id: number;
+  court_id: number;
+  checked_in_at: string;
+  expires_at: string;
+}
+
+/** A player who is currently checked in at a court. */
+export interface CheckedInPlayer {
+  id: number;
+  player_id: number;
+  player_name: string;
+  avatar: string | null;
+  checked_in_at: string;
+  expires_at: string;
+}
+
+/** Response from GET /api/public/courts/{slug}/check-ins. */
+export interface CourtCheckInsResponse {
+  count: number;
+  checked_in_players: CheckedInPlayer[];
+}
+
+/** Input for creating a new court review (POST /api/courts/{id}/reviews). */
+export interface CreateCourtReviewInput {
+  rating: number;
+  review_text?: string;
+  tag_ids?: number[];
+}
+
+/** Input for updating an existing court review (PUT /api/courts/{id}/reviews/{reviewId}). */
+export interface UpdateCourtReviewInput {
+  rating?: number;
+  review_text?: string;
+  tag_ids?: number[];
+}
+
 export interface Court {
   id: number | string;
   name: string;
@@ -58,6 +96,8 @@ export interface Court {
   description?: string | null;
   is_active?: boolean | null;
   distance_miles?: number | null;
+  /** Whether the authenticated caller has saved this court to "My Courts". Present only on authenticated responses. */
+  is_saved?: boolean | null;
   created_at?: string;
   reviews?: CourtReview[] | null;
   court_photos?: CourtPhoto[] | null;

@@ -18,6 +18,11 @@ import type {
   Location,
   Court,
   CourtPhoto,
+  CourtCheckIn,
+  CourtCheckInsResponse,
+  ReviewActionResponse,
+  CreateCourtReviewInput,
+  UpdateCourtReviewInput,
   Friend,
   FriendListResponse,
   FriendRequest,
@@ -950,6 +955,167 @@ export function createApiMethods(client: ApiClient) {
         form,
         { headers: { 'Content-Type': 'multipart/form-data' } },
       );
+      return response.data;
+    },
+
+    /**
+     * Check the current player in to a court.
+     *
+     * Requires authentication. Check-in auto-expires after 4 hours. Returns
+     * the created check-in record.
+     */
+    async checkInToCourt(courtId: number): Promise<CourtCheckIn> {
+      const response = await api.post<CourtCheckIn>(
+        `/api/courts/${courtId}/check-in`,
+      );
+      return response.data;
+    },
+
+    /**
+     * Check the current player out of a court.
+     *
+     * Requires authentication. Returns confirmation that the check-in was
+     * removed.
+     */
+    async checkOutOfCourt(
+      courtId: number,
+    ): Promise<{ court_id: number; checked_out: boolean }> {
+      const response = await api.delete<{
+        court_id: number;
+        checked_out: boolean;
+      }>(`/api/courts/${courtId}/check-in`);
+      return response.data;
+    },
+
+    /**
+     * Fetch the current active check-ins at a court (public — no auth required).
+     *
+     * Accepts a numeric id or url slug. Returns the count and the list of
+     * players currently checked in.
+     */
+    async getCourtCheckIns(
+      idOrSlug: string | number,
+    ): Promise<CourtCheckInsResponse> {
+      const response = await api.get<CourtCheckInsResponse>(
+        `/api/public/courts/${idOrSlug}/check-ins`,
+      );
+      return response.data;
+    },
+
+    /**
+     * List the curated court review tags (public — no auth required).
+     *
+     * Returns tags grouped by category (quality, vibe, facility), ordered by
+     * sort_order.
+     */
+    async getCourtTags(): Promise<
+      Array<{
+        id: number;
+        name: string;
+        slug: string;
+        category: string;
+        sort_order: number;
+      }>
+    > {
+      const response = await api.get<
+        Array<{
+          id: number;
+          name: string;
+          slug: string;
+          category: string;
+          sort_order: number;
+        }>
+      >('/api/public/courts/tags');
+      return response.data;
+    },
+
+    /**
+     * Create a review for a court (one per player per court).
+     *
+     * Requires authentication. Rating 1-5 is required; review_text and tag_ids
+     * are optional. Returns aggregate review stats for the court.
+     */
+    async createCourtReview(
+      courtId: number,
+      input: CreateCourtReviewInput,
+    ): Promise<ReviewActionResponse> {
+      const response = await api.post<ReviewActionResponse>(
+        `/api/courts/${courtId}/reviews`,
+        input,
+      );
+      return response.data;
+    },
+
+    /**
+     * Update an existing court review (author only).
+     *
+     * Requires authentication. Only supplied fields are updated. Returns
+     * aggregate review stats for the court.
+     */
+    async updateCourtReview(
+      courtId: number,
+      reviewId: number,
+      input: UpdateCourtReviewInput,
+    ): Promise<ReviewActionResponse> {
+      const response = await api.put<ReviewActionResponse>(
+        `/api/courts/${courtId}/reviews/${reviewId}`,
+        input,
+      );
+      return response.data;
+    },
+
+    /**
+     * Delete a court review (author only).
+     *
+     * Requires authentication. Returns aggregate review stats for the court
+     * after deletion.
+     */
+    async deleteCourtReview(
+      courtId: number,
+      reviewId: number,
+    ): Promise<ReviewActionResponse> {
+      const response = await api.delete<ReviewActionResponse>(
+        `/api/courts/${courtId}/reviews/${reviewId}`,
+      );
+      return response.data;
+    },
+
+    // -----------------------------------------------------------------------
+    // Saved courts ("My Courts")
+    // -----------------------------------------------------------------------
+
+    /**
+     * Save a court to the authenticated player's "My Courts" (idempotent).
+     *
+     * Requires authentication. Returns the saved state for the court.
+     */
+    async saveCourt(courtId: number): Promise<{ court_id: number; saved: boolean }> {
+      const response = await api.post<{ court_id: number; saved: boolean }>(
+        '/api/users/me/courts',
+        { court_id: courtId },
+      );
+      return response.data;
+    },
+
+    /**
+     * Remove a court from the authenticated player's "My Courts" (idempotent).
+     *
+     * Requires authentication. Returns the (now unsaved) state for the court.
+     */
+    async unsaveCourt(courtId: number): Promise<{ court_id: number; saved: boolean }> {
+      const response = await api.delete<{ court_id: number; saved: boolean }>(
+        `/api/users/me/courts/${courtId}`,
+      );
+      return response.data;
+    },
+
+    /**
+     * List the authenticated player's saved courts ("My Courts") as court cards.
+     *
+     * Requires authentication. Each card includes ``is_saved: true``.
+     */
+    async getMyCourts(): Promise<Court[]> {
+      const response = await api.get<Court[]>('/api/users/me/courts');
       return response.data;
     },
 
