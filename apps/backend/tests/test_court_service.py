@@ -1027,6 +1027,72 @@ class TestSavedCourts:
             assert "is_saved" not in item
 
     @pytest.mark.asyncio
+    async def test_save_court_pending_raises(self, db_session, location, test_player):
+        """Saving a court with status='pending' raises ValueError (same as missing)."""
+        pending = Court(
+            name="Pending Court",
+            slug="pending-save-test",
+            location_id=location.id,
+            status="pending",
+            is_active=True,
+        )
+        db_session.add(pending)
+        await db_session.commit()
+        await db_session.refresh(pending)
+
+        with pytest.raises(ValueError, match=str(pending.id)):
+            await court_service.save_court(db_session, test_player.id, pending.id)
+
+    @pytest.mark.asyncio
+    async def test_save_court_inactive_raises(self, db_session, location, test_player):
+        """Saving a court with is_active=False raises ValueError (same as missing)."""
+        inactive = Court(
+            name="Inactive Court",
+            slug="inactive-save-test",
+            location_id=location.id,
+            status="approved",
+            is_active=False,
+        )
+        db_session.add(inactive)
+        await db_session.commit()
+        await db_session.refresh(inactive)
+
+        with pytest.raises(ValueError, match=str(inactive.id)):
+            await court_service.save_court(db_session, test_player.id, inactive.id)
+
+    @pytest.mark.asyncio
+    async def test_get_saved_court_cards_excludes_non_approved(
+        self, db_session, location, test_player
+    ):
+        """A PlayerHomeCourt row pointing at a non-approved court is excluded from cards."""
+        from backend.database.models import PlayerHomeCourt
+
+        # Create a court that starts approved so we can save it legitimately,
+        # then demote it to simulate it becoming unavailable.
+        court_obj = Court(
+            name="Demoted Court",
+            slug="demoted-court-test",
+            location_id=location.id,
+            status="approved",
+            is_active=True,
+        )
+        db_session.add(court_obj)
+        await db_session.commit()
+        await db_session.refresh(court_obj)
+
+        # Save it while it is approved.
+        await court_service.save_court(db_session, test_player.id, court_obj.id)
+
+        # Demote to pending (simulates moderation action).
+        court_obj.status = "pending"
+        db_session.add(court_obj)
+        await db_session.commit()
+
+        cards = await court_service.get_saved_court_cards(db_session, test_player.id)
+        returned_ids = {c["id"] for c in cards}
+        assert court_obj.id not in returned_ids
+
+    @pytest.mark.asyncio
     async def test_get_player_id_for_user_none(self, db_session):
         """No user resolves to no player id."""
         assert await court_service.get_player_id_for_user(db_session, None) is None

@@ -15,7 +15,7 @@ from backend.database.models import Player
 from backend.services import data_service, user_service, avatar_service, s3_service, my_stats_service, my_games_service
 from backend.services import push_prefs_service, court_service
 from backend.api.auth_dependencies import get_current_user, require_verified_player
-from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload, LeagueInviteItemResponse, PushPrefsResponse, PushPrefsUpdate, AddPlayerHomeCourt
+from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload, LeagueInviteItemResponse, PushPrefsResponse, PushPrefsUpdate, AddPlayerHomeCourt, CourtListItem
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -460,7 +460,7 @@ async def update_push_prefs(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/users/me/courts", response_model=list)
+@router.get("/api/users/me/courts", response_model=List[CourtListItem])
 async def list_my_courts(
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),

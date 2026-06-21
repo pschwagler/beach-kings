@@ -12,6 +12,7 @@ import unicodedata
 from typing import Dict, List, Optional, Set, Tuple
 
 from sqlalchemy import and_, case, delete, func, literal, or_, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -280,8 +281,7 @@ async def list_courts_public(
     # Flag saved ("My Courts") state for the authenticated caller.
     if player_id is not None:
         saved_ids = await get_saved_court_ids(session, player_id, court_ids)
-        for item in items:
-            item["is_saved"] = item["id"] in saved_ids
+        items = [{**item, "is_saved": item["id"] in saved_ids} for item in items]
 
     return {
         "items": items,
@@ -1767,7 +1767,13 @@ async def save_court(session: AsyncSession, player_id: int, court_id: int) -> Di
     Save a court to the player's "My Courts" (idempotent).
 
     Adds the court to ``player_home_courts`` if not already present, appending it
-    after any existing entries. Saving an already-saved court is a no-op.
+    after any existing entries.  The insert is atomic and uses ON CONFLICT DO
+    NOTHING (against ``uq_player_home_courts_player_court``) so concurrent
+    duplicate saves never cause an IntegrityError.
+
+    Only approved, active courts may be saved.  A pending, rejected, or
+    deactivated court raises ValueError with the same message as a missing court
+    to avoid leaking internal status.
 
     Args:
         session: Database session.
@@ -1778,22 +1784,11 @@ async def save_court(session: AsyncSession, player_id: int, court_id: int) -> Di
         ``{"court_id": court_id, "saved": True}``.
 
     Raises:
-        ValueError: If the court does not exist.
+        ValueError: If the court does not exist or is not publicly available.
     """
     court = await session.get(Court, court_id)
-    if not court:
+    if not court or court.status != "approved" or not court.is_active:
         raise ValueError(f"Court {court_id} not found")
-
-    existing = await session.execute(
-        select(PlayerHomeCourt.id).where(
-            and_(
-                PlayerHomeCourt.player_id == player_id,
-                PlayerHomeCourt.court_id == court_id,
-            )
-        )
-    )
-    if existing.scalar_one_or_none() is not None:
-        return {"court_id": court_id, "saved": True}
 
     max_pos = (
         await session.execute(
@@ -1804,7 +1799,12 @@ async def save_court(session: AsyncSession, player_id: int, court_id: int) -> Di
     ).scalar()
     next_pos = (max_pos if max_pos is not None else -1) + 1
 
-    session.add(PlayerHomeCourt(player_id=player_id, court_id=court_id, position=next_pos))
+    stmt = (
+        pg_insert(PlayerHomeCourt)
+        .values(player_id=player_id, court_id=court_id, position=next_pos)
+        .on_conflict_do_nothing(constraint="uq_player_home_courts_player_court")
+    )
+    await session.execute(stmt)
     await session.commit()
     return {"court_id": court_id, "saved": True}
 
@@ -1882,7 +1882,13 @@ async def get_saved_court_cards(session: AsyncSession, player_id: int) -> List[D
             )
             .join(Court, Court.id == PlayerHomeCourt.court_id)
             .outerjoin(Location, Court.location_id == Location.id)
-            .where(PlayerHomeCourt.player_id == player_id)
+            .where(
+                and_(
+                    PlayerHomeCourt.player_id == player_id,
+                    Court.status == "approved",
+                    Court.is_active == True,  # noqa: E712
+                )
+            )
             .order_by(PlayerHomeCourt.position.asc(), Court.name.asc())
         )
     ).all()

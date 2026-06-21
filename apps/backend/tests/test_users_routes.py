@@ -14,11 +14,13 @@ Already tested in test_api_routes_comprehensive.py:
 - PUT /api/users/me/player
 """
 
+import pytest
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.services import auth_service, user_service, data_service, avatar_service, s3_service
+from backend.api.auth_dependencies import require_verified_player
+from backend.services import auth_service, user_service, data_service, avatar_service, s3_service, court_service
 
 
 # ============================================================================
@@ -461,10 +463,6 @@ class TestCancelAccountDeletion:
 # My Courts — /api/users/me/courts  (saved courts / favorites)
 # ============================================================================
 
-import pytest  # noqa: E402
-from backend.api.auth_dependencies import require_verified_player  # noqa: E402
-from backend.services import court_service  # noqa: E402
-
 MC_PLAYER_ID = 7
 
 
@@ -485,7 +483,16 @@ class TestListMyCourts:
 
     def test_returns_saved_court_cards(self, monkeypatch, _authed_player):
         """Happy path: returns the player's saved court cards."""
-        cards = [{"id": 3, "name": "Saved Court", "is_saved": True}]
+        # Include all CourtListItem required fields (id, name, slug, location_id).
+        cards = [
+            {
+                "id": 3,
+                "name": "Saved Court",
+                "slug": "saved-court",
+                "location_id": "test_loc",
+                "is_saved": True,
+            }
+        ]
 
         async def fake_cards(session, player_id):
             assert player_id == MC_PLAYER_ID
@@ -496,7 +503,15 @@ class TestListMyCourts:
         client = TestClient(app)
         response = client.get("/api/users/me/courts")
         assert response.status_code == 200
-        assert response.json() == cards
+        data = response.json()
+        assert len(data) == 1
+        # The response model fills in optional fields with defaults; verify
+        # the core fields that our fake service returned are preserved.
+        assert data[0]["id"] == cards[0]["id"]
+        assert data[0]["name"] == cards[0]["name"]
+        assert data[0]["slug"] == cards[0]["slug"]
+        assert data[0]["location_id"] == cards[0]["location_id"]
+        assert data[0]["is_saved"] is True
 
     def test_requires_auth(self):
         """Returns 401/403 when unauthenticated (no override active)."""
