@@ -1,11 +1,15 @@
 /**
- * CourtsScreen — courts list with search, filter chips, and a map stub.
+ * CourtsScreen — courts list/map with search, filter chips, and a map toggle.
  *
  * Renders:
  *   - TopNav with integrated search mode
- *   - 180px map stub area with "View Full Map" link
- *   - Horizontal filter chips (Nearby/My Courts/Top Rated/Indoor/Outdoor/Lighted)
- *   - FlatList of CourtRow items
+ *   - List/Map toggle bar (mirrors the web CourtDirectoryClient toggle)
+ *   - In list mode:
+ *     - 180px map stub area with a "View Full Map" link that switches to map mode
+ *     - Horizontal filter chips (Nearby/My Courts/Top Rated/Indoor/Outdoor/Lighted)
+ *     - FlatList of CourtRow items
+ *   - In map mode:
+ *     - Full-screen CourtsMapView; tapping a marker navigates to its detail screen
  *   - Skeleton while loading
  *   - Empty state (no courts / no location)
  *   - Error state with retry
@@ -17,22 +21,101 @@
 import React, { useCallback } from 'react';
 import { View, Text, FlatList, RefreshControl, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import TopNav from '@/components/ui/TopNav';
 import { routes } from '@/lib/navigation';
+import { hapticLight } from '@/utils/haptics';
 import { useCourtsScreen } from './useCourtsScreen';
 import CourtRow from './CourtRow';
 import CourtsSkeleton from './CourtsSkeleton';
 import CourtsEmptyState from './CourtsEmptyState';
 import CourtsErrorState from './CourtsErrorState';
 import CourtsFilterBar from './CourtsFilterBar';
+import CourtsMapView from './CourtsMapView';
 import type { Court } from '@beach-kings/shared';
+import type { CourtsViewMode } from './useCourtsScreen';
 
 // ---------------------------------------------------------------------------
-// Map stub
+// View-mode toggle
 // ---------------------------------------------------------------------------
 
-function MapStub(): React.ReactNode {
+interface ViewModeToggleProps {
+  readonly viewMode: CourtsViewMode;
+  readonly onToggle: (mode: CourtsViewMode) => void;
+}
+
+/**
+ * Pill-shaped toggle that switches between List and Map view modes.
+ * Mirrors the court-view-toggle on the web CourtDirectoryClient.
+ */
+function ViewModeToggle({
+  viewMode,
+  onToggle,
+}: ViewModeToggleProps): React.ReactNode {
+  const handleList = useCallback(() => {
+    void hapticLight();
+    onToggle('list');
+  }, [onToggle]);
+
+  const handleMap = useCallback(() => {
+    void hapticLight();
+    onToggle('map');
+  }, [onToggle]);
+
+  return (
+    <View
+      testID="courts-view-toggle"
+      className="flex-row mx-4 my-2 rounded-lg bg-surface border border-strong overflow-hidden"
+    >
+      <Pressable
+        testID="courts-view-toggle-list"
+        onPress={handleList}
+        accessibilityRole="button"
+        accessibilityLabel="List view"
+        className={`flex-1 py-2 items-center ${
+          viewMode === 'list' ? 'bg-brand-teal' : 'bg-surface'
+        } active:opacity-80`}
+      >
+        <Text
+          className={`text-[13px] font-semibold ${
+            viewMode === 'list' ? 'text-inverse' : 'text-muted'
+          }`}
+        >
+          List
+        </Text>
+      </Pressable>
+
+      <Pressable
+        testID="courts-view-toggle-map"
+        onPress={handleMap}
+        accessibilityRole="button"
+        accessibilityLabel="Map view"
+        className={`flex-1 py-2 items-center ${
+          viewMode === 'map' ? 'bg-brand-teal' : 'bg-surface'
+        } active:opacity-80`}
+      >
+        <Text
+          className={`text-[13px] font-semibold ${
+            viewMode === 'map' ? 'text-inverse' : 'text-muted'
+          }`}
+        >
+          Map
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Map stub (shown in list header; tapping "View Full Map" switches to map mode)
+// ---------------------------------------------------------------------------
+
+interface MapStubProps {
+  readonly onViewFullMap: () => void;
+}
+
+function MapStub({ onViewFullMap }: MapStubProps): React.ReactNode {
   return (
     <View
       testID="courts-map-stub"
@@ -45,6 +128,7 @@ function MapStub(): React.ReactNode {
         testID="courts-view-full-map-btn"
         accessibilityRole="button"
         accessibilityLabel="View Full Map"
+        onPress={onViewFullMap}
         className="px-4 py-2 rounded-lg bg-surface border border-strong active:opacity-80"
       >
         <Text className="text-[13px] font-medium text-brand-teal">
@@ -72,6 +156,8 @@ function SectionLabel({ text }: { text: string }): React.ReactNode {
 // ---------------------------------------------------------------------------
 
 export default function CourtsScreen(): React.ReactNode {
+  const router = useRouter();
+
   const {
     courts,
     isLoading,
@@ -79,8 +165,11 @@ export default function CourtsScreen(): React.ReactNode {
     isRefreshing,
     activeFilter,
     searchQuery,
+    viewMode,
+    userLocation,
     setActiveFilter,
     setSearchQuery,
+    setViewMode,
     onRefresh,
     onRetry,
   } = useCourtsScreen();
@@ -88,6 +177,31 @@ export default function CourtsScreen(): React.ReactNode {
   const handleClearFilter = useCallback(() => {
     setActiveFilter(null);
   }, [setActiveFilter]);
+
+  const handleViewFullMap = useCallback(() => {
+    void hapticLight();
+    setViewMode('map');
+  }, [setViewMode]);
+
+  const handleSelectCourt = useCallback(
+    (court: Court) => {
+      void hapticLight();
+      router.push(routes.court(court.id));
+    },
+    [router],
+  );
+
+  // Shared TopNav rendered in every branch
+  const topNav = (
+    <TopNav
+      title="Find Courts"
+      showBack
+      backFallback={routes.home()}
+      searchMode
+      searchValue={searchQuery}
+      onSearchChange={setSearchQuery}
+    />
+  );
 
   // --- Loading skeleton ---
   if (isLoading && !isRefreshing) {
@@ -97,14 +211,7 @@ export default function CourtsScreen(): React.ReactNode {
         edges={['top']}
         testID="courts-screen"
       >
-        <TopNav
-          title="Find Courts"
-          showBack
-          backFallback={routes.home()}
-          searchMode
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
+        {topNav}
         <CourtsSkeleton />
       </SafeAreaView>
     );
@@ -118,19 +225,32 @@ export default function CourtsScreen(): React.ReactNode {
         edges={['top']}
         testID="courts-screen"
       >
-        <TopNav
-          title="Find Courts"
-          showBack
-          backFallback={routes.home()}
-          searchMode
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
+        {topNav}
         <CourtsErrorState onRetry={onRetry} />
       </SafeAreaView>
     );
   }
 
+  // --- Map mode ---
+  if (viewMode === 'map') {
+    return (
+      <SafeAreaView
+        className="flex-1 bg-page"
+        edges={['top']}
+        testID="courts-screen"
+      >
+        {topNav}
+        <ViewModeToggle viewMode={viewMode} onToggle={setViewMode} />
+        <CourtsMapView
+          courts={courts}
+          onSelectCourt={handleSelectCourt}
+          userLocation={userLocation}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // --- List mode (default) ---
   const renderItem = ({ item }: { item: Court }) => <CourtRow court={item} />;
 
   return (
@@ -139,13 +259,7 @@ export default function CourtsScreen(): React.ReactNode {
       edges={['top']}
       testID="courts-screen"
     >
-      <TopNav
-        title="Find Courts"
-        showBack
-        searchMode
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
+      {topNav}
 
       <FlatList<Court>
         testID="courts-list"
@@ -154,7 +268,8 @@ export default function CourtsScreen(): React.ReactNode {
         renderItem={renderItem}
         ListHeaderComponent={
           <>
-            <MapStub />
+            <ViewModeToggle viewMode={viewMode} onToggle={setViewMode} />
+            <MapStub onViewFullMap={handleViewFullMap} />
             <CourtsFilterBar
               activeFilter={activeFilter}
               onFilterChange={setActiveFilter}

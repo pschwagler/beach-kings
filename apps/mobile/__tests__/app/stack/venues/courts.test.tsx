@@ -111,6 +111,39 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+// expo-location: deny permission so location side-effects don't interfere
+// with existing list-focused tests. Permits testing the list path cleanly.
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
+  getCurrentPositionAsync: jest.fn().mockResolvedValue({
+    coords: { latitude: 34.0, longitude: -118.0 },
+  }),
+  Accuracy: { Balanced: 3 },
+}));
+
+// react-native-maps: lightweight stubs so importing CourtsMapView doesn't break.
+jest.mock('react-native-maps', () => {
+  const React = require('react');
+  const { View, Pressable, Text } = require('react-native');
+  function MockMapView({ children }: { children?: React.ReactNode; [k: string]: unknown }) {
+    return <View testID="map-view">{children}</View>;
+  }
+  function MockMarker({ title, onPress }: { title?: string; onPress?: () => void; [k: string]: unknown }) {
+    return (
+      <Pressable testID={`marker-${title ?? 'unknown'}`} onPress={onPress}>
+        <Text>{title}</Text>
+      </Pressable>
+    );
+  }
+  return { __esModule: true, default: MockMapView, Marker: MockMarker };
+});
+
+// usePaletteColors: return minimal palette so CourtsMapView / CourtMapPreview
+// can read brandTeal without ThemeContext wiring.
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({ brandTeal: '#00b4a2' }),
+}));
+
 // ---------------------------------------------------------------------------
 // Module under test — imported AFTER all jest.mock() calls
 // ---------------------------------------------------------------------------

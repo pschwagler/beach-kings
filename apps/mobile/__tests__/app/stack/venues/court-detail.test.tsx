@@ -90,10 +90,17 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockGetCourtById = jest.fn();
+const mockGetCurrentUserPlayer = jest.fn();
+const mockGetCourtCheckIns = jest.fn();
+const mockCheckInToCourt = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     getCourtById: (...args: unknown[]) => mockGetCourtById(...args),
+    getCurrentUserPlayer: (...args: unknown[]) =>
+      mockGetCurrentUserPlayer(...args),
+    getCourtCheckIns: (...args: unknown[]) => mockGetCourtCheckIns(...args),
+    checkInToCourt: (...args: unknown[]) => mockCheckInToCourt(...args),
   },
 }));
 
@@ -107,6 +114,33 @@ jest.mock('@/components/ui/icons', () => {
     ArrowLeftIcon: makeIcon('ArrowLeftIcon'),
   };
 });
+
+// react-native-maps: lightweight stubs so CourtMapPreview doesn't fail.
+jest.mock('react-native-maps', () => {
+  const React = require('react');
+  const { View, Pressable, Text } = require('react-native');
+  function MockMapView({ children }: { children?: React.ReactNode; [k: string]: unknown }) {
+    return <View testID="map-view">{children}</View>;
+  }
+  function MockMarker({ title }: { title?: string; [k: string]: unknown }) {
+    return (
+      <Pressable testID={`marker-${title ?? 'unknown'}`}>
+        <Text>{title}</Text>
+      </Pressable>
+    );
+  }
+  return { __esModule: true, default: MockMapView, Marker: MockMarker };
+});
+
+// ThemeContext: needed by usePaletteColors (used by CourtMapPreview).
+jest.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({ isDark: false }),
+}));
+
+// openDirections: stub so CourtMapPreview pressable doesn't open real maps.
+jest.mock('@/utils/maps', () => ({
+  openDirections: jest.fn().mockResolvedValue(undefined),
+}));
 
 // ---------------------------------------------------------------------------
 // Module under test — imported AFTER all jest.mock() calls
@@ -189,6 +223,14 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockHapticMedium.mockResolvedValue(undefined);
   mockGetCourtById.mockResolvedValue(MOCK_COURT);
+  mockGetCurrentUserPlayer.mockResolvedValue(null);
+  mockGetCourtCheckIns.mockResolvedValue({ count: 0, checked_in_players: [] });
+  mockCheckInToCourt.mockResolvedValue({
+    id: 1,
+    court_id: 1,
+    checked_in_at: '2026-06-21T10:00:00Z',
+    expires_at: '2026-06-21T14:00:00Z',
+  });
 });
 
 // ---------------------------------------------------------------------------

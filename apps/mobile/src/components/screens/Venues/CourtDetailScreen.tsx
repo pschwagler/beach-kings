@@ -8,14 +8,14 @@
  *   - Action row: Check In (primary) + Add to My Courts (outline)
  *   - Court Info section: count/surface/hours + map preview with address
  *   - Photos section: 3-col grid + "+more" tile linking to gallery
- *   - Reviews section stub
+ *   - Reviews section
  *   - Skeleton while loading
  *   - Error state with retry
  *
  * Wireframe ref: court-detail.html
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -31,9 +31,14 @@ import TopNav from '@/components/ui/TopNav';
 import { useCourtDetailScreen } from './useCourtDetailScreen';
 import CourtDetailSkeleton from './CourtDetailSkeleton';
 import CourtDetailErrorState from './CourtDetailErrorState';
+import CourtActionRow from './CourtActionRow';
+import CourtHeroCarousel from './CourtHeroCarousel';
+import CourtMapPreview from './CourtMapPreview';
+import CourtReviewsSection from './CourtReviewsSection';
 import { hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
-import type { Court } from '@beach-kings/shared';
+import { api } from '@/lib/api';
+import type { Court, Player } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -83,46 +88,33 @@ function StarRatingBar({
   );
 }
 
-function ActionRow({
-  courtId,
-}: {
-  courtId: number | string;
-}): React.ReactNode {
-  const handleCheckIn = useCallback(() => {
-    void hapticMedium();
-    // TODO(backend): POST /api/courts/:id/check-in
+/**
+ * Derives the current player id for a signed-in user.
+ *
+ * Mirrors the pattern used by useMessagesScreen. Returns null while loading
+ * or when the user is not authenticated.
+ */
+function useCurrentPlayerId(): number | null {
+  const [currentPlayerId, setCurrentPlayerId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const player = (await api.getCurrentUserPlayer()) as Player | null;
+        if (!cancelled && player != null) {
+          setCurrentPlayerId(player.id);
+        }
+      } catch {
+        // Not authenticated or network error — remain null.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleAddToMyCourts = useCallback(() => {
-    void hapticMedium();
-    // TODO(backend): POST /api/users/me/courts
-  }, []);
-
-  return (
-    <View className="flex-row gap-3 px-4 py-4 border-b border-strong">
-      <Pressable
-        testID={`check-in-btn-${courtId}`}
-        onPress={handleCheckIn}
-        accessibilityRole="button"
-        accessibilityLabel="Check In"
-        className="flex-1 bg-brand-gold py-[14px] rounded-[10px] items-center active:opacity-80"
-      >
-        <Text className="text-white font-bold text-[15px]">Check In</Text>
-      </Pressable>
-
-      <Pressable
-        testID={`add-court-btn-${courtId}`}
-        onPress={handleAddToMyCourts}
-        accessibilityRole="button"
-        accessibilityLabel="Add to My Courts"
-        className="flex-1 py-[14px] rounded-[10px] items-center border border-brand-teal active:opacity-80"
-      >
-        <Text className="text-brand-teal font-semibold text-[15px]">
-          My Courts
-        </Text>
-      </Pressable>
-    </View>
-  );
+  return currentPlayerId;
 }
 
 function CourtInfoSection({ court }: { court: Court }): React.ReactNode {
@@ -165,21 +157,6 @@ function CourtInfoSection({ court }: { court: Court }): React.ReactNode {
           </View>
         )}
       </View>
-
-      {/* Map preview stub */}
-      <View
-        testID="court-map-preview"
-        className="h-[100px] rounded-xl bg-info-tint items-center justify-center border border-strong"
-      >
-        <Text className="text-[13px] text-muted">
-          Map preview
-        </Text>
-      </View>
-      {court.address != null && (
-        <Text className="text-[13px] text-muted mt-2">
-          {court.address}
-        </Text>
-      )}
     </View>
   );
 }
@@ -271,6 +248,7 @@ export default function CourtDetailScreen({
   const router = useRouter();
   const { court, isLoading, error, isRefreshing, onRefresh, onRetry } =
     useCourtDetailScreen(idOrSlug);
+  const currentPlayerId = useCurrentPlayerId();
 
   const handleViewPhotos = useCallback(() => {
     void hapticMedium();
@@ -305,10 +283,6 @@ export default function CourtDetailScreen({
     );
   }
 
-  const heroUrl =
-    (court.court_photos?.[0]?.url ?? court.all_photos?.[0]?.url) ??
-    `https://picsum.photos/seed/court${court.id}/800/400`;
-
   return (
     <SafeAreaView
       className="flex-1 bg-page"
@@ -323,22 +297,8 @@ export default function CourtDetailScreen({
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Hero image */}
-        <View testID="court-hero-image" className="relative">
-          <Image
-            source={{ uri: heroUrl }}
-            className="w-full h-[200px] bg-surface"
-            accessibilityIgnoresInvertColors
-          />
-          {/* Photo count badge */}
-          {(court.photo_count ?? 0) > 0 && (
-            <View className="absolute bottom-3 right-3 bg-black/60 rounded-lg px-2 py-1">
-              <Text className="text-white text-[12px] font-medium">
-                {court.photo_count} photos
-              </Text>
-            </View>
-          )}
-        </View>
+        {/* Hero carousel */}
+        <CourtHeroCarousel court={court} />
 
         {/* Header */}
         <View
@@ -368,29 +328,28 @@ export default function CourtDetailScreen({
           reviewCount={court.review_count ?? 0}
         />
 
-        {/* Action row */}
-        <ActionRow courtId={court.id} />
+        {/* Action row — check in + my courts */}
+        <CourtActionRow
+          court={court}
+          currentPlayerId={currentPlayerId}
+          onChanged={onRefresh}
+        />
 
         {/* Court info */}
         <CourtInfoSection court={court} />
 
+        {/* Location map */}
+        <CourtMapPreview court={court} />
+
         {/* Photos */}
         <PhotosSection court={court} onViewAll={handleViewPhotos} />
 
-        {/* Reviews stub */}
-        <View
-          testID="court-reviews-section"
-          className="px-4 pt-4 pb-4"
-        >
-          <Text className="text-[16px] font-bold text-default mb-2">
-            Reviews
-          </Text>
-          <Text className="text-[14px] text-muted">
-            {court.review_count != null && court.review_count > 0
-              ? `${court.review_count} review${court.review_count !== 1 ? 's' : ''}`
-              : 'No reviews yet. Be the first to review!'}
-          </Text>
-        </View>
+        {/* Reviews */}
+        <CourtReviewsSection
+          court={court}
+          currentPlayerId={currentPlayerId}
+          onReviewChanged={onRefresh}
+        />
       </ScrollView>
     </SafeAreaView>
   );

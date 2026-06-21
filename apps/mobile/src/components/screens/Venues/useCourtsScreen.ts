@@ -1,17 +1,34 @@
 /**
- * Data hook for the Courts list screen.
+ * Data hook for the Courts list/map screen.
  *
- * Fetches the courts list and manages filter/search state.
+ * Responsibilities:
+ *   - Fetches the courts list (passing lat/lon when permission is granted, for
+ *     distance-sorted results).
+ *   - Manages filter/search state.
+ *   - Manages list/map view-mode toggle.
+ *   - Requests foreground location permission via `expo-location`; falls back
+ *     gracefully when denied or unavailable (list still shows, map uses
+ *     bounding-box of all pins).
+ *
  * Filter state (by surface, lighting, free play) lives here so the screen
  * component stays thin.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import * as ExpoLocation from 'expo-location';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import type { Court } from '@beach-kings/shared';
 
 export type CourtFilterChip = 'nearby' | 'my-courts' | 'top-rated' | 'indoor' | 'outdoor' | 'lighted';
+
+/** Which mode the courts screen shows. */
+export type CourtsViewMode = 'list' | 'map';
+
+export interface UserCoords {
+  readonly latitude: number;
+  readonly longitude: number;
+}
 
 export interface UseCourtsScreenResult {
   readonly courts: readonly Court[];
@@ -20,21 +37,65 @@ export interface UseCourtsScreenResult {
   readonly isRefreshing: boolean;
   readonly activeFilter: CourtFilterChip | null;
   readonly searchQuery: string;
+  readonly viewMode: CourtsViewMode;
+  readonly userLocation: UserCoords | null;
   readonly setActiveFilter: (filter: CourtFilterChip | null) => void;
   readonly setSearchQuery: (q: string) => void;
+  readonly setViewMode: (mode: CourtsViewMode) => void;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
 }
 
-/** Returns filtered/searched courts and control state for the Courts screen. */
+/** Returns filtered/searched courts, view-mode toggle, and location state. */
 export function useCourtsScreen(): UseCourtsScreenResult {
   const [activeFilter, setActiveFilter] = useState<CourtFilterChip | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<CourtsViewMode>('list');
+  const [userLocation, setUserLocation] = useState<UserCoords | null>(null);
+
+  // -------------------------------------------------------------------------
+  // Location permission + lookup
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function requestLocation(): Promise<void> {
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (status !== 'granted' || cancelled) return;
+
+      const position = await ExpoLocation.getCurrentPositionAsync({
+        accuracy: ExpoLocation.Accuracy.Balanced,
+      });
+
+      if (cancelled) return;
+
+      setUserLocation({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+    }
+
+    void requestLocation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Data fetch (re-runs when userLocation becomes available)
+  // -------------------------------------------------------------------------
 
   const { data, isLoading, error, refetch } = useApi<Court[]>(
-    () => api.getCourts({}),
-    [],
+    () =>
+      api.getCourts(
+        userLocation != null
+          ? { lat: userLocation.latitude, lon: userLocation.longitude }
+          : {},
+      ),
+    [userLocation],
   );
 
   const onRefresh = useCallback(() => {
@@ -50,8 +111,12 @@ export function useCourtsScreen(): UseCourtsScreenResult {
 
   const allCourts: readonly Court[] = Array.isArray(data) ? data : [];
 
-  // Apply client-side filter chips
+  // -------------------------------------------------------------------------
+  // Client-side filtering
+  // -------------------------------------------------------------------------
+
   const filtered = allCourts.filter((court) => {
+    if (activeFilter === 'my-courts') return court.is_saved === true;
     if (activeFilter === 'outdoor') return court.surface_type === 'sand';
     if (activeFilter === 'indoor') return court.surface_type === 'indoor';
     if (activeFilter === 'lighted') return court.has_lights === true;
@@ -59,7 +124,6 @@ export function useCourtsScreen(): UseCourtsScreenResult {
     return true;
   });
 
-  // Apply search query
   const q = searchQuery.toLowerCase().trim();
   const courts = q.length === 0
     ? filtered
@@ -77,8 +141,11 @@ export function useCourtsScreen(): UseCourtsScreenResult {
     isRefreshing,
     activeFilter,
     searchQuery,
+    viewMode,
+    userLocation,
     setActiveFilter,
     setSearchQuery,
+    setViewMode,
     onRefresh,
     onRetry,
   };
