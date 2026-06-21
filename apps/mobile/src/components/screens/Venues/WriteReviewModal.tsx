@@ -23,10 +23,6 @@ import {
 import Modal from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { usePaletteColors } from '@/theme/usePaletteColors';
-import type {
-  CreateCourtReviewInput,
-  UpdateCourtReviewInput,
-} from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -139,9 +135,7 @@ export default function WriteReviewModal({
 
     try {
       // review_text is sent as null (not omitted) when empty so callers can
-      // distinguish "explicitly cleared" from "not provided". The shared input
-      // types declare review_text as `string | undefined`; we widen here via a
-      // type assertion because the runtime value and the wire format are identical.
+      // distinguish "explicitly cleared" from "not provided".
       const reviewText = text.trim().length > 0 ? text.trim() : null;
 
       if (isEdit && existingReview != null) {
@@ -149,13 +143,13 @@ export default function WriteReviewModal({
           rating,
           review_text: reviewText,
           tag_ids: selectedTagIds,
-        } as UpdateCourtReviewInput);
+        });
       } else {
         await api.createCourtReview(courtId, {
           rating,
           review_text: reviewText,
           tag_ids: selectedTagIds,
-        } as CreateCourtReviewInput);
+        });
       }
 
       onSuccess();
@@ -337,7 +331,7 @@ export default function WriteReviewModal({
           style={{ opacity: submitting ? 0.6 : 1 }}
         >
           {submitting ? (
-            <ActivityIndicator color="#ffffff" />
+            <ActivityIndicator color={palette.textInverse} />
           ) : (
             <Text className="text-inverse font-bold text-[15px]">
               {isEdit ? 'Save Review' : 'Submit Review'}
@@ -374,7 +368,7 @@ export default function WriteReviewModal({
                   style={{ opacity: deleting ? 0.6 : 1 }}
                 >
                   {deleting ? (
-                    <ActivityIndicator color="#ffffff" />
+                    <ActivityIndicator color={palette.textInverse} />
                   ) : (
                     <Text className="text-inverse font-bold text-[14px]">
                       Delete

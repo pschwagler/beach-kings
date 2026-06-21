@@ -58,14 +58,14 @@ export interface CourtCheckInsResponse {
 /** Input for creating a new court review (POST /api/courts/{id}/reviews). */
 export interface CreateCourtReviewInput {
   rating: number;
-  review_text?: string;
+  review_text?: string | null;
   tag_ids?: number[];
 }
 
 /** Input for updating an existing court review (PUT /api/courts/{id}/reviews/{reviewId}). */
 export interface UpdateCourtReviewInput {
   rating?: number;
-  review_text?: string;
+  review_text?: string | null;
   tag_ids?: number[];
 }
 
