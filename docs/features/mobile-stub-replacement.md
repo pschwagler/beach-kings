@@ -257,6 +257,12 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Endpoint: extended existing `GET /api/users/me/stats` with `?league_id=&days=`
   - Backend: three computation paths in `my_stats_service` (fast / league-only / recompute). Trophies are not windowed by `days`.
 
+- [x] **P3.6 — My Courts (save / favorite a court)** *(done — see 2026-06-21 log)*
+  - Files: `apps/mobile/src/components/screens/Venues/CourtActionRow.tsx` (was a `// TODO(backend): POST /api/users/me/courts` no-op), `useCourtsScreen.ts` (real `my-courts` filter), new `useSaveCourt.ts` hook.
+  - Endpoints (new): `GET/POST/DELETE /api/users/me/courts` (idempotent save/unsave). `is_saved` embedded on court detail + public list rows via optional auth.
+  - API client (new): `saveCourt`, `unsaveCourt`, `getMyCourts`; `is_saved?: boolean | null` added to shared `Court`.
+  - Reuse check: reused the existing `player_home_courts` table (public home-courts semantics, agreed with product) instead of a new favorites table — **no migration**. Save/list restricted to approved + active courts, mirroring `list_courts_public`.
+
 ---
 
 ## Phase 4 — P4 low (polish / stubs)
@@ -293,7 +299,7 @@ Per Ground Rule 7 (*Types follow their mocks*), each remaining type leaves `mock
 | ~~`InvitablePlayer`~~ | ~~P2.7~~ — already in `@beach-kings/shared` |
 | `FindLeagueResult` | ~~P2.6~~ — promoted to `@beach-kings/shared` |
 | ~~`LeaguePlayerStats`~~ | ~~P2.4~~ — already in `@beach-kings/shared`; backend now populates rank + game_history |
-| `SessionPlayer`, `SessionGame`, `SessionDetail` | P2.8 |
+| ~~`SessionPlayer`, `SessionGame`, `SessionDetail`~~ | ~~P2.8~~ — promoted to `packages/shared/src/types/session.ts` |
 | ~~`PushNotificationPrefs`~~ | ~~P3.4~~ — promoted to `@beach-kings/shared` (added `push_enabled`/`ranking_changes`, dropped `session_updates`) |
 
 **Tournaments (out of scope — leave in mockApi.ts):** `Tournament`, `TournamentTeam`, `TournamentGame`, `TournamentStanding`, `KobScheduleRow`
@@ -336,6 +342,7 @@ Grouped for backend sprint planning. Tournament/KOB endpoints intentionally omit
 - ~~`GET /api/players/:id/trophies`~~ (P3.2 dropped — trophies not shown on other players' profiles)
 - `GET /api/players/:id/leagues` (or extend existing)
 - ~~`GET /api/courts/:id/photos`~~ (P3.1 landed as `GET /api/public/courts/:id_or_slug/photos`)
+- `GET/POST/DELETE /api/users/me/courts` (P3.6 — My Courts; reuses `player_home_courts`, no migration)
 
 **Low (Phase 4):**
 - `DELETE /api/users/me`
@@ -347,6 +354,12 @@ Grouped for backend sprint planning. Tournament/KOB endpoints intentionally omit
 ## Status log
 
 _Update this section as tasks complete._
+
+- 2026-06-21: **P3.6 My Courts favorites + court venue screen polish.** New court detail/list venue screens landed on the branch (hero, reviews, map, check-in). Stub closed: the "My Courts" button in `CourtActionRow` (was a `POST /api/users/me/courts` TODO no-op) now toggles save/unsave with optimistic update + haptics, and the `my-courts` filter chip filters by `is_saved`.
+  - **Backend** (`73d4b9f`, hardened in `99ac322`): `GET/POST/DELETE /api/users/me/courts` reusing `player_home_courts` (no migration); `is_saved` embedded on court detail + public list via optional auth; save/list restricted to approved + active courts; atomic `INSERT ... ON CONFLICT DO NOTHING` save.
+  - **API/shared** (`2f92fbf`): `saveCourt`/`unsaveCourt`/`getMyCourts`; `is_saved?: boolean | null` on `Court`.
+  - **Mobile** (`58f6e71`, polished in `7b217d0`): `useSaveCourt` hook, `CourtActionRow` wired, real `my-courts` filter, `CourtHeroCarousel` extracted (paged swipe + dots + placeholder fallback), `WriteReviewModal` cast cleanup (uses shared `CreateCourtReviewInput`/`UpdateCourtReviewInput`).
+  - Two-pass review (code + security) applied. Gate: 84 backend + 235 mobile venue tests pass; `tsc --noEmit` clean across mobile/shared/api-client. Implementation delegated to parallel sub-agents (disjoint files: backend vs mobile+shared).
 
 - 2026-06-21: **Phase II + III completed.** Remaining open tasks closed (commits on `feat/ps/mobile-app-creation`):
   - **P2.4** (`998099f`) — backend populates league-player `rank` (window-fn, consistent with Standings) + `game_history` (viewed-player perspective, reusing `my_games_service`); private-league access gate added. `rating_delta` dropped for MVP. 22 backend tests.
