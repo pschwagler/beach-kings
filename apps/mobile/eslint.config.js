@@ -73,6 +73,23 @@ module.exports = [
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       'react/no-array-index-key': 'warn',
+      // react-native's built-in SafeAreaView is deprecated AND is not registered
+      // with NativeWind's className interop, so `flex-1` is silently dropped and
+      // layout collapses (this caused the empty Write Review modal body). Always
+      // import SafeAreaView from react-native-safe-area-context instead.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'react-native',
+              importNames: ['SafeAreaView'],
+              message:
+                "Import SafeAreaView from 'react-native-safe-area-context' — react-native's is deprecated and breaks NativeWind flex layout.",
+            },
+          ],
+        },
+      ],
     },
   },
   {

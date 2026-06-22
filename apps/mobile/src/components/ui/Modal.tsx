@@ -9,8 +9,8 @@ import {
   View,
   Text,
   Pressable,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface ModalProps {
   readonly visible: boolean;
@@ -34,7 +34,15 @@ export default function Modal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView className={`flex-1 bg-page ${className}`}>
+      {/*
+        Explicit flex:1 (not just the `flex-1` class) on the SafeAreaView and the
+        content wrapper: react-native's built-in SafeAreaView is not registered
+        with NativeWind's className interop, so `flex-1` was silently dropped and
+        the ScrollView body collapsed to zero height inside the pageSheet. Using
+        safe-area-context's SafeAreaView (interop'd, as elsewhere in the app) plus
+        explicit styles guarantees the flex chain regardless of interop.
+      */}
+      <SafeAreaView style={{ flex: 1 }} className={`bg-page ${className}`}>
         {/* Handle bar */}
         <View className="items-center pt-sm pb-xs">
           {/* eslint-disable-next-line no-restricted-syntax -- drag handle: no semantic token for this gray pair */}
@@ -59,7 +67,7 @@ export default function Modal({
         </View>
 
         {/* Content */}
-        <View className="flex-1">
+        <View style={{ flex: 1 }}>
           {children}
         </View>
       </SafeAreaView>

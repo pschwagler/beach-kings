@@ -5,7 +5,8 @@
  */
 
 import React, { ReactNode } from 'react';
-import { SafeAreaView, View, Text } from 'react-native';
+import { View, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangleIcon } from '@/components/ui/icons';
 import Button from '@/components/ui/Button';
 
@@ -53,7 +54,7 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
     }
 
     return (
-      <SafeAreaView className="flex-1 bg-surface">
+      <SafeAreaView style={{ flex: 1 }} className="bg-surface">
         <View className="flex-1 items-center justify-center px-xl gap-lg">
           <AlertTriangleIcon size={48} color="#f59e0b" />
           <Text className="text-xl font-semibold text-default text-center">

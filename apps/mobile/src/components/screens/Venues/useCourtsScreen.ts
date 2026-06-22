@@ -62,19 +62,25 @@ export function useCourtsScreen(): UseCourtsScreenResult {
     let cancelled = false;
 
     async function requestLocation(): Promise<void> {
-      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-      if (status !== 'granted' || cancelled) return;
+      // Any location failure (denied permission, services off, timeout) is
+      // non-fatal: the screen falls back to the no-location court list below.
+      try {
+        const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+        if (status !== 'granted' || cancelled) return;
 
-      const position = await ExpoLocation.getCurrentPositionAsync({
-        accuracy: ExpoLocation.Accuracy.Balanced,
-      });
+        const position = await ExpoLocation.getCurrentPositionAsync({
+          accuracy: ExpoLocation.Accuracy.Balanced,
+        });
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      setUserLocation({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      } catch {
+        // Swallow: userLocation stays null and getCourts() runs without coords.
+      }
     }
 
     void requestLocation();
