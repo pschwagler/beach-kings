@@ -368,6 +368,12 @@ class AppleAuthRequest(BaseModel):
     id_token: str
 
 
+class LinkProviderRequest(BaseModel):
+    """Request body for linking an OAuth provider to an authenticated account."""
+
+    id_token: str
+
+
 class AuthResponse(BaseModel):
     """Authentication response with JWT token."""
 
@@ -461,12 +467,18 @@ class UserResponse(BaseModel):
     has_password: bool = True
     deletion_scheduled_at: Optional[str] = None
     created_at: str
+    profile_is_private: bool = False
+    show_game_history: bool = False
+    google_connected: bool = False
+    apple_connected: bool = False
 
 
 class UserUpdate(BaseModel):
     """Request to update user profile."""
 
     email: Optional[str] = None
+    profile_is_private: Optional[bool] = None
+    show_game_history: Optional[bool] = None
 
 
 # League-based schema models
@@ -1313,6 +1325,7 @@ class SessionRosterDetailResponse(BaseModel):
     session_number: int = 1
     max_players: Optional[int] = None
     notes: Optional[str] = None
+    is_ranked: Optional[bool] = True
     players: List[SessionRosterPlayerResponse]
     games: List[SessionGameResponse] = []
     user_wins: int = 0
@@ -1634,6 +1647,7 @@ class CreateNonLeagueSessionRequest(BaseModel):
     # season; otherwise a non-league session is created.
     league_id: Optional[int] = None
     season_id: Optional[int] = None
+    is_ranked: Optional[bool] = None  # Session-level ranked intent; defaults to True on the backend when omitted
 
 
 class UpdateSessionRequest(BaseModel):
@@ -2016,6 +2030,13 @@ class LeagueInviteItemResponse(BaseModel):
     initials: str
     invited_at: str
     status: Literal["pending", "accepted", "declined"]
+    game_count: Optional[int] = None  # Number of games played in the league, if available
+
+
+class InviteActionResponse(BaseModel):
+    """Response returned after accepting or declining a league invite."""
+
+    status: str
 
 
 class PublicLocationDirectoryItem(BaseModel):

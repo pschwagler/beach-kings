@@ -41,6 +41,7 @@ const SESSION: SessionDetail = {
   session_type: 'league',
   max_players: 12,
   notes: 'first',
+  is_ranked: true,
   players: [],
   games: [],
   user_wins: 0,

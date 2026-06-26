@@ -1322,31 +1322,17 @@ class TestPublicCheckIns:
     """Tests for GET /api/public/courts/{slug}/check-ins."""
 
     def test_get_check_ins(self, monkeypatch):
-        """Returns check-in count and player list."""
+        """Returns aggregate check-in total and breakdown (no player identities)."""
 
         async def fake_get_court_id(session, slug):
             return 1
 
         async def fake_get_check_ins(session, court_id):
             return {
-                "count": 2,
-                "checked_in_players": [
-                    {
-                        "id": 1,
-                        "player_id": 10,
-                        "player_name": "Alice",
-                        "avatar": None,
-                        "checked_in_at": "2026-04-09T12:00:00+00:00",
-                        "expires_at": "2026-04-09T16:00:00+00:00",
-                    },
-                    {
-                        "id": 2,
-                        "player_id": 11,
-                        "player_name": "Bob",
-                        "avatar": None,
-                        "checked_in_at": "2026-04-09T12:30:00+00:00",
-                        "expires_at": "2026-04-09T16:30:00+00:00",
-                    },
+                "total": 2,
+                "breakdown": [
+                    {"level": "intermediate", "gender": "male", "count": 1},
+                    {"level": "advanced", "gender": "female", "count": 1},
                 ],
             }
 
@@ -1357,8 +1343,10 @@ class TestPublicCheckIns:
         response = client.get("/api/public/courts/test-court/check-ins")
         assert response.status_code == 200
         data = response.json()
-        assert data["count"] == 2
-        assert len(data["checked_in_players"]) == 2
+        assert data["total"] == 2
+        assert len(data["breakdown"]) == 2
+        # No player identities exposed
+        assert "checked_in_players" not in data
 
     def test_get_check_ins_court_not_found(self, monkeypatch):
         """Returns 404 for unknown court."""

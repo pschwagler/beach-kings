@@ -513,6 +513,7 @@ export const mockApi = {
     session_type: SessionType;
     max_players?: number | null;
     notes?: string | null;
+    is_ranked?: boolean | null;
     league_id?: number | null;
   }): Promise<SessionDetail> {
     return notImplemented('POST /api/sessions (create)');

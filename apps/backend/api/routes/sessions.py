@@ -477,6 +477,7 @@ async def get_session_detail(
             Session.start_time,
             Session.max_players,
             Session.notes,
+            Session.is_ranked,
             Court.name.label("court_name"),
         )
         .outerjoin(Court, Session.court_id == Court.id)
@@ -490,6 +491,7 @@ async def get_session_detail(
     start_time: str | None = sess_extra.start_time if sess_extra else None
     max_players: int | None = sess_extra.max_players if sess_extra else None
     notes: str | None = sess_extra.notes if sess_extra else None
+    is_ranked: bool = sess_extra.is_ranked if sess_extra is not None else True
 
     # Resolve league_id directly from the session (available for both season
     # sessions and gap sessions — season_id=NULL but league_id set).
@@ -540,6 +542,7 @@ async def get_session_detail(
         "session_number": session_number,
         "max_players": max_players,
         "notes": notes,
+        "is_ranked": is_ranked,
         "players": players,
         "games": games,
         "user_wins": user_wins,
@@ -804,6 +807,7 @@ async def create_session(
                 session_type=body.session_type,
                 max_players=body.max_players,
                 notes=body.notes,
+                is_ranked=body.is_ranked,
             )
         return {
             "status": "success",

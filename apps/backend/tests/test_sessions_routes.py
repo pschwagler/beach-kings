@@ -755,6 +755,7 @@ class TestCreateSession:
             session_type=None,
             max_players=None,
             notes=None,
+            is_ranked=None,
         ):
             return created_session
 
@@ -800,6 +801,7 @@ class TestCreateSession:
             session_type=None,
             max_players=None,
             notes=None,
+            is_ranked=None,
         ):
             captured["start_time"] = start_time
             captured["session_type"] = session_type
@@ -874,6 +876,7 @@ class TestCreateSession:
             session_type=None,
             max_players=None,
             notes=None,
+            is_ranked=None,
         ):
             return {"id": _SESSION_ID, "name": None, "code": "DEFA0001", "status": "ACTIVE"}
 
@@ -1248,6 +1251,7 @@ class TestGetSessionDetail:
                 start_time = None
                 max_players = None
                 notes = None
+                is_ranked = True
 
             class ResultFirst:
                 def one_or_none(self_r):
@@ -1289,6 +1293,7 @@ class TestGetSessionDetail:
                 start_time = None
                 max_players = None
                 notes = None
+                is_ranked = True
 
             class ResultFirst:
                 def one_or_none(self_r):
@@ -1385,6 +1390,19 @@ class TestGetSessionDetail:
         assert "max_players" in data
         assert "notes" in data
 
+    def test_response_includes_is_ranked(self, monkeypatch):
+        """Response includes is_ranked field reflecting the session-level ranked flag."""
+        self._patch_shared(monkeypatch)
+        self._patch_execute_league(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "is_ranked" in data
+        # RowOne mock sets is_ranked = True; verify the value is forwarded correctly.
+        assert data["is_ranked"] is True
+
     def test_response_includes_league_name(self, monkeypatch):
         """Direct path: league_id from session dict; league_name from single League.name
         scalar call (no Season lookup).  _ACTIVE_SESSION carries league_id=_LEAGUE_ID.
@@ -1455,6 +1473,7 @@ class TestGetSessionDetail:
                 start_time = None
                 max_players = None
                 notes = None
+                is_ranked = True
 
             class ResultFirst:
                 def one_or_none(self_r):

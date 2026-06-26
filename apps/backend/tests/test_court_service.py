@@ -811,11 +811,11 @@ class TestCheckIn:
 
         # First court should have 0 active check-ins
         result = await court_service.get_active_check_ins(db_session, court["id"])
-        assert result["count"] == 0
+        assert result["total"] == 0
 
         # Second court should have 1
         result2 = await court_service.get_active_check_ins(db_session, court2.id)
-        assert result2["count"] == 1
+        assert result2["total"] == 1
 
     @pytest.mark.asyncio
     async def test_check_out(self, db_session, court, test_player):
@@ -825,7 +825,7 @@ class TestCheckIn:
         assert removed is True
 
         result = await court_service.get_active_check_ins(db_session, court["id"])
-        assert result["count"] == 0
+        assert result["total"] == 0
 
     @pytest.mark.asyncio
     async def test_check_out_nonexistent(self, db_session, court, test_player):
@@ -835,15 +835,17 @@ class TestCheckIn:
 
     @pytest.mark.asyncio
     async def test_get_active_check_ins(self, db_session, court, test_player, second_player):
-        """Active check-ins returns count and player details."""
+        """Active check-ins returns aggregate total and breakdown by level/gender (no names)."""
         await court_service.check_in(db_session, court["id"], test_player.id)
         await court_service.check_in(db_session, court["id"], second_player.id)
 
         result = await court_service.get_active_check_ins(db_session, court["id"])
-        assert result["count"] == 2
-        names = [p["player_name"] for p in result["checked_in_players"]]
-        assert "Court Tester" in names
-        assert "Second Reviewer" in names
+        assert result["total"] == 2
+        assert "breakdown" in result
+        # No player identities exposed
+        assert "checked_in_players" not in result
+        total_from_breakdown = sum(b["count"] for b in result["breakdown"])
+        assert total_from_breakdown == 2
 
     @pytest.mark.asyncio
     async def test_expired_check_ins_excluded(self, db_session, court, test_player):
@@ -862,7 +864,7 @@ class TestCheckIn:
         await db_session.commit()
 
         result = await court_service.get_active_check_ins(db_session, court["id"])
-        assert result["count"] == 0
+        assert result["total"] == 0
 
 
 # ============================================================================

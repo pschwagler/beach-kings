@@ -46,6 +46,7 @@ function makeSession(
     session_type: 'pickup',
     max_players: 16,
     notes: null,
+    is_ranked: false,
     players,
     games: [],
     user_wins: 0,

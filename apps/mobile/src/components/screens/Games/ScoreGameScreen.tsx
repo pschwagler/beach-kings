@@ -656,11 +656,6 @@ export default function ScoreGameScreen({
           onSwapSlots={swapSlots}
         />
 
-        {/* TODO(session-settings): ranked/unranked is a session-level attribute.
-            Until the Session settings screen exposes a toggle, is_ranked is
-            hardcoded in useScoreGameScreen — true for league context, false
-            for pickup. See discussion 2026-05-15. */}
-
         {/* Roster picker — only visible in building mode */}
         {isBuilding && (
           <RosterPicker

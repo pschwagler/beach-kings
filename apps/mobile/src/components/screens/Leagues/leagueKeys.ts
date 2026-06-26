@@ -42,4 +42,6 @@ export const leagueKeys = {
     [...leagueKeys.root, 'playerStats', String(leagueId), String(playerId), seasonId ?? 'current'] as const,
 
   pendingInvites: () => [...leagueKeys.root, 'pendingInvites'] as const,
+
+  receivedInvites: () => [...leagueKeys.root, 'receivedInvites'] as const,
 } as const;

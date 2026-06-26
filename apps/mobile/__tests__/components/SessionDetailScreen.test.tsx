@@ -124,6 +124,7 @@ const baseSession: SessionDetail = {
   session_type: 'pickup',
   max_players: null,
   notes: null,
+  is_ranked: true,
   user_wins: 2,
   user_losses: 1,
   user_rating_change: 4.2,

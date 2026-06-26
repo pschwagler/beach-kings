@@ -36,6 +36,7 @@ describe('useSessionCreateScreen', () => {
     expect(result.current.maxPlayers).toBe(16);
     expect(result.current.startTime).toBe('');
     expect(result.current.notes).toBe('');
+    expect(result.current.isRanked).toBe(true);
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.submitError).toBeNull();
     // date defaults to today (just verify ISO-ish format)
@@ -52,6 +53,7 @@ describe('useSessionCreateScreen', () => {
       result.current.setSessionType('league');
       result.current.setMaxPlayers(8);
       result.current.setNotes('hello');
+      result.current.setIsRanked(false);
     });
 
     expect(result.current.date).toBe('2026-05-01');
@@ -60,6 +62,7 @@ describe('useSessionCreateScreen', () => {
     expect(result.current.sessionType).toBe('league');
     expect(result.current.maxPlayers).toBe(8);
     expect(result.current.notes).toBe('hello');
+    expect(result.current.isRanked).toBe(false);
   });
 
   it('onSubmit posts the form and replaces route on success', async () => {
@@ -83,11 +86,29 @@ describe('useSessionCreateScreen', () => {
         session_type: 'pickup',
         max_players: 16,
         notes: 'hi',
+        is_ranked: true,
       }),
     );
     expect(mockReplace).toHaveBeenCalledWith('/(stack)/session/99');
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.submitError).toBeNull();
+  });
+
+  it('onSubmit includes is_ranked: false when toggle is off', async () => {
+    mockCreateSession.mockResolvedValue({ id: 1 });
+    const { result } = renderHook(() => useSessionCreateScreen());
+
+    act(() => {
+      result.current.setIsRanked(false);
+    });
+
+    await act(async () => {
+      await result.current.onSubmit();
+    });
+
+    expect(mockCreateSession).toHaveBeenCalledWith(
+      expect.objectContaining({ is_ranked: false }),
+    );
   });
 
   it('onSubmit normalises empty strings to null in the payload', async () => {

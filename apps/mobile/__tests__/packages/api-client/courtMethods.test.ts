@@ -118,24 +118,10 @@ describe('checkOutOfCourt', () => {
 
 describe('getCourtCheckIns', () => {
   const mockResponse = {
-    count: 2,
-    checked_in_players: [
-      {
-        id: 1,
-        player_id: 10,
-        player_name: 'Alice',
-        avatar: null,
-        checked_in_at: '2026-06-21T09:00:00Z',
-        expires_at: '2026-06-21T13:00:00Z',
-      },
-      {
-        id: 2,
-        player_id: 11,
-        player_name: 'Bob',
-        avatar: 'https://example.com/bob.jpg',
-        checked_in_at: '2026-06-21T09:30:00Z',
-        expires_at: '2026-06-21T13:30:00Z',
-      },
+    total: 2,
+    breakdown: [
+      { level: 'Intermediate', gender: 'Women', count: 1 },
+      { level: 'Advanced', gender: 'Men', count: 1 },
     ],
   };
 
@@ -159,28 +145,46 @@ describe('getCourtCheckIns', () => {
     expect(mockGet.mock.calls[0][0]).toBe('/api/public/courts/5/check-ins');
   });
 
-  it('returns count and checked_in_players array', async () => {
+  it('returns total and breakdown array', async () => {
     const mockGet = jest.fn().mockResolvedValue({ data: mockResponse });
     const client = makeClient({ get: mockGet });
     const methods = createApiMethods(client);
 
     const result = await methods.getCourtCheckIns('manhattan-beach');
 
-    expect(result.count).toBe(2);
-    expect(result.checked_in_players).toHaveLength(2);
-    expect(result.checked_in_players[0].player_name).toBe('Alice');
+    expect(result.total).toBe(2);
+    expect(result.breakdown).toHaveLength(2);
+    expect(result.breakdown[0].level).toBe('Intermediate');
+    expect(result.breakdown[0].gender).toBe('Women');
+    expect(result.breakdown[0].count).toBe(1);
   });
 
-  it('returns empty checked_in_players when no one is checked in', async () => {
-    const emptyResponse = { count: 0, checked_in_players: [] };
+  it('returns empty breakdown when no one is checked in', async () => {
+    const emptyResponse = { total: 0, breakdown: [] };
     const mockGet = jest.fn().mockResolvedValue({ data: emptyResponse });
     const client = makeClient({ get: mockGet });
     const methods = createApiMethods(client);
 
     const result = await methods.getCourtCheckIns('empty-court');
 
-    expect(result.count).toBe(0);
-    expect(result.checked_in_players).toEqual([]);
+    expect(result.total).toBe(0);
+    expect(result.breakdown).toEqual([]);
+  });
+
+  it('handles null level and gender in breakdown items', async () => {
+    const nullResponse = {
+      total: 1,
+      breakdown: [{ level: null, gender: null, count: 1 }],
+    };
+    const mockGet = jest.fn().mockResolvedValue({ data: nullResponse });
+    const client = makeClient({ get: mockGet });
+    const methods = createApiMethods(client);
+
+    const result = await methods.getCourtCheckIns('some-court');
+
+    expect(result.breakdown[0].level).toBeNull();
+    expect(result.breakdown[0].gender).toBeNull();
+    expect(result.breakdown[0].count).toBe(1);
   });
 });
 

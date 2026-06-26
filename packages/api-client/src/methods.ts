@@ -50,8 +50,11 @@ import type {
   LeaguePlayerStats,
   InvitablePlayer,
   LeagueInviteItem,
+  InviteActionResponse,
   AuthResponse,
   UserMeResponse,
+  StatusResponse,
+  UserUpdateRequest,
   CreatePlaceholderRequest,
   PlaceholderPlayerResponse,
   PlayerLeague,
@@ -146,6 +149,32 @@ export function createApiMethods(client: ApiClient) {
      */
     async appleAuth(idToken: string): Promise<AuthResponse> {
       const response = await api.post<AuthResponse>('/api/auth/apple', { id_token: idToken });
+      return response.data;
+    },
+
+    /**
+     * Link a Google account to the currently authenticated user.
+     *
+     * Fails if the Google account is already linked to a different Beach League
+     * user. Returns the updated user record with `google_connected: true`.
+     *
+     * Maps to POST /api/auth/google/add.
+     */
+    async linkGoogle(idToken: string): Promise<UserMeResponse> {
+      const response = await api.post<UserMeResponse>('/api/auth/google/add', { id_token: idToken });
+      return response.data;
+    },
+
+    /**
+     * Link an Apple account to the currently authenticated user.
+     *
+     * Fails if the Apple account is already linked to a different Beach League
+     * user. Returns the updated user record with `apple_connected: true`.
+     *
+     * Maps to POST /api/auth/apple/add.
+     */
+    async linkApple(idToken: string): Promise<UserMeResponse> {
+      const response = await api.post<UserMeResponse>('/api/auth/apple/add', { id_token: idToken });
       return response.data;
     },
 
@@ -874,8 +903,30 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async updateUserProfile(userData: { name?: string; email?: string }) {
-      const response = await api.put('/api/users/me', userData);
+    async updateUserProfile(userData: UserUpdateRequest): Promise<UserMeResponse> {
+      const response = await api.put<UserMeResponse>('/api/users/me', userData);
+      return response.data;
+    },
+
+    /**
+     * Schedule the authenticated user's account for deletion after a 30-day
+     * grace period. The user can cancel by calling `cancelAccountDeletion()`.
+     *
+     * Maps to POST /api/users/me/delete.
+     */
+    async scheduleAccountDeletion(): Promise<StatusResponse> {
+      const response = await api.post<StatusResponse>('/api/users/me/delete');
+      return response.data;
+    },
+
+    /**
+     * Cancel a pending account deletion while still within the 30-day grace
+     * period.
+     *
+     * Maps to POST /api/users/me/cancel-deletion.
+     */
+    async cancelAccountDeletion(): Promise<StatusResponse> {
+      const response = await api.post<StatusResponse>('/api/users/me/cancel-deletion');
       return response.data;
     },
 
@@ -1544,6 +1595,58 @@ export function createApiMethods(client: ApiClient) {
      */
     async getMySentLeagueInvites(): Promise<LeagueInviteItem[]> {
       const response = await api.get<LeagueInviteItem[]>('/api/users/me/league-invites/sent');
+      return response.data;
+    },
+
+    /**
+     * List league invites received by the current user across all leagues.
+     * Maps to GET /api/users/me/league-invites/received.
+     */
+    async getReceivedLeagueInvites(): Promise<LeagueInviteItem[]> {
+      const response = await api.get<LeagueInviteItem[]>('/api/users/me/league-invites/received');
+      return response.data;
+    },
+
+    /**
+     * Accept or decline a league invite (invitee only).
+     *
+     * `action` must be `'accept'` or `'decline'`. Use the thin wrappers
+     * `acceptLeagueInvite` / `declineLeagueInvite` for call-site clarity.
+     *
+     * Maps to POST /api/leagues/{leagueId}/invites/respond.
+     */
+    async respondToLeagueInvite(
+      leagueId: number,
+      action: 'accept' | 'decline',
+    ): Promise<InviteActionResponse> {
+      const response = await api.post<InviteActionResponse>(
+        `/api/leagues/${leagueId}/invites/respond`,
+        { action },
+      );
+      return response.data;
+    },
+
+    /**
+     * Accept a league invite (thin wrapper around `respondToLeagueInvite`).
+     * Maps to POST /api/leagues/{leagueId}/invites/respond with action='accept'.
+     */
+    async acceptLeagueInvite(leagueId: number): Promise<InviteActionResponse> {
+      const response = await api.post<InviteActionResponse>(
+        `/api/leagues/${leagueId}/invites/respond`,
+        { action: 'accept' },
+      );
+      return response.data;
+    },
+
+    /**
+     * Decline a league invite (thin wrapper around `respondToLeagueInvite`).
+     * Maps to POST /api/leagues/{leagueId}/invites/respond with action='decline'.
+     */
+    async declineLeagueInvite(leagueId: number): Promise<InviteActionResponse> {
+      const response = await api.post<InviteActionResponse>(
+        `/api/leagues/${leagueId}/invites/respond`,
+        { action: 'decline' },
+      );
       return response.data;
     },
 

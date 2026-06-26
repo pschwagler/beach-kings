@@ -139,25 +139,44 @@ async def update_user_password(session: AsyncSession, user_id: int, password_has
     return result.rowcount > 0
 
 
-async def update_user(session: AsyncSession, user_id: int, email: Optional[str] = None) -> bool:
+async def update_user(
+    session: AsyncSession,
+    user_id: int,
+    email: Optional[str] = None,
+    profile_is_private: Optional[bool] = None,
+    show_game_history: Optional[bool] = None,
+) -> bool:
     """
-    Update a user's email.
+    Update mutable fields on a User row.
+
+    Only fields provided as non-None are written; omitted fields are left
+    unchanged.  At least one payload field must be supplied (otherwise no
+    meaningful update occurs and the function returns ``False``).
 
     Args:
-        session: Database session
-        user_id: User ID
-        email: Optional new email (will be normalized to lowercase)
+        session: Database session.
+        user_id: Target user ID.
+        email: New email address (normalised to lowercase).
+        profile_is_private: When True, only the floor of the player's public
+            profile is visible to non-self viewers.
+        show_game_history: When True (and profile is public), non-self viewers
+            may see the per-game history list.
 
     Returns:
-        True if successful, False otherwise
+        True if exactly one row was updated, False otherwise.
     """
-    update_values = {"updated_at": func.now()}
+    update_values: dict = {"updated_at": func.now()}
 
     if email is not None:
-        # Normalize email to lowercase
         update_values["email"] = email.strip().lower() if email else None
 
-    if len(update_values) == 1:  # Only updated_at, nothing to update
+    if profile_is_private is not None:
+        update_values["profile_is_private"] = profile_is_private
+
+    if show_game_history is not None:
+        update_values["show_game_history"] = show_game_history
+
+    if len(update_values) == 1:  # only updated_at — nothing substantive to update
         return False
 
     result = await session.execute(update(User).where(User.id == user_id).values(**update_values))
@@ -396,11 +415,14 @@ def _user_to_dict(user: User) -> Dict:
     """
     Convert a User ORM instance to a dictionary.
 
+    Includes all mutable fields that callers (routes, tests) may need to
+    inspect, including the privacy toggles added for the PRIVACY feature.
+
     Args:
-        user: User ORM instance
+        user: User ORM instance.
 
     Returns:
-        User dictionary
+        User dictionary.
     """
     return {
         "id": user.id,
@@ -421,6 +443,9 @@ def _user_to_dict(user: User) -> Dict:
         ),
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+        # Privacy toggles (PRIVACY feature)
+        "profile_is_private": bool(user.profile_is_private),
+        "show_game_history": bool(user.show_game_history),
     }
 
 

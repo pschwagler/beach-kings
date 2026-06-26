@@ -113,6 +113,8 @@ export interface SessionCreatePayload {
   longitude?: number | null;
   league_id?: number | null;
   season_id?: number | null;
+  /** Session-level ranked intent. Defaults to true on the backend when omitted. */
+  is_ranked?: boolean | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +213,8 @@ export interface SessionDetail {
   readonly session_type: SessionType;
   readonly max_players: number | null;
   readonly notes: string | null;
+  /** Whether this session counts toward rankings. Defaults to true (server default). */
+  readonly is_ranked: boolean;
   readonly players: readonly SessionPlayer[];
   readonly games: readonly SessionGame[];
   /** Total wins for the calling user in this session. */

@@ -4,6 +4,7 @@
  * Sections:
  *   - Login & Security (Email, Password, Phone)
  *   - Connected Accounts (Google, Apple)
+ *   - Privacy
  *   - Notifications
  *   - Appearance (Theme)
  *   - Support (Feedback, Contact, Rate)
@@ -13,7 +14,7 @@
  * Wireframe ref: settings.html + settings-account.html (merged)
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -21,19 +22,24 @@ import {
   ScrollView,
   Alert,
   Linking,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as StoreReview from 'expo-store-review';
 
 import TopNav from '@/components/ui/TopNav';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
-import { supportMailtoPhoneChange } from '@/lib/support';
+import { supportMailtoPhoneChange, supportMailtoGeneral } from '@/lib/support';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import type { Player } from '@beach-kings/shared';
+import { useConnectedAccounts } from './useConnectedAccounts';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -102,6 +108,43 @@ function SectionLabel({ title, danger = false }: SectionLabelProps): React.React
 }
 
 // ---------------------------------------------------------------------------
+// Connected Account row right-element helpers
+// ---------------------------------------------------------------------------
+
+function ConnectedBadge(): React.ReactNode {
+  return (
+    <View className="flex-row items-center gap-sm">
+      <View className="w-2 h-2 rounded-full bg-green-500" />
+      <Text className="text-[14px] text-green-500">Connected</Text>
+    </View>
+  );
+}
+
+interface ConnectButtonProps {
+  readonly onPress: () => void;
+  readonly loading?: boolean;
+  readonly testID?: string;
+}
+
+function ConnectButton({ onPress, loading = false, testID }: ConnectButtonProps): React.ReactNode {
+  const palette = usePaletteColors();
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      accessibilityRole="button"
+      className="px-md py-[6px] rounded-lg border-[1.5px] border-default active:opacity-70"
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={palette.textDefault} />
+      ) : (
+        <Text className="text-[13px] font-semibold text-default">Connect</Text>
+      )}
+    </Pressable>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
 
@@ -111,6 +154,15 @@ export default function SettingsScreen(): React.ReactNode {
   const { themeMode } = useTheme();
   const hasPassword = user?.has_password !== false;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const {
+    appleAvailable,
+    isLinkingGoogle,
+    isLinkingApple,
+    handleConnectGoogle,
+    handleConnectApple,
+  } = useConnectedAccounts();
 
   const { data: player } = useApi<Player>(
     () => api.getCurrentUserPlayer(),
@@ -128,6 +180,14 @@ export default function SettingsScreen(): React.ReactNode {
   const themeLabel =
     themeMode === 'light' ? 'Light' : themeMode === 'dark' ? 'Dark' : 'System';
 
+  const googleConnected = user?.google_connected ?? false;
+  const appleConnected = user?.apple_connected ?? false;
+  const showAppleRow = Platform.OS === 'ios' && (appleAvailable || appleConnected);
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
+
   const handleChangePassword = useCallback(() => {
     void hapticLight();
     router.push(routes.changePassword());
@@ -141,6 +201,11 @@ export default function SettingsScreen(): React.ReactNode {
     }
     router.push(routes.settingsPhone());
   }, [phone, router]);
+
+  const handlePrivacy = useCallback(() => {
+    void hapticLight();
+    router.push(routes.settingsPrivacy());
+  }, [router]);
 
   const handleNotifications = useCallback(() => {
     void hapticLight();
@@ -159,31 +224,69 @@ export default function SettingsScreen(): React.ReactNode {
 
   const handleContactSupport = useCallback(() => {
     void hapticLight();
-    Alert.alert('Contact Support', 'Support form coming soon.');
+    void Linking.openURL(supportMailtoGeneral());
   }, []);
 
   const handleRateApp = useCallback(() => {
     void hapticLight();
-    Alert.alert('Rate Beach League', 'App Store rating coming soon.');
+    void (async () => {
+      try {
+        const canReview = await StoreReview.hasAction();
+        if (canReview) {
+          await StoreReview.requestReview();
+        } else {
+          const url = StoreReview.storeUrl();
+          if (url != null) {
+            await Linking.openURL(url);
+          } else {
+            Alert.alert(
+              'Rate Beach League',
+              'Find us in the App Store or Google Play to leave a rating.',
+            );
+          }
+        }
+      } catch {
+        Alert.alert('Rate Beach League', 'Unable to open the store. Please try again later.');
+      }
+    })();
   }, []);
 
   const handleDeleteAccount = useCallback(() => {
     void hapticMedium();
     Alert.alert(
       'Delete Account?',
-      'This will permanently delete your account, game history, and all associated data. This action cannot be undone.',
+      'This will permanently delete your account, game history, and all associated data. You will have 30 days to cancel before deletion is finalised. Logging back in during that period automatically cancels the request.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete My Account',
           style: 'destructive',
           onPress: () => {
-            Alert.alert('Account deletion coming soon.');
+            setIsDeletingAccount(true);
+            void api.scheduleAccountDeletion()
+              .then(() => {
+                Alert.alert(
+                  'Account Scheduled for Deletion',
+                  'Your account will be deleted in 30 days. Logging back in before then will automatically cancel the deletion.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => { void logout(); },
+                    },
+                  ],
+                );
+              })
+              .catch(() => {
+                Alert.alert('Error', 'Could not schedule account deletion. Please try again.');
+              })
+              .finally(() => {
+                setIsDeletingAccount(false);
+              });
           },
         },
       ],
     );
-  }, []);
+  }, [logout]);
 
   const handleLogout = useCallback(() => {
     void hapticMedium();
@@ -193,7 +296,7 @@ export default function SettingsScreen(): React.ReactNode {
   const confirmLogout = useCallback(() => {
     setShowLogoutConfirm(false);
     void hapticMedium();
-    logout();
+    void logout();
   }, [logout]);
 
   return (
@@ -237,28 +340,42 @@ export default function SettingsScreen(): React.ReactNode {
             testID="settings-row-google"
             label="Google"
             rightElement={
-              <View className="flex-row items-center gap-sm">
-                <View className="w-2 h-2 rounded-full bg-green-500" />
-                <Text className="text-[14px] text-green-500">Connected</Text>
-              </View>
+              googleConnected ? (
+                <ConnectedBadge />
+              ) : (
+                <ConnectButton
+                  testID="settings-connect-google-btn"
+                  onPress={() => { void hapticLight(); void handleConnectGoogle(); }}
+                  loading={isLinkingGoogle}
+                />
+              )
             }
           />
+          {showAppleRow && (
+            <SettingsRow
+              testID="settings-row-apple"
+              label="Apple"
+              rightElement={
+                appleConnected ? (
+                  <ConnectedBadge />
+                ) : (
+                  <ConnectButton
+                    testID="settings-connect-apple-btn"
+                    onPress={() => { void hapticLight(); void handleConnectApple(); }}
+                    loading={isLinkingApple}
+                  />
+                )
+              }
+            />
+          )}
+        </View>
+
+        <SectionLabel title="Privacy" />
+        <View>
           <SettingsRow
-            testID="settings-row-apple"
-            label="Apple"
-            rightElement={
-              <Pressable
-                onPress={() => {
-                  // TODO(backend): Apple sign-in connect
-                }}
-                accessibilityRole="button"
-                className="px-md py-[6px] rounded-lg border-[1.5px] border-default active:opacity-70"
-              >
-                <Text className="text-[13px] font-semibold text-default">
-                  Connect
-                </Text>
-              </Pressable>
-            }
+            testID="settings-row-privacy"
+            label="Privacy Settings"
+            onPress={handlePrivacy}
           />
         </View>
 
@@ -304,10 +421,10 @@ export default function SettingsScreen(): React.ReactNode {
         <View>
           <SettingsRow
             testID="settings-row-delete"
-            label="Delete Account"
+            label={isDeletingAccount ? 'Deleting…' : 'Delete Account'}
             labelColor="text-red-500 font-semibold"
             valueColor="text-red-400"
-            onPress={handleDeleteAccount}
+            onPress={isDeletingAccount ? undefined : handleDeleteAccount}
           />
         </View>
 

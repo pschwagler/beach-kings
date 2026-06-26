@@ -1,10 +1,16 @@
 /**
  * useCourtCheckIn — check-in state + action for a single court.
  *
- * On mount, fetches the current active check-ins for the given court and
- * derives whether the current player is already checked in. The `checkIn()`
- * action posts to the backend, triggers haptic feedback, and refetches the
- * live count. No check-out — relies on the backend's 4-hour auto-expiry.
+ * On mount, fetches the aggregate check-in breakdown for the given court
+ * (total count + level/gender breakdown rows). The `checkIn()` action posts
+ * to the backend, triggers haptic feedback, and refetches the live data.
+ *
+ * `isCheckedIn` is local session state: it defaults to `false` on mount and
+ * flips to `true` after a successful `checkIn()` call this session.
+ * The API no longer returns player identities, so self-detection from the
+ * response is intentionally not supported.
+ *
+ * No check-out — relies on the backend's 4-hour auto-expiry.
  *
  * @param court - The court object (used for its `slug` / `id`).
  * @param currentPlayerId - The signed-in player's id, or null if not authenticated.
@@ -13,18 +19,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import { hapticMedium } from '@/utils/haptics';
-import type { Court, CheckedInPlayer } from '@beach-kings/shared';
+import type { CheckInBreakdownItem, Court } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Public interface
 // ---------------------------------------------------------------------------
 
 export interface UseCourtCheckInResult {
-  /** Number of players currently checked in (live after mount). */
-  readonly count: number;
-  /** True when the current player is already checked in at this court. */
+  /** Total number of players currently checked in (live after mount). */
+  readonly total: number;
+  /**
+   * Aggregate breakdown of checked-in players by level and gender.
+   * Each row has `level` (string | null), `gender` (string | null), and `count`.
+   */
+  readonly breakdown: readonly CheckInBreakdownItem[];
+  /**
+   * True when the current player checked in during this session.
+   * Local state only — resets to false on remount.
+   */
   readonly isCheckedIn: boolean;
-  /** True while the initial check-in list is loading. */
+  /** True while the initial check-in data is loading. */
   readonly isLoading: boolean;
   /** True while a check-in POST is in flight. */
   readonly isSubmitting: boolean;
@@ -42,7 +56,7 @@ export interface UseCourtCheckInResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches live check-in data for a court and exposes a `checkIn()` action.
+ * Fetches live aggregate check-in data for a court and exposes a `checkIn()` action.
  *
  * The court identifier used for the GET is `court.slug ?? court.id` so that
  * public, slug-based URLs work without requiring a numeric id.
@@ -53,10 +67,9 @@ export function useCourtCheckIn(
 ): UseCourtCheckInResult {
   const idOrSlug = court.slug ?? court.id;
 
-  const [count, setCount] = useState(0);
-  const [checkedInPlayers, setCheckedInPlayers] = useState<
-    readonly CheckedInPlayer[]
-  >([]);
+  const [total, setTotal] = useState(0);
+  const [breakdown, setBreakdown] = useState<readonly CheckInBreakdownItem[]>([]);
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -77,8 +90,8 @@ export function useCourtCheckIn(
     try {
       const response = await api.getCourtCheckIns(idOrSlug);
       if (mountedRef.current) {
-        setCount(response.count);
-        setCheckedInPlayers(response.checked_in_players);
+        setTotal(response.total);
+        setBreakdown(response.breakdown);
         setError(null);
       }
     } catch (err) {
@@ -98,14 +111,6 @@ export function useCourtCheckIn(
   }, [fetchCheckIns]);
 
   // -------------------------------------------------------------------------
-  // Derived state
-  // -------------------------------------------------------------------------
-
-  const isCheckedIn =
-    currentPlayerId != null &&
-    checkedInPlayers.some((p) => p.player_id === currentPlayerId);
-
-  // -------------------------------------------------------------------------
   // checkIn action
   // -------------------------------------------------------------------------
 
@@ -118,7 +123,11 @@ export function useCourtCheckIn(
 
     try {
       await api.checkInToCourt(court.id as number);
-      // Refetch to get the updated live count and player list.
+      // Mark as checked in for this session before refetching.
+      if (mountedRef.current) {
+        setIsCheckedIn(true);
+      }
+      // Refetch to get the updated live total and breakdown.
       await fetchCheckIns();
     } catch (err) {
       if (mountedRef.current) {
@@ -132,7 +141,8 @@ export function useCourtCheckIn(
   }, [currentPlayerId, court.id, fetchCheckIns]);
 
   return {
-    count,
+    total,
+    breakdown,
     isCheckedIn,
     isLoading,
     isSubmitting,

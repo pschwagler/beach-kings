@@ -1695,40 +1695,47 @@ async def get_active_check_ins(
     court_id: int,
 ) -> Dict:
     """
-    Get active (non-expired) check-ins at a court.
+    Get active (non-expired) check-ins at a court as aggregate counts.
 
-    Returns count and list of checked-in players.
+    Returns total count and a breakdown by ``Player.level`` and
+    ``Player.gender``, without exposing individual player identities.
+
+    Returns:
+        Dict with shape::
+
+            {
+                "total": int,
+                "breakdown": [
+                    {"level": str | None, "gender": str | None, "count": int},
+                    ...
+                ]
+            }
     """
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
 
     q = (
-        select(CourtCheckIn, Player.full_name, Player.avatar)
-        .join(Player, CourtCheckIn.player_id == Player.id)
+        select(Player.level, Player.gender, func.count().label("count"))
+        .join(CourtCheckIn, CourtCheckIn.player_id == Player.id)
         .where(
             and_(
                 CourtCheckIn.court_id == court_id,
                 CourtCheckIn.expires_at > now,
             )
         )
-        .order_by(CourtCheckIn.checked_in_at.desc())
+        .group_by(Player.level, Player.gender)
+        .order_by(Player.level.asc().nulls_last(), Player.gender.asc().nulls_last())
     )
     rows = (await session.execute(q)).all()
 
-    players = [
-        {
-            "id": ci.id,
-            "player_id": ci.player_id,
-            "player_name": name,
-            "avatar": avatar,
-            "checked_in_at": ci.checked_in_at.isoformat(),
-            "expires_at": ci.expires_at.isoformat(),
-        }
-        for ci, name, avatar in rows
+    breakdown = [
+        {"level": row.level, "gender": row.gender, "count": row.count}
+        for row in rows
     ]
+    total = sum(b["count"] for b in breakdown)
 
-    return {"count": len(players), "checked_in_players": players}
+    return {"total": total, "breakdown": breakdown}
 
 
 # ---------------------------------------------------------------------------

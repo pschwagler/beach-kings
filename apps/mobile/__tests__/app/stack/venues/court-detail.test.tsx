@@ -224,7 +224,7 @@ beforeEach(() => {
   mockHapticMedium.mockResolvedValue(undefined);
   mockGetCourtById.mockResolvedValue(MOCK_COURT);
   mockGetCurrentUserPlayer.mockResolvedValue(null);
-  mockGetCourtCheckIns.mockResolvedValue({ count: 0, checked_in_players: [] });
+  mockGetCourtCheckIns.mockResolvedValue({ total: 0, breakdown: [] });
   mockCheckInToCourt.mockResolvedValue({
     id: 1,
     court_id: 1,

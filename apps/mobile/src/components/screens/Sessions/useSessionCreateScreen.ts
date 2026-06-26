@@ -19,6 +19,8 @@ export interface UseSessionCreateScreenResult {
   readonly sessionType: SessionType;
   readonly maxPlayers: number;
   readonly notes: string;
+  /** Whether games in this session count toward player rankings. Defaults to true. */
+  readonly isRanked: boolean;
   readonly isSubmitting: boolean;
   readonly submitError: string | null;
   readonly setDate: (v: string) => void;
@@ -27,6 +29,7 @@ export interface UseSessionCreateScreenResult {
   readonly setSessionType: (v: SessionType) => void;
   readonly setMaxPlayers: (v: number) => void;
   readonly setNotes: (v: string) => void;
+  readonly setIsRanked: (v: boolean) => void;
   readonly onSubmit: () => Promise<void>;
 }
 
@@ -41,6 +44,7 @@ export function useSessionCreateScreen(): UseSessionCreateScreenResult {
   const [sessionType, setSessionType] = useState<SessionType>('pickup');
   const [maxPlayers, setMaxPlayers] = useState(16);
   const [notes, setNotes] = useState('');
+  const [isRanked, setIsRanked] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -56,6 +60,7 @@ export function useSessionCreateScreen(): UseSessionCreateScreenResult {
         session_type: sessionType,
         max_players: maxPlayers,
         notes: notes || null,
+        is_ranked: isRanked,
       });
       router.replace(routes.session(session.id));
     } catch (err) {
@@ -65,7 +70,7 @@ export function useSessionCreateScreen(): UseSessionCreateScreenResult {
     } finally {
       setIsSubmitting(false);
     }
-  }, [date, startTime, courtName, sessionType, maxPlayers, notes, router]);
+  }, [date, startTime, courtName, sessionType, maxPlayers, notes, isRanked, router]);
 
   return {
     date,
@@ -74,6 +79,7 @@ export function useSessionCreateScreen(): UseSessionCreateScreenResult {
     sessionType,
     maxPlayers,
     notes,
+    isRanked,
     isSubmitting,
     submitError,
     setDate,
@@ -82,6 +88,7 @@ export function useSessionCreateScreen(): UseSessionCreateScreenResult {
     setSessionType,
     setMaxPlayers,
     setNotes,
+    setIsRanked,
     onSubmit,
   };
 }

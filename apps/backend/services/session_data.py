@@ -736,6 +736,7 @@ async def create_session(
     session_type: Optional[str] = None,
     max_players: Optional[int] = None,
     notes: Optional[str] = None,
+    is_ranked: bool | None = None,
 ) -> Dict:
     """
     Create a new session. Generates a unique shareable code and optionally
@@ -759,6 +760,9 @@ async def create_session(
             ``league_id`` is set and this is ``None``, defaults to ``'league'``
         max_players: Optional maximum number of players (2-64)
         notes: Optional free-text notes visible to participants
+        is_ranked: Session-level ranked intent. Defaults to ``True`` when
+            ``None`` (matches the column server_default). Matches created in
+            this session will inherit this value as their ``ranked_intent``.
 
     Returns:
         Dict with session info including code and league_id
@@ -800,6 +804,8 @@ async def create_session(
         creator_player_id=created_by,
     )
 
+    # Default is_ranked to True when omitted (mirrors column server_default).
+    effective_is_ranked = is_ranked if is_ranked is not None else True
     new_session = Session(
         date=date,
         name=session_name,
@@ -816,6 +822,7 @@ async def create_session(
         session_type=effective_session_type,
         max_players=max_players,
         notes=notes,
+        is_ranked=effective_is_ranked,
     )
     session.add(new_session)
     await session.flush()
@@ -1304,6 +1311,21 @@ async def create_match_async(
 
     Date is a session-level concern and lives on the Session, not the Match.
 
+    Ranked-status precedence (in order of priority):
+      1. ``ranked_intent`` is inherited from the parent ``Session.is_ranked``
+         field (set at session-creation time, defaults to ``True``).  The
+         per-match ``CreateMatchRequest.is_ranked`` field is intentionally
+         ignored for new matches so the session-level intent governs.
+      2. Effective ``is_ranked`` is then computed as::
+
+             is_ranked = ranked_intent AND NOT has_placeholders
+
+         If any player slot contains a placeholder, the effective ranked flag
+         is forced to ``False`` regardless of ``ranked_intent``.  This rule is
+         preserved across edits: ``ranked_intent`` is kept as the user's
+         original intent so it can be promoted back to ``True`` when the
+         placeholder is later claimed by a real player.
+
     Args:
         session: Database session
         match_request: CreateMatchRequest schema with player IDs
@@ -1322,7 +1344,14 @@ async def create_match_async(
     # Lazy import to avoid circular dependency
     from backend.services import placeholder_service
 
-    ranked_intent = match_request.is_ranked if match_request.is_ranked is not None else True
+    # Inherit ranked_intent from the parent session's is_ranked field.
+    # Fall back to True if the session row cannot be read (should not happen).
+    session_row = await session.execute(
+        select(Session.is_ranked).where(Session.id == session_id)
+    )
+    session_is_ranked = session_row.scalar_one_or_none()
+    ranked_intent: bool = session_is_ranked if session_is_ranked is not None else True
+
     has_placeholders = await placeholder_service.check_match_has_placeholders(
         session,
         [
@@ -1332,6 +1361,8 @@ async def create_match_async(
             match_request.team2_player2_id,
         ],
     )
+    # Placeholder presence forces effective is_ranked=False; ranked_intent is
+    # preserved so it can be promoted when the placeholder is claimed.
     is_ranked = ranked_intent and not has_placeholders
 
     new_match = Match(

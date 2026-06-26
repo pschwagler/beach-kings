@@ -26,6 +26,16 @@ interface User {
   readonly auth_provider: string;
   /** True when the user has a password set (false for OAuth-only accounts). */
   readonly has_password: boolean;
+  /** Whether the user has a Google account linked. */
+  readonly google_connected: boolean;
+  /** Whether the user has an Apple account linked. */
+  readonly apple_connected: boolean;
+  /** Whether the user's profile is hidden from public discovery. */
+  readonly profile_is_private: boolean;
+  /** Whether the user's game history is visible to others. */
+  readonly show_game_history: boolean;
+  /** ISO timestamp when account deletion was scheduled, or null. */
+  readonly deletion_scheduled_at: string | null;
 }
 
 interface AuthState {
@@ -121,6 +131,11 @@ async function handleAuthResponse(response: AuthResponse): Promise<{
     is_verified: response.is_verified,
     auth_provider: response.auth_provider ?? 'phone',
     has_password: response.has_password !== false,
+    google_connected: false,
+    apple_connected: false,
+    profile_is_private: false,
+    show_game_history: false,
+    deletion_scheduled_at: null,
   };
 
   return {
@@ -201,6 +216,11 @@ export default function AuthProvider({
           is_verified: userData.is_verified,
           auth_provider: userData.auth_provider ?? 'phone',
           has_password: userData.has_password !== false,
+          google_connected: userData.google_connected ?? false,
+          apple_connected: userData.apple_connected ?? false,
+          profile_is_private: userData.profile_is_private ?? false,
+          show_game_history: userData.show_game_history ?? false,
+          deletion_scheduled_at: userData.deletion_scheduled_at ?? null,
         };
 
         const profileComplete = await fetchProfileComplete();
@@ -385,6 +405,11 @@ export default function AuthProvider({
       is_verified: userData.is_verified,
       auth_provider: userData.auth_provider ?? 'phone',
       has_password: userData.has_password !== false,
+      google_connected: userData.google_connected ?? false,
+      apple_connected: userData.apple_connected ?? false,
+      profile_is_private: userData.profile_is_private ?? false,
+      show_game_history: userData.show_game_history ?? false,
+      deletion_scheduled_at: userData.deletion_scheduled_at ?? null,
     };
     setState((prev) => ({ ...prev, user }));
   }, []);

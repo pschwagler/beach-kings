@@ -551,10 +551,34 @@ describe('useScoreGameScreen — is_ranked defaults', () => {
     expect(result.current.isRanked).toBe(true);
   });
 
-  it('exposes isRanked=false for pickup context', async () => {
+  it('exposes isRanked=false for pickup context (session.is_ranked absent)', async () => {
+    // Default mock: { id: 7, games: [] } — no is_ranked → ?? false
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7));
     expect(result.current.isRanked).toBe(false);
+  });
+
+  it('session.is_ranked=true → isRanked true for new-game path', async () => {
+    mockGetSessionById.mockResolvedValueOnce({ id: 7, games: [], is_ranked: true });
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7));
+    await waitFor(() => expect(result.current.isRanked).toBe(true));
+  });
+
+  it('session.is_ranked=false → isRanked false for new-game path', async () => {
+    mockGetSessionById.mockResolvedValueOnce({ id: 7, games: [], is_ranked: false });
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7));
+    await waitFor(() => expect(result.current.isRanked).toBe(false));
+  });
+
+  it('no session (pickup-new) → isRanked false without fetching session', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    expect(result.current.isRanked).toBe(false);
+    // No sessionId → the session-hydration effect must not fire
+    expect(mockGetSessionById).not.toHaveBeenCalled();
   });
 });
 
@@ -1011,11 +1035,15 @@ describe('useScoreGameScreen — edit mode', () => {
     expect(result.current.score1).toBe(0);
   });
 
-  it('does not fetch session detail when matchId is null', async () => {
-    renderHook(() => useScoreGameScreen({ sessionId: 7 }));
-    // Give effects a chance to run
-    await waitFor(() => expect(mockGetSessionParticipants).toHaveBeenCalled());
-    expect(mockGetSessionById).not.toHaveBeenCalled();
+  it('fetches session detail for is_ranked hydration even when matchId is null', async () => {
+    // When adding a new game to an existing session, we still fetch the session
+    // once to read session.is_ranked — the edit-mode pre-fill path is NOT taken
+    // (no slot/score hydration occurs).
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7));
+    // Slots remain empty — session fetch was only for is_ranked, not pre-fill.
+    expect(result.current.team1[0].player_id).toBeNull();
+    expect(result.current.score1).toBe(0);
   });
 
   it('onSubmit calls updateMatch (not submitScoredGame) with all 4 IDs + scores', async () => {

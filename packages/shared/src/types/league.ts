@@ -315,6 +315,11 @@ export interface League {
 /** Status of a pending invite. */
 export type LeagueInviteStatus = 'pending' | 'accepted' | 'declined';
 
+/** Response from POST /api/leagues/{leagueId}/invites/respond. */
+export interface InviteActionResponse {
+  status: string;
+}
+
 /** A player that can be invited to a league (GET /api/leagues/:id/invitable-players). */
 export interface InvitablePlayer {
   readonly player_id: number;

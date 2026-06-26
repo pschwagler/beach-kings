@@ -37,6 +37,8 @@ FAKE_USER = {
     "email": "test@example.com",
     "is_verified": True,
     "created_at": "2020-01-01T00:00:00Z",
+    "profile_is_private": False,
+    "show_game_history": False,
 }
 
 
@@ -73,7 +75,9 @@ class TestUpdateCurrentUser:
         """Returns updated user when email update succeeds."""
         client, headers = _make_authed_client(monkeypatch)
 
-        async def fake_update_user(session, user_id, email=None):
+        async def fake_update_user(
+            session, user_id, email=None, profile_is_private=None, show_game_history=None
+        ):
             return True
 
         monkeypatch.setattr(user_service, "update_user", fake_update_user, raising=True)
@@ -93,7 +97,9 @@ class TestUpdateCurrentUser:
         """Returns 400 when update_user reports nothing to update."""
         client, headers = _make_authed_client(monkeypatch)
 
-        async def fake_update_user(session, user_id, email=None):
+        async def fake_update_user(
+            session, user_id, email=None, profile_is_private=None, show_game_history=None
+        ):
             return False
 
         monkeypatch.setattr(user_service, "update_user", fake_update_user, raising=True)

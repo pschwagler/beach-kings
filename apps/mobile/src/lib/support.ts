@@ -6,7 +6,7 @@
  * add-phone OTP flow used when no phone is set yet.
  */
 
-export const SUPPORT_EMAIL = 'support@beachkings.app';
+export const SUPPORT_EMAIL = 'beachleaguevb+support@gmail.com';
 
 /**
  * Build a `mailto:` URL that opens the user's mail client with a pre-filled
@@ -14,4 +14,11 @@ export const SUPPORT_EMAIL = 'support@beachkings.app';
  */
 export function supportMailtoPhoneChange(): string {
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Change phone number')}`;
+}
+
+/**
+ * Build a general-purpose `mailto:` URL for support enquiries.
+ */
+export function supportMailtoGeneral(): string {
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Beach League Support')}`;
 }

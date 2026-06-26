@@ -176,6 +176,8 @@ class User(Base):
     locked_until = Column(String, nullable=True)  # ISO timestamp
     deletion_scheduled_at = Column(DateTime(timezone=True), nullable=True)
     password_changed_at = Column(DateTime(timezone=True), nullable=True)
+    profile_is_private = Column(Boolean, nullable=False, server_default="false")  # Hide profile from non-friends
+    show_game_history = Column(Boolean, nullable=False, server_default="false")  # Show full match history on public profile
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -671,6 +673,8 @@ class Session(Base):
     session_type = Column(String, nullable=True)  # 'pickup' | 'league'
     max_players = Column(Integer, nullable=True)
     notes = Column(Text, nullable=True)
+    # Ranked intent (migration 055)
+    is_ranked = Column(Boolean, nullable=False, server_default="true")  # Session-level ranked intent; matches inherit this as ranked_intent
 
     # Relationships
     season = relationship("Season", back_populates="sessions")

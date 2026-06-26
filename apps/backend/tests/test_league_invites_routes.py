@@ -5,12 +5,18 @@ Covers:
 - POST /api/leagues/{id}/invites
 - GET  /api/leagues/{id}/invites
 - GET  /api/users/me/league-invites/sent
+- GET  /api/users/me/league-invites/received
+- POST /api/leagues/{id}/invites/respond  (accept / decline)
 
 Auth strategy: ``_make_admin_client`` marks the caller as a system admin
 (by patching ``data_service.get_setting``) so ``make_require_league_admin``
 short-circuits without any DB call.  For the 403 non-admin test,
 ``get_setting`` returns None and we rely on one execute call for the
 role check — following the pattern in test_seasons_routes.py.
+
+For the respond endpoint ``_make_plain_client`` provides an ordinary
+authenticated user (no system-admin bypass) matching how the route
+is secured via ``require_user``.
 """
 
 from __future__ import annotations
@@ -64,6 +70,11 @@ MOCK_INVITE_ITEM = {
     "status": "pending",
 }
 
+MOCK_INVITE_ITEM_WITH_GAME_COUNT = {
+    **MOCK_INVITE_ITEM,
+    "game_count": 5,
+}
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -113,6 +124,24 @@ def _make_admin_client(monkeypatch) -> tuple[TestClient, dict]:
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+    return TestClient(app), {"Authorization": "Bearer dummy"}
+
+
+def _make_plain_client(monkeypatch) -> tuple[TestClient, dict]:
+    """Return (TestClient, auth_headers) for an ordinary authenticated user.
+
+    Unlike ``_make_admin_client``, no system-admin bypass is applied; the
+    caller is just a verified user with no league-admin privileges.
+    """
+
+    def fake_verify_token(token: str) -> dict:
+        return {"user_id": USER_ID, "phone_number": PHONE}
+
+    async def fake_get_user_by_id(session, uid: int) -> dict:
+        return FAKE_USER
+
+    monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
+    monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
 
@@ -490,5 +519,421 @@ class TestGetMySentLeagueInvites:
             response = client.get("/api/users/me/league-invites/sent", headers=headers)
             assert response.status_code == 200
             assert response.json() == []
+        finally:
+            _clear_overrides()
+
+
+# ---------------------------------------------------------------------------
+# GET /api/leagues/{id}/invites — game_count populated
+# ---------------------------------------------------------------------------
+
+
+class TestGetLeagueInvitesGameCount:
+    """Verify that game_count is populated in the admin invite list response."""
+
+    def test_game_count_populated_when_service_returns_it(self, monkeypatch):
+        """game_count is surfaced in the response when the service populates it."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_list_league_invites(session, league_id):
+            return [MOCK_INVITE_ITEM_WITH_GAME_COUNT]
+
+        monkeypatch.setattr(
+            data_service, "list_league_invites", fake_list_league_invites, raising=True
+        )
+
+        session = _make_fake_session()
+        session.execute.return_value = _scalar_result(_fake_player())
+        _override_session(session)
+
+        try:
+            response = client.get(f"/api/leagues/{LEAGUE_ID}/invites", headers=headers)
+            assert response.status_code == 200
+            body = response.json()
+            assert len(body) == 1
+            assert body[0]["game_count"] == 5
+        finally:
+            _clear_overrides()
+
+    def test_game_count_is_none_when_not_provided(self, monkeypatch):
+        """game_count is None (omitted or null) when the service does not set it."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_list_league_invites(session, league_id):
+            return [MOCK_INVITE_ITEM]  # no game_count key
+
+        monkeypatch.setattr(
+            data_service, "list_league_invites", fake_list_league_invites, raising=True
+        )
+
+        session = _make_fake_session()
+        session.execute.return_value = _scalar_result(_fake_player())
+        _override_session(session)
+
+        try:
+            response = client.get(f"/api/leagues/{LEAGUE_ID}/invites", headers=headers)
+            assert response.status_code == 200
+            body = response.json()
+            # game_count may be absent or null — both are acceptable
+            assert body[0].get("game_count") is None
+        finally:
+            _clear_overrides()
+
+
+# ---------------------------------------------------------------------------
+# GET /api/users/me/league-invites/received
+# ---------------------------------------------------------------------------
+
+
+class TestGetMyReceivedLeagueInvites:
+    """Tests for GET /api/users/me/league-invites/received."""
+
+    def test_no_token_returns_401_or_403(self):
+        """Unauthenticated request is rejected."""
+        client = TestClient(app)
+        response = client.get("/api/users/me/league-invites/received")
+        assert response.status_code in (401, 403)
+
+    def test_returns_received_invites_with_correct_fields_and_game_count(self, monkeypatch):
+        """Authenticated user gets 200 with pending received invites including game_count."""
+        client, headers = _make_plain_client(monkeypatch)
+
+        invite_with_game_count = {
+            **MOCK_INVITE_ITEM_WITH_GAME_COUNT,
+            "status": "pending",
+        }
+
+        async def fake_list_my_received_invites(session, player_id):
+            return [invite_with_game_count]
+
+        monkeypatch.setattr(
+            data_service,
+            "list_my_received_invites",
+            fake_list_my_received_invites,
+            raising=True,
+        )
+
+        session = _make_fake_session()
+        session.execute.side_effect = [_scalar_result(_fake_player())]
+        _override_session(session)
+
+        try:
+            response = client.get("/api/users/me/league-invites/received", headers=headers)
+            assert response.status_code == 200
+            body = response.json()
+            assert isinstance(body, list)
+            assert len(body) == 1
+            item = body[0]
+            assert item["id"] == 1
+            assert item["league_name"] == "QBK Open Men"
+            assert item["status"] == "pending"
+            assert item["game_count"] == 5
+            assert item["display_name"] == "Jake Donovan"
+        finally:
+            _clear_overrides()
+
+    def test_excludes_invites_sent_to_other_players(self, monkeypatch):
+        """Service is called with current player's ID, so other-player invites are excluded.
+
+        The filtering is enforced in the service layer by keying on the current
+        player's ID.  This test verifies that the route passes the correct
+        player_id to the service and returns exactly what the service returns.
+        """
+        client, headers = _make_plain_client(monkeypatch)
+
+        received_player_ids: list[int] = []
+
+        async def fake_list_my_received_invites(session, player_id: int):
+            received_player_ids.append(player_id)
+            # Service filters by player_id; pretend only current player's invites match.
+            return []
+
+        monkeypatch.setattr(
+            data_service,
+            "list_my_received_invites",
+            fake_list_my_received_invites,
+            raising=True,
+        )
+
+        session = _make_fake_session()
+        session.execute.side_effect = [_scalar_result(_fake_player(player_id=PLAYER_ID))]
+        _override_session(session)
+
+        try:
+            response = client.get("/api/users/me/league-invites/received", headers=headers)
+            assert response.status_code == 200
+            # The route MUST pass the current user's player_id.
+            assert received_player_ids == [PLAYER_ID]
+        finally:
+            _clear_overrides()
+
+    def test_returns_empty_list_when_no_invites(self, monkeypatch):
+        """User with no received invites gets empty list."""
+        client, headers = _make_plain_client(monkeypatch)
+
+        async def fake_list_my_received_invites(session, player_id):
+            return []
+
+        monkeypatch.setattr(
+            data_service,
+            "list_my_received_invites",
+            fake_list_my_received_invites,
+            raising=True,
+        )
+
+        session = _make_fake_session()
+        session.execute.side_effect = [_scalar_result(_fake_player())]
+        _override_session(session)
+
+        try:
+            response = client.get("/api/users/me/league-invites/received", headers=headers)
+            assert response.status_code == 200
+            assert response.json() == []
+        finally:
+            _clear_overrides()
+
+    def test_returns_empty_list_when_no_player_profile(self, monkeypatch):
+        """User without a player profile gets empty list (no 404)."""
+        client, headers = _make_plain_client(monkeypatch)
+
+        async def fake_list_my_received_invites(session, player_id):
+            raise AssertionError("Should not be called when player profile is missing")
+
+        monkeypatch.setattr(
+            data_service,
+            "list_my_received_invites",
+            fake_list_my_received_invites,
+            raising=True,
+        )
+
+        session = _make_fake_session()
+        session.execute.side_effect = [_scalar_result(None)]  # no player
+        _override_session(session)
+
+        try:
+            response = client.get("/api/users/me/league-invites/received", headers=headers)
+            assert response.status_code == 200
+            assert response.json() == []
+        finally:
+            _clear_overrides()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/leagues/{league_id}/invites/respond
+# ---------------------------------------------------------------------------
+
+
+class TestRespondToLeagueInvite:
+    """Tests for POST /api/leagues/{league_id}/invites/respond."""
+
+    def test_no_token_returns_401_or_403(self):
+        """Unauthenticated request is rejected."""
+        client = TestClient(app)
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/invites/respond",
+            json={"action": "accept"},
+        )
+        assert response.status_code in (401, 403)
+
+    def test_missing_action_returns_422(self, monkeypatch):
+        """Request body without action returns 422 validation error."""
+        client, headers = _make_plain_client(monkeypatch)
+
+        session = _make_fake_session()
+        session.execute.return_value = _scalar_result(_fake_player())
+        _override_session(session)
+
+        try:
+            response = client.post(
+                f"/api/leagues/{LEAGUE_ID}/invites/respond",
+                json={},
+                headers=headers,
+            )
+            assert response.status_code == 422
+        finally:
+            _clear_overrides()
+
+    def test_invalid_action_returns_422(self, monkeypatch):
+        """Unknown action value returns 422 validation error."""
+        client, headers = _make_plain_client(monkeypatch)
+
+        session = _make_fake_session()
+        session.execute.return_value = _scalar_result(_fake_player())
+        _override_session(session)
+
+        try:
+            response = client.post(
+                f"/api/leagues/{LEAGUE_ID}/invites/respond",
+                json={"action": "maybe"},
+                headers=headers,
+            )
+            assert response.status_code == 422
+        finally:
+            _clear_overrides()
+
+    def test_accept_invite_returns_accepted_status(self, monkeypatch):
+        """Invitee accepts — service is called and response carries status=accepted."""
+        client, headers = _make_plain_client(monkeypatch)
+
+        called_with: list[dict] = []
+
+        async def fake_respond_to_league_invite(session, league_id, player_id, action):
+            called_with.append(
+                {"league_id": league_id, "player_id": player_id, "action": action}
+            )
+            return {"status": "accepted"}
+
+        monkeypatch.setattr(
+            data_service,
+            "respond_to_league_invite",
+            fake_respond_to_league_invite,
+            raising=True,
+        )
+
+        session = _make_fake_session()
+        session.execute.return_value = _scalar_result(_fake_player())
+        _override_session(session)
+
+        try:
+            response = client.post(
+                f"/api/leagues/{LEAGUE_ID}/invites/respond",
+                json={"action": "accept"},
+                headers=headers,
+            )
+            assert response.status_code == 200
+            assert response.json()["status"] == "accepted"
+            assert called_with == [
+                {"league_id": LEAGUE_ID, "player_id": PLAYER_ID, "action": "accept"}
+            ]
+        finally:
+            _clear_overrides()
+
+    def test_decline_invite_returns_declined_status(self, monkeypatch):
+        """Invitee declines — service is called with action=decline."""
+        client, headers = _make_plain_client(monkeypatch)
+
+        called_with: list[dict] = []
+
+        async def fake_respond_to_league_invite(session, league_id, player_id, action):
+            called_with.append({"action": action})
+            return {"status": "declined"}
+
+        monkeypatch.setattr(
+            data_service,
+            "respond_to_league_invite",
+            fake_respond_to_league_invite,
+            raising=True,
+        )
+
+        session = _make_fake_session()
+        session.execute.return_value = _scalar_result(_fake_player())
+        _override_session(session)
+
+        try:
+            response = client.post(
+                f"/api/leagues/{LEAGUE_ID}/invites/respond",
+                json={"action": "decline"},
+                headers=headers,
+            )
+            assert response.status_code == 200
+            assert response.json()["status"] == "declined"
+            assert called_with == [{"action": "decline"}]
+        finally:
+            _clear_overrides()
+
+    def test_no_pending_invite_returns_404(self, monkeypatch):
+        """Service raises ValueError when no pending invite exists — route returns 404."""
+        client, headers = _make_plain_client(monkeypatch)
+
+        async def fake_respond_to_league_invite(session, league_id, player_id, action):
+            raise ValueError("No pending invite found")
+
+        monkeypatch.setattr(
+            data_service,
+            "respond_to_league_invite",
+            fake_respond_to_league_invite,
+            raising=True,
+        )
+
+        session = _make_fake_session()
+        session.execute.return_value = _scalar_result(_fake_player())
+        _override_session(session)
+
+        try:
+            response = client.post(
+                f"/api/leagues/{LEAGUE_ID}/invites/respond",
+                json={"action": "accept"},
+                headers=headers,
+            )
+            assert response.status_code == 404
+        finally:
+            _clear_overrides()
+
+    def test_no_player_profile_returns_404(self, monkeypatch):
+        """User with no player profile gets 404 before service is called."""
+        client, headers = _make_plain_client(monkeypatch)
+
+        # Service should never be reached.
+        async def fake_respond_to_league_invite(session, league_id, player_id, action):
+            raise AssertionError("Should not be called when player profile is missing")
+
+        monkeypatch.setattr(
+            data_service,
+            "respond_to_league_invite",
+            fake_respond_to_league_invite,
+            raising=True,
+        )
+
+        session = _make_fake_session()
+        session.execute.return_value = _scalar_result(None)  # no player
+        _override_session(session)
+
+        try:
+            response = client.post(
+                f"/api/leagues/{LEAGUE_ID}/invites/respond",
+                json={"action": "accept"},
+                headers=headers,
+            )
+            assert response.status_code == 404
+        finally:
+            _clear_overrides()
+
+    def test_only_invitee_can_respond_to_their_invite(self, monkeypatch):
+        """A player who has no invite for this league gets 404 (not a different player's 404).
+
+        The service encapsulates the ownership check: it raises ValueError when
+        no pending invite exists for (league_id, caller_player_id).  The route
+        converts that to 404 — the caller cannot distinguish "invite not found"
+        from "that invite belongs to someone else", which is correct.
+        """
+        client, headers = _make_plain_client(monkeypatch)
+
+        # Simulate different player trying to act on another player's invite.
+        other_player = MagicMock()
+        other_player.id = 999  # different player
+        other_player.user_id = USER_ID
+
+        async def fake_respond_to_league_invite(session, league_id, player_id, action):
+            # player_id=999 has no pending invite → ValueError
+            raise ValueError("No pending invite found for this player")
+
+        monkeypatch.setattr(
+            data_service,
+            "respond_to_league_invite",
+            fake_respond_to_league_invite,
+            raising=True,
+        )
+
+        session = _make_fake_session()
+        session.execute.return_value = _scalar_result(other_player)
+        _override_session(session)
+
+        try:
+            response = client.post(
+                f"/api/leagues/{LEAGUE_ID}/invites/respond",
+                json={"action": "accept"},
+                headers=headers,
+            )
+            assert response.status_code == 404
         finally:
             _clear_overrides()

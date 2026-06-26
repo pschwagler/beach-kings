@@ -5,7 +5,10 @@
  *   - team1 and team2 player slots (up to 2 each)
  *   - score inputs for each team
  *   - roster data for the picker (fetched from API based on context)
- *   - is_ranked toggle (defaults true for league games, false for pickup)
+ *   - is_ranked — derived from context: league sessions are ranked by default,
+ *     pickup sessions are unranked. In edit mode, the persisted game value is
+ *     hydrated from session detail. Session-level is_ranked is set at session
+ *     creation time (SessionCreateScreen) and inherited here.
  *   - submit flow with loading / error / success states
  *   - onAddAnother — resets form while preserving session/league context
  *   - edit mode (matchId provided) — pre-fills slots from session detail and
@@ -108,10 +111,11 @@ export interface UseScoreGameScreenResult {
   /**
    * Whether the game is counted toward rankings.
    *
-   * TODO(session-settings): currently hardcoded — true when leagueId is set,
-   * false for pickup. Once the SessionDetail screen exposes a Ranked toggle,
-   * source this from the session record instead. The per-screen toggle was
-   * removed 2026-05-15 because it belongs at the session, not the game.
+   * For new games in an existing session, hydrated from session.is_ranked
+   * (GET /api/sessions/:id) so the value reflects what the session creator
+   * chose. Falls back to leagueId != null while the fetch is in flight or when
+   * there is no session. In edit mode the persisted per-game value is hydrated
+   * from the game record in session detail. Pickup with no session → false.
    */
   readonly isRanked: boolean;
   /** session_id returned by the last successful submit (new or existing). */
@@ -377,14 +381,37 @@ export function useScoreGameScreen(
     readonly team: 1 | 2;
   } | null>(null);
 
-  // TODO(session-settings): is_ranked is currently hardcoded — true when this
-  // screen is opened from a league context, false otherwise. In edit mode we
-  // start at false and let the session-detail hydration effect below set the
-  // actual value from the persisted match. Once the SessionDetail screen
-  // surfaces a Ranked toggle, drop this state in favor of session.is_ranked.
+  // is_ranked is derived from context. When a session is in context, the
+  // session's own is_ranked flag (set at creation time) drives the value —
+  // fetched below. For pickup with no session, fall back to false. In edit
+  // mode we start false and let the session-detail hydration effect below set
+  // the actual persisted per-game value.
   const [isRanked, setIsRanked] = useState<boolean>(
     matchId == null ? leagueId != null : false,
   );
+
+  // --- New-game path: hydrate is_ranked from session.is_ranked ---
+  // When adding a game to an existing session (matchId == null, sessionId set),
+  // fetch the session once to read the session-level is_ranked the creator
+  // chose. This overrides the leagueId heuristic and ensures unranked pickup
+  // sessions created without a leagueId stay unranked. No-session pickup
+  // (sessionId == null) keeps the leagueId != null default above.
+  useEffect(() => {
+    if (matchId != null || sessionId == null) return;
+    let cancelled = false;
+    void api
+      .getSessionById(sessionId)
+      .then((session) => {
+        if (cancelled) return;
+        setIsRanked(session.is_ranked ?? false);
+      })
+      .catch(() => {
+        // Non-fatal — leagueId heuristic remains as fallback.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId, sessionId]);
 
   // --- Edit mode: pre-fill slots/scores from the matching game ---
   // Single source of truth: fetch session detail, find the game by matchId,

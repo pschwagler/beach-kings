@@ -22,6 +22,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -153,6 +154,7 @@ export default function SessionCreateScreen(): React.ReactNode {
     sessionType,
     maxPlayers,
     notes,
+    isRanked,
     isSubmitting,
     submitError,
     setDate,
@@ -161,6 +163,7 @@ export default function SessionCreateScreen(): React.ReactNode {
     setSessionType,
     setMaxPlayers,
     setNotes,
+    setIsRanked,
     onSubmit,
   } = useSessionCreateScreen();
 
@@ -231,6 +234,27 @@ export default function SessionCreateScreen(): React.ReactNode {
               max={64}
               onChange={setMaxPlayers}
               testID="max-players-stepper"
+            />
+          </View>
+
+          {/* Rankings */}
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">
+            Rankings
+          </Text>
+          <View className="flex-row items-center justify-between py-[14px] border-b border-divider">
+            <View className="flex-1 pr-[12px]">
+              <Text className="text-[14px] font-semibold text-muted">
+                Ranked
+              </Text>
+              <Text className="text-[12px] text-muted mt-[2px]">
+                Ranked games affect player rankings
+              </Text>
+            </View>
+            <Switch
+              testID="session-ranked-toggle"
+              value={isRanked}
+              onValueChange={setIsRanked}
+              accessibilityLabel="Ranked games"
             />
           </View>
 

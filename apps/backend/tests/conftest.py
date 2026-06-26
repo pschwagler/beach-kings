@@ -82,6 +82,9 @@ async def _patch_missing_columns(conn):
         ("users", "deletion_scheduled_at", "TIMESTAMPTZ"),
         # Migration 040 — track when a password was last changed
         ("users", "password_changed_at", "TIMESTAMPTZ"),
+        # Privacy feature — profile visibility toggles
+        ("users", "profile_is_private", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("users", "show_game_history", "BOOLEAN NOT NULL DEFAULT FALSE"),
         # Migration 020 — court discovery columns on the courts table
         ("courts", "description", "TEXT"),
         ("courts", "court_count", "INTEGER"),
@@ -123,6 +126,8 @@ async def _patch_missing_columns(conn):
         ("player_global_stats", "avg_point_diff", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
         # Migration 052 — direct league ownership on sessions
         ("sessions", "league_id", "INTEGER REFERENCES leagues(id) ON DELETE SET NULL"),
+        # Migration 055 — per-session ranked intent
+        ("sessions", "is_ranked", "BOOLEAN NOT NULL DEFAULT TRUE"),
     ]
     # Migration 024 — make phone_number and password_hash nullable for Google SSO
     # Migration 045 — make verification_codes.phone_number nullable for email flows

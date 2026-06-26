@@ -3,17 +3,19 @@
  *
  * Covers:
  *   - All section rows render (Login & Security, Connected Accounts,
- *     Notifications, Appearance, Support, Danger Zone)
+ *     Privacy, Notifications, Appearance, Support, Danger Zone)
  *   - Email row shows masked email
  *   - Password row navigates to change password
  *   - Phone row: navigates to add-phone when unset, mailto when set
- *   - Connected accounts: Google connected, Apple connect button
+ *   - Connected accounts: Google/Apple show Connect button when not connected,
+ *     Connected badge when connected
+ *   - Privacy row navigates to privacy settings
  *   - Notifications row navigates to notifications settings
  *   - Log Out button opens logout modal
  *   - Logout modal: confirm triggers logout
  *   - Logout modal: cancel closes modal
- *   - Delete Account shows confirmation alert
- *   - Support rows show alert stubs
+ *   - Delete Account calls scheduleAccountDeletion API
+ *   - Contact Support opens mailto link
  *   - OAuth users: password row hidden
  */
 
@@ -27,8 +29,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockLogout = jest.fn();
+const mockRefreshUser = jest.fn().mockResolvedValue(undefined);
 
-let mockUser: Record<string, unknown> = { email: 'test@example.com', has_password: true };
+let mockUser: Record<string, unknown> = {
+  email: 'test@example.com',
+  has_password: true,
+  google_connected: false,
+  apple_connected: false,
+  profile_is_private: false,
+  show_game_history: false,
+  deletion_scheduled_at: null,
+};
 
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -86,16 +97,19 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     user: mockUser,
     logout: mockLogout,
+    refreshUser: mockRefreshUser,
   }),
 }));
 
 const mockSubmitFeedback = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();
+const mockScheduleAccountDeletion = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     submitFeedback: (...args: unknown[]) => mockSubmitFeedback(...args),
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
+    scheduleAccountDeletion: (...args: unknown[]) => mockScheduleAccountDeletion(...args),
   },
 }));
 
@@ -105,6 +119,16 @@ jest.mock('@/contexts/ThemeContext', () => ({
     colorScheme: 'light',
     themeMode: 'system',
     setThemeMode: jest.fn(),
+  }),
+}));
+
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    brandTeal: '#00b4a2',
+    bgElevated: '#ffffff',
+    borderStrong: '#e0e0e0',
+    textDefault: '#111111',
+    bgSurface: '#ffffff',
   }),
 }));
 
@@ -118,6 +142,40 @@ jest.mock('@/components/ui/icons', () => {
     ChevronRightIcon: makeIcon('ChevronRightIcon'),
   };
 });
+
+// Mock expo-store-review
+jest.mock('expo-store-review', () => ({
+  hasAction: jest.fn().mockResolvedValue(false),
+  requestReview: jest.fn().mockResolvedValue(undefined),
+  storeUrl: jest.fn().mockReturnValue(null),
+  isAvailableAsync: jest.fn().mockResolvedValue(false),
+}));
+
+// Mock useConnectedAccounts to avoid OAuth plumbing in unit tests
+const mockHandleConnectGoogle = jest.fn();
+const mockHandleConnectApple = jest.fn();
+
+jest.mock(
+  '@/components/screens/Settings/useConnectedAccounts',
+  () => ({
+    useConnectedAccounts: () => ({
+      appleAvailable: false,
+      isLinkingGoogle: false,
+      isLinkingApple: false,
+      handleConnectGoogle: mockHandleConnectGoogle,
+      handleConnectApple: mockHandleConnectApple,
+    }),
+  }),
+);
+
+// Mock expo-auth-session (pulled in transitively via oauth.ts even with the above mock)
+jest.mock('expo-auth-session/providers/google', () => ({
+  useAuthRequest: jest.fn(() => [null, null, jest.fn()]),
+}));
+
+jest.mock('expo-web-browser', () => ({
+  maybeCompleteAuthSession: jest.fn(),
+}));
 
 import { Linking } from 'react-native';
 const mockOpenURL = jest
@@ -136,12 +194,21 @@ import SettingsRoute from '../../../../app/(stack)/settings';
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUser = { email: 'test@example.com', has_password: true };
+  mockUser = {
+    email: 'test@example.com',
+    has_password: true,
+    google_connected: false,
+    apple_connected: false,
+    profile_is_private: false,
+    show_game_history: false,
+    deletion_scheduled_at: null,
+  };
   mockGetCurrentUserPlayer.mockResolvedValue({
     id: 1,
     email: 'test@example.com',
     phone_number: null,
   });
+  mockScheduleAccountDeletion.mockResolvedValue({ status: 'ok' });
 });
 
 // ---------------------------------------------------------------------------
@@ -161,7 +228,7 @@ describe('SettingsScreen — render', () => {
       expect(screen.getByTestId('settings-row-password')).toBeTruthy();
       expect(screen.getByTestId('settings-row-phone')).toBeTruthy();
       expect(screen.getByTestId('settings-row-google')).toBeTruthy();
-      expect(screen.getByTestId('settings-row-apple')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-privacy')).toBeTruthy();
       expect(screen.getByTestId('settings-row-notifications')).toBeTruthy();
       expect(screen.getByTestId('settings-row-appearance')).toBeTruthy();
       expect(screen.getByTestId('settings-row-feedback')).toBeTruthy();
@@ -199,6 +266,12 @@ describe('SettingsScreen — navigation', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-password'));
     expect(mockPush).toHaveBeenCalled();
+  });
+
+  it('navigates to privacy settings when privacy row is pressed', () => {
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-privacy'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/settings/privacy');
   });
 
   it('navigates to notifications when notifications row is pressed', () => {
@@ -246,7 +319,7 @@ describe('SettingsScreen — phone row', () => {
     fireEvent.press(screen.getByTestId('settings-row-phone'));
     expect(mockOpenURL).toHaveBeenCalledTimes(1);
     const calledUrl = mockOpenURL.mock.calls[0][0] as string;
-    expect(calledUrl).toContain('mailto:support@beachkings.app');
+    expect(calledUrl).toContain('mailto:beachleaguevb+support@gmail.com');
     expect(calledUrl).toContain('Change%20phone%20number');
   });
 });
@@ -256,14 +329,37 @@ describe('SettingsScreen — phone row', () => {
 // ---------------------------------------------------------------------------
 
 describe('SettingsScreen — connected accounts', () => {
-  it('shows Connected status for Google', () => {
+  it('shows Connect button for Google when not connected', () => {
     render(<SettingsRoute />);
-    expect(screen.getByText('Connected')).toBeTruthy();
+    expect(screen.getByTestId('settings-connect-google-btn')).toBeTruthy();
   });
 
-  it('shows Connect button for Apple', () => {
+  it('shows Connected badge for Google when connected', () => {
+    mockUser = { ...mockUser, google_connected: true };
     render(<SettingsRoute />);
-    expect(screen.getByText('Connect')).toBeTruthy();
+    expect(screen.getByText('Connected')).toBeTruthy();
+    expect(screen.queryByTestId('settings-connect-google-btn')).toBeNull();
+  });
+
+  it('Apple row is hidden on non-iOS platforms (test env)', () => {
+    // In jest (node environment), Platform.OS is not 'ios' so Apple row should not render
+    render(<SettingsRoute />);
+    expect(screen.queryByTestId('settings-row-apple')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Contact support
+// ---------------------------------------------------------------------------
+
+describe('SettingsScreen — contact support', () => {
+  it('opens a support mailto link when Contact Support is pressed', () => {
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-contact'));
+    expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    const calledUrl = mockOpenURL.mock.calls[0][0] as string;
+    expect(calledUrl).toMatch(/beachleaguevb\+support@gmail\.com/);
+    expect(calledUrl).toContain('subject=');
   });
 });
 
@@ -329,13 +425,13 @@ describe('SettingsScreen — feedback row', () => {
 
 describe('SettingsScreen — OAuth user', () => {
   it('hides the password row for users without a password', () => {
-    mockUser = { email: 'oauth@example.com', has_password: false, auth_provider: 'google' };
+    mockUser = { ...mockUser, email: 'oauth@example.com', has_password: false, auth_provider: 'google' };
     render(<SettingsRoute />);
     expect(screen.queryByTestId('settings-row-password')).toBeNull();
   });
 
   it('still shows email and phone rows for OAuth users', () => {
-    mockUser = { email: 'oauth@example.com', has_password: false, auth_provider: 'google' };
+    mockUser = { ...mockUser, email: 'oauth@example.com', has_password: false, auth_provider: 'google' };
     render(<SettingsRoute />);
     expect(screen.getByTestId('settings-row-email')).toBeTruthy();
     expect(screen.getByTestId('settings-row-phone')).toBeTruthy();

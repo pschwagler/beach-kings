@@ -67,6 +67,8 @@ __all__ = [
     "create_league_invites",
     "list_league_invites",
     "list_my_sent_invites",
+    "list_my_received_invites",
+    "respond_to_league_invite",
     "get_player_public_leagues",
 ]
 
@@ -2756,9 +2758,68 @@ async def create_league_invites(
     return len(new_invites)
 
 
+async def _batch_game_counts(
+    session: AsyncSession, player_ids: list[int]
+) -> dict[int, int]:
+    """Return total match counts keyed by player ID for the given player IDs.
+
+    Counts matches across all four player positions (team1_player1_id,
+    team1_player2_id, team2_player1_id, team2_player2_id) using a single
+    UNION ALL query, then aggregates per player.
+
+    Args:
+        session: Async database session.
+        player_ids: List of player IDs to count games for.
+
+    Returns:
+        Dict mapping each player ID to their total match count.  Players with
+        zero matches are absent from the dict; callers should use
+        ``games_by_player.get(pid, 0)``.
+    """
+    if not player_ids:
+        return {}
+
+    game_count_result = await session.execute(
+        select(
+            Match.team1_player1_id.label("pid"),
+            func.count(Match.id).label("cnt"),
+        )
+        .where(Match.team1_player1_id.in_(player_ids))
+        .group_by(Match.team1_player1_id)
+        .union_all(
+            select(
+                Match.team1_player2_id,
+                func.count(Match.id),
+            )
+            .where(Match.team1_player2_id.in_(player_ids))
+            .group_by(Match.team1_player2_id),
+            select(
+                Match.team2_player1_id,
+                func.count(Match.id),
+            )
+            .where(Match.team2_player1_id.in_(player_ids))
+            .group_by(Match.team2_player1_id),
+            select(
+                Match.team2_player2_id,
+                func.count(Match.id),
+            )
+            .where(Match.team2_player2_id.in_(player_ids))
+            .group_by(Match.team2_player2_id),
+        )
+    )
+    games_by_player: dict[int, int] = {}
+    for pid, cnt in game_count_result.all():
+        games_by_player[pid] = games_by_player.get(pid, 0) + int(cnt)
+    return games_by_player
+
+
 async def list_league_invites(session: AsyncSession, league_id: int) -> List[Dict]:
     """
     List all invites for a league (admin view).
+
+    Populates ``game_count`` for each invitee using a single batch query that
+    counts the total matches they have participated in (any position on either
+    team), giving admins a sense of each player's activity level.
 
     Args:
         session: Async database session.
@@ -2768,8 +2829,6 @@ async def list_league_invites(session: AsyncSession, league_id: int) -> List[Dic
         List of dicts matching LeagueInviteItemResponse shape.
     """
     from backend.services.player_data import generate_player_initials
-
-    InvitedPlayer = Player.__table__.alias("invited_player")
 
     result = await session.execute(
         select(
@@ -2787,6 +2846,13 @@ async def list_league_invites(session: AsyncSession, league_id: int) -> List[Dic
         .order_by(LeagueInvite.created_at.desc())
     )
     rows = result.all()
+
+    if not rows:
+        return []
+
+    player_ids = list({row.player_id for row in rows})
+    games_by_player = await _batch_game_counts(session, player_ids)
+
     return [
         {
             "id": row.id,
@@ -2797,21 +2863,103 @@ async def list_league_invites(session: AsyncSession, league_id: int) -> List[Dic
             "initials": generate_player_initials(row.display_name or ""),
             "invited_at": row.invited_at.isoformat() if row.invited_at else "",
             "status": row.status,
+            "game_count": games_by_player.get(row.player_id, 0),
         }
         for row in rows
     ]
 
 
-async def list_my_sent_invites(session: AsyncSession, player_id: int) -> List[Dict]:
+async def respond_to_league_invite(
+    session: AsyncSession,
+    league_id: int,
+    player_id: int,
+    action: str,
+) -> dict:
     """
-    List all invites sent by a given player across all leagues.
+    Accept or decline a pending league invite on behalf of the invitee.
+
+    Only the player named on the invite may call this (ownership is enforced
+    by keying the lookup on both ``league_id`` and ``player_id``).
+
+    On **accept**:
+        - Sets invite status to 'accepted'.
+        - Adds the player as a league member (role='member') unless they are
+          already a member (idempotent).
+
+    On **decline**:
+        - Sets invite status to 'declined'.
+        - Leaves league membership unchanged.
+
+    Args:
+        session: Async database session.
+        league_id: The league the invite belongs to.
+        player_id: The invitee's player ID (must be the caller).
+        action: Either ``'accept'`` or ``'decline'``.
+
+    Returns:
+        Dict with a single key ``status`` set to ``'accepted'`` or
+        ``'declined'``.
+
+    Raises:
+        ValueError: When no pending invite exists for ``(league_id, player_id)``.
+    """
+    # Fetch the pending invite for this exact (league, player) pair.
+    invite_result = await session.execute(
+        select(LeagueInvite).where(
+            and_(
+                LeagueInvite.league_id == league_id,
+                LeagueInvite.player_id == player_id,
+                LeagueInvite.status == "pending",
+            )
+        )
+    )
+    invite = invite_result.scalar_one_or_none()
+    if invite is None:
+        raise ValueError(
+            f"No pending league invite found for player {player_id} in league {league_id}"
+        )
+
+    new_status = "accepted" if action == "accept" else "declined"
+
+    # Update invite status (immutable pattern — we update the row in-place via
+    # SQLAlchemy UPDATE rather than mutating the ORM object attributes directly).
+    await session.execute(
+        update(LeagueInvite)
+        .where(LeagueInvite.id == invite.id)
+        .values(status=new_status)
+    )
+
+    if action == "accept":
+        # Add the player as a league member if they are not already one.
+        existing_member_result = await session.execute(
+            select(LeagueMember).where(
+                and_(
+                    LeagueMember.league_id == league_id,
+                    LeagueMember.player_id == player_id,
+                )
+            )
+        )
+        if existing_member_result.scalar_one_or_none() is None:
+            session.add(LeagueMember(league_id=league_id, player_id=player_id, role="member"))
+
+    await session.commit()
+    return {"status": new_status}
+
+
+async def list_my_sent_invites(session: AsyncSession, player_id: int) -> List[Dict]:
+    """List all invites sent by a given player across all leagues.
+
+    Populates ``game_count`` for each invitee using a single batch query that
+    counts the total matches they have participated in across all four match
+    positions.
 
     Args:
         session: Async database session.
         player_id: The player whose sent invites to return.
 
     Returns:
-        List of dicts matching LeagueInviteItemResponse shape.
+        List of dicts matching LeagueInviteItemResponse shape, ordered by
+        most-recently-created invite first.
     """
     from backend.services.player_data import generate_player_initials
 
@@ -2831,6 +2979,13 @@ async def list_my_sent_invites(session: AsyncSession, player_id: int) -> List[Di
         .order_by(LeagueInvite.created_at.desc())
     )
     rows = result.all()
+
+    if not rows:
+        return []
+
+    invitee_ids = list({row.player_id for row in rows})
+    games_by_player = await _batch_game_counts(session, invitee_ids)
+
     return [
         {
             "id": row.id,
@@ -2841,6 +2996,71 @@ async def list_my_sent_invites(session: AsyncSession, player_id: int) -> List[Di
             "initials": generate_player_initials(row.display_name or ""),
             "invited_at": row.invited_at.isoformat() if row.invited_at else "",
             "status": row.status,
+            "game_count": games_by_player.get(row.player_id, 0),
+        }
+        for row in rows
+    ]
+
+
+async def list_my_received_invites(session: AsyncSession, player_id: int) -> List[Dict]:
+    """List all pending invites received by a given player across all leagues.
+
+    Only pending invites are returned — the caller is expected to act on them
+    (accept or decline).  Accepted and declined invites are excluded because
+    they are no longer actionable.
+
+    Populates ``game_count`` for the invitee (the current player) using the
+    same batch approach as :func:`list_league_invites`, so the response shape
+    is identical to :class:`LeagueInviteItemResponse`.
+
+    Args:
+        session: Async database session.
+        player_id: The player whose received pending invites to return.
+
+    Returns:
+        List of dicts matching LeagueInviteItemResponse shape, ordered by
+        most-recently-created invite first.
+    """
+    from backend.services.player_data import generate_player_initials
+
+    result = await session.execute(
+        select(
+            LeagueInvite.id,
+            LeagueInvite.league_id,
+            League.name.label("league_name"),
+            LeagueInvite.player_id,
+            Player.full_name.label("display_name"),
+            LeagueInvite.status,
+            LeagueInvite.created_at.label("invited_at"),
+        )
+        .join(League, League.id == LeagueInvite.league_id)
+        .join(Player, Player.id == LeagueInvite.player_id)
+        .where(
+            and_(
+                LeagueInvite.player_id == player_id,
+                LeagueInvite.status == "pending",
+            )
+        )
+        .order_by(LeagueInvite.created_at.desc())
+    )
+    rows = result.all()
+
+    if not rows:
+        return []
+
+    games_by_player = await _batch_game_counts(session, [player_id])
+
+    return [
+        {
+            "id": row.id,
+            "league_id": row.league_id,
+            "league_name": row.league_name or "Unknown League",
+            "player_id": row.player_id,
+            "display_name": row.display_name or f"Player {row.player_id}",
+            "initials": generate_player_initials(row.display_name or ""),
+            "invited_at": row.invited_at.isoformat() if row.invited_at else "",
+            "status": row.status,
+            "game_count": games_by_player.get(player_id, 0),
         }
         for row in rows
     ]

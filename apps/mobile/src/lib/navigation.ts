@@ -31,6 +31,7 @@ export const routes = {
   leagueInvite: (id: number | string) =>
     `/(stack)/league/${id}/invite` as const,
   pendingInvites: () => '/(stack)/pending-invites' as const,
+  receivedInvites: () => '/(stack)/received-invites' as const,
   player: (id: number | string) => `/(stack)/player/${id}` as const,
   session: (idOrCode: number | string) =>
     `/(stack)/session/${idOrCode}` as const,
@@ -103,6 +104,7 @@ export const routes = {
   settingsPhone: () => '/(stack)/settings/phone' as const,
   changePassword: () => '/(stack)/settings/change-password' as const,
   settingsFeedback: () => '/(stack)/settings/feedback' as const,
+  settingsPrivacy: () => '/(stack)/settings/privacy' as const,
 
   // ---- Stack: inbox ----
   messagesList: () => '/(stack)/messages' as const,

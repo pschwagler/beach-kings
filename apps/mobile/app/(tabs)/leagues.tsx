@@ -6,7 +6,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { ScrollView, View, Text, RefreshControl } from 'react-native';
+import { ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { League } from '@beach-kings/shared';
@@ -62,6 +62,11 @@ export default function LeaguesScreen(): React.ReactNode {
     [router],
   );
 
+  const handleReceivedInvites = useCallback(() => {
+    void hapticLight();
+    router.push(routes.receivedInvites());
+  }, [router]);
+
   return (
     <SafeAreaView className="flex-1 bg-page" edges={['top']}>
       <TopNav title="Leagues" />
@@ -71,6 +76,20 @@ export default function LeaguesScreen(): React.ReactNode {
         onFindLeagues={handleFindLeagues}
         onCreateLeague={handleCreateLeague}
       />
+
+      {/* Secondary nav: invitations received */}
+      <Pressable
+        testID="received-invites-link"
+        onPress={handleReceivedInvites}
+        accessibilityRole="button"
+        accessibilityLabel="Invitations"
+        className="flex-row items-center justify-between px-lg py-sm bg-surface border-b border-divider active:opacity-70"
+      >
+        <Text className="text-footnote font-medium text-default">
+          Invitations Received
+        </Text>
+        <Text className="text-muted text-[12px]">›</Text>
+      </Pressable>
 
       {isLoading ? (
         <LeaguesSkeleton />

@@ -28,13 +28,20 @@ async def update_current_user(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Update the current user's account information (email).
-    Phone number cannot be changed.
+    Update the current user's account information.
+
+    Accepts ``email``, ``profile_is_private``, and ``show_game_history``.
+    Phone number cannot be changed.  Only fields that are non-null in the
+    request body are written; omitted fields are left unchanged.
     Requires authentication.
     """
     try:
         success = await user_service.update_user(
-            session=session, user_id=current_user["id"], email=payload.email
+            session=session,
+            user_id=current_user["id"],
+            email=payload.email,
+            profile_is_private=payload.profile_is_private,
+            show_game_history=payload.show_game_history,
         )
         if not success:
             raise HTTPException(status_code=400, detail="No fields provided to update")
@@ -49,6 +56,8 @@ async def update_current_user(
             email=updated_user["email"],
             is_verified=updated_user["is_verified"],
             created_at=updated_user["created_at"],
+            profile_is_private=updated_user["profile_is_private"],
+            show_game_history=updated_user["show_game_history"],
         )
     except HTTPException:
         raise
@@ -321,6 +330,30 @@ async def get_my_sent_league_invites(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error fetching sent league invites: {str(e)}"
+        )
+
+
+@router.get("/api/users/me/league-invites/received", response_model=list[LeagueInviteItemResponse])
+async def get_my_received_league_invites(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Return pending league invites received by the current user across all leagues.
+
+    Only pending invites (awaiting accept or decline) are returned.
+    Requires authentication.
+    """
+    try:
+        result = await session.execute(
+            select(Player).where(Player.user_id == current_user["id"])
+        )
+        player = result.scalar_one_or_none()
+        if not player:
+            return []
+        return await data_service.list_my_received_invites(session, player.id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching received league invites: {str(e)}"
         )
 
 

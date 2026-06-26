@@ -4,8 +4,11 @@
  * Covers:
  *   - Renders "Check In" button with correct testID
  *   - Renders "My Courts" button with correct testID in default (unsaved) state
- *   - Shows "N here now" label when count > 0
- *   - Does NOT show count label when count is 0
+ *   - Shows "N here now" label when total > 0
+ *   - Does NOT show count label when total is 0
+ *   - Shows breakdown chips when total > 0 and breakdown has items
+ *   - Does NOT show breakdown when total is 0
+ *   - Handles null level/gender in breakdown (renders "Unspecified")
  *   - Shows checked-in state (disabled button) when isCheckedIn is true
  *   - Calls checkIn() when the button is pressed (not already checked in)
  *   - Does NOT call checkIn() when already checked in (button is non-interactive)
@@ -75,7 +78,8 @@ const MOCK_COURT = {
 };
 
 const DEFAULT_HOOK_STATE = {
-  count: 0,
+  total: 0,
+  breakdown: [],
   isCheckedIn: false,
   isSubmitting: false,
   error: null,
@@ -129,7 +133,7 @@ describe('CourtActionRow — checked-in state', () => {
     mockUseCourtCheckIn.mockReturnValue({
       ...DEFAULT_HOOK_STATE,
       isCheckedIn: true,
-      count: 2,
+      total: 2,
     });
     render(<CourtActionRow court={MOCK_COURT} currentPlayerId={42} />);
     expect(screen.getByText('Checked In')).toBeTruthy();
@@ -159,28 +163,73 @@ describe('CourtActionRow — checked-in state', () => {
 });
 
 describe('CourtActionRow — count display', () => {
-  it('shows "N here now" label when count > 0', () => {
+  it('shows "N here now" label when total > 0', () => {
     mockUseCourtCheckIn.mockReturnValue({
       ...DEFAULT_HOOK_STATE,
-      count: 3,
+      total: 3,
+      breakdown: [{ level: 'Intermediate', gender: 'Women', count: 3 }],
     });
     render(<CourtActionRow court={MOCK_COURT} currentPlayerId={1} />);
     expect(screen.getByText('3 here now')).toBeTruthy();
   });
 
-  it('shows singular "1 here now" when count is 1', () => {
+  it('shows singular "1 here now" when total is 1', () => {
     mockUseCourtCheckIn.mockReturnValue({
       ...DEFAULT_HOOK_STATE,
-      count: 1,
+      total: 1,
+      breakdown: [{ level: 'Beginner', gender: 'Men', count: 1 }],
     });
     render(<CourtActionRow court={MOCK_COURT} currentPlayerId={1} />);
     expect(screen.getByText('1 here now')).toBeTruthy();
   });
 
-  it('does NOT show count label when count is 0', () => {
-    mockUseCourtCheckIn.mockReturnValue({ ...DEFAULT_HOOK_STATE, count: 0 });
+  it('does NOT show count label when total is 0', () => {
+    mockUseCourtCheckIn.mockReturnValue({ ...DEFAULT_HOOK_STATE, total: 0 });
     render(<CourtActionRow court={MOCK_COURT} currentPlayerId={1} />);
     expect(screen.queryByText(/here now/)).toBeNull();
+  });
+});
+
+describe('CourtActionRow — breakdown chips', () => {
+  it('shows breakdown chips when total > 0', () => {
+    mockUseCourtCheckIn.mockReturnValue({
+      ...DEFAULT_HOOK_STATE,
+      total: 3,
+      breakdown: [
+        { level: 'Intermediate', gender: 'Women', count: 2 },
+        { level: 'Advanced', gender: 'Men', count: 1 },
+      ],
+    });
+    render(<CourtActionRow court={MOCK_COURT} currentPlayerId={1} />);
+    expect(screen.getByTestId('check-in-breakdown')).toBeTruthy();
+    expect(screen.getByTestId('check-in-breakdown-chip-0')).toBeTruthy();
+    expect(screen.getByTestId('check-in-breakdown-chip-1')).toBeTruthy();
+  });
+
+  it('renders chip text in "Level · Gender · Count" format', () => {
+    mockUseCourtCheckIn.mockReturnValue({
+      ...DEFAULT_HOOK_STATE,
+      total: 2,
+      breakdown: [{ level: 'Intermediate', gender: 'Women', count: 2 }],
+    });
+    render(<CourtActionRow court={MOCK_COURT} currentPlayerId={1} />);
+    expect(screen.getByText('Intermediate · Women · 2')).toBeTruthy();
+  });
+
+  it('renders "Unspecified" for null level and gender', () => {
+    mockUseCourtCheckIn.mockReturnValue({
+      ...DEFAULT_HOOK_STATE,
+      total: 1,
+      breakdown: [{ level: null, gender: null, count: 1 }],
+    });
+    render(<CourtActionRow court={MOCK_COURT} currentPlayerId={1} />);
+    expect(screen.getByText('Unspecified · Unspecified · 1')).toBeTruthy();
+  });
+
+  it('does NOT show breakdown when total is 0', () => {
+    mockUseCourtCheckIn.mockReturnValue({ ...DEFAULT_HOOK_STATE, total: 0, breakdown: [] });
+    render(<CourtActionRow court={MOCK_COURT} currentPlayerId={1} />);
+    expect(screen.queryByTestId('check-in-breakdown')).toBeNull();
   });
 });
 

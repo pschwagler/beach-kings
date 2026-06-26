@@ -49,6 +49,7 @@ const SESSION: SessionDetail = {
   session_type: 'pickup',
   max_players: 16,
   notes: null,
+  is_ranked: true,
   players: [
     {
       entry_id: 1,

@@ -39,20 +39,28 @@ export interface CourtCheckIn {
   expires_at: string;
 }
 
-/** A player who is currently checked in at a court. */
-export interface CheckedInPlayer {
-  id: number;
-  player_id: number;
-  player_name: string;
-  avatar: string | null;
-  checked_in_at: string;
-  expires_at: string;
+/**
+ * A single row in the check-in breakdown returned by
+ * GET /api/public/courts/{slug}/check-ins.
+ *
+ * No player identities are included — only aggregate counts grouped by
+ * level and gender.
+ */
+export interface CheckInBreakdownItem {
+  level: string | null;
+  gender: string | null;
+  count: number;
 }
 
-/** Response from GET /api/public/courts/{slug}/check-ins. */
+/**
+ * Response from GET /api/public/courts/{slug}/check-ins.
+ *
+ * Shape changed to aggregate-only to protect player privacy:
+ *   { total: number, breakdown: CheckInBreakdownItem[] }
+ */
 export interface CourtCheckInsResponse {
-  count: number;
-  checked_in_players: CheckedInPlayer[];
+  total: number;
+  breakdown: CheckInBreakdownItem[];
 }
 
 /** Input for creating a new court review (POST /api/courts/{id}/reviews). */

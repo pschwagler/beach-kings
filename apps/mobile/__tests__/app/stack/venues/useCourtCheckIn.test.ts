@@ -2,14 +2,13 @@
  * Unit tests for the useCourtCheckIn hook.
  *
  * Covers:
- *   - Initial fetch: loads count + checked_in_players on mount
- *   - Already checked-in detection: isCheckedIn = true when currentPlayerId
- *     appears in checked_in_players
- *   - Not checked in: isCheckedIn = false when player is absent
+ *   - Initial fetch: loads total + breakdown on mount
+ *   - isCheckedIn defaults to false on mount (no player-identity data in response)
  *   - Null player id: isCheckedIn = false, checkIn() no-ops gracefully
- *   - Successful check-in: calls api.checkInToCourt, refetches count
+ *   - Successful check-in: calls api.checkInToCourt, sets isCheckedIn=true, refetches total
  *   - Error on checkIn: surfaces error, isSubmitting resets to false
  *   - Error on initial fetch: error is surfaced
+ *   - breakdown is exposed and updated after refetch
  */
 
 import { renderHook, act, waitFor } from '@testing-library/react-native';
@@ -56,51 +55,24 @@ const MOCK_COURT = {
 };
 
 const EMPTY_RESPONSE = {
-  count: 0,
-  checked_in_players: [],
+  total: 0,
+  breakdown: [],
 };
 
-const PLAYER_42_RESPONSE = {
-  count: 3,
-  checked_in_players: [
-    {
-      id: 10,
-      player_id: 42,
-      player_name: 'Patrick S.',
-      avatar: null,
-      checked_in_at: '2026-06-21T10:00:00Z',
-      expires_at: '2026-06-21T14:00:00Z',
-    },
-    {
-      id: 11,
-      player_id: 99,
-      player_name: 'Ken F.',
-      avatar: null,
-      checked_in_at: '2026-06-21T11:00:00Z',
-      expires_at: '2026-06-21T15:00:00Z',
-    },
-    {
-      id: 12,
-      player_id: 7,
-      player_name: 'Alex M.',
-      avatar: null,
-      checked_in_at: '2026-06-21T11:30:00Z',
-      expires_at: '2026-06-21T15:30:00Z',
-    },
+const POPULATED_RESPONSE = {
+  total: 3,
+  breakdown: [
+    { level: 'Intermediate', gender: 'Women', count: 2 },
+    { level: 'Advanced', gender: 'Men', count: 1 },
   ],
 };
 
 const AFTER_CHECKIN_RESPONSE = {
-  count: 1,
-  checked_in_players: [
-    {
-      id: 20,
-      player_id: 5,
-      player_name: 'New Player',
-      avatar: null,
-      checked_in_at: '2026-06-21T12:00:00Z',
-      expires_at: '2026-06-21T16:00:00Z',
-    },
+  total: 4,
+  breakdown: [
+    { level: 'Intermediate', gender: 'Women', count: 2 },
+    { level: 'Advanced', gender: 'Men', count: 1 },
+    { level: null, gender: null, count: 1 },
   ],
 };
 
@@ -153,14 +125,38 @@ describe('useCourtCheckIn — initial fetch', () => {
     expect(mockGetCourtCheckIns).toHaveBeenCalledWith(1);
   });
 
-  it('exposes count from the fetch response', async () => {
-    mockGetCourtCheckIns.mockResolvedValue(PLAYER_42_RESPONSE);
+  it('exposes total from the fetch response', async () => {
+    mockGetCourtCheckIns.mockResolvedValue(POPULATED_RESPONSE);
     const { result } = renderHook(() =>
       useCourtCheckIn(MOCK_COURT, null),
     );
     await waitFor(() => {
-      expect(result.current.count).toBe(3);
+      expect(result.current.total).toBe(3);
     });
+  });
+
+  it('exposes breakdown from the fetch response', async () => {
+    mockGetCourtCheckIns.mockResolvedValue(POPULATED_RESPONSE);
+    const { result } = renderHook(() =>
+      useCourtCheckIn(MOCK_COURT, null),
+    );
+    await waitFor(() => {
+      expect(result.current.breakdown).toHaveLength(2);
+    });
+    expect(result.current.breakdown[0].level).toBe('Intermediate');
+    expect(result.current.breakdown[0].gender).toBe('Women');
+    expect(result.current.breakdown[0].count).toBe(2);
+  });
+
+  it('exposes empty breakdown when no one is checked in', async () => {
+    const { result } = renderHook(() =>
+      useCourtCheckIn(MOCK_COURT, null),
+    );
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(result.current.breakdown).toEqual([]);
+    expect(result.current.total).toBe(0);
   });
 
   it('surfaces fetch error', async () => {
@@ -175,31 +171,9 @@ describe('useCourtCheckIn — initial fetch', () => {
   });
 });
 
-describe('useCourtCheckIn — isCheckedIn detection', () => {
-  it('isCheckedIn is true when currentPlayerId is in checked_in_players', async () => {
-    mockGetCourtCheckIns.mockResolvedValue(PLAYER_42_RESPONSE);
-    const { result } = renderHook(() =>
-      useCourtCheckIn(MOCK_COURT, 42),
-    );
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-    expect(result.current.isCheckedIn).toBe(true);
-  });
-
-  it('isCheckedIn is false when currentPlayerId is NOT in checked_in_players', async () => {
-    mockGetCourtCheckIns.mockResolvedValue(PLAYER_42_RESPONSE);
-    const { result } = renderHook(() =>
-      useCourtCheckIn(MOCK_COURT, 100),
-    );
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-    expect(result.current.isCheckedIn).toBe(false);
-  });
-
-  it('isCheckedIn is false when list is empty', async () => {
-    mockGetCourtCheckIns.mockResolvedValue(EMPTY_RESPONSE);
+describe('useCourtCheckIn — isCheckedIn local state', () => {
+  it('isCheckedIn is false on mount regardless of response', async () => {
+    mockGetCourtCheckIns.mockResolvedValue(POPULATED_RESPONSE);
     const { result } = renderHook(() =>
       useCourtCheckIn(MOCK_COURT, 42),
     );
@@ -210,7 +184,7 @@ describe('useCourtCheckIn — isCheckedIn detection', () => {
   });
 
   it('isCheckedIn is false when currentPlayerId is null', async () => {
-    mockGetCourtCheckIns.mockResolvedValue(PLAYER_42_RESPONSE);
+    mockGetCourtCheckIns.mockResolvedValue(POPULATED_RESPONSE);
     const { result } = renderHook(() =>
       useCourtCheckIn(MOCK_COURT, null),
     );
@@ -218,6 +192,22 @@ describe('useCourtCheckIn — isCheckedIn detection', () => {
       expect(result.current.isLoading).toBe(false);
     });
     expect(result.current.isCheckedIn).toBe(false);
+  });
+
+  it('isCheckedIn flips to true after successful checkIn()', async () => {
+    mockGetCourtCheckIns
+      .mockResolvedValueOnce(EMPTY_RESPONSE)
+      .mockResolvedValue(AFTER_CHECKIN_RESPONSE);
+    const { result } = renderHook(() =>
+      useCourtCheckIn(MOCK_COURT, 5),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.checkIn();
+    });
+
+    expect(result.current.isCheckedIn).toBe(true);
   });
 });
 
@@ -254,7 +244,7 @@ describe('useCourtCheckIn — checkIn action', () => {
     expect(mockHapticMedium).toHaveBeenCalled();
   });
 
-  it('refetches count after successful check-in', async () => {
+  it('refetches total and breakdown after successful check-in', async () => {
     mockGetCourtCheckIns
       .mockResolvedValueOnce(EMPTY_RESPONSE)
       .mockResolvedValue(AFTER_CHECKIN_RESPONSE);
@@ -262,15 +252,16 @@ describe('useCourtCheckIn — checkIn action', () => {
       useCourtCheckIn(MOCK_COURT, 5),
     );
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.count).toBe(0);
+    expect(result.current.total).toBe(0);
 
     await act(async () => {
       await result.current.checkIn();
     });
 
     await waitFor(() => {
-      expect(result.current.count).toBe(1);
+      expect(result.current.total).toBe(4);
     });
+    expect(result.current.breakdown).toHaveLength(3);
     // getCourtCheckIns called twice: once on mount, once after check-in
     expect(mockGetCourtCheckIns).toHaveBeenCalledTimes(2);
   });
@@ -329,5 +320,21 @@ describe('useCourtCheckIn — checkIn action', () => {
     });
 
     expect(mockCheckInToCourt).not.toHaveBeenCalled();
+  });
+
+  it('does not flip isCheckedIn when checkInToCourt throws', async () => {
+    mockGetCourtCheckIns.mockResolvedValue(EMPTY_RESPONSE);
+    mockCheckInToCourt.mockRejectedValue(new Error('server error'));
+
+    const { result } = renderHook(() =>
+      useCourtCheckIn(MOCK_COURT, 5),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.checkIn();
+    });
+
+    expect(result.current.isCheckedIn).toBe(false);
   });
 });

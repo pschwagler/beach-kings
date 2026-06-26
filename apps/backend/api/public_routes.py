@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.models.schemas import (
-    CourtCheckInCountResponse,
     CourtDetailResponse,
     CourtLeaderboardEntry,
     CourtLeagueItem,
@@ -197,16 +196,24 @@ async def list_public_players(
 @public_router.get("/players/{player_id}", response_model=PublicPlayerResponse)
 @limiter.limit("60/minute")
 async def get_public_player(
-    request: Request, player_id: int, session: AsyncSession = Depends(get_db_session)
+    request: Request,
+    player_id: int,
+    session: AsyncSession = Depends(get_db_session),
+    viewer: Optional[dict] = Depends(get_current_user_optional),
 ):
     """
-    Get public-facing player profile.
+    Get public-facing player profile with privacy gating.
 
-    Returns player info, stats, location, and public league memberships.
+    Returns the floor (name, avatar, level, city/state, total games) for all
+    viewers.  Full detail (W-L, rank, win%, league memberships) is only
+    returned when the profile is public (``profile_is_private=False``) or the
+    request is authenticated as the player's own user.  Game history visibility
+    is signalled by the ``game_history_visible`` flag in the response.
+
     Only players with at least 1 game are publicly visible.
     Returns 404 if player not found or has no games.
     """
-    result = await public_service.get_public_player(session, player_id)
+    result = await public_service.get_public_player(session, player_id, viewer_user=viewer)
     if result is None:
         raise HTTPException(status_code=404, detail="Player not found")
     return result
@@ -325,13 +332,25 @@ async def get_court_leaderboard(
 
 
 @public_router.get(
-    "/courts/{slug}/check-ins", response_model=CourtCheckInCountResponse
+    "/courts/{slug}/check-ins", response_model=dict
 )
 @limiter.limit("60/minute")
 async def get_court_check_ins(
     request: Request, slug: str, session: AsyncSession = Depends(get_db_session)
 ):
-    """Get active check-ins at a court (count + player list)."""
+    """
+    Get aggregated active check-ins at a court.
+
+    Returns a total count and a breakdown by player level and gender.
+    No individual player identities are exposed.
+
+    Response shape::
+
+        {
+            "total": int,
+            "breakdown": [{"level": str|null, "gender": str|null, "count": int}, ...]
+        }
+    """
     court_id = await court_service.get_court_id_by_slug(session, slug)
     if not court_id:
         raise HTTPException(status_code=404, detail="Court not found")

@@ -5,7 +5,8 @@
  *   - "Check In" primary button (one-shot; no check-out).
  *     - While submitting: shows "Checking in..." and is non-interactive.
  *     - Already checked in: shows "Checked In" disabled state.
- *   - Live "N here now" count badge when at least one player is checked in.
+ *   - Live "N here now" count badge when at least one player is checked in,
+ *     followed by a breakdown row per level/gender group.
  *   - "My Courts" / "Saved" outline button (favorites; toggles save state).
  *
  * Props:
@@ -21,7 +22,7 @@ import { View, Text, Pressable } from 'react-native';
 import { useCourtCheckIn } from './useCourtCheckIn';
 import { useSaveCourt } from './useSaveCourt';
 import { usePaletteColors } from '@/theme/usePaletteColors';
-import type { Court } from '@beach-kings/shared';
+import type { CheckInBreakdownItem, Court } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -37,15 +38,61 @@ interface CourtActionRowProps {
 }
 
 // ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+/**
+ * Formats a single breakdown item into a human-readable label.
+ * Null level or gender is rendered as "Unspecified".
+ */
+function formatBreakdownLabel(item: CheckInBreakdownItem): string {
+  const level = item.level ?? 'Unspecified';
+  const gender = item.gender ?? 'Unspecified';
+  return `${level} · ${gender}`;
+}
+
+/**
+ * Renders a small row of breakdown chips beneath the "N here now" badge.
+ * Each chip shows "Level · Gender · Count".
+ */
+function CheckInBreakdown({
+  breakdown,
+}: {
+  readonly breakdown: readonly CheckInBreakdownItem[];
+}): React.ReactNode {
+  if (breakdown.length === 0) return null;
+
+  return (
+    <View
+      testID="check-in-breakdown"
+      className="flex-row flex-wrap gap-1 mt-1 justify-center"
+    >
+      {breakdown.map((item, index) => (
+        <View
+          key={index}
+          testID={`check-in-breakdown-chip-${index}`}
+          className="flex-row items-center px-2 py-0.5 rounded-full bg-surface border border-strong"
+        >
+          <Text className="text-[11px] text-muted">
+            {`${formatBreakdownLabel(item)} · ${item.count}`}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 /**
- * Action row with Check In + My Courts buttons and a live "N here now" count.
+ * Action row with Check In + My Courts buttons and a live "N here now" count
+ * with level/gender breakdown.
  *
  * The check-in button is one-shot only (product decision): once the player
- * is checked in, the button renders as a non-interactive "Checked In" state
- * and relies on the backend's 4-hour auto-expiry.
+ * is checked in this session, the button renders as a non-interactive
+ * "Checked In" state and relies on the backend's 4-hour auto-expiry.
  *
  * The My Courts button toggles the saved state via useSaveCourt. When saved
  * it shows a filled active style; when unsaved it shows an outline style.
@@ -55,7 +102,7 @@ export default function CourtActionRow({
   currentPlayerId,
   onChanged,
 }: CourtActionRowProps): React.ReactNode {
-  const { count, isCheckedIn, isSubmitting, checkIn } =
+  const { total, breakdown, isCheckedIn, isSubmitting, checkIn } =
     useCourtCheckIn(court, currentPlayerId);
 
   const { isSaved, toggle: toggleSave, isSubmitting: isSaveSubmitting } =
@@ -84,7 +131,7 @@ export default function CourtActionRow({
 
   return (
     <View className="flex-row gap-3 px-4 py-4 border-b border-strong">
-      {/* Check In button */}
+      {/* Check In button + live count + breakdown */}
       <View className="flex-1">
         <Pressable
           testID={`check-in-btn-${court.id}`}
@@ -109,14 +156,17 @@ export default function CourtActionRow({
         </Pressable>
 
         {/* Live count badge */}
-        {count > 0 && (
+        {total > 0 && (
           <Text
             testID={`check-in-count-${court.id}`}
             className="text-[12px] text-muted text-center mt-1"
           >
-            {count} here now
+            {total} here now
           </Text>
         )}
+
+        {/* Level/gender breakdown chips */}
+        {total > 0 && <CheckInBreakdown breakdown={breakdown} />}
       </View>
 
       {/* My Courts / Saved button */}

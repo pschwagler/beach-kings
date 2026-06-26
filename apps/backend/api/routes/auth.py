@@ -7,7 +7,7 @@ from typing import Dict, Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import (
@@ -16,7 +16,7 @@ from backend.api.routes import (
     INVALID_VERIFICATION_CODE_RESPONSE,
 )
 from backend.database.db import get_db_session
-from backend.database.models import Player
+from backend.database.models import Player, User
 from backend.services import (
     auth_service,
     user_service,
@@ -48,6 +48,7 @@ from backend.models.schemas import (
     ResetPasswordEmailVerifyRequest,
     GoogleAuthRequest,
     AppleAuthRequest,
+    LinkProviderRequest,
     ChangePasswordRequest,
     ChangePasswordResponse,
 )
@@ -466,6 +467,80 @@ async def _import_google_avatar(session: AsyncSession, player_id: int, picture_u
         await session.commit()
 
 
+# ---------------------------------------------------------------------------
+# Provider-linking helpers (module-level so tests can monkeypatch them)
+# ---------------------------------------------------------------------------
+
+
+async def _set_google_id(session: AsyncSession, user_id: int, google_id: str) -> None:
+    """
+    Write google_id onto a user row without changing auth_provider.
+
+    Linking a secondary provider does not change the user's primary sign-in
+    method; only the foreign-key column is updated.
+
+    Args:
+        session: Database session.
+        user_id: ID of the user receiving the link.
+        google_id: Google's ``sub`` claim to store.
+    """
+    await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(google_id=google_id, updated_at=func.now())
+    )
+    await session.commit()
+
+
+async def _set_apple_id(session: AsyncSession, user_id: int, apple_id: str) -> None:
+    """
+    Write apple_id onto a user row without changing auth_provider.
+
+    Linking a secondary provider does not change the user's primary sign-in
+    method; only the foreign-key column is updated.
+
+    Args:
+        session: Database session.
+        user_id: ID of the user receiving the link.
+        apple_id: Apple's ``sub`` claim to store.
+    """
+    await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(apple_id=apple_id, updated_at=func.now())
+    )
+    await session.commit()
+
+
+def _build_user_response(user: dict) -> UserResponse:
+    """
+    Construct a ``UserResponse`` from a user dict, populating all optional flags.
+
+    Centralises flag derivation so every endpoint returns a consistent shape.
+
+    Args:
+        user: User dict as returned by ``user_service.get_user_by_id`` /
+            ``get_current_user``.
+
+    Returns:
+        Fully-populated ``UserResponse``.
+    """
+    return UserResponse(
+        id=user["id"],
+        phone_number=user.get("phone_number"),
+        email=user.get("email"),
+        is_verified=user["is_verified"],
+        auth_provider=user.get("auth_provider", "phone"),
+        has_password=user.get("password_hash") is not None,
+        deletion_scheduled_at=user.get("deletion_scheduled_at"),
+        created_at=user["created_at"],
+        google_connected=user.get("google_id") is not None,
+        apple_connected=user.get("apple_id") is not None,
+        profile_is_private=bool(user.get("profile_is_private", False)),
+        show_game_history=bool(user.get("show_game_history", False)),
+    )
+
+
 @router.post("/api/auth/send-verification", response_model=Dict[str, Any])
 @limiter.limit("10/minute")
 async def send_verification(
@@ -683,15 +758,7 @@ async def add_phone_verify(
     if not updated_user:
         raise HTTPException(status_code=500, detail="Failed to load updated user.")
 
-    return UserResponse(
-        id=updated_user["id"],
-        phone_number=updated_user.get("phone_number"),
-        email=updated_user.get("email"),
-        is_verified=updated_user["is_verified"],
-        auth_provider=updated_user.get("auth_provider", "phone"),
-        deletion_scheduled_at=updated_user.get("deletion_scheduled_at"),
-        created_at=updated_user["created_at"],
-    )
+    return _build_user_response(updated_user)
 
 
 @router.post("/api/auth/verify-email", response_model=AuthResponse)
@@ -1118,16 +1185,93 @@ async def logout(
 @router.get("/api/auth/me", response_model=UserResponse)
 async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     """Get current authenticated user information."""
-    return UserResponse(
-        id=current_user["id"],
-        phone_number=current_user.get("phone_number"),
-        email=current_user.get("email"),
-        is_verified=current_user["is_verified"],
-        auth_provider=current_user.get("auth_provider", "phone"),
-        has_password=current_user.get("password_hash") is not None,
-        deletion_scheduled_at=current_user.get("deletion_scheduled_at"),
-        created_at=current_user["created_at"],
-    )
+    return _build_user_response(current_user)
+
+
+@router.post("/api/auth/google/add", response_model=UserResponse)
+async def add_google_provider(
+    payload: LinkProviderRequest,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Link a Google account to the currently authenticated user.
+
+    Verifies the supplied Google ID token, then:
+    1. If the token's ``sub`` already belongs to a different user → 409.
+    2. If already linked to this user → idempotent 200.
+    3. Otherwise → write ``google_id`` and return the updated ``UserResponse``.
+
+    Linking a secondary provider does NOT change ``auth_provider`` — the
+    user's primary sign-in method is preserved.
+    """
+    try:
+        google_info = auth_service.verify_google_id_token(payload.id_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+    google_id = google_info["sub"]
+
+    # Check whether this Google ID already belongs to another account.
+    existing = await user_service.get_user_by_google_id(session, google_id)
+    if existing and existing["id"] != current_user["id"]:
+        raise HTTPException(
+            status_code=409,
+            detail="This Google account is already linked to a different user.",
+        )
+
+    # Idempotent: already linked to this user — skip the write.
+    if not existing:
+        await _set_google_id(session, current_user["id"], google_id)
+
+    updated_user = await user_service.get_user_by_id(session, current_user["id"])
+    if not updated_user:
+        raise HTTPException(status_code=500, detail="Failed to load updated user.")
+
+    return _build_user_response(updated_user)
+
+
+@router.post("/api/auth/apple/add", response_model=UserResponse)
+async def add_apple_provider(
+    payload: LinkProviderRequest,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Link an Apple account to the currently authenticated user.
+
+    Verifies the supplied Apple ID token, then:
+    1. If the token's ``sub`` already belongs to a different user → 409.
+    2. If already linked to this user → idempotent 200.
+    3. Otherwise → write ``apple_id`` and return the updated ``UserResponse``.
+
+    Linking a secondary provider does NOT change ``auth_provider`` — the
+    user's primary sign-in method is preserved.
+    """
+    try:
+        apple_info = auth_service.verify_apple_id_token(payload.id_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+    apple_id = apple_info["sub"]
+
+    # Check whether this Apple ID already belongs to another account.
+    existing = await user_service.get_user_by_apple_id(session, apple_id)
+    if existing and existing["id"] != current_user["id"]:
+        raise HTTPException(
+            status_code=409,
+            detail="This Apple account is already linked to a different user.",
+        )
+
+    # Idempotent: already linked to this user — skip the write.
+    if not existing:
+        await _set_apple_id(session, current_user["id"], apple_id)
+
+    updated_user = await user_service.get_user_by_id(session, current_user["id"])
+    if not updated_user:
+        raise HTTPException(status_code=500, detail="Failed to load updated user.")
+
+    return _build_user_response(updated_user)
 
 
 @router.post("/api/auth/change-password", response_model=ChangePasswordResponse)

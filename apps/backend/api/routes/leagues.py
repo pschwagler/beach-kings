@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +36,7 @@ from backend.models.schemas import (
     LeagueGamesResponse,
     InvitablePlayerResponse,
     LeagueInviteItemResponse,
+    InviteActionResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -1045,3 +1046,61 @@ async def get_league_invites(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching league invites: {str(e)}")
+
+
+class InviteRespondRequest(BaseModel):
+    """Request body for the invitee accept/decline endpoint."""
+
+    action: str
+
+    @field_validator("action")
+    @classmethod
+    def action_must_be_valid(cls, v: str) -> str:
+        """Ensure action is one of the two allowed values."""
+        if v not in ("accept", "decline"):
+            raise ValueError(f"action must be 'accept' or 'decline', got {v!r}")
+        return v
+
+
+@router.post(
+    "/api/leagues/{league_id}/invites/respond",
+    response_model=InviteActionResponse,
+)
+async def respond_to_league_invite(
+    league_id: int,
+    body: InviteRespondRequest,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Accept or decline a league invite (invitee only).
+
+    Resolves the caller's player profile and looks up their pending invite for
+    this league.  If found:
+    - ``accept`` marks the invite accepted and adds the caller as a league member.
+    - ``decline`` marks the invite declined; no membership change is made.
+
+    Only the invitee themselves can act on their own invite.  A caller who has
+    no pending invite for this league receives 404 (indistinguishable from an
+    invite that belongs to a different player).
+    """
+    try:
+        player = await data_service.get_player_by_user_id(session, user["id"])
+        if not player:
+            raise HTTPException(status_code=404, detail="Player profile not found.")
+
+        result = await data_service.respond_to_league_invite(
+            session=session,
+            league_id=league_id,
+            player_id=player["id"],
+            action=body.action,
+        )
+        return result
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Error responding to league invite: {str(exc)}"
+        )
