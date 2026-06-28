@@ -202,7 +202,7 @@ describe('useReceivedInvitesScreen', () => {
     expect(result.current.respondingIds.has(10)).toBe(false);
   });
 
-  it('shows Alert and restores row when accept fails', async () => {
+  it('shows generic Alert (not raw error) and restores row when accept fails', async () => {
     mockAcceptLeagueInvite.mockRejectedValue(new Error('Server error'));
 
     const { result } = renderHook(() => useReceivedInvitesScreen(), {
@@ -217,10 +217,14 @@ describe('useReceivedInvitesScreen', () => {
 
     // Row is restored after error.
     expect(result.current.invites.find((i) => i.league_id === 10)).toBeDefined();
-    expect(Alert.alert).toHaveBeenCalledWith('Error', 'Server error');
+    // Raw backend error must NOT leak to the user — always show the generic copy.
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'Could not accept the invite. Please try again.',
+    );
   });
 
-  it('shows Alert and restores row when decline fails', async () => {
+  it('shows generic Alert (not raw error) and restores row when decline fails', async () => {
     mockDeclineLeagueInvite.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useReceivedInvitesScreen(), {
@@ -234,7 +238,11 @@ describe('useReceivedInvitesScreen', () => {
     });
 
     expect(result.current.invites.find((i) => i.league_id === 11)).toBeDefined();
-    expect(Alert.alert).toHaveBeenCalledWith('Error', 'Network error');
+    // Raw backend error must NOT leak to the user.
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'Could not decline the invite. Please try again.',
+    );
   });
 
   it('shows fallback message in Alert when reject value is not an Error', async () => {

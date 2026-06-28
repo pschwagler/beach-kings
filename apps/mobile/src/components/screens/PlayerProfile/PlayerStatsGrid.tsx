@@ -1,11 +1,18 @@
 /**
  * Stats grid section for the Player Profile screen.
- * Matches wireframe: hero win-rate card + W-L, Games, ELO, Avg Pt Diff cards.
+ * Matches wireframe: hero win-rate card + W-L, Games, ELO cards.
+ *
+ * When `player.game_history_visible` is false, the W-L record and Win Rate
+ * tiles are replaced by a `PrivateStat` placeholder (lock icon + "Private"
+ * label) so the screen never renders a fabricated "0-0" record. The ELO
+ * rating and game count tiles remain visible — the backend always returns them.
  */
 
 import React from 'react';
 import { View, Text } from 'react-native';
 import type { Player } from '@beach-kings/shared';
+import { LockIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface PlayerStatsGridProps {
   readonly player: Player;
@@ -19,6 +26,7 @@ interface StatCardProps {
   readonly testID?: string;
 }
 
+/** Renders a single numeric stat tile. */
 function StatCard({ value, label, hero = false, secondary = false, testID }: StatCardProps): React.ReactNode {
   return (
     <View
@@ -48,14 +56,49 @@ function StatCard({ value, label, hero = false, secondary = false, testID }: Sta
   );
 }
 
+interface PrivateStatProps {
+  /** Displayed below the lock icon as the stat category label. */
+  readonly label: string;
+  /** When true the tile spans the full row (matches the hero win-rate slot). */
+  readonly hero?: boolean;
+  readonly testID?: string;
+}
+
+/**
+ * Placeholder tile shown in place of a stat that the player has chosen to
+ * keep private. Uses the same layout dimensions as `StatCard` so the grid
+ * shape is unchanged.
+ */
+function PrivateStat({ label, hero = false, testID }: PrivateStatProps): React.ReactNode {
+  const palette = usePaletteColors();
+  return (
+    <View
+      testID={testID}
+      className={`rounded-xl p-md items-center justify-center ${
+        hero ? 'bg-brand-teal/10 py-lg' : 'bg-page'
+      }`}
+      style={hero ? { flex: 1 } : { width: '48%' }}
+    >
+      <LockIcon size={hero ? 20 : 16} color={palette.textMuted} />
+      <Text className="text-muted text-[11px] mt-[3px]">Private</Text>
+      <Text className="text-[11px] uppercase tracking-wider mt-[3px] text-muted">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 export default function PlayerStatsGrid({ player }: PlayerStatsGridProps): React.ReactNode {
+  const isHistoryVisible = player.game_history_visible !== false;
   const wins = player.wins ?? 0;
   const losses = player.losses ?? 0;
-  const games = player.total_games ?? wins + losses;
+  const games = player.total_games ?? 0;
   const rating = player.current_rating ?? null;
 
-  const winRate =
-    games > 0 ? Math.round((wins / games) * 100) : 0;
+  // Win rate is only meaningful when win/loss history is visible.
+  const winRate = isHistoryVisible && games > 0
+    ? Math.round((wins / games) * 100)
+    : 0;
 
   return (
     <View
@@ -66,28 +109,32 @@ export default function PlayerStatsGrid({ player }: PlayerStatsGridProps): React
         Stats
       </Text>
 
-      {/* Hero win rate card */}
+      {/* Hero win rate card — replaced by a private placeholder when history is hidden. */}
       <View className="flex-row mb-sm">
-        <StatCard
-          value={`${winRate}%`}
-          label="Win Rate"
-          hero
-          testID="stat-win-rate"
-        />
+        {isHistoryVisible ? (
+          <StatCard
+            value={`${winRate}%`}
+            label="Win Rate"
+            hero
+            testID="stat-win-rate"
+          />
+        ) : (
+          <PrivateStat label="Win Rate" hero testID="stat-win-rate-private" />
+        )}
       </View>
 
       {/* 2-column grid */}
       <View className="flex-row flex-wrap gap-sm">
-        <StatCard
-          value={`${wins}-${losses}`}
-          label="W-L Record"
-          testID="stat-record"
-        />
-        <StatCard
-          value={String(games)}
-          label="Games"
-          testID="stat-games"
-        />
+        {isHistoryVisible ? (
+          <StatCard
+            value={`${wins}-${losses}`}
+            label="W-L Record"
+            testID="stat-record"
+          />
+        ) : (
+          <PrivateStat label="W-L Record" testID="stat-record-private" />
+        )}
+        <StatCard value={String(games)} label="Games" testID="stat-games" />
         {rating != null && (
           <StatCard
             value={String(Math.round(rating))}

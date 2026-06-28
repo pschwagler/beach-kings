@@ -82,10 +82,12 @@ export function useReceivedInvitesScreen(): UseReceivedInvitesScreenResult {
           next.delete(leagueId);
           return next;
         });
+        // Log the raw error for debugging but never surface it to the user —
+        // backend error strings may contain sensitive information or be
+        // untranslated/user-unfriendly.
+        console.error('[useReceivedInvitesScreen] invite respond failed', err);
         const message =
-          err instanceof Error
-            ? err.message
-            : action === 'accept'
+          action === 'accept'
             ? 'Could not accept the invite. Please try again.'
             : 'Could not decline the invite. Please try again.';
         Alert.alert('Error', message);
