@@ -21,6 +21,37 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _build_user_response(user: dict) -> UserResponse:
+    """Construct a ``UserResponse`` from a user dict, populating all auth flags.
+
+    Centralises flag derivation so every endpoint that updates the current user
+    returns a consistent, fully-populated shape.  Mirrors the implementation in
+    ``auth.py`` — kept local to avoid a circular-import through the routes
+    ``__init__`` package.
+
+    Args:
+        user: User dict as returned by ``user_service.get_user_by_id`` or
+            ``get_current_user``.
+
+    Returns:
+        Fully-populated ``UserResponse`` including auth provider fields.
+    """
+    return UserResponse(
+        id=user["id"],
+        phone_number=user.get("phone_number"),
+        email=user.get("email"),
+        is_verified=user["is_verified"],
+        auth_provider=user.get("auth_provider", "phone"),
+        has_password=user.get("password_hash") is not None,
+        deletion_scheduled_at=user.get("deletion_scheduled_at"),
+        created_at=user["created_at"],
+        google_connected=user.get("google_id") is not None,
+        apple_connected=user.get("apple_id") is not None,
+        profile_is_private=bool(user.get("profile_is_private", False)),
+        show_game_history=bool(user.get("show_game_history", False)),
+    )
+
+
 @router.put("/api/users/me", response_model=UserResponse)
 async def update_current_user(
     payload: UserUpdate,
@@ -50,15 +81,7 @@ async def update_current_user(
         if not updated_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        return UserResponse(
-            id=updated_user["id"],
-            phone_number=updated_user["phone_number"],
-            email=updated_user["email"],
-            is_verified=updated_user["is_verified"],
-            created_at=updated_user["created_at"],
-            profile_is_private=updated_user["profile_is_private"],
-            show_game_history=updated_user["show_game_history"],
-        )
+        return _build_user_response(updated_user)
     except HTTPException:
         raise
     except Exception as e:

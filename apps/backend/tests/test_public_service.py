@@ -20,6 +20,7 @@ from backend.database.models import (
     Season,
     Session,
     SessionStatus,
+    User,
 )
 from backend.services import public_service
 from backend.services import user_service
@@ -697,8 +698,14 @@ async def test_get_public_league_avatar_fallback(db_session, test_location, test
 
 
 @pytest.mark.asyncio
-async def test_get_public_player_with_stats(db_session, test_player, test_location):
-    """Player with stats returns full profile data."""
+async def test_get_public_player_with_stats(db_session, test_player, test_user, test_location):
+    """Player with show_game_history=True returns full profile data to any viewer."""
+    # Opt the user into showing game history so W-L is visible to unauthenticated viewers.
+    # Under the new privacy model, W-L is gated on show_game_history (not profile_is_private).
+    user = await db_session.get(User, test_user["id"])
+    user.show_game_history = True
+    db_session.add(user)
+
     # Set player fields
     test_player.gender = "male"
     test_player.level = "intermediate"
@@ -723,8 +730,45 @@ async def test_get_public_player_with_stats(db_session, test_player, test_locati
     assert result["stats"]["total_games"] == 25
     assert result["stats"]["total_wins"] == 15
     assert result["stats"]["win_rate"] == 0.6
+    assert result["game_history_visible"] is True
     assert "created_at" in result
     assert "updated_at" in result
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_show_game_history_false_hides_wl(
+    db_session, test_player, test_user
+):
+    """
+    Player with show_game_history=False hides W-L but keeps rating + games visible.
+
+    Under the new privacy model profile_is_private is a no-op for display;
+    only show_game_history gates W-L for non-owner viewers.
+    """
+    # Ensure show_game_history=False (the default — explicit here for clarity)
+    user = await db_session.get(User, test_user["id"])
+    user.show_game_history = False
+    db_session.add(user)
+
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=20, total_wins=12, current_rating=1300.0
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    # No viewer_user — unauthenticated viewer
+    result = await public_service.get_public_player(db_session, test_player.id)
+
+    assert result is not None
+    # Rating and game count always visible
+    assert result["stats"]["current_rating"] == 1300.0
+    assert result["stats"]["total_games"] == 20
+    # W-L hidden
+    assert result["stats"]["total_wins"] is None
+    assert result["stats"]["win_rate"] is None
+    assert result["game_history_visible"] is False
+    # League memberships still populated (not gated on show_game_history)
+    assert "league_memberships" in result
 
 
 @pytest.mark.asyncio
@@ -1287,3 +1331,245 @@ async def test_get_public_location_no_region(db_session):
 
     assert result is not None
     assert result["region"] is None
+
+
+# ============================================================================
+# Privacy model: get_public_league standings include ALL players (including private)
+# ============================================================================
+
+
+@pytest_asyncio.fixture
+async def league_with_private_and_public_player(db_session):
+    """
+    A public league whose season standings contain one private and one public player.
+
+    Both players appear in standings — the privacy flag only gates W-L on the
+    individual player profile, not on league standings.
+    The public player must appear in both members and standings.
+
+    Design notes:
+    - Self-contained (no shared test_region/test_location dependency) so it is
+      robust against the pre-existing truncation-deadlock flakiness documented in
+      MEMORY.md that can leave 'test_region' in the DB between test runs.
+    - Users are inserted directly via ORM (not via user_service.create_user) to
+      avoid the mid-fixture commit that create_user performs internally.  That
+      intermediate commit causes asyncpg FK visibility issues on the subsequent
+      player INSERT when the connection pool reassigns the connection.
+    """
+    import uuid
+    import datetime as _dt
+    import bcrypt
+
+    # Unique IDs so this fixture never conflicts with test_region / test_location
+    uid_suffix = uuid.uuid4().hex[:8]
+    region_id = f"fixc_region_{uid_suffix}"
+    location_id = f"fixc_loc_{uid_suffix}"
+    ph = bcrypt.hashpw(b"pw", bcrypt.gensalt()).decode()
+
+    # Batch all schema objects into as few commits as possible.
+    # Region + Location first (location has FK to region).
+    region = Region(id=region_id, name=f"Fix-C Region {uid_suffix}")
+    db_session.add(region)
+    await db_session.flush()
+
+    location = Location(
+        id=location_id,
+        name="Fix-C Beach",
+        city="Fix-C City",
+        state="CA",
+        region_id=region_id,
+        slug=None,
+    )
+    db_session.add(location)
+    await db_session.flush()
+
+    # Users — one public, one private.  Direct ORM insert avoids the mid-fixture
+    # session.commit() that user_service.create_user() performs.
+    pub_user = User(
+        phone_number=f"+1555{uid_suffix[:7]}1",
+        password_hash=ph,
+        email=f"standings_public_{uid_suffix}@example.com",
+        is_verified=True,
+        profile_is_private=False,
+    )
+    priv_user = User(
+        phone_number=f"+1555{uid_suffix[:7]}2",
+        password_hash=ph,
+        email=f"standings_private_{uid_suffix}@example.com",
+        is_verified=True,
+        profile_is_private=True,
+    )
+    db_session.add_all([pub_user, priv_user])
+    await db_session.flush()
+
+    # Players linked to those users.  Flush to obtain IDs, then commit.
+    # expire_on_commit=False (set on the test session maker) means object
+    # attributes survive the commit without needing a refresh call.
+    pub_player = Player(full_name="Public Standings Player", user_id=pub_user.id)
+    priv_player = Player(full_name="Private Standings Player", user_id=priv_user.id)
+    db_session.add_all([pub_player, priv_player])
+    await db_session.flush()
+    await db_session.commit()
+
+    # League
+    league = League(name="Standings Test League", location_id=location_id, is_public=True)
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    db_session.add(LeagueMember(league_id=league.id, player_id=pub_player.id, role="member"))
+    db_session.add(LeagueMember(league_id=league.id, player_id=priv_player.id, role="member"))
+
+    # Season
+    season = Season(
+        league_id=league.id,
+        name="Privacy Season",
+        start_date=_dt.date(2026, 1, 1),
+        end_date=_dt.date(2026, 12, 31),
+    )
+    db_session.add(season)
+    await db_session.flush()
+    await db_session.commit()
+
+    # Season stats — private player has MORE points; both appear in standings
+    priv_stats = PlayerSeasonStats(
+        player_id=priv_player.id,
+        season_id=season.id,
+        games=10,
+        wins=8,
+        points=20.0,
+        win_rate=0.8,
+        avg_point_diff=4.0,
+    )
+    pub_stats = PlayerSeasonStats(
+        player_id=pub_player.id,
+        season_id=season.id,
+        games=10,
+        wins=4,
+        points=10.0,
+        win_rate=0.4,
+        avg_point_diff=1.0,
+    )
+    db_session.add_all([priv_stats, pub_stats])
+    await db_session.commit()
+
+    return {
+        "league": league,
+        "season": season,
+        "pub_player": pub_player,
+        "priv_player": priv_player,
+    }
+
+
+@pytest.mark.asyncio
+async def test_private_player_visible_in_league_standings(
+    db_session, league_with_private_and_public_player
+):
+    """
+    New privacy model: a private player's profile_is_private flag does NOT
+    affect league standings.  Both public and private players appear in
+    standings with their full stats.
+
+    The privacy flag only gates W-L on the individual player-profile endpoint.
+    """
+    data = league_with_private_and_public_player
+    league = data["league"]
+    pub_player = data["pub_player"]
+    priv_player = data["priv_player"]
+
+    result = await public_service.get_public_league(db_session, league.id)
+
+    assert result is not None
+
+    # Both players appear in the members list
+    member_names = [m["full_name"] for m in result["members"]]
+    assert pub_player.full_name in member_names, "Public player must appear in members"
+    assert priv_player.full_name in member_names, "Private player must appear in members"
+
+    # Both players must appear in standings (privacy no longer filters standings)
+    standings_names = [s["full_name"] for s in result["standings"]]
+    assert pub_player.full_name in standings_names, "Public player must appear in standings"
+    assert priv_player.full_name in standings_names, (
+        "Private player must appear in standings — profile_is_private no longer filters"
+    )
+
+
+@pytest.mark.asyncio
+async def test_standings_ranks_include_all_players(
+    db_session, league_with_private_and_public_player
+):
+    """
+    Both public and private players count toward standings rank.
+
+    The private player has more points (20.0) so they should be rank 1.
+    The public player (10.0 pts) should be rank 2.
+    """
+    data = league_with_private_and_public_player
+    result = await public_service.get_public_league(db_session, data["league"].id)
+
+    standings = result["standings"]
+    assert len(standings) == 2, f"Expected 2 standing entries (both players), got {len(standings)}"
+
+    # Ranks should be contiguous 1..2
+    ranks = [s["rank"] for s in standings]
+    assert sorted(ranks) == [1, 2], f"Expected ranks [1, 2] but got {ranks}"
+
+    # Private player (more points) should be rank 1
+    priv_player = data["priv_player"]
+    priv_entry = next((s for s in standings if s["full_name"] == priv_player.full_name), None)
+    assert priv_entry is not None, "Private player must be in standings"
+    assert priv_entry["rank"] == 1, (
+        f"Private player with more points should be rank 1, got rank {priv_entry['rank']}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_placeholder_player_visible_in_standings(db_session, test_location):
+    """
+    Fix C: Placeholder players (user_id=NULL) have no User row and must be
+    treated as public — they should appear in standings.
+    """
+    import datetime as _dt
+
+    league = League(name="Placeholder League", location_id=test_location.id, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    # Placeholder player has no user
+    placeholder = Player(full_name="Placeholder Pat", user_id=None)
+    db_session.add(placeholder)
+    await db_session.commit()
+    await db_session.refresh(placeholder)
+
+    db_session.add(LeagueMember(league_id=league.id, player_id=placeholder.id, role="member"))
+
+    season = Season(
+        league_id=league.id,
+        name="Placeholder Season",
+        start_date=_dt.date(2026, 1, 1),
+        end_date=_dt.date(2026, 12, 31),
+    )
+    db_session.add(season)
+    await db_session.commit()
+    await db_session.refresh(season)
+
+    stats = PlayerSeasonStats(
+        player_id=placeholder.id,
+        season_id=season.id,
+        games=5,
+        wins=3,
+        points=8.0,
+        win_rate=0.6,
+        avg_point_diff=2.0,
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.get_public_league(db_session, league.id)
+
+    assert result is not None
+    standings_names = [s["full_name"] for s in result["standings"]]
+    assert "Placeholder Pat" in standings_names, (
+        "Placeholder (no user) player must appear in standings"
+    )

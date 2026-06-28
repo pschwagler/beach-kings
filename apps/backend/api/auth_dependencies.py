@@ -16,7 +16,11 @@ from backend.database.models import Court, LeagueMember, Player, Season, WeeklyS
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
-security = HTTPBearer()
+# auto_error=False so we can raise 401 (not 403) for missing credentials.
+# HTTPBearer with auto_error=True returns 403, which is semantically wrong for
+# absent credentials; RFC 9110 says the server SHOULD send 401 when the resource
+# requires authentication and the request carries no credentials.
+security = HTTPBearer(auto_error=False)
 
 
 def _is_deletion_expired(user: dict) -> bool:
@@ -42,21 +46,27 @@ def _is_deletion_expired(user: dict) -> bool:
 
 async def get_current_user(
     session: AsyncSession = Depends(get_db_session),
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> dict:
     """
     Dependency to get the current authenticated user from JWT token.
 
     Args:
         session: Database session
-        credentials: HTTP Bearer token credentials
+        credentials: HTTP Bearer token credentials (None when absent)
 
     Returns:
         User dictionary
 
     Raises:
-        HTTPException: If token is invalid or user not found
+        HTTPException: 401 if credentials are missing or invalid; user not found
     """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     token = credentials.credentials
 
     # Verify token

@@ -93,6 +93,113 @@ class TestUpdateCurrentUser:
         assert data["id"] == USER_ID
         assert data["phone_number"] == PHONE
 
+    def test_put_me_returns_auth_fields_for_google_user(self, monkeypatch):
+        """
+        Fix B: PUT /api/users/me must include auth_provider, has_password,
+        google_connected, and apple_connected in the response.
+
+        Before Fix B the route hand-built UserResponse, omitting these fields.
+        The fix replaces the manual construction with _build_user_response().
+        """
+        def fake_verify_token(token: str):
+            return {"user_id": USER_ID, "phone_number": None}
+
+        async def fake_get_user_by_id_google(session, uid: int):
+            return {
+                "id": uid,
+                "phone_number": None,
+                "email": "google_user@example.com",
+                "is_verified": True,
+                "created_at": "2020-01-01T00:00:00Z",
+                "profile_is_private": False,
+                "show_game_history": False,
+                # Google-linked user specifics
+                "auth_provider": "google",
+                "google_id": "gid-abc-123",
+                "apple_id": None,
+                "password_hash": None,
+                "deletion_scheduled_at": None,
+            }
+
+        async def fake_update_user(
+            session, user_id, email=None, profile_is_private=None, show_game_history=None
+        ):
+            return True
+
+        monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
+        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id_google, raising=True)
+        monkeypatch.setattr(user_service, "update_user", fake_update_user, raising=True)
+
+        client = TestClient(app)
+        response = client.put(
+            "/api/users/me",
+            json={"email": "google_user@example.com"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["auth_provider"] == "google", (
+            "auth_provider must be 'google' for a Google-linked user"
+        )
+        assert data["has_password"] is False, (
+            "has_password must be False when password_hash is None"
+        )
+        assert data["google_connected"] is True, (
+            "google_connected must be True when google_id is set"
+        )
+        assert data["apple_connected"] is False, (
+            "apple_connected must be False when apple_id is None"
+        )
+
+    def test_put_me_returns_auth_fields_for_phone_user(self, monkeypatch):
+        """
+        Fix B: PUT /api/users/me returns correct auth fields for a phone/password user.
+
+        Phone users have auth_provider='phone', has_password=True, and no social connections.
+        """
+        def fake_verify_token(token: str):
+            return {"user_id": USER_ID, "phone_number": PHONE}
+
+        async def fake_get_user_by_id_phone(session, uid: int):
+            return {
+                "id": uid,
+                "phone_number": PHONE,
+                "email": None,
+                "is_verified": True,
+                "created_at": "2020-01-01T00:00:00Z",
+                "profile_is_private": False,
+                "show_game_history": False,
+                "auth_provider": "phone",
+                "google_id": None,
+                "apple_id": None,
+                "password_hash": "$2b$12$hashedpassword",
+                "deletion_scheduled_at": None,
+            }
+
+        async def fake_update_user(
+            session, user_id, email=None, profile_is_private=None, show_game_history=None
+        ):
+            return True
+
+        monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
+        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id_phone, raising=True)
+        monkeypatch.setattr(user_service, "update_user", fake_update_user, raising=True)
+
+        client = TestClient(app)
+        response = client.put(
+            "/api/users/me",
+            json={"email": "phone_user@example.com"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["auth_provider"] == "phone"
+        assert data["has_password"] is True
+        assert data["google_connected"] is False
+        assert data["apple_connected"] is False
+
     def test_update_user_no_fields_returns_400(self, monkeypatch):
         """Returns 400 when update_user reports nothing to update."""
         client, headers = _make_authed_client(monkeypatch)

@@ -352,6 +352,9 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             "start_date": str(latest_season.start_date),
             "end_date": str(latest_season.end_date),
         }
+        # Standings include all players regardless of profile_is_private.
+        # The privacy flag only gates W-L stats on the individual player-profile
+        # endpoint — league standings are always fully visible.
         standings_result = await session.execute(
             select(
                 PlayerSeasonStats.player_id,
@@ -363,13 +366,16 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
                 PlayerSeasonStats.avg_point_diff,
             )
             .join(Player, Player.id == PlayerSeasonStats.player_id)
-            .where(PlayerSeasonStats.season_id == latest_season.id)
+            .where(
+                PlayerSeasonStats.season_id == latest_season.id,
+            )
             .order_by(
                 PlayerSeasonStats.points.desc(),
                 PlayerSeasonStats.avg_point_diff.desc(),
                 PlayerSeasonStats.win_rate.desc(),
             )
         )
+        # enumerate starts at 1; ranks are contiguous 1..N.
         response["standings"] = [
             {
                 "rank": rank,
@@ -441,48 +447,6 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
     return response
 
 
-async def _viewer_shares_league(
-    session: AsyncSession, target_player_id: int, viewer_user_id: int
-) -> bool:
-    """
-    Return True when the viewer and the target player share at least one league.
-
-    Used to apply the league-mate exception: even when a player's profile is
-    private, a viewer who shares a league with them may see that player's stats
-    within shared-league surfaces.
-
-    Args:
-        session: Database session.
-        target_player_id: The private player's ID.
-        viewer_user_id: The viewing user's ID.
-
-    Returns:
-        True if they share a league, False otherwise.
-    """
-    viewer_player_q = select(Player.id).where(
-        Player.user_id == viewer_user_id,
-        Player.is_placeholder == False,  # noqa: E712
-    )
-    viewer_player = (await session.execute(viewer_player_q)).scalar_one_or_none()
-    if viewer_player is None:
-        return False
-
-    shared = await session.execute(
-        select(1)
-        .select_from(LeagueMember)
-        .join(
-            LeagueMember.__table__.alias("lm2"),
-            LeagueMember.league_id == LeagueMember.__table__.alias("lm2").c.league_id,
-        )
-        .where(
-            LeagueMember.player_id == target_player_id,
-            LeagueMember.__table__.alias("lm2").c.player_id == viewer_player,
-        )
-        .limit(1)
-    )
-    return shared.scalar_one_or_none() is not None
-
-
 async def get_public_player(
     session: AsyncSession,
     player_id: int,
@@ -492,16 +456,13 @@ async def get_public_player(
     Get public-facing player profile by ID, with privacy gating applied.
 
     Privacy model:
-    - **Floor** (always visible): name, avatar, level, city/state, total games.
-    - **Public profile** (``profile_is_private=False``): adds W-L record, rank,
-      win%, and league memberships.
-    - **Private profile** (``profile_is_private=True``): non-self viewers
-      receive the floor only — no W-L, rank, win%, or league list.
-    - **Game history**: returned only when
-      ``not profile_is_private AND show_game_history`` OR the viewer is the
-      owner.  The ``game_history_visible`` flag in the response signals this
-      to the web/mobile layers.
-    - Owner (viewer whose user owns the player) always sees everything.
+    - **Always visible**: name, avatar, level, city/state, current_rating,
+      total_games, and league_memberships.
+    - **game_history_visible** flag (``show_game_history=True`` OR viewer is
+      the owner): when True, W-L record (``total_wins``, ``win_rate``) are
+      included in stats.  When False, those two fields are ``None``.
+    - ``profile_is_private`` is stored but no longer gates any part of the
+      response — it is a no-op for display purposes.
 
     Only players with total_games >= 1 are publicly visible.
 
@@ -538,15 +499,13 @@ async def get_public_player(
     viewer_user_id: Optional[int] = viewer_user["id"] if viewer_user else None
     is_self = viewer_user_id is not None and player.user_id == viewer_user_id
 
-    # Determine visibility tier
-    if profile_is_private and not is_self:
-        show_full = False
-    else:
-        show_full = True
+    # game_history_visible: owner always sees full record; others see it only
+    # when the player has opted in via show_game_history.
+    # profile_is_private is preserved in the response for client use but no
+    # longer gates any part of the server response.
+    game_history_visible = is_self or bool(show_game_history)
 
-    game_history_visible = is_self or (show_full and show_game_history)
-
-    # 2. Location dict (floor — always included)
+    # 2. Location dict (always included)
     location_dict = (
         {
             "id": location.id,
@@ -559,10 +518,11 @@ async def get_public_player(
         else None
     )
 
-    # 3. Floor stats — total_games always shown; W-L gated on show_full
+    # 3. Stats — current_rating and total_games always visible.
+    # W-L record (total_wins, win_rate) gated on game_history_visible.
     win_rate = round(stats.total_wins / stats.total_games, 4) if stats.total_games > 0 else 0.0
 
-    if show_full:
+    if game_history_visible:
         stats_dict = {
             "current_rating": stats.current_rating,
             "total_games": stats.total_games,
@@ -570,30 +530,26 @@ async def get_public_player(
             "win_rate": win_rate,
         }
     else:
-        # Private floor: only total_games, hide W-L, rating, win%
         stats_dict = {
-            "current_rating": None,
+            "current_rating": stats.current_rating,
             "total_games": stats.total_games,
             "total_wins": None,
             "win_rate": None,
         }
 
-    # 4. League memberships — only when full profile visible
-    if show_full:
-        memberships_result = await session.execute(
-            select(League.id, League.name)
-            .join(LeagueMember, LeagueMember.league_id == League.id)
-            .where(
-                LeagueMember.player_id == player_id,
-                League.is_public == True,  # noqa: E712
-            )
-            .order_by(League.name.asc())
+    # 4. League memberships — always populated, not gated on privacy flags.
+    memberships_result = await session.execute(
+        select(League.id, League.name)
+        .join(LeagueMember, LeagueMember.league_id == League.id)
+        .where(
+            LeagueMember.player_id == player_id,
+            League.is_public == True,  # noqa: E712
         )
-        league_memberships = [
-            {"league_id": r.id, "league_name": r.name} for r in memberships_result.all()
-        ]
-    else:
-        league_memberships = []
+        .order_by(League.name.asc())
+    )
+    league_memberships = [
+        {"league_id": r.id, "league_name": r.name} for r in memberships_result.all()
+    ]
 
     return {
         "id": player.id,
