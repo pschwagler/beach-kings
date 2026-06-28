@@ -132,7 +132,9 @@ function LeagueHeader({
         {locationName != null && (
           <Text className="text-[12px] text-muted">·</Text>
         )}
-        <Text className="text-[12px] text-muted">{memberCount} members</Text>
+        <Text className="text-[12px] text-muted">
+          {memberCount} {memberCount === 1 ? 'member' : 'members'}
+        </Text>
       </View>
     </View>
   );

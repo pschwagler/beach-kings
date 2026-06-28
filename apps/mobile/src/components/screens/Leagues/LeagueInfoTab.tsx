@@ -245,7 +245,8 @@ function SeasonRow({ season }: { readonly season: LeagueSeason }): React.ReactNo
           {season.name}
         </Text>
         <Text className="text-[12px] text-muted">
-          Started {startDate} · {season.session_count} sessions
+          Started {startDate} · {season.session_count}{' '}
+          {season.session_count === 1 ? 'session' : 'sessions'}
         </Text>
       </View>
       <View

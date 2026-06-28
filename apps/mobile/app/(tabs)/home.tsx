@@ -82,9 +82,15 @@ export default function HomeScreen(): React.ReactNode {
 
   const firstName =
     playerData?.first_name ?? playerData?.name?.split(' ')[0] ?? 'Player';
-  const rating = playerData?.current_rating ?? null;
-  const wins = playerData?.wins ?? 0;
-  const losses = playerData?.losses ?? 0;
+  // `/api/users/me/player` nests the aggregates under `stats` (current_rating,
+  // total_games, total_wins) and exposes no `losses` field — derive it. Fall
+  // back to any top-level fields for robustness against other player shapes.
+  const rating =
+    playerData?.stats?.current_rating ?? playerData?.current_rating ?? null;
+  const totalGames =
+    playerData?.stats?.total_games ?? playerData?.total_games ?? 0;
+  const wins = playerData?.stats?.total_wins ?? playerData?.wins ?? 0;
+  const losses = Math.max(0, totalGames - wins);
   const profilePercent = computeProfilePercent(playerData);
   const invitesPending = friendRequestsData.length;
   const pendingGameCount = countPendingInviteGames(matchesData);
