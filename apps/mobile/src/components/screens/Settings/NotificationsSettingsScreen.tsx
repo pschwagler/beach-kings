@@ -4,7 +4,6 @@
  * Sections:
  *   - Master push notifications toggle
  *   - Individual notification type toggles
- *   - Schedule (quiet hours — informational, no picker yet)
  *
  * Wireframe ref: settings-notifications.html
  */
@@ -216,28 +215,6 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
               }}
             />
           ))}
-        </View>
-
-        <SectionHeader title="Schedule" />
-        <View>
-          <Pressable
-            testID="quiet-hours-row"
-            accessibilityRole="button"
-            onPress={() => {
-              // TODO(backend): quiet hours picker
-            }}
-            className="flex-row items-center justify-between px-lg bg-surface border-b border-divider min-h-[48px] active:opacity-70"
-          >
-            <Text className="text-[15px] text-default">
-              Quiet Hours
-            </Text>
-            <View className="flex-row items-center gap-sm">
-              <Text className="text-[14px] text-muted">
-                10 PM - 7 AM
-              </Text>
-              <Text className="text-muted text-lg">›</Text>
-            </View>
-          </Pressable>
         </View>
 
       </ScrollView>

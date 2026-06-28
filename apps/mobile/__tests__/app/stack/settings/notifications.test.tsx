@@ -8,7 +8,6 @@
  *   - Master toggle is on when all prefs are true
  *   - Master toggle is off when any pref is false
  *   - Individual toggle calls onToggle with the correct key
- *   - Quiet Hours row renders
  *   - Notification types section dims when master is off
  */
 
@@ -217,13 +216,6 @@ describe('NotificationsSettingsScreen — toggles', () => {
     await waitFor(() => {
       const master = screen.getByTestId('toggle-master');
       expect(master.props.value).toBe(false);
-    });
-  });
-
-  it('renders quiet hours row', async () => {
-    render(<NotificationsRoute />);
-    await waitFor(() => {
-      expect(screen.getByTestId('quiet-hours-row')).toBeTruthy();
     });
   });
 
