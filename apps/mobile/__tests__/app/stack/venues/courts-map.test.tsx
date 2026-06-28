@@ -163,9 +163,15 @@ jest.mock('@/utils/haptics', () => ({
 
 // api mock
 const mockGetCourts = jest.fn();
+const mockGetCurrentUserPlayer = jest.fn();
+const mockGetPlayerHomeCourts = jest.fn();
+const mockGetLocations = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
     getCourts: (...args: unknown[]) => mockGetCourts(...args),
+    getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
+    getPlayerHomeCourts: (...args: unknown[]) => mockGetPlayerHomeCourts(...args),
+    getLocations: (...args: unknown[]) => mockGetLocations(...args),
   },
 }));
 
@@ -187,6 +193,19 @@ jest.mock('@/components/ui/icons', () => {
 import CourtMapPreview from '../../../../src/components/screens/Venues/CourtMapPreview';
 import CourtsMapView from '../../../../src/components/screens/Venues/CourtsMapView';
 import CourtsScreen from '../../../../app/(stack)/courts';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// CourtsScreen resolves location via TanStack-backed hooks → needs a provider.
+function renderScreen() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity, staleTime: Infinity } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <CourtsScreen />
+    </QueryClientProvider>,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -227,6 +246,9 @@ const COURT_NO_COORDS = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetCourts.mockResolvedValue([]);
+  mockGetCurrentUserPlayer.mockResolvedValue(null);
+  mockGetPlayerHomeCourts.mockResolvedValue([]);
+  mockGetLocations.mockResolvedValue([]);
   mockRequestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
   mockGetCurrentPositionAsync.mockResolvedValue({
     coords: { latitude: 34.0, longitude: -118.0 },
@@ -404,14 +426,14 @@ describe('CourtsScreen — list/map toggle', () => {
   });
 
   it('renders the view-mode toggle', async () => {
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-view-toggle')).toBeTruthy();
     });
   });
 
   it('renders List and Map toggle buttons', async () => {
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-view-toggle-list')).toBeTruthy();
       expect(screen.getByTestId('courts-view-toggle-map')).toBeTruthy();
@@ -419,14 +441,14 @@ describe('CourtsScreen — list/map toggle', () => {
   });
 
   it('defaults to list mode (courts-list visible)', async () => {
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-list')).toBeTruthy();
     });
   });
 
   it('switches to map mode when Map toggle is pressed', async () => {
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-view-toggle-map')).toBeTruthy();
     });
@@ -437,7 +459,7 @@ describe('CourtsScreen — list/map toggle', () => {
   });
 
   it('returns to list mode when List toggle is pressed from map mode', async () => {
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-view-toggle-map')).toBeTruthy();
     });
@@ -454,7 +476,7 @@ describe('CourtsScreen — list/map toggle', () => {
   });
 
   it('"View Full Map" button in list mode switches to map mode', async () => {
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-view-full-map-btn')).toBeTruthy();
     });
@@ -465,7 +487,7 @@ describe('CourtsScreen — list/map toggle', () => {
   });
 
   it('navigates to court detail when a map marker is pressed', async () => {
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-view-toggle-map')).toBeTruthy();
     });
@@ -491,14 +513,14 @@ describe('CourtsScreen — location permission denied', () => {
   });
 
   it('still renders courts list when location permission is denied', async () => {
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-list')).toBeTruthy();
     });
   });
 
   it('still renders the toggle when location permission is denied', async () => {
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-view-toggle')).toBeTruthy();
     });

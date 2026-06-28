@@ -14,9 +14,11 @@ from backend.database.models import (
     LeagueMember,
     Location,
     Player,
+    PlayerHomeCourt,
     Region,
 )
 from backend.services import court_service
+from backend.services import player_data
 from backend.services import user_service
 import bcrypt
 
@@ -1067,8 +1069,6 @@ class TestSavedCourts:
         self, db_session, location, test_player
     ):
         """A PlayerHomeCourt row pointing at a non-approved court is excluded from cards."""
-        from backend.database.models import PlayerHomeCourt
-
         # Create a court that starts approved so we can save it legitimately,
         # then demote it to simulate it becoming unavailable.
         court_obj = Court(
@@ -1108,3 +1108,41 @@ class TestSavedCourts:
             db_session, {"id": test_user["id"]}
         )
         assert pid == test_player.id
+
+
+# ============================================================================
+# Player home courts — coordinate exposure (powers client location coalescing)
+# ============================================================================
+
+
+class TestPlayerHomeCourtCoords:
+    """get_player_home_courts surfaces each court's latitude/longitude."""
+
+    @pytest.mark.asyncio
+    async def test_includes_court_coordinates(
+        self, db_session, location, test_player
+    ):
+        """A player's home court returns the court's coordinates, ordered by position."""
+        court = Court(
+            name="Coords Court",
+            address="500 Ocean Ave",
+            location_id=location.id,
+            latitude=32.78,
+            longitude=-117.23,
+            status="approved",
+        )
+        db_session.add(court)
+        await db_session.commit()
+        await db_session.refresh(court)
+
+        db_session.add(
+            PlayerHomeCourt(player_id=test_player.id, court_id=court.id, position=0)
+        )
+        await db_session.commit()
+
+        result = await player_data.get_player_home_courts(db_session, test_player.id)
+
+        assert len(result) == 1
+        assert result[0]["latitude"] == 32.78
+        assert result[0]["longitude"] == -117.23
+        assert result[0]["id"] == court.id

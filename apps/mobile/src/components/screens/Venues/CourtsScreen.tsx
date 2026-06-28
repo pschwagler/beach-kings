@@ -33,6 +33,7 @@ import CourtsEmptyState from './CourtsEmptyState';
 import CourtsErrorState from './CourtsErrorState';
 import CourtsFilterBar from './CourtsFilterBar';
 import CourtsMapView from './CourtsMapView';
+import CourtsMapPreview from './CourtsMapPreview';
 import type { Court } from '@beach-kings/shared';
 import type { CourtsViewMode } from './useCourtsScreen';
 
@@ -101,38 +102,6 @@ function ViewModeToggle({
           }`}
         >
           Map
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Map stub (shown in list header; tapping "View Full Map" switches to map mode)
-// ---------------------------------------------------------------------------
-
-interface MapStubProps {
-  readonly onViewFullMap: () => void;
-}
-
-function MapStub({ onViewFullMap }: MapStubProps): React.ReactNode {
-  return (
-    <View
-      testID="courts-map-stub"
-      className="h-[180px] bg-info-tint items-center justify-center border-b border-strong"
-    >
-      <Text className="text-[13px] text-muted mb-2">
-        Map view
-      </Text>
-      <Pressable
-        testID="courts-view-full-map-btn"
-        accessibilityRole="button"
-        accessibilityLabel="View Full Map"
-        onPress={onViewFullMap}
-        className="px-4 py-2 rounded-lg bg-surface border border-strong active:opacity-80"
-      >
-        <Text className="text-[13px] font-medium text-brand-teal">
-          View Full Map
         </Text>
       </Pressable>
     </View>
@@ -269,7 +238,11 @@ export default function CourtsScreen(): React.ReactNode {
         ListHeaderComponent={
           <>
             <ViewModeToggle viewMode={viewMode} onToggle={setViewMode} />
-            <MapStub onViewFullMap={handleViewFullMap} />
+            <CourtsMapPreview
+              courts={courts}
+              userLocation={userLocation}
+              onViewFullMap={handleViewFullMap}
+            />
             <CourtsFilterBar
               activeFilter={activeFilter}
               onFilterChange={setActiveFilter}

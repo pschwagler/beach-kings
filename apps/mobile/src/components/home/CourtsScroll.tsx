@@ -8,6 +8,7 @@ import { View, Text, ScrollView, Pressable, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { Court } from '@beach-kings/shared';
 import { routes } from '@/lib/navigation';
+import { formatDistance } from '@/lib/formatters';
 
 interface CourtsScrollProps {
   readonly courts: readonly Court[];
@@ -15,10 +16,7 @@ interface CourtsScrollProps {
 
 function formatLocation(court: Court): string {
   const cityState = court.city ?? court.location_name ?? '';
-  const distance =
-    court.distance_miles != null
-      ? `${court.distance_miles.toFixed(1)} mi`
-      : '';
+  const distance = formatDistance(court.distance_miles);
   return [cityState, distance].filter(Boolean).join(' · ');
 }
 

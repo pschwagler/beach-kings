@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
+import { formatDistance } from '@/lib/formatters';
 import type { Court } from '@beach-kings/shared';
 
 function ChevronRight(): React.ReactNode {
@@ -57,9 +58,14 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
     router.push(routes.court(court.id));
   }, [router, court.id]);
 
+  // The list endpoint serializes the cover as `photo_url`; the nested arrays
+  // are only present in detail contexts. Fall back through both, then to a
+  // neutral placeholder (no stock/random imagery).
   const photoUrl =
-    (court.court_photos?.[0]?.url ?? court.all_photos?.[0]?.url) ??
-    `https://picsum.photos/seed/court${court.id}/144/144`;
+    court.photo_url ||
+    court.court_photos?.[0]?.url ||
+    court.all_photos?.[0]?.url ||
+    null;
 
   const locationLabel =
     [court.city, court.state].filter(Boolean).join(', ') ||
@@ -78,12 +84,21 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
       accessibilityLabel={accessibilityLabel}
       className="flex-row items-center px-4 py-3 border-b border-strong active:bg-surface"
     >
-      {/* Thumbnail */}
-      <Image
-        source={{ uri: photoUrl }}
-        className="w-[72px] h-[72px] rounded-lg bg-surface"
-        accessibilityIgnoresInvertColors
-      />
+      {/* Thumbnail (or neutral placeholder when the court has no photo) */}
+      {photoUrl != null ? (
+        <Image
+          testID={`court-thumb-${court.id}`}
+          source={{ uri: photoUrl }}
+          className="w-[72px] h-[72px] rounded-lg bg-surface"
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        <View
+          testID={`court-thumb-placeholder-${court.id}`}
+          className="w-[72px] h-[72px] rounded-lg bg-info-tint"
+        />
+      )}
 
       {/* Content */}
       <View className="flex-1 ml-3">
@@ -104,7 +119,7 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
           </Text>
           {court.distance_miles != null && (
             <Text className="text-[12px] text-tertiary">
-              · {court.distance_miles.toFixed(1)} mi
+              · {formatDistance(court.distance_miles)}
             </Text>
           )}
         </View>

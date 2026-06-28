@@ -13,9 +13,10 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, Pressable, Platform } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView from 'react-native-maps';
 import { openDirections } from '@/utils/maps';
-import { usePaletteColors } from '@/theme/usePaletteColors';
+import CourtMarker from './CourtMarker';
+import { singlePinRegion, type CourtWithCoords } from '@/utils/mapRegion';
 import type { Court } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
@@ -24,12 +25,6 @@ import type { Court } from '@beach-kings/shared';
 
 /** Height of the embedded map card in dp. */
 const MAP_HEIGHT = 160;
-
-/**
- * Delta used when framing the map around a single pin. Roughly ~1 km view.
- * Smaller deltas = closer zoom.
- */
-const COORD_DELTA = 0.008;
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -71,8 +66,6 @@ interface CourtMapPreviewProps {
 export default function CourtMapPreview({
   court,
 }: CourtMapPreviewProps): React.ReactNode {
-  const palette = usePaletteColors();
-
   const hasCoords =
     court.latitude != null && court.longitude != null;
 
@@ -119,22 +112,12 @@ export default function CourtMapPreview({
             rotateEnabled={false}
             pitchEnabled={false}
             pointerEvents="none"
-            initialRegion={{
+            initialRegion={singlePinRegion({
               latitude: court.latitude as number,
               longitude: court.longitude as number,
-              latitudeDelta: COORD_DELTA,
-              longitudeDelta: COORD_DELTA,
-            }}
+            })}
           >
-            <Marker
-              coordinate={{
-                latitude: court.latitude as number,
-                longitude: court.longitude as number,
-              }}
-              title={court.name}
-              description={court.address ?? undefined}
-              pinColor={palette.brandTeal}
-            />
+            <CourtMarker court={court as CourtWithCoords} />
           </MapView>
         </Pressable>
       ) : (

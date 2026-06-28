@@ -5,6 +5,7 @@
 import type { ApiClient } from './client';
 import type {
   Player,
+  PlayerHomeCourt,
   PlayerSearchResponse,
   Match,
   League,
@@ -71,8 +72,20 @@ import type {
  * PublicPlayerPage consumes the same endpoint).
  */
 export function mapPublicPlayerToPlayer(res: PublicPlayerResponse): Player {
-  const wins = res.stats.total_wins;
+  const rawWins = res.stats.total_wins;
   const games = res.stats.total_games;
+
+  // Hide only the win/loss derived fields when:
+  //  a) the backend flagged win/loss history as not visible, OR
+  //  b) total_wins is null (backend omitted it — prevents fabricated "0-N" losses)
+  // NOTE: current_rating (ELO) is ALWAYS preserved — the backend returns it
+  // regardless of the game_history_visible setting.
+  const hideWinStats = res.game_history_visible === false || rawWins === null;
+
+  const wins = hideWinStats ? null : rawWins;
+  // rawWins is non-null here because hideWinStats would be true otherwise.
+  const losses = hideWinStats ? null : games - (rawWins as number);
+
   return {
     id: res.id,
     name: res.full_name,
@@ -90,8 +103,10 @@ export function mapPublicPlayerToPlayer(res: PublicPlayerResponse): Player {
     total_games: games,
     total_wins: wins,
     wins,
-    losses: games - wins,
+    losses,
     league_memberships: res.league_memberships,
+    game_history_visible: res.game_history_visible,
+    profile_is_private: res.profile_is_private,
   };
 }
 
@@ -953,13 +968,39 @@ export function createApiMethods(client: ApiClient) {
     // Court
     // -----------------------------------------------------------------------
 
-    async getCourts(params?: { location_id?: string | null; lat?: number; lon?: number; radius?: number }) {
+    /**
+     * Fetch public courts. When `user_lat`/`user_lng` are provided the backend
+     * sorts by haversine distance and populates `distance_miles` per court;
+     * otherwise results come back alphabetically by name.
+     *
+     * NOTE: the param names must be `user_lat`/`user_lng` — the backend
+     * `/api/public/courts` endpoint ignores any other coordinate keys, which
+     * would silently fall back to alphabetical ordering.
+     */
+    async getCourts(params?: {
+      location_id?: string | null;
+      user_lat?: number;
+      user_lng?: number;
+    }) {
       const response = await api.get<{ items: Court[] } | Court[]>('/api/public/courts', {
         params: params ?? {},
       });
       const data = response.data;
       if (Array.isArray(data)) return data;
       return data?.items ?? [];
+    },
+
+    /**
+     * Fetch a player's home courts (ordered by position), including
+     * coordinates. Used as a fallback when resolving the user's location.
+     *
+     * Maps to GET /api/players/{playerId}/home-courts.
+     */
+    async getPlayerHomeCourts(playerId: number): Promise<PlayerHomeCourt[]> {
+      const response = await api.get<PlayerHomeCourt[]>(
+        `/api/players/${playerId}/home-courts`,
+      );
+      return response.data;
     },
 
     /**
@@ -1001,10 +1042,15 @@ export function createApiMethods(client: ApiClient) {
       if (caption != null && caption.trim().length > 0) {
         form.append('caption', caption.trim());
       }
+      // Do NOT hardcode `Content-Type: multipart/form-data`. On React Native
+      // that suppresses the auto-generated `boundary=...` parameter, so the
+      // backend cannot parse the body and rejects it with a 400. Setting the
+      // header to `undefined` removes the axios JSON default and lets the
+      // native XHR layer set the correct multipart Content-Type (with boundary).
       const response = await api.post<CourtPhoto>(
         `/api/courts/${courtId}/photos`,
         form,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
+        { headers: { 'Content-Type': undefined } },
       );
       return response.data;
     },

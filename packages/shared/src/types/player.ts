@@ -66,6 +66,31 @@ export interface Player {
   preferred_side?: string | null;
   distance_to_location?: number | null;
   stats?: Record<string, number | null | undefined>;
+  /**
+   * Threaded from PublicPlayerResponse when the Player was fetched via the
+   * public profile endpoint. False means the player has hidden their game
+   * history — do not render W-L / rating / win% tiles.
+   */
+  game_history_visible?: boolean;
+  /**
+   * Threaded from PublicPlayerResponse. True when the player's profile is
+   * fully private.
+   */
+  profile_is_private?: boolean;
+}
+
+/**
+ * A court a player has designated as a home court, ordered by `position`.
+ * Returned by `GET /api/players/{id}/home-courts`. Includes coordinates so
+ * clients can use the player's #1 home court as a location-resolution fallback.
+ */
+export interface PlayerHomeCourt {
+  id: number;
+  name?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  position: number;
 }
 
 /**
@@ -122,10 +147,13 @@ export interface PlayerSearchResponse {
 }
 
 export interface PublicPlayerStats {
+  /** Always present — the backend returns the rating regardless of privacy settings. */
   current_rating: number;
   total_games: number;
-  total_wins: number;
-  win_rate: number;
+  /** Null when the player has hidden their win/loss history (game_history_visible=false). */
+  total_wins: number | null;
+  /** Null when the player has hidden their win/loss history (game_history_visible=false). */
+  win_rate: number | null;
 }
 
 export interface PublicPlayerResponse {
@@ -135,6 +163,14 @@ export interface PublicPlayerResponse {
   gender: PlayerGender | null;
   level: SkillLevel | null;
   is_placeholder: boolean;
+  /**
+   * False when the player has opted to hide their W-L record and win rate.
+   * The ELO rating (current_rating) is always returned even when this is false.
+   * Clients must not compute derived win/loss values when this is false.
+   */
+  game_history_visible: boolean;
+  /** True when the player's profile is fully private. */
+  profile_is_private: boolean;
   location: {
     id: string;
     name: string;

@@ -469,3 +469,98 @@ describe('getMyCourts', () => {
     expect(result[0].is_saved).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// getCourts — distance sorting hinges on the correct param names
+// ---------------------------------------------------------------------------
+
+describe('getCourts', () => {
+  const mockCourts = [
+    { id: 1, name: 'A Court', distance_miles: 2.1 },
+    { id: 2, name: 'B Court', distance_miles: 0.3 },
+  ];
+
+  it('calls GET /api/public/courts', async () => {
+    const mockGet = jest.fn().mockResolvedValue({ data: mockCourts });
+    const client = makeClient({ get: mockGet });
+    const methods = createApiMethods(client);
+
+    await methods.getCourts();
+
+    expect(mockGet.mock.calls[0][0]).toBe('/api/public/courts');
+  });
+
+  it('forwards user_lat/user_lng so the backend distance-sorts (regression: not lat/lon)', async () => {
+    const mockGet = jest.fn().mockResolvedValue({ data: mockCourts });
+    const client = makeClient({ get: mockGet });
+    const methods = createApiMethods(client);
+
+    await methods.getCourts({ user_lat: 32.78, user_lng: -117.23 });
+
+    expect(mockGet.mock.calls[0][1]).toEqual({
+      params: { user_lat: 32.78, user_lng: -117.23 },
+    });
+  });
+
+  it('forwards a location_id filter', async () => {
+    const mockGet = jest.fn().mockResolvedValue({ data: mockCourts });
+    const client = makeClient({ get: mockGet });
+    const methods = createApiMethods(client);
+
+    await methods.getCourts({ location_id: 'socal_sd' });
+
+    expect(mockGet.mock.calls[0][1]).toEqual({ params: { location_id: 'socal_sd' } });
+  });
+
+  it('unwraps a paginated { items } envelope', async () => {
+    const mockGet = jest.fn().mockResolvedValue({ data: { items: mockCourts } });
+    const client = makeClient({ get: mockGet });
+    const methods = createApiMethods(client);
+
+    const result = await methods.getCourts();
+
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe(1);
+  });
+
+  it('returns a bare array response as-is', async () => {
+    const mockGet = jest.fn().mockResolvedValue({ data: mockCourts });
+    const client = makeClient({ get: mockGet });
+    const methods = createApiMethods(client);
+
+    const result = await methods.getCourts();
+
+    expect(result).toEqual(mockCourts);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getPlayerHomeCourts — supplies the home-court coordinate fallback
+// ---------------------------------------------------------------------------
+
+describe('getPlayerHomeCourts', () => {
+  const mockHomeCourts = [
+    { id: 5, name: 'Mission Bay', address: '1 Beach Rd', latitude: 32.78, longitude: -117.23, position: 0 },
+  ];
+
+  it('calls GET /api/players/{playerId}/home-courts', async () => {
+    const mockGet = jest.fn().mockResolvedValue({ data: mockHomeCourts });
+    const client = makeClient({ get: mockGet });
+    const methods = createApiMethods(client);
+
+    await methods.getPlayerHomeCourts(42);
+
+    expect(mockGet.mock.calls[0][0]).toBe('/api/players/42/home-courts');
+  });
+
+  it('returns home courts with coordinates', async () => {
+    const mockGet = jest.fn().mockResolvedValue({ data: mockHomeCourts });
+    const client = makeClient({ get: mockGet });
+    const methods = createApiMethods(client);
+
+    const result = await methods.getPlayerHomeCourts(42);
+
+    expect(result[0].latitude).toBe(32.78);
+    expect(result[0].longitude).toBe(-117.23);
+  });
+});

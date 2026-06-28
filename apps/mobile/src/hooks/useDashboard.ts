@@ -9,10 +9,13 @@ import type {
   MatchRecord,
 } from '@beach-kings/shared';
 import { api } from '@/lib/api';
+import { useCurrentPlayer, currentPlayerKeys } from '@/hooks/useCurrentPlayer';
+import { useResolvedUserLocation } from '@/hooks/useResolvedUserLocation';
 
 export const dashboardKeys = {
   root: ['dashboard'] as const,
-  player: () => [...dashboardKeys.root, 'player'] as const,
+  /** The current player is centralized in {@link useCurrentPlayer}. */
+  player: () => currentPlayerKeys.me(),
   leagues: () => [...dashboardKeys.root, 'leagues'] as const,
   activeSession: () => [...dashboardKeys.root, 'activeSession'] as const,
   friendRequests: () =>
@@ -41,16 +44,19 @@ export interface UseDashboardResult extends DashboardSections {
 export function useDashboard(): UseDashboardResult {
   const queryClient = useQueryClient();
 
-  const player = useQuery({
-    queryKey: dashboardKeys.player(),
-    queryFn: async (): Promise<Player | null> => {
-      const result = await api.getCurrentUserPlayer();
-      return result ?? null;
-    },
-  });
+  const player = useCurrentPlayer();
 
   const playerId = player.data?.id ?? null;
   const locationId = player.data?.location_id ?? null;
+
+  // Resolve the user's location without prompting for GPS on the home screen.
+  // Use precise coordinates (device/city/home court) for distance-sorted
+  // courts; fall back to the location_id filter for the hub-only case.
+  const { coords, source } = useResolvedUserLocation({ skipDevice: true });
+  const usePreciseCoords = coords != null && source !== 'hub';
+  const courtsKey = usePreciseCoords
+    ? `${coords.latitude},${coords.longitude}`
+    : locationId;
 
   const leagues = useQuery({
     queryKey: dashboardKeys.leagues(),
@@ -77,9 +83,11 @@ export function useDashboard(): UseDashboardResult {
   });
 
   const courts = useQuery({
-    queryKey: dashboardKeys.courts(locationId),
+    queryKey: dashboardKeys.courts(courtsKey),
     queryFn: async (): Promise<readonly Court[]> => {
-      const result = await api.getCourts({ location_id: locationId });
+      const result = usePreciseCoords
+        ? await api.getCourts({ user_lat: coords.latitude, user_lng: coords.longitude })
+        : await api.getCourts({ location_id: locationId });
       return result ?? [];
     },
     enabled: player.isSuccess,
@@ -96,7 +104,11 @@ export function useDashboard(): UseDashboardResult {
   });
 
   const refetchAll = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: dashboardKeys.root });
+    // The player lives under its own centralized key, so invalidate both.
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.root }),
+      queryClient.invalidateQueries({ queryKey: currentPlayerKeys.me() }),
+    ]);
   }, [queryClient]);
 
   const isInitialLoading =

@@ -8,7 +8,7 @@ import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Hoisted mock of the api module. All six functions resolve synchronously.
+// Hoisted mock of the api module. All functions resolve synchronously.
 jest.mock('@/lib/api', () => {
   const api = {
     getCurrentUserPlayer: jest.fn(),
@@ -17,6 +17,9 @@ jest.mock('@/lib/api', () => {
     getFriendRequests: jest.fn(),
     getCourts: jest.fn(),
     getPlayerMatchHistory: jest.fn(),
+    // Used by the centralized location resolver (skipDevice path on home).
+    getPlayerHomeCourts: jest.fn(),
+    getLocations: jest.fn(),
   };
   return { api };
 });
@@ -31,6 +34,8 @@ const mockApi = api as unknown as {
   getFriendRequests: jest.Mock;
   getCourts: jest.Mock;
   getPlayerMatchHistory: jest.Mock;
+  getPlayerHomeCourts: jest.Mock;
+  getLocations: jest.Mock;
 };
 
 function makeWrapper(client: QueryClient) {
@@ -56,12 +61,17 @@ beforeEach(() => {
   mockApi.getFriendRequests.mockReset();
   mockApi.getCourts.mockReset();
   mockApi.getPlayerMatchHistory.mockReset();
+  // Resolver fallbacks: default to "nothing found" so coords stay null and the
+  // dashboard keeps using the location_id filter (PLAYER has no city coords).
+  mockApi.getPlayerHomeCourts.mockReset().mockResolvedValue([]);
+  mockApi.getLocations.mockReset().mockResolvedValue([]);
 });
 
 describe('dashboardKeys', () => {
   it('produces stable, namespaced keys', () => {
     expect(dashboardKeys.root).toEqual(['dashboard']);
-    expect(dashboardKeys.player()).toEqual(['dashboard', 'player']);
+    // The player is centralized under its own key (see useCurrentPlayer).
+    expect(dashboardKeys.player()).toEqual(['player', 'me']);
     expect(dashboardKeys.courts(null)).toEqual(['dashboard', 'courts', 'null']);
     expect(dashboardKeys.courts('socal_sd')).toEqual([
       'dashboard',

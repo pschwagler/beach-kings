@@ -456,14 +456,20 @@ export const mockApi = {
   // provides test-time data when the real endpoint is unavailable.
   async getCourts(params?: {
     location_id?: string | null;
-    lat?: number;
-    lon?: number;
-    radius?: number;
+    user_lat?: number;
+    user_lng?: number;
   }): Promise<Court[]> {
     if (params?.location_id != null) {
       return Promise.resolve(
         MOCK_COURTS.filter((c) => c.location_id === params.location_id),
       );
+    }
+    // Mirror the backend: when coords are supplied, return nearest-first.
+    if (params?.user_lat != null && params?.user_lng != null) {
+      const byDistance = [...MOCK_COURTS].sort(
+        (a, b) => (a.distance_miles ?? Infinity) - (b.distance_miles ?? Infinity),
+      );
+      return Promise.resolve(byDistance);
     }
     return Promise.resolve(MOCK_COURTS);
   },

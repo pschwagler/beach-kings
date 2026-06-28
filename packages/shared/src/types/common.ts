@@ -18,6 +18,9 @@ export interface Location {
   region_name?: string | null;
   name?: string | null;
   slug?: string | null;
+  /** Hub centroid coordinates; used as a fallback when resolving the user's location. */
+  latitude?: number | null;
+  longitude?: number | null;
   distance_miles?: number | null;
 }
 

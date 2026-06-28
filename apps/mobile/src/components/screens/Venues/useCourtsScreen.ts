@@ -2,22 +2,21 @@
  * Data hook for the Courts list/map screen.
  *
  * Responsibilities:
- *   - Fetches the courts list (passing lat/lon when permission is granted, for
- *     distance-sorted results).
+ *   - Resolves the user's location via the centralized {@link useResolvedUserLocation}
+ *     coalescing chain (device GPS -> city -> home court -> hub) and passes those
+ *     coordinates to the API for distance-sorted results.
+ *   - Fetches the courts list.
  *   - Manages filter/search state.
  *   - Manages list/map view-mode toggle.
- *   - Requests foreground location permission via `expo-location`; falls back
- *     gracefully when denied or unavailable (list still shows, map uses
- *     bounding-box of all pins).
  *
  * Filter state (by surface, lighting, free play) lives here so the screen
  * component stays thin.
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import * as ExpoLocation from 'expo-location';
+import { useState, useCallback } from 'react';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
+import { useResolvedUserLocation } from '@/hooks/useResolvedUserLocation';
 import type { Court } from '@beach-kings/shared';
 
 export type CourtFilterChip = 'nearby' | 'my-courts' | 'top-rated' | 'indoor' | 'outdoor' | 'lighted';
@@ -52,53 +51,22 @@ export function useCourtsScreen(): UseCourtsScreenResult {
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<CourtsViewMode>('list');
-  const [userLocation, setUserLocation] = useState<UserCoords | null>(null);
 
   // -------------------------------------------------------------------------
-  // Location permission + lookup
+  // Location resolution (device GPS -> city -> home court -> hub)
   // -------------------------------------------------------------------------
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function requestLocation(): Promise<void> {
-      // Any location failure (denied permission, services off, timeout) is
-      // non-fatal: the screen falls back to the no-location court list below.
-      try {
-        const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-        if (status !== 'granted' || cancelled) return;
-
-        const position = await ExpoLocation.getCurrentPositionAsync({
-          accuracy: ExpoLocation.Accuracy.Balanced,
-        });
-
-        if (cancelled) return;
-
-        setUserLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-      } catch {
-        // Swallow: userLocation stays null and getCourts() runs without coords.
-      }
-    }
-
-    void requestLocation();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { coords: userLocation } = useResolvedUserLocation();
 
   // -------------------------------------------------------------------------
-  // Data fetch (re-runs when userLocation becomes available)
+  // Data fetch (re-runs when resolved coordinates change, for distance sort)
   // -------------------------------------------------------------------------
 
   const { data, isLoading, error, refetch } = useApi<Court[]>(
     () =>
       api.getCourts(
         userLocation != null
-          ? { lat: userLocation.latitude, lon: userLocation.longitude }
+          ? { user_lat: userLocation.latitude, user_lng: userLocation.longitude }
           : {},
       ),
     [userLocation],

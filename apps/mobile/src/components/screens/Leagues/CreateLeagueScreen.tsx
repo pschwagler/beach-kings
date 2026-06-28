@@ -29,6 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
+import { formatDistance } from '@/lib/formatters';
 import {
   useCreateLeagueScreen,
   type LeagueAccessType,
@@ -286,10 +287,8 @@ function LocationPickerModal({
 
   const formatLabel = (loc: LocationWithDistance): string => {
     const name = loc.name ?? `${loc.city}, ${loc.state}`;
-    if (loc.distance_miles != null) {
-      return `${name} · ${loc.distance_miles.toFixed(0)} mi`;
-    }
-    return name;
+    const distance = formatDistance(loc.distance_miles, 0);
+    return distance ? `${name} · ${distance}` : name;
   };
 
   return (

@@ -236,3 +236,24 @@ export function formatOrdinal(n: number): string {
     default: return `${n}th`;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Distance formatting
+// ---------------------------------------------------------------------------
+
+/**
+ * Formats a distance in miles for display (e.g. "2.1 mi").
+ *
+ * Returns an empty string when `miles` is null/undefined so callers can render
+ * conditionally without a guard. Negative values are treated as missing.
+ *
+ * @param miles - Distance in miles, or null/undefined when unknown.
+ * @param decimals - Decimal places to show. Default: `1`.
+ */
+export function formatDistance(
+  miles: number | null | undefined,
+  decimals = 1,
+): string {
+  if (miles == null || miles < 0 || Number.isNaN(miles)) return '';
+  return `${miles.toFixed(decimals)} mi`;
+}

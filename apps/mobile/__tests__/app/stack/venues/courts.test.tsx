@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -89,10 +89,16 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockGetCourts = jest.fn();
+const mockGetCurrentUserPlayer = jest.fn();
+const mockGetPlayerHomeCourts = jest.fn();
+const mockGetLocations = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     getCourts: (...args: unknown[]) => mockGetCourts(...args),
+    getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
+    getPlayerHomeCourts: (...args: unknown[]) => mockGetPlayerHomeCourts(...args),
+    getLocations: (...args: unknown[]) => mockGetLocations(...args),
   },
 }));
 
@@ -149,6 +155,20 @@ jest.mock('@/theme/usePaletteColors', () => ({
 // ---------------------------------------------------------------------------
 
 import CourtsScreen from '../../../../app/(stack)/courts';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// CourtsScreen now resolves the user's location via TanStack-backed hooks, so
+// it must render inside a QueryClientProvider.
+function renderScreen() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity, staleTime: Infinity } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <CourtsScreen />
+    </QueryClientProvider>,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -201,6 +221,11 @@ beforeEach(() => {
   mockHapticLight.mockResolvedValue(undefined);
   mockHapticMedium.mockResolvedValue(undefined);
   mockGetCourts.mockResolvedValue([]);
+  // No player/profile location by default → resolver yields null coords and the
+  // list falls back to the unsorted (no-coords) path, matching prior behavior.
+  mockGetCurrentUserPlayer.mockResolvedValue(null);
+  mockGetPlayerHomeCourts.mockResolvedValue([]);
+  mockGetLocations.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -210,7 +235,7 @@ beforeEach(() => {
 describe('CourtsScreen — loading state', () => {
   it('renders loading skeleton while data is fetching', async () => {
     mockGetCourts.mockReturnValue(new Promise(() => {}));
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-list-loading')).toBeTruthy();
     });
@@ -224,7 +249,7 @@ describe('CourtsScreen — loading state', () => {
 describe('CourtsScreen — error state', () => {
   it('renders error state when fetch fails', async () => {
     mockGetCourts.mockRejectedValue(new Error('Network error'));
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-error-state')).toBeTruthy();
     });
@@ -232,7 +257,7 @@ describe('CourtsScreen — error state', () => {
 
   it('renders retry button in error state', async () => {
     mockGetCourts.mockRejectedValue(new Error('Network error'));
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-retry-btn')).toBeTruthy();
     });
@@ -241,7 +266,7 @@ describe('CourtsScreen — error state', () => {
   it('calls api again when retry is pressed', async () => {
     mockGetCourts.mockRejectedValueOnce(new Error('fail'));
     mockGetCourts.mockResolvedValue([]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-retry-btn')).toBeTruthy();
     });
@@ -259,7 +284,7 @@ describe('CourtsScreen — error state', () => {
 describe('CourtsScreen — empty state', () => {
   it('renders empty state when no courts returned', async () => {
     mockGetCourts.mockResolvedValue([]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-empty-state')).toBeTruthy();
     });
@@ -273,7 +298,7 @@ describe('CourtsScreen — empty state', () => {
 describe('CourtsScreen — courts list', () => {
   it('renders a court row for each returned court', async () => {
     mockGetCourts.mockResolvedValue([MOCK_COURT_1, MOCK_COURT_2]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-row-1')).toBeTruthy();
       expect(screen.getByTestId('court-row-2')).toBeTruthy();
@@ -282,15 +307,18 @@ describe('CourtsScreen — courts list', () => {
 
   it('renders court name in each row', async () => {
     mockGetCourts.mockResolvedValue([MOCK_COURT_1]);
-    render(<CourtsScreen />);
+    renderScreen();
+    // The name also appears as a map-preview marker, so scope to the row.
     await waitFor(() => {
-      expect(screen.getByText('Manhattan Beach Courts')).toBeTruthy();
+      expect(
+        within(screen.getByTestId('court-row-1')).getByText('Manhattan Beach Courts'),
+      ).toBeTruthy();
     });
   });
 
   it('renders city and state in each row', async () => {
     mockGetCourts.mockResolvedValue([MOCK_COURT_1]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Manhattan Beach, CA')).toBeTruthy();
     });
@@ -298,7 +326,7 @@ describe('CourtsScreen — courts list', () => {
 
   it('renders distance when available', async () => {
     mockGetCourts.mockResolvedValue([MOCK_COURT_1]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByText('· 0.3 mi')).toBeTruthy();
     });
@@ -306,7 +334,7 @@ describe('CourtsScreen — courts list', () => {
 
   it('navigates to court detail when a row is pressed', async () => {
     mockGetCourts.mockResolvedValue([MOCK_COURT_1]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-row-1')).toBeTruthy();
     });
@@ -316,7 +344,7 @@ describe('CourtsScreen — courts list', () => {
 
   it('renders map stub area', async () => {
     mockGetCourts.mockResolvedValue([]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-map-stub')).toBeTruthy();
     });
@@ -324,7 +352,7 @@ describe('CourtsScreen — courts list', () => {
 
   it('renders View Full Map button', async () => {
     mockGetCourts.mockResolvedValue([]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-view-full-map-btn')).toBeTruthy();
     });
@@ -338,7 +366,7 @@ describe('CourtsScreen — courts list', () => {
 describe('CourtsScreen — filter bar', () => {
   it('renders the filter bar', async () => {
     mockGetCourts.mockResolvedValue([MOCK_COURT_1]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-filter-bar')).toBeTruthy();
     });
@@ -346,7 +374,7 @@ describe('CourtsScreen — filter bar', () => {
 
   it('renders all filter chips', async () => {
     mockGetCourts.mockResolvedValue([]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('filter-court-nearby')).toBeTruthy();
       expect(screen.getByTestId('filter-court-my-courts')).toBeTruthy();
@@ -359,7 +387,7 @@ describe('CourtsScreen — filter bar', () => {
 
   it('filters to lighted courts when lighted chip is pressed', async () => {
     mockGetCourts.mockResolvedValue([MOCK_COURT_1, MOCK_COURT_2]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('filter-court-lighted')).toBeTruthy();
     });
@@ -373,7 +401,7 @@ describe('CourtsScreen — filter bar', () => {
 
   it('clears filter when same chip is pressed again', async () => {
     mockGetCourts.mockResolvedValue([MOCK_COURT_1, MOCK_COURT_2]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('filter-court-lighted')).toBeTruthy();
     });
@@ -393,7 +421,7 @@ describe('CourtsScreen — filter bar', () => {
   it('shows clear filter button in empty state when filter is active', async () => {
     // Only lighted courts, but we filter to indoor (none match)
     mockGetCourts.mockResolvedValue([MOCK_COURT_2]); // has_lights=true, surface_type=sand
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('filter-court-indoor')).toBeTruthy();
     });
@@ -411,7 +439,7 @@ describe('CourtsScreen — filter bar', () => {
 describe('CourtsScreen — screen wrapper', () => {
   it('renders the courts screen container', async () => {
     mockGetCourts.mockResolvedValue([]);
-    render(<CourtsScreen />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-screen')).toBeTruthy();
     });

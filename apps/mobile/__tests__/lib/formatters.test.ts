@@ -11,6 +11,7 @@ import {
   formatSessionSubtitle,
   formatOrdinal,
   formatDate,
+  formatDistance,
   parseSessionDate,
 } from '@/lib/formatters';
 
@@ -244,5 +245,32 @@ describe('parseSessionDate', () => {
   it('passes Date instances through unchanged', () => {
     const input = new Date(2026, 4, 11);
     expect(parseSessionDate(input)).toBe(input);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatDistance
+// ---------------------------------------------------------------------------
+describe('formatDistance', () => {
+  it('formats miles with one decimal by default', () => {
+    expect(formatDistance(2.14)).toBe('2.1 mi');
+  });
+
+  it('honors a custom decimal count', () => {
+    expect(formatDistance(2.14, 0)).toBe('2 mi');
+  });
+
+  it('returns empty string for null/undefined', () => {
+    expect(formatDistance(null)).toBe('');
+    expect(formatDistance(undefined)).toBe('');
+  });
+
+  it('returns empty string for negative or NaN values', () => {
+    expect(formatDistance(-1)).toBe('');
+    expect(formatDistance(NaN)).toBe('');
+  });
+
+  it('formats zero distance', () => {
+    expect(formatDistance(0)).toBe('0.0 mi');
   });
 });

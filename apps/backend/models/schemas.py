@@ -621,6 +621,8 @@ class PlayerHomeCourtResponse(BaseModel):
     id: int
     name: Optional[str] = None
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     position: int = 0
 
 
@@ -1871,12 +1873,17 @@ class PublicLeagueDetailResponse(BaseModel):
 
 
 class PublicPlayerStats(BaseModel):
-    """Player stats in a public player profile."""
+    """Player stats in a public player profile.
 
-    current_rating: float = 1200.0
+    ``current_rating``, ``total_wins``, and ``win_rate`` are ``Optional``
+    because the service returns ``None`` for private profiles (floor-only
+    visibility).  ``total_games`` is always present.
+    """
+
+    current_rating: Optional[float] = None
     total_games: int = 0
-    total_wins: int = 0
-    win_rate: float = 0.0
+    total_wins: Optional[int] = None
+    win_rate: Optional[float] = None
 
 
 class PublicPlayerLeagueMembership(BaseModel):
@@ -1887,17 +1894,29 @@ class PublicPlayerLeagueMembership(BaseModel):
 
 
 class PublicPlayerResponse(BaseModel):
-    """Response for GET /api/public/players/{player_id}."""
+    """Response for GET /api/public/players/{player_id}.
+
+    Privacy flags are always serialised so clients can gate UI accordingly:
+    - ``profile_is_private``: True when the owner has hidden their full stats.
+    - ``game_history_visible``: True when the owner permits match-history views.
+
+    ``city`` and ``state`` are top-level floor fields (always present when set;
+    the nested ``location`` object carries the full location record).
+    """
 
     id: int
     full_name: str
     avatar: Optional[str] = None
     gender: Optional[str] = None
     level: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
     is_placeholder: bool = False
     location: Optional[PublicLocationRef] = None
     stats: PublicPlayerStats
     league_memberships: List[PublicPlayerLeagueMembership] = []
+    game_history_visible: bool = True
+    profile_is_private: bool = False
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

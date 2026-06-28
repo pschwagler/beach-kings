@@ -1110,7 +1110,14 @@ async def get_player_home_courts(session: AsyncSession, player_id: int) -> List[
     )
     rows = result.all()
     return [
-        {"id": court.id, "name": court.name, "address": court.address, "position": phc.position}
+        {
+            "id": court.id,
+            "name": court.name,
+            "address": court.address,
+            "latitude": court.latitude,
+            "longitude": court.longitude,
+            "position": phc.position,
+        }
         for phc, court in rows
     ]
 
