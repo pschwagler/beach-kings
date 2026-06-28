@@ -1,13 +1,16 @@
 /**
  * Privacy Settings screen.
  *
- * Exposes two toggles backed by the auth user:
- *   - "Private profile" — hides W-L/stats from non-league members.
+ * Exposes one toggle backed by the auth user:
  *   - "Show game history" — makes game history visible on the public profile.
  *
- * Toggles call `api.updateUserProfile` with just the changed field, optimistically
- * update local state, and revert on failure. The `Switch` track/thumb colours are
- * read from `usePaletteColors()` — no hardcoded hex.
+ * NOTE: The "Private profile" toggle (profile_is_private) is intentionally
+ * deferred from the UI. All backend/API/context plumbing remains intact; to
+ * re-enable it, add a PrivacyRow bound to profileIsPrivate here and restore
+ * the matching state + handler in usePrivacySettingsScreen.ts.
+ *
+ * The Switch track/thumb colours are read from usePaletteColors() — no
+ * hardcoded hex.
  */
 
 import React from 'react';
@@ -71,9 +74,7 @@ function PrivacyRow({
 
 export default function PrivacySettingsScreen(): React.ReactNode {
   const {
-    profileIsPrivate,
     showGameHistory,
-    handleTogglePrivateProfile,
     handleToggleShowGameHistory,
   } = usePrivacySettingsScreen();
 
@@ -89,14 +90,6 @@ export default function PrivacySettingsScreen(): React.ReactNode {
         <Text className="text-[15px] font-bold px-lg pt-xl pb-sm text-default">
           Profile Visibility
         </Text>
-
-        <PrivacyRow
-          testID="privacy-row-private-profile"
-          label="Private profile"
-          description="When on, your win-loss record and stats are hidden from players who are not in one of your leagues."
-          value={profileIsPrivate}
-          onValueChange={handleTogglePrivateProfile}
-        />
 
         <PrivacyRow
           testID="privacy-row-show-game-history"

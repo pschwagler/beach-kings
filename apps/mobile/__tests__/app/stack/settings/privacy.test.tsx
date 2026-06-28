@@ -4,13 +4,17 @@
  * Covers:
  *   - Screen renders with correct testIDs
  *   - Toggle initial values reflect auth user state
- *   - Toggling "Private profile" calls api.updateUserProfile optimistically
  *   - Toggling "Show game history" calls api.updateUserProfile optimistically
  *   - On API error: reverts state and shows Alert
+ *
+ * NOTE: The "Private profile" (profile_is_private) toggle is intentionally
+ * deferred from the UI. The backend/API/AuthContext plumbing remains intact
+ * so re-enabling is just re-adding the toggle row. Tests here cover only the
+ * remaining "Show game history" toggle.
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 // ---------------------------------------------------------------------------
@@ -76,6 +80,8 @@ jest.mock('@/theme/usePaletteColors', () => ({
 }));
 
 const mockRefreshUser = jest.fn().mockResolvedValue(undefined);
+// profile_is_private is kept in mockUser because AuthContext still carries
+// the field — only the UI toggle is deferred.
 let mockUser = {
   profile_is_private: false,
   show_game_history: false,
@@ -122,39 +128,38 @@ describe('PrivacySettingsScreen — render', () => {
     expect(screen.getByTestId('privacy-settings-screen')).toBeTruthy();
   });
 
-  it('renders both toggle rows', () => {
+  it('renders the show-game-history toggle row', () => {
     render(<PrivacySettingsRoute />);
-    expect(screen.getByTestId('privacy-row-private-profile')).toBeTruthy();
     expect(screen.getByTestId('privacy-row-show-game-history')).toBeTruthy();
   });
 
-  it('shows label text for each toggle', () => {
+  it('does NOT render the private-profile toggle row (deferred)', () => {
     render(<PrivacySettingsRoute />);
-    expect(screen.getByText('Private profile')).toBeTruthy();
+    expect(screen.queryByTestId('privacy-row-private-profile')).toBeNull();
+  });
+
+  it('shows label text for the show-game-history toggle', () => {
+    render(<PrivacySettingsRoute />);
     expect(screen.getByText('Show game history on public profile')).toBeTruthy();
+  });
+
+  it('does NOT show "Private profile" label text (deferred)', () => {
+    render(<PrivacySettingsRoute />);
+    expect(screen.queryByText('Private profile')).toBeNull();
   });
 });
 
 describe('PrivacySettingsScreen — toggles', () => {
-  it('calls updateUserProfile with profile_is_private when toggled', async () => {
-    render(<PrivacySettingsRoute />);
-    const switchEl = screen.getAllByRole('switch')[0];
-    fireEvent(switchEl, 'valueChange', true);
-    await waitFor(() => {
-      expect(mockUpdateUserProfile).toHaveBeenCalledWith({ profile_is_private: true });
-    });
-  });
-
   it('calls updateUserProfile with show_game_history when toggled', async () => {
     render(<PrivacySettingsRoute />);
-    const switchEl = screen.getAllByRole('switch')[1];
+    const switchEl = screen.getAllByRole('switch')[0];
     fireEvent(switchEl, 'valueChange', true);
     await waitFor(() => {
       expect(mockUpdateUserProfile).toHaveBeenCalledWith({ show_game_history: true });
     });
   });
 
-  it('calls refreshUser after a successful toggle', async () => {
+  it('calls refreshUser after a successful show_game_history toggle', async () => {
     render(<PrivacySettingsRoute />);
     const switchEl = screen.getAllByRole('switch')[0];
     fireEvent(switchEl, 'valueChange', true);
@@ -179,11 +184,21 @@ describe('PrivacySettingsScreen — toggles', () => {
     });
   });
 
-  it('reflects initial values from auth user', () => {
-    mockUser = { profile_is_private: true, show_game_history: true };
+  it('reflects show_game_history initial value from auth user', () => {
+    mockUser = { profile_is_private: false, show_game_history: true };
     render(<PrivacySettingsRoute />);
+    // Only one switch rendered (the private-profile toggle is deferred).
     const switches = screen.getAllByRole('switch');
-    // Both should render (initial value is passed as `value` prop)
-    expect(switches).toHaveLength(2);
+    expect(switches).toHaveLength(1);
+  });
+
+  it('does NOT call updateUserProfile with profile_is_private (toggle is deferred)', () => {
+    render(<PrivacySettingsRoute />);
+    // Verify only one switch is on screen — the profile_is_private toggle does
+    // not exist, so it cannot accidentally fire that API call.
+    expect(screen.getAllByRole('switch')).toHaveLength(1);
+    expect(mockUpdateUserProfile).not.toHaveBeenCalledWith(
+      expect.objectContaining({ profile_is_private: expect.anything() }),
+    );
   });
 });
