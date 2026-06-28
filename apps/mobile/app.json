@@ -16,6 +16,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.beachleague.app",
+      "entitlements": {
+        "keychain-access-groups": ["$(AppIdentifierPrefix)com.beachleague.app"]
+      },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Beach League uses your location to suggest the nearest league location."
       }
