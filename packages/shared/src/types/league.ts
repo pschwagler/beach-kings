@@ -215,6 +215,12 @@ export interface LeagueDetail {
   readonly description: string | null;
   /** Derived from backend `is_open`: true → 'open', false → 'invite_only'. */
   readonly access_type: 'open' | 'invite_only';
+  /**
+   * Whether the league is publicly visible (e.g. its Standings tab) to
+   * non-members. Distinct from `access_type`, which only governs whether a
+   * visitor can self-serve join or must request to join.
+   */
+  readonly is_public: boolean;
   readonly gender: 'mens' | 'womens' | 'coed' | null;
   readonly level: string | null;
   readonly location_id: string | null;

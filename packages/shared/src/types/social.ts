@@ -4,6 +4,13 @@
 
 import type { FriendRequestStatus, SkillLevel } from './enums';
 
+/**
+ * Direction filter for GET /api/friends/requests.
+ * 'incoming' = requests sent to the caller, 'outgoing' = requests sent by the
+ * caller, 'both' = no filter (all requests involving the caller).
+ */
+export type FriendRequestDirection = 'incoming' | 'outgoing' | 'both';
+
 export interface FriendRequest {
   id: number;
   sender_player_id: number;
