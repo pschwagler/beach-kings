@@ -6,13 +6,32 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import useApi from '@/hooks/useApi';
 import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
 import { api } from '@/lib/api';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import { formatSessionSubtitle } from '@/lib/formatters';
+import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
+import { leaguesScreenKeys } from '@/components/screens/Leagues/useLeaguesScreen';
 import type { SessionDetail, SessionGame } from '@beach-kings/shared';
+
+/**
+ * Returns true if a React Query key belongs to the given league's
+ * detail-level cache (standings, dashboard, games, seasons, info, …).
+ *
+ * All per-league detail keys share the shape
+ * `['leagues', <kind>, String(leagueId), …]` (see {@link leagueKeys}), so the
+ * league id sits at index 2. List-level keys (`userLeagues`, `find`) don't put
+ * an id there and are intentionally excluded.
+ */
+function isLeagueDetailKey(queryKey: readonly unknown[], leagueId: number): boolean {
+  return (
+    queryKey[0] === leagueKeys.root[0] &&
+    queryKey[2] === String(leagueId)
+  );
+}
 
 export interface UseSessionDetailScreenResult {
   readonly session: SessionDetail | null;
@@ -43,6 +62,7 @@ export function useSessionDetailScreen(
   sessionId: number,
 ): UseSessionDetailScreenResult {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,6 +168,29 @@ export function useSessionDetailScreen(
     await hapticMedium();
     try {
       await api.lockInSession(sessionId);
+
+      // Submitting recomputes league standings/records — but the backend does
+      // so via an async stats-calc job, so the derived rows aren't written the
+      // instant lockInSession resolves. Mark the league's cached queries stale
+      // with `refetchType: 'none'` so NOTHING refetches immediately (which could
+      // race the job and re-cache pre-submit data as "fresh" for staleTime).
+      // The refetch instead happens at view time: the league detail mounts only
+      // its active tab, so opening Standings refetches the now-stale (and by
+      // then computed) data. Without this, staleTime (30s) keeps the pre-submit
+      // "No standings yet" result cached until relaunch.
+      const leagueId = dataRef.current?.league_id;
+      if (leagueId != null) {
+        void queryClient.invalidateQueries({
+          predicate: (query) => isLeagueDetailKey(query.queryKey, leagueId),
+          refetchType: 'none',
+        });
+        // The Leagues-tab "My Leagues" cards carry season-scoped W-L too.
+        void queryClient.invalidateQueries({
+          queryKey: leaguesScreenKeys.leagues(),
+          refetchType: 'none',
+        });
+      }
+
       void refetch();
     } catch (err) {
       const message =
@@ -158,7 +201,7 @@ export function useSessionDetailScreen(
     } finally {
       setIsSubmitting(false);
     }
-  }, [sessionId, refetch]);
+  }, [sessionId, refetch, queryClient]);
 
   const onClearSubmitError = useCallback(() => {
     setSubmitError(null);

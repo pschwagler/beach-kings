@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetSessionById = jest.fn();
 const mockLockInSession = jest.fn();
@@ -66,8 +67,24 @@ const SESSION: SessionDetail = {
   user_rating_change: 2.0,
 };
 
+let queryClient: QueryClient;
+
+/**
+ * Renders the hook inside a fresh QueryClientProvider (the hook calls
+ * useQueryClient to invalidate league caches on submit).
+ */
+function renderScreen(sessionId: number) {
+  const wrapper = ({ children }: { children: React.ReactNode }): React.ReactElement => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  return renderHook(() => useSessionDetailScreen(sessionId), { wrapper });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   mockGetSessionById.mockResolvedValue(SESSION);
   mockGetCurrentUserPlayer.mockResolvedValue({
     id: 1,
@@ -78,7 +95,7 @@ beforeEach(() => {
 
 describe('useSessionDetailScreen', () => {
   it('returns session detail from getSessionById on success', async () => {
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.session).toEqual(SESSION);
@@ -87,7 +104,7 @@ describe('useSessionDetailScreen', () => {
   });
 
   it('exposes currentPlayerName fetched via getCurrentUserPlayer', async () => {
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
 
     await waitFor(() => expect(result.current.currentPlayerName).toBe('Test User'));
   });
@@ -95,7 +112,7 @@ describe('useSessionDetailScreen', () => {
   it('falls back to player.name when full_name is missing', async () => {
     mockGetCurrentUserPlayer.mockResolvedValue({ id: 1, name: 'Just Name' });
 
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
 
     await waitFor(() =>
       expect(result.current.currentPlayerName).toBe('Just Name'),
@@ -105,7 +122,7 @@ describe('useSessionDetailScreen', () => {
   it('keeps currentPlayerName null when getCurrentUserPlayer fails', async () => {
     mockGetCurrentUserPlayer.mockRejectedValue(new Error('Auth required'));
 
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.currentPlayerName).toBeNull();
@@ -114,7 +131,7 @@ describe('useSessionDetailScreen', () => {
   it('error state surfaces when getSessionById rejects', async () => {
     mockGetSessionById.mockRejectedValue(new Error('Network error'));
 
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
 
     await waitFor(() => expect(result.current.error).not.toBeNull());
     expect(result.current.session).toBeNull();
@@ -122,7 +139,7 @@ describe('useSessionDetailScreen', () => {
 
   it('onSubmitSession calls lockInSession and clears submitError on success', async () => {
     mockLockInSession.mockResolvedValue(undefined);
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
@@ -134,9 +151,73 @@ describe('useSessionDetailScreen', () => {
     expect(result.current.isSubmitting).toBe(false);
   });
 
+  it('onSubmitSession invalidates the session league caches (stale, no immediate refetch) on success', async () => {
+    mockLockInSession.mockResolvedValue(undefined);
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderScreen(7);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.onSubmitSession();
+    });
+
+    // League-detail invalidation: a predicate scoped to league_id=1, deferred refetch.
+    const detailCall = invalidateSpy.mock.calls.find(
+      ([arg]) => typeof (arg as { predicate?: unknown })?.predicate === 'function',
+    );
+    expect(detailCall).toBeDefined();
+    const detailArg = detailCall![0] as {
+      predicate: (q: { queryKey: readonly unknown[] }) => boolean;
+      refetchType?: string;
+    };
+    expect(detailArg.refetchType).toBe('none');
+    // Matches this league's standings (any season) + detail; not other leagues / list keys.
+    expect(detailArg.predicate({ queryKey: ['leagues', 'standings', '1', 'all'] })).toBe(true);
+    expect(detailArg.predicate({ queryKey: ['leagues', 'standings', '1', 5] })).toBe(true);
+    expect(detailArg.predicate({ queryKey: ['leagues', 'detail', '1'] })).toBe(true);
+    expect(detailArg.predicate({ queryKey: ['leagues', 'standings', '2', 'all'] })).toBe(false);
+    expect(detailArg.predicate({ queryKey: ['leagues', 'userLeagues'] })).toBe(false);
+
+    // Leagues-tab "My Leagues" list invalidation (season-scoped card W-L).
+    const listCall = invalidateSpy.mock.calls.find(
+      ([arg]) =>
+        JSON.stringify((arg as { queryKey?: unknown })?.queryKey) ===
+        JSON.stringify(['leaguesScreen', 'userLeagues']),
+    );
+    expect(listCall).toBeDefined();
+    expect((listCall![0] as { refetchType?: string }).refetchType).toBe('none');
+  });
+
+  it('onSubmitSession does NOT invalidate league caches for a pickup session (no league_id)', async () => {
+    mockGetSessionById.mockResolvedValue({ ...SESSION, league_id: null });
+    mockLockInSession.mockResolvedValue(undefined);
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderScreen(7);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.onSubmitSession();
+    });
+
+    expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
+  it('onSubmitSession does NOT invalidate league caches when submit fails', async () => {
+    mockLockInSession.mockRejectedValue(new Error('nope'));
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderScreen(7);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.onSubmitSession();
+    });
+
+    expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
   it('onSubmitSession surfaces error message in submitError when lockInSession throws', async () => {
     mockLockInSession.mockRejectedValue(new Error('Server unavailable'));
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
@@ -149,7 +230,7 @@ describe('useSessionDetailScreen', () => {
 
   it('onSubmitSession uses fallback message when caught value is not Error', async () => {
     mockLockInSession.mockRejectedValue('plain string failure');
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
@@ -161,7 +242,7 @@ describe('useSessionDetailScreen', () => {
 
   it('onClearSubmitError resets submitError to null', async () => {
     mockLockInSession.mockRejectedValue(new Error('boom'));
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
@@ -176,7 +257,7 @@ describe('useSessionDetailScreen', () => {
   });
 
   it('openMenu and closeMenu toggle isMenuOpen', async () => {
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.isMenuOpen).toBe(false);
@@ -192,7 +273,7 @@ describe('useSessionDetailScreen', () => {
   });
 
   it('onAddGame navigates to score-game with session context', async () => {
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     act(() => {
@@ -214,7 +295,7 @@ describe('useSessionDetailScreen', () => {
   it('onAddGame omits gameNumber when session has not loaded', async () => {
     // Force getSessionById to never resolve in time
     mockGetSessionById.mockImplementation(() => new Promise(() => {}));
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
 
     act(() => {
       result.current.onAddGame();
@@ -228,7 +309,7 @@ describe('useSessionDetailScreen', () => {
   });
 
   it('onRetry refetches the session', async () => {
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(mockGetSessionById).toHaveBeenCalledTimes(1);
 
@@ -239,7 +320,7 @@ describe('useSessionDetailScreen', () => {
   });
 
   it('onEditGame navigates to score-game with matchId, gameNumber, sessionLabel, and headerTitle', async () => {
-    const { result } = renderHook(() => useSessionDetailScreen(7));
+    const { result } = renderScreen(7);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     act(() => {

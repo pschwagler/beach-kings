@@ -23,10 +23,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockPush = jest.fn();
 
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush }),
-  useLocalSearchParams: () => ({ id: '1' }),
-}));
+jest.mock('expo-router', () => {
+  const ReactModule = require('react');
+  return {
+    useRouter: () => ({ push: mockPush }),
+    useLocalSearchParams: () => ({ id: '1' }),
+    // useRefreshOnFocus (in the standings hook) runs its callback on focus/mount.
+    useFocusEffect: (cb: () => void | (() => void)): void => {
+      ReactModule.useEffect(() => cb(), [cb]);
+    },
+  };
+});
 
 jest.mock('@/utils/haptics', () => ({
   hapticLight: jest.fn().mockResolvedValue(undefined),

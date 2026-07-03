@@ -12,6 +12,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Season, LeagueStanding, LeagueSeasonInfo } from '@beach-kings/shared';
 import { api } from '@/lib/api';
+import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
 import { leagueKeys } from './leagueKeys';
 
 interface SeasonPickerEntry {
@@ -76,6 +77,20 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
   const onSelectSeason = useCallback((id: number | 'all') => {
     setSelectedSeasonId(id);
   }, []);
+
+  // Refetch when the league screen regains focus. Submitting a session (or
+  // adding a game) happens on a *pushed* screen while this tab stays mounted
+  // underneath, so no remount occurs on return — without this, the standings
+  // keep showing pre-submit data until staleTime expires or the app relaunches.
+  // Focus fires after the pushed screen pops, i.e. after the backend's async
+  // stats-calc job has run, so the refetch reads freshly-computed rows.
+  // Cooldown 0: always refresh on focus (the default 30s would suppress the
+  // post-submit refetch, since standings were just viewed seconds earlier).
+  const refetchOnFocus = useCallback(() => {
+    void standingsQuery.refetch();
+    void seasonsQuery.refetch();
+  }, [standingsQuery.refetch, seasonsQuery.refetch]);
+  useRefreshOnFocus(refetchOnFocus, 0);
 
   // True while the auto-init effect hasn't yet resolved selectedSeasonId.
   // Keeps the loading spinner up until the effect settles to a real id or 'all',

@@ -14,6 +14,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -120,6 +121,21 @@ jest.mock('@/contexts/InvitePlayersContext', () => ({
 
 import SessionDetailRoute from '../../../../app/(stack)/session/[id]';
 
+/**
+ * Renders the route inside a fresh QueryClientProvider — the session detail
+ * hook calls useQueryClient to invalidate league caches on submit.
+ */
+function renderRoute(): ReturnType<typeof render> {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <SessionDetailRoute />
+    </QueryClientProvider>,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Mock data
 // ---------------------------------------------------------------------------
@@ -197,7 +213,7 @@ beforeEach(() => {
 describe('SessionDetailScreen — loading state', () => {
   it('renders loading skeleton while data is fetching', async () => {
     mockGetSessionById.mockReturnValue(new Promise(() => {}));
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-loading')).toBeTruthy();
     });
@@ -205,7 +221,7 @@ describe('SessionDetailScreen — loading state', () => {
 
   it('renders the screen container during loading', async () => {
     mockGetSessionById.mockReturnValue(new Promise(() => {}));
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-screen')).toBeTruthy();
     });
@@ -219,7 +235,7 @@ describe('SessionDetailScreen — loading state', () => {
 describe('SessionDetailScreen — error state', () => {
   it('renders error state when fetch fails', async () => {
     mockGetSessionById.mockRejectedValue(new Error('Network error'));
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-error')).toBeTruthy();
     });
@@ -227,7 +243,7 @@ describe('SessionDetailScreen — error state', () => {
 
   it('renders retry button in error state', async () => {
     mockGetSessionById.mockRejectedValue(new Error('Network error'));
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-retry-btn')).toBeTruthy();
     });
@@ -236,7 +252,7 @@ describe('SessionDetailScreen — error state', () => {
   it('calls api again when retry is pressed', async () => {
     mockGetSessionById.mockRejectedValueOnce(new Error('fail'));
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_ACTIVE);
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-retry-btn')).toBeTruthy();
     });
@@ -253,42 +269,42 @@ describe('SessionDetailScreen — error state', () => {
 
 describe('SessionDetailScreen — data rendering', () => {
   it('renders session data after load', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-screen')).toBeTruthy();
     });
   });
 
   it('renders stats bar', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-stats-bar')).toBeTruthy();
     });
   });
 
   it('renders roster strip', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-roster-strip')).toBeTruthy();
     });
   });
 
   it('renders league name in session header', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByText('QBK Open Men')).toBeTruthy();
     });
   });
 
   it('renders session number in header', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByText(/Session #3/)).toBeTruthy();
     });
   });
 
   it('renders player chips for each player', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('player-chip-1')).toBeTruthy();
       expect(screen.getByTestId('player-chip-2')).toBeTruthy();
@@ -296,7 +312,7 @@ describe('SessionDetailScreen — data rendering', () => {
   });
 
   it('renders game cards for each game', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-game-card-1001')).toBeTruthy();
     });
@@ -309,21 +325,21 @@ describe('SessionDetailScreen — data rendering', () => {
 
 describe('SessionDetailScreen — active session actions', () => {
   it('renders Add Game button for active sessions', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-add-game-btn')).toBeTruthy();
     });
   });
 
   it('renders Submit Session button for active sessions', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-submit-btn')).toBeTruthy();
     });
   });
 
   it('navigates to score-game with session context when Add Game is pressed', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-add-game-btn')).toBeTruthy();
     });
@@ -346,7 +362,7 @@ describe('SessionDetailScreen — active session actions', () => {
 describe('SessionDetailScreen — submitted session', () => {
   it('does NOT render Add Game button for submitted sessions', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.queryByTestId('session-add-game-btn')).toBeNull();
     });
@@ -354,7 +370,7 @@ describe('SessionDetailScreen — submitted session', () => {
 
   it('does NOT render Submit Session button for submitted sessions', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.queryByTestId('session-submit-btn')).toBeNull();
     });
@@ -368,14 +384,14 @@ describe('SessionDetailScreen — submitted session', () => {
 describe('SessionDetailScreen — invite banner', () => {
   it('shows invite banner when placeholder players exist', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_WITH_PLACEHOLDER);
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-invite-banner')).toBeTruthy();
     });
   });
 
   it('does NOT show invite banner when no placeholder players', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.queryByTestId('session-invite-banner')).toBeNull();
     });
@@ -389,7 +405,7 @@ describe('SessionDetailScreen — invite banner', () => {
 describe('SessionDetailScreen — no games', () => {
   it('renders no-games message when games list is empty', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_NO_GAMES);
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-no-games')).toBeTruthy();
     });
@@ -402,14 +418,14 @@ describe('SessionDetailScreen — no games', () => {
 
 describe('SessionDetailScreen — menu', () => {
   it('renders the menu button', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-menu-btn')).toBeTruthy();
     });
   });
 
   it('opens the bottom sheet when menu button is pressed', async () => {
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-menu-btn')).toBeTruthy();
     });
@@ -421,7 +437,7 @@ describe('SessionDetailScreen — menu', () => {
 
   it('hides Copy Results and Duplicate while the session is active', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_ACTIVE);
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-menu-btn')).toBeTruthy();
     });
@@ -439,7 +455,7 @@ describe('SessionDetailScreen — menu', () => {
 
   it('shows Copy Results and Duplicate once the session is submitted', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
-    render(<SessionDetailRoute />);
+    renderRoute();
     await waitFor(() => {
       expect(screen.getByTestId('session-menu-btn')).toBeTruthy();
     });
