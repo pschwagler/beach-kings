@@ -149,9 +149,7 @@ async def update_season(
 
 
 @router.post("/api/matches/elo", response_model=list[dict])
-async def get_matches(
-    request: Request, session: AsyncSession = Depends(get_db_session)
-):
+async def get_matches(request: Request, session: AsyncSession = Depends(get_db_session)):
     """Get all matches for a season or league with ELO changes (public)."""
     try:
         body = await request.json()
@@ -175,23 +173,17 @@ async def get_matches(
 
 
 @router.get("/api/seasons/{season_id}/matches", response_model=list[dict])
-async def get_season_matches(
-    season_id: int, session: AsyncSession = Depends(get_db_session)
-):
+async def get_season_matches(season_id: int, session: AsyncSession = Depends(get_db_session)):
     """Get all matches for a season with ELO changes (public). Deprecated: use POST /api/matches instead."""
     try:
         matches = await data_service.get_season_matches_with_elo(session, season_id)
         return matches
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading season matches: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading season matches: {str(e)}")
 
 
 @router.post("/api/player-stats")
-async def get_all_player_stats(
-    request: Request, session: AsyncSession = Depends(get_db_session)
-):
+async def get_all_player_stats(request: Request, session: AsyncSession = Depends(get_db_session)):
     """Get all player stats for a season or league (public)."""
     try:
         body = await request.json()
@@ -199,14 +191,10 @@ async def get_all_player_stats(
         league_id = body.get("league_id")
 
         if season_id is not None:
-            player_stats = await data_service.get_all_player_season_stats(
-                session, season_id
-            )
+            player_stats = await data_service.get_all_player_season_stats(session, season_id)
             return player_stats
         elif league_id is not None:
-            player_stats = await data_service.get_all_player_league_stats(
-                session, league_id
-            )
+            player_stats = await data_service.get_all_player_league_stats(session, league_id)
             return player_stats
         else:
             raise HTTPException(
@@ -215,25 +203,17 @@ async def get_all_player_stats(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading player stats: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading player stats: {str(e)}")
 
 
 @router.get("/api/seasons/{season_id}/player-stats")
-async def get_season_player_stats(
-    season_id: int, session: AsyncSession = Depends(get_db_session)
-):
+async def get_season_player_stats(season_id: int, session: AsyncSession = Depends(get_db_session)):
     """Get all player season stats for a season (public). Deprecated: use POST /api/player-stats instead."""
     try:
-        player_stats = await data_service.get_all_player_season_stats(
-            session, season_id
-        )
+        player_stats = await data_service.get_all_player_season_stats(session, season_id)
         return player_stats
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading player season stats: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading player season stats: {str(e)}")
 
 
 @router.post("/api/partnership-opponent-stats")
@@ -307,19 +287,13 @@ async def get_player_season_partnership_opponent_stats(
 
 
 @router.get("/api/leagues/{league_id}/player-stats")
-async def get_league_player_stats(
-    league_id: int, session: AsyncSession = Depends(get_db_session)
-):
+async def get_league_player_stats(league_id: int, session: AsyncSession = Depends(get_db_session)):
     """Get all player league stats for a league (public)."""
     try:
-        player_stats = await data_service.get_all_player_league_stats(
-            session, league_id
-        )
+        player_stats = await data_service.get_all_player_league_stats(session, league_id)
         return player_stats
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading player league stats: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading player league stats: {str(e)}")
 
 
 @router.get("/api/leagues/{league_id}/partnership-opponent-stats")
@@ -350,9 +324,7 @@ async def get_player_league_stats(
     full aggregated shape (player profile, partners, opponents, etc.).
     """
     try:
-        league_stats = await data_service.get_player_league_stats(
-            session, player_id, league_id
-        )
+        league_stats = await data_service.get_player_league_stats(session, player_id, league_id)
 
         if league_stats is None:
             raise HTTPException(status_code=404, detail="Player or league not found.")
@@ -361,9 +333,7 @@ async def get_player_league_stats(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading player league stats: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading player league stats: {str(e)}")
 
 
 @router.get("/api/leagues/{league_id}/players/{player_id}/stats", response_model=dict)
@@ -407,16 +377,12 @@ async def get_league_player_stats_full(
             caller_player_id=viewer_player_id,
         )
         if stats is None:
-            raise HTTPException(
-                status_code=404, detail="Player, league, or season not found."
-            )
+            raise HTTPException(status_code=404, detail="Player, league, or season not found.")
         return stats
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading league player stats: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading league player stats: {str(e)}")
 
 
 @router.get(
@@ -445,9 +411,7 @@ async def get_player_league_partnership_opponent_stats(
 
 
 @router.post("/api/rankings", response_model=list[dict])
-async def query_rankings(
-    request: Request, session: AsyncSession = Depends(get_db_session)
-):
+async def query_rankings(request: Request, session: AsyncSession = Depends(get_db_session)):
     """
     Query rankings with filters (e.g., by season_id).
     Body: RankingsQueryRequest
@@ -484,9 +448,7 @@ async def get_season_awards(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading season awards: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading season awards: {str(e)}")
 
 
 @router.get("/api/leagues/{league_id}/awards", response_model=list[dict])
@@ -499,9 +461,7 @@ async def get_league_awards(
         awards = await season_awards_service.get_league_awards(session, league_id)
         return awards
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading league awards: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading league awards: {str(e)}")
 
 
 @router.get("/api/players/{player_id}/awards", response_model=list[dict])
@@ -514,9 +474,7 @@ async def get_player_awards(
         awards = await season_awards_service.get_player_awards(session, player_id)
         return awards
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading player awards: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading player awards: {str(e)}")
 
 
 @router.post("/api/seasons/{season_id}/finalize-awards", response_model=list[dict])
@@ -531,9 +489,7 @@ async def finalize_season_awards(
     has not ended yet.
     """
     try:
-        result = await session.execute(
-            sa_select(SeasonModel).where(SeasonModel.id == season_id)
-        )
+        result = await session.execute(sa_select(SeasonModel).where(SeasonModel.id == season_id))
         season_obj = result.scalar_one_or_none()
         if not season_obj:
             raise HTTPException(status_code=404, detail="Season not found")
@@ -545,6 +501,4 @@ async def finalize_season_awards(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error finalizing season awards: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error finalizing season awards: {str(e)}")

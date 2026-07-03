@@ -339,9 +339,7 @@ async def query_leagues(
         conditions.append(League.level == level)
     if q is not None and q.strip():
         pattern = f"%{q.strip()}%"
-        conditions.append(
-            or_(League.name.ilike(pattern), League.description.ilike(pattern))
-        )
+        conditions.append(or_(League.name.ilike(pattern), League.description.ilike(pattern)))
     if is_open is not None:
         conditions.append(League.is_open == is_open)
 
@@ -445,7 +443,12 @@ async def query_leagues(
         )
         for league_id, pid, first_name, last_name, avatar in friends_result.all():
             friends_by_league.setdefault(league_id, []).append(
-                {"player_id": pid, "first_name": first_name, "last_name": last_name, "avatar": avatar}
+                {
+                    "player_id": pid,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "avatar": avatar,
+                }
             )
 
     items = [
@@ -510,9 +513,7 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
     }
 
 
-async def get_league_detail(
-    session: AsyncSession, league_id: int, user_id: int
-) -> Optional[Dict]:
+async def get_league_detail(session: AsyncSession, league_id: int, user_id: int) -> Optional[Dict]:
     """Get enriched league detail including membership context and current-season stats.
 
     Returns all fields from get_league plus:
@@ -562,9 +563,7 @@ async def get_league_detail(
             is_active = _is_season_active(display_season)
 
     # Resolve the caller's player_id (None if the user has no player profile)
-    player_id_result = await session.execute(
-        select(Player.id).where(Player.user_id == user_id)
-    )
+    player_id_result = await session.execute(select(Player.id).where(Player.user_id == user_id))
     caller_player_id: Optional[int] = player_id_result.scalar_one_or_none()
 
     user_role: Optional[str] = None
@@ -617,9 +616,7 @@ async def get_league_detail(
                 ranked_sq = (
                     select(
                         PlayerSeasonStats.player_id.label("player_id"),
-                        func.row_number()
-                        .over(order_by=_SEASON_RANK_ORDER)
-                        .label("season_rank"),
+                        func.row_number().over(order_by=_SEASON_RANK_ORDER).label("season_rank"),
                     )
                     .where(PlayerSeasonStats.season_id == current_season_id)
                     .subquery()
@@ -769,19 +766,15 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
         .subquery()
     )
     active_result = await session.execute(
-        select(Season).join(active_rn_sq, active_rn_sq.c.id == Season.id).where(
-            active_rn_sq.c.rn == 1
-        )
+        select(Season)
+        .join(active_rn_sq, active_rn_sq.c.id == Season.id)
+        .where(active_rn_sq.c.rn == 1)
     )
-    active_by_league: Dict[int, Season] = {
-        s.league_id: s for s in active_result.scalars().all()
-    }
+    active_by_league: Dict[int, Season] = {s.league_id: s for s in active_result.scalars().all()}
 
     # 2b — ONE fallback query: for leagues with NO active season, pick the
     #      most-recent season by start_date DESC, id DESC (display order).
-    leagues_needing_fallback = [
-        lid for lid in all_league_ids if lid not in active_by_league
-    ]
+    leagues_needing_fallback = [lid for lid in all_league_ids if lid not in active_by_league]
     fallback_by_league: Dict[int, Season] = {}
     if leagues_needing_fallback:
         fallback_rn_sq = (
@@ -802,14 +795,11 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
             .join(fallback_rn_sq, fallback_rn_sq.c.id == Season.id)
             .where(fallback_rn_sq.c.rn == 1)
         )
-        fallback_by_league = {
-            s.league_id: s for s in fallback_result.scalars().all()
-        }
+        fallback_by_league = {s.league_id: s for s in fallback_result.scalars().all()}
 
     # Build the per-league season map: active wins, fallback for the rest.
     league_seasons: Dict[int, Season | None] = {
-        lid: active_by_league.get(lid) or fallback_by_league.get(lid)
-        for lid in all_league_ids
+        lid: active_by_league.get(lid) or fallback_by_league.get(lid) for lid in all_league_ids
     }
 
     # Build a per-row player_id map keyed by league_id so stats/rank are
@@ -817,9 +807,7 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
     player_id_by_league: Dict[int, int] = {r[0].id: r.player_id for r in rows}
 
     # Gather season IDs that have a resolved season.
-    season_ids_with_data: list[int] = [
-        s.id for s in league_seasons.values() if s is not None
-    ]
+    season_ids_with_data: list[int] = [s.id for s in league_seasons.values() if s is not None]
 
     # Build the set of (season_id, player_id) pairs we need stats for.
     # A user could theoretically have different player rows in different leagues
@@ -867,9 +855,7 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
             ).where(ranked_sq.c.player_id.in_(all_player_ids))
         )
         for rank_row in rank_result.all():
-            ranks_map[(rank_row.season_id, rank_row.player_id)] = int(
-                rank_row.season_rank
-            )
+            ranks_map[(rank_row.season_id, rank_row.player_id)] = int(rank_row.season_rank)
 
     output: List[Dict] = []
     for r in rows:
@@ -885,14 +871,10 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
                 "id": display_season.id,
                 "name": display_season.name or f"Season {display_season.id}",
                 "start_date": (
-                    display_season.start_date.isoformat()
-                    if display_season.start_date
-                    else None
+                    display_season.start_date.isoformat() if display_season.start_date else None
                 ),
                 "end_date": (
-                    display_season.end_date.isoformat()
-                    if display_season.end_date
-                    else None
+                    display_season.end_date.isoformat() if display_season.end_date else None
                 ),
                 # Use the canonical null-safe rule — handles open-ended seasons.
                 "is_active": _is_season_active(display_season),
@@ -907,13 +889,9 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
         user_wins = int(stats.wins) if stats and stats.wins is not None else 0
         user_losses = max(0, user_games - user_wins)
         user_points = float(stats.points) if stats and stats.points is not None else 0.0
-        user_win_rate = (
-            float(stats.win_rate) if stats and stats.win_rate is not None else 0.0
-        )
+        user_win_rate = float(stats.win_rate) if stats and stats.win_rate is not None else 0.0
         user_avg_pt_diff = (
-            float(stats.avg_point_diff)
-            if stats and stats.avg_point_diff is not None
-            else 0.0
+            float(stats.avg_point_diff) if stats and stats.avg_point_diff is not None else 0.0
         )
         season_id_for_rank = display_season.id if display_season else None
         user_rank = ranks_map.get((season_id_for_rank, row_player_id))
@@ -962,9 +940,7 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
     return output
 
 
-async def get_player_public_leagues(
-    session: AsyncSession, player_id: int
-) -> list[dict] | None:
+async def get_player_public_leagues(session: AsyncSession, player_id: int) -> list[dict] | None:
     """Get public leagues for a player by player ID.
 
     Returns None if the player does not exist (caller should return 404).
@@ -1033,13 +1009,11 @@ async def get_player_public_leagues(
         .subquery()
     )
     active_result = await session.execute(
-        select(Season).join(active_rn_sq, active_rn_sq.c.id == Season.id).where(
-            active_rn_sq.c.rn == 1
-        )
+        select(Season)
+        .join(active_rn_sq, active_rn_sq.c.id == Season.id)
+        .where(active_rn_sq.c.rn == 1)
     )
-    active_by_league: dict[int, Season] = {
-        s.league_id: s for s in active_result.scalars().all()
-    }
+    active_by_league: dict[int, Season] = {s.league_id: s for s in active_result.scalars().all()}
 
     # Phase 2b: fallback seasons for leagues with no active season.
     leagues_needing_fallback = [lid for lid in all_league_ids if lid not in active_by_league]
@@ -1063,18 +1037,13 @@ async def get_player_public_leagues(
             .join(fallback_rn_sq, fallback_rn_sq.c.id == Season.id)
             .where(fallback_rn_sq.c.rn == 1)
         )
-        fallback_by_league = {
-            s.league_id: s for s in fallback_result.scalars().all()
-        }
+        fallback_by_league = {s.league_id: s for s in fallback_result.scalars().all()}
 
     league_seasons: dict[int, Season | None] = {
-        lid: active_by_league.get(lid) or fallback_by_league.get(lid)
-        for lid in all_league_ids
+        lid: active_by_league.get(lid) or fallback_by_league.get(lid) for lid in all_league_ids
     }
 
-    season_ids_with_data: list[int] = [
-        s.id for s in league_seasons.values() if s is not None
-    ]
+    season_ids_with_data: list[int] = [s.id for s in league_seasons.values() if s is not None]
 
     # Fetch stats for this player across all relevant seasons.
     stats_by_season: dict[int, PlayerSeasonStats] = {}
@@ -1271,9 +1240,7 @@ async def resolve_active_season(
     return result.scalar_one_or_none()
 
 
-async def _current_display_season(
-    session: AsyncSession, league_id: int
-) -> Season | None:
+async def _current_display_season(session: AsyncSession, league_id: int) -> Season | None:
     """Return the season to display as a league's "current" season.
 
     Prefers the genuinely-active season via the canonical resolver; only when
@@ -2510,19 +2477,21 @@ async def get_league_standings(
             else:
                 avatar_url = None
                 initials = avatar_str or generate_player_initials(player.full_name or "")
-            standings.append({
-                "rank": rank,
-                "player_id": player.id,
-                "display_name": _abbreviate_name(player.full_name),
-                "initials": initials,
-                "avatar_url": avatar_url,
-                "wins": stats.wins,
-                "losses": losses,
-                "win_rate": win_rate_pct,
-                "rating": stats.points,
-                "rating_delta": None,
-                "games_played": stats.games,
-            })
+            standings.append(
+                {
+                    "rank": rank,
+                    "player_id": player.id,
+                    "display_name": _abbreviate_name(player.full_name),
+                    "initials": initials,
+                    "avatar_url": avatar_url,
+                    "wins": stats.wins,
+                    "losses": losses,
+                    "win_rate": win_rate_pct,
+                    "rating": stats.points,
+                    "rating_delta": None,
+                    "games_played": stats.games,
+                }
+            )
 
         # Build season_info
         season_result = await session.execute(select(Season).where(Season.id == season_id))
@@ -2573,19 +2542,21 @@ async def get_league_standings(
         else:
             avatar_url = None
             initials = avatar_str or generate_player_initials(player.full_name or "")
-        standings.append({
-            "rank": rank,
-            "player_id": player.id,
-            "display_name": _abbreviate_name(player.full_name),
-            "initials": initials,
-            "avatar_url": avatar_url,
-            "wins": stats.wins,
-            "losses": losses,
-            "win_rate": win_rate_pct,
-            "rating": global_stats.current_rating if global_stats else None,
-            "rating_delta": None,
-            "games_played": stats.games,
-        })
+        standings.append(
+            {
+                "rank": rank,
+                "player_id": player.id,
+                "display_name": _abbreviate_name(player.full_name),
+                "initials": initials,
+                "avatar_url": avatar_url,
+                "wins": stats.wins,
+                "losses": losses,
+                "win_rate": win_rate_pct,
+                "rating": global_stats.current_rating if global_stats else None,
+                "rating_delta": None,
+                "games_played": stats.games,
+            }
+        )
 
     return {"standings": standings, "season_info": None}
 
@@ -2789,9 +2760,7 @@ async def create_league_invites(
     return len(new_invites)
 
 
-async def _batch_game_counts(
-    session: AsyncSession, player_ids: list[int]
-) -> dict[int, int]:
+async def _batch_game_counts(session: AsyncSession, player_ids: list[int]) -> dict[int, int]:
     """Return total match counts keyed by player ID for the given player IDs.
 
     Counts matches across all four player positions (team1_player1_id,
@@ -2955,9 +2924,7 @@ async def respond_to_league_invite(
     # Update invite status (immutable pattern — we update the row in-place via
     # SQLAlchemy UPDATE rather than mutating the ORM object attributes directly).
     await session.execute(
-        update(LeagueInvite)
-        .where(LeagueInvite.id == invite.id)
-        .values(status=new_status)
+        update(LeagueInvite).where(LeagueInvite.id == invite.id).values(status=new_status)
     )
 
     if action == "accept":
