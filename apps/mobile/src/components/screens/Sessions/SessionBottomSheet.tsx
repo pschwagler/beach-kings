@@ -26,6 +26,7 @@ import {
 import { useRouter } from 'expo-router';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
+import { api } from '@/lib/api';
 
 interface Props {
   readonly visible: boolean;
@@ -122,9 +123,15 @@ export default function SessionBottomSheet({
           onPress: async () => {
             setIsDeleting(true);
             try {
-              await Promise.resolve(); // placeholder for api.deleteSession(sessionId)
+              await api.deleteSession(sessionId);
               onClose();
               router.replace('/(tabs)/add-games');
+            } catch {
+              Alert.alert(
+                'Could not delete session',
+                'Something went wrong deleting this session. Please try again.',
+                [{ text: 'OK' }],
+              );
             } finally {
               setIsDeleting(false);
             }
