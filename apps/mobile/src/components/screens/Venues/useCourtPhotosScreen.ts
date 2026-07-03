@@ -107,13 +107,11 @@ export function useCourtPhotosScreen(
         throw err;
       }
 
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        const err = new Error('Photo library permission denied');
-        setUploadError(err);
-        throw err;
-      }
-
+      // No media-library permission request: the system photo picker
+      // (iOS PHPickerViewController / Android Photo Picker) runs out-of-process
+      // and returns only the user-selected asset, so it needs no permission.
+      // Gating on requestMediaLibraryPermissionsAsync would needlessly block
+      // users on "Limited Access" without improving privacy.
       const picked = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,

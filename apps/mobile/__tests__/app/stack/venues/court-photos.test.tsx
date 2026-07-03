@@ -361,11 +361,13 @@ describe('CourtPhotosScreen — upload flow', () => {
     expect(mockUploadCourtPhoto).not.toHaveBeenCalled();
   });
 
-  it('does not upload when permission is denied', async () => {
+  it('launches the picker without requesting media-library permission', async () => {
+    // The system photo picker (iOS PHPicker / Android Photo Picker) runs
+    // out-of-process and needs no media-library permission, so the hook must
+    // not gate on requestMediaLibraryPermissionsAsync — gating there blocks
+    // "Limited Access" users and offers no benefit for a pick-only flow.
     mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
-    mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({
-      granted: false,
-    });
+    mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: [] });
 
     render(<CourtPhotosRoute />);
     await waitFor(() => {
@@ -375,9 +377,8 @@ describe('CourtPhotosScreen — upload flow', () => {
     fireEvent.press(screen.getByTestId('court-photos-add-btn'));
 
     await waitFor(() => {
-      expect(mockRequestMediaLibraryPermissionsAsync).toHaveBeenCalled();
+      expect(mockLaunchImageLibraryAsync).toHaveBeenCalled();
     });
-    expect(mockLaunchImageLibraryAsync).not.toHaveBeenCalled();
-    expect(mockUploadCourtPhoto).not.toHaveBeenCalled();
+    expect(mockRequestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
   });
 });
