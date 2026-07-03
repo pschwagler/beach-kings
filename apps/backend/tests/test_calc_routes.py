@@ -1,6 +1,6 @@
 """Route-layer tests for calc.py endpoints.
 
-Covers: loadsheets 501, calculate-stats status, job status.
+Covers: calculate-stats status, job status.
 POST /api/calculate and GET /api/health already tested in test_api_routes_comprehensive.py.
 """
 
@@ -35,28 +35,6 @@ def _make_authed_client(monkeypatch, phone="+10000000000", user_id=1):
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
 
     return TestClient(app), {"Authorization": "Bearer dummy"}
-
-
-# ============================================================================
-# POST /api/loadsheets
-# ============================================================================
-
-
-class TestLoadSheets:
-    """Tests for the disabled loadsheets endpoint."""
-
-    def test_loadsheets_returns_501(self, monkeypatch):
-        """Loadsheets endpoint is disabled and returns 501."""
-        client, headers = _make_authed_client(monkeypatch)
-        response = client.post("/api/loadsheets", headers=headers)
-        assert response.status_code == 501
-        assert "disabled" in response.json()["detail"].lower()
-
-    def test_loadsheets_requires_auth(self):
-        """Unauthenticated request returns 401/403."""
-        client = TestClient(app)
-        response = client.post("/api/loadsheets")
-        assert response.status_code in (401, 403)
 
 
 # ============================================================================

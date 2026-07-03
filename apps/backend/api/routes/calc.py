@@ -1,40 +1,16 @@
-"""Calculation, loadsheet, and health check route handlers."""
+"""Calculation and health check route handlers."""
 
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.database.models import Season
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-@router.post("/api/loadsheets", response_model=dict)
-async def load_sheets(current_user: dict = Depends(get_current_user)):
-    """
-    DISABLED: This endpoint has been disabled.
-
-    TODO: Re-implement to be season-specific and add proper validations.
-    This endpoint should:
-    - Accept a season_id parameter
-    - Only load/import matches for the specified season
-    - Add proper data validation
-    - Handle errors gracefully
-    """
-    raise HTTPException(
-        status_code=501,
-        detail=(
-            "This endpoint has been disabled. "
-            "It needs to be re-implemented to be season-specific with proper validations. "
-            "The function should only load matches for a specific season, not all data."
-        ),
-    )
 
 
 @router.post("/api/calculate", response_model=dict)
@@ -49,8 +25,9 @@ async def calculate_stats(
 
     Request body (optional):
         {
-            "league_id": 123  // If provided, calculates league-specific stats (includes all seasons). If omitted, calculates global stats.
-            "season_id": 456  // Deprecated: if provided, will get league_id from season and calculate league stats
+            "league_id": 123  // If provided, calculates league-specific stats
+                              // (all seasons in the league). If omitted,
+                              // calculates global stats.
         }
 
     Returns:
@@ -63,14 +40,6 @@ async def calculate_stats(
             body = {}
 
         league_id = body.get("league_id") if body else None
-        season_id = body.get("season_id") if body else None  # Backward compatibility
-
-        if season_id and not league_id:
-            season_result = await session.execute(select(Season).where(Season.id == season_id))
-            season = season_result.scalar_one_or_none()
-            if season:
-                league_id = season.league_id
-
         calc_type = "league" if league_id else "global"
 
         queue = get_stats_queue()
@@ -81,7 +50,6 @@ async def calculate_stats(
             "status": "queued",
             "calc_type": calc_type,
             "league_id": league_id,
-            "season_id": season_id,  # Deprecated, kept for backward compatibility
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error queueing stats calculation: {str(e)}")

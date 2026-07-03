@@ -1,17 +1,9 @@
 /**
- * Admin endpoints — stats, config, feedback, recent players, health check, loadFromSheets.
+ * Admin endpoints — stats, config, feedback, recent players, health check.
  */
 
 import api from '../api-client';
 import type { Feedback } from '../../types';
-
-/**
- * Load matches from Google Sheets and calculate statistics
- */
-export const loadFromSheets = async () => {
-  const response = await api.post('/api/loadsheets');
-  return response.data;
-};
 
 /**
  * Health check

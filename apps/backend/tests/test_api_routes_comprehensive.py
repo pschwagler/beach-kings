@@ -1182,7 +1182,7 @@ class TestStatsEndpoints:
 
         # Mock the stats queue
         class FakeQueue:
-            async def enqueue_calculation(self, session, calc_type, season_id=None):
+            async def enqueue_calculation(self, session, calc_type, league_id=None):
                 return 123
 
         fake_queue = FakeQueue()

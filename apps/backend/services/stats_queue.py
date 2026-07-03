@@ -13,7 +13,7 @@ from typing import Optional, Dict, Callable, Awaitable
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select, update, and_, func
-from backend.database.models import StatsCalculationJob, StatsCalculationJobStatus, Season
+from backend.database.models import StatsCalculationJob, StatsCalculationJobStatus
 from backend.database import db
 
 logger = logging.getLogger(__name__)
@@ -214,7 +214,7 @@ class StatsCalculationQueue:
         """Run a calculation job."""
         session = db.AsyncSessionLocal()
         try:
-            # Get job to verify it exists and get calc_type/season_id
+            # Get job to verify it exists and get calc_type/league_id
             result = await session.execute(
                 select(StatsCalculationJob).where(StatsCalculationJob.id == job_id)
             )
@@ -237,18 +237,6 @@ class StatsCalculationQueue:
                     if not job.league_id:
                         raise ValueError("league_id required for league calculation")
                     await self._league_calc_callback(session, job.league_id)
-                elif job.calc_type == "season":
-                    # Backward compatibility: convert season_id to league_id
-                    if not job.season_id:
-                        raise ValueError("season_id required for season calculation")
-                    # Get league_id from season
-                    season_result = await session.execute(
-                        select(Season).where(Season.id == job.season_id)
-                    )
-                    season = season_result.scalar_one_or_none()
-                    if not season:
-                        raise ValueError(f"Season {job.season_id} not found")
-                    await self._league_calc_callback(session, season.league_id)
                 else:
                     raise ValueError(f"Unknown calc_type: {job.calc_type}")
 
@@ -353,7 +341,6 @@ class StatsCalculationQueue:
                 "id": running.id,
                 "calc_type": running.calc_type,
                 "league_id": running.league_id,
-                "season_id": running.season_id,  # Deprecated, kept for backward compatibility
                 "started_at": running.started_at.isoformat() if running.started_at else None,
             }
             if running
@@ -363,7 +350,6 @@ class StatsCalculationQueue:
                     "id": j.id,
                     "calc_type": j.calc_type,
                     "league_id": j.league_id,
-                    "season_id": j.season_id,  # Deprecated
                     "created_at": j.created_at.isoformat() if j.created_at else None,
                 }
                 for j in pending
@@ -373,7 +359,6 @@ class StatsCalculationQueue:
                     "id": j.id,
                     "calc_type": j.calc_type,
                     "league_id": j.league_id,
-                    "season_id": j.season_id,  # Deprecated
                     "completed_at": j.completed_at.isoformat() if j.completed_at else None,
                 }
                 for j in recent_completed
@@ -383,7 +368,6 @@ class StatsCalculationQueue:
                     "id": j.id,
                     "calc_type": j.calc_type,
                     "league_id": j.league_id,
-                    "season_id": j.season_id,  # Deprecated
                     "error_message": j.error_message,
                     "completed_at": j.completed_at.isoformat() if j.completed_at else None,
                 }
@@ -404,7 +388,6 @@ class StatsCalculationQueue:
             "id": job.id,
             "calc_type": job.calc_type,
             "league_id": job.league_id,
-            "season_id": job.season_id,  # Deprecated, kept for backward compatibility
             "status": job.status.value,
             "created_at": job.created_at.isoformat() if job.created_at else None,
             "started_at": job.started_at.isoformat() if job.started_at else None,

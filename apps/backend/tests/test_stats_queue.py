@@ -45,7 +45,6 @@ async def test_enqueue_global_calculation(db_session, queue):
     job = result.fetchone()
     assert job is not None
     assert job.calc_type == "global"
-    assert job.season_id is None
 
 
 @pytest.mark.asyncio
@@ -175,9 +174,7 @@ async def test_get_queue_status_with_jobs(db_session, queue):
 
     # Create some jobs manually
     job1 = StatsCalculationJob(
-        calc_type="global",
-        season_id=None,
-        status=StatsCalculationJobStatus.RUNNING,
+        calc_type="global",        status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
     db_session.add(job1)
@@ -188,9 +185,7 @@ async def test_get_queue_status_with_jobs(db_session, queue):
     db_session.add(job2)
 
     job3 = StatsCalculationJob(
-        calc_type="global",
-        season_id=None,
-        status=StatsCalculationJobStatus.COMPLETED,
+        calc_type="global",        status=StatsCalculationJobStatus.COMPLETED,
         completed_at=utcnow(),
     )
     db_session.add(job3)
@@ -215,7 +210,6 @@ async def test_get_job_status(db_session, queue):
     assert status is not None
     assert status["id"] == job_id
     assert status["calc_type"] == "global"
-    assert status["season_id"] is None
     assert "status" in status
 
 
@@ -231,7 +225,7 @@ async def test_deduplication_pending_job(db_session, queue):
     """Test that enqueueing when a pending job exists returns that job."""
     # Create a pending job manually
     job = StatsCalculationJob(
-        calc_type="global", season_id=None, status=StatsCalculationJobStatus.PENDING
+        calc_type="global", status=StatsCalculationJobStatus.PENDING
     )
     db_session.add(job)
     await db_session.commit()
@@ -248,9 +242,7 @@ async def test_deduplication_running_job(db_session, queue):
     """Test that enqueueing when a running job exists returns that job."""
     # Create a running job manually
     job = StatsCalculationJob(
-        calc_type="global",
-        season_id=None,
-        status=StatsCalculationJobStatus.RUNNING,
+        calc_type="global",        status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
     db_session.add(job)
@@ -354,9 +346,7 @@ async def test_run_calculation_without_callbacks_registered(db_session):
 
     # Create a job manually
     job = StatsCalculationJob(
-        calc_type="global",
-        season_id=None,
-        status=StatsCalculationJobStatus.RUNNING,
+        calc_type="global",        status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
     db_session.add(job)
@@ -391,9 +381,7 @@ async def test_run_calculation_global_callback_executed(db_session):
 
     # Create and run a global calculation job
     job = StatsCalculationJob(
-        calc_type="global",
-        season_id=None,
-        status=StatsCalculationJobStatus.RUNNING,
+        calc_type="global",        status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
     db_session.add(job)
@@ -555,9 +543,7 @@ async def test_run_calculation_callback_exception_marks_job_failed(db_session):
 
     # Create and run a global calculation job
     job = StatsCalculationJob(
-        calc_type="global",
-        season_id=None,
-        status=StatsCalculationJobStatus.RUNNING,
+        calc_type="global",        status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
     db_session.add(job)
@@ -600,9 +586,7 @@ async def test_run_calculation_unknown_calc_type_raises_error(db_session):
 
     # Create a job with unknown calc_type
     job = StatsCalculationJob(
-        calc_type="unknown_type",
-        season_id=None,
-        status=StatsCalculationJobStatus.RUNNING,
+        calc_type="unknown_type",        status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
     db_session.add(job)
@@ -669,9 +653,7 @@ async def test_integration_with_real_calculation_functions(db_session):
 
     # Create a global calculation job
     job = StatsCalculationJob(
-        calc_type="global",
-        season_id=None,
-        status=StatsCalculationJobStatus.RUNNING,
+        calc_type="global",        status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
     db_session.add(job)
@@ -750,9 +732,7 @@ async def test_register_stats_queue_callbacks_function(db_session):
     # (This indirectly verifies callbacks were registered)
     # We'll create a minimal test job to verify
     job = StatsCalculationJob(
-        calc_type="global",
-        season_id=None,
-        status=StatsCalculationJobStatus.RUNNING,
+        calc_type="global",        status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
     db_session.add(job)

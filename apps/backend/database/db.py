@@ -83,16 +83,3 @@ async def init_database():
         await conn.run_sync(create_tables)
 
 
-async def flush_all_tables():
-    """
-    DISABLED: This function has been disabled.
-
-    TODO: Re-implement to be season-specific and add proper validations.
-    This function should only delete sessions & matches for a specific season,
-    not all data across all tables.
-    """
-    raise NotImplementedError(
-        "flush_all_tables has been disabled. "
-        "This function needs to be re-implemented to be season-specific with proper validations. "
-        "It should only delete sessions and matches for a specific season, not all data."
-    )

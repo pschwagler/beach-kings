@@ -1289,9 +1289,6 @@ class StatsCalculationJob(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     calc_type = Column(String, nullable=False)  # 'global' or 'league'
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
-    season_id = Column(
-        Integer, ForeignKey("seasons.id"), nullable=True
-    )  # Deprecated, kept for backward compatibility
     status = Column(
         Enum(StatsCalculationJobStatus), default=StatsCalculationJobStatus.PENDING, nullable=False
     )
@@ -1302,7 +1299,6 @@ class StatsCalculationJob(Base):
 
     # Relationships
     league = relationship("League", foreign_keys=[league_id])
-    season = relationship("Season", foreign_keys=[season_id])  # Deprecated
 
     __table_args__ = (
         Index("idx_stats_calculation_jobs_status", "status"),
