@@ -14,6 +14,9 @@ screenshots/
 # canonical app config (with the real bundle id) lives in apps/mobile/app.json.
 /app.json
 
+# Local-only working notes (bug logs, exploration notes) — not for the repo
+docs/local/
+
 # Python
 __pycache__/
 *.py[cod]
