@@ -81,6 +81,7 @@ _LEAGUE_DATA = BACKEND_ROOT / "services" / "league_data.py"
 # File discovery
 # ---------------------------------------------------------------------------
 
+
 def _scan_files() -> list[pathlib.Path]:
     """Return all *.py files under services/ and api/ (tests/ excluded)."""
     svc_files = list((BACKEND_ROOT / "services").glob("*.py"))
@@ -449,8 +450,7 @@ def test_no_divergent_active_season_date_logic() -> None:
         for f, pat in violations
     ]
     assert not violations, (
-        "Check (a) failed — divergent active-season date logic found:\n"
-        + "\n".join(messages)
+        "Check (a) failed — divergent active-season date logic found:\n" + "\n".join(messages)
     )
 
 
@@ -480,8 +480,7 @@ def test_no_session_season_league_derivation() -> None:
         for f, fn, ln in violations
     ]
     assert not violations, (
-        "Check (b) failed — Session->Season league derivation found:\n"
-        + "\n".join(messages)
+        "Check (b) failed — Session->Season league derivation found:\n" + "\n".join(messages)
     )
 
 
@@ -573,9 +572,7 @@ def test_check_a_helper_detects_synthetic_violation() -> None:
     code = _code_only(synthetic)
 
     # Confirm the tokenizer strips nothing meaningful here and the pattern appears.
-    assert "Season.end_date>=today" in code, (
-        f"Tokenizer produced unexpected output: {code!r}"
-    )
+    assert "Season.end_date>=today" in code, f"Tokenizer produced unexpected output: {code!r}"
 
     # Check that the pattern list contains the expected forbidden substring.
     assert "Season.end_date>=" in _DATE_PATTERNS
@@ -626,11 +623,11 @@ def test_check_a_helper_detects_lowercase_instance_comparison() -> None:
 
     # Complement / non-active-window instance comparisons that must NOT be caught.
     allowed = [
-        "season.end_date < today",    # ended
+        "season.end_date < today",  # ended
         "season.start_date > today",  # not yet started
         "today < season.start_date",  # today before season starts
-        "today > season.end_date",    # today after season ends
-        "season.end_date == today",   # equality
+        "today > season.end_date",  # today after season ends
+        "season.end_date == today",  # equality
     ]
     for source in allowed:
         code = _code_only(source)
@@ -715,15 +712,11 @@ async def bad_aliased_function(db):
     has_season_join = _DOTTED_SEASON_ID_JOIN in code_bad
     has_league_id = _DOTTED_LEAGUE_ID in code_bad
 
-    assert has_aliased, (
-        f"Synthetic bad function does not contain aliased(Season): {code_bad!r}"
-    )
+    assert has_aliased, f"Synthetic bad function does not contain aliased(Season): {code_bad!r}"
     assert has_season_join, (
         f"Synthetic bad function does not contain .season_id== join: {code_bad!r}"
     )
-    assert has_league_id, (
-        f"Synthetic bad function does not contain .league_id ref: {code_bad!r}"
-    )
+    assert has_league_id, f"Synthetic bad function does not contain .league_id ref: {code_bad!r}"
     # All three present => violation detected.
     assert has_aliased and has_season_join and has_league_id, (
         "check (b) aliased heuristic did NOT detect aliased(Season) + season_id join + league_id"
@@ -799,8 +792,7 @@ def test_check_c_helper_detects_synthetic_second_resolver() -> None:
     for src in (synthetic_sync, synthetic_async):
         code = _code_only(src)
         assert _RESOLVER_NEEDLE in code, (
-            f"check (c) helper did NOT detect resolver definition in: {src!r}\n"
-            f"code-only: {code!r}"
+            f"check (c) helper did NOT detect resolver definition in: {src!r}\ncode-only: {code!r}"
         )
 
     # Confirm the removed helper needle also works.

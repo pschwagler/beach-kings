@@ -25,8 +25,7 @@ def _column_exists(table: str, column: str) -> bool:
     bind = op.get_bind()
     result = bind.execute(
         sa.text(
-            "SELECT 1 FROM information_schema.columns "
-            "WHERE table_name = :t AND column_name = :c"
+            "SELECT 1 FROM information_schema.columns WHERE table_name = :t AND column_name = :c"
         ),
         {"t": table, "c": column},
     )

@@ -309,9 +309,7 @@ async def test_my_games_service_league_filter_includes_gap_match(
     pickup_match = phase6b_world["pickup_match"]
     other_match = phase6b_world["other_match"]
 
-    result = await get_player_games(
-        db_session, player_id=alice.id, league_id=league.id
-    )
+    result = await get_player_games(db_session, player_id=alice.id, league_id=league.id)
     assert result is not None, f"get_my_games must not return None for player {alice.id}"
     entries, total = result
     entry_ids = {e["id"] for e in entries}
@@ -351,7 +349,9 @@ async def test_get_session_by_code_gap_session_returns_league_id(
 
     result = await get_session_by_code(db_session, code=gap_session.code)
 
-    assert result is not None, f"get_session_by_code must find gap session by code {gap_session.code!r}"
+    assert result is not None, (
+        f"get_session_by_code must find gap session by code {gap_session.code!r}"
+    )
     assert result["league_id"] == league.id, (
         f"Gap session league_id must be {league.id}, got {result['league_id']}"
     )
@@ -406,9 +406,7 @@ async def test_get_open_sessions_gap_session_has_league_info(
     gap_session = phase6b_world["gap_session"]
 
     # Gap session is created_by alice and SUBMITTED; use active_only=False
-    results = await get_open_sessions_for_user(
-        db_session, player_id=alice.id, active_only=False
-    )
+    results = await get_open_sessions_for_user(db_session, player_id=alice.id, active_only=False)
     gap_rows = [r for r in results if r["id"] == gap_session.id]
 
     assert len(gap_rows) == 1, (
@@ -447,7 +445,7 @@ async def test_get_league_sessions_includes_gap_session(
     auth behaviour is covered separately in TestGetLeagueSessions.
     """
     from sqlalchemy import select
-    from backend.database.models import Court, Session, SessionStatus
+    from backend.database.models import Court, Session
 
     league = phase6b_world["league"]
     gap_session = phase6b_world["gap_session"]

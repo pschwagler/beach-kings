@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
-import pytz
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,9 +40,7 @@ router = APIRouter()
 # League signups aggregate endpoint
 # ---------------------------------------------------------------------------
 
-_DAY_NAMES = [
-    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
-]
+_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
 def _format_time_label(time_str: str) -> str:
@@ -84,9 +81,7 @@ async def get_league_signups(
     """
     try:
         # Resolve the current player from the auth user.
-        player_result = await session.execute(
-            select(Player).where(Player.user_id == user["id"])
-        )
+        player_result = await session.execute(select(Player).where(Player.user_id == user["id"]))
         player = player_result.scalar_one_or_none()
         if not player:
             raise HTTPException(status_code=404, detail="Player not found for user")
@@ -153,9 +148,7 @@ async def get_league_signups(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error fetching league signups: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error fetching league signups: {str(e)}")
 
 
 # ---------------------------------------------------------------------------

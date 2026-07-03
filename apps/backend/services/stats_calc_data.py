@@ -231,7 +231,9 @@ async def upsert_player_global_stats_async(
                     player_wins[pid] = player_wins.get(pid, 0) + 1
 
         for pid in all_pids:
-            player_point_diff[pid] = player_point_diff.get(pid, 0) + match.signed_diff_for_player(pid)
+            player_point_diff[pid] = player_point_diff.get(pid, 0) + match.signed_diff_for_player(
+                pid
+            )
 
     all_pids = set(player_latest_elo.keys()) | set(player_games.keys())
     rows = [
@@ -241,9 +243,7 @@ async def upsert_player_global_stats_async(
             "total_games": player_games.get(pid, 0),
             "total_wins": player_wins.get(pid, 0),
             "avg_point_diff": (
-                player_point_diff.get(pid, 0) / player_games[pid]
-                if player_games.get(pid)
-                else 0.0
+                player_point_diff.get(pid, 0) / player_games[pid] if player_games.get(pid) else 0.0
             ),
         }
         for pid in all_pids

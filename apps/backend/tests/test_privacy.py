@@ -22,7 +22,6 @@ from fastapi.testclient import TestClient
 from backend.api.main import app
 from backend.database.models import (
     Court,
-    CourtCheckIn,
     League,
     LeagueMember,
     Location,
@@ -180,7 +179,7 @@ async def _set_privacy_flags(
     show_game_history: bool,
 ) -> None:
     """Update a user's privacy flags in-place for test setup."""
-    from sqlalchemy import select, update
+    from sqlalchemy import update
     from sqlalchemy.sql import func
 
     await db_session.execute(
@@ -341,7 +340,9 @@ async def test_private_player_stranger_gets_floor_only(
     Floor = name, avatar, level, city/state, total_games.
     W-L, rank, win%, leagues are hidden.
     """
-    await _set_privacy_flags(db_session, owner_user["id"], profile_is_private=True, show_game_history=False)
+    await _set_privacy_flags(
+        db_session, owner_user["id"], profile_is_private=True, show_game_history=False
+    )
 
     result = await public_service.get_public_player(
         db_session, owner_player.id, viewer_user=stranger_user
@@ -371,7 +372,9 @@ async def test_public_player_hides_game_history_by_default(
     Public profile (profile_is_private=False) with show_game_history=False
     exposes W-L and rank but signals game_history_visible=False.
     """
-    await _set_privacy_flags(db_session, owner_user["id"], profile_is_private=False, show_game_history=False)
+    await _set_privacy_flags(
+        db_session, owner_user["id"], profile_is_private=False, show_game_history=False
+    )
 
     result = await public_service.get_public_player(
         db_session, owner_player.id, viewer_user=stranger_user
@@ -393,7 +396,9 @@ async def test_public_player_shows_game_history_when_enabled(
     """
     Public profile + show_game_history=True signals game_history_visible=True for non-self.
     """
-    await _set_privacy_flags(db_session, owner_user["id"], profile_is_private=False, show_game_history=True)
+    await _set_privacy_flags(
+        db_session, owner_user["id"], profile_is_private=False, show_game_history=True
+    )
 
     result = await public_service.get_public_player(
         db_session, owner_player.id, viewer_user=stranger_user
@@ -411,7 +416,9 @@ async def test_owner_sees_everything_even_when_private(
     Owner (viewer whose user_id matches the player's user_id) always sees full detail,
     regardless of profile_is_private or show_game_history.
     """
-    await _set_privacy_flags(db_session, owner_user["id"], profile_is_private=True, show_game_history=False)
+    await _set_privacy_flags(
+        db_session, owner_user["id"], profile_is_private=True, show_game_history=False
+    )
 
     result = await public_service.get_public_player(
         db_session, owner_player.id, viewer_user=owner_user
@@ -443,7 +450,9 @@ async def test_league_mate_sees_shared_league_in_memberships(
     all viewers including league-mates.
     """
     # Public profile — league-mate sees the shared league
-    await _set_privacy_flags(db_session, owner_user["id"], profile_is_private=False, show_game_history=False)
+    await _set_privacy_flags(
+        db_session, owner_user["id"], profile_is_private=False, show_game_history=False
+    )
 
     result = await public_service.get_public_player(
         db_session, owner_player.id, viewer_user=league_mate_user
@@ -468,7 +477,9 @@ async def test_private_player_league_mate_still_gets_floor_from_public_endpoint(
     cross-league public profile endpoint.  The league-mate exception only grants
     visibility within shared-league stat pages — NOT the cross-league profile.
     """
-    await _set_privacy_flags(db_session, owner_user["id"], profile_is_private=True, show_game_history=False)
+    await _set_privacy_flags(
+        db_session, owner_user["id"], profile_is_private=True, show_game_history=False
+    )
 
     result = await public_service.get_public_player(
         db_session, owner_player.id, viewer_user=league_mate_user

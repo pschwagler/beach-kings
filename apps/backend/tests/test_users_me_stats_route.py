@@ -137,8 +137,16 @@ class TestGetMyStatsRoute:
 
         # overall sub-shape
         overall = data["overall"]
-        for key in ("wins", "losses", "games_played", "rating", "peak_rating",
-                    "win_rate", "current_streak", "avg_point_diff"):
+        for key in (
+            "wins",
+            "losses",
+            "games_played",
+            "rating",
+            "peak_rating",
+            "win_rate",
+            "current_streak",
+            "avg_point_diff",
+        ):
             assert key in overall, f"Missing overall key: {key}"
 
         # trophies sub-shape
@@ -152,8 +160,15 @@ class TestGetMyStatsRoute:
         assert isinstance(data["partners"], list)
         if data["partners"]:
             partner = data["partners"][0]
-            for key in ("player_id", "display_name", "initials",
-                        "games_played", "wins", "losses", "win_rate"):
+            for key in (
+                "player_id",
+                "display_name",
+                "initials",
+                "games_played",
+                "wins",
+                "losses",
+                "win_rate",
+            ):
                 assert key in partner, f"Missing partner key: {key}"
             assert "rating_diff" not in partner, "rating_diff must not be present"
 

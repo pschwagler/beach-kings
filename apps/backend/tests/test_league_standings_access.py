@@ -40,9 +40,7 @@ async def _member(db_session: AsyncSession, league: League, user_id: int) -> Pla
     db_session.add(player)
     await db_session.commit()
     await db_session.refresh(player)
-    db_session.add(
-        LeagueMember(league_id=league.id, player_id=player.id, role="member")
-    )
+    db_session.add(LeagueMember(league_id=league.id, player_id=player.id, role="member"))
     await db_session.commit()
     return player
 

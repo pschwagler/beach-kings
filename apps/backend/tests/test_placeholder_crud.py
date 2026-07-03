@@ -781,15 +781,11 @@ class TestSessionRosterInviteUrl:
     """invite_url is surfaced only for placeholders with an OPEN invite."""
 
     async def _add_participant(self, db_session, session_id, player_id):
-        db_session.add(
-            SessionParticipant(session_id=session_id, player_id=player_id)
-        )
+        db_session.add(SessionParticipant(session_id=session_id, player_id=player_id))
         await db_session.commit()
 
     @pytest.mark.asyncio
-    async def test_pending_invite_yields_claim_url(
-        self, db_session, test_session, creator_player
-    ):
+    async def test_pending_invite_yields_claim_url(self, db_session, test_session, creator_player):
         placeholder = Player(full_name="Ghost One", is_placeholder=True)
         db_session.add(placeholder)
         await db_session.commit()
@@ -811,9 +807,7 @@ class TestSessionRosterInviteUrl:
         assert entry["invite_url"] == f"{FRONTEND_BASE_URL}/invite/tok_pending"
 
     @pytest.mark.asyncio
-    async def test_claimed_invite_yields_no_url(
-        self, db_session, test_session, creator_player
-    ):
+    async def test_claimed_invite_yields_no_url(self, db_session, test_session, creator_player):
         placeholder = Player(full_name="Ghost Two", is_placeholder=True)
         db_session.add(placeholder)
         await db_session.commit()
@@ -835,12 +829,8 @@ class TestSessionRosterInviteUrl:
         assert entry["invite_url"] is None
 
     @pytest.mark.asyncio
-    async def test_real_player_has_no_url(
-        self, db_session, test_session, creator_player
-    ):
-        await self._add_participant(
-            db_session, test_session.id, creator_player.id
-        )
+    async def test_real_player_has_no_url(self, db_session, test_session, creator_player):
+        await self._add_participant(db_session, test_session.id, creator_player.id)
         roster = await session_data.get_session_roster_with_game_counts(
             db_session, test_session.id
         )

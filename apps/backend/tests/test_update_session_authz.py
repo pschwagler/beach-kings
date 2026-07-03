@@ -32,7 +32,6 @@ Three-state model:
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
@@ -297,7 +296,7 @@ class TestPromotionRequiresTargetLeagueAdmin:
 
     def test_admin_can_promote_pickup_to_league(self, monkeypatch):
         """Target-league admin CAN promote a pickup session (Case 1, happy path)."""
-        from unittest.mock import MagicMock, AsyncMock
+        from unittest.mock import MagicMock
         from sqlalchemy.ext.asyncio import AsyncSession
 
         client, headers = _make_non_admin_client(monkeypatch)

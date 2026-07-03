@@ -74,18 +74,14 @@ async def _season(db_session, league: League, name: str = "Spring 2024") -> Seas
 @pytest.mark.asyncio
 async def test_returns_none_when_player_missing(db_session):
     league = await _league(db_session, "L")
-    result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=999_999
-    )
+    result = await get_league_player_stats_full(db_session, league_id=league.id, player_id=999_999)
     assert result is None
 
 
 @pytest.mark.asyncio
 async def test_returns_none_when_league_missing(db_session):
     p = await _player(db_session, "Pat S")
-    result = await get_league_player_stats_full(
-        db_session, league_id=999_999, player_id=p.id
-    )
+    result = await get_league_player_stats_full(db_session, league_id=999_999, player_id=p.id)
     assert result is None
 
 
@@ -471,11 +467,17 @@ async def test_rank_season_scope_matches_standings_ordering(db_session):
     await db_session.commit()
 
     result_a = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_a.id, season_id=season.id,
+        db_session,
+        league_id=league.id,
+        player_id=player_a.id,
+        season_id=season.id,
         caller_player_id=player_a.id,
     )
     result_b = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_b.id, season_id=season.id,
+        db_session,
+        league_id=league.id,
+        player_id=player_b.id,
+        season_id=season.id,
         caller_player_id=player_b.id,
     )
 
@@ -540,11 +542,17 @@ async def test_rank_tiebreak_by_avg_point_diff_then_win_rate(db_session):
     await db_session.commit()
 
     result_a = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_a.id, season_id=season.id,
+        db_session,
+        league_id=league.id,
+        player_id=player_a.id,
+        season_id=season.id,
         caller_player_id=player_a.id,
     )
     result_b = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_b.id, season_id=season.id,
+        db_session,
+        league_id=league.id,
+        player_id=player_b.id,
+        season_id=season.id,
         caller_player_id=player_b.id,
     )
 
@@ -610,10 +618,7 @@ async def test_game_history_populated_with_viewed_player_perspective(db_session)
     assert entry["my_score"] == 21
     assert entry["opponent_score"] == 15
     assert partner.full_name in entry["partner_names"]
-    assert (
-        opp1.full_name in entry["opponent_names"]
-        or opp2.full_name in entry["opponent_names"]
-    )
+    assert opp1.full_name in entry["opponent_names"] or opp2.full_name in entry["opponent_names"]
     assert entry["league_id"] == league.id
 
 
@@ -724,12 +729,8 @@ async def test_game_history_scoped_to_season(db_session):
     season = await _season(db_session, league, "Spring 2024")
     await _league_member(db_session, league, viewed)
 
-    sess_in = await _session(
-        db_session, league, season=season, session_date="2024-03-01"
-    )
-    sess_out = await _session(
-        db_session, league, season=None, session_date="2024-02-01"
-    )
+    sess_in = await _session(db_session, league, season=season, session_date="2024-03-01")
+    sess_out = await _session(db_session, league, season=None, session_date="2024-02-01")
 
     await _match(db_session, sess_in, t1p1=viewed, t1p2=partner, t2p1=opp1, t2p2=opp2)
     await _match(db_session, sess_out, t1p1=viewed, t1p2=partner, t2p1=opp1, t2p2=opp2)
@@ -748,7 +749,10 @@ async def test_game_history_scoped_to_season(db_session):
     await db_session.commit()
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=viewed.id, season_id=season.id,
+        db_session,
+        league_id=league.id,
+        player_id=viewed.id,
+        season_id=season.id,
         caller_player_id=viewed.id,
     )
 
@@ -827,7 +831,10 @@ async def test_rating_is_points_based(db_session):
     await db_session.commit()
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player.id, season_id=season.id,
+        db_session,
+        league_id=league.id,
+        player_id=player.id,
+        season_id=season.id,
         caller_player_id=player.id,
     )
 

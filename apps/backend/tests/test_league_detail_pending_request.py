@@ -58,9 +58,7 @@ async def test_has_pending_request_false_without_request(
     db_session: AsyncSession, open_league, visitor
 ):
     """No request → flag is False (and the visitor is a non-member: user_role None)."""
-    detail = await data_service.get_league_detail(
-        db_session, open_league.id, visitor["user_id"]
-    )
+    detail = await data_service.get_league_detail(db_session, open_league.id, visitor["user_id"])
     assert detail is not None
     assert detail["has_pending_request"] is False
     assert detail["user_role"] is None
@@ -72,9 +70,7 @@ async def test_has_pending_request_true_with_pending(
 ):
     """A pending request by the caller → flag is True."""
     await _request(db_session, open_league.id, visitor["player"].id, "pending")
-    detail = await data_service.get_league_detail(
-        db_session, open_league.id, visitor["user_id"]
-    )
+    detail = await data_service.get_league_detail(db_session, open_league.id, visitor["user_id"])
     assert detail is not None
     assert detail["has_pending_request"] is True
 
@@ -85,8 +81,6 @@ async def test_has_pending_request_false_when_rejected(
 ):
     """A rejected (non-pending) request must NOT set the flag."""
     await _request(db_session, open_league.id, visitor["player"].id, "rejected")
-    detail = await data_service.get_league_detail(
-        db_session, open_league.id, visitor["user_id"]
-    )
+    detail = await data_service.get_league_detail(db_session, open_league.id, visitor["user_id"])
     assert detail is not None
     assert detail["has_pending_request"] is False

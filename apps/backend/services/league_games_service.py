@@ -51,24 +51,14 @@ def _normalize_session_date(raw: object) -> str | None:
 
 def _build_entry(row: "Row") -> dict:
     """Transform a raw query row into a LeagueGameEntry-shaped dict."""
-    team1_names = [
-        n for n in [row.team1_player1_name, row.team1_player2_name] if n is not None
-    ]
-    team1_ids = [
-        pid for pid in [row.team1_player1_id, row.team1_player2_id] if pid is not None
-    ]
-    team2_names = [
-        n for n in [row.team2_player1_name, row.team2_player2_name] if n is not None
-    ]
-    team2_ids = [
-        pid for pid in [row.team2_player1_id, row.team2_player2_id] if pid is not None
-    ]
+    team1_names = [n for n in [row.team1_player1_name, row.team1_player2_name] if n is not None]
+    team1_ids = [pid for pid in [row.team1_player1_id, row.team1_player2_id] if pid is not None]
+    team2_names = [n for n in [row.team2_player1_name, row.team2_player2_name] if n is not None]
+    team2_ids = [pid for pid in [row.team2_player1_id, row.team2_player2_id] if pid is not None]
 
     # Normalize session_status to a plain string (enum.value or already-str).
     raw_status = row.session_status
-    session_status = (
-        raw_status.value if hasattr(raw_status, "value") else str(raw_status)
-    )
+    session_status = raw_status.value if hasattr(raw_status, "value") else str(raw_status)
 
     return {
         "id": row.match_id,

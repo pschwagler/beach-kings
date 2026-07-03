@@ -32,26 +32,18 @@ async def league(db_session: AsyncSession) -> League:
 
 
 async def _seasons_for(db_session: AsyncSession, league_id: int) -> list[Season]:
-    result = await db_session.execute(
-        select(Season).where(Season.league_id == league_id)
-    )
+    result = await db_session.execute(select(Season).where(Season.league_id == league_id))
     return list(result.scalars().all())
 
 
 @pytest.mark.asyncio
-async def test_only_one_open_season_per_league_enforced(
-    db_session: AsyncSession, league: League
-):
+async def test_only_one_open_season_per_league_enforced(db_session: AsyncSession, league: League):
     """The DB rejects a second open-ended season for the same league."""
     today = date.today()
-    db_session.add(
-        Season(league_id=league.id, name="Rolling A", start_date=today, end_date=None)
-    )
+    db_session.add(Season(league_id=league.id, name="Rolling A", start_date=today, end_date=None))
     await db_session.commit()
 
-    db_session.add(
-        Season(league_id=league.id, name="Rolling B", start_date=today, end_date=None)
-    )
+    db_session.add(Season(league_id=league.id, name="Rolling B", start_date=today, end_date=None))
     with pytest.raises(IntegrityError):
         await db_session.commit()
     await db_session.rollback()

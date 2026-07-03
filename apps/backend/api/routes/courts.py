@@ -134,9 +134,7 @@ async def get_court_detail(
         if court is None:
             raise HTTPException(status_code=404, detail="Court not found")
 
-        tags_map = await court_service._batch_get_top_tags(
-            session, [court["id"]], limit=3
-        )
+        tags_map = await court_service._batch_get_top_tags(session, [court["id"]], limit=3)
         player_id = await court_service.get_player_id_for_user(session, caller)
         is_saved = (
             await court_service.is_court_saved(session, player_id, court["id"])

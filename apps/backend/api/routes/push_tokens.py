@@ -34,15 +34,11 @@ async def register_push_token(
             id=device_token.id,
             token=device_token.token,
             platform=device_token.platform,
-            created_at=device_token.created_at.isoformat()
-            if device_token.created_at
-            else "",
+            created_at=device_token.created_at.isoformat() if device_token.created_at else "",
         )
     except Exception as e:
         logger.error("Error registering push token: %s", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to register push token"
-        )
+        raise HTTPException(status_code=500, detail="Failed to register push token")
 
 
 @router.delete("/api/push-tokens")
@@ -57,9 +53,7 @@ async def unregister_push_token(
     """
     try:
         user_id = user.get("id")
-        deleted = await push_service.unregister_token(
-            session, user_id, body.token
-        )
+        deleted = await push_service.unregister_token(session, user_id, body.token)
         if not deleted:
             raise HTTPException(status_code=404, detail="Token not found")
         return {"success": True}
@@ -67,6 +61,4 @@ async def unregister_push_token(
         raise
     except Exception as e:
         logger.error("Error unregistering push token: %s", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to unregister push token"
-        )
+        raise HTTPException(status_code=500, detail="Failed to unregister push token")

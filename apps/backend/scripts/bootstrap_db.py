@@ -37,8 +37,7 @@ async def _detect_and_init() -> str:
         async with engine.connect() as conn:
             result = await conn.execute(
                 text(
-                    "SELECT count(*) FROM information_schema.tables "
-                    "WHERE table_schema = 'public'"
+                    "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"
                 )
             )
             table_count = int(result.scalar_one())

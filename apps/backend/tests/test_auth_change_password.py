@@ -144,9 +144,7 @@ class TestChangePassword:
             }
 
         monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
-        monkeypatch.setattr(
-            user_service, "get_user_by_id", fake_get_user_by_id_seq, raising=True
-        )
+        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id_seq, raising=True)
 
         response = client.post(
             "/api/auth/change-password",

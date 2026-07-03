@@ -336,14 +336,16 @@ class TestGetFriendRequests:
         """Filter by incoming returns a list of request dicts."""
 
         async def fake_get(session, player_id, direction="both"):
-            return [{
-                "id": 1,
-                "status": "pending",
-                "sender_player_id": 20,
-                "sender_name": "Sender",
-                "receiver_player_id": 10,
-                "receiver_name": "Test User",
-            }]
+            return [
+                {
+                    "id": 1,
+                    "status": "pending",
+                    "sender_player_id": 20,
+                    "sender_name": "Sender",
+                    "receiver_player_id": 10,
+                    "receiver_name": "Test User",
+                }
+            ]
 
         monkeypatch.setattr(friend_service, "get_friend_requests", fake_get, raising=True)
 
@@ -529,8 +531,10 @@ class TestDiscoverPlayers:
     def test_discover_success(self, client, headers, monkeypatch):
         """Happy path: returns paginated discover results."""
         monkeypatch.setattr(
-            friend_service, "discover_players",
-            self._fake_discover(), raising=True,
+            friend_service,
+            "discover_players",
+            self._fake_discover(),
+            raising=True,
         )
 
         response = client.get("/api/friends/discover", headers=headers)
@@ -544,8 +548,10 @@ class TestDiscoverPlayers:
     def test_discover_response_shape(self, client, headers, monkeypatch):
         """Response matches PaginatedDiscoverPlayersResponse schema."""
         monkeypatch.setattr(
-            friend_service, "discover_players",
-            self._fake_discover(), raising=True,
+            friend_service,
+            "discover_players",
+            self._fake_discover(),
+            raising=True,
         )
 
         response = client.get("/api/friends/discover", headers=headers)
@@ -572,7 +578,10 @@ class TestDiscoverPlayers:
             return {"items": [], "total_count": 0, "page": 1, "page_size": 25}
 
         monkeypatch.setattr(
-            friend_service, "discover_players", _capture, raising=True,
+            friend_service,
+            "discover_players",
+            _capture,
+            raising=True,
         )
 
         response = client.get(
@@ -606,8 +615,10 @@ class TestDiscoverPlayers:
     def test_discover_empty_results(self, client, headers, monkeypatch):
         """Empty results return valid structure."""
         monkeypatch.setattr(
-            friend_service, "discover_players",
-            self._fake_discover(items=[], total_count=0), raising=True,
+            friend_service,
+            "discover_players",
+            self._fake_discover(items=[], total_count=0),
+            raising=True,
         )
 
         response = client.get("/api/friends/discover", headers=headers)
@@ -625,7 +636,10 @@ class TestDiscoverPlayers:
             return {"items": [], "total_count": 0, "page": 1, "page_size": 25}
 
         monkeypatch.setattr(
-            friend_service, "discover_players", _capture, raising=True,
+            friend_service,
+            "discover_players",
+            _capture,
+            raising=True,
         )
 
         response = client.get("/api/friends/discover", headers=headers)

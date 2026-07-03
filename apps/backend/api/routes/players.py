@@ -417,9 +417,7 @@ async def get_player_match_history(
 
 
 @router.get("/api/players/{player_id}/leagues", response_model=List[Any])
-async def get_player_leagues(
-    player_id: int, session: AsyncSession = Depends(get_db_session)
-):
+async def get_player_leagues(player_id: int, session: AsyncSession = Depends(get_db_session)):
     """
     Get public leagues for a specific player.
 
@@ -429,9 +427,7 @@ async def get_player_leagues(
     try:
         result = await league_data.get_player_public_leagues(session, player_id)
         if result is None:
-            raise HTTPException(
-                status_code=404, detail=f"Player with ID {player_id} not found."
-            )
+            raise HTTPException(status_code=404, detail=f"Player with ID {player_id} not found.")
         return result
     except HTTPException:
         raise

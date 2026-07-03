@@ -4,8 +4,7 @@ Integration tests for push token API routes.
 Tests POST and DELETE /api/push-tokens endpoints.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 

@@ -81,6 +81,4 @@ async def test_invalidate_deletes_each_distinct_caller(monkeypatch):
 
     monkeypatch.setattr(cache.redis_service, "redis_delete", _del)
     await cache.invalidate([1, 2, 2, None, 3])
-    assert sorted(deleted) == sorted(
-        cache.cache_key(p) for p in (1, 2, 3)
-    )
+    assert sorted(deleted) == sorted(cache.cache_key(p) for p in (1, 2, 3))

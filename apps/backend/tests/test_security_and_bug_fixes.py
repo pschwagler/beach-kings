@@ -18,8 +18,8 @@ from __future__ import annotations
 import logging
 import pytest
 import pytest_asyncio
-from datetime import date, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import date
+from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -28,9 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.main import app
 from backend.database.models import (
     League,
-    LeagueMember,
     Player,
-    Season,
     Session,
     SessionStatus,
     User,
@@ -209,8 +207,9 @@ async def league_user(db_session: AsyncSession) -> User:
 
 @pytest_asyncio.fixture
 async def league_player(db_session: AsyncSession, league_user: User) -> Player:
-    p = Player(full_name="Member Player", first_name="Member", last_name="Player",
-               user_id=league_user.id)
+    p = Player(
+        full_name="Member Player", first_name="Member", last_name="Player", user_id=league_user.id
+    )
     db_session.add(p)
     await db_session.commit()
     await db_session.refresh(p)
@@ -409,9 +408,7 @@ async def test_bug3_create_session_pickup_counter_ignores_gap_games(
         )
     )
     count = result.scalar() or 0
-    assert count == 0, (
-        f"Pickup counter must be 0 (gap_session_a must not be counted), got {count}"
-    )
+    assert count == 0, f"Pickup counter must be 0 (gap_session_a must not be counted), got {count}"
 
 
 @pytest.mark.asyncio
@@ -783,7 +780,6 @@ class TestSec3CreateMatchMembershipCheck:
 
     def test_non_member_cannot_create_league_match(self, monkeypatch):
         """An authenticated non-member receives 403 when league_id is set."""
-        import backend.api.routes.matches as matches_module
         import backend.api.auth_dependencies as auth_deps
 
         client, headers = _make_user_client(monkeypatch)
@@ -844,9 +840,7 @@ class TestSec3CreateMatchMembershipCheck:
             fake_get_or_create,
             raising=True,
         )
-        monkeypatch.setattr(
-            data_service, "create_match_async", fake_create_match, raising=True
-        )
+        monkeypatch.setattr(data_service, "create_match_async", fake_create_match, raising=True)
 
         response = client.post("/api/matches", json=self._VALID_BODY, headers=headers)
         assert response.status_code == 200
@@ -873,9 +867,7 @@ class TestSec3CreateMatchMembershipCheck:
             return 55
 
         monkeypatch.setattr(data_service, "create_session", fake_create_session, raising=True)
-        monkeypatch.setattr(
-            data_service, "create_match_async", fake_create_match, raising=True
-        )
+        monkeypatch.setattr(data_service, "create_match_async", fake_create_match, raising=True)
 
         response = client.post("/api/matches", json=pickup_body, headers=headers)
         assert response.status_code == 200
@@ -953,9 +945,7 @@ class TestSec4RemoveParticipantMembershipCheck:
         monkeypatch.setattr(
             sessions_module, "_has_league_role", fake_has_league_role, raising=True
         )
-        monkeypatch.setattr(
-            data_service, "remove_session_participant", fake_remove, raising=True
-        )
+        monkeypatch.setattr(data_service, "remove_session_participant", fake_remove, raising=True)
 
         response = client.delete(
             f"/api/sessions/{_SESSION_ID}/participants/{self._OTHER_PLAYER}",
@@ -993,9 +983,7 @@ class TestSec4RemoveParticipantMembershipCheck:
         monkeypatch.setattr(
             data_service, "can_user_add_match_to_session", fake_can_add, raising=True
         )
-        monkeypatch.setattr(
-            data_service, "remove_session_participant", fake_remove, raising=True
-        )
+        monkeypatch.setattr(data_service, "remove_session_participant", fake_remove, raising=True)
 
         response = client.delete(
             f"/api/sessions/{_SESSION_ID}/participants/{self._OTHER_PLAYER}",

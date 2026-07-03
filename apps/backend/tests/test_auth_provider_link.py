@@ -243,9 +243,7 @@ class TestGoogleAdd:
         def raise_value(token):
             raise ValueError("bad token")
 
-        monkeypatch.setattr(
-            auth_service, "verify_google_id_token", raise_value, raising=True
-        )
+        monkeypatch.setattr(auth_service, "verify_google_id_token", raise_value, raising=True)
 
         client = TestClient(app)
         resp = client.post("/api/auth/google/add", json={"id_token": "garbage"})
@@ -359,9 +357,7 @@ class TestAppleAdd:
         def raise_value(token):
             raise ValueError("bad token")
 
-        monkeypatch.setattr(
-            auth_service, "verify_apple_id_token", raise_value, raising=True
-        )
+        monkeypatch.setattr(auth_service, "verify_apple_id_token", raise_value, raising=True)
 
         client = TestClient(app)
         resp = client.post("/api/auth/apple/add", json={"id_token": "garbage"})

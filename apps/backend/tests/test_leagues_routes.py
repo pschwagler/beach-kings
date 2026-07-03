@@ -562,7 +562,9 @@ class TestApproveJoinRequest:
                 "created_at": "2026-01-01T00:00:00Z",
             }
 
-        monkeypatch.setattr(data_service, "add_league_member", fake_add_league_member, raising=True)
+        monkeypatch.setattr(
+            data_service, "add_league_member", fake_add_league_member, raising=True
+        )
         monkeypatch.setattr(
             notification_service,
             "notify_player_about_join_approval",
@@ -621,9 +623,7 @@ class TestApproveJoinRequest:
     def test_approve_join_request_unauthenticated(self, monkeypatch):
         """Unauthenticated request is rejected."""
         client = TestClient(app)
-        response = client.post(
-            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/approve"
-        )
+        response = client.post(f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/approve")
         assert response.status_code in (401, 403)
 
 
@@ -692,9 +692,7 @@ class TestRejectJoinRequest:
     def test_reject_join_request_unauthenticated(self, monkeypatch):
         """Unauthenticated request is rejected."""
         client = TestClient(app)
-        response = client.post(
-            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/reject"
-        )
+        response = client.post(f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/reject")
         assert response.status_code in (401, 403)
 
 
@@ -1056,8 +1054,18 @@ class TestQueryLeagues:
                         "member_count": 8,
                         "friend_count": 2,
                         "friends_preview": [
-                            {"player_id": 10, "first_name": "Mike", "last_name": "Chen", "avatar": None},
-                            {"player_id": 11, "first_name": "Jordan", "last_name": "Smith", "avatar": "abc.jpg"},
+                            {
+                                "player_id": 10,
+                                "first_name": "Mike",
+                                "last_name": "Chen",
+                                "avatar": None,
+                            },
+                            {
+                                "player_id": 11,
+                                "first_name": "Jordan",
+                                "last_name": "Smith",
+                                "avatar": "abc.jpg",
+                            },
                         ],
                     },
                     {
@@ -1273,9 +1281,7 @@ class TestGetLeagueStandings:
             data_service, "get_league_standings", fake_get_league_standings, raising=True
         )
 
-        client.get(
-            f"/api/leagues/{LEAGUE_ID}/standings?season_id={SEASON_ID}", headers=headers
-        )
+        client.get(f"/api/leagues/{LEAGUE_ID}/standings?season_id={SEASON_ID}", headers=headers)
         assert captured["league_id"] == LEAGUE_ID
         assert captured["season_id"] == SEASON_ID
 
@@ -1351,7 +1357,9 @@ class TestGetLeague:
                 "user_rating": None,
             }
 
-        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+        monkeypatch.setattr(
+            data_service, "get_league_detail", fake_get_league_detail, raising=True
+        )
 
         response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
         assert response.status_code == 200
@@ -1400,7 +1408,9 @@ class TestGetLeagueDetail:
         async def fake_get_league_detail(session, league_id, user_id):
             return {**_LEAGUE_DETAIL_BASE}
 
-        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+        monkeypatch.setattr(
+            data_service, "get_league_detail", fake_get_league_detail, raising=True
+        )
 
         response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
         assert response.status_code == 200
@@ -1430,7 +1440,9 @@ class TestGetLeagueDetail:
                 "user_rating": None,
             }
 
-        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+        monkeypatch.setattr(
+            data_service, "get_league_detail", fake_get_league_detail, raising=True
+        )
 
         response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
         assert response.status_code == 200
@@ -1458,7 +1470,9 @@ class TestGetLeagueDetail:
                 "user_rating": None,
             }
 
-        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+        monkeypatch.setattr(
+            data_service, "get_league_detail", fake_get_league_detail, raising=True
+        )
 
         response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
         assert response.status_code == 200
@@ -1477,7 +1491,9 @@ class TestGetLeagueDetail:
                 "is_active": False,
             }
 
-        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+        monkeypatch.setattr(
+            data_service, "get_league_detail", fake_get_league_detail, raising=True
+        )
 
         response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
         assert response.status_code == 200
@@ -1491,7 +1507,9 @@ class TestGetLeagueDetail:
         async def fake_get_league_detail(session, league_id, user_id):
             return None
 
-        monkeypatch.setattr(data_service, "get_league_detail", fake_get_league_detail, raising=True)
+        monkeypatch.setattr(
+            data_service, "get_league_detail", fake_get_league_detail, raising=True
+        )
 
         response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
         assert response.status_code == 404

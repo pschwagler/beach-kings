@@ -81,5 +81,3 @@ async def init_database():
             Base.metadata.create_all(bind=sync_conn, checkfirst=True)
 
         await conn.run_sync(create_tables)
-
-

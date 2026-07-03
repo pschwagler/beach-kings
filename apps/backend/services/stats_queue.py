@@ -305,6 +305,22 @@ class StatsCalculationQueue:
                 logger.error(f"Error in queue worker (outer): {e}")
                 await asyncio.sleep(5)
 
+    @staticmethod
+    def _job_summary(job: StatsCalculationJob, **extra: object) -> Dict:
+        """Build the shared id/calc_type/league_id fields for a queue-status entry.
+
+        ``extra`` supplies the section-specific fields (e.g. ``started_at``,
+        ``created_at``, ``completed_at``, ``error_message``) that differ
+        between the running/pending/recent_completed/recent_failed sections
+        of ``get_queue_status``, keeping the shared shape defined once.
+        """
+        return {
+            "id": job.id,
+            "calc_type": job.calc_type,
+            "league_id": job.league_id,
+            **extra,
+        }
+
     async def get_queue_status(self, session: AsyncSession) -> Dict:
         """Get current queue status."""
         # Get running job
@@ -337,40 +353,30 @@ class StatsCalculationQueue:
         recent_failed = result.scalars().all()
 
         return {
-            "running": {
-                "id": running.id,
-                "calc_type": running.calc_type,
-                "league_id": running.league_id,
-                "started_at": running.started_at.isoformat() if running.started_at else None,
-            }
-            if running
-            else None,
+            "running": (
+                self._job_summary(
+                    running,
+                    started_at=running.started_at.isoformat() if running.started_at else None,
+                )
+                if running
+                else None
+            ),
             "pending": [
-                {
-                    "id": j.id,
-                    "calc_type": j.calc_type,
-                    "league_id": j.league_id,
-                    "created_at": j.created_at.isoformat() if j.created_at else None,
-                }
+                self._job_summary(j, created_at=j.created_at.isoformat() if j.created_at else None)
                 for j in pending
             ],
             "recent_completed": [
-                {
-                    "id": j.id,
-                    "calc_type": j.calc_type,
-                    "league_id": j.league_id,
-                    "completed_at": j.completed_at.isoformat() if j.completed_at else None,
-                }
+                self._job_summary(
+                    j, completed_at=j.completed_at.isoformat() if j.completed_at else None
+                )
                 for j in recent_completed
             ],
             "recent_failed": [
-                {
-                    "id": j.id,
-                    "calc_type": j.calc_type,
-                    "league_id": j.league_id,
-                    "error_message": j.error_message,
-                    "completed_at": j.completed_at.isoformat() if j.completed_at else None,
-                }
+                self._job_summary(
+                    j,
+                    error_message=j.error_message,
+                    completed_at=j.completed_at.isoformat() if j.completed_at else None,
+                )
                 for j in recent_failed
             ],
         }

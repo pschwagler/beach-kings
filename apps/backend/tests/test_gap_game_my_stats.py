@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 import pytest_asyncio
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -146,12 +146,8 @@ async def stats_world(db_session: AsyncSession) -> dict:
     await db_session.flush()
 
     gap_match = await _make_match(db_session, gap_session, alice, bob, carol, dave, winner=1)
-    season_match = await _make_match(
-        db_session, season_session, alice, bob, carol, dave, winner=1
-    )
-    pickup_match = await _make_match(
-        db_session, pickup_session, alice, bob, carol, dave, winner=1
-    )
+    season_match = await _make_match(db_session, season_session, alice, bob, carol, dave, winner=1)
+    pickup_match = await _make_match(db_session, pickup_session, alice, bob, carol, dave, winner=1)
 
     # EloHistory rows for the peak/timeline tests
     db_session.add(
@@ -221,9 +217,7 @@ async def stats_world(db_session: AsyncSession) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_peak_rating_includes_gap_game_elo(
-    db_session: AsyncSession, stats_world: dict
-):
+async def test_peak_rating_includes_gap_game_elo(db_session: AsyncSession, stats_world: dict):
     """REGRESSION (Bug #2, site 1): peak ELO must include gap-game sessions.
 
     Old code: ``.where(Session.season_id.in_(_seasons_in_league_subquery(league_id)))``
@@ -273,9 +267,7 @@ async def test_peak_rating_includes_gap_game_elo(
 
 
 @pytest.mark.asyncio
-async def test_elo_timeline_includes_gap_game_date(
-    db_session: AsyncSession, stats_world: dict
-):
+async def test_elo_timeline_includes_gap_game_date(db_session: AsyncSession, stats_world: dict):
     """REGRESSION (Bug #2, site 2): ELO timeline must include gap-game ELO entry.
 
     Old code excluded gap games from the timeline because the session_id filter
@@ -306,9 +298,7 @@ async def test_elo_timeline_includes_gap_game_date(
 
 
 @pytest.mark.asyncio
-async def test_overall_from_matches_counts_gap_game(
-    db_session: AsyncSession, stats_world: dict
-):
+async def test_overall_from_matches_counts_gap_game(db_session: AsyncSession, stats_world: dict):
     """REGRESSION (Bug #2, site 3): _overall_from_matches must count gap games.
 
     Old code: ``Session.season_id.in_(_seasons_in_league_subquery(league_id))``
@@ -338,9 +328,7 @@ async def test_overall_from_matches_counts_gap_game(
 
 
 @pytest.mark.asyncio
-async def test_current_streak_includes_gap_game(
-    db_session: AsyncSession, stats_world: dict
-):
+async def test_current_streak_includes_gap_game(db_session: AsyncSession, stats_world: dict):
     """REGRESSION (Bug #2, site 4): streak must include gap-game matches.
 
     Both gap and season matches are wins for alice (winner=1, alice on team1).
@@ -350,9 +338,7 @@ async def test_current_streak_includes_gap_game(
     alice = stats_world["alice"]
     league = stats_world["league"]
 
-    streak = await _compute_current_streak(
-        db_session, alice.id, league_id=league.id
-    )
+    streak = await _compute_current_streak(db_session, alice.id, league_id=league.id)
 
     # Both gap and season matches are wins; consecutive → streak +2
     assert streak == 2, (

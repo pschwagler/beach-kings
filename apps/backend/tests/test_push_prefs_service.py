@@ -15,7 +15,6 @@ Covers:
 """
 
 import pytest
-import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.services.push_prefs_service import (
@@ -316,6 +315,7 @@ class TestNotificationServicePushGating:
             ),
         ):
             from backend.services import notification_service as ns
+
             await ns.create_notification(
                 session=mock_session,
                 user_id=99,
@@ -345,6 +345,7 @@ class TestNotificationServicePushGating:
             ),
         ):
             from backend.services import notification_service as ns
+
             await ns.create_notification(
                 session=mock_session,
                 user_id=99,

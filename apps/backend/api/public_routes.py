@@ -292,9 +292,7 @@ async def _resolve_court_id(session: AsyncSession, id_or_slug: str) -> Optional[
     return await court_service.get_court_id_by_slug(session, id_or_slug)
 
 
-@public_router.get(
-    "/courts/{id_or_slug}/photos", response_model=List[CourtPhotoResponse]
-)
+@public_router.get("/courts/{id_or_slug}/photos", response_model=List[CourtPhotoResponse])
 @limiter.limit("60/minute")
 async def list_court_photos(
     request: Request,
@@ -331,9 +329,7 @@ async def get_court_leaderboard(
     return await court_service.get_court_leaderboard(session, court_row)
 
 
-@public_router.get(
-    "/courts/{slug}/check-ins", response_model=dict
-)
+@public_router.get("/courts/{slug}/check-ins", response_model=dict)
 @limiter.limit("60/minute")
 async def get_court_check_ins(
     request: Request, slug: str, session: AsyncSession = Depends(get_db_session)

@@ -142,9 +142,7 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
 
             sent = await email_service.send_verification_code_email(email, code, session=session)
             if not sent:
-                raise HTTPException(
-                    status_code=500, detail="Failed to send verification email."
-                )
+                raise HTTPException(status_code=500, detail="Failed to send verification email.")
 
             return {
                 "status": "success",
@@ -485,9 +483,7 @@ async def _set_google_id(session: AsyncSession, user_id: int, google_id: str) ->
         google_id: Google's ``sub`` claim to store.
     """
     await session.execute(
-        update(User)
-        .where(User.id == user_id)
-        .values(google_id=google_id, updated_at=func.now())
+        update(User).where(User.id == user_id).values(google_id=google_id, updated_at=func.now())
     )
     await session.commit()
 
@@ -505,9 +501,7 @@ async def _set_apple_id(session: AsyncSession, user_id: int, apple_id: str) -> N
         apple_id: Apple's ``sub`` claim to store.
     """
     await session.execute(
-        update(User)
-        .where(User.id == user_id)
-        .values(apple_id=apple_id, updated_at=func.now())
+        update(User).where(User.id == user_id).values(apple_id=apple_id, updated_at=func.now())
     )
     await session.commit()
 
@@ -733,9 +727,7 @@ async def add_phone_verify(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    signup_data = await user_service.verify_and_mark_code_used(
-        session, phone_number, payload.code
-    )
+    signup_data = await user_service.verify_and_mark_code_used(session, phone_number, payload.code)
     if signup_data is None:
         raise HTTPException(status_code=400, detail="Invalid or expired code.")
 
@@ -1296,8 +1288,7 @@ async def change_password(
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Your account uses social sign-in. "
-                    "Set a password via password reset first."
+                    "Your account uses social sign-in. Set a password via password reset first."
                 ),
             )
 
@@ -1337,6 +1328,4 @@ async def change_password(
         raise
     except Exception:
         logger.exception("Error changing password")
-        raise HTTPException(
-            status_code=500, detail="Error changing password. Please try again."
-        )
+        raise HTTPException(status_code=500, detail="Error changing password. Please try again.")

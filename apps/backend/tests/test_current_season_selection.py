@@ -17,7 +17,7 @@ from datetime import date, timedelta
 import bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import League, LeagueMember, Player, Season
+from backend.database.models import Player, Season
 from backend.services import data_service
 from backend.services import user_service
 
@@ -27,12 +27,12 @@ from backend.services import user_service
 # ---------------------------------------------------------------------------
 
 TODAY = date.today()
-ACTIVE_START = TODAY - timedelta(days=5)   # 5 days ago
-ACTIVE_END = TODAY + timedelta(days=5)     # 5 days from now
+ACTIVE_START = TODAY - timedelta(days=5)  # 5 days ago
+ACTIVE_END = TODAY + timedelta(days=5)  # 5 days from now
 FUTURE_START = TODAY + timedelta(days=10)  # clearly not yet started
 FUTURE_END = TODAY + timedelta(days=40)
 PAST_START = TODAY - timedelta(days=60)
-PAST_END = TODAY - timedelta(days=10)      # ended 10 days ago
+PAST_END = TODAY - timedelta(days=10)  # ended 10 days ago
 
 
 # ---------------------------------------------------------------------------

@@ -138,17 +138,11 @@ async def test_add_participant_invalidates_all_current_plus_new(
     db_session, four_players, active_session, captured_invalidations
 ):
     """Adding a player invalidates the new player and every existing one."""
-    db_session.add(
-        SessionParticipant(session_id=active_session.id, player_id=four_players[0].id)
-    )
-    db_session.add(
-        SessionParticipant(session_id=active_session.id, player_id=four_players[1].id)
-    )
+    db_session.add(SessionParticipant(session_id=active_session.id, player_id=four_players[0].id))
+    db_session.add(SessionParticipant(session_id=active_session.id, player_id=four_players[1].id))
     await db_session.commit()
 
-    added = await add_session_participant(
-        db_session, active_session.id, four_players[2].id
-    )
+    added = await add_session_participant(db_session, active_session.id, four_players[2].id)
 
     assert added is True
     invalidated = set().union(*captured_invalidations)
@@ -164,14 +158,10 @@ async def test_add_existing_participant_is_noop_and_invalidates_nothing(
     db_session, four_players, active_session, captured_invalidations
 ):
     """Idempotent re-add changes no state, so nothing is invalidated."""
-    db_session.add(
-        SessionParticipant(session_id=active_session.id, player_id=four_players[0].id)
-    )
+    db_session.add(SessionParticipant(session_id=active_session.id, player_id=four_players[0].id))
     await db_session.commit()
 
-    added = await add_session_participant(
-        db_session, active_session.id, four_players[0].id
-    )
+    added = await add_session_participant(db_session, active_session.id, four_players[0].id)
 
     assert added is True
     assert captured_invalidations == []
@@ -188,14 +178,10 @@ async def test_remove_participant_invalidates_remaining_plus_removed(
 ):
     """Removing a player invalidates everyone still in the session + the removed."""
     for p in four_players[:3]:
-        db_session.add(
-            SessionParticipant(session_id=active_session.id, player_id=p.id)
-        )
+        db_session.add(SessionParticipant(session_id=active_session.id, player_id=p.id))
     await db_session.commit()
 
-    removed = await remove_session_participant(
-        db_session, active_session.id, four_players[2].id
-    )
+    removed = await remove_session_participant(db_session, active_session.id, four_players[2].id)
 
     assert removed is True
     invalidated = set().union(*captured_invalidations)
@@ -212,9 +198,7 @@ async def test_remove_blocked_by_match_invalidates_nothing(
 ):
     """A player with a match cannot be removed, so no cache is touched."""
     for p in four_players:
-        db_session.add(
-            SessionParticipant(session_id=active_session.id, player_id=p.id)
-        )
+        db_session.add(SessionParticipant(session_id=active_session.id, player_id=p.id))
     db_session.add(
         Match(
             session_id=active_session.id,
@@ -229,9 +213,7 @@ async def test_remove_blocked_by_match_invalidates_nothing(
     )
     await db_session.commit()
 
-    removed = await remove_session_participant(
-        db_session, active_session.id, four_players[0].id
-    )
+    removed = await remove_session_participant(db_session, active_session.id, four_players[0].id)
 
     assert removed is False
     assert captured_invalidations == []

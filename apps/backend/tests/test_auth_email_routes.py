@@ -49,7 +49,9 @@ class TestSignupEmailBranch:
 
         monkeypatch.setattr(auth_service, "normalize_email", lambda e: e.lower(), raising=True)
         monkeypatch.setattr(auth_service, "hash_password", lambda p: "hash", raising=True)
-        monkeypatch.setattr(auth_service, "generate_verification_code", lambda: "123456", raising=True)
+        monkeypatch.setattr(
+            auth_service, "generate_verification_code", lambda: "123456", raising=True
+        )
         monkeypatch.setattr(user_service, "check_email_exists", fake_check_email, raising=True)
         monkeypatch.setattr(user_service, "create_verification_code", fake_create_vc, raising=True)
         monkeypatch.setattr(
@@ -157,15 +159,22 @@ class TestVerifyEmail:
         monkeypatch.setattr(user_service, "create_user", fake_create_user, raising=True)
         monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user, raising=True)
         monkeypatch.setattr(user_service, "reset_failed_attempts", fake_reset_failed, raising=True)
-        monkeypatch.setattr(user_service, "cancel_account_deletion", fake_cancel_deletion, raising=True)
-        monkeypatch.setattr(auth_service, "create_access_token", lambda data: "access", raising=True)
-        monkeypatch.setattr(auth_service, "generate_refresh_token", lambda: "refresh", raising=True)
         monkeypatch.setattr(
-            user_service, "create_refresh_token", fake_issue_refresh, raising=True
+            user_service, "cancel_account_deletion", fake_cancel_deletion, raising=True
         )
+        monkeypatch.setattr(
+            auth_service, "create_access_token", lambda data: "access", raising=True
+        )
+        monkeypatch.setattr(
+            auth_service, "generate_refresh_token", lambda: "refresh", raising=True
+        )
+        monkeypatch.setattr(user_service, "create_refresh_token", fake_issue_refresh, raising=True)
         from backend.services import data_service
+
         monkeypatch.setattr(data_service, "upsert_user_player", fake_upsert_player, raising=True)
-        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_check_profile, raising=True)
+        monkeypatch.setattr(
+            data_service, "get_player_by_user_id", fake_check_profile, raising=True
+        )
 
         response = client.post(
             "/api/auth/verify-email",
@@ -233,7 +242,9 @@ class TestResetPasswordEmail:
         monkeypatch.setattr(
             user_service, "get_user_by_email", fake_get_user_by_email, raising=True
         )
-        monkeypatch.setattr(auth_service, "generate_verification_code", lambda: "654321", raising=True)
+        monkeypatch.setattr(
+            auth_service, "generate_verification_code", lambda: "654321", raising=True
+        )
         monkeypatch.setattr(user_service, "create_verification_code", fake_create_vc, raising=True)
         monkeypatch.setattr(
             email_service, "send_password_reset_code_email", fake_send_email, raising=True
@@ -315,9 +326,7 @@ class TestResetPasswordEmailVerify:
         monkeypatch.setattr(
             user_service, "verify_and_mark_email_code_used", fake_verify_code, raising=True
         )
-        monkeypatch.setattr(
-            user_service, "reset_failed_attempts", fake_reset_failed, raising=True
-        )
+        monkeypatch.setattr(user_service, "reset_failed_attempts", fake_reset_failed, raising=True)
         monkeypatch.setattr(
             auth_service, "generate_refresh_token", lambda: "reset_tok", raising=True
         )

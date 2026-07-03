@@ -290,9 +290,7 @@ class SignupRequest(BaseModel):
             full_name=self.full_name,
         )
         if result is None:
-            raise ValueError(
-                "A name is required: provide first_name + last_name, or full_name"
-            )
+            raise ValueError("A name is required: provide first_name + last_name, or full_name")
         self.first_name = result["first_name"]
         self.last_name = result["last_name"]
         self.full_name = result["full_name"]
@@ -763,9 +761,7 @@ class PlayerUpdate(BaseModel):
 
         # Reject empty/whitespace-only name fields that were explicitly set
         any_name_provided = (
-            self.full_name is not None
-            or self.first_name is not None
-            or self.last_name is not None
+            self.full_name is not None or self.first_name is not None or self.last_name is not None
         )
         result = resolve_name_fields(
             first_name=self.first_name,
@@ -1650,7 +1646,9 @@ class CreateNonLeagueSessionRequest(BaseModel):
     # season; otherwise a non-league session is created.
     league_id: Optional[int] = None
     season_id: Optional[int] = None
-    is_ranked: Optional[bool] = None  # Session-level ranked intent; defaults to True on the backend when omitted
+    is_ranked: Optional[bool] = (
+        None  # Session-level ranked intent; defaults to True on the backend when omitted
+    )
 
 
 class UpdateSessionRequest(BaseModel):

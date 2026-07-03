@@ -502,7 +502,9 @@ class TestRemoveSessionParticipant:
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(data_service, "remove_session_participant", fake_remove, raising=True)
         # Patch the name as bound in the sessions module (imported via `from ... import`)
-        monkeypatch.setattr(sessions_module, "_has_league_role", fake_has_league_role, raising=True)
+        monkeypatch.setattr(
+            sessions_module, "_has_league_role", fake_has_league_role, raising=True
+        )
 
         response = client.delete(
             f"/api/sessions/{_SESSION_ID}/participants/{self._OTHER_PLAYER_ID}",
@@ -909,7 +911,9 @@ class TestCreateSession:
             return True  # simulate caller is a league member
 
         # Patch the name as bound in the sessions module (imported via `from ... import`)
-        monkeypatch.setattr(sessions_module, "_has_league_role", fake_has_league_role, raising=True)
+        monkeypatch.setattr(
+            sessions_module, "_has_league_role", fake_has_league_role, raising=True
+        )
 
         captured: dict = {}
         created_session = {
@@ -946,9 +950,7 @@ class TestCreateSession:
             fake_get_or_create,
             raising=True,
         )
-        monkeypatch.setattr(
-            data_service, "create_session", fake_create_session, raising=True
-        )
+        monkeypatch.setattr(data_service, "create_session", fake_create_session, raising=True)
 
         response = client.post(
             "/api/sessions",
@@ -1219,12 +1221,8 @@ class TestGetSessionDetail:
             fake_get_roster,
             raising=True,
         )
-        monkeypatch.setattr(
-            data_service, "get_session_matches", fake_get_games, raising=True
-        )
-        monkeypatch.setattr(
-            data_service, "get_player_by_user_id", fake_get_player, raising=True
-        )
+        monkeypatch.setattr(data_service, "get_session_matches", fake_get_games, raising=True)
+        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
 
     def _patch_execute_league(self, monkeypatch, league_name=None, elo_rows=None):
         """Patch AsyncSession.execute for the DIRECT path (league_id on session dict).
@@ -1469,7 +1467,9 @@ class TestGetSessionDetail:
         async def fake_get_player(session, user_id):
             return _FAKE_PLAYER
 
-        monkeypatch.setattr(data_service, "can_user_add_match_to_session", fake_can_add, raising=True)
+        monkeypatch.setattr(
+            data_service, "can_user_add_match_to_session", fake_can_add, raising=True
+        )
         monkeypatch.setattr(
             data_service, "get_session_roster_with_game_counts", fake_get_roster, raising=True
         )
@@ -1536,7 +1536,9 @@ class TestGetSessionDetail:
         async def fake_get_player(session, user_id):
             return _FAKE_PLAYER
 
-        monkeypatch.setattr(data_service, "can_user_add_match_to_session", fake_can_add, raising=True)
+        monkeypatch.setattr(
+            data_service, "can_user_add_match_to_session", fake_can_add, raising=True
+        )
         monkeypatch.setattr(
             data_service, "get_session_roster_with_game_counts", fake_get_roster, raising=True
         )

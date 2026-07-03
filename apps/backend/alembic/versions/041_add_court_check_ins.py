@@ -39,9 +39,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
-        sa.UniqueConstraint(
-            "court_id", "player_id", name="uq_court_check_ins_court_player"
-        ),
+        sa.UniqueConstraint("court_id", "player_id", name="uq_court_check_ins_court_player"),
     )
     op.create_index("idx_court_check_ins_court", "court_check_ins", ["court_id"])
     op.create_index("idx_court_check_ins_expires", "court_check_ins", ["expires_at"])

@@ -41,8 +41,10 @@ def _install_auth(user: dict | None):
     if user is None:
         app.dependency_overrides.pop(get_current_user, None)
         return
+
     async def _fake():
         return user
+
     app.dependency_overrides[get_current_user] = _fake
 
 
@@ -74,7 +76,9 @@ class TestAddPhoneRequest:
             return True
 
         monkeypatch.setattr(auth_service, "normalize_phone_number", lambda p: p, raising=True)
-        monkeypatch.setattr(auth_service, "generate_verification_code", lambda: "123456", raising=True)
+        monkeypatch.setattr(
+            auth_service, "generate_verification_code", lambda: "123456", raising=True
+        )
         monkeypatch.setattr(user_service, "check_phone_exists", fake_check_phone, raising=True)
         monkeypatch.setattr(user_service, "create_verification_code", fake_create_vc, raising=True)
         monkeypatch.setattr(auth_service, "send_sms_verification", fake_send_sms, raising=True)
@@ -139,7 +143,9 @@ class TestAddPhoneRequest:
             return False
 
         monkeypatch.setattr(auth_service, "normalize_phone_number", lambda p: p, raising=True)
-        monkeypatch.setattr(auth_service, "generate_verification_code", lambda: "123456", raising=True)
+        monkeypatch.setattr(
+            auth_service, "generate_verification_code", lambda: "123456", raising=True
+        )
         monkeypatch.setattr(user_service, "check_phone_exists", fake_check_phone, raising=True)
         monkeypatch.setattr(user_service, "create_verification_code", fake_create_vc, raising=True)
         monkeypatch.setattr(auth_service, "send_sms_verification", fake_send_sms, raising=True)

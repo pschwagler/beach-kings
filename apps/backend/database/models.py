@@ -168,7 +168,9 @@ class User(Base):
     phone_number = Column(String, nullable=True, unique=True)
     password_hash = Column(String, nullable=True)
     email = Column(String, nullable=True)
-    auth_provider = Column(String, nullable=False, server_default="phone")  # 'phone', 'google', or 'apple'
+    auth_provider = Column(
+        String, nullable=False, server_default="phone"
+    )  # 'phone', 'google', or 'apple'
     google_id = Column(String, nullable=True, unique=True)  # Google's `sub` claim
     apple_id = Column(String, nullable=True, unique=True)  # Apple's `sub` claim
     is_verified = Column(Boolean, default=True, nullable=False)
@@ -176,8 +178,12 @@ class User(Base):
     locked_until = Column(String, nullable=True)  # ISO timestamp
     deletion_scheduled_at = Column(DateTime(timezone=True), nullable=True)
     password_changed_at = Column(DateTime(timezone=True), nullable=True)
-    profile_is_private = Column(Boolean, nullable=False, server_default="false")  # Hide profile from non-friends
-    show_game_history = Column(Boolean, nullable=False, server_default="false")  # Show full match history on public profile
+    profile_is_private = Column(
+        Boolean, nullable=False, server_default="false"
+    )  # Hide profile from non-friends
+    show_game_history = Column(
+        Boolean, nullable=False, server_default="false"
+    )  # Show full match history on public profile
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -269,7 +275,6 @@ class Player(Base):
         Index("idx_players_avp_id", "avp_playerProfileId"),
         Index("idx_players_created_by", "created_by_player_id"),
     )
-
 
 
 class PlayerInvite(Base):
@@ -674,7 +679,9 @@ class Session(Base):
     max_players = Column(Integer, nullable=True)
     notes = Column(Text, nullable=True)
     # Ranked intent (migration 055)
-    is_ranked = Column(Boolean, nullable=False, server_default="true")  # Session-level ranked intent; matches inherit this as ranked_intent
+    is_ranked = Column(
+        Boolean, nullable=False, server_default="true"
+    )  # Session-level ranked intent; matches inherit this as ranked_intent
 
     # Relationships
     season = relationship("Season", back_populates="sessions")
@@ -1426,7 +1433,9 @@ class Feedback(Base):
         Integer, ForeignKey("users.id"), nullable=True
     )  # Nullable for anonymous feedback
     feedback_text = Column(Text, nullable=False)
-    category = Column(String(50), nullable=False, server_default="feedback")  # "feedback" or "support"
+    category = Column(
+        String(50), nullable=False, server_default="feedback"
+    )  # "feedback" or "support"
     email = Column(String, nullable=True)  # Optional contact email
     is_resolved = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -1933,9 +1942,7 @@ class PushNotificationPreference(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     # unique=True is intentionally omitted here; uniqueness is declared once below
     # via UniqueConstraint + Index in __table_args__ (matching migration 053).
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     # Master kill-switch — when False, ALL push is suppressed for this user.
     push_enabled = Column(Boolean, nullable=False, server_default="true", default=True)
     # Per-type toggles
@@ -1947,9 +1954,7 @@ class PushNotificationPreference(Base):
     ranking_changes = Column(Boolean, nullable=False, server_default="false", default=False)
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     user = relationship("User", backref="push_notification_preference")

@@ -665,9 +665,7 @@ class TestPublicStatsEndpoints:
                 "is_self": False,
             }
 
-        monkeypatch.setattr(
-            data_service, "get_league_player_stats_full", fake_full, raising=True
-        )
+        monkeypatch.setattr(data_service, "get_league_player_stats_full", fake_full, raising=True)
 
         response = client.get(f"/api/leagues/{LEAGUE_ID}/players/{PLAYER_ID}/stats")
         assert response.status_code == 200
@@ -717,9 +715,7 @@ class TestPublicStatsEndpoints:
                 "is_self": False,
             }
 
-        monkeypatch.setattr(
-            data_service, "get_league_player_stats_full", fake_full, raising=True
-        )
+        monkeypatch.setattr(data_service, "get_league_player_stats_full", fake_full, raising=True)
 
         response = client.get(
             f"/api/leagues/{LEAGUE_ID}/players/{PLAYER_ID}/stats?season_id={SEASON_ID}"
@@ -735,9 +731,7 @@ class TestPublicStatsEndpoints:
         async def fake_full(session, **kwargs):
             return None
 
-        monkeypatch.setattr(
-            data_service, "get_league_player_stats_full", fake_full, raising=True
-        )
+        monkeypatch.setattr(data_service, "get_league_player_stats_full", fake_full, raising=True)
 
         response = client.get(f"/api/leagues/{LEAGUE_ID}/players/{PLAYER_ID}/stats")
         assert response.status_code == 404
@@ -940,9 +934,7 @@ class TestLeaguePlayerStatsCallerResolution:
             captured.update(kwargs)
             return {"player_id": kwargs.get("player_id"), "is_self": False}
 
-        monkeypatch.setattr(
-            data_service, "get_league_player_stats_full", fake_stats, raising=True
-        )
+        monkeypatch.setattr(data_service, "get_league_player_stats_full", fake_stats, raising=True)
         return captured
 
     def test_authenticated_caller_player_id_resolved_from_user_id(self, monkeypatch):
@@ -954,9 +946,7 @@ class TestLeaguePlayerStatsCallerResolution:
             assert user_id == USER_ID
             return self.CALLER_PLAYER_ID
 
-        monkeypatch.setattr(
-            friend_service, "get_player_id_for_user", fake_resolve, raising=True
-        )
+        monkeypatch.setattr(friend_service, "get_player_id_for_user", fake_resolve, raising=True)
 
         response = client.get(
             f"/api/leagues/{LEAGUE_ID}/players/{self.VIEWED_PLAYER_ID}/stats",
@@ -973,9 +963,7 @@ class TestLeaguePlayerStatsCallerResolution:
         client = TestClient(app)
         captured = self._capture_stats_call(monkeypatch)
 
-        response = client.get(
-            f"/api/leagues/{LEAGUE_ID}/players/{self.VIEWED_PLAYER_ID}/stats"
-        )
+        response = client.get(f"/api/leagues/{LEAGUE_ID}/players/{self.VIEWED_PLAYER_ID}/stats")
 
         assert response.status_code == 200
         assert captured["caller_player_id"] is None

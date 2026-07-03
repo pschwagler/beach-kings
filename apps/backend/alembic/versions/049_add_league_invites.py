@@ -43,9 +43,7 @@ def upgrade() -> None:
     )
     op.create_index("idx_league_invites_league_id", "league_invites", ["league_id"])
     op.create_index("idx_league_invites_player_id", "league_invites", ["player_id"])
-    op.create_index(
-        "idx_league_invites_invited_by", "league_invites", ["invited_by_player_id"]
-    )
+    op.create_index("idx_league_invites_invited_by", "league_invites", ["invited_by_player_id"])
 
 
 def downgrade() -> None:

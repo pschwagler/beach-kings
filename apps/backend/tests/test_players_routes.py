@@ -485,9 +485,7 @@ class TestPlayerLeagues:
         async def fake_get(session, pid):
             return fake_leagues
 
-        monkeypatch.setattr(
-            league_data, "get_player_public_leagues", fake_get, raising=True
-        )
+        monkeypatch.setattr(league_data, "get_player_public_leagues", fake_get, raising=True)
 
         client = TestClient(app)
         response = client.get(f"/api/players/{PLAYER_ID}/leagues")
@@ -507,9 +505,7 @@ class TestPlayerLeagues:
         async def fake_get(session, pid):
             return []
 
-        monkeypatch.setattr(
-            league_data, "get_player_public_leagues", fake_get, raising=True
-        )
+        monkeypatch.setattr(league_data, "get_player_public_leagues", fake_get, raising=True)
 
         client = TestClient(app)
         response = client.get(f"/api/players/{PLAYER_ID}/leagues")
@@ -523,9 +519,7 @@ class TestPlayerLeagues:
         async def fake_get(session, pid):
             return None
 
-        monkeypatch.setattr(
-            league_data, "get_player_public_leagues", fake_get, raising=True
-        )
+        monkeypatch.setattr(league_data, "get_player_public_leagues", fake_get, raising=True)
 
         client = TestClient(app)
         response = client.get("/api/players/9999/leagues")
@@ -539,9 +533,7 @@ class TestPlayerLeagues:
         async def fake_get(session, pid):
             raise RuntimeError("db exploded")
 
-        monkeypatch.setattr(
-            league_data, "get_player_public_leagues", fake_get, raising=True
-        )
+        monkeypatch.setattr(league_data, "get_player_public_leagues", fake_get, raising=True)
 
         client = TestClient(app)
         response = client.get(f"/api/players/{PLAYER_ID}/leagues")

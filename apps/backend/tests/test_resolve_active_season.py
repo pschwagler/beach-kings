@@ -186,9 +186,7 @@ async def test_resolver_ignores_future_start_when_active_season_exists(
 
 
 @pytest.mark.asyncio
-async def test_tiebreak_most_recently_created_wins(
-    db_session: AsyncSession, league: League
-):
+async def test_tiebreak_most_recently_created_wins(db_session: AsyncSession, league: League):
     """When multiple seasons overlap the active window, most recent created_at wins."""
     older = await _add_season(
         db_session,
@@ -218,9 +216,7 @@ async def test_tiebreak_most_recently_created_wins(
 
 
 @pytest.mark.asyncio
-async def test_explicit_today_makes_season_active(
-    db_session: AsyncSession, league: League
-):
+async def test_explicit_today_makes_season_active(db_session: AsyncSession, league: League):
     """Passing an explicit today= that falls inside the season window returns it."""
     future_today = TODAY + timedelta(days=20)
     s = await _add_season(
@@ -229,9 +225,7 @@ async def test_explicit_today_makes_season_active(
         start_date=TODAY + timedelta(days=15),
         end_date=TODAY + timedelta(days=25),
     )
-    result = await data_service.resolve_active_season(
-        db_session, league.id, today=future_today
-    )
+    result = await data_service.resolve_active_season(db_session, league.id, today=future_today)
     assert result is not None
     assert result.id == s.id
 
@@ -242,9 +236,7 @@ async def test_explicit_today_makes_season_active(
 
 
 @pytest.mark.asyncio
-async def test_explicit_today_makes_season_inactive(
-    db_session: AsyncSession, league: League
-):
+async def test_explicit_today_makes_season_inactive(db_session: AsyncSession, league: League):
     """Passing an explicit today= that falls outside the season window returns None."""
     past_today = TODAY - timedelta(days=30)
     await _add_season(
@@ -253,9 +245,7 @@ async def test_explicit_today_makes_season_inactive(
         start_date=TODAY - timedelta(days=10),
         end_date=TODAY + timedelta(days=10),
     )
-    result = await data_service.resolve_active_season(
-        db_session, league.id, today=past_today
-    )
+    result = await data_service.resolve_active_season(db_session, league.id, today=past_today)
     assert result is None
 
 
@@ -265,9 +255,7 @@ async def test_explicit_today_makes_season_inactive(
 
 
 @pytest.mark.asyncio
-async def test_never_raises_when_no_active_season(
-    db_session: AsyncSession, league: League
-):
+async def test_never_raises_when_no_active_season(db_session: AsyncSession, league: League):
     """With only an ended season, the function must return None — not raise."""
     await _add_season(
         db_session,
@@ -286,9 +274,7 @@ async def test_never_raises_when_no_active_season(
 
 
 @pytest.mark.asyncio
-async def test_active_on_exact_start_date_boundary(
-    db_session: AsyncSession, league: League
-):
+async def test_active_on_exact_start_date_boundary(db_session: AsyncSession, league: League):
     """A season whose start_date equals today is active (boundary inclusive)."""
     s = await _add_season(
         db_session,
@@ -307,9 +293,7 @@ async def test_active_on_exact_start_date_boundary(
 
 
 @pytest.mark.asyncio
-async def test_active_on_exact_end_date_boundary(
-    db_session: AsyncSession, league: League
-):
+async def test_active_on_exact_end_date_boundary(db_session: AsyncSession, league: League):
     """A season whose end_date equals today is still active (boundary inclusive)."""
     s = await _add_season(
         db_session,

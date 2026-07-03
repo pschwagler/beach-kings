@@ -23,7 +23,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -220,9 +219,7 @@ class TestGetInvitablePlayers:
         _override_session(session)
 
         try:
-            response = client.get(
-                f"/api/leagues/{LEAGUE_ID}/invitable-players", headers=headers
-            )
+            response = client.get(f"/api/leagues/{LEAGUE_ID}/invitable-players", headers=headers)
             assert response.status_code == 200
             body = response.json()
             assert isinstance(body, list)
@@ -301,9 +298,7 @@ class TestPostLeagueInvites:
     def test_no_token_returns_401_or_403(self):
         """Unauthenticated request is rejected."""
         client = TestClient(app)
-        response = client.post(
-            f"/api/leagues/{LEAGUE_ID}/invites", json={"player_ids": [10]}
-        )
+        response = client.post(f"/api/leagues/{LEAGUE_ID}/invites", json={"player_ids": [10]})
         assert response.status_code in (401, 403)
 
     def test_missing_player_ids_returns_422(self, monkeypatch):
@@ -778,9 +773,7 @@ class TestRespondToLeagueInvite:
         called_with: list[dict] = []
 
         async def fake_respond_to_league_invite(session, league_id, player_id, action):
-            called_with.append(
-                {"league_id": league_id, "player_id": player_id, "action": action}
-            )
+            called_with.append({"league_id": league_id, "player_id": player_id, "action": action})
             return {"status": "accepted"}
 
         monkeypatch.setattr(

@@ -1729,10 +1729,7 @@ async def get_active_check_ins(
     )
     rows = (await session.execute(q)).all()
 
-    breakdown = [
-        {"level": row.level, "gender": row.gender, "count": row.count}
-        for row in rows
-    ]
+    breakdown = [{"level": row.level, "gender": row.gender, "count": row.count} for row in rows]
     total = sum(b["count"] for b in breakdown)
 
     return {"total": total, "breakdown": breakdown}
@@ -1748,9 +1745,7 @@ async def get_active_check_ins(
 # ---------------------------------------------------------------------------
 
 
-async def get_player_id_for_user(
-    session: AsyncSession, user: Optional[Dict]
-) -> Optional[int]:
+async def get_player_id_for_user(session: AsyncSession, user: Optional[Dict]) -> Optional[int]:
     """
     Resolve the non-placeholder player id for an (optionally authenticated) user.
 

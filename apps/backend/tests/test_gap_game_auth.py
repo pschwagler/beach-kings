@@ -19,13 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
     League,
-    LeagueMember,
-    Match,
     Player,
     Season,
     Session,
     SessionParticipant,
-    SessionStatus,
     User,
 )
 from backend.services.session_data import can_user_add_match_to_session
@@ -146,9 +143,7 @@ async def test_can_add_match_gap_game_returns_true_for_league(
         "created_by": other_creator.id,
     }
 
-    result = await can_user_add_match_to_session(
-        db_session, sess.id, session_obj, regular_user.id
-    )
+    result = await can_user_add_match_to_session(db_session, sess.id, session_obj, regular_user.id)
     assert result is True, (
         "can_user_add_match_to_session must return True for gap games (league_id set, "
         "season_id None) so the caller defers to the league-admin check.  "
@@ -183,9 +178,7 @@ async def test_can_add_match_season_game_returns_true(
         "created_by": regular_player.id,
     }
 
-    result = await can_user_add_match_to_session(
-        db_session, sess.id, session_obj, regular_user.id
-    )
+    result = await can_user_add_match_to_session(db_session, sess.id, session_obj, regular_user.id)
     assert result is True
 
 
@@ -228,9 +221,7 @@ async def test_can_add_match_pickup_non_participant_returns_false(
         "created_by": other_player.id,
     }
 
-    result = await can_user_add_match_to_session(
-        db_session, sess.id, session_obj, regular_user.id
-    )
+    result = await can_user_add_match_to_session(db_session, sess.id, session_obj, regular_user.id)
     assert result is False, "Non-participant of a pickup session must be denied"
 
 
@@ -259,9 +250,7 @@ async def test_can_add_match_pickup_creator_returns_true(
         "created_by": regular_player.id,
     }
 
-    result = await can_user_add_match_to_session(
-        db_session, sess.id, session_obj, regular_user.id
-    )
+    result = await can_user_add_match_to_session(db_session, sess.id, session_obj, regular_user.id)
     assert result is True, "Pickup session creator must be allowed"
 
 
@@ -298,9 +287,7 @@ async def test_can_add_match_pickup_participant_returns_true(
     await db_session.refresh(sess)
 
     # Add regular_player as participant
-    db_session.add(
-        SessionParticipant(session_id=sess.id, player_id=regular_player.id)
-    )
+    db_session.add(SessionParticipant(session_id=sess.id, player_id=regular_player.id))
     await db_session.commit()
 
     session_obj = {
@@ -310,7 +297,5 @@ async def test_can_add_match_pickup_participant_returns_true(
         "created_by": other_player.id,
     }
 
-    result = await can_user_add_match_to_session(
-        db_session, sess.id, session_obj, regular_user.id
-    )
+    result = await can_user_add_match_to_session(db_session, sess.id, session_obj, regular_user.id)
     assert result is True, "Session participant must be allowed to add a match"

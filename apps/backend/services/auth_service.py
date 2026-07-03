@@ -405,8 +405,6 @@ def verify_apple_id_token(token: str) -> dict:
     Raises:
         ValueError: If token is invalid, expired, or audience doesn't match
     """
-    from jose import jwk
-    from jose.utils import base64url_decode
 
     if not APPLE_CLIENT_ID:
         raise ValueError("APPLE_CLIENT_ID environment variable is not set")

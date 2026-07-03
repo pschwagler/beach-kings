@@ -20,7 +20,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import League, Season, Session, Player, User
+from backend.database.models import League, Season, Session
 from backend.services import data_service
 
 

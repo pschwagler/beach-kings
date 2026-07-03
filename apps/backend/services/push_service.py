@@ -72,10 +72,7 @@ async def unregister_token(
     Returns:
         ``True`` if a row was deleted, ``False`` otherwise.
     """
-    stmt = (
-        delete(DeviceToken)
-        .where(DeviceToken.user_id == user_id, DeviceToken.token == token)
-    )
+    stmt = delete(DeviceToken).where(DeviceToken.user_id == user_id, DeviceToken.token == token)
     result = await session.execute(stmt)
     await session.commit()
     return result.rowcount > 0

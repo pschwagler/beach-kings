@@ -20,7 +20,14 @@ from fastapi.testclient import TestClient
 
 from backend.api.main import app
 from backend.api.auth_dependencies import require_verified_player
-from backend.services import auth_service, user_service, data_service, avatar_service, s3_service, court_service
+from backend.services import (
+    auth_service,
+    user_service,
+    data_service,
+    avatar_service,
+    s3_service,
+    court_service,
+)
 
 
 # ============================================================================
@@ -101,6 +108,7 @@ class TestUpdateCurrentUser:
         Before Fix B the route hand-built UserResponse, omitting these fields.
         The fix replaces the manual construction with _build_user_response().
         """
+
         def fake_verify_token(token: str):
             return {"user_id": USER_ID, "phone_number": None}
 
@@ -127,7 +135,9 @@ class TestUpdateCurrentUser:
             return True
 
         monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
-        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id_google, raising=True)
+        monkeypatch.setattr(
+            user_service, "get_user_by_id", fake_get_user_by_id_google, raising=True
+        )
         monkeypatch.setattr(user_service, "update_user", fake_update_user, raising=True)
 
         client = TestClient(app)
@@ -158,6 +168,7 @@ class TestUpdateCurrentUser:
 
         Phone users have auth_provider='phone', has_password=True, and no social connections.
         """
+
         def fake_verify_token(token: str):
             return {"user_id": USER_ID, "phone_number": PHONE}
 
@@ -183,7 +194,9 @@ class TestUpdateCurrentUser:
             return True
 
         monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
-        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id_phone, raising=True)
+        monkeypatch.setattr(
+            user_service, "get_user_by_id", fake_get_user_by_id_phone, raising=True
+        )
         monkeypatch.setattr(user_service, "update_user", fake_update_user, raising=True)
 
         client = TestClient(app)

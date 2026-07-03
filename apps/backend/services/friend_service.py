@@ -895,9 +895,7 @@ async def get_friend_suggestions(
         )
         .group_by(SP2.player_id)
     )
-    session_counts: Dict[int, int] = {
-        row.player_id: row.cnt for row in session_result.all()
-    }
+    session_counts: Dict[int, int] = {row.player_id: row.cnt for row in session_result.all()}
 
     # --- 4. Union candidate IDs from league + session signals ---
     candidate_ids = (set(league_counts.keys()) | set(session_counts.keys())) - exclude_ids
@@ -1012,8 +1010,7 @@ async def _resolve_shared_league_names(
         Dict mapping candidate_id -> league name.
     """
     single_league_cids = [
-        cid for cid, _, m, s, lg in top
-        if m == 0 and s == 0 and lg == 1 and cid in player_map
+        cid for cid, _, m, s, lg in top if m == 0 and s == 0 and lg == 1 and cid in player_map
     ]
     if not single_league_cids or not my_league_ids:
         return {}
@@ -1033,7 +1030,10 @@ async def _resolve_shared_league_names(
 
 
 def _build_reason(
-    candidate_id: int, mutual_cnt: int, session_cnt: int, league_cnt: int,
+    candidate_id: int,
+    mutual_cnt: int,
+    session_cnt: int,
+    league_cnt: int,
     league_name_map: Dict[int, str],
 ) -> str:
     """Build a human-readable reason string for a suggestion.

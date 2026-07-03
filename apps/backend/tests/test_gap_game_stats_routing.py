@@ -21,7 +21,6 @@ import pytest
 import pytest_asyncio
 from datetime import date
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
@@ -236,9 +235,7 @@ async def test_loader_league_includes_gap_and_season_matches(
 
 
 @pytest.mark.asyncio
-async def test_loader_season_excludes_gap_match(
-    db_session: AsyncSession, gap_game_world: dict
-):
+async def test_loader_season_excludes_gap_match(db_session: AsyncSession, gap_game_world: dict):
     """
     load_stat_eligible_matches_async(season_id=Y) must include the season-game
     match and MUST NOT include the gap-game match (which has season_id=None).

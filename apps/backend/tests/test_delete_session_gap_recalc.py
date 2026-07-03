@@ -318,15 +318,12 @@ async def test_delete_active_gap_session_with_no_matches_skips_enqueue(
 
     assert result is True
     assert fake.calls == [], (
-        f"Deleting an ACTIVE session with no matches must not enqueue anything; "
-        f"got: {fake.calls}"
+        f"Deleting an ACTIVE session with no matches must not enqueue anything; got: {fake.calls}"
     )
 
 
 @pytest.mark.asyncio
-async def test_delete_nonexistent_session_returns_false(
-    db_session: AsyncSession, monkeypatch
-):
+async def test_delete_nonexistent_session_returns_false(db_session: AsyncSession, monkeypatch):
     """delete_session must return False when the session does not exist."""
     from backend.services import stats_queue
     from backend.services.session_data import delete_session

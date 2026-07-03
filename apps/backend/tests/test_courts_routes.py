@@ -779,12 +779,8 @@ class TestUploadCourtPhoto:
                 "created_at": "2026-04-26T00:00:00+00:00",
             }
 
-        monkeypatch.setattr(
-            "backend.api.routes.courts.AsyncSession.get", fake_get, raising=False
-        )
-        monkeypatch.setattr(
-            court_photo_service, "process_court_photo", fake_process, raising=True
-        )
+        monkeypatch.setattr("backend.api.routes.courts.AsyncSession.get", fake_get, raising=False)
+        monkeypatch.setattr(court_photo_service, "process_court_photo", fake_process, raising=True)
         monkeypatch.setattr(s3_service, "upload_file", fake_upload, raising=True)
         monkeypatch.setattr(court_service, "add_court_photo", fake_add_photo, raising=True)
 
@@ -828,12 +824,8 @@ class TestUploadCourtPhoto:
                 "created_at": None,
             }
 
-        monkeypatch.setattr(
-            "backend.api.routes.courts.AsyncSession.get", fake_get, raising=False
-        )
-        monkeypatch.setattr(
-            court_photo_service, "process_court_photo", fake_process, raising=True
-        )
+        monkeypatch.setattr("backend.api.routes.courts.AsyncSession.get", fake_get, raising=False)
+        monkeypatch.setattr(court_photo_service, "process_court_photo", fake_process, raising=True)
         monkeypatch.setattr(s3_service, "upload_file", fake_upload, raising=True)
         monkeypatch.setattr(court_service, "add_court_photo", fake_add_photo, raising=True)
 
@@ -1337,7 +1329,9 @@ class TestPublicCheckIns:
             }
 
         monkeypatch.setattr(court_service, "get_court_id_by_slug", fake_get_court_id, raising=True)
-        monkeypatch.setattr(court_service, "get_active_check_ins", fake_get_check_ins, raising=True)
+        monkeypatch.setattr(
+            court_service, "get_active_check_ins", fake_get_check_ins, raising=True
+        )
 
         client = TestClient(app)
         response = client.get("/api/public/courts/test-court/check-ins")

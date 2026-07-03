@@ -944,10 +944,7 @@ class TestSavedCourts:
         """Saving a court records it and is_court_saved reflects it."""
         result = await court_service.save_court(db_session, test_player.id, court["id"])
         assert result == {"court_id": court["id"], "saved": True}
-        assert (
-            await court_service.is_court_saved(db_session, test_player.id, court["id"])
-            is True
-        )
+        assert await court_service.is_court_saved(db_session, test_player.id, court["id"]) is True
 
     @pytest.mark.asyncio
     async def test_save_court_idempotent(self, db_session, court, test_player):
@@ -969,10 +966,7 @@ class TestSavedCourts:
         await court_service.save_court(db_session, test_player.id, court["id"])
         result = await court_service.unsave_court(db_session, test_player.id, court["id"])
         assert result == {"court_id": court["id"], "saved": False}
-        assert (
-            await court_service.is_court_saved(db_session, test_player.id, court["id"])
-            is False
-        )
+        assert await court_service.is_court_saved(db_session, test_player.id, court["id"]) is False
 
     @pytest.mark.asyncio
     async def test_unsave_court_idempotent(self, db_session, court, test_player):
@@ -1001,25 +995,17 @@ class TestSavedCourts:
         assert "top_tags" in cards[0]
 
     @pytest.mark.asyncio
-    async def test_list_courts_public_embeds_is_saved(
-        self, db_session, court, test_player
-    ):
+    async def test_list_courts_public_embeds_is_saved(self, db_session, court, test_player):
         """A saved court is flagged is_saved=True in the authenticated list."""
         await court_service.save_court(db_session, test_player.id, court["id"])
-        result = await court_service.list_courts_public(
-            db_session, player_id=test_player.id
-        )
+        result = await court_service.list_courts_public(db_session, player_id=test_player.id)
         items = {c["id"]: c for c in result["items"]}
         assert items[court["id"]]["is_saved"] is True
 
     @pytest.mark.asyncio
-    async def test_list_courts_public_unsaved_is_false(
-        self, db_session, court, test_player
-    ):
+    async def test_list_courts_public_unsaved_is_false(self, db_session, court, test_player):
         """An unsaved court is flagged is_saved=False for an authenticated caller."""
-        result = await court_service.list_courts_public(
-            db_session, player_id=test_player.id
-        )
+        result = await court_service.list_courts_public(db_session, player_id=test_player.id)
         items = {c["id"]: c for c in result["items"]}
         assert items[court["id"]]["is_saved"] is False
 
@@ -1100,13 +1086,9 @@ class TestSavedCourts:
         assert await court_service.get_player_id_for_user(db_session, None) is None
 
     @pytest.mark.asyncio
-    async def test_get_player_id_for_user_resolves(
-        self, db_session, test_user, test_player
-    ):
+    async def test_get_player_id_for_user_resolves(self, db_session, test_user, test_player):
         """A user dict resolves to its non-placeholder player id."""
-        pid = await court_service.get_player_id_for_user(
-            db_session, {"id": test_user["id"]}
-        )
+        pid = await court_service.get_player_id_for_user(db_session, {"id": test_user["id"]})
         assert pid == test_player.id
 
 
@@ -1119,9 +1101,7 @@ class TestPlayerHomeCourtCoords:
     """get_player_home_courts surfaces each court's latitude/longitude."""
 
     @pytest.mark.asyncio
-    async def test_includes_court_coordinates(
-        self, db_session, location, test_player
-    ):
+    async def test_includes_court_coordinates(self, db_session, location, test_player):
         """A player's home court returns the court's coordinates, ordered by position."""
         court = Court(
             name="Coords Court",
@@ -1135,9 +1115,7 @@ class TestPlayerHomeCourtCoords:
         await db_session.commit()
         await db_session.refresh(court)
 
-        db_session.add(
-            PlayerHomeCourt(player_id=test_player.id, court_id=court.id, position=0)
-        )
+        db_session.add(PlayerHomeCourt(player_id=test_player.id, court_id=court.id, position=0))
         await db_session.commit()
 
         result = await player_data.get_player_home_courts(db_session, test_player.id)

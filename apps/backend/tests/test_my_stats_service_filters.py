@@ -18,7 +18,7 @@ their league-filtering logic is exercised at the unit level by other tests.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import List, Tuple
+from typing import Tuple
 
 import pytest
 import pytest_asyncio
@@ -47,7 +47,9 @@ def _iso(d: date) -> str:
 
 
 async def _create_player(db_session, full_name: str) -> Player:
-    p = Player(full_name=full_name, first_name=full_name.split()[0], last_name=full_name.split()[-1])
+    p = Player(
+        full_name=full_name, first_name=full_name.split()[0], last_name=full_name.split()[-1]
+    )
     db_session.add(p)
     await db_session.commit()
     await db_session.refresh(p)
@@ -75,9 +77,7 @@ async def _create_season(db_session, league: League, name: str) -> Season:
     return season
 
 
-async def _create_session(
-    db_session, season: Season, when: date, name: str = "S"
-) -> Session:
+async def _create_session(db_session, season: Season, when: date, name: str = "S") -> Session:
     s = Session(
         date=_iso(when),
         name=name,

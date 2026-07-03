@@ -91,18 +91,21 @@ def _build_games_and_user_stats(
         across the session, or None when no ELO history exists yet (e.g. an
         active/unranked session whose stats have not been calculated).
     """
+    # rating_by_match is built solely from EloHistory rows (elo_change is
+    # NOT NULL), so a non-empty map always contains at least one real rating
+    # for a game in this session — no need to track a separate "saw a rating"
+    # flag while iterating.
     ratings = rating_by_match or {}
+    has_ratings = bool(ratings)
     ordered = list(reversed(raw_games))
     games: list[dict] = []
     user_wins = 0
     user_losses = 0
     rating_total = 0.0
-    saw_rating = False
 
     for idx, g in enumerate(ordered, start=1):
         game_rating = ratings.get(g["id"])
         if game_rating is not None:
-            saw_rating = True
             rating_total += game_rating
         games.append(
             {
@@ -147,7 +150,7 @@ def _build_games_and_user_stats(
             else:
                 user_losses += 1
 
-    user_rating_change = round(rating_total, 1) if saw_rating else None
+    user_rating_change = round(rating_total, 1) if has_ratings else None
     return games, user_wins, user_losses, user_rating_change
 
 
@@ -171,9 +174,7 @@ async def _resolve_session_context(
         Tuple of (session_name, league_id, league_name)
     """
     sess_result = await db_session.execute(
-        select(Session.name, Session.season_id, Session.league_id).where(
-            Session.id == session_id
-        )
+        select(Session.name, Session.season_id, Session.league_id).where(Session.id == session_id)
     )
     row = sess_result.first()
     session_name = (row[0] if row else None) or "a session"
@@ -519,8 +520,7 @@ async def get_session_detail(
         season_id = sess.get("season_id")
         if season_id is not None:
             league_result = await session.execute(
-                select(Season.league_id)
-                .where(Season.id == season_id)
+                select(Season.league_id).where(Season.id == season_id)
             )
             league_id = league_result.scalar_one_or_none()
     if league_id is not None:
@@ -533,9 +533,7 @@ async def get_session_detail(
     session_number = _parse_session_number(sess.get("name") or "")
 
     # Fetch participants enriched with game counts
-    players = await data_service.get_session_roster_with_game_counts(
-        session, session_id
-    )
+    players = await data_service.get_session_roster_with_game_counts(session, session_id)
 
     # Fetch matches and compute per-game numbers + user stats
     raw_games = await data_service.get_session_matches(session, session_id)
@@ -646,7 +644,8 @@ async def remove_session_participant(
     if session_league_id is not None:
         if not await _has_league_role(session, current_user["id"], session_league_id, None):
             raise HTTPException(
-                status_code=403, detail="League membership required to modify this session's roster"
+                status_code=403,
+                detail="League membership required to modify this session's roster",
             )
     elif not await data_service.can_user_add_match_to_session(
         session, session_id, sess, current_user["id"]
@@ -810,9 +809,7 @@ async def create_session(
             # SECURITY 2 FIX: require league membership before creating or
             # fetching a league session.  Any authenticated user could otherwise
             # bootstrap sessions for leagues they do not belong to.
-            if not await _has_league_role(
-                session, current_user["id"], body.league_id, None
-            ):
+            if not await _has_league_role(session, current_user["id"], body.league_id, None):
                 raise HTTPException(
                     status_code=403,
                     detail="League membership required to create a league session",
@@ -954,8 +951,10 @@ async def update_session(
         if not current_session:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
-        is_promoting = update_season_id and processed_season_id is not None and (
-            current_session.get("league_id") is None
+        is_promoting = (
+            update_season_id
+            and processed_season_id is not None
+            and (current_session.get("league_id") is None)
         )
 
         # System admins bypass the per-league admin checks, matching every other

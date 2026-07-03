@@ -244,9 +244,7 @@ class TestGetCourtDetailParity:
             return {FAKE_COURT_DETAIL["id"]: []}
 
         monkeypatch.setattr(court_service, "get_court_by_slug", fake_get, raising=True)
-        monkeypatch.setattr(
-            court_service, "_batch_get_top_tags", fake_tags, raising=True
-        )
+        monkeypatch.setattr(court_service, "_batch_get_top_tags", fake_tags, raising=True)
 
         client = TestClient(app)
         client.get("/api/courts/42")

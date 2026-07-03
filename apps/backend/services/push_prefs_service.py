@@ -48,9 +48,7 @@ _PREF_TO_TYPES: Dict[str, list[str]] = {
 
 # Reverse lookup: notification type value → pref key
 _TYPE_TO_PREF: Dict[str, str] = {
-    ntype: pref_key
-    for pref_key, ntypes in _PREF_TO_TYPES.items()
-    for ntype in ntypes
+    ntype: pref_key for pref_key, ntypes in _PREF_TO_TYPES.items() for ntype in ntypes
 }
 
 # ---------------------------------------------------------------------------
@@ -101,9 +99,7 @@ async def get_prefs(session: AsyncSession, user_id: int) -> Dict[str, bool]:
         Dict with all 7 preference boolean fields.
     """
     result = await session.execute(
-        select(PushNotificationPreference).where(
-            PushNotificationPreference.user_id == user_id
-        )
+        select(PushNotificationPreference).where(PushNotificationPreference.user_id == user_id)
     )
     row = result.scalar_one_or_none()
     return _row_to_dict(row) if row is not None else dict(_DEFAULTS)
@@ -129,9 +125,7 @@ async def update_prefs(
         Dict with all 7 preference boolean fields after the update.
     """
     result = await session.execute(
-        select(PushNotificationPreference).where(
-            PushNotificationPreference.user_id == user_id
-        )
+        select(PushNotificationPreference).where(PushNotificationPreference.user_id == user_id)
     )
     row = result.scalar_one_or_none()
 

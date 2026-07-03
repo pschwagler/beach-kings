@@ -332,9 +332,7 @@ def make_require_league_member_or_public():
         ):
             return user
         # Non-member: permitted only when the league is public.
-        result = await session.execute(
-            select(League.is_public).where(League.id == league_id)
-        )
+        result = await session.execute(select(League.is_public).where(League.id == league_id))
         if result.scalar_one_or_none():
             return user
         raise HTTPException(

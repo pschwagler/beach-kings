@@ -18,15 +18,13 @@ Covers:
 import pytest
 import pytest_asyncio
 from datetime import date
-from unittest.mock import AsyncMock, patch
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import League, Match, Player, Season, Session, User
+from backend.database.models import Match, Player, Session, User
 from backend.models.schemas import CreateMatchRequest
 from backend.services import data_service
-from backend.services import session_data
 
 
 # ---------------------------------------------------------------------------
@@ -154,9 +152,7 @@ async def test_create_session_is_ranked_true(db_session: AsyncSession):
 # ---------------------------------------------------------------------------
 
 
-def _make_match_request(
-    p1: int, p2: int, p3: int, p4: int, session_id: int
-) -> CreateMatchRequest:
+def _make_match_request(p1: int, p2: int, p3: int, p4: int, session_id: int) -> CreateMatchRequest:
     """Build a minimal CreateMatchRequest with all four players and a session_id."""
     return CreateMatchRequest(
         session_id=session_id,
@@ -182,9 +178,7 @@ async def test_match_inherits_ranked_intent_from_session_is_ranked_true(
     today = date.today().strftime("%-m/%-d/%Y")
     sess = await data_service.create_session(db_session, date=today, is_ranked=True)
 
-    req = _make_match_request(
-        player_a.id, player_b.id, player_c.id, player_d.id, sess["id"]
-    )
+    req = _make_match_request(player_a.id, player_b.id, player_c.id, player_d.id, sess["id"])
     match_id = await data_service.create_match_async(db_session, req, sess["id"])
 
     match = await _load_match_orm(db_session, match_id)
@@ -205,9 +199,7 @@ async def test_match_inherits_ranked_intent_from_session_is_ranked_false(
     today = date.today().strftime("%-m/%-d/%Y")
     sess = await data_service.create_session(db_session, date=today, is_ranked=False)
 
-    req = _make_match_request(
-        player_a.id, player_b.id, player_c.id, player_d.id, sess["id"]
-    )
+    req = _make_match_request(player_a.id, player_b.id, player_c.id, player_d.id, sess["id"])
     match_id = await data_service.create_match_async(db_session, req, sess["id"])
 
     match = await _load_match_orm(db_session, match_id)

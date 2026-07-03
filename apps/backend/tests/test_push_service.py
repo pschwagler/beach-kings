@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 from backend.services import push_service
 from backend.services import user_service
-from backend.database.models import DeviceToken
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +189,9 @@ class TestGetTokensForUser:
     async def test_returns_only_users_tokens(self, db_session, user_a, user_b):
         """Only returns tokens belonging to the specified user."""
         await push_service.register_token(db_session, user_a, "ExponentPushToken[a_tok]", "ios")
-        await push_service.register_token(db_session, user_b, "ExponentPushToken[b_tok]", "android")
+        await push_service.register_token(
+            db_session, user_b, "ExponentPushToken[b_tok]", "android"
+        )
 
         tokens_a = await push_service.get_tokens_for_user(db_session, user_a)
         assert len(tokens_a) == 1
@@ -210,9 +211,7 @@ class TestSendPushNotifications:
         """Sends messages to Expo Push API and handles 200 response."""
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": [{"status": "ok", "id": "xxx"}]
-        }
+        mock_response.json.return_value = {"data": [{"status": "ok", "id": "xxx"}]}
 
         with patch("httpx.AsyncClient") as MockClient:
             mock_client = AsyncMock()
@@ -258,9 +257,7 @@ class TestSendPushNotifications:
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Should not raise
-            await push_service.send_push_notifications(
-                ["ExponentPushToken[abc]"], "Title", "Body"
-            )
+            await push_service.send_push_notifications(["ExponentPushToken[abc]"], "Title", "Body")
 
     @pytest.mark.asyncio
     async def test_handles_network_error(self):
@@ -272,9 +269,7 @@ class TestSendPushNotifications:
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Should not raise
-            await push_service.send_push_notifications(
-                ["ExponentPushToken[abc]"], "Title", "Body"
-            )
+            await push_service.send_push_notifications(["ExponentPushToken[abc]"], "Title", "Body")
 
     @pytest.mark.asyncio
     async def test_omits_data_when_none(self):
@@ -311,7 +306,9 @@ class TestSendPushToUser:
         await push_service.register_token(db_session, user_a, "ExponentPushToken[d1]", "ios")
         await push_service.register_token(db_session, user_a, "ExponentPushToken[d2]", "android")
 
-        with patch.object(push_service, "send_push_notifications", new_callable=AsyncMock) as mock_send:
+        with patch.object(
+            push_service, "send_push_notifications", new_callable=AsyncMock
+        ) as mock_send:
             await push_service.send_push_to_user(
                 db_session, user_a, "Title", "Body", data={"x": 1}
             )
@@ -322,6 +319,8 @@ class TestSendPushToUser:
     @pytest.mark.asyncio
     async def test_skips_when_no_tokens_registered(self, db_session, user_a):
         """Does nothing when user has no device tokens."""
-        with patch.object(push_service, "send_push_notifications", new_callable=AsyncMock) as mock_send:
+        with patch.object(
+            push_service, "send_push_notifications", new_callable=AsyncMock
+        ) as mock_send:
             await push_service.send_push_to_user(db_session, user_a, "Title", "Body")
             mock_send.assert_not_called()

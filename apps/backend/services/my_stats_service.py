@@ -42,7 +42,6 @@ from backend.database.models import (
     Player,
     PlayerGlobalStats,
     PlayerLeagueStats,
-    PlayerSeasonStats,
     Session,
     SessionStatus,
 )
@@ -435,9 +434,7 @@ async def _overall_from_matches(
 
     for row in rows:
         match_ids.append(row.id)
-        on_team1 = (
-            row.team1_player1_id == player_id or row.team1_player2_id == player_id
-        )
+        on_team1 = row.team1_player1_id == player_id or row.team1_player2_id == player_id
         point_diff_total += _signed_diff_for_row(row, player_id)
         if row.winner == -1:
             # Tie — counts toward games_played but not wins/losses.
@@ -445,9 +442,7 @@ async def _overall_from_matches(
             continue
 
         games_played += 1
-        player_won = (on_team1 and row.winner == 1) or (
-            not on_team1 and row.winner == 2
-        )
+        player_won = (on_team1 and row.winner == 1) or (not on_team1 and row.winner == 2)
         if player_won:
             wins += 1
         else:
@@ -538,9 +533,7 @@ async def _relations_from_matches(
 
     other_ids = list(counter.keys())
     name_rows = (
-        await session.execute(
-            select(Player.id, Player.full_name).where(Player.id.in_(other_ids))
-        )
+        await session.execute(select(Player.id, Player.full_name).where(Player.id.in_(other_ids)))
     ).all()
     names = {pid: name for pid, name in name_rows}
 

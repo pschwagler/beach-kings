@@ -128,8 +128,7 @@ def _build_entry(
             result = "L"
 
     session_submitted = (
-        row.session_status == SessionStatus.SUBMITTED
-        or row.session_status == "SUBMITTED"
+        row.session_status == SessionStatus.SUBMITTED or row.session_status == "SUBMITTED"
     )
 
     rating_change: Optional[int] = None
@@ -180,11 +179,8 @@ async def get_my_games(
         Tuple of (list of GameHistoryEntry dicts, total count), or None when
         the player is not found.
     """
-    from sqlalchemy import func
 
-    player_exists = await session.execute(
-        select(Player.id).where(Player.id == player_id)
-    )
+    player_exists = await session.execute(select(Player.id).where(Player.id == player_id))
     if not player_exists.scalar_one_or_none():
         return None
 

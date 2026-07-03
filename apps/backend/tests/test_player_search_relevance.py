@@ -161,9 +161,7 @@ async def universe(db_session):
     await _recent_match(db_session, t1=(caller, pa), t2=(opp, pb))
     await _recent_match(db_session, t1=(caller, pa), t2=(jane, pb))
 
-    ctx_session = Session(
-        date="2026-05-11", name="Picker Ctx", status=SessionStatus.ACTIVE
-    )
+    ctx_session = Session(date="2026-05-11", name="Picker Ctx", status=SessionStatus.ACTIVE)
     db_session.add(ctx_session)
     await db_session.flush()
     db_session.add(SessionParticipant(session_id=ctx_session.id, player_id=sess))
@@ -397,9 +395,7 @@ async def test_unrelated_placeholder_excluded(db_session):
     """
     caller = await _create_player(db_session, "Daniel Caller", with_user=True)
     other = await _create_player(db_session, "Some Organizer", with_user=True)
-    ph = await _create_player(
-        db_session, "Daniel Ghost", is_placeholder=True, created_by=other
-    )
+    ph = await _create_player(db_session, "Daniel Ghost", is_placeholder=True, created_by=other)
 
     items = await player_data.search_players_with_relevance(
         db_session, q="Daniel", caller_player_id=caller
@@ -482,9 +478,7 @@ async def test_other_users_placeholder_not_searchable_as_stranger(db_session):
     """
     caller = await _create_player(db_session, "Test Caller", with_user=True)
     other = await _create_player(db_session, "Other Organizer", with_user=True)
-    guest = await _create_player(
-        db_session, "Daniel Guest", is_placeholder=True, created_by=other
-    )
+    guest = await _create_player(db_session, "Daniel Guest", is_placeholder=True, created_by=other)
 
     items = await player_data.search_players_with_relevance(
         db_session, q="Daniel", caller_player_id=caller
@@ -675,9 +669,7 @@ async def test_no_duplicates_even_when_member_is_also_network(db_session, univer
 
 
 @pytest.mark.asyncio
-async def test_session_league_member_present_off_empty_cache(
-    db_session, universe, monkeypatch
-):
+async def test_session_league_member_present_off_empty_cache(db_session, universe, monkeypatch):
     """
     THE safety property. Force a cache hit of an *empty* network (simulating
     a totally stale / cold cache). Session and league members must STILL be

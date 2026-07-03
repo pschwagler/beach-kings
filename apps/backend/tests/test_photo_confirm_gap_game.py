@@ -181,9 +181,7 @@ class TestConfirmPhotoMatchesGapGame:
             return {"league_id": 5, "parsed_matches": []}
 
         # Season lookup returns None → season not in league → 400
-        from unittest.mock import AsyncMock, patch
-
-        import sqlalchemy
+        from unittest.mock import AsyncMock
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None  # season not found
@@ -345,9 +343,7 @@ class TestCreateMatchesFromSessionOptionalSeason:
             fake_get_or_create,
             raising=True,
         )
-        monkeypatch.setattr(
-            data_service, "create_match_async", fake_create_match, raising=True
-        )
+        monkeypatch.setattr(data_service, "create_match_async", fake_create_match, raising=True)
         monkeypatch.setattr(
             photo_match_service, "update_session_data", fake_update_session_data, raising=True
         )

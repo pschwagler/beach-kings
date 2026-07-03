@@ -5,7 +5,7 @@ and Apple ID token verification.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from datetime import timedelta
 from backend.services import auth_service
 

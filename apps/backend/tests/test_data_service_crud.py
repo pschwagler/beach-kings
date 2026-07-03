@@ -381,8 +381,12 @@ async def test_query_leagues_friends_in_league(db_session, test_player, test_use
     await db_session.commit()
 
     # Add friend players as league members
-    db_session.add(LeagueMember(league_id=league["id"], player_id=friend_player1.id, role="member"))
-    db_session.add(LeagueMember(league_id=league["id"], player_id=friend_player2.id, role="member"))
+    db_session.add(
+        LeagueMember(league_id=league["id"], player_id=friend_player1.id, role="member")
+    )
+    db_session.add(
+        LeagueMember(league_id=league["id"], player_id=friend_player2.id, role="member")
+    )
     await db_session.commit()
 
     # Query as player2 (authenticated) — should see 2 friends

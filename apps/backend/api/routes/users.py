@@ -12,10 +12,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.database.models import Player
-from backend.services import data_service, user_service, avatar_service, s3_service, my_stats_service, my_games_service
+from backend.services import (
+    data_service,
+    user_service,
+    avatar_service,
+    s3_service,
+    my_stats_service,
+    my_games_service,
+)
 from backend.services import push_prefs_service, court_service
 from backend.api.auth_dependencies import get_current_user, require_verified_player
-from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload, LeagueInviteItemResponse, PushPrefsResponse, PushPrefsUpdate, AddPlayerHomeCourt, CourtListItem
+from backend.models.schemas import (
+    UserResponse,
+    UserUpdate,
+    PlayerUpdate,
+    StatusResponse,
+    MyStatsPayload,
+    LeagueInviteItemResponse,
+    PushPrefsResponse,
+    PushPrefsUpdate,
+    AddPlayerHomeCourt,
+    CourtListItem,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -343,9 +361,7 @@ async def get_my_sent_league_invites(
     Requires authentication.
     """
     try:
-        result = await session.execute(
-            select(Player).where(Player.user_id == current_user["id"])
-        )
+        result = await session.execute(select(Player).where(Player.user_id == current_user["id"]))
         player = result.scalar_one_or_none()
         if not player:
             return []
@@ -367,9 +383,7 @@ async def get_my_received_league_invites(
     Requires authentication.
     """
     try:
-        result = await session.execute(
-            select(Player).where(Player.user_id == current_user["id"])
-        )
+        result = await session.execute(select(Player).where(Player.user_id == current_user["id"]))
         player = result.scalar_one_or_none()
         if not player:
             return []
@@ -482,7 +496,9 @@ async def get_push_prefs(
         return PushPrefsResponse(**prefs)
     except Exception as e:
         logger.error(f"Error fetching push prefs for user {current_user['id']}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch push notification preferences.")
+        raise HTTPException(
+            status_code=500, detail="Failed to fetch push notification preferences."
+        )
 
 
 @router.patch("/api/users/me/push-prefs", response_model=PushPrefsResponse)
@@ -504,7 +520,9 @@ async def update_push_prefs(
         return PushPrefsResponse(**prefs)
     except Exception as e:
         logger.error(f"Error updating push prefs for user {current_user['id']}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update push notification preferences.")
+        raise HTTPException(
+            status_code=500, detail="Failed to update push notification preferences."
+        )
 
 
 # ---------------------------------------------------------------------------

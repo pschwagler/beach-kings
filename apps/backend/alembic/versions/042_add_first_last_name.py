@@ -39,12 +39,8 @@ def upgrade() -> None:
     )
 
     # 3. Set NOT NULL with empty-string server default
-    op.alter_column(
-        "players", "first_name", nullable=False, server_default=sa.text("''")
-    )
-    op.alter_column(
-        "players", "last_name", nullable=False, server_default=sa.text("''")
-    )
+    op.alter_column("players", "first_name", nullable=False, server_default=sa.text("''"))
+    op.alter_column("players", "last_name", nullable=False, server_default=sa.text("''"))
 
     # 4. Index for first_name prefix searches
     op.create_index("idx_players_first_name", "players", ["first_name"])

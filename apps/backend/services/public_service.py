@@ -20,7 +20,6 @@ from backend.database.models import (
     PlayerGlobalStats,
     PlayerSeasonStats,
     Region,
-    Season,
     Session,
     User,
 )
@@ -478,7 +477,9 @@ async def get_public_player(
     """
     # 1. Fetch player + global stats + location + owning user's privacy flags
     result = await session.execute(
-        select(Player, PlayerGlobalStats, Location, User.profile_is_private, User.show_game_history)
+        select(
+            Player, PlayerGlobalStats, Location, User.profile_is_private, User.show_game_history
+        )
         .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
         .outerjoin(Location, Player.location_id == Location.id)
         .outerjoin(User, User.id == Player.user_id)

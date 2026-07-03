@@ -7,7 +7,6 @@ session-code generation and participant management helpers.
 """
 
 from typing import Iterable, List, Dict, Optional, TYPE_CHECKING
-from datetime import date
 import secrets
 import string
 import logging
@@ -469,9 +468,7 @@ async def get_or_create_active_league_session(
     # Try to get existing active session for this date and season (or gap key)
     try:
         result = await session.execute(
-            select(Session)
-            .where(and_(*_dedup_where()))
-            .with_for_update()
+            select(Session).where(and_(*_dedup_where())).with_for_update()
         )
         existing_session = result.scalar_one_or_none()
 
@@ -491,9 +488,7 @@ async def get_or_create_active_league_session(
             }
     except Exception as e:
         logger.warning("SELECT FOR UPDATE failed, falling back to plain SELECT: %s", e)
-        result = await session.execute(
-            select(Session).where(and_(*_dedup_where()))
-        )
+        result = await session.execute(select(Session).where(and_(*_dedup_where())))
         existing_session = result.scalar_one_or_none()
         if existing_session:
             if existing_session.code is None:
@@ -658,9 +653,7 @@ async def create_league_session(
             "Please submit the current session before creating a new one."
         )
 
-    count_result = await session.execute(
-        select(func.count(Session.id)).where(count_where)
-    )
+    count_result = await session.execute(select(func.count(Session.id)).where(count_where))
     session_count = count_result.scalar() or 0
 
     formatted_date = format_session_date(date)
@@ -772,8 +765,8 @@ async def create_session(
     """
     # Resolve effective session_type: default to 'league' when league_id is
     # present and the caller did not supply an explicit override.
-    effective_session_type = session_type if session_type is not None else (
-        "league" if league_id is not None else None
+    effective_session_type = (
+        session_type if session_type is not None else ("league" if league_id is not None else None)
     )
     result = await session.execute(
         select(func.count(Session.id)).where(
@@ -963,10 +956,7 @@ async def update_session(
             # different league's season is nonsensical (its games/participants
             # belong to the original league) and is rejected. A league-less
             # session (pickup) adopts the season's league.
-            if (
-                session_obj.league_id is not None
-                and season_obj.league_id != session_obj.league_id
-            ):
+            if session_obj.league_id is not None and season_obj.league_id != session_obj.league_id:
                 raise ValueError(
                     f"Season {season_id} belongs to league {season_obj.league_id}, "
                     f"not this session's league {session_obj.league_id}"
@@ -1293,9 +1283,7 @@ async def _invalidate_picker_caches(
         if affected:
             await player_search_cache.invalidate(affected)
     except Exception:  # noqa: BLE001 - cache invalidation must never break a write
-        logger.warning(
-            "Player-picker cache invalidation failed (non-fatal)", exc_info=True
-        )
+        logger.warning("Player-picker cache invalidation failed (non-fatal)", exc_info=True)
 
 
 # ============================================================================
@@ -1346,9 +1334,7 @@ async def create_match_async(
 
     # Inherit ranked_intent from the parent session's is_ranked field.
     # Fall back to True if the session row cannot be read (should not happen).
-    session_row = await session.execute(
-        select(Session.is_ranked).where(Session.id == session_id)
-    )
+    session_row = await session.execute(select(Session.is_ranked).where(Session.id == session_id))
     session_is_ranked = session_row.scalar_one_or_none()
     ranked_intent: bool = session_is_ranked if session_is_ranked is not None else True
 
@@ -1620,23 +1606,28 @@ async def get_session_roster_with_game_counts(
     if not all_player_ids:
         return []
 
-    players_q = select(
-        Player.id,
-        Player.first_name,
-        Player.last_name,
-        Player.full_name,
-        Player.nickname,
-        Player.is_placeholder,
-        PlayerInvite.invite_token,
-    ).select_from(Player).outerjoin(
-        PlayerInvite,
-        and_(
-            PlayerInvite.player_id == Player.id,
-            # Only join open invites — a claimed invite must not yield a live
-            # claim URL (the placeholder has already been converted).
-            PlayerInvite.status == InviteStatus.PENDING.value,
-        ),
-    ).where(Player.id.in_(all_player_ids))
+    players_q = (
+        select(
+            Player.id,
+            Player.first_name,
+            Player.last_name,
+            Player.full_name,
+            Player.nickname,
+            Player.is_placeholder,
+            PlayerInvite.invite_token,
+        )
+        .select_from(Player)
+        .outerjoin(
+            PlayerInvite,
+            and_(
+                PlayerInvite.player_id == Player.id,
+                # Only join open invites — a claimed invite must not yield a live
+                # claim URL (the placeholder has already been converted).
+                PlayerInvite.status == InviteStatus.PENDING.value,
+            ),
+        )
+        .where(Player.id.in_(all_player_ids))
+    )
     players_result = await db_session.execute(players_q)
     rows = players_result.all()
 
@@ -1650,19 +1641,21 @@ async def get_session_roster_with_game_counts(
         elif r.full_name:
             parts = r.full_name.strip().split()
             display_name = r.full_name.strip()
-            initials = (parts[0][0] + parts[-1][0]).upper() if len(parts) >= 2 else parts[0][:2].upper()
+            initials = (
+                (parts[0][0] + parts[-1][0]).upper() if len(parts) >= 2 else parts[0][:2].upper()
+            )
         elif r.nickname:
             display_name = r.nickname.strip()
             words = display_name.split()
-            initials = (words[0][0] + words[-1][0]).upper() if len(words) >= 2 else words[0][:2].upper()
+            initials = (
+                (words[0][0] + words[-1][0]).upper() if len(words) >= 2 else words[0][:2].upper()
+            )
         else:
             display_name = f"Player {r.id}"
             initials = "??"
 
         invite_url = (
-            f"{FRONTEND_BASE_URL}/invite/{r.invite_token}"
-            if r.invite_token is not None
-            else None
+            f"{FRONTEND_BASE_URL}/invite/{r.invite_token}" if r.invite_token is not None else None
         )
 
         roster.append(
@@ -1719,9 +1712,7 @@ async def remove_session_participant(
     await db_session.commit()
     removed = result.rowcount > 0
     if removed:
-        await _invalidate_picker_caches(
-            db_session, player_ids=(player_id,), session_id=session_id
-        )
+        await _invalidate_picker_caches(db_session, player_ids=(player_id,), session_id=session_id)
     return removed
 
 
@@ -1745,9 +1736,7 @@ async def add_session_participant(
     rec = SessionParticipant(session_id=session_id, player_id=player_id, invited_by=invited_by)
     db_session.add(rec)
     await db_session.commit()
-    await _invalidate_picker_caches(
-        db_session, player_ids=(player_id,), session_id=session_id
-    )
+    await _invalidate_picker_caches(db_session, player_ids=(player_id,), session_id=session_id)
     return True
 
 

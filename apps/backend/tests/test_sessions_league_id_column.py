@@ -14,7 +14,7 @@ from datetime import date
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import League, Season, Session, Player, User
+from backend.database.models import League, Season, Session
 
 
 # ---------------------------------------------------------------------------

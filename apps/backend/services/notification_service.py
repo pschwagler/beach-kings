@@ -117,9 +117,7 @@ async def create_notification(
 
         prefs = await push_prefs_service.get_prefs(session, user_id)
         if push_prefs_service.should_send_push(prefs, type):
-            await push_service.send_push_to_user(
-                session, user_id, title, message, data=data
-            )
+            await push_service.send_push_to_user(session, user_id, title, message, data=data)
     except Exception as e:
         logger.warning(f"Failed to send push notification to user {user_id}: {e}")
 

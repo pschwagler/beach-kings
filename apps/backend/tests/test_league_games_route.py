@@ -99,9 +99,7 @@ class TestGetLeagueGamesRoute:
             "backend.services.league_games_service.get_league_games",
             new=AsyncMock(return_value=([SAMPLE_LEAGUE_GAME], 1)),
         ):
-            response = client.get(
-                f"/api/leagues/{LEAGUE_ID}/games", headers=headers
-            )
+            response = client.get(f"/api/leagues/{LEAGUE_ID}/games", headers=headers)
 
         assert response.status_code == 200, response.text
         data = response.json()
@@ -134,18 +132,14 @@ class TestGetLeagueGamesRoute:
         """limit/offset outside the allowed bounds are rejected with 422."""
         client, headers = _make_admin_client(monkeypatch)
         for query in ("limit=0", "limit=5000", "offset=-1"):
-            response = client.get(
-                f"/api/leagues/{LEAGUE_ID}/games?{query}", headers=headers
-            )
+            response = client.get(f"/api/leagues/{LEAGUE_ID}/games?{query}", headers=headers)
             assert response.status_code == 422, f"{query} -> {response.status_code}"
 
     def test_pagination_forwarded_to_service(self, monkeypatch):
         """Valid limit/offset are passed through to the service layer."""
         client, headers = _make_admin_client(monkeypatch)
         mock = AsyncMock(return_value=([], 0))
-        with patch(
-            "backend.services.league_games_service.get_league_games", new=mock
-        ):
+        with patch("backend.services.league_games_service.get_league_games", new=mock):
             response = client.get(
                 f"/api/leagues/{LEAGUE_ID}/games?limit=25&offset=50", headers=headers
             )
@@ -160,9 +154,7 @@ class TestGetLeagueGamesRoute:
             "backend.services.league_games_service.get_league_games",
             new=AsyncMock(return_value=([SAMPLE_LEAGUE_GAME], 1)),
         ):
-            response = client.get(
-                f"/api/leagues/{LEAGUE_ID}/games", headers=headers
-            )
+            response = client.get(f"/api/leagues/{LEAGUE_ID}/games", headers=headers)
 
         assert response.status_code == 200
         game = response.json()["games"][0]
@@ -181,9 +173,7 @@ class TestGetLeagueGamesRoute:
             "backend.services.league_games_service.get_league_games",
             new=AsyncMock(return_value=([], 0)),
         ):
-            response = client.get(
-                f"/api/leagues/{LEAGUE_ID}/games", headers=headers
-            )
+            response = client.get(f"/api/leagues/{LEAGUE_ID}/games", headers=headers)
         assert response.status_code == 200
         assert response.json() == {"games": [], "total": 0}
 
@@ -194,9 +184,7 @@ class TestGetLeagueGamesRoute:
             "backend.services.league_games_service.get_league_games",
             new=AsyncMock(side_effect=RuntimeError("boom")),
         ):
-            response = client.get(
-                f"/api/leagues/{LEAGUE_ID}/games", headers=headers
-            )
+            response = client.get(f"/api/leagues/{LEAGUE_ID}/games", headers=headers)
         assert response.status_code == 500
 
 
@@ -216,14 +204,10 @@ class TestNormalizeSessionDate:
         assert league_games_service._normalize_session_date("   ") is None
 
     def test_iso_format_passes_through(self):
-        assert (
-            league_games_service._normalize_session_date("2024-06-01") == "2024-06-01"
-        )
+        assert league_games_service._normalize_session_date("2024-06-01") == "2024-06-01"
 
     def test_us_slash_format_normalized_to_iso(self):
-        assert (
-            league_games_service._normalize_session_date("06/01/2024") == "2024-06-01"
-        )
+        assert league_games_service._normalize_session_date("06/01/2024") == "2024-06-01"
 
     def test_unrecognized_format_returns_none(self):
         assert league_games_service._normalize_session_date("June 1, 2024") is None
@@ -287,8 +271,6 @@ class TestBuildEntry:
         assert entry["session_status"] == "SUBMITTED"
 
     def test_null_scores_default_to_zero(self):
-        entry = league_games_service._build_entry(
-            self._row(team1_score=None, team2_score=None)
-        )
+        entry = league_games_service._build_entry(self._row(team1_score=None, team2_score=None))
         assert entry["team1_score"] == 0
         assert entry["team2_score"] == 0

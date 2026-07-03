@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import League, Season, Session, SessionStatus
+from backend.database.models import League, Season, Session
 from backend.services import data_service
 
 
@@ -194,9 +194,7 @@ async def test_get_or_create_gap_game_idempotent(
     assert second["season_id"] is None
     assert second["league_id"] == league_no_seasons.id
 
-    row_count = await _count_sessions_for_league_date(
-        db_session, league_no_seasons.id, TODAY_STR
-    )
+    row_count = await _count_sessions_for_league_date(db_session, league_no_seasons.id, TODAY_STR)
     assert row_count == 1, "Exactly one Session row must exist for this league+date"
 
 
@@ -230,12 +228,8 @@ async def test_get_or_create_gap_games_isolated_per_league(
     assert b["league_id"] == league_b.id
 
     # Exactly one row per league for this date — no cross-league collision.
-    assert await _count_sessions_for_league_date(
-        db_session, league_no_seasons.id, TODAY_STR
-    ) == 1
-    assert await _count_sessions_for_league_date(
-        db_session, league_b.id, TODAY_STR
-    ) == 1
+    assert await _count_sessions_for_league_date(db_session, league_no_seasons.id, TODAY_STR) == 1
+    assert await _count_sessions_for_league_date(db_session, league_b.id, TODAY_STR) == 1
 
 
 # ===========================================================================

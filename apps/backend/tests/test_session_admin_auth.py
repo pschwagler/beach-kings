@@ -74,8 +74,9 @@ async def admin_user(db_session: AsyncSession) -> User:
 @pytest_asyncio.fixture
 async def admin_player(db_session: AsyncSession, admin_user: User) -> Player:
     """Player linked to admin_user."""
-    p = Player(full_name="Admin Player", first_name="Admin", last_name="Player",
-               user_id=admin_user.id)
+    p = Player(
+        full_name="Admin Player", first_name="Admin", last_name="Player", user_id=admin_user.id
+    )
     db_session.add(p)
     await db_session.commit()
     await db_session.refresh(p)
@@ -95,8 +96,9 @@ async def member_user(db_session: AsyncSession) -> User:
 @pytest_asyncio.fixture
 async def member_player(db_session: AsyncSession, member_user: User) -> Player:
     """Player linked to member_user."""
-    p = Player(full_name="Member Player", first_name="Member", last_name="Player",
-               user_id=member_user.id)
+    p = Player(
+        full_name="Member Player", first_name="Member", last_name="Player", user_id=member_user.id
+    )
     db_session.add(p)
     await db_session.commit()
     await db_session.refresh(p)
@@ -116,8 +118,12 @@ async def outsider_user(db_session: AsyncSession) -> User:
 @pytest_asyncio.fixture
 async def outsider_player(db_session: AsyncSession, outsider_user: User) -> Player:
     """Player linked to outsider_user."""
-    p = Player(full_name="Outsider Player", first_name="Outsider", last_name="Player",
-               user_id=outsider_user.id)
+    p = Player(
+        full_name="Outsider Player",
+        first_name="Outsider",
+        last_name="Player",
+        user_id=outsider_user.id,
+    )
     db_session.add(p)
     await db_session.commit()
     await db_session.refresh(p)
@@ -302,7 +308,9 @@ async def test_admin_of_wrong_league_returns_false(
 ):
     """User is admin of other_league but the session belongs to league → denied."""
     # Admin of the OTHER league, not of the session's league
-    db_session.add(LeagueMember(league_id=other_league.id, player_id=admin_player.id, role="admin"))
+    db_session.add(
+        LeagueMember(league_id=other_league.id, player_id=admin_player.id, role="admin")
+    )
     await db_session.commit()
 
     # Session is in the primary league
