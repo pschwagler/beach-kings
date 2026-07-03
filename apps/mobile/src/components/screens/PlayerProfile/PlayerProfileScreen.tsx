@@ -10,13 +10,13 @@
  *   - Skeleton while loading
  *   - Error state with retry
  *   - Pull-to-refresh
- *   - Action sheet (block / report)
+ *   - Action sheet (report)
  *
  * Wireframe ref: player-profile.html
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, RefreshControl, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -30,6 +30,9 @@ import PlayerStatsGrid from './PlayerStatsGrid';
 import PlayerLeaguesList from './PlayerLeaguesList';
 import PlayerProfileSkeleton from './PlayerProfileSkeleton';
 import PlayerProfileErrorState from './PlayerProfileErrorState';
+
+/** Inbox that receives player reports (plus-addressed for filtering). */
+const REPORT_EMAIL = 'beachleaguevb+report@gmail.com';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -85,24 +88,33 @@ export default function PlayerProfileScreen({
     setShowActionSheet(true);
   }, []);
 
-  const handleBlock = useCallback(() => {
-    setShowActionSheet(false);
-    Alert.alert('Block User', 'This user has been blocked.', [{ text: 'OK' }]);
-    // TODO(backend): POST /api/players/:id/block
-  }, []);
-
-  const handleReport = useCallback(() => {
-    setShowActionSheet(false);
-    Alert.alert('Report Submitted', 'Thank you for your report.', [{ text: 'OK' }]);
-    // TODO(backend): POST /api/players/:id/report
-  }, []);
-
   const playerName =
     profileData != null
       ? [profileData.player.first_name, profileData.player.last_name]
           .filter(Boolean)
           .join(' ') || profileData.player.name || 'Player'
       : 'Player';
+
+  const handleReport = useCallback(() => {
+    setShowActionSheet(false);
+    const subject = `Report a player: ${playerName}`;
+    const body =
+      `I'd like to report the following player:\n\n` +
+      `Name: ${playerName}\n` +
+      `Player ID: ${playerId}\n\n` +
+      `Reason:\n`;
+    const url =
+      `mailto:${REPORT_EMAIL}` +
+      `?subject=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
+    void Linking.openURL(url).catch(() => {
+      Alert.alert(
+        'Could not open email',
+        `Please email ${REPORT_EMAIL} to report this player.`,
+        [{ text: 'OK' }],
+      );
+    });
+  }, [playerName, playerId]);
 
   const rightAction = (
     <Pressable
@@ -159,7 +171,6 @@ export default function PlayerProfileScreen({
       {showActionSheet && (
         <ActionSheet
           playerName={playerName}
-          onBlock={handleBlock}
           onReport={handleReport}
           onCancel={() => setShowActionSheet(false)}
         />
@@ -174,14 +185,12 @@ export default function PlayerProfileScreen({
 
 interface ActionSheetProps {
   readonly playerName: string;
-  readonly onBlock: () => void;
   readonly onReport: () => void;
   readonly onCancel: () => void;
 }
 
 function ActionSheet({
   playerName,
-  onBlock,
   onReport,
   onCancel,
 }: ActionSheetProps): React.ReactNode {
@@ -197,15 +206,6 @@ function ActionSheet({
               {playerName}
             </Text>
           </View>
-
-          <Pressable
-            testID="action-sheet-block"
-            onPress={onBlock}
-            accessibilityRole="button"
-            className="flex-row items-center justify-center gap-sm px-lg min-h-[56px] border-b border-strong active:opacity-70"
-          >
-            <Text className="text-[17px] text-blue-500">Block User</Text>
-          </Pressable>
 
           <Pressable
             testID="action-sheet-report"

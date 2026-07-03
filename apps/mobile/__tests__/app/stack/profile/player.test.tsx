@@ -10,12 +10,13 @@
  *   - Add Friend button triggers API call
  *   - Message button navigates to messages
  *   - More (•••) button opens action sheet
- *   - Block / Report actions in action sheet
+ *   - Report action opens a prefilled mailto (no Block action)
  *   - Action sheet cancel closes overlay
  *   - Pull-to-refresh triggers refetch
  */
 
 import React from 'react';
+import { Linking } from 'react-native';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -305,12 +306,32 @@ describe('PlayerProfileScreen — action sheet', () => {
     expect(screen.getByTestId('player-action-sheet')).toBeTruthy();
   });
 
-  it('shows block and report options in action sheet', async () => {
+  it('shows a report option but no block option in the action sheet', async () => {
     render(<PlayerProfileRoute />);
     await waitFor(() => expect(screen.getByTestId('player-profile-screen')).toBeTruthy());
     fireEvent.press(screen.getByTestId('player-more-btn'));
-    expect(screen.getByTestId('action-sheet-block')).toBeTruthy();
     expect(screen.getByTestId('action-sheet-report')).toBeTruthy();
+    expect(screen.queryByTestId('action-sheet-block')).toBeNull();
+  });
+
+  it('opens a prefilled report email when report is pressed', async () => {
+    const openURL = jest
+      .spyOn(Linking, 'openURL')
+      .mockResolvedValue(undefined as unknown as never);
+    render(<PlayerProfileRoute />);
+    await waitFor(() => expect(screen.getByTestId('player-profile-screen')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('player-more-btn'));
+    fireEvent.press(screen.getByTestId('action-sheet-report'));
+
+    await waitFor(() => expect(openURL).toHaveBeenCalledTimes(1));
+    const url = openURL.mock.calls[0][0];
+    expect(url).toContain('mailto:beachleaguevb+report@gmail.com');
+    expect(url).toContain('subject=');
+    // Reported player's ID (from route params) is embedded in the body.
+    expect(decodeURIComponent(url)).toContain('Player ID: 42');
+    // Action sheet closes after choosing report.
+    expect(screen.queryByTestId('player-action-sheet')).toBeNull();
+    openURL.mockRestore();
   });
 
   it('closes action sheet when cancel is pressed', async () => {
