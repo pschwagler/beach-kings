@@ -75,6 +75,8 @@ apps/web/out/
 apps/mobile/.expo/
 apps/mobile/dist/
 apps/mobile/node_modules/
+apps/mobile/.tamagui/
+apps/mobile/.qa/
 packages/*/node_modules/
 packages/*/dist/
 services/*/node_modules/
@@ -85,6 +87,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 .turbo/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
 
 # WhatsApp Service
 services/whatsapp/.wwebjs_auth/
