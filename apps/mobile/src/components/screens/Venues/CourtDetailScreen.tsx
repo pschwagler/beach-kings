@@ -38,7 +38,7 @@ import CourtReviewsSection from './CourtReviewsSection';
 import { hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import { api } from '@/lib/api';
-import type { Court, Player } from '@beach-kings/shared';
+import { type Court, type Player, formatLocation } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -283,6 +283,10 @@ export default function CourtDetailScreen({
     );
   }
 
+  // Omit the city/state line entirely when both are empty (avoids a bare ",");
+  // the full street address still renders further down. See formatLocation.
+  const locationLabel = formatLocation(court.city, court.state);
+
   return (
     <SafeAreaView
       className="flex-1 bg-page"
@@ -308,9 +312,11 @@ export default function CourtDetailScreen({
           <Text className="text-[20px] font-bold text-default mb-0.5">
             {court.name}
           </Text>
-          <Text className="text-[14px] text-muted mb-3">
-            {court.city}, {court.state}
-          </Text>
+          {locationLabel != null && (
+            <Text className="text-[14px] text-muted mb-3">
+              {locationLabel}
+            </Text>
+          )}
 
           {/* Feature badges */}
           <View className="flex-row flex-wrap gap-2">

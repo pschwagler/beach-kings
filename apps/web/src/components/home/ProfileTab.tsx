@@ -12,6 +12,7 @@ import ConfirmLeaveModal from '../ui/ConfirmLeaveModal';
 import AvatarUpload from '../profile/AvatarUpload';
 import CourtSelector from '../court/CourtSelector';
 import { Button } from '../ui/UI';
+import { cleanCityName } from '@beach-kings/shared';
 import type { User, Player } from '../../types';
 
 const PREFERRED_SIDE_OPTIONS = [
@@ -134,11 +135,16 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
 
   useEffect(() => {
     if (currentUserPlayer) {
-      // Format city display value
-      const cityDisplay = currentUserPlayer.city 
-        ? (currentUserPlayer.state ? `${currentUserPlayer.city}, ${currentUserPlayer.state}` : currentUserPlayer.city)
-        : '';
-      
+      // Pre-fill the BARE city name (state lives in its own field). Using the
+      // formatted "City, State" label here is what corrupted the players table:
+      // it was re-submitted verbatim on save, appending the state again each
+      // time. cleanCityName also strips any state already baked in, so dirty
+      // rows self-heal on the next save. Mirrors the mobile onboarding fix.
+      const cityDisplay = cleanCityName(
+        currentUserPlayer.city,
+        currentUserPlayer.state,
+      );
+
       const newFormData = {
         first_name: currentUserPlayer.first_name || (currentUserPlayer.full_name?.split(' ')[0] ?? ''),
         last_name: currentUserPlayer.last_name || (currentUserPlayer.full_name?.split(' ').slice(1).join(' ') ?? ''),
@@ -290,8 +296,12 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         playerPayload.preferred_side = preferredSide;
       }
 
-      if (formData.city) {
-        playerPayload.city = formData.city;
+      // Persist the bare city only — never the state (it has its own field).
+      // Defensive: also cleans a manually-typed "City, State" so it can't
+      // re-corrupt the column.
+      const cityToSave = cleanCityName(formData.city, formData.state);
+      if (cityToSave) {
+        playerPayload.city = cityToSave;
       }
 
       if (formData.state) {

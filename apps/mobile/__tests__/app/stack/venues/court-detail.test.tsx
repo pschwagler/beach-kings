@@ -310,6 +310,21 @@ describe('CourtDetailScreen — court content', () => {
     });
   });
 
+  it('omits the location line (no bare ",") when city and state are empty', async () => {
+    mockGetCourtById.mockResolvedValue({
+      ...MOCK_COURT,
+      city: '',
+      state: '',
+    });
+    render(<CourtDetailRoute />);
+    await waitFor(() => {
+      // Name still renders; the empty city/state line must not produce a lone comma.
+      expect(screen.getAllByText('Manhattan Beach Courts').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText(',')).toBeNull();
+    expect(screen.queryByText(', ')).toBeNull();
+  });
+
   it('renders Outdoor badge for sand courts', async () => {
     render(<CourtDetailRoute />);
     await waitFor(() => {

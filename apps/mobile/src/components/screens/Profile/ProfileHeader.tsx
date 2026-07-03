@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import type { Player } from '@beach-kings/shared';
+import { type Player, formatLocation } from '@beach-kings/shared';
 import Avatar from '@/components/ui/Avatar';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 
@@ -49,10 +49,9 @@ export default function ProfileHeader({
   const levelLabel =
     player?.level != null ? String(player.level) : null;
 
-  const locationLabel =
-    player?.city != null && player?.state != null
-      ? `${player.city}, ${player.state}`
-      : player?.city ?? player?.state ?? null;
+  // The `city` column can already contain "City, State" (or a doubled state)
+  // — formatLocation dedupes and omits when empty. See its util for details.
+  const locationLabel = formatLocation(player?.city, player?.state);
 
   const hasMetaInfo = locationLabel != null || levelLabel != null;
 

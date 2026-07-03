@@ -151,8 +151,16 @@ export default function OnboardingScreen(): React.ReactNode {
     [locationsWithDistance],
   );
 
+  // The city field displays the formatted "City, State" label for a good UX,
+  // but we must persist the bare city name — the state is stored separately,
+  // so submitting the formatted string double-bakes the state into `city`
+  // (e.g. "Greenpoint, New York" + state "New York"). Track the last picked
+  // suggestion so onSubmit can send its structured `city` instead of the label.
+  const selectedCityRef = useRef<CitySuggestion | null>(null);
+
   const onCityPicked = useCallback(
     (suggestion: CitySuggestion) => {
+      selectedCityRef.current = suggestion;
       setValue('city', suggestion.formatted, {
         shouldValidate: true,
         shouldDirty: true,
@@ -167,12 +175,20 @@ export default function OnboardingScreen(): React.ReactNode {
       const location = locationsWithDistance.find(
         (l) => l.id === values.locationId,
       );
+      const typedCity = values.city.trim();
+      // Prefer the structured city from the picked suggestion (still matching
+      // the field) so the state isn't double-baked into `city`. Fall back to
+      // the text before the first comma for a manually-typed value.
+      const cityName =
+        selectedCityRef.current?.formatted === typedCity
+          ? selectedCityRef.current.city
+          : (typedCity.split(',')[0]?.trim() ?? typedCity);
       try {
         await api.updatePlayerProfile({
           gender: values.gender as PlayerGender,
           level: values.level as SkillLevel,
           location_id: values.locationId,
-          city: values.city.trim(),
+          city: cityName,
           state: location?.state ?? '',
           ...(values.nickname?.trim()
             ? { nickname: values.nickname.trim() }

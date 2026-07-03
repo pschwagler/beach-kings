@@ -231,7 +231,10 @@ describe('OnboardingScreen', () => {
           gender: 'male',
           level: 'intermediate',
           location_id: 'socal_sd',
-          city: 'San Diego, CA',
+          // Persists the BARE city, not the formatted "San Diego, CA" label —
+          // state is stored separately, so submitting the label would double-
+          // bake the state into `city`.
+          city: 'San Diego',
           state: 'CA',
         }),
       );
