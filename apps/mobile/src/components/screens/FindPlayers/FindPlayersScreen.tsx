@@ -246,6 +246,45 @@ function FriendsEmptyState(): React.ReactNode {
   );
 }
 
+/**
+ * Non-blocking inline notice shown at the top of the friends list when the
+ * friend-requests fetch fails. The friends list itself still renders below;
+ * this only communicates that pending requests could not be loaded.
+ */
+interface FriendRequestsErrorNoticeProps {
+  readonly onRetry: () => void;
+}
+
+function FriendRequestsErrorNotice({
+  onRetry,
+}: FriendRequestsErrorNoticeProps): React.ReactNode {
+  const handleRetry = useCallback(() => {
+    void hapticLight();
+    onRetry();
+  }, [onRetry]);
+
+  return (
+    <View
+      testID="friend-requests-error-notice"
+      accessibilityRole="alert"
+      className="flex-row items-center justify-between gap-3 mx-4 mt-3 mb-1 px-4 py-3 rounded-[10px] bg-danger-tint border border-danger"
+    >
+      <Text className="flex-1 text-[13px] text-danger">
+        Couldn&apos;t load friend requests.
+      </Text>
+      <Pressable
+        testID="friend-requests-error-retry"
+        onPress={handleRetry}
+        accessibilityRole="button"
+        accessibilityLabel="Retry loading friend requests"
+        hitSlop={8}
+      >
+        <Text className="text-[13px] font-bold text-danger">Retry</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Tab bar
 // ---------------------------------------------------------------------------
@@ -324,6 +363,7 @@ export default function FindPlayersScreen(): React.ReactNode {
     friendRequests,
     isLoadingFriends,
     friendsError,
+    friendRequestsError,
     isRefreshingFriends,
     onRefreshFriends,
     onRetryFriends,
@@ -377,7 +417,15 @@ export default function FindPlayersScreen(): React.ReactNode {
     if (friendsError != null && !isRefreshingFriends) {
       return <FindPlayersErrorState onRetry={onRetryFriends} />;
     }
-    if (friends.length === 0 && friendRequests.length === 0) {
+    // A friend-requests failure is non-fatal: surface it inline but still show
+    // the loaded friends list below. Only fall through to the generic empty
+    // state when there is genuinely nothing to show and no error to report.
+    const requestsFailed = friendRequestsError != null && !isRefreshingFriends;
+    if (
+      friends.length === 0 &&
+      friendRequests.length === 0 &&
+      !requestsFailed
+    ) {
       return <FriendsEmptyState />;
     }
 
@@ -398,6 +446,11 @@ export default function FindPlayersScreen(): React.ReactNode {
           item.kind === 'request'
             ? `req-${item.request.id}`
             : `friend-${item.friend.player_id}`
+        }
+        ListHeaderComponent={
+          requestsFailed ? (
+            <FriendRequestsErrorNotice onRetry={onRetryFriends} />
+          ) : null
         }
         renderItem={({ item }) => {
           if (item.kind === 'request') {

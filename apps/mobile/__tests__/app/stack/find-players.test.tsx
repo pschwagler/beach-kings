@@ -312,6 +312,63 @@ describe('FindPlayersScreen — players tab', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Friends tab resilience — a friend-requests failure must not blank the
+// successfully-loaded friends list (regression for the all-or-nothing merge).
+// ---------------------------------------------------------------------------
+
+describe('FindPlayersScreen — friends tab resilience', () => {
+  it('renders the friends list even when the friend-requests fetch fails', async () => {
+    mockGetFriendRequests.mockRejectedValue(new Error('requests boom'));
+    render(<FindPlayersRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tab-friends')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('tab-friends'));
+    await waitFor(() => {
+      expect(screen.getByTestId('friend-row-30')).toBeTruthy();
+    });
+    // Must NOT collapse into the full-page error state.
+    expect(screen.queryByTestId('find-players-error-state')).toBeNull();
+  });
+
+  it('surfaces a non-blocking notice when friend requests fail to load', async () => {
+    mockGetFriendRequests.mockRejectedValue(new Error('requests boom'));
+    render(<FindPlayersRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tab-friends')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('tab-friends'));
+    await waitFor(() => {
+      expect(screen.getByTestId('friend-requests-error-notice')).toBeTruthy();
+    });
+  });
+
+  it('does NOT show the requests notice when everything loads', async () => {
+    render(<FindPlayersRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tab-friends')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('tab-friends'));
+    await waitFor(() => {
+      expect(screen.getByTestId('friend-row-30')).toBeTruthy();
+    });
+    expect(screen.queryByTestId('friend-requests-error-notice')).toBeNull();
+  });
+
+  it('still shows the full-page error when the friends list itself fails', async () => {
+    mockGetFriends.mockRejectedValue(new Error('friends boom'));
+    render(<FindPlayersRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tab-friends')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('tab-friends'));
+    await waitFor(() => {
+      expect(screen.getByTestId('find-players-error-state')).toBeTruthy();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------
 

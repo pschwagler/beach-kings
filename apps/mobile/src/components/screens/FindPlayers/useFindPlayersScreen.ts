@@ -81,7 +81,10 @@ export interface UseFindPlayersScreenResult {
   readonly friends: readonly Friend[];
   readonly friendRequests: readonly FriendRequest[];
   readonly isLoadingFriends: boolean;
+  /** Fatal: the friends *list* fetch failed → show the full-page error state. */
   readonly friendsError: Error | null;
+  /** Non-fatal: the friend-requests fetch failed → show an inline notice only. */
+  readonly friendRequestsError: Error | null;
   readonly isRefreshingFriends: boolean;
   readonly onRefreshFriends: () => void;
   readonly onRetryFriends: () => void;
@@ -204,7 +207,10 @@ export function useFindPlayersScreen(): UseFindPlayersScreenResult {
   );
 
   const isLoadingFriends = isLoadingFriendsRaw || isLoadingRequests;
-  const friendsErrorCombined = friendsError ?? requestsError;
+  // Keep the two fetches decoupled: only a failure of the friends *list* is
+  // fatal (full-page error). A failed friend-requests fetch degrades to an
+  // inline notice so the successfully-loaded friends list still renders.
+  const friendRequestsError = requestsError;
 
   const onRefreshFriends = useCallback(() => {
     setIsRefreshingFriends(true);
@@ -269,7 +275,8 @@ export function useFindPlayersScreen(): UseFindPlayersScreenResult {
     friends,
     friendRequests,
     isLoadingFriends,
-    friendsError: friendsErrorCombined,
+    friendsError,
+    friendRequestsError,
     isRefreshingFriends,
     onRefreshFriends,
     onRetryFriends,
