@@ -3,15 +3,19 @@ Privacy feature tests.
 
 Covers:
 1. PUT /api/users/me persists profile_is_private and show_game_history
-2. Public profile of a private player returns floor only to a stranger
-3. Public player with public profile hides game history when show_game_history=False
-4. Public player + show_game_history=True exposes game_history_visible=True
-5. Owner always sees everything (game_history_visible=True)
-6. League-mate sees shared-league stats on a private player (via get_public_player)
-7. GET /api/public/courts/{slug}/check-ins returns level/gender counts, no names
+2. Public player hides the W-L record when show_game_history=False (viewer != owner)
+3. Public player + show_game_history=True exposes game_history_visible=True
+4. Owner always sees everything (game_history_visible=True)
+5. League-mate sees the shared league in the owner's public profile memberships
+6. GET /api/public/courts/{slug}/check-ins returns level/gender counts, no names
 
-Tests 1 and 7 use the TestClient + monkeypatching pattern (no DB).
-Tests 2-6 use the db_session fixture for full-service integration.
+Note: profile_is_private is currently a no-op for display — the feature is
+deferred (see docs/features/mobile-privacy-phase2.md); only show_game_history
+gates the public response (nulling W-L / win% for non-owner viewers). Rating
+and total_games stay visible.
+
+Tests 1 and 6 use the TestClient + monkeypatching pattern (no DB).
+The remaining display tests use the db_session fixture for full-service integration.
 """
 
 import pytest
@@ -331,46 +335,13 @@ class TestPutUserMePrivacyToggles:
 
 
 @pytest.mark.asyncio
-async def test_private_player_stranger_gets_floor_only(
-    db_session, owner_user, owner_player, owner_stats, stranger_user
-):
-    """
-    A private player's profile returns only the floor when viewed by a stranger.
-
-    Floor = name, avatar, level, city/state, total_games.
-    W-L, rank, win%, leagues are hidden.
-    """
-    await _set_privacy_flags(
-        db_session, owner_user["id"], profile_is_private=True, show_game_history=False
-    )
-
-    result = await public_service.get_public_player(
-        db_session, owner_player.id, viewer_user=stranger_user
-    )
-
-    assert result is not None
-    # Floor fields always present
-    assert result["full_name"] == "Privacy Owner"
-    assert result["level"] == "advanced"
-    assert result["city"] == "Privacy City"
-    assert result["stats"]["total_games"] == 10
-
-    # Full-detail fields hidden for non-self viewer
-    assert result["stats"]["total_wins"] is None
-    assert result["stats"]["win_rate"] is None
-    assert result["stats"]["current_rating"] is None
-    assert result["league_memberships"] == []
-    assert result["game_history_visible"] is False
-    assert result["profile_is_private"] is True
-
-
-@pytest.mark.asyncio
 async def test_public_player_hides_game_history_by_default(
     db_session, owner_user, owner_player, owner_stats, stranger_user
 ):
     """
-    Public profile (profile_is_private=False) with show_game_history=False
-    exposes W-L and rank but signals game_history_visible=False.
+    Public profile (profile_is_private=False) with show_game_history=False:
+    the W-L record (total_wins, win_rate) is nulled for a non-owner viewer,
+    while rating/ELO stays visible, and game_history_visible signals False.
     """
     await _set_privacy_flags(
         db_session, owner_user["id"], profile_is_private=False, show_game_history=False
@@ -381,11 +352,12 @@ async def test_public_player_hides_game_history_by_default(
     )
 
     assert result is not None
-    # Full stats visible
-    assert result["stats"]["total_wins"] == 6
-    assert result["stats"]["win_rate"] is not None
+    # W-L record hidden when game history is not shared (viewer != owner)
+    assert result["stats"]["total_wins"] is None
+    assert result["stats"]["win_rate"] is None
+    # Rating/ELO remains visible (exempt from gating)
     assert result["stats"]["current_rating"] is not None
-    # But game history NOT visible
+    # And game history NOT visible
     assert result["game_history_visible"] is False
 
 
@@ -461,36 +433,6 @@ async def test_league_mate_sees_shared_league_in_memberships(
     assert result is not None
     league_ids = [m["league_id"] for m in result["league_memberships"]]
     assert shared_league.id in league_ids
-
-
-@pytest.mark.asyncio
-async def test_private_player_league_mate_still_gets_floor_from_public_endpoint(
-    db_session,
-    owner_user,
-    owner_player,
-    owner_stats,
-    shared_league,
-    league_mate_user,
-):
-    """
-    When a player is private, even a league-mate gets the floor only from the
-    cross-league public profile endpoint.  The league-mate exception only grants
-    visibility within shared-league stat pages — NOT the cross-league profile.
-    """
-    await _set_privacy_flags(
-        db_session, owner_user["id"], profile_is_private=True, show_game_history=False
-    )
-
-    result = await public_service.get_public_player(
-        db_session, owner_player.id, viewer_user=league_mate_user
-    )
-
-    assert result is not None
-    # Still floor only — league-mate exception does not unlock the full public profile
-    assert result["stats"]["total_wins"] is None
-    assert result["stats"]["current_rating"] is None
-    assert result["league_memberships"] == []
-    assert result["game_history_visible"] is False
 
 
 # ============================================================================
