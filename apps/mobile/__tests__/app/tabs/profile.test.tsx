@@ -90,7 +90,17 @@ const MOCK_PLAYER_STATS_NESTED = {
   },
 };
 
-const MOCK_FRIENDS_RESPONSE = { friends: [], total: 12 };
+/**
+ * Real GET /api/friends shape: `{ items, total_count }` (see FriendListResponse).
+ * `total_count` is a separate COUNT so it is accurate even when the request
+ * passes `limit: 1`. The screen must read this, not a fictional `.total`.
+ */
+const MOCK_FRIENDS_RESPONSE = { items: [], total_count: 12 };
+
+const MOCK_FRIENDS_RESPONSE_REAL = {
+  items: [{ id: 1, player_id: 30, full_name: 'Colan Gulla' }],
+  total_count: 12,
+};
 
 // ---------------------------------------------------------------------------
 // Import component (after mocks)
@@ -153,11 +163,34 @@ describe('ProfileScreen', () => {
     expect(await findByText('12 Friends')).toBeTruthy();
   });
 
+  it('shows friends count from the real `total_count` field the endpoint returns', async () => {
+    // Regression: GET /api/friends returns { items, total_count }, not
+    // { friends, total }. The screen previously read `.total` and always
+    // rendered "0 Friends" regardless of the real count.
+    mockGetFriends.mockResolvedValueOnce(MOCK_FRIENDS_RESPONSE_REAL);
+
+    const { findByText } = render(<ProfileScreen />);
+    expect(await findByText('12 Friends')).toBeTruthy();
+  });
+
   it('shows profile fields like level', async () => {
     const { findAllByText } = render(<ProfileScreen />);
     // "Open" appears in both the header level badge and the info section field
     const elements = await findAllByText('Open');
     expect(elements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('dedupes a state name already baked into the city column', async () => {
+    // Real player #1 row: city already holds "Greenpoint, New York, New York".
+    mockGetCurrentUserPlayer.mockResolvedValueOnce({
+      ...MOCK_PLAYER,
+      city: 'Greenpoint, New York, New York',
+      state: 'New York',
+    });
+    const { findByText, queryByText } = render(<ProfileScreen />);
+    expect(await findByText('Greenpoint, New York')).toBeTruthy();
+    expect(queryByText('Greenpoint, New York, New York, New York')).toBeNull();
+    expect(queryByText('Greenpoint, New York, New York')).toBeNull();
   });
 
   // ── Settings navigation ────────────────────────────────────────────────────

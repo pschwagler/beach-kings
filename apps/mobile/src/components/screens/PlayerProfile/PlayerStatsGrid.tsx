@@ -11,6 +11,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import type { Player } from '@beach-kings/shared';
+import { normalizePlayerStats } from '@beach-kings/shared';
 import { LockIcon } from '@/components/ui/icons';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 
@@ -90,15 +91,19 @@ function PrivateStat({ label, hero = false, testID }: PrivateStatProps): React.R
 
 export default function PlayerStatsGrid({ player }: PlayerStatsGridProps): React.ReactNode {
   const isHistoryVisible = player.game_history_visible !== false;
-  const wins = player.wins ?? 0;
-  const losses = player.losses ?? 0;
-  const games = player.total_games ?? 0;
-  const rating = player.current_rating ?? null;
+  // Nested-first, flat-fallback — see normalizePlayerStats. The public
+  // profile endpoint always returns the flat shape today, but this keeps
+  // the grid consistent with the other stats-consuming screens.
+  const { rating, games, wins, losses } = normalizePlayerStats(player);
 
-  // Win rate is only meaningful when win/loss history is visible.
-  const winRate = isHistoryVisible && games > 0
-    ? Math.round((wins / games) * 100)
-    : 0;
+  // Win rate is only meaningful when win/loss history is visible. When it is,
+  // the backend guarantees real wins/losses; the `wins != null` guard keeps
+  // the derivation honest (and type-safe) for the hidden case, which renders
+  // the PrivateStat placeholder instead of this value anyway.
+  const winRate =
+    isHistoryVisible && games > 0 && wins != null
+      ? Math.round((wins / games) * 100)
+      : 0;
 
   return (
     <View
@@ -127,7 +132,7 @@ export default function PlayerStatsGrid({ player }: PlayerStatsGridProps): React
       <View className="flex-row flex-wrap gap-sm">
         {isHistoryVisible ? (
           <StatCard
-            value={`${wins}-${losses}`}
+            value={`${wins ?? 0}-${losses ?? 0}`}
             label="W-L Record"
             testID="stat-record"
           />

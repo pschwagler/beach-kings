@@ -8,6 +8,7 @@ import { ScrollView, View, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { Player, MatchRecord } from '@beach-kings/shared';
+import { normalizePlayerStats } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useDashboard } from '@/hooks/useDashboard';
@@ -85,12 +86,13 @@ export default function HomeScreen(): React.ReactNode {
   // `/api/users/me/player` nests the aggregates under `stats` (current_rating,
   // total_games, total_wins) and exposes no `losses` field — derive it. Fall
   // back to any top-level fields for robustness against other player shapes.
-  const rating =
-    playerData?.stats?.current_rating ?? playerData?.current_rating ?? null;
-  const totalGames =
-    playerData?.stats?.total_games ?? playerData?.total_games ?? 0;
-  const wins = playerData?.stats?.total_wins ?? playerData?.wins ?? 0;
-  const losses = Math.max(0, totalGames - wins);
+  // See normalizePlayerStats for the shared nested-first, flat-fallback logic.
+  // This is the caller's OWN player, so wins/losses are never privacy-hidden
+  // (`normalizePlayerStats` can return null for a hidden public profile) — the
+  // `?? 0` floors are type-satisfiers that never fire here.
+  const { rating, wins: winsRaw, losses: lossesRaw } = normalizePlayerStats(playerData);
+  const wins = winsRaw ?? 0;
+  const losses = lossesRaw ?? 0;
   const profilePercent = computeProfilePercent(playerData);
   const invitesPending = friendRequestsData.length;
   const pendingGameCount = countPendingInviteGames(matchesData);

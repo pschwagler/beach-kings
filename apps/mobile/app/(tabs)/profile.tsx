@@ -9,6 +9,7 @@ import { ScrollView, View, Text, Pressable, RefreshControl, Alert } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { Player } from '@beach-kings/shared';
+import { normalizePlayerStats } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
@@ -36,12 +37,15 @@ interface ProfileData {
 async function fetchProfileData(): Promise<ProfileData> {
   const [player, friendsResult] = await Promise.all([
     api.getCurrentUserPlayer(),
-    api.getFriends({ limit: 1 }).catch(() => ({ friends: [], total: 0 })),
+    api.getFriends({ limit: 1 }).catch(() => ({ items: [], total_count: 0 })),
   ]);
+  // GET /api/friends returns { items, total_count } (FriendListResponse).
+  // `total_count` is a separate COUNT, so it is accurate even though we only
+  // request a single item. Fall back to the page length if it is ever absent.
   const total =
-    typeof (friendsResult as { total?: number }).total === 'number'
-      ? (friendsResult as { total: number }).total
-      : ((friendsResult as { friends?: unknown[] }).friends?.length ?? 0);
+    typeof (friendsResult as { total_count?: number }).total_count === 'number'
+      ? (friendsResult as { total_count: number }).total_count
+      : ((friendsResult as { items?: unknown[] }).items?.length ?? 0);
   return { player, friendCount: total };
 }
 
@@ -80,10 +84,13 @@ export default function ProfileScreen(): React.ReactNode {
   // `/api/users/me/player` nests aggregates under `stats` (current_rating,
   // total_games, total_wins) and exposes no `losses` field — derive it. Fall
   // back to top-level fields for other player shapes (e.g. player search).
-  const rating = player?.stats?.current_rating ?? player?.current_rating ?? null;
-  const games = player?.stats?.total_games ?? player?.total_games ?? 0;
-  const wins = player?.stats?.total_wins ?? player?.wins ?? 0;
-  const losses = player?.losses ?? Math.max(0, games - wins);
+  // See normalizePlayerStats for the shared nested-first, flat-fallback logic.
+  // This is the caller's OWN player, so wins/losses are never privacy-hidden
+  // (`normalizePlayerStats` returns null for a hidden public profile) — the
+  // `?? 0` floors are type-satisfiers that never fire here.
+  const { rating, games, wins: winsRaw, losses: lossesRaw } = normalizePlayerStats(player);
+  const wins = winsRaw ?? 0;
+  const losses = lossesRaw ?? 0;
 
   const rightAction = (
     <Pressable
