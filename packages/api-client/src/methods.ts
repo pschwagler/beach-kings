@@ -555,6 +555,7 @@ export function createApiMethods(client: ApiClient) {
         user_wins: number | null;
         user_losses: number | null;
         user_rating: number | null;
+        has_pending_request?: boolean;
       }>(`/api/leagues/${leagueId}`);
       const raw = response.data;
       return {
@@ -577,6 +578,7 @@ export function createApiMethods(client: ApiClient) {
         user_wins: raw.user_wins,
         user_losses: raw.user_losses,
         user_rating: raw.user_rating,
+        has_pending_request: raw.has_pending_request ?? false,
       };
     },
 
@@ -1304,7 +1306,7 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async getFriendRequests(direction?: 'received' | 'sent') {
+    async getFriendRequests(direction?: 'incoming' | 'outgoing') {
       const params = direction ? { direction } : {};
       const response = await api.get<FriendRequest[]>('/api/friends/requests', { params });
       return response.data;

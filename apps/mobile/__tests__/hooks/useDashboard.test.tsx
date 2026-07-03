@@ -127,6 +127,23 @@ describe('useDashboard', () => {
     });
   });
 
+  it('requests incoming friend requests (backend direction vocabulary)', async () => {
+    mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
+    mockApi.getUserLeagues.mockResolvedValue([]);
+    mockApi.getActiveSession.mockResolvedValue(null);
+    mockApi.getFriendRequests.mockResolvedValue([]);
+    mockApi.getCourts.mockResolvedValue([]);
+    mockApi.getPlayerMatchHistory.mockResolvedValue([]);
+
+    const { result } = renderHook(() => useDashboard(), {
+      wrapper: makeWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.isInitialLoading).toBe(false));
+    // Backend only accepts incoming/outgoing/both; received/sent -> 422.
+    expect(mockApi.getFriendRequests).toHaveBeenCalledWith('incoming');
+  });
+
   it('passes the player id into getPlayerMatchHistory', async () => {
     mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
     mockApi.getUserLeagues.mockResolvedValue([]);

@@ -196,6 +196,15 @@ describe('FindPlayersScreen — loading state', () => {
       expect(screen.getByTestId('find-players-loading')).toBeTruthy();
     });
   });
+
+  it('requests incoming friend requests (backend direction vocabulary)', async () => {
+    render(<FindPlayersRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('find-players-screen')).toBeTruthy();
+    });
+    // Backend only accepts incoming/outgoing/both; received/sent -> 422.
+    expect(mockGetFriendRequests).toHaveBeenCalledWith('incoming');
+  });
 });
 
 // ---------------------------------------------------------------------------

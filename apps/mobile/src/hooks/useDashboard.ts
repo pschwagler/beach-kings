@@ -19,7 +19,7 @@ export const dashboardKeys = {
   leagues: () => [...dashboardKeys.root, 'leagues'] as const,
   activeSession: () => [...dashboardKeys.root, 'activeSession'] as const,
   friendRequests: () =>
-    [...dashboardKeys.root, 'friendRequests', 'received'] as const,
+    [...dashboardKeys.root, 'friendRequests', 'incoming'] as const,
   courts: (locationId: string | null | undefined) =>
     [...dashboardKeys.root, 'courts', locationId ?? 'null'] as const,
   matches: (playerId: number | null | undefined) =>
@@ -77,7 +77,7 @@ export function useDashboard(): UseDashboardResult {
   const friendRequests = useQuery({
     queryKey: dashboardKeys.friendRequests(),
     queryFn: async (): Promise<readonly FriendRequest[]> => {
-      const result = await api.getFriendRequests('received');
+      const result = await api.getFriendRequests('incoming');
       return result ?? [];
     },
   });

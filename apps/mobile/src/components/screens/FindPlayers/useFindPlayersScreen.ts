@@ -184,7 +184,7 @@ export function useFindPlayersScreen(): UseFindPlayersScreenResult {
   } = useApi<FriendRequest[]>(
     () =>
       api
-        .getFriendRequests('received')
+        .getFriendRequests('incoming')
         .then((r: { items?: FriendRequest[] } | FriendRequest[]) =>
           Array.isArray(r) ? r : (r.items ?? []),
         ),
