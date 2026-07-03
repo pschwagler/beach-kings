@@ -77,10 +77,13 @@ export default function ProfileScreen(): React.ReactNode {
   const player = data?.player ?? null;
   const friendCount = data?.friendCount ?? 0;
 
-  const wins = player?.wins ?? 0;
-  const losses = player?.losses ?? 0;
-  const games = player?.total_games ?? (wins + losses > 0 ? wins + losses : 0);
-  const rating = player?.current_rating ?? null;
+  // `/api/users/me/player` nests aggregates under `stats` (current_rating,
+  // total_games, total_wins) and exposes no `losses` field — derive it. Fall
+  // back to top-level fields for other player shapes (e.g. player search).
+  const rating = player?.stats?.current_rating ?? player?.current_rating ?? null;
+  const games = player?.stats?.total_games ?? player?.total_games ?? 0;
+  const wins = player?.stats?.total_wins ?? player?.wins ?? 0;
+  const losses = player?.losses ?? Math.max(0, games - wins);
 
   const rightAction = (
     <Pressable

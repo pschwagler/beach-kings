@@ -67,6 +67,29 @@ const MOCK_PLAYER = {
   nickname: 'Schwags',
 };
 
+/**
+ * Real `/api/users/me/player` shape: aggregates are nested under `stats`
+ * (current_rating, total_games, total_wins) with NO top-level wins/losses/
+ * rating and no `losses` field at all. Losses are derived as
+ * total_games - total_wins. This is the shape the endpoint actually returns.
+ */
+const MOCK_PLAYER_STATS_NESTED = {
+  id: 1,
+  name: 'Patrick Schwagler',
+  first_name: 'Patrick',
+  last_name: 'Schwagler',
+  level: 'Open',
+  city: 'New York',
+  state: 'NY',
+  gender: 'male',
+  nickname: 'Schwags',
+  stats: {
+    current_rating: 1447,
+    total_games: 94,
+    total_wins: 66,
+  },
+};
+
 const MOCK_FRIENDS_RESPONSE = { friends: [], total: 12 };
 
 // ---------------------------------------------------------------------------
@@ -109,6 +132,19 @@ describe('ProfileScreen', () => {
     expect(await findByText('94')).toBeTruthy();   // Games
     expect(await findByText('1438')).toBeTruthy(); // Rating
     expect(await findByText('66-28')).toBeTruthy(); // W-L
+    expect(await findByText('70%')).toBeTruthy();   // Win Rate
+  });
+
+  it('shows stats from the nested `stats` payload the real endpoint returns', async () => {
+    // Regression: /api/users/me/player nests aggregates under `stats` and has
+    // no top-level wins/losses/rating. Previously the screen read only the
+    // top-level fields and rendered all zeros for the logged-in player.
+    mockGetCurrentUserPlayer.mockResolvedValueOnce(MOCK_PLAYER_STATS_NESTED);
+
+    const { findByText } = render(<ProfileScreen />);
+    expect(await findByText('94')).toBeTruthy();    // Games (stats.total_games)
+    expect(await findByText('1447')).toBeTruthy();  // Rating (stats.current_rating)
+    expect(await findByText('66-28')).toBeTruthy(); // W-L (wins=total_wins, losses derived)
     expect(await findByText('70%')).toBeTruthy();   // Win Rate
   });
 
