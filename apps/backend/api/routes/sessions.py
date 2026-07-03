@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.db import get_db_session
 from backend.database.models import (
     Court,
+    EloHistory,
     Season,
     Player,
     Session,
@@ -38,7 +39,6 @@ from backend.models.schemas import (
     DeleteSessionResponse,
     OpenSessionResponse,
     SessionDetailResponse,
-    SessionGameResponse,
     SessionListItemResponse,
     SessionMatchItemResponse,
     SessionParticipantItemResponse,
@@ -69,9 +69,10 @@ def _parse_session_number(session_name: str) -> int:
 def _build_games_and_user_stats(
     raw_games: list[dict],
     player_id: int | None,
-) -> tuple[list[dict], int, int]:
+    rating_by_match: dict[int, float] | None = None,
+) -> tuple[list[dict], int, int, float | None]:
     """
-    Build the ordered games list and compute user wins/losses.
+    Build the ordered games list and compute user wins/losses/rating change.
 
     Games are numbered sequentially starting at 1 in insertion order
     (oldest first — raw_games comes in reverse-id order from
@@ -80,16 +81,29 @@ def _build_games_and_user_stats(
     Args:
         raw_games: Raw match dicts from data_service.get_session_matches.
         player_id: The calling user's player id (for win/loss counting).
+        rating_by_match: Map of match_id -> the calling player's global ELO
+            change for that match (from EloHistory). When None, no rating
+            data is available and per-game/session rating changes stay null.
 
     Returns:
-        (games, user_wins, user_losses)
+        (games, user_wins, user_losses, user_rating_change)
+        user_rating_change is the sum of the player's per-game ELO changes
+        across the session, or None when no ELO history exists yet (e.g. an
+        active/unranked session whose stats have not been calculated).
     """
+    ratings = rating_by_match or {}
     ordered = list(reversed(raw_games))
     games: list[dict] = []
     user_wins = 0
     user_losses = 0
+    rating_total = 0.0
+    saw_rating = False
 
     for idx, g in enumerate(ordered, start=1):
+        game_rating = ratings.get(g["id"])
+        if game_rating is not None:
+            saw_rating = True
+            rating_total += game_rating
         games.append(
             {
                 "id": g["id"],
@@ -105,7 +119,7 @@ def _build_games_and_user_stats(
                 "team1_score": g.get("team1_score"),
                 "team2_score": g.get("team2_score"),
                 "winner": g.get("winner"),
-                "rating_change": None,  # ELO per-game join deferred; nullable per spec
+                "rating_change": game_rating,
                 "is_ranked": g.get("is_ranked"),
             }
         )
@@ -133,7 +147,8 @@ def _build_games_and_user_stats(
             else:
                 user_losses += 1
 
-    return games, user_wins, user_losses
+    user_rating_change = round(rating_total, 1) if saw_rating else None
+    return games, user_wins, user_losses, user_rating_change
 
 
 async def _resolve_session_context(
@@ -526,7 +541,25 @@ async def get_session_detail(
     raw_games = await data_service.get_session_matches(session, session_id)
     player = await data_service.get_player_by_user_id(session, current_user["id"])
     player_id: int | None = player.get("id") if player else None
-    games, user_wins, user_losses = _build_games_and_user_stats(raw_games, player_id)
+
+    # Load the calling player's global ELO change per match in this session so
+    # the response can surface per-game and session-total rating deltas. Only
+    # ranked, already-calculated matches have EloHistory rows; anything missing
+    # stays null. Mirrors the source used by the "My Games" screen.
+    rating_by_match: dict[int, float] = {}
+    if player_id is not None and raw_games:
+        match_ids = [g["id"] for g in raw_games]
+        elo_rows = await session.execute(
+            select(EloHistory.match_id, EloHistory.elo_change).where(
+                EloHistory.player_id == player_id,
+                EloHistory.match_id.in_(match_ids),
+            )
+        )
+        rating_by_match = {row.match_id: row.elo_change for row in elo_rows.all()}
+
+    games, user_wins, user_losses, user_rating_change = _build_games_and_user_stats(
+        raw_games, player_id, rating_by_match
+    )
 
     return {
         "id": sess["id"],
@@ -547,7 +580,7 @@ async def get_session_detail(
         "games": games,
         "user_wins": user_wins,
         "user_losses": user_losses,
-        "user_rating_change": None,  # ELO history not yet joined; nullable per spec
+        "user_rating_change": user_rating_change,
     }
 
 

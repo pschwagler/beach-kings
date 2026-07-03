@@ -1226,17 +1226,20 @@ class TestGetSessionDetail:
             data_service, "get_player_by_user_id", fake_get_player, raising=True
         )
 
-    def _patch_execute_league(self, monkeypatch, league_name=None):
+    def _patch_execute_league(self, monkeypatch, league_name=None, elo_rows=None):
         """Patch AsyncSession.execute for the DIRECT path (league_id on session dict).
 
         Call sequence when sess["league_id"] is set (post-migration sessions):
           1 - court/session-type query  → one_or_none()
           2 - League.name lookup        → scalar_one_or_none() returns league_name
+          3 - EloHistory rating lookup  → all() returns elo_rows
 
-        No Season.league_id call is made in this path.
+        No Season.league_id call is made in this path. ``elo_rows`` is a list of
+        objects exposing ``match_id`` and ``elo_change`` (default: none).
         """
         from sqlalchemy.ext.asyncio import AsyncSession
 
+        rows = elo_rows or []
         call_count = [0]
         season_lookup_called = [False]
 
@@ -1257,28 +1260,41 @@ class TestGetSessionDetail:
                 def one_or_none(self_r):
                     return RowOne()
 
-            class ResultLeagueName:
+            class ResultLeagueOrElo:
+                """Serves both the League.name lookup and the EloHistory query.
+
+                The route calls scalar_one_or_none() for the league name and
+                all() for EloHistory, so the same object can back both calls.
+                """
+
                 def scalar_one_or_none(self_r):
                     return league_name
 
+                def all(self_r):
+                    return rows
+
             if call_count[0] == 1:
                 return ResultFirst()
-            # Any subsequent call is the League.name lookup (direct path only)
-            return ResultLeagueName()
+            # Subsequent calls: League.name lookup, then EloHistory (direct path).
+            return ResultLeagueOrElo()
 
         monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
         return season_lookup_called
 
-    def _patch_execute_league_legacy(self, monkeypatch, league_id=None, league_name=None):
+    def _patch_execute_league_legacy(
+        self, monkeypatch, league_id=None, league_name=None, elo_rows=None
+    ):
         """Patch AsyncSession.execute for the LEGACY Season-fallback path.
 
         Call sequence when sess has no "league_id" key (pre-migration sessions):
           1 - court/session-type query       → one_or_none()
           2 - Season.league_id fallback      → scalar_one_or_none() returns league_id
           3 - League.name lookup             → scalar_one_or_none() returns league_name
+          4 - EloHistory rating lookup       → all() returns elo_rows
         """
         from sqlalchemy.ext.asyncio import AsyncSession
 
+        rows = elo_rows or []
         call_count = [0]
         scalar_call_count = [0]
 
@@ -1299,7 +1315,7 @@ class TestGetSessionDetail:
                 def one_or_none(self_r):
                     return RowOne()
 
-            class ResultLeague:
+            class ResultLeagueOrElo:
                 def scalar_one_or_none(self_r):
                     scalar_call_count[0] += 1
                     # First scalar call: Season.league_id legacy fallback
@@ -1308,9 +1324,12 @@ class TestGetSessionDetail:
                     # Second scalar call: League.name lookup
                     return league_name
 
+                def all(self_r):
+                    return rows
+
             if call_count[0] == 1:
                 return ResultFirst()
-            return ResultLeague()
+            return ResultLeagueOrElo()
 
         monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
 
@@ -1557,6 +1576,8 @@ class TestGetSessionDetail:
 
     def test_user_stats_computed_from_games(self, monkeypatch):
         """user_wins, user_losses, user_rating_change computed from matches."""
+        from types import SimpleNamespace
+
         # User player_id = _PLAYER_ID (10). Team 1 wins this game.
         # Player 10 is on team1 → win.
         games = [
@@ -1568,17 +1589,59 @@ class TestGetSessionDetail:
                 "team2_player1_id": 12,
                 "team2_player2_id": 13,
                 "winner": 1,  # team1 wins → user wins
-            }
+            },
+            {
+                **self._GAME_ROW,
+                "id": 202,
+                "team1_player1_id": _PLAYER_ID,
+                "team1_player2_id": 11,
+                "team2_player1_id": 12,
+                "team2_player2_id": 13,
+                "winner": 2,  # team2 wins → user loses
+            },
+        ]
+        elo_rows = [
+            SimpleNamespace(match_id=201, elo_change=12.5),
+            SimpleNamespace(match_id=202, elo_change=-4.0),
         ]
         self._patch_shared(monkeypatch, games=games)
-        self._patch_execute_league(monkeypatch)
+        self._patch_execute_league(monkeypatch, elo_rows=elo_rows)
         client, headers = _make_user_client(monkeypatch)
 
         response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert data["user_wins"] == 1
-        assert data["user_losses"] == 0
+        assert data["user_losses"] == 1
+        # Session total is the sum of the player's per-game ELO deltas.
+        assert data["user_rating_change"] == 8.5
+        # Per-game rating_change is surfaced on each game (oldest first).
+        by_id = {g["id"]: g["rating_change"] for g in data["games"]}
+        assert by_id[201] == 12.5
+        assert by_id[202] == -4.0
+
+    def test_user_rating_change_null_without_elo_history(self, monkeypatch):
+        """user_rating_change is null when no EloHistory exists (uncalculated)."""
+        games = [
+            {
+                **self._GAME_ROW,
+                "id": 201,
+                "team1_player1_id": _PLAYER_ID,
+                "team1_player2_id": 11,
+                "team2_player1_id": 12,
+                "team2_player2_id": 13,
+                "winner": 1,
+            }
+        ]
+        self._patch_shared(monkeypatch, games=games)
+        self._patch_execute_league(monkeypatch)  # no elo_rows
+        client, headers = _make_user_client(monkeypatch)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_rating_change"] is None
+        assert data["games"][0]["rating_change"] is None
 
     def test_user_stats_loss_counted(self, monkeypatch):
         """user_losses incremented when user is on losing team."""
