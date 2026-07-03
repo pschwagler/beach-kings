@@ -95,11 +95,16 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   // re-trigger it. The ref guard (autoOpenFiredRef) ensures the body runs once,
   // but unstable deps can still cause excessive effect invocations during init.
   const membersRef = useRef(members);
-  membersRef.current = members;
   const leagueRef = useRef(league);
-  leagueRef.current = league;
   const selectedSeasonIdRef = useRef(selectedSeasonId);
-  selectedSeasonIdRef.current = selectedSeasonId;
+  // Assignment happens in an effect (not render) per react-hooks/refs. These refs are
+  // only read inside the autoOpenAddMatch effect below, which is registered later, so
+  // they always hold fresh values by the time that effect runs.
+  useEffect(() => {
+    membersRef.current = members;
+    leagueRef.current = league;
+    selectedSeasonIdRef.current = selectedSeasonId;
+  });
 
   // Build player objects and name mappings from members
   const { allPlayers, allPlayerNames, playerNameToId, playerIdToName } = useMemo(() => {
@@ -124,7 +129,11 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   }, [members]);
 
   const allPlayerNamesRef = useRef(allPlayerNames);
-  allPlayerNamesRef.current = allPlayerNames;
+  // Assignment happens in an effect (not render) per react-hooks/refs; only read
+  // inside the autoOpenAddMatch effect below, registered afterward.
+  useEffect(() => {
+    allPlayerNamesRef.current = allPlayerNames;
+  });
 
   const matchOperations = useMatchOperations({
     playerNameToId,

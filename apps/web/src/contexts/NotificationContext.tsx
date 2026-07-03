@@ -169,8 +169,12 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   // Stable refs for callbacks passed to the WebSocket hook (avoids recreating WS on every render)
   const fetchUnreadCountRef = useRef<() => Promise<number | undefined>>(fetchUnreadCount);
   const fetchDmUnreadCountRef = useRef<() => Promise<number | undefined>>(fetchDmUnreadCount);
-  fetchUnreadCountRef.current = fetchUnreadCount;
-  fetchDmUnreadCountRef.current = fetchDmUnreadCount;
+  // Assignment happens in an effect (not render) per react-hooks/refs. These refs are
+  // only read from async WebSocket message handlers, so updating them post-commit is safe.
+  useEffect(() => {
+    fetchUnreadCountRef.current = fetchUnreadCount;
+    fetchDmUnreadCountRef.current = fetchDmUnreadCount;
+  });
 
   /**
    * Handle new notification from WebSocket

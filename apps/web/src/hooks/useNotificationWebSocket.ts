@@ -76,9 +76,14 @@ export function useNotificationWebSocket({
   const isAuthenticatedRef = useRef(isAuthenticated);
   const userRef = useRef(user);
 
-  // Keep refs in sync so onclose handler reads current values
-  isAuthenticatedRef.current = isAuthenticated;
-  userRef.current = user;
+  // Keep refs in sync so onclose handler reads current values.
+  // Assignment happens in an effect (not render) per react-hooks/refs; this effect
+  // is registered before NotificationContext's connect-on-auth-change effect, so
+  // connectWebSocket always observes fresh values when it is later invoked.
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+    userRef.current = user;
+  });
 
   // Keep callback refs stable to avoid recreating connectWebSocket
   const onNotificationRef = useRef<(notification: Notification) => void>(onNotification);

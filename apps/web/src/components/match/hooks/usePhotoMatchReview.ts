@@ -241,7 +241,7 @@ export function usePhotoMatchReview({
       }
     }
     return [...names];
-  }, [result?.matches]);
+  }, [result]);
 
   const handleConfirm = useCallback(async () => {
     if (isSubmitting || !result?.matches?.length) return;

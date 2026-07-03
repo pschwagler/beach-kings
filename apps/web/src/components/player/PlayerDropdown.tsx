@@ -296,14 +296,14 @@ export default function PlayerDropdown({
   /**
    * Handle clicking a search result that is a league member — auto-select them.
    */
-  const handleSelectSearchResult = useCallback((result: SearchResult) => {
+  const handleSelectSearchResult = (result: SearchResult) => {
     const playerOption = {
       value: result.id,
       label: result.full_name,
     };
     setIsCreateMode(false);
     handleSelectPlayer(playerOption);
-  }, [handleSelectPlayer]);
+  };
 
   // Use touch selection hook
   const { handleTouchStart, handleTouchEnd } = useTouchSelection(handleSelectPlayer);

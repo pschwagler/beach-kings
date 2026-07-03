@@ -145,7 +145,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   };
 
   const { totalGames, currentRating, games30Days, winRate30Days } = useMemo(
-    calculateStatsFromMatches,
+    () => calculateStatsFromMatches(),
     [userMatches, currentUserPlayer]
   );
 

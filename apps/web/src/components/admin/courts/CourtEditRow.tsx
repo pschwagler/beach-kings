@@ -319,8 +319,12 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Keep ref in sync with state so click handler always reads the latest value
-  confirmIdRef.current = confirmId;
+  // Keep ref in sync with state so click handler always reads the latest value.
+  // Assignment happens in an effect (not render) per react-hooks/refs; only read
+  // from handleDeleteClick, which fires from a later click event, not during render.
+  useEffect(() => {
+    confirmIdRef.current = confirmId;
+  });
 
   // Clean up confirm timer and preview URL on unmount
   useEffect(() => () => {

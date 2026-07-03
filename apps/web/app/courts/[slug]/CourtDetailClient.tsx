@@ -75,7 +75,7 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
         }
       })
       .catch(() => {});
-  }, [slug, currentUserPlayer?.id]);
+  }, [slug, currentUserPlayer]);
 
   useEffect(() => {
     refreshCheckIns();
