@@ -5,9 +5,11 @@
  *   Compact league header: name, location, member count
  *   Segment bar: Games | Standings | Chat | Sign Ups | Info
  *
- * Members/admins see the full tab set. Non-members (visitors) see only the
- * Standings and Info tabs, a Join CTA banner, and their player taps route to
- * the player's public profile rather than the members-only in-league stats.
+ * Members/admins see the full tab set. Non-members (visitors) see the Info
+ * tab, the Standings tab too (unless the league is private, which 403s that
+ * request for non-members), and a Join CTA banner (Join for open leagues,
+ * Request to join for invite-only ones). Visitor player taps route to the
+ * player's public profile rather than the members-only in-league stats.
  *
  * The Add Game action lives in TopNav. Each tab renders a dedicated component.
  * For members, the Standings tab also supports tapping a player row to push
@@ -23,6 +25,7 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -149,21 +152,28 @@ function LeagueHeader({
 // ---------------------------------------------------------------------------
 
 interface VisitorJoinBannerProps {
+  readonly canJoinDirectly: boolean;
   readonly canRequestToJoin: boolean;
   readonly hasPendingRequest: boolean;
+  readonly isJoiningLeague: boolean;
   readonly isRequestingToJoin: boolean;
+  readonly onJoinLeague: () => void;
   readonly onRequestToJoin: () => void;
 }
 
 /**
- * Banner shown to non-members. Renders a request-to-join action for open
- * leagues, a disabled "Request sent" pill once a request is pending, and an
- * "Invite only" label for invite-only leagues (no self-serve join).
+ * Banner shown to non-members. Renders a "Join" action for open leagues
+ * (direct join, no approval needed), a "Request to join" action for
+ * invite-only leagues, and a disabled "Request sent" pill once a request is
+ * pending.
  */
 function VisitorJoinBanner({
+  canJoinDirectly,
   canRequestToJoin,
   hasPendingRequest,
+  isJoiningLeague,
   isRequestingToJoin,
+  onJoinLeague,
   onRequestToJoin,
 }: VisitorJoinBannerProps): React.ReactNode {
   const action = ((): React.ReactNode => {
@@ -177,10 +187,29 @@ function VisitorJoinBanner({
         </View>
       );
     }
-    if (canRequestToJoin) {
+    if (canJoinDirectly) {
       return (
         <Pressable
           testID="league-join-btn"
+          disabled={isJoiningLeague}
+          onPress={() => {
+            void hapticLight();
+            onJoinLeague();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Join league"
+          className="px-4 py-2 rounded-full bg-brand-teal active:opacity-70"
+        >
+          <Text className="text-[13px] font-semibold text-white">
+            {isJoiningLeague ? 'Joining…' : 'Join'}
+          </Text>
+        </Pressable>
+      );
+    }
+    if (canRequestToJoin) {
+      return (
+        <Pressable
+          testID="league-request-join-btn"
           disabled={isRequestingToJoin}
           onPress={() => {
             void hapticLight();
@@ -196,16 +225,12 @@ function VisitorJoinBanner({
         </Pressable>
       );
     }
-    // Invite-only (or otherwise un-joinable) league.
-    return (
-      <View
-        testID="league-join-invite-only"
-        className="px-4 py-2 rounded-full bg-page"
-      >
-        <Text className="text-[13px] font-semibold text-muted">Invite only</Text>
-      </View>
-    );
+    return null;
   })();
+
+  if (action == null) {
+    return null;
+  }
 
   return (
     <View
@@ -294,9 +319,12 @@ export default function LeagueDetailScreen({
     onPressPlayer,
     isVisitor,
     visibleTabs,
+    canJoinDirectly,
     canRequestToJoin,
     hasPendingRequest,
+    isJoiningLeague,
     isRequestingToJoin,
+    onJoinLeague,
     onRequestToJoin,
   } = useLeagueDetailScreen(resolvedId);
 
@@ -306,6 +334,24 @@ export default function LeagueDetailScreen({
   // Measured at runtime so LeagueChatTab can align its composer to the keyboard
   // top precisely (avoids hardcoded estimate drift across devices / iOS versions).
   const [tabBarHeight, setTabBarHeight] = useState(0);
+
+  // Surface join/request failures instead of letting them fail silently —
+  // both handlers can reject (network error, backend 400, etc).
+  const handleJoinLeague = async (): Promise<void> => {
+    try {
+      await onJoinLeague();
+    } catch {
+      Alert.alert('Could not join league', 'Something went wrong. Please try again.');
+    }
+  };
+
+  const handleRequestToJoin = async (): Promise<void> => {
+    try {
+      await onRequestToJoin();
+    } catch {
+      Alert.alert('Could not send request', 'Something went wrong. Please try again.');
+    }
+  };
 
   const handlePressPlayer = (id: number | string): void => {
     // Members drilling into Standings see the in-league per-player stats.
@@ -414,10 +460,13 @@ export default function LeagueDetailScreen({
 
           {isVisitor && (
             <VisitorJoinBanner
+              canJoinDirectly={canJoinDirectly}
               canRequestToJoin={canRequestToJoin}
               hasPendingRequest={hasPendingRequest}
+              isJoiningLeague={isJoiningLeague}
               isRequestingToJoin={isRequestingToJoin}
-              onRequestToJoin={() => void onRequestToJoin()}
+              onJoinLeague={() => void handleJoinLeague()}
+              onRequestToJoin={() => void handleRequestToJoin()}
             />
           )}
 

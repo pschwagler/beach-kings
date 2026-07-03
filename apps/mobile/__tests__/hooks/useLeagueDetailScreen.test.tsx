@@ -12,6 +12,7 @@ jest.mock('@/lib/api', () => {
   const api = {
     getLeague: jest.fn(),
     requestToJoinLeague: jest.fn(),
+    joinLeague: jest.fn(),
   };
   return { api };
 });
@@ -27,6 +28,7 @@ import type { LeagueDetail } from '@beach-kings/shared';
 const mockApi = api as unknown as {
   getLeague: jest.Mock;
   requestToJoinLeague: jest.Mock;
+  joinLeague: jest.Mock;
 };
 
 function makeWrapper(client: QueryClient) {
@@ -48,6 +50,7 @@ const LEAGUE_DETAIL: LeagueDetail = {
   name: 'Test League',
   description: 'A test league',
   access_type: 'open',
+  is_public: true,
   gender: 'mens',
   level: 'Open',
   location_id: 'socal_sd',
@@ -66,7 +69,7 @@ const LEAGUE_DETAIL: LeagueDetail = {
   has_pending_request: false,
 };
 
-/** A non-member view of an open league. */
+/** A non-member view of an open (directly joinable) public league. */
 const VISITOR_OPEN: LeagueDetail = {
   ...LEAGUE_DETAIL,
   user_role: null,
@@ -77,9 +80,16 @@ const VISITOR_OPEN: LeagueDetail = {
   has_pending_request: false,
 };
 
+/** A non-member view of an invite-only league (request-to-join required). */
+const VISITOR_INVITE_ONLY: LeagueDetail = {
+  ...VISITOR_OPEN,
+  access_type: 'invite_only',
+};
+
 beforeEach(() => {
   mockApi.getLeague.mockReset();
   mockApi.requestToJoinLeague.mockReset();
+  mockApi.joinLeague.mockReset();
 });
 
 describe('useLeagueDetailScreen', () => {
@@ -158,11 +168,12 @@ describe('useLeagueDetailScreen', () => {
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       expect(result.current.isVisitor).toBe(false);
+      // 'signups' is temporarily disabled (needs a web-admin season/schedule;
+      // renders empty on mobile). Re-add here + in MEMBER_TABS to restore.
       expect(result.current.visibleTabs).toEqual([
         'games',
         'standings',
         'chat',
-        'signups',
         'info',
       ]);
     });
@@ -191,8 +202,8 @@ describe('useLeagueDetailScreen', () => {
     });
   });
 
-  describe('join CTA', () => {
-    it('an open-league visitor can request to join', async () => {
+  describe('join CTA — access_type routing', () => {
+    it('an open-league visitor can join directly, not request to join', async () => {
       mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
       const client = makeClient();
       const { result } = renderHook(() => useLeagueDetailScreen(42), {
@@ -200,29 +211,28 @@ describe('useLeagueDetailScreen', () => {
       });
 
       await waitFor(() => expect(result.current.isVisitor).toBe(true));
-      expect(result.current.canRequestToJoin).toBe(true);
+      expect(result.current.canJoinDirectly).toBe(true);
+      expect(result.current.canRequestToJoin).toBe(false);
       expect(result.current.isInviteOnly).toBe(false);
       expect(result.current.hasPendingRequest).toBe(false);
     });
 
-    it('an invite-only visitor cannot self-serve join', async () => {
-      mockApi.getLeague.mockResolvedValue({
-        ...VISITOR_OPEN,
-        access_type: 'invite_only',
-      });
+    it('an invite-only visitor can request to join, not join directly', async () => {
+      mockApi.getLeague.mockResolvedValue(VISITOR_INVITE_ONLY);
       const client = makeClient();
       const { result } = renderHook(() => useLeagueDetailScreen(42), {
         wrapper: makeWrapper(client),
       });
 
       await waitFor(() => expect(result.current.isVisitor).toBe(true));
-      expect(result.current.canRequestToJoin).toBe(false);
+      expect(result.current.canJoinDirectly).toBe(false);
+      expect(result.current.canRequestToJoin).toBe(true);
       expect(result.current.isInviteOnly).toBe(true);
     });
 
-    it('a visitor with a pending request cannot request again', async () => {
+    it('an invite-only visitor with a pending request cannot request again', async () => {
       mockApi.getLeague.mockResolvedValue({
-        ...VISITOR_OPEN,
+        ...VISITOR_INVITE_ONLY,
         has_pending_request: true,
       });
       const client = makeClient();
@@ -233,14 +243,13 @@ describe('useLeagueDetailScreen', () => {
       await waitFor(() => expect(result.current.isVisitor).toBe(true));
       expect(result.current.hasPendingRequest).toBe(true);
       expect(result.current.canRequestToJoin).toBe(false);
+      expect(result.current.canJoinDirectly).toBe(false);
     });
+  });
 
-    it('onRequestToJoin calls the API and optimistically flips the flag', async () => {
-      // Initial load: no pending request. The post-request invalidation refetch
-      // reflects the server now showing the pending request.
-      mockApi.getLeague
-        .mockResolvedValueOnce(VISITOR_OPEN)
-        .mockResolvedValue({ ...VISITOR_OPEN, has_pending_request: true });
+  describe('onRequestToJoin (invite-only leagues)', () => {
+    it('calls api.requestToJoinLeague (not joinLeague) and optimistically flips the flag', async () => {
+      mockApi.getLeague.mockResolvedValue(VISITOR_INVITE_ONLY);
       mockApi.requestToJoinLeague.mockResolvedValue({ success: true, message: 'ok' });
       const client = makeClient();
       const { result } = renderHook(() => useLeagueDetailScreen(42), {
@@ -253,12 +262,16 @@ describe('useLeagueDetailScreen', () => {
       });
 
       expect(mockApi.requestToJoinLeague).toHaveBeenCalledWith(42);
+      expect(mockApi.joinLeague).not.toHaveBeenCalled();
       expect(result.current.hasPendingRequest).toBe(true);
       expect(result.current.canRequestToJoin).toBe(false);
+      // The optimistic update already reflects server state — no redundant
+      // refetch on the happy path.
+      expect(mockApi.getLeague).toHaveBeenCalledTimes(1);
     });
 
-    it('rolls back the optimistic flag if the request fails', async () => {
-      mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
+    it('rolls back the optimistic flag and reconciles with the server if the request fails', async () => {
+      mockApi.getLeague.mockResolvedValue(VISITOR_INVITE_ONLY);
       mockApi.requestToJoinLeague.mockRejectedValue(new Error('boom'));
       const client = makeClient();
       const { result } = renderHook(() => useLeagueDetailScreen(42), {
@@ -271,6 +284,71 @@ describe('useLeagueDetailScreen', () => {
       });
 
       expect(result.current.hasPendingRequest).toBe(false);
+    });
+  });
+
+  describe('onJoinLeague (open leagues)', () => {
+    it('calls api.joinLeague (not requestToJoinLeague) and refetches on success', async () => {
+      mockApi.getLeague
+        .mockResolvedValueOnce(VISITOR_OPEN)
+        .mockResolvedValue({ ...VISITOR_OPEN, user_role: 'member' });
+      mockApi.joinLeague.mockResolvedValue({ success: true, message: 'Joined!' });
+      const client = makeClient();
+      const { result } = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(client),
+      });
+
+      await waitFor(() => expect(result.current.canJoinDirectly).toBe(true));
+      await act(async () => {
+        await result.current.onJoinLeague();
+      });
+
+      expect(mockApi.joinLeague).toHaveBeenCalledWith(42);
+      expect(mockApi.requestToJoinLeague).not.toHaveBeenCalled();
+      // A direct join changes membership — the detail is refetched so
+      // user_role (and therefore isVisitor / visibleTabs) update.
+      await waitFor(() => expect(result.current.isVisitor).toBe(false));
+    });
+
+    it('does not refetch when onJoinLeague fails', async () => {
+      mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
+      mockApi.joinLeague.mockRejectedValue(new Error('boom'));
+      const client = makeClient();
+      const { result } = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(client),
+      });
+
+      await waitFor(() => expect(result.current.canJoinDirectly).toBe(true));
+      await act(async () => {
+        await expect(result.current.onJoinLeague()).rejects.toThrow('boom');
+      });
+
+      expect(mockApi.getLeague).toHaveBeenCalledTimes(1);
+      expect(result.current.isVisitor).toBe(true);
+    });
+  });
+
+  describe('standings tab gating for private leagues', () => {
+    it('hides the standings tab for a visitor of a private league', async () => {
+      mockApi.getLeague.mockResolvedValue({ ...VISITOR_OPEN, is_public: false });
+      const client = makeClient();
+      const { result } = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(client),
+      });
+
+      await waitFor(() => expect(result.current.isVisitor).toBe(true));
+      expect(result.current.visibleTabs).toEqual(['info']);
+    });
+
+    it('keeps the standings tab for a visitor of a public league', async () => {
+      mockApi.getLeague.mockResolvedValue({ ...VISITOR_OPEN, is_public: true });
+      const client = makeClient();
+      const { result } = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(client),
+      });
+
+      await waitFor(() => expect(result.current.isVisitor).toBe(true));
+      expect(result.current.visibleTabs).toEqual(['standings', 'info']);
     });
   });
 });

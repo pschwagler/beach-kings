@@ -12,6 +12,7 @@
  */
 
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -23,10 +24,17 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
-  useLocalSearchParams: () => ({ id: '1' }),
-}));
+jest.mock('expo-router', () => {
+  const ReactModule = require('react');
+  return {
+    useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
+    useLocalSearchParams: () => ({ id: '1' }),
+    // The standings tab refetches on focus (useRefreshOnFocus → useFocusEffect).
+    useFocusEffect: (cb: () => void | (() => void)): void => {
+      ReactModule.useEffect(() => cb(), [cb]);
+    },
+  };
+});
 
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
@@ -95,6 +103,7 @@ const mockGetLeagueJoinRequests = jest.fn();
 const mockApproveJoinRequest = jest.fn();
 const mockRejectJoinRequest = jest.fn();
 const mockRequestToJoinLeague = jest.fn();
+const mockJoinLeague = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -115,6 +124,7 @@ jest.mock('@/lib/api', () => ({
     dropSignup: (...args: unknown[]) => mockDropSignup(...args),
     getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
     requestToJoinLeague: (...args: unknown[]) => mockRequestToJoinLeague(...args),
+    joinLeague: (...args: unknown[]) => mockJoinLeague(...args),
   },
 }));
 
@@ -149,6 +159,7 @@ const MOCK_DETAIL = {
   name: 'Manhattan Open',
   description: 'NYC top level league',
   access_type: 'open',
+  is_public: true,
   gender: 'coed',
   level: 'Open',
   location_name: 'Manhattan, NY',
@@ -216,6 +227,7 @@ beforeEach(() => {
   mockApproveJoinRequest.mockResolvedValue({ success: true });
   mockRejectJoinRequest.mockResolvedValue({ success: true });
   mockRequestToJoinLeague.mockResolvedValue({ success: true, message: 'ok' });
+  mockJoinLeague.mockResolvedValue({ success: true, message: 'Joined!' });
 });
 
 // ---------------------------------------------------------------------------
@@ -270,14 +282,16 @@ describe('LeagueDetailScreen — segment tabs', () => {
     });
   });
 
-  it('renders all 5 tab buttons', async () => {
+  it('renders the member tab buttons (signups temporarily disabled)', async () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-segment-bar')).toBeTruthy());
     expect(screen.getByTestId('segment-tab-games')).toBeTruthy();
     expect(screen.getByTestId('segment-tab-standings')).toBeTruthy();
     expect(screen.getByTestId('segment-tab-chat')).toBeTruthy();
-    expect(screen.getByTestId('segment-tab-signups')).toBeTruthy();
     expect(screen.getByTestId('segment-tab-info')).toBeTruthy();
+    // 'signups' is disabled for now (needs a web-admin season/schedule; renders
+    // empty on mobile). Re-enable via MEMBER_TABS in useLeagueDetailScreen.
+    expect(screen.queryByTestId('segment-tab-signups')).toBeNull();
   });
 
   it('renders games tab content by default', async () => {
@@ -308,7 +322,9 @@ describe('LeagueDetailScreen — segment tabs', () => {
     });
   });
 
-  it('switches to signups tab on press', async () => {
+  // Signups tab is temporarily disabled (see MEMBER_TABS in useLeagueDetailScreen).
+  // Re-enable this test alongside the tab.
+  it.skip('switches to signups tab on press', async () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('segment-tab-signups')).toBeTruthy());
     fireEvent.press(screen.getByTestId('segment-tab-signups'));
@@ -364,7 +380,11 @@ describe('LeagueDetailScreen — error', () => {
 // Signups tab — real API integration
 // ---------------------------------------------------------------------------
 
-describe('LeagueDetailScreen — signups tab', () => {
+// Signups tab is temporarily disabled (see MEMBER_TABS in useLeagueDetailScreen);
+// it is unreachable via the segment bar, so these integration-via-tab tests are
+// skipped. Re-enable together with the tab. The LeagueSignupsTab component keeps
+// its own unit tests.
+describe.skip('LeagueDetailScreen — signups tab', () => {
   it('calls getLeagueSignups when signups tab is active', async () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('segment-tab-signups')).toBeTruthy());
@@ -455,35 +475,73 @@ describe('LeagueDetailScreen — non-member visitor', () => {
     expect(screen.queryByTestId('league-add-game-btn')).toBeNull();
   });
 
-  it('renders a Request to join CTA for an open league', async () => {
+  it('renders a Join CTA for an open league', async () => {
     mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-join-banner')).toBeTruthy());
     expect(screen.getByTestId('league-join-btn')).toBeTruthy();
+    expect(screen.queryByTestId('league-request-join-btn')).toBeNull();
   });
 
-  it('calls requestToJoinLeague when the CTA is pressed', async () => {
+  it('calls api.joinLeague (not requestToJoinLeague) when the open-league CTA is pressed', async () => {
     mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-join-btn')).toBeTruthy());
     fireEvent.press(screen.getByTestId('league-join-btn'));
-    await waitFor(() => expect(mockRequestToJoinLeague).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(mockJoinLeague).toHaveBeenCalledWith(1));
+    expect(mockRequestToJoinLeague).not.toHaveBeenCalled();
   });
 
-  it('shows "Invite only" for an invite-only league (no join button)', async () => {
+  it('shows a Request to join CTA for an invite-only league', async () => {
     mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, access_type: 'invite_only' });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-join-banner')).toBeTruthy());
-    expect(screen.getByTestId('league-join-invite-only')).toBeTruthy();
+    expect(screen.getByTestId('league-request-join-btn')).toBeTruthy();
     expect(screen.queryByTestId('league-join-btn')).toBeNull();
   });
 
-  it('shows "Request sent" when a request is already pending', async () => {
-    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, has_pending_request: true });
+  it('calls api.requestToJoinLeague (not joinLeague) when the invite-only CTA is pressed', async () => {
+    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, access_type: 'invite_only' });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-request-join-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('league-request-join-btn'));
+    await waitFor(() => expect(mockRequestToJoinLeague).toHaveBeenCalledWith(1));
+    expect(mockJoinLeague).not.toHaveBeenCalled();
+  });
+
+  it('shows "Request sent" when an invite-only request is already pending', async () => {
+    mockGetLeague.mockResolvedValue({
+      ...VISITOR_DETAIL,
+      access_type: 'invite_only',
+      has_pending_request: true,
+    });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-join-banner')).toBeTruthy());
     expect(screen.getByTestId('league-join-pending')).toBeTruthy();
     expect(screen.queryByTestId('league-join-btn')).toBeNull();
+    expect(screen.queryByTestId('league-request-join-btn')).toBeNull();
+  });
+
+  it('shows an Alert and does not crash when joinLeague fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    mockJoinLeague.mockRejectedValue(new Error('boom'));
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-join-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('league-join-btn'));
+    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
+    alertSpy.mockRestore();
+  });
+
+  it('shows an Alert and does not crash when requestToJoinLeague fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, access_type: 'invite_only' });
+    mockRequestToJoinLeague.mockRejectedValue(new Error('boom'));
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-request-join-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('league-request-join-btn'));
+    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
+    alertSpy.mockRestore();
   });
 
   it('routes a standings player tap to the public profile (not in-league stats)', async () => {
@@ -498,5 +556,23 @@ describe('LeagueDetailScreen — non-member visitor', () => {
     await waitFor(() => expect(mockPush).toHaveBeenCalled());
     const dest = mockPush.mock.calls[0][0] as string;
     expect(dest).toContain('/(stack)/player/77');
+  });
+
+  it('hides the standings tab for a visitor of a private league (avoids the 403)', async () => {
+    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, is_public: false });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-segment-bar')).toBeTruthy());
+
+    expect(screen.queryByTestId('segment-tab-standings')).toBeNull();
+    expect(screen.getByTestId('segment-tab-info')).toBeTruthy();
+    expect(mockGetLeagueStandings).not.toHaveBeenCalled();
+  });
+
+  it('keeps the standings tab for a visitor of a public league', async () => {
+    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, is_public: true });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-segment-bar')).toBeTruthy());
+
+    expect(screen.getByTestId('segment-tab-standings')).toBeTruthy();
   });
 });
