@@ -27,6 +27,7 @@ import type {
   Friend,
   FriendListResponse,
   FriendRequest,
+  FriendRequestDirection,
   FriendInLeague,
   Notification,
   PushNotificationPrefs,
@@ -540,6 +541,7 @@ export function createApiMethods(client: ApiClient) {
         name: string;
         description: string | null;
         is_open: boolean;
+        is_public?: boolean;
         gender: string | null;
         level: string | null;
         location_id: string | null;
@@ -563,6 +565,7 @@ export function createApiMethods(client: ApiClient) {
         name: raw.name,
         description: raw.description,
         access_type: raw.is_open ? 'open' : 'invite_only',
+        is_public: raw.is_public ?? false,
         gender: raw.gender as 'mens' | 'womens' | 'coed' | null,
         level: raw.level,
         location_id: raw.location_id ?? null,
@@ -701,6 +704,19 @@ export function createApiMethods(client: ApiClient) {
 
     async createLeagueMessage(leagueId: number, message: string) {
       const response = await api.post(`/api/leagues/${leagueId}/messages`, { message });
+      return response.data;
+    },
+
+    /**
+     * Directly join an open league (no approval required).
+     * Maps to POST /api/leagues/{leagueId}/join. The backend 400s if the
+     * league is invite-only — callers should use `requestToJoinLeague` instead
+     * for invite-only leagues.
+     */
+    async joinLeague(leagueId: number): Promise<{ success: boolean; message: string }> {
+      const response = await api.post<{ success: boolean; message: string }>(
+        `/api/leagues/${leagueId}/join`,
+      );
       return response.data;
     },
 
@@ -1306,7 +1322,7 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async getFriendRequests(direction?: 'incoming' | 'outgoing') {
+    async getFriendRequests(direction?: FriendRequestDirection) {
       const params = direction ? { direction } : {};
       const response = await api.get<FriendRequest[]>('/api/friends/requests', { params });
       return response.data;

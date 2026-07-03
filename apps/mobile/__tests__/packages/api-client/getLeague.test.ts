@@ -18,6 +18,7 @@ function makeRawDetail(overrides: Record<string, unknown> = {}) {
     name: 'Test League',
     description: 'A test league',
     is_open: true,
+    is_public: true,
     gender: 'coed',
     level: 'Intermediate',
     location_name: 'San Diego, CA',
@@ -160,6 +161,35 @@ describe('getLeague — has_pending_request mapping', () => {
 });
 
 // ---------------------------------------------------------------------------
+// is_public mapping
+// ---------------------------------------------------------------------------
+
+describe('getLeague — is_public mapping', () => {
+  it('passes through is_public: true', async () => {
+    const client = makeMockClient(makeRawDetail({ is_public: true }));
+    const methods = createApiMethods(client);
+    const result = await methods.getLeague(42);
+    expect(result.is_public).toBe(true);
+  });
+
+  it('passes through is_public: false', async () => {
+    const client = makeMockClient(makeRawDetail({ is_public: false }));
+    const methods = createApiMethods(client);
+    const result = await methods.getLeague(42);
+    expect(result.is_public).toBe(false);
+  });
+
+  it('defaults is_public to false when absent', async () => {
+    const raw = makeRawDetail();
+    delete (raw as { is_public?: boolean }).is_public;
+    const client = makeMockClient(raw);
+    const methods = createApiMethods(client);
+    const result = await methods.getLeague(42);
+    expect(result.is_public).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Request URL
 // ---------------------------------------------------------------------------
 
@@ -170,5 +200,32 @@ describe('getLeague — request URL', () => {
     const methods = createApiMethods(client);
     await methods.getLeague(99);
     expect((client.axiosInstance.get as jest.Mock).mock.calls[0][0]).toBe('/api/leagues/99');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// joinLeague — POST /api/leagues/:id/join
+// ---------------------------------------------------------------------------
+
+describe('joinLeague', () => {
+  function makePostMockClient(data: unknown) {
+    const mockPost = jest.fn().mockResolvedValue({ data });
+    return { axiosInstance: { post: mockPost } } as unknown as ApiClient;
+  }
+
+  it('POSTs to /api/leagues/:id/join with the correct league id', async () => {
+    const client = makePostMockClient({ success: true, message: 'ok' });
+    const methods = createApiMethods(client);
+    await methods.joinLeague(99);
+    expect((client.axiosInstance.post as jest.Mock).mock.calls[0][0]).toBe(
+      '/api/leagues/99/join',
+    );
+  });
+
+  it('returns the response payload', async () => {
+    const client = makePostMockClient({ success: true, message: 'Joined!' });
+    const methods = createApiMethods(client);
+    const result = await methods.joinLeague(99);
+    expect(result).toEqual({ success: true, message: 'Joined!' });
   });
 });
