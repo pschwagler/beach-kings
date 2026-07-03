@@ -1,44 +1,23 @@
 /**
- * Dashed empty-state CTA for the Tournaments section when the user has none upcoming.
- * Mirrors `home.html` `.tourney-empty-cta`.
+ * "Coming soon" placeholder for the Tournaments section.
+ *
+ * Tournaments (KoB events, brackets) are not yet backed by real data, so the
+ * section shows a non-interactive teaser rather than linking into unfinished
+ * screens. Restore the browse/create CTAs once the backend is live.
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
-import { routes } from '@/lib/navigation';
+import { View, Text } from 'react-native';
 
 export default function TournamentsEmpty(): React.ReactNode {
-  const router = useRouter();
-
   return (
     <View className="bg-surface rounded-card p-xl items-center border-[1.5px] border-dashed border-divider shadow-sm dark:shadow-none">
-      <Text className="text-subhead font-semibold text-default mb-1">
-        Browse Tournaments Near You
+      <Text className="text-subhead font-semibold text-default mb-1 text-center">
+        Coming soon to a beach near you
       </Text>
-      <Text className="text-caption text-tertiary mb-md text-center">
-        Find and join KoB events at courts in your area
+      <Text className="text-caption text-tertiary text-center">
+        KoB events and brackets are on the way
       </Text>
-      <View className="flex-row gap-sm justify-center">
-        <Pressable
-          onPress={() => router.push(routes.tournaments())}
-          accessibilityRole="link"
-          className="bg-brand-teal rounded-[10px] px-lg py-sm min-h-touch items-center justify-center"
-        >
-          <Text className="text-white font-semibold text-footnote">
-            Browse Nearby
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => router.push(routes.createTournament())}
-          accessibilityRole="link"
-          className="bg-elevated rounded-[10px] px-lg py-sm min-h-touch items-center justify-center border border-divider"
-        >
-          <Text className="text-brand-teal font-semibold text-footnote">
-            + Create
-          </Text>
-        </Pressable>
-      </View>
     </View>
   );
 }

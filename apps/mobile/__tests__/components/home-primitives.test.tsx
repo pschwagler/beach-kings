@@ -322,18 +322,18 @@ describe('NewUserWelcome', () => {
 // TournamentsEmpty
 // ---------------------------------------------------------------------------
 describe('TournamentsEmpty', () => {
-  it('renders the two tournament CTAs', () => {
+  it('renders the coming-soon teaser', () => {
     const { getByText } = render(<TournamentsEmpty />);
-    expect(getByText('Browse Nearby')).toBeTruthy();
-    expect(getByText('+ Create')).toBeTruthy();
+    expect(getByText('Coming soon to a beach near you')).toBeTruthy();
+    expect(getByText('KoB events and brackets are on the way')).toBeTruthy();
   });
 
-  it('routes each CTA to the expected target', () => {
-    const { getByText } = render(<TournamentsEmpty />);
-    fireEvent.press(getByText('Browse Nearby'));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/tournaments');
-    fireEvent.press(getByText('+ Create'));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/tournament/create');
+  it('is a non-interactive placeholder (no navigation targets)', () => {
+    const { queryByText } = render(<TournamentsEmpty />);
+    // Tournaments are not backed by real data yet, so the teaser must not
+    // link into the unfinished browse/create screens.
+    expect(queryByText('Browse Nearby')).toBeNull();
+    expect(queryByText('+ Create')).toBeNull();
   });
 });
 
