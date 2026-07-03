@@ -48,6 +48,10 @@ export default function LeagueCard({
 }: LeagueCardProps): React.ReactNode {
   const memberCount = league.member_count ?? 0;
   const gamesPlayed = league.games_played ?? userWins + userLosses;
+  // The card's stats are scoped to the league's *current* season (see backend
+  // get_user_leagues). An established member can have zero activity in a brand-
+  // new active season, so guard against showing a misleading 0 / 0-0 / 0%.
+  const hasSeasonActivity = gamesPlayed > 0;
   const locationDisplay =
     league.location_name ?? league.region_name ?? null;
   const isActive =
@@ -91,12 +95,34 @@ export default function LeagueCard({
         )}
       </View>
 
-      {/* Stats row */}
-      <View className="flex-row gap-lg mt-xs">
-        <StatBlock value={String(gamesPlayed)} label="Games" />
-        <StatBlock value={formatRecord(userWins, userLosses)} label="W-L" />
-        <StatBlock value={formatWinRate(userWins, userLosses)} label="Win Rate" />
-      </View>
+      {/* Stats row — current-season scoped */}
+      {hasSeasonActivity ? (
+        <>
+          <Text className="text-[11px] text-tertiary uppercase tracking-wide mt-xs mb-xs">
+            This Season
+          </Text>
+          <View className="flex-row gap-lg">
+            <StatBlock value={String(gamesPlayed)} label="Games" />
+            <StatBlock value={formatRecord(userWins, userLosses)} label="W-L" />
+            <StatBlock
+              value={formatWinRate(userWins, userLosses)}
+              label="Win Rate"
+            />
+          </View>
+        </>
+      ) : (
+        <View
+          testID={`league-card-${league.id}-no-season-activity`}
+          className="mt-xs mb-xs"
+        >
+          <Text className="text-[13px] text-muted">
+            No games yet this season
+          </Text>
+          <Text className="text-[12px] font-medium text-brand-teal mt-[2px]">
+            View league history ›
+          </Text>
+        </View>
+      )}
 
       {/* Rank bar */}
       <View className="flex-row items-center justify-between mt-md pt-md border-t border-divider">
