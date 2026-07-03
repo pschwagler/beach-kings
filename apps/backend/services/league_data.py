@@ -56,6 +56,7 @@ __all__ = [
     "remove_league_member",
     "get_league_member_user_ids",
     "get_league_admin_user_ids",
+    "has_pending_league_request",
     "create_league_request",
     "list_league_join_requests",
     "list_league_join_requests_rejected",
@@ -394,7 +395,10 @@ async def query_leagues(
     result = await session.execute(items_query)
     rows = result.all()
 
-    # Check for pending join requests when player is authenticated
+    # Check for pending join requests when player is authenticated.
+    # This is a bulk lookup across every league on the page, so it stays a
+    # single IN-query rather than calling has_pending_league_request() in a
+    # loop (which would issue one query per league).
     pending_league_ids: set = set()
     if player_id is not None:
         pending_result = await session.execute(
@@ -571,19 +575,9 @@ async def get_league_detail(
     has_pending_request = False
 
     if caller_player_id is not None:
-        # Pending join request — drives the non-member "Request sent" CTA state.
-        pending_result = await session.execute(
-            select(LeagueRequest.id).where(
-                and_(
-                    LeagueRequest.league_id == league_id,
-                    LeagueRequest.player_id == caller_player_id,
-                    LeagueRequest.status == "pending",
-                )
-            )
-        )
-        has_pending_request = pending_result.scalar_one_or_none() is not None
-
-        # Membership role
+        # Membership role — checked first so a confirmed member skips the
+        # pending-request lookup entirely (a member can't also have a
+        # pending join request for the same league).
         role_result = await session.execute(
             select(LeagueMember.role).where(
                 LeagueMember.league_id == league_id,
@@ -593,6 +587,11 @@ async def get_league_detail(
         role_row = role_result.scalar_one_or_none()
         if role_row is not None:
             user_role = str(role_row)
+        else:
+            # Pending join request — drives the non-member "Request sent" CTA state.
+            has_pending_request = await has_pending_league_request(
+                session, league_id, caller_player_id
+            )
 
         # Current-season stats + rank
         if current_season_id is not None:
@@ -2293,11 +2292,17 @@ async def get_league_admin_user_ids(session: AsyncSession, league_id: int) -> Li
 # ---------------------------------------------------------------------------
 
 
-async def create_league_request(session: AsyncSession, league_id: int, player_id: int) -> Dict:
-    """Create a join request for an invite-only league."""
-    # Check if a pending request already exists
-    existing_request = await session.execute(
-        select(LeagueRequest).where(
+async def has_pending_league_request(
+    session: AsyncSession, league_id: int, player_id: int
+) -> bool:
+    """Check whether ``player_id`` has a pending join request for ``league_id``.
+
+    Centralizes the "pending" status literal so every caller (league detail's
+    CTA state, the join-request dedup check, the cancel-request flow) agrees
+    on what counts as an outstanding request.
+    """
+    result = await session.execute(
+        select(LeagueRequest.id).where(
             and_(
                 LeagueRequest.league_id == league_id,
                 LeagueRequest.player_id == player_id,
@@ -2305,7 +2310,12 @@ async def create_league_request(session: AsyncSession, league_id: int, player_id
             )
         )
     )
-    if existing_request.scalar_one_or_none():
+    return result.scalar_one_or_none() is not None
+
+
+async def create_league_request(session: AsyncSession, league_id: int, player_id: int) -> Dict:
+    """Create a join request for an invite-only league."""
+    if await has_pending_league_request(session, league_id, player_id):
         raise ValueError("A pending join request already exists for this league")
 
     # Create new request
@@ -2394,8 +2404,11 @@ async def cancel_league_request(session: AsyncSession, league_id: int, player_id
     Raises:
         ValueError: If no pending request exists for this player and league
     """
-    result = await session.execute(
-        select(LeagueRequest).where(
+    if not await has_pending_league_request(session, league_id, player_id):
+        raise ValueError("No pending join request found for this league")
+
+    await session.execute(
+        delete(LeagueRequest).where(
             and_(
                 LeagueRequest.league_id == league_id,
                 LeagueRequest.player_id == player_id,
@@ -2403,11 +2416,6 @@ async def cancel_league_request(session: AsyncSession, league_id: int, player_id
             )
         )
     )
-    request = result.scalar_one_or_none()
-    if not request:
-        raise ValueError("No pending join request found for this league")
-
-    await session.delete(request)
     await session.commit()
     return True
 

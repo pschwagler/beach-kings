@@ -26,7 +26,6 @@ from backend.database.models import (
     Court,
     EloHistory,
     League,
-    LeagueMember,
     Location,
     Match,
     OpponentStats,
@@ -44,6 +43,7 @@ from backend.database.models import (
     SessionStatus,
 )
 from backend.utils.constants import INITIAL_ELO
+from backend.services.league_data import is_league_member
 from backend.services.player_data import generate_player_initials
 
 logger = logging.getLogger(__name__)
@@ -1229,15 +1229,7 @@ async def get_league_player_stats_full(
     # instead. Default to deny so a missing caller never leaks league-scoped stats.
     is_member = False
     if caller_player_id is not None:
-        member_row = await session.execute(
-            select(LeagueMember.id).where(
-                and_(
-                    LeagueMember.league_id == league_id,
-                    LeagueMember.player_id == caller_player_id,
-                )
-            )
-        )
-        is_member = member_row.scalar_one_or_none() is not None
+        is_member = await is_league_member(session, league_id, caller_player_id)
     if not is_member:
         raise HTTPException(
             status_code=403, detail="Not a member of this league."

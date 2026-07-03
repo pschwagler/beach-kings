@@ -382,14 +382,16 @@ async def get_league_player_stats_full(
     overall record, partner/opponent breakdowns, and ``is_self`` when the
     request is authenticated.
 
-    Public leagues are readable by anyone. Private leagues require an
-    authenticated caller who is a member of the league (403 otherwise).
+    Members-only for every league, public or private: the caller must be an
+    authenticated member of the league or a 403 is raised. Non-members (and
+    unauthenticated callers) are routed to the player's public profile instead
+    of this league-scoped view.
     ``rank`` and ``game_history`` are populated; ``rating_delta`` is always None.
     """
     try:
         # Resolve the caller's player_id from their user_id. The optional-auth
         # user dict does NOT carry player_id (only require_verified_player adds
-        # it), so we look it up explicitly — needed for both the private-league
+        # it), so we look it up explicitly — needed for both the members-only
         # access gate and the ``is_self`` flag.
         viewer_player_id = (
             await friend_service.get_player_id_for_user(session, current_user["id"])
