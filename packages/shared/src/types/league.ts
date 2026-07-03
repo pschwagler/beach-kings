@@ -231,6 +231,8 @@ export interface LeagueDetail {
   readonly user_wins: number | null;
   readonly user_losses: number | null;
   readonly user_rating: number | null;
+  /** True when the caller has a pending join request (drives the "Request sent" CTA). */
+  readonly has_pending_request: boolean;
 }
 
 // ---------------------------------------------------------------------------

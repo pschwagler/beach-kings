@@ -3,11 +3,15 @@
  *
  * Shows:
  *   Compact league header: name, location, member count
- *   5-tab segment: Games | Standings | Chat | Sign Ups | Info
+ *   Segment bar: Games | Standings | Chat | Sign Ups | Info
+ *
+ * Members/admins see the full tab set. Non-members (visitors) see only the
+ * Standings and Info tabs, a Join CTA banner, and their player taps route to
+ * the player's public profile rather than the members-only in-league stats.
  *
  * The Add Game action lives in TopNav. Each tab renders a dedicated component.
- * The Standings tab also supports tapping a player row to push LeagueStatsTab
- * as a sub-view.
+ * For members, the Standings tab also supports tapping a player row to push
+ * LeagueStatsTab as a sub-view.
  *
  * Wireframe ref: league-detail.html
  */
@@ -141,6 +145,82 @@ function LeagueHeader({
 }
 
 // ---------------------------------------------------------------------------
+// Visitor join banner (non-members only)
+// ---------------------------------------------------------------------------
+
+interface VisitorJoinBannerProps {
+  readonly canRequestToJoin: boolean;
+  readonly hasPendingRequest: boolean;
+  readonly isRequestingToJoin: boolean;
+  readonly onRequestToJoin: () => void;
+}
+
+/**
+ * Banner shown to non-members. Renders a request-to-join action for open
+ * leagues, a disabled "Request sent" pill once a request is pending, and an
+ * "Invite only" label for invite-only leagues (no self-serve join).
+ */
+function VisitorJoinBanner({
+  canRequestToJoin,
+  hasPendingRequest,
+  isRequestingToJoin,
+  onRequestToJoin,
+}: VisitorJoinBannerProps): React.ReactNode {
+  const action = ((): React.ReactNode => {
+    if (hasPendingRequest) {
+      return (
+        <View
+          testID="league-join-pending"
+          className="px-4 py-2 rounded-full bg-page"
+        >
+          <Text className="text-[13px] font-semibold text-muted">Request sent</Text>
+        </View>
+      );
+    }
+    if (canRequestToJoin) {
+      return (
+        <Pressable
+          testID="league-join-btn"
+          disabled={isRequestingToJoin}
+          onPress={() => {
+            void hapticLight();
+            onRequestToJoin();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Request to join league"
+          className="px-4 py-2 rounded-full bg-brand-teal active:opacity-70"
+        >
+          <Text className="text-[13px] font-semibold text-white">
+            {isRequestingToJoin ? 'Sending…' : 'Request to join'}
+          </Text>
+        </Pressable>
+      );
+    }
+    // Invite-only (or otherwise un-joinable) league.
+    return (
+      <View
+        testID="league-join-invite-only"
+        className="px-4 py-2 rounded-full bg-page"
+      >
+        <Text className="text-[13px] font-semibold text-muted">Invite only</Text>
+      </View>
+    );
+  })();
+
+  return (
+    <View
+      testID="league-join-banner"
+      className="bg-surface px-4 py-3 border-b border-divider flex-row items-center justify-between gap-x-3"
+    >
+      <Text className="text-[13px] text-muted flex-1" numberOfLines={2}>
+        Viewing as a non-member
+      </Text>
+      {action}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Tab content renderer
 // ---------------------------------------------------------------------------
 
@@ -212,6 +292,12 @@ export default function LeagueDetailScreen({
     activeTab,
     onSetTab,
     onPressPlayer,
+    isVisitor,
+    visibleTabs,
+    canRequestToJoin,
+    hasPendingRequest,
+    isRequestingToJoin,
+    onRequestToJoin,
   } = useLeagueDetailScreen(resolvedId);
 
   // Track which player row was tapped in standings to push stats sub-view
@@ -222,12 +308,17 @@ export default function LeagueDetailScreen({
   const [tabBarHeight, setTabBarHeight] = useState(0);
 
   const handlePressPlayer = (id: number | string): void => {
-    if (activeTab === 'standings') {
+    // Members drilling into Standings see the in-league per-player stats.
+    // Visitors (and members on other tabs) go to the player's public profile.
+    if (!isVisitor && activeTab === 'standings') {
       setStatsPlayerId(id);
     } else {
       onPressPlayer(id);
     }
   };
+
+  // Only render the tabs the caller is allowed to see.
+  const tabsForRole = TABS.filter((t) => visibleTabs.includes(t.key));
 
   const handleSetTab = (tab: LeagueDetailTab): void => {
     // Always clear the stats sub-view on tab switch — including re-tapping
@@ -321,8 +412,17 @@ export default function LeagueDetailScreen({
             memberCount={detail.member_count}
           />
 
+          {isVisitor && (
+            <VisitorJoinBanner
+              canRequestToJoin={canRequestToJoin}
+              hasPendingRequest={hasPendingRequest}
+              isRequestingToJoin={isRequestingToJoin}
+              onRequestToJoin={() => void onRequestToJoin()}
+            />
+          )}
+
           <SegmentBar
-            tabs={TABS}
+            tabs={tabsForRole}
             activeTab={activeTab}
             onSetTab={handleSetTab}
           />

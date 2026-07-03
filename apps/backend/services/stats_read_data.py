@@ -1197,9 +1197,10 @@ async def get_league_player_stats_full(
     Returns ``None`` if the player or league does not exist.
 
     Access control:
-    - Public leagues are readable by anyone (``caller_player_id`` may be None).
-    - Private leagues require ``caller_player_id`` to be a league member; otherwise
-      raises ``HTTPException(403)``.
+    - Per-player league stats require ``caller_player_id`` to be a league member,
+      for every league (public or private); a non-member or unauthenticated caller
+      raises ``HTTPException(403)``. Non-members are routed to the player's public
+      profile instead of this league-scoped view.
 
     ``rating_delta`` is always ``None`` (MVP decision, not computed).
     ``rank`` is populated via ``row_number()`` matching the standings tab ordering.
@@ -1223,24 +1224,24 @@ async def get_league_player_stats_full(
     if not league:
         return None
 
-    # Access-control gate: private leagues require the caller to be a member.
-    # Default to False (deny) so a missing/unknown attribute never leaks a private league.
-    if not getattr(league, "is_public", False):
-        is_member = False
-        if caller_player_id is not None:
-            member_row = await session.execute(
-                select(LeagueMember.id).where(
-                    and_(
-                        LeagueMember.league_id == league_id,
-                        LeagueMember.player_id == caller_player_id,
-                    )
+    # Access-control gate: per-player league stats are members-only for every
+    # league (public or private). Non-members view the player's public profile
+    # instead. Default to deny so a missing caller never leaks league-scoped stats.
+    is_member = False
+    if caller_player_id is not None:
+        member_row = await session.execute(
+            select(LeagueMember.id).where(
+                and_(
+                    LeagueMember.league_id == league_id,
+                    LeagueMember.player_id == caller_player_id,
                 )
             )
-            is_member = member_row.scalar_one_or_none() is not None
-        if not is_member:
-            raise HTTPException(
-                status_code=403, detail="Not a member of this private league."
-            )
+        )
+        is_member = member_row.scalar_one_or_none() is not None
+    if not is_member:
+        raise HTTPException(
+            status_code=403, detail="Not a member of this league."
+        )
 
     season_name: Optional[str] = None
     if season_id is not None:

@@ -140,6 +140,26 @@ describe('getLeague — season and member fields', () => {
 });
 
 // ---------------------------------------------------------------------------
+// has_pending_request mapping
+// ---------------------------------------------------------------------------
+
+describe('getLeague — has_pending_request mapping', () => {
+  it('passes through has_pending_request: true', async () => {
+    const client = makeMockClient(makeRawDetail({ has_pending_request: true }));
+    const methods = createApiMethods(client);
+    const result = await methods.getLeague(42);
+    expect(result.has_pending_request).toBe(true);
+  });
+
+  it('defaults has_pending_request to false when absent', async () => {
+    const client = makeMockClient(makeRawDetail());
+    const methods = createApiMethods(client);
+    const result = await methods.getLeague(42);
+    expect(result.has_pending_request).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Request URL
 // ---------------------------------------------------------------------------
 

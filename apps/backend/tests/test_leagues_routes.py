@@ -1295,7 +1295,12 @@ class TestGetLeagueStandings:
         assert response.json()["standings"] == []
 
     def test_standings_non_member_rejected(self, monkeypatch):
-        """Authenticated user who is not a league member gets 403."""
+        """Non-member gets 403 for a non-public (or unknown) league.
+
+        Public-league standings are readable by non-members — see
+        test_league_standings_access.test_non_member_allowed_for_public_league.
+        Here LEAGUE_ID has no public league row, so the deny-by-default path applies.
+        """
         client, headers = _make_user_client(monkeypatch)
         response = client.get(f"/api/leagues/{LEAGUE_ID}/standings", headers=headers)
         assert response.status_code == 403

@@ -9,7 +9,7 @@ then verifies the composed response.
 Also covers:
 - rank populated from row_number() matching the standings ordering
 - game_history populated with viewed-player perspective and league/season scoping
-- access-control gate for private leagues
+- access-control gate: per-player league stats are members-only (every league)
 """
 
 from __future__ import annotations
@@ -95,12 +95,14 @@ async def test_returns_none_when_season_does_not_belong_to_league(db_session):
     league_a = await _league(db_session, "League A")
     league_b = await _league(db_session, "League B")
     season_b = await _season(db_session, league_b, "B-S1")
+    await _league_member(db_session, league_a, p)
 
     result = await get_league_player_stats_full(
         db_session,
         league_id=league_a.id,
         player_id=p.id,
         season_id=season_b.id,
+        caller_player_id=p.id,
     )
     assert result is None
 
@@ -111,6 +113,7 @@ async def test_league_scoped_aggregates_player_partners_and_opponents(db_session
     partner = await _player(db_session, "Kara F")
     opponent = await _player(db_session, "Jake D")
     league = await _league(db_session, "QBK Open Men")
+    await _league_member(db_session, league, p)
 
     db_session.add(
         PlayerLeagueStats(
@@ -154,6 +157,7 @@ async def test_league_scoped_aggregates_player_partners_and_opponents(db_session
         league_id=league.id,
         player_id=p.id,
         current_user_player_id=p.id,
+        caller_player_id=p.id,
     )
 
     assert result is not None
@@ -204,6 +208,7 @@ async def test_season_scope_uses_season_tables_and_points(db_session):
     opponent = await _player(db_session, "Jake D")
     league = await _league(db_session, "QBK")
     season = await _season(db_session, league, "Spring 2024")
+    await _league_member(db_session, league, p)
 
     db_session.add(
         PlayerSeasonStats(
@@ -260,6 +265,7 @@ async def test_season_scope_uses_season_tables_and_points(db_session):
         league_id=league.id,
         player_id=p.id,
         season_id=season.id,
+        caller_player_id=p.id,
     )
 
     assert result is not None
@@ -281,9 +287,10 @@ async def test_season_scope_uses_season_tables_and_points(db_session):
 async def test_player_with_no_stats_returns_zero_overall(db_session):
     p = await _player(db_session, "Solo Player")
     league = await _league(db_session, "Empty League")
+    await _league_member(db_session, league, p)
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=p.id
+        db_session, league_id=league.id, player_id=p.id, caller_player_id=p.id
     )
 
     assert result is not None
@@ -382,6 +389,8 @@ async def test_rank_league_scope_matches_standings_ordering(db_session):
     player_a = await _player(db_session, "Alice A")
     player_b = await _player(db_session, "Bob B")
     league = await _league(db_session, "Rank League")
+    await _league_member(db_session, league, player_a)
+    await _league_member(db_session, league, player_b)
 
     # Player A: more wins, fewer points (wins-leader)
     db_session.add(
@@ -411,10 +420,10 @@ async def test_rank_league_scope_matches_standings_ordering(db_session):
     await db_session.commit()
 
     result_a = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_a.id
+        db_session, league_id=league.id, player_id=player_a.id, caller_player_id=player_a.id
     )
     result_b = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_b.id
+        db_session, league_id=league.id, player_id=player_b.id, caller_player_id=player_b.id
     )
 
     assert result_b is not None
@@ -434,6 +443,8 @@ async def test_rank_season_scope_matches_standings_ordering(db_session):
     player_b = await _player(db_session, "Bob B")
     league = await _league(db_session, "Season Rank League")
     season = await _season(db_session, league, "Spring 2024")
+    await _league_member(db_session, league, player_a)
+    await _league_member(db_session, league, player_b)
 
     db_session.add(
         PlayerSeasonStats(
@@ -460,10 +471,12 @@ async def test_rank_season_scope_matches_standings_ordering(db_session):
     await db_session.commit()
 
     result_a = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_a.id, season_id=season.id
+        db_session, league_id=league.id, player_id=player_a.id, season_id=season.id,
+        caller_player_id=player_a.id,
     )
     result_b = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_b.id, season_id=season.id
+        db_session, league_id=league.id, player_id=player_b.id, season_id=season.id,
+        caller_player_id=player_b.id,
     )
 
     assert result_b is not None
@@ -477,9 +490,10 @@ async def test_rank_none_when_no_stats_row(db_session):
     """rank remains None when the player has no stats row (never played)."""
     player = await _player(db_session, "Ghost G")
     league = await _league(db_session, "Empty League Ghost")
+    await _league_member(db_session, league, player)
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player.id
+        db_session, league_id=league.id, player_id=player.id, caller_player_id=player.id
     )
 
     assert result is not None
@@ -497,6 +511,8 @@ async def test_rank_tiebreak_by_avg_point_diff_then_win_rate(db_session):
     player_b = await _player(db_session, "Tie B")
     league = await _league(db_session, "Tie League")
     season = await _season(db_session, league, "Tie Season")
+    await _league_member(db_session, league, player_a)
+    await _league_member(db_session, league, player_b)
 
     # Same points, player_b has higher avg_point_diff
     db_session.add(
@@ -524,10 +540,12 @@ async def test_rank_tiebreak_by_avg_point_diff_then_win_rate(db_session):
     await db_session.commit()
 
     result_a = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_a.id, season_id=season.id
+        db_session, league_id=league.id, player_id=player_a.id, season_id=season.id,
+        caller_player_id=player_a.id,
     )
     result_b = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player_b.id, season_id=season.id
+        db_session, league_id=league.id, player_id=player_b.id, season_id=season.id,
+        caller_player_id=player_b.id,
     )
 
     assert result_b is not None and result_a is not None
@@ -552,6 +570,7 @@ async def test_game_history_populated_with_viewed_player_perspective(db_session)
     opp1 = await _player(db_session, "Opp One")
     opp2 = await _player(db_session, "Opp Two")
     league = await _league(db_session, "History League")
+    await _league_member(db_session, league, viewed)
     sess = await _session(db_session, league, session_date="2024-03-15")
 
     # viewed + partner beat opp1 + opp2 (21-15, winner=1 because viewed is on team1)
@@ -581,7 +600,7 @@ async def test_game_history_populated_with_viewed_player_perspective(db_session)
     await db_session.commit()
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=viewed.id
+        db_session, league_id=league.id, player_id=viewed.id, caller_player_id=viewed.id
     )
 
     assert result is not None
@@ -609,6 +628,7 @@ async def test_game_history_opponent_perspective(db_session):
     opp1 = await _player(db_session, "Winner One")
     opp2 = await _player(db_session, "Winner Two")
     league = await _league(db_session, "Perspective League")
+    await _league_member(db_session, league, viewed)
     sess = await _session(db_session, league, session_date="2024-04-01")
 
     # viewed is on team2 and loses (winner=1 = team1 wins)
@@ -638,7 +658,7 @@ async def test_game_history_opponent_perspective(db_session):
     await db_session.commit()
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=viewed.id
+        db_session, league_id=league.id, player_id=viewed.id, caller_player_id=viewed.id
     )
 
     assert result is not None
@@ -660,6 +680,7 @@ async def test_game_history_scoped_to_league(db_session):
     opp2 = await _player(db_session, "Opp ML2")
     league_a = await _league(db_session, "League A ML")
     league_b = await _league(db_session, "League B ML")
+    await _league_member(db_session, league_a, viewed)
 
     sess_a = await _session(db_session, league_a, session_date="2024-03-01")
     sess_b = await _session(db_session, league_b, session_date="2024-03-02")
@@ -681,7 +702,7 @@ async def test_game_history_scoped_to_league(db_session):
     await db_session.commit()
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league_a.id, player_id=viewed.id
+        db_session, league_id=league_a.id, player_id=viewed.id, caller_player_id=viewed.id
     )
 
     assert result is not None
@@ -701,6 +722,7 @@ async def test_game_history_scoped_to_season(db_session):
     opp2 = await _player(db_session, "Season Opp2")
     league = await _league(db_session, "Season Filter League")
     season = await _season(db_session, league, "Spring 2024")
+    await _league_member(db_session, league, viewed)
 
     sess_in = await _session(
         db_session, league, season=season, session_date="2024-03-01"
@@ -726,7 +748,8 @@ async def test_game_history_scoped_to_season(db_session):
     await db_session.commit()
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=viewed.id, season_id=season.id
+        db_session, league_id=league.id, player_id=viewed.id, season_id=season.id,
+        caller_player_id=viewed.id,
     )
 
     assert result is not None
@@ -739,9 +762,10 @@ async def test_game_history_empty_when_no_matches(db_session):
     """game_history is an empty list when the player has no matches in the league."""
     player = await _player(db_session, "No Games Player")
     league = await _league(db_session, "No Games League")
+    await _league_member(db_session, league, player)
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player.id
+        db_session, league_id=league.id, player_id=player.id, caller_player_id=player.id
     )
 
     assert result is not None
@@ -758,6 +782,7 @@ async def test_rating_delta_always_none(db_session):
     """rating_delta is always None (MVP decision, not computed)."""
     player = await _player(db_session, "Delta Player")
     league = await _league(db_session, "Delta League")
+    await _league_member(db_session, league, player)
 
     db_session.add(
         PlayerLeagueStats(
@@ -773,7 +798,7 @@ async def test_rating_delta_always_none(db_session):
     await db_session.commit()
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player.id
+        db_session, league_id=league.id, player_id=player.id, caller_player_id=player.id
     )
 
     assert result is not None
@@ -786,6 +811,7 @@ async def test_rating_is_points_based(db_session):
     player = await _player(db_session, "Rating Player")
     league = await _league(db_session, "Rating League")
     season = await _season(db_session, league, "Rating Season")
+    await _league_member(db_session, league, player)
 
     db_session.add(
         PlayerSeasonStats(
@@ -801,7 +827,8 @@ async def test_rating_is_points_based(db_session):
     await db_session.commit()
 
     result = await get_league_player_stats_full(
-        db_session, league_id=league.id, player_id=player.id, season_id=season.id
+        db_session, league_id=league.id, player_id=player.id, season_id=season.id,
+        caller_player_id=player.id,
     )
 
     assert result is not None
@@ -815,19 +842,60 @@ async def test_rating_is_points_based(db_session):
 
 
 @pytest.mark.asyncio
-async def test_access_gate_public_league_readable_by_anyone(db_session):
-    """Public leagues are readable without authentication (no caller_player_id)."""
+async def test_access_gate_public_league_member_allowed(db_session):
+    """Public leagues are members-only for per-player stats; a member can read."""
     player = await _player(db_session, "Public Player")
+    member = await _player(db_session, "Public Member Caller")
     league = await _league(db_session, "Public League", is_public=True)
+    await _league_member(db_session, league, member)
 
     result = await get_league_player_stats_full(
         db_session,
         league_id=league.id,
         player_id=player.id,
-        caller_player_id=None,
+        caller_player_id=member.id,
     )
 
     assert result is not None
+
+
+@pytest.mark.asyncio
+async def test_access_gate_public_league_non_member_raises_403(db_session):
+    """A non-member caller gets 403 even for a public league (members-only stats)."""
+    from fastapi import HTTPException
+
+    player = await _player(db_session, "Public Target")
+    non_member = await _player(db_session, "Public Non Member")
+    league = await _league(db_session, "Public League NM", is_public=True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_league_player_stats_full(
+            db_session,
+            league_id=league.id,
+            player_id=player.id,
+            caller_player_id=non_member.id,
+        )
+
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_access_gate_public_league_unauthenticated_raises_403(db_session):
+    """An unauthenticated caller (None) gets 403 for a public league too."""
+    from fastapi import HTTPException
+
+    player = await _player(db_session, "Public Anon Target")
+    league = await _league(db_session, "Public League Anon", is_public=True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_league_player_stats_full(
+            db_session,
+            league_id=league.id,
+            player_id=player.id,
+            caller_player_id=None,
+        )
+
+    assert exc_info.value.status_code == 403
 
 
 @pytest.mark.asyncio

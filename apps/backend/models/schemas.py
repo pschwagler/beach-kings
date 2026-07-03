@@ -649,6 +649,7 @@ class LeagueDetailResponse(LeagueResponse):
     user_wins: Optional[int] = None
     user_losses: Optional[int] = None
     user_rating: Optional[float] = None
+    has_pending_request: bool = False  # caller has a pending join request
 
 
 class LeagueMemberBase(BaseModel):

@@ -94,6 +94,7 @@ const mockGetLeagueMembers = jest.fn();
 const mockGetLeagueJoinRequests = jest.fn();
 const mockApproveJoinRequest = jest.fn();
 const mockRejectJoinRequest = jest.fn();
+const mockRequestToJoinLeague = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -113,6 +114,7 @@ jest.mock('@/lib/api', () => ({
     joinSignup: (...args: unknown[]) => mockJoinSignup(...args),
     dropSignup: (...args: unknown[]) => mockDropSignup(...args),
     getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
+    requestToJoinLeague: (...args: unknown[]) => mockRequestToJoinLeague(...args),
   },
 }));
 
@@ -161,6 +163,37 @@ const MOCK_DETAIL = {
   user_wins: 10,
   user_losses: 3,
   user_rating: 1520,
+  has_pending_request: false,
+};
+
+/** A non-member (visitor) view of an open league. */
+const VISITOR_DETAIL = {
+  ...MOCK_DETAIL,
+  user_role: null,
+  user_rank: null,
+  user_wins: null,
+  user_losses: null,
+  user_rating: null,
+  has_pending_request: false,
+};
+
+const ONE_STANDING = {
+  standings: [
+    {
+      player_id: 77,
+      rank: 1,
+      display_name: 'Sandy Spiker',
+      initials: 'SS',
+      avatar_url: null,
+      wins: 12,
+      losses: 1,
+      win_rate: 92.3,
+      rating: 1600,
+      rating_delta: null,
+      games_played: 13,
+    },
+  ],
+  season_info: null,
 };
 
 beforeEach(() => {
@@ -182,6 +215,7 @@ beforeEach(() => {
   mockGetLeagueJoinRequests.mockResolvedValue({ pending: [], rejected: [] });
   mockApproveJoinRequest.mockResolvedValue({ success: true });
   mockRejectJoinRequest.mockResolvedValue({ success: true });
+  mockRequestToJoinLeague.mockResolvedValue({ success: true, message: 'ok' });
 });
 
 // ---------------------------------------------------------------------------
@@ -394,5 +428,75 @@ describe('LeagueDetailScreen — signups tab', () => {
     await waitFor(() => {
       expect(screen.getByTestId('drop-event-btn-99')).toBeTruthy();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Non-member (visitor) view
+// ---------------------------------------------------------------------------
+
+describe('LeagueDetailScreen — non-member visitor', () => {
+  it('shows only standings + info tabs (hides games, chat, sign ups)', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-segment-bar')).toBeTruthy());
+
+    expect(screen.getByTestId('segment-tab-standings')).toBeTruthy();
+    expect(screen.getByTestId('segment-tab-info')).toBeTruthy();
+    expect(screen.queryByTestId('segment-tab-games')).toBeNull();
+    expect(screen.queryByTestId('segment-tab-chat')).toBeNull();
+    expect(screen.queryByTestId('segment-tab-signups')).toBeNull();
+  });
+
+  it('does not show the Add Game action', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-segment-bar')).toBeTruthy());
+    expect(screen.queryByTestId('league-add-game-btn')).toBeNull();
+  });
+
+  it('renders a Request to join CTA for an open league', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-join-banner')).toBeTruthy());
+    expect(screen.getByTestId('league-join-btn')).toBeTruthy();
+  });
+
+  it('calls requestToJoinLeague when the CTA is pressed', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-join-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('league-join-btn'));
+    await waitFor(() => expect(mockRequestToJoinLeague).toHaveBeenCalledWith(1));
+  });
+
+  it('shows "Invite only" for an invite-only league (no join button)', async () => {
+    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, access_type: 'invite_only' });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-join-banner')).toBeTruthy());
+    expect(screen.getByTestId('league-join-invite-only')).toBeTruthy();
+    expect(screen.queryByTestId('league-join-btn')).toBeNull();
+  });
+
+  it('shows "Request sent" when a request is already pending', async () => {
+    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, has_pending_request: true });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-join-banner')).toBeTruthy());
+    expect(screen.getByTestId('league-join-pending')).toBeTruthy();
+    expect(screen.queryByTestId('league-join-btn')).toBeNull();
+  });
+
+  it('routes a standings player tap to the public profile (not in-league stats)', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    mockGetLeagueStandings.mockResolvedValue(ONE_STANDING);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+
+    // Standings is the default tab for a visitor.
+    await waitFor(() => expect(screen.getByTestId('standings-row-77')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('standings-row-77'));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    const dest = mockPush.mock.calls[0][0] as string;
+    expect(dest).toContain('/(stack)/player/77');
   });
 });

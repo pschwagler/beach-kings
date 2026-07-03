@@ -517,6 +517,8 @@ async def get_league_detail(
       falls back to the most-recent season by start_date when none is active
       (e.g. an ended league), so the last season is still surfaced.
     - user_role, user_rank, user_wins, user_losses, user_rating (null for non-members)
+    - has_pending_request: True when the caller has a pending join request for
+      this league (drives the non-member "Request sent" CTA state)
     """
     # Base league + location
     result = await session.execute(
@@ -566,8 +568,21 @@ async def get_league_detail(
     user_wins: Optional[int] = None
     user_losses: Optional[int] = None
     user_rating: Optional[float] = None
+    has_pending_request = False
 
     if caller_player_id is not None:
+        # Pending join request — drives the non-member "Request sent" CTA state.
+        pending_result = await session.execute(
+            select(LeagueRequest.id).where(
+                and_(
+                    LeagueRequest.league_id == league_id,
+                    LeagueRequest.player_id == caller_player_id,
+                    LeagueRequest.status == "pending",
+                )
+            )
+        )
+        has_pending_request = pending_result.scalar_one_or_none() is not None
+
         # Membership role
         role_result = await session.execute(
             select(LeagueMember.role).where(
@@ -643,6 +658,7 @@ async def get_league_detail(
         "user_wins": user_wins,
         "user_losses": user_losses,
         "user_rating": user_rating,
+        "has_pending_request": has_pending_request,
     }
 
 

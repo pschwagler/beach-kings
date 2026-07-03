@@ -12,7 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.services import auth_service, user_service, data_service
 from backend.database.db import get_db_session
-from backend.database.models import Court, LeagueMember, Player, Season, WeeklySchedule, Signup
+from backend.database.models import (
+    Court,
+    League,
+    LeagueMember,
+    Player,
+    Season,
+    WeeklySchedule,
+    Signup,
+)
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
@@ -298,6 +306,40 @@ def make_require_league_member():
                 status_code=status.HTTP_403_FORBIDDEN, detail="League membership required"
             )
         return user
+
+    return _dep
+
+
+def make_require_league_member_or_public():
+    """Allow any authenticated user to read a PUBLIC league; private leagues
+    still require membership.
+
+    Used for read-only league surfaces that non-members are allowed to view
+    for public leagues (e.g. the standings tab, which is the public "shop
+    window" shown to visitors who reach a league via discovery). Private,
+    invite-only leagues remain members-only.
+    """
+
+    async def _dep(
+        league_id: int,
+        user: dict = Depends(get_current_user),
+        session: AsyncSession = Depends(get_db_session),
+    ) -> dict:
+        if await _is_system_admin(session, user):
+            return user
+        if await _has_league_role(
+            session, user_id=user["id"], league_id=league_id, required_role=None
+        ):
+            return user
+        # Non-member: permitted only when the league is public.
+        result = await session.execute(
+            select(League.is_public).where(League.id == league_id)
+        )
+        if result.scalar_one_or_none():
+            return user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="League membership required"
+        )
 
     return _dep
 

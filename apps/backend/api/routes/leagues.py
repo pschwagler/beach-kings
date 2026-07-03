@@ -18,6 +18,7 @@ from backend.api.auth_dependencies import (
     require_system_admin,
     make_require_league_admin,
     make_require_league_member,
+    make_require_league_member_or_public,
 )
 from backend.models.schemas import (
     LeagueCreate,
@@ -892,10 +893,15 @@ async def create_league_message(
 async def get_league_standings(
     league_id: int,
     season_id: Optional[int] = None,
-    user: dict = Depends(make_require_league_member()),
+    user: dict = Depends(make_require_league_member_or_public()),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get league standings, optionally filtered by season (league_member)."""
+    """Get league standings, optionally filtered by season.
+
+    Readable by any authenticated user for public leagues (the standings are the
+    public "shop window" shown to non-member visitors); private leagues require
+    membership.
+    """
     try:
         return await data_service.get_league_standings(session, league_id, season_id=season_id)
     except Exception as e:
