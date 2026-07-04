@@ -133,22 +133,17 @@ function ActiveSessionBanner({
         Active Session
       </Text>
       <View className="bg-surface rounded-[14px] p-4 shadow-sm border-l-4 border-l-success dark:shadow-none dark:border border-divider">
-        {/* Header row */}
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center gap-[5px]">
-            <View className="w-[7px] h-[7px] rounded-full bg-green-500" />
-            <Text className="text-[11px] font-bold text-success uppercase tracking-wide">
-              Active
-            </Text>
-          </View>
-          <Text className="text-[11px] text-muted">
-            {session.date != null ? session.date : 'In progress'}
+        {/* Header row — status indicator only; the date is shown as the title below */}
+        <View className="flex-row items-center gap-[5px] mb-3">
+          <View className="w-[7px] h-[7px] rounded-full bg-green-500" />
+          <Text className="text-[11px] font-bold text-success uppercase tracking-wide">
+            Active
           </Text>
         </View>
 
-        {/* Session name */}
+        {/* Session name (falls back to the date-based auto name) */}
         <Text className="text-[16px] font-bold text-default mb-1">
-          {session.name ?? `Session #${session.id}`}
+          {session.name ?? (session.date != null ? session.date : `Session #${session.id}`)}
         </Text>
 
         {/* Continue button */}

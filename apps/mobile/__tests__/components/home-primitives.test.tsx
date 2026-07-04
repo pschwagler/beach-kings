@@ -162,7 +162,7 @@ describe('QuickStatsRow', () => {
     const { getByText } = render(
       <QuickStatsRow firstName="Ben" rating={1450} wins={0} losses={0} />,
     );
-    expect(getByText('1,450')).toBeTruthy();
+    expect(getByText('1450')).toBeTruthy();
   });
 });
 

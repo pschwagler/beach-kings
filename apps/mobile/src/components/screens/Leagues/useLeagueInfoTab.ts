@@ -84,7 +84,10 @@ export function useLeagueInfoTab(
           player_id: m.player_id,
           display_name: m.player_name ?? `Player ${m.player_id}`,
           initials: toInitials(m.player_name),
-          role: (m.role as 'admin' | 'member') ?? 'member',
+          // Backend `role` can also be "placeholder" (guest/unclaimed players);
+          // normalize anything that isn't an admin to "member" so the role badge
+          // renders consistently instead of silently vanishing for guests.
+          role: m.role === 'admin' ? 'admin' : 'member',
           joined_at: m.joined_at ?? m.created_at ?? '',
         }),
       );

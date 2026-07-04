@@ -770,7 +770,7 @@ export default function ScoreGameScreen({
         message="You haven't saved this game yet. Your players and scores will be lost."
         confirmLabel="Discard"
         confirmVariant="destructive"
-        cancelLabel="Keep Scoring"
+        cancelLabel="Keep Editing"
         onConfirm={handleDiscardConfirm}
         onCancel={handleDiscardCancel}
       />

@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
 import { routes } from '@/lib/navigation';
+import { formatElo } from '@/lib/formatters';
 import { useMyStatsScreen, type TimeFilter } from './useMyStatsScreen';
 import StatsSkeleton from './StatsSkeleton';
 import StatsErrorState from './StatsErrorState';
@@ -227,7 +228,7 @@ export default function MyStatsScreen(): React.ReactNode {
         <View className="flex-row bg-surface border-t border-b border-divider">
           <StatsBarItem value={String(overall.games_played)} label="Games" />
           <View className="w-px bg-divider" />
-          <StatsBarItem value={String(overall.rating)} label="Rating" />
+          <StatsBarItem value={formatElo(overall.rating)} label="Rating" />
           <View className="w-px bg-divider" />
           <StatsBarItem value={`${overall.wins}-${overall.losses}`} label="W-L" />
           <View className="w-px bg-divider" />

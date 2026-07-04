@@ -100,12 +100,32 @@ export function formatWinRate(wins: number, losses: number): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Formats an ELO rating with thousands separator.
+ * Formats an ELO rating for display: rounded to the nearest whole number,
+ * with no thousands separator.
  *
- * @example formatElo(1450) // "1,450"
+ * @example formatElo(1446.9) // "1447"
+ * @example formatElo(1450)   // "1450"
  */
 export function formatElo(rating: number): string {
-  return rating.toLocaleString('en-US');
+  return String(Math.round(rating));
+}
+
+// ---------------------------------------------------------------------------
+// Pluralization
+// ---------------------------------------------------------------------------
+
+/**
+ * Formats a count with its noun, choosing singular vs. plural form.
+ * The plural defaults to `${singular}s`; pass an explicit `plural` for
+ * irregular nouns.
+ *
+ * @example pluralize(1, 'game')            // "1 game"
+ * @example pluralize(3, 'game')            // "3 games"
+ * @example pluralize(2, 'child', 'children') // "2 children"
+ */
+export function pluralize(count: number, singular: string, plural?: string): string {
+  const word = count === 1 ? singular : plural ?? `${singular}s`;
+  return `${count} ${word}`;
 }
 
 // ---------------------------------------------------------------------------

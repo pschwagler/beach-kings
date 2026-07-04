@@ -21,6 +21,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
+import { formatElo } from '@/lib/formatters';
 import {
   useLeagueStatsTab,
   type StatsInnerTab,
@@ -436,7 +437,7 @@ export default function LeagueStatsTab({
         />
         <OverviewTile
           label="Rating"
-          value={String(stats.rating)}
+          value={formatElo(stats.rating)}
           delta={stats.rating_delta}
         />
         <OverviewTile

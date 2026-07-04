@@ -20,6 +20,7 @@ import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native'
 import type { League, Session } from '@beach-kings/shared';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { TrophyIcon } from '@/components/ui/icons';
+import { pluralize } from '@/lib/formatters';
 import { hapticMedium } from '@/utils/haptics';
 
 // ---------------------------------------------------------------------------
@@ -119,7 +120,7 @@ function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.Re
         <Text className={`font-bold text-[15px] ${
           hasActiveSession ? 'text-white' : 'text-default'
         }`}>
-          {hasActiveSession ? `Continue (${matchCount} games)` : 'Add Game'}
+          {hasActiveSession ? `Continue (${pluralize(matchCount, 'game')})` : 'Add Game'}
         </Text>
       </Pressable>
     </View>

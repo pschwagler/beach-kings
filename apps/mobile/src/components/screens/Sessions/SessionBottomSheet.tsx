@@ -26,6 +26,7 @@ import {
 import { useRouter } from 'expo-router';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
+import { pluralize } from '@/lib/formatters';
 import { api } from '@/lib/api';
 
 interface Props {
@@ -166,7 +167,7 @@ export default function SessionBottomSheet({
           {sessionLabel}
         </Text>
         <Text className="text-[12px] text-muted text-center mb-[16px]">
-          {isSubmitted ? 'Submitted' : 'Active'} · {gameCount} games · {playerCount} players
+          {isSubmitted ? 'Submitted' : 'Active'} · {pluralize(gameCount, 'game')} · {pluralize(playerCount, 'player')}
         </Text>
 
         <MenuItem

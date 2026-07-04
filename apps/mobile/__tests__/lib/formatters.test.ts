@@ -6,6 +6,7 @@ import {
   formatRecord,
   formatWinRate,
   formatElo,
+  pluralize,
   formatPlayerName,
   formatPlayerShort,
   formatSessionSubtitle,
@@ -62,14 +63,36 @@ describe('formatWinRate', () => {
 // formatElo
 // ---------------------------------------------------------------------------
 describe('formatElo', () => {
-  it('formats 1450 with thousands separator', () => {
-    const result = formatElo(1450);
-    expect(result).toContain('1');
-    expect(result).toContain('450');
+  it('formats a whole rating with no thousands separator', () => {
+    expect(formatElo(1450)).toBe('1450');
   });
 
-  it('formats sub-1000 ratings without separator', () => {
+  it('rounds a fractional rating to the nearest integer', () => {
+    expect(formatElo(1446.9)).toBe('1447');
+    expect(formatElo(1446.4)).toBe('1446');
+  });
+
+  it('formats sub-1000 ratings', () => {
     expect(formatElo(900)).toBe('900');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pluralize
+// ---------------------------------------------------------------------------
+describe('pluralize', () => {
+  it('uses the singular form for a count of 1', () => {
+    expect(pluralize(1, 'game')).toBe('1 game');
+  });
+
+  it('uses the plural form for counts other than 1', () => {
+    expect(pluralize(0, 'game')).toBe('0 games');
+    expect(pluralize(3, 'game')).toBe('3 games');
+  });
+
+  it('honors an explicit irregular plural', () => {
+    expect(pluralize(2, 'child', 'children')).toBe('2 children');
+    expect(pluralize(1, 'child', 'children')).toBe('1 child');
   });
 });
 

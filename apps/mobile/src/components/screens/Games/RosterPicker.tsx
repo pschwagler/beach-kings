@@ -208,7 +208,7 @@ function PlayerRow({ player, badge, onPress }: PlayerRowProps): React.ReactNode 
         name={player.display_name}
         imageUrl={player.avatar_url}
         size="sm"
-        variant="muted"
+        variant="brand"
       />
       <View className="flex-1 min-w-0">
         <Text className="text-[14px] font-semibold text-default">

@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
+import { pluralize } from '@/lib/formatters';
 import type { PlayerLeague } from '@beach-kings/shared';
 
 interface PlayerLeaguesListProps {
@@ -52,7 +53,7 @@ export default function PlayerLeaguesList({
             </Text>
             <Text className="text-xs text-muted mt-[2px]">
               {league.rank != null ? `Ranked #${league.rank} · ` : ''}
-              {league.games_played} games
+              {pluralize(league.games_played, 'game')}
             </Text>
           </View>
 

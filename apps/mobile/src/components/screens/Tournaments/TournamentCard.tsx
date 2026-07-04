@@ -8,6 +8,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import type { KobTournament } from '@beach-kings/shared';
 import { hapticLight } from '@/utils/haptics';
+import { pluralize } from '@/lib/formatters';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -66,7 +67,7 @@ function ActiveCard({ tournament, onPress }: ActiveCardProps): React.ReactNode {
         </View>
         <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
           <Text className="text-[11px] text-muted">
-            {tournament.player_count} players
+            {pluralize(tournament.player_count, 'player')}
           </Text>
         </View>
         <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
@@ -149,7 +150,7 @@ function PastCard({ tournament, onPress }: PastCardProps): React.ReactNode {
           {tournament.name}
         </Text>
         <Text className="text-[12px] text-muted mt-[2px]">
-          {formatDate(tournament.scheduled_date)} · {tournament.player_count} players
+          {formatDate(tournament.scheduled_date)} · {pluralize(tournament.player_count, 'player')}
         </Text>
       </View>
     </TouchableOpacity>

@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
+import { formatElo } from '@/lib/formatters';
 
 interface StatsBarProps {
   readonly games: number | null;
@@ -75,7 +76,7 @@ export default function StatsBar({
         muted={hasNoData}
       />
       <StatCell
-        value={rating != null ? String(rating) : '--'}
+        value={rating != null ? formatElo(rating) : '--'}
         label="Rating"
         muted={rating == null}
       />

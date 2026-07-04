@@ -3,8 +3,9 @@
  *
  * Sizes: sm=32, md=40, lg=56, xl=80.
  * Variants control the fallback-circle color when no photo is available:
- *   teal (default) — brand teal bg, white text
- *   gold           — brand gold bg, white text
+ *   teal (default) — bright team-identity teal bg, white text (for team chips)
+ *   gold           — bright team-identity gold bg, white text (for team chips)
+ *   brand          — semantic brand-teal bg (navy in light, teal in dark), white text
  *   muted          — elevated/surface bg, muted text
  */
 
@@ -12,7 +13,7 @@ import React, { useState } from 'react';
 import { View, Text, Image } from 'react-native';
 
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
-export type AvatarVariant = 'teal' | 'gold' | 'muted';
+export type AvatarVariant = 'teal' | 'gold' | 'brand' | 'muted';
 
 interface AvatarProps {
   readonly imageUrl?: string | null;
@@ -39,20 +40,34 @@ const textSizes: Record<AvatarSize, string> = {
 };
 
 /**
- * Avatar bg is an inline style rather than a NativeWind semantic class because
- * `bg-brand-teal` in light mode resolves to the dark-navy primary text color
- * (#1a3a4a), which is invisible against the team chip backgrounds. These are
- * the bright team-identity colors used consistently in both themes.
+ * The `teal`/`gold` bg is an inline style rather than a NativeWind semantic
+ * class because `bg-brand-teal` in light mode resolves to the dark-navy primary
+ * text color (#1a3a4a), which is invisible against the team chip backgrounds.
+ * These are the bright team-identity colors used consistently in both themes.
+ *
+ * The `brand` variant instead uses the semantic `bg-brand-teal` class (navy in
+ * light, teal in dark) so plain-background rows (e.g. roster/standings lists)
+ * match the filled navy avatars used elsewhere.
  */
 const variantBgColor: Record<AvatarVariant, string | undefined> = {
   teal: '#4daacc',
   gold: '#d4a843',
+  brand: undefined,
   muted: undefined,
+};
+
+/** Applied only when the variant has no inline bg color (brand/muted). */
+const variantBgClass: Record<AvatarVariant, string> = {
+  teal: '',
+  gold: '',
+  brand: 'bg-brand-teal',
+  muted: 'bg-elevated',
 };
 
 const variantTextClass: Record<AvatarVariant, string> = {
   teal: 'text-white',
   gold: 'text-white',
+  brand: 'text-white',
   muted: 'text-muted',
 };
 
@@ -99,7 +114,7 @@ export default function Avatar({
         borderRadius: dimension / 2,
         ...(bgColor != null ? { backgroundColor: bgColor } : {}),
       }}
-      className={`${bgColor == null ? 'bg-elevated' : ''} items-center justify-center ${className}`}
+      className={`${variantBgClass[variant]} items-center justify-center ${className}`}
       accessible={accessible}
       accessibilityLabel={accessible ? name : undefined}
     >
