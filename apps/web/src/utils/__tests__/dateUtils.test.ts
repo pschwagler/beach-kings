@@ -308,3 +308,51 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime(twentyEightDaysAgo)).toBe('4 weeks ago');
   });
 });
+
+// ─── formatRelativeTime — 'short' style ───────────────────────────────────────
+
+describe('formatRelativeTime (style: short)', () => {
+  const short = (ts) => formatRelativeTime(ts, { style: 'short' });
+  let now;
+
+  beforeEach(() => {
+    now = new Date('2024-06-15T12:00:00Z');
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns null for null/invalid input', () => {
+    expect(short(null)).toBeNull();
+    expect(short('not-a-date')).toBeNull();
+  });
+
+  it('returns "just now" under a minute', () => {
+    expect(short(new Date(now.getTime() - 30 * 1000).toISOString())).toBe('just now');
+  });
+
+  it('uses compact minutes/hours', () => {
+    expect(short(new Date(now.getTime() - 5 * 60 * 1000).toISOString())).toBe('5m ago');
+    expect(short(new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString())).toBe('3h ago');
+  });
+
+  it('uses compact days including the 1-day case (no "Yesterday")', () => {
+    expect(short(new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())).toBe('1d ago');
+    expect(short(new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString())).toBe('3d ago');
+  });
+
+  it('uses compact weeks from 7 to 29 days', () => {
+    expect(short(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString())).toBe('1w ago');
+    expect(short(new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000).toISOString())).toBe('3w ago');
+  });
+
+  it('falls back to an absolute date (no year) at 30+ days', () => {
+    const result = short(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString());
+    expect(typeof result).toBe('string');
+    expect(result).not.toMatch(/ago/);
+    expect(result).not.toMatch(/\d{4}/); // compact form omits the year
+  });
+});

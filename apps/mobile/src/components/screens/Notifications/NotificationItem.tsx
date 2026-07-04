@@ -11,7 +11,11 @@ import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
-import type { Notification, NotificationType } from '@beach-kings/shared';
+import {
+  type Notification,
+  type NotificationType,
+  formatRelativeTime,
+} from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Icon helpers
@@ -145,25 +149,6 @@ function TypeIcon({ type, color }: TypeIconProps): React.ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Timestamp
-// ---------------------------------------------------------------------------
-
-function formatNotificationTime(isoString: string): string {
-  const now = new Date();
-  const then = new Date(isoString);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMinutes = Math.floor(diffMs / 60_000);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMinutes < 1) return 'just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -237,7 +222,7 @@ export default function NotificationItem({
           </Text>
         )}
         <Text className="text-[11px] text-tertiary mt-[4px]">
-          {formatNotificationTime(notification.created_at)}
+          {formatRelativeTime(notification.created_at, { style: 'short' })}
         </Text>
 
         {/* Friend request actions */}

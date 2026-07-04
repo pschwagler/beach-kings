@@ -6,7 +6,7 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
-import type { Conversation } from '@beach-kings/shared';
+import { type Conversation, formatRelativeTime } from '@beach-kings/shared';
 import { hapticLight } from '@/utils/haptics';
 
 /** Returns initials from a full name (up to 2 chars). */
@@ -17,26 +17,6 @@ function getInitials(name: string): string {
     .slice(0, 2)
     .join('')
     .toUpperCase();
-}
-
-/**
- * Format a message timestamp for the conversation list.
- * - < 1 hour → "Xm ago"
- * - < 24 h → "Xh ago"
- * - yesterday → "Yesterday"
- * - else → month/day
- */
-function formatConvoTime(isoString: string): string {
-  const now = Date.now();
-  const ts = new Date(isoString).getTime();
-  const diffMs = now - ts;
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 60) return `${Math.max(diffMin, 1)}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffHr < 48) return 'Yesterday';
-  const d = new Date(ts);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 interface ConversationRowProps {
@@ -88,7 +68,7 @@ export default function ConversationRow({
             {conversation.full_name}
           </Text>
           <Text className="text-[11px] text-muted flex-shrink-0 ml-2">
-            {formatConvoTime(conversation.last_message_at)}
+            {formatRelativeTime(conversation.last_message_at, { style: 'short' })}
           </Text>
         </View>
         <Text

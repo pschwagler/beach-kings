@@ -90,22 +90,56 @@ export function utcTimeToLocalWithTimezone(utcTimeStr: string | null | undefined
 }
 
 /**
- * Format a timestamp as a relative time string
+ * Output style for {@link formatRelativeTime}.
+ *
+ * - `'long'` — verbose, spelled-out units: "Just now", "5 minutes ago",
+ *   "Yesterday", "3 days ago", "2 weeks ago", then an absolute date (with year)
+ *   for anything older than ~30 days.
+ * - `'short'` — compact units for tight UI (chat rows, notification stamps,
+ *   session cards): "just now", "5m ago", "2h ago", "3d ago", "3w ago", then an
+ *   absolute date (no year) for anything older than ~30 days.
  */
-export function formatRelativeTime(timestamp: string | Date | null | undefined): string | null {
+export type RelativeTimeStyle = 'long' | 'short';
+
+export interface RelativeTimeOptions {
+  readonly style?: RelativeTimeStyle;
+}
+
+/**
+ * Format a timestamp as a relative time string. The single, app-wide relative
+ * time helper — use this everywhere (web and mobile) rather than hand-rolling.
+ *
+ * @param timestamp - ISO string or Date. Null/undefined/invalid returns null.
+ * @param options - `style` selects verbose ('long', default) vs compact ('short').
+ * @returns The relative string, or null when the timestamp can't be parsed.
+ */
+export function formatRelativeTime(
+  timestamp: string | Date | null | undefined,
+  options: RelativeTimeOptions = {},
+): string | null {
   if (!timestamp) return null;
-  
+
   const date = new Date(timestamp);
   if (isNaN(date.getTime())) return null;
-  
+
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
+
+  if (options.style === 'short') {
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  // 'long' (default) — unchanged legacy behavior.
   if (diffDays === 0) {
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours === 0) {
-      const diffMins = Math.floor(diffMs / (1000 * 60));
       if (diffMins < 1) return 'Just now';
       return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
     }
