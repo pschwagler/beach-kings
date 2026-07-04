@@ -127,8 +127,14 @@ def _build_entry(
         else:
             result = "L"
 
-    session_submitted = (
-        row.session_status == SessionStatus.SUBMITTED or row.session_status == "SUBMITTED"
+    # A session is "submitted" for display purposes whenever it is no longer
+    # ACTIVE. Both SUBMITTED and EDITED are locked/finalized states (EDITED is a
+    # session that was submitted and then had a game re-locked). Only ACTIVE is
+    # genuinely live, so treating anything != ACTIVE as submitted prevents EDITED
+    # sessions from showing a phantom "LIVE" pill in the mobile games list.
+    session_submitted = row.session_status not in (
+        SessionStatus.ACTIVE,
+        "ACTIVE",
     )
 
     rating_change: Optional[int] = None
