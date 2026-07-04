@@ -1,0 +1,228 @@
+/**
+ * Tests for the shared useFriends hook.
+ *
+ * Covers:
+ *   - Normalizing paginated ({ items }) vs bare-array responses.
+ *   - Suggestions gate (withSuggestions: false must not call the endpoint).
+ *   - Decoupled errors: a requests/suggestions failure is non-fatal; only a
+ *     friends-list failure is fatal.
+ *   - Client-side name filter over the friends list.
+ *   - Optimistic accept / decline with rollback on failure.
+ *   - Optimistic add-suggestion with rollback on failure.
+ */
+
+import { renderHook, act, waitFor } from '@testing-library/react-native';
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+jest.mock('@/utils/haptics', () => ({
+  hapticMedium: jest.fn(),
+}));
+
+jest.mock('@/lib/api', () => ({
+  api: {
+    getFriends: jest.fn(),
+    getFriendRequests: jest.fn(),
+    getFriendSuggestions: jest.fn(),
+    sendFriendRequest: jest.fn(),
+    acceptFriendRequest: jest.fn(),
+    declineFriendRequest: jest.fn(),
+  },
+}));
+
+import { useFriends } from '../useFriends';
+import { api } from '@/lib/api';
+
+const mockApi = api as unknown as {
+  getFriends: jest.Mock;
+  getFriendRequests: jest.Mock;
+  getFriendSuggestions: jest.Mock;
+  sendFriendRequest: jest.Mock;
+  acceptFriendRequest: jest.Mock;
+  declineFriendRequest: jest.Mock;
+};
+
+// ---------------------------------------------------------------------------
+// Test data
+// ---------------------------------------------------------------------------
+
+const FRIEND = {
+  id: 1,
+  player_id: 30,
+  full_name: 'Morgan Davis',
+  avatar: null,
+  location_name: 'San Diego',
+  level: 'A' as const,
+};
+
+const FRIEND_2 = {
+  id: 2,
+  player_id: 31,
+  full_name: 'Riley Chen',
+  avatar: null,
+  location_name: 'Los Angeles',
+  level: 'AA' as const,
+};
+
+const REQUEST = {
+  id: 100,
+  sender_player_id: 50,
+  sender_name: 'Alex Torres',
+  sender_avatar: null,
+  receiver_player_id: 0,
+  receiver_name: 'Me',
+  receiver_avatar: null,
+  status: 'pending' as const,
+  created_at: '2026-04-19T10:00:00Z',
+};
+
+const SUGGESTION = {
+  id: 3,
+  player_id: 40,
+  full_name: 'Sam Rivera',
+  avatar: null,
+  location_name: 'San Diego',
+  level: 'B' as const,
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockApi.getFriends.mockResolvedValue({ items: [FRIEND, FRIEND_2] });
+  mockApi.getFriendRequests.mockResolvedValue({ items: [REQUEST] });
+  mockApi.getFriendSuggestions.mockResolvedValue([SUGGESTION]);
+  mockApi.sendFriendRequest.mockResolvedValue({ status: 'ok' });
+  mockApi.acceptFriendRequest.mockResolvedValue({ status: 'ok' });
+  mockApi.declineFriendRequest.mockResolvedValue({ status: 'ok' });
+});
+
+describe('useFriends — fetching & normalization', () => {
+  it('normalizes paginated friends/requests and fetches suggestions by default', async () => {
+    const { result } = renderHook(() => useFriends());
+
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    expect(result.current.friends).toEqual([FRIEND, FRIEND_2]);
+    expect(result.current.friendRequests).toEqual([REQUEST]);
+    expect(result.current.suggestions).toEqual([SUGGESTION]);
+    expect(mockApi.getFriendRequests).toHaveBeenCalledWith('incoming');
+    expect(mockApi.getFriendSuggestions).toHaveBeenCalled();
+  });
+
+  it('supports bare-array responses', async () => {
+    mockApi.getFriends.mockResolvedValue([FRIEND]);
+    mockApi.getFriendRequests.mockResolvedValue([REQUEST]);
+
+    const { result } = renderHook(() => useFriends());
+
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    expect(result.current.friends).toEqual([FRIEND]);
+    expect(result.current.friendRequests).toEqual([REQUEST]);
+  });
+});
+
+describe('useFriends — suggestions gate', () => {
+  it('does not call getFriendSuggestions when withSuggestions is false', async () => {
+    const { result } = renderHook(() =>
+      useFriends({ withSuggestions: false }),
+    );
+
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    expect(mockApi.getFriendSuggestions).not.toHaveBeenCalled();
+    expect(result.current.suggestions).toEqual([]);
+  });
+});
+
+describe('useFriends — error decoupling', () => {
+  it('keeps friends when the requests fetch fails (non-fatal)', async () => {
+    mockApi.getFriendRequests.mockRejectedValue(new Error('requests boom'));
+
+    const { result } = renderHook(() => useFriends());
+
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    expect(result.current.friends).toEqual([FRIEND, FRIEND_2]);
+    expect(result.current.friendRequestsError).toBeInstanceOf(Error);
+    expect(result.current.friendsError).toBeNull();
+  });
+
+  it('reports a fatal error when the friends list fetch fails', async () => {
+    mockApi.getFriends.mockRejectedValue(new Error('friends boom'));
+
+    const { result } = renderHook(() => useFriends());
+
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    expect(result.current.friendsError).toBeInstanceOf(Error);
+  });
+});
+
+describe('useFriends — search filter', () => {
+  it('filters the friends list by name', async () => {
+    const { result } = renderHook(() => useFriends({ searchQuery: 'riley' }));
+
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    expect(result.current.friends).toEqual([FRIEND_2]);
+  });
+});
+
+describe('useFriends — optimistic accept / decline', () => {
+  it('removes a request optimistically on accept', async () => {
+    const { result } = renderHook(() => useFriends());
+    await waitFor(() => expect(result.current.friendRequests).toHaveLength(1));
+
+    act(() => {
+      result.current.onAcceptRequest(REQUEST.id);
+    });
+
+    expect(result.current.friendRequests).toHaveLength(0);
+    expect(mockApi.acceptFriendRequest).toHaveBeenCalledWith(REQUEST.id);
+  });
+
+  it('rolls back the request on decline failure', async () => {
+    mockApi.declineFriendRequest.mockRejectedValue(new Error('nope'));
+    const { result } = renderHook(() => useFriends());
+    await waitFor(() => expect(result.current.friendRequests).toHaveLength(1));
+
+    await act(async () => {
+      result.current.onDeclineRequest(REQUEST.id);
+    });
+
+    await waitFor(() =>
+      expect(result.current.friendRequests).toHaveLength(1),
+    );
+  });
+});
+
+describe('useFriends — optimistic add suggestion', () => {
+  it('marks a suggestion as pending optimistically', async () => {
+    mockApi.sendFriendRequest.mockReturnValue(new Promise(() => {}));
+    const { result } = renderHook(() => useFriends());
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    act(() => {
+      result.current.onAddSuggestion(SUGGESTION.player_id);
+    });
+
+    expect(result.current.pendingAddIds.has(SUGGESTION.player_id)).toBe(true);
+    expect(mockApi.sendFriendRequest).toHaveBeenCalledWith(SUGGESTION.player_id);
+  });
+
+  it('rolls back pending state when the send fails', async () => {
+    mockApi.sendFriendRequest.mockRejectedValue(new Error('send boom'));
+    const { result } = renderHook(() => useFriends());
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    await act(async () => {
+      result.current.onAddSuggestion(SUGGESTION.player_id);
+    });
+
+    await waitFor(() =>
+      expect(result.current.pendingAddIds.has(SUGGESTION.player_id)).toBe(false),
+    );
+  });
+});

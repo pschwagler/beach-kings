@@ -3,12 +3,14 @@
  *
  * Manages:
  *   - Player discovery via api.discoverPlayers()
- *   - Friends list via api.getFriends()
- *   - Incoming friend requests via api.getFriendRequests()
  *   - Search query state (client-side filter)
  *   - Active tab state (players | friends)
  *   - Optimistic "pending" state for sent friend requests
- *   - Accept / decline friend request callbacks
+ *
+ * Friend-management concerns (friends list, incoming requests, accept/decline)
+ * are delegated to the shared {@link useFriends} hook so the Social hub's
+ * Friends tab and this screen don't duplicate that logic. Suggestions are
+ * disabled here — the Find Players Friends sub-tab predates them.
  */
 
 import { useState, useCallback, useMemo } from 'react';
@@ -19,6 +21,7 @@ import { routes } from '@/lib/navigation';
 import { hapticMedium } from '@/utils/haptics';
 import type { Friend, FriendRequest } from '@beach-kings/shared';
 import type { DiscoverPlayer } from './PlayerRow';
+import { useFriends } from './useFriends';
 
 export type FindPlayersTab = 'players' | 'friends';
 
@@ -102,7 +105,6 @@ export function useFindPlayersScreen(): UseFindPlayersScreenResult {
   const [activeTab, setActiveTab] = useState<FindPlayersTab>('players');
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshingPlayers, setIsRefreshingPlayers] = useState(false);
-  const [isRefreshingFriends, setIsRefreshingFriends] = useState(false);
   const [pendingSendIds, setPendingSendIds] = useState<ReadonlySet<number>>(new Set());
 
   // ------- Players discovery -------
@@ -161,94 +163,19 @@ export function useFindPlayersScreen(): UseFindPlayersScreenResult {
     [],
   );
 
-  // ------- Friends + friend requests -------
+  // ------- Friends + friend requests (delegated to the shared hook) -------
   const {
-    data: friendsData,
-    isLoading: isLoadingFriendsRaw,
-    error: friendsError,
-    refetch: refetchFriends,
-    mutate: mutateFriends,
-  } = useApi<Friend[]>(
-    () =>
-      api
-        .getFriends()
-        .then((r: { items?: Friend[] } | Friend[]) =>
-          Array.isArray(r) ? r : (r.items ?? []),
-        ),
-    [],
-  );
-
-  const {
-    data: requestsData,
-    isLoading: isLoadingRequests,
-    error: requestsError,
-    refetch: refetchRequests,
-    mutate: mutateRequests,
-  } = useApi<FriendRequest[]>(
-    () =>
-      api
-        .getFriendRequests('incoming')
-        .then((r: { items?: FriendRequest[] } | FriendRequest[]) =>
-          Array.isArray(r) ? r : (r.items ?? []),
-        ),
-    [],
-  );
-
-  const friends = useMemo<readonly Friend[]>(() => {
-    const all = friendsData ?? [];
-    if (searchQuery.trim() === '') return all;
-    const lower = searchQuery.toLowerCase();
-    return all.filter((f) => f.full_name.toLowerCase().includes(lower));
-  }, [friendsData, searchQuery]);
-
-  const friendRequests = useMemo<readonly FriendRequest[]>(
-    () => requestsData ?? [],
-    [requestsData],
-  );
-
-  const isLoadingFriends = isLoadingFriendsRaw || isLoadingRequests;
-  // Keep the two fetches decoupled: only a failure of the friends *list* is
-  // fatal (full-page error). A failed friend-requests fetch degrades to an
-  // inline notice so the successfully-loaded friends list still renders.
-  const friendRequestsError = requestsError;
-
-  const onRefreshFriends = useCallback(() => {
-    setIsRefreshingFriends(true);
-    Promise.all([refetchFriends(), refetchRequests()]).finally(() => {
-      setIsRefreshingFriends(false);
-    });
-  }, [refetchFriends, refetchRequests]);
-
-  const onRetryFriends = useCallback(() => {
-    void refetchFriends();
-    void refetchRequests();
-  }, [refetchFriends, refetchRequests]);
-
-  const onAcceptRequest = useCallback(
-    (requestId: number) => {
-      void hapticMedium();
-      // Optimistic: remove from requests list
-      const prevRequests = requestsData ?? [];
-      mutateRequests(prevRequests.filter((r) => r.id !== requestId));
-      api.acceptFriendRequest(requestId).catch(() => {
-        // Roll back
-        mutateRequests(prevRequests);
-      });
-    },
-    [requestsData, mutateRequests],
-  );
-
-  const onDeclineRequest = useCallback(
-    (requestId: number) => {
-      void hapticMedium();
-      const prevRequests = requestsData ?? [];
-      mutateRequests(prevRequests.filter((r) => r.id !== requestId));
-      api.declineFriendRequest(requestId).catch(() => {
-        mutateRequests(prevRequests);
-      });
-    },
-    [requestsData, mutateRequests],
-  );
+    friends,
+    friendRequests,
+    isLoadingFriends,
+    friendsError,
+    friendRequestsError,
+    isRefreshingFriends,
+    onRefreshFriends,
+    onRetryFriends,
+    onAcceptRequest,
+    onDeclineRequest,
+  } = useFriends({ searchQuery, withSuggestions: false });
 
   const onPlayerPress = useCallback(
     (playerId: number) => {

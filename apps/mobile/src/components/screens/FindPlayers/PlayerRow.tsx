@@ -7,6 +7,7 @@
 import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
+import { pluralize } from '@/lib/formatters';
 
 /** Shape of a discoverable player returned by the discover endpoint. */
 export interface DiscoverPlayer {
@@ -100,7 +101,7 @@ export default function PlayerRow({
         </View>
         {(player.games_played > 0 || player.last_active_label != null) && (
           <Text className="text-[11px] text-tertiary mt-1">
-            {player.games_played > 0 ? `${player.games_played} games` : ''}
+            {player.games_played > 0 ? pluralize(player.games_played, 'game') : ''}
             {player.games_played > 0 && player.last_active_label != null
               ? ' · '
               : ''}
