@@ -29,10 +29,18 @@ const MATCHES_KEYS = {
 
 export type LeagueMatchesMode = 'mine' | 'all';
 
+/**
+ * The subset of SessionStatus the "mine" view can represent. The /me/games
+ * endpoint only exposes a `session_submitted` boolean, so we can distinguish
+ * live (ACTIVE) from finalized (SUBMITTED) but not SUBMITTED vs EDITED — both
+ * finalized states collapse to 'SUBMITTED'. See deriveStatusFromMyGames.
+ */
+type MineSessionStatus = Extract<SessionStatus, 'ACTIVE' | 'SUBMITTED'>;
+
 /** Common per-session card data. `mode` selects how rows are rendered. */
 export interface SessionGroup {
   readonly session_id: number;
-  readonly session_number: number | null;
+  /** Play date (user-editable), ISO YYYY-MM-DD. Shown as the card header. */
   readonly session_date: string | null;
   readonly session_status: SessionStatus;
   readonly mode: LeagueMatchesMode;
@@ -50,16 +58,38 @@ export interface UseLeagueMatchesTabResult {
   readonly mode: LeagueMatchesMode;
   readonly setMode: (mode: LeagueMatchesMode) => void;
   readonly sessions: readonly SessionGroup[];
-  readonly myCount: number;
-  readonly allCount: number;
+  /** Number of the current user's games in the league (My Games badge). */
+  readonly myGameCount: number;
+  /** Number of games across the whole league (All Games badge). */
+  readonly allGameCount: number;
   readonly isLoading: boolean;
   readonly isError: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// Sorting
+// Shared grouping + sorting
 // ---------------------------------------------------------------------------
 
+/**
+ * Bucket a flat list of games into per-session arrays, preserving the input
+ * order within each bucket. Shared by both the 'mine' and 'all' groupers.
+ */
+function groupBySessionId<T extends { readonly session_id: number }>(
+  games: readonly T[],
+): Map<number, T[]> {
+  const map = new Map<number, T[]>();
+  for (const g of games) {
+    const existing = map.get(g.session_id);
+    if (existing) {
+      existing.push(g);
+    } else {
+      map.set(g.session_id, [g]);
+    }
+  }
+  return map;
+}
+
+/** Active sessions first, then newest-first by session id within each group. */
 function sortSessionsActiveFirstThenNewest(
   groups: readonly SessionGroup[],
 ): SessionGroup[] {
@@ -67,7 +97,6 @@ function sortSessionsActiveFirstThenNewest(
     const aActive = a.session_status === 'ACTIVE';
     const bActive = b.session_status === 'ACTIVE';
     if (aActive !== bActive) return aActive ? -1 : 1;
-    // Within the same group, newest first by session id.
     return b.session_id - a.session_id;
   });
 }
@@ -76,51 +105,41 @@ function sortSessionsActiveFirstThenNewest(
 // 'mine' mode grouping
 // ---------------------------------------------------------------------------
 
-function deriveStatusFromMyGames(games: readonly GameHistoryEntry[]): SessionStatus {
-  // The /me/games endpoint only exposes session_submitted (boolean).
-  // 'EDITED' is treated like SUBMITTED for display purposes.
+function deriveStatusFromMyGames(
+  games: readonly GameHistoryEntry[],
+): MineSessionStatus {
+  // The /me/games endpoint only exposes session_submitted (boolean), which the
+  // backend sets true for every non-ACTIVE session (see my_games_service.py).
+  // So any game still flagged not-submitted means the whole session is live.
   return games.some((g) => !g.session_submitted) ? 'ACTIVE' : 'SUBMITTED';
 }
 
 function groupMyGamesBySessions(
   games: readonly GameHistoryEntry[],
 ): SessionGroup[] {
-  const map = new Map<number, GameHistoryEntry[]>();
-  for (const g of games) {
-    const existing = map.get(g.session_id) ?? [];
-    map.set(g.session_id, [...existing, g]);
-  }
+  const groups: SessionGroup[] = Array.from(
+    groupBySessionId(games).entries(),
+  ).map(([sessionId, sessionGames]) => {
+    const userWins = sessionGames.filter((g) => g.result === 'W').length;
+    const userLosses = sessionGames.filter((g) => g.result === 'L').length;
+    const ratingChange = sessionGames.reduce(
+      (acc, g) => acc + (g.rating_change ?? 0),
+      0,
+    );
+    return {
+      session_id: sessionId,
+      session_date: sessionGames[0]?.session_date ?? null,
+      session_status: deriveStatusFromMyGames(sessionGames),
+      mode: 'mine' as const,
+      myGames: sessionGames,
+      allGames: [],
+      userWins,
+      userLosses,
+      ratingChange,
+    };
+  });
 
-  const groups: SessionGroup[] = Array.from(map.entries()).map(
-    ([sessionId, sessionGames]) => {
-      const userWins = sessionGames.filter((g) => g.result === 'W').length;
-      const userLosses = sessionGames.filter((g) => g.result === 'L').length;
-      const ratingChange = sessionGames.reduce(
-        (acc, g) => acc + (g.rating_change ?? 0),
-        0,
-      );
-      return {
-        session_id: sessionId,
-        session_number: null,
-        session_date: sessionGames[0]?.session_date ?? null,
-        session_status: deriveStatusFromMyGames(sessionGames),
-        mode: 'mine' as const,
-        myGames: sessionGames,
-        allGames: [],
-        userWins,
-        userLosses,
-        ratingChange,
-      };
-    },
-  );
-
-  const sorted = sortSessionsActiveFirstThenNewest(groups);
-  // Number chronologically (oldest session = #1) while displaying newest-first,
-  // so the count reads as "Nth session the league has played", not row order.
-  return sorted.map((g, idx) => ({
-    ...g,
-    session_number: sorted.length - idx,
-  }));
+  return sortSessionsActiveFirstThenNewest(groups);
 }
 
 // ---------------------------------------------------------------------------
@@ -130,33 +149,21 @@ function groupMyGamesBySessions(
 function groupAllGamesBySessions(
   games: readonly LeagueGameEntry[],
 ): SessionGroup[] {
-  const map = new Map<number, LeagueGameEntry[]>();
-  for (const g of games) {
-    const existing = map.get(g.session_id) ?? [];
-    map.set(g.session_id, [...existing, g]);
-  }
-
-  const groups: SessionGroup[] = Array.from(map.entries()).map(
-    ([sessionId, sessionGames]) => ({
-      session_id: sessionId,
-      session_number: null,
-      session_date: sessionGames[0]?.session_date ?? null,
-      session_status: sessionGames[0]?.session_status ?? 'SUBMITTED',
-      mode: 'all' as const,
-      myGames: [],
-      allGames: sessionGames,
-      userWins: 0,
-      userLosses: 0,
-      ratingChange: 0,
-    }),
-  );
-
-  const sorted = sortSessionsActiveFirstThenNewest(groups);
-  // Chronological numbering (oldest = #1), displayed newest-first — see mine grouping.
-  return sorted.map((g, idx) => ({
-    ...g,
-    session_number: sorted.length - idx,
+  const groups: SessionGroup[] = Array.from(
+    groupBySessionId(games).entries(),
+  ).map(([sessionId, sessionGames]) => ({
+    session_id: sessionId,
+    session_date: sessionGames[0]?.session_date ?? null,
+    session_status: sessionGames[0]?.session_status ?? 'SUBMITTED',
+    mode: 'all' as const,
+    myGames: [],
+    allGames: sessionGames,
+    userWins: 0,
+    userLosses: 0,
+    ratingChange: 0,
   }));
+
+  return sortSessionsActiveFirstThenNewest(groups);
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +171,7 @@ function groupAllGamesBySessions(
 // ---------------------------------------------------------------------------
 
 /**
- * Returns sessions for the league Games tab in the selected mode, plus
+ * Returns sessions for the league Games tab in the selected mode, plus game
  * counts for both modes so the toggle can show "My Games · N" / "All Games · N".
  */
 export function useLeagueMatchesTab(
@@ -200,8 +207,8 @@ export function useLeagueMatchesTab(
   );
 
   const sessions = mode === 'mine' ? mineGroups : allGroups;
-  const myCount = myGamesQuery.data?.length ?? 0;
-  const allCount = allGamesQuery.data?.length ?? 0;
+  const myGameCount = myGamesQuery.data?.length ?? 0;
+  const allGameCount = allGamesQuery.data?.length ?? 0;
 
   // Loading: the active query is the one that gates the UI.
   const isLoading =
@@ -213,8 +220,8 @@ export function useLeagueMatchesTab(
     mode,
     setMode,
     sessions,
-    myCount,
-    allCount,
+    myGameCount,
+    allGameCount,
     isLoading,
     isError,
   };

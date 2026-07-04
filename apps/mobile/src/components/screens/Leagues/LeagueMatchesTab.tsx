@@ -42,7 +42,13 @@ function formatSessionDate(isoDate: string): string | null {
   const [year, month, day] = parts;
   const d = new Date(year, month - 1, day);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Weekday + month + day (e.g. "Sat, May 24") — this is now the card's primary
+  // header, so the weekday adds useful context over a bare "May 24".
+  return d.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -290,10 +296,14 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
           className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider"
         >
           <View className="flex-1">
+            {/* Primary: the (user-editable) play date. Falls back to a stable
+                session identifier only for legacy rows with no date. */}
             <Text className="text-[13px] font-bold text-default">
-              Session #{session.session_number ?? session.session_id}
+              {dateLabel ?? `Session ${session.session_id}`}
             </Text>
-            {isActive ? (
+            {/* Active sessions get a Live pill; finalized sessions show just the
+                date header — the game count lives in the footer, not here. */}
+            {isActive && (
               <View
                 testID={`session-card-${session.session_id}-live-pill`}
                 className="self-start mt-[3px] flex-row items-center bg-status-live-tint rounded-[6px] px-[8px] py-[2px]"
@@ -303,10 +313,6 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
                   Live
                 </Text>
               </View>
-            ) : (
-              dateLabel != null && (
-                <Text className="text-[11px] text-muted mt-[1px]">{dateLabel}</Text>
-              )
             )}
           </View>
           <ChevronRightIcon size={18} color={palette.textMuted} />
@@ -323,7 +329,7 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
         <View className="flex-row px-4 py-[12px] gap-4 border-t border-divider">
           <View>
             <Text className="text-[11px] text-tertiary uppercase tracking-wide">
-              Games
+              {session.mode === 'mine' ? 'Your Games' : 'Games'}
             </Text>
             <Text className="text-[14px] font-bold text-default">{gameCount}</Text>
           </View>
@@ -332,7 +338,7 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
             <>
               <View>
                 <Text className="text-[11px] text-tertiary uppercase tracking-wide">
-                  Your W-L
+                  W-L
                 </Text>
                 <Text className="text-[14px] font-bold text-default">
                   {session.userWins}-{session.userLosses}
@@ -380,15 +386,15 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
 
 interface ModeToggleProps {
   readonly mode: LeagueMatchesMode;
-  readonly myCount: number;
-  readonly allCount: number;
+  readonly myGameCount: number;
+  readonly allGameCount: number;
   readonly onChange: (mode: LeagueMatchesMode) => void;
 }
 
 function ModeToggle({
   mode,
-  myCount,
-  allCount,
+  myGameCount,
+  allGameCount,
   onChange,
 }: ModeToggleProps): React.ReactNode {
   const handlePress = (next: LeagueMatchesMode) => {
@@ -412,11 +418,11 @@ function ModeToggle({
         >
           My Games
         </Text>
-        {myCount > 0 && (
+        {myGameCount > 0 && (
           <Text
             className={`text-[11px] font-bold ${mode === 'mine' ? 'text-white/80' : 'text-muted'}`}
           >
-            {myCount}
+            {myGameCount}
           </Text>
         )}
       </TouchableOpacity>
@@ -430,11 +436,11 @@ function ModeToggle({
         >
           All Games
         </Text>
-        {allCount > 0 && (
+        {allGameCount > 0 && (
           <Text
             className={`text-[11px] font-bold ${mode === 'all' ? 'text-white/80' : 'text-muted'}`}
           >
-            {allCount}
+            {allGameCount}
           </Text>
         )}
       </TouchableOpacity>
@@ -451,15 +457,15 @@ interface LeagueMatchesTabProps {
 }
 
 export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): React.ReactNode {
-  const { mode, setMode, sessions, myCount, allCount, isLoading, isError } =
+  const { mode, setMode, sessions, myGameCount, allGameCount, isLoading, isError } =
     useLeagueMatchesTab(leagueId);
 
   // The toggle should stay visible even while data loads/errors.
   const toggle = (
     <ModeToggle
       mode={mode}
-      myCount={myCount}
-      allCount={allCount}
+      myGameCount={myGameCount}
+      allGameCount={allGameCount}
       onChange={setMode}
     />
   );
