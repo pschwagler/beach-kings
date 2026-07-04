@@ -1,24 +1,22 @@
 /**
- * Behavior-focused tests for the Social tab (SocialScreen).
+ * Behavior-focused tests for the Social hub shell (SocialScreen).
  *
- * Covers:
- * - Skeleton while loading
- * - Thread list with unread indicators
- * - Tapping a thread navigates to thread detail
- * - Empty state renders with CTA when no threads
- * - Error + retry
- * - Pull-to-refresh
- * - Friends segment renders shortcut CTA
+ * Phase 1 covers the 4-tab subnav shell:
+ * - Renders the TopNav "Social" title and the SocialSubnav.
+ * - Defaults to the Messages tab.
+ * - Switching subnav tabs swaps the active body.
+ * - Friends / Find Players tabs render the transitional shortcut placeholder,
+ *   whose CTA navigates to the standalone find-players screen.
+ * - The `?tab=` param selects the initial tab (and falls back to Messages when
+ *   the value is unrecognized).
+ *
+ * The per-tab data containers (MessagesTab / NotificationsTab) are stubbed so
+ * these tests exercise shell routing, not the Messages/Notifications data
+ * hooks (which have their own suites).
  */
 
 import React from 'react';
-import {
-  render,
-  fireEvent,
-  waitFor,
-  act,
-} from '@testing-library/react-native';
-import type { Conversation } from '@beach-kings/shared';
+import { render, fireEvent, screen } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -26,8 +24,12 @@ import type { Conversation } from '@beach-kings/shared';
 
 const mockPush = jest.fn();
 
+// Mutable search-params so each test can drive the initial `?tab=`.
+let mockParams: { tab?: string } = {};
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
+  useLocalSearchParams: () => mockParams,
 }));
 
 jest.mock('react-native-safe-area-context', () => {
@@ -52,347 +54,147 @@ jest.mock('@/components/ui/TopNav', () => {
   };
 });
 
-jest.mock('@/contexts/AuthContext', () => ({
-  __esModule: true,
-  useAuth: () => ({
-    user: { player_id: 1 },
-    isAuthenticated: true,
-    isLoading: false,
-    profileComplete: true,
-  }),
-}));
-
-// LoadingSkeleton — simple testID stub
-jest.mock('@/components/ui/LoadingSkeleton', () => {
+// Per-tab containers stubbed — shell tests should not touch their data hooks.
+jest.mock('@/components/screens/Social/MessagesTab', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
     __esModule: true,
-    default: () => <View testID="loading-skeleton" />,
+    default: () => <View testID="messages-tab-stub" />,
   };
 });
 
-// SegmentControl — render real pressable segments for interaction tests
-jest.mock('@/components/ui/SegmentControl', () => {
-  const React = require('react');
-  const { View, Pressable, Text } = require('react-native');
-  return {
-    __esModule: true,
-    default: ({
-      segments,
-      selectedIndex,
-      onSelect,
-    }: {
-      segments: string[];
-      selectedIndex: number;
-      onSelect: (i: number) => void;
-    }) => (
-      <View testID="segment-control">
-        {segments.map((seg: string, i: number) => (
-          <Pressable
-            key={seg}
-            testID={`segment-${seg.toLowerCase()}`}
-            onPress={() => onSelect(i)}
-            accessibilityState={{ selected: i === selectedIndex }}
-          >
-            <Text>{seg}</Text>
-          </Pressable>
-        ))}
-      </View>
-    ),
-  };
-});
-
-// EmptyState — surface title text + action button
-jest.mock('@/components/ui/EmptyState', () => {
-  const React = require('react');
-  const { View, Text, Pressable } = require('react-native');
-  return {
-    __esModule: true,
-    default: ({
-      title,
-      description,
-      actionLabel,
-      onAction,
-    }: {
-      title: string;
-      description?: string;
-      actionLabel?: string;
-      onAction?: () => void;
-    }) => (
-      <View testID="empty-state">
-        <Text testID="empty-state-title">{title}</Text>
-        {description != null && (
-          <Text testID="empty-state-description">{description}</Text>
-        )}
-        {actionLabel != null && onAction != null && (
-          <Pressable testID="empty-state-action" onPress={onAction}>
-            <Text>{actionLabel}</Text>
-          </Pressable>
-        )}
-      </View>
-    ),
-  };
-});
-
-// react-native-svg — no-op
-jest.mock('react-native-svg', () => {
+jest.mock('@/components/screens/Social/NotificationsTab', () => {
   const React = require('react');
   const { View } = require('react-native');
-  const Svg = ({ children }: { children?: React.ReactNode }) => (
-    <View>{children}</View>
-  );
   return {
-    default: Svg,
-    Svg,
-    Path: () => null,
-    Circle: () => null,
+    __esModule: true,
+    default: () => <View testID="notifications-tab-stub" />,
   };
 });
 
-// expo-haptics — no-op
+// expo-haptics — no-op (SocialSubnav fires light haptics on press).
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn().mockResolvedValue(undefined),
   ImpactFeedbackStyle: { Light: 'Light', Medium: 'Medium', Heavy: 'Heavy' },
 }));
 
-// react-native-reanimated — deterministic opacity
-jest.mock('react-native-reanimated', () => {
-  const Reanimated = require('react-native-reanimated/mock');
-  Reanimated.default.call = jest.fn();
-  return Reanimated;
-});
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
-  return {
-    player_id: 42,
-    full_name: 'Colan Gulla',
-    avatar: null,
-    last_message_text: 'See you at QBK tomorrow',
-    last_message_at: new Date(Date.now() - 3_600_000).toISOString(),
-    last_message_sender_id: 99,
-    unread_count: 0,
-    is_friend: true,
-    ...overrides,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Import the screen component directly for white-box control
-// ---------------------------------------------------------------------------
-
-// We import SocialScreen directly (not social.tsx) to inject fetcherOverride.
 import SocialScreen from '../../../src/components/screens/Social/SocialScreen';
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
 });
 
-describe('SocialScreen — skeleton while loading', () => {
-  it('renders the skeleton during initial load', () => {
-    const neverResolves = () => new Promise<readonly Conversation[]>(() => {});
-    const { getByTestId } = render(
-      <SocialScreen fetcherOverride={neverResolves} />,
-    );
-    expect(getByTestId('conversation-skeleton')).toBeTruthy();
-  });
+// ---------------------------------------------------------------------------
+// Chrome
+// ---------------------------------------------------------------------------
 
+describe('SocialScreen — chrome', () => {
   it('renders the TopNav with title "Social"', () => {
-    const neverResolves = () => new Promise<readonly Conversation[]>(() => {});
-    const { getByTestId } = render(
-      <SocialScreen fetcherOverride={neverResolves} />,
-    );
-    expect(getByTestId('top-nav')).toBeTruthy();
+    render(<SocialScreen />);
+    expect(screen.getByTestId('top-nav').props.children).toBe('Social');
+  });
+
+  it('renders the 4-tab subnav', () => {
+    render(<SocialScreen />);
+    expect(screen.getByTestId('social-subnav')).toBeTruthy();
+    expect(screen.getByTestId('social-subnav-tab-messages')).toBeTruthy();
+    expect(screen.getByTestId('social-subnav-tab-notifications')).toBeTruthy();
+    expect(screen.getByTestId('social-subnav-tab-friends')).toBeTruthy();
+    expect(screen.getByTestId('social-subnav-tab-findplayers')).toBeTruthy();
   });
 });
 
-describe('SocialScreen — thread list with unread indicators', () => {
-  it('renders conversation rows after loading', async () => {
-    const conv = makeConversation({ full_name: 'Colan Gulla' });
-    const fetcher = jest.fn().mockResolvedValue([conv]);
+// ---------------------------------------------------------------------------
+// Default tab
+// ---------------------------------------------------------------------------
 
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
-
-    await findByTestId(`conversation-row-${conv.player_id}`);
+describe('SocialScreen — default tab', () => {
+  it('shows the Messages tab by default', () => {
+    render(<SocialScreen />);
+    expect(screen.getByTestId('messages-tab-stub')).toBeTruthy();
+    expect(screen.queryByTestId('notifications-tab-stub')).toBeNull();
   });
 
-  it('renders unread dot for conversations with unread_count > 0', async () => {
-    const unread = makeConversation({ unread_count: 3, player_id: 10 });
-    const fetcher = jest.fn().mockResolvedValue([unread]);
-
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
-
-    await findByTestId('unread-dot');
-  });
-
-  it('does NOT render unread dot for conversations with unread_count === 0', async () => {
-    const read = makeConversation({ unread_count: 0, player_id: 11 });
-    const fetcher = jest.fn().mockResolvedValue([read]);
-
-    const { queryByTestId, findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
-
-    await findByTestId(`conversation-row-${read.player_id}`);
-    expect(queryByTestId('unread-dot')).toBeNull();
+  it('marks Messages as the selected subnav tab by default', () => {
+    render(<SocialScreen />);
+    expect(
+      screen.getByTestId('social-subnav-tab-messages').props.accessibilityState
+        .selected,
+    ).toBe(true);
   });
 });
 
-describe('SocialScreen — thread navigation', () => {
-  it('navigates to /(stack)/messages/:id when a thread is tapped', async () => {
-    const conv = makeConversation({ player_id: 42 });
-    const fetcher = jest.fn().mockResolvedValue([conv]);
+// ---------------------------------------------------------------------------
+// Tab switching
+// ---------------------------------------------------------------------------
 
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
+describe('SocialScreen — tab switching', () => {
+  it('switches to Notifications when its tab is pressed', () => {
+    render(<SocialScreen />);
+    fireEvent.press(screen.getByTestId('social-subnav-tab-notifications'));
 
-    const row = await findByTestId(`conversation-row-${conv.player_id}`);
-    fireEvent.press(row);
-
-    expect(mockPush).toHaveBeenCalledWith(
-      expect.stringMatching(/^\/\(stack\)\/messages\/42(\?.*)?$/),
-    );
-  });
-});
-
-describe('SocialScreen — empty state', () => {
-  it('renders empty state when no conversations exist', async () => {
-    const fetcher = jest.fn().mockResolvedValue([]);
-
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
-
-    const empty = await findByTestId('empty-state');
-    expect(empty).toBeTruthy();
+    expect(screen.getByTestId('notifications-tab-stub')).toBeTruthy();
+    expect(screen.queryByTestId('messages-tab-stub')).toBeNull();
   });
 
-  it('empty state shows "No conversations yet" title', async () => {
-    const fetcher = jest.fn().mockResolvedValue([]);
+  it('shows the shortcut placeholder on the Friends tab', () => {
+    render(<SocialScreen />);
+    fireEvent.press(screen.getByTestId('social-subnav-tab-friends'));
 
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
-
-    const title = await findByTestId('empty-state-title');
-    expect(title.props.children).toBe('No conversations yet');
+    expect(screen.getByTestId('friends-shortcut')).toBeTruthy();
   });
 
-  it('empty state CTA navigates to find-players', async () => {
-    const fetcher = jest.fn().mockResolvedValue([]);
+  it('shows the shortcut placeholder on the Find Players tab', () => {
+    render(<SocialScreen />);
+    fireEvent.press(screen.getByTestId('social-subnav-tab-findplayers'));
 
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
+    expect(screen.getByTestId('friends-shortcut')).toBeTruthy();
+  });
 
-    const cta = await findByTestId('empty-state-action');
-    fireEvent.press(cta);
+  it('placeholder CTA navigates to the find-players screen', () => {
+    render(<SocialScreen />);
+    fireEvent.press(screen.getByTestId('social-subnav-tab-friends'));
+    fireEvent.press(screen.getByTestId('find-players-button'));
 
     expect(mockPush).toHaveBeenCalledWith('/(stack)/find-players');
   });
-});
 
-describe('SocialScreen — error and retry', () => {
-  it('shows error UI when the fetch rejects', async () => {
-    const fetcher = jest
-      .fn()
-      .mockRejectedValue(new Error('Network failure'));
+  it('can switch back to Messages after leaving it', () => {
+    render(<SocialScreen />);
+    fireEvent.press(screen.getByTestId('social-subnav-tab-notifications'));
+    fireEvent.press(screen.getByTestId('social-subnav-tab-messages'));
 
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
-
-    await findByTestId('social-error');
-  });
-
-  it('retry button re-calls the fetcher', async () => {
-    const conv = makeConversation();
-    const fetcher = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('Network failure'))
-      .mockResolvedValue([conv]);
-
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
-
-    const retryBtn = await findByTestId('retry-button');
-    await act(async () => {
-      fireEvent.press(retryBtn);
-    });
-
-    await waitFor(() => {
-      expect(fetcher).toHaveBeenCalledTimes(2);
-    });
+    expect(screen.getByTestId('messages-tab-stub')).toBeTruthy();
+    expect(screen.queryByTestId('notifications-tab-stub')).toBeNull();
   });
 });
 
-describe('SocialScreen — pull-to-refresh', () => {
-  it('calls fetcher again on pull-to-refresh', async () => {
-    const conv = makeConversation();
-    const fetcher = jest.fn().mockResolvedValue([conv]);
+// ---------------------------------------------------------------------------
+// ?tab= deep-link param
+// ---------------------------------------------------------------------------
 
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
+describe('SocialScreen — ?tab= param', () => {
+  it('opens directly on Notifications when tab=notifications', () => {
+    mockParams = { tab: 'notifications' };
+    render(<SocialScreen />);
 
-    // Wait for list to render
-    await findByTestId('conversations-list');
-
-    // Simulate pull-to-refresh
-    const list = await findByTestId('conversations-list');
-    const { refreshControl } = list.props;
-    await act(async () => {
-      refreshControl.props.onRefresh();
-    });
-
-    await waitFor(() => {
-      // Called once on mount + once on refresh
-      expect(fetcher).toHaveBeenCalledTimes(2);
-    });
-  });
-});
-
-describe('SocialScreen — Friends segment', () => {
-  it('shows the friends shortcut when Friends segment is selected', async () => {
-    const fetcher = jest.fn().mockResolvedValue([]);
-
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
-
-    const friendsTab = await findByTestId('segment-friends');
-    fireEvent.press(friendsTab);
-
-    await findByTestId('friends-shortcut');
+    expect(screen.getByTestId('notifications-tab-stub')).toBeTruthy();
+    expect(screen.queryByTestId('messages-tab-stub')).toBeNull();
   });
 
-  it('Find Players button in Friends segment navigates to find-players', async () => {
-    const fetcher = jest.fn().mockResolvedValue([]);
+  it('opens directly on the Find Players placeholder when tab=findplayers', () => {
+    mockParams = { tab: 'findplayers' };
+    render(<SocialScreen />);
 
-    const { findByTestId } = render(
-      <SocialScreen fetcherOverride={fetcher} />,
-    );
+    expect(screen.getByTestId('friends-shortcut')).toBeTruthy();
+  });
 
-    const friendsTab = await findByTestId('segment-friends');
-    fireEvent.press(friendsTab);
+  it('falls back to Messages when the tab param is unrecognized', () => {
+    mockParams = { tab: 'bogus' };
+    render(<SocialScreen />);
 
-    const findBtn = await findByTestId('find-players-button');
-    fireEvent.press(findBtn);
-
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/find-players');
+    expect(screen.getByTestId('messages-tab-stub')).toBeTruthy();
   });
 });

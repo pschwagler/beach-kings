@@ -1,189 +1,91 @@
 /**
- * SocialScreen — Messages-forward hub for the Social tab.
+ * SocialScreen — the Social hub with a 4-tab subnav.
  *
- * Layout decision: segmented control ("Messages" | "Friends") rather than
- * stacked sections. Rationale:
- *  - The wireframe's social-subnav is a top-level nav between Messages,
- *    Notifications, Friends, Find Players. On mobile a tab-in-tab would
- *    add a 3rd navigation layer; a segmented control keeps depth at two.
- *  - Messages is the primary CTA (ChatIcon badge), Friends is secondary.
- *  - Stacking both sections in one scroll would bury threads under friend
- *    requests on every render, which is the opposite of what the badge implies.
+ * Layout decision: a `SocialSubnav` (Messages · Notifications · Friends · Find
+ * Players) matching the wireframe's `.social-subnav`, replacing the earlier
+ * 2-segment ("Messages" | "Friends") control. Rationale for revisiting that
+ * call: the wireframes present a single Social section that owns all four
+ * destinations, so consolidating them under one subnav (rather than scattering
+ * Notifications/Find Players across separate stack routes) is the parity target.
  *
- * The "Messages" segment renders the full conversation list with pull-to-refresh.
- * The "Friends" segment is a shortcut CTA that navigates to find-players,
- * matching the wireframe's friends.html "Find Players" empty-state action.
+ * Each tab mounts a thin container that owns its own data hook, so only the
+ * active tab fetches. The extracted, chrome-free bodies are shared with the
+ * standalone stack routes (Messages/Notifications), which keep their TopNav
+ * chrome. Friends and Find Players show a transitional placeholder until their
+ * inline bodies land (Phases 2 and 3 of the social-hub parity plan).
+ *
+ * A `?tab=` param lets Home header shortcuts and deep links land on a specific
+ * subnav tab; it defaults to `messages`.
+ *
+ * Wireframe refs: messages.html / notifications.html / friends.html /
+ * find-players.html `.social-subnav`.
  */
 
-import React, { useCallback, useState } from 'react';
-import {
-  View,
-  FlatList,
-  RefreshControl,
-  Text,
-  Pressable,
-} from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import type { Conversation } from '@beach-kings/shared';
-import { useAuth } from '@/contexts/AuthContext';
-import useApi from '@/hooks/useApi';
-import usePullToRefresh from '@/hooks/usePullToRefresh';
-import { api } from '@/lib/api';
-import { routes } from '@/lib/navigation';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { routes, type SocialTab } from '@/lib/navigation';
 import TopNav from '@/components/ui/TopNav';
-import SegmentControl from '@/components/ui/SegmentControl';
-import EmptyState from '@/components/ui/EmptyState';
-import ConversationRow from './ConversationRow';
-import ConversationSkeleton from './ConversationSkeleton';
+import SocialSubnav from './SocialSubnav';
+import MessagesTab from './MessagesTab';
+import NotificationsTab from './NotificationsTab';
 import FriendsShortcut from './FriendsShortcut';
 
-const SEGMENTS = ['Messages', 'Friends'] as const;
-type Segment = (typeof SEGMENTS)[number];
-const SEGMENT_MESSAGES = 0;
-const SEGMENT_FRIENDS = 1;
+const DEFAULT_TAB: SocialTab = 'messages';
+const VALID_TABS: readonly SocialTab[] = [
+  'messages',
+  'notifications',
+  'friends',
+  'findplayers',
+];
 
-async function fetchConversations(): Promise<readonly Conversation[]> {
-  const result = await api.getConversations(1, 50);
-  return result.items;
+/** Coerce a raw `?tab=` param to a known SocialTab, or null when unrecognized. */
+function normalizeTab(raw: string | string[] | undefined): SocialTab | null {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return VALID_TABS.includes(value as SocialTab) ? (value as SocialTab) : null;
 }
 
-interface SocialScreenProps {
-  /** Injected in tests to replace the API call. */
-  readonly fetcherOverride?: () => Promise<readonly Conversation[]>;
-}
-
-export default function SocialScreen({
-  fetcherOverride,
-}: SocialScreenProps): React.ReactNode {
+export default function SocialScreen(): React.ReactNode {
   const router = useRouter();
-  const { user } = useAuth();
-  const currentPlayerId = (user as { player_id?: number } | null)?.player_id ?? null;
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const paramTab = normalizeTab(params.tab);
 
-  const [selectedSegment, setSelectedSegment] = useState<number>(SEGMENT_MESSAGES);
+  const [activeTab, setActiveTab] = useState<SocialTab>(paramTab ?? DEFAULT_TAB);
 
-  const fetcher = fetcherOverride ?? fetchConversations;
-
-  const {
-    data: conversations,
-    isLoading,
-    error,
-    refetch,
-  } = useApi<readonly Conversation[]>(fetcher, []);
-
-  const { refreshing, onRefresh } = usePullToRefresh(refetch);
-
-  const handleThreadPress = useCallback(
-    (playerId: number, name?: string) => {
-      router.push(routes.messagesThread(playerId, name));
-    },
-    [router],
-  );
+  // Sync to the `?tab=` param when it changes (e.g. a deep link arriving while
+  // the screen is already mounted). Functional update leaves in-app tab taps
+  // untouched — this only fires when the param itself changes.
+  useEffect(() => {
+    if (paramTab != null) {
+      setActiveTab((prev) => (paramTab !== prev ? paramTab : prev));
+    }
+  }, [paramTab]);
 
   const handleFindPlayers = useCallback(() => {
     router.push(routes.findPlayers());
   }, [router]);
 
-  const handleRetry = useCallback(() => {
-    void refetch();
-  }, [refetch]);
-
-  const renderConversation = useCallback(
-    ({ item }: { item: Conversation }) => (
-      <ConversationRow
-        conversation={item}
-        currentPlayerId={currentPlayerId}
-        onPress={handleThreadPress}
-      />
-    ),
-    [currentPlayerId, handleThreadPress],
-  );
-
-  const keyExtractor = useCallback(
-    (item: Conversation) => String(item.player_id),
-    [],
-  );
-
-  function renderMessagesContent(): React.ReactNode {
-    if (isLoading) {
-      return <ConversationSkeleton count={6} />;
+  function renderBody(): React.ReactNode {
+    switch (activeTab) {
+      case 'messages':
+        return <MessagesTab />;
+      case 'notifications':
+        return <NotificationsTab />;
+      case 'friends':
+      case 'findplayers':
+        // Transitional placeholder until FriendsBody (Phase 2) and
+        // FindPlayersBody (Phase 3) render inline content.
+        return <FriendsShortcut onFindPlayers={handleFindPlayers} />;
     }
-
-    if (error != null) {
-      return (
-        <View
-          testID="social-error"
-          className="flex-1 items-center justify-center px-6 py-10"
-        >
-          <Text className="text-base font-semibold text-center text-default mb-2">
-            Could not load messages
-          </Text>
-          <Text className="text-sm text-center text-muted mb-4">
-            {error.message}
-          </Text>
-          <Pressable
-            testID="retry-button"
-            onPress={handleRetry}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading messages"
-            className="bg-brand-teal rounded-xl px-6 py-3 active:opacity-70"
-          >
-            <Text className="text-white font-semibold text-sm">Retry</Text>
-          </Pressable>
-        </View>
-      );
-    }
-
-    const items = conversations ?? [];
-
-    if (items.length === 0) {
-      return (
-        <EmptyState
-          title="No conversations yet"
-          description="Start a conversation with a friend or league member"
-          actionLabel="Find Players"
-          onAction={handleFindPlayers}
-        />
-      );
-    }
-
-    return (
-      <FlatList
-        testID="conversations-list"
-        data={items as Conversation[]}
-        renderItem={renderConversation}
-        keyExtractor={keyExtractor}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#2a7d9c"
-          />
-        }
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 24 }}
-      />
-    );
   }
 
   return (
     <SafeAreaView className="flex-1 bg-page" edges={['top']}>
       <TopNav title="Social" />
-
-      {/* Segmented control */}
-      <View className="px-4 py-2 bg-elevated border-b border-divider">
-        <SegmentControl
-          segments={[...SEGMENTS]}
-          selectedIndex={selectedSegment}
-          onSelect={setSelectedSegment}
-        />
-      </View>
-
-      {/* Content */}
-      <View className="flex-1">
-        {selectedSegment === SEGMENT_MESSAGES
-          ? renderMessagesContent()
-          : <FriendsShortcut onFindPlayers={handleFindPlayers} />}
+      <SocialSubnav activeTab={activeTab} onTabPress={setActiveTab} />
+      <View testID="social-body" className="flex-1">
+        {renderBody()}
       </View>
     </SafeAreaView>
   );

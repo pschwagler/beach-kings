@@ -1,8 +1,11 @@
 /**
- * FriendsShortcut — Friends tab content within the Social segmented screen.
+ * FriendsShortcut — transitional placeholder for the Social hub's Friends and
+ * Find Players subnav tabs.
  *
- * Shows a CTA to find players, mirroring the friends.html wireframe's
- * empty-state. The full friend list lives in the find-players stack screen.
+ * Shows a CTA into the standalone find-players stack screen (which today holds
+ * both discovery and friend management) until the real inline bodies land:
+ * `FriendsBody` in Phase 2 and `FindPlayersBody` in Phase 3 of the social-hub
+ * parity plan. It is deleted once both tabs render their own content.
  */
 
 import React from 'react';

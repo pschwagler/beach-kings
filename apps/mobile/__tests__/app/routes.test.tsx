@@ -55,8 +55,19 @@ jest.mock('expo-router', () => {
 
   const useRouter = () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn() });
   const useSegments = () => [];
+  const useLocalSearchParams = () => ({});
 
-  return { Redirect, Slot, Stack, Tabs, Link, SplashScreen, useRouter, useSegments };
+  return {
+    Redirect,
+    Slot,
+    Stack,
+    Tabs,
+    Link,
+    SplashScreen,
+    useRouter,
+    useSegments,
+    useLocalSearchParams,
+  };
 });
 
 // expo-status-bar
@@ -212,6 +223,8 @@ jest.mock('@/lib/api', () => ({
     getFriendRequests: jest.fn().mockResolvedValue([]),
     getCourts: jest.fn().mockResolvedValue([]),
     getPlayerMatchHistory: jest.fn().mockResolvedValue([]),
+    // The Social tab's default Messages body fetches conversations on mount.
+    getConversations: jest.fn().mockResolvedValue({ items: [], total_count: 0 }),
   },
 }));
 

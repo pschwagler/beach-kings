@@ -10,6 +10,13 @@
  * router.push(routes.league(42));
  */
 
+/**
+ * The four destinations reachable from the Social hub subnav. Canonical source
+ * of the tab keys; `SocialSubnav` re-exports this so components and route
+ * helpers agree on the same union.
+ */
+export type SocialTab = 'messages' | 'notifications' | 'friends' | 'findplayers';
+
 export const routes = {
   // ---- Auth group ----
   welcome: () => '/(auth)/welcome' as const,
@@ -23,7 +30,14 @@ export const routes = {
   home: () => '/(tabs)/home' as const,
   leagues: () => '/(tabs)/leagues' as const,
   addGames: () => '/(tabs)/add-games' as const,
-  social: () => '/(tabs)/social' as const,
+  // Optional `{ tab }` deep-links straight to a Social subnav destination.
+  // The no-arg call keeps the plain `as const` literal so existing typed-route
+  // callers (Home/Profile) stay happy; the tabbed form yields a template
+  // literal type callers can push directly.
+  social: (params: { tab?: SocialTab } = {}) =>
+    params.tab != null
+      ? (`/(tabs)/social?tab=${params.tab}` as const)
+      : ('/(tabs)/social' as const),
   profile: () => '/(tabs)/profile' as const,
 
   // ---- Stack: leagues / sessions / courts / players ----

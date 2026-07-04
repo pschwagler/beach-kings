@@ -44,6 +44,16 @@ describe('routes', () => {
     expect(routes.findPlayers()).toContain('find-players');
   });
 
+  it('social route is the plain tab path with no args', () => {
+    expect(routes.social()).toBe('/(tabs)/social');
+  });
+
+  it('social route with a tab appends the ?tab= query', () => {
+    expect(routes.social({ tab: 'notifications' })).toBe(
+      '/(tabs)/social?tab=notifications',
+    );
+  });
+
   it('tournaments route contains "tournaments"', () => {
     expect(routes.tournaments()).toContain('tournaments');
   });
