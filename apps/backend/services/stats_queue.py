@@ -9,7 +9,7 @@ Handles async stats calculation jobs with a database-backed queue that:
 
 import asyncio
 import logging
-from typing import Optional, Dict, Callable, Awaitable
+from typing import Optional, Dict, Callable, Awaitable, Coroutine, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select, update, and_, func
@@ -26,8 +26,27 @@ class StatsCalculationQueue:
         self._worker_task: Optional[asyncio.Task] = None
         self._running = False
         self._stop_event = asyncio.Event()
+        # Strong references to in-flight calculation tasks. Keeping them prevents
+        # the event loop from garbage-collecting a task mid-execution (see the
+        # asyncio.create_task docs) and lets drain() await/cancel outstanding work
+        # at shutdown — and, in tests, between cases so a detached calculation can
+        # never hold a DB connection/lock into the next test.
+        self._background_tasks: Set[asyncio.Task] = set()
         self._global_calc_callback: Optional[Callable[[AsyncSession], Awaitable[Dict]]] = None
         self._league_calc_callback: Optional[Callable[[AsyncSession, int], Awaitable[Dict]]] = None
+
+    def _spawn(self, coro: Coroutine) -> asyncio.Task:
+        """Spawn a tracked background task.
+
+        Replaces bare ``asyncio.create_task``: the returned task is retained in
+        ``_background_tasks`` until it completes, so it cannot be dropped mid-run
+        and can be drained deterministically. The done-callback removes the task
+        from the set once it finishes.
+        """
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
 
     async def enqueue_calculation(
         self, session: AsyncSession, calc_type: str, league_id: Optional[int] = None
@@ -97,8 +116,8 @@ class StatsCalculationQueue:
             await session.commit()
             await session.refresh(job)
 
-            # Start async task to run calculation
-            asyncio.create_task(self._run_calculation(job.id))
+            # Start async task to run calculation (tracked so it can be drained)
+            self._spawn(self._run_calculation(job.id))
             return job.id
 
     async def _find_existing_job(
@@ -412,6 +431,42 @@ class StatsCalculationQueue:
         self._stop_event.set()
         if self._worker_task and not self._worker_task.done():
             self._worker_task.cancel()
+
+    async def drain(self, *, cancel: bool = True) -> None:
+        """Await (or cancel) all in-flight background work.
+
+        Used for graceful shutdown and — critically — between tests: a detached
+        calculation task that outlives its test would otherwise keep a DB
+        connection open, holding a lock that deadlocks the next test's TRUNCATE.
+        Draining here guarantees no background task crosses a test boundary.
+
+        Args:
+            cancel: When True (default), cancel outstanding tasks rather than
+                waiting for them to finish naturally. Set False to let them run
+                to completion (e.g. a real graceful shutdown).
+        """
+        # Stop the worker first so it cannot spawn new jobs while we drain.
+        self.stop_background_worker()
+
+        tasks = list(self._background_tasks)
+        if self._worker_task is not None:
+            tasks.append(self._worker_task)
+
+        if cancel:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+
+        for task in tasks:
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                # Draining must never raise: a failed or cancelled background job
+                # must not break shutdown or leak into the next test's setup.
+                pass
+
+        self._background_tasks.clear()
+        self._worker_task = None
 
 
 # Global queue instance

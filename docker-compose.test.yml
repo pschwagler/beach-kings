@@ -76,6 +76,11 @@ services:
       - "backend/tests/"
       - "-v"
       - "--tb=short"
+      # Backstop: this container does not mount the repo-root pytest.ini, so the
+      # per-test timeout must be passed explicitly here. signal method (SIGALRM)
+      # kills a hung test but keeps the run alive so the summary still prints.
+      - "--timeout=90"
+      - "--timeout-method=signal"
       - "--cov=backend"
       - "--cov-report=xml:backend/coverage.xml"
       - "--cov-report=term"

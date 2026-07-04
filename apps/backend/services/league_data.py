@@ -660,9 +660,11 @@ async def get_league_detail(session: AsyncSession, league_id: int, user_id: int)
 
 # Canonical season-rank ordering. Used wherever a player's rank within a
 # season is computed so the leagues list, league detail, and standings tab
-# never disagree on tiebreakers.
+# never disagree on tiebreakers. Points decide first; ties break by wins
+# (players expect "more wins ranks higher"), then avg point diff and win rate.
 _SEASON_RANK_ORDER = (
     PlayerSeasonStats.points.desc(),
+    PlayerSeasonStats.wins.desc(),
     PlayerSeasonStats.avg_point_diff.desc(),
     PlayerSeasonStats.win_rate.desc(),
 )

@@ -505,9 +505,9 @@ async def test_rank_none_when_no_stats_row(db_session):
 @pytest.mark.asyncio
 async def test_rank_tiebreak_by_avg_point_diff_then_win_rate(db_session):
     """
-    Season scope: when points are equal, avg_point_diff is the tiebreaker
-    (per _SEASON_RANK_ORDER). avg_point_diff only participates in season-scope
-    ranking — league/all-time scope ranks by wins + win_rate only.
+    Season scope: when points AND wins are equal, avg_point_diff is the next
+    tiebreaker (per _SEASON_RANK_ORDER). avg_point_diff only participates in
+    season-scope ranking — league/all-time scope ranks by wins + win_rate only.
     """
     player_a = await _player(db_session, "Tie A")
     player_b = await _player(db_session, "Tie B")
@@ -516,7 +516,7 @@ async def test_rank_tiebreak_by_avg_point_diff_then_win_rate(db_session):
     await _league_member(db_session, league, player_a)
     await _league_member(db_session, league, player_b)
 
-    # Same points, player_b has higher avg_point_diff
+    # Same points and same wins, player_b has higher avg_point_diff
     db_session.add(
         PlayerSeasonStats(
             player_id=player_a.id,
@@ -559,6 +559,66 @@ async def test_rank_tiebreak_by_avg_point_diff_then_win_rate(db_session):
     assert result_b is not None and result_a is not None
     assert result_b["rank"] == 1
     assert result_a["rank"] == 2
+
+
+@pytest.mark.asyncio
+async def test_rank_tiebreak_by_wins_before_avg_point_diff(db_session):
+    """
+    Season scope: when points are equal, WINS is the primary tiebreaker and
+    outranks avg_point_diff. The player with more wins ranks higher even if the
+    other has a better average point differential.
+    """
+    player_a = await _player(db_session, "Wins A")
+    player_b = await _player(db_session, "Diff B")
+    league = await _league(db_session, "Wins Tie League")
+    season = await _season(db_session, league, "Wins Tie Season")
+    await _league_member(db_session, league, player_a)
+    await _league_member(db_session, league, player_b)
+
+    # Same points. player_a has MORE wins; player_b has a higher avg_point_diff.
+    # Wins must win the tiebreak, so player_a ranks first.
+    db_session.add(
+        PlayerSeasonStats(
+            player_id=player_a.id,
+            season_id=season.id,
+            games=12,
+            wins=8,
+            points=50.0,
+            win_rate=66.7,
+            avg_point_diff=1.0,
+        )
+    )
+    db_session.add(
+        PlayerSeasonStats(
+            player_id=player_b.id,
+            season_id=season.id,
+            games=12,
+            wins=3,
+            points=50.0,
+            win_rate=25.0,
+            avg_point_diff=9.0,
+        )
+    )
+    await db_session.commit()
+
+    result_a = await get_league_player_stats_full(
+        db_session,
+        league_id=league.id,
+        player_id=player_a.id,
+        season_id=season.id,
+        caller_player_id=player_a.id,
+    )
+    result_b = await get_league_player_stats_full(
+        db_session,
+        league_id=league.id,
+        player_id=player_b.id,
+        season_id=season.id,
+        caller_player_id=player_b.id,
+    )
+
+    assert result_a is not None and result_b is not None
+    assert result_a["rank"] == 1
+    assert result_b["rank"] == 2
 
 
 # ---------------------------------------------------------------------------

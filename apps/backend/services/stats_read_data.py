@@ -1350,8 +1350,11 @@ async def get_league_player_stats_full(
     rank: Optional[int] = None
     if season_id is not None:
         # Season scope: rank within PlayerSeasonStats for this season.
+        # Mirrors _SEASON_RANK_ORDER in league_data.py: points, then wins as the
+        # primary tiebreak, then avg point diff and win rate.
         _season_order = (
             PlayerSeasonStats.points.desc(),
+            PlayerSeasonStats.wins.desc(),
             PlayerSeasonStats.avg_point_diff.desc(),
             PlayerSeasonStats.win_rate.desc(),
         )

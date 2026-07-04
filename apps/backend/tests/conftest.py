@@ -275,6 +275,17 @@ async def test_engine():
         echo=False,
         poolclass=NullPool,  # No connection pooling - each operation gets a new connection
         pool_pre_ping=True,
+        # Defense in depth: bound how long any statement / lock-wait can block.
+        # If a background task leaks and holds a lock, the next test's TRUNCATE
+        # fails fast (lock_timeout) instead of hanging the whole suite forever —
+        # so one DB issue can no longer poison every later test.
+        connect_args={
+            "timeout": 10,  # connection-acquisition timeout (seconds)
+            "server_settings": {
+                "lock_timeout": "5000",  # ms: abort if a lock isn't granted in 5s
+                "statement_timeout": "30000",  # ms: no single query runs past 30s
+            },
+        },
     )
 
     # Create all tables
@@ -307,6 +318,30 @@ async def test_engine():
     db.AsyncSessionLocal = test_session_maker
 
     yield engine
+
+    # Drain in-flight stats-calc background tasks BEFORE disposing the engine.
+    # enqueue_calculation() spawns detached tasks that open their own session via
+    # the monkeypatched AsyncSessionLocal; if one outlives its test it keeps a
+    # connection/lock open and deadlocks the next test's TRUNCATE (the historical
+    # "async-fixture timeout cascade"). Draining here removes the cause.
+    # Best-effort: teardown must never fail on a background job error.
+    try:
+        from backend.services.stats_queue import get_stats_queue
+
+        await get_stats_queue().drain(cancel=True)
+    except Exception:
+        pass
+
+    # Dispose the app's shared runtime engine (a QueuePool created once at import).
+    # Route tests reach it through the app lifespan (init_database / background
+    # worker), and its pooled connections would otherwise be reused across the
+    # per-function event loops — the "Future attached to a different loop" errors
+    # that then hold locks and make the next test's TRUNCATE fail on dirty state.
+    # Disposing here forces each test to open fresh connections on its own loop.
+    try:
+        await db.engine.dispose()
+    except Exception:
+        pass
 
     # Restore original AsyncSessionLocal
     db.AsyncSessionLocal = original_async_session_local
