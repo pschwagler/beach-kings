@@ -1,0 +1,205 @@
+/**
+ * Tests for the useDiscoverPlayers hook.
+ *
+ * Focus: the discover response normalization (paginated `{ items }` envelope,
+ * bare array, and the backend `id`/`location_name`/`total_games` field
+ * spellings), the client-side search filter, and optimistic add-friend with
+ * rollback on failure.
+ */
+
+import { renderHook, waitFor, act } from '@testing-library/react-native';
+
+// ---------------------------------------------------------------------------
+// Mocks — factories run before the subject under test is imported.
+// ---------------------------------------------------------------------------
+
+jest.mock('@/utils/haptics', () => ({
+  hapticMedium: jest.fn(),
+}));
+
+jest.mock('@/lib/api', () => ({
+  api: {
+    discoverPlayers: jest.fn(),
+    sendFriendRequest: jest.fn(),
+  },
+}));
+
+import { useDiscoverPlayers } from '../useDiscoverPlayers';
+import { api } from '@/lib/api';
+
+const mockApi = api as unknown as {
+  discoverPlayers: jest.Mock;
+  sendFriendRequest: jest.Mock;
+};
+
+// ---------------------------------------------------------------------------
+// Test data
+// ---------------------------------------------------------------------------
+
+const PLAYER = {
+  player_id: 7,
+  full_name: 'Bob Jones',
+  avatar: null,
+  city: 'San Diego',
+  level: 'advanced',
+  games_played: 12,
+  mutual_friends_count: 1,
+  last_active_label: null,
+  friend_status: 'none' as const,
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockApi.sendFriendRequest.mockResolvedValue(undefined);
+});
+
+// ---------------------------------------------------------------------------
+// Response normalization
+// ---------------------------------------------------------------------------
+
+describe('useDiscoverPlayers — normalization', () => {
+  it('normalizes a paginated discover response into a players array', async () => {
+    mockApi.discoverPlayers.mockResolvedValue({
+      items: [PLAYER],
+      total_count: 1,
+      page: 1,
+      page_size: 25,
+    });
+
+    const { result } = renderHook(() => useDiscoverPlayers());
+
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    expect(result.current.playersError).toBeNull();
+    expect(result.current.players).toEqual([PLAYER]);
+  });
+
+  it('still supports a bare-array discover response', async () => {
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
+
+    const { result } = renderHook(() => useDiscoverPlayers());
+
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    expect(result.current.players).toEqual([PLAYER]);
+  });
+
+  it('falls back to an empty array when items is absent', async () => {
+    mockApi.discoverPlayers.mockResolvedValue({ total_count: 0 });
+
+    const { result } = renderHook(() => useDiscoverPlayers());
+
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    expect(result.current.players).toEqual([]);
+  });
+
+  it('maps the backend discover item shape onto DiscoverPlayer', async () => {
+    // Backend serializes id/location_name/total_games/mutual_friend_count.
+    mockApi.discoverPlayers.mockResolvedValue({
+      items: [
+        {
+          id: 2,
+          full_name: 'Colan Gulla',
+          avatar: 'CG',
+          location_name: 'NY - New York City Metro',
+          level: 'Open',
+          total_games: 102,
+          mutual_friend_count: 3,
+          friend_status: 'none',
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useDiscoverPlayers());
+
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    expect(result.current.players).toEqual([
+      {
+        player_id: 2,
+        full_name: 'Colan Gulla',
+        avatar: 'CG',
+        city: 'NY - New York City Metro',
+        level: 'Open',
+        games_played: 102,
+        mutual_friends_count: 3,
+        last_active_label: null,
+        friend_status: 'none',
+      },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Search filter
+// ---------------------------------------------------------------------------
+
+describe('useDiscoverPlayers — search filter', () => {
+  const NY = {
+    ...PLAYER,
+    player_id: 8,
+    full_name: 'Nina York',
+    city: 'New York',
+  };
+
+  it('filters the discover list by name', async () => {
+    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER, NY] });
+
+    const { result } = renderHook(() =>
+      useDiscoverPlayers({ searchQuery: 'bob' }),
+    );
+
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    expect(result.current.players).toEqual([PLAYER]);
+  });
+
+  it('filters the discover list by city', async () => {
+    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER, NY] });
+
+    const { result } = renderHook(() =>
+      useDiscoverPlayers({ searchQuery: 'new york' }),
+    );
+
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    expect(result.current.players).toEqual([NY]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Optimistic add friend
+// ---------------------------------------------------------------------------
+
+describe('useDiscoverPlayers — add friend', () => {
+  it('optimistically marks a player as pending on add', async () => {
+    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    act(() => {
+      result.current.onAddFriend(7);
+    });
+
+    expect(result.current.pendingSendIds.has(7)).toBe(true);
+    expect(mockApi.sendFriendRequest).toHaveBeenCalledWith(7);
+  });
+
+  it('rolls back the pending state when the request fails', async () => {
+    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+    mockApi.sendFriendRequest.mockRejectedValue(new Error('nope'));
+
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    act(() => {
+      result.current.onAddFriend(7);
+    });
+
+    await waitFor(() =>
+      expect(result.current.pendingSendIds.has(7)).toBe(false),
+    );
+  });
+});

@@ -1,0 +1,375 @@
+/**
+ * Tests for FriendsBody — the Social hub's Friends tab content.
+ *
+ * Covers:
+ *   - Loading skeleton and full-page error state.
+ *   - Empty state ("No friends yet" + Find Players CTA) and its navigation.
+ *   - "No matches" state while searching with no results.
+ *   - Sectioned rendering: Pending Requests / My Friends / Suggested Friends
+ *     with correct counts.
+ *   - Accept / decline request handlers.
+ *   - Suggestion add handler and the pending ("Requested") state.
+ *   - Friend + suggestion rows navigating to a profile.
+ *   - Non-fatal inline notice when the friend-requests fetch fails.
+ *   - Search input wiring, and search scoping (requests/suggestions hidden while
+ *     searching so a no-match search reads as "No matches").
+ */
+
+import React from 'react';
+import { render, fireEvent, screen } from '@testing-library/react-native';
+
+jest.mock('@/utils/haptics', () => ({
+  hapticLight: jest.fn(),
+  hapticMedium: jest.fn(),
+}));
+
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({ textTertiary: '#999999' }),
+}));
+
+import FriendsBody, {
+  type FriendsBodyProps,
+} from '@/components/screens/Social/FriendsBody';
+import type { Friend, FriendRequest } from '@beach-kings/shared';
+
+// ---------------------------------------------------------------------------
+// Test data
+// ---------------------------------------------------------------------------
+
+const FRIEND: Friend = {
+  id: 1,
+  player_id: 30,
+  full_name: 'Morgan Davis',
+  avatar: null,
+  location_name: 'San Diego, CA',
+  level: 'Open',
+};
+
+const FRIEND_2: Friend = {
+  id: 2,
+  player_id: 31,
+  full_name: 'Riley Chen',
+  avatar: null,
+  location_name: 'Los Angeles, CA',
+  level: 'AA',
+};
+
+const REQUEST: FriendRequest = {
+  id: 100,
+  sender_player_id: 50,
+  sender_name: 'Alex Torres',
+  sender_avatar: null,
+  receiver_player_id: 0,
+  receiver_name: 'Me',
+  receiver_avatar: null,
+  status: 'pending',
+  created_at: '2026-04-19T10:00:00Z',
+};
+
+const SUGGESTION: Friend = {
+  id: 3,
+  player_id: 40,
+  full_name: 'Sam Rivera',
+  avatar: null,
+  location_name: 'San Diego, CA',
+  level: 'advanced',
+};
+
+function makeProps(overrides: Partial<FriendsBodyProps> = {}): FriendsBodyProps {
+  return {
+    friends: [FRIEND, FRIEND_2],
+    friendRequests: [REQUEST],
+    suggestions: [SUGGESTION],
+    isLoadingFriends: false,
+    friendsError: null,
+    friendRequestsError: null,
+    suggestionsError: null,
+    isRefreshingFriends: false,
+    onRefreshFriends: jest.fn(),
+    onRetryFriends: jest.fn(),
+    onAcceptRequest: jest.fn(),
+    onDeclineRequest: jest.fn(),
+    pendingAddIds: new Set<number>(),
+    onAddSuggestion: jest.fn(),
+    searchQuery: '',
+    setSearchQuery: jest.fn(),
+    onPlayerPress: jest.fn(),
+    onFindPlayers: jest.fn(),
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// Loading / error
+// ---------------------------------------------------------------------------
+
+describe('FriendsBody — loading & error', () => {
+  it('renders the loading skeleton while fetching', () => {
+    render(<FriendsBody {...makeProps({ isLoadingFriends: true })} />);
+    expect(screen.getByTestId('friends-loading')).toBeTruthy();
+    expect(screen.queryByTestId('friends-list')).toBeNull();
+  });
+
+  it('renders the full-page error state when the friends list fails', () => {
+    render(
+      <FriendsBody
+        {...makeProps({ friendsError: new Error('boom') })}
+      />,
+    );
+    expect(screen.getByTestId('friends-error-state')).toBeTruthy();
+  });
+
+  it('retries from the error state', () => {
+    const onRetryFriends = jest.fn();
+    render(
+      <FriendsBody
+        {...makeProps({ friendsError: new Error('boom'), onRetryFriends })}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('friends-retry-btn'));
+    expect(onRetryFriends).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Empty states
+// ---------------------------------------------------------------------------
+
+describe('FriendsBody — empty states', () => {
+  it('renders the empty state when there is no data', () => {
+    render(
+      <FriendsBody
+        {...makeProps({ friends: [], friendRequests: [], suggestions: [] })}
+      />,
+    );
+    expect(screen.getByTestId('friends-empty-state')).toBeTruthy();
+    expect(screen.queryByTestId('friends-list')).toBeNull();
+  });
+
+  it('navigates to Find Players from the empty-state CTA', () => {
+    const onFindPlayers = jest.fn();
+    render(
+      <FriendsBody
+        {...makeProps({
+          friends: [],
+          friendRequests: [],
+          suggestions: [],
+          onFindPlayers,
+        })}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('friends-empty-find-players'));
+    expect(onFindPlayers).toHaveBeenCalled();
+  });
+
+  it('shows a "no matches" state when searching yields nothing', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          friends: [],
+          friendRequests: [],
+          suggestions: [],
+          searchQuery: 'zzz',
+        })}
+      />,
+    );
+    expect(screen.getByTestId('friends-no-results')).toBeTruthy();
+    expect(screen.queryByTestId('friends-empty-state')).toBeNull();
+  });
+
+  it('shows "no matches" while searching even when requests/suggestions exist', () => {
+    // friends filtered to empty, but requests + suggestions are still populated.
+    render(
+      <FriendsBody {...makeProps({ friends: [], searchQuery: 'zzz' })} />,
+    );
+    expect(screen.getByTestId('friends-no-results')).toBeTruthy();
+    expect(screen.queryByText(/Pending Requests/)).toBeNull();
+    expect(screen.queryByText('Suggested Friends')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Search scoping
+// ---------------------------------------------------------------------------
+
+describe('FriendsBody — search scoping', () => {
+  it('hides requests + suggestions while searching, keeping only friends', () => {
+    render(<FriendsBody {...makeProps({ searchQuery: 'morgan' })} />);
+
+    expect(screen.getByText('My Friends (2)')).toBeTruthy();
+    expect(screen.getByTestId(`friend-row-${FRIEND.player_id}`)).toBeTruthy();
+    expect(screen.queryByText(/Pending Requests/)).toBeNull();
+    expect(screen.queryByText('Suggested Friends')).toBeNull();
+    expect(
+      screen.queryByTestId(`friend-request-card-${REQUEST.id}`),
+    ).toBeNull();
+  });
+
+  it('suppresses the requests-error notice while searching', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          searchQuery: 'morgan',
+          friendRequests: [],
+          friendRequestsError: new Error('requests boom'),
+        })}
+      />,
+    );
+
+    expect(screen.queryByTestId('friend-requests-error-notice')).toBeNull();
+    expect(screen.getByText('My Friends (2)')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sections
+// ---------------------------------------------------------------------------
+
+describe('FriendsBody — sections', () => {
+  it('renders all three sections with counts', () => {
+    render(<FriendsBody {...makeProps()} />);
+
+    expect(screen.getByText('Pending Requests (1)')).toBeTruthy();
+    expect(screen.getByText('My Friends (2)')).toBeTruthy();
+    expect(screen.getByText('Suggested Friends')).toBeTruthy();
+  });
+
+  it('renders friend, request, and suggestion rows', () => {
+    render(<FriendsBody {...makeProps()} />);
+
+    expect(screen.getByTestId(`friend-request-card-${REQUEST.id}`)).toBeTruthy();
+    expect(screen.getByTestId(`friend-row-${FRIEND.player_id}`)).toBeTruthy();
+    expect(
+      screen.getByTestId(`suggestion-row-${SUGGESTION.player_id}`),
+    ).toBeTruthy();
+  });
+
+  it('omits sections that have no items', () => {
+    render(
+      <FriendsBody {...makeProps({ friendRequests: [], suggestions: [] })} />,
+    );
+
+    expect(screen.queryByText(/Pending Requests/)).toBeNull();
+    expect(screen.queryByText('Suggested Friends')).toBeNull();
+    expect(screen.getByText('My Friends (2)')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Interactions
+// ---------------------------------------------------------------------------
+
+describe('FriendsBody — request actions', () => {
+  it('accepts a request', () => {
+    const onAcceptRequest = jest.fn();
+    render(<FriendsBody {...makeProps({ onAcceptRequest })} />);
+
+    fireEvent.press(screen.getByTestId(`accept-request-btn-${REQUEST.id}`));
+    expect(onAcceptRequest).toHaveBeenCalledWith(REQUEST.id);
+  });
+
+  it('declines a request', () => {
+    const onDeclineRequest = jest.fn();
+    render(<FriendsBody {...makeProps({ onDeclineRequest })} />);
+
+    fireEvent.press(screen.getByTestId(`decline-request-btn-${REQUEST.id}`));
+    expect(onDeclineRequest).toHaveBeenCalledWith(REQUEST.id);
+  });
+});
+
+describe('FriendsBody — suggestions', () => {
+  it('adds a suggestion', () => {
+    const onAddSuggestion = jest.fn();
+    render(<FriendsBody {...makeProps({ onAddSuggestion })} />);
+
+    fireEvent.press(screen.getByTestId(`suggestion-add-btn-${SUGGESTION.player_id}`));
+    expect(onAddSuggestion).toHaveBeenCalledWith(SUGGESTION.player_id);
+  });
+
+  it('shows the pending pill for an in-flight suggestion', () => {
+    render(
+      <FriendsBody
+        {...makeProps({ pendingAddIds: new Set([SUGGESTION.player_id]) })}
+      />,
+    );
+
+    expect(
+      screen.getByTestId(`suggestion-pending-${SUGGESTION.player_id}`),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId(`suggestion-add-btn-${SUGGESTION.player_id}`),
+    ).toBeNull();
+  });
+});
+
+describe('FriendsBody — navigation', () => {
+  it('opens a friend profile on row press', () => {
+    const onPlayerPress = jest.fn();
+    render(<FriendsBody {...makeProps({ onPlayerPress })} />);
+
+    fireEvent.press(screen.getByTestId(`friend-row-${FRIEND.player_id}`));
+    expect(onPlayerPress).toHaveBeenCalledWith(FRIEND.player_id);
+  });
+
+  it('opens a suggested player profile on row press', () => {
+    const onPlayerPress = jest.fn();
+    render(<FriendsBody {...makeProps({ onPlayerPress })} />);
+
+    fireEvent.press(screen.getByTestId(`suggestion-row-${SUGGESTION.player_id}`));
+    expect(onPlayerPress).toHaveBeenCalledWith(SUGGESTION.player_id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Non-fatal request error + search
+// ---------------------------------------------------------------------------
+
+describe('FriendsBody — non-fatal request error', () => {
+  it('shows an inline notice but still renders friends when requests fail', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          friendRequests: [],
+          friendRequestsError: new Error('requests boom'),
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('friend-requests-error-notice')).toBeTruthy();
+    expect(screen.getByTestId('friends-list')).toBeTruthy();
+    expect(screen.getByTestId(`friend-row-${FRIEND.player_id}`)).toBeTruthy();
+  });
+
+  it('retries requests from the inline notice', () => {
+    const onRetryFriends = jest.fn();
+    render(
+      <FriendsBody
+        {...makeProps({
+          friendRequests: [],
+          friendRequestsError: new Error('requests boom'),
+          onRetryFriends,
+        })}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('friend-requests-error-retry'));
+    expect(onRetryFriends).toHaveBeenCalled();
+  });
+});
+
+describe('FriendsBody — search', () => {
+  it('wires the search input to setSearchQuery', () => {
+    const setSearchQuery = jest.fn();
+    render(<FriendsBody {...makeProps({ setSearchQuery })} />);
+
+    fireEvent.changeText(
+      screen.getByTestId('friends-search-input'),
+      'riley',
+    );
+    expect(setSearchQuery).toHaveBeenCalledWith('riley');
+  });
+});

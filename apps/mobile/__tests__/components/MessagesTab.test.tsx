@@ -1,5 +1,5 @@
 /**
- * Behavior tests for the Messages inbox screen.
+ * Behavior tests for MessagesTab — the Social hub's Messages subnav container.
  *
  * Covers:
  *   - Loading skeleton while data is fetching
@@ -8,9 +8,11 @@
  *   - Conversation list with unread/read rows
  *   - Search filtering
  *   - Navigation on conversation press
+ *   - Compose action published into the hub header via setHeaderAction
  */
 
 import React from 'react';
+import { View } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -21,28 +23,10 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 
-jest.mock('expo-router', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return {
-    useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
-    useLocalSearchParams: () => ({}),
-    Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,
-    useSegments: () => [],
-    Slot: ({ children }: { children?: React.ReactNode }) => <View testID="slot">{children}</View>,
-  };
-});
-
-jest.mock('react-native-safe-area-context', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return {
-    SafeAreaView: ({ children, testID }: { children?: React.ReactNode; testID?: string }) => (
-      <View testID={testID ?? 'safe-area-view'}>{children}</View>
-    ),
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-  };
-});
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
+  useLocalSearchParams: () => ({}),
+}));
 
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
@@ -55,25 +39,6 @@ jest.mock('react-native-reanimated', () => {
     withRepeat: (v: unknown) => v,
     withTiming: (v: unknown) => v,
     Easing: { inOut: () => ({}), ease: {} },
-  };
-});
-
-jest.mock('react-native-svg', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  const Svg = ({ children }: { children?: React.ReactNode }) => <View>{children}</View>;
-  const Path = () => null;
-  const Circle = () => null;
-  const Polygon = () => null;
-  const Rect = () => null;
-  return {
-    __esModule: true,
-    default: Svg,
-    Svg,
-    Path,
-    Circle,
-    Polygon,
-    Rect,
   };
 });
 
@@ -97,7 +62,7 @@ jest.mock('@/lib/api', () => ({
 // Module under test
 // ---------------------------------------------------------------------------
 
-import MessagesListRoute from '../../../../app/(stack)/messages/index';
+import MessagesTab from '@/components/screens/Social/MessagesTab';
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -142,10 +107,10 @@ beforeEach(() => {
 // Loading state
 // ---------------------------------------------------------------------------
 
-describe('MessagesScreen — loading state', () => {
+describe('MessagesTab — loading state', () => {
   it('renders loading skeleton while data is fetching', async () => {
     mockGetConversations.mockReturnValue(new Promise(() => {}));
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('messages-loading')).toBeTruthy();
     });
@@ -156,10 +121,10 @@ describe('MessagesScreen — loading state', () => {
 // Empty state
 // ---------------------------------------------------------------------------
 
-describe('MessagesScreen — empty state', () => {
+describe('MessagesTab — empty state', () => {
   it('renders empty state when no conversations returned', async () => {
     mockGetConversations.mockResolvedValue({ items: [], total_count: 0 });
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('messages-empty-state')).toBeTruthy();
     });
@@ -170,10 +135,10 @@ describe('MessagesScreen — empty state', () => {
 // Error state
 // ---------------------------------------------------------------------------
 
-describe('MessagesScreen — error state', () => {
+describe('MessagesTab — error state', () => {
   it('renders error state when fetch fails', async () => {
     mockGetConversations.mockRejectedValue(new Error('Network error'));
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('messages-error-state')).toBeTruthy();
     });
@@ -181,7 +146,7 @@ describe('MessagesScreen — error state', () => {
 
   it('renders retry button in error state', async () => {
     mockGetConversations.mockRejectedValue(new Error('fail'));
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('messages-retry-btn')).toBeTruthy();
     });
@@ -190,7 +155,7 @@ describe('MessagesScreen — error state', () => {
   it('calls api again when retry is pressed', async () => {
     mockGetConversations.mockRejectedValueOnce(new Error('fail'));
     mockGetConversations.mockResolvedValue({ items: [], total_count: 0 });
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('messages-retry-btn')).toBeTruthy();
     });
@@ -205,9 +170,9 @@ describe('MessagesScreen — error state', () => {
 // Conversations list
 // ---------------------------------------------------------------------------
 
-describe('MessagesScreen — conversations list', () => {
+describe('MessagesTab — conversations list', () => {
   it('renders a row for each conversation', async () => {
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('convo-row-10')).toBeTruthy();
       expect(screen.getByTestId('convo-row-11')).toBeTruthy();
@@ -215,28 +180,28 @@ describe('MessagesScreen — conversations list', () => {
   });
 
   it('shows an unread dot for unread conversations', async () => {
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('convo-unread-dot-10')).toBeTruthy();
     });
   });
 
   it('does not show unread dot for read conversations', async () => {
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.queryByTestId('convo-unread-dot-11')).toBeNull();
     });
   });
 
   it('displays the conversation partner name', async () => {
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByText('Alex Torres')).toBeTruthy();
     });
   });
 
   it('navigates to thread when conversation row is pressed', async () => {
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('convo-row-10')).toBeTruthy();
     });
@@ -251,16 +216,16 @@ describe('MessagesScreen — conversations list', () => {
 // Search
 // ---------------------------------------------------------------------------
 
-describe('MessagesScreen — search', () => {
+describe('MessagesTab — search', () => {
   it('renders search input', async () => {
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('messages-search-input')).toBeTruthy();
     });
   });
 
   it('filters conversations by name when search query is typed', async () => {
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('messages-search-input')).toBeTruthy();
     });
@@ -272,7 +237,7 @@ describe('MessagesScreen — search', () => {
   });
 
   it('shows all conversations when search is cleared', async () => {
-    render(<MessagesListRoute />);
+    render(<MessagesTab />);
     await waitFor(() => {
       expect(screen.getByTestId('messages-search-input')).toBeTruthy();
     });
@@ -282,5 +247,56 @@ describe('MessagesScreen — search', () => {
       expect(screen.getByTestId('convo-row-10')).toBeTruthy();
       expect(screen.getByTestId('convo-row-11')).toBeTruthy();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Compose action (published into the hub header)
+// ---------------------------------------------------------------------------
+
+describe('MessagesTab — compose action', () => {
+  it('publishes a compose action node via setHeaderAction on mount', async () => {
+    const mockSetHeaderAction = jest.fn();
+    const mockOnCompose = jest.fn();
+    render(
+      <MessagesTab setHeaderAction={mockSetHeaderAction} onCompose={mockOnCompose} />,
+    );
+    await waitFor(() => {
+      expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything());
+    });
+    const [node] = mockSetHeaderAction.mock.calls[0];
+    expect(node).toBeTruthy();
+  });
+
+  it('invokes onCompose when the published compose button is pressed', async () => {
+    const mockSetHeaderAction = jest.fn();
+    const mockOnCompose = jest.fn();
+    render(
+      <MessagesTab setHeaderAction={mockSetHeaderAction} onCompose={mockOnCompose} />,
+    );
+    await waitFor(() => {
+      expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything());
+    });
+
+    const [composeNode] = mockSetHeaderAction.mock.calls[0];
+    // Wrap in a plain View: fireEvent.press needs an ancestor above the
+    // Pressable to walk up to for its onPress handler — rendering the
+    // Pressable as the tree root leaves nothing to walk up to.
+    render(<View>{composeNode}</View>);
+
+    fireEvent.press(screen.getByTestId('messages-compose-btn'));
+    expect(mockOnCompose).toHaveBeenCalled();
+  });
+
+  it('clears the header action on unmount', async () => {
+    const mockSetHeaderAction = jest.fn();
+    const { unmount } = render(
+      <MessagesTab setHeaderAction={mockSetHeaderAction} onCompose={jest.fn()} />,
+    );
+    await waitFor(() => {
+      expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything());
+    });
+    unmount();
+    expect(mockSetHeaderAction).toHaveBeenLastCalledWith(null);
   });
 });

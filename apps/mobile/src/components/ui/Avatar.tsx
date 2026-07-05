@@ -7,6 +7,11 @@
  *   gold           — bright team-identity gold bg, white text (for team chips)
  *   brand          — semantic brand-teal bg (navy in light, teal in dark), white text
  *   muted          — elevated/surface bg, muted text
+ *
+ * Pass `colorSeed` (e.g. a player id) to give each fallback circle a
+ * deterministic decorative color from a per-item variety palette instead of the
+ * flat `variant` color — used for friend/player lists where a wall of identical
+ * teal circles reads poorly. `colorSeed` is ignored when a real photo renders.
  */
 
 import React, { useState } from 'react';
@@ -20,6 +25,12 @@ interface AvatarProps {
   readonly name: string;
   readonly size?: AvatarSize;
   readonly variant?: AvatarVariant;
+  /**
+   * Stable identifier (player id or name) used to pick a deterministic
+   * decorative color for the initials fallback. When set it overrides
+   * `variant`'s color; ignored when a photo renders.
+   */
+  readonly colorSeed?: number | string;
   readonly className?: string;
   /** Set false when the parent element already provides an accessibility label for this avatar. */
   readonly accessible?: boolean;
@@ -71,6 +82,42 @@ const variantTextClass: Record<AvatarVariant, string> = {
   muted: 'text-muted',
 };
 
+/** A single decorative variety color: tinted circle bg + readable initials fg. */
+interface VarietyColor {
+  readonly bg: string;
+  readonly fg: string;
+}
+
+/**
+ * Decorative per-item avatar palette (soft tinted bg + dark readable initials).
+ * Deliberately NON-SEMANTIC identity colors — the documented exception to the
+ * no-hardcoded-hex theming rule — so they intentionally do NOT track dark mode.
+ * Mirrors the palette used by InvitePlayersScreen for app-wide consistency.
+ */
+const varietyColors: readonly VarietyColor[] = [
+  { bg: '#bae6fd', fg: '#0c4a6e' },
+  { bg: '#fed7aa', fg: '#9a3412' },
+  { bg: '#ddd6fe', fg: '#5b21b6' },
+  { bg: '#bbf7d0', fg: '#14532d' },
+  { bg: '#fde68a', fg: '#854d0e' },
+  { bg: '#fbcfe8', fg: '#9d174d' },
+];
+
+const varietyFallback: VarietyColor = varietyColors[0] ?? {
+  bg: '#4daacc',
+  fg: '#ffffff',
+};
+
+/** Deterministically map a stable seed to one of the {@link varietyColors}. */
+function varietyColorFor(seed: number | string): VarietyColor {
+  const n =
+    typeof seed === 'number'
+      ? Math.trunc(seed)
+      : Array.from(seed).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  const index = Math.abs(n) % varietyColors.length;
+  return varietyColors[index] ?? varietyFallback;
+}
+
 export function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   const first = parts[0]?.[0] ?? '';
@@ -83,6 +130,7 @@ export default function Avatar({
   name,
   size = 'md',
   variant = 'teal',
+  colorSeed,
   className = '',
   accessible = true,
 }: AvatarProps): React.ReactNode {
@@ -104,7 +152,8 @@ export default function Avatar({
     );
   }
 
-  const bgColor = variantBgColor[variant];
+  const variety = colorSeed != null ? varietyColorFor(colorSeed) : null;
+  const bgColor = variety?.bg ?? variantBgColor[variant];
 
   return (
     <View
@@ -114,11 +163,14 @@ export default function Avatar({
         borderRadius: dimension / 2,
         ...(bgColor != null ? { backgroundColor: bgColor } : {}),
       }}
-      className={`${variantBgClass[variant]} items-center justify-center ${className}`}
+      className={`${variety != null ? '' : variantBgClass[variant]} items-center justify-center ${className}`}
       accessible={accessible}
       accessibilityLabel={accessible ? name : undefined}
     >
-      <Text className={`font-semibold ${variantTextClass[variant]} ${textSizes[size]}`}>
+      <Text
+        style={variety != null ? { color: variety.fg } : undefined}
+        className={`font-semibold ${variety != null ? '' : variantTextClass[variant]} ${textSizes[size]}`}
+      >
         {initials}
       </Text>
     </View>

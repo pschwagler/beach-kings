@@ -5,14 +5,14 @@
  * - Renders the TopNav "Social" title and the SocialSubnav.
  * - Defaults to the Messages tab.
  * - Switching subnav tabs swaps the active body.
- * - Friends / Find Players tabs render the transitional shortcut placeholder,
- *   whose CTA navigates to the standalone find-players screen.
+ * - The Friends and Find Players tabs each render their inline body containers
+ *   (FriendsTab / FindPlayersTab).
  * - The `?tab=` param selects the initial tab (and falls back to Messages when
  *   the value is unrecognized).
  *
- * The per-tab data containers (MessagesTab / NotificationsTab) are stubbed so
- * these tests exercise shell routing, not the Messages/Notifications data
- * hooks (which have their own suites).
+ * The per-tab data containers (MessagesTab / NotificationsTab / FriendsTab /
+ * FindPlayersTab) are stubbed so these tests exercise shell routing, not the
+ * underlying data hooks (which have their own suites).
  */
 
 import React from 'react';
@@ -43,25 +43,52 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
+// TopNav stub renders its rightAction slot so per-tab header actions (published
+// by the active tab via setHeaderAction) are assertable at the shell level.
 jest.mock('@/components/ui/TopNav', () => {
   const React = require('react');
-  const { Text } = require('react-native');
+  const { View, Text } = require('react-native');
   return {
     __esModule: true,
-    default: ({ title }: { title: string }) => (
-      <Text testID="top-nav">{title}</Text>
+    default: ({
+      title,
+      rightAction,
+    }: {
+      title: string;
+      rightAction?: React.ReactNode;
+    }) => (
+      <View>
+        <Text testID="top-nav">{title}</Text>
+        <View testID="top-nav-right">{rightAction}</View>
+      </View>
     ),
   };
 });
 
-// Per-tab containers stubbed — shell tests should not touch their data hooks.
+// Per-tab containers stubbed — shell tests should not touch their data hooks —
+// but the stubs honor the shell wiring props (setHeaderAction / onCompose /
+// onFindPlayers) so tab-switching and the header slot can be exercised.
 jest.mock('@/components/screens/Social/MessagesTab', () => {
   const React = require('react');
-  const { View } = require('react-native');
-  return {
-    __esModule: true,
-    default: () => <View testID="messages-tab-stub" />,
-  };
+  const { Text, Pressable } = require('react-native');
+  function MessagesTabStub({
+    setHeaderAction,
+    onCompose,
+  }: {
+    setHeaderAction?: (node: React.ReactNode | null) => void;
+    onCompose?: () => void;
+  }) {
+    React.useEffect(() => {
+      setHeaderAction?.(<Text testID="compose-action">compose</Text>);
+      return () => setHeaderAction?.(null);
+    }, [setHeaderAction]);
+    return (
+      <Pressable testID="messages-tab-stub" onPress={onCompose}>
+        <Text>messages</Text>
+      </Pressable>
+    );
+  }
+  return { __esModule: true, default: MessagesTabStub };
 });
 
 jest.mock('@/components/screens/Social/NotificationsTab', () => {
@@ -70,6 +97,28 @@ jest.mock('@/components/screens/Social/NotificationsTab', () => {
   return {
     __esModule: true,
     default: () => <View testID="notifications-tab-stub" />,
+  };
+});
+
+jest.mock('@/components/screens/Social/FriendsTab', () => {
+  const React = require('react');
+  const { Text, Pressable } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ onFindPlayers }: { onFindPlayers?: () => void }) => (
+      <Pressable testID="friends-tab-stub" onPress={onFindPlayers}>
+        <Text>friends</Text>
+      </Pressable>
+    ),
+  };
+});
+
+jest.mock('@/components/screens/Social/FindPlayersTab', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: () => <View testID="find-players-tab-stub" />,
   };
 });
 
@@ -139,26 +188,20 @@ describe('SocialScreen — tab switching', () => {
     expect(screen.queryByTestId('messages-tab-stub')).toBeNull();
   });
 
-  it('shows the shortcut placeholder on the Friends tab', () => {
+  it('shows the Friends body on the Friends tab', () => {
     render(<SocialScreen />);
     fireEvent.press(screen.getByTestId('social-subnav-tab-friends'));
 
-    expect(screen.getByTestId('friends-shortcut')).toBeTruthy();
+    expect(screen.getByTestId('friends-tab-stub')).toBeTruthy();
+    expect(screen.queryByTestId('friends-shortcut')).toBeNull();
   });
 
-  it('shows the shortcut placeholder on the Find Players tab', () => {
+  it('shows the Find Players body on the Find Players tab', () => {
     render(<SocialScreen />);
     fireEvent.press(screen.getByTestId('social-subnav-tab-findplayers'));
 
-    expect(screen.getByTestId('friends-shortcut')).toBeTruthy();
-  });
-
-  it('placeholder CTA navigates to the find-players screen', () => {
-    render(<SocialScreen />);
-    fireEvent.press(screen.getByTestId('social-subnav-tab-friends'));
-    fireEvent.press(screen.getByTestId('find-players-button'));
-
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/find-players');
+    expect(screen.getByTestId('find-players-tab-stub')).toBeTruthy();
+    expect(screen.queryByTestId('friends-tab-stub')).toBeNull();
   });
 
   it('can switch back to Messages after leaving it', () => {
@@ -168,6 +211,45 @@ describe('SocialScreen — tab switching', () => {
 
     expect(screen.getByTestId('messages-tab-stub')).toBeTruthy();
     expect(screen.queryByTestId('notifications-tab-stub')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4 — header-action slot + in-hub subnav switching
+// ---------------------------------------------------------------------------
+
+describe('SocialScreen — per-tab header action', () => {
+  it('surfaces the active tab action in the TopNav right slot', () => {
+    render(<SocialScreen />);
+    // Messages is default; its stub publishes a compose action.
+    expect(screen.getByTestId('compose-action')).toBeTruthy();
+  });
+
+  it('clears the header action when switching to a tab without one', () => {
+    render(<SocialScreen />);
+    expect(screen.getByTestId('compose-action')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('social-subnav-tab-friends'));
+    expect(screen.queryByTestId('compose-action')).toBeNull();
+  });
+});
+
+describe('SocialScreen — in-hub navigation', () => {
+  it('switches to Find Players when the Friends CTA fires (no push)', () => {
+    render(<SocialScreen />);
+    fireEvent.press(screen.getByTestId('social-subnav-tab-friends'));
+    fireEvent.press(screen.getByTestId('friends-tab-stub'));
+
+    expect(screen.getByTestId('find-players-tab-stub')).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('switches to Find Players when Messages compose fires (no push)', () => {
+    render(<SocialScreen />);
+    fireEvent.press(screen.getByTestId('messages-tab-stub'));
+
+    expect(screen.getByTestId('find-players-tab-stub')).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
 
@@ -184,11 +266,11 @@ describe('SocialScreen — ?tab= param', () => {
     expect(screen.queryByTestId('messages-tab-stub')).toBeNull();
   });
 
-  it('opens directly on the Find Players placeholder when tab=findplayers', () => {
+  it('opens directly on the Find Players body when tab=findplayers', () => {
     mockParams = { tab: 'findplayers' };
     render(<SocialScreen />);
 
-    expect(screen.getByTestId('friends-shortcut')).toBeTruthy();
+    expect(screen.getByTestId('find-players-tab-stub')).toBeTruthy();
   });
 
   it('falls back to Messages when the tab param is unrecognized', () => {

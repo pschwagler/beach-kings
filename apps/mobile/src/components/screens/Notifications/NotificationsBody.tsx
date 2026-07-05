@@ -3,12 +3,12 @@
  *
  * Renders everything below the TopNav: the filter tab bar and the list /
  * loading / error / empty states. Presentational — all data and handlers arrive
- * via props (the shape of {@link UseNotificationsScreenResult}) so the same body
- * can be composed inside both the standalone `NotificationsScreen` and the
- * Social hub subnav without re-fetching or duplicating layout.
+ * via props (the shape of {@link UseNotificationsScreenResult}) so the body can
+ * be composed inside the Social hub's Notifications tab (`NotificationsTab`)
+ * without re-fetching or duplicating layout.
  *
- * The "Mark all read" affordance stays with the host screen's TopNav (chrome),
- * not here.
+ * The "Mark all read" affordance stays in the hub's TopNav (chrome), published
+ * by `NotificationsTab` via the shared header-action slot — not here.
  *
  * Wireframe ref: notifications.html
  */

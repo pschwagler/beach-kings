@@ -1,11 +1,16 @@
 /**
- * Notifications route — thin entry point.
- * Delegates entirely to NotificationsScreen which owns all state and layout.
+ * Notifications route — redirects into the Social hub.
+ *
+ * Notifications now live in the Social tab's Notifications subnav (single source
+ * of truth). This route stays only so existing deep links to
+ * /(stack)/notifications still resolve — it forwards to the hub with the
+ * Notifications tab selected.
  */
 
 import React from 'react';
-import { NotificationsScreen } from '@/components/screens/Notifications';
+import { Redirect } from 'expo-router';
+import { routes } from '@/lib/navigation';
 
 export default function NotificationsRoute(): React.ReactNode {
-  return <NotificationsScreen />;
+  return <Redirect href={routes.social({ tab: 'notifications' })} />;
 }

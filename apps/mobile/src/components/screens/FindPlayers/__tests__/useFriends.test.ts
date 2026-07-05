@@ -168,6 +168,16 @@ describe('useFriends — search filter', () => {
 
     expect(result.current.friends).toEqual([FRIEND_2]);
   });
+
+  it('filters the friends list by city (location_name)', async () => {
+    const { result } = renderHook(() =>
+      useFriends({ searchQuery: 'los angeles' }),
+    );
+
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    expect(result.current.friends).toEqual([FRIEND_2]);
+  });
 });
 
 describe('useFriends — optimistic accept / decline', () => {

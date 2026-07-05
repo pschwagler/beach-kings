@@ -1,4 +1,3 @@
-export { default as NotificationsScreen } from './NotificationsScreen';
 export { default as NotificationsBody } from './NotificationsBody';
 export { useNotificationsScreen } from './useNotificationsScreen';
 export { default as NotificationItem } from './NotificationItem';

@@ -3,9 +3,9 @@
  *
  * Renders everything below the TopNav: search bar, conversation list, and the
  * loading / empty / error states. Presentational — all data and handlers arrive
- * via props (the shape of {@link UseMessagesScreenResult}) so the same body can
- * be composed inside both the standalone `MessagesScreen` and the Social hub
- * subnav without re-fetching or duplicating layout.
+ * via props (the shape of {@link UseMessagesScreenResult}) so the body can be
+ * composed inside the Social hub's Messages tab (`MessagesTab`) without
+ * re-fetching or duplicating layout.
  *
  * Wireframe ref: messages.html
  */

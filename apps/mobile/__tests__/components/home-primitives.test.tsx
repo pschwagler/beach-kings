@@ -8,8 +8,14 @@ import { render, fireEvent } from '@testing-library/react-native';
 
 // Router mock — fresh jest.fn per describe via beforeEach.
 const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+  useRouter: () => ({
+    push: mockPush,
+    navigate: mockNavigate,
+    replace: jest.fn(),
+    back: jest.fn(),
+  }),
 }));
 
 // Icon stubs — every imported icon resolves to a simple View with a testID.
@@ -72,6 +78,7 @@ import DashboardSkeleton from '@/components/home/DashboardSkeleton';
 
 beforeEach(() => {
   mockPush.mockClear();
+  mockNavigate.mockClear();
 });
 
 // ---------------------------------------------------------------------------
@@ -133,11 +140,14 @@ describe('HomeHeader', () => {
         notificationUnreadCount={0}
       />,
     );
+    // Chat/bell switch into the Social hub tab (root-tab model), not a push.
     fireEvent.press(getByLabelText('Messages, 2 unread'));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/messages');
+    expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/social?tab=messages');
 
     fireEvent.press(getByLabelText('Notifications'));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/notifications');
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/(tabs)/social?tab=notifications',
+    );
 
     fireEvent.press(getByLabelText('My profile'));
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/profile');

@@ -11,8 +11,9 @@
  * Each tab mounts a thin container that owns its own data hook, so only the
  * active tab fetches. The extracted, chrome-free bodies are shared with the
  * standalone stack routes (Messages/Notifications), which keep their TopNav
- * chrome. Friends and Find Players show a transitional placeholder until their
- * inline bodies land (Phases 2 and 3 of the social-hub parity plan).
+ * chrome. All four tabs now render real inline content: Messages,
+ * Notifications, Friends (Phase 2), and the discover-only Find Players body
+ * (Phase 3 of the social-hub parity plan).
  *
  * A `?tab=` param lets Home header shortcuts and deep links land on a specific
  * subnav tab; it defaults to `messages`.
@@ -24,13 +25,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { routes, type SocialTab } from '@/lib/navigation';
+import { useLocalSearchParams } from 'expo-router';
+import { type SocialTab } from '@/lib/navigation';
 import TopNav from '@/components/ui/TopNav';
 import SocialSubnav from './SocialSubnav';
 import MessagesTab from './MessagesTab';
 import NotificationsTab from './NotificationsTab';
-import FriendsShortcut from './FriendsShortcut';
+import FriendsTab from './FriendsTab';
+import FindPlayersTab from './FindPlayersTab';
 
 const DEFAULT_TAB: SocialTab = 'messages';
 const VALID_TABS: readonly SocialTab[] = [
@@ -47,11 +49,17 @@ function normalizeTab(raw: string | string[] | undefined): SocialTab | null {
 }
 
 export default function SocialScreen(): React.ReactNode {
-  const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
   const paramTab = normalizeTab(params.tab);
 
   const [activeTab, setActiveTab] = useState<SocialTab>(paramTab ?? DEFAULT_TAB);
+
+  // Per-tab right action for the single "Social" TopNav. The active tab publishes
+  // its action (compose / mark-all) via `setHeaderAction` and clears it on unmount,
+  // so consolidating the standalone screens into the hub doesn't drop their
+  // header controls. Only one tab is mounted at a time (lazy per-tab fetch), so
+  // there's never a race between two tabs' actions.
+  const [headerAction, setHeaderAction] = useState<React.ReactNode>(null);
 
   // Sync to the `?tab=` param when it changes (e.g. a deep link arriving while
   // the screen is already mounted). Functional update leaves in-app tab taps
@@ -62,27 +70,30 @@ export default function SocialScreen(): React.ReactNode {
     }
   }, [paramTab]);
 
-  const handleFindPlayers = useCallback(() => {
-    router.push(routes.findPlayers());
-  }, [router]);
+  // In-hub navigation: switch the subnav in place rather than pushing a screen.
+  const goToFindPlayers = useCallback(() => setActiveTab('findplayers'), []);
 
   function renderBody(): React.ReactNode {
     switch (activeTab) {
       case 'messages':
-        return <MessagesTab />;
+        return (
+          <MessagesTab
+            setHeaderAction={setHeaderAction}
+            onCompose={goToFindPlayers}
+          />
+        );
       case 'notifications':
-        return <NotificationsTab />;
+        return <NotificationsTab setHeaderAction={setHeaderAction} />;
       case 'friends':
+        return <FriendsTab onFindPlayers={goToFindPlayers} />;
       case 'findplayers':
-        // Transitional placeholder until FriendsBody (Phase 2) and
-        // FindPlayersBody (Phase 3) render inline content.
-        return <FriendsShortcut onFindPlayers={handleFindPlayers} />;
+        return <FindPlayersTab />;
     }
   }
 
   return (
     <SafeAreaView className="flex-1 bg-page" edges={['top']}>
-      <TopNav title="Social" />
+      <TopNav title="Social" rightAction={headerAction ?? undefined} />
       <SocialSubnav activeTab={activeTab} onTabPress={setActiveTab} />
       <View testID="social-body" className="flex-1">
         {renderBody()}

@@ -1,9 +1,9 @@
 /**
  * useFriends — friend-management data and interactions.
  *
- * Owns everything about a player's social graph so both the Social hub's
- * Friends tab and the (discover-focused) Find Players screen can share a single
- * source of truth instead of duplicating fetch + optimistic-mutation logic:
+ * Owns everything about a player's social graph so the Social hub's Friends tab
+ * (and any other consumer) has a single source of truth instead of duplicating
+ * fetch + optimistic-mutation logic:
  *   - Friends list via api.getFriends()
  *   - Incoming friend requests via api.getFriendRequests('incoming')
  *   - Suggested friends via api.getFriendSuggestions() (opt-out via options)
@@ -28,7 +28,7 @@ function toList<T>(r: { items?: T[] } | T[]): T[] {
 }
 
 export interface UseFriendsOptions {
-  /** Client-side filter applied to the friends list (matches full_name). */
+  /** Client-side filter applied to the friends list (matches name or city). */
   readonly searchQuery?: string;
   /**
    * Whether to fetch suggested friends. Defaults to true. The Find Players
@@ -111,7 +111,12 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
     const all = friendsData ?? [];
     if (searchQuery.trim() === '') return all;
     const lower = searchQuery.toLowerCase();
-    return all.filter((f) => f.full_name.toLowerCase().includes(lower));
+    return all.filter(
+      (f) =>
+        f.full_name.toLowerCase().includes(lower) ||
+        (f.location_name != null &&
+          f.location_name.toLowerCase().includes(lower)),
+    );
   }, [friendsData, searchQuery]);
 
   const friendRequests = useMemo<readonly FriendRequest[]>(

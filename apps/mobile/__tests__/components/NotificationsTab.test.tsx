@@ -1,19 +1,20 @@
 /**
- * Behavior tests for the Notifications screen.
+ * Behavior tests for NotificationsTab — the Social hub's Notifications
+ * subnav destination.
  *
  * Covers:
  *   - Loading skeleton while data is fetching
  *   - Error state with retry
  *   - Notifications list renders items
  *   - Filter tabs: All / Friends / Games / Leagues
- *   - Unread badge on All tab
- *   - Mark all as read button
- *   - Accept / Decline on friend_request notifications
  *   - Unread dot on unread notifications
+ *   - Accept / Decline on friend_request notifications
  *   - Empty state per filter
+ *   - "Mark all" header action published via setHeaderAction
  */
 
 import React from 'react';
+import { View } from 'react-native';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -32,17 +33,6 @@ jest.mock('expo-router', () => {
     Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,
     useSegments: () => [],
     Slot: ({ children }: { children?: React.ReactNode }) => <View testID="slot">{children}</View>,
-  };
-});
-
-jest.mock('react-native-safe-area-context', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return {
-    SafeAreaView: ({ children, testID }: { children?: React.ReactNode; testID?: string }) => (
-      <View testID={testID ?? 'safe-area-view'}>{children}</View>
-    ),
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   };
 });
 
@@ -107,7 +97,7 @@ jest.mock('@/lib/api', () => ({
 // Module under test
 // ---------------------------------------------------------------------------
 
-import NotificationsRoute from '../../../app/(stack)/notifications';
+import NotificationsTab from '@/components/screens/Social/NotificationsTab';
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -156,6 +146,12 @@ const MOCK_NOTIFICATIONS = [
 // Setup
 // ---------------------------------------------------------------------------
 
+function renderNotificationsTab(
+  setHeaderAction: (node: React.ReactNode | null) => void = jest.fn(),
+): ReturnType<typeof render> {
+  return render(<NotificationsTab setHeaderAction={setHeaderAction} />);
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetNotifications.mockResolvedValue(MOCK_NOTIFICATIONS);
@@ -169,10 +165,10 @@ beforeEach(() => {
 // Loading state
 // ---------------------------------------------------------------------------
 
-describe('NotificationsScreen — loading state', () => {
+describe('NotificationsTab — loading state', () => {
   it('renders loading skeleton while data is fetching', async () => {
     mockGetNotifications.mockReturnValue(new Promise(() => {}));
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notifications-loading')).toBeTruthy();
     });
@@ -183,10 +179,10 @@ describe('NotificationsScreen — loading state', () => {
 // Error state
 // ---------------------------------------------------------------------------
 
-describe('NotificationsScreen — error state', () => {
+describe('NotificationsTab — error state', () => {
   it('renders error state when fetch fails', async () => {
     mockGetNotifications.mockRejectedValue(new Error('Network error'));
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notifications-error-state')).toBeTruthy();
     });
@@ -194,7 +190,7 @@ describe('NotificationsScreen — error state', () => {
 
   it('renders retry button', async () => {
     mockGetNotifications.mockRejectedValue(new Error('fail'));
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notifications-retry-btn')).toBeTruthy();
     });
@@ -203,7 +199,7 @@ describe('NotificationsScreen — error state', () => {
   it('calls api again on retry', async () => {
     mockGetNotifications.mockRejectedValueOnce(new Error('fail'));
     mockGetNotifications.mockResolvedValue([]);
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notifications-retry-btn')).toBeTruthy();
     });
@@ -218,16 +214,16 @@ describe('NotificationsScreen — error state', () => {
 // Notifications list
 // ---------------------------------------------------------------------------
 
-describe('NotificationsScreen — notifications list', () => {
-  it('renders the notifications screen', async () => {
-    render(<NotificationsRoute />);
+describe('NotificationsTab — notifications list', () => {
+  it('renders the notifications body', async () => {
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notifications-screen')).toBeTruthy();
     });
   });
 
   it('renders a notification item for each notification', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notification-item-1')).toBeTruthy();
       expect(screen.getByTestId('notification-item-2')).toBeTruthy();
@@ -236,21 +232,21 @@ describe('NotificationsScreen — notifications list', () => {
   });
 
   it('shows unread dot on unread notification', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('unread-dot-1')).toBeTruthy();
     });
   });
 
   it('does not show unread dot on read notification', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.queryByTestId('unread-dot-2')).toBeNull();
     });
   });
 
   it('displays notification title', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByText('Riley Chen sent you a friend request')).toBeTruthy();
     });
@@ -261,23 +257,23 @@ describe('NotificationsScreen — notifications list', () => {
 // Friend request actions
 // ---------------------------------------------------------------------------
 
-describe('NotificationsScreen — friend request actions', () => {
+describe('NotificationsTab — friend request actions', () => {
   it('renders Accept button for friend_request notification', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notif-accept-btn-1')).toBeTruthy();
     });
   });
 
   it('renders Decline button for friend_request notification', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notif-decline-btn-1')).toBeTruthy();
     });
   });
 
   it('calls acceptFriendRequest when Accept is pressed', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notif-accept-btn-1')).toBeTruthy();
     });
@@ -288,7 +284,7 @@ describe('NotificationsScreen — friend request actions', () => {
   });
 
   it('calls declineFriendRequest when Decline is pressed', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('notif-decline-btn-1')).toBeTruthy();
     });
@@ -303,9 +299,9 @@ describe('NotificationsScreen — friend request actions', () => {
 // Filter tabs
 // ---------------------------------------------------------------------------
 
-describe('NotificationsScreen — filter tabs', () => {
+describe('NotificationsTab — filter tabs', () => {
   it('renders all four filter tabs', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('filter-tab-all')).toBeTruthy();
       expect(screen.getByTestId('filter-tab-friends')).toBeTruthy();
@@ -315,7 +311,7 @@ describe('NotificationsScreen — filter tabs', () => {
   });
 
   it('filters to friends notifications when Friends tab is pressed', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('filter-tab-friends')).toBeTruthy();
     });
@@ -331,7 +327,7 @@ describe('NotificationsScreen — filter tabs', () => {
   });
 
   it('filters to leagues notifications when Leagues tab is pressed', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('filter-tab-leagues')).toBeTruthy();
     });
@@ -344,7 +340,7 @@ describe('NotificationsScreen — filter tabs', () => {
   });
 
   it('filters to games notifications when Games tab is pressed', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByTestId('filter-tab-games')).toBeTruthy();
     });
@@ -357,7 +353,7 @@ describe('NotificationsScreen — filter tabs', () => {
   });
 
   it('shows all notifications when All tab is active', async () => {
-    render(<NotificationsRoute />);
+    renderNotificationsTab();
     // Switch to Friends, then back to All
     await waitFor(() => {
       expect(screen.getByTestId('filter-tab-friends')).toBeTruthy();
@@ -373,50 +369,77 @@ describe('NotificationsScreen — filter tabs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Mark all read
+// Empty state
 // ---------------------------------------------------------------------------
 
-describe('NotificationsScreen — mark all read', () => {
-  it('renders Mark all as read button when unread notifications exist', async () => {
-    render(<NotificationsRoute />);
+describe('NotificationsTab — empty state', () => {
+  it('renders empty state when no notifications', async () => {
+    mockGetNotifications.mockResolvedValue([]);
+    renderNotificationsTab();
     await waitFor(() => {
-      expect(screen.getByTestId('mark-all-read-btn')).toBeTruthy();
+      expect(screen.getByTestId('notifications-empty-state')).toBeTruthy();
     });
   });
+});
 
-  it('calls markAllNotificationsRead when button is pressed', async () => {
-    render(<NotificationsRoute />);
+// ---------------------------------------------------------------------------
+// Mark-all header action
+// ---------------------------------------------------------------------------
+
+describe('NotificationsTab — mark-all header action', () => {
+  it('publishes a truthy "Mark all" node when unread notifications exist', async () => {
+    const mockSetHeaderAction = jest.fn();
+    renderNotificationsTab(mockSetHeaderAction);
+
     await waitFor(() => {
-      expect(screen.getByTestId('mark-all-read-btn')).toBeTruthy();
+      expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything());
     });
+
+    const truthyCall = mockSetHeaderAction.mock.calls.find(([node]) => node != null);
+    expect(truthyCall).toBeDefined();
+  });
+
+  it('pressing the published "Mark all" node calls markAllNotificationsRead', async () => {
+    const mockSetHeaderAction = jest.fn();
+    renderNotificationsTab(mockSetHeaderAction);
+
+    await waitFor(() => {
+      const truthyCall = mockSetHeaderAction.mock.calls.find(([node]) => node != null);
+      expect(truthyCall).toBeDefined();
+    });
+
+    const [publishedNode] = mockSetHeaderAction.mock.calls.find(
+      ([node]) => node != null,
+    ) as [React.ReactElement];
+
+    // Mount the captured node with a couple of wrapping Views: RTL's
+    // fireEvent.press walks up the host-node tree looking for an `onPress`
+    // handler, and bails out early when the tree is too shallow (as it would
+    // be if the Pressable were rendered as the direct render root).
+    render(
+      <View>
+        <View>{publishedNode}</View>
+      </View>,
+    );
+
     await act(async () => {
       fireEvent.press(screen.getByTestId('mark-all-read-btn'));
     });
     expect(mockMarkAllNotificationsRead).toHaveBeenCalled();
   });
 
-  it('hides mark all read button when all notifications are read', async () => {
+  it('publishes null when all notifications are read', async () => {
     mockGetNotifications.mockResolvedValue([
       { ...MOCK_NOTIFICATIONS[0], is_read: true, read_at: '2026-04-19T14:00:00Z' },
       { ...MOCK_NOTIFICATIONS[1] },
     ]);
-    render(<NotificationsRoute />);
-    await waitFor(() => {
-      expect(screen.queryByTestId('mark-all-read-btn')).toBeNull();
-    });
-  });
-});
+    const mockSetHeaderAction = jest.fn();
+    renderNotificationsTab(mockSetHeaderAction);
 
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-
-describe('NotificationsScreen — empty state', () => {
-  it('renders empty state when no notifications', async () => {
-    mockGetNotifications.mockResolvedValue([]);
-    render(<NotificationsRoute />);
     await waitFor(() => {
-      expect(screen.getByTestId('notifications-empty-state')).toBeTruthy();
+      expect(screen.getByTestId('notifications-screen')).toBeTruthy();
     });
+
+    expect(mockSetHeaderAction).toHaveBeenLastCalledWith(null);
   });
 });

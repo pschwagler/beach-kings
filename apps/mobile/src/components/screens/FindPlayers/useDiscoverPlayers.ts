@@ -1,29 +1,24 @@
 /**
- * Data and interaction hook for the Find Players screen.
+ * useDiscoverPlayers — player-discovery data and interactions.
  *
- * Manages:
- *   - Player discovery via api.discoverPlayers()
- *   - Search query state (client-side filter)
- *   - Active tab state (players | friends)
- *   - Optimistic "pending" state for sent friend requests
+ * Owns everything about discovering new players so both the Social hub's Find
+ * Players tab and the standalone Find Players screen share a single source of
+ * truth instead of duplicating fetch + optimistic-mutation logic:
+ *   - Discoverable players via api.discoverPlayers()
+ *   - Client-side name/city filter over the discover list
+ *   - Optimistic "pending" state for sent friend requests (add-friend)
  *
- * Friend-management concerns (friends list, incoming requests, accept/decline)
- * are delegated to the shared {@link useFriends} hook so the Social hub's
- * Friends tab and this screen don't duplicate that logic. Suggestions are
- * disabled here — the Find Players Friends sub-tab predates them.
+ * Split out so the discover-only Social hub Find Players tab (`FindPlayersTab`)
+ * can mount just this hook without also fetching friends / requests /
+ * suggestions. Pairs with {@link useFriends} as the two halves of the former
+ * combined Find Players screen.
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'expo-router';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
-import { routes } from '@/lib/navigation';
 import { hapticMedium } from '@/utils/haptics';
-import type { Friend, FriendRequest } from '@beach-kings/shared';
 import type { DiscoverPlayer } from './PlayerRow';
-import { useFriends } from './useFriends';
-
-export type FindPlayersTab = 'players' | 'friends';
 
 /**
  * Raw shape of a single item from GET /api/friends/discover. The backend serializes
@@ -66,12 +61,13 @@ function mapDiscoverItem(it: RawDiscoverItem): DiscoverPlayer {
   };
 }
 
-export interface UseFindPlayersScreenResult {
-  readonly activeTab: FindPlayersTab;
-  readonly setActiveTab: (tab: FindPlayersTab) => void;
-  readonly searchQuery: string;
-  readonly setSearchQuery: (q: string) => void;
-  // Players tab
+export interface UseDiscoverPlayersOptions {
+  /** Client-side filter applied to the discover list (matches name or city). */
+  readonly searchQuery?: string;
+}
+
+export interface UseDiscoverPlayersResult {
+  /** Discoverable players, filtered by `searchQuery` when provided. */
   readonly players: readonly DiscoverPlayer[];
   readonly isLoadingPlayers: boolean;
   readonly playersError: Error | null;
@@ -79,35 +75,23 @@ export interface UseFindPlayersScreenResult {
   readonly onRefreshPlayers: () => void;
   readonly onRetryPlayers: () => void;
   readonly onAddFriend: (playerId: number) => void;
+  /** Player IDs with an in-flight/optimistically-sent friend request. */
   readonly pendingSendIds: ReadonlySet<number>;
-  // Friends tab
-  readonly friends: readonly Friend[];
-  readonly friendRequests: readonly FriendRequest[];
-  readonly isLoadingFriends: boolean;
-  /** Fatal: the friends *list* fetch failed → show the full-page error state. */
-  readonly friendsError: Error | null;
-  /** Non-fatal: the friend-requests fetch failed → show an inline notice only. */
-  readonly friendRequestsError: Error | null;
-  readonly isRefreshingFriends: boolean;
-  readonly onRefreshFriends: () => void;
-  readonly onRetryFriends: () => void;
-  readonly onAcceptRequest: (requestId: number) => void;
-  readonly onDeclineRequest: (requestId: number) => void;
-  // Shared
-  readonly onPlayerPress: (playerId: number) => void;
 }
 
 /**
- * Returns all data and handlers for the Find Players screen.
+ * Returns player-discovery data and handlers.
  */
-export function useFindPlayersScreen(): UseFindPlayersScreenResult {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<FindPlayersTab>('players');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isRefreshingPlayers, setIsRefreshingPlayers] = useState(false);
-  const [pendingSendIds, setPendingSendIds] = useState<ReadonlySet<number>>(new Set());
+export function useDiscoverPlayers(
+  options: UseDiscoverPlayersOptions = {},
+): UseDiscoverPlayersResult {
+  const { searchQuery = '' } = options;
 
-  // ------- Players discovery -------
+  const [isRefreshingPlayers, setIsRefreshingPlayers] = useState(false);
+  const [pendingSendIds, setPendingSendIds] = useState<ReadonlySet<number>>(
+    new Set(),
+  );
+
   const {
     data: rawPlayers,
     isLoading: isLoadingPlayers,
@@ -146,50 +130,21 @@ export function useFindPlayersScreen(): UseFindPlayersScreenResult {
     void refetchPlayers();
   }, [refetchPlayers]);
 
-  const onAddFriend = useCallback(
-    (playerId: number) => {
-      void hapticMedium();
-      // Optimistic: mark as pending immediately
-      setPendingSendIds((prev) => new Set([...prev, playerId]));
-      api.sendFriendRequest(playerId).catch(() => {
-        // Roll back on failure
-        setPendingSendIds((prev) => {
-          const next = new Set([...prev]);
-          next.delete(playerId);
-          return next;
-        });
+  const onAddFriend = useCallback((playerId: number) => {
+    void hapticMedium();
+    // Optimistic: mark as pending immediately.
+    setPendingSendIds((prev) => new Set([...prev, playerId]));
+    api.sendFriendRequest(playerId).catch(() => {
+      // Roll back on failure.
+      setPendingSendIds((prev) => {
+        const next = new Set([...prev]);
+        next.delete(playerId);
+        return next;
       });
-    },
-    [],
-  );
-
-  // ------- Friends + friend requests (delegated to the shared hook) -------
-  const {
-    friends,
-    friendRequests,
-    isLoadingFriends,
-    friendsError,
-    friendRequestsError,
-    isRefreshingFriends,
-    onRefreshFriends,
-    onRetryFriends,
-    onAcceptRequest,
-    onDeclineRequest,
-  } = useFriends({ searchQuery, withSuggestions: false });
-
-  const onPlayerPress = useCallback(
-    (playerId: number) => {
-      router.push(routes.player(playerId));
-    },
-    [router],
-  );
+    });
+  }, []);
 
   return {
-    activeTab,
-    setActiveTab,
-    searchQuery,
-    setSearchQuery,
-    // Players tab
     players,
     isLoadingPlayers,
     playersError,
@@ -198,18 +153,5 @@ export function useFindPlayersScreen(): UseFindPlayersScreenResult {
     onRetryPlayers,
     onAddFriend,
     pendingSendIds,
-    // Friends tab
-    friends,
-    friendRequests,
-    isLoadingFriends,
-    friendsError,
-    friendRequestsError,
-    isRefreshingFriends,
-    onRefreshFriends,
-    onRetryFriends,
-    onAcceptRequest,
-    onDeclineRequest,
-    // Shared
-    onPlayerPress,
   };
 }

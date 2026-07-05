@@ -1,0 +1,94 @@
+/**
+ * Tests for Avatar — profile photo with initials fallback.
+ *
+ * Covers:
+ *   - getInitials helper (first + last, single name, empty).
+ *   - Image rendering when a photo URL is present.
+ *   - Initials fallback + the flat default (teal) variant color.
+ *   - colorSeed variety: deterministic per-seed bg/fg, stable for equal seeds,
+ *     and able to differ across seeds.
+ */
+
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import { render } from '@testing-library/react-native';
+
+import Avatar, { getInitials } from '@/components/ui/Avatar';
+
+describe('getInitials', () => {
+  it('returns first + last initials', () => {
+    expect(getInitials('Morgan Davis')).toBe('MD');
+  });
+
+  it('returns a single initial for a one-word name', () => {
+    expect(getInitials('Cher')).toBe('C');
+  });
+
+  it('returns an empty string for a blank name', () => {
+    expect(getInitials('   ')).toBe('');
+  });
+});
+
+describe('Avatar', () => {
+  it('renders an image when imageUrl is provided', () => {
+    const { getByLabelText } = render(
+      <Avatar name="Morgan Davis" imageUrl="https://example.com/a.jpg" />,
+    );
+    expect(getByLabelText('Morgan Davis').props.source).toEqual({
+      uri: 'https://example.com/a.jpg',
+    });
+  });
+
+  it('renders the initials fallback when no image is provided', () => {
+    const { getByText } = render(<Avatar name="Morgan Davis" />);
+    expect(getByText('MD')).toBeTruthy();
+  });
+
+  it('applies the flat teal variant color by default', () => {
+    const { getByLabelText } = render(<Avatar name="Morgan Davis" />);
+    expect(StyleSheet.flatten(getByLabelText('Morgan Davis').props.style)).toEqual(
+      expect.objectContaining({ backgroundColor: '#4daacc' }),
+    );
+  });
+
+  it('derives a deterministic variety color from colorSeed', () => {
+    // seed 30 % 6 === 0 → first variety entry ({ bg: #bae6fd, fg: #0c4a6e }).
+    const { getByLabelText, getByText } = render(
+      <Avatar name="Morgan Davis" colorSeed={30} />,
+    );
+    expect(StyleSheet.flatten(getByLabelText('Morgan Davis').props.style)).toEqual(
+      expect.objectContaining({ backgroundColor: '#bae6fd' }),
+    );
+    expect(StyleSheet.flatten(getByText('MD').props.style)).toEqual(
+      expect.objectContaining({ color: '#0c4a6e' }),
+    );
+  });
+
+  it('gives the same color for the same seed and can differ across seeds', () => {
+    const same1 = render(<Avatar name="A B" colorSeed={7} />);
+    const same2 = render(<Avatar name="C D" colorSeed={7} />);
+    const bg1 = StyleSheet.flatten(
+      same1.getByLabelText('A B').props.style,
+    ).backgroundColor;
+    const bg2 = StyleSheet.flatten(
+      same2.getByLabelText('C D').props.style,
+    ).backgroundColor;
+    expect(bg1).toBe(bg2);
+
+    const other = render(<Avatar name="E F" colorSeed={8} />);
+    const bg3 = StyleSheet.flatten(
+      other.getByLabelText('E F').props.style,
+    ).backgroundColor;
+    expect(bg3).not.toBe(bg1);
+  });
+
+  it('accepts a string colorSeed', () => {
+    const { getByLabelText } = render(
+      <Avatar name="Morgan Davis" colorSeed="morgan" />,
+    );
+    expect(
+      StyleSheet.flatten(getByLabelText('Morgan Davis').props.style)
+        .backgroundColor,
+    ).toBeDefined();
+  });
+});

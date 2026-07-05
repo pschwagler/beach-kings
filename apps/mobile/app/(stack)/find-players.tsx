@@ -1,11 +1,16 @@
 /**
- * Find Players route — thin entry point.
- * Delegates entirely to FindPlayersScreen which owns all state and layout.
+ * Find Players route — redirects into the Social hub.
+ *
+ * Player discovery now lives in the Social tab's Find Players subnav (single
+ * source of truth). This route stays only so existing deep links to
+ * /(stack)/find-players still resolve — it forwards to the hub with the Find
+ * Players tab selected.
  */
 
 import React from 'react';
-import { FindPlayersScreen } from '@/components/screens/FindPlayers';
+import { Redirect } from 'expo-router';
+import { routes } from '@/lib/navigation';
 
 export default function FindPlayersRoute(): React.ReactNode {
-  return <FindPlayersScreen />;
+  return <Redirect href={routes.social({ tab: 'findplayers' })} />;
 }
