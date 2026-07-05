@@ -43,3 +43,25 @@ describe('CourtRow cover photo', () => {
     expect(screen.getByTestId('court-thumb-placeholder-7')).toBeTruthy();
   });
 });
+
+describe('CourtRow rating', () => {
+  it('shows "No reviews yet" instead of 0.0 when there are no reviews', () => {
+    render(
+      <CourtRow
+        court={{ ...(base as object), average_rating: 0, review_count: 0 } as never}
+      />,
+    );
+    expect(screen.getByText('No reviews yet')).toBeTruthy();
+    expect(screen.queryByText('0.0 (0)')).toBeNull();
+  });
+
+  it('shows the average and review count when reviews exist', () => {
+    render(
+      <CourtRow
+        court={{ ...(base as object), average_rating: 4.6, review_count: 42 } as never}
+      />,
+    );
+    expect(screen.getByText('4.6 (42)')).toBeTruthy();
+    expect(screen.queryByText('No reviews yet')).toBeNull();
+  });
+});

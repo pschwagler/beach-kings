@@ -61,6 +61,19 @@ function StarRatingBar({
   rating: number;
   reviewCount: number;
 }): React.ReactNode {
+  // With no reviews there is no meaningful average — show an explicit empty
+  // state instead of a misleading "0.0" next to five empty stars.
+  if (reviewCount === 0) {
+    return (
+      <View
+        testID="court-rating-bar"
+        className="flex-row items-center gap-2 px-4 py-3 border-b border-strong"
+      >
+        <Text className="text-[15px] text-muted">No reviews yet</Text>
+      </View>
+    );
+  }
+
   return (
     <View
       testID="court-rating-bar"

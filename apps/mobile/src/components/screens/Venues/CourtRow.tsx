@@ -113,10 +113,16 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
 
         {/* Rating + distance row */}
         <View className="flex-row items-center gap-2">
-          <StarRating rating={court.average_rating ?? 0} />
-          <Text className="text-[12px] text-muted">
-            {(court.average_rating ?? 0).toFixed(1)} ({court.review_count ?? 0})
-          </Text>
+          {(court.review_count ?? 0) > 0 ? (
+            <>
+              <StarRating rating={court.average_rating ?? 0} />
+              <Text className="text-[12px] text-muted">
+                {(court.average_rating ?? 0).toFixed(1)} ({court.review_count})
+              </Text>
+            </>
+          ) : (
+            <Text className="text-[12px] text-muted">No reviews yet</Text>
+          )}
           {court.distance_miles != null && (
             <Text className="text-[12px] text-tertiary">
               · {formatDistance(court.distance_miles)}

@@ -346,6 +346,20 @@ describe('CourtDetailScreen — court content', () => {
     });
   });
 
+  it('shows "No reviews yet" instead of 0.0 when the court has no reviews', async () => {
+    mockGetCourtById.mockResolvedValue({
+      ...MOCK_COURT,
+      average_rating: 0,
+      review_count: 0,
+    });
+    render(<CourtDetailRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('court-rating-bar')).toBeTruthy();
+    });
+    expect(screen.getByText('No reviews yet')).toBeTruthy();
+    expect(screen.queryByText('0.0')).toBeNull();
+  });
+
   it('renders check-in button', async () => {
     render(<CourtDetailRoute />);
     await waitFor(() => {

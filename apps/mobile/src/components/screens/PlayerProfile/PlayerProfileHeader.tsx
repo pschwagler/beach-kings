@@ -34,7 +34,13 @@ export default function PlayerProfileHeader({
     .filter(Boolean)
     .join(', ');
 
-  const level = player.level ?? null;
+  // Treat an empty/whitespace level string as absent so we never render a
+  // dangling separator next to an empty badge.
+  const rawLevel = player.level ?? null;
+  const level =
+    typeof rawLevel === 'string' && rawLevel.trim().length === 0
+      ? null
+      : rawLevel;
   const isGuest = player.is_placeholder === true;
 
   return (
@@ -79,7 +85,7 @@ export default function PlayerProfileHeader({
           </Text>
         )}
         {location.length > 0 && level != null && (
-          <Text className="text-muted">--</Text>
+          <Text className="text-muted">·</Text>
         )}
         {level != null && (
           <View className="bg-brand-teal/10 px-sm py-[3px] rounded-xl">

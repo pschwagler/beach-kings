@@ -62,10 +62,18 @@ function buildFillPoints(
 }
 
 function shortDate(iso: string): string {
-  const [, month, day] = iso.split('-');
+  // Expects an ISO date ("YYYY-MM-DD", optionally with a time suffix). Guard
+  // against empty/malformed values so the axis never renders "undefined NaN".
+  const parts = (iso ?? '').split('-');
+  if (parts.length < 3) return '';
+  const month = Number(parts[1]);
+  const day = parseInt(parts[2], 10);
+  if (!Number.isInteger(month) || month < 1 || month > 12 || Number.isNaN(day)) {
+    return '';
+  }
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${monthNames[Number(month) - 1]} ${Number(day)}`;
+  return `${monthNames[month - 1]} ${day}`;
 }
 
 export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
