@@ -22,24 +22,24 @@
  * find-players.html `.social-subnav`.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
-import { type SocialTab } from '@/lib/navigation';
-import TopNav from '@/components/ui/TopNav';
-import SocialSubnav from './SocialSubnav';
-import MessagesTab from './MessagesTab';
-import NotificationsTab from './NotificationsTab';
-import FriendsTab from './FriendsTab';
-import FindPlayersTab from './FindPlayersTab';
+import React, { useCallback, useEffect, useState } from "react";
+import { View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams } from "expo-router";
+import { type SocialTab } from "@/lib/navigation";
+import TopNav from "@/components/ui/TopNav";
+import SocialSubnav from "./SocialSubnav";
+import MessagesTab from "./MessagesTab";
+import NotificationsTab from "./NotificationsTab";
+import FriendsTab from "./FriendsTab";
+import FindPlayersTab from "./FindPlayersTab";
 
-const DEFAULT_TAB: SocialTab = 'messages';
+const DEFAULT_TAB: SocialTab = "messages";
 const VALID_TABS: readonly SocialTab[] = [
-  'messages',
-  'notifications',
-  'friends',
-  'findplayers',
+  "messages",
+  "notifications",
+  "friends",
+  "findplayers",
 ];
 
 /** Coerce a raw `?tab=` param to a known SocialTab, or null when unrecognized. */
@@ -52,7 +52,9 @@ export default function SocialScreen(): React.ReactNode {
   const params = useLocalSearchParams<{ tab?: string }>();
   const paramTab = normalizeTab(params.tab);
 
-  const [activeTab, setActiveTab] = useState<SocialTab>(paramTab ?? DEFAULT_TAB);
+  const [activeTab, setActiveTab] = useState<SocialTab>(
+    paramTab ?? DEFAULT_TAB,
+  );
 
   // Per-tab right action for the single "Social" TopNav. The active tab publishes
   // its action (compose / mark-all) via `setHeaderAction` and clears it on unmount,
@@ -71,28 +73,28 @@ export default function SocialScreen(): React.ReactNode {
   }, [paramTab]);
 
   // In-hub navigation: switch the subnav in place rather than pushing a screen.
-  const goToFindPlayers = useCallback(() => setActiveTab('findplayers'), []);
+  const goToFindPlayers = useCallback(() => setActiveTab("findplayers"), []);
 
   function renderBody(): React.ReactNode {
     switch (activeTab) {
-      case 'messages':
+      case "messages":
         return (
           <MessagesTab
             setHeaderAction={setHeaderAction}
             onCompose={goToFindPlayers}
           />
         );
-      case 'notifications':
+      case "notifications":
         return <NotificationsTab setHeaderAction={setHeaderAction} />;
-      case 'friends':
+      case "friends":
         return <FriendsTab onFindPlayers={goToFindPlayers} />;
-      case 'findplayers':
+      case "findplayers":
         return <FindPlayersTab />;
     }
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-page" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-page" edges={["top"]}>
       <TopNav title="Social" rightAction={headerAction ?? undefined} />
       <SocialSubnav activeTab={activeTab} onTabPress={setActiveTab} />
       <View testID="social-body" className="flex-1">

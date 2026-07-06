@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { hapticLight } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
 import { useNotificationsScreen } from './useNotificationsScreen';
 import type { PushNotificationPrefs } from '@beach-kings/shared';
 
@@ -157,7 +156,7 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
   if (isLoading) {
     return (
       <SafeAreaView testID="notifications-settings-screen" className="flex-1 bg-page" edges={['top']}>
-        <TopNav title="Notifications" showBack backFallback={routes.settings()} />
+        <TopNav title="Notifications" showBack />
         <NotificationsSkeleton />
       </SafeAreaView>
     );
@@ -166,7 +165,7 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
   if (error != null) {
     return (
       <SafeAreaView testID="notifications-settings-screen" className="flex-1 bg-page" edges={['top']}>
-        <TopNav title="Notifications" showBack backFallback={routes.settings()} />
+        <TopNav title="Notifications" showBack />
         <NotificationsErrorState onRetry={onRetry} />
       </SafeAreaView>
     );

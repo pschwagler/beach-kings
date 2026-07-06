@@ -26,7 +26,8 @@ jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
-    useRouter: () => ({ push: mockPush, back: mockBack, replace: jest.fn() }),
+    useLocalSearchParams: () => ({}),
+    useRouter: () => ({ canGoBack: () => true, push: mockPush, back: mockBack, replace: jest.fn() }),
     Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,
     Slot: ({ children }: { children?: React.ReactNode }) => <View testID="slot">{children}</View>,
     Stack: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,

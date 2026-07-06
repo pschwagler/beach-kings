@@ -412,7 +412,7 @@ export default function LeagueDetailScreen({
           className="flex-1 bg-page"
           edges={['top']}
         >
-          <TopNav title="League" showBack backFallback={routes.leagues()} />
+          <TopNav title="League" showBack />
           <View testID="league-detail-loading" className="flex-1 items-center justify-center">
             <ActivityIndicator size="large" />
           </View>
@@ -429,7 +429,7 @@ export default function LeagueDetailScreen({
           className="flex-1 bg-page"
           edges={['top']}
         >
-          <TopNav title="League" showBack backFallback={routes.leagues()} />
+          <TopNav title="League" showBack />
           <View
             testID="league-detail-error"
             className="flex-1 items-center justify-center px-8"
@@ -450,7 +450,7 @@ export default function LeagueDetailScreen({
         className="flex-1 bg-page"
         edges={['top']}
       >
-        <TopNav title={title} showBack backFallback={routes.leagues()} rightAction={addGameAction} />
+        <TopNav title={title} showBack rightAction={addGameAction} />
         <View testID="league-detail-screen" className="flex-1 bg-page">
           <LeagueHeader
             name={detail.name}

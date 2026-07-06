@@ -14,7 +14,7 @@
  * Wireframe ref: session-menu.html
  */
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -22,12 +22,12 @@ import {
   Modal,
   Pressable,
   Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { hapticLight, hapticMedium } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
-import { pluralize } from '@/lib/formatters';
-import { api } from '@/lib/api';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { hapticLight, hapticMedium } from "@/utils/haptics";
+import { routes } from "@/lib/navigation";
+import { pluralize } from "@/lib/formatters";
+import { api } from "@/lib/api";
 
 interface Props {
   readonly visible: boolean;
@@ -40,7 +40,7 @@ interface Props {
    * Session status. Copy Results + Duplicate are hidden while active —
    * those actions only make sense once results are finalized.
    */
-  readonly status: 'active' | 'submitted';
+  readonly status: "active" | "submitted";
 }
 
 interface MenuItemProps {
@@ -50,7 +50,12 @@ interface MenuItemProps {
   readonly destructive?: boolean;
 }
 
-function MenuItem({ label, testID, onPress, destructive = false }: MenuItemProps): React.ReactNode {
+function MenuItem({
+  label,
+  testID,
+  onPress,
+  destructive = false,
+}: MenuItemProps): React.ReactNode {
   return (
     <TouchableOpacity
       testID={testID}
@@ -59,7 +64,7 @@ function MenuItem({ label, testID, onPress, destructive = false }: MenuItemProps
     >
       <Text
         className={`text-[16px] font-semibold text-center ${
-          destructive ? 'text-danger' : 'text-brand-teal'
+          destructive ? "text-danger" : "text-brand-teal"
         }`}
       >
         {label}
@@ -77,7 +82,7 @@ export default function SessionBottomSheet({
   playerCount,
   status,
 }: Props): React.ReactNode {
-  const isSubmitted = status === 'submitted';
+  const isSubmitted = status === "submitted";
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -114,24 +119,24 @@ export default function SessionBottomSheet({
   const handleDelete = async (): Promise<void> => {
     await hapticMedium();
     Alert.alert(
-      'Delete Session',
-      'This will permanently delete the session and all its games. This cannot be undone.',
+      "Delete Session",
+      "This will permanently delete the session and all its games. This cannot be undone.",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             setIsDeleting(true);
             try {
               await api.deleteSession(sessionId);
               onClose();
-              router.replace('/(tabs)/add-games');
+              router.replace(routes.addGames());
             } catch {
               Alert.alert(
-                'Could not delete session',
-                'Something went wrong deleting this session. Please try again.',
-                [{ text: 'OK' }],
+                "Could not delete session",
+                "Something went wrong deleting this session. Please try again.",
+                [{ text: "OK" }],
               );
             } finally {
               setIsDeleting(false);
@@ -167,42 +172,55 @@ export default function SessionBottomSheet({
           {sessionLabel}
         </Text>
         <Text className="text-[12px] text-muted text-center mb-[16px]">
-          {isSubmitted ? 'Submitted' : 'Active'} · {pluralize(gameCount, 'game')} · {pluralize(playerCount, 'player')}
+          {isSubmitted ? "Submitted" : "Active"} ·{" "}
+          {pluralize(gameCount, "game")} · {pluralize(playerCount, "player")}
         </Text>
 
         <MenuItem
           label="Edit Session Details"
           testID="session-menu-edit"
-          onPress={() => { void handleEdit(); }}
+          onPress={() => {
+            void handleEdit();
+          }}
         />
         <MenuItem
           label="Manage Players"
           testID="session-menu-roster"
-          onPress={() => { void handleManagePlayers(); }}
+          onPress={() => {
+            void handleManagePlayers();
+          }}
         />
         <MenuItem
           label="Share Session"
           testID="session-menu-share"
-          onPress={() => { void handleShare(); }}
+          onPress={() => {
+            void handleShare();
+          }}
         />
         {isSubmitted && (
           <>
             <MenuItem
               label="Copy Results"
               testID="session-menu-copy-results"
-              onPress={() => { void handleCopyResults(); }}
+              onPress={() => {
+                void handleCopyResults();
+              }}
             />
             <MenuItem
               label="Duplicate as New Session"
               testID="session-menu-duplicate"
-              onPress={() => { void handleDuplicate(); }}
+              onPress={() => {
+                void handleDuplicate();
+              }}
             />
           </>
         )}
         <MenuItem
-          label={isDeleting ? 'Deleting...' : 'Delete Session'}
+          label={isDeleting ? "Deleting..." : "Delete Session"}
           testID="session-menu-delete"
-          onPress={() => { void handleDelete(); }}
+          onPress={() => {
+            void handleDelete();
+          }}
           destructive
         />
 

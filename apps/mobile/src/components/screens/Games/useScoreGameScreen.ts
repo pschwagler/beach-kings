@@ -21,12 +21,12 @@
  *   3. Neither → GET /api/friends (fallback)
  */
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { api } from '@/lib/api';
-import { shareLink } from '@/utils/share';
-import { routes } from '@/lib/navigation';
-import { useAddNewPlayer } from '@/contexts/AddNewPlayerContext';
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { api } from "@/lib/api";
+import { shareLink } from "@/utils/share";
+import { routes } from "@/lib/navigation";
+import { useAddNewPlayer } from "@/contexts/AddNewPlayerContext";
 import type {
   SessionGame,
   PlayerSearchTag,
@@ -34,11 +34,11 @@ import type {
   PlayerGender,
   SkillLevel,
   Player,
-} from '@beach-kings/shared';
-import { SKILL_LEVEL_OPTIONS } from '@beach-kings/shared';
+} from "@beach-kings/shared";
+import { SKILL_LEVEL_OPTIONS } from "@beach-kings/shared";
 
-export type SubmitState = 'idle' | 'loading' | 'success' | 'error';
-export type DeleteState = 'idle' | 'loading' | 'error';
+export type SubmitState = "idle" | "loading" | "success" | "error";
+export type DeleteState = "idle" | "loading" | "error";
 
 export interface PlayerSlot {
   readonly player_id: number | null;
@@ -50,8 +50,8 @@ export interface PlayerSlot {
 
 const EMPTY_SLOT: PlayerSlot = {
   player_id: null,
-  display_name: '',
-  initials: '',
+  display_name: "",
+  initials: "",
 };
 
 /** Minimal roster player shape used within this hook.
@@ -127,7 +127,10 @@ export interface UseScoreGameScreenResult {
   /** True while fewer than 4 slots are filled (picker shown, score hidden). */
   readonly isBuilding: boolean;
   /** The next empty slot to fill, scanning team1[0] → team1[1] → team2[0] → team2[1]. */
-  readonly activeNextSlot: { readonly team: 1 | 2; readonly slot: 0 | 1 } | null;
+  readonly activeNextSlot: {
+    readonly team: 1 | 2;
+    readonly slot: 0 | 1;
+  } | null;
   /** Inline validation warning to show near the save button. */
   readonly scoreWarning: string | null;
   /**
@@ -163,9 +166,16 @@ export interface UseScoreGameScreenResult {
   readonly onShareSession: () => Promise<void>;
   readonly setScore1: (n: number) => void;
   readonly setScore2: (n: number) => void;
-  readonly assignPlayer: (team: 1 | 2, slot: 0 | 1, player: RosterPlayer | null) => void;
+  readonly assignPlayer: (
+    team: 1 | 2,
+    slot: 0 | 1,
+    player: RosterPlayer | null,
+  ) => void;
   readonly removePlayer: (team: 1 | 2, slot: 0 | 1) => void;
-  readonly swapSlots: (from: { team: 1 | 2; slot: 0 | 1 }, to: { team: 1 | 2; slot: 0 | 1 }) => void;
+  readonly swapSlots: (
+    from: { team: 1 | 2; slot: 0 | 1 },
+    to: { team: 1 | 2; slot: 0 | 1 },
+  ) => void;
   readonly setSearch: (q: string) => void;
   readonly onSubmit: () => void;
   readonly onRetry: () => void;
@@ -188,7 +198,11 @@ export interface UseScoreGameScreenResult {
    * `team` indicates which team the new player was assigned to, for the toast
    * message "Brad K added to Team 2".
    */
-  readonly pendingShareInvite: { readonly name: string; readonly invite_url: string; readonly team: 1 | 2 } | null;
+  readonly pendingShareInvite: {
+    readonly name: string;
+    readonly invite_url: string;
+    readonly team: 1 | 2;
+  } | null;
   /**
    * Navigate to the "Add New Player" formSheet route for the given team/slot
    * target. Passes the current `search` string and inferred gender/level into
@@ -243,11 +257,11 @@ export function deriveInitialSlots(game: SessionGame | null): {
 /** Derive two-letter initials from a full name string. */
 function toInitials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/);
-  if (parts.length === 0) return '';
-  if (parts.length === 1) return (parts[0]?.[0] ?? '').toUpperCase();
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return (parts[0]?.[0] ?? "").toUpperCase();
   return (
-    (parts[0]?.[0] ?? '').toUpperCase() +
-    (parts[parts.length - 1]?.[0] ?? '').toUpperCase()
+    (parts[0]?.[0] ?? "").toUpperCase() +
+    (parts[parts.length - 1]?.[0] ?? "").toUpperCase()
   );
 }
 
@@ -259,7 +273,7 @@ function mapSearchItem(item: PlayerSearchItem): RosterPlayer {
     initials:
       item.initials && item.initials.length > 0
         ? item.initials
-        : toInitials(item.full_name ?? ''),
+        : toInitials(item.full_name ?? ""),
     tags: item.tags ?? [],
     isSession: item.in_session ?? false,
     is_guest: item.is_guest ?? false,
@@ -292,7 +306,7 @@ function buildFallbackRoster(
       player_id: f.player_id,
       display_name: f.full_name,
       initials: toInitials(f.full_name),
-      tags: ['friend'],
+      tags: ["friend"],
       isSession: false,
     }));
   return [...sessionPlayers, ...friendPlayers];
@@ -305,24 +319,32 @@ function buildFallbackRoster(
  * modal from the session's makeup.
  */
 function inferGenderLevel(
-  participants: ReadonlyArray<{ gender?: string | null; level?: string | null }>,
-): { gender?: 'male' | 'female'; level?: SkillLevel } {
+  participants: ReadonlyArray<{
+    gender?: string | null;
+    level?: string | null;
+  }>,
+): { gender?: "male" | "female"; level?: SkillLevel } {
   const validLevels = new Set<string>(SKILL_LEVEL_OPTIONS.map((o) => o.value));
   const genderCounts = new Map<string, number>();
   const levelCounts = new Map<string, number>();
   for (const p of participants) {
-    if (p.gender != null && p.gender !== '') {
+    if (p.gender != null && p.gender !== "") {
       genderCounts.set(p.gender, (genderCounts.get(p.gender) ?? 0) + 1);
     }
-    if (p.level != null && p.level !== '' && validLevels.has(p.level)) {
+    if (p.level != null && p.level !== "" && validLevels.has(p.level)) {
       levelCounts.set(p.level, (levelCounts.get(p.level) ?? 0) + 1);
     }
   }
-  const topGender = [...genderCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const topLevel = [...levelCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const result: { gender?: 'male' | 'female'; level?: SkillLevel } = {};
-  if (topGender === 'male' || topGender === 'female') result.gender = topGender;
-  if (topLevel != null && validLevels.has(topLevel)) result.level = topLevel as SkillLevel;
+  const topGender = [...genderCounts.entries()].sort(
+    (a, b) => b[1] - a[1],
+  )[0]?.[0];
+  const topLevel = [...levelCounts.entries()].sort(
+    (a, b) => b[1] - a[1],
+  )[0]?.[0];
+  const result: { gender?: "male" | "female"; level?: SkillLevel } = {};
+  if (topGender === "male" || topGender === "female") result.gender = topGender;
+  if (topLevel != null && validLevels.has(topLevel))
+    result.level = topLevel as SkillLevel;
   return result;
 }
 
@@ -361,19 +383,21 @@ export function useScoreGameScreen(
   ]);
   const [score1, setScore1] = useState(0);
   const [score2, setScore2] = useState(0);
-  const [search, setSearch] = useState('');
-  const [submitState, setSubmitState] = useState<SubmitState>('idle');
+  const [search, setSearch] = useState("");
+  const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastSessionId, setLastSessionId] = useState<number | null>(null);
   const [savedMatchId, setSavedMatchId] = useState<number | null>(null);
-  const [deleteState, setDeleteState] = useState<DeleteState>('idle');
+  const [deleteState, setDeleteState] = useState<DeleteState>("idle");
   const [isCreatingSession, setIsCreatingSession] = useState(false);
 
   // --- AddNewPlayer formSheet state ---
   // inferredGender/Level are computed here (the inference effects need
   // sessionId/leagueId, which only exist on this screen) and handed to the
   // sheet via AddNewPlayerContext when `openAddNewPlayer` navigates.
-  const [inferredGender, setInferredGender] = useState<PlayerGender | null>(null);
+  const [inferredGender, setInferredGender] = useState<PlayerGender | null>(
+    null,
+  );
   const [inferredLevel, setInferredLevel] = useState<SkillLevel | null>(null);
   const [pendingShareInvite, setPendingShareInvite] = useState<{
     readonly name: string;
@@ -458,7 +482,7 @@ export function useScoreGameScreen(
     void api
       .getCurrentUserPlayer()
       .then((player) => {
-        if (!cancelled && player != null && typeof player.id === 'number') {
+        if (!cancelled && player != null && typeof player.id === "number") {
           setCurrentUserPlayer(player);
         }
       })
@@ -473,7 +497,7 @@ export function useScoreGameScreen(
   const currentPlayerId =
     currentPlayerIdOption != null
       ? currentPlayerIdOption
-      : currentUserPlayer?.id ?? null;
+      : (currentUserPlayer?.id ?? null);
 
   // The logged-in player shaped for the picker. `isSession: true` makes it
   // render as a compact chip that leads the list; RosterPicker stamps the
@@ -482,7 +506,7 @@ export function useScoreGameScreen(
   const selfRosterPlayer = useMemo<RosterPlayer | null>(() => {
     const p = currentUserPlayer;
     if (p == null) return null;
-    const name = p.full_name ?? p.name ?? 'You';
+    const name = p.full_name ?? p.name ?? "You";
     return {
       player_id: p.id,
       display_name: name,
@@ -515,7 +539,7 @@ export function useScoreGameScreen(
         // (PlayerSearchItem omits gender/level).
         const [searchResp, participants] = await Promise.all([
           api
-            .searchPlayers('', {
+            .searchPlayers("", {
               sessionId: sessionId ?? undefined,
               leagueId: leagueId ?? undefined,
             })
@@ -534,11 +558,16 @@ export function useScoreGameScreen(
         } else {
           // Relevance search unavailable or empty → best-effort fallback,
           // identical across flows: session participants (if any) + friends.
-          const friendsResp = await api.getFriends().catch(() => ({ items: [] }));
+          const friendsResp = await api
+            .getFriends()
+            .catch(() => ({ items: [] }));
           if (cancelled) return;
           const friendItems =
-            (friendsResp as { items?: { player_id: number; full_name: string }[] })
-              ?.items ?? [];
+            (
+              friendsResp as {
+                items?: { player_id: number; full_name: string }[];
+              }
+            )?.items ?? [];
           setRoster(buildFallbackRoster(participants, friendItems));
         }
 
@@ -546,7 +575,10 @@ export function useScoreGameScreen(
         // effect (below) overrides these when the league provides values.
         if (sessionId != null && participants.length > 0) {
           const inferred = inferGenderLevel(
-            participants as Array<{ gender?: string | null; level?: string | null }>,
+            participants as Array<{
+              gender?: string | null;
+              level?: string | null;
+            }>,
           );
           if (inferred.gender) setInferredGender(inferred.gender);
           if (inferred.level) setInferredLevel(inferred.level);
@@ -568,28 +600,35 @@ export function useScoreGameScreen(
   useEffect(() => {
     if (leagueId == null) return;
     let cancelled = false;
-    const validLevels = new Set<string>(SKILL_LEVEL_OPTIONS.map((o) => o.value));
-    void api.getLeague(leagueId).then((league) => {
-      if (cancelled) return;
-      // Map league gender to PlayerGender; coed → null (ambiguous).
-      const leagueGender: PlayerGender | null =
-        league.gender === 'mens' ? 'male' :
-        league.gender === 'womens' ? 'female' :
-        null;
-      const leagueLevel: SkillLevel | null =
-        league.level != null && validLevels.has(league.level)
-          ? (league.level as SkillLevel)
-          : null;
-      // League signal overrides session signal when present.
-      if (leagueGender != null) {
-        setInferredGender(leagueGender);
-      }
-      if (leagueLevel != null) {
-        setInferredLevel(leagueLevel);
-      }
-    }).catch(() => {
-      // Non-fatal — inferred values stay as-is from the session signal.
-    });
+    const validLevels = new Set<string>(
+      SKILL_LEVEL_OPTIONS.map((o) => o.value),
+    );
+    void api
+      .getLeague(leagueId)
+      .then((league) => {
+        if (cancelled) return;
+        // Map league gender to PlayerGender; coed → null (ambiguous).
+        const leagueGender: PlayerGender | null =
+          league.gender === "mens"
+            ? "male"
+            : league.gender === "womens"
+              ? "female"
+              : null;
+        const leagueLevel: SkillLevel | null =
+          league.level != null && validLevels.has(league.level)
+            ? (league.level as SkillLevel)
+            : null;
+        // League signal overrides session signal when present.
+        if (leagueGender != null) {
+          setInferredGender(leagueGender);
+        }
+        if (leagueLevel != null) {
+          setInferredLevel(leagueLevel);
+        }
+      })
+      .catch(() => {
+        // Non-fatal — inferred values stay as-is from the session signal.
+      });
     return () => {
       cancelled = true;
     };
@@ -604,7 +643,7 @@ export function useScoreGameScreen(
 
   useEffect(() => {
     const trimmed = search.trim();
-    if (trimmed === '') {
+    if (trimmed === "") {
       setSearchResults([]);
       setIsSearching(false);
       return;
@@ -658,7 +697,7 @@ export function useScoreGameScreen(
     const trimmed = search.trim();
     const q = trimmed.toLowerCase();
     const base =
-      trimmed === ''
+      trimmed === ""
         ? roster.filter((p) => !seatedPlayerIds.has(p.player_id))
         : searchResults.length > 0
           ? searchResults.filter((p) => !seatedPlayerIds.has(p.player_id))
@@ -677,7 +716,7 @@ export function useScoreGameScreen(
     const self = selfRosterPlayer;
     if (self == null || seatedPlayerIds.has(self.player_id)) return base;
     const matchesQuery =
-      q === '' || self.display_name.toLowerCase().includes(q);
+      q === "" || self.display_name.toLowerCase().includes(q);
     if (!matchesQuery) return base;
     return [self, ...base.filter((p) => p.player_id !== self.player_id)];
   }, [roster, searchResults, search, seatedPlayerIds, selfRosterPlayer]);
@@ -706,11 +745,12 @@ export function useScoreGameScreen(
 
   const scoreWarning = useMemo<string | null>(() => {
     if (isBuilding) return null;
-    if (score1 === 0 && score2 === 0) return 'Enter scores to save';
-    if (score1 === score2) return 'Scores are tied — beach volleyball has no ties';
+    if (score1 === 0 && score2 === 0) return "Enter scores to save";
+    if (score1 === score2)
+      return "Scores are tied — beach volleyball has no ties";
     // Untied (handled above) + at least one non-zero (handled above) + both < 10
     if (score1 < 10 && score2 < 10) {
-      return 'Scores look incomplete — save anyway?';
+      return "Scores look incomplete — save anyway?";
     }
     return null;
   }, [isBuilding, score1, score2]);
@@ -750,7 +790,10 @@ export function useScoreGameScreen(
   );
 
   const swapSlots = useCallback(
-    (from: { team: 1 | 2; slot: 0 | 1 }, to: { team: 1 | 2; slot: 0 | 1 }): void => {
+    (
+      from: { team: 1 | 2; slot: 0 | 1 },
+      to: { team: 1 | 2; slot: 0 | 1 },
+    ): void => {
       if (from.team === to.team && from.slot === to.slot) return;
 
       const fromSlot = from.team === 1 ? team1[from.slot] : team2[from.slot];
@@ -769,11 +812,19 @@ export function useScoreGameScreen(
         return;
       }
       if (from.team === 1) {
-        setTeam1((prev) => (from.slot === 0 ? [toSlot, prev[1]] : [prev[0], toSlot]));
-        setTeam2((prev) => (to.slot === 0 ? [fromSlot, prev[1]] : [prev[0], fromSlot]));
+        setTeam1((prev) =>
+          from.slot === 0 ? [toSlot, prev[1]] : [prev[0], toSlot],
+        );
+        setTeam2((prev) =>
+          to.slot === 0 ? [fromSlot, prev[1]] : [prev[0], fromSlot],
+        );
       } else {
-        setTeam2((prev) => (from.slot === 0 ? [toSlot, prev[1]] : [prev[0], toSlot]));
-        setTeam1((prev) => (to.slot === 0 ? [fromSlot, prev[1]] : [prev[0], fromSlot]));
+        setTeam2((prev) =>
+          from.slot === 0 ? [toSlot, prev[1]] : [prev[0], toSlot],
+        );
+        setTeam1((prev) =>
+          to.slot === 0 ? [fromSlot, prev[1]] : [prev[0], fromSlot],
+        );
       }
     },
     [team1, team2],
@@ -793,7 +844,7 @@ export function useScoreGameScreen(
   // --- Submit (create OR update) ---
   const onSubmit = useCallback(async () => {
     if (!canSubmit) return;
-    setSubmitState('loading');
+    setSubmitState("loading");
     setErrorMessage(null);
     try {
       if (matchId != null) {
@@ -829,12 +880,12 @@ export function useScoreGameScreen(
           setSessionId(response.session_id);
         }
       }
-      setSubmitState('success');
+      setSubmitState("success");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Unknown error occurred.';
+        err instanceof Error ? err.message : "Unknown error occurred.";
       setErrorMessage(message);
-      setSubmitState('error');
+      setSubmitState("error");
     }
   }, [
     canSubmit,
@@ -855,19 +906,19 @@ export function useScoreGameScreen(
   // the shared errorMessage; the user stays on the screen to see the error.
   const onDelete = useCallback(async (): Promise<boolean> => {
     if (matchId == null) return false;
-    setDeleteState('loading');
+    setDeleteState("loading");
     setErrorMessage(null);
     try {
       await api.deleteMatch(matchId);
-      setDeleteState('idle');
+      setDeleteState("idle");
       return true;
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
-          : 'Could not delete the game. Please try again.';
+          : "Could not delete the game. Please try again.";
       setErrorMessage(message);
-      setDeleteState('error');
+      setDeleteState("error");
       return false;
     }
   }, [matchId]);
@@ -894,7 +945,7 @@ export function useScoreGameScreen(
       const message =
         err instanceof Error
           ? err.message
-          : 'Could not create a session. Please try again.';
+          : "Could not create a session. Please try again.";
       setErrorMessage(message);
       return null;
     } finally {
@@ -914,8 +965,8 @@ export function useScoreGameScreen(
       const message =
         code != null
           ? `Join my Beach Kings session — code: ${code}`
-          : 'Join my Beach Kings session.';
-      await shareLink(message, 'Share Session');
+          : "Join my Beach Kings session.";
+      await shareLink(message, "Share Session");
     } catch {
       // Silent: sharing is non-essential. The menu can be re-tapped.
     }
@@ -929,20 +980,20 @@ export function useScoreGameScreen(
     setTeam2([EMPTY_SLOT, EMPTY_SLOT]);
     setScore1(0);
     setScore2(0);
-    setSearch('');
-    setSubmitState('idle');
+    setSearch("");
+    setSubmitState("idle");
     setErrorMessage(null);
     // lastSessionId is preserved — the next submit will use it
   }, []);
 
   // --- Retry / Dismiss ---
   const onRetry = useCallback(() => {
-    setSubmitState('idle');
+    setSubmitState("idle");
     setErrorMessage(null);
   }, []);
 
   const onDismissError = useCallback(() => {
-    setSubmitState('idle');
+    setSubmitState("idle");
     setErrorMessage(null);
   }, []);
 
@@ -1010,7 +1061,7 @@ export function useScoreGameScreen(
       invite_url: consumed.invite_url,
       team: consumed.team,
     });
-    setSearch('');
+    setSearch("");
   }, [addNewPlayerResult, consumeAddNewPlayerResult, assignPlayer]);
 
   // react-native-screens freezes the score-game screen's React tree while the
@@ -1037,7 +1088,7 @@ export function useScoreGameScreen(
         invite_url: consumed.invite_url,
         team: consumed.team,
       });
-      setSearch('');
+      setSearch("");
     }, [consumeAddNewPlayerResult, assignPlayer]),
   );
 

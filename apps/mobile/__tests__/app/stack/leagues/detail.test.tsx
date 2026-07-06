@@ -27,7 +27,8 @@ const mockReplace = jest.fn();
 jest.mock('expo-router', () => {
   const ReactModule = require('react');
   return {
-    useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
+    useSegments: () => [],
+    useRouter: () => ({ canGoBack: () => true, push: mockPush, back: mockBack, replace: mockReplace }),
     useLocalSearchParams: () => ({ id: '1' }),
     // The standings tab refetches on focus (useRefreshOnFocus → useFocusEffect).
     useFocusEffect: (cb: () => void | (() => void)): void => {

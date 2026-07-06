@@ -9,7 +9,7 @@
  * Wireframe ref: league-matches.html
  */
 
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -17,25 +17,25 @@ import {
   ActivityIndicator,
   Pressable,
   TouchableOpacity,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+} from "react-native";
+import { useRouter } from "expo-router";
 import {
   useLeagueMatchesTab,
   type SessionGroup,
   type LeagueMatchesMode,
-} from './useLeagueMatchesTab';
-import { routes } from '@/lib/navigation';
-import { ChevronRightIcon } from '@/components/ui/icons';
-import { usePaletteColors } from '@/theme/usePaletteColors';
-import { hapticLight } from '@/utils/haptics';
-import type { GameHistoryEntry, LeagueGameEntry } from '@beach-kings/shared';
+} from "./useLeagueMatchesTab";
+import { routes } from "@/lib/navigation";
+import { ChevronRightIcon } from "@/components/ui/icons";
+import { usePaletteColors } from "@/theme/usePaletteColors";
+import { hapticLight } from "@/utils/haptics";
+import type { GameHistoryEntry, LeagueGameEntry } from "@beach-kings/shared";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function formatSessionDate(isoDate: string): string | null {
-  const parts = isoDate.split('-').map(Number);
+  const parts = isoDate.split("-").map(Number);
   if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
     return null;
   }
@@ -44,10 +44,10 @@ function formatSessionDate(isoDate: string): string | null {
   if (Number.isNaN(d.getTime())) return null;
   // Weekday + month + day (e.g. "Sat, May 24") — this is now the card's primary
   // header, so the weekday adds useful context over a bare "May 24".
-  return d.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
   });
 }
 
@@ -61,14 +61,20 @@ interface PlayerNameProps {
   readonly className?: string;
 }
 
-function PlayerName({ name, playerId, className = '' }: PlayerNameProps): React.ReactNode {
+function PlayerName({
+  name,
+  playerId,
+  className = "",
+}: PlayerNameProps): React.ReactNode {
   const router = useRouter();
   if (playerId == null) {
     return <Text className={className}>{name}</Text>;
   }
   return (
     <Pressable
-      onPress={() => { router.push(routes.player(playerId)); }}
+      onPress={() => {
+        router.push(routes.player(playerId));
+      }}
       hitSlop={{ top: 6, bottom: 6, left: 2, right: 2 }}
     >
       <Text className={className}>{name}</Text>
@@ -85,9 +91,12 @@ interface MyGameRowProps {
   readonly hideRatingChange: boolean;
 }
 
-function MyGameRow({ game, hideRatingChange }: MyGameRowProps): React.ReactNode {
-  const isWin = game.result === 'W';
-  const isDraw = game.result === 'D';
+function MyGameRow({
+  game,
+  hideRatingChange,
+}: MyGameRowProps): React.ReactNode {
+  const isWin = game.result === "W";
+  const isDraw = game.result === "D";
 
   return (
     <View
@@ -131,19 +140,15 @@ function MyGameRow({ game, hideRatingChange }: MyGameRowProps): React.ReactNode 
         <View
           className={`rounded-[6px] px-[8px] py-[3px] ${
             isWin
-              ? 'bg-success-tint'
+              ? "bg-success-tint"
               : isDraw
-                ? 'bg-warning-tint'
-                : 'bg-danger-tint'
+                ? "bg-warning-tint"
+                : "bg-danger-tint"
           }`}
         >
           <Text
             className={`text-[11px] font-bold ${
-              isWin
-                ? 'text-success'
-                : isDraw
-                  ? 'text-warning'
-                  : 'text-danger'
+              isWin ? "text-success" : isDraw ? "text-warning" : "text-danger"
             }`}
           >
             {game.result}
@@ -155,13 +160,13 @@ function MyGameRow({ game, hideRatingChange }: MyGameRowProps): React.ReactNode 
         <Text
           className={`text-[11px] mt-[4px] ${
             game.rating_change > 0
-              ? 'text-success'
+              ? "text-success"
               : game.rating_change < 0
-                ? 'text-danger'
-                : 'text-muted'
+                ? "text-danger"
+                : "text-muted"
           }`}
         >
-          {game.rating_change > 0 ? '+' : ''}
+          {game.rating_change > 0 ? "+" : ""}
           {game.rating_change} pts
         </Text>
       )}
@@ -198,7 +203,7 @@ function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
                 <PlayerName
                   name={name}
                   playerId={game.team1_player_ids[i] ?? null}
-                  className={`text-[13px] ${team1Won ? 'font-bold text-default' : 'text-default'}`}
+                  className={`text-[13px] ${team1Won ? "font-bold text-default" : "text-default"}`}
                 />
               </React.Fragment>
             ))}
@@ -212,7 +217,7 @@ function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
                 <PlayerName
                   name={name}
                   playerId={game.team2_player_ids[i] ?? null}
-                  className={`text-[12px] ${team2Won ? 'font-bold text-default' : 'text-muted'}`}
+                  className={`text-[12px] ${team2Won ? "font-bold text-default" : "text-muted"}`}
                 />
               </React.Fragment>
             ))}
@@ -222,13 +227,13 @@ function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
         {/* Score: bold the winning side's number */}
         <View className="flex-row items-baseline mr-2">
           <Text
-            className={`text-[14px] ${team1Won ? 'font-bold text-default' : 'text-muted'}`}
+            className={`text-[14px] ${team1Won ? "font-bold text-default" : "text-muted"}`}
           >
             {game.team1_score}
           </Text>
           <Text className="text-[13px] text-muted mx-[3px]">–</Text>
           <Text
-            className={`text-[14px] ${team2Won ? 'font-bold text-default' : 'text-muted'}`}
+            className={`text-[14px] ${team2Won ? "font-bold text-default" : "text-muted"}`}
           >
             {game.team2_score}
           </Text>
@@ -267,13 +272,14 @@ interface SessionCardProps {
 function SessionCard({ session }: SessionCardProps): React.ReactNode {
   const router = useRouter();
   const palette = usePaletteColors();
-  const isActive = session.session_status === 'ACTIVE';
+  const isActive = session.session_status === "ACTIVE";
   const totalRating = Math.round(session.ratingChange * 10) / 10;
-  const dateLabel = session.session_date != null
-    ? formatSessionDate(session.session_date)
-    : null;
+  const dateLabel =
+    session.session_date != null
+      ? formatSessionDate(session.session_date)
+      : null;
   const gameCount =
-    session.mode === 'mine' ? session.myGames.length : session.allGames.length;
+    session.mode === "mine" ? session.myGames.length : session.allGames.length;
 
   return (
     <View
@@ -291,7 +297,9 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
       <View className="flex-1">
         {/* Header */}
         <Pressable
-          onPress={() => { router.push(routes.session(session.session_id)); }}
+          onPress={() => {
+            router.push(routes.session(session.session_id));
+          }}
           style={({ pressed }) => (pressed ? { opacity: 0.65 } : undefined)}
           className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider"
         >
@@ -319,7 +327,7 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
         </Pressable>
 
         {/* Game rows */}
-        {session.mode === 'mine'
+        {session.mode === "mine"
           ? session.myGames.map((g) => (
               <MyGameRow key={g.id} game={g} hideRatingChange={isActive} />
             ))
@@ -329,12 +337,14 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
         <View className="flex-row px-4 py-[12px] gap-4 border-t border-divider">
           <View>
             <Text className="text-[11px] text-tertiary uppercase tracking-wide">
-              {session.mode === 'mine' ? 'Your Games' : 'Games'}
+              {session.mode === "mine" ? "Your Games" : "Games"}
             </Text>
-            <Text className="text-[14px] font-bold text-default">{gameCount}</Text>
+            <Text className="text-[14px] font-bold text-default">
+              {gameCount}
+            </Text>
           </View>
 
-          {session.mode === 'mine' && !isActive && (
+          {session.mode === "mine" && !isActive && (
             <>
               <View>
                 <Text className="text-[11px] text-tertiary uppercase tracking-wide">
@@ -351,20 +361,20 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
                 <Text
                   className={`text-[14px] font-bold ${
                     totalRating > 0
-                      ? 'text-success'
+                      ? "text-success"
                       : totalRating < 0
-                        ? 'text-danger'
-                        : 'text-muted'
+                        ? "text-danger"
+                        : "text-muted"
                   }`}
                 >
-                  {totalRating > 0 ? '+' : ''}
+                  {totalRating > 0 ? "+" : ""}
                   {totalRating}
                 </Text>
               </View>
             </>
           )}
 
-          {session.mode === 'mine' && isActive && (
+          {session.mode === "mine" && isActive && (
             <View>
               <Text className="text-[11px] text-tertiary uppercase tracking-wide">
                 Status
@@ -410,17 +420,19 @@ function ModeToggle({
     >
       <TouchableOpacity
         testID="league-games-mode-mine"
-        onPress={() => { handlePress('mine'); }}
-        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === 'mine' ? 'bg-brand-teal' : ''}`}
+        onPress={() => {
+          handlePress("mine");
+        }}
+        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === "mine" ? "bg-brand-teal" : ""}`}
       >
         <Text
-          className={`text-[12px] font-semibold ${mode === 'mine' ? 'text-white' : 'text-muted'}`}
+          className={`text-[12px] font-semibold ${mode === "mine" ? "text-white" : "text-muted"}`}
         >
           My Games
         </Text>
         {myGameCount > 0 && (
           <Text
-            className={`text-[11px] font-bold ${mode === 'mine' ? 'text-white/80' : 'text-muted'}`}
+            className={`text-[11px] font-bold ${mode === "mine" ? "text-white/80" : "text-muted"}`}
           >
             {myGameCount}
           </Text>
@@ -428,17 +440,19 @@ function ModeToggle({
       </TouchableOpacity>
       <TouchableOpacity
         testID="league-games-mode-all"
-        onPress={() => { handlePress('all'); }}
-        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === 'all' ? 'bg-brand-teal' : ''}`}
+        onPress={() => {
+          handlePress("all");
+        }}
+        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === "all" ? "bg-brand-teal" : ""}`}
       >
         <Text
-          className={`text-[12px] font-semibold ${mode === 'all' ? 'text-white' : 'text-muted'}`}
+          className={`text-[12px] font-semibold ${mode === "all" ? "text-white" : "text-muted"}`}
         >
           All Games
         </Text>
         {allGameCount > 0 && (
           <Text
-            className={`text-[11px] font-bold ${mode === 'all' ? 'text-white/80' : 'text-muted'}`}
+            className={`text-[11px] font-bold ${mode === "all" ? "text-white/80" : "text-muted"}`}
           >
             {allGameCount}
           </Text>
@@ -456,9 +470,18 @@ interface LeagueMatchesTabProps {
   readonly leagueId: number | string;
 }
 
-export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): React.ReactNode {
-  const { mode, setMode, sessions, myGameCount, allGameCount, isLoading, isError } =
-    useLeagueMatchesTab(leagueId);
+export default function LeagueMatchesTab({
+  leagueId,
+}: LeagueMatchesTabProps): React.ReactNode {
+  const {
+    mode,
+    setMode,
+    sessions,
+    myGameCount,
+    allGameCount,
+    isLoading,
+    isError,
+  } = useLeagueMatchesTab(leagueId);
 
   // The toggle should stay visible even while data loads/errors.
   const toggle = (
@@ -474,7 +497,10 @@ export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): R
     return (
       <View className="flex-1 bg-page">
         {toggle}
-        <View testID="matches-loading" className="flex-1 items-center justify-center">
+        <View
+          testID="matches-loading"
+          className="flex-1 items-center justify-center"
+        >
           <ActivityIndicator size="large" />
         </View>
       </View>
@@ -506,12 +532,12 @@ export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): R
           className="flex-1 items-center justify-center px-8 py-16"
         >
           <Text className="text-[18px] font-bold text-default mb-2 text-center">
-            {mode === 'mine' ? 'No Games Yet' : 'No League Games Yet'}
+            {mode === "mine" ? "No Games Yet" : "No League Games Yet"}
           </Text>
           <Text className="text-[14px] text-muted text-center">
-            {mode === 'mine'
-              ? 'Your games will appear here after sessions are submitted.'
-              : 'League games will appear here as sessions are played.'}
+            {mode === "mine"
+              ? "Your games will appear here after sessions are submitted."
+              : "League games will appear here as sessions are played."}
           </Text>
         </View>
       </View>

@@ -11,7 +11,7 @@
  * location + first court so the user rarely needs to touch these fields.
  */
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -23,21 +23,21 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import TopNav from '@/components/ui/TopNav';
-import { hapticMedium, hapticLight } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
-import { formatDistance } from '@/lib/formatters';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import TopNav from "@/components/ui/TopNav";
+import { hapticMedium, hapticLight } from "@/utils/haptics";
+import { routes } from "@/lib/navigation";
+import { formatDistance } from "@/lib/formatters";
 import {
   useCreateLeagueScreen,
   type LeagueAccessType,
   type GenderOption,
   type LevelOption,
   type LocationWithDistance,
-} from './useCreateLeagueScreen';
-import type { Court } from '@beach-kings/shared';
+} from "./useCreateLeagueScreen";
+import type { Court } from "@beach-kings/shared";
 
 // ---------------------------------------------------------------------------
 // Section header
@@ -61,10 +61,15 @@ interface AccessToggleProps {
 }
 
 function AccessToggle({ value, onChange }: AccessToggleProps): React.ReactNode {
-  const options: Array<{ key: LeagueAccessType; label: string; desc: string }> = [
-    { key: 'open', label: 'Open', desc: 'Anyone can request to join' },
-    { key: 'invite_only', label: 'Invite Only', desc: 'Members join by invitation' },
-  ];
+  const options: Array<{ key: LeagueAccessType; label: string; desc: string }> =
+    [
+      { key: "open", label: "Open", desc: "Anyone can request to join" },
+      {
+        key: "invite_only",
+        label: "Invite Only",
+        desc: "Members join by invitation",
+      },
+    ];
 
   return (
     <View className="mx-4 rounded-[12px] border border-divider overflow-hidden bg-surface">
@@ -79,14 +84,14 @@ function AccessToggle({ value, onChange }: AccessToggleProps): React.ReactNode {
               onChange(key);
             }}
             className={`flex-row items-center px-4 py-[14px] ${
-              idx > 0 ? 'border-t border-divider' : ''
+              idx > 0 ? "border-t border-divider" : ""
             } active:opacity-70`}
             accessibilityRole="radio"
             accessibilityState={{ checked: isActive }}
           >
             <View
               className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
-                isActive ? 'border-brand-teal' : 'border-strong'
+                isActive ? "border-brand-teal" : "border-strong"
               }`}
             >
               {isActive && (
@@ -94,7 +99,9 @@ function AccessToggle({ value, onChange }: AccessToggleProps): React.ReactNode {
               )}
             </View>
             <View className="flex-1">
-              <Text className="text-[14px] font-semibold text-default">{label}</Text>
+              <Text className="text-[14px] font-semibold text-default">
+                {label}
+              </Text>
               <Text className="text-[12px] text-muted mt-[2px]">{desc}</Text>
             </View>
           </Pressable>
@@ -115,9 +122,9 @@ interface GenderPillsProps {
 
 function GenderPills({ value, onChange }: GenderPillsProps): React.ReactNode {
   const options: Array<{ key: GenderOption; label: string }> = [
-    { key: 'mens', label: "Men's" },
-    { key: 'womens', label: "Women's" },
-    { key: 'coed', label: 'Coed' },
+    { key: "mens", label: "Men's" },
+    { key: "womens", label: "Women's" },
+    { key: "coed", label: "Coed" },
   ];
 
   return (
@@ -133,14 +140,16 @@ function GenderPills({ value, onChange }: GenderPillsProps): React.ReactNode {
               onChange(key);
             }}
             className={`px-4 py-[10px] rounded-full border ${
-              isActive ? 'bg-brand-teal border-brand-teal' : 'bg-surface border-strong'
+              isActive
+                ? "bg-brand-teal border-brand-teal"
+                : "bg-surface border-strong"
             } active:opacity-70`}
             accessibilityRole="radio"
             accessibilityState={{ checked: isActive }}
           >
             <Text
               className={`text-[13px] font-semibold ${
-                isActive ? 'text-white' : 'text-muted'
+                isActive ? "text-white" : "text-muted"
               }`}
             >
               {label}
@@ -157,13 +166,16 @@ function GenderPills({ value, onChange }: GenderPillsProps): React.ReactNode {
 // ---------------------------------------------------------------------------
 
 interface LevelSelectorProps {
-  readonly value: LevelOption | '';
-  readonly onChange: (v: LevelOption | '') => void;
+  readonly value: LevelOption | "";
+  readonly onChange: (v: LevelOption | "") => void;
 }
 
-const LEVELS: LevelOption[] = ['Open', 'AA', 'A', 'BB', 'B'];
+const LEVELS: LevelOption[] = ["Open", "AA", "A", "BB", "B"];
 
-function LevelSelector({ value, onChange }: LevelSelectorProps): React.ReactNode {
+function LevelSelector({
+  value,
+  onChange,
+}: LevelSelectorProps): React.ReactNode {
   return (
     <View className="flex-row flex-wrap gap-2 px-4">
       {LEVELS.map((lvl) => {
@@ -174,15 +186,17 @@ function LevelSelector({ value, onChange }: LevelSelectorProps): React.ReactNode
             testID={`level-option-${lvl}`}
             onPress={() => {
               void hapticLight();
-              onChange(isActive ? '' : lvl);
+              onChange(isActive ? "" : lvl);
             }}
             className={`px-4 py-[10px] rounded-[8px] border ${
-              isActive ? 'bg-brand-teal border-brand-teal' : 'bg-surface border-strong'
+              isActive
+                ? "bg-brand-teal border-brand-teal"
+                : "bg-surface border-strong"
             } active:opacity-70`}
           >
             <Text
               className={`text-[13px] font-semibold ${
-                isActive ? 'text-white' : 'text-muted'
+                isActive ? "text-white" : "text-muted"
               }`}
             >
               {lvl}
@@ -228,7 +242,7 @@ function PickerRow({
       }}
       disabled={disabled || loading}
       className={`flex-row items-center px-4 py-[14px] ${
-        disabled ? 'opacity-40' : 'active:opacity-70'
+        disabled ? "opacity-40" : "active:opacity-70"
       }`}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -238,9 +252,11 @@ function PickerRow({
           {label}
         </Text>
         {loading ? (
-          <ActivityIndicator size="small" style={{ alignSelf: 'flex-start' }} />
+          <ActivityIndicator size="small" style={{ alignSelf: "flex-start" }} />
         ) : (
-          <Text className={`text-[15px] ${hasValue ? 'text-default' : 'text-muted'}`}>
+          <Text
+            className={`text-[15px] ${hasValue ? "text-default" : "text-muted"}`}
+          >
             {hasValue ? value : placeholder}
           </Text>
         )}
@@ -269,7 +285,7 @@ function LocationPickerModal({
   onSelect,
   onClose,
 }: LocationPickerModalProps): React.ReactNode {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -298,7 +314,7 @@ function LocationPickerModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView className="flex-1 bg-page" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-page" edges={["top"]}>
         <View className="flex-row items-center px-4 pt-2 pb-3 border-b border-divider">
           <Text className="flex-1 text-[17px] font-semibold text-default">
             Select Location
@@ -309,7 +325,9 @@ function LocationPickerModal({
             accessibilityLabel="Close"
             className="active:opacity-70 py-1 pl-4"
           >
-            <Text className="text-[15px] font-semibold text-brand-teal">Done</Text>
+            <Text className="text-[15px] font-semibold text-brand-teal">
+              Done
+            </Text>
           </Pressable>
         </View>
 
@@ -330,28 +348,38 @@ function LocationPickerModal({
         </View>
 
         <FlatList
-          data={[{ id: '', name: 'None', city: '', state: '' } as LocationWithDistance, ...filtered]}
-          keyExtractor={(item) => item.id ?? 'none'}
+          data={[
+            {
+              id: "",
+              name: "None",
+              city: "",
+              state: "",
+            } as LocationWithDistance,
+            ...filtered,
+          ]}
+          keyExtractor={(item) => item.id ?? "none"}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item, index }) => {
-            const isNone = item.id === '';
+            const isNone = item.id === "";
             const isActive = selectedId === item.id;
-            const label = isNone ? 'None' : formatLabel(item as LocationWithDistance);
+            const label = isNone
+              ? "None"
+              : formatLabel(item as LocationWithDistance);
             return (
               <Pressable
-                testID={`location-modal-option-${item.id || 'none'}`}
+                testID={`location-modal-option-${item.id || "none"}`}
                 onPress={() => {
                   void hapticLight();
-                  onSelect(item.id ?? '');
+                  onSelect(item.id ?? "");
                   onClose();
                 }}
                 className={`flex-row items-center px-4 py-[14px] ${
-                  index > 0 ? 'border-t border-divider' : ''
-                } active:opacity-70 ${isActive ? 'bg-brand-teal/10' : ''}`}
+                  index > 0 ? "border-t border-divider" : ""
+                } active:opacity-70 ${isActive ? "bg-brand-teal/10" : ""}`}
               >
                 <View
                   className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
-                    isActive ? 'border-brand-teal' : 'border-strong'
+                    isActive ? "border-brand-teal" : "border-strong"
                   }`}
                 >
                   {isActive && (
@@ -360,7 +388,11 @@ function LocationPickerModal({
                 </View>
                 <Text
                   className={`text-[15px] flex-1 ${
-                    isNone ? 'text-muted' : isActive ? 'font-semibold text-default' : 'text-default'
+                    isNone
+                      ? "text-muted"
+                      : isActive
+                        ? "font-semibold text-default"
+                        : "text-default"
                   }`}
                 >
                   {label}
@@ -393,7 +425,7 @@ function CourtPickerModal({
   onSelect,
   onClose,
 }: CourtPickerModalProps): React.ReactNode {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -408,7 +440,7 @@ function CourtPickerModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView className="flex-1 bg-page" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-page" edges={["top"]}>
         <View className="flex-row items-center px-4 pt-2 pb-3 border-b border-divider">
           <Text className="flex-1 text-[17px] font-semibold text-default">
             Select Home Court
@@ -419,7 +451,9 @@ function CourtPickerModal({
             accessibilityLabel="Close"
             className="active:opacity-70 py-1 pl-4"
           >
-            <Text className="text-[15px] font-semibold text-brand-teal">Done</Text>
+            <Text className="text-[15px] font-semibold text-brand-teal">
+              Done
+            </Text>
           </Pressable>
         </View>
 
@@ -440,32 +474,32 @@ function CourtPickerModal({
         </View>
 
         <FlatList
-          data={[{ id: null, name: 'None' } as unknown as Court, ...filtered]}
-          keyExtractor={(item) => String(item.id ?? 'none')}
+          data={[{ id: null, name: "None" } as unknown as Court, ...filtered]}
+          keyExtractor={(item) => String(item.id ?? "none")}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item, index }) => {
             const isNone = item.id == null;
             const courtId = isNone
               ? null
-              : typeof item.id === 'string'
+              : typeof item.id === "string"
                 ? parseInt(item.id, 10)
                 : item.id;
             const isActive = selectedId === courtId;
             return (
               <Pressable
-                testID={`court-modal-option-${item.id ?? 'none'}`}
+                testID={`court-modal-option-${item.id ?? "none"}`}
                 onPress={() => {
                   void hapticLight();
                   onSelect(courtId);
                   onClose();
                 }}
                 className={`flex-row items-center px-4 py-[14px] ${
-                  index > 0 ? 'border-t border-divider' : ''
-                } active:opacity-70 ${isActive ? 'bg-brand-teal/10' : ''}`}
+                  index > 0 ? "border-t border-divider" : ""
+                } active:opacity-70 ${isActive ? "bg-brand-teal/10" : ""}`}
               >
                 <View
                   className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
-                    isActive ? 'border-brand-teal' : 'border-strong'
+                    isActive ? "border-brand-teal" : "border-strong"
                   }`}
                 >
                   {isActive && (
@@ -474,7 +508,11 @@ function CourtPickerModal({
                 </View>
                 <Text
                   className={`text-[15px] flex-1 ${
-                    isNone ? 'text-muted' : isActive ? 'font-semibold text-default' : 'text-default'
+                    isNone
+                      ? "text-muted"
+                      : isActive
+                        ? "font-semibold text-default"
+                        : "text-default"
                   }`}
                 >
                   {item.name}
@@ -531,14 +569,15 @@ export default function CreateLeagueScreen(): React.ReactNode {
 
   const selectedLocation = locations.find((l) => l.id === form.location_id);
   const locationLabel = selectedLocation
-    ? selectedLocation.name ?? `${selectedLocation.city}, ${selectedLocation.state}`
-    : '';
+    ? (selectedLocation.name ??
+      `${selectedLocation.city}, ${selectedLocation.state}`)
+    : "";
 
   const selectedCourt = courts.find((c) => {
-    const id = typeof c.id === 'string' ? parseInt(c.id, 10) : c.id;
+    const id = typeof c.id === "string" ? parseInt(c.id, 10) : c.id;
     return id === form.court_id;
   });
-  const courtLabel = selectedCourt?.name ?? '';
+  const courtLabel = selectedCourt?.name ?? "";
 
   const cancelAction = (
     <Pressable
@@ -555,7 +594,9 @@ export default function CreateLeagueScreen(): React.ReactNode {
   const createAction = (
     <Pressable
       testID="create-league-submit"
-      onPress={() => { void handleSubmit(); }}
+      onPress={() => {
+        void handleSubmit();
+      }}
       disabled={!isValid || isSubmitting}
       accessibilityRole="button"
       accessibilityLabel="Create league"
@@ -566,7 +607,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
       ) : (
         <Text
           className={`text-[14px] font-semibold ${
-            isValid ? 'text-white' : 'text-white/40'
+            isValid ? "text-white" : "text-white/40"
           }`}
         >
           Create
@@ -576,13 +617,17 @@ export default function CreateLeagueScreen(): React.ReactNode {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-page" edges={['top']}>
-      <TopNav title="Create League" leftAction={cancelAction} rightAction={createAction} />
+    <SafeAreaView className="flex-1 bg-page" edges={["top"]}>
+      <TopNav
+        title="Create League"
+        leftAction={cancelAction}
+        rightAction={createAction}
+      />
 
       <KeyboardAvoidingView
         testID="create-league-screen"
         className="flex-1 bg-page"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -641,7 +686,10 @@ export default function CreateLeagueScreen(): React.ReactNode {
 
           {/* ---- Access ---- */}
           <SectionHeader title="Access" />
-          <AccessToggle value={form.access_type} onChange={onChangeAccessType} />
+          <AccessToggle
+            value={form.access_type}
+            onChange={onChangeAccessType}
+          />
 
           {/* ---- Settings ---- */}
           <SectionHeader title="Settings" />
@@ -652,7 +700,9 @@ export default function CreateLeagueScreen(): React.ReactNode {
           </View>
 
           <View className="mb-3">
-            <Text className="text-[12px] text-muted px-4 mb-2">Skill Level</Text>
+            <Text className="text-[12px] text-muted px-4 mb-2">
+              Skill Level
+            </Text>
             <LevelSelector value={form.level} onChange={onChangeLevel} />
           </View>
 
@@ -671,7 +721,9 @@ export default function CreateLeagueScreen(): React.ReactNode {
               testID="court-picker-row"
               label="Home Court (optional)"
               value={courtLabel}
-              placeholder={form.location_id ? 'Select court…' : 'Select a location first'}
+              placeholder={
+                form.location_id ? "Select court…" : "Select a location first"
+              }
               loading={courtsLoading}
               disabled={!form.location_id}
               onPress={onOpenCourtModal}
@@ -691,12 +743,16 @@ export default function CreateLeagueScreen(): React.ReactNode {
           {/* ---- Create button ---- */}
           <Pressable
             testID="create-league-button"
-            onPress={() => { void handleSubmit(); }}
+            onPress={() => {
+              void handleSubmit();
+            }}
             disabled={!isValid || isSubmitting}
             accessibilityRole="button"
             accessibilityLabel="Create league"
             className={`mx-4 mt-6 rounded-[12px] py-[16px] items-center justify-center ${
-              isValid && !isSubmitting ? 'bg-brand-gold active:opacity-80' : 'bg-brand-gold/30'
+              isValid && !isSubmitting
+                ? "bg-brand-gold active:opacity-80"
+                : "bg-brand-gold/30"
             }`}
           >
             {isSubmitting ? (
@@ -704,7 +760,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
             ) : (
               <Text
                 className={`text-[16px] font-bold ${
-                  isValid ? 'text-white' : 'text-tertiary'
+                  isValid ? "text-white" : "text-tertiary"
                 }`}
               >
                 Create League

@@ -4,18 +4,18 @@
  * Fetches session detail by id, exposes menu state, and submit session handler.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
-import useApi from '@/hooks/useApi';
-import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
-import { api } from '@/lib/api';
-import { hapticMedium, hapticLight } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
-import { formatSessionSubtitle } from '@/lib/formatters';
-import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
-import { leaguesScreenKeys } from '@/components/screens/Leagues/useLeaguesScreen';
-import type { SessionDetail, SessionGame } from '@beach-kings/shared';
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
+import useApi from "@/hooks/useApi";
+import useRefreshOnFocus from "@/hooks/useRefreshOnFocus";
+import { api } from "@/lib/api";
+import { hapticMedium, hapticLight } from "@/utils/haptics";
+import { routes } from "@/lib/navigation";
+import { formatSessionSubtitle } from "@/lib/formatters";
+import { leagueKeys } from "@/components/screens/Leagues/leagueKeys";
+import { leaguesScreenKeys } from "@/components/screens/Leagues/useLeaguesScreen";
+import type { SessionDetail, SessionGame } from "@beach-kings/shared";
 
 /**
  * Returns true if a React Query key belongs to the given league's
@@ -26,11 +26,11 @@ import type { SessionDetail, SessionGame } from '@beach-kings/shared';
  * league id sits at index 2. List-level keys (`userLeagues`, `find`) don't put
  * an id there and are intentionally excluded.
  */
-function isLeagueDetailKey(queryKey: readonly unknown[], leagueId: number): boolean {
-  return (
-    queryKey[0] === leagueKeys.root[0] &&
-    queryKey[2] === String(leagueId)
-  );
+function isLeagueDetailKey(
+  queryKey: readonly unknown[],
+  leagueId: number,
+): boolean {
+  return queryKey[0] === leagueKeys.root[0] && queryKey[2] === String(leagueId);
 }
 
 export interface UseSessionDetailScreenResult {
@@ -67,7 +67,9 @@ export function useSessionDetailScreen(
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [currentPlayerName, setCurrentPlayerName] = useState<string | null>(null);
+  const [currentPlayerName, setCurrentPlayerName] = useState<string | null>(
+    null,
+  );
 
   const { data, isLoading, error, refetch } = useApi<SessionDetail>(
     () => api.getSessionById(sessionId),
@@ -127,7 +129,11 @@ export function useSessionDetailScreen(
     const session = dataRef.current;
     const sessionLabel =
       session != null
-        ? formatSessionSubtitle(session.date, session.court_name, session.league_name)
+        ? formatSessionSubtitle(
+            session.date,
+            session.court_name,
+            session.league_name,
+          )
         : null;
     const gameNumber = session != null ? session.games.length + 1 : null;
     router.push(
@@ -146,7 +152,11 @@ export function useSessionDetailScreen(
       const session = dataRef.current;
       const sessionLabel =
         session != null
-          ? formatSessionSubtitle(session.date, session.court_name, session.league_name)
+          ? formatSessionSubtitle(
+              session.date,
+              session.court_name,
+              session.league_name,
+            )
           : null;
       router.push(
         routes.scoreGame({
@@ -155,7 +165,7 @@ export function useSessionDetailScreen(
           matchId: game.id,
           gameNumber: game.game_number,
           sessionLabel,
-          headerTitle: 'Edit Game',
+          headerTitle: "Edit Game",
         }) as never,
       );
     },
@@ -182,12 +192,12 @@ export function useSessionDetailScreen(
       if (leagueId != null) {
         void queryClient.invalidateQueries({
           predicate: (query) => isLeagueDetailKey(query.queryKey, leagueId),
-          refetchType: 'none',
+          refetchType: "none",
         });
         // The Leagues-tab "My Leagues" cards carry season-scoped W-L too.
         void queryClient.invalidateQueries({
           queryKey: leaguesScreenKeys.leagues(),
-          refetchType: 'none',
+          refetchType: "none",
         });
       }
 
@@ -196,7 +206,7 @@ export function useSessionDetailScreen(
       const message =
         err instanceof Error
           ? err.message
-          : 'Could not submit session. Please try again.';
+          : "Could not submit session. Please try again.";
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);

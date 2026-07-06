@@ -19,7 +19,9 @@ jest.mock('@/utils/haptics', () => ({
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: mockBack }),
+  useSegments: () => [],
+  useLocalSearchParams: () => ({}),
+  useRouter: () => ({ canGoBack: () => true, push: mockPush, back: mockBack }),
   Link: ({ children }: { children: React.ReactNode }) => children,
 }));
 

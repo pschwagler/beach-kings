@@ -74,7 +74,9 @@ jest.mock('react-native-safe-area-context', () => ({
 
 const mockRouterBack = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: mockRouterBack }),
+  useSegments: () => [],
+  useLocalSearchParams: () => ({}),
+  useRouter: () => ({ canGoBack: () => true, push: jest.fn(), back: mockRouterBack }),
 }));
 
 jest.mock('@/utils/haptics', () => ({
@@ -535,7 +537,13 @@ const defaultHookResult = {
 
 const mockRouterPush = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockRouterPush, back: mockRouterBack }),
+  useSegments: () => [],
+  useLocalSearchParams: () => ({}),
+  useRouter: () => ({
+    canGoBack: () => true,
+    push: mockRouterPush,
+    back: mockRouterBack,
+  }),
 }));
 
 describe('SessionDetailScreen — invite banner integration', () => {

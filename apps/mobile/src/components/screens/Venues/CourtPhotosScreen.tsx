@@ -32,7 +32,6 @@ import TopNav from '@/components/ui/TopNav';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { useCourtPhotosScreen } from './useCourtPhotosScreen';
 import { hapticMedium } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
 import type { CourtPhoto } from '@beach-kings/shared';
 
 const NUM_COLUMNS = 3;
@@ -188,7 +187,7 @@ export default function CourtPhotosScreen({
         edges={['top']}
         testID="court-photos-screen"
       >
-        <TopNav title="Photos" showBack backFallback={routes.court(idOrSlug)} rightAction={addButton} />
+        <TopNav title="Photos" showBack rightAction={addButton} />
         <PhotoSkeleton />
       </SafeAreaView>
     );
@@ -202,7 +201,7 @@ export default function CourtPhotosScreen({
         edges={['top']}
         testID="court-photos-screen"
       >
-        <TopNav title="Photos" showBack backFallback={routes.court(idOrSlug)} rightAction={addButton} />
+        <TopNav title="Photos" showBack rightAction={addButton} />
         <View
           testID="court-photos-error"
           className="flex-1 items-center justify-center px-8"

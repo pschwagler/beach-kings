@@ -5,14 +5,14 @@
  * distance, and a chevron to navigate to the detail screen.
  */
 
-import React, { useCallback } from 'react';
-import { View, Text, Pressable, Image } from 'react-native';
-import { useRouter } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
-import { hapticLight } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
-import { formatDistance } from '@/lib/formatters';
-import type { Court } from '@beach-kings/shared';
+import React, { useCallback } from "react";
+import { View, Text, Pressable, Image } from "react-native";
+import { useRouter } from "expo-router";
+import Svg, { Path } from "react-native-svg";
+import { hapticLight } from "@/utils/haptics";
+import { routes } from "@/lib/navigation";
+import { formatDistance } from "@/lib/formatters";
+import type { Court } from "@beach-kings/shared";
 
 function ChevronRight(): React.ReactNode {
   return (
@@ -36,7 +36,7 @@ function StarRating({ rating }: { rating: number }): React.ReactNode {
         <Text
           key={star}
           className={`text-[12px] ${
-            star <= Math.round(rating) ? 'text-yellow-400' : 'text-gray-300'
+            star <= Math.round(rating) ? "text-yellow-400" : "text-gray-300"
           }`}
         >
           ★
@@ -68,9 +68,9 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
     null;
 
   const locationLabel =
-    [court.city, court.state].filter(Boolean).join(', ') ||
+    [court.city, court.state].filter(Boolean).join(", ") ||
     court.location_name ||
-    '';
+    "";
 
   const accessibilityLabel = locationLabel
     ? `${court.name} in ${locationLabel}`

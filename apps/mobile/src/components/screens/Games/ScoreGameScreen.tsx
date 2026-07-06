@@ -9,24 +9,30 @@
  * Wireframe refs: score-league.html, score-scoreboard.html
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRouter } from 'expo-router';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation, useRouter } from "expo-router";
 
-import { XIcon } from '@/components/ui/icons';
-import { ConfirmDialog } from '@/components/ui';
-import { routes } from '@/lib/navigation';
-import { formatPlayerShort } from '@/lib/formatters';
-import { useScoreGameScreen } from './useScoreGameScreen';
-import ScoreBoard from './ScoreBoard';
-import ScoreNumpad from './ScoreNumpad';
-import RosterPicker from './RosterPicker';
-import ScoreGameMenu from './ScoreGameMenu';
-import ScoreboardToast from './ScoreboardToast';
-import { hapticLight, hapticMedium } from '@/utils/haptics';
-import { shareLink } from '@/utils/share';
-import type { RosterPlayer, PlayerSlot } from './useScoreGameScreen';
+import { XIcon } from "@/components/ui/icons";
+import { ConfirmDialog } from "@/components/ui";
+import { routes } from "@/lib/navigation";
+import { formatPlayerShort } from "@/lib/formatters";
+import { useScoreGameScreen } from "./useScoreGameScreen";
+import ScoreBoard from "./ScoreBoard";
+import ScoreNumpad from "./ScoreNumpad";
+import RosterPicker from "./RosterPicker";
+import ScoreGameMenu from "./ScoreGameMenu";
+import ScoreboardToast from "./ScoreboardToast";
+import { hapticLight, hapticMedium } from "@/utils/haptics";
+import { shareLink } from "@/utils/share";
+import type { RosterPlayer, PlayerSlot } from "./useScoreGameScreen";
 
 export interface ScoreGameScreenProps {
   readonly sessionId?: number | null;
@@ -60,11 +66,13 @@ function buildNavSubtitle(
   sessionLabel: string | null | undefined,
   leagueId: number | null | undefined,
 ): string | null {
-  const label = sessionLabel != null && sessionLabel.length > 0 ? sessionLabel : null;
-  if (gameNumber != null && label != null) return `Game #${gameNumber} · ${label}`;
+  const label =
+    sessionLabel != null && sessionLabel.length > 0 ? sessionLabel : null;
+  if (gameNumber != null && label != null)
+    return `Game #${gameNumber} · ${label}`;
   if (label != null) return label;
   // Fallback preserves prior behavior when callers haven't been updated yet.
-  return leagueId != null ? 'League Game' : 'Pickup Game';
+  return leagueId != null ? "League Game" : "Pickup Game";
 }
 
 // ---------------------------------------------------------------------------
@@ -96,7 +104,7 @@ function ModalNav({
         accessibilityLabel="Close"
         accessibilityState={{ disabled }}
         hitSlop={8}
-        className={`w-9 h-9 items-center justify-center ${disabled ? 'opacity-40' : ''}`}
+        className={`w-9 h-9 items-center justify-center ${disabled ? "opacity-40" : ""}`}
       >
         <XIcon size={20} color="#888" />
       </Pressable>
@@ -154,7 +162,7 @@ function SuccessView({
       className="flex-1 items-center justify-center px-6 py-16 gap-5"
     >
       <View className="w-20 h-20 rounded-full bg-success-tint border-[3px] border-success items-center justify-center">
-        <Text className="text-[36px]">{'✓'}</Text>
+        <Text className="text-[36px]">{"✓"}</Text>
       </View>
 
       <Text className="text-[22px] font-black text-default text-center">
@@ -169,7 +177,10 @@ function SuccessView({
       </Text>
 
       <View className="items-center mt-2">
-        <Text testID="score-success-final" className="text-[28px] font-black text-default">
+        <Text
+          testID="score-success-final"
+          className="text-[28px] font-black text-default"
+        >
           {score1}–{score2}
         </Text>
         <Text className="text-[11px] text-muted uppercase tracking-wide mt-[2px]">
@@ -195,7 +206,9 @@ function SuccessView({
           accessibilityLabel="Add Another Game"
           className="w-full py-[14px] rounded-[12px] border border-brand-gold items-center"
         >
-          <Text className="text-[15px] font-bold text-brand-gold">Add Another Game</Text>
+          <Text className="text-[15px] font-bold text-brand-gold">
+            Add Another Game
+          </Text>
         </Pressable>
 
         {onEdit != null && (
@@ -206,7 +219,9 @@ function SuccessView({
             accessibilityLabel="Edit Game"
             className="w-full py-3 items-center mt-1"
           >
-            <Text className="text-[13px] font-medium text-muted underline">Edit Game</Text>
+            <Text className="text-[13px] font-medium text-muted underline">
+              Edit Game
+            </Text>
           </Pressable>
         )}
       </View>
@@ -224,7 +239,11 @@ interface ErrorViewProps {
   readonly onDiscard: () => void;
 }
 
-function ErrorView({ message, onRetry, onDiscard }: ErrorViewProps): React.ReactNode {
+function ErrorView({
+  message,
+  onRetry,
+  onDiscard,
+}: ErrorViewProps): React.ReactNode {
   return (
     <View
       testID="score-error-view"
@@ -239,7 +258,7 @@ function ErrorView({ message, onRetry, onDiscard }: ErrorViewProps): React.React
       </Text>
 
       <Text className="text-[14px] text-muted text-center leading-[1.55] max-w-[300px]">
-        {message ?? 'Something went wrong. Please try again.'}
+        {message ?? "Something went wrong. Please try again."}
       </Text>
 
       <View className="w-full gap-2 mt-3">
@@ -372,12 +391,11 @@ export default function ScoreGameScreen({
   // a second "discard?" prompt would be redundant.
   const hasProgress = useMemo(
     () =>
-      submitState === 'idle' &&
-      (filledCount > 0 || score1 > 0 || score2 > 0),
+      submitState === "idle" && (filledCount > 0 || score1 > 0 || score2 > 0),
     [submitState, filledCount, score1, score2],
   );
 
-  const isSaving = submitState === 'loading';
+  const isSaving = submitState === "loading";
 
   // Guard hardware-back, swipe-back gesture, and any other navigation removal:
   // - mid-save → block silently (no dialog over a pending request).
@@ -389,14 +407,14 @@ export default function ScoreGameScreen({
     const unsubscribe = (
       navigation as unknown as {
         addListener: (
-          event: 'beforeRemove',
+          event: "beforeRemove",
           cb: (e: {
             preventDefault: () => void;
             data: { action: unknown };
           }) => void,
         ) => () => void;
       }
-    ).addListener('beforeRemove', (e) => {
+    ).addListener("beforeRemove", (e) => {
       if (skipGuardRef.current) {
         skipGuardRef.current = false;
         return;
@@ -433,9 +451,9 @@ export default function ScoreGameScreen({
     if (action != null) {
       // Came from beforeRemove (gesture / hardware-back) — replay the captured
       // navigation so we land where the user originally intended.
-      (
-        navigation as unknown as { dispatch: (a: unknown) => void }
-      ).dispatch(action);
+      (navigation as unknown as { dispatch: (a: unknown) => void }).dispatch(
+        action,
+      );
       return;
     }
     // Came from the in-screen X button — apply navigation policy.
@@ -471,7 +489,7 @@ export default function ScoreGameScreen({
         setActiveSlot(null);
         // Reset the query so the picker returns to the default ranked roster,
         // ready for the next player without manually clearing the input.
-        setSearch('');
+        setSearch("");
       }
     },
     [assignPlayer, setSearch],
@@ -480,7 +498,10 @@ export default function ScoreGameScreen({
   const handleEdit = useCallback(() => {
     if (savedMatchId == null) return;
     router.replace(
-      routes.scoreGame({ matchId: savedMatchId, sessionId: lastSessionId ?? undefined }) as never,
+      routes.scoreGame({
+        matchId: savedMatchId,
+        sessionId: lastSessionId ?? undefined,
+      }) as never,
     );
   }, [savedMatchId, lastSessionId, router]);
 
@@ -495,7 +516,7 @@ export default function ScoreGameScreen({
   }, [onSubmit]);
 
   const [activeScoreTeam, setActiveScoreTeam] = useState<1 | 2 | null>(null);
-  const [digitBuffer, setDigitBuffer] = useState('');
+  const [digitBuffer, setDigitBuffer] = useState("");
 
   // Default to team 1 the moment scoring mode begins — no useEffect needed.
   const effectiveActiveScoreTeam: 1 | 2 | null = isBuilding
@@ -504,7 +525,7 @@ export default function ScoreGameScreen({
 
   const handleScoreTeamPress = useCallback((team: 1 | 2) => {
     setActiveScoreTeam(team);
-    setDigitBuffer('');
+    setDigitBuffer("");
   }, []);
 
   const handleDigit = useCallback(
@@ -516,7 +537,7 @@ export default function ScoreGameScreen({
       if (effectiveActiveScoreTeam === 1) setScore1(score);
       else setScore2(score);
       if (newBuffer.length >= 2) {
-        setDigitBuffer('');
+        setDigitBuffer("");
         setActiveScoreTeam(effectiveActiveScoreTeam === 1 ? 2 : null);
       } else {
         setDigitBuffer(newBuffer);
@@ -541,7 +562,7 @@ export default function ScoreGameScreen({
 
   const handleNext = useCallback(() => {
     if (effectiveActiveScoreTeam === null) return;
-    setDigitBuffer('');
+    setDigitBuffer("");
     setActiveScoreTeam(effectiveActiveScoreTeam === 1 ? 2 : null);
   }, [effectiveActiveScoreTeam]);
 
@@ -597,14 +618,14 @@ export default function ScoreGameScreen({
     void onShareSession();
   }, [onShareSession]);
 
-  const isDeleting = deleteState === 'loading';
+  const isDeleting = deleteState === "loading";
 
   const remaining = 4 - filledCount;
   const saveButtonLabel = isBuilding
-    ? `Select ${remaining} more player${remaining === 1 ? '' : 's'}`
+    ? `Select ${remaining} more player${remaining === 1 ? "" : "s"}`
     : isSaving
-    ? 'Saving...'
-    : 'Save Game';
+      ? "Saving..."
+      : "Save Game";
 
   const successDesc = buildSuccessDesc(team1, team2, score1, score2);
 
@@ -612,12 +633,12 @@ export default function ScoreGameScreen({
     headerTitle != null && headerTitle.length > 0
       ? headerTitle
       : isEditMode
-      ? 'Edit Game'
-      : 'Add Game';
+        ? "Edit Game"
+        : "Add Game";
   const navSubtitle = buildNavSubtitle(gameNumber, sessionLabel, leagueId);
 
   let content: React.ReactNode;
-  if (submitState === 'success') {
+  if (submitState === "success") {
     content = (
       <SuccessView
         score1={score1}
@@ -628,7 +649,7 @@ export default function ScoreGameScreen({
         onEdit={savedMatchId != null ? handleEdit : undefined}
       />
     );
-  } else if (submitState === 'error') {
+  } else if (submitState === "error") {
     content = (
       <ErrorView
         message={errorMessage}
@@ -667,7 +688,9 @@ export default function ScoreGameScreen({
             onSelectPlayer={handlePlayerSelect}
             onAddNewPlayer={
               effectiveActiveSlot != null
-                ? () => { openAddNewPlayer(effectiveActiveSlot); }
+                ? () => {
+                    openAddNewPlayer(effectiveActiveSlot);
+                  }
                 : undefined
             }
             currentPlayerId={currentPlayerId}
@@ -697,10 +720,14 @@ export default function ScoreGameScreen({
             className="w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2"
             style={
               canSubmit && !isSaving
-                ? { backgroundColor: '#d4a843' }
+                ? { backgroundColor: "#d4a843" }
                 : isSaving
-                ? { backgroundColor: '#d4a843', opacity: 0.6 }
-                : { backgroundColor: 'rgba(212,168,67,0.12)', borderWidth: 1, borderColor: 'rgba(212,168,67,0.35)' }
+                  ? { backgroundColor: "#d4a843", opacity: 0.6 }
+                  : {
+                      backgroundColor: "rgba(212,168,67,0.12)",
+                      borderWidth: 1,
+                      borderColor: "rgba(212,168,67,0.35)",
+                    }
             }
           >
             {isSaving && <ActivityIndicator size="small" color="#fff" />}
@@ -708,10 +735,10 @@ export default function ScoreGameScreen({
               className="font-bold text-[16px]"
               style={
                 canSubmit && !isSaving
-                  ? { color: '#fff' }
+                  ? { color: "#fff" }
                   : isSaving
-                  ? { color: '#fff' }
-                  : { color: 'rgba(212,168,67,0.7)' }
+                    ? { color: "#fff" }
+                    : { color: "rgba(212,168,67,0.7)" }
               }
             >
               {saveButtonLabel}
@@ -738,7 +765,7 @@ export default function ScoreGameScreen({
               className="mt-3 items-center"
             >
               <Text className="text-[14px] font-semibold text-danger">
-                {isDeleting ? 'Deleting…' : 'Delete Game'}
+                {isDeleting ? "Deleting…" : "Delete Game"}
               </Text>
             </Pressable>
           )}
@@ -750,7 +777,7 @@ export default function ScoreGameScreen({
   return (
     <SafeAreaView
       className="flex-1 bg-page"
-      edges={['top']}
+      edges={["top"]}
       testID="score-game-screen"
     >
       <ModalNav
@@ -759,7 +786,7 @@ export default function ScoreGameScreen({
         onClose={handleClose}
         // Three-dot menu hidden in success/error screens — the entry-point
         // actions (Done / Retry) are the only meaningful follow-ups there.
-        onOpenMenu={submitState === 'idle' ? handleOpenMenu : undefined}
+        onOpenMenu={submitState === "idle" ? handleOpenMenu : undefined}
         disabled={isSaving}
       />
       {content}
@@ -798,13 +825,13 @@ export default function ScoreGameScreen({
         message={
           pendingShareInvite != null
             ? `${pendingShareInvite.name} added to Team ${pendingShareInvite.team}`
-            : ''
+            : ""
         }
         onDismiss={clearPendingShareInvite}
         onShare={
           pendingShareInvite != null
             ? () => {
-                void shareLink(pendingShareInvite.invite_url, 'Share invite');
+                void shareLink(pendingShareInvite.invite_url, "Share invite");
               }
             : undefined
         }

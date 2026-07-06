@@ -10,15 +10,15 @@
  * Wireframe ref: find-players.html
  */
 
-import React, { useCallback, useState } from 'react';
-import { useRouter } from 'expo-router';
-import { routes } from '@/lib/navigation';
-import { useDiscoverPlayers } from '@/components/screens/FindPlayers/useDiscoverPlayers';
-import FindPlayersBody from './FindPlayersBody';
+import React, { useCallback, useState } from "react";
+import { useRouter } from "expo-router";
+import { routes } from "@/lib/navigation";
+import { useDiscoverPlayers } from "@/components/screens/FindPlayers/useDiscoverPlayers";
+import FindPlayersBody from "./FindPlayersBody";
 
 export default function FindPlayersTab(): React.ReactNode {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const discover = useDiscoverPlayers({ searchQuery });
 
   const onPlayerPress = useCallback(

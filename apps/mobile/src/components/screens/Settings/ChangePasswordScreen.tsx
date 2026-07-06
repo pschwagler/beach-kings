@@ -24,7 +24,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import TopNav from '@/components/ui/TopNav';
-import { routes } from '@/lib/navigation';
 import Input from '@/components/ui/Input';
 import { hapticMedium, hapticError } from '@/utils/haptics';
 import { api } from '@/lib/api';
@@ -117,7 +116,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Change Password" showBack backFallback={routes.settings()} />
+      <TopNav title="Change Password" showBack />
 
       <KeyboardAvoidingView
         className="flex-1"

@@ -21,7 +21,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
-import { routes } from '@/lib/navigation';
 import { hapticMedium } from '@/utils/haptics';
 import { useReceivedInvitesScreen } from './useReceivedInvitesScreen';
 import type { LeagueInviteItem } from '@beach-kings/shared';
@@ -221,7 +220,6 @@ export default function ReceivedInvitesScreen(): React.ReactNode {
       <TopNav
         title="Invitations"
         showBack
-        backFallback={routes.leagues()}
       />
       {renderBody()}
     </SafeAreaView>

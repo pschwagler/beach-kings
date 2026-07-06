@@ -257,6 +257,18 @@ export default function AuthProvider({
       inAuthGroup && segments[1] === 'onboarding';
 
     if (!state.isAuthenticated && !inAuthGroup) {
+      // The root Stack (app/_layout.tsx) keeps (tabs) and (stack) history
+      // around so pushed detail screens share back-history with tabs. That
+      // means a plain `replace` here only swaps the focused (auth) entry —
+      // the previous user's (tabs) screen stays underneath in root-stack
+      // history, so Android hardware back (or an edge swipe) from Welcome
+      // would pop back into the authenticated app and flash their data.
+      // Dismiss the retained (tabs)/(stack) history first so the root stack
+      // ends up with just the (auth) entry. Covers both explicit logout and
+      // any auth-expiry path, since both flow through this same guard.
+      if (router.canDismiss()) {
+        router.dismissAll();
+      }
       router.replace(routes.welcome());
     } else if (
       state.isAuthenticated &&

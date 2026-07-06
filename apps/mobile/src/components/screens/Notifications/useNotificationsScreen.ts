@@ -9,36 +9,42 @@
  *   - Accept/decline friend request actions surfaced from notification items
  */
 
-import { useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'expo-router';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
-import { routes } from '@/lib/navigation';
-import { hapticMedium } from '@/utils/haptics';
-import type { Notification, NotificationType } from '@beach-kings/shared';
+import { useState, useCallback, useMemo } from "react";
+import { useRouter } from "expo-router";
+import useApi from "@/hooks/useApi";
+import { api } from "@/lib/api";
+import { hapticMedium } from "@/utils/haptics";
+import type { Notification, NotificationType } from "@beach-kings/shared";
 
-export type NotificationFilter = 'all' | 'friends' | 'games' | 'leagues';
+export type NotificationFilter = "all" | "friends" | "games" | "leagues";
 
 /** Maps filter labels to the NotificationTypes they include. */
-const FILTER_TYPES: Record<NotificationFilter, ReadonlySet<NotificationType> | null> = {
+const FILTER_TYPES: Record<
+  NotificationFilter,
+  ReadonlySet<NotificationType> | null
+> = {
   all: null,
-  friends: new Set<NotificationType>(['friend_request', 'friend_accepted', 'direct_message']),
+  friends: new Set<NotificationType>([
+    "friend_request",
+    "friend_accepted",
+    "direct_message",
+  ]),
   games: new Set<NotificationType>([
-    'session_submitted',
-    'session_auto_submitted',
-    'session_auto_deleted',
-    'placeholder_claimed',
-    'season_award',
+    "session_submitted",
+    "session_auto_submitted",
+    "session_auto_deleted",
+    "placeholder_claimed",
+    "season_award",
   ]),
   leagues: new Set<NotificationType>([
-    'league_message',
-    'league_invite',
-    'league_join_request',
-    'league_join_rejected',
-    'season_start',
-    'season_activated',
-    'member_joined',
-    'member_removed',
+    "league_message",
+    "league_invite",
+    "league_join_request",
+    "league_join_rejected",
+    "season_start",
+    "season_activated",
+    "member_joined",
+    "member_removed",
   ]),
 };
 
@@ -63,7 +69,7 @@ export interface UseNotificationsScreenResult {
  */
 export function useNotificationsScreen(): UseNotificationsScreenResult {
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all');
+  const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const {
@@ -113,7 +119,9 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
         const prev = rawNotifications ?? [];
         mutate(
           prev.map((n) =>
-            n.id === notification.id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n,
+            n.id === notification.id
+              ? { ...n, is_read: true, read_at: new Date().toISOString() }
+              : n,
           ),
         );
         api.markNotificationRead(notification.id).catch(() => {

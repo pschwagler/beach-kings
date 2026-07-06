@@ -165,7 +165,6 @@ export default function CourtsScreen(): React.ReactNode {
     <TopNav
       title="Find Courts"
       showBack
-      backFallback={routes.home()}
       searchMode
       searchValue={searchQuery}
       onSearchChange={setSearchQuery}

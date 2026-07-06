@@ -10,11 +10,11 @@
  * Wireframe ref: friends.html
  */
 
-import React, { useCallback, useState } from 'react';
-import { useRouter } from 'expo-router';
-import { routes } from '@/lib/navigation';
-import { useFriends } from '@/components/screens/FindPlayers/useFriends';
-import FriendsBody from './FriendsBody';
+import React, { useCallback, useState } from "react";
+import { useRouter } from "expo-router";
+import { routes } from "@/lib/navigation";
+import { useFriends } from "@/components/screens/FindPlayers/useFriends";
+import FriendsBody from "./FriendsBody";
 
 interface FriendsTabProps {
   /** Switch the hub to the Find Players subnav (empty-state CTA) — no push. */
@@ -25,7 +25,7 @@ export default function FriendsTab({
   onFindPlayers,
 }: FriendsTabProps): React.ReactNode {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const friends = useFriends({ searchQuery, withSuggestions: true });
 
   const onPlayerPress = useCallback(

@@ -11,7 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
 import { hapticLight } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
 
 type ThemeMode = 'light' | 'dark' | 'system';
@@ -61,7 +60,7 @@ export default function AppearanceSettingsScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Appearance" showBack backFallback={routes.settings()} />
+      <TopNav title="Appearance" showBack />
 
       <ScrollView className="flex-1">
         <Text className="text-[15px] font-bold px-lg pt-xl pb-sm text-default">

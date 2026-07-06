@@ -17,13 +17,9 @@ interface TopNavProps {
   readonly title: string;
   readonly showBack?: boolean;
   /**
-   * Fallback route when the screen has no back history (e.g. deep-linked).
-   * Passed to `BackButton`; when omitted, always calls `router.back()`.
-   */
-  readonly backFallback?: string;
-  /**
-   * Fully override the back-button press handler. Ignores `backFallback`.
-   * Use for inline sub-views where router.back() would leave the screen.
+   * Fully override the back-button press handler (bypasses `useBack`'s
+   * derived Up target). Use for inline sub-views where router.back() would
+   * leave the screen.
    */
   readonly onBack?: () => void;
   /**
@@ -44,7 +40,6 @@ interface TopNavProps {
 export default function TopNav({
   title,
   showBack = false,
-  backFallback,
   onBack,
   leftAction,
   rightAction,
@@ -63,7 +58,7 @@ export default function TopNav({
       {/* Left slot — custom leftAction overrides showBack */}
       <View className="min-w-11 items-start justify-center">
         {leftAction != null ? leftAction : showBack && (
-          <BackButton fallback={backFallback} onPress={onBack} />
+          <BackButton onPress={onBack} />
         )}
       </View>
 

@@ -4,16 +4,26 @@
  * Manages search query, filter chip state, and the league results query.
  */
 
-import { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { routes } from '@/lib/navigation';
-import { api } from '@/lib/api';
-import type { FindLeagueResult, LeagueQueryResponse } from '@beach-kings/shared';
-import useDebounce from '@/hooks/useDebounce';
-import { leagueKeys } from './leagueKeys';
+import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import { routes } from "@/lib/navigation";
+import { api } from "@/lib/api";
+import type {
+  FindLeagueResult,
+  LeagueQueryResponse,
+} from "@beach-kings/shared";
+import useDebounce from "@/hooks/useDebounce";
+import { leagueKeys } from "./leagueKeys";
 
-export type FindLeaguesFilter = 'all' | 'public' | 'mens' | 'womens' | 'coed' | 'beginner' | 'intermediate';
+export type FindLeaguesFilter =
+  | "all"
+  | "public"
+  | "mens"
+  | "womens"
+  | "coed"
+  | "beginner"
+  | "intermediate";
 
 export interface UseFindLeaguesScreenResult {
   readonly searchQuery: string;
@@ -32,26 +42,24 @@ export interface UseFindLeaguesScreenResult {
   readonly onCreateLeague: () => void;
 }
 
-function filterToParams(
-  filter: FindLeaguesFilter,
-): {
+function filterToParams(filter: FindLeaguesFilter): {
   gender?: string | null;
   level?: string | null;
   is_open?: boolean;
 } {
   switch (filter) {
-    case 'public':
+    case "public":
       return { is_open: true };
-    case 'mens':
-      return { gender: 'mens' };
-    case 'womens':
-      return { gender: 'womens' };
-    case 'coed':
-      return { gender: 'coed' };
-    case 'beginner':
-      return { level: 'B' };
-    case 'intermediate':
-      return { level: 'A' };
+    case "mens":
+      return { gender: "mens" };
+    case "womens":
+      return { gender: "womens" };
+    case "coed":
+      return { gender: "coed" };
+    case "beginner":
+      return { level: "B" };
+    case "intermediate":
+      return { level: "A" };
     default:
       return {};
   }
@@ -63,8 +71,8 @@ function filterToParams(
 export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FindLeaguesFilter>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<FindLeaguesFilter>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [requestingIds, setRequestingIds] = useState<Set<number>>(new Set());
 
@@ -107,16 +115,23 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
     async (id: number): Promise<void> => {
       setRequestingIds((prev) => new Set([...prev, id]));
       queryClient.setQueriesData<LeagueQueryResponse>(
-        { queryKey: [...leagueKeys.root, 'find'] },
+        { queryKey: [...leagueKeys.root, "find"] },
         (old) =>
           old
-            ? { ...old, items: old.items.map((l) => l.id === id ? { ...l, user_status: 'requested' as const } : l) }
+            ? {
+                ...old,
+                items: old.items.map((l) =>
+                  l.id === id ? { ...l, user_status: "requested" as const } : l,
+                ),
+              }
             : old,
       );
       try {
         await api.requestToJoinLeague(id);
       } catch (err) {
-        void queryClient.invalidateQueries({ queryKey: [...leagueKeys.root, 'find'] });
+        void queryClient.invalidateQueries({
+          queryKey: [...leagueKeys.root, "find"],
+        });
         throw err;
       } finally {
         setRequestingIds((prev) => {

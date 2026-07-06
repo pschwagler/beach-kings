@@ -331,7 +331,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
         edges={['top']}
         testID="session-detail-screen"
       >
-        <TopNav title="Session" showBack backFallback={routes.home()} />
+        <TopNav title="Session" showBack />
         <SessionDetailSkeleton />
       </SafeAreaView>
     );
@@ -344,7 +344,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
         edges={['top']}
         testID="session-detail-screen"
       >
-        <TopNav title="Session" showBack backFallback={routes.home()} />
+        <TopNav title="Session" showBack />
         <SessionDetailErrorState onRetry={onRetry} />
       </SafeAreaView>
     );
@@ -359,7 +359,6 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
       <TopNav
         title={session?.league_name ?? 'Session'}
         showBack
-        backFallback={routes.home()}
         rightAction={
           <TouchableOpacity
             onPress={openMenu}

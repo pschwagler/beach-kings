@@ -5,13 +5,13 @@
  * Provides search/filter over the loaded conversations client-side.
  */
 
-import { useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'expo-router';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
-import { routes } from '@/lib/navigation';
-import { hapticLight } from '@/utils/haptics';
-import type { Conversation, Player } from '@beach-kings/shared';
+import { useState, useCallback, useMemo } from "react";
+import { useRouter } from "expo-router";
+import useApi from "@/hooks/useApi";
+import { api } from "@/lib/api";
+import { routes } from "@/lib/navigation";
+import { hapticLight } from "@/utils/haptics";
+import type { Conversation, Player } from "@beach-kings/shared";
 
 export interface UseMessagesScreenResult {
   readonly conversations: readonly Conversation[];
@@ -30,33 +30,29 @@ export interface UseMessagesScreenResult {
 export function useMessagesScreen(): UseMessagesScreenResult {
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const { data, isLoading, error, refetch } = useApi<{ items: Conversation[]; total_count: number }>(
-    () => api.getConversations(),
-    [],
-  );
+  const { data, isLoading, error, refetch } = useApi<{
+    items: Conversation[];
+    total_count: number;
+  }>(() => api.getConversations(), []);
 
-  const { data: player } = useApi<Player | null>(
-    async () => {
-      try {
-        return (await api.getCurrentUserPlayer()) ?? null;
-      } catch {
-        return null;
-      }
-    },
-    [],
-  );
-
-  const allConversations = data?.items ?? [];
+  const { data: player } = useApi<Player | null>(async () => {
+    try {
+      return (await api.getCurrentUserPlayer()) ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const conversations = useMemo(() => {
-    if (searchQuery.trim() === '') return allConversations;
+    const allConversations = data?.items ?? [];
+    if (searchQuery.trim() === "") return allConversations;
     const q = searchQuery.toLowerCase();
     return allConversations.filter((c) =>
       c.full_name.toLowerCase().includes(q),
     );
-  }, [allConversations, searchQuery]);
+  }, [data, searchQuery]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);

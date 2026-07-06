@@ -276,7 +276,7 @@ export default function CourtDetailScreen({
         edges={['top']}
         testID="court-detail-screen"
       >
-        <TopNav title="Court" showBack backFallback={routes.courts()} />
+        <TopNav title="Court" showBack />
         <CourtDetailSkeleton />
       </SafeAreaView>
     );
@@ -290,7 +290,7 @@ export default function CourtDetailScreen({
         edges={['top']}
         testID="court-detail-screen"
       >
-        <TopNav title="Court" showBack backFallback={routes.courts()} />
+        <TopNav title="Court" showBack />
         <CourtDetailErrorState onRetry={onRetry} />
       </SafeAreaView>
     );
@@ -306,7 +306,7 @@ export default function CourtDetailScreen({
       edges={['top']}
       testID="court-detail-screen"
     >
-      <TopNav title={court.name} showBack backFallback={routes.courts()} />
+      <TopNav title={court.name} showBack />
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}

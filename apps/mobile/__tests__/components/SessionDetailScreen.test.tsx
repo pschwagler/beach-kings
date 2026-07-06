@@ -62,7 +62,9 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
+  useSegments: () => [],
+  useLocalSearchParams: () => ({}),
+  useRouter: () => ({ canGoBack: () => true, push: jest.fn(), back: jest.fn() }),
 }));
 
 jest.mock('@/utils/haptics', () => ({

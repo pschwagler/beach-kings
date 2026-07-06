@@ -27,11 +27,9 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-
 import TopNav from '@/components/ui/TopNav';
 import { CheckIcon } from '@/components/ui/icons';
-import { routes } from '@/lib/navigation';
+import { useBack } from '@/hooks/useBack';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
@@ -219,7 +217,7 @@ export default function InvitePlayersScreen({
   shareMessageTemplate,
   emptyStateCopy = EMPTY_TITLE_DEFAULT,
 }: InvitePlayersParams): React.ReactNode {
-  const router = useRouter();
+  const handleBack = useBack();
   const [sentIds, setSentIds] = useState<ReadonlySet<string>>(
     () => new Set<string>(),
   );
@@ -292,11 +290,10 @@ export default function InvitePlayersScreen({
       <TopNav
         title={title}
         showBack
-        backFallback={routes.home()}
       />
 
       {isEmpty ? (
-        <EmptyState title={emptyStateCopy} onBack={() => { router.back(); }} />
+        <EmptyState title={emptyStateCopy} onBack={handleBack} />
       ) : (
         <ScrollView
           contentContainerStyle={{ paddingTop: 12, paddingBottom: 32 }}

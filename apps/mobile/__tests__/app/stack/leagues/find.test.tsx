@@ -20,7 +20,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush }),
+  useSegments: () => [],
+  useRouter: () => ({ canGoBack: () => true, push: mockPush }),
   useLocalSearchParams: () => ({}),
 }));
 

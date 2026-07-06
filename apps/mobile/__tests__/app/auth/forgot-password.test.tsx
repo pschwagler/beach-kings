@@ -18,7 +18,9 @@ jest.mock('@/utils/haptics', () => ({
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, back: mockBack }),
+  useSegments: () => [],
+  useLocalSearchParams: () => ({}),
+  useRouter: () => ({ canGoBack: () => true, replace: mockReplace, back: mockBack }),
 }));
 
 jest.mock('@/contexts/AuthContext', () => ({

@@ -12,19 +12,24 @@
  * a visitor never lands on a hidden tab.
  */
 
-import { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import type { LeagueDetail } from '@beach-kings/shared';
-import { api } from '@/lib/api';
-import { leagueKeys } from './leagueKeys';
-import { leaguesScreenKeys } from './useLeaguesScreen';
-import { routes } from '@/lib/navigation';
+import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import type { LeagueDetail } from "@beach-kings/shared";
+import { api } from "@/lib/api";
+import { leagueKeys } from "./leagueKeys";
+import { leaguesScreenKeys } from "./useLeaguesScreen";
+import { routes } from "@/lib/navigation";
 
-export type LeagueDetailTab = 'games' | 'standings' | 'chat' | 'signups' | 'info';
+export type LeagueDetailTab =
+  | "games"
+  | "standings"
+  | "chat"
+  | "signups"
+  | "info";
 
 /** Tabs a non-member visitor may see. */
-const VISITOR_TABS: readonly LeagueDetailTab[] = ['standings', 'info'];
+const VISITOR_TABS: readonly LeagueDetailTab[] = ["standings", "info"];
 /**
  * Tabs a member/admin may see.
  *
@@ -35,10 +40,10 @@ const VISITOR_TABS: readonly LeagueDetailTab[] = ['standings', 'info'];
  * left intact — re-enable by adding 'signups' back here.
  */
 const MEMBER_TABS: readonly LeagueDetailTab[] = [
-  'games',
-  'standings',
-  'chat',
-  'info',
+  "games",
+  "standings",
+  "chat",
+  "info",
 ];
 
 export interface UseLeagueDetailScreenResult {
@@ -79,7 +84,7 @@ export function useLeagueDetailScreen(
 ): UseLeagueDetailScreenResult {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [rawActiveTab, setActiveTab] = useState<LeagueDetailTab>('games');
+  const [rawActiveTab, setActiveTab] = useState<LeagueDetailTab>("games");
   const [isRequestingToJoin, setIsRequestingToJoin] = useState(false);
   const [isJoiningLeague, setIsJoiningLeague] = useState(false);
 
@@ -100,7 +105,7 @@ export function useLeagueDetailScreen(
   // known to be false (never for the still-loading/undefined case).
   const visitorTabs =
     isVisitor && detail?.is_public === false
-      ? VISITOR_TABS.filter((tab) => tab !== 'standings')
+      ? VISITOR_TABS.filter((tab) => tab !== "standings")
       : VISITOR_TABS;
   const visibleTabs = isVisitor ? visitorTabs : MEMBER_TABS;
 
@@ -122,18 +127,19 @@ export function useLeagueDetailScreen(
   );
 
   const hasPendingRequest = detail?.has_pending_request ?? false;
-  const isInviteOnly = isVisitor && detail?.access_type === 'invite_only';
+  const isInviteOnly = isVisitor && detail?.access_type === "invite_only";
   // Open leagues are joined directly; invite-only leagues require a request
   // (see backend: POST /join 400s invite-only leagues, POST /request-join
   // 400s open leagues).
-  const canJoinDirectly = isVisitor && detail?.access_type === 'open';
+  const canJoinDirectly = isVisitor && detail?.access_type === "open";
   const canRequestToJoin = isInviteOnly && !hasPendingRequest;
 
   const onRequestToJoin = useCallback(async (): Promise<void> => {
     setIsRequestingToJoin(true);
     // Optimistically reflect the pending request so the CTA flips immediately.
-    queryClient.setQueryData<LeagueDetail>(leagueKeys.detail(leagueId), (old) =>
-      old ? { ...old, has_pending_request: true } : old,
+    queryClient.setQueryData<LeagueDetail>(
+      leagueKeys.detail(leagueId),
+      (old) => (old ? { ...old, has_pending_request: true } : old),
     );
     try {
       await api.requestToJoinLeague(Number(leagueId));
@@ -142,13 +148,14 @@ export function useLeagueDetailScreen(
       // caches this league's `user_status` ('none' → 'requested') under its
       // own key, so invalidate it or the search results stay stale.
       void queryClient.invalidateQueries({
-        queryKey: [...leagueKeys.root, 'find'],
+        queryKey: [...leagueKeys.root, "find"],
       });
     } catch (err) {
       // Roll back the optimistic flag on failure, then reconcile with the
       // server in case the request actually landed despite the client error.
-      queryClient.setQueryData<LeagueDetail>(leagueKeys.detail(leagueId), (old) =>
-        old ? { ...old, has_pending_request: false } : old,
+      queryClient.setQueryData<LeagueDetail>(
+        leagueKeys.detail(leagueId),
+        (old) => (old ? { ...old, has_pending_request: false } : old),
       );
       void queryClient.invalidateQueries({
         queryKey: leagueKeys.detail(leagueId),
@@ -170,9 +177,15 @@ export function useLeagueDetailScreen(
       // "My Leagues" tab and Find Leagues results stay stale (staleTime 30s,
       // no focus-refetch) after a successful join.
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: leagueKeys.detail(leagueId) }),
-        queryClient.invalidateQueries({ queryKey: leaguesScreenKeys.leagues() }),
-        queryClient.invalidateQueries({ queryKey: [...leagueKeys.root, 'find'] }),
+        queryClient.invalidateQueries({
+          queryKey: leagueKeys.detail(leagueId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: leaguesScreenKeys.leagues(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [...leagueKeys.root, "find"],
+        }),
       ]);
     } finally {
       setIsJoiningLeague(false);

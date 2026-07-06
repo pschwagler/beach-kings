@@ -180,6 +180,38 @@ describe('useFriends — search filter', () => {
   });
 });
 
+describe('useFriends — refresh & retry', () => {
+  it('refetches friends, requests and suggestions on refresh', async () => {
+    const { result } = renderHook(() => useFriends());
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    await act(async () => {
+      result.current.onRefreshFriends();
+    });
+
+    // Once on mount + once on refresh for each of the three fetches.
+    expect(mockApi.getFriends).toHaveBeenCalledTimes(2);
+    expect(mockApi.getFriendRequests).toHaveBeenCalledTimes(2);
+    expect(mockApi.getFriendSuggestions).toHaveBeenCalledTimes(2);
+    await waitFor(() =>
+      expect(result.current.isRefreshingFriends).toBe(false),
+    );
+  });
+
+  it('refetches all three sources on retry', async () => {
+    const { result } = renderHook(() => useFriends());
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    await act(async () => {
+      result.current.onRetryFriends();
+    });
+
+    expect(mockApi.getFriends).toHaveBeenCalledTimes(2);
+    expect(mockApi.getFriendRequests).toHaveBeenCalledTimes(2);
+    expect(mockApi.getFriendSuggestions).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('useFriends — optimistic accept / decline', () => {
   it('removes a request optimistically on accept', async () => {
     const { result } = renderHook(() => useFriends());
@@ -191,6 +223,18 @@ describe('useFriends — optimistic accept / decline', () => {
 
     expect(result.current.friendRequests).toHaveLength(0);
     expect(mockApi.acceptFriendRequest).toHaveBeenCalledWith(REQUEST.id);
+  });
+
+  it('rolls back the request on accept failure', async () => {
+    mockApi.acceptFriendRequest.mockRejectedValue(new Error('nope'));
+    const { result } = renderHook(() => useFriends());
+    await waitFor(() => expect(result.current.friendRequests).toHaveLength(1));
+
+    await act(async () => {
+      result.current.onAcceptRequest(REQUEST.id);
+    });
+
+    await waitFor(() => expect(result.current.friendRequests).toHaveLength(1));
   });
 
   it('rolls back the request on decline failure', async () => {

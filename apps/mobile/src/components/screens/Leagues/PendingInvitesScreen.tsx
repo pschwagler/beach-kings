@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
-import { routes } from '@/lib/navigation';
 import { usePendingInvitesScreen } from './usePendingInvitesScreen';
 import type { LeagueInviteItem } from '@beach-kings/shared';
 
@@ -186,7 +185,7 @@ export default function PendingInvitesScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Pending Invites" showBack backFallback={routes.leagues()} />
+      <TopNav title="Pending Invites" showBack />
       {renderBody()}
     </SafeAreaView>
   );

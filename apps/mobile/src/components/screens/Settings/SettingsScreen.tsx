@@ -305,7 +305,7 @@ export default function SettingsScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Settings" showBack backFallback={routes.profile()} />
+      <TopNav title="Settings" showBack />
 
       <ScrollView className="flex-1">
 

@@ -14,10 +14,16 @@ import { renderHook } from '@testing-library/react-native';
 // ---------------------------------------------------------------------------
 
 const mockRouterReplace = jest.fn();
+const mockDismissAll = jest.fn();
+let mockCanDismiss = jest.fn(() => true);
 const mockSegments: string[] = [];
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockRouterReplace }),
+  useRouter: () => ({
+    replace: mockRouterReplace,
+    dismissAll: mockDismissAll,
+    canDismiss: mockCanDismiss,
+  }),
   useSegments: () => mockSegments,
 }));
 
@@ -146,6 +152,7 @@ beforeEach(() => {
   mockSetAuthTokens.mockResolvedValue(undefined);
   mockClearAuthTokens.mockResolvedValue(undefined);
   mockSegments.splice(0, mockSegments.length);
+  mockCanDismiss = jest.fn(() => true);
 });
 
 // ---------------------------------------------------------------------------
@@ -489,6 +496,13 @@ describe('AuthProvider — logout', () => {
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
+
+    // S1 PII-flash fix: the route guard must dismiss retained (tabs)/(stack)
+    // root-stack history before replacing to welcome.
+    await waitFor(() => {
+      expect(mockDismissAll).toHaveBeenCalledTimes(1);
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/welcome');
+    });
   });
 
   it('still clears local state when logout API fails', async () => {
@@ -588,6 +602,50 @@ describe('AuthProvider — route guard', () => {
     await waitFor(() => {
       expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/welcome');
     });
+  });
+
+  it('dismisses retained (tabs)/(stack) root-stack history before replacing to welcome (S1 PII-flash fix)', async () => {
+    // Regression test for: with the root <Stack> in app/_layout.tsx keeping
+    // (tabs)/(stack) mounted underneath, a bare `replace` to (auth) leaves the
+    // previous user's authenticated screen in root-stack history — Android
+    // hardware back from Welcome would then pop back into it. The guard must
+    // dismiss that history first.
+    mockCanDismiss = jest.fn(() => true);
+    mockSegments.push('(tabs)');
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/welcome');
+    });
+
+    expect(mockDismissAll).toHaveBeenCalledTimes(1);
+    // dismissAll must run before the replace, not after, so the root stack
+    // has already dropped the (tabs)/(stack) entries when (auth) mounts.
+    const dismissOrder = mockDismissAll.mock.invocationCallOrder[0];
+    const replaceOrder = mockRouterReplace.mock.invocationCallOrder[0];
+    expect(dismissOrder).toBeLessThan(replaceOrder);
+  });
+
+  it('does not call dismissAll when there is nothing to dismiss', async () => {
+    mockCanDismiss = jest.fn(() => false);
+    mockSegments.push('(tabs)');
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/welcome');
+    });
+
+    expect(mockDismissAll).not.toHaveBeenCalled();
   });
 
   it('does not redirect returning users with incomplete profiles to onboarding', async () => {

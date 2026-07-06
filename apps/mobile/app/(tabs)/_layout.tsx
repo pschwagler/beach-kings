@@ -48,6 +48,13 @@ export default function TabLayout(): React.ReactNode {
 
   return (
     <Tabs
+      // Android system-back policy while sitting on a tab (tab switches are
+      // lateral, not pushes, so they are not in the root stack history).
+      // 'firstRoute' = back from any tab returns to Home (the first tab), then
+      // exits the app — the least-surprising, platform-standard behavior.
+      // Flip to 'history' if we want back to retrace visited tabs instead.
+      // No-op on iOS, which has no system back for tabs. See docs/navigation.md.
+      backBehavior="firstRoute"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: isDark ? darkColors.brandTeal : colors.primary,

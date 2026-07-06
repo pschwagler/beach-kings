@@ -18,7 +18,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
 import TabView from '@/components/ui/TabView';
-import { routes } from '@/lib/navigation';
 import { useKobScreen, KOB_TABS } from './useKobScreen';
 import KobLivePanel from './KobLivePanel';
 import KobSchedulePanel from './KobSchedulePanel';
@@ -125,7 +124,7 @@ export default function KobScreen({
         edges={['top']}
         testID="kob-screen"
       >
-        <TopNav title="King of the Beach" showBack backFallback={routes.home()} />
+        <TopNav title="King of the Beach" showBack />
         <KobSkeleton />
       </SafeAreaView>
     );
@@ -139,7 +138,7 @@ export default function KobScreen({
         edges={['top']}
         testID="kob-screen"
       >
-        <TopNav title="King of the Beach" showBack backFallback={routes.home()} />
+        <TopNav title="King of the Beach" showBack />
         <KobErrorState onRetry={onRetry} />
       </SafeAreaView>
     );

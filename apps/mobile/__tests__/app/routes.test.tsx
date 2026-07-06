@@ -524,7 +524,7 @@ describe('app/_layout — RootLayout', () => {
     const { queryByTestId } = render(<RootLayout />);
 
     // Before fonts load, the component returns null
-    expect(queryByTestId('slot')).toBeNull();
+    expect(queryByTestId('stack')).toBeNull();
 
     await act(async () => {
       resolveFont!();
@@ -533,18 +533,26 @@ describe('app/_layout — RootLayout', () => {
     expect(FontModule.loadAsync).toHaveBeenCalledWith({});
   });
 
-  it('renders Slot after fonts load successfully', async () => {
+  it('renders the root Stack after fonts load successfully', async () => {
     FontModule.loadAsync.mockResolvedValue(undefined);
     const { findByTestId } = render(<RootLayout />);
-    expect(await findByTestId('slot')).toBeTruthy();
+    expect(await findByTestId('stack')).toBeTruthy();
   });
 
-  it('renders Slot even when Font.loadAsync rejects', async () => {
+  it('renders the root Stack even when Font.loadAsync rejects', async () => {
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     FontModule.loadAsync.mockRejectedValue(new Error('font load failed'));
     const { findByTestId } = render(<RootLayout />);
-    expect(await findByTestId('slot')).toBeTruthy();
+    expect(await findByTestId('stack')).toBeTruthy();
     spy.mockRestore();
+  });
+
+  it('registers the four top-level route groups on the root Stack', async () => {
+    FontModule.loadAsync.mockResolvedValue(undefined);
+    const { findByTestId, getAllByTestId } = render(<RootLayout />);
+    await findByTestId('stack');
+    // index, (auth), (tabs), (stack)
+    expect(getAllByTestId('stack-screen')).toHaveLength(4);
   });
 
   it('calls SplashScreen.hideAsync after fonts load', async () => {
@@ -792,6 +800,10 @@ describe('Tab screens', () => {
 // required so jest.mock factories can reference this out-of-scope variable.
 const mockCapturedScreens: Array<{ name: string; options: Record<string, unknown> }> = [];
 
+// Captures the props passed to the <Tabs> container (e.g. backBehavior) so the
+// tab back-behavior policy can be asserted.
+const mockCapturedTabsProps: Record<string, unknown> = {};
+
 // A second mock factory for expo-router that captures Tabs.Screen options.
 // We use jest.doMock (not hoisted) inside a describe-scoped beforeEach so that
 // jest.resetModules() takes effect before each test.
@@ -799,6 +811,7 @@ const mockCapturedScreens: Array<{ name: string; options: Record<string, unknown
 describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   beforeEach(() => {
     mockCapturedScreens.length = 0;
+    Object.keys(mockCapturedTabsProps).forEach((k) => delete mockCapturedTabsProps[k]);
     jest.resetModules();
 
     // Re-apply all required mocks after resetModules
@@ -806,9 +819,16 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
       const React = require('react');
       const { View } = require('react-native');
 
-      const Tabs = ({ children }: { children?: React.ReactNode }) => (
-        <View testID="tabs">{children}</View>
-      );
+      const Tabs = ({
+        children,
+        ...rest
+      }: {
+        children?: React.ReactNode;
+        [key: string]: unknown;
+      }) => {
+        Object.assign(mockCapturedTabsProps, rest);
+        return <View testID="tabs">{children}</View>;
+      };
       Tabs.Screen = ({
         name,
         options,
@@ -924,6 +944,12 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
     expect(names).toEqual(
       expect.arrayContaining(['home', 'leagues', 'add-games', 'social', 'profile']),
     );
+  });
+
+  it('sets backBehavior="firstRoute" on the Tabs navigator (Android back policy)', () => {
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    expect(mockCapturedTabsProps.backBehavior).toBe('firstRoute');
   });
 
   it('renders TabLayout in dark mode without crashing', () => {

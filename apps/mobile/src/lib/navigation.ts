@@ -142,3 +142,134 @@ export const routes = {
  * Useful for typed props like `target?: RoutePath`.
  */
 export type RoutePath = ReturnType<(typeof routes)[keyof typeof routes]>;
+
+// ---------------------------------------------------------------------------
+// Up navigation (deep-link / cold-start fallback)
+// ---------------------------------------------------------------------------
+
+/** Route params as returned by expo-router's `useLocalSearchParams`. */
+type RouteParams = Record<string, string | string[] | undefined>;
+
+/** First value of a route param (path params are always single strings). */
+const firstParam = (value: string | string[] | undefined): string =>
+  Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+
+/**
+ * A screen's logical "Up" target — either a static route or a builder that
+ * receives the current route params (for parents that depend on an id).
+ */
+type UpTarget = string | ((params: RouteParams) => string);
+
+/**
+ * Logical "Up" parent for each pushable screen.
+ *
+ * This is used ONLY when a screen is the entry point — deep link, notification
+ * tap, or cold start — so there is no back-history to pop. In the normal case
+ * (the user navigated in), the root `<Stack>` owns the history and
+ * `router.back()` pops correctly; this map is never consulted. See
+ * docs/navigation.md for the Back-vs-Up model.
+ *
+ * Keys are the un-normalized route pattern that `useSegments().join('/')`
+ * produces: dynamic segments stay in `[param]` form and the route group is
+ * included (e.g. `(stack)/court/[id]/photos`). This is the single source of
+ * truth for Up targets — screens no longer hardcode `backFallback`.
+ */
+export const routeUp: Record<string, UpTarget> = {
+  // Auth — unauthenticated screens with TopNav showBack. There is no
+  // authenticated (tabs) parent to fall back to here, so these must resolve
+  // explicitly to Welcome; otherwise the shared `?? routes.home()` default
+  // would send a signed-out user to the authenticated Home screen.
+  '(auth)/login': routes.welcome(),
+  '(auth)/signup': routes.welcome(),
+  '(auth)/forgot-password': routes.welcome(),
+  '(auth)/verify': routes.welcome(),
+
+  // Settings — hub reached from Profile, leaves reached from the hub
+  '(stack)/settings': routes.profile(),
+  '(stack)/settings/notifications': routes.settings(),
+  '(stack)/settings/appearance': routes.settings(),
+  '(stack)/settings/change-password': routes.settings(),
+  '(stack)/settings/privacy': routes.settings(),
+  '(stack)/settings/phone': routes.settings(),
+  '(stack)/settings/feedback': routes.settings(),
+
+  // Leagues
+  '(stack)/find-leagues': routes.leagues(),
+  '(stack)/received-invites': routes.leagues(),
+  '(stack)/pending-invites': routes.leagues(),
+  '(stack)/league/[id]': routes.leagues(),
+  '(stack)/league/[id]/invite': (p) => routes.league(firstParam(p.id)),
+
+  // Players
+  '(stack)/player/[id]': routes.social(),
+
+  // Courts / venues
+  '(stack)/courts': routes.home(),
+  '(stack)/court/[id]': routes.courts(),
+  '(stack)/court/[id]/photos': (p) => routes.court(firstParam(p.id)),
+
+  // Sessions
+  '(stack)/session/[id]': routes.home(),
+  '(stack)/session/[id]/edit': (p) => routes.session(firstParam(p.id)),
+  '(stack)/session/[id]/roster': (p) => routes.session(firstParam(p.id)),
+  '(stack)/session/create': routes.addGames(),
+
+  // Tournaments
+  '(stack)/tournaments': routes.home(),
+  '(stack)/tournament/[id]': routes.tournaments(),
+  '(stack)/tournament/create': routes.tournaments(),
+
+  // Games (personal)
+  '(stack)/my-games': routes.profile(),
+  '(stack)/my-stats': routes.profile(),
+
+  // Misc
+  '(stack)/kob/[code]': routes.home(),
+  '(stack)/invite-players': routes.home(),
+
+  // Inbox / social hub
+  '(stack)/messages': routes.social({ tab: 'messages' }),
+  '(stack)/messages/[playerId]': routes.social({ tab: 'messages' }),
+  '(stack)/notifications': routes.social({ tab: 'notifications' }),
+  '(stack)/find-players': routes.social({ tab: 'findplayers' }),
+
+  // Creators
+  '(stack)/create-league': routes.leagues(),
+  '(stack)/add-new-player': routes.addGames(),
+  '(stack)/score-game': routes.addGames(),
+
+  // Deep links
+  '(stack)/invite/[token]': routes.home(),
+};
+
+/**
+ * Resolve the "Up" target for the current route.
+ *
+ * @param segments Result of `useSegments()` (un-normalized route segments).
+ * @param params   Result of `useLocalSearchParams()`.
+ * @returns The Up route, or `undefined` when the route declares no parent (the
+ *   caller should then fall back to a global default such as {@link routes.home}).
+ */
+export function resolveUp(
+  segments: readonly string[],
+  params: RouteParams = {},
+): string | undefined {
+  const pattern = segments.join('/');
+  const target = routeUp[pattern];
+  if (target == null) {
+    // Every pushable (stack) screen should declare an Up target so deep-link
+    // / cold-start entry falls back to something more useful than Home. This
+    // is dev-only so it surfaces gaps during development without being noisy
+    // (or crashing) in production, where the silent `?? routes.home()`
+    // fallback in useBack still applies.
+    if (__DEV__ && pattern.startsWith('(stack)/')) {
+      console.warn(
+        `[navigation] No routeUp entry for "${pattern}" — back from a deep ` +
+          'link or cold start on this screen will fall back to Home. Add an ' +
+          'entry to routeUp in src/lib/navigation.ts.',
+      );
+    }
+    return undefined;
+  }
+  return typeof target === 'function' ? target(params) : target;
+}

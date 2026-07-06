@@ -23,7 +23,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
-import { routes } from '@/lib/navigation';
 import TournamentDetailSkeleton from './TournamentDetailSkeleton';
 import { useTournamentDetailScreen } from './useTournamentDetailScreen';
 import type { KobTournamentDetail } from '@beach-kings/shared';
@@ -295,7 +294,7 @@ export default function TournamentDetailScreen({ tournamentId }: Props): React.R
         edges={['top']}
         testID="tournament-detail-screen"
       >
-        <TopNav title="Tournament" showBack backFallback={routes.tournaments()} />
+        <TopNav title="Tournament" showBack />
         <TournamentDetailSkeleton />
       </SafeAreaView>
     );
@@ -308,7 +307,7 @@ export default function TournamentDetailScreen({ tournamentId }: Props): React.R
         edges={['top']}
         testID="tournament-detail-screen"
       >
-        <TopNav title="Tournament" showBack backFallback={routes.tournaments()} />
+        <TopNav title="Tournament" showBack />
         <TournamentDetailErrorState onRetry={onRetry} />
       </SafeAreaView>
     );

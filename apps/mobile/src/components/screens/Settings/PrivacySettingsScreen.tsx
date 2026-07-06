@@ -18,7 +18,6 @@ import { View, Text, Switch, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
-import { routes } from '@/lib/navigation';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { usePrivacySettingsScreen } from './usePrivacySettingsScreen';
 
@@ -84,7 +83,7 @@ export default function PrivacySettingsScreen(): React.ReactNode {
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Privacy" showBack backFallback={routes.settings()} />
+      <TopNav title="Privacy" showBack />
 
       <ScrollView className="flex-1">
         <Text className="text-[15px] font-bold px-lg pt-xl pb-sm text-default">

@@ -4,12 +4,12 @@
  *   icon → title → subtitle → CTA button.
  */
 
-import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { hapticMedium } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
+import React, { useCallback } from "react";
+import { View, Text, Pressable } from "react-native";
+import { useRouter } from "expo-router";
+import Svg, { Path, Circle } from "react-native-svg";
+import { hapticMedium } from "@/utils/haptics";
+import { routes } from "@/lib/navigation";
 
 function VolleyballIcon(): React.ReactNode {
   return (

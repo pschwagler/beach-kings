@@ -20,7 +20,8 @@ const mockReplace = jest.fn();
 const mockBack = jest.fn();
 let mockSearchParams: Record<string, string> = { phone: '+12025551234' };
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, back: mockBack }),
+  useSegments: () => [],
+  useRouter: () => ({ canGoBack: () => true, replace: mockReplace, back: mockBack }),
   useLocalSearchParams: () => mockSearchParams,
 }));
 

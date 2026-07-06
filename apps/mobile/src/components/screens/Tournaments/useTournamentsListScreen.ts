@@ -5,15 +5,21 @@
  * manages filter state.
  */
 
-import { useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'expo-router';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
-import { hapticMedium } from '@/utils/haptics';
-import { routes } from '@/lib/navigation';
-import type { KobTournament } from '@beach-kings/shared';
+import { useState, useCallback, useMemo } from "react";
+import { useRouter } from "expo-router";
+import useApi from "@/hooks/useApi";
+import { api } from "@/lib/api";
+import { hapticMedium } from "@/utils/haptics";
+import { routes } from "@/lib/navigation";
+import type { KobTournament } from "@beach-kings/shared";
 
-export type TournamentFilter = 'all' | 'kob' | 'bracket' | 'this_week' | 'this_month' | 'open_spots';
+export type TournamentFilter =
+  | "all"
+  | "kob"
+  | "bracket"
+  | "this_week"
+  | "this_month"
+  | "open_spots";
 
 export interface UseTournamentsListScreenResult {
   readonly allTournaments: readonly KobTournament[];
@@ -35,7 +41,7 @@ export interface UseTournamentsListScreenResult {
 /** Returns tournaments list data organized into sections. */
 export function useTournamentsListScreen(): UseTournamentsListScreenResult {
   const router = useRouter();
-  const [filter, setFilter] = useState<TournamentFilter>('all');
+  const [filter, setFilter] = useState<TournamentFilter>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data, isLoading, error, refetch } = useApi<KobTournament[]>(
@@ -46,22 +52,22 @@ export function useTournamentsListScreen(): UseTournamentsListScreenResult {
   const allTournaments = data ?? [];
 
   const activeTournament = useMemo(
-    () => allTournaments.find((t) => t.status === 'ACTIVE') ?? null,
+    () => allTournaments.find((t) => t.status === "ACTIVE") ?? null,
     [allTournaments],
   );
 
   const upcomingTournaments = useMemo(
-    () => allTournaments.filter((t) => t.status === 'SETUP'),
+    () => allTournaments.filter((t) => t.status === "SETUP"),
     [allTournaments],
   );
 
   const nearbyTournaments = useMemo(
-    () => allTournaments.filter((t) => t.status !== 'CANCELLED'),
+    () => allTournaments.filter((t) => t.status !== "CANCELLED"),
     [allTournaments],
   );
 
   const pastTournaments = useMemo(
-    () => allTournaments.filter((t) => t.status === 'COMPLETED'),
+    () => allTournaments.filter((t) => t.status === "COMPLETED"),
     [allTournaments],
   );
 

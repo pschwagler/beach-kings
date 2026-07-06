@@ -169,6 +169,42 @@ describe('useDiscoverPlayers — search filter', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Refresh & retry
+// ---------------------------------------------------------------------------
+
+describe('useDiscoverPlayers — refresh & retry', () => {
+  it('refetches the discover list on refresh and clears the refreshing flag', async () => {
+    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    await act(async () => {
+      result.current.onRefreshPlayers();
+    });
+
+    // Once on mount + once on refresh.
+    expect(mockApi.discoverPlayers).toHaveBeenCalledTimes(2);
+    await waitFor(() =>
+      expect(result.current.isRefreshingPlayers).toBe(false),
+    );
+  });
+
+  it('refetches the discover list on retry', async () => {
+    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    await act(async () => {
+      result.current.onRetryPlayers();
+    });
+
+    expect(mockApi.discoverPlayers).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Optimistic add friend
 // ---------------------------------------------------------------------------
 

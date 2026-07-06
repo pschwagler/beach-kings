@@ -11,10 +11,10 @@
  * Wireframe ref: friends.html / messages.html `.social-subnav`.
  */
 
-import React from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { hapticLight } from '@/utils/haptics';
-import type { SocialTab } from '@/lib/navigation';
+import React from "react";
+import { View, Text, Pressable } from "react-native";
+import { hapticLight } from "@/utils/haptics";
+import type { SocialTab } from "@/lib/navigation";
 
 /**
  * The four destinations reachable from the Social hub subnav. Re-exported from
@@ -23,12 +23,13 @@ import type { SocialTab } from '@/lib/navigation';
  */
 export type { SocialTab };
 
-const TABS: ReadonlyArray<{ readonly key: SocialTab; readonly label: string }> = [
-  { key: 'messages', label: 'Messages' },
-  { key: 'notifications', label: 'Notifications' },
-  { key: 'friends', label: 'Friends' },
-  { key: 'findplayers', label: 'Find Players' },
-];
+const TABS: ReadonlyArray<{ readonly key: SocialTab; readonly label: string }> =
+  [
+    { key: "messages", label: "Messages" },
+    { key: "notifications", label: "Notifications" },
+    { key: "friends", label: "Friends" },
+    { key: "findplayers", label: "Find Players" },
+  ];
 
 interface SocialSubnavProps {
   readonly activeTab: SocialTab;
@@ -63,7 +64,7 @@ export default function SocialSubnav({
             <Text
               numberOfLines={1}
               className={`text-[13px] font-semibold ${
-                isActive ? 'text-brand-teal' : 'text-muted'
+                isActive ? "text-brand-teal" : "text-muted"
               }`}
             >
               {label}

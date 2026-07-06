@@ -11,7 +11,9 @@ import TopNav from '@/components/ui/TopNav';
 // ---------------------------------------------------------------------------
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: jest.fn() }),
+  useSegments: () => [],
+  useLocalSearchParams: () => ({}),
+  useRouter: () => ({ canGoBack: () => true, back: jest.fn() }),
 }));
 
 jest.mock('@/contexts/ThemeContext', () => ({

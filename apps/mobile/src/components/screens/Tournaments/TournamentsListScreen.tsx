@@ -22,7 +22,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
-import { routes } from '@/lib/navigation';
 import TournamentListSkeleton from './TournamentListSkeleton';
 import { ActiveCard, ListCard, PastCard, CreateCTA } from './TournamentCard';
 import { useTournamentsListScreen } from './useTournamentsListScreen';
@@ -159,7 +158,6 @@ export default function TournamentsListScreen(): React.ReactNode {
         <TopNav
           title="Tournaments"
           showBack
-          backFallback={routes.home()}
           rightAction={
             <TouchableOpacity
               onPress={onCreatePress}
@@ -182,7 +180,7 @@ export default function TournamentsListScreen(): React.ReactNode {
         edges={['top']}
         testID="tournaments-screen"
       >
-        <TopNav title="Tournaments" showBack backFallback={routes.home()} />
+        <TopNav title="Tournaments" showBack />
         <TournamentsErrorState onRetry={onRetry} />
       </SafeAreaView>
     );
@@ -197,7 +195,6 @@ export default function TournamentsListScreen(): React.ReactNode {
       <TopNav
         title="Tournaments"
         showBack
-        backFallback={routes.home()}
         rightAction={
           <TouchableOpacity
             onPress={onCreatePress}

@@ -1,7 +1,7 @@
 import '../global.css';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Slot, SplashScreen } from 'expo-router';
+import { Stack, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -31,7 +31,29 @@ function RootLayoutInner({ onReady }: { readonly onReady: () => void }): React.R
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Slot />
+      {/*
+        Root stack. Making the root a real <Stack> (not a bare <Slot />) is what
+        gives the app a single, shared back-history: pushing a `(stack)` detail
+        screen stacks it OVER the still-mounted `(tabs)`, so `router.back()`
+        pops back to whichever tab the user came from. See docs/navigation.md.
+
+          - (tabs)/(auth): lateral swaps driven by the auth guard (router.replace)
+            — no back-swipe out of them (gestureEnabled: false), fade transition.
+          - (stack): detail screens pushed over the tabs — iOS swipe-to-dismiss
+            and slide-from-right feel.
+      */}
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen
+          name="(auth)"
+          options={{ gestureEnabled: false, animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="(tabs)"
+          options={{ gestureEnabled: false, animation: 'fade' }}
+        />
+        <Stack.Screen name="(stack)" options={{ animation: 'slide_from_right' }} />
+      </Stack>
     </>
   );
 }
