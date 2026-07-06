@@ -23,6 +23,8 @@ export interface FriendRequest {
   created_at: string | null;
   /** Mutual friends between the caller and the request's counterpart. */
   mutual_friends_count: number;
+  /** A league shared with the counterpart, or null when none is shared. */
+  shared_league_name: string | null;
 }
 
 export interface Friend {
@@ -32,6 +34,8 @@ export interface Friend {
   avatar: string | null;
   location_name: string | null;
   level: SkillLevel | null;
+  /** A league shared with the caller, or null when none is shared. */
+  shared_league_name?: string | null;
 }
 
 export interface FriendListResponse {

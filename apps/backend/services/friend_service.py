@@ -442,6 +442,9 @@ async def get_friends(
     )
     player_map = {row.id: row for row in player_result.all()}
 
+    # One shared-league name per friend (batched; misses mean none shared)
+    shared_leagues = await batch_shared_league_names(session, player_id, friend_ids)
+
     # Build response
     items = []
     for fid in friend_ids:
@@ -456,6 +459,7 @@ async def get_friends(
                 "avatar": p.avatar,
                 "location_name": p.location_name,
                 "level": p.level,
+                "shared_league_name": shared_leagues.get(fid),
             }
         )
 
@@ -546,6 +550,48 @@ async def get_mutual_friend_count(
     my_friends = await get_friend_ids(session, player_id)
     their_friends = await get_friend_ids(session, other_player_id)
     return len(my_friends & their_friends)
+
+
+async def batch_shared_league_names(
+    session: AsyncSession, player_id: int, target_player_ids: List[int]
+) -> Dict[int, str]:
+    """
+    Resolve one shared-league name per target in a single query.
+
+    For each target sharing >=1 league with ``player_id``, maps the target to
+    the alphabetically first shared league's name (deterministic when several
+    are shared). Targets sharing no league are absent from the result.
+
+    Args:
+        session: Database session
+        player_id: The viewer whose league memberships define "shared"
+        target_player_ids: Player IDs to resolve shared leagues for
+
+    Returns:
+        Dict mapping target id -> shared league name (misses mean none shared)
+    """
+    if not target_player_ids:
+        return {}
+
+    my_league_ids = select(LeagueMember.league_id).where(
+        LeagueMember.player_id == player_id
+    )
+    OtherMember = aliased(LeagueMember)
+    rows = await session.execute(
+        select(OtherMember.player_id, League.name)
+        .join(League, OtherMember.league_id == League.id)
+        .where(
+            and_(
+                OtherMember.player_id.in_(target_player_ids),
+                OtherMember.league_id.in_(my_league_ids),
+            )
+        )
+        .order_by(League.name.asc())
+    )
+    names: Dict[int, str] = {}
+    for row in rows.all():
+        names.setdefault(row.player_id, row.name)
+    return names
 
 
 async def batch_mutual_friend_counts(
@@ -1127,9 +1173,10 @@ async def _format_friend_requests_batch(
         session: Database session
         requests: List of FriendRequest ORM objects
         viewer_player_id: When set, each dict also carries
-            ``mutual_friends_count`` — the viewer's mutual friends with the
+            ``mutual_friends_count`` and ``shared_league_name`` — the
+            viewer's mutual friends with, and one league shared with, the
             request's counterpart (sender for incoming, receiver for
-            outgoing) — computed in one batched query.
+            outgoing) — each computed in one batched query.
 
     Returns:
         List of dicts matching FriendRequestResponse schema
@@ -1150,6 +1197,7 @@ async def _format_friend_requests_batch(
     player_map = {row.id: row for row in result.all()}
 
     mutual_counts: Dict[int, int] = {}
+    shared_leagues: Dict[int, str] = {}
     if viewer_player_id is not None:
         counterpart_ids = list(
             {
@@ -1160,6 +1208,9 @@ async def _format_friend_requests_batch(
             }
         )
         mutual_counts = await batch_mutual_friend_counts(
+            session, viewer_player_id, counterpart_ids
+        )
+        shared_leagues = await batch_shared_league_names(
             session, viewer_player_id, counterpart_ids
         )
 
@@ -1184,6 +1235,7 @@ async def _format_friend_requests_batch(
                 "status": req.status,
                 "created_at": req.created_at.isoformat() if req.created_at else None,
                 "mutual_friends_count": mutual_counts.get(counterpart_id, 0),
+                "shared_league_name": shared_leagues.get(counterpart_id),
             }
         )
     return formatted

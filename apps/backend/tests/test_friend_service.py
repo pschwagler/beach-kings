@@ -275,6 +275,67 @@ async def test_get_friend_requests_outgoing(db_session, players):
 
 
 @pytest.mark.asyncio
+async def test_get_friends_includes_shared_league(db_session, players):
+    """Friends list rows carry the name of a league shared with the viewer."""
+    league_id = await _create_league(db_session, "QBK Open Men")
+    other_league = await _create_league(db_session, "Elsewhere League")
+    await _add_league_member(db_session, league_id, players["alice"])
+    await _add_league_member(db_session, league_id, players["bob"])
+    # Carol is in a league Alice is NOT in — no shared league.
+    await _add_league_member(db_session, other_league, players["carol"])
+
+    req1 = await friend_service.send_friend_request(
+        db_session, players["alice"], players["bob"]
+    )
+    await friend_service.accept_friend_request(db_session, req1["id"], players["bob"])
+    req2 = await friend_service.send_friend_request(
+        db_session, players["alice"], players["carol"]
+    )
+    await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
+
+    result = await friend_service.get_friends(db_session, players["alice"])
+    by_player = {item["player_id"]: item for item in result["items"]}
+    assert by_player[players["bob"]]["shared_league_name"] == "QBK Open Men"
+    assert by_player[players["carol"]]["shared_league_name"] is None
+
+
+@pytest.mark.asyncio
+async def test_shared_league_name_is_deterministic(db_session, players):
+    """With several shared leagues, the alphabetically first name is used."""
+    league_b = await _create_league(db_session, "Beta League")
+    league_a = await _create_league(db_session, "Alpha League")
+    for lid in (league_a, league_b):
+        await _add_league_member(db_session, lid, players["alice"])
+        await _add_league_member(db_session, lid, players["bob"])
+
+    req = await friend_service.send_friend_request(
+        db_session, players["alice"], players["bob"]
+    )
+    await friend_service.accept_friend_request(db_session, req["id"], players["bob"])
+
+    result = await friend_service.get_friends(db_session, players["alice"])
+    assert result["items"][0]["shared_league_name"] == "Alpha League"
+
+
+@pytest.mark.asyncio
+async def test_get_friend_requests_includes_shared_league(db_session, players):
+    """Request rows carry the shared-league name vs the counterpart."""
+    league_id = await _create_league(db_session, "QBK Open Men")
+    await _add_league_member(db_session, league_id, players["alice"])
+    await _add_league_member(db_session, league_id, players["bob"])
+
+    await friend_service.send_friend_request(db_session, players["bob"], players["alice"])
+    await friend_service.send_friend_request(db_session, players["dave"], players["alice"])
+
+    requests = await friend_service.get_friend_requests(
+        db_session, players["alice"], direction="incoming"
+    )
+    by_sender = {r["sender_player_id"]: r for r in requests}
+    assert by_sender[players["bob"]]["shared_league_name"] == "QBK Open Men"
+    assert by_sender[players["dave"]]["shared_league_name"] is None
+
+
+@pytest.mark.asyncio
 async def test_get_friend_requests_includes_mutual_counts(db_session, players):
     """Incoming requests carry a batched mutual-friend count vs the viewer."""
     # Alice–Carol and Bob–Carol are friends → Carol is mutual between Alice and Bob.

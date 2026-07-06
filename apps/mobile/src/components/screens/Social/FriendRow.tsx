@@ -60,12 +60,14 @@ export default function FriendRow({
             </View>
           )}
         </View>
-        {friend.location_name != null && (
+        {(friend.shared_league_name != null || friend.location_name != null) && (
           <Text
             className="text-[12px] text-muted mt-[2px]"
             numberOfLines={1}
           >
-            {friend.location_name}
+            {[friend.shared_league_name, friend.location_name]
+              .filter((part) => part != null)
+              .join(' · ')}
           </Text>
         )}
       </View>

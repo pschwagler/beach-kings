@@ -999,6 +999,7 @@ class FriendRequestResponse(BaseModel):
     status: str
     created_at: Optional[str] = None
     mutual_friends_count: int = 0
+    shared_league_name: Optional[str] = None
 
 
 class FriendListItem(BaseModel):
@@ -1010,6 +1011,7 @@ class FriendListItem(BaseModel):
     avatar: Optional[str] = None
     location_name: Optional[str] = None
     level: Optional[str] = None
+    shared_league_name: Optional[str] = None
 
 
 class FriendListResponse(BaseModel):

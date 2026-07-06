@@ -43,6 +43,7 @@ const FRIEND: Friend = {
   avatar: null,
   location_name: 'San Diego, CA',
   level: 'Open',
+  shared_league_name: null,
 };
 
 const FRIEND_2: Friend = {
@@ -52,6 +53,7 @@ const FRIEND_2: Friend = {
   avatar: null,
   location_name: 'Los Angeles, CA',
   level: 'AA',
+  shared_league_name: null,
 };
 
 const REQUEST: FriendRequest = {
@@ -65,6 +67,7 @@ const REQUEST: FriendRequest = {
   status: 'pending',
   created_at: '2026-04-19T10:00:00Z',
   mutual_friends_count: 0,
+  shared_league_name: null,
 };
 
 const SUGGESTION: Friend = {
@@ -74,6 +77,7 @@ const SUGGESTION: Friend = {
   avatar: null,
   location_name: 'San Diego, CA',
   level: 'advanced',
+  shared_league_name: null,
 };
 
 function makeProps(overrides: Partial<FriendsBodyProps> = {}): FriendsBodyProps {
@@ -306,6 +310,53 @@ describe('FriendsBody — sections', () => {
     render(<FriendsBody {...makeProps()} />);
 
     expect(screen.getByText('Wants to be friends')).toBeTruthy();
+  });
+
+  it('prefixes the request meta with the shared league', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          friendRequests: [
+            {
+              ...REQUEST,
+              shared_league_name: 'QBK Open Men',
+              mutual_friends_count: 3,
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('QBK Open Men · 3 mutual friends')).toBeTruthy();
+  });
+
+  it('shows the shared league alone when there are no mutual friends', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          friendRequests: [
+            { ...REQUEST, shared_league_name: 'QBK Open Men' },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('QBK Open Men')).toBeTruthy();
+    expect(screen.queryByText('Wants to be friends')).toBeNull();
+  });
+
+  it('prefixes the friend row meta with the shared league', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          friends: [{ ...FRIEND, shared_league_name: 'QBK Open Men' }],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText('QBK Open Men · San Diego, CA'),
+    ).toBeTruthy();
   });
 
   it('omits sections that have no items', () => {
