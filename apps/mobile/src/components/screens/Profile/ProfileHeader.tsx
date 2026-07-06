@@ -67,6 +67,7 @@ export default function ProfileHeader({
           imageUrl={player?.profile_picture_url ?? null}
           name={fullName}
           size="xl"
+          colorSeed={player?.id}
         />
         <View className="absolute -bottom-2 -right-3 w-11 h-11 rounded-full bg-nav border-2 border-surface items-center justify-center">
           <Text className="text-white text-xs font-semibold">+</Text>

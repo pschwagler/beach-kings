@@ -112,6 +112,7 @@ export default function HomeScreen(): React.ReactNode {
       <HomeHeader
         userName={playerData?.name ?? firstName}
         avatarUrl={playerData?.profile_picture_url ?? null}
+        playerId={playerData?.id ?? null}
         dmUnreadCount={dmUnreadCount}
         notificationUnreadCount={unreadCount}
       />

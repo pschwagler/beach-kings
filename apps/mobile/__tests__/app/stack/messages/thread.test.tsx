@@ -15,6 +15,7 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -23,15 +24,23 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
+let mockCanGoBack = jest.fn(() => true);
+let mockSegments: string[] = ['(stack)', 'messages', '[playerId]'];
 
 jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
-    useRouter: () => ({ push: mockPush, back: mockBack }),
+    useRouter: () => ({
+      push: mockPush,
+      back: mockBack,
+      replace: mockReplace,
+      canGoBack: mockCanGoBack,
+    }),
     useLocalSearchParams: () => ({ playerId: '42', name: 'Alex Torres' }),
     Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,
-    useSegments: () => [],
+    useSegments: () => mockSegments,
     Slot: ({ children }: { children?: React.ReactNode }) => <View testID="slot">{children}</View>,
   };
 });
@@ -141,6 +150,8 @@ const MOCK_THREAD = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCanGoBack = jest.fn(() => true);
+  mockSegments = ['(stack)', 'messages', '[playerId]'];
   mockGetThread.mockResolvedValue(MOCK_THREAD);
   mockSendDirectMessage.mockResolvedValue({
     id: 99,
@@ -241,6 +252,51 @@ describe('MessageThreadScreen — messages list', () => {
       expect(screen.getByText('Alex Torres')).toBeTruthy();
       expect(screen.queryByText('Chat')).toBeNull();
     });
+  });
+
+  it('seeds the header avatar color from the peer player id (S2)', async () => {
+    render(<MessageThreadRoute />);
+    // Peer playerId is 42 → 42 % 6 === 0 → first variety entry (#bae6fd). Seeding
+    // by id (not a flat variant) keeps this player's color identical everywhere.
+    const avatar = await waitFor(() => screen.getByLabelText('Alex Torres'));
+    expect(StyleSheet.flatten(avatar.props.style)).toEqual(
+      expect.objectContaining({ backgroundColor: '#bae6fd' }),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Back button (useBack — S1 dead-button fix)
+// ---------------------------------------------------------------------------
+
+describe('MessageThreadScreen — back button', () => {
+  it('pops the stack when there is back history', async () => {
+    mockCanGoBack = jest.fn(() => true);
+    render(<MessageThreadRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('thread-back-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('thread-back-btn'));
+
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('replaces to the messages Up target instead of no-oping on a deep-link / cold start with no history', async () => {
+    // Regression test: the back Pressable used to call bare router.back(),
+    // which is a dead button when the thread is opened from a notification
+    // tap or deep link (no history to pop).
+    mockCanGoBack = jest.fn(() => false);
+    render(<MessageThreadRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('thread-back-btn')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('thread-back-btn'));
+
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/social?tab=messages');
   });
 });
 

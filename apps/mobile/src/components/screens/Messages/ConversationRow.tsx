@@ -7,17 +7,8 @@
 import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { type Conversation, formatRelativeTime } from '@beach-kings/shared';
+import Avatar from '@/components/ui/Avatar';
 import { hapticLight } from '@/utils/haptics';
-
-/** Returns initials from a full name (up to 2 chars). */
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((w) => w[0] ?? '')
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
 
 interface ConversationRowProps {
   readonly conversation: Conversation;
@@ -32,7 +23,6 @@ export default function ConversationRow({
 }: ConversationRowProps): React.ReactNode {
   const isUnread = conversation.unread_count > 0;
   const isSentByMe = conversation.last_message_sender_id === currentPlayerId;
-  const initials = getInitials(conversation.full_name);
 
   const handlePress = useCallback(() => {
     void hapticLight();
@@ -50,9 +40,13 @@ export default function ConversationRow({
       }`}
     >
       {/* Avatar */}
-      <View className="w-12 h-12 rounded-full bg-[#7fb3c7] items-center justify-center flex-shrink-0">
-        <Text className="text-white font-bold text-base">{initials}</Text>
-      </View>
+      <Avatar
+        imageUrl={conversation.avatar}
+        name={conversation.full_name}
+        size="md"
+        colorSeed={conversation.player_id}
+        accessible={false}
+      />
 
       {/* Body */}
       <View className="flex-1 min-w-0">

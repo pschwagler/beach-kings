@@ -14,6 +14,7 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -500,6 +501,13 @@ describe('ScoreGameScreen — roster picker', () => {
     expect(rowOrder.indexOf('roster-row-901')).toBeLessThan(
       rowOrder.indexOf('roster-row-902'),
     );
+
+    // S2: the search-row avatar is seeded by player_id (not a flat "brand"
+    // variant) so this player renders the same color here as everywhere else.
+    // 901 % 6 === 1 → second variety entry (#fed7aa).
+    expect(
+      StyleSheet.flatten(screen.getByLabelText('Liam League').props.style),
+    ).toEqual(expect.objectContaining({ backgroundColor: '#fed7aa' }));
   });
 });
 

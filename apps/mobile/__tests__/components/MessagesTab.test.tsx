@@ -6,14 +6,16 @@
  *   - Empty state when no conversations
  *   - Error state with retry
  *   - Conversation list with unread/read rows
+ *   - Avatar color seeded from the peer player id (S2 — same player must render
+ *     the same avatar color on every screen, not a flat hand-rolled color)
  *   - Search filtering
  *   - Navigation on conversation press
  *   - Compose action published into the hub header via setHeaderAction
  */
 
 import React from 'react';
-import { View } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { View, StyleSheet } from 'react-native';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -198,6 +200,27 @@ describe('MessagesTab — conversations list', () => {
     await waitFor(() => {
       expect(screen.getByText('Alex Torres')).toBeTruthy();
     });
+  });
+
+  it('seeds each row avatar color from the peer player id (S2)', async () => {
+    render(<MessagesTab />);
+    await waitFor(() => {
+      expect(screen.getByTestId('convo-row-10')).toBeTruthy();
+    });
+
+    // player_id 10 → 10 % 6 === 4 → variety entry #fde68a.
+    const rowA = within(screen.getByTestId('convo-row-10'));
+    const avatarTextA = rowA.getByText('AT');
+    expect(StyleSheet.flatten(avatarTextA.parent?.parent?.props.style)).toEqual(
+      expect.objectContaining({ backgroundColor: '#fde68a' }),
+    );
+
+    // player_id 11 → 11 % 6 === 5 → variety entry #fbcfe8.
+    const rowB = within(screen.getByTestId('convo-row-11'));
+    const avatarTextB = rowB.getByText('SR');
+    expect(StyleSheet.flatten(avatarTextB.parent?.parent?.props.style)).toEqual(
+      expect.objectContaining({ backgroundColor: '#fbcfe8' }),
+    );
   });
 
   it('navigates to thread when conversation row is pressed', async () => {

@@ -37,12 +37,26 @@ jest.mock('@/components/ui/icons', () => {
   };
 });
 
-// Avatar stub — just renders the name for reflection.
+// Avatar stub — reflects the name and (via accessibilityHint) the colorSeed so
+// call sites can assert they seed the identity color from the player id.
 jest.mock('@/components/ui/Avatar', () => {
   const React = require('react');
   const { Text } = require('react-native');
-  return function Avatar({ name }: { name: string }) {
-    return <Text testID="avatar">{name}</Text>;
+  return function Avatar({
+    name,
+    colorSeed,
+  }: {
+    name: string;
+    colorSeed?: number | string;
+  }) {
+    return (
+      <Text
+        testID="avatar"
+        accessibilityHint={colorSeed != null ? String(colorSeed) : undefined}
+      >
+        {name}
+      </Text>
+    );
   };
 });
 
@@ -96,6 +110,20 @@ describe('HomeHeader', () => {
     );
     expect(getByText('BEACH LEAGUE')).toBeTruthy();
     expect(getByTestId('avatar')).toBeTruthy();
+  });
+
+  it('seeds the avatar color with the player id for cross-screen consistency', () => {
+    const { getByTestId } = render(
+      <HomeHeader
+        userName="Ava"
+        playerId={7}
+        dmUnreadCount={0}
+        notificationUnreadCount={0}
+      />,
+    );
+    // Seeded by numeric player id (not name/variant) so the same player renders
+    // the same color here as on the profile / message thread / roster (S2).
+    expect(getByTestId('avatar').props.accessibilityHint).toBe('7');
   });
 
   it('hides badges when unread counts are zero', () => {

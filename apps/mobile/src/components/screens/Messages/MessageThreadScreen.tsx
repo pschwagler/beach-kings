@@ -11,19 +11,23 @@
  * Wireframe ref: message-thread.html
  */
 
-import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import Avatar from '@/components/ui/Avatar';
-import ChatComposer from '@/components/ui/ChatComposer';
-import ChatView from '@/components/ui/ChatView';
-import { ChevronLeftIcon } from '@/components/ui/icons';
-import { routes } from '@/lib/navigation';
-import { useMessageThreadScreen } from './useMessageThreadScreen';
-import MessagesSkeleton from './MessagesSkeleton';
-import MessagesErrorState from './MessagesErrorState';
-import type { DirectMessage } from '@beach-kings/shared';
+import React, { useCallback } from "react";
+import { View, Text, Pressable } from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import Avatar from "@/components/ui/Avatar";
+import ChatComposer from "@/components/ui/ChatComposer";
+import ChatView from "@/components/ui/ChatView";
+import { ChevronLeftIcon } from "@/components/ui/icons";
+import { useBack } from "@/hooks/useBack";
+import { routes } from "@/lib/navigation";
+import { useMessageThreadScreen } from "./useMessageThreadScreen";
+import MessagesSkeleton from "./MessagesSkeleton";
+import MessagesErrorState from "./MessagesErrorState";
+import type { DirectMessage } from "@beach-kings/shared";
 
 // ---------------------------------------------------------------------------
 // Message bubble
@@ -36,36 +40,37 @@ interface MessageBubbleProps {
 
 function formatMsgTime(isoString: string): string {
   const d = new Date(isoString);
-  return d.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
     hour12: true,
   });
 }
 
-function MessageBubble({ message, isOwn }: MessageBubbleProps): React.ReactNode {
+function MessageBubble({
+  message,
+  isOwn,
+}: MessageBubbleProps): React.ReactNode {
   return (
-    <View
-      className={`mb-3 px-4 ${isOwn ? 'items-end' : 'items-start'}`}
-    >
+    <View className={`mb-3 px-4 ${isOwn ? "items-end" : "items-start"}`}>
       <View
         testID={`msg-bubble-${message.id}`}
         className={`max-w-[280px] px-[14px] py-[10px] rounded-2xl ${
           isOwn
-            ? 'bg-brand-teal rounded-br-sm'
-            : 'bg-surface rounded-bl-sm shadow-sm'
+            ? "bg-brand-teal rounded-br-sm"
+            : "bg-surface rounded-bl-sm shadow-sm"
         }`}
       >
         <Text
           className={`text-[14px] leading-[1.4] ${
-            isOwn ? 'text-white' : 'text-default'
+            isOwn ? "text-white" : "text-default"
           }`}
         >
           {message.message_text}
         </Text>
         <Text
           className={`text-[11px] mt-1 ${
-            isOwn ? 'text-white/50' : 'text-muted'
+            isOwn ? "text-white/50" : "text-muted"
           }`}
         >
           {formatMsgTime(message.created_at)}
@@ -109,6 +114,7 @@ export default function MessageThreadScreen({
   currentPlayerId,
 }: MessageThreadScreenProps): React.ReactNode {
   const router = useRouter();
+  const handleBack = useBack();
   const insets = useSafeAreaInsets();
   const {
     messages,
@@ -125,7 +131,7 @@ export default function MessageThreadScreen({
   } = useMessageThreadScreen(playerId);
 
   const displayName =
-    playerName != null && playerName.trim().length > 0 ? playerName : 'Chat';
+    playerName != null && playerName.trim().length > 0 ? playerName : "Chat";
 
   const onProfile = useCallback(() => {
     router.push(routes.player(playerId));
@@ -176,23 +182,27 @@ export default function MessageThreadScreen({
   };
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-page"
-      edges={['top']}
-    >
+    <SafeAreaView className="flex-1 bg-page" edges={["top"]}>
       <View className="h-12 bg-nav flex-row items-center px-3 gap-2 dark:border-b border-divider">
         <Pressable
           testID="thread-back-btn"
-          onPress={() => { router.back(); }}
+          onPress={handleBack}
           accessibilityRole="button"
           accessibilityLabel="Back to Messages"
           className="min-w-touch min-h-touch flex-row items-center"
         >
           <ChevronLeftIcon size={18} color="#ffffff" />
-          <Text className="text-white text-[15px] font-medium ml-0.5">Messages</Text>
+          <Text className="text-white text-[15px] font-medium ml-0.5">
+            Messages
+          </Text>
         </Pressable>
 
-        <Avatar name={displayName} size="sm" className="ml-1" />
+        <Avatar
+          name={displayName}
+          size="sm"
+          colorSeed={playerId}
+          className="ml-1"
+        />
 
         <View className="flex-1 min-w-0">
           <Text

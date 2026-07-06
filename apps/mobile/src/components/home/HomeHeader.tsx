@@ -15,6 +15,11 @@ import { routes } from '@/lib/navigation';
 interface HomeHeaderProps {
   readonly userName: string;
   readonly avatarUrl?: string | null;
+  /**
+   * Current user's player id. Seeds a stable, identity-derived avatar color so
+   * the same player renders the same color here as on every other screen (S2).
+   */
+  readonly playerId?: number | null;
   readonly dmUnreadCount: number;
   readonly notificationUnreadCount: number;
 }
@@ -36,6 +41,7 @@ function Badge({ count }: { readonly count: number }): React.ReactNode {
 export default function HomeHeader({
   userName,
   avatarUrl,
+  playerId,
   dmUnreadCount,
   notificationUnreadCount,
 }: HomeHeaderProps): React.ReactNode {
@@ -79,7 +85,12 @@ export default function HomeHeader({
           accessibilityLabel="My profile"
           accessibilityRole="button"
         >
-          <Avatar name={userName} imageUrl={avatarUrl} size="sm" />
+          <Avatar
+            name={userName}
+            imageUrl={avatarUrl}
+            size="sm"
+            colorSeed={playerId ?? undefined}
+          />
         </Pressable>
       </View>
     </View>

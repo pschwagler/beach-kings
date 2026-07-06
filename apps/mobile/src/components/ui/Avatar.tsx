@@ -12,6 +12,12 @@
  * deterministic decorative color from a per-item variety palette instead of the
  * flat `variant` color — used for friend/player lists where a wall of identical
  * teal circles reads poorly. `colorSeed` is ignored when a real photo renders.
+ *
+ * Convention: any avatar that represents a *specific player's identity* (home
+ * header, profile, message thread, friend/suggestion rows, roster search) must
+ * pass `colorSeed={player_id}` so the same player renders the same color on
+ * every screen. Reserve `variant` for avatars whose color conveys something
+ * other than identity (e.g. team color on the scoreboard / seated roster chip).
  */
 
 import React, { useState } from 'react';
