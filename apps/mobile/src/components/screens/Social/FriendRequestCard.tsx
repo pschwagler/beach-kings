@@ -3,9 +3,9 @@
  *
  * A highlighted (info-tint) card with the sender's avatar, name, a meta line,
  * and stacked Accept / Decline actions. Accept/decline are handled optimistically
- * upstream in {@link useFriends}. The wireframe's "league · N mutual friends"
- * meta is backend-only data we don't have yet, so a generic "Wants to be friends"
- * line stands in (tracked in the parity plan's Backlog epic).
+ * upstream in {@link useFriends}. The meta line shows "N mutual friends" when
+ * the backend reports any; "Wants to be friends" is the zero-mutuals fallback.
+ * (The wireframe's league prefix is tracked in the parity plan's Backlog epic.)
  *
  * Wireframe ref: friends.html — .request-card
  */
@@ -13,6 +13,7 @@
 import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
+import { pluralize } from '@/lib/formatters';
 import type { FriendRequest } from '@beach-kings/shared';
 
 interface FriendRequestCardProps {
@@ -55,7 +56,9 @@ export default function FriendRequestCard({
           {request.sender_name}
         </Text>
         <Text className="text-[12px] text-muted mt-[2px]">
-          Wants to be friends
+          {request.mutual_friends_count > 0
+            ? pluralize(request.mutual_friends_count, 'mutual friend')
+            : 'Wants to be friends'}
         </Text>
         <View className="flex-row gap-2 mt-2">
           <Pressable

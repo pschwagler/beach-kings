@@ -64,6 +64,7 @@ const REQUEST: FriendRequest = {
   receiver_avatar: null,
   status: 'pending',
   created_at: '2026-04-19T10:00:00Z',
+  mutual_friends_count: 0,
 };
 
 const SUGGESTION: Friend = {
@@ -274,6 +275,37 @@ describe('FriendsBody — sections', () => {
     expect(
       screen.getByTestId(`suggestion-row-${SUGGESTION.player_id}`),
     ).toBeTruthy();
+  });
+
+  it('shows the mutual-friend count on a request card', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          friendRequests: [{ ...REQUEST, mutual_friends_count: 3 }],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('3 mutual friends')).toBeTruthy();
+    expect(screen.queryByText('Wants to be friends')).toBeNull();
+  });
+
+  it('singularizes a single mutual friend', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          friendRequests: [{ ...REQUEST, mutual_friends_count: 1 }],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('1 mutual friend')).toBeTruthy();
+  });
+
+  it('falls back to the generic meta line with no mutual friends', () => {
+    render(<FriendsBody {...makeProps()} />);
+
+    expect(screen.getByText('Wants to be friends')).toBeTruthy();
   });
 
   it('omits sections that have no items', () => {

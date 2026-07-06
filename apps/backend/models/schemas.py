@@ -998,6 +998,7 @@ class FriendRequestResponse(BaseModel):
     receiver_avatar: Optional[str] = None
     status: str
     created_at: Optional[str] = None
+    mutual_friends_count: int = 0
 
 
 class FriendListItem(BaseModel):

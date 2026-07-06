@@ -21,6 +21,8 @@ export interface FriendRequest {
   receiver_avatar: string | null;
   status: FriendRequestStatus;
   created_at: string | null;
+  /** Mutual friends between the caller and the request's counterpart. */
+  mutual_friends_count: number;
 }
 
 export interface Friend {

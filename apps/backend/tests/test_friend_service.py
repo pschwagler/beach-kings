@@ -274,6 +274,53 @@ async def test_get_friend_requests_outgoing(db_session, players):
     assert len(requests) == 2
 
 
+@pytest.mark.asyncio
+async def test_get_friend_requests_includes_mutual_counts(db_session, players):
+    """Incoming requests carry a batched mutual-friend count vs the viewer."""
+    # Alice–Carol and Bob–Carol are friends → Carol is mutual between Alice and Bob.
+    req1 = await friend_service.send_friend_request(
+        db_session, players["alice"], players["carol"]
+    )
+    await friend_service.accept_friend_request(db_session, req1["id"], players["carol"])
+    req2 = await friend_service.send_friend_request(
+        db_session, players["bob"], players["carol"]
+    )
+    await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
+
+    # Bob (1 mutual) and Dave (0 mutuals) send requests to Alice.
+    await friend_service.send_friend_request(db_session, players["bob"], players["alice"])
+    await friend_service.send_friend_request(db_session, players["dave"], players["alice"])
+
+    requests = await friend_service.get_friend_requests(
+        db_session, players["alice"], direction="incoming"
+    )
+    by_sender = {r["sender_player_id"]: r for r in requests}
+    assert by_sender[players["bob"]]["mutual_friends_count"] == 1
+    assert by_sender[players["dave"]]["mutual_friends_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_get_friend_requests_outgoing_counts_vs_receiver(db_session, players):
+    """Outgoing requests count mutuals against the receiver (the counterpart)."""
+    # Alice–Carol and Bob–Carol are friends.
+    req1 = await friend_service.send_friend_request(
+        db_session, players["alice"], players["carol"]
+    )
+    await friend_service.accept_friend_request(db_session, req1["id"], players["carol"])
+    req2 = await friend_service.send_friend_request(
+        db_session, players["bob"], players["carol"]
+    )
+    await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
+
+    await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
+
+    requests = await friend_service.get_friend_requests(
+        db_session, players["alice"], direction="outgoing"
+    )
+    assert len(requests) == 1
+    assert requests[0]["mutual_friends_count"] == 1
+
+
 # ──────────────────────────────────────────────────────────────
 # Mutual friends
 # ──────────────────────────────────────────────────────────────

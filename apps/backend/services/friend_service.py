@@ -494,7 +494,9 @@ async def get_friend_requests(
     result = await session.execute(query)
     requests = result.scalars().all()
 
-    return await _format_friend_requests_batch(session, requests)
+    return await _format_friend_requests_batch(
+        session, requests, viewer_player_id=player_id
+    )
 
 
 async def get_mutual_friends(
@@ -544,6 +546,70 @@ async def get_mutual_friend_count(
     my_friends = await get_friend_ids(session, player_id)
     their_friends = await get_friend_ids(session, other_player_id)
     return len(my_friends & their_friends)
+
+
+async def batch_mutual_friend_counts(
+    session: AsyncSession,
+    player_id: int,
+    target_player_ids: List[int],
+    my_friends: Optional[Set[int]] = None,
+) -> Dict[int, int]:
+    """
+    Count mutual friends between ``player_id`` and each target in one query.
+
+    Args:
+        session: Database session
+        player_id: The viewer whose friend set the counts are relative to
+        target_player_ids: Player IDs to count mutual friends against
+        my_friends: The viewer's friend ids, if the caller already fetched
+            them (skips the extra lookup)
+
+    Returns:
+        Dict mapping every target id to its mutual-friend count. The viewer
+        itself and players already friended by the viewer map to 0 (callers
+        annotating those rows don't surface a count for them).
+    """
+    counts: Dict[int, int] = {tid: 0 for tid in target_player_ids}
+    if not target_player_ids:
+        return counts
+
+    if my_friends is None:
+        my_friends = await get_friend_ids(session, player_id)
+    non_friend_ids = [
+        tid for tid in target_player_ids if tid != player_id and tid not in my_friends
+    ]
+    if not non_friend_ids or not my_friends:
+        return counts
+
+    # Find friends of each target that overlap with my_friends
+    friend_id_col = case(
+        (Friend.player1_id.in_(non_friend_ids), Friend.player2_id),
+        else_=Friend.player1_id,
+    )
+    target_id_col = case(
+        (Friend.player1_id.in_(non_friend_ids), Friend.player1_id),
+        else_=Friend.player2_id,
+    )
+    mutual_query = (
+        select(
+            target_id_col.label("target_id"),
+            func.count().label("cnt"),
+        )
+        .where(
+            and_(
+                or_(
+                    Friend.player1_id.in_(non_friend_ids),
+                    Friend.player2_id.in_(non_friend_ids),
+                ),
+                friend_id_col.in_(list(my_friends)),
+            )
+        )
+        .group_by(target_id_col)
+    )
+    mutual_result = await session.execute(mutual_query)
+    for row in mutual_result.all():
+        counts[row.target_id] = row.cnt
+    return counts
 
 
 async def batch_friend_status(
@@ -607,39 +673,10 @@ async def batch_friend_status(
             statuses[str(tid)] = "none"
 
     # Compute mutual friend counts in a single query instead of per-target
-    mutual_counts = {str(tid): 0 for tid in target_player_ids}
-    non_friend_ids = [
-        tid for tid in target_player_ids if tid != player_id and tid not in my_friends
-    ]
-    if non_friend_ids and my_friends:
-        # Find friends of each target that overlap with my_friends
-        friend_id_col = case(
-            (Friend.player1_id.in_(non_friend_ids), Friend.player2_id),
-            else_=Friend.player1_id,
-        )
-        target_id_col = case(
-            (Friend.player1_id.in_(non_friend_ids), Friend.player1_id),
-            else_=Friend.player2_id,
-        )
-        mutual_query = (
-            select(
-                target_id_col.label("target_id"),
-                func.count().label("cnt"),
-            )
-            .where(
-                and_(
-                    or_(
-                        Friend.player1_id.in_(non_friend_ids),
-                        Friend.player2_id.in_(non_friend_ids),
-                    ),
-                    friend_id_col.in_(list(my_friends)),
-                )
-            )
-            .group_by(target_id_col)
-        )
-        mutual_result = await session.execute(mutual_query)
-        for row in mutual_result.all():
-            mutual_counts[str(row.target_id)] = row.cnt
+    counts = await batch_mutual_friend_counts(
+        session, player_id, target_player_ids, my_friends=my_friends
+    )
+    mutual_counts = {str(tid): cnt for tid, cnt in counts.items()}
 
     return {"statuses": statuses, "mutual_counts": mutual_counts}
 
@@ -1058,7 +1095,9 @@ def _build_reason(
 
 
 async def _format_friend_requests_batch(
-    session: AsyncSession, requests: List[FriendRequest]
+    session: AsyncSession,
+    requests: List[FriendRequest],
+    viewer_player_id: Optional[int] = None,
 ) -> List[Dict]:
     """
     Batch-format FriendRequest ORM objects into response dicts with player names.
@@ -1068,6 +1107,10 @@ async def _format_friend_requests_batch(
     Args:
         session: Database session
         requests: List of FriendRequest ORM objects
+        viewer_player_id: When set, each dict also carries
+            ``mutual_friends_count`` — the viewer's mutual friends with the
+            request's counterpart (sender for incoming, receiver for
+            outgoing) — computed in one batched query.
 
     Returns:
         List of dicts matching FriendRequestResponse schema
@@ -1087,10 +1130,29 @@ async def _format_friend_requests_batch(
     )
     player_map = {row.id: row for row in result.all()}
 
+    mutual_counts: Dict[int, int] = {}
+    if viewer_player_id is not None:
+        counterpart_ids = list(
+            {
+                req.sender_player_id
+                if req.sender_player_id != viewer_player_id
+                else req.receiver_player_id
+                for req in requests
+            }
+        )
+        mutual_counts = await batch_mutual_friend_counts(
+            session, viewer_player_id, counterpart_ids
+        )
+
     formatted = []
     for req in requests:
         sender = player_map.get(req.sender_player_id)
         receiver = player_map.get(req.receiver_player_id)
+        counterpart_id = (
+            req.sender_player_id
+            if req.sender_player_id != viewer_player_id
+            else req.receiver_player_id
+        )
         formatted.append(
             {
                 "id": req.id,
@@ -1102,6 +1164,7 @@ async def _format_friend_requests_batch(
                 "receiver_avatar": receiver.avatar if receiver else None,
                 "status": req.status,
                 "created_at": req.created_at.isoformat() if req.created_at else None,
+                "mutual_friends_count": mutual_counts.get(counterpart_id, 0),
             }
         )
     return formatted
