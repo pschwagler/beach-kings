@@ -13,7 +13,11 @@
  *
  * Fetches are deliberately decoupled: a failed friends-list fetch is fatal
  * (`friendsError`), while a failed requests or suggestions fetch degrades to a
- * non-fatal inline notice so the rest of the screen still renders.
+ * non-fatal inline notice so the rest of the screen still renders. Loading is
+ * decoupled the same way — `isLoadingFriends` gates only on the friends +
+ * requests fetches, so a slow suggestions call never blocks the primary
+ * content; consumers can use `isLoadingSuggestions` to let that section fill
+ * in when it lands.
  */
 
 import { useState, useCallback, useMemo } from 'react';
@@ -43,8 +47,14 @@ export interface UseFriendsResult {
   readonly friends: readonly Friend[];
   readonly friendRequests: readonly FriendRequest[];
   readonly suggestions: readonly Friend[];
-  /** True while any of the underlying fetches is loading. */
+  /**
+   * True while the friends or requests fetch is loading. Deliberately
+   * excludes suggestions so a slow suggestions call never blocks the
+   * primary content behind the skeleton.
+   */
   readonly isLoadingFriends: boolean;
+  /** True while the (enabled) suggestions fetch is loading. */
+  readonly isLoadingSuggestions: boolean;
   /** Fatal: the friends *list* fetch failed → show the full-page error state. */
   readonly friendsError: Error | null;
   /** Non-fatal: the friend-requests fetch failed → inline notice only. */
@@ -95,7 +105,7 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   // ------- Suggestions (opt-out) -------
   const {
     data: suggestionsData,
-    isLoading: isLoadingSuggestions,
+    isLoading: isLoadingSuggestionsRaw,
     error: suggestionsError,
     refetch: refetchSuggestions,
   } = useApi<Friend[]>(
@@ -129,10 +139,8 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
     [suggestionsData],
   );
 
-  const isLoadingFriends =
-    isLoadingFriendsRaw ||
-    isLoadingRequests ||
-    (withSuggestions && isLoadingSuggestions);
+  const isLoadingFriends = isLoadingFriendsRaw || isLoadingRequests;
+  const isLoadingSuggestions = withSuggestions && isLoadingSuggestionsRaw;
 
   const onRefreshFriends = useCallback(() => {
     setIsRefreshingFriends(true);
@@ -194,6 +202,7 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
     friendRequests,
     suggestions,
     isLoadingFriends,
+    isLoadingSuggestions,
     friendsError,
     friendRequestsError,
     suggestionsError,

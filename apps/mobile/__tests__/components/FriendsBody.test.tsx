@@ -81,6 +81,7 @@ function makeProps(overrides: Partial<FriendsBodyProps> = {}): FriendsBodyProps 
     friendRequests: [REQUEST],
     suggestions: [SUGGESTION],
     isLoadingFriends: false,
+    isLoadingSuggestions: false,
     friendsError: null,
     friendRequestsError: null,
     suggestionsError: null,
@@ -112,6 +113,33 @@ describe('FriendsBody — loading & error', () => {
     render(<FriendsBody {...makeProps({ isLoadingFriends: true })} />);
     expect(screen.getByTestId('friends-loading')).toBeTruthy();
     expect(screen.queryByTestId('friends-list')).toBeNull();
+  });
+
+  it('renders friends and requests while suggestions are still loading', () => {
+    render(
+      <FriendsBody
+        {...makeProps({ suggestions: [], isLoadingSuggestions: true })}
+      />,
+    );
+    expect(screen.getByTestId('friends-list')).toBeTruthy();
+    expect(screen.getByText('Morgan Davis')).toBeTruthy();
+    expect(screen.queryByTestId('friends-loading')).toBeNull();
+    expect(screen.queryByText('Suggested Friends')).toBeNull();
+  });
+
+  it('keeps the skeleton while suggestions load and nothing else has content', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          friends: [],
+          friendRequests: [],
+          suggestions: [],
+          isLoadingSuggestions: true,
+        })}
+      />,
+    );
+    expect(screen.getByTestId('friends-loading')).toBeTruthy();
+    expect(screen.queryByTestId('friends-empty-state')).toBeNull();
   });
 
   it('renders the full-page error state when the friends list fails', () => {

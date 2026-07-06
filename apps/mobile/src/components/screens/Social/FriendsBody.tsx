@@ -337,6 +337,7 @@ export default function FriendsBody({
   friendRequests,
   suggestions,
   isLoadingFriends,
+  isLoadingSuggestions,
   friendsError,
   friendRequestsError,
   isRefreshingFriends,
@@ -419,6 +420,17 @@ export default function FriendsBody({
       visibleSuggestions.length === 0;
 
     if (isEmpty && !showRequestsNotice) {
+      // Suggestions load decoupled from the primary content; with nothing
+      // else to show yet, hold the skeleton rather than flash "No friends
+      // yet" before a Suggested Friends section can still arrive.
+      if (isLoadingSuggestions && !isSearching) {
+        return (
+          <>
+            <FriendsSearchBar value="" onChangeText={() => undefined} />
+            <FriendsLoadingSkeleton />
+          </>
+        );
+      }
       return (
         <>
           <FriendsSearchBar value={searchQuery} onChangeText={setSearchQuery} />

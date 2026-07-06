@@ -136,6 +136,39 @@ describe('useFriends — suggestions gate', () => {
   });
 });
 
+describe('useFriends — decoupled loading', () => {
+  it('stops loading once friends and requests resolve, even while suggestions hang', async () => {
+    mockApi.getFriendSuggestions.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useFriends());
+
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    expect(result.current.isLoadingSuggestions).toBe(true);
+    expect(result.current.friends).toEqual([FRIEND, FRIEND_2]);
+    expect(result.current.friendRequests).toEqual([REQUEST]);
+    expect(result.current.suggestions).toEqual([]);
+  });
+
+  it('clears isLoadingSuggestions once suggestions resolve', async () => {
+    const { result } = renderHook(() => useFriends());
+
+    await waitFor(() => expect(result.current.isLoadingSuggestions).toBe(false));
+
+    expect(result.current.suggestions).toEqual([SUGGESTION]);
+  });
+
+  it('reports isLoadingSuggestions false when suggestions are disabled', async () => {
+    const { result } = renderHook(() =>
+      useFriends({ withSuggestions: false }),
+    );
+
+    await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
+
+    expect(result.current.isLoadingSuggestions).toBe(false);
+  });
+});
+
 describe('useFriends — error decoupling', () => {
   it('keeps friends when the requests fetch fails (non-fatal)', async () => {
     mockApi.getFriendRequests.mockRejectedValue(new Error('requests boom'));
