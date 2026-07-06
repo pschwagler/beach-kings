@@ -119,6 +119,28 @@ describe('useLeagueInfoTab', () => {
     expect(result.current.info?.seasons).toHaveLength(1);
   });
 
+  it('maps roles: admin passes through, member and placeholder normalize to member', async () => {
+    mockGetLeagueMembers.mockResolvedValue([
+      ...MEMBERS,
+      {
+        id: 3,
+        player_id: 3,
+        player_name: 'Guest Player',
+        role: 'placeholder',
+        joined_at: '2026-01-03',
+      },
+    ]);
+
+    const { result } = renderHook(() => useLeagueInfoTab(4), {
+      wrapper: makeWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.info?.members[0].role).toBe('admin');
+    expect(result.current.info?.members[1].role).toBe('member');
+    expect(result.current.info?.members[2].role).toBe('member');
+  });
+
   it('exposes currentPlayerId for self-detection', async () => {
     const { result } = renderHook(() => useLeagueInfoTab(4), {
       wrapper: makeWrapper(makeClient()),

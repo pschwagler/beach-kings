@@ -568,7 +568,13 @@ def _build_opponent_stats(
 
 
 def _build_elo_history(tracker: StatsTracker) -> List[EloHistory]:
-    """Build EloHistory ORM instances from tracked player data (global ELO only)."""
+    """Build EloHistory ORM instances from tracked player data (global ELO only).
+
+    Sessionless matches have no date; they are still persisted (they affect
+    the rating trajectory) with ``date=""`` as the "no date" sentinel, since
+    the column is non-nullable. Consumers rendering dates must guard for the
+    empty string (the mobile rating chart does).
+    """
     results = []
     for player_id, stats in tracker.players.items():
         for match_id, elo_after, change, date in stats.match_elo_history:

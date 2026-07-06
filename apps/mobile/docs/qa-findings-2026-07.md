@@ -18,7 +18,7 @@ Tags:
 ### Q1. "Rating History" chart x-axis renders "undefined NaN"  ✅ DONE (frontend)
 - **Severity:** High (garbage on a headline stat) · **Repro:** Profile → My Stats → Rating History.
 - **Root cause:** `RatingChart.tsx:64-69` (`shortDate`) does `iso.split('-')`; if `iso` is `""` or malformed, `month`/`day` are `undefined` → renders literally `"undefined NaN"`. Data source: backend `calculation_service.py:576-583` (`_build_elo_history`) persists `date=date or ""`, so empty dates flow through `my_stats_service.py:357-379` untouched (`date: str`, no validation).
-- **Fix:** Two-layer. ✅ **Frontend guard** shipped: `shortDate()` now returns `''` for empty/malformed dates (`RatingChart.tsx:64`), test in `__tests__/components/RatingChart.test.tsx`. ⬜ **Backend** `date or ""` in `calculation_service.py:576-583` still lets bad dates into `elo_history` — file separately.
+- **Fix:** Two-layer. ✅ **Frontend guard** shipped: `shortDate()` now returns `''` for empty/malformed dates (`RatingChart.tsx:64`), test in `__tests__/components/RatingChart.test.tsx`. ✅ **Backend half resolved as by-design (2026-07-05):** `date or ""` is the intentional "no date" sentinel for **sessionless matches**, which must still persist (they shape the rating line — pinned by `test_matches_without_session_included`). Skipping them was tried and reverted. Sentinel now documented in the `_build_elo_history` docstring + pinned by `test_build_elo_history_sessionless_match_uses_empty_date_sentinel`. Only a `Match.created_at`-style column would give these rows a real date — not worth a migration for a cosmetic label.
 
 ### Q2. Player profile subtitle renders a dangling "--"  ✅ DONE
 - **Severity:** Medium (polish) · **Repro:** profile with an empty `level`.
