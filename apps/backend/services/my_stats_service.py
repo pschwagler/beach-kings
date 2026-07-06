@@ -302,7 +302,9 @@ async def _partners_from_aggregates(
             full_name=row.partner_name,
             games=row[0].games,
             wins=row[0].wins,
-            win_rate=row[0].win_rate,
+            # Stored win_rate is canonically 0-1; the payload contract is 0-100
+            # (the days-windowed path computes wins/games*100 directly).
+            win_rate=row[0].win_rate * 100,
         )
         for row in result.all()
     ]
@@ -348,7 +350,9 @@ async def _opponents_from_aggregates(
             full_name=row.opponent_name,
             games=row[0].games,
             wins=row[0].wins,
-            win_rate=row[0].win_rate,
+            # Stored win_rate is canonically 0-1; the payload contract is 0-100
+            # (the days-windowed path computes wins/games*100 directly).
+            win_rate=row[0].win_rate * 100,
         )
         for row in result.all()
     ]

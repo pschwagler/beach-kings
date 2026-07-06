@@ -19,6 +19,19 @@ interface ToggleProps {
   readonly onTabChange: (tab: BreakdownTab) => void;
 }
 
+// Shadow for the active segment as a plain RN style, NOT a `shadow-sm` class:
+// toggling a shadow-* class between renders crashes NativeWind v4's css
+// interop (nativewind 4.1.23 / react-native-css-interop 0.2.3) with a
+// misleading "Couldn't find a navigation context" render error. Values match
+// the `shadow-sm` token. Black shadow color is universal, not themed.
+const ACTIVE_SEGMENT_SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.05,
+  shadowRadius: 2,
+  elevation: 1,
+} as const;
+
 function TableToggle({ tab, onTabChange }: ToggleProps): React.ReactNode {
   return (
     <View className="flex-row bg-elevated rounded-[8px] p-[2px] mb-[10px]">
@@ -31,9 +44,10 @@ function TableToggle({ tab, onTabChange }: ToggleProps): React.ReactNode {
           accessibilityLabel={t === 'partners' ? 'Partners' : 'Opponents'}
           className={`flex-1 items-center py-2 rounded-[6px] ${
             tab === t
-              ? 'bg-surface shadow-sm'
+              ? 'bg-surface'
               : ''
           }`}
+          style={tab === t ? ACTIVE_SEGMENT_SHADOW : undefined}
         >
           <Text
             className={`text-[12px] font-bold ${

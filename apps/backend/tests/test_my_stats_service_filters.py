@@ -27,6 +27,8 @@ from backend.database.models import (
     EloHistory,
     League,
     Match,
+    OpponentStats,
+    PartnershipStats,
     Player,
     PlayerGlobalStats,
     PlayerLeagueStats,
@@ -326,6 +328,51 @@ async def test_league_overall_win_rate_units(db_session, seeded):
     assert overall["losses"] == 2
     assert overall["win_rate"] == pytest.approx(66.7, abs=0.1)
     assert overall["avg_point_diff"] == pytest.approx(2.5, abs=0.1)
+
+
+@pytest.mark.asyncio
+async def test_relation_win_rate_units_from_aggregates(db_session, seeded):
+    """Lifetime partners/opponents read PartnershipStats / OpponentStats and
+    must return win_rate in 0-100 percentage units, like the ``days``-windowed
+    path (which computes ``wins/games*100`` itself).
+
+    Regression guard: the stored ``win_rate`` is canonically 0-1; passing it
+    through raw rendered "0.8%" in the mobile Breakdown table for a 30-6
+    record instead of 83.3%.
+    """
+    db_session.add(
+        PartnershipStats(
+            player_id=seeded["player"].id,
+            partner_id=seeded["partner_a"].id,
+            games=36,
+            wins=30,
+            points=90,
+            win_rate=0.833,  # canonical 0-1 storage
+            avg_point_diff=2.0,
+        )
+    )
+    db_session.add(
+        OpponentStats(
+            player_id=seeded["player"].id,
+            opponent_id=seeded["opp_a"].id,
+            games=10,
+            wins=4,
+            points=12,
+            win_rate=0.4,  # canonical 0-1 storage
+            avg_point_diff=-1.0,
+        )
+    )
+    await db_session.commit()
+
+    payload = await my_stats_service.get_my_stats(
+        session=db_session, player_id=seeded["player"].id
+    )
+
+    assert payload is not None
+    partners = {row["player_id"]: row for row in payload["partners"]}
+    opponents = {row["player_id"]: row for row in payload["opponents"]}
+    assert partners[seeded["partner_a"].id]["win_rate"] == pytest.approx(83.3, abs=0.1)
+    assert opponents[seeded["opp_a"].id]["win_rate"] == pytest.approx(40.0, abs=0.1)
 
 
 @pytest.mark.asyncio

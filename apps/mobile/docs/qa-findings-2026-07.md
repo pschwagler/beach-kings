@@ -60,10 +60,17 @@ Tags:
 
 ## Investigate (real symptom, root cause unconfirmed)
 
-### C1. CRASH — "Opponents" tab in My Stats › Breakdown  ⚠ observed live, NOT in current source
-- **Severity:** High (observed hard crash) · **Repro (live):** Profile → My Stats → Breakdown → "Opponents" → redbox *"Couldn't find a navigation context…"*, cited `BreakdownTable.tsx (15:1)`.
-- **Static check:** `Games/BreakdownTable.tsx` has **no** `useNavigation`/react-navigation hook (only an unused `useCallback` import at line 8). The app's only `useNavigation()` is `ScoreGameScreen.tsx:329` (unrelated). `__tests__/app/stack/games/my-stats.test.tsx` (incl. "switches to opponents tab") — 19 tests pass, no crash.
-- **Assessment:** Most likely the **simulator ran a stale bundle**. Re-run on a fresh build. If it still crashes, capture the full JS stack — current source doesn't contain the cited hook.
+### C1. CRASH — "Opponents" tab in My Stats › Breakdown  ✅ DONE (root-caused + fixed 2026-07-05)
+- **Severity:** High (hard crash) · **Repro:** Profile → My Stats → Breakdown → tap either toggle → error boundary ("Something went wrong") + redbox *"Couldn't find a navigation context…"*.
+- **NOT a stale bundle** — reproduced deterministically on a cold-started fresh bundle. The nav-context message is a red herring.
+- **Root cause (bisected live):** toggling the **`shadow-sm` class** on the active segment's `Pressable` between re-renders crashes NativeWind's css interop (nativewind 4.1.23 / react-native-css-interop 0.2.3), which surfaces as react-navigation's MISSING_CONTEXT_ERROR. Bisect: crash persisted with only `SafeAreaView + BreakdownTable` rendered, toggle-only (no rows), and vanished the moment `shadow-sm` was removed. Both toggle directions crashed; initial render with either tab was fine; data was irrelevant.
+- **Why tests can't catch it:** Jest runs without the nativewind `jsxImportSource` (`babel.config.js` `isTest` branch), so the interop path never executes — device-only bug class.
+- **Fix:** ✅ Shipped — active-segment shadow moved to a static RN style object (`ACTIVE_SEGMENT_SHADOW`, toggled via `style` prop); class list no longer changes shadow classes across renders. Verified on-device: toggle works both directions, cold start + hot reload. Gotcha documented in `docs/theming.md`.
+
+### C1b. Breakdown W% column showed "0.8%" for a 30-6 record  ✅ DONE (found during C1 verification)
+- **Severity:** Medium (wrong numbers on a stats surface) · **Repro:** My Stats → Breakdown (all-time) — every W% under 1%.
+- **Root cause:** unit mismatch between the two backend paths feeding `partners`/`opponents`: the `days`-windowed path computes `wins/games*100` (percent), but the lifetime/aggregates path passed the stored **0–1** `win_rate` column through raw. Same bug class as the already-guarded `overall` block (`test_league_overall_win_rate_units`) — the relations path was missed.
+- **Fix:** ✅ Shipped — `_partners_from_aggregates` / `_opponents_from_aggregates` now convert `win_rate * 100`; regression test `test_relation_win_rate_units_from_aggregates` seeds canonical 0–1 rows and asserts 83.3 / 40.0. Verified on-device after backend rebuild (71.4%, 57.1%, 100% render correctly).
 
 ### I2. League-game player search doesn't filter (Pickup does)  ⚠ observed live, no static asymmetry
 - **Severity:** High (search non-functional in league flow) · **Repro (live):** League create-session search doesn't filter; Pickup identical UI does.

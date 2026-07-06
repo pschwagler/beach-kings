@@ -94,6 +94,25 @@ import `colors` / `darkColors` directly — use this hook instead.
 4. Add the new role to the `PaletteColors` mock in any test files that call
    `usePaletteColors()`.
 
+## Gotcha: never toggle shadow-* classes conditionally
+
+Adding/removing a `shadow-sm` / `shadow-md` / `shadow-lg` class between
+re-renders of the *same* element crashes NativeWind's css interop at runtime
+(nativewind 4.1.23 / react-native-css-interop 0.2.3) with a misleading
+`"Couldn't find a navigation context"` render error. Static shadow classes are
+fine; only the class list changing across renders triggers it.
+
+For a conditional shadow, keep the class list static and toggle a plain RN
+style object instead:
+
+```tsx
+style={isActive ? ACTIVE_SHADOW : undefined}  // shadowColor/Offset/Opacity/Radius + elevation
+```
+
+Jest cannot catch this — tests run without the nativewind jsxImportSource
+(see `babel.config.js`), so the interop path never executes. Verify on-device.
+Reference fix: `Games/BreakdownTable.tsx` (`ACTIVE_SEGMENT_SHADOW`).
+
 ## Web app note
 
 The web app (`apps/web`) uses a different approach: Chakra UI theme tokens.
