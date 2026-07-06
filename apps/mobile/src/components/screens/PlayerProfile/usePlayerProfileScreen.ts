@@ -26,6 +26,11 @@ export interface UsePlayerProfileScreenResult {
   readonly profileData: PlayerProfileData | null;
   readonly isLoading: boolean;
   readonly error: Error | null;
+  /**
+   * True when the profile 404'd — by-design for players with no games
+   * (backend hides them from /api/public/players), not a transient failure.
+   */
+  readonly isNotFound: boolean;
   readonly isFriendActionLoading: boolean;
   readonly onRefresh: () => void;
   readonly isRefreshing: boolean;
@@ -102,10 +107,14 @@ export function usePlayerProfileScreen(
     onNavigateToMessages(numericId, name);
   }, [playerId, profileData, onNavigateToMessages]);
 
+  const isNotFound =
+    (error as { response?: { status?: number } } | null)?.response?.status === 404;
+
   return {
     profileData: profileData ?? null,
     isLoading,
     error,
+    isNotFound,
     isFriendActionLoading,
     onRefresh,
     isRefreshing,

@@ -105,6 +105,35 @@ describe('usePlayerProfileScreen', () => {
     expect(mockApi.getPlayerLeagues).toHaveBeenCalledWith(PLAYER_ID);
   });
 
+  it('sets isNotFound when getPublicPlayer 404s (hidden/0-game profile)', async () => {
+    const notFoundError = Object.assign(new Error('Request failed with status code 404'), {
+      response: { status: 404 },
+    });
+    mockApi.getPublicPlayer.mockRejectedValue(notFoundError);
+
+    const { result } = renderHook(() =>
+      usePlayerProfileScreen(PLAYER_ID, noop)
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.error).not.toBeNull();
+    expect(result.current.isNotFound).toBe(true);
+  });
+
+  it('keeps isNotFound false for non-404 errors', async () => {
+    mockApi.getPublicPlayer.mockRejectedValue(new Error('network error'));
+
+    const { result } = renderHook(() =>
+      usePlayerProfileScreen(PLAYER_ID, noop)
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.error).not.toBeNull();
+    expect(result.current.isNotFound).toBe(false);
+  });
+
   it('falls back to empty array when api.getPlayerLeagues rejects', async () => {
     mockApi.getPlayerLeagues.mockRejectedValue(new Error('network error'));
 

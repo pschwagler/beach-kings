@@ -64,6 +64,7 @@ export default function PlayerProfileScreen({
     profileData,
     isLoading,
     error,
+    isNotFound,
     isFriendActionLoading,
     onRefresh,
     isRefreshing,
@@ -139,7 +140,7 @@ export default function PlayerProfileScreen({
       {isLoading && !isRefreshing ? (
         <PlayerProfileSkeleton />
       ) : error != null && !isRefreshing ? (
-        <PlayerProfileErrorState onRetry={onRefresh} />
+        <PlayerProfileErrorState onRetry={onRefresh} notFound={isNotFound} />
       ) : profileData != null ? (
         <ScrollView
           testID="player-profile-scroll"
