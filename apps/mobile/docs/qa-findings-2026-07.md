@@ -77,6 +77,15 @@ Tags:
 - **Coverage gap:** `useLeagueInfoTab.test.tsx:116-119` never asserts `members[0].role === 'admin'` despite an admin in the fixture.
 - **Fix:** Investigate — check the live `/api/leagues/:id/members` response for the affected league. Add the missing role-mapping test regardless. Also confirm Remove is server-side gated on viewer permission.
 
+### I4. Friend-request notification stays actionable after the request is resolved elsewhere
+- **Severity:** Low-Medium (confusing dead action) · **Repro (live, Social-hub visual pass 2026-07-05):** Bob's request to Patrick was accepted via API; the Notifications tab still shows that "Friend Request" notification with live Accept/Decline buttons.
+- **Assessment:** The notification payload isn't refreshed against the request's current status; tapping Accept on an already-accepted request presumably 4xxes. Either backend should mark the notification resolved when the request state changes, or the mobile row should swap the buttons for a status label when accept/decline fails with "already handled".
+
+### I5. Player profile for 0-game players shows misleading "Check your connection" error
+- **Severity:** Low-Medium (misleading copy, dead-end from Friends tab) · **Repro (live):** Social → Friends → tap a friend with 0 games (e.g. a fresh seeded user) → "Could not load profile / Check your connection and try again." Retry never succeeds.
+- **Root cause (confirmed):** `GET /api/public/players/{id}` 404s by design for players with `total_games < 1` (`apps/backend/services/public_service.py: get_public_player` — "Only players with total_games >= 1 are publicly visible"). The mobile PlayerProfile error state treats 404 like a network failure.
+- **Fix:** Distinguish 404 in `PlayerProfileScreen` ("This player's profile isn't available yet") and hide Retry for it. Separately consider whether friends should bypass the games-played visibility gate — tapping your own friend and getting a dead end is odd.
+
 ---
 
 ## Won't fix / expected
