@@ -691,6 +691,8 @@ async def discover_players(
     sort_by: Optional[str] = "mutuals",
     sort_dir: Optional[str] = "desc",
     min_games: Optional[int] = None,
+    same_league: bool = False,
+    has_mutuals: bool = False,
     page: int = 1,
     page_size: int = 25,
 ) -> Dict:
@@ -711,6 +713,8 @@ async def discover_players(
         sort_by: Sort column — mutuals, games, name, rating
         sort_dir: Sort direction — asc or desc
         min_games: Minimum total_games threshold
+        same_league: Only players sharing >=1 league with the caller
+        has_mutuals: Only players sharing >=1 friend with the caller
         page: Page number (1-indexed)
         page_size: Results per page
 
@@ -783,6 +787,21 @@ async def discover_players(
         base_query = base_query.where(Player.level == level)
     if min_games:
         base_query = base_query.where(PlayerGlobalStats.total_games >= min_games)
+    if same_league:
+        # Candidates with >=1 league membership in any of the caller's leagues.
+        my_league_ids = select(LeagueMember.league_id).where(
+            LeagueMember.player_id == caller_player_id
+        )
+        SameLeagueMember = aliased(LeagueMember)
+        base_query = base_query.where(
+            Player.id.in_(
+                select(SameLeagueMember.player_id).where(
+                    SameLeagueMember.league_id.in_(my_league_ids)
+                )
+            )
+        )
+    if has_mutuals:
+        base_query = base_query.where(mutual_subq > 0)
 
     # Total count
     count_query = select(func.count()).select_from(base_query.subquery())

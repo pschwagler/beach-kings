@@ -5,6 +5,8 @@
  * Players tab and the standalone Find Players screen share a single source of
  * truth instead of duplicating fetch + optimistic-mutation logic:
  *   - Discoverable players via api.discoverPlayers()
+ *   - Server-side filter chips: skill level (single-select toggle),
+ *     same-league-only, and shared-friends-only — each change refetches
  *   - Client-side name/city filter over the discover list
  *   - Optimistic "pending" state for sent friend requests (add-friend)
  *
@@ -66,6 +68,9 @@ export interface UseDiscoverPlayersOptions {
   readonly searchQuery?: string;
 }
 
+/** Skill levels offered as discover filter chips (mirrors SkillLevel values). */
+export type DiscoverLevel = 'Open' | 'AA' | 'advanced' | 'intermediate' | 'beginner';
+
 export interface UseDiscoverPlayersResult {
   /** Discoverable players, filtered by `searchQuery` when provided. */
   readonly players: readonly DiscoverPlayer[];
@@ -77,6 +82,14 @@ export interface UseDiscoverPlayersResult {
   readonly onAddFriend: (playerId: number) => void;
   /** Player IDs with an in-flight/optimistically-sent friend request. */
   readonly pendingSendIds: ReadonlySet<number>;
+  /** Active level chip, or null when no level filter is applied. */
+  readonly levelFilter: DiscoverLevel | null;
+  readonly sameLeagueOnly: boolean;
+  readonly sharedFriendsOnly: boolean;
+  /** Single-select toggle: tapping the active level clears it. */
+  readonly onToggleLevel: (level: DiscoverLevel) => void;
+  readonly onToggleSameLeague: () => void;
+  readonly onToggleSharedFriends: () => void;
 }
 
 /**
@@ -91,6 +104,9 @@ export function useDiscoverPlayers(
   const [pendingSendIds, setPendingSendIds] = useState<ReadonlySet<number>>(
     new Set(),
   );
+  const [levelFilter, setLevelFilter] = useState<DiscoverLevel | null>(null);
+  const [sameLeagueOnly, setSameLeagueOnly] = useState(false);
+  const [sharedFriendsOnly, setSharedFriendsOnly] = useState(false);
 
   const {
     data: rawPlayers,
@@ -100,12 +116,16 @@ export function useDiscoverPlayers(
   } = useApi<DiscoverPlayer[]>(
     () =>
       api
-        .discoverPlayers()
+        .discoverPlayers({
+          ...(levelFilter != null ? { level: levelFilter } : {}),
+          ...(sameLeagueOnly ? { same_league: true } : {}),
+          ...(sharedFriendsOnly ? { has_mutuals: true } : {}),
+        })
         .then((r: { items?: RawDiscoverItem[] } | RawDiscoverItem[]) => {
           const items = Array.isArray(r) ? r : (r?.items ?? []);
           return items.map(mapDiscoverItem);
         }),
-    [],
+    [levelFilter, sameLeagueOnly, sharedFriendsOnly],
   );
 
   const players = useMemo<readonly DiscoverPlayer[]>(() => {
@@ -130,6 +150,18 @@ export function useDiscoverPlayers(
     void refetchPlayers();
   }, [refetchPlayers]);
 
+  const onToggleLevel = useCallback((level: DiscoverLevel) => {
+    setLevelFilter((prev) => (prev === level ? null : level));
+  }, []);
+
+  const onToggleSameLeague = useCallback(() => {
+    setSameLeagueOnly((prev) => !prev);
+  }, []);
+
+  const onToggleSharedFriends = useCallback(() => {
+    setSharedFriendsOnly((prev) => !prev);
+  }, []);
+
   const onAddFriend = useCallback((playerId: number) => {
     void hapticMedium();
     // Optimistic: mark as pending immediately.
@@ -153,5 +185,11 @@ export function useDiscoverPlayers(
     onRetryPlayers,
     onAddFriend,
     pendingSendIds,
+    levelFilter,
+    sameLeagueOnly,
+    sharedFriendsOnly,
+    onToggleLevel,
+    onToggleSameLeague,
+    onToggleSharedFriends,
   };
 }

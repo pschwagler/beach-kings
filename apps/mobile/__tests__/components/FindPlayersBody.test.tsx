@@ -71,6 +71,12 @@ function makeProps(
     searchQuery: '',
     setSearchQuery: jest.fn(),
     onPlayerPress: jest.fn(),
+    levelFilter: null,
+    sameLeagueOnly: false,
+    sharedFriendsOnly: false,
+    onToggleLevel: jest.fn(),
+    onToggleSameLeague: jest.fn(),
+    onToggleSharedFriends: jest.fn(),
     ...overrides,
   };
 }
@@ -136,6 +142,67 @@ describe('FindPlayersBody — empty states', () => {
     );
     expect(screen.getByTestId('find-players-empty-state')).toBeTruthy();
     expect(screen.getByText(/adjusting your search/i)).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Filter chips
+// ---------------------------------------------------------------------------
+
+describe('FindPlayersBody — filter chips', () => {
+  it('renders the full chip row', () => {
+    render(<FindPlayersBody {...makeProps()} />);
+    expect(screen.getByTestId('discover-chip-same-league')).toBeTruthy();
+    expect(screen.getByTestId('discover-chip-shared-friends')).toBeTruthy();
+    expect(screen.getByTestId('discover-chip-level-Open')).toBeTruthy();
+    expect(screen.getByTestId('discover-chip-level-AA')).toBeTruthy();
+    expect(screen.getByTestId('discover-chip-level-advanced')).toBeTruthy();
+    expect(screen.getByTestId('discover-chip-level-intermediate')).toBeTruthy();
+    expect(screen.getByTestId('discover-chip-level-beginner')).toBeTruthy();
+  });
+
+  it('toggles a level via the chip', () => {
+    const onToggleLevel = jest.fn();
+    render(<FindPlayersBody {...makeProps({ onToggleLevel })} />);
+    fireEvent.press(screen.getByTestId('discover-chip-level-AA'));
+    expect(onToggleLevel).toHaveBeenCalledWith('AA');
+  });
+
+  it('toggles the Same League and Shared Friends chips', () => {
+    const onToggleSameLeague = jest.fn();
+    const onToggleSharedFriends = jest.fn();
+    render(
+      <FindPlayersBody
+        {...makeProps({ onToggleSameLeague, onToggleSharedFriends })}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('discover-chip-same-league'));
+    expect(onToggleSameLeague).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByTestId('discover-chip-shared-friends'));
+    expect(onToggleSharedFriends).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks active chips as selected for accessibility', () => {
+    render(
+      <FindPlayersBody
+        {...makeProps({ levelFilter: 'Open', sameLeagueOnly: true })}
+      />,
+    );
+    expect(
+      screen.getByTestId('discover-chip-level-Open').props.accessibilityState,
+    ).toEqual(expect.objectContaining({ selected: true }));
+    expect(
+      screen.getByTestId('discover-chip-same-league').props.accessibilityState,
+    ).toEqual(expect.objectContaining({ selected: true }));
+    expect(
+      screen.getByTestId('discover-chip-level-AA').props.accessibilityState,
+    ).toEqual(expect.objectContaining({ selected: false }));
+  });
+
+  it('keeps the chip row visible in the empty state', () => {
+    render(<FindPlayersBody {...makeProps({ players: [] })} />);
+    expect(screen.getByTestId('discover-chip-same-league')).toBeTruthy();
+    expect(screen.getByTestId('find-players-empty-state')).toBeTruthy();
   });
 });
 

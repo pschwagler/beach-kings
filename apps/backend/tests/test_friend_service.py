@@ -839,6 +839,62 @@ async def test_discover_players_level_filter(db_session, discover_setup):
 
 
 @pytest.mark.asyncio
+async def test_discover_players_same_league_filter(db_session, discover_setup):
+    """same_league=True keeps only players sharing >=1 league with the caller."""
+    shared_league = await _create_league(db_session, "Shared League")
+    other_league = await _create_league(db_session, "Other League")
+    await _add_league_member(db_session, shared_league, discover_setup["alice"])
+    await _add_league_member(db_session, shared_league, discover_setup["dave"])
+    await _add_league_member(db_session, other_league, discover_setup["eve"])
+
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], same_league=True
+    )
+    result_ids = {item["id"] for item in result["items"]}
+    assert result_ids == {discover_setup["dave"]}
+    assert result["total_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_discover_players_same_league_no_leagues(db_session, discover_setup):
+    """same_league=True with a league-less caller returns no players."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], same_league=True
+    )
+    assert result["items"] == []
+    assert result["total_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_discover_players_has_mutuals_filter(db_session, discover_setup):
+    """has_mutuals=True keeps only players sharing >=1 friend with the caller."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], has_mutuals=True
+    )
+    result_ids = {item["id"] for item in result["items"]}
+    # Dave (2 mutuals: Bob+Carol) and Eve (1: Bob). Bob/Carol are Alice's
+    # friends but share no third friend with her, so they drop out too.
+    assert result_ids == {discover_setup["dave"], discover_setup["eve"]}
+    assert result["total_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_discover_players_has_mutuals_friendless_caller(db_session, players):
+    """has_mutuals=True for a caller with no friends returns no players."""
+    # `players` fixture has no friendships or stats; give one target stats so
+    # the base query would otherwise match it.
+    stats = PlayerGlobalStats(player_id=players["bob"], total_games=10)
+    db_session.add(stats)
+    await db_session.flush()
+
+    result = await friend_service.discover_players(
+        db_session, players["alice"], has_mutuals=True
+    )
+    assert result["items"] == []
+    assert result["total_count"] == 0
+
+
+@pytest.mark.asyncio
 async def test_discover_players_min_games_filter(db_session, discover_setup):
     """min_games excludes players below the threshold."""
     result = await friend_service.discover_players(

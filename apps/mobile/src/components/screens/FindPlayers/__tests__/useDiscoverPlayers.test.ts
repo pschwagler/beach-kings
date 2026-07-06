@@ -54,6 +54,91 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
+// Server-side filters (chips)
+// ---------------------------------------------------------------------------
+
+describe('useDiscoverPlayers — filters', () => {
+  beforeEach(() => {
+    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+  });
+
+  it('fetches with no params by default', async () => {
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    expect(mockApi.discoverPlayers).toHaveBeenCalledWith({});
+    expect(result.current.levelFilter).toBeNull();
+    expect(result.current.sameLeagueOnly).toBe(false);
+    expect(result.current.sharedFriendsOnly).toBe(false);
+  });
+
+  it('refetches with the level param when a level chip is toggled on', async () => {
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    act(() => {
+      result.current.onToggleLevel('AA');
+    });
+
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({ level: 'AA' }),
+    );
+    expect(result.current.levelFilter).toBe('AA');
+  });
+
+  it('selecting another level replaces the filter; re-tapping clears it', async () => {
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    act(() => {
+      result.current.onToggleLevel('AA');
+    });
+    act(() => {
+      result.current.onToggleLevel('Open');
+    });
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        level: 'Open',
+      }),
+    );
+
+    act(() => {
+      result.current.onToggleLevel('Open');
+    });
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({}),
+    );
+    expect(result.current.levelFilter).toBeNull();
+  });
+
+  it('passes same_league and has_mutuals when those chips are on', async () => {
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    act(() => {
+      result.current.onToggleSameLeague();
+    });
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        same_league: true,
+      }),
+    );
+
+    act(() => {
+      result.current.onToggleSharedFriends();
+    });
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        same_league: true,
+        has_mutuals: true,
+      }),
+    );
+    expect(result.current.sameLeagueOnly).toBe(true);
+    expect(result.current.sharedFriendsOnly).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Response normalization
 // ---------------------------------------------------------------------------
 

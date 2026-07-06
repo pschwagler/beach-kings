@@ -121,6 +121,8 @@ async def discover_players(
     sort_by: Optional[Literal["mutuals", "games", "name", "rating"]] = Query(None),
     sort_dir: Optional[Literal["asc", "desc"]] = Query(None),
     min_games: Optional[int] = Query(None, ge=1),
+    same_league: bool = Query(False),
+    has_mutuals: bool = Query(False),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     user: dict = Depends(require_verified_player),
@@ -138,6 +140,8 @@ async def discover_players(
             sort_by=sort_by,
             sort_dir=sort_dir,
             min_games=min_games,
+            same_league=same_league,
+            has_mutuals=has_mutuals,
             page=page,
             page_size=page_size,
         )

@@ -11,9 +11,14 @@
  * data hook.
  *
  * Deliberately discover-only: friend management lives in its own Friends subnav
- * tab now, so the old internal Players|Friends tab bar is dropped. Filter chips
- * are also omitted — the backend discover endpoint takes no filter params yet
- * (tracked in the backlog).
+ * tab now, so the old internal Players|Friends tab bar is dropped.
+ *
+ * Filter chips (Same League / Shared Friends / skill levels) sit under the
+ * search bar and drive server-side discover params via the hook's toggle
+ * handlers. The chip row stays visible in the loading and empty states so an
+ * active filter that empties (or is refetching) the list can still be cleared.
+ * Level chips use the app's real SkillLevel values rather than the wireframe's
+ * Open/AA/A/B — 'A'/'B' don't exist in the data model.
  *
  * Wireframe ref: find-players.html
  */
@@ -24,16 +29,22 @@ import {
   Text,
   FlatList,
   TextInput,
+  Pressable,
+  ScrollView,
   RefreshControl,
 } from 'react-native';
 import type { ListRenderItem } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { hapticLight } from '@/utils/haptics';
 import PlayerRow from '@/components/screens/FindPlayers/PlayerRow';
 import type { DiscoverPlayer } from '@/components/screens/FindPlayers/PlayerRow';
 import FindPlayersSkeleton from '@/components/screens/FindPlayers/FindPlayersSkeleton';
 import FindPlayersErrorState from '@/components/screens/FindPlayers/FindPlayersErrorState';
-import type { UseDiscoverPlayersResult } from '@/components/screens/FindPlayers/useDiscoverPlayers';
+import type {
+  DiscoverLevel,
+  UseDiscoverPlayersResult,
+} from '@/components/screens/FindPlayers/useDiscoverPlayers';
 
 // ---------------------------------------------------------------------------
 // Search bar
@@ -77,6 +88,117 @@ function PlayersSearchBar({
           accessibilityLabel="Search players"
         />
       </View>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Filter chips
+// ---------------------------------------------------------------------------
+
+/** Level chips mirror the real SkillLevel values (see header comment). */
+const LEVEL_CHIPS: readonly { value: DiscoverLevel; label: string }[] = [
+  { value: 'Open', label: 'Open' },
+  { value: 'AA', label: 'AA' },
+  { value: 'advanced', label: 'Advanced' },
+  { value: 'intermediate', label: 'Intermediate' },
+  { value: 'beginner', label: 'Beginner' },
+];
+
+interface FilterChipProps {
+  readonly label: string;
+  readonly active: boolean;
+  readonly onPress: () => void;
+  readonly testID: string;
+}
+
+function FilterChip({
+  label,
+  active,
+  onPress,
+  testID,
+}: FilterChipProps): React.ReactNode {
+  const handlePress = useCallback(() => {
+    void hapticLight();
+    onPress();
+  }, [onPress]);
+
+  return (
+    <Pressable
+      testID={testID}
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={`Filter by ${label}`}
+      className={
+        active
+          ? 'px-[14px] rounded-[20px] border-[1.5px] border-brand-teal bg-brand-teal min-h-[44px] justify-center active:opacity-80'
+          : 'px-[14px] rounded-[20px] border-[1.5px] border-divider bg-surface min-h-[44px] justify-center active:opacity-70'
+      }
+    >
+      <Text
+        className={
+          active
+            ? 'text-[12px] font-semibold text-white'
+            : 'text-[12px] font-semibold text-muted'
+        }
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+interface FilterChipsRowProps {
+  readonly levelFilter: DiscoverLevel | null;
+  readonly sameLeagueOnly: boolean;
+  readonly sharedFriendsOnly: boolean;
+  readonly onToggleLevel: (level: DiscoverLevel) => void;
+  readonly onToggleSameLeague: () => void;
+  readonly onToggleSharedFriends: () => void;
+}
+
+function FilterChipsRow({
+  levelFilter,
+  sameLeagueOnly,
+  sharedFriendsOnly,
+  onToggleLevel,
+  onToggleSameLeague,
+  onToggleSharedFriends,
+}: FilterChipsRowProps): React.ReactNode {
+  return (
+    <View className="bg-surface border-b border-divider">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          gap: 8,
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+        }}
+      >
+        <FilterChip
+          testID="discover-chip-same-league"
+          label="Same League"
+          active={sameLeagueOnly}
+          onPress={onToggleSameLeague}
+        />
+        <FilterChip
+          testID="discover-chip-shared-friends"
+          label="Shared Friends"
+          active={sharedFriendsOnly}
+          onPress={onToggleSharedFriends}
+        />
+        {LEVEL_CHIPS.map((chip) => (
+          <FilterChip
+            key={chip.value}
+            testID={`discover-chip-level-${chip.value}`}
+            label={chip.label}
+            active={levelFilter === chip.value}
+            onPress={() => onToggleLevel(chip.value)}
+          />
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -130,7 +252,24 @@ export default function FindPlayersBody({
   searchQuery,
   setSearchQuery,
   onPlayerPress,
+  levelFilter,
+  sameLeagueOnly,
+  sharedFriendsOnly,
+  onToggleLevel,
+  onToggleSameLeague,
+  onToggleSharedFriends,
 }: FindPlayersBodyProps): React.ReactNode {
+  const filterChips = (
+    <FilterChipsRow
+      levelFilter={levelFilter}
+      sameLeagueOnly={sameLeagueOnly}
+      sharedFriendsOnly={sharedFriendsOnly}
+      onToggleLevel={onToggleLevel}
+      onToggleSameLeague={onToggleSameLeague}
+      onToggleSharedFriends={onToggleSharedFriends}
+    />
+  );
+
   const renderItem = useCallback<ListRenderItem<DiscoverPlayer>>(
     ({ item }) => (
       <PlayerRow
@@ -148,6 +287,7 @@ export default function FindPlayersBody({
       return (
         <>
           <PlayersSearchBar value="" onChangeText={() => undefined} />
+          {filterChips}
           <FindPlayersSkeleton count={6} />
         </>
       );
@@ -161,6 +301,7 @@ export default function FindPlayersBody({
       return (
         <>
           <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} />
+          {filterChips}
           <PlayersEmptyState isSearching={searchQuery.trim() !== ''} />
         </>
       );
@@ -169,6 +310,7 @@ export default function FindPlayersBody({
     return (
       <>
         <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} />
+        {filterChips}
         <FlatList<DiscoverPlayer>
           testID="find-players-list"
           data={players as DiscoverPlayer[]}
