@@ -6,6 +6,7 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import Avatar from '@/components/ui/Avatar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { pluralize } from '@/lib/formatters';
 
@@ -21,15 +22,6 @@ export interface DiscoverPlayer {
   readonly last_active_label: string | null;
   /** 'none' | 'pending' | 'friend' */
   readonly friend_status: 'none' | 'pending' | 'friend';
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((w) => w[0] ?? '')
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 }
 
 interface PlayerRowProps {
@@ -66,12 +58,13 @@ export default function PlayerRow({
       accessibilityLabel={`View profile of ${player.full_name}`}
       className="flex-row items-center gap-3 px-4 py-[14px] bg-surface border-b border-divider active:opacity-70"
     >
-      {/* Avatar */}
-      <View className="w-12 h-12 rounded-full bg-elevated items-center justify-center flex-shrink-0">
-        <Text className="text-muted font-bold text-base">
-          {getInitials(player.full_name)}
-        </Text>
-      </View>
+      <Avatar
+        imageUrl={player.avatar}
+        name={player.full_name}
+        size="md"
+        colorSeed={player.player_id}
+        accessible={false}
+      />
 
       {/* Info */}
       <View className="flex-1 min-w-0">
