@@ -84,7 +84,7 @@ describe('LeagueCard', () => {
           onPress={jest.fn()}
         />,
       );
-      expect(queryByText('No games yet this season')).toBeNull();
+      expect(queryByText("You haven't played this season yet")).toBeNull();
     });
   });
 
@@ -99,7 +99,7 @@ describe('LeagueCard', () => {
           onPress={jest.fn()}
         />,
       );
-      expect(getByText('No games yet this season')).toBeTruthy();
+      expect(getByText("You haven't played this season yet")).toBeTruthy();
       // The misleading all-zero stat blocks must NOT render.
       expect(queryByText('0-0')).toBeNull();
       expect(queryByText('0%')).toBeNull();

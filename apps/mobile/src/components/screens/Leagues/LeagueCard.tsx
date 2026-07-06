@@ -115,8 +115,11 @@ export default function LeagueCard({
           testID={`league-card-${league.id}-no-season-activity`}
           className="mt-xs mb-xs"
         >
+          {/* User-scoped copy: games_played counts the VIEWER's games in the
+              current season (backend get_user_leagues) — the league itself may
+              have plenty of activity from other players (QA S3). */}
           <Text className="text-[13px] text-muted">
-            No games yet this season
+            You haven&apos;t played this season yet
           </Text>
           <Text className="text-[12px] font-medium text-brand-teal mt-[2px]">
             View league history ›
