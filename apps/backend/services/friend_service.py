@@ -9,17 +9,19 @@ from typing import List, Dict, Set, Optional
 
 from backend.utils.slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func, and_, or_, case, literal
+from sqlalchemy import select, delete, func, and_, or_, case, literal, union_all
 from sqlalchemy.orm import aliased
 from backend.database.models import (
     Friend,
     FriendRequest,
     FriendRequestStatus,
+    Match,
     Player,
     PlayerGlobalStats,
     Location,
     League,
     LeagueMember,
+    Session as GameSession,
     SessionParticipant,
     NotificationType,
 )
@@ -445,6 +447,9 @@ async def get_friends(
     # One shared-league name per friend (batched; misses mean none shared)
     shared_leagues = await batch_shared_league_names(session, player_id, friend_ids)
 
+    # Latest match activity per friend (batched; misses mean no matches)
+    last_actives = await batch_last_active(session, friend_ids)
+
     # Build response
     items = []
     for fid in friend_ids:
@@ -460,6 +465,9 @@ async def get_friends(
                 "location_name": p.location_name,
                 "level": p.level,
                 "shared_league_name": shared_leagues.get(fid),
+                "last_active": (
+                    last_actives[fid].isoformat() if fid in last_actives else None
+                ),
             }
         )
 
@@ -550,6 +558,46 @@ async def get_mutual_friend_count(
     my_friends = await get_friend_ids(session, player_id)
     their_friends = await get_friend_ids(session, other_player_id)
     return len(my_friends & their_friends)
+
+
+async def batch_last_active(
+    session: AsyncSession, target_player_ids: List[int]
+) -> Dict:
+    """
+    Resolve each player's most recent match activity in a single query.
+
+    "Last active" is defined as the ``created_at`` of the newest session
+    containing a match the player appears in (any of the four seats) —
+    derived from played games, deliberately not from app logins.
+
+    Args:
+        session: Database session
+        target_player_ids: Player IDs to resolve activity for
+
+    Returns:
+        Dict mapping player id -> datetime of latest match session (players
+        with no recorded matches are absent)
+    """
+    if not target_player_ids:
+        return {}
+
+    seat_cols = [
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+    ]
+    seat_selects = [
+        select(col.label("pid"), GameSession.created_at.label("at"))
+        .join(GameSession, Match.session_id == GameSession.id)
+        .where(col.in_(target_player_ids))
+        for col in seat_cols
+    ]
+    seats = union_all(*seat_selects).subquery()
+    rows = await session.execute(
+        select(seats.c.pid, func.max(seats.c.at)).group_by(seats.c.pid)
+    )
+    return {row[0]: row[1] for row in rows.all()}
 
 
 async def batch_shared_league_names(

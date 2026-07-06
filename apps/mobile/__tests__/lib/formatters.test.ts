@@ -14,6 +14,7 @@ import {
   formatDate,
   formatDistance,
   parseSessionDate,
+  formatActivityLabel,
 } from '@/lib/formatters';
 
 // ---------------------------------------------------------------------------
@@ -295,5 +296,41 @@ describe('formatDistance', () => {
 
   it('formats zero distance', () => {
     expect(formatDistance(0)).toBe('0.0 mi');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatActivityLabel
+// ---------------------------------------------------------------------------
+
+describe('formatActivityLabel', () => {
+  const HOUR = 60 * 60 * 1000;
+  const DAY = 24 * HOUR;
+
+  it('returns null for null/undefined/invalid input', () => {
+    expect(formatActivityLabel(null)).toBeNull();
+    expect(formatActivityLabel(undefined)).toBeNull();
+    expect(formatActivityLabel('not-a-date')).toBeNull();
+  });
+
+  it('labels activity within 24h as "Active today" and recent', () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * HOUR).toISOString();
+    expect(formatActivityLabel(twoHoursAgo)).toEqual({
+      label: 'Active today',
+      isRecent: true,
+    });
+  });
+
+  it('labels older activity in days, not recent', () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * DAY).toISOString();
+    expect(formatActivityLabel(threeDaysAgo)).toEqual({
+      label: '3d ago',
+      isRecent: false,
+    });
+  });
+
+  it('hides stale activity (30+ days)', () => {
+    const longAgo = new Date(Date.now() - 45 * DAY).toISOString();
+    expect(formatActivityLabel(longAgo)).toBeNull();
   });
 });

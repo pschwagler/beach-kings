@@ -1012,6 +1012,7 @@ class FriendListItem(BaseModel):
     location_name: Optional[str] = None
     level: Optional[str] = None
     shared_league_name: Optional[str] = None
+    last_active: Optional[str] = None
 
 
 class FriendListResponse(BaseModel):

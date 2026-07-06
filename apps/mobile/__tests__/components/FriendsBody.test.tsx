@@ -359,6 +359,37 @@ describe('FriendsBody — sections', () => {
     ).toBeTruthy();
   });
 
+  it('shows "Active today" on a friend active within 24h', () => {
+    render(
+      <FriendsBody
+        {...makeProps({
+          friends: [{ ...FRIEND, last_active: new Date().toISOString() }],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Active today')).toBeTruthy();
+  });
+
+  it('shows "Nd ago" for older activity and nothing when absent', () => {
+    const threeDaysAgo = new Date(
+      Date.now() - 3 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    render(
+      <FriendsBody
+        {...makeProps({
+          friends: [
+            { ...FRIEND, last_active: threeDaysAgo },
+            FRIEND_2, // no last_active — no label
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('3d ago')).toBeTruthy();
+    expect(screen.queryByText('Active today')).toBeNull();
+  });
+
   it('omits sections that have no items', () => {
     render(
       <FriendsBody {...makeProps({ friendRequests: [], suggestions: [] })} />,

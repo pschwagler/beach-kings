@@ -1,10 +1,11 @@
 /**
  * FriendRow — a single accepted-friend row in the Social hub's Friends tab.
  *
- * Renders the friend's avatar, name with an inline level badge, and a location
- * meta line. Tapping opens the player's profile. The wireframe's "Active today"
- * activity label and league name are backend-only fields we don't have yet, so
- * they're omitted gracefully (tracked in the parity plan's Backlog epic).
+ * Renders the friend's avatar, name with an inline level badge, a
+ * "league · city" meta line (league only when shared with the viewer), and a
+ * right-aligned activity label ("Active today" in the success accent, "Nd ago"
+ * muted; hidden entirely when the friend has no recent matches). Tapping opens
+ * the player's profile.
  *
  * Wireframe ref: friends.html — .friend-item
  */
@@ -13,6 +14,7 @@ import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight } from '@/utils/haptics';
+import { formatActivityLabel } from '@/lib/formatters';
 import type { Friend } from '@beach-kings/shared';
 
 interface FriendRowProps {
@@ -28,6 +30,8 @@ export default function FriendRow({
     void hapticLight();
     onPress(friend.player_id);
   }, [onPress, friend.player_id]);
+
+  const activity = formatActivityLabel(friend.last_active);
 
   return (
     <Pressable
@@ -71,6 +75,17 @@ export default function FriendRow({
           </Text>
         )}
       </View>
+      {activity != null && (
+        <Text
+          className={
+            activity.isRecent
+              ? 'text-[11px] font-semibold text-success shrink-0'
+              : 'text-[11px] text-muted shrink-0'
+          }
+        >
+          {activity.label}
+        </Text>
+      )}
     </Pressable>
   );
 }

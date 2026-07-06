@@ -300,6 +300,57 @@ async def test_get_friends_includes_shared_league(db_session, players):
 
 
 @pytest.mark.asyncio
+async def test_get_friends_includes_last_active(db_session, players):
+    """Friends list rows carry the created_at of the friend's latest match session."""
+    from backend.database.models import Match, Session as GameSession
+
+    req = await friend_service.send_friend_request(
+        db_session, players["alice"], players["bob"]
+    )
+    await friend_service.accept_friend_request(db_session, req["id"], players["bob"])
+    req2 = await friend_service.send_friend_request(
+        db_session, players["alice"], players["carol"]
+    )
+    await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
+
+    game_session = GameSession(date="7/4/2026", name="Holiday Games")
+    db_session.add(game_session)
+    await db_session.flush()
+    match = Match(
+        session_id=game_session.id,
+        team1_player1_id=players["bob"],
+        team1_player2_id=players["dave"],
+        team2_player1_id=players["alice"],
+        team2_player2_id=players["carol"],
+        team1_score=21,
+        team2_score=15,
+        winner=1,
+    )
+    db_session.add(match)
+    await db_session.flush()
+    await db_session.refresh(game_session)
+
+    result = await friend_service.get_friends(db_session, players["alice"])
+    by_player = {item["player_id"]: item for item in result["items"]}
+
+    # Bob and Carol both played in that session.
+    assert by_player[players["bob"]]["last_active"] == game_session.created_at.isoformat()
+    assert by_player[players["carol"]]["last_active"] == game_session.created_at.isoformat()
+
+
+@pytest.mark.asyncio
+async def test_get_friends_last_active_none_without_matches(db_session, players):
+    """Friends with no recorded matches have last_active None."""
+    req = await friend_service.send_friend_request(
+        db_session, players["alice"], players["bob"]
+    )
+    await friend_service.accept_friend_request(db_session, req["id"], players["bob"])
+
+    result = await friend_service.get_friends(db_session, players["alice"])
+    assert result["items"][0]["last_active"] is None
+
+
+@pytest.mark.asyncio
 async def test_shared_league_name_is_deterministic(db_session, players):
     """With several shared leagues, the alphabetically first name is used."""
     league_b = await _create_league(db_session, "Beta League")

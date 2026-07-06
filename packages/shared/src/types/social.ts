@@ -36,6 +36,11 @@ export interface Friend {
   level: SkillLevel | null;
   /** A league shared with the caller, or null when none is shared. */
   shared_league_name?: string | null;
+  /**
+   * ISO timestamp of the friend's most recent match session (derived from
+   * played games), or null when they have no recorded matches.
+   */
+  last_active?: string | null;
 }
 
 export interface FriendListResponse {

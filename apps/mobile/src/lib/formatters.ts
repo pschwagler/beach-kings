@@ -60,6 +60,35 @@ export function formatDate(
   return `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`;
 }
 
+/** Result of {@link formatActivityLabel}: display text + recency accent flag. */
+export interface ActivityLabel {
+  readonly label: string;
+  /** True for same-day activity — rendered with the success accent color. */
+  readonly isRecent: boolean;
+}
+
+/**
+ * Wireframe-style activity label from a last-active timestamp
+ * (friends.html: "Active today" in green, "2d ago" muted).
+ *
+ * - within 24h → "Active today" (recent)
+ * - 1–29 days  → "Nd ago"
+ * - older / missing / invalid → null (row shows no activity label)
+ */
+export function formatActivityLabel(
+  lastActive: string | null | undefined,
+): ActivityLabel | null {
+  if (lastActive == null) return null;
+  const d = new Date(lastActive);
+  if (isNaN(d.getTime())) return null;
+
+  const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  if (diffDays < 0) return null;
+  if (diffDays === 0) return { label: 'Active today', isRecent: true };
+  if (diffDays < 30) return { label: `${diffDays}d ago`, isRecent: false };
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Score / record formatting
 // ---------------------------------------------------------------------------
