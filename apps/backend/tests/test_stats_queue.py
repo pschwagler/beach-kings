@@ -254,9 +254,7 @@ async def test_get_job_status_nonexistent(db_session, queue):
 async def test_deduplication_pending_job(db_session, queue):
     """Test that enqueueing when a pending job exists returns that job."""
     # Create a pending job manually
-    job = StatsCalculationJob(
-        calc_type="global", status=StatsCalculationJobStatus.PENDING
-    )
+    job = StatsCalculationJob(calc_type="global", status=StatsCalculationJobStatus.PENDING)
     db_session.add(job)
     await db_session.commit()
     await db_session.refresh(job)
@@ -715,9 +713,7 @@ async def test_integration_with_real_calculation_functions(db_session):
 
 
 @pytest.mark.asyncio
-async def test_integration_enqueue_and_execute_global_calculation(
-    db_session, make_queue
-):
+async def test_integration_enqueue_and_execute_global_calculation(db_session, make_queue):
     """Test full integration: enqueue a job and verify it can be executed."""
     from backend.services.data_service import (
         calculate_global_stats_async,
@@ -788,9 +784,7 @@ async def test_register_stats_queue_callbacks_function(db_session):
         # that's fine - we just want to ensure it's not a callback registration error
     except RuntimeError as e:
         if "callbacks not registered" in str(e):
-            pytest.fail(
-                "Callbacks were not registered by register_stats_queue_callbacks()"
-            )
+            pytest.fail("Callbacks were not registered by register_stats_queue_callbacks()")
     except Exception:
         # Other exceptions are fine - we're just checking callback registration
         pass

@@ -465,9 +465,7 @@ async def get_friends(
                 "location_name": p.location_name,
                 "level": p.level,
                 "shared_league_name": shared_leagues.get(fid),
-                "last_active": (
-                    last_actives[fid].isoformat() if fid in last_actives else None
-                ),
+                "last_active": (last_actives[fid].isoformat() if fid in last_actives else None),
             }
         )
 
@@ -506,9 +504,7 @@ async def get_friend_requests(
     result = await session.execute(query)
     requests = result.scalars().all()
 
-    return await _format_friend_requests_batch(
-        session, requests, viewer_player_id=player_id
-    )
+    return await _format_friend_requests_batch(session, requests, viewer_player_id=player_id)
 
 
 async def get_mutual_friends(
@@ -560,9 +556,7 @@ async def get_mutual_friend_count(
     return len(my_friends & their_friends)
 
 
-async def batch_last_active(
-    session: AsyncSession, target_player_ids: List[int]
-) -> Dict:
+async def batch_last_active(session: AsyncSession, target_player_ids: List[int]) -> Dict:
     """
     Resolve each player's most recent match activity in a single query.
 
@@ -594,9 +588,7 @@ async def batch_last_active(
         for col in seat_cols
     ]
     seats = union_all(*seat_selects).subquery()
-    rows = await session.execute(
-        select(seats.c.pid, func.max(seats.c.at)).group_by(seats.c.pid)
-    )
+    rows = await session.execute(select(seats.c.pid, func.max(seats.c.at)).group_by(seats.c.pid))
     return {row[0]: row[1] for row in rows.all()}
 
 
@@ -621,9 +613,7 @@ async def batch_shared_league_names(
     if not target_player_ids:
         return {}
 
-    my_league_ids = select(LeagueMember.league_id).where(
-        LeagueMember.player_id == player_id
-    )
+    my_league_ids = select(LeagueMember.league_id).where(LeagueMember.player_id == player_id)
     OtherMember = aliased(LeagueMember)
     rows = await session.execute(
         select(OtherMember.player_id, League.name)

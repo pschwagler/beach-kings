@@ -284,13 +284,9 @@ async def test_get_friends_includes_shared_league(db_session, players):
     # Carol is in a league Alice is NOT in — no shared league.
     await _add_league_member(db_session, other_league, players["carol"])
 
-    req1 = await friend_service.send_friend_request(
-        db_session, players["alice"], players["bob"]
-    )
+    req1 = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
     await friend_service.accept_friend_request(db_session, req1["id"], players["bob"])
-    req2 = await friend_service.send_friend_request(
-        db_session, players["alice"], players["carol"]
-    )
+    req2 = await friend_service.send_friend_request(db_session, players["alice"], players["carol"])
     await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
 
     result = await friend_service.get_friends(db_session, players["alice"])
@@ -304,13 +300,9 @@ async def test_get_friends_includes_last_active(db_session, players):
     """Friends list rows carry the created_at of the friend's latest match session."""
     from backend.database.models import Match, Session as GameSession
 
-    req = await friend_service.send_friend_request(
-        db_session, players["alice"], players["bob"]
-    )
+    req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
     await friend_service.accept_friend_request(db_session, req["id"], players["bob"])
-    req2 = await friend_service.send_friend_request(
-        db_session, players["alice"], players["carol"]
-    )
+    req2 = await friend_service.send_friend_request(db_session, players["alice"], players["carol"])
     await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
 
     game_session = GameSession(date="7/4/2026", name="Holiday Games")
@@ -341,9 +333,7 @@ async def test_get_friends_includes_last_active(db_session, players):
 @pytest.mark.asyncio
 async def test_get_friends_last_active_none_without_matches(db_session, players):
     """Friends with no recorded matches have last_active None."""
-    req = await friend_service.send_friend_request(
-        db_session, players["alice"], players["bob"]
-    )
+    req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
     await friend_service.accept_friend_request(db_session, req["id"], players["bob"])
 
     result = await friend_service.get_friends(db_session, players["alice"])
@@ -359,9 +349,7 @@ async def test_shared_league_name_is_deterministic(db_session, players):
         await _add_league_member(db_session, lid, players["alice"])
         await _add_league_member(db_session, lid, players["bob"])
 
-    req = await friend_service.send_friend_request(
-        db_session, players["alice"], players["bob"]
-    )
+    req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
     await friend_service.accept_friend_request(db_session, req["id"], players["bob"])
 
     result = await friend_service.get_friends(db_session, players["alice"])
@@ -390,13 +378,9 @@ async def test_get_friend_requests_includes_shared_league(db_session, players):
 async def test_get_friend_requests_includes_mutual_counts(db_session, players):
     """Incoming requests carry a batched mutual-friend count vs the viewer."""
     # Alice–Carol and Bob–Carol are friends → Carol is mutual between Alice and Bob.
-    req1 = await friend_service.send_friend_request(
-        db_session, players["alice"], players["carol"]
-    )
+    req1 = await friend_service.send_friend_request(db_session, players["alice"], players["carol"])
     await friend_service.accept_friend_request(db_session, req1["id"], players["carol"])
-    req2 = await friend_service.send_friend_request(
-        db_session, players["bob"], players["carol"]
-    )
+    req2 = await friend_service.send_friend_request(db_session, players["bob"], players["carol"])
     await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
 
     # Bob (1 mutual) and Dave (0 mutuals) send requests to Alice.
@@ -415,13 +399,9 @@ async def test_get_friend_requests_includes_mutual_counts(db_session, players):
 async def test_get_friend_requests_outgoing_counts_vs_receiver(db_session, players):
     """Outgoing requests count mutuals against the receiver (the counterpart)."""
     # Alice–Carol and Bob–Carol are friends.
-    req1 = await friend_service.send_friend_request(
-        db_session, players["alice"], players["carol"]
-    )
+    req1 = await friend_service.send_friend_request(db_session, players["alice"], players["carol"])
     await friend_service.accept_friend_request(db_session, req1["id"], players["carol"])
-    req2 = await friend_service.send_friend_request(
-        db_session, players["bob"], players["carol"]
-    )
+    req2 = await friend_service.send_friend_request(db_session, players["bob"], players["carol"])
     await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
 
     await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
@@ -999,9 +979,7 @@ async def test_discover_players_has_mutuals_friendless_caller(db_session, player
     db_session.add(stats)
     await db_session.flush()
 
-    result = await friend_service.discover_players(
-        db_session, players["alice"], has_mutuals=True
-    )
+    result = await friend_service.discover_players(db_session, players["alice"], has_mutuals=True)
     assert result["items"] == []
     assert result["total_count"] == 0
 
