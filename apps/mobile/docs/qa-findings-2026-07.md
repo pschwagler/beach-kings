@@ -72,11 +72,10 @@ Tags:
 - **Root cause:** unit mismatch between the two backend paths feeding `partners`/`opponents`: the `days`-windowed path computes `wins/games*100` (percent), but the lifetime/aggregates path passed the stored **0–1** `win_rate` column through raw. Same bug class as the already-guarded `overall` block (`test_league_overall_win_rate_units`) — the relations path was missed.
 - **Fix:** ✅ Shipped — `_partners_from_aggregates` / `_opponents_from_aggregates` now convert `win_rate * 100`; regression test `test_relation_win_rate_units_from_aggregates` seeds canonical 0–1 rows and asserts 83.3 / 40.0. Verified on-device after backend rebuild (71.4%, 57.1%, 100% render correctly).
 
-### I2. League-game player search doesn't filter (Pickup does)  ⚠ observed live, no static asymmetry
+### I2. League-game player search doesn't filter (Pickup does)  ✅ RESOLVED — stale bundle; coverage gap closed (2026-07-05)
 - **Severity:** High (search non-functional in league flow) · **Repro (live):** League create-session search doesn't filter; Pickup identical UI does.
-- **Static check:** Both flows share one component/hook (`RosterPicker.tsx` + `useScoreGameScreen.ts`; title switches on `leagueId != null` at `ScoreGameScreen.tsx:67`). Filter at `useScoreGameScreen.ts:657-683`: trusts backend `searchResults` when non-empty, else local `.includes(q)`. Backend `player_data.py:574-766` applies `name_match` uniformly regardless of `league_id`/`session_id`.
-- **Leading hypothesis:** In league mode the frontend "trusts" backend `searchResults`; if that branch returns the full candidate list (or search isn't triggered) the list looks unfiltered, whereas pickup falls through to the working local `.includes`. Post-debounce backend path is **untested** (`useScoreGameScreen.test.tsx:733-743` only hits the local pre-debounce path).
-- **Fix:** Investigate — add a league-context test past the 250ms debounce + reproduce with real data. Could be quick once the divergent branch is confirmed.
+- **Re-verified on a cold-started fresh bundle:** league create-session search filters correctly — "colan" → single matching row, nonsense query → "No players match your search." Does NOT reproduce; unlike C1, this one *was* the stale bundle.
+- **Coverage gap closed:** the post-debounce backend branch was untested. New case in `useScoreGameScreen.test.tsx` ("league search past the debounce…") advances past the 250ms debounce with fake timers and asserts `searchPlayers` is called scoped to the league and that a backend-only player replaces the local stopgap filter — the decisive branch distinction the old test missed.
 
 ### I3. League Info tab shows every member as "Member" + Remove button  ⚠ static logic looks correct
 - **Severity:** Medium (authz/role) · **Repro:** League → Info → all members "Member" + Remove each; no Admin/Owner.

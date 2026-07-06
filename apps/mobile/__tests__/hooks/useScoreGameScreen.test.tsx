@@ -742,6 +742,52 @@ describe('useScoreGameScreen — roster source', () => {
     expect(result.current.filteredRoster[0].display_name).toBe('Chris Gulla');
   });
 
+  it('league search past the debounce swaps to backend results scoped to the league (QA I2)', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    // Backend knows a player the local roster does not — the only way the
+    // picker can show them is via the post-debounce searchPlayers branch.
+    mockSearchPlayers.mockImplementation((q: string) => {
+      if (q === 'gulla') {
+        return Promise.resolve({
+          items: [
+            { id: 60, first_name: 'Gulliver', last_name: 'Backend', full_name: 'Gulliver Backend', nickname: null, initials: 'GB', tags: [], score: 200, in_session: false },
+          ],
+        });
+      }
+      return Promise.resolve(q === '' ? MOCK_LEAGUE_DEFAULT_ROSTER : { items: [] });
+    });
+
+    jest.useFakeTimers();
+    try {
+      act(() => {
+        result.current.setSearch('gulla');
+      });
+
+      // Debounce window: the local stopgap filter of the pre-loaded roster.
+      expect(
+        result.current.filteredRoster.map((p) => p.display_name),
+      ).toEqual(['Chris Gulla']);
+
+      // Past the 250ms debounce the backend query fires, scoped to the league.
+      await act(async () => {
+        jest.advanceTimersByTime(250);
+      });
+      expect(mockSearchPlayers).toHaveBeenCalledWith(
+        'gulla',
+        expect.objectContaining({ leagueId: 3 }),
+      );
+
+      // Backend results replace the local filter entirely.
+      expect(
+        result.current.filteredRoster.map((p) => p.display_name),
+      ).toEqual(['Gulliver Backend']);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('shows full roster (caller seated at the head) when search is empty', async () => {
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
