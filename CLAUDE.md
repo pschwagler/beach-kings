@@ -54,12 +54,14 @@ Always use headless mode when using agent-browser, playwright, chrome devtools i
 
 `agent-device` is the CLI tool for interacting with the iOS simulator. Key usage patterns:
 
+When the user asks for "e2e verify", "device-browser", "use device-browser", or "use agent-device", they mean interactive device-level verification with `agent-device` on the simulator, not just Maestro CLI, Playwright, or browser-only checks. Use this path for mobile E2E verification whenever available; Maestro remains the scripted regression suite.
+
 **Session management — always check first:**
 ```bash
 agent-device session list          # list active sessions
 agent-device --session bk <cmd>   # reuse existing session "bk" (bound to iPhone 16e)
 ```
-The session named `bk` is pre-configured for this project. Always pass `--session bk` to every command — omitting it creates a new session and causes `INVALID_ARGS` conflicts.
+Prefer an existing active Beach League session from `agent-device session list`. The session named `bk` may be pre-configured for this project, but other active sessions such as feature-specific QA sessions can exist. Always pass `--session <name>` to every command — omitting it creates a new session and causes `INVALID_ARGS` conflicts. Do not run overlapping interactions against a session another agent is actively using; wait, coordinate, or choose a separate simulator/session.
 
 **App identifiers:**
 - App display name: `Beach League`
