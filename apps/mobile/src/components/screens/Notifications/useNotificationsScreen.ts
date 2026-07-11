@@ -18,6 +18,27 @@ import type { Notification, NotificationType } from "@beach-kings/shared";
 
 export type NotificationFilter = "all" | "friends" | "games" | "leagues";
 
+function getFriendRequestId(notification: Notification): number | null {
+  const value =
+    notification.data?.friend_request_id ?? notification.data?.request_id;
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim().length > 0) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return null;
+}
+
+function isAlreadyHandledFriendRequestError(error: unknown): boolean {
+  const detail =
+    (error as { response?: { data?: { detail?: unknown } } })?.response?.data
+      ?.detail ?? (error instanceof Error ? error.message : null);
+  return (
+    typeof detail === "string" &&
+    /no longer pending|not found|already friends/i.test(detail)
+  );
+}
+
 /** Maps filter labels to the NotificationTypes they include. */
 const FILTER_TYPES: Record<
   NotificationFilter,
@@ -149,7 +170,7 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
   const onAcceptFriendRequest = useCallback(
     (notification: Notification) => {
       void hapticMedium();
-      const requestId = notification.data?.request_id as number | undefined;
+      const requestId = getFriendRequestId(notification);
       if (requestId == null) return;
       // Optimistic: mark notification as read
       const prev = rawNotifications ?? [];
@@ -160,8 +181,10 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
             : n,
         ),
       );
-      api.acceptFriendRequest(requestId).catch(() => {
-        mutate(prev);
+      api.acceptFriendRequest(requestId).catch((error) => {
+        if (!isAlreadyHandledFriendRequestError(error)) {
+          mutate(prev);
+        }
       });
     },
     [rawNotifications, mutate],
@@ -170,7 +193,7 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
   const onDeclineFriendRequest = useCallback(
     (notification: Notification) => {
       void hapticMedium();
-      const requestId = notification.data?.request_id as number | undefined;
+      const requestId = getFriendRequestId(notification);
       if (requestId == null) return;
       const prev = rawNotifications ?? [];
       mutate(
@@ -180,8 +203,10 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
             : n,
         ),
       );
-      api.declineFriendRequest(requestId).catch(() => {
-        mutate(prev);
+      api.declineFriendRequest(requestId).catch((error) => {
+        if (!isAlreadyHandledFriendRequestError(error)) {
+          mutate(prev);
+        }
       });
     },
     [rawNotifications, mutate],

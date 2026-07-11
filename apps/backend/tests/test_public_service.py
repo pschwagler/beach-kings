@@ -13,6 +13,7 @@ from backend.database.models import (
     LeagueMember,
     Location,
     Match,
+    Friend,
     Player,
     PlayerGlobalStats,
     PlayerSeasonStats,
@@ -782,6 +783,34 @@ async def test_get_public_player_zero_games(db_session, test_player):
 
     result = await public_service.get_public_player(db_session, test_player.id)
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_zero_games_visible_to_friend(db_session, test_player):
+    """Accepted friends can open a direct profile before the player has games."""
+    viewer_user = User(phone_number="+15559990101", password_hash="hash", is_verified=True)
+    db_session.add(viewer_user)
+    await db_session.flush()
+    viewer_player = Player(full_name="Friend Viewer", user_id=viewer_user.id)
+    db_session.add(viewer_player)
+    await db_session.flush()
+
+    p1, p2 = sorted([viewer_player.id, test_player.id])
+    db_session.add(Friend(player1_id=p1, player2_id=p2, created_by=viewer_player.id))
+    db_session.add(
+        PlayerGlobalStats(
+            player_id=test_player.id, total_games=0, total_wins=0, current_rating=1200.0
+        )
+    )
+    await db_session.commit()
+
+    result = await public_service.get_public_player(
+        db_session, test_player.id, viewer_user={"id": viewer_user.id}
+    )
+
+    assert result is not None
+    assert result["id"] == test_player.id
+    assert result["stats"]["total_games"] == 0
 
 
 @pytest.mark.asyncio

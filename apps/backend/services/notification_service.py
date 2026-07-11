@@ -363,6 +363,62 @@ async def mark_as_read(session: AsyncSession, notification_id: int, user_id: int
     return notification_to_dict(notification)
 
 
+async def mark_friend_request_notifications_handled(
+    session: AsyncSession,
+    *,
+    receiver_user_id: int,
+    request_id: int,
+    sender_player_id: int | None = None,
+) -> List[Dict]:
+    """Mark actionable friend-request notifications read after the request resolves."""
+    result = await session.execute(
+        select(Notification).where(
+            and_(
+                Notification.user_id == receiver_user_id,
+                Notification.type == NotificationType.FRIEND_REQUEST.value,
+                Notification.is_read.is_(False),
+            )
+        )
+    )
+    now = utcnow()
+    updated: List[Dict] = []
+    for notification in result.scalars().all():
+        try:
+            data = json.loads(notification.data) if notification.data else {}
+        except json.JSONDecodeError:
+            data = {}
+        notification_request_id = data.get("friend_request_id", data.get("request_id"))
+        notification_sender_id = data.get("sender_player_id")
+        matches_request = str(notification_request_id) == str(request_id)
+        matches_sender = (
+            sender_player_id is not None
+            and str(notification_sender_id) == str(sender_player_id)
+        )
+        if not matches_request and not matches_sender:
+            continue
+        notification.is_read = True
+        notification.read_at = now
+        await session.flush()
+        await session.refresh(notification)
+        notification_dict = notification_to_dict(notification)
+        updated.append(notification_dict)
+        try:
+            from backend.services.websocket_manager import get_websocket_manager
+
+            manager = get_websocket_manager()
+            await manager.send_to_user(
+                receiver_user_id,
+                {"type": "notification_updated", "payload": notification_dict},
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to broadcast friend request notification update for user %s: %s",
+                receiver_user_id,
+                e,
+            )
+    return updated
+
+
 async def mark_all_as_read(session: AsyncSession, user_id: int) -> int:
     """
     Mark all user notifications as read.

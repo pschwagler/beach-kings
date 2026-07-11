@@ -10,7 +10,7 @@ import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import type { League } from '@beach-kings/shared';
 import { TrophyIcon, ChevronRightIcon } from '@/components/ui/icons';
-import { formatRecord, formatWinRate, formatOrdinal } from '@/lib/formatters';
+import { formatRecord, formatWinRate, formatOrdinal, pluralize } from '@/lib/formatters';
 
 interface LeagueCardProps {
   readonly league: League;
@@ -48,6 +48,7 @@ export default function LeagueCard({
 }: LeagueCardProps): React.ReactNode {
   const memberCount = league.member_count ?? 0;
   const gamesPlayed = league.games_played ?? userWins + userLosses;
+  const leagueGamesPlayed = league.league_games_played ?? 0;
   // The card's stats are scoped to the league's *current* season (see backend
   // get_user_leagues). An established member can have zero activity in a brand-
   // new active season, so guard against showing a misleading 0 / 0-0 / 0%.
@@ -121,6 +122,11 @@ export default function LeagueCard({
           <Text className="text-[13px] text-muted">
             You haven&apos;t played this season yet
           </Text>
+          {leagueGamesPlayed > 0 && (
+            <Text className="text-[12px] text-tertiary mt-[2px]">
+              League has {pluralize(leagueGamesPlayed, 'game')} this season
+            </Text>
+          )}
           <Text className="text-[12px] font-medium text-brand-teal mt-[2px]">
             View league history ›
           </Text>

@@ -192,6 +192,22 @@ describe('PlayerProfileScreen — error state', () => {
     });
   });
 
+  it('renders not-available copy without retry when the public profile 404s', async () => {
+    const notFoundError = Object.assign(new Error('Request failed with status code 404'), {
+      response: { status: 404 },
+    });
+    mockGetPublicPlayer.mockRejectedValue(notFoundError);
+
+    render(<PlayerProfileRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Profile not available')).toBeTruthy();
+      expect(screen.getByText("This player's profile isn't available yet.")).toBeTruthy();
+    });
+    expect(screen.queryByTestId('player-profile-retry-btn')).toBeNull();
+    expect(screen.queryByText('Check your connection and try again.')).toBeNull();
+  });
+
   it('calls api again when retry is pressed', async () => {
     mockGetPublicPlayer.mockRejectedValueOnce(new Error('fail'));
     mockGetPublicPlayer.mockResolvedValue(MOCK_PLAYER);

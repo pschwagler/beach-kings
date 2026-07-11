@@ -4,6 +4,7 @@
  * level is treated as absent (no dangling separator, no empty badge).
  */
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import PlayerProfileHeader from '@/components/screens/PlayerProfile/PlayerProfileHeader';
@@ -19,6 +20,14 @@ const player = (overrides: object) =>
   ({ id: 1, name: 'Test Player', city: 'New York', state: 'NY', ...overrides } as never);
 
 describe('PlayerProfileHeader meta row', () => {
+  it('renders the shared seeded avatar for the player identity', () => {
+    render(<PlayerProfileHeader player={player({ level: 'Open' })} {...baseProps} />);
+    expect(screen.getByText('TP')).toBeTruthy();
+    expect(
+      StyleSheet.flatten(screen.getByLabelText('Test Player').props.style).backgroundColor,
+    ).toBeDefined();
+  });
+
   it('renders a middot separator between location and level (not "--")', () => {
     render(<PlayerProfileHeader player={player({ level: 'Open' })} {...baseProps} />);
     expect(screen.getByText('New York, NY')).toBeTruthy();

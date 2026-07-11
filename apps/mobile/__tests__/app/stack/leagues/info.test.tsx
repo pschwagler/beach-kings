@@ -300,6 +300,16 @@ describe('LeagueInfoTab — members', () => {
     });
   });
 
+  it('uses the fetched current member role over a stale admin prop', async () => {
+    mockGetCurrentUserPlayer.mockResolvedValue({ id: 11 });
+
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('member-row-11')).toBeTruthy());
+    expect(screen.queryByTestId('remove-member-btn-10')).toBeNull();
+    expect(screen.queryByTestId('remove-member-btn-11')).toBeNull();
+  });
+
   it('self-remove button does not call api when pressed', async () => {
     // currentPlayerId = 10 — pressing the self-remove button should be a no-op
     render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });

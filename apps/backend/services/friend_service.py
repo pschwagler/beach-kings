@@ -264,7 +264,16 @@ async def accept_friend_request(
     receiver_row = player_map.get(receiver_player_id)
     sender_row = player_map.get(friend_request.sender_player_id)
     receiver_name = receiver_row.full_name if receiver_row else "Someone"
+    receiver_user_id = receiver_row.user_id if receiver_row else None
     sender_user_id = sender_row.user_id if sender_row else None
+
+    if receiver_user_id:
+        await notification_service.mark_friend_request_notifications_handled(
+            session,
+            receiver_user_id=receiver_user_id,
+            request_id=request_id,
+            sender_player_id=friend_request.sender_player_id,
+        )
 
     # Notify sender that request was accepted
     if sender_user_id:
@@ -311,8 +320,21 @@ async def decline_friend_request(
     if friend_request.status != FriendRequestStatus.PENDING.value:
         raise ValueError("Friend request is no longer pending")
 
+    receiver_result = await session.execute(
+        select(Player.user_id).where(Player.id == receiver_player_id)
+    )
+    receiver_user_id = receiver_result.scalar_one_or_none()
+
     await session.delete(friend_request)
     await session.flush()
+
+    if receiver_user_id:
+        await notification_service.mark_friend_request_notifications_handled(
+            session,
+            receiver_user_id=receiver_user_id,
+            request_id=request_id,
+            sender_player_id=friend_request.sender_player_id,
+        )
 
 
 async def cancel_friend_request(

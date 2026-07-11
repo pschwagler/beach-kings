@@ -37,6 +37,7 @@ const ACTIVE_LEAGUE = {
 const EMPTY_SEASON_LEAGUE = {
   ...BASE_LEAGUE,
   games_played: 0,
+  league_games_played: 6,
   standings: [],
 } as unknown as League;
 
@@ -116,6 +117,19 @@ describe('LeagueCard', () => {
         />,
       );
       expect(getByText(/view league history/i)).toBeTruthy();
+    });
+
+    it('shows league-level activity when other members have played', () => {
+      const { getByText } = render(
+        <LeagueCard
+          league={EMPTY_SEASON_LEAGUE}
+          userRank={null}
+          userWins={0}
+          userLosses={0}
+          onPress={jest.fn()}
+        />,
+      );
+      expect(getByText('League has 6 games this season')).toBeTruthy();
     });
 
     it('still shows the member count', () => {

@@ -490,8 +490,6 @@ export default function LeagueInfoTab({
     onRemoveCourt,
   } = useLeagueInfoTab(leagueId);
 
-  const isAdmin = userRole === 'admin';
-
   const [leavePending, setLeavePending] = useState(false);
 
   // Description edit state
@@ -593,6 +591,11 @@ export default function LeagueInfoTab({
   const pendingRequests = info.join_requests.filter((r) => r.status === 'pending');
   const accessLabel = info.access_type === 'open' ? 'Public' : 'Invite Only';
   const primaryCourt = info.home_courts[0] ?? null;
+  const currentMember =
+    currentPlayerId == null
+      ? null
+      : info.members.find((member) => member.player_id === currentPlayerId) ?? null;
+  const isAdmin = userRole === 'admin' && currentMember?.role !== 'member';
 
   const levelOptions = LEVEL_OPTIONS.map((l) => ({ label: l, value: l }));
 

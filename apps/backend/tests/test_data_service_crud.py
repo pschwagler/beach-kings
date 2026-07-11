@@ -14,6 +14,7 @@ from backend.database.models import (
     League,
     LeagueMember,
     LeagueRequest,
+    Match,
     PlayerSeasonStats,
     Season,
     Session,
@@ -499,9 +500,15 @@ async def test_get_user_leagues_includes_current_season_and_user_standing(
 
     # Add a second player so the user's rank isn't trivially 1.
     other_player = Player(full_name="Other Player", user_id=test_user["id"])
+    third_player = Player(full_name="Third Player")
+    fourth_player = Player(full_name="Fourth Player")
     db_session.add(other_player)
+    db_session.add(third_player)
+    db_session.add(fourth_player)
     await db_session.commit()
     await db_session.refresh(other_player)
+    await db_session.refresh(third_player)
+    await db_session.refresh(fourth_player)
 
     db_session.add_all(
         [
@@ -527,6 +534,28 @@ async def test_get_user_leagues_includes_current_season_and_user_standing(
     )
     await db_session.commit()
 
+    league_session = Session(
+        date=today.isoformat(),
+        name="Spring Games",
+        league_id=league["id"],
+        season_id=season.id,
+    )
+    db_session.add(league_session)
+    await db_session.flush()
+    db_session.add(
+        Match(
+            session_id=league_session.id,
+            team1_player1_id=test_player.id,
+            team1_player2_id=other_player.id,
+            team2_player1_id=third_player.id,
+            team2_player2_id=fourth_player.id,
+            team1_score=21,
+            team2_score=15,
+            winner=1,
+        )
+    )
+    await db_session.commit()
+
     leagues = await data_service.get_user_leagues(db_session, test_user["id"])
 
     assert len(leagues) == 1
@@ -540,6 +569,7 @@ async def test_get_user_leagues_includes_current_season_and_user_standing(
 
     # The user's games are surfaced at the top level.
     assert entry["games_played"] == 10
+    assert entry["league_games_played"] == 1
 
     # Standings contains exactly the user's row with rank derived from points.
     assert len(entry["standings"]) == 1

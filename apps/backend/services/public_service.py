@@ -16,6 +16,7 @@ from backend.database.models import (
     LeagueMember,
     Location,
     Match,
+    Friend,
     Player,
     PlayerGlobalStats,
     PlayerSeasonStats,
@@ -463,7 +464,9 @@ async def get_public_player(
     - ``profile_is_private`` is stored but no longer gates any part of the
       response — it is a no-op for display purposes.
 
-    Only players with total_games >= 1 are publicly visible.
+    Only players with total_games >= 1 are publicly visible to anonymous /
+    unrelated viewers. The owner and accepted friends may fetch the direct
+    profile even before the player has logged a game.
 
     Args:
         session: Database session.
@@ -473,23 +476,24 @@ async def get_public_player(
 
     Returns:
         Dict with player data (possibly floor-only), or ``None`` if the player
-        is not found or has no games.
+        is not found or is hidden from this viewer.
     """
     # 1. Fetch player + global stats + location + owning user's privacy flags
     result = await session.execute(
         select(
             Player, PlayerGlobalStats, Location, User.profile_is_private, User.show_game_history
         )
-        .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
+        .outerjoin(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
         .outerjoin(Location, Player.location_id == Location.id)
         .outerjoin(User, User.id == Player.user_id)
-        .where(Player.id == player_id, PlayerGlobalStats.total_games >= 1)
+        .where(Player.id == player_id)
     )
     row = result.first()
     if not row:
         return None
 
     player, stats, location, profile_is_private, show_game_history = row
+    total_games = int(stats.total_games) if stats and stats.total_games is not None else 0
 
     # Normalise NULL values coming from players that have no linked user
     # (e.g. placeholders) — treat them as fully public.
@@ -499,6 +503,25 @@ async def get_public_player(
     # Resolve viewer identity
     viewer_user_id: Optional[int] = viewer_user["id"] if viewer_user else None
     is_self = viewer_user_id is not None and player.user_id == viewer_user_id
+    viewer_player_id: Optional[int] = None
+    if viewer_user_id is not None:
+        viewer_player_result = await session.execute(
+            select(Player.id).where(Player.user_id == viewer_user_id).limit(1)
+        )
+        viewer_player_id = viewer_player_result.scalar_one_or_none()
+
+    is_friend = False
+    if viewer_player_id is not None and viewer_player_id != player_id:
+        p1, p2 = sorted([viewer_player_id, player_id])
+        friend_result = await session.execute(
+            select(Friend.id)
+            .where(and_(Friend.player1_id == p1, Friend.player2_id == p2))
+            .limit(1)
+        )
+        is_friend = friend_result.scalar_one_or_none() is not None
+
+    if total_games < 1 and not (is_self or is_friend):
+        return None
 
     # game_history_visible: owner always sees full record; others see it only
     # when the player has opted in via show_game_history.
@@ -521,19 +544,21 @@ async def get_public_player(
 
     # 3. Stats — current_rating and total_games always visible.
     # W-L record (total_wins, win_rate) gated on game_history_visible.
-    win_rate = round(stats.total_wins / stats.total_games, 4) if stats.total_games > 0 else 0.0
+    total_wins = int(stats.total_wins) if stats and stats.total_wins is not None else 0
+    current_rating = float(stats.current_rating) if stats else 1200.0
+    win_rate = round(total_wins / total_games, 4) if total_games > 0 else 0.0
 
     if game_history_visible:
         stats_dict = {
-            "current_rating": stats.current_rating,
-            "total_games": stats.total_games,
-            "total_wins": stats.total_wins,
+            "current_rating": current_rating,
+            "total_games": total_games,
+            "total_wins": total_wins,
             "win_rate": win_rate,
         }
     else:
         stats_dict = {
-            "current_rating": stats.current_rating,
-            "total_games": stats.total_games,
+            "current_rating": current_rating,
+            "total_games": total_games,
             "total_wins": None,
             "win_rate": None,
         }

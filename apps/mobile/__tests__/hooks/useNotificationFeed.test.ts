@@ -49,6 +49,19 @@ describe('useNotificationFeed', () => {
     expect(result.current.notifications.map((n) => n.id)).toEqual([2, 1]);
   });
 
+  it('accepts backend WebSocket messages that use `notification` instead of `payload`', () => {
+    const { result } = renderHook(() => useNotificationFeed());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'notification',
+        notification: makeNotification({ id: 7 }),
+      });
+    });
+
+    expect(result.current.notifications.map((n) => n.id)).toEqual([7]);
+  });
+
   it('counts direct_message notifications separately in dmUnreadCount', () => {
     const { result } = renderHook(() => useNotificationFeed());
 
@@ -122,6 +135,25 @@ describe('useNotificationFeed', () => {
       result.current.handleMessage({
         type: 'notification_updated',
         payload: makeNotification({ id: 1, message: 'New', is_read: true }),
+      });
+    });
+
+    expect(result.current.notifications).toHaveLength(1);
+    expect(result.current.notifications[0]?.message).toBe('New');
+    expect(result.current.notifications[0]?.is_read).toBe(true);
+  });
+
+  it('updates existing notifications when backend uses `notification` instead of `payload`', () => {
+    const { result } = renderHook(() => useNotificationFeed());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'notification',
+        payload: makeNotification({ id: 1, message: 'Old' }),
+      });
+      result.current.handleMessage({
+        type: 'notification_updated',
+        notification: makeNotification({ id: 1, message: 'New', is_read: true }),
       });
     });
 

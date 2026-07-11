@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import Avatar from '@/components/ui/Avatar';
 import type { Player } from '@beach-kings/shared';
 
 interface PlayerProfileHeaderProps {
@@ -48,19 +49,17 @@ export default function PlayerProfileHeader({
       testID="player-profile-header"
       className="bg-elevated px-lg pt-xl pb-lg items-center border-b border-strong"
     >
-      {/* Avatar — dashed gold border for guests */}
-      <View
-        className={`w-[88px] h-[88px] rounded-full items-center justify-center mb-sm ${
+      <Avatar
+        name={displayName}
+        imageUrl={player.profile_picture_url}
+        size="xl"
+        colorSeed={player.id}
+        className={`mb-sm ${
           isGuest
-            ? 'border-2 border-dashed border-brand-gold bg-brand-gold/10'
-            : 'border-2 border-brand-teal/20 bg-brand-teal/30'
+            ? 'border-2 border-dashed border-brand-gold'
+            : 'border-2 border-brand-teal/20'
         }`}
-        accessibilityLabel={`${displayName}'s avatar`}
-      >
-        <Text className={`text-[32px] font-bold ${isGuest ? 'text-brand-gold' : 'text-brand-teal'}`}>
-          {displayName.charAt(0).toUpperCase()}
-        </Text>
-      </View>
+      />
 
       {/* Name */}
       <Text

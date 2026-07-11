@@ -38,10 +38,14 @@ export interface UseNotificationFeedResult {
   readonly reset: () => void;
 }
 
-function isNotificationPayload(value: unknown): value is { type: string; payload: Notification } {
-  if (value === null || typeof value !== 'object') return false;
+function getNotificationPayload(value: unknown): { type: string; payload: Notification } | null {
+  if (value === null || typeof value !== 'object') return null;
   const obj = value as Record<string, unknown>;
-  return typeof obj.type === 'string' && typeof obj.payload === 'object' && obj.payload !== null;
+  const payload = obj.payload ?? obj.notification;
+  if (typeof obj.type !== 'string' || payload === null || typeof payload !== 'object') {
+    return null;
+  }
+  return { type: obj.type, payload: payload as Notification };
 }
 
 function useNotificationFeed(): UseNotificationFeedResult {
@@ -89,17 +93,18 @@ function useNotificationFeed(): UseNotificationFeedResult {
 
   const handleMessage = useCallback(
     (data: unknown) => {
-      if (!isNotificationPayload(data)) return;
+      const message = getNotificationPayload(data);
+      if (message == null) return;
 
-      if (data.type === 'notification' || data.type === 'direct_message') {
-        const notification = data.payload;
+      if (message.type === 'notification' || message.type === 'direct_message') {
+        const notification = message.payload;
         setNotifications((prev) => [notification, ...prev]);
         dispatchToListeners(notification);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
           () => {},
         );
-      } else if (data.type === 'notification_updated') {
-        const updated = data.payload;
+      } else if (message.type === 'notification_updated') {
+        const updated = message.payload;
         setNotifications((prev) =>
           prev.map((n) => (n.id === updated.id ? updated : n)),
         );

@@ -304,6 +304,9 @@ export interface League {
   is_open?: boolean | null;
   is_public?: boolean | null;
   member_count?: number | null;
+  /** League-wide games in the displayed current season. */
+  league_games_played?: number | null;
+  /** Viewer/player-scoped games in the displayed current season. */
   games_played?: number | null;
   created_at?: string;
   standings?: LeagueStandingRow[] | null;

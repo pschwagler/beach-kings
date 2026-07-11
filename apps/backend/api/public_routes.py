@@ -210,8 +210,9 @@ async def get_public_player(
     request is authenticated as the player's own user.  Game history visibility
     is signalled by the ``game_history_visible`` flag in the response.
 
-    Only players with at least 1 game are publicly visible.
-    Returns 404 if player not found or has no games.
+    Anonymous/unrelated viewers only see players with at least 1 game.
+    The owner and accepted friends may open the direct profile before the
+    player has games. Returns 404 if player not found or hidden from viewer.
     """
     result = await public_service.get_public_player(session, player_id, viewer_user=viewer)
     if result is None:

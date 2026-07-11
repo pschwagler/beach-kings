@@ -5,14 +5,19 @@ Tests friend request lifecycle, duplicate prevention, mutual friends,
 batch status, and multi-signal suggestions (mutuals, sessions, leagues).
 """
 
+import json
+
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
 from backend.services import friend_service
 from backend.database.models import (
     User,
     Player,
     LeagueMember,
     League,
+    Notification,
+    NotificationType,
     PlayerGlobalStats,
     Location,
     Session,
@@ -52,6 +57,40 @@ async def _add_league_member(db_session, league_id, player_id):
     member = LeagueMember(league_id=league_id, player_id=player_id)
     db_session.add(member)
     await db_session.flush()
+
+
+async def _get_friend_request_notification(db_session, request_id):
+    result = await db_session.execute(
+        select(Notification).where(Notification.type == NotificationType.FRIEND_REQUEST.value)
+    )
+    for notification in result.scalars().all():
+        data = json.loads(notification.data) if notification.data else {}
+        if data.get("friend_request_id") == request_id:
+            return notification
+    return None
+
+
+async def _add_stale_friend_request_notification(
+    db_session, *, sender_player_id, receiver_player_id, old_request_id=999_999
+):
+    receiver = await db_session.get(Player, receiver_player_id)
+    notification = Notification(
+        user_id=receiver.user_id,
+        type=NotificationType.FRIEND_REQUEST.value,
+        title="Friend Request",
+        message="Old request",
+        data=json.dumps(
+            {
+                "sender_player_id": sender_player_id,
+                "friend_request_id": old_request_id,
+            }
+        ),
+        is_read=False,
+    )
+    db_session.add(notification)
+    await db_session.flush()
+    await db_session.refresh(notification)
+    return notification
 
 
 @pytest_asyncio.fixture
@@ -121,6 +160,30 @@ async def test_accept_friend_request(db_session, players):
 
 
 @pytest.mark.asyncio
+async def test_accept_friend_request_marks_receiver_notification_read(db_session, players):
+    """Accepting elsewhere resolves the actionable friend-request notification."""
+    req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
+    notification = await _get_friend_request_notification(db_session, req["id"])
+    stale_notification = await _add_stale_friend_request_notification(
+        db_session,
+        sender_player_id=players["alice"],
+        receiver_player_id=players["bob"],
+    )
+    assert notification is not None
+    assert notification.is_read is False
+    assert stale_notification.is_read is False
+
+    await friend_service.accept_friend_request(db_session, req["id"], players["bob"])
+    await db_session.refresh(notification)
+    await db_session.refresh(stale_notification)
+
+    assert notification.is_read is True
+    assert notification.read_at is not None
+    assert stale_notification.is_read is True
+    assert stale_notification.read_at is not None
+
+
+@pytest.mark.asyncio
 async def test_accept_wrong_receiver(db_session, players):
     """Test that only the receiver can accept a request."""
     req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
@@ -142,6 +205,30 @@ async def test_decline_friend_request(db_session, players):
         db_session, players["alice"], players["bob"]
     )
     assert pending is None
+
+
+@pytest.mark.asyncio
+async def test_decline_friend_request_marks_receiver_notification_read(db_session, players):
+    """Declining elsewhere resolves the actionable friend-request notification."""
+    req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
+    notification = await _get_friend_request_notification(db_session, req["id"])
+    stale_notification = await _add_stale_friend_request_notification(
+        db_session,
+        sender_player_id=players["alice"],
+        receiver_player_id=players["bob"],
+    )
+    assert notification is not None
+    assert notification.is_read is False
+    assert stale_notification.is_read is False
+
+    await friend_service.decline_friend_request(db_session, req["id"], players["bob"])
+    await db_session.refresh(notification)
+    await db_session.refresh(stale_notification)
+
+    assert notification.is_read is True
+    assert notification.read_at is not None
+    assert stale_notification.is_read is True
+    assert stale_notification.read_at is not None
 
 
 @pytest.mark.asyncio

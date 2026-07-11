@@ -110,7 +110,7 @@ const MOCK_NOTIFICATIONS = [
     type: 'friend_request' as const,
     title: 'Riley Chen sent you a friend request',
     message: 'Riley wants to connect with you.',
-    data: { request_id: 100 },
+    data: { friend_request_id: 100 },
     is_read: false,
     read_at: null,
     link_url: null,
@@ -281,6 +281,26 @@ describe('NotificationsTab — friend request actions', () => {
       fireEvent.press(screen.getByTestId('notif-accept-btn-1'));
     });
     expect(mockAcceptFriendRequest).toHaveBeenCalledWith(100);
+  });
+
+  it('keeps an already-handled request resolved instead of restoring buttons', async () => {
+    const handledError = Object.assign(new Error('Request failed'), {
+      response: { data: { detail: 'Friend request is no longer pending' } },
+    });
+    mockAcceptFriendRequest.mockRejectedValue(handledError);
+
+    renderNotificationsTab();
+    await waitFor(() => {
+      expect(screen.getByTestId('notif-accept-btn-1')).toBeTruthy();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('notif-accept-btn-1'));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('notif-accept-btn-1')).toBeNull();
+      expect(screen.queryByTestId('notif-decline-btn-1')).toBeNull();
+    });
   });
 
   it('calls declineFriendRequest when Decline is pressed', async () => {

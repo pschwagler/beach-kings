@@ -12,6 +12,7 @@ import Svg, { Path } from "react-native-svg";
 import { hapticLight } from "@/utils/haptics";
 import { routes } from "@/lib/navigation";
 import { formatDistance } from "@/lib/formatters";
+import CourtRating from "./CourtRating";
 import type { Court } from "@beach-kings/shared";
 
 function ChevronRight(): React.ReactNode {
@@ -25,24 +26,6 @@ function ChevronRight(): React.ReactNode {
         strokeLinejoin="round"
       />
     </Svg>
-  );
-}
-
-/** Renders filled/empty stars for a given rating (0-5). */
-function StarRating({ rating }: { rating: number }): React.ReactNode {
-  return (
-    <View className="flex-row items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Text
-          key={star}
-          className={`text-[12px] ${
-            star <= Math.round(rating) ? "text-yellow-400" : "text-gray-300"
-          }`}
-        >
-          ★
-        </Text>
-      ))}
-    </View>
   );
 }
 
@@ -113,16 +96,11 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
 
         {/* Rating + distance row */}
         <View className="flex-row items-center gap-2">
-          {(court.review_count ?? 0) > 0 ? (
-            <>
-              <StarRating rating={court.average_rating ?? 0} />
-              <Text className="text-[12px] text-muted">
-                {(court.average_rating ?? 0).toFixed(1)} ({court.review_count})
-              </Text>
-            </>
-          ) : (
-            <Text className="text-[12px] text-muted">No reviews yet</Text>
-          )}
+          <CourtRating
+            rating={court.average_rating ?? 0}
+            reviewCount={court.review_count ?? 0}
+            combineScoreAndCount
+          />
           {court.distance_miles != null && (
             <Text className="text-[12px] text-tertiary">
               · {formatDistance(court.distance_miles)}

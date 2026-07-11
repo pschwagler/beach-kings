@@ -859,6 +859,18 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
         for rank_row in rank_result.all():
             ranks_map[(rank_row.season_id, rank_row.player_id)] = int(rank_row.season_rank)
 
+    league_games_by_season: Dict[int, int] = {}
+    if season_ids_with_data:
+        league_games_result = await session.execute(
+            select(SessionModel.season_id, func.count(Match.id).label("game_count"))
+            .join(Match, Match.session_id == SessionModel.id)
+            .where(SessionModel.season_id.in_(season_ids_with_data))
+            .group_by(SessionModel.season_id)
+        )
+        league_games_by_season = {
+            int(row.season_id): int(row.game_count or 0) for row in league_games_result.all()
+        }
+
     output: List[Dict] = []
     for r in rows:
         league_obj = r[0]
@@ -936,6 +948,9 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
                 ),
                 "current_season": season_data,
                 "games_played": user_games,
+                "league_games_played": (
+                    league_games_by_season.get(display_season.id, 0) if display_season else 0
+                ),
                 "standings": standings,
             }
         )

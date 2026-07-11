@@ -35,6 +35,7 @@ import CourtActionRow from './CourtActionRow';
 import CourtHeroCarousel from './CourtHeroCarousel';
 import CourtMapPreview from './CourtMapPreview';
 import CourtReviewsSection from './CourtReviewsSection';
+import CourtRating from './CourtRating';
 import { hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import { api } from '@/lib/api';
@@ -49,53 +50,6 @@ function Badge({ label }: { label: string }): React.ReactNode {
     <View className="px-3 py-1 rounded-full bg-info-tint border border-brand-teal">
       <Text className="text-[12px] font-medium text-brand-teal">
         {label}
-      </Text>
-    </View>
-  );
-}
-
-function StarRatingBar({
-  rating,
-  reviewCount,
-}: {
-  rating: number;
-  reviewCount: number;
-}): React.ReactNode {
-  // With no reviews there is no meaningful average — show an explicit empty
-  // state instead of a misleading "0.0" next to five empty stars.
-  if (reviewCount === 0) {
-    return (
-      <View
-        testID="court-rating-bar"
-        className="flex-row items-center gap-2 px-4 py-3 border-b border-strong"
-      >
-        <Text className="text-[15px] text-muted">No reviews yet</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View
-      testID="court-rating-bar"
-      className="flex-row items-center gap-2 px-4 py-3 border-b border-strong"
-    >
-      <View className="flex-row items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Text
-            key={star}
-            className={`text-[18px] ${
-              star <= Math.round(rating) ? 'text-yellow-400' : 'text-gray-200'
-            }`}
-          >
-            ★
-          </Text>
-        ))}
-      </View>
-      <Text className="text-[15px] font-semibold text-default">
-        {rating.toFixed(1)}
-      </Text>
-      <Text className="text-[14px] text-muted">
-        ({reviewCount} review{reviewCount !== 1 ? 's' : ''})
       </Text>
     </View>
   );
@@ -342,10 +296,20 @@ export default function CourtDetailScreen({
         </View>
 
         {/* Rating bar */}
-        <StarRatingBar
-          rating={court.average_rating ?? 0}
-          reviewCount={court.review_count ?? 0}
-        />
+        <View
+          testID="court-rating-bar"
+          className="flex-row items-center gap-2 px-4 py-3 border-b border-strong"
+        >
+          <CourtRating
+            rating={court.average_rating ?? 0}
+            reviewCount={court.review_count ?? 0}
+            starTextClassName="text-[18px]"
+            scoreTextClassName="text-[15px] font-semibold text-default"
+            countTextClassName="text-[14px] text-muted"
+            emptyTextClassName="text-[15px] text-muted"
+            showReviewWord
+          />
+        </View>
 
         {/* Action row — check in + my courts */}
         <CourtActionRow
