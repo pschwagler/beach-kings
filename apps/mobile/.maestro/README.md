@@ -57,6 +57,9 @@ the app installed, Metro/backend are running, and the app is authenticated.
 - `social-friend-request-accept.yaml` — assumes the app is authenticated and
   already opened to `beach-league://social?tab=friends`; accepts a seeded
   incoming friend request and verifies the pending count drops.
+- `sessions-games-smoke.yaml` — assumes the app is authenticated and already
+  opened to `beach-league://add-games`; verifies the Add Games chooser and the
+  pickup-game path into score entry.
 
 ## Adding new flows
 

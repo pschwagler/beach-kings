@@ -1,0 +1,37 @@
+appId: com.beachleague.app
+name: sessions-games-smoke
+tags:
+  - smoke
+  - sessions
+  - games
+---
+# Sessions/Games smoke flow.
+# Expects the simulator to already be authenticated and already opened to
+# `beach-league://add-games` by the wrapper command.
+
+- runFlow:
+    when:
+      visible: "Open in .*Beach League.*"
+    commands:
+      - tapOn:
+          point: "70%,56%"
+
+# Add Games chooser.
+- extendedWaitUntil:
+    visible: "Add Games"
+    timeout: 10000
+- assertVisible:
+    id: "add-games-screen"
+- assertVisible: "League Game"
+- assertVisible: "Pickup Game"
+
+# New pickup session score entry.
+- tapOn:
+    id: "tile-pickup-game"
+- extendedWaitUntil:
+    visible: "New Pickup Game"
+    timeout: 10000
+- assertVisible:
+    id: "score-game-screen"
+- assertVisible:
+    id: "scoreboard"
