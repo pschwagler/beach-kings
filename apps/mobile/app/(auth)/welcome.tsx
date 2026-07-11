@@ -110,6 +110,7 @@ export default function WelcomeScreen(): React.ReactNode {
           <Pressable
             className="min-h-touch items-center justify-center rounded-card border border-white/30"
             onPress={handleSignIn}
+            testID="welcome-sign-in-link"
             accessibilityLabel="I already have an account"
             accessibilityRole="link"
           >

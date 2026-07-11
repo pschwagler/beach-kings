@@ -20,13 +20,8 @@ tags:
 
 # -- Welcome screen --
 - assertVisible: "BEACH LEAGUE"
-- tapOn: "I already have an account"
-- runFlow:
-    when:
-      visible: "I already have an account"
-    commands:
-      - tapOn:
-          point: "50%,86%"
+- tapOn:
+    id: "welcome-sign-in-link"
 
 # -- Login screen --
 - extendedWaitUntil:

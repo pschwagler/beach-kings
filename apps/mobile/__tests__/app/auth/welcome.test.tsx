@@ -64,4 +64,9 @@ describe('WelcomeScreen', () => {
     const { getByLabelText } = render(<WelcomeScreen />);
     expect(getByLabelText('I already have an account')).toBeTruthy();
   });
+
+  it('has a stable E2E selector on the sign in link', () => {
+    const { getByTestId } = render(<WelcomeScreen />);
+    expect(getByTestId('welcome-sign-in-link')).toBeTruthy();
+  });
 });
