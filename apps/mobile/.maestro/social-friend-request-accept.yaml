@@ -1,0 +1,27 @@
+appId: com.beachleague.app
+name: social-friend-request-accept
+tags:
+  - social
+  - friends
+---
+# Expects a pending incoming request from Bob Test to already be seeded and the
+# simulator to already be opened to `beach-league://social`.
+- runFlow:
+    when:
+      visible: "Open in .*Beach League.*"
+    commands:
+      - tapOn:
+          point: "70%,56%"
+
+- assertVisible: "Social"
+- tapOn:
+    point: "62%,13%"
+- assertVisible: "Search friends"
+- swipe:
+    direction: DOWN
+- assertVisible: "Bob Test"
+- assertVisible: "Pending Requests (2)"
+- tapOn:
+    point: "27%,37%"
+- assertVisible: "Search friends"
+- assertVisible: "Pending Requests (1)"

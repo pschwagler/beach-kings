@@ -1,0 +1,50 @@
+appId: com.beachleague.app
+name: social-hub-smoke
+tags:
+  - smoke
+  - social
+---
+# Social Hub smoke flow.
+# Expects the simulator to already be authenticated and already opened to
+# `beach-league://social` by the wrapper command. Maestro's `openLink` is not
+# reliable for this custom scheme on the local iOS 26 simulator.
+
+- runFlow:
+    when:
+      visible: "Open in .*Beach League.*"
+    commands:
+      - tapOn:
+          point: "70%,56%"
+
+# Hub chrome and default Messages tab.
+- assertVisible: "Social"
+- assertVisible: "Messages"
+- assertVisible: "Notifications"
+- assertVisible: "Friends"
+- assertVisible: "Find Players"
+
+# Notifications subtab and filters.
+- tapOn:
+    point: "43%,13%"
+- assertVisible: "All"
+- assertVisible: "Games"
+- assertVisible: "Leagues"
+- tapOn:
+    point: "62%,13%"
+- assertVisible: "Friends"
+
+# Friends subtab.
+- tapOn:
+    point: "62%,13%"
+- assertVisible: "Search friends"
+
+# Find Players subtab and discovery filters.
+- tapOn:
+    point: "85%,13%"
+- assertVisible: "Find Players"
+- assertVisible: "Search players"
+
+# Return to Messages to catch any remount/fetch crash.
+- tapOn:
+    point: "13%,13%"
+- assertVisible: "Messages"
