@@ -10,6 +10,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "e2e:social": "bash scripts/run-social-e2e.sh",
     "ios": "expo run:ios",
     "android": "expo run:android"
   },

@@ -15,13 +15,12 @@ tags:
 
 - assertVisible: "Social"
 - tapOn:
-    point: "62%,13%"
+    id: "social-subnav-tab-friends"
 - assertVisible: "Search friends"
 - swipe:
     direction: DOWN
 - assertVisible: "Bob Test"
 - assertVisible: "Pending Requests (2)"
-- tapOn:
-    point: "27%,37%"
+- tapOn: "Accept friend request from Bob Test"
 - assertVisible: "Search friends"
 - assertVisible: "Pending Requests (1)"

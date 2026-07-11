@@ -22,6 +22,17 @@ hydration regressions that unit mocks can hide.
      .maestro/auth-smoke.yaml
    ```
 
+To run the Social Hub setup and flows together:
+
+```sh
+cd apps/mobile
+npm run e2e:social
+```
+
+The runner expects the backend and Metro to already be reachable, seeds the dev
+user plus Bob/Carol incoming requests, opens the dev-client bundle, authenticates
+with the dev login button, and runs both Social Hub flows.
+
 For flows that start from a deep link on the iOS simulator, prefer `simctl`
 before invoking Maestro. On the local iOS 26 simulator, Maestro's `openLink`
 command did not reliably route the `beach-league://` custom scheme:

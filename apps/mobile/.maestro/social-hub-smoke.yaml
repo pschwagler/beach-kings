@@ -25,26 +25,27 @@ tags:
 
 # Notifications subtab and filters.
 - tapOn:
-    point: "43%,13%"
+    id: "social-subnav-tab-notifications"
 - assertVisible: "All"
 - assertVisible: "Games"
 - assertVisible: "Leagues"
 - tapOn:
-    point: "62%,13%"
+    text: "Friends"
+    index: 0
 - assertVisible: "Friends"
 
 # Friends subtab.
 - tapOn:
-    point: "62%,13%"
+    id: "social-subnav-tab-friends"
 - assertVisible: "Search friends"
 
 # Find Players subtab and discovery filters.
 - tapOn:
-    point: "85%,13%"
+    id: "social-subnav-tab-findplayers"
 - assertVisible: "Find Players"
 - assertVisible: "Search players"
 
 # Return to Messages to catch any remount/fetch crash.
 - tapOn:
-    point: "13%,13%"
+    id: "social-subnav-tab-messages"
 - assertVisible: "Messages"
