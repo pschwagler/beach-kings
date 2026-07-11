@@ -17,6 +17,14 @@ const mockRouterReplace = jest.fn();
 const mockDismissAll = jest.fn();
 let mockCanDismiss = jest.fn(() => true);
 const mockSegments: string[] = [];
+let mockRootNavigationState = {
+  type: 'stack',
+  key: 'root',
+  index: 0,
+  routeNames: ['index', '(auth)', '(tabs)', '(stack)'],
+  routes: [{ key: 'tabs-1', name: '(tabs)' }],
+  stale: false,
+};
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
@@ -24,6 +32,7 @@ jest.mock('expo-router', () => ({
     dismissAll: mockDismissAll,
     canDismiss: mockCanDismiss,
   }),
+  useRootNavigationState: () => mockRootNavigationState,
   useSegments: () => mockSegments,
 }));
 
@@ -153,6 +162,14 @@ beforeEach(() => {
   mockClearAuthTokens.mockResolvedValue(undefined);
   mockSegments.splice(0, mockSegments.length);
   mockCanDismiss = jest.fn(() => true);
+  mockRootNavigationState = {
+    type: 'stack',
+    key: 'root',
+    index: 0,
+    routeNames: ['index', '(auth)', '(tabs)', '(stack)'],
+    routes: [{ key: 'tabs-1', name: '(tabs)' }],
+    stale: false,
+  };
 });
 
 // ---------------------------------------------------------------------------
@@ -484,6 +501,17 @@ describe('AuthProvider — logout', () => {
     mockGetMe.mockResolvedValue(mockMeResponse);
     mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
     mockLogout.mockResolvedValue(undefined);
+    mockRootNavigationState = {
+      type: 'stack',
+      key: 'root',
+      index: 1,
+      routeNames: ['index', '(auth)', '(tabs)', '(stack)'],
+      routes: [
+        { key: 'tabs-1', name: '(tabs)' },
+        { key: 'stack-1', name: '(stack)' },
+      ],
+      stale: false,
+    };
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
@@ -611,6 +639,17 @@ describe('AuthProvider — route guard', () => {
     // hardware back from Welcome would then pop back into it. The guard must
     // dismiss that history first.
     mockCanDismiss = jest.fn(() => true);
+    mockRootNavigationState = {
+      type: 'stack',
+      key: 'root',
+      index: 1,
+      routeNames: ['index', '(auth)', '(tabs)', '(stack)'],
+      routes: [
+        { key: 'tabs-1', name: '(tabs)' },
+        { key: 'stack-1', name: '(stack)' },
+      ],
+      stale: false,
+    };
     mockSegments.push('(tabs)');
 
     render(
@@ -633,6 +672,38 @@ describe('AuthProvider — route guard', () => {
 
   it('does not call dismissAll when there is nothing to dismiss', async () => {
     mockCanDismiss = jest.fn(() => false);
+    mockSegments.push('(tabs)');
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/welcome');
+    });
+
+    expect(mockDismissAll).not.toHaveBeenCalled();
+  });
+
+  it('does not dismiss root history for cold-start tab redirects', async () => {
+    // During dev-client/Maestro resets the app can briefly land on (tabs)
+    // through app/index before auth restore finishes. That root state does not
+    // contain an authenticated detail stack, so a replace is enough; calling
+    // dismissAll here dispatches POP_TO_TOP with no stack available to handle it.
+    mockCanDismiss = jest.fn(() => true);
+    mockRootNavigationState = {
+      type: 'stack',
+      key: 'root',
+      index: 1,
+      routeNames: ['index', '(auth)', '(tabs)', '(stack)'],
+      routes: [
+        { key: 'index-1', name: 'index' },
+        { key: 'tabs-1', name: '(tabs)' },
+      ],
+      stale: false,
+    };
     mockSegments.push('(tabs)');
 
     render(

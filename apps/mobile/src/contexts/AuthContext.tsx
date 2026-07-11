@@ -10,7 +10,7 @@ import React, {
   useState,
   useCallback,
 } from 'react';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useRootNavigationState, useSegments } from 'expo-router';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
 
@@ -172,6 +172,16 @@ function isProfileComplete(player: {
   );
 }
 
+function hasRetainedAuthenticatedStack(
+  rootState: ReturnType<typeof useRootNavigationState>,
+): boolean {
+  return (
+    rootState.type === 'stack' &&
+    rootState.routes.length > 1 &&
+    rootState.routes.some((route) => route.name === '(stack)')
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
@@ -188,6 +198,7 @@ export default function AuthProvider({
   });
 
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
   const segments = useSegments() as string[];
 
   // -----------------------------------------------------------------------
@@ -266,7 +277,10 @@ export default function AuthProvider({
       // Dismiss the retained (tabs)/(stack) history first so the root stack
       // ends up with just the (auth) entry. Covers both explicit logout and
       // any auth-expiry path, since both flow through this same guard.
-      if (router.canDismiss()) {
+      if (
+        hasRetainedAuthenticatedStack(rootNavigationState) &&
+        router.canDismiss()
+      ) {
         router.dismissAll();
       }
       router.replace(routes.welcome());
@@ -290,6 +304,7 @@ export default function AuthProvider({
     state.profileComplete,
     state.isNewUser,
     segments,
+    rootNavigationState,
   ]);
 
   // -----------------------------------------------------------------------
