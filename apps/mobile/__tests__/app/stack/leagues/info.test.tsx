@@ -10,7 +10,7 @@
  *   - Admin member row: role picker and remove button
  *   - Self-remove button is disabled
  *   - Seasons list renders with active/past badge
- *   - New Season button (Coming Soon stub)
+ *   - Admin season create/edit sheet
  *   - League info section (access type, level, location)
  *   - Admin: Access picker auto-saves
  *   - Admin: Level picker auto-saves
@@ -23,7 +23,7 @@
 
 import React from 'react';
 import { Alert } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
@@ -58,6 +58,8 @@ const mockAddLeagueHomeCourt = jest.fn();
 const mockRemoveLeagueHomeCourt = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();
 const mockGetCourts = jest.fn();
+const mockCreateLeagueSeason = jest.fn();
+const mockUpdateSeason = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -75,6 +77,8 @@ jest.mock('@/lib/api', () => ({
     removeLeagueHomeCourt: (...args: unknown[]) => mockRemoveLeagueHomeCourt(...args),
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
     getCourts: (...args: unknown[]) => mockGetCourts(...args),
+    createLeagueSeason: (...args: unknown[]) => mockCreateLeagueSeason(...args),
+    updateSeason: (...args: unknown[]) => mockUpdateSeason(...args),
   },
 }));
 
@@ -129,6 +133,8 @@ const MOCK_SEASONS = [
     is_active: true,
     session_count: 8,
     game_count: 40,
+    scoring_system: 'points_system',
+    point_system: '{"type":"points_system","points_per_win":4,"points_per_loss":0}',
   },
   {
     id: 2,
@@ -138,6 +144,8 @@ const MOCK_SEASONS = [
     is_active: false,
     session_count: 6,
     game_count: 30,
+    scoring_system: 'season_rating',
+    point_system: '{"type":"season_rating","initial_rating":100}',
   },
 ];
 
@@ -171,6 +179,8 @@ beforeEach(() => {
   mockRemoveLeagueHomeCourt.mockResolvedValue({ success: true });
   mockGetCurrentUserPlayer.mockResolvedValue({ id: 10 });
   mockGetCourts.mockResolvedValue([{ id: 99, name: 'New Court' }]);
+  mockCreateLeagueSeason.mockResolvedValue({ id: 4 });
+  mockUpdateSeason.mockResolvedValue({ id: 3 });
 });
 
 // ---------------------------------------------------------------------------
@@ -436,15 +446,181 @@ describe('LeagueInfoTab — seasons', () => {
     });
   });
 
-  it('New Season button shows Coming Soon alert', async () => {
-    jest.spyOn(Alert, 'alert');
+  it('non-admin does not see New Season button', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
 
+    await waitFor(() => expect(screen.getByTestId('info-tab')).toBeTruthy());
+    expect(screen.queryByTestId('new-season-btn')).toBeNull();
+  });
+
+  it('New Season button opens the create sheet', async () => {
     render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('new-season-btn')).toBeTruthy());
     fireEvent.press(screen.getByTestId('new-season-btn'));
 
-    expect(Alert.alert).toHaveBeenCalledWith('Coming Soon', expect.any(String));
+    await waitFor(() => {
+      expect(screen.getByText('New Season')).toBeTruthy();
+      expect(screen.getByTestId('season-name-input')).toBeTruthy();
+    });
+  });
+
+  it('create form submits expected points payload', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('new-season-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('new-season-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('season-name-input')).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId('season-name-input'), 'Fall 2026');
+    fireEvent.changeText(screen.getByTestId('season-start-date-input'), '2026-09-01');
+    fireEvent.changeText(screen.getByTestId('season-end-date-input'), '2026-11-10');
+    fireEvent.changeText(screen.getByTestId('points-per-win-input'), '5');
+    fireEvent.changeText(screen.getByTestId('points-per-loss-input'), '0');
+    fireEvent.press(screen.getByTestId('season-submit-btn'));
+
+    await waitFor(() => {
+      expect(mockCreateLeagueSeason).toHaveBeenCalledWith(1, {
+        name: 'Fall 2026',
+        start_date: '2026-09-01',
+        end_date: '2026-11-10',
+        scoring_system: 'points_system',
+        points_per_win: 5,
+        points_per_loss: 0,
+      });
+    });
+  });
+
+  it('create form allows negative points per loss', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('new-season-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('new-season-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('season-name-input')).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId('season-start-date-input'), '2026-09-01');
+    fireEvent.changeText(screen.getByTestId('season-end-date-input'), '2026-11-10');
+    fireEvent.changeText(screen.getByTestId('points-per-loss-input'), '-1');
+    fireEvent.press(screen.getByTestId('season-submit-btn'));
+
+    await waitFor(() => {
+      expect(mockCreateLeagueSeason).toHaveBeenCalledWith(1, expect.objectContaining({
+        points_per_loss: -1,
+      }));
+    });
+  });
+
+  it('create form submits season rating payload without point fields', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('new-season-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('new-season-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('season-name-input')).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId('season-start-date-input'), '2026-09-01');
+    fireEvent.changeText(screen.getByTestId('season-end-date-input'), '2026-11-10');
+    fireEvent.press(screen.getByTestId('scoring-season_rating'));
+    fireEvent.press(screen.getByTestId('season-submit-btn'));
+
+    await waitFor(() => {
+      expect(mockCreateLeagueSeason).toHaveBeenCalledWith(1, {
+        name: undefined,
+        start_date: '2026-09-01',
+        end_date: '2026-11-10',
+        scoring_system: 'season_rating',
+      });
+    });
+  });
+
+  it('edit form preloads season fields and warns on scoring change', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('season-row-pressable-3')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('season-row-pressable-3'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Edit Season')).toBeTruthy();
+      expect(screen.getByTestId('season-name-input').props.value).toBe('Summer 2025');
+      expect(screen.getByTestId('season-start-date-input').props.value).toBe('2025-06-01');
+      expect(screen.getByTestId('points-per-win-input').props.value).toBe('4');
+      expect(screen.getByTestId('points-per-loss-input').props.value).toBe('0');
+    });
+
+    fireEvent.press(screen.getByTestId('scoring-season_rating'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('season-scoring-warning')).toBeTruthy();
+    });
+  });
+
+  it('edit form submits update payload', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('season-row-pressable-3')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('season-row-pressable-3'));
+
+    await waitFor(() => expect(screen.getByTestId('season-name-input')).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId('season-name-input'), 'Summer Finals');
+    fireEvent.changeText(screen.getByTestId('season-end-date-input'), '2025-08-31');
+    fireEvent.press(screen.getByTestId('season-submit-btn'));
+
+    await waitFor(() => {
+      expect(mockUpdateSeason).toHaveBeenCalledWith(3, {
+        name: 'Summer Finals',
+        start_date: '2025-06-01',
+        end_date: '2025-08-31',
+        scoring_system: 'points_system',
+        points_per_win: 4,
+        points_per_loss: 0,
+      });
+    });
+  });
+
+  it('validation blocks invalid dates', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('new-season-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('new-season-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('season-start-date-input')).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId('season-start-date-input'), '2026-09-01');
+    fireEvent.changeText(screen.getByTestId('season-end-date-input'), '2026-08-31');
+    fireEvent.press(screen.getByTestId('season-submit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('season-form-error')).toBeTruthy();
+      expect(mockCreateLeagueSeason).not.toHaveBeenCalled();
+    });
+  });
+
+  it('validation blocks malformed dates', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('new-season-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('new-season-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('season-start-date-input')).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId('season-start-date-input'), '2026-99-99');
+    fireEvent.changeText(screen.getByTestId('season-end-date-input'), '2026-11-10');
+    fireEvent.press(screen.getByTestId('season-submit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Dates must use YYYY-MM-DD.')).toBeTruthy();
+      expect(mockCreateLeagueSeason).not.toHaveBeenCalled();
+    });
+  });
+
+  it('validation disables submit when a required date is missing', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('new-season-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('new-season-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('season-start-date-input')).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId('season-start-date-input'), '');
+    fireEvent.press(screen.getByTestId('season-submit-btn'));
+
+    expect(mockCreateLeagueSeason).not.toHaveBeenCalled();
   });
 });
 
@@ -616,7 +792,9 @@ describe('LeagueInfoTab — leave league', () => {
     const alertArgs = jest.mocked(Alert.alert).mock.calls[0];
     const buttons = alertArgs[2] as Array<{ text: string; onPress?: () => void }>;
     const leaveBtn = buttons.find((b) => b.text === 'Leave');
-    await leaveBtn?.onPress?.();
+    await act(async () => {
+      await leaveBtn?.onPress?.();
+    });
 
     await waitFor(() => {
       expect(mockLeaveLeague).toHaveBeenCalledWith(1);

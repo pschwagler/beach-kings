@@ -672,8 +672,13 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async createLeagueSeason(leagueId: number, seasonData: Partial<Season>) {
+    async createLeagueSeason(leagueId: number, seasonData: Partial<Season> & Record<string, unknown>) {
       const response = await api.post<Season>(`/api/leagues/${leagueId}/seasons`, seasonData);
+      return response.data;
+    },
+
+    async updateSeason(seasonId: number, seasonData: Partial<Season> & Record<string, unknown>) {
+      const response = await api.put<Season>(`/api/seasons/${seasonId}`, seasonData);
       return response.data;
     },
 

@@ -189,6 +189,11 @@ export interface LeagueSeason {
   readonly id: number;
   readonly name: string;
   readonly is_active: boolean;
+  /** Raw API date fields retained for season editing. */
+  readonly start_date?: string | null;
+  readonly end_date?: string | null;
+  readonly scoring_system?: string | null;
+  readonly point_system?: string | null;
   readonly started_at: string;
   readonly ended_at: string | null;
   readonly session_count: number;

@@ -29,6 +29,7 @@ import {
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { api } from '@/lib/api';
 import { useLeagueInfoTab } from './useLeagueInfoTab';
+import SeasonFormSheet from './SeasonFormSheet';
 import type { HomeCourtResponse, JoinRequest, LeagueMemberRow, LeagueSeason } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
@@ -229,45 +230,75 @@ function MemberRow({
 // Season row
 // ---------------------------------------------------------------------------
 
-function SeasonRow({ season }: { readonly season: LeagueSeason }): React.ReactNode {
-  const startDate = new Date(season.started_at).toLocaleDateString('en-US', {
-    month: 'short',
-    year: 'numeric',
-  });
+function formatSeasonDate(value: string | null | undefined): string {
+  if (!value) return 'TBD';
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
-  return (
+function SeasonRow({
+  season,
+  isAdmin,
+  onPress,
+}: {
+  readonly season: LeagueSeason;
+  readonly isAdmin: boolean;
+  readonly onPress: (season: LeagueSeason) => void;
+}): React.ReactNode {
+  const startDate = formatSeasonDate(season.started_at);
+  const endDate = formatSeasonDate(season.ended_at);
+  const content = (
     <View
       testID={`season-row-${season.id}`}
       className="flex-row items-center px-4 py-[12px] border-b border-divider gap-3"
     >
       <View className="flex-1">
         <Text className="text-[14px] font-semibold text-default">
-          {season.name}
+          {season.name || 'Untitled Season'}
         </Text>
         <Text className="text-[12px] text-muted">
-          Started {startDate} · {season.session_count}{' '}
-          {season.session_count === 1 ? 'session' : 'sessions'}
+          {startDate} - {endDate} · {season.session_count}{' '}
+          {season.session_count === 1 ? 'session' : 'sessions'} · {season.game_count}{' '}
+          {season.game_count === 1 ? 'game' : 'games'}
         </Text>
       </View>
-      <View
-        className={`rounded-[6px] px-2 py-[2px] ${
-          season.is_active
-            ? 'bg-success-tint'
-            : 'bg-elevated'
-        }`}
-      >
-        <Text
-          className={`text-[10px] font-semibold ${
+      <View className="flex-row items-center gap-2">
+        <View
+          className={`rounded-[6px] px-2 py-[2px] ${
             season.is_active
-              ? 'text-success'
-              : 'text-muted'
+              ? 'bg-success-tint'
+              : 'bg-elevated'
           }`}
         >
-          {season.is_active ? 'Active' : 'Past'}
-        </Text>
+          <Text
+            className={`text-[10px] font-semibold ${
+              season.is_active
+                ? 'text-success'
+                : 'text-muted'
+            }`}
+          >
+            {season.is_active ? 'Active' : 'Past'}
+          </Text>
+        </View>
+        {isAdmin && <Text className="text-[14px] text-brand-teal">Edit</Text>}
       </View>
     </View>
   );
+
+  if (isAdmin) {
+    return (
+      <Pressable
+        testID={`season-row-pressable-${season.id}`}
+        onPress={() => onPress(season)}
+        className="active:opacity-70"
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
 }
 
 // ---------------------------------------------------------------------------
@@ -488,6 +519,8 @@ export default function LeagueInfoTab({
     onUpdateLevel,
     onAddCourt,
     onRemoveCourt,
+    onCreateSeason,
+    onUpdateSeason,
   } = useLeagueInfoTab(leagueId);
 
   const [leavePending, setLeavePending] = useState(false);
@@ -500,6 +533,8 @@ export default function LeagueInfoTab({
   const [showAccessPicker, setShowAccessPicker] = useState(false);
   const [showLevelPicker, setShowLevelPicker] = useState(false);
   const [showCourtPicker, setShowCourtPicker] = useState(false);
+  const [seasonSheetMode, setSeasonSheetMode] = useState<'create' | 'edit' | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<LeagueSeason | null>(null);
 
   // Courts available for the picker (loaded lazily from getCourts)
   const [availableCourts, setAvailableCourts] = useState<Array<{ id: number; name: string }>>([]);
@@ -564,7 +599,13 @@ export default function LeagueInfoTab({
   };
 
   const handleNewSeason = (): void => {
-    Alert.alert('Coming Soon', 'Season management will be available in a future update.');
+    setSelectedSeason(null);
+    setSeasonSheetMode('create');
+  };
+
+  const handleSeasonPress = (season: LeagueSeason): void => {
+    setSelectedSeason(season);
+    setSeasonSheetMode('edit');
   };
 
   if (isLoading) {
@@ -695,7 +736,12 @@ export default function LeagueInfoTab({
           {info.seasons.length > 0 && (
             <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
               {info.seasons.map((s) => (
-                <SeasonRow key={s.id} season={s} />
+                <SeasonRow
+                  key={s.id}
+                  season={s}
+                  isAdmin={isAdmin}
+                  onPress={handleSeasonPress}
+                />
               ))}
             </View>
           )}
@@ -799,6 +845,20 @@ export default function LeagueInfoTab({
         courts={availableCourts}
         onSelect={onAddCourt}
         onClose={() => setShowCourtPicker(false)}
+      />
+      <SeasonFormSheet
+        visible={seasonSheetMode != null}
+        mode={seasonSheetMode ?? 'create'}
+        season={selectedSeason}
+        onClose={() => {
+          setSeasonSheetMode(null);
+          setSelectedSeason(null);
+        }}
+        onSubmit={(payload) =>
+          seasonSheetMode === 'edit' && selectedSeason != null
+            ? onUpdateSeason(selectedSeason.id, payload)
+            : onCreateSeason(payload)
+        }
       />
     </ScrollView>
   );

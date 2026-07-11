@@ -20,6 +20,8 @@ const mockRemoveLeagueMember = jest.fn();
 const mockUpdateLeague = jest.fn();
 const mockAddLeagueHomeCourt = jest.fn();
 const mockRemoveLeagueHomeCourt = jest.fn();
+const mockCreateLeagueSeason = jest.fn();
+const mockUpdateSeason = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -36,10 +38,13 @@ jest.mock('@/lib/api', () => ({
     updateLeague: (...args: unknown[]) => mockUpdateLeague(...args),
     addLeagueHomeCourt: (...args: unknown[]) => mockAddLeagueHomeCourt(...args),
     removeLeagueHomeCourt: (...args: unknown[]) => mockRemoveLeagueHomeCourt(...args),
+    createLeagueSeason: (...args: unknown[]) => mockCreateLeagueSeason(...args),
+    updateSeason: (...args: unknown[]) => mockUpdateSeason(...args),
   },
 }));
 
 import { useLeagueInfoTab } from '@/components/screens/Leagues/useLeagueInfoTab';
+import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
 
 const LEAGUE = {
   id: 4,
@@ -103,6 +108,8 @@ beforeEach(() => {
   mockGetLeagueSeasons.mockResolvedValue(SEASONS);
   mockGetLeagueJoinRequests.mockResolvedValue({ pending: [], rejected: [] });
   mockGetCurrentUserPlayer.mockResolvedValue({ id: 1 });
+  mockCreateLeagueSeason.mockResolvedValue({ id: 11 });
+  mockUpdateSeason.mockResolvedValue({ id: 10 });
 });
 
 describe('useLeagueInfoTab', () => {
@@ -117,6 +124,28 @@ describe('useLeagueInfoTab', () => {
     expect(result.current.info?.members[0].display_name).toBe('Patrick Schwagler');
     expect(result.current.info?.members[0].initials).toBe('PS');
     expect(result.current.info?.seasons).toHaveLength(1);
+  });
+
+  it('keeps full season fields for editing', async () => {
+    mockGetLeagueSeasons.mockResolvedValue([
+      {
+        ...SEASONS[0],
+        scoring_system: 'points_system',
+        point_system: '{"type":"points_system","points_per_win":5,"points_per_loss":0}',
+      },
+    ]);
+
+    const { result } = renderHook(() => useLeagueInfoTab(4), {
+      wrapper: makeWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.info?.seasons[0]).toMatchObject({
+      start_date: '2026-01-01',
+      end_date: null,
+      scoring_system: 'points_system',
+      point_system: '{"type":"points_system","points_per_win":5,"points_per_loss":0}',
+    });
   });
 
   it('maps roles: admin passes through, member and placeholder normalize to member', async () => {
@@ -272,5 +301,59 @@ describe('useLeagueInfoTab', () => {
       await result.current.onRemoveCourt(66);
     });
     expect(mockRemoveLeagueHomeCourt).toHaveBeenCalledWith(4, 66);
+  });
+
+  it('onCreateSeason calls api.createLeagueSeason and invalidates season-dependent caches', async () => {
+    const client = makeClient();
+    const invalidateSpy = jest.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => useLeagueInfoTab(4), {
+      wrapper: makeWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const payload = {
+      name: 'Fall 2026',
+      start_date: '2026-09-01',
+      end_date: '2026-11-10',
+      scoring_system: 'points_system',
+      points_per_win: 3,
+      points_per_loss: 1,
+    };
+
+    await act(async () => {
+      await result.current.onCreateSeason(payload);
+    });
+
+    expect(mockCreateLeagueSeason).toHaveBeenCalledWith(4, payload);
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.info(4) });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.seasons(4) });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.detail(4) });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['leagues', 'standings', '4'] });
+  });
+
+  it('onUpdateSeason calls api.updateSeason and invalidates season-dependent caches', async () => {
+    const client = makeClient();
+    const invalidateSpy = jest.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => useLeagueInfoTab(4), {
+      wrapper: makeWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const payload = {
+      name: 'Updated',
+      start_date: '2026-01-01',
+      end_date: '2026-03-01',
+      scoring_system: 'season_rating',
+    };
+
+    await act(async () => {
+      await result.current.onUpdateSeason(10, payload);
+    });
+
+    expect(mockUpdateSeason).toHaveBeenCalledWith(10, payload);
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.info(4) });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.seasons(4) });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.detail(4) });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['leagues', 'standings', '4'] });
   });
 });

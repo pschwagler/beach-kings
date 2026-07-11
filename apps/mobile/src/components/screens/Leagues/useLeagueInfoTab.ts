@@ -22,6 +22,7 @@ import type {
   LeagueInfoDetail,
   LeagueMemberRow,
   LeagueSeason,
+  Season,
   SkillLevel,
 } from '@beach-kings/shared';
 
@@ -56,7 +57,17 @@ export interface UseLeagueInfoTabResult {
   readonly onAddCourt: (courtId: number) => Promise<void>;
   /** Admin: remove a home court (auto-saves). */
   readonly onRemoveCourt: (courtId: number) => Promise<void>;
+  /** Admin: create a league season. */
+  readonly onCreateSeason: (payload: SeasonFormPayload) => Promise<void>;
+  /** Admin: update a league season. */
+  readonly onUpdateSeason: (seasonId: number, payload: SeasonFormPayload) => Promise<void>;
 }
+
+export type SeasonFormPayload = Partial<Season> & {
+  scoring_system?: string;
+  points_per_win?: number;
+  points_per_loss?: number;
+};
 
 /**
  * Returns all data and action handlers for the League Info tab.
@@ -99,6 +110,10 @@ export function useLeagueInfoTab(
             id: s.id,
             name: s.name ?? '',
             is_active: s.is_active ?? false,
+            start_date: s.start_date ?? null,
+            end_date: s.end_date ?? null,
+            scoring_system: s.scoring_system ?? null,
+            point_system: s.point_system ?? null,
             started_at: (s.start_date ?? '') as string,
             ended_at: (s.end_date ?? null) as string | null,
             session_count: (raw['session_count'] as number | undefined) ?? 0,
@@ -150,6 +165,15 @@ export function useLeagueInfoTab(
 
   const invalidateInfo = useCallback((): Promise<void> => {
     return queryClient.invalidateQueries({ queryKey: leagueKeys.info(leagueId) });
+  }, [queryClient, leagueId]);
+
+  const invalidateSeasonCaches = useCallback(async (): Promise<void> => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: leagueKeys.info(leagueId) }),
+      queryClient.invalidateQueries({ queryKey: leagueKeys.seasons(leagueId) }),
+      queryClient.invalidateQueries({ queryKey: leagueKeys.detail(leagueId) }),
+      queryClient.invalidateQueries({ queryKey: [...leagueKeys.root, 'standings', String(leagueId)] }),
+    ]);
   }, [queryClient, leagueId]);
 
   const onApproveRequest = useCallback(
@@ -229,6 +253,22 @@ export function useLeagueInfoTab(
     [numericId, invalidateInfo],
   );
 
+  const onCreateSeason = useCallback(
+    async (payload: SeasonFormPayload): Promise<void> => {
+      await api.createLeagueSeason(numericId, payload);
+      await invalidateSeasonCaches();
+    },
+    [numericId, invalidateSeasonCaches],
+  );
+
+  const onUpdateSeason = useCallback(
+    async (seasonId: number, payload: SeasonFormPayload): Promise<void> => {
+      await api.updateSeason(seasonId, payload);
+      await invalidateSeasonCaches();
+    },
+    [invalidateSeasonCaches],
+  );
+
   return {
     info: infoQuery.data ?? null,
     isLoading: infoQuery.isLoading,
@@ -244,5 +284,7 @@ export function useLeagueInfoTab(
     onUpdateLevel,
     onAddCourt,
     onRemoveCourt,
+    onCreateSeason,
+    onUpdateSeason,
   };
 }
