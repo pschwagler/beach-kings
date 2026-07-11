@@ -29,9 +29,31 @@ cd apps/mobile
 npm run e2e:social
 ```
 
-The runner expects the backend and Metro to already be reachable, seeds the dev
-user plus Bob/Carol incoming requests, opens the dev-client bundle, authenticates
-with the dev login button, and runs both Social Hub flows.
+The runner expects:
+
+- Java available to Maestro, either on `PATH` or via `JAVA_HOME` (defaults to
+  `/opt/homebrew/opt/openjdk@17`).
+- Maestro installed and available on `PATH`.
+- A booted iOS simulator with the dev build installed. Set `SIMULATOR_UDID` to
+  target a specific simulator; otherwise the first booted simulator is used.
+- Metro reachable at `METRO_URL` (defaults to `http://localhost:8081`).
+- Backend reachable at `BACKEND_URL` or `EXPO_PUBLIC_API_URL` (defaults to
+  `http://localhost:8000`).
+- A repo `venv` with backend dependencies available for seed setup.
+- `EXPO_PUBLIC_DEV_USER_EMAIL` and `EXPO_PUBLIC_DEV_USER_PASSWORD` available in
+  the environment or in `.env`, matching the dev login button.
+
+It seeds the dev user plus Bob/Carol incoming requests, opens the dev-client
+bundle, authenticates with the dev login button, and runs the Social Hub and
+Sessions/Games smoke flows.
+
+To validate local/CI prerequisites and Maestro syntax without seeding data or
+running flows:
+
+```sh
+cd apps/mobile
+npm run e2e:check
+```
 
 For flows that start from a deep link on the iOS simulator, prefer `simctl`
 before invoking Maestro. On the local iOS 26 simulator, Maestro's `openLink`

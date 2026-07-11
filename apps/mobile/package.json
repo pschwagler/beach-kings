@@ -11,6 +11,7 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "e2e:social": "bash scripts/run-social-e2e.sh",
+    "e2e:check": "bash scripts/run-social-e2e.sh --check",
     "ios": "expo run:ios",
     "android": "expo run:android"
   },

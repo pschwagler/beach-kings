@@ -11,6 +11,36 @@ BACKEND_URL="${BACKEND_URL:-${EXPO_PUBLIC_API_URL:-http://localhost:8000}}"
 METRO_URL="${METRO_URL:-http://localhost:8081}"
 SIMULATOR_UDID="${SIMULATOR_UDID:-booted}"
 JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
+CHECK_ONLY=0
+
+usage() {
+  cat <<'EOF'
+Usage: run-social-e2e.sh [--check]
+
+Runs the local Maestro smoke suite against an installed dev build.
+
+Options:
+  --check    Validate required tools, env vars, services, simulator, and flow
+             syntax without seeding data or running Maestro flows.
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --check | --check-only)
+      CHECK_ONLY=1
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 if [ -f "${REPO_ROOT}/.env" ]; then
   set -a
@@ -40,6 +70,11 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "$1 is required"
 }
 
+require_java() {
+  env JAVA_HOME="$JAVA_HOME" PATH="${JAVA_HOME}/bin:${PATH}" java -version >/dev/null 2>&1 ||
+    fail "Java is required for Maestro; set JAVA_HOME to a valid JDK/JRE"
+}
+
 wait_for_url() {
   local url="$1"
   local label="$2"
@@ -56,7 +91,7 @@ wait_for_url() {
 }
 
 maestro_cmd() {
-  JAVA_HOME="$JAVA_HOME" PATH="${JAVA_HOME}/bin:${PATH}" maestro "$@"
+  env JAVA_HOME="$JAVA_HOME" PATH="${JAVA_HOME}/bin:${PATH}" maestro "$@"
 }
 
 open_sim_url() {
@@ -176,6 +211,7 @@ PY
 require_cmd curl
 require_cmd xcrun
 require_cmd maestro
+require_java
 
 [ -x "${REPO_ROOT}/venv/bin/python" ] || fail "venv python not found at ${REPO_ROOT}/venv/bin/python"
 [ -n "$DEV_EMAIL" ] || fail "EXPO_PUBLIC_DEV_USER_EMAIL is required"
@@ -193,11 +229,17 @@ fi
 wait_for_url "${BACKEND_URL}/api/health" "backend"
 wait_for_url "${METRO_URL}/status" "Metro"
 
-seed_social_data
-
 maestro_cmd check-syntax "${MOBILE_DIR}/.maestro/auth-smoke.yaml"
 maestro_cmd check-syntax "${MOBILE_DIR}/.maestro/social-hub-smoke.yaml"
 maestro_cmd check-syntax "${MOBILE_DIR}/.maestro/social-friend-request-accept.yaml"
+maestro_cmd check-syntax "${MOBILE_DIR}/.maestro/sessions-games-smoke.yaml"
+
+if [ "$CHECK_ONLY" -eq 1 ]; then
+  printf 'ok: E2E prerequisites and Maestro flow syntax verified\n'
+  exit 0
+fi
+
+seed_social_data
 
 encoded_metro_url="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$METRO_URL")"
 xcrun simctl terminate "$SIMULATOR_UDID" "$APP_ID" >/dev/null 2>&1 || true
@@ -229,3 +271,6 @@ seed_social_data
 
 open_sim_url "beach-league://social?tab=friends"
 maestro_cmd --udid "$SIMULATOR_UDID" test "${MOBILE_DIR}/.maestro/social-friend-request-accept.yaml"
+
+open_sim_url "beach-league://add-games"
+maestro_cmd --udid "$SIMULATOR_UDID" test "${MOBILE_DIR}/.maestro/sessions-games-smoke.yaml"
