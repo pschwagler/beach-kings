@@ -162,6 +162,28 @@ describe('useNotificationFeed', () => {
     expect(result.current.notifications[0]?.is_read).toBe(true);
   });
 
+  it('removes a notification when an update marks it dismissed', () => {
+    const { result } = renderHook(() => useNotificationFeed());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'notification',
+        payload: makeNotification({ id: 1 }),
+      });
+      result.current.handleMessage({
+        type: 'notification_updated',
+        payload: makeNotification({
+          id: 1,
+          is_read: true,
+          dismissed_at: '2026-04-18T01:00:00Z',
+        }),
+      });
+    });
+
+    expect(result.current.notifications).toEqual([]);
+    expect(result.current.unreadCount).toBe(0);
+  });
+
   it('ignores malformed payloads', () => {
     const { result } = renderHook(() => useNotificationFeed());
     act(() => {

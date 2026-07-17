@@ -484,15 +484,13 @@ async def get_session_detail(
             status_code=403, detail="Only session participants can view session detail"
         )
 
-    # Fetch session-type, court, and extended metadata in one query
+    # Fetch session-type, court, and ranking metadata in one query.
     sess_row = await session.execute(
         select(
             Session.session_type,
             Session.court_id,
             Session.date,
             Session.start_time,
-            Session.max_players,
-            Session.notes,
             Session.is_ranked,
             Court.name.label("court_name"),
         )
@@ -505,8 +503,6 @@ async def get_session_detail(
     court_name: str | None = sess_extra.court_name if sess_extra else None
     session_date: str | None = sess_extra.date if sess_extra else None
     start_time: str | None = sess_extra.start_time if sess_extra else None
-    max_players: int | None = sess_extra.max_players if sess_extra else None
-    notes: str | None = sess_extra.notes if sess_extra else None
     is_ranked: bool = sess_extra.is_ranked if sess_extra is not None else True
 
     # Resolve league_id directly from the session (available for both season
@@ -566,13 +562,12 @@ async def get_session_detail(
         "court_id": court_id,
         "session_type": session_type,
         "status": sess.get("status") or "ACTIVE",
+        "season_id": sess.get("season_id"),
         "league_id": league_id,
         "league_name": league_name,
         "date": session_date,
         "start_time": start_time,
         "session_number": session_number,
-        "max_players": max_players,
-        "notes": notes,
         "is_ranked": is_ranked,
         "players": players,
         "games": games,
@@ -823,6 +818,9 @@ async def create_session(
                 season_id=body.season_id,
                 latitude=body.latitude,
                 longitude=body.longitude,
+                court_id=court_id,
+                start_time=body.start_time,
+                is_ranked=body.is_ranked,
             )
         else:
             new_session = await data_service.create_session(
@@ -834,9 +832,6 @@ async def create_session(
                 latitude=body.latitude,
                 longitude=body.longitude,
                 start_time=body.start_time,
-                session_type=body.session_type,
-                max_players=body.max_players,
-                notes=body.notes,
                 is_ranked=body.is_ranked,
             )
         return {
@@ -864,13 +859,16 @@ async def update_session(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Update a session (e.g., submit by setting submit to true, or update name/date/season_id).
+    Update a session (e.g., submit by setting submit to true, or edit its metadata).
 
     Body options:
     - { "submit": true } to submit/lock in a session
     - { "name": <str> } to update the session's name
     - { "date": <str> } to update the session's date
+    - { "start_time": <str|null> } to set or clear the start time
     - { "season_id": <int> } to update the session's season (can be null to remove season)
+    - { "court_id": <int|null> } to set or clear the court
+    - { "is_ranked": <bool> } to set ranked intent for the session and its games
 
     Multiple fields can be updated in a single request.
 
@@ -918,7 +916,6 @@ async def update_session(
                 "season_id": result["season_id"],
             }
 
-        # Handle other field updates (name, date, season_id, court_id).
         # Use model_fields_set to distinguish "field sent as null" from "field omitted".
         name = body.name
         date = body.date
@@ -926,13 +923,25 @@ async def update_session(
         processed_season_id = None if body.season_id is None else int(body.season_id)
         update_court_id = "court_id" in body.model_fields_set
         processed_court_id = None if body.court_id is None else int(body.court_id)
+        update_start_time = "start_time" in body.model_fields_set
+        update_is_ranked = "is_ranked" in body.model_fields_set
 
-        has_updates = name is not None or date is not None or update_season_id or update_court_id
+        has_updates = (
+            name is not None
+            or date is not None
+            or update_start_time
+            or update_season_id
+            or update_court_id
+            or update_is_ranked
+        )
 
         if not has_updates:
             raise HTTPException(
                 status_code=400,
-                detail="At least one field must be provided: submit, name, date, season_id, or court_id",
+                detail=(
+                    "At least one field must be provided: submit, name, date, start_time, "
+                    "season_id, court_id, or is_ranked"
+                ),
             )
 
         # Authorization check for field updates.
@@ -995,10 +1004,14 @@ async def update_session(
             session_id,
             name=name,
             date=date,
+            start_time=body.start_time,
+            update_start_time=update_start_time,
             season_id=processed_season_id,
             update_season_id=update_season_id,
             court_id=processed_court_id,
             update_court_id=update_court_id,
+            is_ranked=body.is_ranked,
+            update_is_ranked=update_is_ranked,
         )
 
         if not result:

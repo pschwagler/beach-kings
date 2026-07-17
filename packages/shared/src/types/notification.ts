@@ -13,6 +13,7 @@ export interface Notification {
   data: Record<string, unknown> | null;
   is_read: boolean;
   read_at: string | null;
+  dismissed_at?: string | null;
   link_url: string | null;
   created_at: string;
 }

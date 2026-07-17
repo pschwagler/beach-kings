@@ -8,7 +8,12 @@
 import { useState, useCallback } from 'react';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
-import type { Player, FriendInLeague, PlayerLeague } from '@beach-kings/shared';
+import type {
+  FriendBatchStatusResponse,
+  MutualFriend,
+  Player,
+  PlayerLeague,
+} from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,7 +21,7 @@ import type { Player, FriendInLeague, PlayerLeague } from '@beach-kings/shared';
 
 export interface PlayerProfileData {
   readonly player: Player;
-  readonly mutualFriends: readonly FriendInLeague[];
+  readonly mutualFriends: readonly MutualFriend[];
   readonly leagues: readonly PlayerLeague[];
   /** 'none' | 'pending' | 'friends' */
   readonly friendStatus: 'none' | 'pending' | 'friends';
@@ -61,18 +66,22 @@ export function usePlayerProfileScreen(
       const [playerData, mutualFriendsData, batchStatus, leaguesData] = await Promise.all([
         api.getPublicPlayer(numericId),
         api.getMutualFriends(numericId).catch(() => []),
-        api.batchFriendStatus([numericId]).catch(() => ({})),
+        api.batchFriendStatus([numericId]).catch(
+          (): FriendBatchStatusResponse => ({ statuses: {}, mutual_counts: {} }),
+        ),
         api.getPlayerLeagues(numericId).catch(() => []),
       ]);
 
-      const rawStatus = (batchStatus as Record<string, string>)[String(numericId)] ?? 'none';
+      const rawStatus = batchStatus.statuses[String(numericId)] ?? 'none';
       const friendStatus: 'none' | 'pending' | 'friends' =
-        rawStatus === 'friends' ? 'friends' :
-        rawStatus === 'pending' ? 'pending' : 'none';
+        rawStatus === 'friend' ? 'friends' :
+        rawStatus === 'pending_outgoing' || rawStatus === 'pending_incoming'
+          ? 'pending'
+          : 'none';
 
       return {
         player: playerData as Player,
-        mutualFriends: mutualFriendsData as FriendInLeague[],
+        mutualFriends: mutualFriendsData,
         leagues: leaguesData as PlayerLeague[],
         friendStatus,
       };

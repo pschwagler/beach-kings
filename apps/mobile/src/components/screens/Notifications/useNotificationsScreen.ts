@@ -172,15 +172,9 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
       void hapticMedium();
       const requestId = getFriendRequestId(notification);
       if (requestId == null) return;
-      // Optimistic: mark notification as read
+      // Optimistic: resolved requests disappear from the feed.
       const prev = rawNotifications ?? [];
-      mutate(
-        prev.map((n) =>
-          n.id === notification.id
-            ? { ...n, is_read: true, read_at: new Date().toISOString() }
-            : n,
-        ),
-      );
+      mutate(prev.filter((n) => n.id !== notification.id));
       api.acceptFriendRequest(requestId).catch((error) => {
         if (!isAlreadyHandledFriendRequestError(error)) {
           mutate(prev);
@@ -196,13 +190,7 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
       const requestId = getFriendRequestId(notification);
       if (requestId == null) return;
       const prev = rawNotifications ?? [];
-      mutate(
-        prev.map((n) =>
-          n.id === notification.id
-            ? { ...n, is_read: true, read_at: new Date().toISOString() }
-            : n,
-        ),
-      );
+      mutate(prev.filter((n) => n.id !== notification.id));
       api.declineFriendRequest(requestId).catch((error) => {
         if (!isAlreadyHandledFriendRequestError(error)) {
           mutate(prev);

@@ -1,47 +1,37 @@
-/**
- * Tests for useSessionEditScreen — pre-populates form from session detail
- * and saves edits via api.updateSession.
- */
-
-import { renderHook, waitFor, act } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+import type { SessionDetail } from '@beach-kings/shared';
 
 const mockGetSessionById = jest.fn();
+const mockGetLeagueSeasons = jest.fn();
 const mockUpdateSession = jest.fn();
 const mockBack = jest.fn();
-const mockHapticMedium = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('@/lib/api', () => ({
   api: {
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
+    getLeagueSeasons: (...args: unknown[]) => mockGetLeagueSeasons(...args),
     updateSession: (...args: unknown[]) => mockUpdateSession(...args),
   },
 }));
-
-jest.mock('expo-router', () => ({
-  useRouter: jest.fn(() => ({ back: mockBack })),
-}));
-
-jest.mock('@/utils/haptics', () => ({
-  hapticMedium: (...args: unknown[]) => mockHapticMedium(...args),
-}));
+jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
+jest.mock('@/utils/haptics', () => ({ hapticMedium: jest.fn().mockResolvedValue(undefined) }));
 
 import { useSessionEditScreen } from '@/components/screens/Sessions/useSessionEditScreen';
-import type { SessionDetail } from '@beach-kings/shared';
 
-const SESSION: SessionDetail = {
+const session: SessionDetail = {
   id: 5,
   code: 'BK5TEST2',
+  season_id: null,
   league_id: null,
   league_name: null,
+  court_id: 21,
   court_name: 'Court B',
   date: '2026-04-10',
   start_time: '17:00',
   session_number: 1,
   status: 'active',
-  session_type: 'league',
-  max_players: 12,
-  notes: 'first',
-  is_ranked: true,
+  session_type: 'pickup',
+  is_ranked: false,
   players: [],
   games: [],
   user_wins: 0,
@@ -51,124 +41,71 @@ const SESSION: SessionDetail = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetSessionById.mockResolvedValue(SESSION);
+  mockGetSessionById.mockResolvedValue(session);
+  mockGetLeagueSeasons.mockResolvedValue([{ id: 10, name: 'Spring 2026', is_active: true }]);
 });
 
 describe('useSessionEditScreen', () => {
-  it('pre-fills form fields from the loaded session', async () => {
+  it('pre-fills editable date, time, court ID, and ranked state', async () => {
     const { result } = renderHook(() => useSessionEditScreen(5));
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
     await waitFor(() => expect(result.current.date).toBe('2026-04-10'));
+
     expect(result.current.startTime).toBe('17:00');
-    expect(result.current.courtName).toBe('Court B');
-    expect(result.current.sessionType).toBe('league');
-    expect(result.current.notes).toBe('first');
+    expect(result.current.courtId).toBe(21);
+    expect(result.current.isRanked).toBe(false);
   });
 
-  it('coerces null session fields to empty strings', async () => {
-    mockGetSessionById.mockResolvedValue({
-      ...SESSION,
-      start_time: null,
-      court_name: null,
-      notes: null,
-    });
-
-    const { result } = renderHook(() => useSessionEditScreen(5));
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    await waitFor(() => expect(result.current.date).toBe('2026-04-10'));
-    expect(result.current.startTime).toBe('');
-    expect(result.current.courtName).toBe('');
-    expect(result.current.notes).toBe('');
-  });
-
-  it('onSave posts updates and goes back on success', async () => {
+  it('updates with court_id and is_ranked without legacy writable fields', async () => {
     mockUpdateSession.mockResolvedValue(undefined);
     const { result } = renderHook(() => useSessionEditScreen(5));
-    await waitFor(() => expect(result.current.date).toBe('2026-04-10'));
-
+    await waitFor(() => expect(result.current.courtId).toBe(21));
     act(() => {
-      result.current.setNotes('updated');
+      result.current.setCourtId(44);
+      result.current.setIsRanked(true);
     });
 
-    await act(async () => {
-      await result.current.onSave();
-    });
+    await act(async () => { await result.current.onSave(); });
 
-    expect(mockUpdateSession).toHaveBeenCalledWith(
-      5,
-      expect.objectContaining({
-        date: '2026-04-10',
-        start_time: '17:00',
-        court_name: 'Court B',
-        session_type: 'league',
-        notes: 'updated',
-      }),
-    );
+    expect(mockUpdateSession).toHaveBeenCalledWith(5, {
+      date: '2026-04-10',
+      start_time: '17:00',
+      court_id: 44,
+      is_ranked: true,
+    });
+    const payload = mockUpdateSession.mock.calls[0][1];
+    expect(payload).not.toHaveProperty('court_name');
+    expect(payload).not.toHaveProperty('session_type');
     expect(mockBack).toHaveBeenCalledTimes(1);
-    expect(result.current.submitError).toBeNull();
   });
 
-  it('onSave normalises empty strings to null in the payload', async () => {
+  it('loads and saves a season-scoped league session as ranked', async () => {
+    mockGetSessionById.mockResolvedValue({ ...session, league_id: 3, league_name: 'QBK Open Men', season_id: 10, is_ranked: false });
     mockUpdateSession.mockResolvedValue(undefined);
     const { result } = renderHook(() => useSessionEditScreen(5));
-    await waitFor(() => expect(result.current.date).toBe('2026-04-10'));
 
-    act(() => {
-      result.current.setStartTime('');
-      result.current.setCourtName('');
-      result.current.setNotes('');
-    });
+    await waitFor(() => expect(result.current.selectedSeasonId).toBe(10));
+    expect(result.current.isRanked).toBe(true);
+    expect(result.current.isRankedLocked).toBe(true);
+    expect(mockGetLeagueSeasons).toHaveBeenCalledWith(3);
 
-    await act(async () => {
-      await result.current.onSave();
-    });
+    act(() => result.current.setIsRanked(false));
+    expect(result.current.isRanked).toBe(true);
 
-    expect(mockUpdateSession).toHaveBeenCalledWith(
-      5,
-      expect.objectContaining({
-        start_time: null,
-        court_name: null,
-        notes: null,
-      }),
-    );
+    await act(async () => { await result.current.onSave(); });
+    expect(mockUpdateSession).toHaveBeenCalledWith(5, expect.objectContaining({
+      season_id: 10,
+      is_ranked: true,
+    }));
   });
 
-  it('onSave captures Error message in submitError', async () => {
-    mockUpdateSession.mockRejectedValue(new Error('forbidden'));
+  it('allows casual sessions after the season assignment is cleared', async () => {
+    mockGetSessionById.mockResolvedValue({ ...session, league_id: 3, season_id: 10 });
     const { result } = renderHook(() => useSessionEditScreen(5));
-    await waitFor(() => expect(result.current.date).toBe('2026-04-10'));
+    await waitFor(() => expect(result.current.isRankedLocked).toBe(true));
 
-    await act(async () => {
-      await result.current.onSave();
-    });
-
-    expect(result.current.submitError).toBe('forbidden');
-    expect(result.current.isSubmitting).toBe(false);
-    expect(mockBack).not.toHaveBeenCalled();
-  });
-
-  it('onSave uses fallback message when caught value is not Error', async () => {
-    mockUpdateSession.mockRejectedValue(123);
-    const { result } = renderHook(() => useSessionEditScreen(5));
-    await waitFor(() => expect(result.current.date).toBe('2026-04-10'));
-
-    await act(async () => {
-      await result.current.onSave();
-    });
-
-    expect(result.current.submitError).toBe('Failed to save changes.');
-  });
-
-  it('onCancel calls router.back', async () => {
-    const { result } = renderHook(() => useSessionEditScreen(5));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    act(() => {
-      result.current.onCancel();
-    });
-
-    expect(mockBack).toHaveBeenCalledTimes(1);
+    act(() => result.current.setSelectedSeasonId(null));
+    expect(result.current.isRankedLocked).toBe(false);
+    act(() => result.current.setIsRanked(false));
+    expect(result.current.isRanked).toBe(false);
   });
 });

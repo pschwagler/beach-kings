@@ -462,6 +462,24 @@ describe('LeagueInfoTab — seasons', () => {
     await waitFor(() => {
       expect(screen.getByText('New Season')).toBeTruthy();
       expect(screen.getByTestId('season-name-input')).toBeTruthy();
+      expect(screen.getByTestId('season-form-scroll')).toBeTruthy();
+      expect(screen.getByTestId('season-form-footer')).toBeTruthy();
+      expect(screen.getByTestId('season-cancel-btn')).toBeTruthy();
+      expect(screen.getByTestId('season-submit-btn')).toBeTruthy();
+    });
+  });
+
+  it('season form cancel remains reachable and closes the sheet', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('new-season-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('new-season-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('season-form-footer')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('season-cancel-btn'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('season-form-sheet')).toBeNull();
     });
   });
 

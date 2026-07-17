@@ -754,9 +754,6 @@ class TestCreateSession:
             latitude=None,
             longitude=None,
             start_time=None,
-            session_type=None,
-            max_players=None,
-            notes=None,
             is_ranked=None,
         ):
             return created_session
@@ -775,7 +772,7 @@ class TestCreateSession:
         assert "code" in data["session"]
 
     def test_creates_session_with_new_fields(self, monkeypatch):
-        """Happy path: new fields (start_time, session_type, max_players, notes) are forwarded."""
+        """Supported create fields are forwarded without caller-controlled session type."""
         client, headers = _make_user_client(monkeypatch)
         _patch_player(monkeypatch)
 
@@ -787,8 +784,8 @@ class TestCreateSession:
             "status": "ACTIVE",
             "start_time": "3:00 PM",
             "session_type": "pickup",
-            "max_players": 12,
-            "notes": "Bring sunscreen",
+            "court_id": 8,
+            "is_ranked": False,
         }
 
         async def fake_create_session(
@@ -800,15 +797,11 @@ class TestCreateSession:
             latitude=None,
             longitude=None,
             start_time=None,
-            session_type=None,
-            max_players=None,
-            notes=None,
             is_ranked=None,
         ):
             captured["start_time"] = start_time
-            captured["session_type"] = session_type
-            captured["max_players"] = max_players
-            captured["notes"] = notes
+            captured["court_id"] = court_id
+            captured["is_ranked"] = is_ranked
             return created_session
 
         monkeypatch.setattr(data_service, "create_session", fake_create_session, raising=True)
@@ -818,9 +811,8 @@ class TestCreateSession:
             json={
                 "date": "4/25/2026",
                 "start_time": "3:00 PM",
-                "session_type": "pickup",
-                "max_players": 12,
-                "notes": "Bring sunscreen",
+                "court_id": 8,
+                "is_ranked": False,
             },
             headers=headers,
         )
@@ -829,37 +821,23 @@ class TestCreateSession:
         assert data["status"] == "success"
         assert data["session"]["start_time"] == "3:00 PM"
         assert data["session"]["session_type"] == "pickup"
-        assert data["session"]["max_players"] == 12
-        assert data["session"]["notes"] == "Bring sunscreen"
-        # Verify route correctly forwarded the fields to the service
         assert captured["start_time"] == "3:00 PM"
-        assert captured["session_type"] == "pickup"
-        assert captured["max_players"] == 12
-        assert captured["notes"] == "Bring sunscreen"
+        assert captured["court_id"] == 8
+        assert captured["is_ranked"] is False
 
-    def test_max_players_validation_too_low(self, monkeypatch):
-        """max_players below 2 returns 422 (Pydantic validation)."""
+    def test_rejects_unsupported_create_fields(self, monkeypatch):
+        """Removed and unknown create fields must not be silently ignored."""
         client, headers = _make_user_client(monkeypatch)
         _patch_player(monkeypatch)
 
-        response = client.post(
-            "/api/sessions",
-            json={"max_players": 1},
-            headers=headers,
-        )
-        assert response.status_code == 422
-
-    def test_max_players_validation_too_high(self, monkeypatch):
-        """max_players above 64 returns 422 (Pydantic validation)."""
-        client, headers = _make_user_client(monkeypatch)
-        _patch_player(monkeypatch)
-
-        response = client.post(
-            "/api/sessions",
-            json={"max_players": 65},
-            headers=headers,
-        )
-        assert response.status_code == 422
+        for body in (
+            {"max_players": 12},
+            {"notes": "Bring sunscreen"},
+            {"session_type": "pickup"},
+            {"unexpected": True},
+        ):
+            response = client.post("/api/sessions", json=body, headers=headers)
+            assert response.status_code == 422
 
     def test_creates_session_with_defaults(self, monkeypatch):
         """Creates a session with no body (date defaults to today)."""
@@ -875,9 +853,6 @@ class TestCreateSession:
             latitude=None,
             longitude=None,
             start_time=None,
-            session_type=None,
-            max_players=None,
-            notes=None,
             is_ranked=None,
         ):
             return {"id": _SESSION_ID, "name": None, "code": "DEFA0001", "status": "ACTIVE"}
@@ -933,11 +908,17 @@ class TestCreateSession:
             season_id=None,
             latitude=None,
             longitude=None,
+            court_id=None,
+            start_time=None,
+            is_ranked=None,
         ):
             captured["league_id"] = league_id
             captured["season_id"] = season_id
             captured["session_date"] = session_date
             captured["name"] = name
+            captured["court_id"] = court_id
+            captured["start_time"] = start_time
+            captured["is_ranked"] = is_ranked
             return created_session
 
         async def fake_create_session(*args, **kwargs):  # should NOT be called
@@ -991,10 +972,14 @@ class TestUpdateSession:
             session_id,
             name=None,
             date=None,
+            start_time=None,
+            update_start_time=False,
             season_id=None,
             update_season_id=False,
             court_id=None,
             update_court_id=False,
+            is_ranked=None,
+            update_is_ranked=False,
         ):
             return updated_session
 
@@ -1021,6 +1006,51 @@ class TestUpdateSession:
         data = response.json()
         assert data["status"] == "success"
         assert data["session"]["name"] == "Renamed Session"
+
+    def test_update_forwards_nullable_fields_and_rank_intent(self, monkeypatch):
+        """Explicit nulls clear nullable fields while false remains a meaningful rank update."""
+        client, headers = _make_user_client(monkeypatch)
+        captured: dict = {}
+
+        async def fake_get_session(session, session_id):
+            return {**_ACTIVE_SESSION, "league_id": None}
+
+        async def fake_update_session(session, session_id, **kwargs):
+            captured.update(kwargs)
+            return {**_ACTIVE_SESSION, "league_id": None, "start_time": None, "is_ranked": False}
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(data_service, "update_session", fake_update_session, raising=True)
+
+        response = client.patch(
+            f"/api/sessions/{_SESSION_ID}",
+            json={"date": "4/26/2026", "start_time": None, "court_id": None, "is_ranked": False},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert captured["date"] == "4/26/2026"
+        assert captured["start_time"] is None
+        assert captured["update_start_time"] is True
+        assert captured["court_id"] is None
+        assert captured["update_court_id"] is True
+        assert captured["is_ranked"] is False
+        assert captured["update_is_ranked"] is True
+
+    def test_rejects_unsupported_update_fields(self, monkeypatch):
+        """Removed and caller-controlled update fields are rejected at the boundary."""
+        client, headers = _make_user_client(monkeypatch)
+
+        for body in (
+            {"max_players": 12},
+            {"notes": "Bring sunscreen"},
+            {"session_type": "league"},
+            {"name": None},
+            {"date": None},
+            {"is_ranked": None},
+        ):
+            response = client.patch(f"/api/sessions/{_SESSION_ID}", json=body, headers=headers)
+            assert response.status_code == 422
 
     def test_submit_true_locks_session(self, monkeypatch):
         """{ submit: true } locks the session and returns job ids."""
@@ -1250,8 +1280,6 @@ class TestGetSessionDetail:
                 court_name = None
                 date = "3/19/2026"
                 start_time = None
-                max_players = None
-                notes = None
                 is_ranked = True
 
             class ResultFirst:
@@ -1305,8 +1333,6 @@ class TestGetSessionDetail:
                 court_name = None
                 date = "3/19/2026"
                 start_time = None
-                max_players = None
-                notes = None
                 is_ranked = True
 
             class ResultFirst:
@@ -1394,7 +1420,7 @@ class TestGetSessionDetail:
         assert response.json()["games"] == []
 
     def test_response_includes_session_metadata(self, monkeypatch):
-        """Response includes date, start_time, max_players, notes fields."""
+        """Response includes supported date, start_time, and ranking metadata."""
         self._patch_shared(monkeypatch)
         self._patch_execute_league(monkeypatch)
         client, headers = _make_user_client(monkeypatch)
@@ -1404,8 +1430,9 @@ class TestGetSessionDetail:
         data = response.json()
         assert "date" in data
         assert "start_time" in data
-        assert "max_players" in data
-        assert "notes" in data
+        assert "is_ranked" in data
+        assert "max_players" not in data
+        assert "notes" not in data
 
     def test_response_includes_is_ranked(self, monkeypatch):
         """Response includes is_ranked field reflecting the session-level ranked flag."""
@@ -1490,8 +1517,6 @@ class TestGetSessionDetail:
                 court_name = None
                 date = "3/19/2026"
                 start_time = None
-                max_players = None
-                notes = None
                 is_ranked = True
 
             class ResultFirst:

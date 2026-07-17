@@ -12,6 +12,7 @@ import type {
   Season,
   Session,
   SessionCreatePayload,
+  SessionUpdatePayload,
   GameCreatePayload,
   GameCreateResponse,
   SessionParticipant,
@@ -28,7 +29,8 @@ import type {
   FriendListResponse,
   FriendRequest,
   FriendRequestDirection,
-  FriendInLeague,
+  FriendBatchStatusResponse,
+  MutualFriend,
   Notification,
   PushNotificationPrefs,
   Conversation,
@@ -828,6 +830,17 @@ export function createApiMethods(client: ApiClient) {
       return response.data?.session ?? null;
     },
 
+    async updateSession(
+      sessionId: number,
+      payload: SessionUpdatePayload,
+    ): Promise<{ status: string; message: string; session: Session }> {
+      const response = await api.patch<{ status: string; message: string; session: Session }>(
+        `/api/sessions/${sessionId}`,
+        payload,
+      );
+      return response.data;
+    },
+
     async lockInSession(sessionId: number) {
       const response = await api.patch(`/api/sessions/${sessionId}`, { submit: true });
       return response.data;
@@ -1364,12 +1377,12 @@ export function createApiMethods(client: ApiClient) {
     },
 
     async batchFriendStatus(playerIds: number[]) {
-      const response = await api.post<Record<string, string>>('/api/friends/batch-status', { player_ids: playerIds });
+      const response = await api.post<FriendBatchStatusResponse>('/api/friends/batch-status', { player_ids: playerIds });
       return response.data;
     },
 
     async getMutualFriends(otherPlayerId: number) {
-      const response = await api.get<FriendInLeague[]>(`/api/friends/mutual/${otherPlayerId}`);
+      const response = await api.get<MutualFriend[]>(`/api/friends/mutual/${otherPlayerId}`);
       return response.data;
     },
 

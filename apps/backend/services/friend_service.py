@@ -188,6 +188,15 @@ async def send_friend_request(
     # Send notification to receiver
     if receiver_user_id:
         try:
+            # A declined request may have left historical notification rows.
+            # Dismiss any presentation for this sender before creating the one
+            # actionable notification for the new pending relationship.
+            await notification_service.mark_friend_request_notifications_handled(
+                session,
+                receiver_user_id=receiver_user_id,
+                request_id=friend_request.id,
+                sender_player_id=sender_player_id,
+            )
             await notification_service.create_notification(
                 session=session,
                 user_id=receiver_user_id,

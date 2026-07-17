@@ -85,10 +85,8 @@ export interface Session {
    * Stored as a VARCHAR column added in migration 046.
    */
   session_type?: SessionType | null;
-  /** Maximum number of players allowed in the session. */
-  max_players?: number | null;
-  /** Free-text notes visible to all participants. */
-  notes?: string | null;
+  /** Whether this session counts toward rankings. */
+  is_ranked?: boolean | null;
 }
 
 /**
@@ -106,14 +104,20 @@ export interface SessionCreatePayload {
   name?: string | null;
   court_id?: number | null;
   start_time?: string | null;
-  session_type?: SessionType | null;
-  max_players?: number | null;
-  notes?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   league_id?: number | null;
   season_id?: number | null;
   /** Session-level ranked intent. Defaults to true on the backend when omitted. */
+  is_ranked?: boolean | null;
+}
+
+export interface SessionUpdatePayload {
+  name?: string;
+  date?: string;
+  court_id?: number | null;
+  start_time?: string | null;
+  season_id?: number | null;
   is_ranked?: boolean | null;
 }
 
@@ -202,17 +206,18 @@ export interface SessionDetail {
   readonly id: number;
   /** Shareable join code, e.g. "BK4XJ9P2". Null when the session does not have one. */
   readonly code: string | null;
+  readonly season_id?: number | null;
   readonly league_id: number | null;
   readonly league_name: string | null;
+  readonly court_id: number | null;
   readonly court_name: string | null;
   readonly date: string;
   readonly start_time: string | null;
   /** 1-based sequential session number within the day. */
   readonly session_number: number;
   readonly status: 'active' | 'submitted';
+  /** Retained for displaying sessions created before league context was explicit. */
   readonly session_type: SessionType;
-  readonly max_players: number | null;
-  readonly notes: string | null;
   /** Whether this session counts toward rankings. Defaults to true (server default). */
   readonly is_ranked: boolean;
   readonly players: readonly SessionPlayer[];

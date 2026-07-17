@@ -28,6 +28,7 @@ import {
 } from 'react-native';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { api } from '@/lib/api';
+import CourtPickerModal from '@/components/ui/CourtPickerModal';
 import { useLeagueInfoTab } from './useLeagueInfoTab';
 import SeasonFormSheet from './SeasonFormSheet';
 import type { HomeCourtResponse, JoinRequest, LeagueMemberRow, LeagueSeason } from '@beach-kings/shared';
@@ -336,63 +337,6 @@ function CourtPill({ court, isPrimary, isAdmin, onRemove }: CourtPillProps): Rea
         </Pressable>
       )}
     </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Court picker modal
-// ---------------------------------------------------------------------------
-
-interface CourtPickerModalProps {
-  readonly visible: boolean;
-  readonly courts: Array<{ id: number; name: string }>;
-  readonly onSelect: (courtId: number) => Promise<void>;
-  readonly onClose: () => void;
-}
-
-function CourtPickerModal({
-  visible,
-  courts,
-  onSelect,
-  onClose,
-}: CourtPickerModalProps): React.ReactNode {
-  return (
-    <Modal
-      testID="court-picker-modal"
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        className="flex-1 bg-black/40"
-        onPress={onClose}
-      />
-      <View className="bg-surface rounded-t-[20px] px-4 pt-4 pb-8 max-h-[60%]">
-        <View className="flex-row justify-between items-center mb-3">
-          <Text className="text-[16px] font-bold text-default">Add Home Court</Text>
-          <Pressable testID="close-court-picker" onPress={onClose}>
-            <Text className="text-[14px] text-brand-teal font-semibold">Done</Text>
-          </Pressable>
-        </View>
-        <FlatList
-          data={courts}
-          keyExtractor={(c) => String(c.id)}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              testID={`court-option-${item.id}`}
-              onPress={() => {
-                void onSelect(item.id);
-                onClose();
-              }}
-              className="py-[14px] border-b border-divider"
-            >
-              <Text className="text-[14px] text-default">{item.name}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-    </Modal>
   );
 }
 
@@ -843,8 +787,12 @@ export default function LeagueInfoTab({
       <CourtPickerModal
         visible={showCourtPicker}
         courts={availableCourts}
-        onSelect={onAddCourt}
+        onSelect={(courtId) => courtId == null ? undefined : onAddCourt(courtId)}
         onClose={() => setShowCourtPicker(false)}
+        title="Add Home Court"
+        testIDPrefix="court"
+        modalTestID="court-picker-modal"
+        closeTestID="close-court-picker"
       />
       <SeasonFormSheet
         visible={seasonSheetMode != null}

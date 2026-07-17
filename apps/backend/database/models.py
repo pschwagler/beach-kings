@@ -1464,6 +1464,7 @@ class Notification(Base):
     )  # JSON string for flexible metadata (league_id, message_id, etc.)
     is_read = Column(Boolean, default=False, nullable=False)
     read_at = Column(DateTime(timezone=True), nullable=True)
+    dismissed_at = Column(DateTime(timezone=True), nullable=True)
     link_url = Column(String(500), nullable=True)  # Navigation target
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

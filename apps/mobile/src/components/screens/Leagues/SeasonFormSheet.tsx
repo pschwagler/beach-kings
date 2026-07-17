@@ -240,22 +240,31 @@ export default function SeasonFormSheet({
       <View className="flex-1 justify-end bg-black/40">
         <Pressable testID="season-form-backdrop" className="flex-1" onPress={onClose} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View className="bg-surface rounded-t-[20px] px-4 pt-4 pb-8 max-h-[88%]">
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-[18px] font-bold text-default">
-                {mode === 'create' ? 'New Season' : 'Edit Season'}
-              </Text>
-              <Pressable
-                testID="close-season-form"
-                onPress={onClose}
-                hitSlop={8}
-                className="active:opacity-70"
-              >
-                <Text className="text-[14px] font-semibold text-brand-teal">Done</Text>
-              </Pressable>
+          <View className="bg-surface rounded-t-[20px] max-h-[88%]">
+            <View className="px-4 pt-4">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-[18px] font-bold text-default">
+                  {mode === 'create' ? 'New Season' : 'Edit Season'}
+                </Text>
+                <Pressable
+                  testID="close-season-form"
+                  onPress={onClose}
+                  hitSlop={8}
+                  className="active:opacity-70"
+                >
+                  <Text className="text-[14px] font-semibold text-brand-teal">Done</Text>
+                </Pressable>
+              </View>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              testID="season-form-scroll"
+              className="px-4"
+              contentContainerStyle={{ paddingBottom: 12 }}
+              style={{ flexShrink: 1 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               <FormField
                 testID="season-name-input"
                 label="Season name"
@@ -341,35 +350,38 @@ export default function SeasonFormSheet({
                   {error}
                 </Text>
               )}
-
-              <View className="flex-row gap-3 mt-5">
-                <Pressable
-                  testID="season-cancel-btn"
-                  onPress={onClose}
-                  className="flex-1 items-center rounded-[8px] border border-divider py-[12px] active:opacity-70"
-                >
-                  <Text className="text-[13px] font-bold text-muted">Cancel</Text>
-                </Pressable>
-                <Pressable
-                  testID="season-submit-btn"
-                  onPress={() => {
-                    void handleSubmit();
-                  }}
-                  disabled={isSubmitDisabled}
-                  className={`flex-1 items-center rounded-[8px] py-[12px] ${
-                    isSubmitDisabled ? 'bg-elevated opacity-60' : 'bg-brand-teal active:opacity-80'
-                  }`}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text className="text-[13px] font-bold text-white">
-                      {mode === 'create' ? 'Create' : 'Update'}
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
             </ScrollView>
+
+            <View
+              testID="season-form-footer"
+              className="flex-row gap-3 border-t border-divider px-4 pt-3 pb-8 bg-surface"
+            >
+              <Pressable
+                testID="season-cancel-btn"
+                onPress={onClose}
+                className="flex-1 items-center rounded-[8px] border border-divider py-[12px] active:opacity-70"
+              >
+                <Text className="text-[13px] font-bold text-muted">Cancel</Text>
+              </Pressable>
+              <Pressable
+                testID="season-submit-btn"
+                onPress={() => {
+                  void handleSubmit();
+                }}
+                disabled={isSubmitDisabled}
+                className={`flex-1 items-center rounded-[8px] py-[12px] ${
+                  isSubmitDisabled ? 'bg-elevated opacity-60' : 'bg-brand-teal active:opacity-80'
+                }`}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" />
+                ) : (
+                  <Text className="text-[13px] font-bold text-white">
+                    {mode === 'create' ? 'Create' : 'Update'}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </View>

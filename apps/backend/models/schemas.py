@@ -1136,8 +1136,7 @@ class SessionDetailResponse(BaseModel):
     updated_by_name: Optional[str] = None
     start_time: Optional[str] = None
     session_type: Optional[str] = None
-    max_players: Optional[int] = None
-    notes: Optional[str] = None
+    is_ranked: Optional[bool] = True
 
 
 class SessionListItemResponse(BaseModel):
@@ -1321,13 +1320,12 @@ class SessionRosterDetailResponse(BaseModel):
     court_id: Optional[int] = None
     session_type: Optional[str] = None
     status: str
+    season_id: Optional[int] = None
     league_id: Optional[int] = None
     league_name: Optional[str] = None
     date: Optional[str] = None
     start_time: Optional[str] = None
     session_number: int = 1
-    max_players: Optional[int] = None
-    notes: Optional[str] = None
     is_ranked: Optional[bool] = True
     players: List[SessionRosterPlayerResponse]
     games: List[SessionGameResponse] = []
@@ -1632,20 +1630,17 @@ class CreateNonLeagueSessionRequest(BaseModel):
     league session before any matches are saved (see
     apps/mobile/MOBILE_ADD_GAMES_VALIDATION.md Flow 2.3 / 4.3).
     All fields are optional. ``date`` defaults to today on the backend when
-    omitted. ``session_type`` must be one of ``'pickup'`` or ``'league'``
-    when provided.
+    omitted. The backend derives ``session_type`` from ``league_id``.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     date: Optional[str] = None  # MM/DD/YYYY; defaults to today when omitted
     name: Optional[str] = None
     court_id: Optional[int] = None
     latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
     longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
-    # Extended fields added in migration 046
     start_time: Optional[str] = None
-    session_type: Optional[str] = None
-    max_players: Optional[int] = Field(default=None, ge=2, le=64)
-    notes: Optional[str] = None
     # League/season context — when provided, the session is attached to that
     # season; otherwise a non-league session is created.
     league_id: Optional[int] = None
@@ -1661,13 +1656,27 @@ class UpdateSessionRequest(BaseModel):
     A session's ``league_id`` is never set directly by the client on update — it
     is derived authoritatively inside ``update_session`` from the attached
     season (a session may only move between seasons of its own league).
+    The backend derives ``session_type`` from the resulting ``league_id``.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     submit: Optional[bool] = None
     name: Optional[str] = None
     date: Optional[str] = None
+    start_time: Optional[str] = None
     season_id: Optional[int] = None
     court_id: Optional[int] = None
+    is_ranked: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def validate_explicit_nulls(self):
+        for field_name in ("name", "date"):
+            if field_name in self.model_fields_set and getattr(self, field_name) is None:
+                raise ValueError(f"{field_name} must be a string")
+        if "is_ranked" in self.model_fields_set and self.is_ranked is None:
+            raise ValueError("is_ranked must be true or false")
+        return self
 
 
 # ---------------------------------------------------------------------------

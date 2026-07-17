@@ -42,14 +42,13 @@ const SESSION: SessionDetail = {
   code: 'BK7TEST1',
   league_id: 1,
   league_name: 'Test League',
+  court_id: 1,
   court_name: 'Court 1',
   date: '2026-04-01',
   start_time: '6:00 PM',
   session_number: 1,
   status: 'active',
   session_type: 'pickup',
-  max_players: 16,
-  notes: null,
   is_ranked: true,
   players: [
     {

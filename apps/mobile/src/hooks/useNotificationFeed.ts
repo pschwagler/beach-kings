@@ -14,6 +14,7 @@ export interface Notification {
   readonly type: string;
   readonly message: string;
   readonly is_read: boolean;
+  readonly dismissed_at?: string | null;
   readonly created_at: string;
 }
 
@@ -106,7 +107,9 @@ function useNotificationFeed(): UseNotificationFeedResult {
       } else if (message.type === 'notification_updated') {
         const updated = message.payload;
         setNotifications((prev) =>
-          prev.map((n) => (n.id === updated.id ? updated : n)),
+          updated.dismissed_at != null
+            ? prev.filter((n) => n.id !== updated.id)
+            : prev.map((n) => (n.id === updated.id ? updated : n)),
         );
       }
     },

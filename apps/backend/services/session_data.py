@@ -392,6 +392,9 @@ async def get_or_create_active_league_session(
     season_id: Optional[int] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
+    court_id: Optional[int] = None,
+    start_time: Optional[str] = None,
+    is_ranked: bool | None = None,
 ) -> Dict:
     """
     Get or create an active session for a league and date atomically.
@@ -420,6 +423,9 @@ async def get_or_create_active_league_session(
             if none is found, a gap game is created.
         latitude: Optional browser geolocation latitude.
         longitude: Optional browser geolocation longitude.
+        court_id: Optional court ID. Defaults to the league's primary home court.
+        start_time: Optional session start time.
+        is_ranked: Optional ranked intent. Season sessions are always ranked.
 
     Returns:
         Dict with session info (``season_id`` may be None for gap games).
@@ -484,6 +490,10 @@ async def get_or_create_active_league_session(
                 "status": existing_session.status.value if existing_session.status else None,
                 "season_id": existing_session.season_id,
                 "league_id": existing_session.league_id,
+                "court_id": existing_session.court_id,
+                "start_time": existing_session.start_time,
+                "session_type": existing_session.session_type,
+                "is_ranked": existing_session.is_ranked,
                 "code": existing_session.code,
             }
     except Exception as e:
@@ -501,6 +511,10 @@ async def get_or_create_active_league_session(
                 "status": existing_session.status.value if existing_session.status else None,
                 "season_id": existing_session.season_id,
                 "league_id": existing_session.league_id,
+                "court_id": existing_session.court_id,
+                "start_time": existing_session.start_time,
+                "session_type": existing_session.session_type,
+                "is_ranked": existing_session.is_ranked,
                 "code": existing_session.code,
             }
 
@@ -526,15 +540,21 @@ async def get_or_create_active_league_session(
         .limit(1)
     )
     default_court_id = home_court_result.scalar_one_or_none()
+    effective_court_id = court_id if court_id is not None else default_court_id
 
     # Resolve geo from court → league home court → browser → player city
     geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
         db_session=session,
-        court_id=default_court_id,
+        court_id=effective_court_id,
         league_id=league_id,
         browser_lat=latitude,
         browser_lon=longitude,
         creator_player_id=created_by,
+    )
+
+    # TODO: inherit this from the future season/league ranking policy.
+    effective_is_ranked = True if resolved_season_id is not None else (
+        is_ranked if is_ranked is not None else True
     )
 
     code = await _generate_session_code(session)
@@ -546,10 +566,12 @@ async def get_or_create_active_league_session(
         league_id=league_id,
         session_type="league",
         created_by=created_by,
-        court_id=default_court_id,
+        court_id=effective_court_id,
         location_id=geo_location_id,
         latitude=geo_lat,
         longitude=geo_lon,
+        start_time=start_time,
+        is_ranked=effective_is_ranked,
         code=code,
     )
     session.add(new_session)
@@ -566,6 +588,9 @@ async def get_or_create_active_league_session(
         "location_id": new_session.location_id,
         "latitude": new_session.latitude,
         "longitude": new_session.longitude,
+        "start_time": new_session.start_time,
+        "session_type": new_session.session_type,
+        "is_ranked": new_session.is_ranked,
         "code": new_session.code,
     }
 
@@ -579,6 +604,8 @@ async def create_league_session(
     court_id: Optional[int] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
+    start_time: Optional[str] = None,
+    is_ranked: bool | None = None,
 ) -> Dict:
     """
     Create a league session.  Automatically resolves the league's most recent
@@ -599,6 +626,8 @@ async def create_league_session(
         court_id: Optional court ID; defaults to the league's primary home court.
         latitude: Optional browser geolocation latitude.
         longitude: Optional browser geolocation longitude.
+        start_time: Optional session start time.
+        is_ranked: Optional ranked intent. Season sessions are always ranked.
 
     Returns:
         Dict with created session info (``season_id`` may be None for gap games).
@@ -684,6 +713,10 @@ async def create_league_session(
     )
 
     code = await _generate_session_code(session)
+    # TODO: inherit this from the future season/league ranking policy.
+    effective_is_ranked = True if resolved_season_id is not None else (
+        is_ranked if is_ranked is not None else True
+    )
     new_session = Session(
         date=date,
         name=session_name,
@@ -696,6 +729,8 @@ async def create_league_session(
         location_id=geo_location_id,
         latitude=geo_lat,
         longitude=geo_lon,
+        start_time=start_time,
+        is_ranked=effective_is_ranked,
         code=code,
     )
     session.add(new_session)
@@ -712,6 +747,9 @@ async def create_league_session(
         "location_id": new_session.location_id,
         "latitude": new_session.latitude,
         "longitude": new_session.longitude,
+        "start_time": new_session.start_time,
+        "session_type": new_session.session_type,
+        "is_ranked": new_session.is_ranked,
         "code": new_session.code,
     }
 
@@ -726,18 +764,14 @@ async def create_session(
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
     start_time: Optional[str] = None,
-    session_type: Optional[str] = None,
-    max_players: Optional[int] = None,
-    notes: Optional[str] = None,
     is_ranked: bool | None = None,
 ) -> Dict:
     """
     Create a new session. Generates a unique shareable code and optionally
     adds the creator to participants.
 
-    When ``league_id`` is provided the session is stamped as a league session:
-    ``league_id`` is persisted on the row and ``session_type`` defaults to
-    ``'league'`` unless the caller explicitly passes a different value.
+    ``session_type`` is derived internally: ``'league'`` for league sessions,
+    otherwise ``'pickup'``.
 
     Args:
         session: Database session
@@ -749,10 +783,6 @@ async def create_session(
         latitude: Optional browser geolocation latitude
         longitude: Optional browser geolocation longitude
         start_time: Optional start time string (e.g. '3:00 PM')
-        session_type: Optional access type ('pickup' or 'league'); when
-            ``league_id`` is set and this is ``None``, defaults to ``'league'``
-        max_players: Optional maximum number of players (2-64)
-        notes: Optional free-text notes visible to participants
         is_ranked: Session-level ranked intent. Defaults to ``True`` when
             ``None`` (matches the column server_default). Matches created in
             this session will inherit this value as their ``ranked_intent``.
@@ -763,11 +793,7 @@ async def create_session(
     Raises:
         ValueError: If code generation fails after retries
     """
-    # Resolve effective session_type: default to 'league' when league_id is
-    # present and the caller did not supply an explicit override.
-    effective_session_type = (
-        session_type if session_type is not None else ("league" if league_id is not None else None)
-    )
+    effective_session_type = "league" if league_id is not None else "pickup"
     result = await session.execute(
         select(func.count(Session.id)).where(
             and_(
@@ -813,8 +839,6 @@ async def create_session(
         longitude=geo_lon,
         start_time=start_time,
         session_type=effective_session_type,
-        max_players=max_players,
-        notes=notes,
         is_ranked=effective_is_ranked,
     )
     session.add(new_session)
@@ -842,8 +866,7 @@ async def create_session(
         "longitude": new_session.longitude,
         "start_time": new_session.start_time,
         "session_type": new_session.session_type,
-        "max_players": new_session.max_players,
-        "notes": new_session.notes,
+        "is_ranked": new_session.is_ranked,
         "created_at": new_session.created_at.isoformat() if new_session.created_at else "",
     }
 
@@ -909,23 +932,31 @@ async def update_session(
     session_id: int,
     name: Optional[str] = None,
     date: Optional[str] = None,
+    start_time: Optional[str] = None,
+    update_start_time: bool = False,
     season_id: Optional[int] = None,
     update_season_id: bool = False,
     court_id: Optional[int] = None,
     update_court_id: bool = False,
+    is_ranked: bool | None = None,
+    update_is_ranked: bool = False,
 ) -> Optional[Dict]:
     """
-    Update a session's fields (name, date, season_id, court_id).
+    Update a session's fields and synchronize match ranking intent when needed.
 
     Args:
         session: Database session
         session_id: ID of session to update
         name: New session name (optional)
         date: New session date (optional)
+        start_time: New start time (optional, can be None to clear)
+        update_start_time: If True, update start_time even if it is None
         season_id: New season_id (optional, can be None to remove season)
         update_season_id: If True, update season_id even if it's None (to allow removing season)
         court_id: New court_id (optional, can be None to remove court)
         update_court_id: If True, update court_id even if it's None (to allow removing court)
+        is_ranked: New ranked intent (season sessions always force this True)
+        update_is_ranked: If True, update is_ranked and every existing match
 
     Returns:
         Dict with updated session info, or None if session not found
@@ -944,6 +975,8 @@ async def update_session(
         update_values["name"] = name
     if date is not None:
         update_values["date"] = date
+    if update_start_time or start_time is not None:
+        update_values["start_time"] = start_time
     if update_season_id or season_id is not None:
         if season_id is not None:
             season_result = await session.execute(select(Season).where(Season.id == season_id))
@@ -962,6 +995,8 @@ async def update_session(
                     f"not this session's league {session_obj.league_id}"
                 )
             update_values["league_id"] = season_obj.league_id
+            # TODO: inherit this from the future season/league ranking policy.
+            update_values["is_ranked"] = True
         # When season_id is explicitly set to None we leave league_id unchanged —
         # a league session with no season is a valid gap-game state (Phase 3).
         update_values["season_id"] = season_id
@@ -974,6 +1009,12 @@ async def update_session(
                 raise ValueError(f"Court {court_id} not found")
         update_values["court_id"] = court_id
 
+    ranking_update_requested = update_is_ranked or is_ranked is not None
+    if ranking_update_requested:
+        if is_ranked is None:
+            raise ValueError("is_ranked must be true or false")
+        update_values["is_ranked"] = is_ranked
+
     if not update_values:
         return {
             "id": session_obj.id,
@@ -985,11 +1026,56 @@ async def update_session(
             "status": session_obj.status.value if session_obj.status else None,
             "name": session_obj.name,
             "date": session_obj.date,
+            "start_time": session_obj.start_time,
+            "session_type": session_obj.session_type,
+            "is_ranked": session_obj.is_ranked,
         }
 
+    effective_season_id = update_values.get("season_id", session_obj.season_id)
+    if effective_season_id is not None:
+        # TODO: inherit this from the future season/league ranking policy.
+        update_values["is_ranked"] = True
+
+    # A session type is never caller-controlled. Its league linkage is the
+    # authoritative source, including pickup-to-league promotion.
+    effective_league_id = update_values.get("league_id", session_obj.league_id)
+    update_values["session_type"] = "league" if effective_league_id is not None else "pickup"
+
+    effective_is_ranked = update_values.get("is_ranked", session_obj.is_ranked)
+    ranking_changed = effective_is_ranked != session_obj.is_ranked
+    ranking_propagation_requested = ranking_update_requested or (
+        update_season_id and effective_season_id is not None
+    ) or (effective_season_id is not None and session_obj.is_ranked is not True)
+
+    if ranking_propagation_requested:
+        from backend.services import placeholder_service
+
+        matches_result = await session.execute(select(Match).where(Match.session_id == session_id))
+        for match in matches_result.scalars():
+            has_placeholders = await placeholder_service.check_match_has_placeholders(
+                session,
+                [
+                    match.team1_player1_id,
+                    match.team1_player2_id,
+                    match.team2_player1_id,
+                    match.team2_player2_id,
+                ],
+            )
+            match.ranked_intent = effective_is_ranked
+            match.is_ranked = effective_is_ranked and not has_placeholders
+
     update_values["updated_at"] = func.now()
+    was_submitted = session_obj.status != SessionStatus.ACTIVE
     await session.execute(update(Session).where(Session.id == session_id).values(**update_values))
     await session.commit()
+
+    if ranking_changed and was_submitted:
+        from backend.services.stats_queue import get_stats_queue
+
+        queue = get_stats_queue()
+        await queue.enqueue_calculation(session, "global", None)
+        if effective_league_id:
+            await queue.enqueue_calculation(session, "league", effective_league_id)
 
     result = await session.execute(
         select(Session, Court.name.label("court_name"), Court.slug.label("court_slug"))
@@ -1013,6 +1099,9 @@ async def update_session(
         "status": updated_session.status.value if updated_session.status else None,
         "name": updated_session.name,
         "date": updated_session.date,
+        "start_time": updated_session.start_time,
+        "session_type": updated_session.session_type,
+        "is_ranked": updated_session.is_ranked,
     }
 
 

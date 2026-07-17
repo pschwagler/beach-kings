@@ -27,6 +27,8 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import TopNav from "@/components/ui/TopNav";
+import CourtPickerModal from "@/components/ui/CourtPickerModal";
+import { usePaletteColors } from "@/theme/usePaletteColors";
 import { hapticMedium, hapticLight } from "@/utils/haptics";
 import { routes } from "@/lib/navigation";
 import { formatDistance } from "@/lib/formatters";
@@ -37,7 +39,6 @@ import {
   type LevelOption,
   type LocationWithDistance,
 } from "./useCreateLeagueScreen";
-import type { Court } from "@beach-kings/shared";
 
 // ---------------------------------------------------------------------------
 // Section header
@@ -285,6 +286,7 @@ function LocationPickerModal({
   onSelect,
   onClose,
 }: LocationPickerModalProps): React.ReactNode {
+  const palette = usePaletteColors();
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -338,7 +340,7 @@ function LocationPickerModal({
               value={query}
               onChangeText={setQuery}
               placeholder="Search locations…"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={palette.textTertiary}
               className="flex-1 text-[15px] text-default"
               autoCapitalize="none"
               autoCorrect={false}
@@ -407,131 +409,12 @@ function LocationPickerModal({
 }
 
 // ---------------------------------------------------------------------------
-// Court picker modal
-// ---------------------------------------------------------------------------
-
-interface CourtPickerModalProps {
-  readonly visible: boolean;
-  readonly courts: readonly Court[];
-  readonly selectedId: number | null;
-  readonly onSelect: (id: number | null) => void;
-  readonly onClose: () => void;
-}
-
-function CourtPickerModal({
-  visible,
-  courts,
-  selectedId,
-  onSelect,
-  onClose,
-}: CourtPickerModalProps): React.ReactNode {
-  const [query, setQuery] = useState("");
-
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim();
-    if (!q) return courts;
-    return courts.filter((c) => c.name.toLowerCase().includes(q));
-  }, [courts, query]);
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView className="flex-1 bg-page" edges={["top"]}>
-        <View className="flex-row items-center px-4 pt-2 pb-3 border-b border-divider">
-          <Text className="flex-1 text-[17px] font-semibold text-default">
-            Select Home Court
-          </Text>
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            className="active:opacity-70 py-1 pl-4"
-          >
-            <Text className="text-[15px] font-semibold text-brand-teal">
-              Done
-            </Text>
-          </Pressable>
-        </View>
-
-        <View className="px-4 py-3 border-b border-divider">
-          <View className="bg-surface rounded-[10px] flex-row items-center px-3 py-[10px]">
-            <Text className="text-muted mr-2">🔍</Text>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search courts…"
-              placeholderTextColor="#aaa"
-              className="flex-1 text-[15px] text-default"
-              autoCapitalize="none"
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
-          </View>
-        </View>
-
-        <FlatList
-          data={[{ id: null, name: "None" } as unknown as Court, ...filtered]}
-          keyExtractor={(item) => String(item.id ?? "none")}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item, index }) => {
-            const isNone = item.id == null;
-            const courtId = isNone
-              ? null
-              : typeof item.id === "string"
-                ? parseInt(item.id, 10)
-                : item.id;
-            const isActive = selectedId === courtId;
-            return (
-              <Pressable
-                testID={`court-modal-option-${item.id ?? "none"}`}
-                onPress={() => {
-                  void hapticLight();
-                  onSelect(courtId);
-                  onClose();
-                }}
-                className={`flex-row items-center px-4 py-[14px] ${
-                  index > 0 ? "border-t border-divider" : ""
-                } active:opacity-70 ${isActive ? "bg-brand-teal/10" : ""}`}
-              >
-                <View
-                  className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
-                    isActive ? "border-brand-teal" : "border-strong"
-                  }`}
-                >
-                  {isActive && (
-                    <View className="w-2.5 h-2.5 rounded-full bg-brand-teal" />
-                  )}
-                </View>
-                <Text
-                  className={`text-[15px] flex-1 ${
-                    isNone
-                      ? "text-muted"
-                      : isActive
-                        ? "font-semibold text-default"
-                        : "text-default"
-                  }`}
-                >
-                  {item.name}
-                </Text>
-              </Pressable>
-            );
-          }}
-        />
-      </SafeAreaView>
-    </Modal>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
 
 export default function CreateLeagueScreen(): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
   const {
     form,
     isSubmitting,
@@ -603,7 +486,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
       className="min-w-touch min-h-touch items-center justify-center active:opacity-70"
     >
       {isSubmitting ? (
-        <ActivityIndicator size="small" color="#fff" />
+        <ActivityIndicator size="small" color={palette.textInverse} />
       ) : (
         <Text
           className={`text-[14px] font-semibold ${
@@ -647,7 +530,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
                 value={form.name}
                 onChangeText={onChangeName}
                 placeholder="e.g. QBK Open Men"
-                placeholderTextColor="#aaa"
+                placeholderTextColor={palette.textTertiary}
                 className="text-[16px] text-default"
                 returnKeyType="next"
                 autoCapitalize="words"
@@ -671,7 +554,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
                 value={form.description}
                 onChangeText={onChangeDescription}
                 placeholder="Describe your league…"
-                placeholderTextColor="#aaa"
+                placeholderTextColor={palette.textTertiary}
                 className="text-[15px] text-default"
                 multiline
                 numberOfLines={3}
@@ -756,7 +639,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
             }`}
           >
             {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={palette.textInverse} />
             ) : (
               <Text
                 className={`text-[16px] font-bold ${
@@ -780,10 +663,20 @@ export default function CreateLeagueScreen(): React.ReactNode {
       />
       <CourtPickerModal
         visible={courtModalOpen}
-        courts={courts}
-        selectedId={form.court_id}
-        onSelect={onChangeCourt}
+        courts={courts.flatMap((court) => {
+          const id = Number(court.id);
+          return Number.isFinite(id) ? [{ id, name: court.name }] : [];
+        })}
+        selectedCourtId={form.court_id}
+        onSelect={(courtId) => {
+          void hapticLight();
+          onChangeCourt(courtId);
+        }}
         onClose={onCloseCourtModal}
+        title="Select Home Court"
+        allowNone
+        noneLabel="None"
+        testIDPrefix="court-modal"
       />
     </SafeAreaView>
   );

@@ -61,7 +61,17 @@ export const routes = {
   kob: (code: string) => `/(stack)/kob/${code}` as const,
 
   // ---- Stack: creators ----
-  createSession: () => '/(stack)/session/create' as const,
+  createSession: (params: {
+    leagueId?: number | null;
+    seasonId?: number | null;
+  } = {}) => {
+    const qs: string[] = [];
+    if (params.leagueId != null) qs.push(`leagueId=${params.leagueId}`);
+    if (params.seasonId != null) qs.push(`seasonId=${params.seasonId}`);
+    return qs.length > 0
+      ? (`/(stack)/session/create?${qs.join('&')}` as const)
+      : ('/(stack)/session/create' as const);
+  },
   createLeague: () => '/(stack)/create-league' as const,
   createTournament: () => '/(stack)/tournament/create' as const,
 

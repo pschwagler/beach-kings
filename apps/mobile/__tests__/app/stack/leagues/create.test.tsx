@@ -66,6 +66,14 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    textTertiary: 'gray',
+    textInverse: 'white',
+    brandTeal: 'teal',
+  }),
+}));
+
 const mockCreateLeague = jest.fn();
 const mockGetLocations = jest.fn();
 const mockGetCourts = jest.fn();

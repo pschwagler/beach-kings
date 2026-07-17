@@ -69,7 +69,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockApi.getPublicPlayer.mockResolvedValue(FAKE_PLAYER);
   mockApi.getMutualFriends.mockResolvedValue([]);
-  mockApi.batchFriendStatus.mockResolvedValue({});
+  mockApi.batchFriendStatus.mockResolvedValue({ statuses: {}, mutual_counts: {} });
   mockApi.getPlayerLeagues.mockResolvedValue(FAKE_LEAGUES);
 });
 
@@ -146,5 +146,22 @@ describe('usePlayerProfileScreen', () => {
     expect(result.current.profileData?.leagues).toEqual([]);
     // Other data should still be populated
     expect(result.current.profileData?.player).toEqual(FAKE_PLAYER);
+  });
+
+  it.each([
+    ['friend', 'friends'],
+    ['pending_outgoing', 'pending'],
+    ['pending_incoming', 'pending'],
+    ['none', 'none'],
+  ] as const)('maps API friendship status %s to %s', async (apiStatus, expected) => {
+    mockApi.batchFriendStatus.mockResolvedValue({
+      statuses: { [String(PLAYER_ID)]: apiStatus },
+      mutual_counts: {},
+    });
+
+    const { result } = renderHook(() => usePlayerProfileScreen(PLAYER_ID, noop));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.profileData?.friendStatus).toBe(expected);
   });
 });

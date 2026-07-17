@@ -5,10 +5,10 @@
 
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
-import type { FriendInLeague } from '@beach-kings/shared';
+import type { MutualFriend } from '@beach-kings/shared';
 
 interface PlayerMutualFriendsProps {
-  readonly mutualFriends: readonly FriendInLeague[];
+  readonly mutualFriends: readonly MutualFriend[];
 }
 
 export default function PlayerMutualFriends({
@@ -31,8 +31,8 @@ export default function PlayerMutualFriends({
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-lg">
           {mutualFriends.map((friend) => {
-            const name = friend.first_name ?? '';
-            const initial = name.trim().charAt(0).toUpperCase() || '?';
+            const name = friend.full_name.trim();
+            const initial = name.charAt(0).toUpperCase();
 
             return (
               <View

@@ -4,9 +4,8 @@ Covers:
   1. get_or_create_active_league_session stamps league_id + session_type='league' and
      returns league_id in the dict (both existing-session and new-session paths).
   2. create_session(league_id=X) stamps league_id and sets session_type='league'.
-  3. create_session() with no league_id → league_id is None, session_type stays default.
-  4. create_session(league_id=X, session_type='pickup') → caller-supplied session_type
-     is preserved (does not force 'league').
+  3. create_session() with no league_id → league_id is None, session_type='pickup'.
+  4. session_type is derived from league context and cannot be caller-controlled.
   5. update_session moving to a season from the SAME league → league_id correct.
   6. update_session moving to a season from a DIFFERENT league → league_id synced to
      that season's league (cross-field invariant holds).
@@ -20,7 +19,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import League, Season, Session
+from backend.database.models import Court, League, Location, Season, Session
 from backend.services import data_service
 
 
@@ -87,6 +86,18 @@ async def _load_session(db_session: AsyncSession, session_id: int) -> Session:
     return result.scalar_one()
 
 
+@pytest_asyncio.fixture
+async def court(db_session: AsyncSession) -> Court:
+    location = Location(id="session-test-location", name="Session Test Location")
+    db_session.add(location)
+    await db_session.flush()
+    value = Court(name="Session Test Court", location_id=location.id)
+    db_session.add(value)
+    await db_session.commit()
+    await db_session.refresh(value)
+    return value
+
+
 # ---------------------------------------------------------------------------
 # 1. get_or_create_active_league_session — new session path
 # ---------------------------------------------------------------------------
@@ -94,7 +105,7 @@ async def _load_session(db_session: AsyncSession, session_id: int) -> Session:
 
 @pytest.mark.asyncio
 async def test_get_or_create_stamps_league_id_new_session(
-    db_session: AsyncSession, league_a: League, season_a: Season
+    db_session: AsyncSession, league_a: League, season_a: Season, court: Court
 ):
     """Creating a new session via get_or_create_active_league_session stamps league_id
     and session_type='league' on the ORM row, and returns them in the dict."""
@@ -105,6 +116,9 @@ async def test_get_or_create_stamps_league_id_new_session(
         league_id=league_a.id,
         session_date=today,
         season_id=season_a.id,
+        court_id=court.id,
+        start_time="18:30",
+        is_ranked=False,
     )
 
     assert result["league_id"] == league_a.id
@@ -113,6 +127,9 @@ async def test_get_or_create_stamps_league_id_new_session(
     orm = await _load_session(db_session, result["id"])
     assert orm.league_id == league_a.id
     assert orm.session_type == "league"
+    assert orm.court_id == court.id
+    assert orm.start_time == "18:30"
+    assert orm.is_ranked is True
 
 
 # ---------------------------------------------------------------------------
@@ -183,43 +200,76 @@ async def test_create_session_with_league_id_stamps_league_id(
 @pytest.mark.asyncio
 async def test_create_session_without_league_id_is_none(db_session: AsyncSession):
     """create_session() with no league_id produces a session with league_id=None
-    and session_type unforced (None by default)."""
+    and server-derived session_type='pickup'."""
     today = date.today().strftime("%-m/%-d/%Y")
 
     result = await data_service.create_session(db_session, date=today)
 
     assert result["league_id"] is None
-    assert result["session_type"] is None
+    assert result["session_type"] == "pickup"
 
     orm = await _load_session(db_session, result["id"])
     assert orm.league_id is None
 
 
 # ---------------------------------------------------------------------------
-# 5. create_session(league_id=X, session_type='pickup') — caller value preserved
+# 5. create_session derives session_type from league context
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_create_session_explicit_session_type_preserved(
+async def test_create_session_session_type_is_derived(
     db_session: AsyncSession, league_a: League
 ):
-    """When the caller explicitly passes session_type='pickup' alongside league_id,
-    the caller-supplied value is not overridden — it stays 'pickup'."""
+    """A league-linked session is always persisted as a league session."""
     today = date.today().strftime("%-m/%-d/%Y")
 
     result = await data_service.create_session(
         db_session,
         date=today,
         league_id=league_a.id,
-        session_type="pickup",
     )
 
     assert result["league_id"] == league_a.id
-    assert result["session_type"] == "pickup"
+    assert result["session_type"] == "league"
 
     orm = await _load_session(db_session, result["id"])
-    assert orm.session_type == "pickup"
+    assert orm.session_type == "league"
+
+
+@pytest.mark.asyncio
+async def test_update_session_supports_date_start_time_and_court_clearing(
+    db_session: AsyncSession, court: Court
+):
+    """Explicit null update flags clear nullable session fields without court-name writes."""
+    initial = await data_service.create_session(
+        db_session,
+        date="6/10/2026",
+        start_time="18:00",
+    )
+
+    set_court = await data_service.update_session(
+        db_session,
+        initial["id"],
+        date="6/11/2026",
+        court_id=court.id,
+        update_court_id=True,
+    )
+    assert set_court is not None
+    assert set_court["date"] == "6/11/2026"
+    assert set_court["court_id"] == court.id
+
+    cleared = await data_service.update_session(
+        db_session,
+        initial["id"],
+        start_time=None,
+        update_start_time=True,
+        court_id=None,
+        update_court_id=True,
+    )
+    assert cleared is not None
+    assert cleared["start_time"] is None
+    assert cleared["court_id"] is None
 
 
 # ---------------------------------------------------------------------------

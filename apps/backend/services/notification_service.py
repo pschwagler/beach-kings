@@ -8,7 +8,14 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, and_
-from backend.database.models import Notification, NotificationType, League, Player
+from backend.database.models import (
+    FriendRequest,
+    FriendRequestStatus,
+    League,
+    Notification,
+    NotificationType,
+    Player,
+)
 from backend.services.data_service import (
     get_league_member_user_ids,
     get_league_admin_user_ids,
@@ -37,6 +44,7 @@ def notification_to_dict(notif: Notification) -> Dict:
         "data": json.loads(notif.data) if notif.data else None,
         "is_read": notif.is_read,
         "read_at": notif.read_at.isoformat() if notif.read_at else None,
+        "dismissed_at": notif.dismissed_at.isoformat() if notif.dismissed_at else None,
         "link_url": notif.link_url,
         "created_at": notif.created_at.isoformat() if notif.created_at else None,
     }
@@ -279,8 +287,13 @@ async def get_user_notifications(
             - total_count: Total number of notifications matching the criteria
             - has_more: Boolean indicating if there are more notifications
     """
+    await reconcile_friend_request_notifications(session, user_id)
+
     # Build query
-    query = select(Notification).where(Notification.user_id == user_id)
+    query = select(Notification).where(
+        Notification.user_id == user_id,
+        Notification.dismissed_at.is_(None),
+    )
 
     if unread_only:
         query = query.where(Notification.is_read.is_(False))
@@ -318,13 +331,96 @@ async def get_unread_count(session: AsyncSession, user_id: int) -> int:
     Returns:
         Integer count of unread notifications
     """
+    await reconcile_friend_request_notifications(session, user_id)
+
     result = await session.execute(
         select(func.count())
         .select_from(Notification)
-        .where(and_(Notification.user_id == user_id, Notification.is_read.is_(False)))
+        .where(
+            and_(
+                Notification.user_id == user_id,
+                Notification.is_read.is_(False),
+                Notification.dismissed_at.is_(None),
+            )
+        )
     )
     count = result.scalar_one() or 0
     return count
+
+
+async def reconcile_friend_request_notifications(
+    session: AsyncSession, user_id: int
+) -> int:
+    """Dismiss obsolete or duplicate friend-request notifications.
+
+    The pending friend-request table is authoritative. Historical notification
+    rows remain stored for audit purposes but are hidden when their request no
+    longer exists/is pending, or when more than one row represents the same
+    active request.
+    """
+    player_result = await session.execute(select(Player.id).where(Player.user_id == user_id))
+    receiver_player_id = player_result.scalar_one_or_none()
+    if receiver_player_id is None:
+        return 0
+
+    pending_result = await session.execute(
+        select(FriendRequest.id, FriendRequest.sender_player_id).where(
+            and_(
+                FriendRequest.receiver_player_id == receiver_player_id,
+                FriendRequest.status == FriendRequestStatus.PENDING.value,
+            )
+        )
+    )
+    pending_by_id = {row.id: row.sender_player_id for row in pending_result.all()}
+
+    notification_result = await session.execute(
+        select(Notification)
+        .where(
+            and_(
+                Notification.user_id == user_id,
+                Notification.type == NotificationType.FRIEND_REQUEST.value,
+                Notification.dismissed_at.is_(None),
+            )
+        )
+        .order_by(Notification.created_at.desc(), Notification.id.desc())
+    )
+
+    seen_request_ids: set[int] = set()
+    now = utcnow()
+    dismissed = 0
+    for notification in notification_result.scalars().all():
+        try:
+            data = json.loads(notification.data) if notification.data else {}
+        except json.JSONDecodeError:
+            data = {}
+
+        raw_request_id = data.get("friend_request_id", data.get("request_id"))
+        raw_sender_id = data.get("sender_player_id")
+        try:
+            request_id = int(raw_request_id)
+            sender_id = int(raw_sender_id)
+        except (TypeError, ValueError):
+            request_id = None
+            sender_id = None
+
+        is_active = (
+            request_id is not None
+            and sender_id is not None
+            and pending_by_id.get(request_id) == sender_id
+            and request_id not in seen_request_ids
+        )
+        if is_active:
+            seen_request_ids.add(request_id)
+            continue
+
+        notification.is_read = True
+        notification.read_at = notification.read_at or now
+        notification.dismissed_at = now
+        dismissed += 1
+
+    if dismissed:
+        await session.flush()
+    return dismissed
 
 
 async def mark_as_read(session: AsyncSession, notification_id: int, user_id: int) -> Dict:
@@ -370,13 +466,13 @@ async def mark_friend_request_notifications_handled(
     request_id: int,
     sender_player_id: int | None = None,
 ) -> List[Dict]:
-    """Mark actionable friend-request notifications read after the request resolves."""
+    """Dismiss friend-request notifications after the relationship resolves."""
     result = await session.execute(
         select(Notification).where(
             and_(
                 Notification.user_id == receiver_user_id,
                 Notification.type == NotificationType.FRIEND_REQUEST.value,
-                Notification.is_read.is_(False),
+                Notification.dismissed_at.is_(None),
             )
         )
     )
@@ -398,6 +494,7 @@ async def mark_friend_request_notifications_handled(
             continue
         notification.is_read = True
         notification.read_at = now
+        notification.dismissed_at = now
         await session.flush()
         await session.refresh(notification)
         notification_dict = notification_to_dict(notification)

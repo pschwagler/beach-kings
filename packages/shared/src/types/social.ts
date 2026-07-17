@@ -55,6 +55,25 @@ export interface FriendInLeague {
   avatar: string | null;
 }
 
+/** Minimal player identity returned by the mutual-friends endpoint. */
+export interface MutualFriend {
+  player_id: number;
+  full_name: string;
+  avatar: string | null;
+}
+
+export type FriendshipStatus =
+  | 'self'
+  | 'friend'
+  | 'pending_outgoing'
+  | 'pending_incoming'
+  | 'none';
+
+export interface FriendBatchStatusResponse {
+  statuses: Record<string, FriendshipStatus>;
+  mutual_counts: Record<string, number>;
+}
+
 export interface DirectMessage {
   id: number;
   sender_player_id: number;

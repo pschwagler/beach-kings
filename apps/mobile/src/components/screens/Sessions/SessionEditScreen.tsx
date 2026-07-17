@@ -1,230 +1,171 @@
-/**
- * SessionEditScreen — edit an existing session's details.
- *
- * Modal nav (X close left, title "Edit Session").
- * Wireframe ref: session-edit-details.html
- */
+/** Form for editing an existing session. */
 
 import React from 'react';
 import {
-  View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+import SessionCourtPicker from './SessionCourtPicker';
+import SessionSeasonSelector from './SessionSeasonSelector';
 import { useSessionEditScreen } from './useSessionEditScreen';
-import type { SessionType } from '@beach-kings/shared';
-
-// ---------------------------------------------------------------------------
-// Sub-components (reused from create screen pattern)
-// ---------------------------------------------------------------------------
 
 interface FormRowProps {
   readonly label: string;
   readonly value: string;
-  readonly onChangeText: (v: string) => void;
-  readonly placeholder?: string;
-  readonly testID?: string;
+  readonly onChangeText: (value: string) => void;
+  readonly placeholder: string;
+  readonly testID: string;
 }
 
-function FormRow({ label, value, onChangeText, placeholder, testID }: FormRowProps): React.ReactNode {
+function FormRow({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  testID,
+}: FormRowProps): React.ReactNode {
+  const palette = usePaletteColors();
   return (
     <View className="flex-row items-center py-[14px] border-b border-divider">
-      <Text className="text-[14px] font-semibold text-muted w-[100px]">
-        {label}
-      </Text>
+      <Text className="text-[14px] font-semibold text-muted w-[100px]">{label}</Text>
       <TextInput
         className="flex-1 text-[14px] text-default"
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder ?? label}
-        placeholderTextColor="#999"
+        placeholder={placeholder}
+        placeholderTextColor={palette.textTertiary}
         testID={testID}
       />
     </View>
   );
 }
 
-interface TypePillsProps {
-  readonly selected: SessionType;
-  readonly onChange: (v: SessionType) => void;
-}
-
-function TypePills({ selected, onChange }: TypePillsProps): React.ReactNode {
-  return (
-    <View className="flex-row gap-[8px] mt-[8px]">
-      {(['pickup', 'league'] as const).map((type) => {
-        const label = type === 'pickup' ? 'Pickup' : 'League';
-        const isActive = selected === type;
-        return (
-          <TouchableOpacity
-            key={type}
-            onPress={() => onChange(type)}
-            testID={`edit-session-type-${type}`}
-            className={`px-[18px] py-[8px] rounded-[20px] border ${
-              isActive
-                ? 'border-brand-teal bg-info-tint'
-                : 'border-divider bg-surface'
-            }`}
-          >
-            <Text
-              className={`text-[13px] font-semibold ${
-                isActive
-                  ? 'text-brand-teal'
-                  : 'text-muted'
-              }`}
-            >
-              {label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main screen
-// ---------------------------------------------------------------------------
-
 interface Props {
   readonly sessionId: number;
 }
 
 export default function SessionEditScreen({ sessionId }: Props): React.ReactNode {
+  const palette = usePaletteColors();
   const {
+    session,
     date,
     startTime,
-    courtName,
-    sessionType,
-    notes,
+    courtId,
+    leagueSeasons,
+    selectedSeasonId,
+    showsSeasonAssignment,
+    isRanked,
+    isRankedLocked,
     isSubmitting,
     submitError,
     setDate,
     setStartTime,
-    setCourtName,
-    setSessionType,
-    setNotes,
+    setCourtId,
+    setSelectedSeasonId,
+    setIsRanked,
     onSave,
     onCancel,
   } = useSessionEditScreen(sessionId);
+  const contextLabel = session?.league_id != null
+    ? session.league_name ?? 'League session'
+    : session?.session_type === 'league'
+      ? 'League session'
+      : 'Pickup session';
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-page"
-      edges={['top']}
-      testID="session-edit-screen"
-    >
+    <SafeAreaView className="flex-1 bg-page" edges={['top']} testID="session-edit-screen">
       <TopNav
         title="Edit Session"
-        leftAction={
-          <TouchableOpacity
-            onPress={onCancel}
-            testID="session-edit-close-btn"
-            className="p-[8px]"
-          >
-            <Text className="text-[16px] text-default">✕</Text>
+        leftAction={(
+          <TouchableOpacity onPress={onCancel} testID="session-edit-close-btn" className="p-[8px]">
+            <Text className="text-[16px] text-default">X</Text>
           </TouchableOpacity>
-        }
+        )}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
-      >
-        <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Session Name (date as identifier) */}
-          <Text className="text-[15px] font-bold text-default mt-[20px] mb-[4px]">
-            Date &amp; Time
-          </Text>
-          <FormRow
-            label="Date"
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            testID="edit-session-date-input"
-          />
-          <FormRow
-            label="Start Time"
-            value={startTime}
-            onChangeText={setStartTime}
-            placeholder="e.g. 3:00 PM"
-            testID="edit-session-time-input"
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+          <Text className="text-[15px] font-bold text-default mt-[20px] mb-[4px]">Date &amp; Time</Text>
+          <FormRow label="Date" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" testID="edit-session-date-input" />
+          <FormRow label="Start Time" value={startTime} onChangeText={setStartTime} placeholder="e.g. 3:00 PM" testID="edit-session-time-input" />
+
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Location</Text>
+          <SessionCourtPicker
+            selectedCourtId={courtId}
+            selectedCourtName={session?.court_name}
+            onChange={setCourtId}
+            testIDPrefix="edit-session"
           />
 
-          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">
-            Location
-          </Text>
-          <FormRow
-            label="Court"
-            value={courtName}
-            onChangeText={setCourtName}
-            placeholder="Court name"
-            testID="edit-session-court-input"
-          />
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Session</Text>
+          <View className="py-[14px] border-b border-divider">
+            <Text className="text-[14px] font-semibold text-muted">Context</Text>
+            <Text testID="edit-session-context-label" className="text-[14px] text-default mt-[2px]">
+              {contextLabel}
+            </Text>
+          </View>
 
-          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">
-            Session Type
-          </Text>
-          <TypePills selected={sessionType} onChange={setSessionType} />
+          {showsSeasonAssignment && (
+            <>
+              <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Season</Text>
+              <SessionSeasonSelector
+                seasons={leagueSeasons}
+                selectedSeasonId={selectedSeasonId}
+                onChange={setSelectedSeasonId}
+                testIDPrefix="edit-session"
+              />
+            </>
+          )}
 
-          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[8px]">
-            Notes
-          </Text>
-          <TextInput
-            testID="edit-session-notes-input"
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Optional notes..."
-            placeholderTextColor="#999"
-            multiline
-            numberOfLines={4}
-            className="border border-divider rounded-[10px] p-[12px] text-[14px] text-default min-h-[96px]"
-            textAlignVertical="top"
-          />
+          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Rankings</Text>
+          <View className="flex-row items-center justify-between py-[14px] border-b border-divider">
+            <View className="flex-1 pr-[12px]">
+              <Text className="text-[14px] font-semibold text-muted">
+                {isRanked ? 'Ranked' : 'Casual'}
+              </Text>
+              <Text className="text-[12px] text-muted mt-[2px]">
+                {isRanked
+                  ? 'Games affect player rankings'
+                  : 'Games do not affect player rankings'}
+              </Text>
+            </View>
+            <Switch
+              testID="edit-session-ranked-toggle"
+              value={isRanked}
+              onValueChange={setIsRanked}
+              disabled={isRankedLocked}
+              accessibilityLabel="Ranked games"
+            />
+          </View>
 
           {submitError != null && (
-            <Text
-              testID="session-edit-error"
-              className="text-[13px] text-red-500 mt-[12px] text-center"
-            >
+            <Text testID="session-edit-error" className="text-[13px] text-danger mt-[12px] text-center">
               {submitError}
             </Text>
           )}
         </ScrollView>
 
         <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[12px] pb-[34px] gap-[8px]">
-          <TouchableOpacity
-            testID="session-edit-save-btn"
-            onPress={() => { void onSave(); }}
-            disabled={isSubmitting}
-            className="bg-brand-teal rounded-[12px] items-center justify-center py-[16px]"
-          >
+          <TouchableOpacity testID="session-edit-save-btn" onPress={() => { void onSave(); }} disabled={isSubmitting} className="bg-brand-teal rounded-[8px] items-center justify-center py-[16px]">
             {isSubmitting ? (
-              <ActivityIndicator color="#fff" testID="session-edit-loading" />
+              <ActivityIndicator color={palette.textInverse} testID="session-edit-loading" />
             ) : (
               <Text className="text-white text-[16px] font-bold">Save Changes</Text>
             )}
           </TouchableOpacity>
-
-          <TouchableOpacity
-            testID="session-edit-cancel-btn"
-            onPress={onCancel}
-            className="border border-divider bg-elevated rounded-[12px] items-center justify-center py-[14px]"
-          >
-            <Text className="text-[15px] font-semibold text-muted">
-              Cancel
-            </Text>
+          <TouchableOpacity testID="session-edit-cancel-btn" onPress={onCancel} className="border border-divider bg-elevated rounded-[8px] items-center justify-center py-[14px]">
+            <Text className="text-[15px] font-semibold text-muted">Cancel</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

@@ -19,8 +19,9 @@ import type {
   KobMatch,
   KobStanding,
   LeagueSeason,
+  SessionCreatePayload,
   SessionDetail,
-  SessionType,
+  SessionUpdatePayload,
 } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
@@ -512,16 +513,7 @@ export const mockApi = {
    * Creates a new session.
    * TODO(backend): POST /api/sessions (extended)
    */
-  async createSession(_data: {
-    date: string;
-    start_time?: string | null;
-    court_name?: string | null;
-    session_type: SessionType;
-    max_players?: number | null;
-    notes?: string | null;
-    is_ranked?: boolean | null;
-    league_id?: number | null;
-  }): Promise<SessionDetail> {
+  async createSession(_data: SessionCreatePayload): Promise<SessionDetail> {
     return notImplemented('POST /api/sessions (create)');
   },
 
@@ -531,14 +523,7 @@ export const mockApi = {
    */
   async updateSession(
     _id: number,
-    _data: Partial<{
-      date: string;
-      start_time: string | null;
-      court_name: string | null;
-      session_type: SessionType;
-      max_players: number | null;
-      notes: string | null;
-    }>,
+    _data: SessionUpdatePayload,
   ): Promise<SessionDetail> {
     return notImplemented('PUT /api/sessions/:id');
   },

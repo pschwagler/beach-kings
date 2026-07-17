@@ -22,7 +22,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import Match, Player, Session, User
+from backend.database.models import Match, Player, Session, SessionStatus, User
 from backend.models.schemas import CreateMatchRequest
 from backend.services import data_service
 
@@ -233,3 +233,67 @@ async def test_placeholder_forces_is_ranked_false_regardless_of_session_intent(
     # Intent inherits from session (True), but placeholder forces effective to False
     assert match.ranked_intent is True, "ranked_intent should still mirror session.is_ranked"
     assert match.is_ranked is False, "placeholder must force effective is_ranked=False"
+
+
+@pytest.mark.asyncio
+async def test_update_session_ranked_intent_propagates_and_queues_submitted_stats(
+    db_session: AsyncSession,
+    player_a: Player,
+    player_b: Player,
+    player_c: Player,
+    player_d: Player,
+    placeholder_player: Player,
+    monkeypatch,
+):
+    """Ranking changes update every match but placeholders remain effectively unranked."""
+    from backend.services import stats_queue
+
+    class FakeQueue:
+        def __init__(self):
+            self.calls: list[tuple[str, int | None]] = []
+
+        async def enqueue_calculation(self, session, calc_type, league_id=None):
+            self.calls.append((calc_type, league_id))
+            return 1
+
+    today = date.today().strftime("%-m/%-d/%Y")
+    created = await data_service.create_session(db_session, date=today, is_ranked=False)
+    real_match_id = await data_service.create_match_async(
+        db_session,
+        _make_match_request(player_a.id, player_b.id, player_c.id, player_d.id, created["id"]),
+        created["id"],
+    )
+    placeholder_match_id = await data_service.create_match_async(
+        db_session,
+        _make_match_request(
+            player_a.id,
+            player_b.id,
+            player_c.id,
+            placeholder_player.id,
+            created["id"],
+        ),
+        created["id"],
+    )
+
+    session_row = await _load_session_orm(db_session, created["id"])
+    session_row.status = SessionStatus.SUBMITTED
+    await db_session.commit()
+
+    fake_queue = FakeQueue()
+    monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: fake_queue)
+
+    updated = await data_service.update_session(
+        db_session,
+        created["id"],
+        is_ranked=True,
+    )
+
+    assert updated is not None
+    assert updated["is_ranked"] is True
+    real_match = await _load_match_orm(db_session, real_match_id)
+    placeholder_match = await _load_match_orm(db_session, placeholder_match_id)
+    assert real_match.ranked_intent is True
+    assert real_match.is_ranked is True
+    assert placeholder_match.ranked_intent is True
+    assert placeholder_match.is_ranked is False
+    assert fake_queue.calls == [("global", None)]
