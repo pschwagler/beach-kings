@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import type { LeagueSignupItem, LeagueScheduleItem } from '@beach-kings/shared';
 import type { LeagueEvent } from './signupsTypes';
 import { leagueKeys } from './leagueKeys';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface UseLeagueSignupsTabResult {
   readonly events: readonly LeagueEvent[];
@@ -75,18 +76,23 @@ function mapSignupToEvent(item: LeagueSignupItem): LeagueEvent {
  */
 export function useLeagueSignupsTab(leagueId: number | string): UseLeagueSignupsTabResult {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const numericLeagueId = Number(leagueId);
 
   const signupsQuery = useQuery({
-    queryKey: leagueKeys.events(leagueId),
+    queryKey: leagueKeys.events(userId, leagueId),
     queryFn: () => api.getLeagueSignups(numericLeagueId),
+    enabled: userId > 0,
   });
 
   const pendingEventIds = new Set<number>();
 
   const invalidateEvents = useCallback((): Promise<void> => {
-    return queryClient.invalidateQueries({ queryKey: leagueKeys.events(leagueId) });
-  }, [queryClient, leagueId]);
+    return queryClient.invalidateQueries({
+      queryKey: leagueKeys.events(userId, leagueId),
+    });
+  }, [queryClient, leagueId, userId]);
 
   const onSignUp = useCallback(
     async (eventId: number): Promise<void> => {

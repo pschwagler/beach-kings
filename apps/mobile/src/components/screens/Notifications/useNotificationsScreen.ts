@@ -12,8 +12,8 @@
 import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
 import { hapticMedium } from "@/utils/haptics";
-import { useNotificationQuery } from '@/hooks/useNotificationQuery';
-import { useFriendshipMutations } from '@/hooks/useFriendshipMutations';
+import { useNotifications } from '@/features/notifications';
+import { useFriendshipMutations } from '@/features/social';
 import type { Notification, NotificationType } from "@beach-kings/shared";
 
 export type NotificationFilter = "all" | "friends" | "games" | "leagues";
@@ -87,9 +87,10 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
     error,
     refetch,
     isRefetching,
+    unreadCount,
     markAsRead,
     markAllAsRead,
-  } = useNotificationQuery();
+  } = useNotifications();
   const friendshipMutations = useFriendshipMutations();
 
   const notifications = useMemo<readonly Notification[]>(() => {
@@ -98,11 +99,6 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
     if (typeSet == null) return all;
     return all.filter((n) => typeSet.has(n.type));
   }, [rawNotifications, activeFilter]);
-
-  const unreadCount = useMemo(
-    () => rawNotifications.filter((notification) => !notification.is_read).length,
-    [rawNotifications],
-  );
 
   const onRefresh = useCallback(() => {
     void refetch();

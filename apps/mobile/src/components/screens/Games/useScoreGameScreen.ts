@@ -560,15 +560,9 @@ export function useScoreGameScreen(
           // identical across flows: session participants (if any) + friends.
           const friendsResp = await api
             .getFriends()
-            .catch(() => ({ items: [] }));
+            .catch(() => []);
           if (cancelled) return;
-          const friendItems =
-            (
-              friendsResp as {
-                items?: { player_id: number; full_name: string }[];
-              }
-            )?.items ?? [];
-          setRoster(buildFallbackRoster(participants, friendItems));
+          setRoster(buildFallbackRoster(participants, friendsResp));
         }
 
         // Session signal: infer gender/level from participants. The league

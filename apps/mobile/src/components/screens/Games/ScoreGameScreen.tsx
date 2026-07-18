@@ -23,7 +23,7 @@ import { useNavigation, useRouter } from "expo-router";
 import { XIcon } from "@/components/ui/icons";
 import { ConfirmDialog } from "@/components/ui";
 import { routes } from "@/lib/navigation";
-import { formatPlayerShort } from "@/lib/formatters";
+import { formatGameScore, formatPlayerShort } from "@/lib/formatters";
 import { useScoreGameScreen } from "./useScoreGameScreen";
 import ScoreBoard from "./ScoreBoard";
 import ScoreNumpad from "./ScoreNumpad";
@@ -181,7 +181,7 @@ function SuccessView({
           testID="score-success-final"
           className="text-[28px] font-black text-default"
         >
-          {score1}–{score2}
+          {formatGameScore(score1, score2)}
         </Text>
         <Text className="text-[11px] text-muted uppercase tracking-wide mt-[2px]">
           Final Score

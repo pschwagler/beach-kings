@@ -264,7 +264,11 @@ describe('PlayerProfileScreen — profile header', () => {
   });
 
   it('renders Add Friend button when status is none', async () => {
-    mockBatchFriendStatus.mockResolvedValue({ '42': 'none' });
+    mockBatchFriendStatus.mockResolvedValue({
+      statuses: { '42': 'none' },
+      relationships: { '42': { status: 'none', request_id: null } },
+      mutual_counts: { '42': 0 },
+    });
     render(<PlayerProfileRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('player-add-friend-btn')).toBeTruthy();
@@ -272,7 +276,11 @@ describe('PlayerProfileScreen — profile header', () => {
   });
 
   it('calls sendFriendRequest when Add Friend is pressed', async () => {
-    mockBatchFriendStatus.mockResolvedValue({ '42': 'none' });
+    mockBatchFriendStatus.mockResolvedValue({
+      statuses: { '42': 'none' },
+      relationships: { '42': { status: 'none', request_id: null } },
+      mutual_counts: { '42': 0 },
+    });
     render(<PlayerProfileRoute />);
     await waitFor(() => expect(screen.getByTestId('player-add-friend-btn')).toBeTruthy());
     await act(async () => {

@@ -8,7 +8,7 @@
 import React from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
-import { presentRelationship } from '@/lib/socialRelationships';
+import { presentRelationship } from '@/features/social';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import type { FriendshipStatus, Player } from '@beach-kings/shared';
 

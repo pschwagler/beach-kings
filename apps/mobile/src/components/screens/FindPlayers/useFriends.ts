@@ -25,12 +25,11 @@ import { useQuery } from '@tanstack/react-query';
 import { hapticMedium } from '@/utils/haptics';
 import type { Friend, FriendRequest } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
-import { socialApi } from '@/lib/socialApi';
-import { socialQueryKeys } from '@/lib/socialQueryKeys';
 import {
   useFriendshipMutations,
   usePendingFriendRequestPlayerIds,
-} from '@/hooks/useFriendshipMutations';
+  socialQueries,
+} from '@/features/social';
 
 export interface UseFriendsOptions {
   /** Client-side filter applied to the friends list (matches name or city). */
@@ -85,25 +84,17 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   const pendingAddIds = usePendingFriendRequestPlayerIds();
 
   // ------- Friends list -------
-  const friendsQuery = useQuery({
-    queryKey: socialQueryKeys.friends(userId),
-    queryFn: socialApi.getFriends,
-    enabled: isAuthenticated && userId !== 0,
-  });
+  const friendsQuery = useQuery(socialQueries.friends(userId, isAuthenticated));
 
   // ------- Incoming requests -------
-  const requestsQuery = useQuery({
-    queryKey: socialQueryKeys.requests(userId, 'incoming'),
-    queryFn: () => socialApi.getFriendRequests('incoming'),
-    enabled: isAuthenticated && userId !== 0,
-  });
+  const requestsQuery = useQuery(
+    socialQueries.requests(userId, 'incoming', isAuthenticated),
+  );
 
   // ------- Suggestions (opt-out) -------
-  const suggestionsQuery = useQuery({
-    queryKey: socialQueryKeys.suggestions(userId),
-    queryFn: socialApi.getFriendSuggestions,
-    enabled: isAuthenticated && userId !== 0 && withSuggestions,
-  });
+  const suggestionsQuery = useQuery(
+    socialQueries.suggestions(userId, isAuthenticated && withSuggestions),
+  );
 
   const friendsData = friendsQuery.data;
   const requestsData = requestsQuery.data;

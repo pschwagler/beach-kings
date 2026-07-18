@@ -28,6 +28,11 @@ describe('formatGameScore', () => {
   it('handles zero scores', () => {
     expect(formatGameScore(0, 0)).toBe('0-0');
   });
+
+  it('keeps shutouts and deuce scores compact', () => {
+    expect(formatGameScore(21, 0)).toBe('21-0');
+    expect(formatGameScore(28, 26)).toBe('28-26');
+  });
 });
 
 // ---------------------------------------------------------------------------

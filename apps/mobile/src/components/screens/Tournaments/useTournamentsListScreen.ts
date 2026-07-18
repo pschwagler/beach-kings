@@ -8,7 +8,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
 import useApi from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { unavailableTournamentApi } from '@/features/tournaments/unavailableApi';
 import { hapticMedium } from "@/utils/haptics";
 import { routes } from "@/lib/navigation";
 import type { KobTournament } from "@beach-kings/shared";
@@ -45,7 +45,7 @@ export function useTournamentsListScreen(): UseTournamentsListScreenResult {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data, isLoading, error, refetch } = useApi<KobTournament[]>(
-    () => api.listTournaments(),
+    () => unavailableTournamentApi.listTournaments(),
     [],
   );
 

@@ -26,7 +26,7 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ profileComplete: true }),
 }));
 
-jest.mock('@/contexts/NotificationContext', () => ({
+jest.mock('@/features/notifications', () => ({
   __esModule: true,
   useNotifications: () => ({ unreadCount: 0, dmUnreadCount: 0 }),
 }));

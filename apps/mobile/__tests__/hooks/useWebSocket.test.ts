@@ -276,6 +276,19 @@ describe('receiving messages', () => {
     expect(onMessage).not.toHaveBeenCalled();
     expect(result.current.lastMessage).toBeNull();
   });
+
+  it('ignores the backend plain-text pong frame', () => {
+    const onMessage = jest.fn();
+    const { result } = renderHook(() =>
+      useWebSocket({ url: 'wss://example.com/ws', onMessage }),
+    );
+
+    act(() => { latestWs().simulateOpen(); });
+    act(() => { latestWs().simulateMessage('pong'); });
+
+    expect(onMessage).not.toHaveBeenCalled();
+    expect(result.current.lastMessage).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -291,9 +304,7 @@ describe('ping keepalive', () => {
     act(() => { latestWs().simulateOpen(); });
     act(() => { jest.advanceTimersByTime(5_000); });
 
-    expect(latestWs().send).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'ping' }),
-    );
+    expect(latestWs().send).toHaveBeenCalledWith('ping');
   });
 
   it('sends multiple pings on each interval tick', () => {
@@ -306,7 +317,7 @@ describe('ping keepalive', () => {
 
     const pings = latestWs()
       .send.mock.calls.filter(
-        ([payload]: [string]) => payload === JSON.stringify({ type: 'ping' }),
+        ([payload]: [string]) => payload === 'ping',
       );
     expect(pings).toHaveLength(3);
   });

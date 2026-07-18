@@ -4,7 +4,7 @@ import { Tabs } from 'expo-router';
 import { View, Text } from 'react-native';
 import { colors, darkColors } from '@beach-kings/shared/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useNotifications } from '@/contexts/NotificationContext';
+import { useNotifications } from '@/features/notifications';
 import { HomeIcon, TrophyIcon, PlusIcon, ChatIcon, UserIcon } from '@/components/ui/icons';
 
 interface TabIconProps {

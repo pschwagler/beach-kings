@@ -32,7 +32,9 @@ interface UseWebSocketResult {
   send: (data: unknown) => void;
 }
 
-const PING_PAYLOAD = JSON.stringify({ type: 'ping' });
+// The backend notification socket expects plain-text ping/pong frames after
+// the initial JSON authentication frame.
+const PING_PAYLOAD = 'ping';
 
 /**
  * Manages a WebSocket connection lifecycle including automatic reconnection
@@ -114,9 +116,10 @@ function useWebSocket(options: UseWebSocketOptions): UseWebSocketResult {
       }
       // Ignore pong frames silently.
       if (
-        parsed !== null &&
-        typeof parsed === 'object' &&
-        (parsed as Record<string, unknown>)['type'] === 'pong'
+        parsed === 'pong' ||
+        (parsed !== null &&
+          typeof parsed === 'object' &&
+          (parsed as Record<string, unknown>)['type'] === 'pong')
       ) {
         return;
       }

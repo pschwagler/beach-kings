@@ -9,7 +9,7 @@ import { View, Text, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { pluralize } from '@/lib/formatters';
-import { presentRelationship } from '@/lib/socialRelationships';
+import { presentRelationship } from '@/features/social';
 import type { FriendshipStatus } from '@beach-kings/shared';
 
 /** Shape of a discoverable player returned by the discover endpoint. */

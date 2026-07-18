@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { InvitablePlayer } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface UseLeagueInviteScreenResult {
   readonly players: InvitablePlayer[];
@@ -32,15 +33,18 @@ export function useLeagueInviteScreen(
   leagueId: number | string,
 ): UseLeagueInviteScreenResult {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
   const [isSending, setIsSending] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
   const playersQuery = useQuery({
-    queryKey: leagueKeys.invitablePlayers(leagueId, searchQuery),
+    queryKey: leagueKeys.invitablePlayers(userId, leagueId, searchQuery),
     queryFn: () =>
       api.getInvitablePlayers(Number(leagueId), searchQuery || undefined),
+    enabled: userId > 0,
   });
 
   const onChangeSearch = useCallback((q: string) => {
@@ -66,7 +70,7 @@ export function useLeagueInviteScreen(
     try {
       await api.sendLeagueInvites(Number(leagueId), [...selectedIds]);
       await queryClient.invalidateQueries({
-        queryKey: leagueKeys.invitablePlayers(leagueId, searchQuery),
+        queryKey: leagueKeys.invitablePlayers(userId, leagueId, searchQuery),
       });
       setSelectedIds(new Set());
     } catch (err) {
@@ -78,7 +82,7 @@ export function useLeagueInviteScreen(
     } finally {
       setIsSending(false);
     }
-  }, [leagueId, selectedIds, searchQuery, queryClient]);
+  }, [leagueId, selectedIds, searchQuery, queryClient, userId]);
 
   const onClearInviteError = useCallback(() => {
     setInviteError(null);

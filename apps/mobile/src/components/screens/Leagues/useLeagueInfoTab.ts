@@ -1,12 +1,11 @@
 /**
  * Data hook for the League Info tab.
  *
- * Makes five parallel real API calls:
+ * Makes four parallel real API calls and composes the centralized current-player query:
  *   1. api.getLeague              — league metadata (description, access, level, location)
  *   2. api.getLeagueMembers       — member roster
  *   3. api.getLeagueSeasons       — season list
  *   4. api.getLeagueJoinRequests  — pending join requests (admin only; silently ignored on 403)
- *   5. api.getCurrentUserPlayer   — current player identity (for disabling self-remove)
  *
  * The five responses are composed into the LeagueInfoDetail shape consumed by
  * LeagueInfoTab.tsx.  Admin actions (approve/reject/role-change/remove/edit) call
@@ -17,6 +16,8 @@ import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { leagueKeys } from './leagueKeys';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
 import type {
   JoinRequest,
   LeagueInfoDetail,
@@ -77,9 +78,11 @@ export function useLeagueInfoTab(
 ): UseLeagueInfoTabResult {
   const numericId = Number(leagueId);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
 
   const infoQuery = useQuery<LeagueInfoDetail>({
-    queryKey: leagueKeys.info(leagueId),
+    queryKey: leagueKeys.info(userId, leagueId),
     queryFn: async (): Promise<LeagueInfoDetail> => {
       const [league, membersRaw, seasonsRaw, joinRequestsResult] =
         await Promise.all([
@@ -147,34 +150,24 @@ export function useLeagueInfoTab(
         join_requests: joinRequests,
       };
     },
+    enabled: userId > 0,
   });
 
-  // Fetch current player id separately so auth failures don't break the main query.
-  const playerQuery = useQuery<{ id: number } | null>({
-    queryKey: ['currentPlayer'],
-    queryFn: async () => {
-      try {
-        const player = await api.getCurrentUserPlayer();
-        return player ?? null;
-      } catch {
-        return null;
-      }
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  // The player query remains independent, so a profile failure cannot break
+  // the league info composition.
+  const playerQuery = useCurrentPlayer();
 
   const invalidateInfo = useCallback((): Promise<void> => {
-    return queryClient.invalidateQueries({ queryKey: leagueKeys.info(leagueId) });
-  }, [queryClient, leagueId]);
+    return queryClient.invalidateQueries({
+      queryKey: leagueKeys.info(userId, leagueId),
+    });
+  }, [queryClient, leagueId, userId]);
 
   const invalidateSeasonCaches = useCallback(async (): Promise<void> => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: leagueKeys.info(leagueId) }),
-      queryClient.invalidateQueries({ queryKey: leagueKeys.seasons(leagueId) }),
-      queryClient.invalidateQueries({ queryKey: leagueKeys.detail(leagueId) }),
-      queryClient.invalidateQueries({ queryKey: [...leagueKeys.root, 'standings', String(leagueId)] }),
-    ]);
-  }, [queryClient, leagueId]);
+    await queryClient.invalidateQueries({
+      queryKey: leagueKeys.league(userId, leagueId),
+    });
+  }, [queryClient, leagueId, userId]);
 
   const onApproveRequest = useCallback(
     async (requestId: number): Promise<void> => {

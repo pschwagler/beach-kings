@@ -4,7 +4,7 @@
  * Covers:
  *   - Zero seasons: stats query fires with null season_id (all-time); no false error
  *   - Zero seasons: exposed selectedSeasonId is null (public interface stable)
- *   - Non-empty seasons: first season selected as before (regression guard)
+ *   - Non-empty seasons: canonical active season preferred over list order
  */
 
 import React from 'react';
@@ -17,6 +17,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetLeagueSeasons = jest.fn();
 const mockGetLeaguePlayerStats = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -158,11 +162,12 @@ describe('useLeagueStatsTab — zero seasons', () => {
 
 describe('useLeagueStatsTab — non-empty seasons', () => {
   const MOCK_SEASONS = [
-    { id: 3, name: 'Summer 2025', is_active: true, start_date: '2025-06-01', end_date: null },
+    { id: 4, name: 'Fall 2025', is_active: false, start_date: '2025-09-01', end_date: '2025-12-31' },
+    { id: 3, name: 'Summer 2025', is_active: true, start_date: '2025-06-01', end_date: '2025-10-01' },
     { id: 2, name: 'Spring 2025', is_active: false, start_date: '2025-03-01', end_date: '2025-05-31' },
   ];
 
-  it('defaults to first season and calls stats with that season id', async () => {
+  it('defaults to the canonical active season and calls stats with its id', async () => {
     mockGetLeagueSeasons.mockResolvedValue(MOCK_SEASONS);
     mockGetLeaguePlayerStats.mockResolvedValue({ ...MOCK_STATS, season_name: 'Summer 2025' });
 

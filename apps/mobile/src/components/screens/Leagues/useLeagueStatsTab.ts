@@ -10,16 +10,20 @@ import { useQuery } from '@tanstack/react-query';
 import type { LeaguePlayerStats, Season } from '@beach-kings/shared';
 import { api } from '@/lib/api';
 import { leagueKeys } from './leagueKeys';
+import { defaultSeasonId } from './seasonSelection';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SeasonSelectorEntry {
   readonly id: number;
   readonly name: string;
+  readonly is_active: boolean;
 }
 
 function toSeasonSelectorEntry(season: Season): SeasonSelectorEntry {
   return {
     id: season.id,
     name: season.name ?? `Season ${season.id}`,
+    is_active: season.is_active ?? false,
   };
 }
 
@@ -52,27 +56,28 @@ export function useLeagueStatsTab(
   leagueId: number | string,
   playerId: number | string,
 ): UseLeagueStatsTabResult {
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [innerTab, setInnerTab] = useState<StatsInnerTab>('stats');
   // Internal state uses 'all' as a sentinel for the all-time (no season_id) view.
   // The public interface maps 'all' back to null so callers remain stable.
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | 'all' | null>(null);
 
   const seasonsQuery = useQuery({
-    queryKey: leagueKeys.seasons(leagueId),
+    queryKey: leagueKeys.seasons(userId, leagueId),
     queryFn: async (): Promise<readonly SeasonSelectorEntry[]> => {
       const rows = await api.getLeagueSeasons(Number(leagueId));
       return rows.map(toSeasonSelectorEntry);
     },
+    enabled: userId > 0,
   });
 
-  // Auto-init: once seasons resolve, select the latest (first) season so the
-  // API call matches the visually highlighted pill, or fall back to 'all'
-  // (all-time) when the league has no seasons yet.
+  // Auto-init: prefer the API's canonical active season. The list remains
+  // newest-first, so its first row is the fallback when no season is active.
+  // A league with no seasons uses the all-time view.
   useEffect(() => {
     if (selectedSeasonId === null && seasonsQuery.data) {
-      setSelectedSeasonId(
-        seasonsQuery.data.length > 0 ? seasonsQuery.data[0].id : 'all',
-      );
+      setSelectedSeasonId(defaultSeasonId(seasonsQuery.data));
     }
   }, [selectedSeasonId, seasonsQuery.data]);
 
@@ -81,14 +86,14 @@ export function useLeagueStatsTab(
   const apiSeasonId = selectedSeasonId === 'all' ? null : selectedSeasonId;
 
   const statsQuery = useQuery({
-    queryKey: leagueKeys.playerStats(leagueId, playerId, apiSeasonId),
+    queryKey: leagueKeys.playerStats(userId, leagueId, playerId, apiSeasonId),
     queryFn: () =>
       api.getLeaguePlayerStats(
         Number(leagueId),
         Number(playerId),
         apiSeasonId,
       ),
-    enabled: selectedSeasonId !== null,
+    enabled: userId > 0 && selectedSeasonId !== null,
   });
 
   // True while the auto-init effect hasn't yet resolved selectedSeasonId.

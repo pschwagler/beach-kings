@@ -4,7 +4,7 @@
  * Fetches session detail by id, exposes menu state, and submit session handler.
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import useApi from "@/hooks/useApi";
@@ -14,24 +14,9 @@ import { hapticMedium, hapticLight } from "@/utils/haptics";
 import { routes } from "@/lib/navigation";
 import { formatSessionSubtitle } from "@/lib/formatters";
 import { leagueKeys } from "@/components/screens/Leagues/leagueKeys";
-import { leaguesScreenKeys } from "@/components/screens/Leagues/useLeaguesScreen";
 import type { SessionDetail, SessionGame } from "@beach-kings/shared";
-
-/**
- * Returns true if a React Query key belongs to the given league's
- * detail-level cache (standings, dashboard, games, seasons, info, …).
- *
- * All per-league detail keys share the shape
- * `['leagues', <kind>, String(leagueId), …]` (see {@link leagueKeys}), so the
- * league id sits at index 2. List-level keys (`userLeagues`, `find`) don't put
- * an id there and are intentionally excluded.
- */
-function isLeagueDetailKey(
-  queryKey: readonly unknown[],
-  leagueId: number,
-): boolean {
-  return queryKey[0] === leagueKeys.root[0] && queryKey[2] === String(leagueId);
-}
+import { useAuth } from "@/contexts/AuthContext";
+import { useCurrentPlayer } from "@/hooks/useCurrentPlayer";
 
 export interface UseSessionDetailScreenResult {
   readonly session: SessionDetail | null;
@@ -63,13 +48,15 @@ export function useSessionDetailScreen(
 ): UseSessionDetailScreenResult {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
+  const currentPlayer = useCurrentPlayer();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [currentPlayerName, setCurrentPlayerName] = useState<string | null>(
-    null,
-  );
+  const currentPlayerName =
+    currentPlayer.data?.full_name ?? currentPlayer.data?.name ?? null;
 
   const { data, isLoading, error, refetch } = useApi<SessionDetail>(
     () => api.getSessionById(sessionId),
@@ -86,23 +73,6 @@ export function useSessionDetailScreen(
   // by the time any event handler fires.
   const dataRef = useRef<SessionDetail | null>(null);
   dataRef.current = data ?? null;
-
-  useEffect(() => {
-    let cancelled = false;
-    void api
-      .getCurrentUserPlayer()
-      .then((player) => {
-        if (!cancelled && player != null) {
-          setCurrentPlayerName(player.full_name ?? player.name ?? null);
-        }
-      })
-      .catch(() => {
-        // Non-fatal: per-game team highlight will fall back to "pending".
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -191,12 +161,12 @@ export function useSessionDetailScreen(
       const leagueId = dataRef.current?.league_id;
       if (leagueId != null) {
         void queryClient.invalidateQueries({
-          predicate: (query) => isLeagueDetailKey(query.queryKey, leagueId),
+          queryKey: leagueKeys.league(userId, leagueId),
           refetchType: "none",
         });
         // The Leagues-tab "My Leagues" cards carry season-scoped W-L too.
         void queryClient.invalidateQueries({
-          queryKey: leaguesScreenKeys.leagues(),
+          queryKey: leagueKeys.userLeagues(userId),
           refetchType: "none",
         });
       }
@@ -211,7 +181,7 @@ export function useSessionDetailScreen(
     } finally {
       setIsSubmitting(false);
     }
-  }, [sessionId, refetch, queryClient]);
+  }, [sessionId, refetch, queryClient, userId]);
 
   const onClearSubmitError = useCallback(() => {
     setSubmitError(null);

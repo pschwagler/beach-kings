@@ -19,6 +19,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const mockGetMyGames = jest.fn();
 const mockGetLeagueGames = jest.fn();
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 jest.mock('@/lib/api', () => ({
   api: {
     getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
@@ -180,6 +184,7 @@ describe('LeagueMatchesTab — active session styling (mine)', () => {
     expect(
       screen.queryByTestId(`session-card-${MY_GAME_SUBMITTED.session_id}-active-stripe`),
     ).toBeNull();
+    expect(screen.getByText('21-18')).toBeTruthy();
   });
 
   it('sorts active sessions above submitted sessions', async () => {
@@ -240,6 +245,10 @@ describe('LeagueMatchesTab — All Games rendering', () => {
     expect(
       screen.getByTestId(`session-card-${ALL_GAME_ACTIVE.session_id}-live-pill`),
     ).toBeTruthy();
+    expect(
+      screen.getByTestId(`league-game-score-${ALL_GAME_ACTIVE.id}`).props
+        .accessibilityLabel,
+    ).toBe('Score 21-14');
   });
 
   it('renders a TIE badge for a drawn game, distinct from an unscored game', async () => {

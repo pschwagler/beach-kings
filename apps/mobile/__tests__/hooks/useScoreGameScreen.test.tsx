@@ -141,14 +141,11 @@ const MOCK_LEAGUE_MEMBERS = [
   { id: 4, league_id: 3, player_id: 13, role: 'member' as const, created_at: '', player_name: 'Sam Jindash' },
 ];
 
-/** FriendListResponse shape returned by getFriends. */
-const MOCK_FRIENDS_RESPONSE = {
-  items: [
-    { id: 1, player_id: 20, full_name: 'Jake Drabos', avatar: null, location_name: null, level: null },
-    { id: 2, player_id: 21, full_name: 'Mike Salizar', avatar: null, location_name: null, level: null },
-  ],
-  total_count: 2,
-};
+/** Canonical Friend[] returned by getFriends. */
+const MOCK_FRIENDS = [
+  { id: 1, player_id: 20, full_name: 'Jake Drabos', avatar: null, location_name: null, level: null },
+  { id: 2, player_id: 21, full_name: 'Mike Salizar', avatar: null, location_name: null, level: null },
+];
 
 /**
  * Default ranked roster returned by `searchPlayers('', { leagueId })` —
@@ -192,7 +189,7 @@ beforeEach(() => {
   });
   mockGetSessionParticipants.mockResolvedValue(MOCK_PARTICIPANTS);
   mockGetLeagueMembers.mockResolvedValue(MOCK_LEAGUE_MEMBERS);
-  mockGetFriends.mockResolvedValue(MOCK_FRIENDS_RESPONSE);
+  mockGetFriends.mockResolvedValue(MOCK_FRIENDS);
   mockGetCurrentUserPlayer.mockResolvedValue({ id: 77, name: 'Test User' });
   mockUpdateMatch.mockResolvedValue({});
   mockDeleteMatch.mockResolvedValue({});
@@ -630,7 +627,7 @@ describe('useScoreGameScreen — roster source', () => {
       expect(mockGetFriends).toHaveBeenCalled();
       // roster = participants (4) + non-duplicate friends (2) = 6
       expect(result.current.roster.length).toBe(
-        MOCK_PARTICIPANTS.length + MOCK_FRIENDS_RESPONSE.items.length,
+        MOCK_PARTICIPANTS.length + MOCK_FRIENDS.length,
       );
     });
   });
@@ -711,7 +708,7 @@ describe('useScoreGameScreen — roster source', () => {
     const { result } = renderHook(() => useScoreGameScreen({}));
     await waitFor(() => {
       expect(mockGetFriends).toHaveBeenCalled();
-      expect(result.current.roster.length).toBe(MOCK_FRIENDS_RESPONSE.items.length);
+      expect(result.current.roster.length).toBe(MOCK_FRIENDS.length);
     });
     expect(mockGetSessionParticipants).not.toHaveBeenCalled();
     expect(mockGetLeagueMembers).not.toHaveBeenCalled();

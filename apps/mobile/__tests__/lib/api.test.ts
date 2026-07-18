@@ -9,6 +9,7 @@
  *   3. The default fallback base URL is used when the env var is absent.
  *   4. MobileStorageAdapter is constructed with the SecureStore module.
  *   5. Construction is lazy — deferred until the first property access on `api`.
+ *   6. Missing real methods do not fall back to runtime fixture data.
  */
 
 // ---------------------------------------------------------------------------
@@ -108,6 +109,11 @@ describe('api singleton', () => {
     const { api } = loadApiModule();
     expect(api.setAuthTokens).toBe(mockApiObject.setAuthTokens);
     expect(api.login).toBe(mockApiObject.login);
+  });
+
+  it('does not provide methods missing from the real API client', () => {
+    const { api } = loadApiModule();
+    expect((api as unknown as Record<string, unknown>).listTournaments).toBeUndefined();
   });
 });
 

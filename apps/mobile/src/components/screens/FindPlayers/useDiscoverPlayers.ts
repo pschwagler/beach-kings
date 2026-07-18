@@ -20,12 +20,12 @@ import { useState, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { hapticMedium } from '@/utils/haptics';
 import { useAuth } from '@/contexts/AuthContext';
-import { socialApi, type DiscoverPlayer } from '@/lib/socialApi';
-import { socialQueryKeys, type DiscoverFilters } from '@/lib/socialQueryKeys';
+import type { DiscoverFilters, DiscoverPlayer } from '@beach-kings/shared';
 import {
   useFriendshipMutations,
   usePendingFriendRequestPlayerIds,
-} from '@/hooks/useFriendshipMutations';
+  socialQueries,
+} from '@/features/social';
 
 export interface UseDiscoverPlayersOptions {
   /** Client-side filter applied to the discover list (matches name or city). */
@@ -78,11 +78,9 @@ export function useDiscoverPlayers(
     ...(sameLeagueOnly ? { same_league: true as const } : {}),
     ...(sharedFriendsOnly ? { has_mutuals: true as const } : {}),
   }), [levelFilter, sameLeagueOnly, sharedFriendsOnly]);
-  const playersQuery = useQuery({
-    queryKey: socialQueryKeys.discovery(userId, filters),
-    queryFn: () => socialApi.discoverPlayers(filters),
-    enabled: isAuthenticated && userId !== 0,
-  });
+  const playersQuery = useQuery(
+    socialQueries.discovery(userId, filters, isAuthenticated),
+  );
   const rawPlayers = playersQuery.data;
 
   const players = useMemo<readonly DiscoverPlayer[]>(() => {

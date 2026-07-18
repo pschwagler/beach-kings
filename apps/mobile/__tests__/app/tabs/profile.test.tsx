@@ -37,11 +37,11 @@ jest.mock('@/contexts/AuthContext', () => ({
 }));
 
 const mockGetCurrentUserPlayer = jest.fn();
-const mockGetFriends = jest.fn();
+const mockGetFriendsPage = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
-    getFriends: (...args: unknown[]) => mockGetFriends(...args),
+    getFriendsPage: (...args: unknown[]) => mockGetFriendsPage(...args),
   },
 }));
 
@@ -116,7 +116,7 @@ describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetCurrentUserPlayer.mockResolvedValue(MOCK_PLAYER);
-    mockGetFriends.mockResolvedValue(MOCK_FRIENDS_RESPONSE);
+    mockGetFriendsPage.mockResolvedValue(MOCK_FRIENDS_RESPONSE);
   });
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ describe('ProfileScreen', () => {
   it('shows skeleton while data is loading', () => {
     // Return a promise that never resolves to keep loading state
     mockGetCurrentUserPlayer.mockReturnValue(new Promise(() => {}));
-    mockGetFriends.mockReturnValue(new Promise(() => {}));
+    mockGetFriendsPage.mockReturnValue(new Promise(() => {}));
 
     const { getByLabelText } = render(<ProfileScreen />);
     expect(getByLabelText('Loading profile')).toBeTruthy();
@@ -161,13 +161,14 @@ describe('ProfileScreen', () => {
   it('shows friends count', async () => {
     const { findByText } = render(<ProfileScreen />);
     expect(await findByText('12 Friends')).toBeTruthy();
+    expect(mockGetFriendsPage).toHaveBeenCalledWith({ page: 1, page_size: 1 });
   });
 
   it('shows friends count from the real `total_count` field the endpoint returns', async () => {
     // Regression: GET /api/friends returns { items, total_count }, not
     // { friends, total }. The screen previously read `.total` and always
     // rendered "0 Friends" regardless of the real count.
-    mockGetFriends.mockResolvedValueOnce(MOCK_FRIENDS_RESPONSE_REAL);
+    mockGetFriendsPage.mockResolvedValueOnce(MOCK_FRIENDS_RESPONSE_REAL);
 
     const { findByText } = render(<ProfileScreen />);
     expect(await findByText('12 Friends')).toBeTruthy();
@@ -285,7 +286,7 @@ describe('ProfileScreen', () => {
 
   it('shows error state when API fails', async () => {
     mockGetCurrentUserPlayer.mockRejectedValueOnce(new Error('network error'));
-    mockGetFriends.mockRejectedValueOnce(new Error('network error'));
+    mockGetFriendsPage.mockRejectedValueOnce(new Error('network error'));
 
     const { findByLabelText } = render(<ProfileScreen />);
     expect(await findByLabelText('Failed to load profile')).toBeTruthy();
@@ -295,7 +296,7 @@ describe('ProfileScreen', () => {
     mockGetCurrentUserPlayer
       .mockRejectedValueOnce(new Error('fail'))
       .mockResolvedValueOnce(MOCK_PLAYER);
-    mockGetFriends
+    mockGetFriendsPage
       .mockRejectedValueOnce(new Error('fail'))
       .mockResolvedValueOnce(MOCK_FRIENDS_RESPONSE);
 
@@ -315,7 +316,7 @@ describe('ProfileScreen', () => {
     // Clear previous calls
     mockGetCurrentUserPlayer.mockClear();
     mockGetCurrentUserPlayer.mockResolvedValueOnce({ ...MOCK_PLAYER, nickname: 'Refreshed' });
-    mockGetFriends.mockResolvedValueOnce(MOCK_FRIENDS_RESPONSE);
+    mockGetFriendsPage.mockResolvedValueOnce(MOCK_FRIENDS_RESPONSE);
 
     const scrollView = getByTestId('profile-scroll-view');
     const refreshControl = (

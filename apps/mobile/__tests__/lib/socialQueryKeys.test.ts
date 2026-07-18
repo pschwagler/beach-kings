@@ -1,10 +1,13 @@
-import { notificationQueryKeys, socialQueryKeys } from '@/lib/socialQueryKeys';
-import { normalizePlayerRelationship } from '@/hooks/usePlayerRelationshipQuery';
+import { notificationKeys } from '@/features/notifications/keys';
+import { socialKeys } from '@/features/social/keys';
+import { normalizePlayerRelationship } from '@/features/social/usePlayerRelationshipQuery';
 
 describe('private social Query contracts', () => {
   it('scopes social and notification data by authenticated user', () => {
-    expect(socialQueryKeys.friends(1)).not.toEqual(socialQueryKeys.friends(2));
-    expect(notificationQueryKeys.feed(1)).not.toEqual(notificationQueryKeys.feed(2));
+    expect(socialKeys.friends(1)).not.toEqual(socialKeys.friends(2));
+    expect(notificationKeys.feed(1)).not.toEqual(notificationKeys.feed(2));
+    expect(socialKeys.friends(1).slice(0, 2)).toEqual(['private', 1]);
+    expect(notificationKeys.feed(1).slice(0, 2)).toEqual(['private', 1]);
   });
 
   it('prefers canonical relationship metadata with request id', () => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useNotificationQuery } from '@/hooks/useNotificationQuery';
+import { useNotifications } from '@/features/notifications/useNotifications';
 import { api } from '@/lib/api';
 
 jest.mock('@/contexts/AuthContext', () => ({
@@ -53,9 +53,9 @@ beforeEach(() => {
   mockApi.markAllNotificationsRead.mockReturnValue(new Promise(() => {}));
 });
 
-describe('useNotificationQuery', () => {
+describe('useNotifications', () => {
   it('hydrates the feed and uses the server total for badges', async () => {
-    const { result } = renderHook(() => useNotificationQuery(), {
+    const { result } = renderHook(() => useNotifications(), {
       wrapper: createWrapper(),
     });
 
@@ -65,7 +65,7 @@ describe('useNotificationQuery', () => {
   });
 
   it('optimistically synchronizes feed and total count when marking read', async () => {
-    const { result } = renderHook(() => useNotificationQuery(), {
+    const { result } = renderHook(() => useNotifications(), {
       wrapper: createWrapper(),
     });
     await waitFor(() => expect(result.current.unreadCount).toBe(9));
@@ -77,7 +77,7 @@ describe('useNotificationQuery', () => {
   });
 
   it('optimistically clears both feed unread state and the badge total', async () => {
-    const { result } = renderHook(() => useNotificationQuery(), {
+    const { result } = renderHook(() => useNotifications(), {
       wrapper: createWrapper(),
     });
     await waitFor(() => expect(result.current.unreadCount).toBe(9));
@@ -89,7 +89,7 @@ describe('useNotificationQuery', () => {
   });
 
   it('keeps public handlers stable across Query and mutation rerenders', async () => {
-    const { result } = renderHook(() => useNotificationQuery(), {
+    const { result } = renderHook(() => useNotifications(), {
       wrapper: createWrapper(),
     });
     await waitFor(() => expect(result.current.unreadCount).toBe(9));

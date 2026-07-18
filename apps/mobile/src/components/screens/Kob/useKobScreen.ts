@@ -8,7 +8,7 @@
 
 import { useState, useCallback } from 'react';
 import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
+import { unavailableTournamentApi } from '@/features/tournaments/unavailableApi';
 import type { KobTournamentDetail } from '@beach-kings/shared';
 
 export type KobTab = 'Live' | 'Schedule' | 'Standings';
@@ -36,7 +36,7 @@ export function useKobScreen(code: string | number): UseKobScreenResult {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data: tournament, isLoading, error, refetch } = useApi<KobTournamentDetail>(
-    () => api.getTournament(code),
+    () => unavailableTournamentApi.getTournament(code),
     [code],
   );
 

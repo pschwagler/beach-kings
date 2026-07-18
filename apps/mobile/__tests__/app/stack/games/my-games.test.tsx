@@ -319,8 +319,11 @@ describe('MyGamesScreen — games list', () => {
     mockGetMyGames.mockResolvedValue(WIN_RESPONSE);
     render(<MyGamesScreen />);
     await waitFor(() => {
-      expect(screen.getByText('21 - 18')).toBeTruthy();
+      expect(screen.getByText('21-18')).toBeTruthy();
     });
+    expect(
+      screen.getByLabelText('Game result: W, score: 21-18'),
+    ).toBeTruthy();
   });
 
   it('renders positive rating change', async () => {

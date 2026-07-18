@@ -18,7 +18,9 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useDeviceLocation, type Coords } from '@/hooks/useDeviceLocation';
-import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
+import { currentPlayerKeys, useCurrentPlayer } from '@/hooks/useCurrentPlayer';
+import { useAuth } from '@/contexts/AuthContext';
+import { publicKeys } from '@/infrastructure/query/keys';
 
 export type { Coords } from '@/hooks/useDeviceLocation';
 
@@ -56,6 +58,8 @@ export function useResolvedUserLocation(
   options: UseResolvedUserLocationOptions = {},
 ): ResolvedUserLocation {
   const { skipDevice = false } = options;
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const device = useDeviceLocation({ enabled: !skipDevice });
   const player = useCurrentPlayer();
 
@@ -71,13 +75,13 @@ export function useResolvedUserLocation(
   const needsFallback = player.isSuccess && cityCoords == null;
 
   const homeCourts = useQuery({
-    queryKey: ['player', playerId, 'home-courts'],
+    queryKey: currentPlayerKeys.homeCourts(userId, playerId ?? 0),
     queryFn: () => api.getPlayerHomeCourts(playerId as number),
     enabled: needsFallback && playerId != null,
   });
 
   const locations = useQuery({
-    queryKey: ['locations'],
+    queryKey: publicKeys.locations(),
     queryFn: () => api.getLocations(),
     enabled: needsFallback && locationId != null,
   });

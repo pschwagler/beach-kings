@@ -1,6 +1,11 @@
 import React from 'react';
-import { TournamentsListScreen } from '@/components/screens/Tournaments';
+import ComingSoon from '@/components/screens/ComingSoon';
 
 export default function TournamentsRoute(): React.ReactNode {
-  return <TournamentsListScreen />;
+  return (
+    <ComingSoon
+      title="Tournaments"
+      description="Tournament browsing and management are coming soon."
+    />
+  );
 }

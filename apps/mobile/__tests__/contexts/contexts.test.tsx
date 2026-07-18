@@ -1,13 +1,13 @@
 /**
- * Tests for NotificationContext and ToastContext providers and hooks.
+ * Tests for Query-backed notifications and the ToastContext provider.
  */
 import React from 'react';
 import { Text, Pressable } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import NotificationProvider, { useNotifications } from '@/contexts/NotificationContext';
+import { useNotifications } from '@/features/notifications';
 import ToastProvider, { useToast } from '@/contexts/ToastContext';
 
 jest.mock('@/contexts/AuthContext', () => ({
@@ -27,30 +27,18 @@ jest.mock('expo-haptics', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// NotificationContext
+// Query-backed notifications
 // ---------------------------------------------------------------------------
 function createNotificationWrapper() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: Infinity } },
   });
   return function NotificationWrapper({ children }: { children: React.ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <NotificationProvider>{children}</NotificationProvider>
-      </QueryClientProvider>
-    );
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   };
 }
 
-describe('NotificationContext', () => {
-  it('throws when useNotifications is called outside provider', () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => renderHook(() => useNotifications())).toThrow(
-      'useNotifications must be used within a NotificationProvider',
-    );
-    consoleError.mockRestore();
-  });
-
+describe('useNotifications', () => {
   it('provides initial empty notifications state', () => {
     const wrapper = createNotificationWrapper();
     const { result } = renderHook(() => useNotifications(), { wrapper });
@@ -65,14 +53,6 @@ describe('NotificationContext', () => {
     const { result } = renderHook(() => useNotifications(), { wrapper });
     expect(typeof result.current.markAsRead).toBe('function');
     expect(typeof result.current.markAllAsRead).toBe('function');
-  });
-
-  it('addNotificationListener returns an unsubscribe function', () => {
-    const wrapper = createNotificationWrapper();
-    const { result } = renderHook(() => useNotifications(), { wrapper });
-    const unsubscribe = result.current.addNotificationListener('test', jest.fn());
-    expect(typeof unsubscribe).toBe('function');
-    act(() => { unsubscribe(); });
   });
 });
 

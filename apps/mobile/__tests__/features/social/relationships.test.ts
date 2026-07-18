@@ -1,4 +1,4 @@
-import { presentRelationship } from '../socialRelationships';
+import { presentRelationship } from '@/features/social';
 
 describe('presentRelationship', () => {
   it('only offers Add Friend when there is no relationship', () => {

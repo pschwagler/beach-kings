@@ -7,9 +7,11 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRootNavigationState, useSegments } from 'expo-router';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
@@ -117,13 +119,11 @@ interface AuthResponse {
   readonly has_password?: boolean;
 }
 
-/** Store tokens from an AuthResponse and return user + is_new_user signal. */
-async function handleAuthResponse(response: AuthResponse): Promise<{
+/** Convert an auth response into the canonical client-side identity. */
+function parseAuthResponse(response: AuthResponse): {
   readonly user: User;
   readonly isNewUser: boolean;
-}> {
-  await api.setAuthTokens(response.access_token, response.refresh_token);
-
+} {
   const user: User = {
     id: response.user_id,
     phone_number: response.phone_number ?? null,
@@ -182,6 +182,14 @@ function hasRetainedAuthenticatedStack(
   );
 }
 
+const UNAUTHENTICATED_STATE: AuthState = {
+  user: null,
+  isLoading: false,
+  isAuthenticated: false,
+  profileComplete: false,
+  isNewUser: false,
+};
+
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
@@ -198,28 +206,156 @@ export default function AuthProvider({
   });
 
   const router = useRouter();
+  const queryClient = useQueryClient();
   const rootNavigationState = useRootNavigationState();
   const segments = useSegments() as string[];
+  const stateRef = useRef(state);
+  const operationRevisionRef = useRef(0);
+  const transitionQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const publishState = useCallback((nextState: AuthState) => {
+    stateRef.current = nextState;
+    setState(nextState);
+  }, []);
+
+  const beginAuthOperation = useCallback((): number => {
+    operationRevisionRef.current += 1;
+    return operationRevisionRef.current;
+  }, []);
+
+  const isCurrentOperation = useCallback(
+    (revision: number): boolean => operationRevisionRef.current === revision,
+    [],
+  );
+
+  const enqueueTransition = useCallback(<T,>(work: () => Promise<T>): Promise<T> => {
+    const result = transitionQueueRef.current
+      .catch(() => undefined)
+      .then(work);
+    transitionQueueRef.current = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }, []);
+
+  const cancelQueryWork = useCallback(async (): Promise<void> => {
+    await queryClient.cancelQueries();
+  }, [queryClient]);
+
+  const clearCacheAndPublish = useCallback(
+    (nextState: AuthState): void => {
+      // Clear both caches in the same synchronous turn as identity publication
+      // so outgoing query observers cannot refetch between those operations.
+      // In-flight mutations are protected separately by user-scoped keys and
+      // conditional cache-update functions; TanStack mutations are not cancellable.
+      queryClient.clear();
+      publishState(nextState);
+    },
+    [publishState, queryClient],
+  );
+
+  const commitUnauthenticated = useCallback(
+    async (revision: number, clearTokens: boolean): Promise<boolean> =>
+      enqueueTransition(async () => {
+        if (!isCurrentOperation(revision)) return false;
+        await cancelQueryWork();
+        if (!isCurrentOperation(revision)) return false;
+        if (clearTokens) {
+          try {
+            await api.clearAuthTokens();
+          } catch {
+            // Local state and private caches must still be retired even if the
+            // storage adapter fails to remove a credential.
+          }
+          if (!isCurrentOperation(revision)) return false;
+        }
+        clearCacheAndPublish(UNAUTHENTICATED_STATE);
+        return true;
+      }),
+    [cancelQueryWork, clearCacheAndPublish, enqueueTransition, isCurrentOperation],
+  );
+
+  const prepareAuthentication = useCallback(
+    async (revision: number): Promise<boolean> =>
+      enqueueTransition(async () => {
+        if (!isCurrentOperation(revision)) return false;
+        if (!stateRef.current.isAuthenticated) return true;
+
+        // Account replacement is explicitly two phase: fully retire the old
+        // identity and its cache before a new credential is installed.
+        await cancelQueryWork();
+        if (!isCurrentOperation(revision)) return false;
+        try {
+          await api.clearAuthTokens();
+        } catch {
+          // Continue the two-phase retirement. A subsequent successful login
+          // overwrites the credential before the new identity is published.
+        }
+        if (!isCurrentOperation(revision)) return false;
+        clearCacheAndPublish(UNAUTHENTICATED_STATE);
+        return true;
+      }),
+    [cancelQueryWork, clearCacheAndPublish, enqueueTransition, isCurrentOperation],
+  );
+
+  const completeAuthentication = useCallback(
+    async (revision: number, response: AuthResponse): Promise<void> => {
+      const parsed = parseAuthResponse(response);
+      const installed = await enqueueTransition(async () => {
+        if (!isCurrentOperation(revision)) return false;
+        await cancelQueryWork();
+        if (!isCurrentOperation(revision)) return false;
+        await api.setAuthTokens(response.access_token, response.refresh_token);
+        return isCurrentOperation(revision);
+      });
+      if (!installed) return;
+
+      const profileComplete = await fetchProfileComplete();
+
+      await enqueueTransition(async () => {
+        if (!isCurrentOperation(revision)) return;
+        // A direct profile request can overlap Query work triggered elsewhere;
+        // enforce the empty-cache invariant immediately before publication.
+        await cancelQueryWork();
+        if (!isCurrentOperation(revision)) return;
+        clearCacheAndPublish({
+          user: parsed.user,
+          isLoading: false,
+          isAuthenticated: true,
+          profileComplete,
+          isNewUser: parsed.isNewUser,
+        });
+      });
+    },
+    [cancelQueryWork, clearCacheAndPublish, enqueueTransition, isCurrentOperation],
+  );
+
+  // Refresh-token exhaustion is an authentication transition, not only a
+  // transport error. The API client emits after it has invalidated credentials.
+  useEffect(() => {
+    return api.onAuthInvalidated(() => {
+      const revision = beginAuthOperation();
+      void commitUnauthenticated(revision, false);
+    });
+  }, [beginAuthOperation, commitUnauthenticated]);
 
   // -----------------------------------------------------------------------
   // Session restore on mount
   // -----------------------------------------------------------------------
   useEffect(() => {
     async function loadSession() {
+      const revision = beginAuthOperation();
       try {
         const { accessToken } = await api.getStoredTokens();
+        if (!isCurrentOperation(revision)) return;
         if (!accessToken) {
-          setState({
-            user: null,
-            isLoading: false,
-            isAuthenticated: false,
-            profileComplete: false,
-            isNewUser: false,
-          });
+          await commitUnauthenticated(revision, false);
           return;
         }
 
         const userData = await api.getMe();
+        if (!isCurrentOperation(revision)) return;
         const user: User = {
           id: userData.id,
           phone_number: userData.phone_number ?? null,
@@ -235,27 +371,35 @@ export default function AuthProvider({
         };
 
         const profileComplete = await fetchProfileComplete();
+        if (!isCurrentOperation(revision)) return;
 
-        setState({
-          user,
-          isLoading: false,
-          isAuthenticated: true,
-          profileComplete,
-          isNewUser: false,
+        await enqueueTransition(async () => {
+          if (!isCurrentOperation(revision)) return;
+          await cancelQueryWork();
+          if (!isCurrentOperation(revision)) return;
+          clearCacheAndPublish({
+            user,
+            isLoading: false,
+            isAuthenticated: true,
+            profileComplete,
+            isNewUser: false,
+          });
         });
       } catch {
-        await api.clearAuthTokens();
-        setState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false,
-          profileComplete: false,
-          isNewUser: false,
-        });
+        if (isCurrentOperation(revision)) {
+          await commitUnauthenticated(revision, true);
+        }
       }
     }
-    loadSession();
-  }, []);
+    void loadSession();
+  }, [
+    beginAuthOperation,
+    cancelQueryWork,
+    clearCacheAndPublish,
+    commitUnauthenticated,
+    enqueueTransition,
+    isCurrentOperation,
+  ]);
 
   // -----------------------------------------------------------------------
   // Route guard
@@ -305,6 +449,7 @@ export default function AuthProvider({
     state.isNewUser,
     segments,
     rootNavigationState,
+    router,
   ]);
 
   // -----------------------------------------------------------------------
@@ -313,23 +458,20 @@ export default function AuthProvider({
 
   const login = useCallback(
     async (params: LoginWithEmailParams | LoginWithPhoneParams) => {
+      const revision = beginAuthOperation();
+      if (!(await prepareAuthentication(revision))) return;
       const credentials =
         'email' in params
           ? { email: params.email, password: params.password }
           : { phone_number: params.phoneNumber, password: params.password };
 
       const data = await api.login(credentials);
-      const result = await handleAuthResponse(data);
-      const profileComplete = await fetchProfileComplete();
-      setState({
-        user: result.user,
-        isLoading: false,
-        isAuthenticated: true,
-        profileComplete,
-        isNewUser: false,
+      await completeAuthentication(revision, {
+        ...data,
+        is_new_user: false,
       });
     },
-    [],
+    [beginAuthOperation, completeAuthentication, prepareAuthentication],
   );
 
   const signup = useCallback(async (params: SignupParams) => {
@@ -346,85 +488,70 @@ export default function AuthProvider({
   }, []);
 
   const loginWithGoogle = useCallback(async (idToken: string) => {
+    const revision = beginAuthOperation();
+    if (!(await prepareAuthentication(revision))) return;
     const data = await api.googleAuth(idToken);
-    const result = await handleAuthResponse(data);
-    const profileComplete = await fetchProfileComplete();
-    setState({
-      user: result.user,
-      isLoading: false,
-      isAuthenticated: true,
-      profileComplete,
-      isNewUser: result.isNewUser,
-    });
-  }, []);
+    await completeAuthentication(revision, data);
+  }, [beginAuthOperation, completeAuthentication, prepareAuthentication]);
 
   const loginWithApple = useCallback(async (idToken: string) => {
+    const revision = beginAuthOperation();
+    if (!(await prepareAuthentication(revision))) return;
     const data = await api.appleAuth(idToken);
-    const result = await handleAuthResponse(data);
-    const profileComplete = await fetchProfileComplete();
-    setState({
-      user: result.user,
-      isLoading: false,
-      isAuthenticated: true,
-      profileComplete,
-      isNewUser: result.isNewUser,
-    });
-  }, []);
+    await completeAuthentication(revision, data);
+  }, [beginAuthOperation, completeAuthentication, prepareAuthentication]);
 
   const verifyPhone = useCallback(
     async (phoneNumber: string, code: string) => {
+      const revision = beginAuthOperation();
+      if (!(await prepareAuthentication(revision))) return;
       const data = await api.verifyPhone(phoneNumber, code);
-      const result = await handleAuthResponse(data);
-      const profileComplete = await fetchProfileComplete();
-      setState({
-        user: result.user,
-        isLoading: false,
-        isAuthenticated: true,
-        profileComplete,
-        isNewUser: result.isNewUser,
-      });
+      await completeAuthentication(revision, data);
     },
-    [],
+    [beginAuthOperation, completeAuthentication, prepareAuthentication],
   );
 
   const verifyEmail = useCallback(
     async (email: string, code: string) => {
+      const revision = beginAuthOperation();
+      if (!(await prepareAuthentication(revision))) return;
       const data = await api.verifyEmail(email, code);
-      const result = await handleAuthResponse(data);
-      const profileComplete = await fetchProfileComplete();
-      setState({
-        user: result.user,
-        isLoading: false,
-        isAuthenticated: true,
-        profileComplete,
-        isNewUser: result.isNewUser,
-      });
+      await completeAuthentication(revision, data);
     },
-    [],
+    [beginAuthOperation, completeAuthentication, prepareAuthentication],
   );
 
   const logout = useCallback(async () => {
+    const revision = beginAuthOperation();
     try {
       await api.logout();
     } catch {
       // Ignore logout API errors — clear local state regardless
     }
-    await api.clearAuthTokens();
-    setState({
-      user: null,
-      isLoading: false,
-      isAuthenticated: false,
-      profileComplete: false,
-      isNewUser: false,
-    });
-  }, []);
+    if (isCurrentOperation(revision)) {
+      await commitUnauthenticated(revision, true);
+    } else {
+      await transitionQueueRef.current;
+    }
+  }, [beginAuthOperation, commitUnauthenticated, isCurrentOperation]);
 
   const setProfileComplete = useCallback((complete: boolean) => {
-    setState((prev) => ({ ...prev, profileComplete: complete }));
-  }, []);
+    const nextState = { ...stateRef.current, profileComplete: complete };
+    publishState(nextState);
+  }, [publishState]);
 
   const refreshUser = useCallback(async () => {
+    const revision = operationRevisionRef.current;
+    const activeUserId = stateRef.current.user?.id;
     const userData = await api.getMe();
+    if (
+      !isCurrentOperation(revision) ||
+      activeUserId == null ||
+      stateRef.current.user?.id !== activeUserId ||
+      userData.id !== activeUserId
+    ) {
+      return;
+    }
     const user: User = {
       id: userData.id,
       phone_number: userData.phone_number ?? null,
@@ -438,8 +565,8 @@ export default function AuthProvider({
       show_game_history: userData.show_game_history ?? false,
       deletion_scheduled_at: userData.deletion_scheduled_at ?? null,
     };
-    setState((prev) => ({ ...prev, user }));
-  }, []);
+    publishState({ ...stateRef.current, user });
+  }, [isCurrentOperation, publishState]);
 
   // -----------------------------------------------------------------------
   // Context value

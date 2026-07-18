@@ -1,8 +1,10 @@
 import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useFriendshipMutations } from '@/hooks/useFriendshipMutations';
-import { socialQueryKeys } from '@/lib/socialQueryKeys';
+import { useFriendshipMutations } from '@/features/social/useFriendshipMutations';
+import { socialKeys } from '@/features/social/keys';
+import { notificationKeys } from '@/features/notifications/keys';
+import { reconcileNotificationEvent } from '@/features/notifications/cache';
 import { api } from '@/lib/api';
 
 jest.mock('@/contexts/AuthContext', () => ({
@@ -19,6 +21,7 @@ jest.mock('@/lib/api', () => ({
 }));
 
 const mockSend = api.sendFriendRequest as jest.Mock;
+const mockAccept = api.acceptFriendRequest as jest.Mock;
 
 function setup() {
   const client = new QueryClient({
@@ -28,7 +31,7 @@ function setup() {
     },
   });
   client.setQueryData(
-    socialQueryKeys.relationship(7, 44),
+    socialKeys.relationship(7, 44),
     { status: 'none', request_id: null },
   );
   function Wrapper({ children }: { readonly children: React.ReactNode }) {
@@ -46,7 +49,7 @@ describe('useFriendshipMutations relationship cache', () => {
     act(() => result.current.send.mutate(44));
 
     await waitFor(() => expect(client.getQueryData(
-      socialQueryKeys.relationship(7, 44),
+      socialKeys.relationship(7, 44),
     )).toEqual({ status: 'pending_outgoing', request_id: null }));
   });
 
@@ -58,7 +61,7 @@ describe('useFriendshipMutations relationship cache', () => {
     act(() => result.current.send.mutate(44));
 
     await waitFor(() => expect(client.getQueryData(
-      socialQueryKeys.relationship(7, 44),
+      socialKeys.relationship(7, 44),
     )).toEqual({ status: 'none', request_id: null }));
   });
 
@@ -68,18 +71,95 @@ describe('useFriendshipMutations relationship cache', () => {
       rejectRequest = reject;
     }));
     const { client, Wrapper } = setup();
-    client.removeQueries({ queryKey: socialQueryKeys.relationship(7, 44) });
+    client.removeQueries({ queryKey: socialKeys.relationship(7, 44) });
     const { result } = renderHook(() => useFriendshipMutations(), { wrapper: Wrapper });
 
     act(() => result.current.send.mutate(44));
 
     await waitFor(() => expect(client.getQueryData(
-      socialQueryKeys.relationship(7, 44),
+      socialKeys.relationship(7, 44),
     )).toEqual({ status: 'pending_outgoing', request_id: null }));
     act(() => rejectRequest(new Error('network')));
 
     await waitFor(() => expect(client.getQueryData(
-      socialQueryKeys.relationship(7, 44),
+      socialKeys.relationship(7, 44),
     )).toBeUndefined());
+  });
+
+  it('preserves a relationship update that arrives before send fails', async () => {
+    let rejectRequest: (reason: Error) => void = () => {};
+    mockSend.mockReturnValue(new Promise((_resolve, reject) => {
+      rejectRequest = reject;
+    }));
+    const { client, Wrapper } = setup();
+    const { result } = renderHook(() => useFriendshipMutations(), { wrapper: Wrapper });
+
+    act(() => result.current.send.mutate(44));
+    await waitFor(() => expect(client.getQueryData(
+      socialKeys.relationship(7, 44),
+    )).toMatchObject({ status: 'pending_outgoing' }));
+    const authoritative = { status: 'friend', request_id: null };
+    client.setQueryData(socialKeys.relationship(7, 44), authoritative);
+    act(() => rejectRequest(new Error('network')));
+
+    await waitFor(() => expect(client.getQueryData(
+      socialKeys.relationship(7, 44),
+    )).toEqual(authoritative));
+  });
+
+  it('restores only the failed request while preserving socket notifications', async () => {
+    let rejectRequest: (reason: Error) => void = () => {};
+    mockAccept.mockReturnValue(new Promise((_resolve, reject) => {
+      rejectRequest = reject;
+    }));
+    const { client, Wrapper } = setup();
+    client.setQueryData(socialKeys.requests(7, 'incoming'), [{
+      id: 22,
+      sender_player_id: 44,
+      sender_name: 'Taylor',
+      sender_avatar: null,
+      receiver_player_id: 7,
+      receiver_name: 'Pat',
+      receiver_avatar: null,
+      status: 'pending',
+      created_at: null,
+      mutual_friends_count: 0,
+      shared_league_name: null,
+    }]);
+    const requestNotification = {
+      id: 4,
+      user_id: 7,
+      type: 'friend_request' as const,
+      title: 'Request',
+      message: 'A request',
+      data: { request_id: 22 },
+      is_read: false,
+      read_at: null,
+      dismissed_at: null,
+      link_url: null,
+      created_at: '2026-07-18T12:00:00Z',
+    };
+    client.setQueryData(notificationKeys.feed(7), [requestNotification]);
+    client.setQueryData(notificationKeys.unreadCount(7), { count: 9 });
+    const { result } = renderHook(() => useFriendshipMutations(), { wrapper: Wrapper });
+
+    act(() => result.current.accept.mutate({ requestId: 22, notificationId: 4 }));
+    await waitFor(() => expect(
+      client.getQueryData<typeof requestNotification[]>(notificationKeys.feed(7))
+        ?.filter((notification) => notification.dismissed_at == null),
+    ).toHaveLength(0));
+    reconcileNotificationEvent(client, 7, 'notification', {
+      ...requestNotification,
+      id: 5,
+      data: { request_id: 23 },
+    });
+    act(() => rejectRequest(new Error('network')));
+
+    await waitFor(() => expect(
+      client.getQueryData<typeof requestNotification[]>(notificationKeys.feed(7))
+        ?.map((notification) => notification.id),
+    ).toEqual([5, 4]));
+    expect(client.getQueryData<{ count: number }>(notificationKeys.unreadCount(7)))
+      .toMatchObject({ count: 10 });
   });
 });

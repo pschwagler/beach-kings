@@ -4,7 +4,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "expo-router";
-import { api } from "@/lib/api";
+import { unavailableTournamentApi } from '@/features/tournaments/unavailableApi';
 import { hapticMedium } from "@/utils/haptics";
 import { routes } from "@/lib/navigation";
 import type { KobTournament } from "@beach-kings/shared";
@@ -64,7 +64,7 @@ export function useTournamentCreateScreen(): UseTournamentCreateScreenResult {
     setIsSubmitting(true);
     await hapticMedium();
     try {
-      const tournament = await api.createTournament({
+      const tournament = await unavailableTournamentApi.createTournament({
         name: name.trim(),
         scheduled_date: scheduledDate,
         num_courts: numCourts,

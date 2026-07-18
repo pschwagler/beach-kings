@@ -749,7 +749,7 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
     #
     # 2a — ONE batch query for active seasons across all league IDs.
     #      Dedup to one row per league using row_number() ordered by
-    #      created_at DESC (matching resolve_active_season's tiebreak).
+    #      created_at DESC, id DESC (matching resolve_active_season's tiebreak).
     today = date.today()
     active_rn_sq = (
         select(
@@ -757,7 +757,7 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
             func.row_number()
             .over(
                 partition_by=Season.league_id,
-                order_by=Season.created_at.desc(),
+                order_by=(Season.created_at.desc(), Season.id.desc()),
             )
             .label("rn"),
         )
@@ -1015,7 +1015,7 @@ async def get_player_public_leagues(session: AsyncSession, player_id: int) -> li
             func.row_number()
             .over(
                 partition_by=Season.league_id,
-                order_by=Season.created_at.desc(),
+                order_by=(Season.created_at.desc(), Season.id.desc()),
             )
             .label("rn"),
         )
@@ -1228,8 +1228,9 @@ async def resolve_active_season(
 
     Active = (start_date IS NULL OR start_date <= today)
              AND (end_date IS NULL OR end_date >= today).
-    Tiebreak: most-recently-created season. Returns None when none qualify;
-    never raises, never creates. ``today`` is injectable for tests.
+    Tiebreak: most-recently-created season, then highest ID when timestamps
+    tie. Returns None when none qualify; never raises, never creates. ``today``
+    is injectable for tests.
 
     Args:
         session: Async database session.
@@ -1251,7 +1252,7 @@ async def resolve_active_season(
                 *_active_season_conditions(today),
             )
         )
-        .order_by(Season.created_at.desc())
+        .order_by(Season.created_at.desc(), Season.id.desc())
         .limit(1)
     )
     return result.scalar_one_or_none()
@@ -1389,7 +1390,12 @@ async def create_season(
 
 
 async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
-    """List seasons for a league, including activity status and counts."""
+    """List seasons with one canonical active label and aggregate counts.
+
+    Legacy date ranges may overlap. Only the season selected by the canonical
+    resolver is labeled active so list consumers agree with automatic game and
+    session attribution without rewriting historical season dates.
+    """
     result = await session.execute(
         select(Season).where(Season.league_id == league_id).order_by(Season.start_date.desc())
     )
@@ -1399,6 +1405,8 @@ async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
 
     season_ids = [s.id for s in seasons]
     today = date.today()
+    active_season = await resolve_active_season(session, league_id, today=today)
+    active_season_id = active_season.id if active_season is not None else None
 
     session_counts = {
         row.season_id: row.cnt
@@ -1429,7 +1437,7 @@ async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
             "name": s.name,
             "start_date": s.start_date.isoformat() if s.start_date else None,
             "end_date": s.end_date.isoformat() if s.end_date else None,
-            "is_active": _is_season_active(s, today),
+            "is_active": s.id == active_season_id,
             "session_count": session_counts.get(s.id, 0),
             "game_count": game_counts.get(s.id, 0),
             "scoring_system": s.scoring_system,  # Now just a string, no enum conversion needed

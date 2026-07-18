@@ -373,7 +373,6 @@ export default function LeagueDetailScreen({
     onSetTab(tab);
   };
 
-  const title = detail?.name != null && detail.name.trim().length > 0 ? detail.name : 'League';
   const canAddGame =
     detail != null && (detail.user_role === 'admin' || detail.user_role === 'member');
 
@@ -450,7 +449,7 @@ export default function LeagueDetailScreen({
         className="flex-1 bg-page"
         edges={['top']}
       >
-        <TopNav title={title} showBack rightAction={addGameAction} />
+        <TopNav title="League" showBack rightAction={addGameAction} />
         <View testID="league-detail-screen" className="flex-1 bg-page">
           <LeagueHeader
             name={detail.name}

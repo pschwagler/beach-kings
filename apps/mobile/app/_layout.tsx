@@ -9,11 +9,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import AuthProvider from '@/contexts/AuthContext';
 import ThemeProvider, { useTheme } from '@/contexts/ThemeContext';
-import NotificationProvider from '@/contexts/NotificationContext';
+import { NotificationTransport } from '@/features/notifications';
+import {
+  createQueryClient,
+  PrivateQueryCacheGuard,
+  subscribeQueryLifecycle,
+} from '@/infrastructure/query';
 import ToastProvider from '@/contexts/ToastContext';
 import ErrorBoundary from '@/lib/ErrorBoundary';
-import { createQueryClient, subscribeQueryLifecycle } from '@/lib/queryClient';
-import PrivateQueryCacheGuard from '@/lib/PrivateQueryCacheGuard';
 
 // Prevent splash screen from auto-hiding until fonts + auth are ready
 SplashScreen.preventAutoHideAsync();
@@ -96,13 +99,12 @@ export default function RootLayout(): React.ReactNode {
           <ThemeProvider>
             <AuthProvider>
               <PrivateQueryCacheGuard>
-                <NotificationProvider>
-                  <ToastProvider>
-                    <ErrorBoundary>
-                      <RootLayoutInner onReady={handleReady} />
-                    </ErrorBoundary>
-                  </ToastProvider>
-                </NotificationProvider>
+                <NotificationTransport />
+                <ToastProvider>
+                  <ErrorBoundary>
+                    <RootLayoutInner onReady={handleReady} />
+                  </ErrorBoundary>
+                </ToastProvider>
               </PrivateQueryCacheGuard>
             </AuthProvider>
           </ThemeProvider>

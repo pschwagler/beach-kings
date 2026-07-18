@@ -1,8 +1,11 @@
 import React from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import { TournamentDetailScreen } from '@/components/screens/Tournaments';
+import ComingSoon from '@/components/screens/ComingSoon';
 
 export default function TournamentDetailRoute(): React.ReactNode {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  return <TournamentDetailScreen tournamentId={Number(id)} />;
+  return (
+    <ComingSoon
+      title="Tournaments"
+      description="Tournament details are not available yet."
+    />
+  );
 }

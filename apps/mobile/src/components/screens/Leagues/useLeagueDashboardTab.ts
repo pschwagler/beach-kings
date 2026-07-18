@@ -14,6 +14,8 @@ import type { Season, LeagueStanding, LeagueSeasonInfo } from '@beach-kings/shar
 import { api } from '@/lib/api';
 import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
 import { leagueKeys } from './leagueKeys';
+import { defaultSeasonId } from './seasonSelection';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SeasonPickerEntry {
   readonly id: number;
@@ -43,34 +45,36 @@ export interface UseLeagueDashboardTabResult {
  * Returns all data and state needed by the Standings tab.
  */
 export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashboardTabResult {
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | 'all' | null>(null);
 
   const standingsQuery = useQuery({
-    queryKey: leagueKeys.standings(leagueId, selectedSeasonId),
+    queryKey: leagueKeys.standings(userId, leagueId, selectedSeasonId),
     queryFn: () => {
       const seasonId = selectedSeasonId === 'all' || selectedSeasonId === null
         ? undefined
         : selectedSeasonId;
       return api.getLeagueStandings(Number(leagueId), seasonId);
     },
-    enabled: selectedSeasonId !== null,
+    enabled: userId > 0 && selectedSeasonId !== null,
   });
 
   const seasonsQuery = useQuery({
-    queryKey: leagueKeys.seasons(leagueId),
+    queryKey: leagueKeys.seasons(userId, leagueId),
     queryFn: async (): Promise<readonly SeasonPickerEntry[]> => {
       const rows = await api.getLeagueSeasons(Number(leagueId));
       return rows.map(toSeasonPickerEntry);
     },
+    enabled: userId > 0,
   });
 
-  // Auto-init: once seasons resolve, select the latest (first) season if any,
-  // or fall back to 'all' (all-time) when the league has no seasons yet.
+  // Auto-init: prefer the API's canonical active season. The list remains
+  // newest-first, so its first row is the fallback when no season is active.
+  // A league with no seasons uses the all-time view.
   useEffect(() => {
     if (selectedSeasonId === null && seasonsQuery.data) {
-      setSelectedSeasonId(
-        seasonsQuery.data.length > 0 ? seasonsQuery.data[0].id : 'all',
-      );
+      setSelectedSeasonId(defaultSeasonId(seasonsQuery.data));
     }
   }, [selectedSeasonId, seasonsQuery.data]);
 

@@ -2,7 +2,7 @@
  * Tests for the shared useFriends hook.
  *
  * Covers:
- *   - Normalizing paginated ({ items }) vs bare-array responses.
+ *   - Consuming canonical arrays from the API client.
  *   - Suggestions gate (withSuggestions: false must not call the endpoint).
  *   - Decoupled errors: a requests/suggestions failure is non-fatal; only a
  *     friends-list failure is fatal.
@@ -99,6 +99,8 @@ const REQUEST = {
   receiver_avatar: null,
   status: 'pending' as const,
   created_at: '2026-04-19T10:00:00Z',
+  mutual_friends_count: 0,
+  shared_league_name: null,
 };
 
 const SUGGESTION = {
@@ -112,16 +114,16 @@ const SUGGESTION = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockApi.getFriends.mockResolvedValue({ items: [FRIEND, FRIEND_2] });
-  mockApi.getFriendRequests.mockResolvedValue({ items: [REQUEST] });
+  mockApi.getFriends.mockResolvedValue([FRIEND, FRIEND_2]);
+  mockApi.getFriendRequests.mockResolvedValue([REQUEST]);
   mockApi.getFriendSuggestions.mockResolvedValue([SUGGESTION]);
   mockApi.sendFriendRequest.mockResolvedValue({ status: 'ok' });
   mockApi.acceptFriendRequest.mockResolvedValue({ status: 'ok' });
   mockApi.declineFriendRequest.mockResolvedValue({ status: 'ok' });
 });
 
-describe('useFriends — fetching & normalization', () => {
-  it('normalizes paginated friends/requests and fetches suggestions by default', async () => {
+describe('useFriends — fetching', () => {
+  it('consumes canonical friends/requests and fetches suggestions by default', async () => {
     const { result } = renderHook(() => useFriends());
 
     await waitFor(() => expect(result.current.isLoadingFriends).toBe(false));
@@ -133,7 +135,7 @@ describe('useFriends — fetching & normalization', () => {
     expect(mockApi.getFriendSuggestions).toHaveBeenCalled();
   });
 
-  it('supports bare-array responses', async () => {
+  it('supports smaller canonical array responses', async () => {
     mockApi.getFriends.mockResolvedValue([FRIEND]);
     mockApi.getFriendRequests.mockResolvedValue([REQUEST]);
 

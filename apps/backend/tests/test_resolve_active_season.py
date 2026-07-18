@@ -210,6 +210,33 @@ async def test_tiebreak_most_recently_created_wins(db_session: AsyncSession, lea
     assert result.id != older.id
 
 
+@pytest.mark.asyncio
+async def test_list_marks_only_canonical_overlapping_season_active(
+    db_session: AsyncSession, league: League
+):
+    """List consumers receive one active label even for legacy overlaps."""
+    older = await _add_season(
+        db_session,
+        league.id,
+        name="Older Active",
+        start_date=TODAY - timedelta(days=10),
+        end_date=TODAY + timedelta(days=10),
+    )
+    newer = await _add_season(
+        db_session,
+        league.id,
+        name="Newer Active",
+        start_date=TODAY - timedelta(days=5),
+        end_date=TODAY + timedelta(days=5),
+    )
+
+    seasons = await data_service.list_seasons(db_session, league.id)
+    active_ids = [season["id"] for season in seasons if season["is_active"]]
+
+    assert active_ids == [newer.id]
+    assert older.id not in active_ids
+
+
 # ---------------------------------------------------------------------------
 # 8. today= param honored: explicit date makes season active
 # ---------------------------------------------------------------------------

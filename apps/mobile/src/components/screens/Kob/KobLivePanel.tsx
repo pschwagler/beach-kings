@@ -13,6 +13,7 @@
 
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
+import { formatGameScore } from '@/lib/formatters';
 import type { KobTournamentDetail, KobMatch } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
@@ -28,7 +29,11 @@ function SectionLabel({ text }: { text: string }): React.ReactNode {
 }
 
 function MatchCard({ match }: { match: KobMatch }): React.ReactNode {
-  const isCompleted = match.team1_score != null && match.team2_score != null;
+  const completedScore =
+    match.team1_score != null && match.team2_score != null
+      ? formatGameScore(match.team1_score, match.team2_score)
+      : null;
+  const isCompleted = completedScore != null;
   const team1Name = `${match.team1_player1_name} / ${match.team1_player2_name}`;
   const team2Name = `${match.team2_player1_name} / ${match.team2_player2_name}`;
 
@@ -55,9 +60,7 @@ function MatchCard({ match }: { match: KobMatch }): React.ReactNode {
           {team1Name}
         </Text>
         <Text className="text-[13px] font-bold text-muted mx-2">
-          {isCompleted
-            ? `${match.team1_score} - ${match.team2_score}`
-            : 'vs'}
+          {completedScore ?? 'vs'}
         </Text>
         <Text
           className={`text-[14px] font-semibold flex-1 text-right ${

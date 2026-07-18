@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import type { Player, MatchRecord } from '@beach-kings/shared';
 import { normalizePlayerStats } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNotifications } from '@/contexts/NotificationContext';
+import { useNotifications } from '@/features/notifications';
 import { useDashboard } from '@/hooks/useDashboard';
 import { routes } from '@/lib/navigation';
 import HomeHeader from '@/components/home/HomeHeader';

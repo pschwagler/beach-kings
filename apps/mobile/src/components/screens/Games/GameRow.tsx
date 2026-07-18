@@ -3,7 +3,7 @@
  *
  * Layout (matches my-games.html .game-item):
  *   top row:  result badge (WIN/LOSS/DRAW)
- *   score:    "21 - 18" large text
+ *   score:    "21-18" large text
  *   teams:    "You / Partner vs Opp1 / Opp2" (You is bolded)
  *   meta row: league name | rating change (+/-)
  *   pending note: shown when session not yet submitted
@@ -12,6 +12,7 @@
 import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { hapticMedium } from '@/utils/haptics';
+import { formatGameScore } from '@/lib/formatters';
 import type { GameHistoryEntry } from '@beach-kings/shared';
 
 interface GameRowProps {
@@ -94,6 +95,7 @@ function TeamLine({ game }: { game: GameHistoryEntry }): React.ReactNode {
 }
 
 export default function GameRow({ game, onPress }: GameRowProps): React.ReactNode {
+  const score = formatGameScore(game.my_score, game.opponent_score);
   const handlePress = useCallback(() => {
     void hapticMedium();
     onPress?.(game);
@@ -104,7 +106,7 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
       testID={`game-row-${game.id}`}
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={`Game result: ${game.result}, score: ${game.my_score}-${game.opponent_score}`}
+      accessibilityLabel={`Game result: ${game.result}, score: ${score}`}
       className="bg-surface rounded-[12px] px-[14px] py-[14px] shadow-sm dark:shadow-none dark:border border-divider mb-[10px] active:opacity-80"
     >
       {/* Top row: result badge */}
@@ -114,7 +116,7 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
 
       {/* Score */}
       <Text className="text-[20px] font-bold text-default mb-1">
-        {game.my_score} - {game.opponent_score}
+        {score}
       </Text>
 
       {/* Teams */}

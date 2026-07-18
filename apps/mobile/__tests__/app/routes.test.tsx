@@ -130,12 +130,12 @@ jest.mock('@/lib/oauth', () => ({
   OAuthNotConfiguredError: class OAuthNotConfiguredError extends Error {},
 }));
 
-// NotificationContext
+// Query-backed notification feature
 const mockUseNotifications = jest.fn();
-jest.mock('@/contexts/NotificationContext', () => ({
+jest.mock('@/features/notifications', () => ({
   __esModule: true,
   useNotifications: () => mockUseNotifications(),
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  NotificationTransport: () => null,
 }));
 
 // ToastContext
@@ -205,8 +205,8 @@ jest.mock('@/lib/ErrorBoundary', () => {
 
 // Native Query focus/online wiring is covered separately; route tests only
 // need a deterministic no-op subscription.
-jest.mock('@/lib/queryClient', () => {
-  const actual = jest.requireActual('@/lib/queryClient');
+jest.mock('@/infrastructure/query', () => {
+  const actual = jest.requireActual('@/infrastructure/query');
   return {
     ...actual,
     subscribeQueryLifecycle: jest.fn(() => jest.fn()),
@@ -429,7 +429,6 @@ beforeEach(() => {
     dmUnreadCount: 0,
     markAsRead: jest.fn(),
     markAllAsRead: jest.fn(),
-    addNotificationListener: jest.fn(),
   });
   mockLogin.mockReset();
   mockSignup.mockReset();
@@ -886,7 +885,7 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
       default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     }));
 
-    jest.doMock('@/contexts/NotificationContext', () => ({
+    jest.doMock('@/features/notifications', () => ({
       __esModule: true,
       useNotifications: () => ({
         notifications: [],
@@ -894,7 +893,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
         dmUnreadCount: 0,
         markAsRead: jest.fn(),
         markAllAsRead: jest.fn(),
-        addNotificationListener: jest.fn(),
       }),
       default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     }));
@@ -1006,7 +1004,7 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   });
 
   it('TabIcon — badge count > 0 is rendered', () => {
-    jest.doMock('@/contexts/NotificationContext', () => ({
+    jest.doMock('@/features/notifications', () => ({
       __esModule: true,
       useNotifications: () => ({
         notifications: [],
@@ -1014,7 +1012,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
         dmUnreadCount: 0,
         markAsRead: jest.fn(),
         markAllAsRead: jest.fn(),
-        addNotificationListener: jest.fn(),
       }),
       default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     }));
@@ -1027,7 +1024,7 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   });
 
   it('TabIcon — badge count > 99 shows "99+"', () => {
-    jest.doMock('@/contexts/NotificationContext', () => ({
+    jest.doMock('@/features/notifications', () => ({
       __esModule: true,
       useNotifications: () => ({
         notifications: [],
@@ -1035,7 +1032,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
         dmUnreadCount: 0,
         markAsRead: jest.fn(),
         markAllAsRead: jest.fn(),
-        addNotificationListener: jest.fn(),
       }),
       default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     }));

@@ -5,43 +5,59 @@
  * without hard-coding key arrays inline.
  */
 
+import { privateKeys } from '@/infrastructure/query/keys';
+
 export const leagueKeys = {
-  root: ['leagues'] as const,
+  root: (userId: number) =>
+    [...privateKeys.user(userId), 'leagues'] as const,
 
   // ---- list-level keys ----
-  userLeagues: () => [...leagueKeys.root, 'userLeagues'] as const,
-  findLeagues: (params?: Record<string, unknown>) =>
-    [...leagueKeys.root, 'find', params ?? {}] as const,
+  lists: (userId: number) => [...leagueKeys.root(userId), 'lists'] as const,
+  userLeagues: (userId: number) =>
+    [...leagueKeys.lists(userId), 'mine'] as const,
+  findRoot: (userId: number) =>
+    [...leagueKeys.lists(userId), 'find'] as const,
+  findLeagues: (userId: number, params?: Record<string, unknown>) =>
+    [...leagueKeys.findRoot(userId), params ?? {}] as const,
 
   // ---- detail-level keys (per league id) ----
-  detail: (id: number | string) =>
-    [...leagueKeys.root, 'detail', String(id)] as const,
+  league: (userId: number, id: number | string) =>
+    [...leagueKeys.root(userId), 'league', String(id)] as const,
+  detail: (userId: number, id: number | string) =>
+    [...leagueKeys.league(userId, id), 'detail'] as const,
 
-  standings: (id: number | string, seasonId?: number | 'all' | null) =>
-    [...leagueKeys.root, 'standings', String(id), seasonId ?? 'current'] as const,
+  standings: (userId: number, id: number | string, seasonId?: number | 'all' | null) =>
+    [...leagueKeys.league(userId, id), 'standings', seasonId ?? 'current'] as const,
 
-  seasons: (id: number | string) =>
-    [...leagueKeys.root, 'seasons', String(id)] as const,
+  seasons: (userId: number, id: number | string) =>
+    [...leagueKeys.league(userId, id), 'seasons'] as const,
 
-  chat: (id: number | string) =>
-    [...leagueKeys.root, 'chat', String(id)] as const,
+  chat: (userId: number, id: number | string) =>
+    [...leagueKeys.league(userId, id), 'chat'] as const,
 
-  events: (id: number | string) =>
-    [...leagueKeys.root, 'events', String(id)] as const,
+  events: (userId: number, id: number | string) =>
+    [...leagueKeys.league(userId, id), 'events'] as const,
 
-  info: (id: number | string) =>
-    [...leagueKeys.root, 'info', String(id)] as const,
+  info: (userId: number, id: number | string) =>
+    [...leagueKeys.league(userId, id), 'info'] as const,
 
-  invites: (id: number | string) =>
-    [...leagueKeys.root, 'invites', String(id)] as const,
+  invites: (userId: number, id: number | string) =>
+    [...leagueKeys.league(userId, id), 'invites'] as const,
 
-  invitablePlayers: (id: number | string, query?: string) =>
-    [...leagueKeys.root, 'invitablePlayers', String(id), query ?? ''] as const,
+  invitablePlayers: (userId: number, id: number | string, query?: string) =>
+    [...leagueKeys.league(userId, id), 'invitablePlayers', query ?? ''] as const,
 
-  playerStats: (leagueId: number | string, playerId: number | string, seasonId?: number | null) =>
-    [...leagueKeys.root, 'playerStats', String(leagueId), String(playerId), seasonId ?? 'current'] as const,
+  playerStats: (userId: number, leagueId: number | string, playerId: number | string, seasonId?: number | null) =>
+    [...leagueKeys.league(userId, leagueId), 'playerStats', String(playerId), seasonId ?? 'current'] as const,
 
-  pendingInvites: () => [...leagueKeys.root, 'pendingInvites'] as const,
+  myGames: (userId: number, leagueId: number | string) =>
+    [...leagueKeys.league(userId, leagueId), 'games', 'mine'] as const,
+  allGames: (userId: number, leagueId: number | string) =>
+    [...leagueKeys.league(userId, leagueId), 'games', 'all'] as const,
 
-  receivedInvites: () => [...leagueKeys.root, 'receivedInvites'] as const,
+  pendingInvites: (userId: number) =>
+    [...leagueKeys.root(userId), 'invites', 'sent'] as const,
+
+  receivedInvites: (userId: number) =>
+    [...leagueKeys.root(userId), 'invites', 'received'] as const,
 } as const;

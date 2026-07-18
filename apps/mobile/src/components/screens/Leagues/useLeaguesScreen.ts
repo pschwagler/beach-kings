@@ -7,12 +7,9 @@ import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { League, Player } from '@beach-kings/shared';
 import { api } from '@/lib/api';
-
-export const leaguesScreenKeys = {
-  root: ['leaguesScreen'] as const,
-  leagues: () => [...leaguesScreenKeys.root, 'userLeagues'] as const,
-  player: () => [...leaguesScreenKeys.root, 'player'] as const,
-};
+import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
+import { leagueKeys } from './leagueKeys';
 
 export interface UseLeaguesScreenResult {
   readonly leagues: readonly League[];
@@ -29,21 +26,18 @@ export interface UseLeaguesScreenResult {
  */
 export function useLeaguesScreen(): UseLeaguesScreenResult {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
 
-  const playerQuery = useQuery({
-    queryKey: leaguesScreenKeys.player(),
-    queryFn: async (): Promise<Player | null> => {
-      const result = await api.getCurrentUserPlayer();
-      return result ?? null;
-    },
-  });
+  const playerQuery = useCurrentPlayer();
 
   const leaguesQuery = useQuery({
-    queryKey: leaguesScreenKeys.leagues(),
+    queryKey: leagueKeys.userLeagues(userId),
     queryFn: async (): Promise<readonly League[]> => {
       const result = await api.getUserLeagues();
       return result ?? [];
     },
+    enabled: userId > 0,
   });
 
   const onRefresh = useCallback(() => {

@@ -23,6 +23,10 @@ const mockRemoveLeagueHomeCourt = jest.fn();
 const mockCreateLeagueSeason = jest.fn();
 const mockUpdateSeason = jest.fn();
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 jest.mock('@/lib/api', () => ({
   api: {
     getLeague: (...args: unknown[]) => mockGetLeague(...args),
@@ -325,10 +329,9 @@ describe('useLeagueInfoTab', () => {
     });
 
     expect(mockCreateLeagueSeason).toHaveBeenCalledWith(4, payload);
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.info(4) });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.seasons(4) });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.detail(4) });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['leagues', 'standings', '4'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: leagueKeys.league(7, 4),
+    });
   });
 
   it('onUpdateSeason calls api.updateSeason and invalidates season-dependent caches', async () => {
@@ -351,9 +354,8 @@ describe('useLeagueInfoTab', () => {
     });
 
     expect(mockUpdateSeason).toHaveBeenCalledWith(10, payload);
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.info(4) });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.seasons(4) });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: leagueKeys.detail(4) });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['leagues', 'standings', '4'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: leagueKeys.league(7, 4),
+    });
   });
 });

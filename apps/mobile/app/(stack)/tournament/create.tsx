@@ -1,6 +1,11 @@
 import React from 'react';
-import { TournamentCreateScreen } from '@/components/screens/Tournaments';
+import ComingSoon from '@/components/screens/ComingSoon';
 
 export default function TournamentCreateRoute(): React.ReactNode {
-  return <TournamentCreateScreen />;
+  return (
+    <ComingSoon
+      title="Create Tournament"
+      description="Tournament creation is not available yet."
+    />
+  );
 }

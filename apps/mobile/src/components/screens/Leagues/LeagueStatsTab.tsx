@@ -21,7 +21,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
-import { formatElo } from '@/lib/formatters';
+import { formatElo, formatGameScore } from '@/lib/formatters';
 import {
   useLeagueStatsTab,
   type StatsInnerTab,
@@ -231,7 +231,7 @@ function GameHistoryCard({ game, selfLabel }: GameHistoryCardProps): React.React
         </Text>
       </View>
       <Text className="text-[14px] font-bold text-default mx-3">
-        {game.my_score}–{game.opponent_score}
+        {formatGameScore(game.my_score, game.opponent_score)}
       </Text>
       <View
         className={`rounded-[6px] px-2 py-[3px] ${

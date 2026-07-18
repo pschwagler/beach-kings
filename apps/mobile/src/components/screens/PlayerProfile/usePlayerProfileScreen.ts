@@ -2,17 +2,10 @@
 
 import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type {
-  FriendshipStatus,
-  MutualFriend,
-  Player,
-  PlayerLeague,
-} from '@beach-kings/shared';
+import type { FriendshipStatus, MutualFriend, Player, PlayerLeague } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
-import { useFriendshipMutations } from '@/hooks/useFriendshipMutations';
-import { usePlayerRelationshipQuery } from '@/hooks/usePlayerRelationshipQuery';
-import { api } from '@/lib/api';
-import { socialQueryKeys } from '@/lib/socialQueryKeys';
+import { useFriendshipMutations, socialQueries } from '@/features/social';
+import { usePlayerRelationshipQuery } from '@/features/social/usePlayerRelationshipQuery';
 
 export interface PlayerProfileData {
   readonly player: Player;
@@ -35,12 +28,6 @@ export interface UsePlayerProfileScreenResult {
   readonly onMessage: () => void;
 }
 
-interface ProfileDetails {
-  readonly player: Player;
-  readonly mutualFriends: readonly MutualFriend[];
-  readonly leagues: readonly PlayerLeague[];
-}
-
 export function usePlayerProfileScreen(
   playerId: string | number,
   onNavigateToMessages: (id: number, name?: string) => void,
@@ -51,22 +38,9 @@ export function usePlayerProfileScreen(
   const relationshipQuery = usePlayerRelationshipQuery(numericId);
   const friendship = useFriendshipMutations();
 
-  const profileQuery = useQuery({
-    queryKey: socialQueryKeys.profile(userId, numericId),
-    queryFn: async (): Promise<ProfileDetails> => {
-      const [player, mutualFriends, leagues] = await Promise.all([
-        api.getPublicPlayer(numericId),
-        api.getMutualFriends(numericId).catch(() => [] as MutualFriend[]),
-        api.getPlayerLeagues(numericId).catch(() => [] as PlayerLeague[]),
-      ]);
-      return {
-        player: player as Player,
-        mutualFriends,
-        leagues: leagues as PlayerLeague[],
-      };
-    },
-    enabled: isAuthenticated && userId !== 0 && Number.isFinite(numericId) && numericId > 0,
-  });
+  const profileQuery = useQuery(
+    socialQueries.profile(userId, numericId, isAuthenticated),
+  );
 
   const onRefresh = useCallback(() => {
     void Promise.all([profileQuery.refetch(), relationshipQuery.refetch()]);

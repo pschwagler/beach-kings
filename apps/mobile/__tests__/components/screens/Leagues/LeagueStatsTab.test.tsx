@@ -20,6 +20,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const mockGetLeagueSeasons = jest.fn();
 const mockGetLeaguePlayerStats = jest.fn();
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 jest.mock('@/lib/api', () => ({
   api: {
     getLeagueSeasons: (...args: unknown[]) => mockGetLeagueSeasons(...args),
@@ -143,6 +147,7 @@ describe('LeagueStatsTab — GameHistoryCard self-slot label', () => {
 
     // The team text should say "You / Jordan Lee vs ..."
     expect(screen.getByText(/^You \/ Jordan Lee vs/)).toBeTruthy();
+    expect(screen.getByText('21-15')).toBeTruthy();
   });
 
   it('shows "You" (solo) when is_self=true and there are no partners', async () => {

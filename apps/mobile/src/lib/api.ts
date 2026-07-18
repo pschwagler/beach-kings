@@ -9,14 +9,12 @@
  * presentational components can freely import `api` without forcing every
  * consumer to mock it.
  *
- * Missing-backend methods fall through to `mockApi`: when a key isn't defined
- * on the real api-client, the Proxy returns the matching function from
- * `mockApi` instead. When the backend lands, delete the mock entry and the
- * real method takes over automatically.
+ * The Proxy exists only to preserve lazy construction. Every exposed method
+ * must be implemented by `@beach-kings/api-client`; there is deliberately no
+ * runtime mock-data fallback.
  */
 
 import type { createApiClient } from '@beach-kings/api-client';
-import { mockApi, type MockApi } from './mockApi';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -39,13 +37,9 @@ function getApi(): ApiClient {
   return instance;
 }
 
-type ExtendedApi = ApiClient & MockApi;
-
-export const api = new Proxy({} as ExtendedApi, {
+export const api = new Proxy({} as ApiClient, {
   get(_target, prop) {
     const real = getApi();
-    const realValue = real[prop as keyof ApiClient];
-    if (realValue !== undefined) return realValue;
-    return mockApi[prop as keyof MockApi];
+    return real[prop as keyof ApiClient];
   },
-}) as ExtendedApi;
+}) as ApiClient;

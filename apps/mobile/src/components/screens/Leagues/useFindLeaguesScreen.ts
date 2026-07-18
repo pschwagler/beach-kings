@@ -15,6 +15,7 @@ import type {
 } from "@beach-kings/shared";
 import useDebounce from "@/hooks/useDebounce";
 import { leagueKeys } from "./leagueKeys";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type FindLeaguesFilter =
   | "all"
@@ -71,6 +72,8 @@ function filterToParams(filter: FindLeaguesFilter): {
 export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FindLeaguesFilter>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -83,8 +86,9 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   };
 
   const leaguesQuery = useQuery({
-    queryKey: leagueKeys.findLeagues(queryParams),
+    queryKey: leagueKeys.findLeagues(userId, queryParams),
     queryFn: () => api.queryLeagues(queryParams),
+    enabled: userId > 0,
   });
 
   const onChangeSearch = useCallback((v: string) => {
@@ -115,7 +119,7 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
     async (id: number): Promise<void> => {
       setRequestingIds((prev) => new Set([...prev, id]));
       queryClient.setQueriesData<LeagueQueryResponse>(
-        { queryKey: [...leagueKeys.root, "find"] },
+        { queryKey: leagueKeys.findRoot(userId) },
         (old) =>
           old
             ? {
@@ -130,7 +134,7 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
         await api.requestToJoinLeague(id);
       } catch (err) {
         void queryClient.invalidateQueries({
-          queryKey: [...leagueKeys.root, "find"],
+          queryKey: leagueKeys.findRoot(userId),
         });
         throw err;
       } finally {
@@ -141,7 +145,7 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
         });
       }
     },
-    [queryClient],
+    [queryClient, userId],
   );
 
   const onCreateLeague = useCallback(() => {

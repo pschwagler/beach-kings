@@ -18,8 +18,8 @@ import { useRouter } from "expo-router";
 import type { LeagueDetail } from "@beach-kings/shared";
 import { api } from "@/lib/api";
 import { leagueKeys } from "./leagueKeys";
-import { leaguesScreenKeys } from "./useLeaguesScreen";
 import { routes } from "@/lib/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type LeagueDetailTab =
   | "games"
@@ -84,13 +84,16 @@ export function useLeagueDetailScreen(
 ): UseLeagueDetailScreenResult {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [rawActiveTab, setActiveTab] = useState<LeagueDetailTab>("games");
   const [isRequestingToJoin, setIsRequestingToJoin] = useState(false);
   const [isJoiningLeague, setIsJoiningLeague] = useState(false);
 
   const detailQuery = useQuery({
-    queryKey: leagueKeys.detail(leagueId),
+    queryKey: leagueKeys.detail(userId, leagueId),
     queryFn: () => api.getLeague(Number(leagueId)),
+    enabled: userId > 0,
   });
 
   const detail = detailQuery.data ?? null;
@@ -138,7 +141,7 @@ export function useLeagueDetailScreen(
     setIsRequestingToJoin(true);
     // Optimistically reflect the pending request so the CTA flips immediately.
     queryClient.setQueryData<LeagueDetail>(
-      leagueKeys.detail(leagueId),
+      leagueKeys.detail(userId, leagueId),
       (old) => (old ? { ...old, has_pending_request: true } : old),
     );
     try {
@@ -148,23 +151,23 @@ export function useLeagueDetailScreen(
       // caches this league's `user_status` ('none' → 'requested') under its
       // own key, so invalidate it or the search results stay stale.
       void queryClient.invalidateQueries({
-        queryKey: [...leagueKeys.root, "find"],
+        queryKey: leagueKeys.findRoot(userId),
       });
     } catch (err) {
       // Roll back the optimistic flag on failure, then reconcile with the
       // server in case the request actually landed despite the client error.
       queryClient.setQueryData<LeagueDetail>(
-        leagueKeys.detail(leagueId),
+        leagueKeys.detail(userId, leagueId),
         (old) => (old ? { ...old, has_pending_request: false } : old),
       );
       void queryClient.invalidateQueries({
-        queryKey: leagueKeys.detail(leagueId),
+        queryKey: leagueKeys.detail(userId, leagueId),
       });
       throw err;
     } finally {
       setIsRequestingToJoin(false);
     }
-  }, [queryClient, leagueId]);
+  }, [queryClient, leagueId, userId]);
 
   const onJoinLeague = useCallback(async (): Promise<void> => {
     setIsJoiningLeague(true);
@@ -178,19 +181,19 @@ export function useLeagueDetailScreen(
       // no focus-refetch) after a successful join.
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: leagueKeys.detail(leagueId),
+          queryKey: leagueKeys.detail(userId, leagueId),
         }),
         queryClient.invalidateQueries({
-          queryKey: leaguesScreenKeys.leagues(),
+          queryKey: leagueKeys.userLeagues(userId),
         }),
         queryClient.invalidateQueries({
-          queryKey: [...leagueKeys.root, "find"],
+          queryKey: leagueKeys.findRoot(userId),
         }),
       ]);
     } finally {
       setIsJoiningLeague(false);
     }
-  }, [queryClient, leagueId]);
+  }, [queryClient, leagueId, userId]);
 
   return {
     leagueId,

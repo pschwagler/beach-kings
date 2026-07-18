@@ -12,6 +12,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
+import { formatGameScore } from '@/lib/formatters';
 import type { KobTournamentDetail, KobMatch } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
@@ -51,7 +52,11 @@ function StatusBadge({
 }
 
 function MatchRow({ match }: { match: KobMatch }): React.ReactNode {
-  const isCompleted = match.team1_score != null && match.team2_score != null;
+  const completedScore =
+    match.team1_score != null && match.team2_score != null
+      ? formatGameScore(match.team1_score, match.team2_score)
+      : null;
+  const isCompleted = completedScore != null;
   const team1Won = isCompleted && match.winner === 1;
   const team2Won = isCompleted && match.winner === 2;
 
@@ -79,9 +84,7 @@ function MatchRow({ match }: { match: KobMatch }): React.ReactNode {
         </Text>
 
         <Text className="text-[13px] font-bold text-muted mx-2 min-w-[40px] text-center">
-          {isCompleted
-            ? `${match.team1_score}-${match.team2_score}`
-            : 'vs'}
+          {completedScore ?? 'vs'}
         </Text>
 
         <Text

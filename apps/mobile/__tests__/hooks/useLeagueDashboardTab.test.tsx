@@ -3,7 +3,7 @@
  *
  * Covers:
  *   - Zero seasons: auto-initialises to 'all'; standings query fires with no season_id
- *   - Non-empty seasons: auto-initialises to first season id (regression guard)
+ *   - Non-empty seasons: prefers the canonical active season, then the first row
  */
 
 import React from 'react';
@@ -16,6 +16,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetLeagueSeasons = jest.fn();
 const mockGetLeagueStandings = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -185,11 +189,12 @@ describe('useLeagueDashboardTab — zero seasons', () => {
 
 describe('useLeagueDashboardTab — non-empty seasons', () => {
   const MOCK_SEASONS = [
-    { id: 3, name: 'Summer 2025', is_active: true, start_date: '2025-06-01', end_date: null },
+    { id: 4, name: 'Fall 2025', is_active: false, start_date: '2025-09-01', end_date: '2025-12-31' },
+    { id: 3, name: 'Summer 2025', is_active: true, start_date: '2025-06-01', end_date: '2025-10-01' },
     { id: 2, name: 'Spring 2025', is_active: false, start_date: '2025-03-01', end_date: '2025-05-31' },
   ];
 
-  it('defaults to first season id when seasons are present', async () => {
+  it('defaults to the canonical active season even when it is not first', async () => {
     mockGetLeagueSeasons.mockResolvedValue(MOCK_SEASONS);
     mockGetLeagueStandings.mockResolvedValue(MOCK_STANDINGS_RESPONSE);
 
@@ -200,7 +205,7 @@ describe('useLeagueDashboardTab — non-empty seasons', () => {
     await waitFor(() => expect(result.current.selectedSeasonId).toBe(3));
   });
 
-  it('fires standings query with first season id', async () => {
+  it('fires the standings query with the canonical active season id', async () => {
     mockGetLeagueSeasons.mockResolvedValue(MOCK_SEASONS);
     mockGetLeagueStandings.mockResolvedValue(MOCK_STANDINGS_RESPONSE);
 
@@ -211,5 +216,18 @@ describe('useLeagueDashboardTab — non-empty seasons', () => {
     await waitFor(() => {
       expect(mockGetLeagueStandings).toHaveBeenCalledWith(1, 3);
     });
+  });
+
+  it('falls back to the first season when none is active', async () => {
+    mockGetLeagueSeasons.mockResolvedValue(
+      MOCK_SEASONS.map((season) => ({ ...season, is_active: false })),
+    );
+    mockGetLeagueStandings.mockResolvedValue(MOCK_STANDINGS_RESPONSE);
+
+    const { result } = renderHook(() => useLeagueDashboardTab(1), {
+      wrapper: makeWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.selectedSeasonId).toBe(4));
   });
 });

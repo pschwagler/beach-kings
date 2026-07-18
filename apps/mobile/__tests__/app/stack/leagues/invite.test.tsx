@@ -23,6 +23,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockPush = jest.fn();
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 jest.mock('expo-router', () => ({
   useSegments: () => [],
   useRouter: () => ({ canGoBack: () => true, push: mockPush }),

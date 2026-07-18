@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { LeagueInviteItem } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface UsePendingInvitesScreenResult {
   readonly invites: LeagueInviteItem[];
@@ -20,9 +21,12 @@ export interface UsePendingInvitesScreenResult {
  * Returns data for the Pending Invites screen.
  */
 export function usePendingInvitesScreen(): UsePendingInvitesScreenResult {
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const invitesQuery = useQuery({
-    queryKey: leagueKeys.pendingInvites(),
+    queryKey: leagueKeys.pendingInvites(userId),
     queryFn: () => api.getMySentLeagueInvites(),
+    enabled: userId > 0,
   });
 
   return {

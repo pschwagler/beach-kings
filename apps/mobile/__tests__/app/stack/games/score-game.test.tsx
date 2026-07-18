@@ -128,15 +128,12 @@ const mockDeleteMatch = jest.fn();
 const mockGetSessionById = jest.fn();
 
 /** Friends response matching chip IDs used throughout the tests. */
-const MOCK_FRIENDS_ROSTER = {
-  items: [
-    { id: 10, player_id: 10, full_name: 'C. Gulla', avatar: null, location_name: null, level: null },
-    { id: 11, player_id: 11, full_name: 'K. Fawwar', avatar: null, location_name: null, level: null },
-    { id: 12, player_id: 12, full_name: 'A. Marthey', avatar: null, location_name: null, level: null },
-    { id: 13, player_id: 13, full_name: 'S. Jindash', avatar: null, location_name: null, level: null },
-  ],
-  total_count: 4,
-};
+const MOCK_FRIENDS_ROSTER = [
+  { id: 10, player_id: 10, full_name: 'C. Gulla', avatar: null, location_name: null, level: null },
+  { id: 11, player_id: 11, full_name: 'K. Fawwar', avatar: null, location_name: null, level: null },
+  { id: 12, player_id: 12, full_name: 'A. Marthey', avatar: null, location_name: null, level: null },
+  { id: 13, player_id: 13, full_name: 'S. Jindash', avatar: null, location_name: null, level: null },
+];
 
 const mockCreateSession = jest.fn();
 const mockShareLink = jest.fn();
@@ -736,7 +733,7 @@ describe('ScoreGameScreen — success view content', () => {
   it('renders single Final Score row instead of separate team scores', async () => {
     await fillAndSubmit();
     await waitFor(() => {
-      expect(screen.getByText('1–0')).toBeTruthy();
+      expect(screen.getByText('1-0')).toBeTruthy();
       expect(screen.getByText('Final Score')).toBeTruthy();
     });
     // No separate "Team 1"/"Team 2" mini score columns
@@ -1074,7 +1071,7 @@ describe('ScoreGameScreen — current user YOU badge', () => {
   beforeEach(() => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '42' });
     mockGetSessionParticipants.mockResolvedValue(MOCK_PARTICIPANT_ROSTER);
-    mockGetFriends.mockResolvedValue({ items: [], total_count: 0 });
+    mockGetFriends.mockResolvedValue([]);
     // Mock the current player to match a roster player so the YOU badge appears.
     mockGetCurrentUserPlayer.mockResolvedValue({ id: 10, name: 'C. Gulla' });
   });

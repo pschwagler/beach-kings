@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { LeagueChatMessage } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface UseLeagueChatTabResult {
   readonly messages: readonly LeagueChatMessage[];
@@ -43,18 +44,21 @@ function withInitials(row: BackendLeagueMessage): LeagueChatMessage {
  */
 export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabResult {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
   const chatQuery = useQuery({
-    queryKey: leagueKeys.chat(leagueId),
+    queryKey: leagueKeys.chat(userId, leagueId),
     queryFn: async (): Promise<readonly LeagueChatMessage[]> => {
       const rows = (await api.getLeagueMessages(
         Number(leagueId),
       )) as BackendLeagueMessage[];
       return rows.map(withInitials);
     },
+    enabled: userId > 0,
   });
 
   const onChangeText = useCallback((v: string) => {
@@ -71,14 +75,16 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
 
     try {
       await api.createLeagueMessage(Number(leagueId), text);
-      await queryClient.invalidateQueries({ queryKey: leagueKeys.chat(leagueId) });
+      await queryClient.invalidateQueries({
+        queryKey: leagueKeys.chat(userId, leagueId),
+      });
     } catch {
       setMessageText(text);
       setSendError('Failed to send message. Tap the arrow to retry.');
     } finally {
       setIsSending(false);
     }
-  }, [leagueId, messageText, isSending, queryClient]);
+  }, [leagueId, messageText, isSending, queryClient, userId]);
 
   return {
     messages: chatQuery.data ?? [],

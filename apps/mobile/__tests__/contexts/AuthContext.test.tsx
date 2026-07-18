@@ -25,6 +25,19 @@ let mockRootNavigationState = {
   routes: [{ key: 'tabs-1', name: '(tabs)' }],
   stale: false,
 };
+const mockCancelQueries = jest.fn(() => Promise.resolve());
+const mockClearQueryClient = jest.fn();
+const mockQueryClient = {
+  cancelQueries: mockCancelQueries,
+  clear: mockClearQueryClient,
+};
+const mockUnsubscribeAuthInvalidated = jest.fn();
+let mockAuthInvalidatedListener: (() => void) | null = null;
+
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => mockQueryClient,
+}));
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
@@ -48,7 +61,12 @@ jest.mock('@/lib/api', () => ({
     googleAuth: jest.fn(),
     appleAuth: jest.fn(),
     verifyPhone: jest.fn(),
+    verifyEmail: jest.fn(),
     logout: jest.fn(),
+    onAuthInvalidated: jest.fn((listener: () => void) => {
+      mockAuthInvalidatedListener = listener;
+      return mockUnsubscribeAuthInvalidated;
+    }),
   },
 }));
 
@@ -148,6 +166,17 @@ function wrapper({
   return <AuthProvider>{children}</AuthProvider>;
 }
 
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 // ---------------------------------------------------------------------------
 // Global defaults
 // ---------------------------------------------------------------------------
@@ -160,6 +189,8 @@ beforeEach(() => {
   });
   mockSetAuthTokens.mockResolvedValue(undefined);
   mockClearAuthTokens.mockResolvedValue(undefined);
+  mockCancelQueries.mockResolvedValue(undefined);
+  mockAuthInvalidatedListener = null;
   mockSegments.splice(0, mockSegments.length);
   mockCanDismiss = jest.fn(() => true);
   mockRootNavigationState = {
@@ -525,6 +556,10 @@ describe('AuthProvider — logout', () => {
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
 
+    const credentialClearOrder = mockClearAuthTokens.mock.invocationCallOrder.at(-1)!;
+    const queryClearOrder = mockClearQueryClient.mock.invocationCallOrder.at(-1)!;
+    expect(credentialClearOrder).toBeLessThan(queryClearOrder);
+
     // S1 PII-flash fix: the route guard must dismiss retained (tabs)/(stack)
     // root-stack history before replacing to welcome.
     await waitFor(() => {
@@ -551,6 +586,99 @@ describe('AuthProvider — logout', () => {
 
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
     expect(result.current.isAuthenticated).toBe(false);
+  });
+
+  it('still clears cache and local identity when credential storage removal fails', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    mockLogout.mockResolvedValue(undefined);
+    mockClearAuthTokens.mockRejectedValue(new Error('secure storage unavailable'));
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    expect(mockClearQueryClient).toHaveBeenCalled();
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.user).toBeNull();
+  });
+});
+
+describe('AuthProvider — transition races', () => {
+  it('does not let deferred session restoration republish after logout', async () => {
+    const storedTokens = deferred<{
+      accessToken: string | null;
+      refreshToken: string | null;
+    }>();
+    mockGetStoredTokens.mockReturnValue(storedTokens.promise);
+    mockLogout.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(mockGetStoredTokens).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.logout();
+      storedTokens.resolve({ accessToken: 'stale', refreshToken: 'stale-ref' });
+      await Promise.resolve();
+    });
+
+    expect(mockGetMe).not.toHaveBeenCalled();
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.user).toBeNull();
+  });
+
+  it('retires the old session before installing replacement credentials', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    mockLogin.mockResolvedValue({ ...mockAuthResponse, user_id: 2 });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.id).toBe(1));
+
+    await act(async () => {
+      await result.current.login({
+        email: 'second@example.com',
+        password: 'password123',
+      });
+    });
+
+    expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
+    expect(mockSetAuthTokens).toHaveBeenCalledWith('acc', 'ref');
+    expect(mockClearAuthTokens.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSetAuthTokens.mock.invocationCallOrder[0],
+    );
+    expect(result.current.user?.id).toBe(2);
+  });
+
+  it('clears auth and cache when the API client invalidates credentials', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+
+    act(() => {
+      mockAuthInvalidatedListener?.();
+    });
+
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(false));
+    expect(result.current.user).toBeNull();
+    expect(mockClearQueryClient).toHaveBeenCalled();
   });
 });
 

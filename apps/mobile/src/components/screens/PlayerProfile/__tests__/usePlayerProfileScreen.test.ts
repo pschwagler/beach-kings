@@ -17,17 +17,17 @@ jest.mock('@/contexts/AuthContext', () => ({
   }),
 }));
 
-jest.mock('@/hooks/usePlayerRelationshipQuery', () => ({
+jest.mock('@/features/social/usePlayerRelationshipQuery', () => ({
   usePlayerRelationshipQuery: jest.fn(),
 }));
 
-jest.mock('@/hooks/useFriendshipMutations', () => ({
+jest.mock('@/features/social/useFriendshipMutations', () => ({
   useFriendshipMutations: jest.fn(),
 }));
 
 import { api } from '@/lib/api';
-import { useFriendshipMutations } from '@/hooks/useFriendshipMutations';
-import { usePlayerRelationshipQuery } from '@/hooks/usePlayerRelationshipQuery';
+import { useFriendshipMutations } from '@/features/social/useFriendshipMutations';
+import { usePlayerRelationshipQuery } from '@/features/social/usePlayerRelationshipQuery';
 import { usePlayerProfileScreen } from '../usePlayerProfileScreen';
 
 const mockApi = api as unknown as {

@@ -19,13 +19,8 @@ import type {
   LeagueGameEntry,
   SessionStatus,
 } from '@beach-kings/shared';
-
-const MATCHES_KEYS = {
-  leagueMyGames: (leagueId: number | string) =>
-    ['leagueGames', String(leagueId), 'mine'] as const,
-  leagueAllGames: (leagueId: number | string) =>
-    ['leagueGames', String(leagueId), 'all'] as const,
-};
+import { leagueKeys } from './leagueKeys';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type LeagueMatchesMode = 'mine' | 'all';
 
@@ -177,24 +172,27 @@ function groupAllGamesBySessions(
 export function useLeagueMatchesTab(
   leagueId: number | string,
 ): UseLeagueMatchesTabResult {
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [mode, setMode] = useState<LeagueMatchesMode>('mine');
 
   const myGamesQuery = useQuery({
-    queryKey: MATCHES_KEYS.leagueMyGames(leagueId),
+    queryKey: leagueKeys.myGames(userId, leagueId),
     queryFn: async () => {
       const response = await api.getMyGames({ league_id: Number(leagueId) });
       return response.games;
     },
+    enabled: userId > 0,
   });
 
   // Only fetch league-wide data when the user has opened the All view.
   const allGamesQuery = useQuery({
-    queryKey: MATCHES_KEYS.leagueAllGames(leagueId),
+    queryKey: leagueKeys.allGames(userId, leagueId),
     queryFn: async () => {
       const response = await api.getLeagueGames(Number(leagueId));
       return response.games;
     },
-    enabled: mode === 'all',
+    enabled: userId > 0 && mode === 'all',
   });
 
   const mineGroups = useMemo(

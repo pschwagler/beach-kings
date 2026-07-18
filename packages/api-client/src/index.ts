@@ -6,6 +6,8 @@
 export * from './client';
 export * from './storage';
 export * from './methods';
+export * from './socialMethods';
+export * from './notificationMethods';
 export { createApiMethods } from './methods';
 
 import { ApiClient } from './client';
@@ -26,6 +28,7 @@ export function createApiClient(baseURL: string, storageAdapter?: any) {
       client.setAuthTokens(accessToken, refreshToken),
     clearAuthTokens: () => client.clearAuthTokens(),
     getStoredTokens: () => client.getStoredTokens(),
+    onAuthInvalidated: (listener: () => void) => client.onAuthInvalidated(listener),
   };
 }
 
@@ -39,4 +42,3 @@ export default function createDefaultApiClient() {
     : '';
   return createApiClient(baseURL, new WebStorageAdapter());
 }
-

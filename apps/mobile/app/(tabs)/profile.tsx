@@ -37,16 +37,15 @@ interface ProfileData {
 async function fetchProfileData(): Promise<ProfileData> {
   const [player, friendsResult] = await Promise.all([
     api.getCurrentUserPlayer(),
-    api.getFriends({ limit: 1 }).catch(() => ({ items: [], total_count: 0 })),
+    api.getFriendsPage({ page: 1, page_size: 1 }).catch(() => ({
+      items: [],
+      total_count: 0,
+    })),
   ]);
   // GET /api/friends returns { items, total_count } (FriendListResponse).
   // `total_count` is a separate COUNT, so it is accurate even though we only
   // request a single item. Fall back to the page length if it is ever absent.
-  const total =
-    typeof (friendsResult as { total_count?: number }).total_count === 'number'
-      ? (friendsResult as { total_count: number }).total_count
-      : ((friendsResult as { items?: unknown[] }).items?.length ?? 0);
-  return { player, friendCount: total };
+  return { player, friendCount: friendsResult.total_count };
 }
 
 // ---------------------------------------------------------------------------

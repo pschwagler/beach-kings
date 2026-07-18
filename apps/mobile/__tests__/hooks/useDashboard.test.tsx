@@ -73,17 +73,37 @@ beforeEach(() => {
 
 describe('dashboardKeys', () => {
   it('produces stable, namespaced keys', () => {
-    expect(dashboardKeys.root).toEqual(['dashboard']);
+    expect(dashboardKeys.root(7)).toEqual(['private', 7, 'dashboard']);
     // The player is centralized under its own key (see useCurrentPlayer).
-    expect(dashboardKeys.player()).toEqual(['player', 'me']);
-    expect(dashboardKeys.courts(null)).toEqual(['dashboard', 'courts', 'null']);
-    expect(dashboardKeys.courts('socal_sd')).toEqual([
+    expect(dashboardKeys.player(7)).toEqual(['private', 7, 'player', 'me']);
+    expect(dashboardKeys.courts(7, null)).toEqual([
+      'private',
+      7,
+      'dashboard',
+      'courts',
+      'null',
+    ]);
+    expect(dashboardKeys.courts(7, 'socal_sd')).toEqual([
+      'private',
+      7,
       'dashboard',
       'courts',
       'socal_sd',
     ]);
-    expect(dashboardKeys.matches(7)).toEqual(['dashboard', 'matches', 7]);
-    expect(dashboardKeys.matches(null)).toEqual(['dashboard', 'matches', 'none']);
+    expect(dashboardKeys.matches(7, 42)).toEqual([
+      'private',
+      7,
+      'dashboard',
+      'matches',
+      42,
+    ]);
+    expect(dashboardKeys.matches(7, null)).toEqual([
+      'private',
+      7,
+      'dashboard',
+      'matches',
+      'none',
+    ]);
   });
 });
 

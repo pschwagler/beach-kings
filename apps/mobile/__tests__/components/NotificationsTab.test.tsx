@@ -174,8 +174,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetNotifications.mockResolvedValue(MOCK_NOTIFICATIONS);
   mockGetUnreadNotificationCount.mockResolvedValue({ count: 2 });
-  mockMarkNotificationRead.mockResolvedValue({ status: 'ok' });
-  mockMarkAllNotificationsRead.mockResolvedValue({ status: 'ok' });
+  mockMarkNotificationRead.mockImplementation(async (id: number) => ({
+    ...MOCK_NOTIFICATIONS.find((notification) => notification.id === id),
+    is_read: true,
+    read_at: '2026-04-19T15:00:00Z',
+  }));
+  mockMarkAllNotificationsRead.mockResolvedValue({ success: true, count: 2 });
   mockAcceptFriendRequest.mockResolvedValue({ status: 'ok' });
   mockDeclineFriendRequest.mockResolvedValue({ status: 'ok' });
 });
@@ -268,6 +272,15 @@ describe('NotificationsTab — notifications list', () => {
     renderNotificationsTab();
     await waitFor(() => {
       expect(screen.getByText('Riley Chen sent you a friend request')).toBeTruthy();
+    });
+  });
+
+  it('uses the authoritative unread total when the hydrated feed is partial', async () => {
+    mockGetUnreadNotificationCount.mockResolvedValue({ count: 9 });
+    renderNotificationsTab();
+
+    await waitFor(() => {
+      expect(screen.getByText('9')).toBeTruthy();
     });
   });
 });

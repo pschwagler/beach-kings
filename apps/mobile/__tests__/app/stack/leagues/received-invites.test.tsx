@@ -77,6 +77,10 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockGetReceivedLeagueInvites = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 const mockAcceptLeagueInvite = jest.fn();
 const mockDeclineLeagueInvite = jest.fn();
 

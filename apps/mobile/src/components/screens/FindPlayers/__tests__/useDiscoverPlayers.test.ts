@@ -1,10 +1,8 @@
 /**
  * Tests for the useDiscoverPlayers hook.
  *
- * Focus: the discover response normalization (paginated `{ items }` envelope,
- * bare array, and the backend `id`/`location_name`/`total_games` field
- * spellings), the client-side search filter, and optimistic add-friend with
- * rollback on failure.
+ * Focus: the canonical API-client contract, client-side search filters, and
+ * optimistic add-friend with rollback on failure.
  */
 
 import React from 'react';
@@ -82,7 +80,7 @@ beforeEach(() => {
 
 describe('useDiscoverPlayers — filters', () => {
   beforeEach(() => {
-    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
   });
 
   it('fetches with no params by default', async () => {
@@ -128,10 +126,10 @@ describe('useDiscoverPlayers — filters', () => {
     act(() => {
       result.current.onToggleLevel('Open');
     });
-    await waitFor(() =>
-      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({}),
-    );
-    expect(result.current.levelFilter).toBeNull();
+    await waitFor(() => expect(result.current.levelFilter).toBeNull());
+    // The original unfiltered query is still fresh, so Query reuses it rather
+    // than issuing a redundant request when the chip is cleared.
+    expect(mockApi.discoverPlayers).toHaveBeenCalledTimes(3);
   });
 
   it('passes same_league and has_mutuals when those chips are on', async () => {
@@ -162,17 +160,12 @@ describe('useDiscoverPlayers — filters', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Response normalization
+// Canonical API-client response
 // ---------------------------------------------------------------------------
 
-describe('useDiscoverPlayers — normalization', () => {
-  it('normalizes a paginated discover response into a players array', async () => {
-    mockApi.discoverPlayers.mockResolvedValue({
-      items: [PLAYER],
-      total_count: 1,
-      page: 1,
-      page_size: 25,
-    });
+describe('useDiscoverPlayers — API contract', () => {
+  it('consumes a canonical players array', async () => {
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
 
     const { result } = renderHook(() => useDiscoverPlayers());
 
@@ -182,18 +175,8 @@ describe('useDiscoverPlayers — normalization', () => {
     expect(result.current.players).toEqual([PLAYER]);
   });
 
-  it('still supports a bare-array discover response', async () => {
-    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
-
-    const { result } = renderHook(() => useDiscoverPlayers());
-
-    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
-
-    expect(result.current.players).toEqual([PLAYER]);
-  });
-
-  it('falls back to an empty array when items is absent', async () => {
-    mockApi.discoverPlayers.mockResolvedValue({ total_count: 0 });
+  it('supports an empty canonical response', async () => {
+    mockApi.discoverPlayers.mockResolvedValue([]);
 
     const { result } = renderHook(() => useDiscoverPlayers());
 
@@ -202,40 +185,25 @@ describe('useDiscoverPlayers — normalization', () => {
     expect(result.current.players).toEqual([]);
   });
 
-  it('maps the backend discover item shape onto DiscoverPlayer', async () => {
-    // Backend serializes id/location_name/total_games/mutual_friend_count.
-    mockApi.discoverPlayers.mockResolvedValue({
-      items: [
-        {
-          id: 2,
-          full_name: 'Colan Gulla',
-          avatar: 'CG',
-          location_name: 'NY - New York City Metro',
-          level: 'Open',
-          total_games: 102,
-          mutual_friend_count: 3,
-          friend_status: 'none',
-        },
-      ],
-    });
+  it('passes through canonical discovery fields', async () => {
+    const canonicalPlayer = {
+      player_id: 2,
+      full_name: 'Colan Gulla',
+      avatar: 'CG',
+      city: 'NY - New York City Metro',
+      level: 'Open',
+      games_played: 102,
+      mutual_friends_count: 3,
+      last_active_label: null,
+      friend_status: 'none',
+    };
+    mockApi.discoverPlayers.mockResolvedValue([canonicalPlayer]);
 
     const { result } = renderHook(() => useDiscoverPlayers());
 
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
 
-    expect(result.current.players).toEqual([
-      {
-        player_id: 2,
-        full_name: 'Colan Gulla',
-        avatar: 'CG',
-        city: 'NY - New York City Metro',
-        level: 'Open',
-        games_played: 102,
-        mutual_friends_count: 3,
-        last_active_label: null,
-        friend_status: 'none',
-      },
-    ]);
+    expect(result.current.players).toEqual([canonicalPlayer]);
   });
 });
 
@@ -252,7 +220,7 @@ describe('useDiscoverPlayers — search filter', () => {
   };
 
   it('filters the discover list by name', async () => {
-    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER, NY] });
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER, NY]);
 
     const { result } = renderHook(() =>
       useDiscoverPlayers({ searchQuery: 'bob' }),
@@ -264,7 +232,7 @@ describe('useDiscoverPlayers — search filter', () => {
   });
 
   it('filters the discover list by city', async () => {
-    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER, NY] });
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER, NY]);
 
     const { result } = renderHook(() =>
       useDiscoverPlayers({ searchQuery: 'new york' }),
@@ -282,7 +250,7 @@ describe('useDiscoverPlayers — search filter', () => {
 
 describe('useDiscoverPlayers — refresh & retry', () => {
   it('refetches the discover list on refresh and clears the refreshing flag', async () => {
-    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
 
     const { result } = renderHook(() => useDiscoverPlayers());
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
@@ -299,7 +267,7 @@ describe('useDiscoverPlayers — refresh & retry', () => {
   });
 
   it('refetches the discover list on retry', async () => {
-    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
 
     const { result } = renderHook(() => useDiscoverPlayers());
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
@@ -318,7 +286,7 @@ describe('useDiscoverPlayers — refresh & retry', () => {
 
 describe('useDiscoverPlayers — add friend', () => {
   it('optimistically marks a player as pending on add', async () => {
-    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
     mockApi.sendFriendRequest.mockReturnValue(new Promise(() => {}));
 
     const { result } = renderHook(() => useDiscoverPlayers());
@@ -335,7 +303,7 @@ describe('useDiscoverPlayers — add friend', () => {
   });
 
   it('rolls back the pending state when the request fails', async () => {
-    mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
     mockApi.sendFriendRequest.mockRejectedValue(new Error('nope'));
 
     const { result } = renderHook(() => useDiscoverPlayers());

@@ -12,20 +12,24 @@ import { api } from '@/lib/api';
 import { useCurrentPlayer, currentPlayerKeys } from '@/hooks/useCurrentPlayer';
 import { useResolvedUserLocation } from '@/hooks/useResolvedUserLocation';
 import { useAuth } from '@/contexts/AuthContext';
-import { socialApi } from '@/lib/socialApi';
-import { socialQueryKeys } from '@/lib/socialQueryKeys';
+import { socialKeys } from '@/features/social/keys';
+import { socialQueries } from '@/features/social/queries';
+import { privateKeys } from '@/infrastructure/query/keys';
+import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
 
 export const dashboardKeys = {
-  root: ['dashboard'] as const,
+  root: (userId: number) =>
+    [...privateKeys.user(userId), 'dashboard'] as const,
   /** The current player is centralized in {@link useCurrentPlayer}. */
-  player: () => currentPlayerKeys.me(),
-  leagues: () => [...dashboardKeys.root, 'leagues'] as const,
-  activeSession: () => [...dashboardKeys.root, 'activeSession'] as const,
-  friendRequests: (userId: number) => socialQueryKeys.requests(userId, 'incoming'),
-  courts: (locationId: string | null | undefined) =>
-    [...dashboardKeys.root, 'courts', locationId ?? 'null'] as const,
-  matches: (playerId: number | null | undefined) =>
-    [...dashboardKeys.root, 'matches', playerId ?? 'none'] as const,
+  player: (userId: number) => currentPlayerKeys.me(userId),
+  leagues: (userId: number) => leagueKeys.userLeagues(userId),
+  activeSession: (userId: number) =>
+    [...dashboardKeys.root(userId), 'activeSession'] as const,
+  friendRequests: (userId: number) => socialKeys.requests(userId, 'incoming'),
+  courts: (userId: number, locationId: string | null | undefined) =>
+    [...dashboardKeys.root(userId), 'courts', locationId ?? 'null'] as const,
+  matches: (userId: number, playerId: number | null | undefined) =>
+    [...dashboardKeys.root(userId), 'matches', playerId ?? 'none'] as const,
 };
 
 export interface DashboardSections {
@@ -63,30 +67,27 @@ export function useDashboard(): UseDashboardResult {
     : locationId;
 
   const leagues = useQuery({
-    queryKey: dashboardKeys.leagues(),
+    queryKey: dashboardKeys.leagues(userId),
     queryFn: async (): Promise<readonly League[]> => {
       const result = await api.getUserLeagues();
       return result ?? [];
     },
+    enabled: userId > 0,
   });
 
   const activeSession = useQuery({
-    queryKey: dashboardKeys.activeSession(),
+    queryKey: dashboardKeys.activeSession(userId),
     queryFn: async (): Promise<Session | null> => {
       const result = await api.getActiveSession();
       return result ?? null;
     },
+    enabled: userId > 0,
   });
 
-  const friendRequests = useQuery({
-    queryKey: dashboardKeys.friendRequests(userId),
-    queryFn: (): Promise<readonly FriendRequest[]> =>
-      socialApi.getFriendRequests('incoming'),
-    enabled: userId !== 0,
-  });
+  const friendRequests = useQuery(socialQueries.requests(userId, 'incoming'));
 
   const courts = useQuery({
-    queryKey: dashboardKeys.courts(courtsKey),
+    queryKey: dashboardKeys.courts(userId, courtsKey),
     queryFn: async (): Promise<readonly Court[]> => {
       const result = usePreciseCoords
         ? await api.getCourts({ user_lat: coords.latitude, user_lng: coords.longitude })
@@ -97,7 +98,7 @@ export function useDashboard(): UseDashboardResult {
   });
 
   const matches = useQuery({
-    queryKey: dashboardKeys.matches(playerId),
+    queryKey: dashboardKeys.matches(userId, playerId),
     queryFn: async (): Promise<readonly MatchRecord[]> => {
       if (playerId == null) return [];
       const result = await api.getPlayerMatchHistory(playerId);
@@ -109,10 +110,10 @@ export function useDashboard(): UseDashboardResult {
   const refetchAll = useCallback(async () => {
     // The player lives under its own centralized key, so invalidate both.
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.root }),
-      queryClient.invalidateQueries({ queryKey: currentPlayerKeys.me() }),
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.root(userId) }),
+      queryClient.invalidateQueries({ queryKey: currentPlayerKeys.me(userId) }),
     ]);
-  }, [queryClient]);
+  }, [queryClient, userId]);
 
   const isInitialLoading =
     player.isPending ||

@@ -15,6 +15,10 @@ const mockGetReceivedLeagueInvites = jest.fn();
 const mockAcceptLeagueInvite = jest.fn();
 const mockDeclineLeagueInvite = jest.fn();
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 jest.mock('@/lib/api', () => ({
   api: {
     getReceivedLeagueInvites: (...args: unknown[]) =>

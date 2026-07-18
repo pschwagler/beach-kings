@@ -12,7 +12,9 @@ import React from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import ChatComposer from '@/components/ui/ChatComposer';
 import ChatView from '@/components/ui/ChatView';
+import { ChatIcon } from '@/components/ui/icons';
 import { useBottomTabBarHeight } from '@/components/navigation/BottomTabBar';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import { useLeagueChatTab } from './useLeagueChatTab';
 import type { LeagueChatMessage } from '@beach-kings/shared';
 
@@ -90,6 +92,31 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
 }
 
 // ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+
+function LeagueChatEmptyState(): React.ReactNode {
+  const palette = usePaletteColors();
+
+  return (
+    <View
+      testID="league-chat-empty-state"
+      className="flex-1 items-center justify-center px-8 py-16"
+    >
+      <View className="w-16 h-16 rounded-full bg-info-tint items-center justify-center mb-4">
+        <ChatIcon size={32} color={palette.brandTeal} />
+      </View>
+      <Text className="text-[18px] font-bold text-default text-center mb-2">
+        No messages yet
+      </Text>
+      <Text className="text-[14px] text-muted text-center leading-[1.5]">
+        Be the first to message your league.
+      </Text>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main tab component
 // ---------------------------------------------------------------------------
 
@@ -151,6 +178,7 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
         />
       )}
       getTimestamp={(msg) => msg.created_at ?? ''}
+      emptyState={<LeagueChatEmptyState />}
       renderComposer={() => (
         <ChatComposer
           value={messageText}

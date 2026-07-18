@@ -25,6 +25,10 @@ import {
   type LeagueMatchesMode,
 } from "./useLeagueMatchesTab";
 import { routes } from "@/lib/navigation";
+import {
+  formatGameScore,
+  GAME_SCORE_SEPARATOR,
+} from "@/lib/formatters";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { usePaletteColors } from "@/theme/usePaletteColors";
 import { hapticLight } from "@/utils/haptics";
@@ -97,6 +101,7 @@ function MyGameRow({
 }: MyGameRowProps): React.ReactNode {
   const isWin = game.result === "W";
   const isDraw = game.result === "D";
+  const score = formatGameScore(game.my_score, game.opponent_score);
 
   return (
     <View
@@ -134,7 +139,7 @@ function MyGameRow({
         </View>
 
         <Text className="text-[14px] font-bold text-default mr-2">
-          {game.my_score} – {game.opponent_score}
+          {score}
         </Text>
 
         <View
@@ -187,6 +192,7 @@ function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
   const team2Won = game.winner === 2;
   const isTie = game.winner === -1;
   const noResult = game.winner === 0;
+  const score = formatGameScore(game.team1_score, game.team2_score);
 
   return (
     <View
@@ -225,19 +231,23 @@ function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
         </View>
 
         {/* Score: bold the winning side's number */}
-        <View className="flex-row items-baseline mr-2">
+        <Text
+          testID={`league-game-score-${game.id}`}
+          accessibilityLabel={`Score ${score}`}
+          className="text-[14px] text-muted mr-2"
+        >
           <Text
             className={`text-[14px] ${team1Won ? "font-bold text-default" : "text-muted"}`}
           >
             {game.team1_score}
           </Text>
-          <Text className="text-[13px] text-muted mx-[3px]">–</Text>
+          {GAME_SCORE_SEPARATOR}
           <Text
             className={`text-[14px] ${team2Won ? "font-bold text-default" : "text-muted"}`}
           >
             {game.team2_score}
           </Text>
-        </View>
+        </Text>
 
         {noResult && (
           <View

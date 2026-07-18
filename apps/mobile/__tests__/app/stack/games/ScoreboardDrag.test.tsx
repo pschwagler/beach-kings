@@ -42,7 +42,7 @@ import type { RosterPlayer } from '@/components/screens/Games/useScoreGameScreen
 jest.mock('@/lib/api', () => ({
   api: {
     searchPlayers: jest.fn(async () => ({ items: [] })),
-    getFriends: jest.fn(async () => ({ items: [] })),
+    getFriends: jest.fn(async () => []),
     getCurrentUserPlayer: jest.fn(async () => null),
     getSessionParticipants: jest.fn(async () => []),
     getLeague: jest.fn(async () => ({})),

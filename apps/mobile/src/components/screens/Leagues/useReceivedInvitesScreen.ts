@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { LeagueInviteItem } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
-import { leaguesScreenKeys } from './useLeaguesScreen';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface UseReceivedInvitesScreenResult {
   /** Pending invites currently displayed (responded invites are removed optimistically). */
@@ -32,10 +32,13 @@ export interface UseReceivedInvitesScreenResult {
  */
 export function useReceivedInvitesScreen(): UseReceivedInvitesScreenResult {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
 
   const invitesQuery = useQuery({
-    queryKey: leagueKeys.receivedInvites(),
+    queryKey: leagueKeys.receivedInvites(userId),
     queryFn: () => api.getReceivedLeagueInvites(),
+    enabled: userId > 0,
   });
 
   /**
@@ -68,13 +71,16 @@ export function useReceivedInvitesScreen(): UseReceivedInvitesScreenResult {
         if (action === 'accept') {
           await api.acceptLeagueInvite(leagueId);
           // Invalidate user leagues so a newly-joined league appears in the list.
-          void queryClient.invalidateQueries({ queryKey: leaguesScreenKeys.leagues() });
-          void queryClient.invalidateQueries({ queryKey: leagueKeys.userLeagues() });
+          void queryClient.invalidateQueries({
+            queryKey: leagueKeys.userLeagues(userId),
+          });
         } else {
           await api.declineLeagueInvite(leagueId);
         }
         // Refresh received invites to sync server state.
-        void queryClient.invalidateQueries({ queryKey: leagueKeys.receivedInvites() });
+        void queryClient.invalidateQueries({
+          queryKey: leagueKeys.receivedInvites(userId),
+        });
       } catch (err) {
         // Restore the row on error.
         setRemovedLeagueIds((prev) => {
@@ -95,7 +101,7 @@ export function useReceivedInvitesScreen(): UseReceivedInvitesScreenResult {
         setResponding(leagueId, false);
       }
     },
-    [queryClient, setResponding],
+    [queryClient, setResponding, userId],
   );
 
   const onAccept = useCallback(

@@ -1,8 +1,11 @@
 import React from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import KobScreen from '@/components/screens/Kob/KobScreen';
+import ComingSoon from '@/components/screens/ComingSoon';
 
 export default function KobRoute(): React.ReactNode {
-  const { code } = useLocalSearchParams<{ code: string }>();
-  return <KobScreen code={code} />;
+  return (
+    <ComingSoon
+      title="King of the Beach"
+      description="King of the Beach tournaments are coming soon."
+    />
+  );
 }

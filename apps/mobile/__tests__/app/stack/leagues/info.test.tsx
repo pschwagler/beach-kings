@@ -45,6 +45,10 @@ jest.mock('@/contexts/ThemeContext', () => ({
 }));
 
 const mockGetLeague = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 const mockGetLeagueMembers = jest.fn();
 const mockGetLeagueSeasons = jest.fn();
 const mockGetLeagueJoinRequests = jest.fn();

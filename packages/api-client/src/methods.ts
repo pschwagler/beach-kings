@@ -25,14 +25,6 @@ import type {
   ReviewActionResponse,
   CreateCourtReviewInput,
   UpdateCourtReviewInput,
-  Friend,
-  FriendListResponse,
-  FriendRequest,
-  FriendRequestDirection,
-  FriendBatchStatusResponse,
-  MutualFriend,
-  Notification,
-  PushNotificationPrefs,
   Conversation,
   ConversationListResponse,
   DirectMessage,
@@ -64,6 +56,8 @@ import type {
   PlayerLeague,
   PublicPlayerResponse,
 } from '@beach-kings/shared';
+import { createNotificationMethods } from './notificationMethods';
+import { createSocialMethods } from './socialMethods';
 
 /**
  * Maps a public player profile response (GET /api/public/players/{id}) onto the
@@ -1334,86 +1328,12 @@ export function createApiMethods(client: ApiClient) {
     // -----------------------------------------------------------------------
     // Friends
     // -----------------------------------------------------------------------
-
-    async getFriends(params?: { search?: string; limit?: number; offset?: number }) {
-      const response = await api.get<FriendListResponse>('/api/friends', { params: params ?? {} });
-      return response.data;
-    },
-
-    async getFriendRequests(direction?: FriendRequestDirection) {
-      const params = direction ? { direction } : {};
-      const response = await api.get<FriendRequest[]>('/api/friends/requests', { params });
-      return response.data;
-    },
-
-    async sendFriendRequest(receiverPlayerId: number) {
-      const response = await api.post('/api/friends/request', { receiver_player_id: receiverPlayerId });
-      return response.data;
-    },
-
-    async acceptFriendRequest(requestId: number) {
-      const response = await api.post(`/api/friends/requests/${requestId}/accept`);
-      return response.data;
-    },
-
-    async declineFriendRequest(requestId: number) {
-      const response = await api.post(`/api/friends/requests/${requestId}/decline`);
-      return response.data;
-    },
-
-    async cancelFriendRequest(requestId: number) {
-      const response = await api.delete(`/api/friends/requests/${requestId}`);
-      return response.data;
-    },
-
-    async removeFriend(playerIdToRemove: number) {
-      const response = await api.delete(`/api/friends/${playerIdToRemove}`);
-      return response.data;
-    },
-
-    async getFriendSuggestions() {
-      const response = await api.get<Friend[]>('/api/friends/suggestions');
-      return response.data;
-    },
-
-    async batchFriendStatus(playerIds: number[]) {
-      const response = await api.post<FriendBatchStatusResponse>('/api/friends/batch-status', { player_ids: playerIds });
-      return response.data;
-    },
-
-    async getMutualFriends(otherPlayerId: number) {
-      const response = await api.get<MutualFriend[]>(`/api/friends/mutual/${otherPlayerId}`);
-      return response.data;
-    },
-
-    async discoverPlayers(params: Record<string, unknown> = {}) {
-      const response = await api.get('/api/friends/discover', { params });
-      return response.data;
-    },
+    ...createSocialMethods(api),
 
     // -----------------------------------------------------------------------
     // Notifications
     // -----------------------------------------------------------------------
-
-    async getNotifications(params?: { limit?: number; offset?: number }) {
-      const response = await api.get<Notification[]>('/api/notifications', { params: params ?? {} });
-      return response.data;
-    },
-
-    async getUnreadNotificationCount() {
-      const response = await api.get<{ count: number }>('/api/notifications/unread-count');
-      return response.data;
-    },
-
-    async markNotificationRead(notificationId: number) {
-      const response = await api.put(`/api/notifications/${notificationId}/read`);
-      return response.data;
-    },
-
-    async markAllNotificationsRead() {
-      const response = await api.put('/api/notifications/mark-all-read');
-      return response.data;
-    },
+    ...createNotificationMethods(api),
 
     // -----------------------------------------------------------------------
     // Feedback
@@ -1732,37 +1652,6 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // -----------------------------------------------------------------------
-    // Push notification preferences
-    // -----------------------------------------------------------------------
-
-    /**
-     * Fetch the authenticated user's push notification preferences.
-     * Maps to GET /api/users/me/push-prefs.
-     *
-     * Returns defaults when no preference row has been saved yet.
-     */
-    async getPushNotificationPrefs(): Promise<PushNotificationPrefs> {
-      const response = await api.get<PushNotificationPrefs>('/api/users/me/push-prefs');
-      return response.data;
-    },
-
-    /**
-     * Partially update the authenticated user's push notification preferences.
-     * Maps to PATCH /api/users/me/push-prefs.
-     *
-     * Only fields included in `partial` are changed; omitted fields keep
-     * their current (or default) values.
-     */
-    async updatePushNotificationPrefs(
-      partial: Partial<PushNotificationPrefs>,
-    ): Promise<PushNotificationPrefs> {
-      const response = await api.patch<PushNotificationPrefs>(
-        '/api/users/me/push-prefs',
-        partial,
-      );
-      return response.data;
-    },
   };
 }
 

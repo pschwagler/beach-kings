@@ -16,6 +16,10 @@ const mockHapticLight = jest.fn().mockResolvedValue(undefined);
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 jest.mock('@/lib/api', () => ({
   api: {
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
@@ -35,6 +39,7 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 import { useSessionDetailScreen } from '@/components/screens/Sessions/useSessionDetailScreen';
+import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
 import type { SessionDetail } from '@beach-kings/shared';
 
 const SESSION: SessionDetail = {
@@ -160,28 +165,24 @@ describe('useSessionDetailScreen', () => {
       await result.current.onSubmitSession();
     });
 
-    // League-detail invalidation: a predicate scoped to league_id=1, deferred refetch.
+    // League-detail invalidation uses the canonical per-league subtree and
+    // defers its refetch until that data is viewed again.
     const detailCall = invalidateSpy.mock.calls.find(
-      ([arg]) => typeof (arg as { predicate?: unknown })?.predicate === 'function',
+      ([arg]) =>
+        JSON.stringify((arg as { queryKey?: unknown })?.queryKey) ===
+        JSON.stringify(leagueKeys.league(7, 1)),
     );
     expect(detailCall).toBeDefined();
     const detailArg = detailCall![0] as {
-      predicate: (q: { queryKey: readonly unknown[] }) => boolean;
       refetchType?: string;
     };
     expect(detailArg.refetchType).toBe('none');
-    // Matches this league's standings (any season) + detail; not other leagues / list keys.
-    expect(detailArg.predicate({ queryKey: ['leagues', 'standings', '1', 'all'] })).toBe(true);
-    expect(detailArg.predicate({ queryKey: ['leagues', 'standings', '1', 5] })).toBe(true);
-    expect(detailArg.predicate({ queryKey: ['leagues', 'detail', '1'] })).toBe(true);
-    expect(detailArg.predicate({ queryKey: ['leagues', 'standings', '2', 'all'] })).toBe(false);
-    expect(detailArg.predicate({ queryKey: ['leagues', 'userLeagues'] })).toBe(false);
 
     // Leagues-tab "My Leagues" list invalidation (season-scoped card W-L).
     const listCall = invalidateSpy.mock.calls.find(
       ([arg]) =>
         JSON.stringify((arg as { queryKey?: unknown })?.queryKey) ===
-        JSON.stringify(['leaguesScreen', 'userLeagues']),
+        JSON.stringify(leagueKeys.userLeagues(7)),
     );
     expect(listCall).toBeDefined();
     expect((listCall![0] as { refetchType?: string }).refetchType).toBe('none');

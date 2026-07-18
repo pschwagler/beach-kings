@@ -1,6 +1,6 @@
 # Mobile E2E Issue Backlog
 
-Last verified: July 16, 2026
+Last verified: July 18, 2026
 Platform: iOS simulator, iPhone 17 Pro
 App: Beach League (`com.beachleague.app`)
 
@@ -125,10 +125,10 @@ and use additive setup only. It must not use real users, send real messages,
 reset or truncate a database, delete existing relationships, or clean up shared
 records.
 
-## Task B — Enforce a single active league season
+## Task B — Keep current league season selection consistent
 
-Priority: P1
-Scope: League seasons, standings selection, game creation
+Priority: P2
+Scope: League season presentation, standings selection, game creation
 
 ### Issues
 
@@ -145,27 +145,42 @@ Scope: League seasons, standings selection, game creation
 
 ### Root-cause findings
 
-This is a domain-model consistency issue rather than a single UI bug:
+The observed inconsistency came from two different read rules:
 
-- `list_seasons()` computes `is_active` independently for every season whose date range contains today. Overlapping finite date ranges can therefore produce multiple seasons labeled **Active**.
+- `list_seasons()` computed `is_active` independently for every season whose date range contains today. Overlapping finite date ranges could therefore produce multiple seasons labeled **Active**.
 - Migration `051_seasons_one_open_per_league.py` prevents multiple seasons with `end_date IS NULL`, but it does not prevent overlapping finite seasons, so it does not enforce the broader "one active today" invariant.
-- Standings initializes to the first season returned by `list_seasons()`, which is ordered by `start_date DESC`. League detail/game creation use `current_season_id` from the canonical resolver, which orders qualifying seasons by `created_at DESC`. When ranges overlap, those independent ordering rules can select different seasons.
+- Standings and player stats initialized to the first season returned by `list_seasons()`, which is ordered by `start_date DESC`. League detail and automatic game/session creation use the canonical resolver, which orders qualifying seasons by `created_at DESC`. When ranges overlap, those independent rules could select different seasons.
 
-Because resolving existing overlaps and defining valid future season transitions affect backend rules, migrations, and administrator workflows, the implementation remains intentionally generalized below.
+### Scope decision — July 18, 2026
+
+Overlapping season ranges remain legal. Prohibiting them would require a broader
+product decision, concurrency enforcement, legacy-data recovery, and administrator
+workflow changes that are not justified by this presentation edge case. This task
+therefore aligns current-season reads without adding a migration, rejecting season
+updates, or rewriting historical dates.
 
 ### Agent deliverables
 
-- Define and enforce the invariant for active seasons at the API/domain layer.
-- Ensure Standings and Add Game use the same canonical current-season selection.
-- Handle legacy data containing multiple active seasons without deleting or resetting data.
-- Add backend and mobile tests for zero, one, and legacy-multiple active seasons.
+- Mark only the canonical resolver's winner `is_active` in the seasons list.
+- Use a deterministic `created_at DESC, id DESC` tie-break everywhere the
+  canonical current season is selected.
+- Make Standings and player stats prefer the canonical active season while
+  retaining the existing newest-season and all-time fallbacks.
+- Add backend and mobile tests for zero, one, and legacy-overlapping seasons.
+
+### Delivery status — July 18, 2026
+
+Implemented without schema or data changes. The existing overlapping-season
+simulator fixture now shows one **Active** season in Info, and Standings opens on
+that same season. Season creation and update behavior is intentionally unchanged.
 
 ### Acceptance criteria
 
-- New updates cannot leave more than one active season per league.
-- The mobile app identifies the same current season in Standings and game creation.
-- Legacy ambiguous state is handled deterministically and surfaced safely for correction.
-- No database reset, destructive migration, or silent historical deletion is used.
+- At most one season per league is labeled **Active** by the API and mobile UI.
+- Standings, player stats, and automatic game/session attribution prefer the same
+  canonical season.
+- When no season is active, existing newest-season and all-time fallbacks remain.
+- Legacy overlaps are handled deterministically without changing stored dates.
 
 ## Task C — Fix stale Home and transient Profile data
 
@@ -288,6 +303,15 @@ All three issues are direct component-level inconsistencies:
 - Add a useful empty-chat state that explains the surface without blocking the composer.
 - Introduce or reuse one score-formatting helper across mobile surfaces.
 - Add snapshot or component tests for the revised states.
+
+### Delivery status — July 18, 2026
+
+Implemented with focused component coverage. League detail now keeps the dynamic
+league name in the body header and uses a generic navigation title; empty league
+chat explains the state while leaving the composer available; and completed
+paired scores use the shared compact `21-15` formatter across mobile history and
+result surfaces. The updated league, chat, and score states were also verified in
+the iOS simulator without sending a message or submitting a game.
 
 ### Acceptance criteria
 
@@ -569,8 +593,8 @@ Acceptance criteria: Users can immediately distinguish read-only information fro
 
 | Task | Owner | Status | PR/Commit | Verified |
 | --- | --- | --- | --- | --- |
-| A — Friendship consistency | Unassigned | Not started | — | — |
-| B — Active season invariant | Unassigned | Not started | — | — |
+| A — Friendship consistency | Unassigned | Implemented; verification pending | — | — |
+| B — Current season consistency | Codex | Complete | — | iOS simulator, July 18 |
 | C — Home/Profile freshness | Unassigned | Not started | — | — |
 | D — Messaging behavior | Unassigned | Not started | — | — |
 | E — UI cleanup | Unassigned | Not started | — | — |

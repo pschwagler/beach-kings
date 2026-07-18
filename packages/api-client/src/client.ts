@@ -34,6 +34,8 @@ interface QueuedRequest {
   reject: (error: any) => void;
 }
 
+export type AuthInvalidationListener = () => void;
+
 export class ApiClient {
   private api: AxiosInstance;
   private refreshClient: AxiosInstance;
@@ -44,6 +46,8 @@ export class ApiClient {
   };
   private isRefreshing = false;
   private failedQueue: QueuedRequest[] = [];
+  private authInvalidationListeners = new Set<AuthInvalidationListener>();
+  private authInvalidationEmitted = false;
 
   constructor(baseURL: string, storage?: StorageAdapter) {
     this.storage = storage || new WebStorageAdapter();
@@ -127,21 +131,23 @@ export class ApiClient {
             .catch(err => Promise.reject(err));
         }
 
-        // Attempt to refresh token
-        if (
-          isUnauthorized &&
-          this.authTokens.refreshToken &&
-          !originalRequest._retry &&
-          !isPublicAuthEndpoint(url)
-        ) {
+        // Attempt to refresh token. Mark refreshing before consulting storage
+        // so concurrent 401s join the queue instead of starting another
+        // refresh attempt.
+        if (isUnauthorized && !originalRequest._retry && !isPublicAuthEndpoint(url)) {
           originalRequest._retry = true;
           this.isRefreshing = true;
+          const hadCredentials = Boolean(
+            this.authTokens.accessToken || this.authTokens.refreshToken,
+          );
 
           try {
             const latestRefreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY) || this.authTokens.refreshToken;
-            
+
             if (!latestRefreshToken) {
-              await this.clearAuthTokens();
+              if (hadCredentials) {
+                await this.clearAndNotifyAuthInvalidated();
+              }
               this.isRefreshing = false;
               this.processQueue(error, null);
               return Promise.reject(error);
@@ -152,6 +158,9 @@ export class ApiClient {
             });
             
             const newAccessToken = data.access_token;
+            if (typeof newAccessToken !== 'string' || newAccessToken.length === 0) {
+              throw new Error('Refresh response did not include an access token');
+            }
             await this.setAuthTokens(newAccessToken);
             
             this.isRefreshing = false;
@@ -161,7 +170,12 @@ export class ApiClient {
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
             return this.api(originalRequest);
           } catch (refreshError) {
-            await this.clearAuthTokens();
+            try {
+              await this.clearAndNotifyAuthInvalidated();
+            } catch {
+              // In-memory credentials are cleared before storage operations;
+              // auth observers must still be allowed to end the session.
+            }
             this.isRefreshing = false;
             this.processQueue(refreshError, null);
             return Promise.reject(error);
@@ -184,6 +198,33 @@ export class ApiClient {
     this.failedQueue = [];
   }
 
+  private emitAuthInvalidated(): void {
+    if (this.authInvalidationEmitted) return;
+    this.authInvalidationEmitted = true;
+    this.authInvalidationListeners.forEach((listener) => {
+      try {
+        listener();
+      } catch (error) {
+        console.error('Error in auth invalidation listener:', error);
+      }
+    });
+  }
+
+  private async clearAndNotifyAuthInvalidated(): Promise<void> {
+    try {
+      await this.clearAuthTokens();
+    } finally {
+      this.emitAuthInvalidated();
+    }
+  }
+
+  onAuthInvalidated(listener: AuthInvalidationListener): () => void {
+    this.authInvalidationListeners.add(listener);
+    return () => {
+      this.authInvalidationListeners.delete(listener);
+    };
+  }
+
   async setAuthTokens(accessToken: string | null, refreshToken?: string | null): Promise<void> {
     this.authTokens.accessToken = accessToken;
     if (accessToken) {
@@ -200,13 +241,23 @@ export class ApiClient {
         await this.storage.removeItem(REFRESH_TOKEN_KEY);
       }
     }
+
+    if (this.authTokens.accessToken || this.authTokens.refreshToken) {
+      this.authInvalidationEmitted = false;
+    }
   }
 
   async clearAuthTokens(): Promise<void> {
     this.authTokens.accessToken = null;
     this.authTokens.refreshToken = null;
-    await this.storage.removeItem(ACCESS_TOKEN_KEY);
-    await this.storage.removeItem(REFRESH_TOKEN_KEY);
+    const results = await Promise.allSettled([
+      this.storage.removeItem(ACCESS_TOKEN_KEY),
+      this.storage.removeItem(REFRESH_TOKEN_KEY),
+    ]);
+    const failed = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    if (failed != null) throw failed.reason;
   }
 
   async getStoredTokens(): Promise<{ accessToken: string | null; refreshToken: string | null }> {
@@ -223,4 +274,3 @@ export class ApiClient {
     return this.api;
   }
 }
-

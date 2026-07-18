@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, darkColors } from '@beach-kings/shared/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useNotifications } from '@/contexts/NotificationContext';
+import { useNotifications } from '@/features/notifications';
 import { HomeIcon, TrophyIcon, PlusIcon, ChatIcon, UserIcon } from '@/components/ui/icons';
 import { hapticLight } from '@/utils/haptics';
 

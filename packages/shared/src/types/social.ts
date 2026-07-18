@@ -84,6 +84,42 @@ export interface FriendBatchStatusResponse {
   mutual_counts: Record<string, number>;
 }
 
+/** Filters accepted by authenticated player discovery. */
+export interface DiscoverFilters {
+  readonly search?: string;
+  readonly location_id?: string;
+  readonly gender?: 'male' | 'female';
+  readonly level?: string;
+  readonly sort_by?: 'mutuals' | 'games' | 'name' | 'rating';
+  readonly sort_dir?: 'asc' | 'desc';
+  readonly min_games?: number;
+  readonly same_league?: boolean;
+  readonly has_mutuals?: boolean;
+  readonly page?: number;
+  readonly page_size?: number;
+}
+
+/**
+ * Canonical player-discovery record returned by the shared API client.
+ *
+ * The backend historically used both public-player names (`id`,
+ * `location_name`, `total_games`) and social names (`player_id`, `city`,
+ * `games_played`). The API client resolves those aliases before exposing this
+ * contract to applications.
+ */
+export interface DiscoverPlayer {
+  readonly player_id: number;
+  readonly full_name: string;
+  readonly avatar: string | null;
+  readonly city: string | null;
+  readonly level: string | null;
+  readonly games_played: number;
+  readonly mutual_friends_count: number;
+  readonly last_active_label: string | null;
+  readonly friend_status: FriendshipStatus;
+  readonly request_id?: number | null;
+}
+
 export interface DirectMessage {
   id: number;
   sender_player_id: number;

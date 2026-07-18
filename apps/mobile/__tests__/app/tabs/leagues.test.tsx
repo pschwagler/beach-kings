@@ -26,6 +26,10 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockPush = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
 }));

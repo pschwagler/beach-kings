@@ -93,13 +93,16 @@ export function formatActivityLabel(
 // Score / record formatting
 // ---------------------------------------------------------------------------
 
+/** Canonical separator for compact game-score displays. */
+export const GAME_SCORE_SEPARATOR = '-';
+
 /**
  * Formats a game score as "team1-team2".
  *
  * @example formatGameScore(21, 19) // "21-19"
  */
 export function formatGameScore(team1Score: number, team2Score: number): string {
-  return `${team1Score}-${team2Score}`;
+  return `${team1Score}${GAME_SCORE_SEPARATOR}${team2Score}`;
 }
 
 /**

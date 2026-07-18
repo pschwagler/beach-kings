@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { Alert } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 jest.mock('expo-router', () => {
   const ReactModule = require('react');
@@ -81,11 +85,10 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false, theme: 'light', setTheme: jest.fn() }),
 }));
 
-jest.mock('@/contexts/NotificationContext', () => ({
+jest.mock('@/features/notifications', () => ({
   useNotifications: () => ({ unreadCount: 0, refresh: jest.fn() }),
 }));
 
-const mockGetLeagueDetail = jest.fn();
 const mockGetLeagueStandings = jest.fn();
 const mockGetLeagueSeasons = jest.fn();
 const mockGetLeagueMessages = jest.fn();
@@ -97,7 +100,6 @@ const mockJoinSignup = jest.fn();
 const mockDropSignup = jest.fn();
 const mockGetLeaguePlayerStats = jest.fn();
 const mockGetMyGames = jest.fn();
-const mockGetLeagueSignupEvents = jest.fn();
 const mockGetLeague = jest.fn();
 const mockGetLeagueMembers = jest.fn();
 const mockGetLeagueJoinRequests = jest.fn();
@@ -126,13 +128,6 @@ jest.mock('@/lib/api', () => ({
     getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
     requestToJoinLeague: (...args: unknown[]) => mockRequestToJoinLeague(...args),
     joinLeague: (...args: unknown[]) => mockJoinLeague(...args),
-  },
-}));
-
-jest.mock('@/lib/mockApi', () => ({
-  mockApi: {
-    getLeagueDetail: (...args: unknown[]) => mockGetLeagueDetail(...args),
-    getLeagueSignupEvents: (...args: unknown[]) => mockGetLeagueSignupEvents(...args),
   },
 }));
 
@@ -222,7 +217,6 @@ beforeEach(() => {
   mockDropSignup.mockResolvedValue(undefined);
   mockGetLeaguePlayerStats.mockResolvedValue({});
   mockGetMyGames.mockResolvedValue({ games: [], total: 0 });
-  mockGetLeagueSignupEvents.mockResolvedValue([]);
   mockGetLeagueMembers.mockResolvedValue([]);
   mockGetLeagueJoinRequests.mockResolvedValue({ pending: [], rejected: [] });
   mockApproveJoinRequest.mockResolvedValue({ success: true });
@@ -248,12 +242,16 @@ describe('LeagueDetailScreen — loading', () => {
 // ---------------------------------------------------------------------------
 
 describe('LeagueDetailScreen — header', () => {
-  it('renders league name in header', async () => {
+  it('uses a generic nav title and renders the league name once in the body header', async () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
-    await waitFor(() => {
-      expect(screen.getByTestId('league-header-name')).toBeTruthy();
-    });
-    expect(screen.getByTestId('league-header-name').props.children).toBe('Manhattan Open');
+
+    const bodyHeader = await screen.findByTestId('league-header');
+
+    expect(screen.getByRole('header', { name: 'League' })).toBeTruthy();
+    expect(within(bodyHeader).getByText(MOCK_DETAIL.name)).toBe(
+      screen.getByTestId('league-header-name'),
+    );
+    expect(screen.getAllByText(MOCK_DETAIL.name)).toHaveLength(1);
   });
 
   it('renders the league header container', async () => {

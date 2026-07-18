@@ -2,7 +2,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { act, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import PrivateQueryCacheGuard from '@/lib/PrivateQueryCacheGuard';
+import { PrivateQueryCacheGuard } from '@/infrastructure/query';
 
 let mockAuthState = {
   user: { id: 1 } as { id: number } | null,
