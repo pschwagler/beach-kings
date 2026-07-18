@@ -16,6 +16,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -82,10 +83,17 @@ const mockMarkNotificationRead = jest.fn();
 const mockMarkAllNotificationsRead = jest.fn();
 const mockAcceptFriendRequest = jest.fn();
 const mockDeclineFriendRequest = jest.fn();
+const mockGetUnreadNotificationCount = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
     getNotifications: (...args: unknown[]) => mockGetNotifications(...args),
+    getUnreadNotificationCount: (...args: unknown[]) =>
+      mockGetUnreadNotificationCount(...args),
     markNotificationRead: (...args: unknown[]) => mockMarkNotificationRead(...args),
     markAllNotificationsRead: (...args: unknown[]) => mockMarkAllNotificationsRead(...args),
     acceptFriendRequest: (...args: unknown[]) => mockAcceptFriendRequest(...args),
@@ -149,12 +157,23 @@ const MOCK_NOTIFICATIONS = [
 function renderNotificationsTab(
   setHeaderAction: (node: React.ReactNode | null) => void = jest.fn(),
 ): ReturnType<typeof render> {
-  return render(<NotificationsTab setHeaderAction={setHeaderAction} />);
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false, gcTime: Infinity },
+    },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <NotificationsTab setHeaderAction={setHeaderAction} />
+    </QueryClientProvider>,
+  );
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetNotifications.mockResolvedValue(MOCK_NOTIFICATIONS);
+  mockGetUnreadNotificationCount.mockResolvedValue({ count: 2 });
   mockMarkNotificationRead.mockResolvedValue({ status: 'ok' });
   mockMarkAllNotificationsRead.mockResolvedValue({ status: 'ok' });
   mockAcceptFriendRequest.mockResolvedValue({ status: 'ok' });

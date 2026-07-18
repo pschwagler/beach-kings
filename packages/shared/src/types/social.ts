@@ -69,7 +69,17 @@ export type FriendshipStatus =
   | 'pending_incoming'
   | 'none';
 
+/** Canonical relationship state for one other player. */
+export interface FriendshipRelationship {
+  status: FriendshipStatus;
+  /** Present only while a pending request is the source of the relationship. */
+  request_id: number | null;
+}
+
 export interface FriendBatchStatusResponse {
+  /** Rich relationship map used by mobile and new clients. */
+  relationships: Record<string, FriendshipRelationship>;
+  /** Legacy flat map retained for backwards-compatible web consumers. */
   statuses: Record<string, FriendshipStatus>;
   mutual_counts: Record<string, number>;
 }

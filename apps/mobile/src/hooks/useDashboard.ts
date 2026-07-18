@@ -11,6 +11,9 @@ import type {
 import { api } from '@/lib/api';
 import { useCurrentPlayer, currentPlayerKeys } from '@/hooks/useCurrentPlayer';
 import { useResolvedUserLocation } from '@/hooks/useResolvedUserLocation';
+import { useAuth } from '@/contexts/AuthContext';
+import { socialApi } from '@/lib/socialApi';
+import { socialQueryKeys } from '@/lib/socialQueryKeys';
 
 export const dashboardKeys = {
   root: ['dashboard'] as const,
@@ -18,8 +21,7 @@ export const dashboardKeys = {
   player: () => currentPlayerKeys.me(),
   leagues: () => [...dashboardKeys.root, 'leagues'] as const,
   activeSession: () => [...dashboardKeys.root, 'activeSession'] as const,
-  friendRequests: () =>
-    [...dashboardKeys.root, 'friendRequests', 'incoming'] as const,
+  friendRequests: (userId: number) => socialQueryKeys.requests(userId, 'incoming'),
   courts: (locationId: string | null | undefined) =>
     [...dashboardKeys.root, 'courts', locationId ?? 'null'] as const,
   matches: (playerId: number | null | undefined) =>
@@ -43,6 +45,8 @@ export interface UseDashboardResult extends DashboardSections {
 
 export function useDashboard(): UseDashboardResult {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
 
   const player = useCurrentPlayer();
 
@@ -75,11 +79,10 @@ export function useDashboard(): UseDashboardResult {
   });
 
   const friendRequests = useQuery({
-    queryKey: dashboardKeys.friendRequests(),
-    queryFn: async (): Promise<readonly FriendRequest[]> => {
-      const result = await api.getFriendRequests('incoming');
-      return result ?? [];
-    },
+    queryKey: dashboardKeys.friendRequests(userId),
+    queryFn: (): Promise<readonly FriendRequest[]> =>
+      socialApi.getFriendRequests('incoming'),
+    enabled: userId !== 0,
   });
 
   const courts = useQuery({

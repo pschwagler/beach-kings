@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
+import Avatar from '@/components/ui/Avatar';
 import type { MutualFriend } from '@beach-kings/shared';
 
 interface PlayerMutualFriendsProps {
@@ -31,8 +32,7 @@ export default function PlayerMutualFriends({
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-lg">
           {mutualFriends.map((friend) => {
-            const name = friend.full_name.trim();
-            const initial = name.charAt(0).toUpperCase();
+            const name = friend.full_name.trim() || `Player ${friend.player_id}`;
 
             return (
               <View
@@ -40,13 +40,14 @@ export default function PlayerMutualFriends({
                 testID={`mutual-friend-${friend.player_id}`}
                 className="items-center gap-xs"
               >
-                <View className="w-[44px] h-[44px] rounded-full bg-page items-center justify-center">
-                  <Text className="text-sm font-bold text-muted">
-                    {initial}
-                  </Text>
-                </View>
+                <Avatar
+                  imageUrl={friend.avatar}
+                  name={name}
+                  size="md"
+                  colorSeed={friend.player_id}
+                />
                 <Text className="text-[11px] text-muted max-w-[60px] text-center">
-                  {name.trim()}
+                  {name}
                 </Text>
               </View>
             );

@@ -8,13 +8,17 @@
 import React from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
-import type { Player } from '@beach-kings/shared';
+import { presentRelationship } from '@/lib/socialRelationships';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+import type { FriendshipStatus, Player } from '@beach-kings/shared';
 
 interface PlayerProfileHeaderProps {
   readonly player: Player;
-  readonly friendStatus: 'none' | 'pending' | 'friends';
+  readonly friendStatus: FriendshipStatus;
   readonly isFriendActionLoading: boolean;
   readonly onAddFriend: () => void;
+  readonly onAcceptFriend: () => void;
+  readonly onDeclineFriend: () => void;
   readonly onMessage: () => void;
   readonly onSendInvite?: () => void;
 }
@@ -24,9 +28,12 @@ export default function PlayerProfileHeader({
   friendStatus,
   isFriendActionLoading,
   onAddFriend,
+  onAcceptFriend,
+  onDeclineFriend,
   onMessage,
   onSendInvite,
 }: PlayerProfileHeaderProps): React.ReactNode {
+  const palette = usePaletteColors();
   const displayName = [player.first_name, player.last_name]
     .filter(Boolean)
     .join(' ') || player.name || 'Unknown Player';
@@ -43,6 +50,7 @@ export default function PlayerProfileHeader({
       ? null
       : rawLevel;
   const isGuest = player.is_placeholder === true;
+  const relationship = presentRelationship(friendStatus);
 
   return (
     <View
@@ -119,22 +127,46 @@ export default function PlayerProfileHeader({
           </Pressable>
         ) : (
           <>
-            <FriendButton
-              friendStatus={friendStatus}
-              isLoading={isFriendActionLoading}
-              onPress={onAddFriend}
-            />
-            <Pressable
-              testID="player-message-btn"
-              onPress={onMessage}
-              accessibilityRole="button"
-              accessibilityLabel={`Send message to ${displayName}`}
-              className="px-xl py-sm rounded-xl border-[1.5px] border-default min-h-touch items-center justify-center active:opacity-70"
-            >
-              <Text className="text-sm font-semibold text-default">
-                Message
-              </Text>
-            </Pressable>
+            {relationship.canRespond ? (
+              <>
+                <RelationshipResponseButton
+                  label="Accept"
+                  testID="player-accept-friend-btn"
+                  isLoading={isFriendActionLoading}
+                  onPress={onAcceptFriend}
+                  spinnerColor={palette.textInverse}
+                  primary
+                />
+                <RelationshipResponseButton
+                  label="Decline"
+                  testID="player-decline-friend-btn"
+                  isLoading={isFriendActionLoading}
+                  onPress={onDeclineFriend}
+                  spinnerColor={palette.textDefault}
+                />
+              </>
+            ) : relationship.profileLabel != null ? (
+              <FriendButton
+                label={relationship.profileLabel}
+                canAdd={relationship.canAdd}
+                isLoading={isFriendActionLoading}
+                onPress={onAddFriend}
+                spinnerColor={palette.textInverse}
+              />
+            ) : null}
+            {relationship.showMessage && (
+              <Pressable
+                testID="player-message-btn"
+                onPress={onMessage}
+                accessibilityRole="button"
+                accessibilityLabel={`Send message to ${displayName}`}
+                className="px-xl py-sm rounded-xl border-[1.5px] border-default min-h-touch items-center justify-center active:opacity-70"
+              >
+                <Text className="text-sm font-semibold text-default">
+                  Message
+                </Text>
+              </Pressable>
+            )}
           </>
         )}
       </View>
@@ -147,21 +179,21 @@ export default function PlayerProfileHeader({
 // ---------------------------------------------------------------------------
 
 interface FriendButtonProps {
-  readonly friendStatus: 'none' | 'pending' | 'friends';
+  readonly label: string;
+  readonly canAdd: boolean;
   readonly isLoading: boolean;
   readonly onPress: () => void;
+  readonly spinnerColor: string;
 }
 
 function FriendButton({
-  friendStatus,
+  label,
+  canAdd,
   isLoading,
   onPress,
+  spinnerColor,
 }: FriendButtonProps): React.ReactNode {
-  const isPending = friendStatus === 'pending';
-  const isFriends = friendStatus === 'friends';
-  const isDisabled = isPending || isFriends || isLoading;
-
-  const label = isFriends ? 'Friends' : isPending ? 'Request Sent' : 'Add Friend';
+  const isDisabled = !canAdd || isLoading;
 
   return (
     <Pressable
@@ -171,19 +203,62 @@ function FriendButton({
       accessibilityLabel={label}
       disabled={isDisabled}
       className={`px-xl py-sm rounded-xl min-h-touch items-center justify-center active:opacity-70 ${
-        isFriends || isPending
+        isDisabled
           ? 'bg-default/20'
           : 'bg-default'
       }`}
     >
       {isLoading ? (
-        <ActivityIndicator size="small" color="#fff" />
+        <ActivityIndicator size="small" color={spinnerColor} />
       ) : (
         <Text
           className={`text-sm font-semibold ${
-            isFriends || isPending
+            isDisabled
               ? 'text-default'
               : 'text-inverse'
+          }`}
+        >
+          {label}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
+interface RelationshipResponseButtonProps {
+  readonly label: 'Accept' | 'Decline';
+  readonly testID: string;
+  readonly isLoading: boolean;
+  readonly onPress: () => void;
+  readonly spinnerColor: string;
+  readonly primary?: boolean;
+}
+
+function RelationshipResponseButton({
+  label,
+  testID,
+  isLoading,
+  onPress,
+  spinnerColor,
+  primary = false,
+}: RelationshipResponseButtonProps): React.ReactNode {
+  return (
+    <Pressable
+      testID={testID}
+      onPress={isLoading ? undefined : onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label} friend request`}
+      disabled={isLoading}
+      className={`px-lg py-sm rounded-xl min-h-touch items-center justify-center active:opacity-70 ${
+        primary ? 'bg-default' : 'border-[1.5px] border-default'
+      }`}
+    >
+      {isLoading ? (
+        <ActivityIndicator size="small" color={spinnerColor} />
+      ) : (
+        <Text
+          className={`text-sm font-semibold ${
+            primary ? 'text-inverse' : 'text-default'
           }`}
         >
           {label}

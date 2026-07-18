@@ -128,6 +128,9 @@ async def _patch_missing_columns(conn):
         ("sessions", "league_id", "INTEGER REFERENCES leagues(id) ON DELETE SET NULL"),
         # Migration 055 — per-session ranked intent
         ("sessions", "is_ranked", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        # Migrations 057-058 — notification lifecycle and deduplication
+        ("notifications", "dismissed_at", "TIMESTAMPTZ"),
+        ("notifications", "dedup_key", "VARCHAR(255)"),
     ]
     # Migration 024 — make phone_number and password_hash nullable for Google SSO
     # Migration 045 — make verification_codes.phone_number nullable for email flows
@@ -193,6 +196,20 @@ async def _patch_missing_columns(conn):
             "league_id",
             "idx_sessions_league",
             "CREATE INDEX IF NOT EXISTS idx_sessions_league ON sessions (league_id)",
+        ),
+        (
+            "notifications",
+            "dedup_key",
+            "idx_notifications_dedup_key",
+            "CREATE INDEX IF NOT EXISTS idx_notifications_dedup_key ON notifications (dedup_key)",
+        ),
+        (
+            "notifications",
+            "dedup_key",
+            "uq_notifications_user_active_dedup",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_notifications_user_active_dedup "
+            "ON notifications (user_id, dedup_key) "
+            "WHERE dedup_key IS NOT NULL AND dismissed_at IS NULL",
         ),
     ]
     for table, idx_name, ddl in partial_index_patches:
@@ -263,6 +280,48 @@ async def _patch_missing_columns(conn):
             )
             if idx_exists.scalar() is None:
                 await conn.execute(text(ddl))
+
+    # Migration 058 replaces the directional all-history constraint with an
+    # unordered pending-only index. Existing rows are audited, never rewritten.
+    friend_requests_exists = await conn.execute(
+        text("SELECT 1 FROM information_schema.tables WHERE table_name = 'friend_requests'")
+    )
+    if friend_requests_exists.scalar() is not None:
+        pending_duplicates = await conn.execute(
+            text(
+                "SELECT 1 FROM friend_requests WHERE status = 'pending' "
+                "GROUP BY LEAST(sender_player_id, receiver_player_id), "
+                "GREATEST(sender_player_id, receiver_player_id) "
+                "HAVING COUNT(*) > 1 LIMIT 1"
+            )
+        )
+        if pending_duplicates.scalar() is not None:
+            raise RuntimeError(
+                "Test database has duplicate pending friend requests; refusing "
+                "to rewrite them. Use a fresh test database."
+            )
+        old_constraint = await conn.execute(
+            text("SELECT 1 FROM pg_constraint WHERE conname = 'uq_friend_request_sender_receiver'")
+        )
+        if old_constraint.scalar() is not None:
+            await conn.execute(
+                text(
+                    "ALTER TABLE friend_requests DROP CONSTRAINT uq_friend_request_sender_receiver"
+                )
+            )
+        pending_index = await conn.execute(
+            text("SELECT 1 FROM pg_indexes WHERE indexname = 'uq_friend_requests_pending_pair'")
+        )
+        if pending_index.scalar() is None:
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_friend_requests_pending_pair "
+                    "ON friend_requests ("
+                    "LEAST(sender_player_id, receiver_player_id), "
+                    "GREATEST(sender_player_id, receiver_player_id)"
+                    ") WHERE status = 'pending'"
+                )
+            )
 
 
 @pytest_asyncio.fixture(scope="function")

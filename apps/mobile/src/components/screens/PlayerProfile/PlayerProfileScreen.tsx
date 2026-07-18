@@ -69,6 +69,8 @@ export default function PlayerProfileScreen({
     onRefresh,
     isRefreshing,
     onAddFriend,
+    onAcceptFriend,
+    onDeclineFriend,
     onMessage,
   } = usePlayerProfileScreen(playerId, navigateToMessages);
 
@@ -76,6 +78,16 @@ export default function PlayerProfileScreen({
     void hapticMedium();
     void onAddFriend();
   }, [onAddFriend]);
+
+  const handleAcceptFriend = useCallback(() => {
+    void hapticMedium();
+    void onAcceptFriend();
+  }, [onAcceptFriend]);
+
+  const handleDeclineFriend = useCallback(() => {
+    void hapticMedium();
+    void onDeclineFriend();
+  }, [onDeclineFriend]);
 
   const handleLeaguePress = useCallback(
     (id: number) => {
@@ -154,6 +166,8 @@ export default function PlayerProfileScreen({
             friendStatus={profileData.friendStatus}
             isFriendActionLoading={isFriendActionLoading}
             onAddFriend={handleAddFriend}
+            onAcceptFriend={handleAcceptFriend}
+            onDeclineFriend={handleDeclineFriend}
             onMessage={onMessage}
           />
 

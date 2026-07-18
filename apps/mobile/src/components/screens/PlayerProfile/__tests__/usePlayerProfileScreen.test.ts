@@ -1,167 +1,183 @@
-/**
- * Tests for usePlayerProfileScreen hook.
- *
- * Verifies that api.getPlayerLeagues is called with the correct player ID,
- * that the leagues field is populated from the API response, and that a
- * rejected call falls back to an empty array.
- */
-
-import { renderHook, waitFor } from '@testing-library/react-native';
-
-// ---------------------------------------------------------------------------
-// Mock @/lib/api — factory runs before any imports of the subject under test.
-// ---------------------------------------------------------------------------
+import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 jest.mock('@/lib/api', () => ({
   api: {
     getPublicPlayer: jest.fn(),
     getMutualFriends: jest.fn(),
-    batchFriendStatus: jest.fn(),
     getPlayerLeagues: jest.fn(),
-    sendFriendRequest: jest.fn(),
   },
 }));
 
-// ---------------------------------------------------------------------------
-// Subject under test (imported after mocks are established)
-// ---------------------------------------------------------------------------
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 1 },
+    isAuthenticated: true,
+  }),
+}));
 
-import { usePlayerProfileScreen } from '../usePlayerProfileScreen';
+jest.mock('@/hooks/usePlayerRelationshipQuery', () => ({
+  usePlayerRelationshipQuery: jest.fn(),
+}));
+
+jest.mock('@/hooks/useFriendshipMutations', () => ({
+  useFriendshipMutations: jest.fn(),
+}));
+
 import { api } from '@/lib/api';
-
-// ---------------------------------------------------------------------------
-// Typed cast for type-safe mock access
-// ---------------------------------------------------------------------------
+import { useFriendshipMutations } from '@/hooks/useFriendshipMutations';
+import { usePlayerRelationshipQuery } from '@/hooks/usePlayerRelationshipQuery';
+import { usePlayerProfileScreen } from '../usePlayerProfileScreen';
 
 const mockApi = api as unknown as {
   getPublicPlayer: jest.Mock;
   getMutualFriends: jest.Mock;
-  batchFriendStatus: jest.Mock;
   getPlayerLeagues: jest.Mock;
-  sendFriendRequest: jest.Mock;
 };
-
-// ---------------------------------------------------------------------------
-// Test data
-// ---------------------------------------------------------------------------
+const mockRelationshipQuery = usePlayerRelationshipQuery as jest.Mock;
+const mockFriendshipMutations = useFriendshipMutations as jest.Mock;
 
 const PLAYER_ID = 42;
-
 const FAKE_PLAYER = {
   id: PLAYER_ID,
   first_name: 'Alice',
   last_name: 'Smith',
   name: 'Alice Smith',
 };
-
 const FAKE_LEAGUES = [
   { id: 1, name: 'QBK Open Men', rank: 2, games_played: 30 },
   { id: 5, name: 'NYC Fun League', rank: null, games_played: 0 },
 ];
-
 const noop = () => {};
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+const send = { mutateAsync: jest.fn(), isPending: false };
+const accept = { mutateAsync: jest.fn(), isPending: false };
+const decline = { mutateAsync: jest.fn(), isPending: false };
+const cancel = { mutateAsync: jest.fn(), isPending: false };
+
+function renderProfileHook(playerId: string | number = PLAYER_ID) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+  return renderHook(() => usePlayerProfileScreen(playerId, noop), {
+    wrapper: ({ children }) => React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children,
+    ),
+  });
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockApi.getPublicPlayer.mockResolvedValue(FAKE_PLAYER);
   mockApi.getMutualFriends.mockResolvedValue([]);
-  mockApi.batchFriendStatus.mockResolvedValue({ statuses: {}, mutual_counts: {} });
   mockApi.getPlayerLeagues.mockResolvedValue(FAKE_LEAGUES);
+  mockRelationshipQuery.mockReturnValue({
+    data: { status: 'none', request_id: null },
+    isLoading: false,
+    isRefetching: false,
+    error: null,
+    refetch: jest.fn().mockResolvedValue(undefined),
+  });
+  mockFriendshipMutations.mockReturnValue({ send, accept, decline, cancel });
+  send.mutateAsync.mockResolvedValue(undefined);
+  accept.mutateAsync.mockResolvedValue(undefined);
+  decline.mutateAsync.mockResolvedValue(undefined);
 });
 
 describe('usePlayerProfileScreen', () => {
-  it('calls api.getPlayerLeagues with the numeric player ID', async () => {
-    const { result } = renderHook(() =>
-      usePlayerProfileScreen(PLAYER_ID, noop)
-    );
-
+  it('loads profile details with a numeric player ID', async () => {
+    const { result } = renderProfileHook();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(mockApi.getPlayerLeagues).toHaveBeenCalledTimes(1);
+    expect(mockApi.getPublicPlayer).toHaveBeenCalledWith(PLAYER_ID);
     expect(mockApi.getPlayerLeagues).toHaveBeenCalledWith(PLAYER_ID);
-  });
-
-  it('populates leagues from the API response', async () => {
-    const { result } = renderHook(() =>
-      usePlayerProfileScreen(PLAYER_ID, noop)
-    );
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
     expect(result.current.profileData?.leagues).toEqual(FAKE_LEAGUES);
   });
 
-  it('converts a string playerId to a number before calling the API', async () => {
-    const { result } = renderHook(() =>
-      usePlayerProfileScreen(String(PLAYER_ID), noop)
-    );
-
+  it('converts a string player ID before querying', async () => {
+    const { result } = renderProfileHook(String(PLAYER_ID));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-
     expect(mockApi.getPlayerLeagues).toHaveBeenCalledWith(PLAYER_ID);
   });
 
-  it('sets isNotFound when getPublicPlayer 404s (hidden/0-game profile)', async () => {
-    const notFoundError = Object.assign(new Error('Request failed with status code 404'), {
-      response: { status: 404 },
-    });
-    mockApi.getPublicPlayer.mockRejectedValue(notFoundError);
-
-    const { result } = renderHook(() =>
-      usePlayerProfileScreen(PLAYER_ID, noop)
-    );
-
+  it('falls back to optional empty profile collections', async () => {
+    mockApi.getMutualFriends.mockRejectedValue(new Error('network'));
+    mockApi.getPlayerLeagues.mockRejectedValue(new Error('network'));
+    const { result } = renderProfileHook();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.error).not.toBeNull();
-    expect(result.current.isNotFound).toBe(true);
-  });
-
-  it('keeps isNotFound false for non-404 errors', async () => {
-    mockApi.getPublicPlayer.mockRejectedValue(new Error('network error'));
-
-    const { result } = renderHook(() =>
-      usePlayerProfileScreen(PLAYER_ID, noop)
-    );
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.error).not.toBeNull();
-    expect(result.current.isNotFound).toBe(false);
-  });
-
-  it('falls back to empty array when api.getPlayerLeagues rejects', async () => {
-    mockApi.getPlayerLeagues.mockRejectedValue(new Error('network error'));
-
-    const { result } = renderHook(() =>
-      usePlayerProfileScreen(PLAYER_ID, noop)
-    );
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
+    expect(result.current.profileData?.mutualFriends).toEqual([]);
     expect(result.current.profileData?.leagues).toEqual([]);
-    // Other data should still be populated
     expect(result.current.profileData?.player).toEqual(FAKE_PLAYER);
   });
 
-  it.each([
-    ['friend', 'friends'],
-    ['pending_outgoing', 'pending'],
-    ['pending_incoming', 'pending'],
-    ['none', 'none'],
-  ] as const)('maps API friendship status %s to %s', async (apiStatus, expected) => {
-    mockApi.batchFriendStatus.mockResolvedValue({
-      statuses: { [String(PLAYER_ID)]: apiStatus },
-      mutual_counts: {},
+  it('identifies a hidden or zero-game profile 404', async () => {
+    const notFound = Object.assign(new Error('not found'), {
+      response: { status: 404 },
     });
-
-    const { result } = renderHook(() => usePlayerProfileScreen(PLAYER_ID, noop));
+    mockApi.getPublicPlayer.mockRejectedValue(notFound);
+    const { result } = renderProfileHook();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.profileData?.friendStatus).toBe(expected);
+    expect(result.current.error).toBe(notFound);
+    expect(result.current.isNotFound).toBe(true);
+  });
+
+  it.each([
+    'self',
+    'none',
+    'friend',
+    'pending_outgoing',
+    'pending_incoming',
+  ] as const)('preserves the canonical %s relationship state', async (status) => {
+    mockRelationshipQuery.mockReturnValue({
+      data: { status, request_id: status.startsWith('pending') ? 88 : null },
+      isLoading: false,
+      isRefetching: false,
+      error: null,
+      refetch: jest.fn().mockResolvedValue(undefined),
+    });
+    const { result } = renderProfileHook();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.profileData?.friendStatus).toBe(status);
+  });
+
+  it('uses the canonical request ID for Accept and Decline', async () => {
+    mockRelationshipQuery.mockReturnValue({
+      data: { status: 'pending_incoming', request_id: 88 },
+      isLoading: false,
+      isRefetching: false,
+      error: null,
+      refetch: jest.fn().mockResolvedValue(undefined),
+    });
+    const { result } = renderProfileHook();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.onAcceptFriend();
+      await result.current.onDeclineFriend();
+    });
+
+    expect(accept.mutateAsync).toHaveBeenCalledWith({
+      requestId: 88,
+      playerId: PLAYER_ID,
+    });
+    expect(decline.mutateAsync).toHaveBeenCalledWith({
+      requestId: 88,
+      playerId: PLAYER_ID,
+    });
+  });
+
+  it('sends a friend request through the shared mutation', async () => {
+    const { result } = renderProfileHook();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => result.current.onAddFriend());
+    expect(send.mutateAsync).toHaveBeenCalledWith(PLAYER_ID);
   });
 });

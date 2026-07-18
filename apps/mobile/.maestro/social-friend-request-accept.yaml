@@ -4,8 +4,8 @@ tags:
   - social
   - friends
 ---
-# Expects a pending incoming request from Bob Test to already be seeded and the
-# simulator to already be opened to `beach-league://social`.
+# Expects a pending incoming request from the run-scoped fixture named by
+# E2E_REQUESTER_NAME and the simulator to already be opened to the social tab.
 - runFlow:
     when:
       visible: "Open in .*Beach League.*"
@@ -19,8 +19,8 @@ tags:
 - assertVisible: "Search friends"
 - swipe:
     direction: DOWN
-- assertVisible: "Bob Test"
+- assertVisible: "${E2E_REQUESTER_NAME}"
 - assertVisible: "Pending Requests (2)"
-- tapOn: "Accept friend request from Bob Test"
+- tapOn: "Accept friend request from ${E2E_REQUESTER_NAME}"
 - assertVisible: "Search friends"
 - assertVisible: "Pending Requests (1)"

@@ -21,15 +21,16 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { hapticMedium } from '@/utils/haptics';
 import type { Friend, FriendRequest } from '@beach-kings/shared';
-
-/** Accepts either a bare array or the paginated `{ items }` envelope. */
-function toList<T>(r: { items?: T[] } | T[]): T[] {
-  return Array.isArray(r) ? r : (r.items ?? []);
-}
+import { useAuth } from '@/contexts/AuthContext';
+import { socialApi } from '@/lib/socialApi';
+import { socialQueryKeys } from '@/lib/socialQueryKeys';
+import {
+  useFriendshipMutations,
+  usePendingFriendRequestPlayerIds,
+} from '@/hooks/useFriendshipMutations';
 
 export interface UseFriendsOptions {
   /** Client-side filter applied to the friends list (matches name or city). */
@@ -76,46 +77,37 @@ export interface UseFriendsResult {
  */
 export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   const { searchQuery = '', withSuggestions = true } = options;
+  const { user, isAuthenticated } = useAuth();
+  const userId = user?.id ?? 0;
+  const friendshipMutations = useFriendshipMutations();
 
   const [isRefreshingFriends, setIsRefreshingFriends] = useState(false);
-  const [pendingAddIds, setPendingAddIds] = useState<ReadonlySet<number>>(
-    new Set(),
-  );
+  const pendingAddIds = usePendingFriendRequestPlayerIds();
 
   // ------- Friends list -------
-  const {
-    data: friendsData,
-    isLoading: isLoadingFriendsRaw,
-    error: friendsError,
-    refetch: refetchFriends,
-  } = useApi<Friend[]>(() => api.getFriends().then(toList), []);
+  const friendsQuery = useQuery({
+    queryKey: socialQueryKeys.friends(userId),
+    queryFn: socialApi.getFriends,
+    enabled: isAuthenticated && userId !== 0,
+  });
 
   // ------- Incoming requests -------
-  const {
-    data: requestsData,
-    isLoading: isLoadingRequests,
-    error: friendRequestsError,
-    refetch: refetchRequests,
-    mutate: mutateRequests,
-  } = useApi<FriendRequest[]>(
-    () => api.getFriendRequests('incoming').then(toList),
-    [],
-  );
+  const requestsQuery = useQuery({
+    queryKey: socialQueryKeys.requests(userId, 'incoming'),
+    queryFn: () => socialApi.getFriendRequests('incoming'),
+    enabled: isAuthenticated && userId !== 0,
+  });
 
   // ------- Suggestions (opt-out) -------
-  const {
-    data: suggestionsData,
-    isLoading: isLoadingSuggestionsRaw,
-    error: suggestionsError,
-    refetch: refetchSuggestions,
-  } = useApi<Friend[]>(
-    () =>
-      withSuggestions
-        ? api.getFriendSuggestions().then(toList)
-        : Promise.resolve<Friend[]>([]),
-    [withSuggestions],
-    { enabled: withSuggestions },
-  );
+  const suggestionsQuery = useQuery({
+    queryKey: socialQueryKeys.suggestions(userId),
+    queryFn: socialApi.getFriendSuggestions,
+    enabled: isAuthenticated && userId !== 0 && withSuggestions,
+  });
+
+  const friendsData = friendsQuery.data;
+  const requestsData = requestsQuery.data;
+  const suggestionsData = suggestionsQuery.data;
 
   const friends = useMemo<readonly Friend[]>(() => {
     const all = friendsData ?? [];
@@ -139,63 +131,46 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
     [suggestionsData],
   );
 
-  const isLoadingFriends = isLoadingFriendsRaw || isLoadingRequests;
-  const isLoadingSuggestions = withSuggestions && isLoadingSuggestionsRaw;
+  const isLoadingFriends = friendsQuery.isPending || requestsQuery.isPending;
+  const isLoadingSuggestions = withSuggestions && suggestionsQuery.isPending;
 
   const onRefreshFriends = useCallback(() => {
     setIsRefreshingFriends(true);
     Promise.all([
-      refetchFriends(),
-      refetchRequests(),
-      refetchSuggestions(),
+      friendsQuery.refetch(),
+      requestsQuery.refetch(),
+      ...(withSuggestions ? [suggestionsQuery.refetch()] : []),
     ]).finally(() => {
       setIsRefreshingFriends(false);
     });
-  }, [refetchFriends, refetchRequests, refetchSuggestions]);
+  }, [friendsQuery, requestsQuery, suggestionsQuery, withSuggestions]);
 
   const onRetryFriends = useCallback(() => {
-    void refetchFriends();
-    void refetchRequests();
-    void refetchSuggestions();
-  }, [refetchFriends, refetchRequests, refetchSuggestions]);
+    void friendsQuery.refetch();
+    void requestsQuery.refetch();
+    if (withSuggestions) void suggestionsQuery.refetch();
+  }, [friendsQuery, requestsQuery, suggestionsQuery, withSuggestions]);
 
   const onAcceptRequest = useCallback(
     (requestId: number) => {
       void hapticMedium();
-      const prevRequests = requestsData ?? [];
-      mutateRequests(prevRequests.filter((r) => r.id !== requestId));
-      api.acceptFriendRequest(requestId).catch(() => {
-        mutateRequests(prevRequests);
-      });
+      friendshipMutations.accept.mutate({ requestId });
     },
-    [requestsData, mutateRequests],
+    [friendshipMutations.accept],
   );
 
   const onDeclineRequest = useCallback(
     (requestId: number) => {
       void hapticMedium();
-      const prevRequests = requestsData ?? [];
-      mutateRequests(prevRequests.filter((r) => r.id !== requestId));
-      api.declineFriendRequest(requestId).catch(() => {
-        mutateRequests(prevRequests);
-      });
+      friendshipMutations.decline.mutate({ requestId });
     },
-    [requestsData, mutateRequests],
+    [friendshipMutations.decline],
   );
 
   const onAddSuggestion = useCallback((playerId: number) => {
     void hapticMedium();
-    // Optimistic: mark as pending immediately.
-    setPendingAddIds((prev) => new Set([...prev, playerId]));
-    api.sendFriendRequest(playerId).catch(() => {
-      // Roll back on failure.
-      setPendingAddIds((prev) => {
-        const next = new Set([...prev]);
-        next.delete(playerId);
-        return next;
-      });
-    });
-  }, []);
+    friendshipMutations.send.mutate(playerId);
+  }, [friendshipMutations.send]);
 
   return {
     friends,
@@ -203,9 +178,9 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
     suggestions,
     isLoadingFriends,
     isLoadingSuggestions,
-    friendsError,
-    friendRequestsError,
-    suggestionsError,
+    friendsError: friendsQuery.error,
+    friendRequestsError: requestsQuery.error,
+    suggestionsError: suggestionsQuery.error,
     isRefreshingFriends,
     onRefreshFriends,
     onRetryFriends,

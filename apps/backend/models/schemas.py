@@ -1065,10 +1065,18 @@ class FriendBatchStatusRequest(BaseModel):
     player_ids: List[int] = Field(..., max_length=100)
 
 
+class FriendRelationshipResponse(BaseModel):
+    """Canonical relationship state between the viewer and another player."""
+
+    status: Literal["self", "none", "friend", "pending_outgoing", "pending_incoming"]
+    request_id: Optional[int] = None
+
+
 class FriendBatchStatusResponse(BaseModel):
     """Batch friend status response."""
 
     statuses: dict  # { player_id: "friend"|"pending_outgoing"|"pending_incoming"|"none" }
+    relationships: dict[str, FriendRelationshipResponse] = Field(default_factory=dict)
     mutual_counts: dict  # { player_id: int }
 
 
@@ -1528,6 +1536,8 @@ class NotificationResponse(BaseModel):
     data: Optional[dict] = None
     is_read: bool
     read_at: Optional[str] = None
+    dismissed_at: Optional[str] = None
+    dedup_key: Optional[str] = None
     link_url: Optional[str] = None
     created_at: str
 
@@ -1929,6 +1939,8 @@ class PublicPlayerResponse(BaseModel):
     league_memberships: List[PublicPlayerLeagueMembership] = []
     game_history_visible: bool = True
     profile_is_private: bool = False
+    friend_status: str = "none"
+    friend_request_id: Optional[int] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -2175,6 +2187,7 @@ class DiscoverPlayerItem(PublicPlayerListItem):
 
     mutual_friend_count: int = 0
     friend_status: str = "none"
+    friend_request_id: Optional[int] = None
 
 
 class PaginatedDiscoverPlayersResponse(BaseModel):

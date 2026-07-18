@@ -16,7 +16,6 @@ from backend.database.models import (
     LeagueMember,
     Location,
     Match,
-    Friend,
     Player,
     PlayerGlobalStats,
     PlayerSeasonStats,
@@ -25,6 +24,7 @@ from backend.database.models import (
     User,
 )
 from backend.services.data_service import generate_player_initials
+from backend.services.relationship_service import resolve_relationship
 
 
 async def get_sitemap_leagues(session: AsyncSession) -> List[Dict]:
@@ -510,17 +510,10 @@ async def get_public_player(
         )
         viewer_player_id = viewer_player_result.scalar_one_or_none()
 
-    is_friend = False
-    if viewer_player_id is not None and viewer_player_id != player_id:
-        p1, p2 = sorted([viewer_player_id, player_id])
-        friend_result = await session.execute(
-            select(Friend.id)
-            .where(and_(Friend.player1_id == p1, Friend.player2_id == p2))
-            .limit(1)
-        )
-        is_friend = friend_result.scalar_one_or_none() is not None
-
-    if total_games < 1 and not (is_self or is_friend):
+    relationship = {"status": "none", "request_id": None}
+    if viewer_player_id is not None:
+        relationship = await resolve_relationship(session, viewer_player_id, player_id)
+    if total_games < 1 and relationship["status"] == "none":
         return None
 
     # game_history_visible: owner always sees full record; others see it only
@@ -591,6 +584,8 @@ async def get_public_player(
         "league_memberships": league_memberships,
         "game_history_visible": game_history_visible,
         "profile_is_private": profile_is_private,
+        "friend_status": relationship["status"],
+        "friend_request_id": relationship["request_id"],
         "created_at": player.created_at.isoformat() if player.created_at else None,
         "updated_at": player.updated_at.isoformat() if player.updated_at else None,
     }

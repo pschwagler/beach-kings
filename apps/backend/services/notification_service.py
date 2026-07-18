@@ -8,9 +8,8 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, and_
+from sqlalchemy.exc import IntegrityError
 from backend.database.models import (
-    FriendRequest,
-    FriendRequestStatus,
     League,
     Notification,
     NotificationType,
@@ -22,6 +21,7 @@ from backend.services.data_service import (
     get_session_match_player_user_ids,
 )
 from backend.utils.datetime_utils import utcnow
+from backend.services.relationship_service import resolve_relationships
 import json
 import logging
 
@@ -45,6 +45,7 @@ def notification_to_dict(notif: Notification) -> Dict:
         "is_read": notif.is_read,
         "read_at": notif.read_at.isoformat() if notif.read_at else None,
         "dismissed_at": notif.dismissed_at.isoformat() if notif.dismissed_at else None,
+        "dedup_key": notif.dedup_key,
         "link_url": notif.link_url,
         "created_at": notif.created_at.isoformat() if notif.created_at else None,
     }
@@ -58,6 +59,7 @@ async def create_notification(
     message: str,
     data: Optional[Dict] = None,
     link_url: Optional[str] = None,
+    dedup_key: Optional[str] = None,
 ) -> Dict:
     """
     Create a single notification for a user.
@@ -70,6 +72,7 @@ async def create_notification(
         message: Notification message text
         data: Optional JSON metadata (dict will be serialized to JSON string)
         link_url: Optional URL for navigation when notification is clicked
+        dedup_key: Stable key used to prevent duplicate active notifications
 
     Returns:
         Dict containing the created notification data
@@ -86,6 +89,20 @@ async def create_notification(
     if not message:
         raise ValueError("message is required")
 
+    if dedup_key:
+        existing_result = await session.execute(
+            select(Notification).where(
+                and_(
+                    Notification.user_id == user_id,
+                    Notification.dedup_key == dedup_key,
+                    Notification.dismissed_at.is_(None),
+                )
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+        if existing:
+            return notification_to_dict(existing)
+
     # Serialize data dict to JSON string if provided
     data_json = None
     if data is not None:
@@ -98,11 +115,32 @@ async def create_notification(
         message=message,
         data=data_json,
         link_url=link_url,
+        dedup_key=dedup_key,
         is_read=False,
     )
 
-    session.add(notification)
-    await session.flush()
+    try:
+        async with session.begin_nested():
+            session.add(notification)
+            await session.flush()
+    except IntegrityError:
+        # A concurrent retry may have inserted the same active dedup key after
+        # the lookup above. Return that canonical row without rebroadcasting.
+        if not dedup_key:
+            raise
+        existing_result = await session.execute(
+            select(Notification).where(
+                and_(
+                    Notification.user_id == user_id,
+                    Notification.dedup_key == dedup_key,
+                    Notification.dismissed_at.is_(None),
+                )
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+        if existing:
+            return notification_to_dict(existing)
+        raise
     await session.refresh(notification)
 
     notification_dict = notification_to_dict(notification)
@@ -182,6 +220,7 @@ async def create_notifications_bulk(
                 message=notif_data["message"],
                 data=data_json,
                 link_url=notif_data.get("link_url"),
+                dedup_key=notif_data.get("dedup_key"),
                 is_read=False,
             )
         )
@@ -348,9 +387,7 @@ async def get_unread_count(session: AsyncSession, user_id: int) -> int:
     return count
 
 
-async def reconcile_friend_request_notifications(
-    session: AsyncSession, user_id: int
-) -> int:
+async def reconcile_friend_request_notifications(session: AsyncSession, user_id: int) -> int:
     """Dismiss obsolete or duplicate friend-request notifications.
 
     The pending friend-request table is authoritative. Historical notification
@@ -362,16 +399,6 @@ async def reconcile_friend_request_notifications(
     receiver_player_id = player_result.scalar_one_or_none()
     if receiver_player_id is None:
         return 0
-
-    pending_result = await session.execute(
-        select(FriendRequest.id, FriendRequest.sender_player_id).where(
-            and_(
-                FriendRequest.receiver_player_id == receiver_player_id,
-                FriendRequest.status == FriendRequestStatus.PENDING.value,
-            )
-        )
-    )
-    pending_by_id = {row.id: row.sender_player_id for row in pending_result.all()}
 
     notification_result = await session.execute(
         select(Notification)
@@ -385,40 +412,77 @@ async def reconcile_friend_request_notifications(
         .order_by(Notification.created_at.desc(), Notification.id.desc())
     )
 
-    seen_request_ids: set[int] = set()
-    now = utcnow()
-    dismissed = 0
-    for notification in notification_result.scalars().all():
+    notifications = notification_result.scalars().all()
+    parsed = {}
+    sender_ids = set()
+    for notification in notifications:
         try:
             data = json.loads(notification.data) if notification.data else {}
         except json.JSONDecodeError:
             data = {}
-
         raw_request_id = data.get("friend_request_id", data.get("request_id"))
         raw_sender_id = data.get("sender_player_id")
         try:
             request_id = int(raw_request_id)
-            sender_id = int(raw_sender_id)
         except (TypeError, ValueError):
             request_id = None
+        try:
+            sender_id = int(raw_sender_id)
+        except (TypeError, ValueError):
             sender_id = None
+        parsed[notification.id] = (data, request_id, sender_id)
+        if sender_id is not None:
+            sender_ids.add(sender_id)
 
-        is_active = (
-            request_id is not None
-            and sender_id is not None
-            and pending_by_id.get(request_id) == sender_id
-            and request_id not in seen_request_ids
-        )
-        if is_active:
-            seen_request_ids.add(request_id)
+    relationships = await resolve_relationships(session, receiver_player_id, sender_ids)
+
+    # Prefer a notification with the canonical request id. A legacy row that
+    # only identifies the sender is retained only when no exact row exists.
+    winner_ids = set()
+    for sender_id in sender_ids:
+        relationship = relationships.get(str(sender_id), {})
+        if relationship.get("status") != "pending_incoming":
+            continue
+        canonical_request_id = relationship.get("request_id")
+        exact = [
+            notification
+            for notification in notifications
+            if parsed[notification.id][1] == canonical_request_id
+            and parsed[notification.id][2] == sender_id
+        ]
+        legacy = [
+            notification
+            for notification in notifications
+            if parsed[notification.id][1] is None and parsed[notification.id][2] == sender_id
+        ]
+        candidates = exact or legacy
+        if candidates:
+            winner_ids.add(candidates[0].id)
+
+    now = utcnow()
+    dismissed = 0
+    changed = False
+    for notification in notifications:
+        data, _, sender_id = parsed[notification.id]
+        if notification.id in winner_ids:
+            request_id = relationships[str(sender_id)]["request_id"]
+            expected_key = f"friend_request:{request_id}"
+            if data.get("friend_request_id") != request_id:
+                data["friend_request_id"] = request_id
+                notification.data = json.dumps(data)
+                changed = True
+            if notification.dedup_key != expected_key:
+                notification.dedup_key = expected_key
+                changed = True
             continue
 
         notification.is_read = True
         notification.read_at = notification.read_at or now
         notification.dismissed_at = now
         dismissed += 1
+        changed = True
 
-    if dismissed:
+    if changed:
         await session.flush()
     return dismissed
 
@@ -486,9 +550,8 @@ async def mark_friend_request_notifications_handled(
         notification_request_id = data.get("friend_request_id", data.get("request_id"))
         notification_sender_id = data.get("sender_player_id")
         matches_request = str(notification_request_id) == str(request_id)
-        matches_sender = (
-            sender_player_id is not None
-            and str(notification_sender_id) == str(sender_player_id)
+        matches_sender = sender_player_id is not None and str(notification_sender_id) == str(
+            sender_player_id
         )
         if not matches_request and not matches_sender:
             continue

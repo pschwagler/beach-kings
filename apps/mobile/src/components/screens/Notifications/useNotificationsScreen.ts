@@ -11,9 +11,9 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
-import useApi from "@/hooks/useApi";
-import { api } from "@/lib/api";
 import { hapticMedium } from "@/utils/haptics";
+import { useNotificationQuery } from '@/hooks/useNotificationQuery';
+import { useFriendshipMutations } from '@/hooks/useFriendshipMutations';
 import type { Notification, NotificationType } from "@beach-kings/shared";
 
 export type NotificationFilter = "all" | "friends" | "games" | "leagues";
@@ -27,16 +27,6 @@ function getFriendRequestId(notification: Notification): number | null {
     return Number.isFinite(numeric) ? numeric : null;
   }
   return null;
-}
-
-function isAlreadyHandledFriendRequestError(error: unknown): boolean {
-  const detail =
-    (error as { response?: { data?: { detail?: unknown } } })?.response?.data
-      ?.detail ?? (error instanceof Error ? error.message : null);
-  return (
-    typeof detail === "string" &&
-    /no longer pending|not found|already friends/i.test(detail)
-  );
 }
 
 /** Maps filter labels to the NotificationTypes they include. */
@@ -91,41 +81,31 @@ export interface UseNotificationsScreenResult {
 export function useNotificationsScreen(): UseNotificationsScreenResult {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
   const {
-    data: rawNotifications,
+    notifications: rawNotifications,
     isLoading,
     error,
     refetch,
-    mutate,
-  } = useApi<Notification[]>(
-    () =>
-      api
-        .getNotifications()
-        .then((r: { items?: Notification[] } | Notification[]) =>
-          Array.isArray(r) ? r : (r.items ?? []),
-        ),
-    [],
-  );
+    isRefetching,
+    markAsRead,
+    markAllAsRead,
+  } = useNotificationQuery();
+  const friendshipMutations = useFriendshipMutations();
 
   const notifications = useMemo<readonly Notification[]>(() => {
-    const all = rawNotifications ?? [];
+    const all = rawNotifications;
     const typeSet = FILTER_TYPES[activeFilter];
     if (typeSet == null) return all;
     return all.filter((n) => typeSet.has(n.type));
   }, [rawNotifications, activeFilter]);
 
   const unreadCount = useMemo(
-    () => (rawNotifications ?? []).filter((n) => !n.is_read).length,
+    () => rawNotifications.filter((notification) => !notification.is_read).length,
     [rawNotifications],
   );
 
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    refetch().finally(() => {
-      setIsRefreshing(false);
-    });
+    void refetch();
   }, [refetch]);
 
   const onRetry = useCallback(() => {
@@ -136,52 +116,32 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
   const onNotificationPress = useCallback(
     (notification: Notification) => {
       if (!notification.is_read) {
-        // Optimistic mark-read
-        const prev = rawNotifications ?? [];
-        mutate(
-          prev.map((n) =>
-            n.id === notification.id
-              ? { ...n, is_read: true, read_at: new Date().toISOString() }
-              : n,
-          ),
-        );
-        api.markNotificationRead(notification.id).catch(() => {
-          mutate(prev);
-        });
+        markAsRead(notification.id);
       }
       if (notification.link_url != null && notification.link_url.length > 0) {
         // Navigate to the linked route if it's an internal path
         router.push(notification.link_url as Parameters<typeof router.push>[0]);
       }
     },
-    [rawNotifications, mutate, router],
+    [markAsRead, router],
   );
 
   const onMarkAllRead = useCallback(() => {
     void hapticMedium();
-    const prev = rawNotifications ?? [];
-    const now = new Date().toISOString();
-    mutate(prev.map((n) => ({ ...n, is_read: true, read_at: now })));
-    api.markAllNotificationsRead().catch(() => {
-      mutate(prev);
-    });
-  }, [rawNotifications, mutate]);
+    markAllAsRead();
+  }, [markAllAsRead]);
 
   const onAcceptFriendRequest = useCallback(
     (notification: Notification) => {
       void hapticMedium();
       const requestId = getFriendRequestId(notification);
       if (requestId == null) return;
-      // Optimistic: resolved requests disappear from the feed.
-      const prev = rawNotifications ?? [];
-      mutate(prev.filter((n) => n.id !== notification.id));
-      api.acceptFriendRequest(requestId).catch((error) => {
-        if (!isAlreadyHandledFriendRequestError(error)) {
-          mutate(prev);
-        }
+      friendshipMutations.accept.mutate({
+        requestId,
+        notificationId: notification.id,
       });
     },
-    [rawNotifications, mutate],
+    [friendshipMutations.accept],
   );
 
   const onDeclineFriendRequest = useCallback(
@@ -189,22 +149,19 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
       void hapticMedium();
       const requestId = getFriendRequestId(notification);
       if (requestId == null) return;
-      const prev = rawNotifications ?? [];
-      mutate(prev.filter((n) => n.id !== notification.id));
-      api.declineFriendRequest(requestId).catch((error) => {
-        if (!isAlreadyHandledFriendRequestError(error)) {
-          mutate(prev);
-        }
+      friendshipMutations.decline.mutate({
+        requestId,
+        notificationId: notification.id,
       });
     },
-    [rawNotifications, mutate],
+    [friendshipMutations.decline],
   );
 
   return {
     notifications,
     isLoading,
     error,
-    isRefreshing,
+    isRefreshing: isRefetching,
     activeFilter,
     setActiveFilter,
     unreadCount,

@@ -7,7 +7,13 @@
  * rollback on failure.
  */
 
-import { renderHook, waitFor, act } from '@testing-library/react-native';
+import React from 'react';
+import {
+  renderHook as renderQueryHook,
+  waitFor,
+  act,
+} from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks — factories run before the subject under test is imported.
@@ -15,6 +21,10 @@ import { renderHook, waitFor, act } from '@testing-library/react-native';
 
 jest.mock('@/utils/haptics', () => ({
   hapticMedium: jest.fn(),
+}));
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 123 }, isAuthenticated: true }),
 }));
 
 jest.mock('@/lib/api', () => ({
@@ -31,6 +41,19 @@ const mockApi = api as unknown as {
   discoverPlayers: jest.Mock;
   sendFriendRequest: jest.Mock;
 };
+
+function renderHook<Result>(callback: () => Result) {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false, gcTime: Infinity },
+    },
+  });
+  function Wrapper({ children }: { readonly children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client }, children);
+  }
+  return renderQueryHook(callback, { wrapper: Wrapper });
+}
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -296,6 +319,7 @@ describe('useDiscoverPlayers — refresh & retry', () => {
 describe('useDiscoverPlayers — add friend', () => {
   it('optimistically marks a player as pending on add', async () => {
     mockApi.discoverPlayers.mockResolvedValue({ items: [PLAYER] });
+    mockApi.sendFriendRequest.mockReturnValue(new Promise(() => {}));
 
     const { result } = renderHook(() => useDiscoverPlayers());
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
@@ -304,8 +328,10 @@ describe('useDiscoverPlayers — add friend', () => {
       result.current.onAddFriend(7);
     });
 
-    expect(result.current.pendingSendIds.has(7)).toBe(true);
-    expect(mockApi.sendFriendRequest).toHaveBeenCalledWith(7);
+    await waitFor(() => {
+      expect(result.current.pendingSendIds.has(7)).toBe(true);
+      expect(mockApi.sendFriendRequest).toHaveBeenCalledWith(7);
+    });
   });
 
   it('rolls back the pending state when the request fails', async () => {

@@ -5,6 +5,7 @@ import React from 'react';
 import { Text, Pressable } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import { renderHook, act } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import NotificationProvider, { useNotifications } from '@/contexts/NotificationContext';
 import ToastProvider, { useToast } from '@/contexts/ToastContext';
@@ -28,6 +29,19 @@ jest.mock('expo-haptics', () => ({
 // ---------------------------------------------------------------------------
 // NotificationContext
 // ---------------------------------------------------------------------------
+function createNotificationWrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+  return function NotificationWrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>
+        <NotificationProvider>{children}</NotificationProvider>
+      </QueryClientProvider>
+    );
+  };
+}
+
 describe('NotificationContext', () => {
   it('throws when useNotifications is called outside provider', () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -38,9 +52,7 @@ describe('NotificationContext', () => {
   });
 
   it('provides initial empty notifications state', () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <NotificationProvider>{children}</NotificationProvider>
-    );
+    const wrapper = createNotificationWrapper();
     const { result } = renderHook(() => useNotifications(), { wrapper });
 
     expect(result.current.notifications).toHaveLength(0);
@@ -49,18 +61,14 @@ describe('NotificationContext', () => {
   });
 
   it('markAsRead is a function', () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <NotificationProvider>{children}</NotificationProvider>
-    );
+    const wrapper = createNotificationWrapper();
     const { result } = renderHook(() => useNotifications(), { wrapper });
     expect(typeof result.current.markAsRead).toBe('function');
     expect(typeof result.current.markAllAsRead).toBe('function');
   });
 
   it('addNotificationListener returns an unsubscribe function', () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <NotificationProvider>{children}</NotificationProvider>
-    );
+    const wrapper = createNotificationWrapper();
     const { result } = renderHook(() => useNotifications(), { wrapper });
     const unsubscribe = result.current.addNotificationListener('test', jest.fn());
     expect(typeof unsubscribe).toBe('function');

@@ -68,7 +68,7 @@ async def decline_friend_request(
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Decline a pending friend request (deletes the row so sender can re-request)."""
+    """Decline a pending friend request while retaining its history."""
     try:
         await friend_service.decline_friend_request(session, request_id, user["player_id"])
     except ValueError as e:

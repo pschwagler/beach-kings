@@ -11,7 +11,13 @@
  *   - Optimistic add-suggestion with rollback on failure.
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react-native';
+import React from 'react';
+import {
+  renderHook as renderQueryHook,
+  act,
+  waitFor,
+} from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -19,6 +25,10 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 
 jest.mock('@/utils/haptics', () => ({
   hapticMedium: jest.fn(),
+}));
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 123 }, isAuthenticated: true }),
 }));
 
 jest.mock('@/lib/api', () => ({
@@ -43,6 +53,19 @@ const mockApi = api as unknown as {
   acceptFriendRequest: jest.Mock;
   declineFriendRequest: jest.Mock;
 };
+
+function renderHook<Result>(callback: () => Result) {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false, gcTime: Infinity },
+    },
+  });
+  function Wrapper({ children }: { readonly children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client }, children);
+  }
+  return renderQueryHook(callback, { wrapper: Wrapper });
+}
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -247,6 +270,7 @@ describe('useFriends — refresh & retry', () => {
 
 describe('useFriends — optimistic accept / decline', () => {
   it('removes a request optimistically on accept', async () => {
+    mockApi.acceptFriendRequest.mockReturnValue(new Promise(() => {}));
     const { result } = renderHook(() => useFriends());
     await waitFor(() => expect(result.current.friendRequests).toHaveLength(1));
 
@@ -254,8 +278,10 @@ describe('useFriends — optimistic accept / decline', () => {
       result.current.onAcceptRequest(REQUEST.id);
     });
 
-    expect(result.current.friendRequests).toHaveLength(0);
-    expect(mockApi.acceptFriendRequest).toHaveBeenCalledWith(REQUEST.id);
+    await waitFor(() => {
+      expect(result.current.friendRequests).toHaveLength(0);
+      expect(mockApi.acceptFriendRequest).toHaveBeenCalledWith(REQUEST.id);
+    });
   });
 
   it('rolls back the request on accept failure', async () => {
@@ -295,8 +321,10 @@ describe('useFriends — optimistic add suggestion', () => {
       result.current.onAddSuggestion(SUGGESTION.player_id);
     });
 
-    expect(result.current.pendingAddIds.has(SUGGESTION.player_id)).toBe(true);
-    expect(mockApi.sendFriendRequest).toHaveBeenCalledWith(SUGGESTION.player_id);
+    await waitFor(() => {
+      expect(result.current.pendingAddIds.has(SUGGESTION.player_id)).toBe(true);
+      expect(mockApi.sendFriendRequest).toHaveBeenCalledWith(SUGGESTION.player_id);
+    });
   });
 
   it('rolls back pending state when the send fails', async () => {

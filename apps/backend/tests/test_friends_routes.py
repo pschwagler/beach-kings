@@ -428,6 +428,7 @@ class TestBatchFriendStatus:
         async def fake_batch(session, player_id, ids):
             return {
                 "statuses": {str(pid): "none" for pid in ids},
+                "relationships": {str(pid): {"status": "none", "request_id": None} for pid in ids},
                 "mutual_counts": {str(pid): 0 for pid in ids},
             }
 
@@ -444,7 +445,7 @@ class TestBatchFriendStatus:
         """Empty list is valid."""
 
         async def fake_batch(session, player_id, ids):
-            return {"statuses": {}, "mutual_counts": {}}
+            return {"statuses": {}, "relationships": {}, "mutual_counts": {}}
 
         monkeypatch.setattr(friend_service, "batch_friend_status", fake_batch, raising=True)
 

@@ -58,8 +58,10 @@ fi
 
 BACKEND_URL="${BACKEND_URL:-${EXPO_PUBLIC_API_URL:-http://localhost:8000}}"
 METRO_URL="${METRO_URL:-http://localhost:8081}"
-DEV_EMAIL="${EXPO_PUBLIC_DEV_USER_EMAIL:-}"
-DEV_PASSWORD="${EXPO_PUBLIC_DEV_USER_PASSWORD:-}"
+E2E_RUN_ID=""
+E2E_TEST_EMAIL=""
+E2E_TEST_PASSWORD=""
+E2E_REQUESTER_NAME=""
 
 fail() {
   printf 'error: %s\n' "$1" >&2
@@ -99,109 +101,125 @@ open_sim_url() {
   xcrun simctl openurl "$SIMULATOR_UDID" "$url"
 }
 
-seed_social_data() {
-  PYTHONPATH="${REPO_ROOT}/apps" "${REPO_ROOT}/venv/bin/python" - <<'PY'
+prepare_social_fixture() {
+  E2E_RUN_ID="${SOCIAL_E2E_RUN_ID:-$(python3 -c 'import secrets, time; print(f"{int(time.time())}-{secrets.token_hex(4)}")')}"
+  if ! [[ "$E2E_RUN_ID" =~ ^[a-z0-9-]{1,48}$ ]]; then
+    fail "SOCIAL_E2E_RUN_ID must contain only lowercase letters, digits, and hyphens (48 characters max)"
+  fi
+
+  local name_suffix="${E2E_RUN_ID: -8}"
+  E2E_TEST_EMAIL="social-e2e-${E2E_RUN_ID}-runner@beachleague.test"
+  E2E_TEST_PASSWORD="BkSocial$(python3 -c 'import secrets; print(secrets.token_hex(12))')"
+  E2E_REQUESTER_NAME="Social E2E Bob ${name_suffix}"
+
+  SOCIAL_E2E_RUN_ID="$E2E_RUN_ID" \
+    SOCIAL_E2E_TEST_EMAIL="$E2E_TEST_EMAIL" \
+    SOCIAL_E2E_TEST_PASSWORD="$E2E_TEST_PASSWORD" \
+    PYTHONPATH="${REPO_ROOT}/apps" \
+    "${REPO_ROOT}/venv/bin/python" - <<'PY'
 import asyncio
 import os
-from sqlalchemy import select, delete, or_
+from urllib.parse import urlparse
+
+database_url = os.getenv("DATABASE_URL")
+database_host = (
+    urlparse(database_url).hostname
+    if database_url
+    else os.getenv("POSTGRES_HOST", "localhost")
+)
+local_database_hosts = {
+    None,
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "db",
+    "postgres",
+    "host.docker.internal",
+}
+if database_host not in local_database_hosts:
+    raise RuntimeError(
+        "Social E2E fixtures may only be added to a local database; "
+        f"refusing database host {database_host!r}"
+    )
+
 from backend.database.db import AsyncSessionLocal
-from backend.database.models import User, Player, FriendRequest, Friend
+from backend.database.models import Location, Player, User
 from backend.services.auth_service import hash_password
 from backend.services import friend_service
+from sqlalchemy import select
 
-TEST_PLAYERS = [
+run_id = os.environ["SOCIAL_E2E_RUN_ID"]
+name_suffix = run_id[-8:]
+test_password = os.environ["SOCIAL_E2E_TEST_PASSWORD"]
+
+TEST_PLAYERS = (
     {
-        "phone": "+15550002222",
-        "password": "test1234",
-        "name": "Bob Test",
-        "email": "bob@test.com",
+        "name": f"Social E2E Runner {name_suffix}",
+        "email": os.environ["SOCIAL_E2E_TEST_EMAIL"],
         "gender": "male",
         "level": "AA",
-        "location_id": "socal_la",
         "city": "Los Angeles",
         "state": "CA",
     },
     {
-        "phone": "+15550003333",
-        "password": "test1234",
-        "name": "Carol Test",
-        "email": "carol@test.com",
+        "name": f"Social E2E Bob {name_suffix}",
+        "email": f"social-e2e-{run_id}-bob@beachleague.test",
+        "gender": "male",
+        "level": "AA",
+        "city": "Los Angeles",
+        "state": "CA",
+    },
+    {
+        "name": f"Social E2E Carol {name_suffix}",
+        "email": f"social-e2e-{run_id}-carol@beachleague.test",
         "gender": "female",
         "level": "B",
-        "location_id": "socal_sd",
         "city": "San Diego",
         "state": "CA",
     },
-]
+)
 
-async def upsert_player(session, *, email, password, phone, name, gender, level, location_id, city, state):
-    result = await session.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-    if user is None:
-        user = User(
-            phone_number=phone,
-            email=email,
-            password_hash=hash_password(password),
-            is_verified=True,
-        )
-        session.add(user)
-        await session.flush()
-    else:
-        user.password_hash = hash_password(password)
-        user.is_verified = True
 
-    result = await session.execute(select(Player).where(Player.user_id == user.id))
-    player = result.scalar_one_or_none()
-    if player is None:
-        player = Player(user_id=user.id, is_placeholder=False)
-        session.add(player)
+async def create_player(
+    session, *, email, name, gender, level, city, state, location_id
+):
+    user = User(
+        email=email,
+        password_hash=hash_password(test_password),
+        is_verified=True,
+    )
+    session.add(user)
+    await session.flush()
 
-    player.full_name = name
-    player.gender = gender
-    player.level = level
-    player.location_id = location_id
-    player.city = city
-    player.state = state
+    player = Player(
+        user_id=user.id,
+        full_name=name,
+        first_name=name.split()[0],
+        last_name=" ".join(name.split()[1:]),
+        gender=gender,
+        level=level,
+        location_id=location_id,
+        city=city,
+        state=state,
+        is_placeholder=False,
+    )
+    session.add(player)
     await session.flush()
     return player
 
+
 async def main():
-    dev_email = os.environ["EXPO_PUBLIC_DEV_USER_EMAIL"]
-    dev_password = os.environ["EXPO_PUBLIC_DEV_USER_PASSWORD"]
-
     async with AsyncSessionLocal() as session:
-        dev = await upsert_player(
-            session,
-            email=dev_email,
-            password=dev_password,
-            phone="+15559990000",
-            name="Dev User",
-            gender="female",
-            level="A",
-            location_id="socal_sd",
-            city="San Diego",
-            state="CA",
-        )
-        seeded = []
-        for player in TEST_PLAYERS:
-            seeded.append(await upsert_player(session, **player))
+        location_id = await session.scalar(select(Location.id).order_by(Location.id).limit(1))
+        if location_id is None:
+            raise RuntimeError("Social E2E fixtures require one existing location")
 
-        ids = [dev.id, *[player.id for player in seeded]]
-        await session.execute(
-            delete(FriendRequest).where(
-                or_(
-                    FriendRequest.sender_player_id.in_(ids),
-                    FriendRequest.receiver_player_id.in_(ids),
-                )
-            )
-        )
-        await session.execute(
-            delete(Friend).where(or_(Friend.player1_id.in_(ids), Friend.player2_id.in_(ids)))
-        )
-        await session.commit()
-
-        for sender in seeded:
-            await friend_service.send_friend_request(session, sender.id, dev.id)
+        runner, bob, carol = [
+            await create_player(session, location_id=location_id, **player)
+            for player in TEST_PLAYERS
+        ]
+        await friend_service.send_friend_request(session, bob.id, runner.id)
+        await friend_service.send_friend_request(session, carol.id, runner.id)
         await session.commit()
 
 asyncio.run(main())
@@ -212,10 +230,6 @@ require_cmd curl
 require_cmd xcrun
 require_cmd maestro
 require_java
-
-[ -x "${REPO_ROOT}/venv/bin/python" ] || fail "venv python not found at ${REPO_ROOT}/venv/bin/python"
-[ -n "$DEV_EMAIL" ] || fail "EXPO_PUBLIC_DEV_USER_EMAIL is required"
-[ -n "$DEV_PASSWORD" ] || fail "EXPO_PUBLIC_DEV_USER_PASSWORD is required"
 
 if [ "$SIMULATOR_UDID" = "booted" ]; then
   SIMULATOR_UDID="$(
@@ -239,7 +253,10 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
   exit 0
 fi
 
-seed_social_data
+require_cmd python3
+[ -x "${REPO_ROOT}/venv/bin/python" ] || fail "venv python not found at ${REPO_ROOT}/venv/bin/python"
+
+prepare_social_fixture
 
 encoded_metro_url="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$METRO_URL")"
 xcrun simctl terminate "$SIMULATOR_UDID" "$APP_ID" >/dev/null 2>&1 || true
@@ -256,21 +273,32 @@ trap 'rm -f "$tmp_flow"' EXIT
   printf '%s\n' '- assertVisible: "BEACH LEAGUE"'
   printf '%s\n' '- tapOn: "I already have an account"'
   printf '%s\n' '- assertVisible: "Welcome back"'
-  printf '%s\n' '- tapOn: "Dev quick login"'
+  printf '%s\n' '- tapOn:'
+  printf '%s\n' '    text: "Email"'
+  printf '%s\n' '    index: 0'
+  printf '%s\n' "- inputText: \${E2E_TEST_EMAIL}"
+  printf '%s\n' '- tapOn: "Password"'
+  printf '%s\n' "- inputText: \${E2E_TEST_PASSWORD}"
+  printf '%s\n' '- tapOn:'
+  printf '%s\n' '    text: "Log In"'
+  printf '%s\n' '    index: 1'
   printf '%s\n' '- extendedWaitUntil:'
-  printf '%s\n' '    visible: "BEACH LEAGUE"'
+  printf '%s\n' '    visible: "Home tab"'
   printf '%s\n' '    timeout: 20000'
 } >"$tmp_flow"
 
-maestro_cmd --udid "$SIMULATOR_UDID" test "$tmp_flow"
+maestro_cmd --udid "$SIMULATOR_UDID" test \
+  --env "E2E_TEST_EMAIL=${E2E_TEST_EMAIL}" \
+  --env "E2E_TEST_PASSWORD=${E2E_TEST_PASSWORD}" \
+  "$tmp_flow"
 
 open_sim_url "beach-league://social"
 maestro_cmd --udid "$SIMULATOR_UDID" test "${MOBILE_DIR}/.maestro/social-hub-smoke.yaml"
 
-seed_social_data
-
 open_sim_url "beach-league://social?tab=friends"
-maestro_cmd --udid "$SIMULATOR_UDID" test "${MOBILE_DIR}/.maestro/social-friend-request-accept.yaml"
+maestro_cmd --udid "$SIMULATOR_UDID" test \
+  --env "E2E_REQUESTER_NAME=${E2E_REQUESTER_NAME}" \
+  "${MOBILE_DIR}/.maestro/social-friend-request-accept.yaml"
 
 open_sim_url "beach-league://add-games"
 maestro_cmd --udid "$SIMULATOR_UDID" test "${MOBILE_DIR}/.maestro/sessions-games-smoke.yaml"

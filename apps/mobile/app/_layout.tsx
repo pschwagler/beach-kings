@@ -12,7 +12,8 @@ import ThemeProvider, { useTheme } from '@/contexts/ThemeContext';
 import NotificationProvider from '@/contexts/NotificationContext';
 import ToastProvider from '@/contexts/ToastContext';
 import ErrorBoundary from '@/lib/ErrorBoundary';
-import { createQueryClient } from '@/lib/queryClient';
+import { createQueryClient, subscribeQueryLifecycle } from '@/lib/queryClient';
+import PrivateQueryCacheGuard from '@/lib/PrivateQueryCacheGuard';
 
 // Prevent splash screen from auto-hiding until fonts + auth are ready
 SplashScreen.preventAutoHideAsync();
@@ -76,6 +77,8 @@ export default function RootLayout(): React.ReactNode {
     loadFonts();
   }, []);
 
+  useEffect(() => subscribeQueryLifecycle(), []);
+
   const handleReady = useCallback(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
@@ -92,13 +95,15 @@ export default function RootLayout(): React.ReactNode {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <AuthProvider>
-              <NotificationProvider>
-                <ToastProvider>
-                  <ErrorBoundary>
-                    <RootLayoutInner onReady={handleReady} />
-                  </ErrorBoundary>
-                </ToastProvider>
-              </NotificationProvider>
+              <PrivateQueryCacheGuard>
+                <NotificationProvider>
+                  <ToastProvider>
+                    <ErrorBoundary>
+                      <RootLayoutInner onReady={handleReady} />
+                    </ErrorBoundary>
+                  </ToastProvider>
+                </NotificationProvider>
+              </PrivateQueryCacheGuard>
             </AuthProvider>
           </ThemeProvider>
         </QueryClientProvider>

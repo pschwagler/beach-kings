@@ -9,6 +9,8 @@ import { View, Text, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { pluralize } from '@/lib/formatters';
+import { presentRelationship } from '@/lib/socialRelationships';
+import type { FriendshipStatus } from '@beach-kings/shared';
 
 /** Shape of a discoverable player returned by the discover endpoint. */
 export interface DiscoverPlayer {
@@ -20,8 +22,7 @@ export interface DiscoverPlayer {
   readonly games_played: number;
   readonly mutual_friends_count: number;
   readonly last_active_label: string | null;
-  /** 'none' | 'pending' | 'friend' */
-  readonly friend_status: 'none' | 'pending' | 'friend';
+  readonly friend_status: FriendshipStatus;
 }
 
 interface PlayerRowProps {
@@ -48,7 +49,10 @@ export default function PlayerRow({
     onAddFriend(player.player_id);
   }, [onAddFriend, player.player_id]);
 
-  const friendStatus = isPendingSend ? 'pending' : player.friend_status;
+  const friendStatus: FriendshipStatus = isPendingSend
+    ? 'pending_outgoing'
+    : player.friend_status;
+  const relationship = presentRelationship(friendStatus);
 
   return (
     <Pressable
@@ -103,8 +107,8 @@ export default function PlayerRow({
         )}
       </View>
 
-      {/* Add / Pending / Friend button */}
-      {friendStatus === 'none' && (
+      {/* Relationship status stays compact; incoming actions live on profile. */}
+      {relationship.canAdd && (
         <Pressable
           testID={`add-friend-btn-${player.player_id}`}
           onPress={handleAdd}
@@ -117,23 +121,13 @@ export default function PlayerRow({
           </Text>
         </Pressable>
       )}
-      {(friendStatus === 'pending') && (
+      {!relationship.canAdd && relationship.discoveryLabel != null && (
         <View
-          testID={`pending-btn-${player.player_id}`}
+          testID={`relationship-status-${player.player_id}`}
           className="px-[14px] py-[10px] rounded-[8px] bg-info-tint min-h-[44px] justify-center"
         >
           <Text className="text-[12px] font-bold text-info">
-            Pending
-          </Text>
-        </View>
-      )}
-      {friendStatus === 'friend' && (
-        <View
-          testID={`friends-badge-${player.player_id}`}
-          className="px-[14px] py-[10px] rounded-[8px] bg-info-tint min-h-[44px] justify-center"
-        >
-          <Text className="text-[12px] font-bold text-info">
-            Friends
+            {relationship.discoveryLabel}
           </Text>
         </View>
       )}

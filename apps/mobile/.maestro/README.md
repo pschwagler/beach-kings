@@ -40,12 +40,17 @@ The runner expects:
 - Backend reachable at `BACKEND_URL` or `EXPO_PUBLIC_API_URL` (defaults to
   `http://localhost:8000`).
 - A repo `venv` with backend dependencies available for seed setup.
-- `EXPO_PUBLIC_DEV_USER_EMAIL` and `EXPO_PUBLIC_DEV_USER_PASSWORD` available in
-  the environment or in `.env`, matching the dev login button.
+- A database where the runner may add isolated fixture users and social rows.
 
-It seeds the dev user plus Bob/Carol incoming requests, opens the dev-client
-bundle, authenticates with the dev login button, and runs the Social Hub and
-Sessions/Games smoke flows.
+Each run inserts a uniquely named runner plus two request senders, opens the
+dev-client bundle, authenticates with the run-scoped runner credentials, and
+runs the Social Hub and Sessions/Games smoke flows. Fixture setup is strictly
+additive: it never rewrites an existing account or deletes relationships,
+requests, notifications, messages, or users. The fixture records are retained
+after the run. Set `SOCIAL_E2E_RUN_ID` to a unique lowercase identifier when a
+stable run label is useful; reusing an identifier intentionally fails instead
+of modifying the earlier fixture. The fixture guard also refuses a database
+host other than loopback or a standard local Docker host.
 
 To validate local/CI prerequisites and Maestro syntax without seeding data or
 running flows:

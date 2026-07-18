@@ -14,6 +14,7 @@ from backend.database.models import (
     Location,
     Match,
     Friend,
+    FriendRequest,
     Player,
     PlayerGlobalStats,
     PlayerSeasonStats,
@@ -811,6 +812,44 @@ async def test_get_public_player_zero_games_visible_to_friend(db_session, test_p
     assert result is not None
     assert result["id"] == test_player.id
     assert result["stats"]["total_games"] == 0
+    assert result["friend_status"] == "friend"
+    assert result["friend_request_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_exposes_incoming_request_action(db_session, test_player):
+    """A receiver can open a zero-game sender profile and use its request id."""
+    viewer_user = User(phone_number="+15559990102", password_hash="hash", is_verified=True)
+    db_session.add(viewer_user)
+    await db_session.flush()
+    viewer_player = Player(full_name="Request Receiver", user_id=viewer_user.id)
+    db_session.add(viewer_player)
+    await db_session.flush()
+    request = FriendRequest(
+        sender_player_id=test_player.id,
+        receiver_player_id=viewer_player.id,
+        status="pending",
+    )
+    db_session.add_all(
+        [
+            request,
+            PlayerGlobalStats(
+                player_id=test_player.id,
+                total_games=0,
+                total_wins=0,
+                current_rating=1200.0,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    result = await public_service.get_public_player(
+        db_session, test_player.id, viewer_user={"id": viewer_user.id}
+    )
+
+    assert result is not None
+    assert result["friend_status"] == "pending_incoming"
+    assert result["friend_request_id"] == request.id
 
 
 @pytest.mark.asyncio

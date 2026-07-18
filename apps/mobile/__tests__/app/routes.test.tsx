@@ -203,6 +203,16 @@ jest.mock('@/lib/ErrorBoundary', () => {
   };
 });
 
+// Native Query focus/online wiring is covered separately; route tests only
+// need a deterministic no-op subscription.
+jest.mock('@/lib/queryClient', () => {
+  const actual = jest.requireActual('@/lib/queryClient');
+  return {
+    ...actual,
+    subscribeQueryLifecycle: jest.fn(() => jest.fn()),
+  };
+});
+
 // TopNav
 jest.mock('@/components/ui/TopNav', () => {
   const React = require('react');
@@ -1046,4 +1056,3 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
     expect(queryByText('0')).toBeNull();
   });
 });
-

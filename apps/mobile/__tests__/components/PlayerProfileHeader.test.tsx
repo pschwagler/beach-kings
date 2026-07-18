@@ -9,10 +9,16 @@ import { render, screen } from '@testing-library/react-native';
 
 import PlayerProfileHeader from '@/components/screens/PlayerProfile/PlayerProfileHeader';
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({ textInverse: 'white', textDefault: 'black' }),
+}));
+
 const baseProps = {
   friendStatus: 'none' as const,
   isFriendActionLoading: false,
   onAddFriend: jest.fn(),
+  onAcceptFriend: jest.fn(),
+  onDeclineFriend: jest.fn(),
   onMessage: jest.fn(),
 };
 

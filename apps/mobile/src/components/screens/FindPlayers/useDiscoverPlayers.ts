@@ -17,51 +17,15 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { hapticMedium } from '@/utils/haptics';
-import type { DiscoverPlayer } from './PlayerRow';
-
-/**
- * Raw shape of a single item from GET /api/friends/discover. The backend serializes
- * `id`/`location_name`/`total_games`/`mutual_friend_count`, which differ from the
- * flat {@link DiscoverPlayer} the row component reads — so it must be adapted.
- * Both field spellings are accepted so the mapper is resilient to either source.
- */
-interface RawDiscoverItem {
-  readonly id?: number;
-  readonly player_id?: number;
-  readonly full_name?: string | null;
-  readonly avatar?: string | null;
-  readonly city?: string | null;
-  readonly location_name?: string | null;
-  readonly level?: string | null;
-  readonly games_played?: number;
-  readonly total_games?: number;
-  readonly mutual_friends_count?: number;
-  readonly mutual_friend_count?: number;
-  readonly last_active_label?: string | null;
-  readonly friend_status?: DiscoverPlayer['friend_status'];
-}
-
-/**
- * Maps a raw discover item onto the flat DiscoverPlayer shape the UI consumes.
- * Critically, resolves `player_id` (backend sends `id`) so list keys, profile
- * navigation, and add-friend all target a real player.
- */
-function mapDiscoverItem(it: RawDiscoverItem): DiscoverPlayer {
-  return {
-    player_id: it.player_id ?? it.id ?? 0,
-    full_name: it.full_name ?? '',
-    avatar: it.avatar ?? null,
-    city: it.city ?? it.location_name ?? null,
-    level: it.level ?? null,
-    games_played: it.games_played ?? it.total_games ?? 0,
-    mutual_friends_count: it.mutual_friends_count ?? it.mutual_friend_count ?? 0,
-    last_active_label: it.last_active_label ?? null,
-    friend_status: it.friend_status ?? 'none',
-  };
-}
+import { useAuth } from '@/contexts/AuthContext';
+import { socialApi, type DiscoverPlayer } from '@/lib/socialApi';
+import { socialQueryKeys, type DiscoverFilters } from '@/lib/socialQueryKeys';
+import {
+  useFriendshipMutations,
+  usePendingFriendRequestPlayerIds,
+} from '@/hooks/useFriendshipMutations';
 
 export interface UseDiscoverPlayersOptions {
   /** Client-side filter applied to the discover list (matches name or city). */
@@ -99,34 +63,27 @@ export function useDiscoverPlayers(
   options: UseDiscoverPlayersOptions = {},
 ): UseDiscoverPlayersResult {
   const { searchQuery = '' } = options;
+  const { user, isAuthenticated } = useAuth();
+  const userId = user?.id ?? 0;
+  const friendshipMutations = useFriendshipMutations();
 
   const [isRefreshingPlayers, setIsRefreshingPlayers] = useState(false);
-  const [pendingSendIds, setPendingSendIds] = useState<ReadonlySet<number>>(
-    new Set(),
-  );
+  const pendingSendIds = usePendingFriendRequestPlayerIds();
   const [levelFilter, setLevelFilter] = useState<DiscoverLevel | null>(null);
   const [sameLeagueOnly, setSameLeagueOnly] = useState(false);
   const [sharedFriendsOnly, setSharedFriendsOnly] = useState(false);
 
-  const {
-    data: rawPlayers,
-    isLoading: isLoadingPlayers,
-    error: playersError,
-    refetch: refetchPlayers,
-  } = useApi<DiscoverPlayer[]>(
-    () =>
-      api
-        .discoverPlayers({
-          ...(levelFilter != null ? { level: levelFilter } : {}),
-          ...(sameLeagueOnly ? { same_league: true } : {}),
-          ...(sharedFriendsOnly ? { has_mutuals: true } : {}),
-        })
-        .then((r: { items?: RawDiscoverItem[] } | RawDiscoverItem[]) => {
-          const items = Array.isArray(r) ? r : (r?.items ?? []);
-          return items.map(mapDiscoverItem);
-        }),
-    [levelFilter, sameLeagueOnly, sharedFriendsOnly],
-  );
+  const filters = useMemo<DiscoverFilters>(() => ({
+    ...(levelFilter != null ? { level: levelFilter } : {}),
+    ...(sameLeagueOnly ? { same_league: true as const } : {}),
+    ...(sharedFriendsOnly ? { has_mutuals: true as const } : {}),
+  }), [levelFilter, sameLeagueOnly, sharedFriendsOnly]);
+  const playersQuery = useQuery({
+    queryKey: socialQueryKeys.discovery(userId, filters),
+    queryFn: () => socialApi.discoverPlayers(filters),
+    enabled: isAuthenticated && userId !== 0,
+  });
+  const rawPlayers = playersQuery.data;
 
   const players = useMemo<readonly DiscoverPlayer[]>(() => {
     const all = rawPlayers ?? [];
@@ -141,14 +98,14 @@ export function useDiscoverPlayers(
 
   const onRefreshPlayers = useCallback(() => {
     setIsRefreshingPlayers(true);
-    refetchPlayers().finally(() => {
+    playersQuery.refetch().finally(() => {
       setIsRefreshingPlayers(false);
     });
-  }, [refetchPlayers]);
+  }, [playersQuery]);
 
   const onRetryPlayers = useCallback(() => {
-    void refetchPlayers();
-  }, [refetchPlayers]);
+    void playersQuery.refetch();
+  }, [playersQuery]);
 
   const onToggleLevel = useCallback((level: DiscoverLevel) => {
     setLevelFilter((prev) => (prev === level ? null : level));
@@ -164,22 +121,13 @@ export function useDiscoverPlayers(
 
   const onAddFriend = useCallback((playerId: number) => {
     void hapticMedium();
-    // Optimistic: mark as pending immediately.
-    setPendingSendIds((prev) => new Set([...prev, playerId]));
-    api.sendFriendRequest(playerId).catch(() => {
-      // Roll back on failure.
-      setPendingSendIds((prev) => {
-        const next = new Set([...prev]);
-        next.delete(playerId);
-        return next;
-      });
-    });
-  }, []);
+    friendshipMutations.send.mutate(playerId);
+  }, [friendshipMutations.send]);
 
   return {
     players,
-    isLoadingPlayers,
-    playersError,
+    isLoadingPlayers: playersQuery.isPending,
+    playersError: playersQuery.error,
     isRefreshingPlayers,
     onRefreshPlayers,
     onRetryPlayers,

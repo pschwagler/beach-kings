@@ -9,7 +9,8 @@ from typing import List, Dict, Set, Optional
 
 from backend.utils.slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func, and_, or_, case, literal, union_all
+from sqlalchemy import select, func, and_, or_, case, literal, union_all
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 from backend.database.models import (
     Friend,
@@ -26,6 +27,7 @@ from backend.database.models import (
     NotificationType,
 )
 from backend.services import notification_service
+from backend.services.relationship_service import resolve_relationship, resolve_relationships
 from backend.utils.datetime_utils import utcnow
 import logging
 
@@ -103,7 +105,8 @@ async def get_pending_request(
         FriendRequest or None
     """
     result = await session.execute(
-        select(FriendRequest).where(
+        select(FriendRequest)
+        .where(
             and_(
                 FriendRequest.status == FriendRequestStatus.PENDING.value,
                 or_(
@@ -118,6 +121,8 @@ async def get_pending_request(
                 ),
             )
         )
+        .order_by(FriendRequest.id)
+        .limit(1)
     )
     return result.scalar_one_or_none()
 
@@ -145,17 +150,13 @@ async def send_friend_request(
     if sender_player_id == receiver_player_id:
         raise ValueError("Cannot send a friend request to yourself")
 
-    # Check if already friends
-    if await are_friends(session, sender_player_id, receiver_player_id):
+    relationship = await resolve_relationship(session, sender_player_id, receiver_player_id)
+    if relationship["status"] == "friend":
         raise ValueError("Already friends with this player")
-
-    # Check for existing pending request in either direction
-    existing = await get_pending_request(session, sender_player_id, receiver_player_id)
-    if existing:
-        if existing.sender_player_id == sender_player_id:
-            raise ValueError("Friend request already sent")
-        else:
-            raise ValueError("This player already sent you a friend request. Accept it instead.")
+    if relationship["status"] == "pending_outgoing":
+        raise ValueError("Friend request already sent")
+    if relationship["status"] == "pending_incoming":
+        raise ValueError("This player already sent you a friend request. Accept it instead.")
 
     # Batch-fetch sender name and receiver user_id in one query
     player_result = await session.execute(
@@ -181,8 +182,20 @@ async def send_friend_request(
         receiver_player_id=receiver_player_id,
         status=FriendRequestStatus.PENDING.value,
     )
-    session.add(friend_request)
-    await session.flush()
+    try:
+        # The database's unordered-pair partial index is the final arbiter for
+        # concurrent same- or reverse-direction requests. The savepoint keeps
+        # the caller's transaction usable when the constraint wins the race.
+        async with session.begin_nested():
+            session.add(friend_request)
+            await session.flush()
+    except IntegrityError:
+        concurrent = await resolve_relationship(session, sender_player_id, receiver_player_id)
+        if concurrent["status"] == "pending_incoming":
+            raise ValueError("This player already sent you a friend request. Accept it instead.")
+        if concurrent["status"] == "friend":
+            raise ValueError("Already friends with this player")
+        raise ValueError("Friend request already sent")
     await session.refresh(friend_request)
 
     # Send notification to receiver
@@ -212,6 +225,7 @@ async def send_friend_request(
                     ],
                 },
                 link_url="/home?tab=friends",
+                dedup_key=f"friend_request:{friend_request.id}",
             )
         except Exception as e:
             logger.warning(f"Failed to send friend request notification: {e}")
@@ -239,7 +253,9 @@ async def accept_friend_request(
     Raises:
         ValueError: If request not found, wrong receiver, or not pending
     """
-    result = await session.execute(select(FriendRequest).where(FriendRequest.id == request_id))
+    result = await session.execute(
+        select(FriendRequest).where(FriendRequest.id == request_id).with_for_update()
+    )
     friend_request = result.scalar_one_or_none()
 
     if not friend_request:
@@ -252,6 +268,35 @@ async def accept_friend_request(
     # Update request status
     friend_request.status = FriendRequestStatus.ACCEPTED.value
     friend_request.responded_at = utcnow()
+
+    # Preserve any legacy duplicate pending rows as superseded history. New
+    # duplicates are prevented by the unordered-pair partial unique index.
+    pair_filter = or_(
+        and_(
+            FriendRequest.sender_player_id == friend_request.sender_player_id,
+            FriendRequest.receiver_player_id == friend_request.receiver_player_id,
+        ),
+        and_(
+            FriendRequest.sender_player_id == friend_request.receiver_player_id,
+            FriendRequest.receiver_player_id == friend_request.sender_player_id,
+        ),
+    )
+    superseded_result = await session.execute(
+        select(FriendRequest)
+        .where(
+            and_(
+                FriendRequest.id != request_id,
+                FriendRequest.status == FriendRequestStatus.PENDING.value,
+                pair_filter,
+            )
+        )
+        .order_by(FriendRequest.id)
+        .with_for_update()
+    )
+    superseded_requests = superseded_result.scalars().all()
+    for superseded in superseded_requests:
+        superseded.status = FriendRequestStatus.SUPERSEDED.value
+        superseded.responded_at = friend_request.responded_at
 
     # Insert into friends table with normalized ordering (player1_id < player2_id)
     p1, p2 = sorted([friend_request.sender_player_id, friend_request.receiver_player_id])
@@ -284,6 +329,16 @@ async def accept_friend_request(
             sender_player_id=friend_request.sender_player_id,
         )
 
+    for superseded in superseded_requests:
+        superseded_receiver = player_map.get(superseded.receiver_player_id)
+        if superseded_receiver and superseded_receiver.user_id:
+            await notification_service.mark_friend_request_notifications_handled(
+                session,
+                receiver_user_id=superseded_receiver.user_id,
+                request_id=superseded.id,
+                sender_player_id=superseded.sender_player_id,
+            )
+
     # Notify sender that request was accepted
     if sender_user_id:
         try:
@@ -306,10 +361,7 @@ async def decline_friend_request(
     session: AsyncSession, request_id: int, receiver_player_id: int
 ) -> None:
     """
-    Decline a pending friend request by deleting it.
-
-    Deletes the row so the sender can re-send later without hitting
-    the UniqueConstraint on (sender_player_id, receiver_player_id).
+    Decline a pending friend request while preserving its history.
 
     Args:
         session: Database session
@@ -319,7 +371,9 @@ async def decline_friend_request(
     Raises:
         ValueError: If request not found, wrong receiver, or not pending
     """
-    result = await session.execute(select(FriendRequest).where(FriendRequest.id == request_id))
+    result = await session.execute(
+        select(FriendRequest).where(FriendRequest.id == request_id).with_for_update()
+    )
     friend_request = result.scalar_one_or_none()
 
     if not friend_request:
@@ -334,7 +388,8 @@ async def decline_friend_request(
     )
     receiver_user_id = receiver_result.scalar_one_or_none()
 
-    await session.delete(friend_request)
+    friend_request.status = FriendRequestStatus.DECLINED.value
+    friend_request.responded_at = utcnow()
     await session.flush()
 
     if receiver_user_id:
@@ -350,7 +405,7 @@ async def cancel_friend_request(
     session: AsyncSession, request_id: int, sender_player_id: int
 ) -> None:
     """
-    Cancel an outgoing friend request (delete it).
+    Cancel an outgoing friend request while preserving its history.
 
     Args:
         session: Database session
@@ -360,7 +415,9 @@ async def cancel_friend_request(
     Raises:
         ValueError: If request not found, wrong sender, or not pending
     """
-    result = await session.execute(select(FriendRequest).where(FriendRequest.id == request_id))
+    result = await session.execute(
+        select(FriendRequest).where(FriendRequest.id == request_id).with_for_update()
+    )
     friend_request = result.scalar_one_or_none()
 
     if not friend_request:
@@ -370,15 +427,29 @@ async def cancel_friend_request(
     if friend_request.status != FriendRequestStatus.PENDING.value:
         raise ValueError("Friend request is no longer pending")
 
-    await session.delete(friend_request)
+    receiver_result = await session.execute(
+        select(Player.user_id).where(Player.id == friend_request.receiver_player_id)
+    )
+    receiver_user_id = receiver_result.scalar_one_or_none()
+
+    friend_request.status = FriendRequestStatus.CANCELLED.value
+    friend_request.responded_at = utcnow()
     await session.flush()
+
+    if receiver_user_id:
+        await notification_service.mark_friend_request_notifications_handled(
+            session,
+            receiver_user_id=receiver_user_id,
+            request_id=request_id,
+            sender_player_id=sender_player_id,
+        )
 
 
 async def remove_friend(session: AsyncSession, player_id: int, friend_player_id: int) -> None:
     """
     Remove a friendship between two players.
 
-    Deletes from friends table and cleans up any associated friend requests.
+    Deletes from friends table. Historical friend requests remain intact.
 
     Args:
         session: Database session
@@ -400,21 +471,6 @@ async def remove_friend(session: AsyncSession, player_id: int, friend_player_id:
 
     await session.delete(friendship)
 
-    # Clean up associated friend requests
-    await session.execute(
-        delete(FriendRequest).where(
-            or_(
-                and_(
-                    FriendRequest.sender_player_id == player_id,
-                    FriendRequest.receiver_player_id == friend_player_id,
-                ),
-                and_(
-                    FriendRequest.sender_player_id == friend_player_id,
-                    FriendRequest.receiver_player_id == player_id,
-                ),
-            )
-        )
-    )
     await session.flush()
 
 
@@ -744,48 +800,15 @@ async def batch_friend_status(
         Dict with 'statuses' and 'mutual_counts' keyed by player_id
     """
     if not target_player_ids:
-        return {"statuses": {}, "mutual_counts": {}}
+        return {"statuses": {}, "relationships": {}, "mutual_counts": {}}
 
     # Get current player's friends
     my_friends = await get_friend_ids(session, player_id)
 
-    # Get pending outgoing requests
-    outgoing_result = await session.execute(
-        select(FriendRequest.receiver_player_id).where(
-            and_(
-                FriendRequest.sender_player_id == player_id,
-                FriendRequest.status == FriendRequestStatus.PENDING.value,
-                FriendRequest.receiver_player_id.in_(target_player_ids),
-            )
-        )
-    )
-    outgoing_pending = set(outgoing_result.scalars().all())
-
-    # Get pending incoming requests
-    incoming_result = await session.execute(
-        select(FriendRequest.sender_player_id).where(
-            and_(
-                FriendRequest.receiver_player_id == player_id,
-                FriendRequest.status == FriendRequestStatus.PENDING.value,
-                FriendRequest.sender_player_id.in_(target_player_ids),
-            )
-        )
-    )
-    incoming_pending = set(incoming_result.scalars().all())
-
-    # Build statuses
-    statuses = {}
-    for tid in target_player_ids:
-        if tid == player_id:
-            statuses[str(tid)] = "self"
-        elif tid in my_friends:
-            statuses[str(tid)] = "friend"
-        elif tid in outgoing_pending:
-            statuses[str(tid)] = "pending_outgoing"
-        elif tid in incoming_pending:
-            statuses[str(tid)] = "pending_incoming"
-        else:
-            statuses[str(tid)] = "none"
+    relationships = await resolve_relationships(session, player_id, target_player_ids)
+    statuses = {
+        target_id: relationship["status"] for target_id, relationship in relationships.items()
+    }
 
     # Compute mutual friend counts in a single query instead of per-target
     counts = await batch_mutual_friend_counts(
@@ -793,7 +816,11 @@ async def batch_friend_status(
     )
     mutual_counts = {str(tid): cnt for tid, cnt in counts.items()}
 
-    return {"statuses": statuses, "mutual_counts": mutual_counts}
+    return {
+        "statuses": statuses,
+        "relationships": relationships,
+        "mutual_counts": mutual_counts,
+    }
 
 
 async def discover_players(
@@ -957,6 +984,7 @@ async def discover_players(
     result_ids = [row.id for row in rows]
     batch_status = await batch_friend_status(session, caller_player_id, result_ids)
     statuses = batch_status["statuses"]
+    relationships = batch_status["relationships"]
 
     items = [
         {
@@ -971,6 +999,7 @@ async def discover_players(
             "is_placeholder": row.is_placeholder,
             "mutual_friend_count": row.mutual_friend_count,
             "friend_status": statuses.get(str(row.id), "none"),
+            "friend_request_id": relationships.get(str(row.id), {}).get("request_id"),
         }
         for row in rows
     ]

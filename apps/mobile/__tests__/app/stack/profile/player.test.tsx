@@ -17,7 +17,14 @@
 
 import React from 'react';
 import { Linking } from 'react-native';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import {
+  render as renderWithTestingLibrary,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -99,6 +106,14 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 1 },
+    isAuthenticated: true,
+    isLoading: false,
+  }),
+}));
+
 jest.mock('@/components/ui/icons', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -117,6 +132,18 @@ jest.mock('@/components/ui/icons', () => {
 // ---------------------------------------------------------------------------
 
 import PlayerProfileRoute from '../../../../app/(stack)/player/[id]';
+
+function render(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false, gcTime: Infinity },
+    },
+  });
+  return renderWithTestingLibrary(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -138,10 +165,9 @@ const MOCK_PLAYER = {
 };
 
 const MOCK_MUTUAL_FRIEND = {
-  id: 7,
-  name: 'Sam Rivera',
-  first_name: 'Sam',
-  last_name: 'Rivera',
+  player_id: 7,
+  full_name: 'Sam Rivera',
+  avatar: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -152,7 +178,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetPublicPlayer.mockResolvedValue(MOCK_PLAYER);
   mockGetMutualFriends.mockResolvedValue([]);
-  mockBatchFriendStatus.mockResolvedValue({});
+  mockBatchFriendStatus.mockResolvedValue({
+    statuses: { '42': 'none' },
+    relationships: { '42': { status: 'none', request_id: null } },
+    mutual_counts: { '42': 0 },
+  });
   mockSendFriendRequest.mockResolvedValue({});
   mockGetPlayerLeagues.mockResolvedValue([]);
 });

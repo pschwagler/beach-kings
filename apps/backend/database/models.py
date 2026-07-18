@@ -61,6 +61,9 @@ class FriendRequestStatus(str, enum.Enum):
 
     PENDING = "pending"
     ACCEPTED = "accepted"
+    DECLINED = "declined"
+    CANCELLED = "cancelled"
+    SUPERSEDED = "superseded"
 
 
 class NotificationType(str, enum.Enum):
@@ -585,8 +588,12 @@ class FriendRequest(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "sender_player_id", "receiver_player_id", name="uq_friend_request_sender_receiver"
+        Index(
+            "uq_friend_requests_pending_pair",
+            func.least(sender_player_id, receiver_player_id),
+            func.greatest(sender_player_id, receiver_player_id),
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
         ),
         Index("idx_friend_requests_receiver_status", "receiver_player_id", "status"),
         Index("idx_friend_requests_sender", "sender_player_id"),
@@ -1465,6 +1472,7 @@ class Notification(Base):
     is_read = Column(Boolean, default=False, nullable=False)
     read_at = Column(DateTime(timezone=True), nullable=True)
     dismissed_at = Column(DateTime(timezone=True), nullable=True)
+    dedup_key = Column(String(255), nullable=True)
     link_url = Column(String(500), nullable=True)  # Navigation target
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -1474,6 +1482,14 @@ class Notification(Base):
     __table_args__ = (
         Index("idx_notifications_user_unread", "user_id", "is_read", "created_at"),
         Index("idx_notifications_user_created", "user_id", "created_at"),
+        Index("idx_notifications_dedup_key", "dedup_key"),
+        Index(
+            "uq_notifications_user_active_dedup",
+            "user_id",
+            "dedup_key",
+            unique=True,
+            postgresql_where=text("dedup_key IS NOT NULL AND dismissed_at IS NULL"),
+        ),
     )
 
 

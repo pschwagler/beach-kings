@@ -5,17 +5,22 @@ Tests friend request lifecycle, duplicate prevention, mutual friends,
 batch status, and multi-signal suggestions (mutuals, sessions, leagues).
 """
 
+import asyncio
 import json
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 from backend.services import friend_service, notification_service
 from backend.database.models import (
     User,
     Player,
     LeagueMember,
     League,
+    Friend,
+    FriendRequest,
+    FriendRequestStatus,
     Notification,
     NotificationType,
     PlayerGlobalStats,
@@ -133,21 +138,16 @@ async def test_send_friend_request_dismisses_stale_sender_notifications(db_sessi
     await db_session.refresh(stale)
 
     assert stale.dismissed_at is not None
-    feed = await notification_service.get_user_notifications(
-        db_session, user_id=stale.user_id
-    )
+    feed = await notification_service.get_user_notifications(db_session, user_id=stale.user_id)
     requests = [
-        item for item in feed["items"]
-        if item["type"] == NotificationType.FRIEND_REQUEST.value
+        item for item in feed["items"] if item["type"] == NotificationType.FRIEND_REQUEST.value
     ]
     assert len(requests) == 1
     assert requests[0]["data"]["friend_request_id"] == request["id"]
 
 
 @pytest.mark.asyncio
-async def test_notification_feed_reconciles_legacy_friend_request_duplicates(
-    db_session, players
-):
+async def test_notification_feed_reconciles_legacy_friend_request_duplicates(db_session, players):
     """The feed keeps only the notification backed by the pending request."""
     request = await friend_service.send_friend_request(
         db_session, players["alice"], players["bob"]
@@ -158,17 +158,43 @@ async def test_notification_feed_reconciles_legacy_friend_request_duplicates(
         receiver_player_id=players["bob"],
     )
 
-    feed = await notification_service.get_user_notifications(
-        db_session, user_id=stale.user_id
-    )
+    feed = await notification_service.get_user_notifications(db_session, user_id=stale.user_id)
     await db_session.refresh(stale)
 
     requests = [
-        item for item in feed["items"]
-        if item["type"] == NotificationType.FRIEND_REQUEST.value
+        item for item in feed["items"] if item["type"] == NotificationType.FRIEND_REQUEST.value
     ]
     assert [item["data"]["friend_request_id"] for item in requests] == [request["id"]]
+    assert requests[0]["dedup_key"] == f"friend_request:{request['id']}"
     assert stale.dismissed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_notification_feed_hydrates_legacy_sender_only_row(db_session, players):
+    """A legacy sender-only notification is linked to the canonical request."""
+    request = FriendRequest(
+        sender_player_id=players["alice"],
+        receiver_player_id=players["bob"],
+        status=FriendRequestStatus.PENDING.value,
+    )
+    db_session.add(request)
+    await db_session.flush()
+    receiver = await db_session.get(Player, players["bob"])
+    legacy = Notification(
+        user_id=receiver.user_id,
+        type=NotificationType.FRIEND_REQUEST.value,
+        title="Friend Request",
+        message="Legacy request",
+        data=json.dumps({"sender_player_id": players["alice"]}),
+        is_read=False,
+    )
+    db_session.add(legacy)
+    await db_session.flush()
+
+    feed = await notification_service.get_user_notifications(db_session, user_id=receiver.user_id)
+
+    assert feed["items"][0]["data"]["friend_request_id"] == request.id
+    assert feed["items"][0]["dedup_key"] == f"friend_request:{request.id}"
 
 
 @pytest.mark.asyncio
@@ -194,6 +220,39 @@ async def test_reverse_request_blocked(db_session, players):
 
     with pytest.raises(ValueError, match="already sent you a friend request"):
         await friend_service.send_friend_request(db_session, players["bob"], players["alice"])
+
+
+@pytest.mark.asyncio
+async def test_concurrent_reverse_requests_leave_one_pending(db_session, players):
+    """The unordered-pair index resolves a reverse-request race."""
+    await db_session.commit()
+    session_factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
+
+    async def attempt(sender_id, receiver_id):
+        async with session_factory() as session:
+            try:
+                result = await friend_service.send_friend_request(session, sender_id, receiver_id)
+                await session.commit()
+                return ("created", result["id"])
+            except ValueError as exc:
+                await session.rollback()
+                return ("rejected", str(exc))
+
+    outcomes = await asyncio.gather(
+        attempt(players["alice"], players["bob"]),
+        attempt(players["bob"], players["alice"]),
+    )
+
+    assert sorted(outcome[0] for outcome in outcomes) == ["created", "rejected"]
+    pending = await db_session.execute(
+        select(FriendRequest).where(FriendRequest.status == FriendRequestStatus.PENDING.value)
+    )
+    requests = pending.scalars().all()
+    assert len(requests) == 1
+    assert {requests[0].sender_player_id, requests[0].receiver_player_id} == {
+        players["alice"],
+        players["bob"],
+    }
 
 
 # ──────────────────────────────────────────────────────────────
@@ -252,15 +311,58 @@ async def test_accept_wrong_receiver(db_session, players):
 
 
 @pytest.mark.asyncio
+async def test_accept_decline_race_has_one_resolution(db_session, players):
+    """Row locking allows only one response to resolve a pending request."""
+    req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
+    await db_session.commit()
+    session_factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
+
+    async def respond(action):
+        async with session_factory() as session:
+            try:
+                if action == "accept":
+                    await friend_service.accept_friend_request(session, req["id"], players["bob"])
+                else:
+                    await friend_service.decline_friend_request(session, req["id"], players["bob"])
+                await session.commit()
+                return "resolved"
+            except ValueError:
+                await session.rollback()
+                return "rejected"
+
+    outcomes = await asyncio.gather(respond("accept"), respond("decline"))
+
+    assert sorted(outcomes) == ["rejected", "resolved"]
+    historical = await db_session.get(FriendRequest, req["id"])
+    await db_session.refresh(historical)
+    friendship = await db_session.execute(
+        select(Friend).where(
+            Friend.player1_id == min(players["alice"], players["bob"]),
+            Friend.player2_id == max(players["alice"], players["bob"]),
+        )
+    )
+    is_friend = friendship.scalar_one_or_none() is not None
+    assert historical.status in {
+        FriendRequestStatus.ACCEPTED.value,
+        FriendRequestStatus.DECLINED.value,
+    }
+    assert is_friend is (historical.status == FriendRequestStatus.ACCEPTED.value)
+
+
+@pytest.mark.asyncio
 async def test_decline_friend_request(db_session, players):
-    """Test declining a request deletes the row."""
+    """Declining preserves a resolved historical row."""
     req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
     await friend_service.decline_friend_request(db_session, req["id"], players["bob"])
 
     # Should not be friends
     assert not await friend_service.are_friends(db_session, players["alice"], players["bob"])
 
-    # Row should be gone — no pending request in either direction
+    historical = await db_session.get(FriendRequest, req["id"])
+    assert historical.status == FriendRequestStatus.DECLINED.value
+    assert historical.responded_at is not None
+
+    # There is no longer a pending request in either direction.
     pending = await friend_service.get_pending_request(
         db_session, players["alice"], players["bob"]
     )
@@ -309,15 +411,32 @@ async def test_decline_then_re_request(db_session, players):
 
 @pytest.mark.asyncio
 async def test_cancel_friend_request(db_session, players):
-    """Test cancelling an outgoing request deletes it."""
+    """Cancelling preserves history and permits a new request."""
     req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
     await friend_service.cancel_friend_request(db_session, req["id"], players["alice"])
+
+    historical = await db_session.get(FriendRequest, req["id"])
+    assert historical.status == FriendRequestStatus.CANCELLED.value
+    assert historical.responded_at is not None
 
     # Verify request is gone — should be able to send a new one
     new_req = await friend_service.send_friend_request(
         db_session, players["alice"], players["bob"]
     )
     assert new_req["id"] != req["id"]
+
+
+@pytest.mark.asyncio
+async def test_cancel_friend_request_dismisses_receiver_notification(db_session, players):
+    """Cancelling hides and retains the receiver's active notification."""
+    req = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
+    notification = await _get_friend_request_notification(db_session, req["id"])
+
+    await friend_service.cancel_friend_request(db_session, req["id"], players["alice"])
+    await db_session.refresh(notification)
+
+    assert notification.is_read is True
+    assert notification.dismissed_at is not None
 
 
 @pytest.mark.asyncio
@@ -621,12 +740,26 @@ async def test_batch_friend_status(db_session, players):
     result = await friend_service.batch_friend_status(
         db_session,
         players["alice"],
-        [players["bob"], players["carol"], players["dave"]],
+        [
+            players["alice"],
+            players["bob"],
+            players["carol"],
+            players["dave"],
+            999_999,
+        ],
     )
 
+    assert result["statuses"][str(players["alice"])] == "self"
     assert result["statuses"][str(players["bob"])] == "friend"
     assert result["statuses"][str(players["carol"])] == "pending_outgoing"
     assert result["statuses"][str(players["dave"])] == "pending_incoming"
+    assert result["statuses"]["999999"] == "none"
+    assert result["relationships"][str(players["bob"])] == {
+        "status": "friend",
+        "request_id": None,
+    }
+    assert result["relationships"][str(players["carol"])]["request_id"] is not None
+    assert result["relationships"][str(players["dave"])]["request_id"] is not None
 
 
 @pytest.mark.asyncio
@@ -634,6 +767,7 @@ async def test_batch_friend_status_empty(db_session, players):
     """Test batch friend status with empty list."""
     result = await friend_service.batch_friend_status(db_session, players["alice"], [])
     assert result["statuses"] == {}
+    assert result["relationships"] == {}
     assert result["mutual_counts"] == {}
 
 
