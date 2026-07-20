@@ -15,6 +15,10 @@ This is a public repo. Do not expose PII, secrets, tokens, credentials, or secur
 - Production domain: `beachleaguevb.com`.
 - Prefer immutable updates and small files; 200-400 lines is normal, 800 is a soft max.
 
+## Mobile Data State
+
+- TanStack Query owns all mobile server data; see `apps/mobile/AGENTS.md` and `apps/mobile/docs/data-state.md` before changing mobile fetching, caching, or auth transitions.
+
 ## Mobile Theming
 
 - NativeWind v4 mobile UI uses semantic classes like `bg-surface` and `text-muted`; avoid `dark:` color variants.

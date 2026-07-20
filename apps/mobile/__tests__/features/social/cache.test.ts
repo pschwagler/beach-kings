@@ -22,8 +22,21 @@ const request: FriendRequest = {
 };
 
 describe('social cache rollback markers', () => {
-  it('preserves a later equal relationship write', () => {
+  // Raw QueryClients schedule GC timers; clear them so Jest can exit cleanly.
+  const clients: QueryClient[] = [];
+  const createClient = (): QueryClient => {
     const client = new QueryClient();
+    clients.push(client);
+    return client;
+  };
+
+  afterEach(() => {
+    for (const client of clients) client.clear();
+    clients.length = 0;
+  });
+
+  it('preserves a later equal relationship write', () => {
+    const client = createClient();
     const key = socialKeys.relationship(7, 44);
     client.setQueryData(key, { status: 'none', request_id: null });
     const patch = applySendFriendRequest(client, 7, 44, 'send:1');
@@ -43,7 +56,7 @@ describe('social cache rollback markers', () => {
   });
 
   it('does not resurrect a request after a later authoritative removal', () => {
-    const client = new QueryClient();
+    const client = createClient();
     const key = socialKeys.requests(7, 'incoming');
     client.setQueryData(key, [request]);
 

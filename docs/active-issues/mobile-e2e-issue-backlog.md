@@ -16,7 +16,7 @@ Agents must preserve existing database data. Do not reset, recreate, or delete d
 2. Task B: League season consistency
 3. Task C: Home and profile freshness
 4. Task D: Messaging behavior
-5. Task E: UI cleanup and empty states
+5. Task E: UI cleanup and empty states (complete)
 
 Tasks A through D can run independently after shared test fixtures are understood. Task E should follow the functional fixes so its snapshots are based on stable screens.
 
@@ -208,7 +208,7 @@ The inconsistent refresh behavior is explained by two separate data systems:
 - Profile bypasses that shared query and calls `api.getCurrentUserPlayer()` through the local-state `useApi()` hook. It therefore can show newer player stats while Home continues showing a fresh-but-older cached player.
 - Relaunch creates a new `QueryClient`, clearing the in-memory Home cache and explaining why the values converge after relaunch.
 - The active-session query uses the same dashboard cache policy, so it can retain a session response until invalidation, expiry, or relaunch.
-- Returning to Profile remounts its uncached `useApi()` request. Any transient failure replaces the whole screen with the error state even if another part of the app still has valid current-player data cached under `['player', 'me']`.
+- Returning to Profile remounts its uncached `useApi()` request. Any transient failure replaces the whole screen with the error state even if another part of the app still has valid current-player data cached under `['private', userId, 'player', 'me']`.
 
 The cache split is confirmed, but which mutations fail to invalidate player and active-session data requires tracing all session submission/auto-submission paths. Keep that portion of the task broad.
 
@@ -277,47 +277,11 @@ Scope: Direct messages, league chat, keyboard/navigation interaction
 Priority: P2
 Scope: League detail and game-history presentation
 
-### Issues
+### Status
 
-1. League detail repeats the league title in both the navigation bar and body header.
-2. Empty league chat presents a blank area with no explanatory empty state.
-3. Score typography differs between screens, for example `21-15`, `21 - 15`, and `21 – 15`.
-
-### Reproduction
-
-1. Open any league detail screen and compare the navigation title with the body header.
-2. Select an empty league **Chat** tab.
-3. Compare scores on Home, My Games, and league game cards.
-
-### Root-cause findings
-
-All three issues are direct component-level inconsistencies:
-
-- `LeagueDetailScreen.tsx` passes the league name to `TopNav` and immediately renders `LeagueHeader` with the same name, producing the duplicated title by construction.
-- `LeagueChatTab.tsx` uses the shared `ChatView` without passing its supported `emptyState` prop. Direct-message threads do pass an empty state, which explains why only league chat is blank.
-- Score strings are formatted independently. `GameRow.tsx` uses `score1 - score2`, `LeagueMatchesTab.tsx` renders separate values around an en dash, and other surfaces use compact hyphens or en dashes. There is no shared display formatter used by these components.
-
-### Agent deliverables
-
-- Choose one intentional league-detail hierarchy without redundant titles.
-- Add a useful empty-chat state that explains the surface without blocking the composer.
-- Introduce or reuse one score-formatting helper across mobile surfaces.
-- Add snapshot or component tests for the revised states.
-
-### Delivery status — July 18, 2026
-
-Implemented with focused component coverage. League detail now keeps the dynamic
-league name in the body header and uses a generic navigation title; empty league
-chat explains the state while leaving the composer available; and completed
-paired scores use the shared compact `21-15` formatter across mobile history and
-result surfaces. The updated league, chat, and score states were also verified in
-the iOS simulator without sending a message or submitting a game.
-
-### Acceptance criteria
-
-- League detail has one clear primary title treatment.
-- Empty chat explains that there are no messages yet and keeps the composer usable.
-- Scores use one separator and spacing convention throughout the mobile app.
+Complete. The duplicated league title, empty league chat, and score formatting
+inconsistencies were fixed. The shared score formatter remains in use on the
+mobile surfaces that depend on it.
 
 ## July 16 follow-up audit — simulator issue checklist
 

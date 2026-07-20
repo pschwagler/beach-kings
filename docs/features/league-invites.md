@@ -1,7 +1,8 @@
 # League Invites — Design Doc
 
-**Status:** Not started. Backend model + endpoints + mobile wiring all needed.
+**Status:** Implemented. DB model, backend endpoints, and mobile wiring are done. Remaining gaps: invite revocation and non-registered (phone/email) invitees.
 **Created:** 2026-04-25
+**Updated:** 2026-07-18
 
 ---
 
@@ -15,12 +16,12 @@ Commissioners need to invite players to their league. Invited players should be 
 
 | Layer | Status |
 |-------|--------|
-| DB model | Missing — no `league_invites` table |
+| DB model | Exists — `league_invites` table, `LeagueInvite` model (`apps/backend/database/models.py`) |
 | Notification enum | `LEAGUE_INVITE` exists in `NotificationType` |
 | `PlayerInvite` model | Exists (`player_invites` table) — for placeholder players only; does NOT capture league context |
-| Backend routes | None |
-| Mobile screens | Scaffolded (`PendingInvitesScreen`, `usePendingInvitesScreen`, `LeagueInviteScreen`) — all use mockApi |
-| Navigation | `routes.pendingInvites()` defined; `PendingInvitesBanner` exists on home screen but wired to nothing |
+| Backend routes | Implemented (`apps/backend/api/routes/leagues.py`, `apps/backend/api/routes/users.py`) — see endpoint table below |
+| Mobile screens | Implemented — TanStack Query hooks under `leagueKeys` calling real endpoints (`usePendingInvitesScreen`, `useReceivedInvitesScreen`, `useLeagueInviteScreen`) |
+| Navigation | `routes.pendingInvites()` defined; `PendingInvitesBanner` wired on the home screen with real counts |
 
 ---
 
@@ -55,27 +56,29 @@ Status transitions: `pending → accepted | declined | expired`
 
 ---
 
-## Backend endpoints needed
+## Backend endpoints (implemented)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/leagues/{id}/invites` | league_admin | Send invite(s) to player(s) by player_id or phone/email |
-| GET | `/api/leagues/{id}/invites` | league_admin | List invites for this league (pending + accepted) |
-| GET | `/api/users/me/league-invites` | user | Invites I've received (to accept/decline) |
-| POST | `/api/league-invites/{id}/accept` | invitee | Accept a league invite |
-| POST | `/api/league-invites/{id}/decline` | invitee | Decline a league invite |
-| DELETE | `/api/league-invites/{id}` | league_admin | Cancel/revoke an invite |
+| GET | `/api/leagues/{id}/invitable-players` | league_admin | Players that can be invited, grouped into friends / recent opponents / suggested |
+| POST | `/api/leagues/{id}/invites` | league_admin | Send invites to players by player_id; notifies each invited player with a user account |
+| GET | `/api/leagues/{id}/invites` | league_admin | List invites for this league |
+| GET | `/api/users/me/league-invites/sent` | user | Invites I've sent across all leagues |
+| GET | `/api/users/me/league-invites/received` | user | Pending invites I've received (to accept/decline) |
+| POST | `/api/leagues/{id}/invites/respond` | invitee | Accept or decline via `{ "action": "accept" \| "decline" }` |
+
+Not yet implemented: invite revocation (`DELETE`), and invites to non-registered users by phone/email (the original proposal's `invited_phone`/`invited_email` columns were not added).
 
 The "Share" button in the wireframe should reuse the existing `GET /api/players/{id}/invite-url` endpoint to generate a shareable deep link.
 
 ---
 
-## Mobile screens to wire
+## Mobile wiring (implemented)
 
-- `usePendingInvitesScreen.ts` — currently calls `mockApi.getPendingInvites()`; wire to `GET /api/leagues/{id}/invites`
-- `useLeagueInfoTab.ts` — currently calls `mockApi.getLeagueInvites(id)`; same endpoint
-- `PendingInvitesBanner` on home screen — wire to `GET /api/users/me/league-invites` count, navigate to pending-invites screen
-- `LeagueInviteScreen` — wire to `POST /api/leagues/{id}/invites`
+- `usePendingInvitesScreen.ts` — Query hook (`leagueKeys.pendingInvites`) calling `GET /api/users/me/league-invites/sent`
+- `useReceivedInvitesScreen.ts` — Query hook (`leagueKeys.receivedInvites`) calling `GET /api/users/me/league-invites/received`
+- `useLeagueInviteScreen.ts` — Query hooks for invitable players + `POST /api/leagues/{id}/invites`
+- `PendingInvitesBanner` on the home screen — wired with real counts, navigates to the pending-invites screen
 
 ---
 
