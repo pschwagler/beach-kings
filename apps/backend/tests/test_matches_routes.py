@@ -130,6 +130,42 @@ class TestUpdateMatch:
 
         assert response.status_code == 404
 
+    def test_submitted_match_update_returns_stats_jobs(self, monkeypatch):
+        """Editing finalized results queues the rebuild the client will poll."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_match(session, match_id):
+            return {**_ACTIVE_MATCH, "session_status": "SUBMITTED"}
+
+        async def fake_get_session(session, session_id):
+            return {"id": session_id, "league_id": None, "created_by": 99}
+
+        async def fake_get_player(session, user_id):
+            return {"id": 99}
+
+        async def fake_update(session, match_id, match_request, updated_by):
+            return True
+
+        async def fake_enqueue(session, league_id):
+            assert league_id is None
+            return {"global_job_id": 71, "league_job_id": None}
+
+        monkeypatch.setattr(data_service, "get_match_async", fake_get_match, raising=True)
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
+        monkeypatch.setattr(data_service, "update_match_async", fake_update, raising=True)
+        monkeypatch.setattr(
+            data_service,
+            "enqueue_stats_recalculation",
+            fake_enqueue,
+            raising=True,
+        )
+
+        response = client.put("/api/matches/10", json=_VALID_UPDATE_BODY, headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["global_job_id"] == 71
+
     def test_update_match_duplicate_players(self, monkeypatch):
         """Returns 400 when the same player appears in multiple slots."""
         client, headers = _make_admin_client(monkeypatch)
@@ -182,6 +218,41 @@ class TestDeleteMatch:
         response = client.delete("/api/matches/999", headers=headers)
 
         assert response.status_code == 404
+
+    def test_submitted_match_delete_returns_stats_jobs(self, monkeypatch):
+        """Deleting finalized results queues and exposes the stats rebuild."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_match(session, match_id):
+            return {**_ACTIVE_MATCH, "session_status": "EDITED"}
+
+        async def fake_get_session(session, session_id):
+            return {"id": session_id, "league_id": None, "created_by": 99}
+
+        async def fake_get_player(session, user_id):
+            return {"id": 99}
+
+        async def fake_delete(session, match_id):
+            return True
+
+        async def fake_enqueue(session, league_id):
+            return {"global_job_id": 72, "league_job_id": None}
+
+        monkeypatch.setattr(data_service, "get_match_async", fake_get_match, raising=True)
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
+        monkeypatch.setattr(data_service, "delete_match_async", fake_delete, raising=True)
+        monkeypatch.setattr(
+            data_service,
+            "enqueue_stats_recalculation",
+            fake_enqueue,
+            raising=True,
+        )
+
+        response = client.delete("/api/matches/10", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["global_job_id"] == 72
 
 
 # ---------------------------------------------------------------------------

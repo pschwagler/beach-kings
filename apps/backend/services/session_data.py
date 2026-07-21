@@ -21,6 +21,7 @@ __all__ = [
     "create_league_session",
     "create_session",
     "lock_in_session",
+    "enqueue_stats_recalculation",
     "update_session",
     "delete_session",
     "get_matches",
@@ -908,20 +909,32 @@ async def lock_in_session(
     if result.rowcount == 0:
         return None
 
-    # Lazy import to avoid circular dependency
-    from backend.services.stats_queue import get_stats_queue
-
-    queue = get_stats_queue()
-
-    global_job_id = await queue.enqueue_calculation(session, "global", None)
-
-    league_job_id = None
-    if league_id:
-        league_job_id = await queue.enqueue_calculation(session, "league", league_id)
+    stats_jobs = await enqueue_stats_recalculation(session, league_id)
 
     return {
         "success": True,
         "season_id": season_id,
+        **stats_jobs,
+    }
+
+
+async def enqueue_stats_recalculation(
+    session: AsyncSession,
+    league_id: Optional[int],
+) -> Dict[str, Optional[int]]:
+    """Queue the global and, when applicable, league derived-stat rebuilds."""
+    # Lazy import avoids the stats queue importing this data-service module
+    # during application startup.
+    from backend.services.stats_queue import get_stats_queue
+
+    queue = get_stats_queue()
+    global_job_id = await queue.enqueue_calculation(session, "global", None)
+    league_job_id = (
+        await queue.enqueue_calculation(session, "league", league_id)
+        if league_id is not None
+        else None
+    )
+    return {
         "global_job_id": global_job_id,
         "league_job_id": league_job_id,
     }

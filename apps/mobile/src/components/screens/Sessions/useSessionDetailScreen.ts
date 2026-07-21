@@ -6,17 +6,17 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
-import useApi from "@/hooks/useApi";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import useRefreshOnFocus from "@/hooks/useRefreshOnFocus";
 import { api } from "@/lib/api";
 import { hapticMedium, hapticLight } from "@/utils/haptics";
 import { routes } from "@/lib/navigation";
 import { formatSessionSubtitle } from "@/lib/formatters";
-import { leagueKeys } from "@/components/screens/Leagues/leagueKeys";
 import type { SessionDetail, SessionGame } from "@beach-kings/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentPlayer } from "@/hooks/useCurrentPlayer";
+import { sessionQueries } from "@/features/sessions";
+import { reconcileGameMutation } from "@/features/matches";
 
 export interface UseSessionDetailScreenResult {
   readonly session: SessionDetail | null;
@@ -58,14 +58,16 @@ export function useSessionDetailScreen(
   const currentPlayerName =
     currentPlayer.data?.full_name ?? currentPlayer.data?.name ?? null;
 
-  const { data, isLoading, error, refetch } = useApi<SessionDetail>(
-    () => api.getSessionById(sessionId),
-    [sessionId],
+  const { data, isLoading, error, refetch } = useQuery(
+    sessionQueries.detail(userId, sessionId),
   );
 
   // Refresh on focus so returning from score-game (after a save / edit /
   // delete) reflects the new game list without a manual pull-to-refresh.
-  useRefreshOnFocus(refetch);
+  const refreshOnFocus = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
+  useRefreshOnFocus(refreshOnFocus);
 
   // Mirror `data` into a ref so `onAddGame` (and similar callbacks) can read the
   // latest session without re-creating their identity on every refetch. The
@@ -147,31 +149,13 @@ export function useSessionDetailScreen(
     setSubmitError(null);
     await hapticMedium();
     try {
-      await api.lockInSession(sessionId);
-
-      // Submitting recomputes league standings/records — but the backend does
-      // so via an async stats-calc job, so the derived rows aren't written the
-      // instant lockInSession resolves. Mark the league's cached queries stale
-      // with `refetchType: 'none'` so NOTHING refetches immediately (which could
-      // race the job and re-cache pre-submit data as "fresh" for staleTime).
-      // The refetch instead happens at view time: the league detail mounts only
-      // its active tab, so opening Standings refetches the now-stale (and by
-      // then computed) data. Without this, staleTime (30s) keeps the pre-submit
-      // "No standings yet" result cached until relaunch.
+      const response = await api.lockInSession(sessionId);
       const leagueId = dataRef.current?.league_id;
-      if (leagueId != null) {
-        void queryClient.invalidateQueries({
-          queryKey: leagueKeys.league(userId, leagueId),
-          refetchType: "none",
-        });
-        // The Leagues-tab "My Leagues" cards carry season-scoped W-L too.
-        void queryClient.invalidateQueries({
-          queryKey: leagueKeys.userLeagues(userId),
-          refetchType: "none",
-        });
-      }
-
-      void refetch();
+      await reconcileGameMutation(queryClient, {
+        userId,
+        leagueId,
+        statsJobs: response,
+      });
     } catch (err) {
       const message =
         err instanceof Error
@@ -181,7 +165,7 @@ export function useSessionDetailScreen(
     } finally {
       setIsSubmitting(false);
     }
-  }, [sessionId, refetch, queryClient, userId]);
+  }, [sessionId, queryClient, userId]);
 
   const onClearSubmitError = useCallback(() => {
     setSubmitError(null);

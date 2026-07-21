@@ -26,6 +26,16 @@ export const socialQueries = {
     staleTime: SOCIAL_STALE_TIME_MS,
   }),
 
+  friendCount: (userId: number, enabled = true) => queryOptions({
+    queryKey: socialKeys.friendCount(userId),
+    queryFn: async (): Promise<number> => {
+      const response = await api.getFriendsPage({ page: 1, page_size: 1 });
+      return response.total_count;
+    },
+    enabled: enabled && userId > 0,
+    staleTime: SOCIAL_STALE_TIME_MS,
+  }),
+
   requests: (
     userId: number,
     direction: FriendRequestDirection = 'both',

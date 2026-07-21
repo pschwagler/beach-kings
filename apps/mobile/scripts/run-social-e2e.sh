@@ -270,6 +270,24 @@ trap 'rm -f "$tmp_flow"' EXIT
   printf '%s\n' '- launchApp:'
   printf '%s\n' '    clearState: true'
   printf '%s\n' '    stopApp: true'
+  # clearState does not clear the iOS Keychain, where expo-secure-store keeps
+  # the session token — a simulator with a live session opens straight to
+  # Home instead of the landing screen. When that happens (tab bar visible),
+  # log out first so the credential-login steps below always apply.
+  printf '%s\n' '- runFlow:'
+  printf '%s\n' '    when:'
+  printf '%s\n' '      visible: "Profile tab"'
+  printf '%s\n' '    commands:'
+  printf '%s\n' '      - tapOn: "Profile tab"'
+  printf '%s\n' '      - tapOn: "Settings"'
+  printf '%s\n' '      - scrollUntilVisible:'
+  printf '%s\n' '          element:'
+  printf '%s\n' '            id: "settings-logout-btn"'
+  printf '%s\n' '          direction: DOWN'
+  printf '%s\n' '      - tapOn:'
+  printf '%s\n' '          id: "settings-logout-btn"'
+  printf '%s\n' '      - tapOn:'
+  printf '%s\n' '          id: "logout-confirm-btn"'
   printf '%s\n' '- assertVisible: "BEACH LEAGUE"'
   printf '%s\n' '- tapOn: "I already have an account"'
   printf '%s\n' '- assertVisible: "Welcome back"'

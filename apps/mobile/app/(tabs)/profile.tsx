@@ -4,17 +4,20 @@
  * player info fields, and settings/logout shortcuts.
  */
 
-import React, { useCallback, useState } from 'react';
-import { ScrollView, View, Text, Pressable, RefreshControl, Alert } from 'react-native';
+import React, { useCallback } from 'react';
+import { ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import type { Player } from '@beach-kings/shared';
+import { useQuery } from '@tanstack/react-query';
 import { normalizePlayerStats } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
-import useApi from '@/hooks/useApi';
+import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
+import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
+import { socialQueries } from '@/features/social';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import TopNav from '@/components/ui/TopNav';
+import SectionError from '@/components/home/SectionError';
 import ProfileHeader from '@/components/screens/Profile/ProfileHeader';
 import StatsBar from '@/components/screens/Profile/StatsBar';
 import ProfileInfoSection from '@/components/screens/Profile/ProfileInfoSection';
@@ -22,63 +25,37 @@ import ProfileMenuSection from '@/components/screens/Profile/ProfileMenuSection'
 import ProfileSkeleton from '@/components/screens/Profile/ProfileSkeleton';
 
 // ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface ProfileData {
-  readonly player: Player;
-  readonly friendCount: number;
-}
-
-// ---------------------------------------------------------------------------
-// Fetch helper (stable reference — defined outside component)
-// ---------------------------------------------------------------------------
-
-async function fetchProfileData(): Promise<ProfileData> {
-  const [player, friendsResult] = await Promise.all([
-    api.getCurrentUserPlayer(),
-    api.getFriendsPage({ page: 1, page_size: 1 }).catch(() => ({
-      items: [],
-      total_count: 0,
-    })),
-  ]);
-  // GET /api/friends returns { items, total_count } (FriendListResponse).
-  // `total_count` is a separate COUNT, so it is accurate even though we only
-  // request a single item. Fall back to the page length if it is ever absent.
-  return { player, friendCount: friendsResult.total_count };
-}
-
-// ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 
 export default function ProfileScreen(): React.ReactNode {
   const router = useRouter();
-  const { logout } = useAuth();
-
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const { data, error, isLoading, refetch } = useApi<ProfileData>(
-    fetchProfileData,
-    [refreshKey],
-  );
+  const { logout, user } = useAuth();
+  const palette = usePaletteColors();
+  const userId = user?.id ?? 0;
+  const playerQuery = useCurrentPlayer();
+  const friendCountQuery = useQuery(socialQueries.friendCount(userId));
+  const refetchPlayer = playerQuery.refetch;
+  const refetchFriendCount = friendCountQuery.refetch;
 
   const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await refetch();
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [refetch]);
+    await Promise.allSettled([
+      refetchPlayer(),
+      refetchFriendCount(),
+    ]);
+  }, [refetchFriendCount, refetchPlayer]);
 
-  const handleRetry = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-  }, []);
+  useRefreshOnFocus(onRefresh, 0);
 
-  const player = data?.player ?? null;
-  const friendCount = data?.friendCount ?? 0;
+  const player = playerQuery.data ?? null;
+  const friendCount = friendCountQuery.data ?? null;
+  const hasPlayerData = playerQuery.data !== undefined;
+  const isInitialLoading = !hasPlayerData && playerQuery.isPending;
+  const isInitialError = !hasPlayerData && playerQuery.isError;
+  const hasRefreshError = hasPlayerData
+    && (playerQuery.isError || friendCountQuery.isError);
+  const isRefreshing = hasPlayerData
+    && (playerQuery.isFetching || friendCountQuery.isFetching);
 
   // `/api/users/me/player` nests aggregates under `stats` (current_rating,
   // total_games, total_wins) and exposes no `losses` field — derive it. Fall
@@ -113,18 +90,27 @@ export default function ProfileScreen(): React.ReactNode {
         testID="profile-scroll-view"
         refreshControl={
           <RefreshControl
-            refreshing={isRefreshing && !isLoading}
+            refreshing={isRefreshing}
             onRefresh={() => { void onRefresh(); }}
-            tintColor="#2a7d9c"
+            tintColor={palette.brandTeal}
           />
         }
       >
-        {isLoading && !isRefreshing ? (
+        {isInitialLoading ? (
           <ProfileSkeleton />
-        ) : error != null ? (
-          <ErrorState onRetry={handleRetry} />
+        ) : isInitialError ? (
+          <ErrorState onRetry={() => { void onRefresh(); }} />
         ) : (
           <>
+            {hasRefreshError && (
+              <View className="px-lg pt-lg">
+                <SectionError
+                  message="Some profile details could not be refreshed. Showing the last saved version."
+                  onRetry={() => { void onRefresh(); }}
+                />
+              </View>
+            )}
+
             <ProfileHeader
               player={player}
               isLoading={false}

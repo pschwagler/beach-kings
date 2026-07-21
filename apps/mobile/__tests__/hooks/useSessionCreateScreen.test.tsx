@@ -4,6 +4,15 @@ const mockCreateSession = jest.fn();
 const mockGetLeague = jest.fn();
 const mockGetLeagueSeasons = jest.fn();
 const mockReplace = jest.fn();
+const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {

@@ -4,6 +4,8 @@ import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { socialKeys } from '@/features/social/keys';
+import { playerKeys } from '@/features/player';
+import { reconcileGameMutation } from '@/features/matches';
 import useWebSocket from '@/hooks/useWebSocket';
 import { api } from '@/lib/api';
 import { getSocketNotification, reconcileNotificationEvent } from './cache';
@@ -42,6 +44,21 @@ export default function NotificationTransport(): null {
       notification.type === 'friend_accepted'
     ) {
       void queryClient.invalidateQueries({ queryKey: socialKeys.all(userId) });
+    }
+    if (
+      notification.type === 'session_submitted' ||
+      notification.type === 'session_auto_submitted' ||
+      notification.type === 'session_auto_deleted'
+    ) {
+      const rawLeagueId = notification.data?.league_id;
+      const leagueId = typeof rawLeagueId === 'number' ? rawLeagueId : null;
+      void reconcileGameMutation(queryClient, { userId, leagueId });
+      // These notifications do not currently carry stats job IDs. Mark the
+      // player stale without racing the worker; foreground/focus will fetch it.
+      void queryClient.invalidateQueries({
+        queryKey: playerKeys.me(userId),
+        refetchType: 'none',
+      });
     }
   }, [queryClient, userId]);
 

@@ -20,11 +20,15 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import type { League, Session } from '@beach-kings/shared';
 
 import TopNav from '@/components/ui/TopNav';
 import { GameTypeCard, LeagueSelectList } from '@/components/screens/AddGames';
-import useApi from '@/hooks/useApi';
+import { useAuth } from '@/contexts/AuthContext';
+import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
+import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
+import { sessionQueries } from '@/features/sessions';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
 import { formatSessionSubtitle } from '@/lib/formatters';
@@ -189,38 +193,29 @@ interface LeagueWithSession extends League {
 
 export default function AddGamesScreen(): React.ReactNode {
   const router = useRouter();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
 
   // Which sub-view is active
   const [view, setView] = useState<ScreenView>('chooser');
 
-  // Pickup active session fetch (for chooser banner)
-  const {
-    data: pickupSession,
-    isLoading: sessionLoading,
-    refetch: refetchSession,
-  } = useApi<Session | null>(() => api.getActiveSession(), []);
+  const openSessionsQuery = useQuery(sessionQueries.open(userId));
+  const allSessions = openSessionsQuery.data;
+  const pickupSession = allSessions?.[0] ?? null;
+  const sessionLoading = openSessionsQuery.isPending;
 
   // User leagues fetch — only needed when league-select view is open
-  const {
-    data: leagues,
-    isLoading: leaguesLoading,
-    error: leaguesError,
-    refetch: refetchLeagues,
-  } = useApi<readonly League[]>(
-    () => api.getUserLeagues(),
-    [view],
-    { enabled: view === 'league-select' },
-  );
-
-  // All sessions fetch — to match active sessions to leagues
-  const {
-    data: allSessions,
-    isLoading: sessionsLoading,
-  } = useApi<readonly Session[]>(
-    () => api.getSessions(),
-    [view],
-    { enabled: view === 'league-select' },
-  );
+  const leaguesQuery = useQuery({
+    queryKey: leagueKeys.userLeagues(userId),
+    queryFn: async (): Promise<readonly League[]> =>
+      (await api.getUserLeagues()) ?? [],
+    enabled: userId > 0 && view === 'league-select',
+  });
+  const leagues = leaguesQuery.data;
+  const leaguesLoading = leaguesQuery.isPending;
+  const leaguesError = leaguesQuery.error;
+  const refreshOpenSessions = openSessionsQuery.refetch;
+  const refreshLeagues = leaguesQuery.refetch;
 
   // Compute leagues with their active sessions
   const leaguesWithSessions = React.useMemo(() => {
@@ -245,11 +240,20 @@ export default function AddGamesScreen(): React.ReactNode {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await refetchSession();
+      await refreshOpenSessions();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetchSession]);
+  }, [refreshOpenSessions]);
+
+  const refreshCriticalData = useCallback(async () => {
+    await refreshOpenSessions();
+  }, [refreshOpenSessions]);
+  useRefreshOnFocus(refreshCriticalData, 0);
+
+  const refreshLeagueSelection = useCallback(async () => {
+    await Promise.allSettled([refreshLeagues(), refreshOpenSessions()]);
+  }, [refreshLeagues, refreshOpenSessions]);
 
   const handleLeagueGame = useCallback(() => {
     setView('league-select');
@@ -344,13 +348,13 @@ export default function AddGamesScreen(): React.ReactNode {
           </Text>
           <LeagueSelectList
             leagues={leaguesWithSessions}
-            isLoading={leaguesLoading || sessionsLoading}
+            isLoading={leaguesLoading || sessionLoading}
             isRefreshing={false}
             error={leaguesError}
             onContinueSession={handleContinueLeagueSession}
             onStartNewSession={handleStartNewLeagueSession}
-            onRetry={refetchLeagues}
-            onRefresh={refetchLeagues}
+            onRetry={refreshLeagueSelection}
+            onRefresh={refreshLeagueSelection}
             onJoinLeague={handleJoinLeague}
           />
         </View>

@@ -5,8 +5,9 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render as testingRender, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Alert } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks — declared before any route imports so Jest hoisting works correctly
@@ -56,6 +57,7 @@ jest.mock('expo-router', () => {
   const useRouter = () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn() });
   const useSegments = () => [];
   const useLocalSearchParams = () => ({});
+  const useFocusEffect = jest.fn();
 
   return {
     Redirect,
@@ -67,8 +69,18 @@ jest.mock('expo-router', () => {
     useRouter,
     useSegments,
     useLocalSearchParams,
+    useFocusEffect,
   };
 });
+
+function render(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return testingRender(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
 
 // expo-status-bar
 jest.mock('expo-status-bar', () => {

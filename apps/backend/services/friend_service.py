@@ -893,7 +893,11 @@ async def discover_players(
     else:
         mutual_subq = literal(0).label("mutual_friend_count")
 
-    # Base query: Player + stats + location
+    # Base query: Player + stats + location. Stats are a LEFT JOIN with
+    # coalesced defaults so brand-new players (no PlayerGlobalStats row, or
+    # zero games) are still discoverable by authenticated users.
+    total_games_col = func.coalesce(PlayerGlobalStats.total_games, 0)
+    current_rating_col = func.coalesce(PlayerGlobalStats.current_rating, 1200.0)
     base_query = (
         select(
             Player.id,
@@ -903,17 +907,16 @@ async def discover_players(
             Player.level,
             Player.is_placeholder,
             Location.name.label("location_name"),
-            PlayerGlobalStats.total_games,
-            PlayerGlobalStats.current_rating,
+            total_games_col.label("total_games"),
+            current_rating_col.label("current_rating"),
             mutual_subq,
         )
-        .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
+        .outerjoin(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
         .outerjoin(Location, Player.location_id == Location.id)
         .where(
             and_(
                 Player.id != caller_player_id,
                 Player.is_placeholder == False,  # noqa: E712
-                PlayerGlobalStats.total_games >= 1,
             )
         )
     )
@@ -928,7 +931,7 @@ async def discover_players(
     if level:
         base_query = base_query.where(Player.level == level)
     if min_games:
-        base_query = base_query.where(PlayerGlobalStats.total_games >= min_games)
+        base_query = base_query.where(total_games_col >= min_games)
     if same_league:
         # Candidates with >=1 league membership in any of the caller's leagues.
         my_league_ids = select(LeagueMember.league_id).where(
@@ -954,9 +957,9 @@ async def discover_players(
     descending = sort_dir != "asc"
     sort_columns = {
         "mutuals": mutual_subq,
-        "games": PlayerGlobalStats.total_games,
+        "games": total_games_col,
         "name": Player.full_name,
-        "rating": PlayerGlobalStats.current_rating,
+        "rating": current_rating_col,
     }
     primary_col = sort_columns.get(sort_by or "mutuals", mutual_subq)
 

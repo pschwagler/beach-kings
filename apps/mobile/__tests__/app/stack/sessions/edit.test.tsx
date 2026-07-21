@@ -1,5 +1,6 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render as testingRender, screen, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetSessionById = jest.fn();
 const mockGetCourts = jest.fn();
@@ -29,8 +30,20 @@ jest.mock('@/theme/usePaletteColors', () => ({
   usePaletteColors: () => ({ textTertiary: 'gray', textInverse: 'white', brandTeal: 'teal' }),
 }));
 jest.mock('@/components/ui/icons', () => ({ ChevronLeftIcon: () => null }));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 import SessionEditRoute from '../../../../app/(stack)/session/[id]/edit';
+
+function render(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return testingRender(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
 
 beforeEach(() => {
   jest.clearAllMocks();

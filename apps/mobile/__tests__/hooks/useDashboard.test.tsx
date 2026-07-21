@@ -17,7 +17,7 @@ jest.mock('@/lib/api', () => {
   const api = {
     getCurrentUserPlayer: jest.fn(),
     getUserLeagues: jest.fn(),
-    getActiveSession: jest.fn(),
+    getSessions: jest.fn(),
     getFriendRequests: jest.fn(),
     getCourts: jest.fn(),
     getPlayerMatchHistory: jest.fn(),
@@ -34,7 +34,7 @@ import { useDashboard, dashboardKeys } from '@/hooks/useDashboard';
 const mockApi = api as unknown as {
   getCurrentUserPlayer: jest.Mock;
   getUserLeagues: jest.Mock;
-  getActiveSession: jest.Mock;
+  getSessions: jest.Mock;
   getFriendRequests: jest.Mock;
   getCourts: jest.Mock;
   getPlayerMatchHistory: jest.Mock;
@@ -61,7 +61,7 @@ const PLAYER = { id: 42, location_id: 'socal_sd' };
 beforeEach(() => {
   mockApi.getCurrentUserPlayer.mockReset();
   mockApi.getUserLeagues.mockReset();
-  mockApi.getActiveSession.mockReset();
+  mockApi.getSessions.mockReset();
   mockApi.getFriendRequests.mockReset();
   mockApi.getCourts.mockReset();
   mockApi.getPlayerMatchHistory.mockReset();
@@ -93,15 +93,15 @@ describe('dashboardKeys', () => {
     expect(dashboardKeys.matches(7, 42)).toEqual([
       'private',
       7,
-      'dashboard',
       'matches',
+      'history',
       42,
     ]);
     expect(dashboardKeys.matches(7, null)).toEqual([
       'private',
       7,
-      'dashboard',
       'matches',
+      'history',
       'none',
     ]);
   });
@@ -111,7 +111,7 @@ describe('useDashboard', () => {
   it('is initial-loading until all primary queries settle', async () => {
     mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
     mockApi.getUserLeagues.mockResolvedValue([]);
-    mockApi.getActiveSession.mockResolvedValue(null);
+    mockApi.getSessions.mockResolvedValue([]);
     mockApi.getFriendRequests.mockResolvedValue([]);
     mockApi.getCourts.mockResolvedValue([]);
     mockApi.getPlayerMatchHistory.mockResolvedValue([]);
@@ -136,7 +136,7 @@ describe('useDashboard', () => {
   it('passes the player location_id into getCourts', async () => {
     mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
     mockApi.getUserLeagues.mockResolvedValue([]);
-    mockApi.getActiveSession.mockResolvedValue(null);
+    mockApi.getSessions.mockResolvedValue([]);
     mockApi.getFriendRequests.mockResolvedValue([]);
     mockApi.getCourts.mockResolvedValue([]);
     mockApi.getPlayerMatchHistory.mockResolvedValue([]);
@@ -154,7 +154,7 @@ describe('useDashboard', () => {
   it('requests incoming friend requests (backend direction vocabulary)', async () => {
     mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
     mockApi.getUserLeagues.mockResolvedValue([]);
-    mockApi.getActiveSession.mockResolvedValue(null);
+    mockApi.getSessions.mockResolvedValue([]);
     mockApi.getFriendRequests.mockResolvedValue([]);
     mockApi.getCourts.mockResolvedValue([]);
     mockApi.getPlayerMatchHistory.mockResolvedValue([]);
@@ -171,7 +171,7 @@ describe('useDashboard', () => {
   it('passes the player id into getPlayerMatchHistory', async () => {
     mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
     mockApi.getUserLeagues.mockResolvedValue([]);
-    mockApi.getActiveSession.mockResolvedValue(null);
+    mockApi.getSessions.mockResolvedValue([]);
     mockApi.getFriendRequests.mockResolvedValue([]);
     mockApi.getCourts.mockResolvedValue([]);
     mockApi.getPlayerMatchHistory.mockResolvedValue([]);
@@ -187,7 +187,7 @@ describe('useDashboard', () => {
   it('skips matches when the player fetch returns null', async () => {
     mockApi.getCurrentUserPlayer.mockResolvedValue(null);
     mockApi.getUserLeagues.mockResolvedValue([]);
-    mockApi.getActiveSession.mockResolvedValue(null);
+    mockApi.getSessions.mockResolvedValue([]);
     mockApi.getFriendRequests.mockResolvedValue([]);
     mockApi.getCourts.mockResolvedValue([]);
 
@@ -208,7 +208,7 @@ describe('useDashboard', () => {
   it('surfaces query errors on each section independently', async () => {
     mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
     mockApi.getUserLeagues.mockRejectedValue(new Error('leagues down'));
-    mockApi.getActiveSession.mockResolvedValue(null);
+    mockApi.getSessions.mockResolvedValue([]);
     mockApi.getFriendRequests.mockResolvedValue([]);
     mockApi.getCourts.mockResolvedValue([]);
     mockApi.getPlayerMatchHistory.mockResolvedValue([]);
@@ -225,7 +225,7 @@ describe('useDashboard', () => {
   it('refetchAll invalidates every dashboard query', async () => {
     mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
     mockApi.getUserLeagues.mockResolvedValue([]);
-    mockApi.getActiveSession.mockResolvedValue(null);
+    mockApi.getSessions.mockResolvedValue([]);
     mockApi.getFriendRequests.mockResolvedValue([]);
     mockApi.getCourts.mockResolvedValue([]);
     mockApi.getPlayerMatchHistory.mockResolvedValue([]);

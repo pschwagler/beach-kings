@@ -14,6 +14,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks — all must be declared before any imports of the module under test
@@ -35,8 +36,13 @@ jest.mock('expo-router', () => {
     Link: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
     SplashScreen: { preventAutoHideAsync: jest.fn(), hideAsync: jest.fn() },
     useSegments: () => [],
+    useFocusEffect: jest.fn(),
   };
 });
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
@@ -90,13 +96,11 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 // API mock
-const mockGetActiveSession = jest.fn();
 const mockGetUserLeagues = jest.fn();
 const mockGetSessions = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getActiveSession: (...args: unknown[]) => mockGetActiveSession(...args),
     getUserLeagues: (...args: unknown[]) => mockGetUserLeagues(...args),
     getSessions: (...args: unknown[]) => mockGetSessions(...args),
   },
@@ -132,7 +136,14 @@ import AddGamesScreen from '../../../app/(tabs)/add-games';
 // ---------------------------------------------------------------------------
 
 function renderAddGames() {
-  return render(<AddGamesScreen />);
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AddGamesScreen />
+    </QueryClientProvider>,
+  );
 }
 
 const LEAGUE_1 = {
@@ -182,7 +193,6 @@ const LEAGUE_SESSION_1 = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockHapticMedium.mockResolvedValue(undefined);
-  mockGetActiveSession.mockResolvedValue(null);
   mockGetUserLeagues.mockResolvedValue([]);
   mockGetSessions.mockResolvedValue([]);
 });
@@ -311,7 +321,7 @@ describe('AddGamesScreen — tile navigation', () => {
 
 describe('AddGamesScreen — active session state', () => {
   beforeEach(() => {
-    mockGetActiveSession.mockResolvedValue(ACTIVE_SESSION);
+    mockGetSessions.mockResolvedValue([ACTIVE_SESSION]);
   });
 
   it('renders the Active Session banner', async () => {

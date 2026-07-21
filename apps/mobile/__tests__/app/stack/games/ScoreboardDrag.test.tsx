@@ -10,6 +10,15 @@
 import React from 'react';
 import { renderHook, act } from '@testing-library/react-native';
 
+const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------

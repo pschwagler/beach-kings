@@ -125,9 +125,20 @@ function varietyColorFor(seed: number | string): VarietyColor {
 }
 
 export function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? '';
-  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
+  // Only tokens that start with a letter contribute initials, so names ending
+  // in numbers (e.g. run-scoped test accounts) don't render digit initials.
+  const letterParts = name
+    .trim()
+    .split(/\s+/)
+    .filter((part) => /^[A-Za-z]/.test(part));
+  if (letterParts.length === 0) {
+    // No letter tokens at all — fall back to the first alphanumeric character
+    // so the fallback is stable and never empty or a bare "?".
+    return (name.trim().match(/[A-Za-z0-9]/)?.[0] ?? '').toUpperCase();
+  }
+  const first = letterParts[0]?.[0] ?? '';
+  const last =
+    letterParts.length > 1 ? (letterParts[letterParts.length - 1]?.[0] ?? '') : '';
   return (first + last).toUpperCase();
 }
 

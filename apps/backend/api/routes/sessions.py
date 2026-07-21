@@ -1065,10 +1065,23 @@ async def delete_session(
         if not success:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
+        # delete_session already enqueues these jobs for submitted sessions.
+        # Enqueueing again is idempotent and gives the client the canonical job
+        # IDs it needs to wait before refreshing derived totals.
+        stats_jobs = (
+            await data_service.enqueue_stats_recalculation(
+                session,
+                session_obj.get("league_id"),
+            )
+            if session_obj.get("status") != "ACTIVE"
+            else {"global_job_id": None, "league_job_id": None}
+        )
+
         return {
             "status": "success",
             "message": "Session deleted successfully",
             "session_id": session_id,
+            **stats_jobs,
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

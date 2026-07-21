@@ -1,4 +1,6 @@
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import React from 'react';
+import { act, renderHook as testingRenderHook, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { SessionDetail } from '@beach-kings/shared';
 
 const mockGetSessionById = jest.fn();
@@ -15,6 +17,9 @@ jest.mock('@/lib/api', () => ({
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
 jest.mock('@/utils/haptics', () => ({ hapticMedium: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 import { useSessionEditScreen } from '@/components/screens/Sessions/useSessionEditScreen';
 
@@ -39,8 +44,20 @@ const session: SessionDetail = {
   user_rating_change: null,
 };
 
+let queryClient: QueryClient;
+
+function renderHook<Result>(callback: () => Result) {
+  const wrapper = ({ children }: { children: React.ReactNode }): React.ReactElement => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  return testingRenderHook(callback, { wrapper });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   mockGetSessionById.mockResolvedValue(session);
   mockGetLeagueSeasons.mockResolvedValue([{ id: 10, name: 'Spring 2026', is_active: true }]);
 });

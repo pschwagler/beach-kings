@@ -5,8 +5,9 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render as testingRender, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Alert } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -24,6 +25,11 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
+  useFocusEffect: jest.fn(),
+}));
+
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({ brandTeal: '#2a7d9c' }),
 }));
 
 const mockLogout = jest.fn();
@@ -108,6 +114,14 @@ const MOCK_FRIENDS_RESPONSE_REAL = {
 
 import ProfileScreen from '../../../app/(tabs)/profile';
 
+let queryClient: QueryClient;
+
+function render(ui: React.ReactElement) {
+  return testingRender(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -115,6 +129,9 @@ import ProfileScreen from '../../../app/(tabs)/profile';
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
     mockGetCurrentUserPlayer.mockResolvedValue(MOCK_PLAYER);
     mockGetFriendsPage.mockResolvedValue(MOCK_FRIENDS_RESPONSE);
   });

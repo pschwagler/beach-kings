@@ -27,9 +27,11 @@ let mockRootNavigationState = {
 };
 const mockCancelQueries = jest.fn(() => Promise.resolve());
 const mockClearQueryClient = jest.fn();
+const mockFetchQuery = jest.fn((options: { queryFn: () => unknown }) => options.queryFn());
 const mockQueryClient = {
   cancelQueries: mockCancelQueries,
   clear: mockClearQueryClient,
+  fetchQuery: mockFetchQuery,
 };
 const mockUnsubscribeAuthInvalidated = jest.fn();
 let mockAuthInvalidatedListener: (() => void) | null = null;

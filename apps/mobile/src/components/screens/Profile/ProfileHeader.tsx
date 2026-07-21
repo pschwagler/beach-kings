@@ -12,7 +12,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 interface ProfileHeaderProps {
   readonly player: Player | null;
   readonly isLoading: boolean;
-  readonly friendCount: number;
+  readonly friendCount: number | null;
   readonly onEditPress: () => void;
   readonly onFriendsPress: () => void;
 }
@@ -105,10 +105,10 @@ export default function ProfileHeader({
           <Pressable
             onPress={onFriendsPress}
             accessibilityRole="button"
-            accessibilityLabel={`${friendCount} Friends`}
+            accessibilityLabel={friendCount == null ? 'Friends' : `${friendCount} Friends`}
           >
             <Text className="text-sm font-semibold text-brand-teal">
-              {friendCount} Friends
+              {friendCount == null ? 'Friends' : `${friendCount} Friends`}
             </Text>
           </Pressable>
         </View>

@@ -464,6 +464,14 @@ describe('FriendsBody — navigation', () => {
     fireEvent.press(screen.getByTestId(`suggestion-row-${SUGGESTION.player_id}`));
     expect(onPlayerPress).toHaveBeenCalledWith(SUGGESTION.player_id);
   });
+
+  it('opens the requester profile on sender press', () => {
+    const onPlayerPress = jest.fn();
+    render(<FriendsBody {...makeProps({ onPlayerPress })} />);
+
+    fireEvent.press(screen.getByTestId(`friend-request-sender-${REQUEST.id}`));
+    expect(onPlayerPress).toHaveBeenCalledWith(REQUEST.sender_player_id);
+  });
 });
 
 // ---------------------------------------------------------------------------

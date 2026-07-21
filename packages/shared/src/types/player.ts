@@ -162,6 +162,13 @@ export interface PublicPlayerResponse {
   avatar: string | null;
   gender: PlayerGender | null;
   level: SkillLevel | null;
+  /**
+   * The player's own city/state (floor fields, always present when set).
+   * Prefer these over the nested home-`location` record's city/state when
+   * displaying where a player is based.
+   */
+  city?: string | null;
+  state?: string | null;
   is_placeholder: boolean;
   /**
    * False when the player has opted to hide their W-L record and win rate.

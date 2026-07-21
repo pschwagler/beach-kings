@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import type {
   Player,
   League,
@@ -16,6 +16,8 @@ import { socialKeys } from '@/features/social/keys';
 import { socialQueries } from '@/features/social/queries';
 import { privateKeys } from '@/infrastructure/query/keys';
 import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
+import { sessionKeys, sessionQueries } from '@/features/sessions';
+import { matchKeys } from '@/features/matches';
 
 export const dashboardKeys = {
   root: (userId: number) =>
@@ -23,13 +25,12 @@ export const dashboardKeys = {
   /** The current player is centralized in {@link useCurrentPlayer}. */
   player: (userId: number) => currentPlayerKeys.me(userId),
   leagues: (userId: number) => leagueKeys.userLeagues(userId),
-  activeSession: (userId: number) =>
-    [...dashboardKeys.root(userId), 'activeSession'] as const,
+  activeSession: (userId: number) => sessionKeys.open(userId),
   friendRequests: (userId: number) => socialKeys.requests(userId, 'incoming'),
   courts: (userId: number, locationId: string | null | undefined) =>
     [...dashboardKeys.root(userId), 'courts', locationId ?? 'null'] as const,
   matches: (userId: number, playerId: number | null | undefined) =>
-    [...dashboardKeys.root(userId), 'matches', playerId ?? 'none'] as const,
+    matchKeys.history(userId, playerId),
 };
 
 export interface DashboardSections {
@@ -48,7 +49,6 @@ export interface UseDashboardResult extends DashboardSections {
 }
 
 export function useDashboard(): UseDashboardResult {
-  const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? 0;
 
@@ -76,12 +76,8 @@ export function useDashboard(): UseDashboardResult {
   });
 
   const activeSession = useQuery({
-    queryKey: dashboardKeys.activeSession(userId),
-    queryFn: async (): Promise<Session | null> => {
-      const result = await api.getActiveSession();
-      return result ?? null;
-    },
-    enabled: userId > 0,
+    ...sessionQueries.open(userId),
+    select: (sessions): Session | null => sessions[0] ?? null,
   });
 
   const friendRequests = useQuery(socialQueries.requests(userId, 'incoming'));
@@ -107,13 +103,30 @@ export function useDashboard(): UseDashboardResult {
     enabled: player.isSuccess && playerId != null,
   });
 
+  const refreshPlayer = player.refetch;
+  const refreshLeagues = leagues.refetch;
+  const refreshActiveSession = activeSession.refetch;
+  const refreshFriendRequests = friendRequests.refetch;
+  const refreshCourts = courts.refetch;
+  const refreshMatches = matches.refetch;
+
   const refetchAll = useCallback(async () => {
-    // The player lives under its own centralized key, so invalidate both.
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.root(userId) }),
-      queryClient.invalidateQueries({ queryKey: currentPlayerKeys.me(userId) }),
+    await Promise.allSettled([
+      refreshPlayer(),
+      refreshLeagues(),
+      refreshActiveSession(),
+      refreshFriendRequests(),
+      refreshCourts(),
+      refreshMatches(),
     ]);
-  }, [queryClient, userId]);
+  }, [
+    refreshActiveSession,
+    refreshCourts,
+    refreshFriendRequests,
+    refreshLeagues,
+    refreshMatches,
+    refreshPlayer,
+  ]);
 
   const isInitialLoading =
     player.isPending ||

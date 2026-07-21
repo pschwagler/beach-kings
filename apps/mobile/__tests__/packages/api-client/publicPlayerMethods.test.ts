@@ -3,7 +3,8 @@
  *
  * The mobile PlayerProfile screen consumes a flat Player shape, but the public
  * profile endpoint (GET /api/public/players/{id}) nests rating/games under
- * `stats` and city/state under `location`. These tests lock the URL and the
+ * `stats` and the home-location record under `location` (the player's own
+ * city/state are top-level floor fields). These tests lock the URL and the
  * response->Player adapter so the profile header + stats grid render correctly,
  * and that private profiles (game_history_visible=false) never render fabricated
  * 0-N stats.
@@ -130,6 +131,19 @@ describe('mapPublicPlayerToPlayer', () => {
     expect(player.location_id).toBe('socal_sd');
     expect(player.location_name).toBe('San Diego');
     expect(player.location_slug).toBe('san-diego');
+  });
+
+  it('prefers the player\'s own top-level city/state over the home location\'s', () => {
+    const player = mapPublicPlayerToPlayer({
+      ...PUBLIC_RESPONSE,
+      city: 'Los Angeles',
+      state: 'CA',
+    });
+
+    expect(player.city).toBe('Los Angeles');
+    expect(player.state).toBe('CA');
+    // The home-location record itself is preserved untouched.
+    expect(player.location_name).toBe('San Diego');
   });
 
   it('carries through level, gender, avatar, is_placeholder, and leagues', () => {

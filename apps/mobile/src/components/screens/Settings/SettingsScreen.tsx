@@ -8,8 +8,8 @@
  *   - Notifications
  *   - Appearance (Theme)
  *   - Support (Feedback, Contact, Rate)
- *   - Danger Zone (Delete Account)
  *   - Log Out
+ *   - Danger Zone (Delete Account)
  *
  * Wireframe ref: settings.html + settings-account.html (merged)
  */
@@ -417,6 +417,16 @@ export default function SettingsScreen(): React.ReactNode {
           />
         </View>
 
+        <Pressable
+          testID="settings-logout-btn"
+          onPress={handleLogout}
+          accessibilityRole="button"
+          accessibilityLabel="Log Out"
+          className="mx-lg my-xl py-[14px] rounded-xl border-[1.5px] border-strong items-center active:opacity-70"
+        >
+          <Text className="text-[15px] font-semibold text-default">Log Out</Text>
+        </Pressable>
+
         <SectionLabel title="Danger Zone" danger />
         <View>
           <SettingsRow
@@ -427,16 +437,6 @@ export default function SettingsScreen(): React.ReactNode {
             onPress={isDeletingAccount ? undefined : handleDeleteAccount}
           />
         </View>
-
-        <Pressable
-          testID="settings-logout-btn"
-          onPress={handleLogout}
-          accessibilityRole="button"
-          accessibilityLabel="Log Out"
-          className="mx-lg my-xl py-[14px] rounded-xl border-[1.5px] border-red-500 items-center active:opacity-70"
-        >
-          <Text className="text-[15px] font-semibold text-red-500">Log Out</Text>
-        </Pressable>
 
         <Text className="text-center text-[12px] text-muted pb-lg">
           Beach League v1.0.0

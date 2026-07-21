@@ -1136,6 +1136,39 @@ class TestDeleteSession:
         assert data["status"] == "success"
         assert data["session_id"] == _SESSION_ID
 
+    def test_submitted_delete_returns_stats_jobs(self, monkeypatch):
+        """Deleting a submitted session exposes the queued rebuild IDs."""
+        client, headers = _make_user_client(monkeypatch)
+
+        async def fake_get_session(session, session_id):
+            return {**_ACTIVE_SESSION, "status": "SUBMITTED"}
+
+        async def fake_get_player(session, user_id):
+            return _FAKE_PLAYER
+
+        async def fake_delete_session(session, session_id):
+            return True
+
+        async def fake_enqueue(session, league_id):
+            assert league_id == _LEAGUE_ID
+            return {"global_job_id": 88, "league_job_id": 89}
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
+        monkeypatch.setattr(data_service, "delete_session", fake_delete_session, raising=True)
+        monkeypatch.setattr(
+            data_service,
+            "enqueue_stats_recalculation",
+            fake_enqueue,
+            raising=True,
+        )
+
+        response = client.delete(f"/api/sessions/{_SESSION_ID}", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["global_job_id"] == 88
+        assert response.json()["league_job_id"] == 89
+
     def test_non_creator_non_admin_returns_403(self, monkeypatch):
         """Returns 403 when user is neither the creator nor a league admin."""
         from sqlalchemy.ext.asyncio import AsyncSession

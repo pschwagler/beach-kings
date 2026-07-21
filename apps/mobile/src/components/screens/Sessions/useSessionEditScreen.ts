@@ -2,11 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Season, SessionDetail } from '@beach-kings/shared';
 
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { hapticMedium } from '@/utils/haptics';
+import { useAuth } from '@/contexts/AuthContext';
+import { reconcileGameMutation } from '@/features/matches';
+import { sessionQueries } from '@/features/sessions';
 
 export interface UseSessionEditScreenResult {
   readonly session: SessionDetail | null;
@@ -33,9 +37,11 @@ export interface UseSessionEditScreenResult {
 /** Returns pre-populated form state and save handler for editing a session. */
 export function useSessionEditScreen(sessionId: number): UseSessionEditScreenResult {
   const router = useRouter();
-  const { data: session, isLoading } = useApi<SessionDetail>(
-    () => api.getSessionById(sessionId),
-    [sessionId],
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
+  const { data: session, isLoading } = useQuery(
+    sessionQueries.detail(userId, sessionId),
   );
   const leagueId = session?.league_id ?? null;
   const { data: leagueSeasons } = useApi<Season[]>(
@@ -88,13 +94,14 @@ export function useSessionEditScreen(sessionId: number): UseSessionEditScreenRes
         is_ranked: isRankedLocked ? true : isRanked,
         ...(leagueId != null ? { season_id: selectedSeasonId } : {}),
       });
+      void reconcileGameMutation(queryClient, { userId, leagueId });
       router.back();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to save changes.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [courtId, date, isRanked, isRankedLocked, leagueId, router, selectedSeasonId, sessionId, startTime]);
+  }, [courtId, date, isRanked, isRankedLocked, leagueId, queryClient, router, selectedSeasonId, sessionId, startTime, userId]);
 
   return {
     session: session ?? null,

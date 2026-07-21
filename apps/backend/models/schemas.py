@@ -167,6 +167,8 @@ class MatchStatusResponse(BaseModel):
     status: str
     message: str
     match_id: int
+    global_job_id: Optional[int] = None
+    league_job_id: Optional[int] = None
 
 
 class StatusResponse(BaseModel):
@@ -1220,6 +1222,8 @@ class DeleteSessionResponse(BaseModel):
     status: str
     message: str
     session_id: int
+    global_job_id: Optional[int] = None
+    league_job_id: Optional[int] = None
 
 
 class SessionMatchItemResponse(BaseModel):

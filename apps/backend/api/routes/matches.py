@@ -304,6 +304,7 @@ async def update_match(
             raise HTTPException(status_code=404, detail=f"Game {match_id} not found")
 
         session_status = match.get("session_status")
+        stats_league_id = None
         if session_status != "ACTIVE":
             if session_status not in ("SUBMITTED", "EDITED"):
                 raise HTTPException(
@@ -332,6 +333,7 @@ async def update_match(
                         status_code=403,
                         detail="Only league admins can edit games in submitted sessions",
                     )
+            stats_league_id = session_obj.get("league_id")
 
         player_id = None
         player = await data_service.get_player_by_user_id(session, current_user["id"])
@@ -345,7 +347,17 @@ async def update_match(
         if not success:
             raise HTTPException(status_code=404, detail=f"Game {match_id} not found")
 
-        return {"status": "success", "message": "Game updated successfully", "match_id": match_id}
+        stats_jobs = (
+            await data_service.enqueue_stats_recalculation(session, stats_league_id)
+            if session_status != "ACTIVE"
+            else {"global_job_id": None, "league_job_id": None}
+        )
+        return {
+            "status": "success",
+            "message": "Game updated successfully",
+            "match_id": match_id,
+            **stats_jobs,
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -374,6 +386,7 @@ async def delete_match(
             raise HTTPException(status_code=404, detail=f"Game {match_id} not found")
 
         session_status = match.get("session_status")
+        stats_league_id = None
         if session_status != "ACTIVE":
             if session_status not in ("SUBMITTED", "EDITED"):
                 raise HTTPException(
@@ -402,13 +415,24 @@ async def delete_match(
                         status_code=403,
                         detail="Only league admins can delete games in submitted sessions",
                     )
+            stats_league_id = session_obj.get("league_id")
 
         success = await data_service.delete_match_async(session, match_id)
 
         if not success:
             raise HTTPException(status_code=404, detail=f"Game {match_id} not found")
 
-        return {"status": "success", "message": "Game deleted successfully", "match_id": match_id}
+        stats_jobs = (
+            await data_service.enqueue_stats_recalculation(session, stats_league_id)
+            if session_status != "ACTIVE"
+            else {"global_job_id": None, "league_job_id": None}
+        )
+        return {
+            "status": "success",
+            "message": "Game deleted successfully",
+            "match_id": match_id,
+            **stats_jobs,
+        }
     except HTTPException:
         raise
     except Exception as e:

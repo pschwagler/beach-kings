@@ -1183,6 +1183,56 @@ async def test_discover_players_search_filter(db_session, discover_setup):
 
 
 @pytest.mark.asyncio
+async def test_discover_players_includes_zero_game_players(db_session, discover_setup):
+    """Players with a stats row but zero games are discoverable."""
+    _, frank = await _create_player_with_stats(
+        db_session,
+        "+15552000006",
+        "Frank Zero",
+        total_games=0,
+        current_rating=1200.0,
+    )
+
+    result = await friend_service.discover_players(
+        db_session,
+        discover_setup["alice"],
+        search="Frank",
+    )
+    assert result["total_count"] == 1
+    item = result["items"][0]
+    assert item["id"] == frank
+    assert item["total_games"] == 0
+    assert item["friend_status"] == "none"
+
+
+@pytest.mark.asyncio
+async def test_discover_players_includes_players_without_stats_row(
+    db_session, discover_setup
+):
+    """Brand-new players with no PlayerGlobalStats row are discoverable and
+    get coalesced defaults (0 games, 1200 rating)."""
+    _, gina = await _create_user_and_player(db_session, "+15552000007", "Gina Newcomer")
+
+    result = await friend_service.discover_players(
+        db_session,
+        discover_setup["alice"],
+        search="Gina",
+    )
+    assert result["total_count"] == 1
+    item = result["items"][0]
+    assert item["id"] == gina
+    assert item["total_games"] == 0
+    assert item["current_rating"] == 1200.0
+
+    # Also visible in unfiltered browse
+    browse = await friend_service.discover_players(
+        db_session,
+        discover_setup["alice"],
+    )
+    assert gina in {entry["id"] for entry in browse["items"]}
+
+
+@pytest.mark.asyncio
 async def test_discover_players_gender_filter(db_session, discover_setup):
     """Filter by gender returns only matching players."""
     result = await friend_service.discover_players(

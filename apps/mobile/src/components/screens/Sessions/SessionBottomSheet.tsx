@@ -24,15 +24,19 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { hapticLight, hapticMedium } from "@/utils/haptics";
 import { routes } from "@/lib/navigation";
 import { pluralize } from "@/lib/formatters";
 import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { reconcileGameMutation } from "@/features/matches";
 
 interface Props {
   readonly visible: boolean;
   readonly onClose: () => void;
   readonly sessionId: number;
+  readonly leagueId?: number | null;
   readonly sessionLabel: string;
   readonly gameCount: number;
   readonly playerCount: number;
@@ -77,6 +81,7 @@ export default function SessionBottomSheet({
   visible,
   onClose,
   sessionId,
+  leagueId = null,
   sessionLabel,
   gameCount,
   playerCount,
@@ -84,6 +89,9 @@ export default function SessionBottomSheet({
 }: Props): React.ReactNode {
   const isSubmitted = status === "submitted";
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEdit = async (): Promise<void> => {
@@ -129,7 +137,12 @@ export default function SessionBottomSheet({
           onPress: async () => {
             setIsDeleting(true);
             try {
-              await api.deleteSession(sessionId);
+              const response = await api.deleteSession(sessionId);
+              void reconcileGameMutation(queryClient, {
+                userId,
+                leagueId,
+                statsJobs: response,
+              });
               onClose();
               router.replace(routes.addGames());
             } catch {

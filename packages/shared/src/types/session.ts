@@ -45,6 +45,45 @@ export interface GameCreateResponse {
   readonly session_id: number;
 }
 
+/** Async derived-stat jobs returned by submitted-session mutations. */
+export interface StatsJobIds {
+  readonly global_job_id?: number | null;
+  readonly league_job_id?: number | null;
+}
+
+/** Response from updating or deleting a game. */
+export interface MatchMutationResponse extends StatsJobIds {
+  readonly status: string;
+  readonly message: string;
+  readonly match_id: number;
+}
+
+/** Response from locking a session and starting its derived-stat rebuild. */
+export interface SessionSubmitResponse extends StatsJobIds {
+  readonly status: string;
+  readonly message: string;
+  readonly season_id?: number | null;
+}
+
+/** Response from deleting a session. */
+export interface SessionDeleteResponse extends StatsJobIds {
+  readonly status: string;
+  readonly message: string;
+  readonly session_id: number;
+}
+
+/** Status returned by GET /api/calculate-stats/status/:jobId. */
+export interface StatsCalculationJobStatus {
+  readonly id: number;
+  readonly calc_type: 'global' | 'league';
+  readonly league_id: number | null;
+  readonly status: 'pending' | 'running' | 'completed' | 'failed';
+  readonly created_at: string | null;
+  readonly started_at: string | null;
+  readonly completed_at: string | null;
+  readonly error_message: string | null;
+}
+
 /**
  * A single session participant returned by GET /api/sessions/:id/participants.
  */

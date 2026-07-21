@@ -40,6 +40,8 @@ jest.mock('@/utils/haptics', () => ({
 
 import { useSessionDetailScreen } from '@/components/screens/Sessions/useSessionDetailScreen';
 import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
+import { sessionKeys } from '@/features/sessions';
+import { matchKeys } from '@/features/matches';
 import type { SessionDetail } from '@beach-kings/shared';
 
 const SESSION: SessionDetail = {
@@ -155,7 +157,7 @@ describe('useSessionDetailScreen', () => {
     expect(result.current.isSubmitting).toBe(false);
   });
 
-  it('onSubmitSession invalidates the session league caches (stale, no immediate refetch) on success', async () => {
+  it('onSubmitSession immediately invalidates session, game, and league-list snapshots', async () => {
     mockLockInSession.mockResolvedValue(undefined);
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
     const { result } = renderScreen(7);
@@ -165,30 +167,17 @@ describe('useSessionDetailScreen', () => {
       await result.current.onSubmitSession();
     });
 
-    // League-detail invalidation uses the canonical per-league subtree and
-    // defers its refetch until that data is viewed again.
-    const detailCall = invalidateSpy.mock.calls.find(
-      ([arg]) =>
-        JSON.stringify((arg as { queryKey?: unknown })?.queryKey) ===
-        JSON.stringify(leagueKeys.league(7, 1)),
+    const keys = invalidateSpy.mock.calls.map(
+      ([arg]) => JSON.stringify((arg as { queryKey?: unknown })?.queryKey),
     );
-    expect(detailCall).toBeDefined();
-    const detailArg = detailCall![0] as {
-      refetchType?: string;
-    };
-    expect(detailArg.refetchType).toBe('none');
-
-    // Leagues-tab "My Leagues" list invalidation (season-scoped card W-L).
-    const listCall = invalidateSpy.mock.calls.find(
-      ([arg]) =>
-        JSON.stringify((arg as { queryKey?: unknown })?.queryKey) ===
-        JSON.stringify(leagueKeys.userLeagues(7)),
-    );
-    expect(listCall).toBeDefined();
-    expect((listCall![0] as { refetchType?: string }).refetchType).toBe('none');
+    expect(keys).toContain(JSON.stringify(sessionKeys.all(7)));
+    expect(keys).toContain(JSON.stringify(matchKeys.all(7)));
+    expect(keys).toContain(JSON.stringify(leagueKeys.userLeagues(7)));
+    expect(keys).toContain(JSON.stringify(leagueKeys.myGames(7, 1)));
+    expect(keys).toContain(JSON.stringify(leagueKeys.allGames(7, 1)));
   });
 
-  it('onSubmitSession does NOT invalidate league caches for a pickup session (no league_id)', async () => {
+  it('onSubmitSession skips league-specific caches for a pickup session', async () => {
     mockGetSessionById.mockResolvedValue({ ...SESSION, league_id: null });
     mockLockInSession.mockResolvedValue(undefined);
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
@@ -199,7 +188,13 @@ describe('useSessionDetailScreen', () => {
       await result.current.onSubmitSession();
     });
 
-    expect(invalidateSpy).not.toHaveBeenCalled();
+    const keys = invalidateSpy.mock.calls.map(
+      ([arg]) => JSON.stringify((arg as { queryKey?: unknown })?.queryKey),
+    );
+    expect(keys).toContain(JSON.stringify(sessionKeys.all(7)));
+    expect(keys).toContain(JSON.stringify(matchKeys.all(7)));
+    expect(keys).not.toContain(JSON.stringify(leagueKeys.myGames(7, 1)));
+    expect(keys).not.toContain(JSON.stringify(leagueKeys.allGames(7, 1)));
   });
 
   it('onSubmitSession does NOT invalidate league caches when submit fails', async () => {

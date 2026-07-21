@@ -8,6 +8,8 @@ export const socialKeys = {
     [...privateKeys.user(userId), 'social'] as const,
   friends: (userId: AuthenticatedUserId) =>
     [...socialKeys.all(userId), 'friends'] as const,
+  friendCount: (userId: AuthenticatedUserId) =>
+    [...socialKeys.friends(userId), 'count'] as const,
   requestsRoot: (userId: AuthenticatedUserId) =>
     [...socialKeys.all(userId), 'requests'] as const,
   requests: (

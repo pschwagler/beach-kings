@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import type { LeagueDetail, Season } from '@beach-kings/shared';
 
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
 import { hapticMedium } from '@/utils/haptics';
+import { useAuth } from '@/contexts/AuthContext';
+import { reconcileGameMutation } from '@/features/matches';
 
 interface UseSessionCreateScreenParams {
   readonly leagueId?: number | null;
@@ -39,6 +42,9 @@ export function useSessionCreateScreen(
   params: UseSessionCreateScreenParams = {},
 ): UseSessionCreateScreenResult {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const leagueId = params.leagueId ?? null;
   const today = new Date().toISOString().split('T')[0];
   const { data: league } = useApi<LeagueDetail>(
@@ -92,13 +98,14 @@ export function useSessionCreateScreen(
           : {}),
       });
       if (session == null) throw new Error('Failed to create session.');
+      void reconcileGameMutation(queryClient, { userId, leagueId });
       router.replace(routes.session(session.id));
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to create session.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [courtId, date, isRanked, isRankedLocked, leagueId, router, selectedSeasonId, startTime]);
+  }, [courtId, date, isRanked, isRankedLocked, leagueId, queryClient, router, selectedSeasonId, startTime, userId]);
 
   return {
     date,

@@ -365,6 +365,7 @@ export default function FriendsBody({
               request={item.request}
               onAccept={onAcceptRequest}
               onDecline={onDeclineRequest}
+              onPress={onPlayerPress}
             />
           );
         case 'friend':

@@ -2,7 +2,8 @@
  * Tests for Avatar — profile photo with initials fallback.
  *
  * Covers:
- *   - getInitials helper (first + last, single name, empty).
+ *   - getInitials helper (first + last letter-token, single name, digit-token
+ *     filtering, alphanumeric fallback, empty).
  *   - Image rendering when a photo URL is present.
  *   - Initials fallback + the flat default (teal) variant color.
  *   - colorSeed variety: deterministic per-seed bg/fg, stable for equal seeds,
@@ -22,6 +23,15 @@ describe('getInitials', () => {
 
   it('returns a single initial for a one-word name', () => {
     expect(getInitials('Cher')).toBe('C');
+  });
+
+  it('skips tokens that do not start with a letter', () => {
+    expect(getInitials('Social E2E Bob 84404982')).toBe('SB');
+    expect(getInitials('Bob 42')).toBe('B');
+  });
+
+  it('falls back to the first alphanumeric character when no letter token exists', () => {
+    expect(getInitials('42 99')).toBe('4');
   });
 
   it('returns an empty string for a blank name', () => {

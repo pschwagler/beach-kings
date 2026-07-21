@@ -12,6 +12,8 @@ import { normalizePlayerStats } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/features/notifications';
 import { useDashboard } from '@/hooks/useDashboard';
+import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import { routes } from '@/lib/navigation';
 import HomeHeader from '@/components/home/HomeHeader';
 import QuickStatsRow from '@/components/home/QuickStatsRow';
@@ -54,6 +56,7 @@ function countPendingInviteGames(matches: readonly MatchRecord[]): number {
 
 export default function HomeScreen(): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
   const { profileComplete } = useAuth();
   const { unreadCount, dmUnreadCount } = useNotifications();
 
@@ -73,6 +76,13 @@ export default function HomeScreen(): React.ReactNode {
   const onRefresh = useCallback(() => {
     void refetchAll();
   }, [refetchAll]);
+
+  const refetchPlayer = player.refetch;
+  const refetchActiveSession = activeSession.refetch;
+  const refreshCriticalData = useCallback(async () => {
+    await Promise.allSettled([refetchPlayer(), refetchActiveSession()]);
+  }, [refetchActiveSession, refetchPlayer]);
+  useRefreshOnFocus(refreshCriticalData, 0);
 
   const playerData = player.data ?? null;
   const leaguesData = leagues.data ?? [];
@@ -132,7 +142,7 @@ export default function HomeScreen(): React.ReactNode {
           <RefreshControl
             refreshing={isRefreshing && !isInitialLoading}
             onRefresh={onRefresh}
-            tintColor="#2a7d9c"
+            tintColor={palette.brandTeal}
           />
         }
       >
@@ -152,7 +162,7 @@ export default function HomeScreen(): React.ReactNode {
               />
             )}
 
-            {activeSession.isError && (
+            {activeSession.isError && activeSessionData == null && (
               <View className="mb-lg">
                 <SectionHeader title="Active Session" />
                 <SectionError
@@ -162,7 +172,7 @@ export default function HomeScreen(): React.ReactNode {
               </View>
             )}
 
-            {activeSessionData && !activeSession.isError && (
+            {activeSessionData && (
               <View className="mb-lg">
                 <SectionHeader title="Active Session" />
                 <SessionCard
@@ -171,6 +181,14 @@ export default function HomeScreen(): React.ReactNode {
                   badgeTone="active"
                   accentBorder
                 />
+                {activeSession.isError && (
+                  <View className="mt-sm">
+                    <SectionError
+                      message="Could not refresh your active session. Showing the last saved version."
+                      onRetry={() => void activeSession.refetch()}
+                    />
+                  </View>
+                )}
               </View>
             )}
 

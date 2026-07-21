@@ -23,10 +23,13 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { shareLink } from "@/utils/share";
 import { routes } from "@/lib/navigation";
 import { useAddNewPlayer } from "@/contexts/AddNewPlayerContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { reconcileGameMutation } from "@/features/matches";
 import type {
   SessionGame,
   PlayerSearchTag,
@@ -34,6 +37,7 @@ import type {
   PlayerGender,
   SkillLevel,
   Player,
+  StatsJobIds,
 } from "@beach-kings/shared";
 import { SKILL_LEVEL_OPTIONS } from "@beach-kings/shared";
 
@@ -362,6 +366,9 @@ export function useScoreGameScreen(
   const isEditMode = matchId != null;
 
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const addNewPlayerBridge = useAddNewPlayer();
 
   // sessionId lives in state because lazy create (Manage Session / first
@@ -841,8 +848,9 @@ export function useScoreGameScreen(
     setSubmitState("loading");
     setErrorMessage(null);
     try {
+      let statsJobs: StatsJobIds | undefined;
       if (matchId != null) {
-        await api.updateMatch(matchId, {
+        statsJobs = await api.updateMatch(matchId, {
           team1_player1_id: team1[0].player_id!,
           team1_player2_id: team1[1].player_id!,
           team2_player1_id: team2[0].player_id!,
@@ -874,6 +882,11 @@ export function useScoreGameScreen(
           setSessionId(response.session_id);
         }
       }
+      void reconcileGameMutation(queryClient, {
+        userId,
+        leagueId,
+        statsJobs,
+      });
       setSubmitState("success");
     } catch (err) {
       const message =
@@ -892,6 +905,8 @@ export function useScoreGameScreen(
     score1,
     score2,
     isRanked,
+    queryClient,
+    userId,
   ]);
 
   // --- Delete (edit mode only) ---
@@ -903,7 +918,12 @@ export function useScoreGameScreen(
     setDeleteState("loading");
     setErrorMessage(null);
     try {
-      await api.deleteMatch(matchId);
+      const response = await api.deleteMatch(matchId);
+      void reconcileGameMutation(queryClient, {
+        userId,
+        leagueId,
+        statsJobs: response,
+      });
       setDeleteState("idle");
       return true;
     } catch (err) {
@@ -915,7 +935,7 @@ export function useScoreGameScreen(
       setDeleteState("error");
       return false;
     }
-  }, [matchId]);
+  }, [leagueId, matchId, queryClient, userId]);
 
   // --- Lazy session creation (Manage Session / Share) ---
   //
@@ -933,7 +953,10 @@ export function useScoreGameScreen(
         season_id: seasonId ?? null,
       });
       const newId = created?.id ?? null;
-      if (newId != null) setSessionId(newId);
+      if (newId != null) {
+        setSessionId(newId);
+        void reconcileGameMutation(queryClient, { userId, leagueId });
+      }
       return newId;
     } catch (err) {
       const message =
@@ -945,7 +968,7 @@ export function useScoreGameScreen(
     } finally {
       setIsCreatingSession(false);
     }
-  }, [sessionId, leagueId, seasonId]);
+  }, [sessionId, leagueId, seasonId, queryClient, userId]);
 
   const onManageSession = useCallback(async (): Promise<number | null> => {
     return ensureSession();

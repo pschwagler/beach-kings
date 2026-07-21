@@ -538,6 +538,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           visible={isMenuOpen}
           onClose={closeMenu}
           sessionId={session.id}
+          leagueId={session.league_id}
           sessionLabel={`Session #${session.session_number}`}
           gameCount={session.games.length}
           playerCount={session.players.length}

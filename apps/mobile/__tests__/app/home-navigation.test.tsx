@@ -18,8 +18,12 @@ jest.mock('expo-router', () => {
   const Link = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
   const useRouter = () => ({ back: jest.fn(), replace: jest.fn(), push: mockPush });
   const useSegments = () => [];
-  return { Link, useRouter, useSegments };
+  return { Link, useRouter, useSegments, useFocusEffect: jest.fn() };
 });
+
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({ brandTeal: '#2a7d9c' }),
+}));
 
 jest.mock('@/contexts/AuthContext', () => ({
   __esModule: true,

@@ -15,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRootNavigationState, useSegments } from 'expo-router';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
+import { playerQueries } from '@/features/player';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -144,16 +145,6 @@ function parseAuthResponse(response: AuthResponse): {
   };
 }
 
-/** Fetch the current user's player and compute profile completeness. */
-async function fetchProfileComplete(): Promise<boolean> {
-  try {
-    const player = await api.getCurrentUserPlayer();
-    return isProfileComplete(player);
-  } catch {
-    return false;
-  }
-}
-
 /** A profile is "complete" only when all required fields are present. */
 function isProfileComplete(player: {
   readonly gender?: string | null;
@@ -243,6 +234,15 @@ export default function AuthProvider({
     await queryClient.cancelQueries();
   }, [queryClient]);
 
+  const fetchProfileComplete = useCallback(async (userId: number): Promise<boolean> => {
+    try {
+      const player = await queryClient.fetchQuery(playerQueries.me(userId));
+      return isProfileComplete(player);
+    } catch {
+      return false;
+    }
+  }, [queryClient]);
+
   const clearCacheAndPublish = useCallback(
     (nextState: AuthState): void => {
       // Clear both caches in the same synchronous turn as identity publication
@@ -306,20 +306,21 @@ export default function AuthProvider({
         if (!isCurrentOperation(revision)) return false;
         await cancelQueryWork();
         if (!isCurrentOperation(revision)) return false;
+        // Retire every previous identity before installing the new credential.
+        // The player request below then becomes the first entry for this user.
+        queryClient.clear();
         await api.setAuthTokens(response.access_token, response.refresh_token);
         return isCurrentOperation(revision);
       });
       if (!installed) return;
 
-      const profileComplete = await fetchProfileComplete();
+      const profileComplete = await fetchProfileComplete(parsed.user.id);
 
       await enqueueTransition(async () => {
         if (!isCurrentOperation(revision)) return;
-        // A direct profile request can overlap Query work triggered elsewhere;
-        // enforce the empty-cache invariant immediately before publication.
-        await cancelQueryWork();
-        if (!isCurrentOperation(revision)) return;
-        clearCacheAndPublish({
+        // Keep the player query populated so the first authenticated screen
+        // reads the same snapshot used to decide profile completeness.
+        publishState({
           user: parsed.user,
           isLoading: false,
           isAuthenticated: true,
@@ -328,7 +329,14 @@ export default function AuthProvider({
         });
       });
     },
-    [cancelQueryWork, clearCacheAndPublish, enqueueTransition, isCurrentOperation],
+    [
+      cancelQueryWork,
+      enqueueTransition,
+      fetchProfileComplete,
+      isCurrentOperation,
+      publishState,
+      queryClient,
+    ],
   );
 
   // Refresh-token exhaustion is an authentication transition, not only a
@@ -370,14 +378,21 @@ export default function AuthProvider({
           deletion_scheduled_at: userData.deletion_scheduled_at ?? null,
         };
 
-        const profileComplete = await fetchProfileComplete();
+        const cachePrepared = await enqueueTransition(async () => {
+          if (!isCurrentOperation(revision)) return false;
+          await cancelQueryWork();
+          if (!isCurrentOperation(revision)) return false;
+          queryClient.clear();
+          return true;
+        });
+        if (!cachePrepared) return;
+
+        const profileComplete = await fetchProfileComplete(user.id);
         if (!isCurrentOperation(revision)) return;
 
         await enqueueTransition(async () => {
           if (!isCurrentOperation(revision)) return;
-          await cancelQueryWork();
-          if (!isCurrentOperation(revision)) return;
-          clearCacheAndPublish({
+          publishState({
             user,
             isLoading: false,
             isAuthenticated: true,
@@ -395,10 +410,12 @@ export default function AuthProvider({
   }, [
     beginAuthOperation,
     cancelQueryWork,
-    clearCacheAndPublish,
     commitUnauthenticated,
     enqueueTransition,
+    fetchProfileComplete,
     isCurrentOperation,
+    publishState,
+    queryClient,
   ]);
 
   // -----------------------------------------------------------------------
