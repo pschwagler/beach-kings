@@ -2,7 +2,7 @@
 
 > Test cases for the four Add Games entry flows (league with/without active session, pickup with/without active session). Use for manual QA and E2E test development.
 
-**Last updated:** 2026-05-09  
+**Last updated:** 2026-07-26
 **Scope:** Phase 4 — Add Games Tab (Sessions & Score Entry)  
 **Related:** MOBILE_APP_SPEC.md § Phase 4
 
@@ -13,9 +13,9 @@
 | Flow | Entry Point | Session State | Score-Game Params | Expected Behavior |
 |------|-------------|---------------|-------------------|-------------------|
 | **Flow 1** | League with active session | Continues existing | `sessionId`, `leagueId`, `seasonId` | "Continue" button → score-game with pre-filled rosters |
-| **Flow 2** | League without active session | Creates new | `leagueId`, `seasonId`, `sessionId=null` | "New Session" button → score-game, lazy session create |
+| **Flow 2** | League without active session | Creates new | `leagueId`, `seasonId`, `sessionId=null` | "New Session" → score-game; saving a game creates atomically, "Start Session" opens the explicit form |
 | **Flow 3** | Pickup with active session | Continues existing | `sessionId`, `leagueId=null` | "Continue Pickup Session" banner → score-game |
-| **Flow 4** | Pickup without active session | Creates new | `sessionId=null`, `leagueId=null` | "Pickup Play" button → score-game, lazy session create |
+| **Flow 4** | Pickup without active session | Creates new | `sessionId=null`, `leagueId=null` | "Pickup Play" → score-game; saving a game creates atomically, "Start Session" opens the explicit form |
 
 ---
 
@@ -40,7 +40,7 @@ make seed-users  # Creates 3 test users (password: test1234)
 | State | How to Create | For Testing |
 |-------|---------------|-------------|
 | **ACTIVE session (league)** | Submit a match in a league | Flow 1 (league-continue) |
-| **DRAFT session (empty)** | Tap "Manage Session" but don't add matches | Flow 2 (post-Manage, pre-match) |
+| **Intentional empty session** | Submit the "Start Session" form but don't add matches | Flow 2 or 4 (post-create, pre-match) |
 | **No session** | Default state on first app open | Flow 2, 4 (league-new, pickup-new) |
 | **ACTIVE session (pickup)** | Submit a match with no league context | Flow 3 (pickup-continue) |
 
@@ -175,7 +175,7 @@ make seed-users  # Creates 3 test users (password: test1234)
 **Expected Outcome:**
 - ✅ Route params: `leagueId`, `seasonId` present; `sessionId=null`
 - ✅ Header shows "Create New Session" (or league name with "New")
-- ✅ Three-dot menu (⋮) visible with "Manage Session" option (Share only available after session created)
+- ✅ Three-dot menu (⋮) visible with "Start Session" option (Share only available after session created)
 - ✅ Score entry form ready for input
 - ✅ "Save Game" button present
 - ✅ "X" (close) button present in header
@@ -188,7 +188,7 @@ make seed-users  # Creates 3 test users (password: test1234)
 
 **Steps:**
 1. From Flow 2.1, fill in score entry (both teams, final score)
-2. Tap "Save Game" button without tapping "Manage Session" first
+2. Tap "Save Game" button without tapping "Start Session" first
 3. Observe backend + navigation
 
 **Expected Outcome:**
@@ -202,37 +202,36 @@ make seed-users  # Creates 3 test users (password: test1234)
 
 ---
 
-### Test Case 2.3: Manage Session Before Saving (Explicit Create)
+### Test Case 2.3: Start Session Before Saving (Explicit Form)
 
 **Steps:**
 1. From Flow 2.1, do NOT fill in score yet
 2. Tap three-dot menu (⋮)
-3. Tap "Manage Session"
-4. Observe navigation + backend
+3. Tap "Start Session"
+4. Observe the session form; do not submit it yet
 
 **Expected Outcome:**
-- ✅ Backend creates session (POST /api/sessions with `league_id`, `season_id`, title)
-- ✅ Routed to SessionDetailScreen (new empty session)
-- ✅ User can set session title, add/invite players
-- ✅ Session code is displayed (shareable)
-- ✅ Tapping back/X returns to score-game (sessionId now in scope)
+- ✅ Routed to the session form with `leagueId` and `seasonId`
+- ✅ The default date is the device's local calendar date
+- ✅ Opening or abandoning the form makes no POST request
+- ✅ Tapping the form's "Start Session" button creates the session once
+- ✅ Successful creation routes to SessionDetailScreen, where roster and sharing actions are available
 
-**E2E Test Name:** `test_flow2_3_manage_session_explicit_create`
+**E2E Test Name:** `test_flow2_3_start_session_explicit_form`
 
 ---
 
-### Test Case 2.4: Manage Session, Then Save Match
+### Test Case 2.4: Explicitly Start Session, Then Save Match
 
 **Steps:**
 1. From Flow 2.1, tap three-dot menu (⋮)
-2. Tap "Manage Session" → routed to SessionDetailScreen
-3. Set session title (e.g., "Saturday Beach Volleyball")
-4. Tap back to return to score-game
-5. Fill in score entry
-6. Tap "Save Game"
+2. Tap "Start Session", complete the form, then submit
+3. From SessionDetailScreen, tap "Add Game"
+4. Fill in score entry
+5. Tap "Save Game"
 
 **Expected Outcome:**
-- ✅ Session exists with custom title
+- ✅ Session exists with the selected date, time, court, and league context
 - ✅ Match created in that session
 - ✅ SessionDetailScreen displays with title + match
 - ✅ "Share" option now available in score-game menu
@@ -241,33 +240,32 @@ make seed-users  # Creates 3 test users (password: test1234)
 
 ---
 
-### Test Case 2.5: Close Without Saving, After Manage Session
+### Test Case 2.5: Close the Start Session Form Without Submitting
 
 **Steps:**
-1. From Flow 2.1, tap "Manage Session" → session created + routed to SessionDetailScreen
-2. Tap back to score-game
-3. Do NOT fill in score entry
-4. Tap "X" (close)
+1. From Flow 2.1, tap "Start Session"
+2. Do not tap the form's "Start Session" submit button
+3. Navigate back
 
 **Expected Outcome:**
-- ✅ Routed to SessionDetailScreen (the session that was created in step 1)
-- ✅ No match in session (nothing saved)
-- ✅ Session persists (intentional create, so it should exist)
+- ✅ No session POST is made
+- ✅ No empty session is persisted
+- ✅ Returning to scoring still has `sessionId=null`
 
-**E2E Test Name:** `test_flow2_5_close_after_manage_session`
+**E2E Test Name:** `test_flow2_5_abandon_start_session_form`
 
 ---
 
 ### Test Case 2.6: Close Without Managing or Saving
 
 **Steps:**
-1. From Flow 2.1, do NOT tap "Manage Session"
+1. From Flow 2.1, do NOT tap "Start Session"
 2. Do NOT fill in score entry
 3. Tap "X" (close)
 
 **Expected Outcome:**
 - ✅ Routed back to "Add Games" tab
-- ✅ No session created (lazy create — nothing triggered it)
+- ✅ No session created
 - ✅ Clean exit, no orphan state
 
 **E2E Test Name:** `test_flow2_6_close_without_managing_or_saving`
@@ -277,7 +275,7 @@ make seed-users  # Creates 3 test users (password: test1234)
 ### Test Case 2.7: Device Back Without Managing or Saving
 
 **Steps:**
-1. From Flow 2.1, do NOT tap "Manage Session"
+1. From Flow 2.1, do NOT tap "Start Session"
 2. Do NOT fill in score entry
 3. Tap device back button
 
@@ -391,7 +389,7 @@ make seed-users  # Creates 3 test users (password: test1234)
 **Expected Outcome:**
 - ✅ Route params: `sessionId=null`, `leagueId=null`
 - ✅ Header shows "Create New Session" (or "New Pickup Game")
-- ✅ Three-dot menu (⋮) visible with "Manage Session" option
+- ✅ Three-dot menu (⋮) visible with "Start Session" option
 - ✅ Score entry form ready (open rosters, user selects players)
 - ✅ "Save Game" button present
 
@@ -404,7 +402,7 @@ make seed-users  # Creates 3 test users (password: test1234)
 **Steps:**
 1. From Flow 4.1, select teams and players
 2. Fill in final score
-3. Tap "Save Game" without tapping "Manage Session"
+3. Tap "Save Game" without tapping "Start Session"
 
 **Expected Outcome:**
 - ✅ Backend auto-creates pickup session (POST /api/matches with `session_id=null`, `league_id=null`)
@@ -417,30 +415,29 @@ make seed-users  # Creates 3 test users (password: test1234)
 
 ---
 
-### Test Case 4.3: Manage Session Before Saving (Explicit Create)
+### Test Case 4.3: Start Session Before Saving (Explicit Form)
 
 **Steps:**
 1. From Flow 4.1, do NOT fill in score
 2. Tap three-dot menu (⋮)
-3. Tap "Manage Session"
+3. Tap "Start Session"
 
 **Expected Outcome:**
-- ✅ Backend creates pickup session (POST /api/sessions with no `league_id`)
-- ✅ Routed to SessionDetailScreen
-- ✅ User can set title, invite players, get session code
-- ✅ Back returns to score-game (sessionId now in scope)
+- ✅ Routed to the pickup session form
+- ✅ Opening or abandoning the form makes no POST request
+- ✅ Tapping the form's "Start Session" button creates one pickup session
+- ✅ Successful creation routes to SessionDetailScreen, where players can be invited and the code shared
 
-**E2E Test Name:** `test_flow4_3_manage_pickup_explicit_create`
+**E2E Test Name:** `test_flow4_3_start_pickup_explicit_form`
 
 ---
 
-### Test Case 4.4: Manage, Then Save Match in Pickup
+### Test Case 4.4: Explicitly Start, Then Save Match in Pickup
 
 **Steps:**
-1. From Flow 4.1, tap "Manage Session" → SessionDetailScreen created
-2. Set session title (e.g., "Tuesday Night Beach Pickup")
-3. Back to score-game
-4. Fill in score, tap "Save Game"
+1. From Flow 4.1, tap "Start Session", complete the form, and submit
+2. From SessionDetailScreen, tap "Add Game"
+3. Fill in score, tap "Save Game"
 
 **Expected Outcome:**
 - ✅ Session persists with custom title
@@ -454,7 +451,7 @@ make seed-users  # Creates 3 test users (password: test1234)
 ### Test Case 4.5: Close Without Saving or Managing
 
 **Steps:**
-1. From Flow 4.1, do NOT tap "Manage Session"
+1. From Flow 4.1, do NOT tap "Start Session"
 2. Do NOT fill in score
 3. Tap "X" (close)
 
@@ -469,7 +466,7 @@ make seed-users  # Creates 3 test users (password: test1234)
 ### Test Case 4.6: Device Back Without Saving or Managing
 
 **Steps:**
-1. From Flow 4.1, do NOT tap "Manage Session"
+1. From Flow 4.1, do NOT tap "Start Session"
 2. Do NOT fill in score
 3. Tap device back button
 
@@ -501,9 +498,9 @@ make seed-users  # Creates 3 test users (password: test1234)
 
 ---
 
-### Test Case E2: Empty Draft Session Appears in Banner
+### Test Case E2: Intentionally Started Empty Session Appears in Banner
 
-**Setup:** User tapped "Manage Session" (Flow 2.3 or 4.3) but never saved a match
+**Setup:** User submitted the explicit Start Session form (Flow 2.3 or 4.3) but never saved a match
 
 **Steps:**
 1. Navigate back to "Add Games" tab
@@ -523,7 +520,7 @@ make seed-users  # Creates 3 test users (password: test1234)
 **Setup:** Two test users (A and B)
 
 **Steps:**
-1. User A: Create new pickup session (Flow 4.1–4.3) → get session code/link
+1. User A: Explicitly start a new pickup session (Flow 4.3) → get session code/link
 2. User A: Share code with User B
 3. User B: Open app → accept session invite or join via code
 4. User B: Navigate to session detail
@@ -561,12 +558,12 @@ Use this checklist for manual testing across all flows:
 
 ### Flow 2 (league-new)
 - [ ] [ ] 2.1 Open score-game → params correct (sessionId=null)
-- [ ] [ ] 2.2 Save without Manage → session auto-created
-- [ ] [ ] 2.3 Manage → session created
-- [ ] [ ] 2.4 Manage then save → title persists
-- [ ] [ ] 2.5 Close after Manage → back to SessionDetail (not tab)
-- [ ] [ ] 2.6 Close without Manage → back to tab (clean exit)
-- [ ] [ ] 2.7 Device back without Manage → clean exit
+- [ ] [ ] 2.2 Save game without Start Session → session created atomically
+- [ ] [ ] 2.3 Start Session → form opens; submit creates once
+- [ ] [ ] 2.4 Explicitly start then save → context persists
+- [ ] [ ] 2.5 Abandon Start Session form → no record
+- [ ] [ ] 2.6 Close without starting → back to tab (clean exit)
+- [ ] [ ] 2.7 Device back without starting → clean exit
 
 ### Flow 3 (pickup-continue)
 - [ ] [ ] 3.1 Continue from banner → params correct
@@ -577,15 +574,15 @@ Use this checklist for manual testing across all flows:
 
 ### Flow 4 (pickup-new)
 - [ ] [ ] 4.1 Open new pickup → params correct (sessionId=null)
-- [ ] [ ] 4.2 Save without Manage → session auto-created
-- [ ] [ ] 4.3 Manage → session created
-- [ ] [ ] 4.4 Manage then save → title persists
-- [ ] [ ] 4.5 Close without Manage → back to tab (clean exit)
-- [ ] [ ] 4.6 Device back without Manage → clean exit
+- [ ] [ ] 4.2 Save game without Start Session → session created atomically
+- [ ] [ ] 4.3 Start Session → form opens; submit creates once
+- [ ] [ ] 4.4 Explicitly start then save → context persists
+- [ ] [ ] 4.5 Close without starting → back to tab (clean exit)
+- [ ] [ ] 4.6 Device back without starting → clean exit
 
 ### Cross-Flow Edge Cases
 - [ ] [ ] E1 Add Another from SessionDetail → form cleared, same session
-- [ ] [ ] E2 Empty draft session in banner → not filtered
+- [ ] [ ] E2 Intentionally started empty session in banner → not filtered
 - [ ] [ ] E3 Session sharing + collab → both users see same state
 
 ---

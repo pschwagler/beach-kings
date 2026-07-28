@@ -1,7 +1,7 @@
 /**
  * Tests for the useDiscoverPlayers hook.
  *
- * Focus: the canonical API-client contract, client-side search filters, and
+ * Focus: the canonical API-client contract, debounced server-side search, and
  * optimistic add-friend with rollback on failure.
  */
 
@@ -40,7 +40,10 @@ const mockApi = api as unknown as {
   sendFriendRequest: jest.Mock;
 };
 
-function renderHook<Result>(callback: () => Result) {
+function renderHook<Result, Props>(
+  callback: (props: Props) => Result,
+  options?: { initialProps?: Props },
+) {
   const client = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
@@ -50,7 +53,7 @@ function renderHook<Result>(callback: () => Result) {
   function Wrapper({ children }: { readonly children: React.ReactNode }) {
     return React.createElement(QueryClientProvider, { client }, children);
   }
-  return renderQueryHook(callback, { wrapper: Wrapper });
+  return renderQueryHook(callback, { wrapper: Wrapper, ...options });
 }
 
 // ---------------------------------------------------------------------------
@@ -208,19 +211,12 @@ describe('useDiscoverPlayers — API contract', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Search filter
+// Server-side search
 // ---------------------------------------------------------------------------
 
-describe('useDiscoverPlayers — search filter', () => {
-  const NY = {
-    ...PLAYER,
-    player_id: 8,
-    full_name: 'Nina York',
-    city: 'New York',
-  };
-
-  it('filters the discover list by name', async () => {
-    mockApi.discoverPlayers.mockResolvedValue([PLAYER, NY]);
+describe('useDiscoverPlayers — search', () => {
+  it('sends the searchQuery to the server as the search param', async () => {
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
 
     const { result } = renderHook(() =>
       useDiscoverPlayers({ searchQuery: 'bob' }),
@@ -228,19 +224,43 @@ describe('useDiscoverPlayers — search filter', () => {
 
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
 
+    expect(mockApi.discoverPlayers).toHaveBeenCalledWith({ search: 'bob' });
+    // Results are used as-is; the server applies the name filter.
     expect(result.current.players).toEqual([PLAYER]);
   });
 
-  it('filters the discover list by city', async () => {
-    mockApi.discoverPlayers.mockResolvedValue([PLAYER, NY]);
+  it('debounces search-box changes before refetching', async () => {
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
+
+    const { rerender } = renderHook(
+      ({ q }: { readonly q: string }) => useDiscoverPlayers({ searchQuery: q }),
+      { initialProps: { q: '' } },
+    );
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenCalledWith({}),
+    );
+
+    rerender({ q: 'nina' });
+    // Still inside the debounce window, so no new request has fired.
+    expect(mockApi.discoverPlayers).toHaveBeenCalledTimes(1);
+
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        search: 'nina',
+      }),
+    );
+  });
+
+  it('trims and ignores blank search input', async () => {
+    mockApi.discoverPlayers.mockResolvedValue([PLAYER]);
 
     const { result } = renderHook(() =>
-      useDiscoverPlayers({ searchQuery: 'new york' }),
+      useDiscoverPlayers({ searchQuery: '   ' }),
     );
 
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
 
-    expect(result.current.players).toEqual([NY]);
+    expect(mockApi.discoverPlayers).toHaveBeenCalledWith({});
   });
 });
 

@@ -18,6 +18,7 @@ import TopNav from '@/components/ui/TopNav';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import SessionCourtPicker from './SessionCourtPicker';
 import SessionSeasonSelector from './SessionSeasonSelector';
+import SessionDateField from './SessionDateField';
 import { useSessionEditScreen } from './useSessionEditScreen';
 
 interface FormRowProps {
@@ -37,7 +38,7 @@ function FormRow({
 }: FormRowProps): React.ReactNode {
   const palette = usePaletteColors();
   return (
-    <View className="flex-row items-center py-[14px] border-b border-divider">
+    <View className="min-h-[64px] flex-row items-center px-4">
       <Text className="text-[14px] font-semibold text-muted w-[100px]">{label}</Text>
       <TextInput
         className="flex-1 text-[14px] text-default"
@@ -46,6 +47,7 @@ function FormRow({
         placeholder={placeholder}
         placeholderTextColor={palette.textTertiary}
         testID={testID}
+        accessibilityLabel={label}
       />
     </View>
   );
@@ -77,19 +79,23 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
     onSave,
     onCancel,
   } = useSessionEditScreen(sessionId);
-  const contextLabel = session?.league_id != null
-    ? session.league_name ?? 'League session'
-    : session?.session_type === 'league'
-      ? 'League session'
-      : 'Pickup session';
+  const isLeagueSession =
+    session?.league_id != null || session?.session_type === 'league';
+  const leagueLabel = session?.league_name ?? 'League session';
 
   return (
     <SafeAreaView className="flex-1 bg-page" edges={['top']} testID="session-edit-screen">
       <TopNav
         title="Edit Session"
         leftAction={(
-          <TouchableOpacity onPress={onCancel} testID="session-edit-close-btn" className="p-[8px]">
-            <Text className="text-[16px] text-default">X</Text>
+          <TouchableOpacity
+            onPress={onCancel}
+            testID="session-edit-close-btn"
+            accessibilityRole="button"
+            accessibilityLabel="Close edit session"
+            className="min-h-touch min-w-touch items-center justify-center"
+          >
+            <Text className="text-[18px] font-semibold text-inverse">✕</Text>
           </TouchableOpacity>
         )}
       />
@@ -97,8 +103,15 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
           <Text className="text-[15px] font-bold text-default mt-[20px] mb-[4px]">Date &amp; Time</Text>
-          <FormRow label="Date" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" testID="edit-session-date-input" />
-          <FormRow label="Start Time" value={startTime} onChangeText={setStartTime} placeholder="e.g. 3:00 PM" testID="edit-session-time-input" />
+          <View className="mt-2 overflow-hidden rounded-[14px] border border-divider bg-surface">
+            <SessionDateField
+              value={date}
+              onChange={setDate}
+              testID="edit-session-date-input"
+            />
+            <View className="mx-4 h-px bg-divider" />
+            <FormRow label="Start time" value={startTime} onChangeText={setStartTime} placeholder="e.g. 3:00 PM" testID="edit-session-time-input" />
+          </View>
 
           <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Location</Text>
           <SessionCourtPicker
@@ -108,13 +121,16 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
             testIDPrefix="edit-session"
           />
 
-          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Session</Text>
-          <View className="py-[14px] border-b border-divider">
-            <Text className="text-[14px] font-semibold text-muted">Context</Text>
-            <Text testID="edit-session-context-label" className="text-[14px] text-default mt-[2px]">
-              {contextLabel}
-            </Text>
-          </View>
+          {isLeagueSession && (
+            <>
+              <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">League</Text>
+              <View className="py-[14px] border-b border-divider">
+                <Text testID="edit-session-league-label" className="text-[14px] text-default">
+                  {leagueLabel}
+                </Text>
+              </View>
+            </>
+          )}
 
           {showsSeasonAssignment && (
             <>
@@ -157,14 +173,28 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
         </ScrollView>
 
         <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[12px] pb-[34px] gap-[8px]">
-          <TouchableOpacity testID="session-edit-save-btn" onPress={() => { void onSave(); }} disabled={isSubmitting} className="bg-brand-teal rounded-[8px] items-center justify-center py-[16px]">
+          <TouchableOpacity
+            testID="session-edit-save-btn"
+            onPress={() => { void onSave(); }}
+            disabled={isSubmitting}
+            accessibilityRole="button"
+            accessibilityLabel="Save session changes"
+            accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
+            className="bg-brand-teal rounded-[8px] items-center justify-center py-[16px]"
+          >
             {isSubmitting ? (
               <ActivityIndicator color={palette.textInverse} testID="session-edit-loading" />
             ) : (
               <Text className="text-white text-[16px] font-bold">Save Changes</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity testID="session-edit-cancel-btn" onPress={onCancel} className="border border-divider bg-elevated rounded-[8px] items-center justify-center py-[14px]">
+          <TouchableOpacity
+            testID="session-edit-cancel-btn"
+            onPress={onCancel}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel editing session"
+            className="border border-divider bg-elevated rounded-[8px] items-center justify-center py-[14px]"
+          >
             <Text className="text-[15px] font-semibold text-muted">Cancel</Text>
           </TouchableOpacity>
         </View>

@@ -77,6 +77,10 @@ function ToggleRow({
       <Text className="text-[15px] text-default">{label}</Text>
       <Switch
         testID={testID}
+        accessibilityLabel={label}
+        accessibilityHint={
+          disabled ? 'Enable push notifications to change this setting' : undefined
+        }
         value={value}
         onValueChange={() => {
           if (!disabled) {

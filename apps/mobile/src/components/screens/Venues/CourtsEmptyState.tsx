@@ -5,6 +5,8 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import type { CourtFilterChip } from './useCourtsScreen';
+import { getCourtFilterPresentation } from './courtFilters';
 
 function LocationIcon(): React.ReactNode {
   return (
@@ -22,17 +24,18 @@ function LocationIcon(): React.ReactNode {
 }
 
 interface CourtsEmptyStateProps {
-  readonly hasActiveFilter: boolean;
+  readonly activeFilter: CourtFilterChip | null;
   readonly onEnableLocation?: () => void;
   readonly onClearFilter?: () => void;
 }
 
 export default function CourtsEmptyState({
-  hasActiveFilter,
+  activeFilter,
   onEnableLocation,
   onClearFilter,
 }: CourtsEmptyStateProps): React.ReactNode {
-  if (hasActiveFilter) {
+  if (activeFilter != null) {
+    const presentation = getCourtFilterPresentation(activeFilter);
     return (
       <View
         testID="courts-empty-state"
@@ -43,12 +46,11 @@ export default function CourtsEmptyState({
         </View>
 
         <Text className="text-[20px] font-bold text-default mb-2 text-center">
-          No Courts Found
+          {presentation.emptyTitle}
         </Text>
 
         <Text className="text-[14px] text-tertiary text-center leading-[1.5] mb-8">
-          No courts match your current filter. Try a different filter or clear it
-          to see all courts.
+          {presentation.emptyMessage}
         </Text>
 
         {onClearFilter != null && (

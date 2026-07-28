@@ -16,6 +16,7 @@
  * helpers agree on the same union.
  */
 export type SocialTab = 'messages' | 'notifications' | 'friends' | 'findplayers';
+export type LeagueTab = 'games' | 'standings' | 'chat' | 'signups' | 'info';
 
 export const routes = {
   // ---- Auth group ----
@@ -41,7 +42,13 @@ export const routes = {
   profile: () => '/(tabs)/profile' as const,
 
   // ---- Stack: leagues / sessions / courts / players ----
-  league: (id: number | string) => `/(stack)/league/${id}` as const,
+  league: (
+    id: number | string,
+    params: { tab?: LeagueTab } = {},
+  ) =>
+    params.tab != null
+      ? (`/(stack)/league/${id}?tab=${params.tab}` as const)
+      : (`/(stack)/league/${id}` as const),
   leagueInvite: (id: number | string) =>
     `/(stack)/league/${id}/invite` as const,
   pendingInvites: () => '/(stack)/pending-invites' as const,
@@ -64,10 +71,15 @@ export const routes = {
   createSession: (params: {
     leagueId?: number | null;
     seasonId?: number | null;
+    playerIds?: readonly number[];
   } = {}) => {
     const qs: string[] = [];
     if (params.leagueId != null) qs.push(`leagueId=${params.leagueId}`);
     if (params.seasonId != null) qs.push(`seasonId=${params.seasonId}`);
+    const playerIds = [...new Set(params.playerIds ?? [])]
+      .filter((id) => Number.isInteger(id) && id > 0)
+      .slice(0, 4);
+    if (playerIds.length > 0) qs.push(`playerIds=${playerIds.join(',')}`);
     return qs.length > 0
       ? (`/(stack)/session/create?${qs.join('&')}` as const)
       : ('/(stack)/session/create' as const);
@@ -84,6 +96,7 @@ export const routes = {
   // ---- Stack: personal ----
   myGames: () => '/(stack)/my-games' as const,
   myStats: () => '/(stack)/my-stats' as const,
+  editProfile: () => '/(stack)/edit-profile' as const,
   // Returns plain `string` rather than the `as const` literal used by other
   // routes here. expo-router typed routes can't express dynamic query strings,
   // so callers cast with `as never` at the push site. The runtime builder
@@ -232,6 +245,7 @@ export const routeUp: Record<string, UpTarget> = {
   // Games (personal)
   '(stack)/my-games': routes.profile(),
   '(stack)/my-stats': routes.profile(),
+  '(stack)/edit-profile': routes.profile(),
 
   // Misc
   '(stack)/kob/[code]': routes.home(),

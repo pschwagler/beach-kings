@@ -6,8 +6,13 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import {
+  render as testingRender,
+  fireEvent,
+  waitFor,
+} from '@testing-library/react-native';
 import { Alert } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 jest.mock('@/utils/haptics', () => ({
   hapticLight: jest.fn(),
@@ -78,6 +83,18 @@ const GEOAPIFY_SAN_DIEGO = {
     },
   ],
 };
+
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  return testingRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
 
 async function waitForLocationsLoaded(
   getByTestId: ReturnType<typeof render>['getByTestId'],
@@ -316,12 +333,11 @@ describe('OnboardingScreen', () => {
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/home');
   });
 
-  it('shows alert if locations fail to load', async () => {
+  it('shows a retryable inline error if locations fail to load', async () => {
     mockGetLocations.mockRejectedValueOnce(new Error('network'));
-    render(<OnboardingScreen />);
-    await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.any(String));
-    });
+    const { findByText, findByLabelText } = render(<OnboardingScreen />);
+    expect(await findByText('Locations could not be loaded.')).toBeTruthy();
+    expect(await findByLabelText('Retry loading this section')).toBeTruthy();
   });
 
   it('nickname input advertises autofill hints and chains to DOB', () => {

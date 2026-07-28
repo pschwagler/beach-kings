@@ -32,7 +32,11 @@ import * as StoreReview from 'expo-store-review';
 import TopNav from '@/components/ui/TopNav';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
-import { supportMailtoPhoneChange, supportMailtoGeneral } from '@/lib/support';
+import {
+  openSupportMailto,
+  supportMailtoPhoneChange,
+  supportMailtoGeneral,
+} from '@/lib/support';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -196,7 +200,7 @@ export default function SettingsScreen(): React.ReactNode {
   const handlePhonePress = useCallback(() => {
     void hapticLight();
     if (phone != null) {
-      void Linking.openURL(supportMailtoPhoneChange());
+      void openSupportMailto(supportMailtoPhoneChange());
       return;
     }
     router.push(routes.settingsPhone());
@@ -224,7 +228,7 @@ export default function SettingsScreen(): React.ReactNode {
 
   const handleContactSupport = useCallback(() => {
     void hapticLight();
-    void Linking.openURL(supportMailtoGeneral());
+    void openSupportMailto(supportMailtoGeneral());
   }, []);
 
   const handleRateApp = useCallback(() => {

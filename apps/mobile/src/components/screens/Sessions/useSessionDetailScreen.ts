@@ -6,7 +6,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "expo-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import useRefreshOnFocus from "@/hooks/useRefreshOnFocus";
 import { api } from "@/lib/api";
 import { hapticMedium, hapticLight } from "@/utils/haptics";
@@ -15,7 +15,10 @@ import { formatSessionSubtitle } from "@/lib/formatters";
 import type { SessionDetail, SessionGame } from "@beach-kings/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentPlayer } from "@/hooks/useCurrentPlayer";
-import { sessionQueries } from "@/features/sessions";
+import {
+  sessionMutationOptions,
+  sessionQueries,
+} from "@/features/sessions";
 import { reconcileGameMutation } from "@/features/matches";
 
 export interface UseSessionDetailScreenResult {
@@ -26,6 +29,8 @@ export interface UseSessionDetailScreenResult {
   readonly isMenuOpen: boolean;
   readonly isSubmitting: boolean;
   readonly submitError: string | null;
+  readonly isUpdatingCourt: boolean;
+  readonly courtUpdateError: string | null;
   /** Display name of the authenticated user, used to derive per-game team membership. */
   readonly currentPlayerName: string | null;
   readonly onRefresh: () => void;
@@ -36,6 +41,10 @@ export interface UseSessionDetailScreenResult {
   /** Open the score screen in edit mode for the given game. */
   readonly onEditGame: (game: SessionGame) => void;
   readonly onSubmitSession: () => Promise<void>;
+  readonly onCourtChange: (
+    courtId: number | null,
+    courtName?: string | null,
+  ) => Promise<void>;
   readonly onClearSubmitError: () => void;
 }
 
@@ -55,11 +64,15 @@ export function useSessionDetailScreen(
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [courtUpdateError, setCourtUpdateError] = useState<string | null>(null);
   const currentPlayerName =
     currentPlayer.data?.full_name ?? currentPlayer.data?.name ?? null;
 
   const { data, isLoading, error, refetch } = useQuery(
     sessionQueries.detail(userId, sessionId),
+  );
+  const updateCourt = useMutation(
+    sessionMutationOptions.updateCourt(sessionId),
   );
 
   // Refresh on focus so returning from score-game (after a save / edit /
@@ -167,6 +180,35 @@ export function useSessionDetailScreen(
     }
   }, [sessionId, queryClient, userId]);
 
+  const onCourtChange = useCallback(async (
+    courtId: number | null,
+    courtName: string | null = null,
+  ) => {
+    setCourtUpdateError(null);
+    const queryKey = sessionQueries.detail(userId, sessionId).queryKey;
+    const previous = queryClient.getQueryData<SessionDetail>(queryKey);
+    queryClient.setQueryData<SessionDetail>(queryKey, (current) =>
+      current == null
+        ? current
+        : { ...current, court_id: courtId, court_name: courtName },
+    );
+
+    try {
+      await updateCourt.mutateAsync(courtId);
+      await reconcileGameMutation(queryClient, {
+        userId,
+        leagueId: dataRef.current?.league_id,
+      });
+    } catch (err) {
+      queryClient.setQueryData(queryKey, previous);
+      setCourtUpdateError(
+        err instanceof Error
+          ? err.message
+          : "Could not update the court. Please try again.",
+      );
+    }
+  }, [queryClient, sessionId, updateCourt, userId]);
+
   const onClearSubmitError = useCallback(() => {
     setSubmitError(null);
   }, []);
@@ -179,6 +221,8 @@ export function useSessionDetailScreen(
     isMenuOpen,
     isSubmitting,
     submitError,
+    isUpdatingCourt: updateCourt.isPending,
+    courtUpdateError,
     currentPlayerName,
     onRefresh,
     onRetry,
@@ -187,6 +231,7 @@ export function useSessionDetailScreen(
     onAddGame,
     onEditGame,
     onSubmitSession,
+    onCourtChange,
     onClearSubmitError,
   };
 }

@@ -15,6 +15,7 @@ import {
   ScrollView,
 } from 'react-native';
 import type { CourtReview } from '@beach-kings/shared';
+import Avatar from '@/components/ui/Avatar';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,15 +37,6 @@ interface CourtReviewCardProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Returns the first letter of a name, uppercased, as an avatar initial.
- * Falls back to '?' when name is empty.
- */
-function getInitial(name: string | null | undefined): string {
-  if (!name) return '?';
-  return name.charAt(0).toUpperCase();
-}
 
 /**
  * Formats an ISO date string to "Jan 15, 2026".
@@ -87,23 +79,19 @@ export default function CourtReviewCard({
       {/* Header: avatar + author info + edit action */}
       <View className="flex-row items-center mb-3">
         {/* Avatar */}
-        {review.author?.avatar != null ? (
-          <Image
-            testID="review-card-avatar-image"
-            source={{ uri: review.author.avatar }}
-            className="w-9 h-9 rounded-full bg-surface mr-3"
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          <View
-            testID="review-card-avatar-initial"
-            className="w-9 h-9 rounded-full bg-brand-teal items-center justify-center mr-3"
-          >
-            <Text className="text-[15px] font-bold text-inverse">
-              {getInitial(review.author?.full_name)}
-            </Text>
-          </View>
-        )}
+        <Avatar
+          testID={
+            review.author?.avatar != null
+              ? 'review-card-avatar-image'
+              : 'review-card-avatar-initial'
+          }
+          imageUrl={review.author?.avatar}
+          name={review.author?.full_name ?? 'Anonymous'}
+          size={36}
+          colorSeed={review.author?.player_id ?? 'anonymous'}
+          className="mr-3"
+          accessible={false}
+        />
 
         {/* Name + date */}
         <View className="flex-1">

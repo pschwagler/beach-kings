@@ -466,7 +466,7 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
                 "author": {
                     "player_id": r.player.id,
                     "full_name": r.player.full_name,
-                    "avatar": r.player.avatar,
+                    "avatar": r.player.profile_picture_url or r.player.avatar,
                 },
                 "tags": tags,
                 "photos": photos,
@@ -668,7 +668,12 @@ async def get_court_leaderboard(
 
     # Fetch player details
     player_ids = [r.player_id for r in rows]
-    player_q = select(Player.id, Player.full_name, Player.avatar).where(Player.id.in_(player_ids))
+    player_q = select(
+        Player.id,
+        Player.full_name,
+        Player.avatar,
+        Player.profile_picture_url,
+    ).where(Player.id.in_(player_ids))
     player_result = await session.execute(player_q)
     player_map = {p.id: p for p in player_result.all()}
 
@@ -684,7 +689,7 @@ async def get_court_leaderboard(
                 "rank": rank,
                 "player_id": row.player_id,
                 "player_name": player.full_name,
-                "avatar": player.avatar,
+                "avatar": player.profile_picture_url or player.avatar,
                 "match_count": match_count,
                 "win_count": win_count,
                 "win_rate": round(win_count / match_count, 3) if match_count else 0.0,
@@ -1383,7 +1388,7 @@ async def list_reviews(
                 "author": {
                     "player_id": r.player.id,
                     "full_name": r.player.full_name,
-                    "avatar": r.player.avatar,
+                    "avatar": r.player.profile_picture_url or r.player.avatar,
                 },
                 "tags": tags,
                 "photos": photos,

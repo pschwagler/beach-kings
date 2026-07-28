@@ -322,6 +322,7 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             Player.full_name,
             Player.level,
             Player.avatar,
+            Player.profile_picture_url,
         )
         .join(Player, Player.id == LeagueMember.player_id)
         .where(LeagueMember.league_id == league_id)
@@ -332,7 +333,11 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             "player_id": r.player_id,
             "full_name": r.full_name,
             "level": r.level,
-            "avatar": r.avatar or generate_player_initials(r.full_name or ""),
+            "avatar": (
+                r.profile_picture_url
+                or r.avatar
+                or generate_player_initials(r.full_name or "")
+            ),
             "role": r.role,
         }
         for r in members_result.all()
@@ -573,7 +578,11 @@ async def get_public_player(
     return {
         "id": player.id,
         "full_name": player.full_name,
-        "avatar": player.avatar or generate_player_initials(player.full_name or ""),
+        "avatar": (
+            player.profile_picture_url
+            or player.avatar
+            or generate_player_initials(player.full_name or "")
+        ),
         "gender": player.gender,
         "level": player.level,
         "city": player.city,
@@ -762,6 +771,7 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
             Player.full_name,
             Player.level,
             Player.avatar,
+            Player.profile_picture_url,
             PlayerGlobalStats.current_rating,
             PlayerGlobalStats.total_games,
             PlayerGlobalStats.total_wins,
@@ -779,7 +789,11 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
             "id": r.id,
             "full_name": r.full_name,
             "level": r.level,
-            "avatar": r.avatar or generate_player_initials(r.full_name or ""),
+            "avatar": (
+                r.profile_picture_url
+                or r.avatar
+                or generate_player_initials(r.full_name or "")
+            ),
             "current_rating": r.current_rating,
             "total_games": r.total_games,
             "total_wins": r.total_wins,
@@ -926,6 +940,7 @@ async def search_public_players(
             Player.id,
             Player.full_name,
             Player.avatar,
+            Player.profile_picture_url,
             Player.gender,
             Player.level,
             Player.is_placeholder,
@@ -991,7 +1006,11 @@ async def search_public_players(
         {
             "id": r.id,
             "full_name": r.full_name,
-            "avatar": r.avatar or generate_player_initials(r.full_name or ""),
+            "avatar": (
+                r.profile_picture_url
+                or r.avatar
+                or generate_player_initials(r.full_name or "")
+            ),
             "gender": r.gender,
             "level": r.level,
             "is_placeholder": r.is_placeholder,

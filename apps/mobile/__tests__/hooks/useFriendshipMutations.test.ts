@@ -17,11 +17,13 @@ jest.mock('@/lib/api', () => ({
     acceptFriendRequest: jest.fn(),
     declineFriendRequest: jest.fn(),
     cancelFriendRequest: jest.fn(),
+    removeFriend: jest.fn(),
   },
 }));
 
 const mockSend = api.sendFriendRequest as jest.Mock;
 const mockAccept = api.acceptFriendRequest as jest.Mock;
+const mockRemove = api.removeFriend as jest.Mock;
 
 function setup() {
   const client = new QueryClient({
@@ -161,5 +163,75 @@ describe('useFriendshipMutations relationship cache', () => {
     ).toEqual([5, 4]));
     expect(client.getQueryData<{ count: number }>(notificationKeys.unreadCount(7)))
       .toMatchObject({ count: 10 });
+  });
+
+  it('optimistically removes a friend and restores it after a network failure', async () => {
+    let rejectRemoval: (reason: Error) => void = () => {};
+    mockRemove.mockReturnValue(new Promise((_resolve, reject) => {
+      rejectRemoval = reject;
+    }));
+    const { client, Wrapper } = setup();
+    const friend = {
+      id: 9,
+      player_id: 44,
+      full_name: 'Taylor',
+      avatar: null,
+      location_name: null,
+      level: null,
+    };
+    client.setQueryData(socialKeys.relationship(7, 44), {
+      status: 'friend',
+      request_id: null,
+    });
+    client.setQueryData(socialKeys.friends(7), [friend]);
+    client.setQueryData(socialKeys.friendCount(7), 1);
+    const { result } = renderHook(() => useFriendshipMutations(), {
+      wrapper: Wrapper,
+    });
+
+    act(() => result.current.remove.mutate(44));
+    await waitFor(() => {
+      expect(client.getQueryData(socialKeys.relationship(7, 44))).toEqual({
+        status: 'none',
+        request_id: null,
+      });
+      expect(client.getQueryData(socialKeys.friends(7))).toEqual([]);
+      expect(client.getQueryData(socialKeys.friendCount(7))).toBe(0);
+    });
+
+    act(() => rejectRemoval(new Error('network')));
+    await waitFor(() => {
+      expect(client.getQueryData(socialKeys.relationship(7, 44))).toEqual({
+        status: 'friend',
+        request_id: null,
+      });
+      expect(client.getQueryData(socialKeys.friends(7))).toEqual([friend]);
+      expect(client.getQueryData(socialKeys.friendCount(7))).toBe(1);
+    });
+    await waitFor(() => expect(client.isMutating()).toBe(0));
+  });
+
+  it('keeps the removed state when the server says they are already not friends', async () => {
+    mockRemove.mockRejectedValue(Object.assign(new Error('bad request'), {
+      response: { data: { detail: 'Not friends with this player' } },
+    }));
+    const { client, Wrapper } = setup();
+    client.setQueryData(socialKeys.relationship(7, 44), {
+      status: 'friend',
+      request_id: null,
+    });
+    const { result } = renderHook(() => useFriendshipMutations(), {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await expect(result.current.remove.mutateAsync(44)).rejects.toThrow(
+        'bad request',
+      );
+    });
+    expect(client.getQueryData(
+      socialKeys.relationship(7, 44),
+    )).toEqual({ status: 'none', request_id: null });
+    await waitFor(() => expect(client.isMutating()).toBe(0));
   });
 });

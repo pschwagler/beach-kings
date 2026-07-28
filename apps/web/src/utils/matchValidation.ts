@@ -2,6 +2,8 @@
  * Validation utilities for match forms
  */
 
+import { validateMatchScore } from '@beach-kings/shared';
+
 /** A player option value: either an object with value/label, a string name, or null/undefined. */
 type PlayerOption = { value: number | string; label?: string; [key: string]: unknown } | string | null | undefined;
 
@@ -62,22 +64,7 @@ export function validateScoreFormat(formData: MatchFormData): ValidationResult {
  * Validate scores according to game rules
  */
 export function validateScores(formData: MatchFormData): ValidationResult {
-  const score1 = parseInt(String(formData.team1Score ?? ''));
-  const score2 = parseInt(String(formData.team2Score ?? ''));
-  
-  if (isNaN(score1) || isNaN(score2) || score1 < 0 || score2 < 0) {
-    return { isValid: false, errorMessage: 'Please enter valid scores' };
-  }
-  
-  if (score1 === score2) {
-    return { isValid: false, errorMessage: 'Scores cannot be tied. There must be a winner.' };
-  }
-  
-  if (score1 === 0 && score2 === 0) {
-    return { isValid: false, errorMessage: 'Both scores cannot be zero' };
-  }
-  
-  return { isValid: true, errorMessage: null, score1, score2 };
+  return validateMatchScore(formData.team1Score, formData.team2Score);
 }
 
 /**

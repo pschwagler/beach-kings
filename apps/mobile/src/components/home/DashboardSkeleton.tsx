@@ -32,7 +32,6 @@ export default function DashboardSkeleton(): React.ReactNode {
       <SectionSkeleton title="Active Sessions" />
       <SectionSkeleton title="Recent Games" />
       <SectionSkeleton title="My Leagues" />
-      <SectionSkeleton title="Tournaments" />
       <SectionSkeleton title="Courts Near You" />
     </View>
   );

@@ -317,13 +317,12 @@ export default function ScoreGameScreen({
     isBuilding,
     activeNextSlot,
     scoreWarning,
+    scoreWarningKind,
     currentPlayerId,
     isEditMode,
     deleteState,
     sessionId,
-    isCreatingSession,
     canShare,
-    onManageSession,
     onShareSession,
     setScore1,
     setScore2,
@@ -601,17 +600,21 @@ export default function ScoreGameScreen({
     setMenuVisible(false);
   }, []);
 
-  // "Manage Session": ensure a session exists, then route to its detail screen
-  // so the user can rename it / invite players. On failure the menu closes;
-  // errorMessage from the hook will surface in the error view if the user
-  // proceeds to submit.
+  // Session creation is explicit. A new game opens the Start Session form;
+  // an existing session opens its editor above this score draft.
   const handleManageSession = useCallback(() => {
-    void onManageSession().then((id) => {
-      setMenuVisible(false);
-      if (id == null) return;
-      router.push(routes.session(id) as never);
-    });
-  }, [onManageSession, router]);
+    setMenuVisible(false);
+    if (sessionId == null) {
+      const playerIds = [...team1, ...team2].flatMap((slot) =>
+        slot.player_id == null ? [] : [slot.player_id],
+      );
+      router.push(
+        routes.createSession({ leagueId, seasonId, playerIds }) as never,
+      );
+      return;
+    }
+    router.push(routes.sessionEdit(sessionId) as never);
+  }, [leagueId, router, seasonId, sessionId, team1, team2]);
 
   const handleShareSession = useCallback(() => {
     setMenuVisible(false);
@@ -717,6 +720,10 @@ export default function ScoreGameScreen({
             disabled={!canSubmit || isSaving}
             accessibilityRole="button"
             accessibilityLabel={saveButtonLabel}
+            accessibilityState={{
+              disabled: !canSubmit || isSaving,
+              busy: isSaving,
+            }}
             className="w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2"
             style={
               canSubmit && !isSaving
@@ -748,7 +755,15 @@ export default function ScoreGameScreen({
           {scoreWarning != null && (
             <Text
               testID="score-warning"
-              className="text-[12px] text-tertiary text-center mt-2"
+              accessibilityRole={scoreWarningKind === "error" ? "alert" : undefined}
+              accessibilityLiveRegion={
+                scoreWarningKind === "error" ? "polite" : "none"
+              }
+              className={`text-[12px] text-center mt-2 ${
+                scoreWarningKind === "error"
+                  ? "text-danger font-semibold"
+                  : "text-tertiary"
+              }`}
             >
               {scoreWarning}
             </Text>
@@ -818,7 +833,6 @@ export default function ScoreGameScreen({
         onManageSession={handleManageSession}
         onShareSession={handleShareSession}
         canShare={canShare}
-        isCreatingSession={isCreatingSession}
       />
       <ScoreboardToast
         visible={pendingShareInvite != null}

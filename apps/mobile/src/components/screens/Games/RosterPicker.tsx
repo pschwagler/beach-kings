@@ -26,6 +26,7 @@ import type { PlayerSlot } from './useScoreGameScreen';
 import Avatar from '@/components/ui/Avatar';
 import type { AvatarVariant } from '@/components/ui/Avatar';
 import { SearchIcon, PlusIcon, XIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -277,6 +278,7 @@ interface AddNewCtaProps {
 }
 
 function AddNewCta({ searchQuery, onPress }: AddNewCtaProps): React.ReactNode {
+  const palette = usePaletteColors();
   const title = searchQuery.trim()
     ? `Add "${searchQuery.trim()}" as a New Player`
     : 'Add a New Player';
@@ -286,17 +288,16 @@ function AddNewCta({ searchQuery, onPress }: AddNewCtaProps): React.ReactNode {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={title}
-      className="flex-row items-center gap-[10px] px-[14px] py-3 my-3 rounded-[12px] border border-dashed border-brand-gold"
-      style={{ backgroundColor: '#fffbeb' }}
+      className="my-3 flex-row items-center gap-[10px] rounded-[12px] border border-dashed border-brand-gold bg-warning-tint px-[14px] py-3"
     >
       <View className="w-[30px] h-[30px] rounded-full bg-brand-gold items-center justify-center">
-        <PlusIcon size={16} color="#fff" />
+        <PlusIcon size={16} color={palette.textInverse} />
       </View>
       <View className="flex-1 min-w-0">
-        <Text className="text-[13px] font-bold" style={{ color: '#92400e' }}>
+        <Text className="text-[13px] font-bold text-warning">
           {title}
         </Text>
-        <Text className="text-[11px]" style={{ color: '#b45309' }}>
+        <Text className="text-[11px] text-warning">
           Creates a profile they can claim later
         </Text>
       </View>
@@ -341,6 +342,7 @@ export default function RosterPicker({
   isSearching = false,
   onSearchFocusChange,
 }: RosterPickerProps): React.ReactNode {
+  const palette = usePaletteColors();
   const handleClearSearch = useCallback(() => onSearch(''), [onSearch]);
   const handleSearchFocus = useCallback(
     () => onSearchFocusChange?.(true),
@@ -371,15 +373,16 @@ export default function RosterPicker({
       {/* Search */}
       <View className="px-4 pt-3 pb-2">
         <View className="flex-row items-center gap-2 bg-surface border border-divider rounded-[12px] px-3 py-[10px] min-h-[44px]">
-          <SearchIcon size={16} color="#bbb" />
+          <SearchIcon size={16} color={palette.textTertiary} />
           <TextInput
             testID="roster-search-input"
+            accessibilityLabel="Search players"
             value={search}
             onChangeText={onSearch}
             onFocus={handleSearchFocus}
             onBlur={handleSearchBlur}
             placeholder="Search players..."
-            placeholderTextColor="#bbb"
+            placeholderTextColor={palette.textTertiary}
             className="flex-1 text-[15px] text-default"
             autoCapitalize="none"
             autoCorrect={false}
@@ -389,7 +392,7 @@ export default function RosterPicker({
             <ActivityIndicator
               testID="roster-search-spinner"
               size="small"
-              color="#bbb"
+              color={palette.textTertiary}
             />
           )}
           {showClear && (
@@ -399,10 +402,9 @@ export default function RosterPicker({
               accessibilityRole="button"
               accessibilityLabel="Clear search"
               hitSlop={8}
-              className="w-6 h-6 rounded-full items-center justify-center"
-              style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
+              className="h-6 w-6 items-center justify-center rounded-full bg-elevated"
             >
-              <XIcon size={12} color="#666" />
+              <XIcon size={12} color={palette.textTertiary} />
             </Pressable>
           )}
         </View>

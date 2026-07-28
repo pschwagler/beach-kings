@@ -42,7 +42,11 @@ export function useLocationAutoSelect({
   useEffect(() => {
     setLocationsWithDistance((prev) => {
       const alreadyRanked = prev.some((l) => l.distance_miles != null);
-      return alreadyRanked ? prev : locations;
+      if (alreadyRanked) return prev;
+      const isSameList =
+        prev.length === locations.length
+        && prev.every((location, index) => location === locations[index]);
+      return isSameList ? prev : locations;
     });
   }, [locations]);
 

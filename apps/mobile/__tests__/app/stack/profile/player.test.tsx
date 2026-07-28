@@ -16,7 +16,8 @@
  */
 
 import React from 'react';
-import { Linking } from 'react-native';
+import { Alert, Linking } from 'react-native';
+import type { AlertButton } from 'react-native';
 import {
   render as renderWithTestingLibrary,
   screen,
@@ -90,6 +91,7 @@ const mockGetPublicPlayer = jest.fn();
 const mockGetMutualFriends = jest.fn();
 const mockBatchFriendStatus = jest.fn();
 const mockSendFriendRequest = jest.fn();
+const mockRemoveFriend = jest.fn();
 const mockGetPlayerLeagues = jest.fn();
 
 jest.mock('@/lib/api', () => ({
@@ -98,6 +100,7 @@ jest.mock('@/lib/api', () => ({
     getMutualFriends: (...args: unknown[]) => mockGetMutualFriends(...args),
     batchFriendStatus: (...args: unknown[]) => mockBatchFriendStatus(...args),
     sendFriendRequest: (...args: unknown[]) => mockSendFriendRequest(...args),
+    removeFriend: (...args: unknown[]) => mockRemoveFriend(...args),
     getPlayerLeagues: (...args: unknown[]) => mockGetPlayerLeagues(...args),
   },
 }));
@@ -140,9 +143,10 @@ function render(ui: React.ReactElement) {
       mutations: { retry: false, gcTime: Infinity },
     },
   });
-  return renderWithTestingLibrary(
+  const view = renderWithTestingLibrary(
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   );
+  return { ...view, queryClient };
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +188,7 @@ beforeEach(() => {
     mutual_counts: { '42': 0 },
   });
   mockSendFriendRequest.mockResolvedValue({});
+  mockRemoveFriend.mockResolvedValue({});
   mockGetPlayerLeagues.mockResolvedValue([]);
 });
 
@@ -366,6 +371,46 @@ describe('PlayerProfileScreen — action sheet', () => {
     fireEvent.press(screen.getByTestId('player-more-btn'));
     expect(screen.getByTestId('action-sheet-report')).toBeTruthy();
     expect(screen.queryByTestId('action-sheet-block')).toBeNull();
+  });
+
+  it('confirms and removes an accepted friend through the shared API', async () => {
+    mockBatchFriendStatus.mockResolvedValue({
+      statuses: { '42': 'friend' },
+      relationships: { '42': { status: 'friend', request_id: null } },
+      mutual_counts: { '42': 0 },
+    });
+    let alertButtons: AlertButton[] = [];
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(
+      (_title, _message, buttons) => {
+        alertButtons = buttons ?? [];
+      },
+    );
+
+    const { queryClient } = render(<PlayerProfileRoute />);
+    await waitFor(() => expect(screen.getByText('Friends')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('player-more-btn'));
+    fireEvent.press(screen.getByTestId('action-sheet-remove-friend'));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Remove Friend',
+      expect.stringContaining('Alex Torres'),
+      expect.any(Array),
+    );
+    await act(async () => {
+      alertButtons.find((button) => button.text === 'Remove')?.onPress?.();
+    });
+    await waitFor(() => expect(mockRemoveFriend).toHaveBeenCalledWith(42));
+    await waitFor(() => {
+      expect(queryClient.isMutating() + queryClient.isFetching()).toBe(0);
+    });
+    alert.mockRestore();
+  });
+
+  it('does not offer friend removal for a non-friend', async () => {
+    render(<PlayerProfileRoute />);
+    await waitFor(() => expect(screen.getByTestId('player-profile-screen')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('player-more-btn'));
+    expect(screen.queryByTestId('action-sheet-remove-friend')).toBeNull();
   });
 
   it('opens a prefilled report email when report is pressed', async () => {

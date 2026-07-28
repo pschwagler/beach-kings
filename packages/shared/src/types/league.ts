@@ -21,6 +21,8 @@ export interface JoinRequest {
   requested_at: string;
   /** Two-letter initials derived from display_name (presentation field, optional on backend). */
   initials?: string | null;
+  /** Uploaded player profile photo. */
+  avatar_url?: string | null;
   /** Optional free-text note attached when the player requested to join. */
   message?: string | null;
 }
@@ -48,7 +50,11 @@ export interface FindLeagueResult {
   readonly location_name: string | null;
   readonly member_count: number;
   /** Friends currently in this league (derived from backend `friends_preview`). */
-  readonly friends_in_league: ReadonlyArray<{ readonly player_id: number; readonly initials: string }>;
+  readonly friends_in_league: ReadonlyArray<{
+    readonly player_id: number;
+    readonly initials: string;
+    readonly avatar_url?: string | null;
+  }>;
   /** Derived from backend `has_pending_request`. 'member' is not returned by this endpoint. */
   readonly user_status: 'none' | 'member' | 'requested';
 }
@@ -146,6 +152,7 @@ export interface LeagueChatMessage {
   readonly created_at: string | null;
   /** Server-computed: true when row.user_id == authenticated caller. */
   readonly is_mine: boolean;
+  readonly avatar_url?: string | null;
   /** Client-derived from player_name (e.g. "Patrick Schwagler" -> "PS"). */
   readonly initials: string;
 }
@@ -159,7 +166,7 @@ export interface LeagueStanding {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
-  readonly avatar_url: string | null;
+  readonly avatar_url?: string | null;
   readonly wins: number;
   readonly losses: number;
   readonly win_rate: number;
@@ -259,6 +266,7 @@ export interface LeagueMemberRow {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
+  readonly avatar_url?: string | null;
   readonly role: LeagueMemberRole;
   readonly joined_at: string;
 }
@@ -341,6 +349,7 @@ export interface InvitablePlayer {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
+  readonly avatar_url?: string | null;
   readonly location_name: string | null;
   readonly level: string | null;
   readonly invite_status: 'none' | 'member' | 'invited' | 'requested';
@@ -355,6 +364,7 @@ export interface LeagueInviteItem {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
+  readonly avatar_url?: string | null;
   readonly invited_at: string;
   readonly status: LeagueInviteStatus;
   readonly is_placeholder?: boolean;
@@ -388,6 +398,7 @@ export interface LeaguePlayerRelationStat {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
+  readonly avatar_url?: string | null;
   readonly games_played: number;
   readonly wins: number;
   readonly losses: number;
@@ -415,6 +426,7 @@ export interface LeaguePlayerStats {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
+  readonly avatar_url?: string | null;
   readonly level: string | null;
   readonly location_name: string | null;
   readonly league_id: number;

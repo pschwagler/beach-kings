@@ -9,6 +9,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import type { MyStatsOverall } from '@beach-kings/shared';
+import { formatWinRate } from '@/lib/formatters';
 
 interface StatCardProps {
   readonly label: string;
@@ -63,7 +64,7 @@ export default function StatsGrid({ stats }: StatsGridProps): React.ReactNode {
       <View className="flex-row gap-3">
         <StatCard
           label="Win Rate"
-          value={`${stats.win_rate.toFixed(1)}%`}
+          value={formatWinRate(stats.wins, stats.losses)}
           trend={streakTrend}
           trendUp={streakUp}
         />

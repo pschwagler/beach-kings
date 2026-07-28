@@ -1,7 +1,7 @@
 /**
  * Tests for the simple home dashboard primitives: HomeHeader, QuickStatsRow,
  * SectionHeader, SectionError, PendingInvitesBanner, ProfileBanner,
- * NewUserWelcome, TournamentsEmpty, and DashboardSkeleton.
+ * NewUserWelcome, and DashboardSkeleton.
  */
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
@@ -87,7 +87,6 @@ import SectionError from '@/components/home/SectionError';
 import PendingInvitesBanner from '@/components/home/PendingInvitesBanner';
 import ProfileBanner from '@/components/home/ProfileBanner';
 import NewUserWelcome from '@/components/home/NewUserWelcome';
-import TournamentsEmpty from '@/components/home/TournamentsEmpty';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
 
 beforeEach(() => {
@@ -357,31 +356,12 @@ describe('NewUserWelcome', () => {
 });
 
 // ---------------------------------------------------------------------------
-// TournamentsEmpty
-// ---------------------------------------------------------------------------
-describe('TournamentsEmpty', () => {
-  it('renders the coming-soon teaser', () => {
-    const { getByText } = render(<TournamentsEmpty />);
-    expect(getByText('Coming soon to a beach near you')).toBeTruthy();
-    expect(getByText('KoB events and brackets are on the way')).toBeTruthy();
-  });
-
-  it('is a non-interactive placeholder (no navigation targets)', () => {
-    const { queryByText } = render(<TournamentsEmpty />);
-    // Tournaments are not backed by real data yet, so the teaser must not
-    // link into the unfinished browse/create screens.
-    expect(queryByText('Browse Nearby')).toBeNull();
-    expect(queryByText('+ Create')).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // DashboardSkeleton
 // ---------------------------------------------------------------------------
 describe('DashboardSkeleton', () => {
   it('renders several loading skeleton rectangles', () => {
     const { getAllByTestId } = render(<DashboardSkeleton />);
-    // 1 header + 2 per section × 5 sections × 2 skel rects per section = plenty.
+    // Header plus four section skeletons provides a stable loading surface.
     expect(getAllByTestId('loading-skeleton').length).toBeGreaterThanOrEqual(
       5,
     );

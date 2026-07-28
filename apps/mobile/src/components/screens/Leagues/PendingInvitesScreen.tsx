@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
+import Avatar from '@/components/ui/Avatar';
 import { usePendingInvitesScreen } from './usePendingInvitesScreen';
 import type { LeagueInviteItem } from '@beach-kings/shared';
 
@@ -82,17 +83,15 @@ function InviteRow({ invite }: { readonly invite: LeagueInviteItem }): React.Rea
       className="flex-row items-center bg-surface mx-4 mb-3 px-4 py-[14px] rounded-[12px] border border-divider gap-3"
     >
       {/* Avatar — dashed gold border for guests */}
-      <View
-        className={`w-10 h-10 rounded-full items-center justify-center flex-shrink-0 ${
-          isGuest
-            ? 'border-2 border-dashed border-brand-gold bg-brand-gold/10'
-            : 'bg-brand-teal'
-        }`}
-      >
-        <Text className={`text-[11px] font-bold ${isGuest ? 'text-brand-gold' : 'text-white'}`}>
-          {invite.initials}
-        </Text>
-      </View>
+      <Avatar
+        imageUrl={invite.avatar_url}
+        name={invite.display_name}
+        size="md"
+        variant={isGuest ? 'guest' : 'teal'}
+        colorSeed={isGuest ? undefined : invite.player_id}
+        fallbackClassName={isGuest ? 'border-2 border-dashed border-brand-gold' : ''}
+        accessible={false}
+      />
 
       {/* Content */}
       <View className="flex-1 min-w-0">

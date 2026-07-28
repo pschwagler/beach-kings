@@ -39,6 +39,7 @@ export interface UseLeagueInfoTabResult {
   readonly info: LeagueInfoDetail | null;
   readonly isLoading: boolean;
   readonly isError: boolean;
+  readonly onRetry: () => Promise<void>;
   /** Current authenticated player ID — used to disable self-remove in the UI. */
   readonly currentPlayerId: number | null;
   readonly onApproveRequest: (requestId: number) => Promise<void>;
@@ -98,6 +99,7 @@ export function useLeagueInfoTab(
           player_id: m.player_id,
           display_name: m.player_name ?? `Player ${m.player_id}`,
           initials: toInitials(m.player_name),
+          avatar_url: m.player_avatar ?? null,
           // Backend `role` can also be "placeholder" (guest/unclaimed players);
           // normalize anything that isn't an admin to "member" so the role badge
           // renders consistently instead of silently vanishing for guests.
@@ -131,6 +133,7 @@ export function useLeagueInfoTab(
           player_id: r.player_id,
           display_name: r.display_name,
           initials: toInitials(r.display_name),
+          avatar_url: r.avatar_url ?? null,
           requested_at: r.requested_at,
           status: r.status,
           message: null,
@@ -266,6 +269,9 @@ export function useLeagueInfoTab(
     info: infoQuery.data ?? null,
     isLoading: infoQuery.isLoading,
     isError: infoQuery.isError,
+    onRetry: async () => {
+      await infoQuery.refetch();
+    },
     currentPlayerId: playerQuery.data?.id ?? null,
     onApproveRequest,
     onDenyRequest,

@@ -23,6 +23,7 @@ describe('presentRelationship', () => {
       profileLabel: null,
       canAdd: false,
       canRespond: true,
+      canRemove: false,
       showMessage: true,
     });
   });

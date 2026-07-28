@@ -88,6 +88,10 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({ textInverse: 'white' }),
+}));
+
 const mockGetSessionById = jest.fn();
 const mockLockInSession = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();

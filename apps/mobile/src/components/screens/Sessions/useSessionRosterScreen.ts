@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/apiError';
 import { hapticMedium } from '@/utils/haptics';
 import type { SessionDetail, SessionPlayerEntry } from '@beach-kings/shared';
 
@@ -16,8 +17,11 @@ export interface UseSessionRosterScreenResult {
   readonly error: Error | null;
   readonly isRemoving: number | null;
   readonly removeError: string | null;
+  readonly isAddPlayerOpen: boolean;
   readonly onRemovePlayer: (entryId: number) => Promise<void>;
   readonly onAddPlayer: () => void;
+  readonly onCloseAddPlayer: () => void;
+  readonly onPlayerAdded: () => void;
   readonly onClose: () => void;
 }
 
@@ -31,6 +35,7 @@ export function useSessionRosterScreen(
   const router = useRouter();
   const [isRemoving, setIsRemoving] = useState<number | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
 
   const { data: session, isLoading, error, refetch } = useApi<SessionDetail>(
     () => api.getSessionById(sessionId),
@@ -46,9 +51,9 @@ export function useSessionRosterScreen(
         await api.removeSessionPlayer(sessionId, entryId);
         void refetch();
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Could not remove player.';
-        setRemoveError(message);
+        setRemoveError(
+          getApiErrorMessage(err, 'Could not remove player. Please try again.'),
+        );
       } finally {
         setIsRemoving(null);
       }
@@ -57,8 +62,17 @@ export function useSessionRosterScreen(
   );
 
   const onAddPlayer = useCallback(() => {
-    // TODO(backend): open player search sheet
+    setIsAddPlayerOpen(true);
   }, []);
+
+  const onCloseAddPlayer = useCallback(() => {
+    setIsAddPlayerOpen(false);
+  }, []);
+
+  const onPlayerAdded = useCallback(() => {
+    setIsAddPlayerOpen(false);
+    void refetch();
+  }, [refetch]);
 
   const onClose = useCallback(() => {
     router.back();
@@ -74,6 +88,7 @@ export function useSessionRosterScreen(
       player_id: playerId,
       display_name: p.display_name,
       initials: p.initials,
+      avatar_url: p.avatar_url ?? null,
       game_count: p.game_count,
       is_placeholder: p.is_placeholder,
     };
@@ -86,8 +101,11 @@ export function useSessionRosterScreen(
     error,
     isRemoving,
     removeError,
+    isAddPlayerOpen,
     onRemovePlayer,
     onAddPlayer,
+    onCloseAddPlayer,
+    onPlayerAdded,
     onClose,
   };
 }

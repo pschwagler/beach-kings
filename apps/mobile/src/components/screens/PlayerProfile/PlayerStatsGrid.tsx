@@ -11,6 +11,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import type { Player } from '@beach-kings/shared';
+import { formatWinRate } from '@/lib/formatters';
 import { normalizePlayerStats } from '@beach-kings/shared';
 import { LockIcon } from '@/components/ui/icons';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -100,10 +101,7 @@ export default function PlayerStatsGrid({ player }: PlayerStatsGridProps): React
   // the backend guarantees real wins/losses; the `wins != null` guard keeps
   // the derivation honest (and type-safe) for the hidden case, which renders
   // the PrivateStat placeholder instead of this value anyway.
-  const winRate =
-    isHistoryVisible && games > 0 && wins != null
-      ? Math.round((wins / games) * 100)
-      : 0;
+  const winRate = formatWinRate(wins ?? 0, losses ?? 0);
 
   return (
     <View
@@ -118,7 +116,7 @@ export default function PlayerStatsGrid({ player }: PlayerStatsGridProps): React
       <View className="flex-row mb-sm">
         {isHistoryVisible ? (
           <StatCard
-            value={`${winRate}%`}
+            value={winRate}
             label="Win Rate"
             hero
             testID="stat-win-rate"

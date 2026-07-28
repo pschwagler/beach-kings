@@ -4,6 +4,7 @@ import type {
   League,
   Season,
   Session,
+  LeagueSessionSummary,
   LeagueGamesResponse,
   JoinRequestsResponse,
   LeagueStandingsResponse,
@@ -112,6 +113,14 @@ export function createLeagueMethods(api: AxiosInstance) {
       const response = await api.get<LeagueGamesResponse>(
         `/api/leagues/${leagueId}/games`,
         { params },
+      );
+      return response.data;
+    },
+
+    /** All sessions in a league, including authoritative game/player counts. */
+    async getLeagueSessions(leagueId: number): Promise<LeagueSessionSummary[]> {
+      const response = await api.get<LeagueSessionSummary[]>(
+        `/api/leagues/${leagueId}/sessions`,
       );
       return response.data;
     },

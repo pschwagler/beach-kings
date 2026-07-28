@@ -16,7 +16,14 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import {
+  render as testingRender,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -97,14 +104,36 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    textTertiary: '#777777',
+    textInverse: '#ffffff',
+  }),
+}));
+
 const mockGetThread = jest.fn();
+const mockGetPublicPlayer = jest.fn();
 const mockSendDirectMessage = jest.fn();
+const mockMarkThreadRead = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     getThread: (...args: unknown[]) => mockGetThread(...args),
+    getPublicPlayer: (...args: unknown[]) => mockGetPublicPlayer(...args),
     sendDirectMessage: (...args: unknown[]) => mockSendDirectMessage(...args),
+    markThreadRead: (...args: unknown[]) => mockMarkThreadRead(...args),
   },
+}));
+
+jest.mock('@/hooks/useCurrentPlayer', () => ({
+  useCurrentPlayer: () => ({ data: { id: 0 } }),
+}));
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 7 },
+    isAuthenticated: true,
+  }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -144,15 +173,37 @@ const MOCK_THREAD = {
   total_count: 2,
 };
 
+let queryClient: QueryClient;
+
+function render(ui: React.ReactElement) {
+  return testingRender(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
   jest.clearAllMocks();
+  queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
   mockCanGoBack = jest.fn(() => true);
   mockSegments = ['(stack)', 'messages', '[playerId]'];
   mockGetThread.mockResolvedValue(MOCK_THREAD);
+  mockGetPublicPlayer.mockResolvedValue({
+    id: 42,
+    full_name: 'Alex Torres',
+    profile_picture_url: null,
+  });
+  mockMarkThreadRead.mockResolvedValue({ status: 'ok', marked_count: 1 });
   mockSendDirectMessage.mockResolvedValue({
     id: 99,
     sender_player_id: 0,
@@ -224,6 +275,33 @@ describe('MessageThreadScreen — error state', () => {
 // ---------------------------------------------------------------------------
 
 describe('MessageThreadScreen — messages list', () => {
+  it('marks incoming unread messages read when the thread opens', async () => {
+    mockGetThread.mockResolvedValue({
+      items: [
+        {
+          id: 3,
+          sender_player_id: 42,
+          receiver_player_id: 0,
+          message_text: 'Unread message',
+          is_read: false,
+          read_at: null,
+          created_at: NOW,
+        },
+      ],
+      total_count: 1,
+    });
+
+    render(<MessageThreadRoute />);
+
+    await waitFor(() => {
+      expect(mockMarkThreadRead).toHaveBeenCalledTimes(1);
+      expect(mockMarkThreadRead).toHaveBeenCalledWith(42);
+    });
+    await waitFor(() => {
+      expect(queryClient.isMutating() + queryClient.isFetching()).toBe(0);
+    });
+  });
+
   it('renders thread screen when messages are loaded', async () => {
     render(<MessageThreadRoute />);
     await waitFor(() => {
@@ -249,6 +327,7 @@ describe('MessageThreadScreen — messages list', () => {
   it('renders the player name in the header, not "Chat"', async () => {
     render(<MessageThreadRoute />);
     await waitFor(() => {
+      expect(screen.getByTestId('thread-screen')).toBeTruthy();
       expect(screen.getByText('Alex Torres')).toBeTruthy();
       expect(screen.queryByText('Chat')).toBeNull();
     });
@@ -258,7 +337,10 @@ describe('MessageThreadScreen — messages list', () => {
     render(<MessageThreadRoute />);
     // Peer playerId is 42 → 42 % 6 === 0 → first variety entry (#bae6fd). Seeding
     // by id (not a flat variant) keeps this player's color identical everywhere.
-    const avatar = await waitFor(() => screen.getByLabelText('Alex Torres'));
+    const avatar = await waitFor(() => {
+      expect(screen.getByTestId('thread-screen')).toBeTruthy();
+      return screen.getByLabelText('Alex Torres');
+    });
     expect(StyleSheet.flatten(avatar.props.style)).toEqual(
       expect.objectContaining({ backgroundColor: '#bae6fd' }),
     );
@@ -274,7 +356,7 @@ describe('MessageThreadScreen — back button', () => {
     mockCanGoBack = jest.fn(() => true);
     render(<MessageThreadRoute />);
     await waitFor(() => {
-      expect(screen.getByTestId('thread-back-btn')).toBeTruthy();
+      expect(screen.getByTestId('thread-screen')).toBeTruthy();
     });
 
     fireEvent.press(screen.getByTestId('thread-back-btn'));
@@ -290,7 +372,7 @@ describe('MessageThreadScreen — back button', () => {
     mockCanGoBack = jest.fn(() => false);
     render(<MessageThreadRoute />);
     await waitFor(() => {
-      expect(screen.getByTestId('thread-back-btn')).toBeTruthy();
+      expect(screen.getByTestId('thread-screen')).toBeTruthy();
     });
 
     fireEvent.press(screen.getByTestId('thread-back-btn'));
@@ -340,6 +422,9 @@ describe('MessageThreadScreen — input bar', () => {
     await waitFor(() => {
       expect(mockSendDirectMessage).toHaveBeenCalledWith(42, 'Test message');
     });
+    await waitFor(() => {
+      expect(queryClient.isMutating() + queryClient.isFetching()).toBe(0);
+    });
   });
 
   it('clears input after successful send', async () => {
@@ -353,6 +438,9 @@ describe('MessageThreadScreen — input bar', () => {
     });
     await waitFor(() => {
       expect(screen.getByDisplayValue('')).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(queryClient.isMutating() + queryClient.isFetching()).toBe(0);
     });
   });
 });

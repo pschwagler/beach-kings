@@ -6,7 +6,13 @@
  * add-phone OTP flow used when no phone is set yet.
  */
 
+import { Alert, Linking } from 'react-native';
+
 export const SUPPORT_EMAIL = 'beachleaguevb+support@gmail.com';
+
+const SUPPORT_EMAIL_FALLBACK_TITLE = 'Email app unavailable';
+const SUPPORT_EMAIL_FALLBACK_MESSAGE =
+  `We couldn't open an email app. You can contact us at ${SUPPORT_EMAIL}.`;
 
 /**
  * Build a `mailto:` URL that opens the user's mail client with a pre-filled
@@ -21,4 +27,25 @@ export function supportMailtoPhoneChange(): string {
  */
 export function supportMailtoGeneral(): string {
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Beach League Support')}`;
+}
+
+/**
+ * Open a pre-built support email link without leaking platform failures to the
+ * UI. The address in the fallback message gives users another way to continue
+ * when no email app is installed or configured.
+ */
+export async function openSupportMailto(url: string): Promise<boolean> {
+  try {
+    const isSupported = await Linking.canOpenURL(url);
+    if (!isSupported) {
+      Alert.alert(SUPPORT_EMAIL_FALLBACK_TITLE, SUPPORT_EMAIL_FALLBACK_MESSAGE);
+      return false;
+    }
+
+    await Linking.openURL(url);
+    return true;
+  } catch {
+    Alert.alert(SUPPORT_EMAIL_FALLBACK_TITLE, SUPPORT_EMAIL_FALLBACK_MESSAGE);
+    return false;
+  }
 }

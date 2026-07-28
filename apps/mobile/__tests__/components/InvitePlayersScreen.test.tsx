@@ -84,6 +84,10 @@ jest.mock('@/utils/haptics', () => ({
   hapticMedium: jest.fn(),
 }));
 
+// Session-detail invite-banner tests do not exercise court selection and
+// intentionally render outside the app's authenticated provider tree.
+jest.mock('@/components/screens/Sessions/SessionCourtPicker', () => () => null);
+
 // Spy on Share.share without replacing the whole react-native module —
 // jest-expo's preset already provides a working RN test environment;
 // jest.requireActual here would re-import native-only modules (DevMenu, etc).

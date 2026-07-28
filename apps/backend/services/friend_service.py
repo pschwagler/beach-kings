@@ -523,6 +523,7 @@ async def get_friends(
             Player.id,
             Player.full_name,
             Player.avatar,
+            Player.profile_picture_url,
             Player.level,
             Location.name.label("location_name"),
         )
@@ -548,7 +549,7 @@ async def get_friends(
                 "id": friendship_ids[fid],
                 "player_id": fid,
                 "full_name": p.full_name,
-                "avatar": p.avatar,
+                "avatar": p.profile_picture_url or p.avatar,
                 "location_name": p.location_name,
                 "level": p.level,
                 "shared_league_name": shared_leagues.get(fid),
@@ -616,10 +617,19 @@ async def get_mutual_friends(
         return []
 
     result = await session.execute(
-        select(Player.id, Player.full_name, Player.avatar).where(Player.id.in_(list(mutual_ids)))
+        select(
+            Player.id,
+            Player.full_name,
+            Player.avatar,
+            Player.profile_picture_url,
+        ).where(Player.id.in_(list(mutual_ids)))
     )
     return [
-        {"player_id": row.id, "full_name": row.full_name, "avatar": row.avatar}
+        {
+            "player_id": row.id,
+            "full_name": row.full_name,
+            "avatar": row.profile_picture_url or row.avatar,
+        }
         for row in result.all()
     ]
 
@@ -903,6 +913,7 @@ async def discover_players(
             Player.id,
             Player.full_name,
             Player.avatar,
+            Player.profile_picture_url,
             Player.gender,
             Player.level,
             Player.is_placeholder,
@@ -993,7 +1004,7 @@ async def discover_players(
         {
             "id": row.id,
             "full_name": row.full_name,
-            "avatar": row.avatar,
+            "avatar": row.profile_picture_url or row.avatar,
             "gender": row.gender,
             "level": row.level,
             "location_name": row.location_name,
@@ -1159,6 +1170,7 @@ async def get_friend_suggestions(
             Player.id,
             Player.full_name,
             Player.avatar,
+            Player.profile_picture_url,
             Player.level,
             Player.user_id,
             Location.name.label("location_name"),
@@ -1184,7 +1196,7 @@ async def get_friend_suggestions(
             {
                 "player_id": p.id,
                 "full_name": p.full_name,
-                "avatar": p.avatar,
+                "avatar": p.profile_picture_url or p.avatar,
                 "level": p.level,
                 "location_name": p.location_name,
                 "shared_league_count": lg,
@@ -1293,7 +1305,12 @@ async def _format_friend_requests_batch(
 
     # Single query for all player info
     result = await session.execute(
-        select(Player.id, Player.full_name, Player.avatar).where(Player.id.in_(list(player_ids)))
+        select(
+            Player.id,
+            Player.full_name,
+            Player.avatar,
+            Player.profile_picture_url,
+        ).where(Player.id.in_(list(player_ids)))
     )
     player_map = {row.id: row for row in result.all()}
 
@@ -1329,10 +1346,14 @@ async def _format_friend_requests_batch(
                 "id": req.id,
                 "sender_player_id": req.sender_player_id,
                 "sender_name": sender.full_name if sender else "Unknown",
-                "sender_avatar": sender.avatar if sender else None,
+                "sender_avatar": (
+                    sender.profile_picture_url or sender.avatar if sender else None
+                ),
                 "receiver_player_id": req.receiver_player_id,
                 "receiver_name": receiver.full_name if receiver else "Unknown",
-                "receiver_avatar": receiver.avatar if receiver else None,
+                "receiver_avatar": (
+                    receiver.profile_picture_url or receiver.avatar if receiver else None
+                ),
                 "status": req.status,
                 "created_at": req.created_at.isoformat() if req.created_at else None,
                 "mutual_friends_count": mutual_counts.get(counterpart_id, 0),

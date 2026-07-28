@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
@@ -19,6 +19,8 @@ from backend.database.models import (
     SessionStatus,
     LeagueMember,
     League,
+    Match,
+    SessionParticipant,
 )
 from backend.services import data_service
 from backend.services.notification_service import notify_players_about_session_submitted
@@ -293,6 +295,44 @@ async def get_league_sessions(
         List of session objects for the league
     """
     try:
+        league_session_ids = select(Session.id).where(Session.league_id == league_id)
+        game_counts = (
+            select(
+                Match.session_id.label("session_id"),
+                func.count(Match.id).label("game_count"),
+            )
+            .where(Match.session_id.in_(league_session_ids))
+            .group_by(Match.session_id)
+            .subquery()
+        )
+        session_player_rows = union_all(
+            select(
+                Match.session_id.label("session_id"),
+                Match.team1_player1_id.label("player_id"),
+            ).where(Match.session_id.in_(league_session_ids)),
+            select(Match.session_id, Match.team1_player2_id).where(
+                Match.session_id.in_(league_session_ids)
+            ),
+            select(Match.session_id, Match.team2_player1_id).where(
+                Match.session_id.in_(league_session_ids)
+            ),
+            select(Match.session_id, Match.team2_player2_id).where(
+                Match.session_id.in_(league_session_ids)
+            ),
+            select(SessionParticipant.session_id, SessionParticipant.player_id).where(
+                SessionParticipant.session_id.in_(league_session_ids)
+            ),
+        ).subquery()
+        player_counts = (
+            select(
+                session_player_rows.c.session_id,
+                func.count(func.distinct(session_player_rows.c.player_id)).label("player_count"),
+            )
+            .where(session_player_rows.c.player_id.is_not(None))
+            .group_by(session_player_rows.c.session_id)
+            .subquery()
+        )
+
         # Filter by Session.league_id directly so gap sessions (season_id=NULL,
         # league_id set) appear in the league's session list.  The previous
         # INNER join on Season silently excluded all gap sessions.
@@ -301,8 +341,12 @@ async def get_league_sessions(
                 Session,
                 Court.name.label("court_name"),
                 Court.slug.label("court_slug"),
+                func.coalesce(game_counts.c.game_count, 0).label("game_count"),
+                func.coalesce(player_counts.c.player_count, 0).label("player_count"),
             )
             .outerjoin(Court, Session.court_id == Court.id)
+            .outerjoin(game_counts, game_counts.c.session_id == Session.id)
+            .outerjoin(player_counts, player_counts.c.session_id == Session.id)
             .where(Session.league_id == league_id)
         )
 
@@ -315,7 +359,7 @@ async def get_league_sessions(
         rows = result.all()
 
         session_list = []
-        for sess, court_name, court_slug in rows:
+        for sess, court_name, court_slug, game_count, player_count in rows:
             session_dict = {
                 "id": sess.id,
                 "date": sess.date,
@@ -329,6 +373,8 @@ async def get_league_sessions(
                 "updated_at": sess.updated_at.isoformat() if sess.updated_at else None,
                 "created_by": sess.created_by,
                 "updated_by": sess.updated_by,
+                "game_count": game_count,
+                "player_count": player_count,
             }
             session_list.append(session_dict)
 

@@ -31,4 +31,19 @@ describe('session API methods', () => {
 
     expect(patch).toHaveBeenCalledWith('/api/sessions/7', { court_id: 12, is_ranked: true });
   });
+
+  it('batch-invites selected players into an active session', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: { added: [10, 11], failed: [] },
+    });
+    const methods = createApiMethods(makeClient(post, jest.fn()));
+
+    await expect(methods.inviteSessionPlayers(7, [10, 11])).resolves.toEqual({
+      added: [10, 11],
+      failed: [],
+    });
+    expect(post).toHaveBeenCalledWith('/api/sessions/7/invite_batch', {
+      player_ids: [10, 11],
+    });
+  });
 });

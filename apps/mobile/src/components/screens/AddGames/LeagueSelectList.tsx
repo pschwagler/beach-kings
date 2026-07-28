@@ -113,13 +113,11 @@ function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.Re
         onPress={hasActiveSession ? handleContinue : handleStartNew}
         accessibilityRole="button"
         accessibilityLabel={hasActiveSession ? `Continue session in ${league.name}` : `Add game in ${league.name}`}
-        className={`w-full py-3 rounded-[10px] items-center justify-center ${
-          hasActiveSession ? 'bg-brand-gold' : 'bg-muted'
+        className={`w-full min-h-touch px-lg py-sm rounded-button items-center justify-center active:opacity-pressed ${
+          hasActiveSession ? 'bg-brand-gold' : 'bg-brand-teal'
         }`}
       >
-        <Text className={`font-bold text-[15px] ${
-          hasActiveSession ? 'text-white' : 'text-default'
-        }`}>
+        <Text className="font-bold text-body text-inverse">
           {hasActiveSession ? `Continue (${pluralize(matchCount, 'game')})` : 'Add Game'}
         </Text>
       </Pressable>

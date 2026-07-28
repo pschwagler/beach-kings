@@ -50,7 +50,6 @@ const mockGetCurrentUserPlayer = jest.fn();
 const mockUpdateMatch = jest.fn();
 const mockDeleteMatch = jest.fn();
 const mockGetSessionById = jest.fn();
-const mockCreateSession = jest.fn();
 const mockShareLink = jest.fn();
 const mockSearchPlayers = jest.fn();
 const mockCreatePlaceholder = jest.fn();
@@ -66,7 +65,6 @@ jest.mock('@/lib/api', () => ({
     updateMatch: (...args: unknown[]) => mockUpdateMatch(...args),
     deleteMatch: (...args: unknown[]) => mockDeleteMatch(...args),
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
-    createSession: (...args: unknown[]) => mockCreateSession(...args),
     searchPlayers: (...args: unknown[]) => mockSearchPlayers(...args),
     createPlaceholder: (...args: unknown[]) => mockCreatePlaceholder(...args),
     getLeague: (...args: unknown[]) => mockGetLeague(...args),
@@ -204,7 +202,6 @@ beforeEach(() => {
   mockUpdateMatch.mockResolvedValue({});
   mockDeleteMatch.mockResolvedValue({});
   mockGetSessionById.mockResolvedValue({ id: 7, games: [] });
-  mockCreateSession.mockResolvedValue({ id: 555, code: 'BKABC123' });
   mockShareLink.mockResolvedValue(undefined);
   // For initial roster load with leagueId-only, the hook calls searchPlayers
   // with q=''. Live search calls pass a non-empty q. Default both: empty q
@@ -870,6 +867,23 @@ describe('useScoreGameScreen — canSubmit', () => {
     expect(result.current.canSubmit).toBe(true);
   });
 
+  it('is false when all slots are filled but the score is tied', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({}));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+
+    fillSlotsOnly(result);
+    act(() => {
+      result.current.setScore1(21);
+      result.current.setScore2(21);
+    });
+
+    expect(result.current.canSubmit).toBe(false);
+    expect(result.current.scoreWarning).toBe(
+      'Choose a winner by changing one score. Games cannot end in a tie.',
+    );
+    expect(result.current.scoreWarningKind).toBe('error');
+  });
+
   it('does not call submitScoredGame when canSubmit is false', async () => {
     const { result } = renderHook(() => useScoreGameScreen({}));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
@@ -956,7 +970,8 @@ describe('useScoreGameScreen — scoreWarning incomplete', () => {
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
 
     fillSlotsOnly(result);
-    expect(result.current.scoreWarning).toBe('Enter scores to save');
+    expect(result.current.scoreWarning).toBe('Enter a score before saving.');
+    expect(result.current.scoreWarningKind).toBe('error');
   });
 
   it('keeps tied warning ahead of incomplete check (5-5)', async () => {
@@ -969,7 +984,10 @@ describe('useScoreGameScreen — scoreWarning incomplete', () => {
       result.current.setScore2(5);
     });
 
-    expect(result.current.scoreWarning).toBe('Scores are tied — beach volleyball has no ties');
+    expect(result.current.scoreWarning).toBe(
+      'Choose a winner by changing one score. Games cannot end in a tie.',
+    );
+    expect(result.current.scoreWarningKind).toBe('error');
   });
 
   it('does not warn while still building (<4 slots filled)', async () => {
@@ -1127,6 +1145,23 @@ describe('useScoreGameScreen — edit mode', () => {
     });
   });
 
+  it('does not update an existing game while its edited score is tied', async () => {
+    const { result } = renderHook(() =>
+      useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+    );
+
+    await waitFor(() => expect(result.current.canSubmit).toBe(true));
+    act(() => {
+      result.current.setScore2(21);
+    });
+
+    expect(result.current.canSubmit).toBe(false);
+    await act(async () => {
+      result.current.onSubmit();
+    });
+    expect(mockUpdateMatch).not.toHaveBeenCalled();
+  });
+
   it('onSubmit success keeps existing sessionId in lastSessionId', async () => {
     const { result } = renderHook(() =>
       useScoreGameScreen({ sessionId: 7, matchId: 555 }),
@@ -1247,10 +1282,10 @@ describe('useScoreGameScreen — edit mode', () => {
 });
 
 // ---------------------------------------------------------------------------
-// (j) Three-dot menu — Manage Session lazy create + Share
+// (j) Session lifecycle + Share
 // ---------------------------------------------------------------------------
 
-describe('useScoreGameScreen — onManageSession / onShareSession', () => {
+describe('useScoreGameScreen — session lifecycle / onShareSession', () => {
   it('canShare is false until a session exists', async () => {
     const { result } = renderHook(() =>
       useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
@@ -1266,85 +1301,7 @@ describe('useScoreGameScreen — onManageSession / onShareSession', () => {
     expect(result.current.canShare).toBe(true);
   });
 
-  it('onManageSession lazily creates a session when none exists', async () => {
-    const { result } = renderHook(() =>
-      useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
-    );
-    await waitFor(() =>
-      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.objectContaining({ leagueId: 3 })),
-    );
-
-    let returnedId: number | null | undefined;
-    await act(async () => {
-      returnedId = await result.current.onManageSession();
-    });
-
-    expect(mockCreateSession).toHaveBeenCalledWith({
-      league_id: 3,
-      season_id: 8,
-    });
-    expect(returnedId).toBe(555);
-    expect(result.current.sessionId).toBe(555);
-    expect(result.current.canShare).toBe(true);
-  });
-
-  it('onManageSession is a no-op when sessionId is already set', async () => {
-    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 42 }));
-    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
-
-    let returnedId: number | null | undefined;
-    await act(async () => {
-      returnedId = await result.current.onManageSession();
-    });
-
-    expect(mockCreateSession).not.toHaveBeenCalled();
-    expect(returnedId).toBe(42);
-  });
-
-  it('onManageSession surfaces errorMessage on failure and returns null', async () => {
-    mockCreateSession.mockRejectedValue(new Error('Session create failed'));
-    const { result } = renderHook(() =>
-      useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
-    );
-
-    let returnedId: number | null | undefined;
-    await act(async () => {
-      returnedId = await result.current.onManageSession();
-    });
-
-    expect(returnedId).toBeNull();
-    expect(result.current.errorMessage).toBe('Session create failed');
-    expect(result.current.sessionId).toBeNull();
-  });
-
-  it('after lazy-create, subsequent onSubmit uses the new sessionId (no double-create)', async () => {
-    const { result } = renderHook(() =>
-      useScoreGameScreen({ leagueId: 3, seasonId: 8 }),
-    );
-    await waitFor(() =>
-      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.objectContaining({ leagueId: 3 })),
-    );
-
-    await act(async () => {
-      await result.current.onManageSession();
-    });
-    expect(result.current.sessionId).toBe(555);
-
-    fillSlots(result);
-
-    act(() => {
-      result.current.onSubmit();
-    });
-    await waitFor(() => expect(result.current.submitState).toBe('success'));
-
-    expect(mockSubmitScoredGame).toHaveBeenCalledWith(
-      expect.objectContaining({ session_id: 555 }),
-    );
-    // Only one createSession call — the new sessionId carried through to submit.
-    expect(mockCreateSession).toHaveBeenCalledTimes(1);
-  });
-
-  it('onSubmit without sessionId captures the backend-created session into sessionId state', async () => {
+  it('onSubmit without sessionId sends the local date and captures the created session', async () => {
     mockSubmitScoredGame.mockResolvedValue({
       status: 'success',
       message: 'ok',
@@ -1359,6 +1316,12 @@ describe('useScoreGameScreen — onManageSession / onShareSession', () => {
     });
     await waitFor(() => expect(result.current.submitState).toBe('success'));
 
+    expect(mockSubmitScoredGame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session_id: null,
+        date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      }),
+    );
     expect(result.current.sessionId).toBe(777);
     expect(result.current.canShare).toBe(true);
   });

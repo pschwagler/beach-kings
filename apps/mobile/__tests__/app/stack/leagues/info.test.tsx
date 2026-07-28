@@ -23,15 +23,28 @@
 
 import React from 'react';
 import { Alert } from 'react-native';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+  within,
+} from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  BottomTabBarHeightContext,
+  BOTTOM_TAB_CONTENT_SPACING,
+} from '@/components/navigation/BottomTabBar';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
+const mockRouterPush = jest.fn();
+
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockRouterPush }),
   useLocalSearchParams: () => ({ id: '1' }),
 }));
 
@@ -96,12 +109,18 @@ import LeagueInfoTab from '../../../../src/components/screens/Leagues/LeagueInfo
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeWrapper() {
+function makeWrapper(bottomTabBarHeight = 0) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: 0 } },
   });
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={client}>
+        <BottomTabBarHeightContext.Provider value={bottomTabBarHeight}>
+          {children}
+        </BottomTabBarHeightContext.Provider>
+      </QueryClientProvider>
+    );
   };
 }
 
@@ -213,6 +232,21 @@ describe('LeagueInfoTab — error', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('info-error')).toBeTruthy();
+    });
+  });
+
+  it('offers a retry that refetches league info', async () => {
+    mockGetLeague.mockRejectedValueOnce(new Error('Network error'));
+    mockGetLeague.mockResolvedValueOnce(MOCK_LEAGUE);
+
+    render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('info-retry-button')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('info-retry-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('info-tab')).toBeTruthy();
+      expect(mockGetLeague).toHaveBeenCalledTimes(2);
     });
   });
 });
@@ -651,6 +685,19 @@ describe('LeagueInfoTab — seasons', () => {
 // ---------------------------------------------------------------------------
 
 describe('LeagueInfoTab — league info section', () => {
+  it('keeps the final content clear of the measured bottom tab bar', async () => {
+    const bottomTabBarHeight = 72;
+
+    render(<LeagueInfoTab leagueId={1} userRole="member" />, {
+      wrapper: makeWrapper(bottomTabBarHeight),
+    });
+
+    await waitFor(() => expect(screen.getByTestId('info-tab')).toBeTruthy());
+    expect(screen.getByTestId('info-tab').props.contentContainerStyle).toEqual({
+      paddingBottom: bottomTabBarHeight + BOTTOM_TAB_CONTENT_SPACING,
+    });
+  });
+
   it('shows location name', async () => {
     render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
 
@@ -688,6 +735,29 @@ describe('LeagueInfoTab — league info section', () => {
     });
   });
 
+  it('shows an accessible empty state when no home courts are configured', async () => {
+    mockGetLeague.mockResolvedValue({ ...MOCK_LEAGUE, home_courts: [] });
+
+    render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('home-courts-empty')).toHaveTextContent(
+        'No home courts selected yet.',
+      );
+    });
+  });
+
+  it('keeps the court picker list outside the info ScrollView', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    const infoScrollView = await screen.findByTestId('info-tab');
+    fireEvent.press(screen.getByTestId('add-court-btn'));
+    await screen.findByTestId('court-picker-modal');
+
+    expect(within(infoScrollView).queryByTestId('court-picker-modal')).toBeNull();
+    expect(screen.getByTestId('court-picker-modal')).toBeTruthy();
+  });
+
   it('admin sees remove button on court pills', async () => {
     render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
 
@@ -722,6 +792,24 @@ describe('LeagueInfoTab — league info section', () => {
     await waitFor(() => {
       expect(screen.getByTestId('info-row-access')).toBeTruthy();
     });
+  });
+
+  it('routes admins to the implemented player invite flow', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    const inviteButton = await screen.findByTestId('invite-players-btn');
+    expect(screen.queryByText('Coming Soon')).toBeNull();
+    expect(screen.queryByText('Payment')).toBeNull();
+
+    fireEvent.press(inviteButton);
+    expect(mockRouterPush).toHaveBeenCalledWith('/(stack)/league/1/invite');
+  });
+
+  it('does not expose league management actions to non-admin members', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
+
+    await screen.findByTestId('info-tab');
+    expect(screen.queryByTestId('invite-players-btn')).toBeNull();
   });
 });
 

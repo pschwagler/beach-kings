@@ -1,5 +1,6 @@
 import type {
   DiscoverPlayer,
+  Friend,
   FriendRequest,
   FriendshipRelationship,
   FriendshipStatus,
@@ -37,11 +38,25 @@ interface RemovedRequestPatch {
   };
 }
 
+interface FriendListPatch {
+  readonly previous: readonly Friend[];
+  readonly optimistic: readonly Friend[];
+  readonly optimisticUpdateCount: number;
+}
+
+interface FriendCountPatch {
+  readonly previous: number;
+  readonly optimistic: number;
+  readonly optimisticUpdateCount: number;
+}
+
 export interface SocialCachePatch {
   readonly token: string;
   readonly relationship?: RelationshipPatch;
   readonly discovery: readonly DiscoveryPatch[];
   readonly requests: readonly RemovedRequestPatch[];
+  readonly friends?: FriendListPatch;
+  readonly friendCount?: FriendCountPatch;
   readonly notification?: RemovedNotificationPatch;
 }
 
@@ -172,6 +187,63 @@ export function applySendFriendRequest(
   return { token, ...relationship, requests: [] };
 }
 
+/** Optimistically remove one accepted friendship from every social surface. */
+export function applyRemoveFriend(
+  queryClient: QueryClient,
+  userId: number,
+  playerId: number,
+  token: string,
+): SocialCachePatch {
+  const relationship = applyRelationshipStatus(
+    queryClient,
+    userId,
+    playerId,
+    'none',
+    null,
+    token,
+  );
+
+  const friendsKey = socialKeys.friends(userId);
+  const previousFriends = queryClient.getQueryData<Friend[]>(friendsKey);
+  let friends: FriendListPatch | undefined;
+  if (previousFriends?.some((friend) => friend.player_id === playerId)) {
+    const optimistic = previousFriends.filter(
+      (friend) => friend.player_id !== playerId,
+    );
+    queryClient.setQueryData(friendsKey, optimistic);
+    friends = {
+      previous: previousFriends,
+      optimistic:
+        queryClient.getQueryData<Friend[]>(friendsKey) ?? optimistic,
+      optimisticUpdateCount:
+        queryClient.getQueryState(friendsKey)?.dataUpdateCount ?? 0,
+    };
+  }
+
+  const friendCountKey = socialKeys.friendCount(userId);
+  const previousCount = queryClient.getQueryData<number>(friendCountKey);
+  let friendCount: FriendCountPatch | undefined;
+  if (previousCount != null && previousCount > 0) {
+    const optimistic = previousCount - 1;
+    queryClient.setQueryData(friendCountKey, optimistic);
+    friendCount = {
+      previous: previousCount,
+      optimistic:
+        queryClient.getQueryData<number>(friendCountKey) ?? optimistic,
+      optimisticUpdateCount:
+        queryClient.getQueryState(friendCountKey)?.dataUpdateCount ?? 0,
+    };
+  }
+
+  return {
+    token,
+    ...relationship,
+    requests: [],
+    ...(friends != null ? { friends } : {}),
+    ...(friendCount != null ? { friendCount } : {}),
+  };
+}
+
 export function applyResolveFriendRequest(
   queryClient: QueryClient,
   userId: number,
@@ -248,6 +320,28 @@ export function rollbackSocialCachePatch(
         request === removed.optimistic ? removed.request : request,
       ),
     );
+  }
+  if (patch.friends != null) {
+    const key = socialKeys.friends(userId);
+    const current = queryClient.getQueryData<readonly Friend[]>(key);
+    const updateCount = queryClient.getQueryState(key)?.dataUpdateCount;
+    if (
+      current === patch.friends.optimistic &&
+      updateCount === patch.friends.optimisticUpdateCount
+    ) {
+      queryClient.setQueryData(key, patch.friends.previous);
+    }
+  }
+  if (patch.friendCount != null) {
+    const key = socialKeys.friendCount(userId);
+    const current = queryClient.getQueryData<number>(key);
+    const updateCount = queryClient.getQueryState(key)?.dataUpdateCount;
+    if (
+      current === patch.friendCount.optimistic &&
+      updateCount === patch.friendCount.optimisticUpdateCount
+    ) {
+      queryClient.setQueryData(key, patch.friendCount.previous);
+    }
   }
   if (patch.notification != null) {
     rollbackRemovedNotifications(queryClient, userId, patch.notification);

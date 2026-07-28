@@ -1,16 +1,23 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, Text } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import type { Court } from '@beach-kings/shared';
 
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
 import CourtPickerModal, { type CourtPickerOption } from '@/components/ui/CourtPickerModal';
+import { courtQueries } from '@/features/courts';
+import { formatDistance } from '@/lib/formatters';
+import { useResolvedUserLocation } from '@/hooks/useResolvedUserLocation';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface Props {
   readonly selectedCourtId: number | null;
   readonly selectedCourtName?: string | null;
-  readonly onChange: (courtId: number | null) => void;
+  readonly onChange: (courtId: number | null, courtName?: string | null) => void;
   readonly testIDPrefix: string;
+  readonly allowNone?: boolean;
+  readonly selectDefaultCourt?: boolean;
+  readonly isUpdating?: boolean;
+  readonly error?: string | null;
 }
 
 function courtId(court: Court): number | null {
@@ -25,17 +32,56 @@ export default function SessionCourtPicker({
   selectedCourtName,
   onChange,
   testIDPrefix,
+  allowNone = true,
+  selectDefaultCourt = false,
+  isUpdating = false,
+  error = null,
 }: Props): React.ReactNode {
+  const palette = usePaletteColors();
   const [isOpen, setIsOpen] = useState(false);
-  const { data: courts, isLoading } = useApi<Court[]>(() => api.getCourts(), []);
+  const didSelectDefault = useRef(false);
+  const { coords, isResolving } = useResolvedUserLocation({ skipDevice: true });
+  const { data: courts, isLoading } = useQuery(
+    courtQueries.picker(coords, !isResolving),
+  );
 
   const courtOptions = useMemo<readonly CourtPickerOption[]>(
     () => (courts ?? []).flatMap((court) => {
       const id = courtId(court);
-      return id == null ? [] : [{ id, name: court.name }];
+      return id == null
+        ? []
+        : [{
+            id,
+            name: court.name,
+            detail:
+              court.distance_miles == null
+                ? null
+                : formatDistance(court.distance_miles),
+          }];
     }),
     [courts],
   );
+
+  useEffect(() => {
+    if (
+      !selectDefaultCourt ||
+      didSelectDefault.current ||
+      isLoading ||
+      selectedCourtId != null ||
+      courtOptions.length === 0
+    ) {
+      return;
+    }
+    didSelectDefault.current = true;
+    const nearest = courtOptions[0];
+    onChange(nearest.id, nearest.name);
+  }, [
+    courtOptions,
+    isLoading,
+    onChange,
+    selectDefaultCourt,
+    selectedCourtId,
+  ]);
 
   const selectedName = useMemo(() => {
     if (selectedCourtId == null) return 'Select a court';
@@ -48,6 +94,7 @@ export default function SessionCourtPicker({
       <Pressable
         testID={`${testIDPrefix}-court-picker`}
         onPress={() => setIsOpen(true)}
+        disabled={isUpdating}
         accessibilityRole="button"
         accessibilityLabel="Select court"
         className="flex-row items-center py-[14px] border-b border-divider active:opacity-70"
@@ -64,16 +111,37 @@ export default function SessionCourtPicker({
         >
           {selectedName}
         </Text>
-        <Text className="text-[14px] font-semibold text-brand-teal">Change</Text>
+        {isUpdating ? (
+          <ActivityIndicator
+            testID={`${testIDPrefix}-court-saving`}
+            color={palette.brandTeal}
+          />
+        ) : (
+          <Text className="text-[14px] font-semibold text-brand-teal">Change</Text>
+        )}
       </Pressable>
+      {error != null && (
+        <View className="pt-2">
+          <Text
+            testID={`${testIDPrefix}-court-error`}
+            accessibilityRole="alert"
+            className="text-[12px] text-danger"
+          >
+            {error}
+          </Text>
+        </View>
+      )}
 
       <CourtPickerModal
         visible={isOpen}
         courts={courtOptions}
         selectedCourtId={selectedCourtId}
-        onSelect={onChange}
+        onSelect={(id) => {
+          const selected = courtOptions.find((court) => court.id === id);
+          onChange(id, selected?.name ?? null);
+        }}
         onClose={() => setIsOpen(false)}
-        allowNone
+        allowNone={allowNone}
         isLoading={isLoading}
         testIDPrefix={`${testIDPrefix}-court`}
         closeTestID={`${testIDPrefix}-court-picker-close`}

@@ -56,8 +56,8 @@ describe('formatWinRate', () => {
     expect(formatWinRate(8, 2)).toBe('80%');
   });
 
-  it('returns 0% when no games played', () => {
-    expect(formatWinRate(0, 0)).toBe('0%');
+  it('returns an unavailable value when no games have been played', () => {
+    expect(formatWinRate(0, 0)).toBe('--');
   });
 
   it('returns 100% for undefeated record', () => {

@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
 import SessionRosterRow from './SessionRosterRow';
+import SessionAddPlayerModal from './SessionAddPlayerModal';
 import { useSessionRosterScreen } from './useSessionRosterScreen';
 
 interface Props {
@@ -34,8 +35,11 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
     isLoading,
     isRemoving,
     removeError,
+    isAddPlayerOpen,
     onRemovePlayer,
     onAddPlayer,
+    onCloseAddPlayer,
+    onPlayerAdded,
     onClose,
   } = useSessionRosterScreen(sessionId);
 
@@ -59,9 +63,11 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           <TouchableOpacity
             onPress={onClose}
             testID="session-roster-close-btn"
-            className="p-[8px]"
+            accessibilityRole="button"
+            accessibilityLabel="Close manage players"
+            className="min-h-touch min-w-touch items-center justify-center"
           >
-            <Text className="text-[16px] text-default">✕</Text>
+            <Text className="text-[18px] font-semibold text-inverse">✕</Text>
           </TouchableOpacity>
         }
       />
@@ -145,11 +151,25 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
         <TouchableOpacity
           testID="roster-add-player-btn"
           onPress={onAddPlayer}
-          className="border-2 border-dashed border-[#d4a843] rounded-[12px] items-center justify-center py-[14px]"
+          accessibilityRole="button"
+          accessibilityLabel="Add player to session"
+          className="border-2 border-dashed border-brand-gold rounded-[12px] items-center justify-center py-[14px]"
         >
-          <Text className="text-[15px] font-bold text-[#d4a843]">+ Add Player</Text>
+          <Text className="text-[15px] font-bold text-brand-gold">+ Add Player</Text>
         </TouchableOpacity>
       </View>
+
+      {isAddPlayerOpen && (
+        <SessionAddPlayerModal
+          sessionId={sessionId}
+          leagueId={session?.league_id}
+          existingPlayerIds={
+            new Set(players.map((player) => player.player_id))
+          }
+          onClose={onCloseAddPlayer}
+          onAdded={onPlayerAdded}
+        />
+      )}
     </SafeAreaView>
   );
 }

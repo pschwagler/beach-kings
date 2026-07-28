@@ -23,12 +23,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import TopNav from '@/components/ui/TopNav';
+import Avatar from '@/components/ui/Avatar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import {
   useFindLeaguesScreen,
   type FindLeaguesFilter,
 } from './useFindLeaguesScreen';
 import type { FindLeagueResult } from '@beach-kings/shared';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Search bar
@@ -40,19 +42,20 @@ interface SearchBarProps {
 }
 
 function FindLeaguesSearchBar({ value, onChangeText }: SearchBarProps): React.ReactNode {
+  const palette = usePaletteColors();
   return (
     <View className="px-4 py-3 bg-surface border-b border-divider">
       <View className="flex-row items-center bg-elevated rounded-[10px] px-[12px] h-[40px] gap-[8px]">
         <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-          <Circle cx="11" cy="11" r="8" stroke="#999" strokeWidth={2} />
-          <Path d="M21 21l-4.35-4.35" stroke="#999" strokeWidth={2} strokeLinecap="round" />
+          <Circle cx="11" cy="11" r="8" stroke={palette.textTertiary} strokeWidth={2} />
+          <Path d="M21 21l-4.35-4.35" stroke={palette.textTertiary} strokeWidth={2} strokeLinecap="round" />
         </Svg>
         <TextInput
           testID="find-leagues-search-input"
           value={value}
           onChangeText={onChangeText}
           placeholder="Search leagues…"
-          placeholderTextColor="#999"
+          placeholderTextColor={palette.textTertiary}
           className="flex-1 text-[14px] text-default"
           returnKeyType="search"
           autoCapitalize="none"
@@ -116,7 +119,7 @@ function FilterChips({ activeFilter, onSelect }: FilterChipsProps): React.ReactN
               <Text
                 className={`text-[13px] font-semibold ${
                   isActive
-                    ? 'text-white'
+                    ? 'text-inverse'
                     : 'text-muted'
                 }`}
               >
@@ -137,8 +140,9 @@ function FilterChips({ activeFilter, onSelect }: FilterChipsProps): React.ReactN
 interface LeagueResultCardProps {
   readonly league: FindLeagueResult;
   readonly onPress: (id: number) => void;
-  readonly onRequestJoin: (id: number) => Promise<void>;
+  readonly onJoinLeague: (id: number) => Promise<void>;
   readonly isRequesting: boolean;
+  readonly joinError: string | null;
 }
 
 function genderLabel(g: FindLeagueResult['gender']): string {
@@ -150,131 +154,181 @@ function genderLabel(g: FindLeagueResult['gender']): string {
 function LeagueResultCard({
   league,
   onPress,
-  onRequestJoin,
+  onJoinLeague,
   isRequesting,
+  joinError,
 }: LeagueResultCardProps): React.ReactNode {
+  const palette = usePaletteColors();
   return (
-    <Pressable
-      testID={`league-result-card-${league.id}`}
-      onPress={() => {
-        void hapticLight();
-        onPress(league.id);
-      }}
-      className="bg-surface mx-4 mb-3 rounded-[12px] border border-divider p-4 active:opacity-80"
-    >
-      {/* Top row */}
-      <View className="flex-row items-start mb-2">
-        <View className="flex-1 min-w-0 mr-2">
-          <Text
-            className="text-[15px] font-bold text-default"
-            numberOfLines={2}
-          >
-            {league.name}
-          </Text>
-          {league.location_name != null && (
-            <Text className="text-[12px] text-muted mt-[2px]">
-              {league.location_name}
+    <View className="mx-4 mb-3 rounded-[12px] border border-divider bg-surface p-4">
+      <Pressable
+        testID={`league-result-card-${league.id}`}
+        onPress={() => {
+          void hapticLight();
+          onPress(league.id);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${league.name}`}
+        className="active:opacity-80"
+      >
+        {/* Top row */}
+        <View className="flex-row items-start mb-2">
+          <View className="flex-1 min-w-0 mr-2">
+            <Text
+              className="text-[15px] font-bold text-default"
+              numberOfLines={2}
+            >
+              {league.name}
             </Text>
-          )}
-        </View>
+            {league.location_name != null && (
+              <Text className="text-[12px] text-muted mt-[2px]">
+                {league.location_name}
+              </Text>
+            )}
+          </View>
 
-        {/* Access badge */}
-        <View
-          className={`rounded-[8px] px-2 py-[3px] ${
-            league.access_type === 'open'
-              ? 'bg-success-tint'
-              : 'bg-warning-tint'
-          }`}
-        >
-          <Text
-            className={`text-[11px] font-semibold ${
+          {/* Access badge */}
+          <View
+            className={`rounded-[8px] px-2 py-[3px] ${
               league.access_type === 'open'
-                ? 'text-success'
-                : 'text-warning'
+                ? 'bg-success-tint'
+                : 'bg-warning-tint'
             }`}
           >
-            {league.access_type === 'open' ? 'Public' : 'Invite Only'}
-          </Text>
+            <Text
+              className={`text-[11px] font-semibold ${
+                league.access_type === 'open'
+                  ? 'text-success'
+                  : 'text-warning'
+              }`}
+            >
+              {league.access_type === 'open' ? 'Public' : 'Invite Only'}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Badge row */}
-      <View className="flex-row flex-wrap gap-2 mb-3">
-        {league.level != null && (
-          <View className="bg-info-tint rounded-[8px] px-2 py-[3px]">
-            <Text className="text-[11px] font-semibold text-info">
-              {league.level}
+        {/* Badge row */}
+        <View className="flex-row flex-wrap gap-2 mb-3">
+          {league.level != null && (
+            <View className="bg-info-tint rounded-[8px] px-2 py-[3px]">
+              <Text className="text-[11px] font-semibold text-info">
+                {league.level}
+              </Text>
+            </View>
+          )}
+          <View className="bg-elevated rounded-[8px] px-2 py-[3px]">
+            <Text className="text-[11px] font-semibold text-muted">
+              {genderLabel(league.gender)}
+            </Text>
+          </View>
+          <View className="bg-elevated rounded-[8px] px-2 py-[3px]">
+            <Text className="text-[11px] text-muted">
+              {league.member_count}{' '}
+              {league.member_count === 1 ? 'member' : 'members'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Friends in league */}
+        {league.friends_in_league.length > 0 && (
+          <View className="flex-row items-center gap-2 mb-3">
+            <View className="flex-row">
+              {league.friends_in_league.slice(0, 3).map((friend, index) => (
+                <View
+                  key={friend.player_id}
+                  style={{ marginLeft: index > 0 ? -8 : 0 }}
+                >
+                  <Avatar
+                    imageUrl={friend.avatar_url}
+                    name={friend.initials}
+                    size={24}
+                    colorSeed={friend.player_id}
+                    className="border-2 border-surface"
+                    accessible={false}
+                  />
+                </View>
+              ))}
+            </View>
+            <Text className="text-[12px] text-muted">
+              {league.friends_in_league.length === 1
+                ? '1 friend'
+                : `${league.friends_in_league.length} friends`}{' '}
+              in this league
             </Text>
           </View>
         )}
-        <View className="bg-elevated rounded-[8px] px-2 py-[3px]">
-          <Text className="text-[11px] font-semibold text-muted">
-            {genderLabel(league.gender)}
-          </Text>
-        </View>
-        <View className="bg-elevated rounded-[8px] px-2 py-[3px]">
-          <Text className="text-[11px] text-muted">
-            {league.member_count} {league.member_count === 1 ? 'member' : 'members'}
-          </Text>
-        </View>
-      </View>
-
-      {/* Friends in league */}
-      {league.friends_in_league.length > 0 && (
-        <View className="flex-row items-center gap-2 mb-3">
-          <View className="flex-row">
-            {league.friends_in_league.slice(0, 3).map((f, idx) => (
-              <View
-                key={f.player_id}
-                className="w-6 h-6 rounded-full bg-brand-teal items-center justify-center border-2 border-surface"
-                style={{ marginLeft: idx > 0 ? -8 : 0 }}
-              >
-                <Text className="text-[8px] font-bold text-white">{f.initials}</Text>
-              </View>
-            ))}
-          </View>
-          <Text className="text-[12px] text-muted">
-            {league.friends_in_league.length === 1
-              ? '1 friend'
-              : `${league.friends_in_league.length} friends`}{' '}
-            in this league
-          </Text>
-        </View>
-      )}
+      </Pressable>
 
       {/* Action button */}
       {league.user_status === 'member' ? (
-        <View className="bg-info-tint rounded-[8px] py-[10px] items-center">
+        <View
+          accessibilityLabel={`You are a member of ${league.name}`}
+          className="bg-info-tint rounded-[8px] py-[10px] items-center"
+        >
           <Text className="text-[13px] font-semibold text-info">
             You're a Member
           </Text>
         </View>
       ) : league.user_status === 'requested' ? (
-        <View className="bg-warning-tint rounded-[8px] py-[10px] items-center">
+        <View
+          accessibilityLabel={`Request to join ${league.name} pending`}
+          className="bg-warning-tint rounded-[8px] py-[10px] items-center"
+        >
           <Text className="text-[13px] font-semibold text-warning">
             Request Pending
           </Text>
         </View>
       ) : (
-        <Pressable
-          testID={`request-join-btn-${league.id}`}
-          onPress={() => {
-            void hapticMedium();
-            void onRequestJoin(league.id);
-          }}
-          disabled={isRequesting}
-          className="bg-brand-teal rounded-[8px] py-[10px] items-center active:opacity-80"
-        >
-          {isRequesting ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text className="text-[13px] font-bold text-white">
-              {league.access_type === 'open' ? 'Request to Join' : 'View League'}
+        <>
+          <Pressable
+            testID={`request-join-btn-${league.id}`}
+            onPress={() => {
+              void hapticMedium();
+              if (league.access_type === 'open') {
+                void onJoinLeague(league.id);
+              } else {
+                onPress(league.id);
+              }
+            }}
+            disabled={isRequesting}
+            accessibilityRole="button"
+            accessibilityLabel={
+              league.access_type === 'open'
+                ? joinError != null
+                  ? `Try joining ${league.name} again`
+                  : `Join ${league.name}`
+                : `View ${league.name}`
+            }
+            accessibilityState={{
+              disabled: isRequesting,
+              busy: isRequesting,
+            }}
+            className="bg-brand-teal rounded-[8px] py-[10px] items-center active:opacity-80"
+          >
+            {isRequesting ? (
+              <ActivityIndicator size="small" color={palette.textInverse} />
+            ) : (
+              <Text className="text-[13px] font-bold text-inverse">
+                {league.access_type === 'open'
+                  ? joinError != null
+                    ? 'Try Again'
+                    : 'Join League'
+                  : 'View League'}
+              </Text>
+            )}
+          </Pressable>
+          {joinError != null && (
+            <Text
+              testID={`join-league-error-${league.id}`}
+              accessibilityRole="alert"
+              className="text-[12px] font-medium text-danger text-center mt-2"
+            >
+              {joinError}
             </Text>
           )}
-        </Pressable>
+        </>
       )}
-    </Pressable>
+    </View>
   );
 }
 
@@ -353,8 +407,9 @@ export default function FindLeaguesScreen(): React.ReactNode {
     onRefresh,
     onRetry,
     onPressLeague,
-    onRequestJoin,
+    onJoinLeague,
     requestingIds,
+    joinError,
     onCreateLeague,
   } = useFindLeaguesScreen();
 
@@ -384,8 +439,11 @@ export default function FindLeaguesScreen(): React.ReactNode {
           <LeagueResultCard
             league={item}
             onPress={onPressLeague}
-            onRequestJoin={onRequestJoin}
+            onJoinLeague={onJoinLeague}
             isRequesting={requestingIds.has(item.id)}
+            joinError={
+              joinError?.leagueId === item.id ? joinError.message : null
+            }
           />
         )}
         contentContainerStyle={{ paddingTop: 12, paddingBottom: 32 }}

@@ -7,7 +7,7 @@
  *   Players (admin: role action sheet, remove button disabled for self)
  *   Seasons (admin: New Season stub)
  *   League Information (admin: Access/Level pickers auto-save; multi-court pill list)
- *   Invites & Payment placeholder
+ *   Admin invite management entry point
  *   Leave League button (for members)
  *
  * Wireframe ref: league-info.html
@@ -26,9 +26,13 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { api } from '@/lib/api';
+import { useBottomTabBarContentPadding } from '@/components/navigation/BottomTabBar';
+import { routes } from '@/lib/navigation';
 import CourtPickerModal from '@/components/ui/CourtPickerModal';
+import Avatar from '@/components/ui/Avatar';
 import { useLeagueInfoTab } from './useLeagueInfoTab';
 import SeasonFormSheet from './SeasonFormSheet';
 import type { HomeCourtResponse, JoinRequest, LeagueMemberRow, LeagueSeason } from '@beach-kings/shared';
@@ -76,11 +80,13 @@ function JoinRequestRow({ request, onApprove, onDeny }: JoinRequestRowProps): Re
       testID={`join-request-row-${request.id}`}
       className="flex-row items-center px-4 py-[12px] border-b border-divider gap-3"
     >
-      <View className="w-10 h-10 rounded-full bg-elevated items-center justify-center flex-shrink-0">
-        <Text className="text-[11px] font-bold text-muted">
-          {request.initials ?? ''}
-        </Text>
-      </View>
+      <Avatar
+        imageUrl={request.avatar_url}
+        name={request.display_name}
+        size="md"
+        colorSeed={request.player_id}
+        accessible={false}
+      />
       <View className="flex-1 min-w-0">
         <Text
           className="text-[14px] font-semibold text-default"
@@ -175,11 +181,13 @@ function MemberRow({
       testID={`member-row-${member.player_id}`}
       className="flex-row items-center px-4 py-[12px] border-b border-divider gap-3"
     >
-      <View className="w-9 h-9 rounded-full bg-brand-teal items-center justify-center flex-shrink-0">
-        <Text className="text-[10px] font-bold text-white">
-          {member.initials}
-        </Text>
-      </View>
+      <Avatar
+        imageUrl={member.avatar_url}
+        name={member.display_name}
+        size={36}
+        colorSeed={member.player_id}
+        accessible={false}
+      />
       <Text
         className="flex-1 text-[14px] font-semibold text-default"
         numberOfLines={1}
@@ -448,10 +456,13 @@ export default function LeagueInfoTab({
   leagueId,
   userRole,
 }: LeagueInfoTabProps): React.ReactNode {
+  const router = useRouter();
+  const bottomContentPadding = useBottomTabBarContentPadding();
   const {
     info,
     isLoading,
     isError,
+    onRetry,
     currentPlayerId,
     onApproveRequest,
     onDenyRequest,
@@ -569,6 +580,20 @@ export default function LeagueInfoTab({
         <Text className="text-[16px] font-bold text-default text-center">
           Failed to load info
         </Text>
+        <Text className="text-[13px] text-muted text-center mt-2">
+          Check your connection and try again.
+        </Text>
+        <Pressable
+          testID="info-retry-button"
+          onPress={() => {
+            void onRetry();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading league info"
+          className="min-h-touch mt-4 px-5 items-center justify-center rounded-[10px] bg-brand-teal active:opacity-80"
+        >
+          <Text className="text-[14px] font-semibold text-white">Retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -585,12 +610,13 @@ export default function LeagueInfoTab({
   const levelOptions = LEVEL_OPTIONS.map((l) => ({ label: l, value: l }));
 
   return (
-    <ScrollView
-      testID="info-tab"
-      className="flex-1 bg-page"
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: 32 }}
-    >
+    <>
+      <ScrollView
+        testID="info-tab"
+        className="flex-1 bg-page"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: bottomContentPadding }}
+      >
       {/* Description */}
       {(info.description != null || isAdmin) && (
         <>
@@ -714,6 +740,17 @@ export default function LeagueInfoTab({
         <View className="px-4 py-[12px] border-b border-divider">
           <Text className="text-[12px] text-muted mb-2">Home Courts</Text>
           <View className="flex-row flex-wrap gap-2">
+            {info.home_courts.length === 0 && (
+              <Text
+                testID="home-courts-empty"
+                accessibilityRole="text"
+                className="w-full text-[13px] text-muted"
+              >
+                {isAdmin
+                  ? 'No home courts selected. Add one so players know where to meet.'
+                  : 'No home courts selected yet.'}
+              </Text>
+            )}
             {info.home_courts.map((court) => (
               <CourtPill
                 key={court.id}
@@ -727,6 +764,8 @@ export default function LeagueInfoTab({
               <Pressable
                 testID="add-court-btn"
                 onPress={() => { void handleAddCourtPress(); }}
+                accessibilityRole="button"
+                accessibilityLabel="Add a home court"
                 className="flex-row items-center gap-1 bg-elevated rounded-full px-3 py-[6px] border border-dashed border-divider active:opacity-70"
               >
                 <Text className="text-[12px] text-brand-teal font-semibold">+ Add Court</Text>
@@ -736,18 +775,35 @@ export default function LeagueInfoTab({
         </View>
       </View>
 
-      {/* Invites & Payment — placeholder */}
-      <SectionLabel title="Invites & Payment" />
-      <View className="bg-surface rounded-[12px] mx-4 border border-divider px-4 py-4">
-        <View className="flex-row items-center gap-2">
-          <View className="bg-brand-teal/10 rounded-[6px] px-2 py-[2px]">
-            <Text className="text-[10px] font-bold text-brand-teal">Coming Soon</Text>
-          </View>
-          <Text className="text-[13px] text-muted">
-            Invite management and payment settings
-          </Text>
-        </View>
-      </View>
+      {/* Player invites are supported today; payment settings are intentionally
+          omitted until the app has a real backend contract for them. */}
+      {isAdmin && (
+        <>
+          <SectionLabel title="Invites" />
+          <Pressable
+            testID="invite-players-btn"
+            onPress={() => {
+              void hapticLight();
+              router.push(routes.leagueInvite(leagueId));
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Invite players to this league"
+            className="min-h-touch bg-surface rounded-[12px] mx-4 border border-divider px-4 py-4 flex-row items-center active:opacity-70"
+          >
+            <View className="flex-1">
+              <Text className="text-[14px] font-semibold text-default">
+                Invite Players
+              </Text>
+              <Text className="text-[12px] text-muted mt-1">
+                Send league invitations to eligible players.
+              </Text>
+            </View>
+            <Text className="text-[18px] text-brand-teal" importantForAccessibility="no">
+              ›
+            </Text>
+          </Pressable>
+        </>
+      )}
 
       {/* Leave League */}
       {userRole === 'member' && (
@@ -766,8 +822,11 @@ export default function LeagueInfoTab({
           )}
         </Pressable>
       )}
+      </ScrollView>
 
-      {/* Pickers */}
+      {/* Keep modal lists outside the vertical ScrollView. A FlatList mounted
+          below a same-direction ScrollView triggers React Native's nested
+          VirtualizedList warning even though Modal renders in a portal. */}
       <OptionPickerModal
         visible={showAccessPicker}
         title="Access Type"
@@ -808,6 +867,6 @@ export default function LeagueInfoTab({
             : onCreateSeason(payload)
         }
       />
-    </ScrollView>
+    </>
   );
 }

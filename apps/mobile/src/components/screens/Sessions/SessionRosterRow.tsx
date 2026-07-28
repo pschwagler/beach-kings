@@ -9,8 +9,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import type { SessionPlayerEntry } from '@beach-kings/shared';
-
-const AVATAR_COLORS = ['#7fb3c7', '#d4a843', '#e87461', '#7bc47f', '#b07fc7'];
+import Avatar from '@/components/ui/Avatar';
 
 interface Props {
   readonly player: SessionPlayerEntry;
@@ -25,29 +24,23 @@ export default function SessionRosterRow({
   isRemoving,
   onRemove,
 }: Props): React.ReactNode {
-  const bgColor = player.is_placeholder
-    ? 'transparent'
-    : AVATAR_COLORS[player.player_id % AVATAR_COLORS.length];
-
   return (
     <View
       testID={`roster-row-${player.entry_id}`}
       className="flex-row items-center gap-[12px] py-[10px] border-b border-divider"
     >
       {/* Avatar */}
-      <View
-        className={`w-[40px] h-[40px] rounded-full items-center justify-center ${
-          player.is_placeholder ? 'border-2 border-dashed border-[#d4a843]' : ''
-        }`}
-        style={{ backgroundColor: bgColor }}
-      >
-        <Text
-          className="text-[13px] font-bold"
-          style={{ color: player.is_placeholder ? '#d4a843' : '#fff' }}
-        >
-          {player.initials}
-        </Text>
-      </View>
+      <Avatar
+        imageUrl={player.avatar_url}
+        name={player.display_name}
+        size="md"
+        variant={player.is_placeholder ? 'guest' : 'teal'}
+        colorSeed={player.is_placeholder ? undefined : player.player_id}
+        fallbackClassName={
+          player.is_placeholder ? 'border-2 border-dashed border-brand-gold' : ''
+        }
+        accessible={false}
+      />
 
       {/* Info */}
       <View className="flex-1">
@@ -76,7 +69,9 @@ export default function SessionRosterRow({
           <TouchableOpacity
             onPress={onRemove}
             testID={`roster-remove-${player.entry_id}`}
-            className="border border-danger-tint bg-surface px-[12px] py-[6px] rounded-[8px]"
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${player.display_name} from session`}
+            className="min-h-touch justify-center rounded-[8px] border border-danger-tint bg-surface px-[12px]"
           >
             <Text className="text-[12px] font-semibold text-danger">Remove</Text>
           </TouchableOpacity>

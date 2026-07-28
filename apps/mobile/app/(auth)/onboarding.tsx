@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  GENDER_OPTIONS,
-  SKILL_LEVEL_OPTIONS,
-  SKILL_LEVEL_DESCRIPTIONS,
-} from '@beach-kings/shared';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input } from '@/components/ui';
+import SectionError from '@/components/home/SectionError';
 import { CrownIcon, CheckIcon } from '@/components/ui/icons';
 import {
   FormLabel,
@@ -40,53 +37,26 @@ import {
 } from '@/lib/validators';
 import {
   useLocationAutoSelect,
-  type LocationWithDistance,
 } from '@/lib/useLocationAutoSelect';
-import { fullStateName } from '@/lib/usStates';
 import type { PlayerGender, SkillLevel, Location } from '@beach-kings/shared';
+import {
+  buildLocationSearchText,
+  formatLocationLabel,
+  GENDER_SELECT_OPTIONS,
+  SKILL_LEVEL_SELECT_OPTIONS,
+} from '@/components/screens/Profile/profileFormOptions';
+import { locationQueries } from '@/features/locations';
 
 type Screen = 'form' | 'success';
-
-const SKILL_LEVEL_SELECT_OPTIONS: readonly SelectOption[] = SKILL_LEVEL_OPTIONS.map(
-  (opt) => ({
-    value: opt.value,
-    label: opt.label,
-    sublabel: SKILL_LEVEL_DESCRIPTIONS[opt.value],
-  }),
-);
-
-const GENDER_SELECT_OPTIONS: readonly SelectOption[] = GENDER_OPTIONS.map((g) => ({
-  value: g.value,
-  label: g.label,
-}));
-
-function formatLocationLabel(loc: LocationWithDistance): string {
-  const base = loc.name ?? `${loc.city}, ${loc.state}`;
-  if (typeof loc.distance_miles === 'number') {
-    return `${base} (${Math.round(loc.distance_miles)} mi)`;
-  }
-  return base;
-}
-
-function buildLocationSearchText(loc: LocationWithDistance): string {
-  return [
-    loc.city,
-    loc.state,
-    fullStateName(loc.state),
-    loc.name,
-    loc.region_name,
-  ]
-    .filter((s): s is string => typeof s === 'string' && s.length > 0)
-    .join(' ');
-}
 
 export default function OnboardingScreen(): React.ReactNode {
   const { setProfileComplete } = useAuth();
   const router = useRouter();
 
   const [screen, setScreen] = useState<Screen>('form');
-  const [locations, setLocations] = useState<readonly Location[]>([]);
-  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const locationsQuery = useQuery(locationQueries.all());
+  const locations: readonly Location[] = locationsQuery.data ?? [];
+  const isLoadingLocations = locationsQuery.isPending;
 
   const nicknameRef = useRef<TextInput>(null);
   const dobRef = useRef<TextInput>(null);
@@ -120,25 +90,6 @@ export default function OnboardingScreen(): React.ReactNode {
     locations,
     onLocationSelect: setLocationId,
   });
-
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoadingLocations(true);
-    api
-      .getLocations()
-      .then((data) => {
-        if (!cancelled) setLocations(data);
-      })
-      .catch(() => {
-        if (!cancelled) Alert.alert('Error', 'Failed to load locations.');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingLocations(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const locationOptions = useMemo<readonly SelectOption[]>(
     () =>
@@ -322,6 +273,14 @@ export default function OnboardingScreen(): React.ReactNode {
             <FormLabel required className="mt-md">
               Location
             </FormLabel>
+            {locationsQuery.isError ? (
+              <View className="mb-sm">
+                <SectionError
+                  message="Locations could not be loaded."
+                  onRetry={() => { void locationsQuery.refetch(); }}
+                />
+              </View>
+            ) : null}
             <Controller
               control={control}
               name="locationId"
@@ -339,6 +298,11 @@ export default function OnboardingScreen(): React.ReactNode {
                   disabled={isLoadingLocations}
                   loading={isLoadingLocations}
                   error={!!errors.locationId}
+                  emptyMessage={
+                    locationsQuery.isError
+                      ? 'Locations could not be loaded. Close and try again.'
+                      : 'No locations found.'
+                  }
                   testID="onboarding-location-select"
                   searchable
                   searchPlaceholder="Search city or state"

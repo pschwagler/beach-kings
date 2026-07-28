@@ -147,6 +147,7 @@ export function createSignupMethods(api: AxiosInstance) {
         friends_in_league: item.friends_preview.map((f) => ({
           player_id: f.player_id,
           initials: (f.first_name.charAt(0) + (f.last_name?.charAt(0) ?? '')).toUpperCase(),
+          avatar_url: f.avatar,
         })),
         user_status: item.has_pending_request ? 'requested' : 'none',
       }));

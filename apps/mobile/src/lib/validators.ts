@@ -228,10 +228,6 @@ export type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 // Profile schema
 // ---------------------------------------------------------------------------
 
-/**
- * Schema for the profile-update form.
- * All fields are optional; only the provided fields will be sent to the API.
- */
 export const profileUpdateSchema = z.object({
   firstName: z.string().min(1, 'First name cannot be blank.').optional(),
   lastName: z.string().min(1, 'Last name cannot be blank.').optional(),
@@ -242,3 +238,28 @@ export const profileUpdateSchema = z.object({
 });
 
 export type ProfileUpdateFormValues = z.infer<typeof profileUpdateSchema>;
+
+/** Complete form contract used by the authenticated Edit Profile screen. */
+export const profileEditSchema = z.object({
+  firstName: z.string().trim().min(1, 'First name is required.'),
+  lastName: z.string().trim().min(1, 'Last name is required.'),
+  nickname: z.string(),
+  gender: z.enum(GENDER_VALUES, {
+    error: 'Please select a gender.',
+  }),
+  level: z.enum(SKILL_LEVEL_VALUES, {
+    error: 'Please select a skill level.',
+  }),
+  city: z.string().trim().min(1, 'City is required.'),
+  locationId: z.string().min(1, 'Please select a location.'),
+  dateOfBirth: z
+    .string()
+    .superRefine((value, ctx) => {
+      const message = validateBirthdayDisplay(value.trim());
+      if (message !== null) ctx.addIssue({ code: 'custom', message });
+    }),
+  height: z.string(),
+  preferredSide: z.enum(['left', 'right', 'none']).or(z.literal('')),
+});
+
+export type ProfileEditFormValues = z.infer<typeof profileEditSchema>;

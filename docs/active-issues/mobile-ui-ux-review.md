@@ -9,7 +9,6 @@ App: Beach League (`com.beachleague.app`)
 
 This document captures UI, UX, styling, and accessibility findings from an exploratory review of the live mobile app. It is intended to guide focused design and implementation work rather than prescribe a complete redesign.
 
-Related functional issues are tracked in [Mobile E2E Issue Backlog](./mobile-e2e-issue-backlog.md).
 
 ## Design context
 

@@ -2,6 +2,7 @@ import type { AxiosInstance } from 'axios';
 import type {
   ConversationListResponse,
   DirectMessage,
+  MarkReadResponse,
   ThreadResponse,
 } from '@beach-kings/shared';
 
@@ -58,8 +59,8 @@ export function createMessageMethods(api: AxiosInstance) {
      */
     async markThreadRead(
       playerId: number,
-    ): Promise<{ updated_count: number }> {
-      const response = await api.put<{ updated_count: number }>(
+    ): Promise<MarkReadResponse> {
+      const response = await api.put<MarkReadResponse>(
         `/api/messages/conversations/${encodeURIComponent(playerId)}/read`,
       );
       return response.data;

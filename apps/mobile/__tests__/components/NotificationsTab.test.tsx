@@ -131,9 +131,9 @@ const MOCK_NOTIFICATIONS = [
     title: 'You were invited to QBK Open Men',
     message: 'Alex Torres invited you to join the league.',
     data: { league_id: 5 },
-    is_read: true,
-    read_at: '2026-04-19T13:00:00Z',
-    link_url: '/(stack)/league/5',
+    is_read: false,
+    read_at: null,
+    link_url: '/league/5?tab=details',
     created_at: '2026-04-19T13:00:00Z',
   },
   {
@@ -261,10 +261,10 @@ describe('NotificationsTab — notifications list', () => {
     });
   });
 
-  it('does not show unread dot on read notification', async () => {
+  it('shows unread dot on an unread league notification', async () => {
     renderNotificationsTab();
     await waitFor(() => {
-      expect(screen.queryByTestId('unread-dot-2')).toBeNull();
+      expect(screen.getByTestId('unread-dot-2')).toBeTruthy();
     });
   });
 
@@ -273,6 +273,17 @@ describe('NotificationsTab — notifications list', () => {
     await waitFor(() => {
       expect(screen.getByText('Riley Chen sent you a friend request')).toBeTruthy();
     });
+  });
+
+  it('translates a backend notification link before navigating', async () => {
+    renderNotificationsTab();
+    await waitFor(() => {
+      expect(screen.getByTestId('notification-item-2')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('notification-item-2'));
+
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/league/5?tab=info');
   });
 
   it('uses the authoritative unread total when the hydrated feed is partial', async () => {
@@ -481,10 +492,12 @@ describe('NotificationsTab — mark-all header action', () => {
   });
 
   it('publishes null when all notifications are read', async () => {
-    mockGetNotifications.mockResolvedValue([
-      { ...MOCK_NOTIFICATIONS[0], is_read: true, read_at: '2026-04-19T14:00:00Z' },
-      { ...MOCK_NOTIFICATIONS[1] },
-    ]);
+    mockGetNotifications.mockResolvedValue(MOCK_NOTIFICATIONS.map((notification) => ({
+      ...notification,
+      is_read: true,
+      read_at: '2026-04-19T14:00:00Z',
+    })));
+    mockGetUnreadNotificationCount.mockResolvedValue({ count: 0 });
     const mockSetHeaderAction = jest.fn();
     renderNotificationsTab(mockSetHeaderAction);
 

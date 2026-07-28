@@ -363,3 +363,53 @@ class TestCreateMatchesFromSessionOptionalSeason:
             f"get_or_create_active_league_session must receive season_id=None for gap games.  "
             f"Got: {captured_calls[0]['season_id']}.  Bug #3 (service) not fixed."
         )
+
+    @pytest.mark.asyncio
+    async def test_rejects_tied_photo_matches_before_creating_any_game(
+        self, monkeypatch
+    ):
+        async def fake_check_idempotency(session_id):
+            return []
+
+        async def fake_get_session_data(session_id):
+            return {
+                "league_id": 7,
+                "parsed_matches": [
+                    {
+                        "team1_player1_id": 1,
+                        "team1_player2_id": 2,
+                        "team2_player1_id": 3,
+                        "team2_player2_id": 4,
+                        "team1_score": 21,
+                        "team2_score": 21,
+                    }
+                ],
+            }
+
+        create_match = MagicMock()
+        monkeypatch.setattr(
+            photo_match_service, "check_idempotency", fake_check_idempotency, raising=True
+        )
+        monkeypatch.setattr(
+            photo_match_service, "get_session_data", fake_get_session_data, raising=True
+        )
+        monkeypatch.setattr(
+            data_service, "create_match_async", create_match, raising=True
+        )
+
+        success, match_ids, message = (
+            await photo_match_service.create_matches_from_session(
+                db_session=None,
+                session_id="tied-photo-session",
+                season_id=None,
+                match_date="7/25/2026",
+            )
+        )
+
+        assert success is False
+        assert match_ids == []
+        assert message == (
+            "Match 1: Choose a winner by changing one score. "
+            "Games cannot end in a tie."
+        )
+        create_match.assert_not_called()

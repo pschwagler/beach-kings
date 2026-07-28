@@ -1043,6 +1043,7 @@ class PlayerSearchItem(BaseModel):
     full_name: Optional[str] = None
     nickname: Optional[str] = None
     initials: str = ""
+    profile_picture_url: Optional[str] = None
     tags: List[str] = []
     score: int = 0
     in_session: bool = False  # layout signal for the compact-chip group; not a pill
@@ -1166,6 +1167,8 @@ class SessionListItemResponse(BaseModel):
     updated_at: Optional[str] = None
     created_by: Optional[int] = None
     updated_by: Optional[int] = None
+    game_count: int = 0
+    player_count: int = 0
 
 
 class OpenSessionResponse(BaseModel):
@@ -1291,6 +1294,7 @@ class SessionRosterPlayerResponse(BaseModel):
     player_id: int
     display_name: str
     initials: str
+    avatar_url: Optional[str] = None
     game_count: int
     is_placeholder: bool = False
     # Populated for placeholder players that have an open PlayerInvite row.
@@ -2019,6 +2023,7 @@ class JoinRequestItemResponse(BaseModel):
     status: str
     created_at: Optional[str] = None
     requested_at: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 class JoinRequestsResponse(BaseModel):
@@ -2058,6 +2063,7 @@ class InvitablePlayerResponse(BaseModel):
     player_id: int
     display_name: str
     initials: str
+    avatar_url: Optional[str] = None
     location_name: Optional[str] = None
     level: Optional[str] = None
     invite_status: Literal["none", "member", "invited", "requested"]
@@ -2075,6 +2081,7 @@ class LeagueInviteItemResponse(BaseModel):
     player_id: int
     display_name: str
     initials: str
+    avatar_url: Optional[str] = None
     invited_at: str
     status: Literal["pending", "accepted", "declined"]
     game_count: Optional[int] = None  # Number of games played in the league, if available
@@ -2540,6 +2547,7 @@ class MyStatsRelationStat(BaseModel):
     player_id: int
     display_name: str
     initials: str
+    avatar_url: Optional[str] = None
     games_played: int
     wins: int
     losses: int
@@ -2552,6 +2560,7 @@ class MyStatsPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     player_name: str
+    player_avatar_url: Optional[str] = None
     player_city: Optional[str] = None
     player_level: Optional[str] = None
     overall: MyStatsOverall
@@ -2885,6 +2894,7 @@ class LeagueStandingEntry(BaseModel):
     player_id: int
     display_name: str
     initials: str
+    avatar_url: Optional[str] = None
     wins: int
     losses: int
     win_rate: float

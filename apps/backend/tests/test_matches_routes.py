@@ -82,6 +82,34 @@ _ACTIVE_MATCH = {
     "session_status": "ACTIVE",
 }
 
+_VALID_CREATE_BODY = {
+    **_VALID_UPDATE_BODY,
+    "session_id": 5,
+}
+
+
+# ---------------------------------------------------------------------------
+# POST /api/matches
+# ---------------------------------------------------------------------------
+
+
+class TestCreateMatchScoreValidation:
+    """Score validation runs before session lookup or creation."""
+
+    def test_create_match_rejects_tied_score_with_actionable_message(self, monkeypatch):
+        client, headers = _make_admin_client(monkeypatch)
+
+        response = client.post(
+            "/api/matches",
+            json={**_VALID_CREATE_BODY, "team1_score": 21, "team2_score": 21},
+            headers=headers,
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == (
+            "Choose a winner by changing one score. Games cannot end in a tie."
+        )
+
 
 # ---------------------------------------------------------------------------
 # PUT /api/matches/{match_id}
@@ -176,6 +204,20 @@ class TestUpdateMatch:
 
         assert response.status_code == 400
         assert "distinct" in response.json()["detail"].lower()
+
+    def test_update_match_rejects_tied_score_with_actionable_message(self, monkeypatch):
+        client, headers = _make_admin_client(monkeypatch)
+
+        response = client.put(
+            "/api/matches/10",
+            json={**_VALID_UPDATE_BODY, "team1_score": 21, "team2_score": 21},
+            headers=headers,
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == (
+            "Choose a winner by changing one score. Games cannot end in a tie."
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import {
 } from './cache';
 import { notificationKeys } from './keys';
 import { notificationQueries } from './queries';
+import { messageQueries } from '@/features/messages';
 
 let optimisticSequence = 0;
 const EMPTY_NOTIFICATIONS: readonly Notification[] = [];
@@ -30,6 +31,7 @@ export function useNotifications() {
   const queryClient = useQueryClient();
   const feed = useQuery(notificationQueries.feed(userId, enabled));
   const unreadCountQuery = useQuery(notificationQueries.unreadCount(userId, enabled));
+  const dmUnreadCountQuery = useQuery(messageQueries.unreadCount(userId, enabled));
 
   const markAsReadMutation = useMutation({
     mutationFn: (id: number) => api.markNotificationRead(id),
@@ -84,28 +86,23 @@ export function useNotifications() {
     ]),
   });
 
-  const notifications = useMemo(
-    () => (feed.data ?? EMPTY_NOTIFICATIONS).filter(
-      (notification) => notification.dismissed_at == null,
-    ),
-    [feed.data],
-  );
-  const hydratedFeedUnreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.is_read).length,
-    [notifications],
-  );
+  const notifications = feed.data ?? EMPTY_NOTIFICATIONS;
+  const hydratedFeedUnreadCount = notifications.length;
   const unreadCount = unreadCountQuery.data?.count ?? hydratedFeedUnreadCount;
-  const dmUnreadCount = useMemo(
+  const hydratedDmSummaryCount = useMemo(
     () => notifications.filter((notification) =>
-      !notification.is_read && notification.type === 'direct_message',
+      notification.type === 'direct_message',
     ).length,
     [notifications],
   );
+  const dmUnreadCount =
+    dmUnreadCountQuery.data?.count ?? hydratedDmSummaryCount;
 
   const markAsReadMutate = markAsReadMutation.mutate;
   const markAllAsReadMutate = markAllAsReadMutation.mutate;
   const refetchFeed = feed.refetch;
   const refetchUnreadCount = unreadCountQuery.refetch;
+  const refetchDmUnreadCount = dmUnreadCountQuery.refetch;
   const markAsRead = useCallback((id: number) => {
     markAsReadMutate(id);
   }, [markAsReadMutate]);
@@ -113,14 +110,21 @@ export function useNotifications() {
     markAllAsReadMutate();
   }, [markAllAsReadMutate]);
   const refetch = useCallback(
-    () => Promise.all([refetchFeed(), refetchUnreadCount()]),
-    [refetchFeed, refetchUnreadCount],
+    () => Promise.all([
+      refetchFeed(),
+      refetchUnreadCount(),
+      refetchDmUnreadCount(),
+    ]),
+    [refetchDmUnreadCount, refetchFeed, refetchUnreadCount],
   );
 
   return {
     ...feed,
     refetch,
-    isRefetching: feed.isRefetching || unreadCountQuery.isRefetching,
+    isRefetching:
+      feed.isRefetching ||
+      unreadCountQuery.isRefetching ||
+      dmUnreadCountQuery.isRefetching,
     notifications,
     unreadCount,
     dmUnreadCount,

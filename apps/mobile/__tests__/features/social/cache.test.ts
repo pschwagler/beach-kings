@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import type { FriendRequest } from '@beach-kings/shared';
 import {
+  applyRemoveFriend,
   applyResolveFriendRequest,
   applySendFriendRequest,
   rollbackSocialCachePatch,
@@ -78,5 +79,66 @@ describe('social cache rollback markers', () => {
     rollbackSocialCachePatch(client, 7, patch);
 
     expect(client.getQueryData(key)).toEqual([]);
+  });
+
+  it('rolls back only its own optimistic friendship removal', () => {
+    const client = createClient();
+    const relationshipKey = socialKeys.relationship(7, 44);
+    const friendsKey = socialKeys.friends(7);
+    const countKey = socialKeys.friendCount(7);
+    const friend = {
+      id: 9,
+      player_id: 44,
+      full_name: 'Taylor',
+      avatar: null,
+      location_name: null,
+      level: null,
+    };
+    client.setQueryData(relationshipKey, {
+      status: 'friend',
+      request_id: null,
+    });
+    client.setQueryData(friendsKey, [friend]);
+    client.setQueryData(countKey, 1);
+
+    const patch = applyRemoveFriend(client, 7, 44, 'remove:1');
+    expect(client.getQueryData(relationshipKey)).toEqual({
+      status: 'none',
+      request_id: null,
+    });
+    expect(client.getQueryData(friendsKey)).toEqual([]);
+    expect(client.getQueryData(countKey)).toBe(0);
+
+    rollbackSocialCachePatch(client, 7, patch);
+    expect(client.getQueryData(relationshipKey)).toEqual({
+      status: 'friend',
+      request_id: null,
+    });
+    expect(client.getQueryData(friendsKey)).toEqual([friend]);
+    expect(client.getQueryData(countKey)).toBe(1);
+  });
+
+  it('does not overwrite newer friend data when removal fails', () => {
+    const client = createClient();
+    const friendsKey = socialKeys.friends(7);
+    const friend = {
+      id: 9,
+      player_id: 44,
+      full_name: 'Taylor',
+      avatar: null,
+      location_name: null,
+      level: null,
+    };
+    client.setQueryData(friendsKey, [friend]);
+
+    const patch = applyRemoveFriend(client, 7, 44, 'remove:1');
+    const authoritative = [{
+      ...friend,
+      full_name: 'Taylor Updated',
+    }];
+    client.setQueryData(friendsKey, authoritative);
+    rollbackSocialCachePatch(client, 7, patch);
+
+    expect(client.getQueryData(friendsKey)).toEqual(authoritative);
   });
 });

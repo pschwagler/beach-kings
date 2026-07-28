@@ -38,6 +38,17 @@ export interface MarkAllNotificationsReadPatch {
   }>;
 }
 
+export interface DirectMessageSummaryPatch {
+  readonly token: string;
+  readonly remainingUnreadMessages: number;
+  readonly updated: ReadonlyArray<{
+    readonly previous: Notification;
+    readonly optimistic: Notification & {
+      readonly __optimisticMutation: string;
+    };
+  }>;
+}
+
 export function notificationRequestId(notification: Notification): number | null {
   const value = notification.data?.friend_request_id ?? notification.data?.request_id;
   if (typeof value === 'number') return value;
@@ -372,6 +383,138 @@ export function commitMarkAllNotificationsRead(
       notification.read_at === `optimistic:${patch.token}`
         ? { ...notification, read_at: committedAt }
         : notification),
+  );
+  finishOptimisticUnreadDelta(queryClient, userId, patch.token, 0);
+}
+
+/**
+ * Keep the single direct-message summary notification aligned with the
+ * message domain while a thread-read request is in flight.
+ */
+export function applyDirectMessageSummaryRead(
+  queryClient: QueryClient,
+  userId: number,
+  remainingUnreadMessages: number,
+  token: string,
+): DirectMessageSummaryPatch {
+  const updated: Array<{
+    previous: Notification;
+    optimistic: Notification & {
+      readonly __optimisticMutation: string;
+    };
+  }> = [];
+
+  queryClient.setQueryData<Notification[]>(
+    notificationKeys.feed(userId),
+    (current) => current?.map((notification) => {
+      if (
+        notification.type !== 'direct_message' ||
+        notification.dismissed_at != null ||
+        notification.is_read
+      ) {
+        return notification;
+      }
+      const optimistic: DirectMessageSummaryPatch['updated'][number]['optimistic'] =
+        remainingUnreadMessages === 0
+        ? {
+            ...notification,
+            is_read: true,
+            read_at: `optimistic:${token}`,
+            __optimisticMutation: token,
+            data: {
+              ...notification.data,
+              unread_count: 0,
+            },
+          }
+        : {
+            ...notification,
+            title: remainingUnreadMessages === 1
+              ? 'You have 1 unread message'
+              : `You have ${remainingUnreadMessages} unread messages`,
+            __optimisticMutation: token,
+            data: {
+              ...notification.data,
+              unread_count: remainingUnreadMessages,
+            },
+          };
+      updated.push({ previous: notification, optimistic });
+      return optimistic;
+    }),
+  );
+
+  const markedRead = updated.filter(({ optimistic }) => optimistic.is_read).length;
+  applyOptimisticUnreadDelta(queryClient, userId, token, -markedRead);
+  return { token, remainingUnreadMessages, updated };
+}
+
+export function rollbackDirectMessageSummaryRead(
+  queryClient: QueryClient,
+  userId: number,
+  patch: DirectMessageSummaryPatch | undefined,
+): void {
+  if (patch == null) return;
+  let restoredUnreadRows = 0;
+  const byId = new Map(
+    patch.updated.map((entry) => [entry.previous.id, entry]),
+  );
+  queryClient.setQueryData<Notification[]>(
+    notificationKeys.feed(userId),
+    (current) => current?.map((notification) => {
+      const entry = byId.get(notification.id);
+      if (
+        entry == null ||
+        (
+          notification as Notification & {
+            readonly __optimisticMutation?: string;
+          }
+        ).__optimisticMutation !== patch.token
+      ) {
+        return notification;
+      }
+      if (!entry.previous.is_read && entry.optimistic.is_read) {
+        restoredUnreadRows += 1;
+      }
+      return entry.previous;
+    }),
+  );
+  finishOptimisticUnreadDelta(
+    queryClient,
+    userId,
+    patch.token,
+    restoredUnreadRows,
+  );
+}
+
+export function commitDirectMessageSummaryRead(
+  queryClient: QueryClient,
+  userId: number,
+  patch: DirectMessageSummaryPatch | undefined,
+): void {
+  if (patch == null) return;
+  const committedAt = new Date().toISOString();
+  const byId = new Map(patch.updated.map((entry) => [entry.previous.id, entry]));
+  queryClient.setQueryData<Notification[]>(
+    notificationKeys.feed(userId),
+    (current) => current?.map((notification) => {
+      const entry = byId.get(notification.id);
+      if (
+        entry == null ||
+        (
+          notification as Notification & {
+            readonly __optimisticMutation?: string;
+          }
+        ).__optimisticMutation !== patch.token
+      ) {
+        return notification;
+      }
+      const {
+        __optimisticMutation: _optimisticMutation,
+        ...committed
+      } = entry.optimistic;
+      return entry.optimistic.is_read
+        ? { ...committed, read_at: committedAt }
+        : committed;
+    }),
   );
   finishOptimisticUnreadDelta(queryClient, userId, patch.token, 0);
 }

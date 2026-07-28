@@ -39,13 +39,27 @@ import type { GameHistoryEntry, LeagueGameEntry } from "@beach-kings/shared";
 // ---------------------------------------------------------------------------
 
 function formatSessionDate(isoDate: string): string | null {
-  const parts = isoDate.split("-").map(Number);
-  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+  const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(isoDate);
+  const legacyMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(isoDate);
+  const [year, month, day] =
+    isoMatch != null
+      ? [Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3])]
+      : legacyMatch != null
+        ? [
+            Number(legacyMatch[3]),
+            Number(legacyMatch[1]),
+            Number(legacyMatch[2]),
+          ]
+        : [Number.NaN, Number.NaN, Number.NaN];
+  const d = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(d.getTime()) ||
+    d.getFullYear() !== year ||
+    d.getMonth() !== month - 1 ||
+    d.getDate() !== day
+  ) {
     return null;
   }
-  const [year, month, day] = parts;
-  const d = new Date(year, month - 1, day);
-  if (Number.isNaN(d.getTime())) return null;
   // Weekday + month + day (e.g. "Sat, May 24") — this is now the card's primary
   // header, so the weekday adds useful context over a bare "May 24".
   return d.toLocaleDateString("en-US", {
@@ -288,8 +302,7 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
     session.session_date != null
       ? formatSessionDate(session.session_date)
       : null;
-  const gameCount =
-    session.mode === "mine" ? session.myGames.length : session.allGames.length;
+  const gameCount = session.gameCount;
 
   return (
     <View
@@ -349,10 +362,27 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
             <Text className="text-[11px] text-tertiary uppercase tracking-wide">
               {session.mode === "mine" ? "Your Games" : "Games"}
             </Text>
-            <Text className="text-[14px] font-bold text-default">
+            <Text
+              testID={`session-card-${session.session_id}-game-count`}
+              className="text-[14px] font-bold text-default"
+            >
               {gameCount}
             </Text>
           </View>
+
+          {session.mode === "all" && (
+            <View>
+              <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+                Players
+              </Text>
+              <Text
+                testID={`session-card-${session.session_id}-player-count`}
+                className="text-[14px] font-bold text-default"
+              >
+                {session.playerCount}
+              </Text>
+            </View>
+          )}
 
           {session.mode === "mine" && !isActive && (
             <>

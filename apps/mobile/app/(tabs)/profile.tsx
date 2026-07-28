@@ -115,8 +115,8 @@ export default function ProfileScreen(): React.ReactNode {
               player={player}
               isLoading={false}
               friendCount={friendCount}
-              onEditPress={() => router.push(routes.settings())}
-              onFriendsPress={() => router.push(routes.social())}
+              onEditPress={() => router.push(routes.editProfile())}
+              onFriendsPress={() => router.push(routes.social({ tab: 'friends' }))}
             />
 
             <StatsBar
@@ -135,7 +135,7 @@ export default function ProfileScreen(): React.ReactNode {
               onSettingsPress={() => router.push(routes.settings())}
               onMyStatsPress={() => router.push(routes.myStats())}
               onMyGamesPress={() => router.push(routes.myGames())}
-              onFriendsPress={() => router.push(routes.social())}
+              onFriendsPress={() => router.push(routes.social({ tab: 'friends' }))}
               onLogout={logout}
             />
           </>

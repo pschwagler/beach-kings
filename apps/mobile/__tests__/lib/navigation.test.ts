@@ -42,6 +42,12 @@ describe('routes', () => {
     expect(routes.createSession()).toContain('session');
   });
 
+  it('createSession normalizes selected player IDs into the handoff route', () => {
+    expect(
+      routes.createSession({ leagueId: 3, playerIds: [10, 11, 10, -1] }),
+    ).toBe('/(stack)/session/create?leagueId=3&playerIds=10,11');
+  });
+
   it('findPlayers route contains "find-players"', () => {
     expect(routes.findPlayers()).toContain('find-players');
   });
@@ -79,6 +85,16 @@ describe('routes', () => {
   it('myStats route contains "my-stats"', () => {
     expect(routes.myStats()).toContain('my-stats');
   });
+
+  it('editProfile route is the profile editor', () => {
+    expect(routes.editProfile()).toBe('/(stack)/edit-profile');
+  });
+
+  it('friends deep-link is deterministic', () => {
+    expect(routes.social({ tab: 'friends' })).toBe(
+      '/(tabs)/social?tab=friends',
+    );
+  });
 });
 
 describe('resolveUp', () => {
@@ -108,6 +124,7 @@ describe('resolveUp', () => {
     ['(stack)/tournament/create', routes.tournaments()],
     ['(stack)/my-games', routes.profile()],
     ['(stack)/my-stats', routes.profile()],
+    ['(stack)/edit-profile', routes.profile()],
     ['(stack)/kob/[code]', routes.home()],
     ['(stack)/invite-players', routes.home()],
     ['(auth)/login', routes.welcome()],

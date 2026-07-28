@@ -53,6 +53,32 @@ export function createUserMethods(api: AxiosInstance) {
       return response.data;
     },
 
+    /**
+     * Upload or replace the authenticated player's profile photo.
+     *
+     * React Native image pickers return a `{ uri, name, type }` object rather
+     * than a DOM File. Both shapes are accepted by FormData at runtime.
+     */
+    async uploadAvatar(
+      file: File | Blob | { uri: string; name: string; type: string },
+    ): Promise<{ profile_picture_url: string }> {
+      const form = new FormData();
+      form.append('file', file as unknown as Blob);
+      const response = await api.post<{ profile_picture_url: string }>(
+        '/api/users/me/avatar',
+        form,
+        { headers: { 'Content-Type': undefined } },
+      );
+      return response.data;
+    },
+
+    async deleteAvatar(): Promise<{ message: string }> {
+      const response = await api.delete<{ message: string }>(
+        '/api/users/me/avatar',
+      );
+      return response.data;
+    },
+
     async updateUserProfile(userData: UserUpdateRequest): Promise<UserMeResponse> {
       const response = await api.put<UserMeResponse>('/api/users/me', userData);
       return response.data;

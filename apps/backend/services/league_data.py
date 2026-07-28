@@ -422,6 +422,7 @@ async def query_leagues(
                 Player.first_name,
                 Player.last_name,
                 Player.avatar,
+                Player.profile_picture_url,
             )
             .distinct()
             .join(Player, Player.id == LeagueMember.player_id)
@@ -441,13 +442,20 @@ async def query_leagues(
             .where(LeagueMember.league_id.in_(page_league_ids))
             .order_by(Player.first_name.asc())
         )
-        for league_id, pid, first_name, last_name, avatar in friends_result.all():
+        for (
+            league_id,
+            pid,
+            first_name,
+            last_name,
+            avatar,
+            profile_picture_url,
+        ) in friends_result.all():
             friends_by_league.setdefault(league_id, []).append(
                 {
                     "player_id": pid,
                     "first_name": first_name,
                     "last_name": last_name,
-                    "avatar": avatar,
+                    "avatar": profile_picture_url or avatar,
                 }
             )
 
@@ -2031,6 +2039,7 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
             Player.nickname.label("player_nickname"),
             Player.level.label("player_level"),
             Player.avatar.label("player_avatar"),
+            Player.profile_picture_url.label("player_profile_picture_url"),
         )
         .join(Player, Player.id == LeagueMember.player_id)
         .where(LeagueMember.league_id == league_id)
@@ -2046,11 +2055,22 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
             "player_name": player_name or f"Player {member.player_id}",
             "player_nickname": player_nickname,
             "player_level": player_level,
-            "player_avatar": player_avatar or generate_player_initials(player_name or ""),
+            "player_avatar": (
+                player_profile_picture_url
+                or player_avatar
+                or generate_player_initials(player_name or "")
+            ),
             "joined_at": member.created_at.isoformat() if member.created_at else None,
             "is_placeholder": member.role == "placeholder",
         }
-        for member, player_name, player_nickname, player_level, player_avatar in rows
+        for (
+            member,
+            player_name,
+            player_nickname,
+            player_level,
+            player_avatar,
+            player_profile_picture_url,
+        ) in rows
     ]
 
 
@@ -2326,7 +2346,7 @@ async def create_league_request(session: AsyncSession, league_id: int, player_id
     }
 
 
-def _join_request_row_to_dict(req, full_name):
+def _join_request_row_to_dict(req, full_name, profile_picture_url):
     """Build a dict for a join request row (shared by pending and rejected lists)."""
     created_at_iso = req.created_at.isoformat() if req.created_at else None
     return {
@@ -2338,6 +2358,7 @@ def _join_request_row_to_dict(req, full_name):
         "status": req.status,
         "created_at": created_at_iso,
         "requested_at": created_at_iso,
+        "avatar_url": profile_picture_url,
     }
 
 
@@ -2347,7 +2368,7 @@ async def list_league_join_requests(session: AsyncSession, league_id: int) -> Li
     Returns each request with player full_name and created_at.
     """
     result = await session.execute(
-        select(LeagueRequest, Player.full_name)
+        select(LeagueRequest, Player.full_name, Player.profile_picture_url)
         .join(Player, LeagueRequest.player_id == Player.id)
         .where(
             and_(
@@ -2358,7 +2379,10 @@ async def list_league_join_requests(session: AsyncSession, league_id: int) -> Li
         .order_by(LeagueRequest.created_at.asc())
     )
     rows = result.all()
-    return [_join_request_row_to_dict(req, full_name) for req, full_name in rows]
+    return [
+        _join_request_row_to_dict(req, full_name, profile_picture_url)
+        for req, full_name, profile_picture_url in rows
+    ]
 
 
 async def list_league_join_requests_rejected(session: AsyncSession, league_id: int) -> List[Dict]:
@@ -2367,7 +2391,7 @@ async def list_league_join_requests_rejected(session: AsyncSession, league_id: i
     Allows admins to find declined requests and approve them later.
     """
     result = await session.execute(
-        select(LeagueRequest, Player.full_name)
+        select(LeagueRequest, Player.full_name, Player.profile_picture_url)
         .join(Player, LeagueRequest.player_id == Player.id)
         .where(
             and_(
@@ -2378,7 +2402,10 @@ async def list_league_join_requests_rejected(session: AsyncSession, league_id: i
         .order_by(LeagueRequest.updated_at.desc())
     )
     rows = result.all()
-    return [_join_request_row_to_dict(req, full_name) for req, full_name in rows]
+    return [
+        _join_request_row_to_dict(req, full_name, profile_picture_url)
+        for req, full_name, profile_picture_url in rows
+    ]
 
 
 async def cancel_league_request(session: AsyncSession, league_id: int, player_id: int) -> bool:
@@ -2495,7 +2522,7 @@ async def get_league_standings(
         for rank, (stats, player) in enumerate(rows, start=1):
             losses = stats.games - stats.wins
             win_rate_pct = round(stats.win_rate * 100, 1)
-            avatar_str = player.avatar or ""
+            avatar_str = player.profile_picture_url or player.avatar or ""
             if len(avatar_str) > 2:
                 avatar_url: Optional[str] = avatar_str
                 initials = generate_player_initials(player.full_name or "")
@@ -2560,7 +2587,7 @@ async def get_league_standings(
     for rank, (stats, player, global_stats) in enumerate(rows, start=1):
         losses = stats.games - stats.wins
         win_rate_pct = round(stats.win_rate * 100, 1)
-        avatar_str = player.avatar or ""
+        avatar_str = player.profile_picture_url or player.avatar or ""
         if len(avatar_str) > 2:
             avatar_url: Optional[str] = avatar_str
             initials = generate_player_initials(player.full_name or "")
@@ -2680,6 +2707,7 @@ async def get_invitable_players(
         select(
             Player.id,
             Player.full_name,
+            Player.profile_picture_url,
             Player.level,
             Location.name.label("location_name"),
         )
@@ -2702,7 +2730,7 @@ async def get_invitable_players(
     opponents_list: List[Dict] = []
     suggested_list: List[Dict] = []
 
-    for pid, full_name, level, location_name in rows:
+    for pid, full_name, profile_picture_url, level, location_name in rows:
         name = full_name or f"Player {pid}"
         initials = generate_player_initials(name)
 
@@ -2719,6 +2747,7 @@ async def get_invitable_players(
             "player_id": pid,
             "display_name": name,
             "initials": initials,
+            "avatar_url": profile_picture_url,
             "location_name": location_name,
             "level": level,
             "invite_status": inv_status,
@@ -2862,6 +2891,7 @@ async def list_league_invites(session: AsyncSession, league_id: int) -> List[Dic
             League.name.label("league_name"),
             LeagueInvite.player_id,
             Player.full_name.label("display_name"),
+            Player.profile_picture_url.label("avatar_url"),
             LeagueInvite.status,
             LeagueInvite.created_at.label("invited_at"),
         )
@@ -2886,6 +2916,7 @@ async def list_league_invites(session: AsyncSession, league_id: int) -> List[Dic
             "player_id": row.player_id,
             "display_name": row.display_name or f"Player {row.player_id}",
             "initials": generate_player_initials(row.display_name or ""),
+            "avatar_url": row.avatar_url,
             "invited_at": row.invited_at.isoformat() if row.invited_at else "",
             "status": row.status,
             "game_count": games_by_player.get(row.player_id, 0),
@@ -2993,6 +3024,7 @@ async def list_my_sent_invites(session: AsyncSession, player_id: int) -> List[Di
             League.name.label("league_name"),
             LeagueInvite.player_id,
             Player.full_name.label("display_name"),
+            Player.profile_picture_url.label("avatar_url"),
             LeagueInvite.status,
             LeagueInvite.created_at.label("invited_at"),
         )
@@ -3017,6 +3049,7 @@ async def list_my_sent_invites(session: AsyncSession, player_id: int) -> List[Di
             "player_id": row.player_id,
             "display_name": row.display_name or f"Player {row.player_id}",
             "initials": generate_player_initials(row.display_name or ""),
+            "avatar_url": row.avatar_url,
             "invited_at": row.invited_at.isoformat() if row.invited_at else "",
             "status": row.status,
             "game_count": games_by_player.get(row.player_id, 0),
@@ -3053,6 +3086,7 @@ async def list_my_received_invites(session: AsyncSession, player_id: int) -> Lis
             League.name.label("league_name"),
             LeagueInvite.player_id,
             Player.full_name.label("display_name"),
+            Player.profile_picture_url.label("avatar_url"),
             LeagueInvite.status,
             LeagueInvite.created_at.label("invited_at"),
         )
@@ -3081,6 +3115,7 @@ async def list_my_received_invites(session: AsyncSession, player_id: int) -> Lis
             "player_id": row.player_id,
             "display_name": row.display_name or f"Player {row.player_id}",
             "initials": generate_player_initials(row.display_name or ""),
+            "avatar_url": row.avatar_url,
             "invited_at": row.invited_at.isoformat() if row.invited_at else "",
             "status": row.status,
             "game_count": games_by_player.get(player_id, 0),

@@ -403,6 +403,37 @@ describe('CourtsScreen — filter bar', () => {
     });
   });
 
+  it('updates the section heading for My Courts', async () => {
+    mockGetCourts.mockResolvedValue([MOCK_COURT_1]);
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByTestId('filter-court-my-courts')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('filter-court-my-courts'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('courts-section-label')).toHaveTextContent(
+        'My Courts',
+      ),
+    );
+  });
+
+  it('uses a saved-courts empty state for My Courts', async () => {
+    mockGetCourts.mockResolvedValue([MOCK_COURT_1]);
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByTestId('filter-court-my-courts')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('filter-court-my-courts'));
+
+    await waitFor(() => expect(screen.getByText('No Saved Courts')).toBeTruthy());
+    expect(
+      screen.getByText('Save a court from its details page and it will appear here.'),
+    ).toBeTruthy();
+  });
+
   it('clears filter when same chip is pressed again', async () => {
     mockGetCourts.mockResolvedValue([MOCK_COURT_1, MOCK_COURT_2]);
     renderScreen();

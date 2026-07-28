@@ -25,6 +25,7 @@ export interface UsePlayerProfileScreenResult {
   readonly onAddFriend: () => Promise<void>;
   readonly onAcceptFriend: () => Promise<void>;
   readonly onDeclineFriend: () => Promise<void>;
+  readonly onRemoveFriend: () => Promise<void>;
   readonly onMessage: () => void;
 }
 
@@ -62,6 +63,10 @@ export function usePlayerProfileScreen(
     await friendship.decline.mutateAsync({ requestId, playerId: numericId });
   }, [friendship.decline, numericId, relationshipQuery.data?.request_id]);
 
+  const onRemoveFriend = useCallback(async () => {
+    await friendship.remove.mutateAsync(numericId);
+  }, [friendship.remove, numericId]);
+
   const onMessage = useCallback(() => {
     const player = profileQuery.data?.player;
     const name = player != null
@@ -91,12 +96,14 @@ export function usePlayerProfileScreen(
     isFriendActionLoading:
       friendship.send.isPending ||
       friendship.accept.isPending ||
-      friendship.decline.isPending,
+      friendship.decline.isPending ||
+      friendship.remove.isPending,
     onRefresh,
     isRefreshing: profileQuery.isRefetching || relationshipQuery.isRefetching,
     onAddFriend,
     onAcceptFriend,
     onDeclineFriend,
+    onRemoveFriend,
     onMessage,
   };
 }

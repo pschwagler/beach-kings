@@ -564,6 +564,7 @@ def _serialize(row, *, tags: List[str], score: int, in_session: bool) -> Dict:
         "full_name": row.full_name,
         "nickname": row.nickname,
         "initials": generate_player_initials(row.full_name or ""),
+        "profile_picture_url": row.profile_picture_url,
         "tags": tags,
         "score": score,
         "in_session": in_session,
@@ -675,6 +676,7 @@ async def search_players_with_relevance(
                     Player.last_name,
                     Player.full_name,
                     Player.nickname,
+                    Player.profile_picture_url,
                     Player.is_placeholder,
                 ).where(*network_where)
             )
@@ -749,6 +751,7 @@ async def search_players_with_relevance(
             Player.last_name,
             Player.full_name,
             Player.nickname,
+            Player.profile_picture_url,
             Player.is_placeholder,
         ).where(
             name_match,
@@ -817,7 +820,7 @@ async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional
         "city_latitude": player.city_latitude,
         "city_longitude": player.city_longitude,
         "distance_to_location": player.distance_to_location,
-        "avatar": player.avatar,
+        "avatar": player.profile_picture_url or player.avatar,
         "profile_picture_url": player.profile_picture_url,
         "avp_playerProfileId": player.avp_playerProfileId,
         "status": player.status,
@@ -868,7 +871,7 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
         "city_latitude": player.city_latitude,
         "city_longitude": player.city_longitude,
         "distance_to_location": player.distance_to_location,
-        "avatar": player.avatar,
+        "avatar": player.profile_picture_url or player.avatar,
         "profile_picture_url": player.profile_picture_url,
         "stats": {
             "current_rating": global_stats.current_rating if global_stats else 1200.0,

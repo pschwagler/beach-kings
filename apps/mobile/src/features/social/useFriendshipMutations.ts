@@ -7,7 +7,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { notificationKeys } from '@/features/notifications/keys';
 import { api } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/apiError';
 import {
+  applyRemoveFriend,
   applyResolveFriendRequest,
   applySendFriendRequest,
   rollbackSocialCachePatch,
@@ -29,11 +31,9 @@ function nextOptimisticToken(action: string): string {
 }
 
 function isAlreadyResolved(error: unknown): boolean {
-  const detail =
-    (error as { response?: { data?: { detail?: unknown } } })?.response?.data
-      ?.detail ?? (error instanceof Error ? error.message : null);
-  return typeof detail === 'string' &&
-    /no longer pending|not found|already friends/i.test(detail);
+  return /no longer pending|not found|already friends|not friends with/i.test(
+    getApiErrorMessage(error, ''),
+  );
 }
 
 export function useFriendshipMutations() {
@@ -133,8 +133,42 @@ export function useFriendshipMutations() {
     'none',
     (requestId) => api.cancelFriendRequest(requestId),
   ));
+  const remove = useMutation({
+    mutationKey: socialMutationKeys.remove(userId),
+    scope: serialScope,
+    mutationFn: (playerId: number) => api.removeFriend(playerId),
+    onMutate: async (playerId): Promise<SocialCachePatch> => {
+      await Promise.all([
+        queryClient.cancelQueries({
+          queryKey: socialKeys.relationship(userId, playerId),
+        }),
+        queryClient.cancelQueries({
+          queryKey: socialKeys.discoveryRoot(userId),
+        }),
+        queryClient.cancelQueries({
+          queryKey: socialKeys.friends(userId),
+        }),
+      ]);
+      return applyRemoveFriend(
+        queryClient,
+        userId,
+        playerId,
+        nextOptimisticToken('remove'),
+      );
+    },
+    onError: (error, _playerId, patch) => {
+      // A repeated removal is already in the desired terminal state.
+      if (!isAlreadyResolved(error)) {
+        rollbackSocialCachePatch(queryClient, userId, patch);
+      }
+    },
+    onSettled: () => invalidate(false),
+  });
 
-  return useMemo(() => ({ send, accept, decline, cancel }), [send, accept, decline, cancel]);
+  return useMemo(
+    () => ({ send, accept, decline, cancel, remove }),
+    [send, accept, decline, cancel, remove],
+  );
 }
 
 export function usePendingFriendRequestPlayerIds(): ReadonlySet<number> {

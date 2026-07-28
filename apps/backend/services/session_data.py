@@ -40,6 +40,7 @@ __all__ = [
 ]
 
 from backend.services import player_search_cache
+from backend.services.match_validation import validate_match_score
 from backend.services.session_geo_service import resolve_session_geo
 from backend.services.placeholder_service import FRONTEND_BASE_URL
 
@@ -1424,12 +1425,12 @@ async def create_match_async(
     Returns:
         Match ID
     """
+    validate_match_score(match_request.team1_score, match_request.team2_score)
+
     if match_request.team1_score > match_request.team2_score:
         winner = 1
-    elif match_request.team2_score > match_request.team1_score:
-        winner = 2
     else:
-        winner = -1  # Tie
+        winner = 2
 
     # Lazy import to avoid circular dependency
     from backend.services import placeholder_service
@@ -1509,6 +1510,8 @@ async def update_match_async(
     Returns:
         True if successful, False if match not found
     """
+    validate_match_score(match_request.team1_score, match_request.team2_score)
+
     result = await session.execute(select(Match).where(Match.id == match_id))
     match = result.scalar_one_or_none()
     if not match:
@@ -1516,10 +1519,8 @@ async def update_match_async(
 
     if match_request.team1_score > match_request.team2_score:
         winner = 1
-    elif match_request.team2_score > match_request.team1_score:
-        winner = 2
     else:
-        winner = -1  # Tie
+        winner = 2
 
     match.team1_player1_id = match_request.team1_player1_id
     match.team1_player2_id = match_request.team1_player2_id
@@ -1715,6 +1716,7 @@ async def get_session_roster_with_game_counts(
             Player.last_name,
             Player.full_name,
             Player.nickname,
+            Player.profile_picture_url,
             Player.is_placeholder,
             PlayerInvite.invite_token,
         )
@@ -1766,6 +1768,7 @@ async def get_session_roster_with_game_counts(
                 "player_id": r.id,
                 "display_name": display_name,
                 "initials": initials,
+                "avatar_url": r.profile_picture_url,
                 "game_count": game_counts.get(r.id, 0),
                 "is_placeholder": bool(r.is_placeholder),
                 "invite_url": invite_url,

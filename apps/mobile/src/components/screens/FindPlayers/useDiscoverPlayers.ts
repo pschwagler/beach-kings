@@ -7,7 +7,9 @@
  *   - Discoverable players via api.discoverPlayers()
  *   - Server-side filter chips: skill level (single-select toggle),
  *     same-league-only, and shared-friends-only — each change refetches
- *   - Client-side name/city filter over the discover list
+ *   - Server-side name search: the raw search box text is debounced and sent
+ *     as the discover `search` param so it applies to the full roster, not
+ *     just the first page of results
  *   - Optimistic "pending" state for sent friend requests (add-friend)
  *
  * Split out so the discover-only Social hub Find Players tab (`FindPlayersTab`)
@@ -16,7 +18,7 @@
  * combined Find Players screen.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { hapticMedium } from '@/utils/haptics';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,7 +30,11 @@ import {
 } from '@/features/social';
 
 export interface UseDiscoverPlayersOptions {
-  /** Client-side filter applied to the discover list (matches name or city). */
+  /**
+   * Raw search-box text. Debounced and sent to the server as the discover
+   * `search` param (name match), so it covers the full roster rather than
+   * only the first page of results.
+   */
   readonly searchQuery?: string;
 }
 
@@ -36,7 +42,7 @@ export interface UseDiscoverPlayersOptions {
 export type DiscoverLevel = 'Open' | 'AA' | 'advanced' | 'intermediate' | 'beginner';
 
 export interface UseDiscoverPlayersResult {
-  /** Discoverable players, filtered by `searchQuery` when provided. */
+  /** Discoverable players (server-filtered by `searchQuery` when provided). */
   readonly players: readonly DiscoverPlayer[];
   readonly isLoadingPlayers: boolean;
   readonly playersError: Error | null;
@@ -73,26 +79,29 @@ export function useDiscoverPlayers(
   const [sameLeagueOnly, setSameLeagueOnly] = useState(false);
   const [sharedFriendsOnly, setSharedFriendsOnly] = useState(false);
 
+  // Debounce the raw search text so each keystroke doesn't fire a request.
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchQuery.trim());
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
   const filters = useMemo<DiscoverFilters>(() => ({
     ...(levelFilter != null ? { level: levelFilter } : {}),
     ...(sameLeagueOnly ? { same_league: true as const } : {}),
     ...(sharedFriendsOnly ? { has_mutuals: true as const } : {}),
-  }), [levelFilter, sameLeagueOnly, sharedFriendsOnly]);
+    ...(debouncedSearch !== '' ? { search: debouncedSearch } : {}),
+  }), [levelFilter, sameLeagueOnly, sharedFriendsOnly, debouncedSearch]);
   const playersQuery = useQuery(
     socialQueries.discovery(userId, filters, isAuthenticated),
   );
   const rawPlayers = playersQuery.data;
 
-  const players = useMemo<readonly DiscoverPlayer[]>(() => {
-    const all = rawPlayers ?? [];
-    if (searchQuery.trim() === '') return all;
-    const lower = searchQuery.toLowerCase();
-    return all.filter(
-      (p) =>
-        p.full_name.toLowerCase().includes(lower) ||
-        (p.city != null && p.city.toLowerCase().includes(lower)),
-    );
-  }, [rawPlayers, searchQuery]);
+  // The server applies the search filter, so results are used as-is.
+  const players = useMemo<readonly DiscoverPlayer[]>(
+    () => rawPlayers ?? [],
+    [rawPlayers],
+  );
 
   const onRefreshPlayers = useCallback(() => {
     setIsRefreshingPlayers(true);

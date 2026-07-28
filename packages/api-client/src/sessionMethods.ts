@@ -8,6 +8,7 @@ import type {
   SessionDetail,
   SessionSubmitResponse,
   SessionDeleteResponse,
+  SessionBatchInviteResponse,
 } from '@beach-kings/shared';
 
 /** API methods for the Session domain. */
@@ -123,6 +124,21 @@ export function createSessionMethods(api: AxiosInstance) {
       const response = await api.post<{ status: string; message: string }>(
         `/api/sessions/${sessionId}/invite`,
         { player_id: playerId },
+      );
+      return response.data;
+    },
+
+    /**
+     * Idempotently attach a set of players to an active session.
+     * The response reports per-player failures so callers can retry safely.
+     */
+    async inviteSessionPlayers(
+      sessionId: number,
+      playerIds: readonly number[],
+    ): Promise<SessionBatchInviteResponse> {
+      const response = await api.post<SessionBatchInviteResponse>(
+        `/api/sessions/${sessionId}/invite_batch`,
+        { player_ids: playerIds },
       );
       return response.data;
     },

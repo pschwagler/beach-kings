@@ -527,6 +527,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
               </Text>
               <TextInput
                 testID="league-name-input"
+                accessibilityLabel="League name"
                 value={form.name}
                 onChangeText={onChangeName}
                 placeholder="e.g. QBK Open Men"
@@ -551,6 +552,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
               <TextInput
                 ref={descriptionRef}
                 testID="league-description-input"
+                accessibilityLabel="League description"
                 value={form.description}
                 onChangeText={onChangeDescription}
                 placeholder="Describe your league…"

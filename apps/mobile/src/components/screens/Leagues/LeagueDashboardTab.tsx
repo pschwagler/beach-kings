@@ -14,8 +14,8 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
-  Image,
 } from 'react-native';
+import Avatar from '@/components/ui/Avatar';
 import { hapticLight } from '@/utils/haptics';
 import { useLeagueDashboardTab } from './useLeagueDashboardTab';
 import type { LeagueStanding, LeagueSeasonInfo } from '@beach-kings/shared';
@@ -139,19 +139,13 @@ function StandingsRow({ standing, isSeasonView, onPress }: StandingsRowProps): R
 
       {/* Avatar + Name */}
       <View className="flex-1 flex-row items-center gap-2 min-w-0">
-        <View className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-          {standing.avatar_url ? (
-            <Image
-              source={{ uri: standing.avatar_url }}
-              className="w-8 h-8"
-              resizeMode="cover"
-            />
-          ) : (
-            <View className="w-8 h-8 bg-brand-teal items-center justify-center">
-              <Text className="text-[10px] font-bold text-white">{standing.initials}</Text>
-            </View>
-          )}
-        </View>
+        <Avatar
+          imageUrl={standing.avatar_url}
+          name={standing.display_name}
+          size="sm"
+          colorSeed={standing.player_id}
+          accessible={false}
+        />
         <Text
           className="text-[14px] font-semibold text-default"
           numberOfLines={1}

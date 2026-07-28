@@ -312,7 +312,6 @@ jest.mock('@/components/home/PendingInvitesBanner', () => ({ __esModule: true, d
 jest.mock('@/components/home/SessionCard', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/RecentGamesScroll', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/LeaguesScroll', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/home/TournamentsEmpty', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/CourtsScroll', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/NewUserWelcome', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/DashboardSkeleton', () => {

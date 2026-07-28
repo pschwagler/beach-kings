@@ -12,7 +12,7 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import Avatar, { getInitials } from '@/components/ui/Avatar';
 
@@ -100,5 +100,32 @@ describe('Avatar', () => {
       StyleSheet.flatten(getByLabelText('Morgan Davis').props.style)
         .backgroundColor,
     ).toBeDefined();
+  });
+
+  it('supports exact numeric sizes for migrated player circles', () => {
+    const { getByLabelText } = render(
+      <Avatar name="Morgan Davis" size={36} />,
+    );
+    expect(StyleSheet.flatten(getByLabelText('Morgan Davis').props.style)).toEqual(
+      expect.objectContaining({ width: 36, height: 36, borderRadius: 18 }),
+    );
+  });
+
+  it('falls back after an image error and retries when the URL changes', async () => {
+    const screen = render(
+      <Avatar name="Morgan Davis" imageUrl="https://example.com/old.jpg" />,
+    );
+
+    fireEvent(screen.getByLabelText('Morgan Davis'), 'error');
+    expect(screen.getByText('MD')).toBeTruthy();
+
+    screen.rerender(
+      <Avatar name="Morgan Davis" imageUrl="https://example.com/new.jpg" />,
+    );
+    await waitFor(() => {
+      expect(screen.getByLabelText('Morgan Davis').props.source).toEqual({
+        uri: 'https://example.com/new.jpg',
+      });
+    });
   });
 });

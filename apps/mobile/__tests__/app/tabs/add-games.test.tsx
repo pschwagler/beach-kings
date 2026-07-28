@@ -442,10 +442,13 @@ describe('AddGamesScreen — league select: leagues loaded', () => {
     await waitFor(() => {
       expect(screen.getByTestId(`league-new-${LEAGUE_1.id}`)).toBeTruthy();
     });
+    const addGameButton = screen.getByTestId(`league-new-${LEAGUE_1.id}`);
     // No active session in any league → every row is a plain "Add Game".
     expect(screen.getAllByText('Add Game').length).toBeGreaterThan(0);
     expect(screen.queryByText('Start New Session')).toBeNull();
     expect(screen.queryByText('Active Session')).toBeNull();
+    expect(addGameButton.props.className).toContain('bg-brand-teal');
+    expect(addGameButton.props.className).not.toContain('bg-muted');
   });
 
   it('tapping "Add Game" navigates to score-game with "Create New Session" header (Flow 2)', async () => {

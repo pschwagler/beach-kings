@@ -134,6 +134,32 @@ describe('useSessionRosterScreen', () => {
     expect(result.current.isRemoving).toBeNull();
   });
 
+  it('onRemovePlayer surfaces the backend detail for forbidden removals', async () => {
+    mockGetSessionById.mockResolvedValue(
+      makeSession([
+        { entry_id: 5, player_id: 5, display_name: 'P', initials: 'P', is_placeholder: false, game_count: 0 },
+      ]),
+    );
+    mockRemoveSessionPlayer.mockRejectedValue({
+      response: {
+        status: 403,
+        data: { detail: 'Only session participants can remove players' },
+      },
+    });
+
+    const { result } = renderHook(() => useSessionRosterScreen(9));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.onRemovePlayer(5);
+    });
+
+    expect(result.current.removeError).toBe(
+      'Only session participants can remove players',
+    );
+    expect(result.current.isRemoving).toBeNull();
+  });
+
   it('onClose calls router.back', async () => {
     mockGetSessionById.mockResolvedValue(makeSession([]));
 

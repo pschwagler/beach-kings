@@ -3,7 +3,7 @@
  *
  * Visual style mirrors `SessionBottomSheet` but the option set is the smaller
  * two-item list specified by `apps/mobile/MOBILE_ADD_GAMES_VALIDATION.md`:
- *   1. Manage Session   — always visible; lazily creates a session if none exists
+ *   1. Start/Edit Session — opens explicit creation or the existing editor
  *   2. Share Session    — visible only after a session exists
  *
  * Deliberately NOT reusing `SessionBottomSheet` — the wireframe at
@@ -27,8 +27,6 @@ interface Props {
   readonly onShareSession: () => void;
   /** When false, the Share option is hidden (no session exists yet). */
   readonly canShare: boolean;
-  /** Spinner-suppressed flag for the Manage Session row. */
-  readonly isCreatingSession?: boolean;
 }
 
 interface MenuItemProps {
@@ -69,7 +67,6 @@ export default function ScoreGameMenu({
   onManageSession,
   onShareSession,
   canShare,
-  isCreatingSession = false,
 }: Props): React.ReactNode {
   return (
     <Modal
@@ -89,13 +86,12 @@ export default function ScoreGameMenu({
         className="bg-surface rounded-t-[20px] px-[16px] pb-[34px] pt-[8px]"
       >
         {/* Handle */}
-        <View className="w-[36px] h-[4px] bg-[#e0e0e0] rounded-full self-center mb-[12px]" />
+        <View className="mb-[12px] h-[4px] w-[36px] self-center rounded-full bg-divider" />
 
         <MenuItem
-          label={isCreatingSession ? 'Creating session…' : 'Manage Session'}
+          label={canShare ? 'Edit Session' : 'Start Session Without Games'}
           testID="score-menu-manage"
           onPress={onManageSession}
-          disabled={isCreatingSession}
         />
         {canShare && (
           <MenuItem

@@ -129,6 +129,29 @@ export interface Session {
 }
 
 /**
+ * One league session returned by GET /api/leagues/:leagueId/sessions.
+ *
+ * Counts are authoritative session-wide aggregates. They intentionally include
+ * every rostered/player-in-game participant rather than only the current user.
+ */
+export interface LeagueSessionSummary {
+  readonly id: number;
+  readonly date: string | null;
+  readonly name: string | null;
+  readonly status: SessionStatus | null;
+  readonly season_id: number | null;
+  readonly court_id: number | null;
+  readonly court_name: string | null;
+  readonly court_slug: string | null;
+  readonly created_at: string | null;
+  readonly updated_at: string | null;
+  readonly created_by: number | null;
+  readonly updated_by: number | null;
+  readonly game_count: number;
+  readonly player_count: number;
+}
+
+/**
  * Payload accepted by POST /api/sessions.
  *
  * Historically non-league only; ``league_id`` + ``season_id`` were added so
@@ -160,6 +183,16 @@ export interface SessionUpdatePayload {
   is_ranked?: boolean | null;
 }
 
+export interface SessionBatchInviteFailure {
+  readonly player_id: number;
+  readonly error: string;
+}
+
+export interface SessionBatchInviteResponse {
+  readonly added: readonly number[];
+  readonly failed: readonly SessionBatchInviteFailure[];
+}
+
 // ---------------------------------------------------------------------------
 // Session roster types (used by the Manage Players screen)
 // ---------------------------------------------------------------------------
@@ -176,6 +209,7 @@ export interface SessionPlayerEntry {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
+  readonly avatar_url?: string | null;
   /** Number of games this player has in the session. */
   readonly game_count: number;
   /** True when the player is an unregistered placeholder. */
@@ -195,6 +229,7 @@ export interface SessionPlayer {
   readonly player_id: number | null;
   readonly display_name: string;
   readonly initials: string;
+  readonly avatar_url?: string | null;
   readonly is_placeholder: boolean;
   /** Number of games played by this player in this session. */
   readonly game_count: number;

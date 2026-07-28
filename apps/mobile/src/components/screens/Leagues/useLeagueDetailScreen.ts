@@ -12,21 +12,33 @@
  * a visitor never lands on a hidden tab.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import type { LeagueDetail } from "@beach-kings/shared";
 import { api } from "@/lib/api";
 import { leagueKeys } from "./leagueKeys";
-import { routes } from "@/lib/navigation";
+import { routes, type LeagueTab } from "@/lib/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type LeagueDetailTab =
-  | "games"
-  | "standings"
-  | "chat"
-  | "signups"
-  | "info";
+export type LeagueDetailTab = LeagueTab;
+
+const LEAGUE_DETAIL_TABS: readonly LeagueDetailTab[] = [
+  "games",
+  "standings",
+  "chat",
+  "signups",
+  "info",
+];
+
+export function normalizeLeagueDetailTab(
+  raw: string | string[] | undefined,
+): LeagueDetailTab {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return LEAGUE_DETAIL_TABS.includes(value as LeagueDetailTab)
+    ? value as LeagueDetailTab
+    : "games";
+}
 
 /** Tabs a non-member visitor may see. */
 const VISITOR_TABS: readonly LeagueDetailTab[] = ["standings", "info"];
@@ -81,12 +93,13 @@ export interface UseLeagueDetailScreenResult {
  */
 export function useLeagueDetailScreen(
   leagueId: number | string,
+  initialTab: LeagueDetailTab = "games",
 ): UseLeagueDetailScreenResult {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? 0;
-  const [rawActiveTab, setActiveTab] = useState<LeagueDetailTab>("games");
+  const [rawActiveTab, setActiveTab] = useState<LeagueDetailTab>(initialTab);
   const [isRequestingToJoin, setIsRequestingToJoin] = useState(false);
   const [isJoiningLeague, setIsJoiningLeague] = useState(false);
 
@@ -97,6 +110,10 @@ export function useLeagueDetailScreen(
   });
 
   const detail = detailQuery.data ?? null;
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab, leagueId]);
 
   // A visitor is anyone with no membership role. While the detail is still
   // loading we treat the caller as a member so the full tab set is assumed

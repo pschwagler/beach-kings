@@ -8,15 +8,7 @@ import React, { useCallback } from 'react';
 import { ScrollView, Pressable, Text } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
 import type { CourtFilterChip } from './useCourtsScreen';
-
-const CHIPS: Array<{ id: CourtFilterChip; label: string }> = [
-  { id: 'nearby', label: 'Nearby' },
-  { id: 'my-courts', label: 'My Courts' },
-  { id: 'top-rated', label: 'Top Rated' },
-  { id: 'indoor', label: 'Indoor' },
-  { id: 'outdoor', label: 'Outdoor' },
-  { id: 'lighted', label: 'Lighted' },
-];
+import { COURT_FILTERS } from './courtFilters';
 
 interface CourtsFilterBarProps {
   readonly activeFilter: CourtFilterChip | null;
@@ -43,7 +35,7 @@ export default function CourtsFilterBar({
       className="border-b border-strong"
       contentContainerClassName="flex-row gap-2 px-4 py-3"
     >
-      {CHIPS.map((chip) => {
+      {COURT_FILTERS.map((chip) => {
         const isActive = activeFilter === chip.id;
         return (
           <Pressable

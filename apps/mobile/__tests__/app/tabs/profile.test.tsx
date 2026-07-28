@@ -198,6 +198,41 @@ describe('ProfileScreen', () => {
     expect(elements.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('presents profile details as a read-only list instead of form fields', async () => {
+    const { findByTestId } = render(<ProfileScreen />);
+    const infoList = await findByTestId('profile-info-list');
+    const nicknameRow = await findByTestId('profile-info-nickname');
+
+    expect(infoList.props.className).toContain('bg-surface');
+    expect(nicknameRow.props.className).toContain('border-b');
+    expect(nicknameRow.props.className).not.toContain('rounded');
+  });
+
+  it('uses neutral copy for optional details that have not been provided', async () => {
+    mockGetCurrentUserPlayer.mockResolvedValueOnce({
+      ...MOCK_PLAYER,
+      nickname: null,
+    });
+
+    const { findByTestId, queryByText } = render(<ProfileScreen />);
+    expect(await findByTestId('profile-info-nickname')).toHaveTextContent(
+      'Not provided',
+    );
+    expect(queryByText('Add a nickname')).toBeNull();
+  });
+
+  it('normalizes preferred-side display formatting', async () => {
+    mockGetCurrentUserPlayer.mockResolvedValueOnce({
+      ...MOCK_PLAYER,
+      preferred_side: 'left',
+    });
+
+    const { findByTestId } = render(<ProfileScreen />);
+    expect(await findByTestId('profile-info-preferred-side')).toHaveTextContent(
+      'Left',
+    );
+  });
+
   it('dedupes a state name already baked into the city column', async () => {
     // Real player #1 row: city already holds "Greenpoint, New York, New York".
     mockGetCurrentUserPlayer.mockResolvedValueOnce({
@@ -205,8 +240,8 @@ describe('ProfileScreen', () => {
       city: 'Greenpoint, New York, New York',
       state: 'New York',
     });
-    const { findByText, queryByText } = render(<ProfileScreen />);
-    expect(await findByText('Greenpoint, New York')).toBeTruthy();
+    const { findAllByText, queryByText } = render(<ProfileScreen />);
+    expect((await findAllByText('Greenpoint, New York')).length).toBeGreaterThan(0);
     expect(queryByText('Greenpoint, New York, New York, New York')).toBeNull();
     expect(queryByText('Greenpoint, New York, New York')).toBeNull();
   });
@@ -240,6 +275,27 @@ describe('ProfileScreen', () => {
     const btn = await findByLabelText('My Games');
     fireEvent.press(btn);
     expect(mockPush).toHaveBeenCalledWith('/(stack)/my-games');
+  });
+
+  it('pressing the profile photo opens the real profile editor', async () => {
+    const { findByLabelText } = render(<ProfileScreen />);
+    fireEvent.press(await findByLabelText('Edit profile picture'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/edit-profile');
+  });
+
+  it('pressing Friends opens the Friends subsection deterministically', async () => {
+    const { findAllByLabelText } = render(<ProfileScreen />);
+    const friendsButtons = await findAllByLabelText('Friends');
+    fireEvent.press(friendsButtons[0]);
+    fireEvent.press(friendsButtons[friendsButtons.length - 1]);
+    expect(mockPush).toHaveBeenNthCalledWith(
+      1,
+      '/(tabs)/social?tab=friends',
+    );
+    expect(mockPush).toHaveBeenNthCalledWith(
+      2,
+      '/(tabs)/social?tab=friends',
+    );
   });
 
   // ── Logout ─────────────────────────────────────────────────────────────────

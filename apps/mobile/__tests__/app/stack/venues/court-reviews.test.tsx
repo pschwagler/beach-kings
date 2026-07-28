@@ -9,14 +9,15 @@
  *     - renders fallback initial avatar when author has no avatar
  *   CourtReviewsSection:
  *     - renders section with testID
- *     - shows empty-state copy + CTA when no reviews
+ *     - shows exactly one CTA when no reviews
  *     - renders one CourtReviewCard per review
  *     - shows "Write a Review" button when no current-player review
  *     - shows "Edit Your Review" button when current player already reviewed
  *     - opens WriteReviewModal when the action button is pressed
  *   WriteReviewModal — CREATE flow:
  *     - renders in create mode when no existing review
- *     - validates that a star must be selected before submit
+ *     - disables submit until a star is selected
+ *     - exposes the selected rating to assistive technology
  *     - calls api.createCourtReview and onReviewChanged on success
  *     - shows inline error message when api throws
  *   WriteReviewModal — EDIT flow:
@@ -348,6 +349,8 @@ describe('CourtReviewsSection', () => {
     );
     expect(screen.getByTestId('reviews-empty-state')).toBeTruthy();
     expect(screen.getByText('No reviews yet. Be the first to review!')).toBeTruthy();
+    expect(screen.getAllByText('Write a Review')).toHaveLength(1);
+    expect(screen.getAllByTestId('write-review-btn')).toHaveLength(1);
   });
 
   it('renders one card per review when reviews are present', async () => {
@@ -448,7 +451,7 @@ describe('WriteReviewModal — create flow', () => {
     expect(screen.getByText('Write a Review')).toBeTruthy();
   });
 
-  it('shows an error if submit is pressed without selecting a star', async () => {
+  it('disables submit until a star is selected', () => {
     render(
       <WriteReviewModal
         visible
@@ -458,11 +461,42 @@ describe('WriteReviewModal — create flow', () => {
         onSuccess={jest.fn()}
       />,
     );
+
+    expect(
+      screen.getByTestId('submit-review-btn').props.accessibilityState,
+    ).toMatchObject({ disabled: true, busy: false });
     fireEvent.press(screen.getByTestId('submit-review-btn'));
-    await waitFor(() => {
-      expect(screen.getByTestId('review-error-msg')).toBeTruthy();
-    });
     expect(mockCreateCourtReview).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByLabelText('4 stars'));
+
+    expect(
+      screen.getByTestId('submit-review-btn').props.accessibilityState,
+    ).toMatchObject({ disabled: false, busy: false });
+  });
+
+  it('exposes the exact selected rating as a radio selection', () => {
+    render(
+      <WriteReviewModal
+        visible
+        courtId={1}
+        existingReview={null}
+        onClose={jest.fn()}
+        onSuccess={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('4 stars'));
+
+    expect(screen.getByLabelText('4 stars').props.accessibilityRole).toBe(
+      'radio',
+    );
+    expect(
+      screen.getByLabelText('4 stars').props.accessibilityState?.selected,
+    ).toBe(true);
+    expect(
+      screen.getByLabelText('3 stars').props.accessibilityState?.selected,
+    ).toBe(false);
   });
 
   it('calls createCourtReview with correct payload on submit', async () => {

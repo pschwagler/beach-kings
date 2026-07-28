@@ -177,10 +177,16 @@ jest.mock('expo-web-browser', () => ({
   maybeCompleteAuthSession: jest.fn(),
 }));
 
-import { Linking } from 'react-native';
+import { Alert, Linking } from 'react-native';
+const mockCanOpenURL = jest
+  .spyOn(Linking, 'canOpenURL')
+  .mockResolvedValue(true);
 const mockOpenURL = jest
   .spyOn(Linking, 'openURL')
   .mockResolvedValue(true);
+const mockAlert = jest
+  .spyOn(Alert, 'alert')
+  .mockImplementation(() => {});
 
 // ---------------------------------------------------------------------------
 // Module under test — imported AFTER all jest.mock() calls
@@ -194,6 +200,8 @@ import SettingsRoute from '../../../../app/(stack)/settings';
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCanOpenURL.mockResolvedValue(true);
+  mockOpenURL.mockResolvedValue(true);
   mockUser = {
     email: 'test@example.com',
     has_password: true,
@@ -317,7 +325,9 @@ describe('SettingsScreen — phone row', () => {
       expect(screen.queryByText('Not set')).toBeNull();
     });
     fireEvent.press(screen.getByTestId('settings-row-phone'));
-    expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    });
     const calledUrl = mockOpenURL.mock.calls[0][0] as string;
     expect(calledUrl).toContain('mailto:beachleaguevb+support@gmail.com');
     expect(calledUrl).toContain('Change%20phone%20number');
@@ -353,13 +363,30 @@ describe('SettingsScreen — connected accounts', () => {
 // ---------------------------------------------------------------------------
 
 describe('SettingsScreen — contact support', () => {
-  it('opens a support mailto link when Contact Support is pressed', () => {
+  it('opens a support mailto link when Contact Support is pressed', async () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-contact'));
-    expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    });
     const calledUrl = mockOpenURL.mock.calls[0][0] as string;
     expect(calledUrl).toMatch(/beachleaguevb\+support@gmail\.com/);
     expect(calledUrl).toContain('subject=');
+  });
+
+  it('shows the support address when no email app is available', async () => {
+    mockCanOpenURL.mockResolvedValue(false);
+
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-contact'));
+
+    await waitFor(() => {
+      expect(mockAlert).toHaveBeenCalledWith(
+        'Email app unavailable',
+        expect.stringContaining('beachleaguevb+support@gmail.com'),
+      );
+    });
+    expect(mockOpenURL).not.toHaveBeenCalled();
   });
 });
 

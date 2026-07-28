@@ -55,6 +55,7 @@ const send = { mutateAsync: jest.fn(), isPending: false };
 const accept = { mutateAsync: jest.fn(), isPending: false };
 const decline = { mutateAsync: jest.fn(), isPending: false };
 const cancel = { mutateAsync: jest.fn(), isPending: false };
+const remove = { mutateAsync: jest.fn(), isPending: false };
 
 function renderProfileHook(playerId: string | number = PLAYER_ID) {
   const queryClient = new QueryClient({
@@ -84,10 +85,17 @@ beforeEach(() => {
     error: null,
     refetch: jest.fn().mockResolvedValue(undefined),
   });
-  mockFriendshipMutations.mockReturnValue({ send, accept, decline, cancel });
+  mockFriendshipMutations.mockReturnValue({
+    send,
+    accept,
+    decline,
+    cancel,
+    remove,
+  });
   send.mutateAsync.mockResolvedValue(undefined);
   accept.mutateAsync.mockResolvedValue(undefined);
   decline.mutateAsync.mockResolvedValue(undefined);
+  remove.mutateAsync.mockResolvedValue(undefined);
 });
 
 describe('usePlayerProfileScreen', () => {
@@ -179,5 +187,12 @@ describe('usePlayerProfileScreen', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     await act(async () => result.current.onAddFriend());
     expect(send.mutateAsync).toHaveBeenCalledWith(PLAYER_ID);
+  });
+
+  it('removes a friend through the shared mutation', async () => {
+    const { result } = renderProfileHook();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => result.current.onRemoveFriend());
+    expect(remove.mutateAsync).toHaveBeenCalledWith(PLAYER_ID);
   });
 });

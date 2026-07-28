@@ -144,7 +144,6 @@ const MOCK_FRIENDS_ROSTER = [
   { id: 13, player_id: 13, full_name: 'S. Jindash', avatar: null, location_name: null, level: null },
 ];
 
-const mockCreateSession = jest.fn();
 const mockShareLink = jest.fn();
 const mockSearchPlayers = jest.fn();
 const mockCreatePlaceholder = jest.fn();
@@ -160,7 +159,6 @@ jest.mock('@/lib/api', () => ({
     updateMatch: (...args: unknown[]) => mockUpdateMatch(...args),
     deleteMatch: (...args: unknown[]) => mockDeleteMatch(...args),
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
-    createSession: (...args: unknown[]) => mockCreateSession(...args),
     searchPlayers: (...args: unknown[]) => mockSearchPlayers(...args),
     createPlaceholder: (...args: unknown[]) => mockCreatePlaceholder(...args),
   },
@@ -226,7 +224,6 @@ beforeEach(() => {
   mockUpdateMatch.mockResolvedValue({});
   mockDeleteMatch.mockResolvedValue({});
   mockGetSessionById.mockResolvedValue({ id: 7, games: [] });
-  mockCreateSession.mockResolvedValue({ id: 555, code: 'BKTEST01' });
   mockShareLink.mockResolvedValue(undefined);
   mockSearchPlayers.mockResolvedValue({ items: [], total_count: 0 });
   mockCreatePlaceholder.mockResolvedValue({
@@ -716,10 +713,7 @@ describe('ScoreGameScreen — success view content', () => {
     });
   });
 
-  it('renders tied desc with "tied" between teams when scores match', async () => {
-    // Build a tie by ignoring the warning and submitting anyway.
-    // canSubmit allows submission with any (score1 > 0 || score2 > 0), even
-    // when score1 === score2 > 0, so 1-1 reaches the success view.
+  it('blocks a tied score and explains how to fix it', async () => {
     renderScoreGame();
     await fillAllSlots();
     await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
@@ -727,16 +721,18 @@ describe('ScoreGameScreen — success view content', () => {
     fireEvent.press(screen.getByTestId('numpad-next')); // advance to team 2
     fireEvent.press(screen.getByTestId('numpad-1')); // team 2 score = 1
 
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('save-game-btn'));
+    const saveButton = screen.getByTestId('save-game-btn');
+    expect(saveButton.props.accessibilityState).toEqual({
+      disabled: true,
+      busy: false,
     });
+    const validationMessage = screen.getByText(
+      'Choose a winner by changing one score. Games cannot end in a tie.',
+    );
+    expect(validationMessage.props.accessibilityRole).toBe('alert');
 
-    await waitFor(() => {
-      const desc = screen.getByTestId('score-success-desc');
-      expect(desc.props.children).toMatch(/^.+ \/ .+ tied .+ \/ .+$/);
-      // Sanity: no "beat" on a tie.
-      expect(desc.props.children).not.toContain('beat');
-    });
+    fireEvent.press(saveButton);
+    expect(mockSubmitScoredGame).not.toHaveBeenCalled();
   });
 
   it('renders single Final Score row instead of separate team scores', async () => {
@@ -1289,7 +1285,7 @@ describe('ScoreGameScreen — edit mode', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Three-dot menu — Manage Session lazy create + Share
+// Three-dot menu — explicit Start/Edit Session + Share
 // ---------------------------------------------------------------------------
 
 describe('ScoreGameScreen — three-dot menu', () => {
@@ -1298,13 +1294,16 @@ describe('ScoreGameScreen — three-dot menu', () => {
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
   });
 
-  it('opening the menu shows Manage Session (always) and hides Share when no session', async () => {
+  it('shows Start Session Without Games and hides Share when no session exists', async () => {
     renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('score-menu-btn'));
     await waitFor(() =>
       expect(screen.getByTestId('score-menu-manage')).toBeTruthy(),
+    );
+    expect(screen.getByTestId('score-menu-manage')).toHaveTextContent(
+      'Start Session Without Games',
     );
     expect(screen.queryByTestId('score-menu-share')).toBeNull();
   });
@@ -1320,7 +1319,7 @@ describe('ScoreGameScreen — three-dot menu', () => {
     );
   });
 
-  it('Manage Session without an existing session lazily creates and navigates', async () => {
+  it('Start Session opens the explicit form without creating a record', async () => {
     mockLocalSearchParams.mockReturnValue({ leagueId: '3', seasonId: '8' });
     renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
@@ -1330,22 +1329,34 @@ describe('ScoreGameScreen — three-dot menu', () => {
       expect(screen.getByTestId('score-menu-manage')).toBeTruthy(),
     );
 
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('score-menu-manage'));
-    });
+    fireEvent.press(screen.getByTestId('score-menu-manage'));
 
     await waitFor(() =>
-      expect(mockCreateSession).toHaveBeenCalledWith({
-        league_id: 3,
-        season_id: 8,
-      }),
-    );
-    await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith('/(stack)/session/555'),
+      expect(mockPush).toHaveBeenCalledWith(
+        '/(stack)/session/create?leagueId=3&seasonId=8',
+      ),
     );
   });
 
-  it('Manage Session with an existing sessionId skips create and just navigates', async () => {
+  it('passes already selected pickup players into the Start Session form', async () => {
+    renderScoreGame();
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId('team1-slot0'));
+    fireEvent.press(screen.getByTestId('roster-chip-10'));
+    fireEvent.press(screen.getByTestId('team1-slot1'));
+    fireEvent.press(screen.getByTestId('roster-chip-11'));
+    fireEvent.press(screen.getByTestId('score-menu-btn'));
+    fireEvent.press(screen.getByTestId('score-menu-manage'));
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(
+        '/(stack)/session/create?playerIds=10,11',
+      ),
+    );
+  });
+
+  it('Edit Session with an existing sessionId opens the editor', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '42' });
     renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('score-menu-btn')).toBeTruthy());
@@ -1354,14 +1365,11 @@ describe('ScoreGameScreen — three-dot menu', () => {
     await waitFor(() =>
       expect(screen.getByTestId('score-menu-manage')).toBeTruthy(),
     );
+    expect(screen.getByTestId('score-menu-manage')).toHaveTextContent('Edit Session');
 
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('score-menu-manage'));
-    });
-
-    expect(mockCreateSession).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('score-menu-manage'));
     await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith('/(stack)/session/42'),
+      expect(mockPush).toHaveBeenCalledWith('/(stack)/session/42/edit'),
     );
   });
 

@@ -125,13 +125,16 @@ export default function MessageThreadScreen({
     setMessageText,
     isSending,
     sendError,
+    peerName,
+    peerAvatarUrl,
     onRefresh,
     onRetry,
     onSend,
   } = useMessageThreadScreen(playerId);
 
   const displayName =
-    playerName != null && playerName.trim().length > 0 ? playerName : "Chat";
+    peerName ??
+    (playerName != null && playerName.trim().length > 0 ? playerName : "Chat");
 
   const onProfile = useCallback(() => {
     router.push(routes.player(playerId));
@@ -198,6 +201,7 @@ export default function MessageThreadScreen({
         </Pressable>
 
         <Avatar
+          imageUrl={peerAvatarUrl}
           name={displayName}
           size="sm"
           colorSeed={playerId}

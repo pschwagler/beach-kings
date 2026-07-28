@@ -5,9 +5,11 @@
  */
 
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
+import { messageQueries } from '@/features/messages';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
 import { MessageThreadScreen } from '@/components/screens/Messages';
 
 interface PlayerLite {
@@ -36,19 +38,14 @@ export default function MessageThreadRoute(): React.ReactNode {
     name?: string;
   }>();
   const id = Number(playerId ?? '0');
-
-  const { data: otherPlayer } = useApi<PlayerLite>(
-    () => api.getPublicPlayer(id) as Promise<PlayerLite>,
-    [id],
-    { enabled: id > 0 },
-  );
-
-  const { data: currentPlayer } = useApi<PlayerLite>(
-    () => api.getCurrentUserPlayer() as Promise<PlayerLite>,
-    [],
-  );
-
   const passedName = typeof name === 'string' ? name : '';
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
+  const peerQuery = useQuery(
+    messageQueries.peer(userId, id, passedName.trim().length === 0),
+  );
+  const currentPlayerQuery = useCurrentPlayer();
+  const otherPlayer = peerQuery.data as PlayerLite | undefined;
   const resolvedName =
     passedName.trim().length > 0
       ? passedName
@@ -58,7 +55,7 @@ export default function MessageThreadRoute(): React.ReactNode {
     <MessageThreadScreen
       playerId={id}
       playerName={resolvedName}
-      currentPlayerId={currentPlayer?.id ?? 0}
+      currentPlayerId={currentPlayerQuery.data?.id ?? 0}
     />
   );
 }

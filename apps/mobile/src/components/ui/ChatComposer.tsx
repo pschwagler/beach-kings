@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { hapticLight } from '@/utils/haptics';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 export interface ChatComposerProps {
   readonly value: string;
@@ -48,9 +49,17 @@ export default function ChatComposer({
   inputTestID = 'chat-composer-input',
   sendTestID = 'chat-composer-send',
 }: ChatComposerProps): React.ReactNode {
+  const palette = usePaletteColors();
   const inputRef = useRef<TextInput>(null);
   const trimmed = value.trim();
   const canSend = trimmed.length > 0 && !isSending;
+  // Keep the class set stable while typing. NativeWind v4/css-interop can
+  // crash when a controlled TextInput re-render swaps utility-driven
+  // background styles, surfacing a misleading React Navigation context error.
+  // Plain RN style is safe here and still uses the active semantic palette.
+  const sendButtonStyle = {
+    backgroundColor: canSend ? palette.brandTeal : palette.bgElevated,
+  };
 
   const handleSend = (): void => {
     if (!canSend) return;
@@ -66,21 +75,25 @@ export default function ChatComposer({
     >
       {sendError != null && (
         <View className="px-4 py-2 bg-danger-tint">
-          <Text className="text-[12px] text-danger">
+          <Text
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            className="text-[12px] text-danger"
+          >
             {sendError}
           </Text>
         </View>
       )}
       <View className="flex-row items-end gap-[8px] px-3 py-[8px]">
-        <View className="flex-1 min-h-[36px] max-h-[120px] flex-row items-end pr-[6px] rounded-[18px] border border-divider bg-elevated">
+        <View className="max-h-[120px] min-h-touch flex-1 flex-row items-end rounded-[22px] border border-divider bg-elevated pr-1">
           <TextInput
             testID={inputTestID}
             ref={inputRef}
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
-            placeholderTextColor="#999"
-            className="flex-1 min-h-[36px] pl-[14px] py-[8px] text-[15px] text-default"
+            placeholderTextColor={palette.textTertiary}
+            className="min-h-touch flex-1 py-[10px] pl-[14px] text-[15px] text-default"
             multiline
             keyboardType="default"
             autoComplete="off"
@@ -97,25 +110,30 @@ export default function ChatComposer({
             disabled={!canSend}
             accessibilityRole="button"
             accessibilityLabel="Send message"
-            className={`w-[28px] h-[28px] rounded-full items-center justify-center my-[4px] ${
-              canSend
-                ? 'bg-brand-teal active:opacity-80'
-                : 'bg-elevated'
-            }`}
+            accessibilityState={{ disabled: !canSend, busy: isSending }}
+            className="min-h-touch min-w-touch items-center justify-center active:opacity-80"
           >
-            {isSending ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 20V5M6 11l6-6 6 6"
-                  stroke="#fff"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            )}
+            <View
+              testID={`${sendTestID}-surface`}
+              className="h-7 w-7 items-center justify-center rounded-full"
+              style={sendButtonStyle}
+            >
+              {isSending ? (
+                <ActivityIndicator size="small" color={palette.textInverse} />
+              ) : (
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M12 20V5M6 11l6-6 6 6"
+                    stroke={
+                      canSend ? palette.textInverse : palette.textTertiary
+                    }
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              )}
+            </View>
           </Pressable>
         </View>
       </View>

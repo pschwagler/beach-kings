@@ -24,6 +24,7 @@ from backend.api.routes.sessions import is_user_admin_of_session_league
 from backend.database.db import get_db_session
 from backend.database.models import Season, Session, SessionStatus, PhotoMatchJobStatus
 from backend.services import data_service, photo_match_service
+from backend.services.match_validation import validate_match_score
 from backend.api.auth_dependencies import (
     get_current_user,
     require_user,
@@ -97,6 +98,10 @@ async def create_match(
         dict: Created match info
     """
     try:
+        # Validate before creating or resolving a session so a rejected score
+        # cannot leave behind an empty session.
+        validate_match_score(match_request.team1_score, match_request.team2_score)
+
         # Validate all players are distinct
         player_ids = [
             match_request.team1_player1_id,
@@ -290,6 +295,8 @@ async def update_match(
         dict: Update status
     """
     try:
+        validate_match_score(match_request.team1_score, match_request.team2_score)
+
         player_ids = [
             match_request.team1_player1_id,
             match_request.team1_player2_id,
@@ -360,6 +367,8 @@ async def update_match(
         }
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error("Error updating match: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")

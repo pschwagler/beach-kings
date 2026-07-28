@@ -31,11 +31,13 @@ import { pluralize } from "@/lib/formatters";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { reconcileGameMutation } from "@/features/matches";
+import { shareSessionInvitation } from "@/features/sessions";
 
 interface Props {
   readonly visible: boolean;
   readonly onClose: () => void;
   readonly sessionId: number;
+  readonly sessionCode?: string | null;
   readonly leagueId?: number | null;
   readonly sessionLabel: string;
   readonly gameCount: number;
@@ -52,6 +54,9 @@ interface MenuItemProps {
   readonly testID: string;
   readonly onPress: () => void;
   readonly destructive?: boolean;
+  readonly disabled?: boolean;
+  readonly busy?: boolean;
+  readonly accessibilityHint?: string;
 }
 
 function MenuItem({
@@ -59,12 +64,21 @@ function MenuItem({
   testID,
   onPress,
   destructive = false,
+  disabled = false,
+  busy = false,
+  accessibilityHint,
 }: MenuItemProps): React.ReactNode {
   return (
     <TouchableOpacity
       testID={testID}
       onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled, busy }}
       className="py-[16px] border-b border-divider"
+      style={{ opacity: disabled ? 0.6 : 1 }}
     >
       <Text
         className={`text-[16px] font-semibold text-center ${
@@ -81,6 +95,7 @@ export default function SessionBottomSheet({
   visible,
   onClose,
   sessionId,
+  sessionCode = null,
   leagueId = null,
   sessionLabel,
   gameCount,
@@ -93,6 +108,7 @@ export default function SessionBottomSheet({
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   const handleEdit = async (): Promise<void> => {
     await hapticLight();
@@ -108,8 +124,21 @@ export default function SessionBottomSheet({
 
   const handleShare = async (): Promise<void> => {
     await hapticLight();
-    onClose();
-    // TODO(backend): generate and copy share link
+    setIsSharing(true);
+    try {
+      await shareSessionInvitation(sessionCode);
+      onClose();
+    } catch {
+      Alert.alert(
+        "Could not share session",
+        sessionCode == null
+          ? "This session does not have a share code yet. Refresh the session and try again."
+          : "The share sheet could not be opened. Please try again.",
+        [{ text: "OK" }],
+      );
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const handleCopyResults = async (): Promise<void> => {
@@ -172,13 +201,16 @@ export default function SessionBottomSheet({
         className="flex-1 bg-black/40"
         onPress={onClose}
         testID="session-bottom-sheet-backdrop"
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss session menu"
       />
       <View
         testID="session-bottom-sheet"
+        accessibilityViewIsModal
         className="bg-surface rounded-t-[20px] px-[16px] pb-[34px] pt-[8px]"
       >
         {/* Handle */}
-        <View className="w-[36px] h-[4px] bg-[#e0e0e0] rounded-full self-center mb-[12px]" />
+        <View className="mb-[12px] h-[4px] w-[36px] self-center rounded-full bg-divider" />
 
         {/* Header */}
         <Text className="text-[15px] font-bold text-default text-center mb-[2px]">
@@ -204,11 +236,13 @@ export default function SessionBottomSheet({
           }}
         />
         <MenuItem
-          label="Share Session"
+          label={isSharing ? "Opening Share..." : "Share Session"}
           testID="session-menu-share"
           onPress={() => {
             void handleShare();
           }}
+          disabled={isSharing}
+          busy={isSharing}
         />
         {isSubmitted && (
           <>
@@ -235,11 +269,16 @@ export default function SessionBottomSheet({
             void handleDelete();
           }}
           destructive
+          disabled={isDeleting}
+          busy={isDeleting}
+          accessibilityHint="Deletes this session and all of its games after confirmation"
         />
 
         <TouchableOpacity
           testID="session-menu-cancel"
           onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
           className="mt-[8px] py-[14px] rounded-[12px] border border-divider bg-elevated"
         >
           <Text className="text-[15px] font-semibold text-muted text-center">

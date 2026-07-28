@@ -106,8 +106,15 @@ export class ApiClient {
         const isForbidden = error.response?.status === 403;
         const url = originalRequest.url || '';
 
-        // Handle 403 Forbidden - dispatch event for web
-        if (isForbidden && typeof window !== 'undefined') {
+        // React Native exposes a `window`-like global but does not provide the
+        // browser CustomEvent constructor. Keep this legacy web notification
+        // behind capability checks so native callers receive the original 403.
+        if (
+          isForbidden
+          && typeof window !== 'undefined'
+          && typeof window.dispatchEvent === 'function'
+          && typeof CustomEvent !== 'undefined'
+        ) {
           window.dispatchEvent(new CustomEvent('show-login-modal', { 
             detail: { reason: 'forbidden' } 
           }));

@@ -27,6 +27,19 @@ export function useBottomTabBarHeight(): number {
   return useContext(BottomTabBarHeightContext);
 }
 
+/** Breathing room between the final scroll item and the bottom tab bar. */
+export const BOTTOM_TAB_CONTENT_SPACING = 32;
+
+/**
+ * Returns the bottom padding a scroll container needs to keep its final item
+ * clear of the measured bottom tab bar.
+ */
+export function useBottomTabBarContentPadding(
+  contentSpacing = BOTTOM_TAB_CONTENT_SPACING,
+): number {
+  return useBottomTabBarHeight() + contentSpacing;
+}
+
 interface BottomTabBarProps {
   readonly active: BottomTabKey;
 }

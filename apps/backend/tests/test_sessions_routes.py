@@ -188,6 +188,40 @@ class TestGetLeagueSessions:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
+    def test_returns_authoritative_game_and_player_counts(self, monkeypatch):
+        """Session summaries include league-wide game and roster counts."""
+        from types import SimpleNamespace
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        client, headers = _make_admin_client(monkeypatch)
+        session_row = SimpleNamespace(
+            id=_SESSION_ID,
+            date="2026-07-27",
+            name="League session",
+            status=SimpleNamespace(value="SUBMITTED"),
+            season_id=_SEASON_ID,
+            court_id=None,
+            created_at=None,
+            updated_at=None,
+            created_by=_PLAYER_ID,
+            updated_by=_PLAYER_ID,
+        )
+
+        async def fake_execute(self_session, query, *args, **kwargs):
+            class FakeResult:
+                def all(self_r):
+                    return [(session_row, None, None, 7, 6)]
+
+            return FakeResult()
+
+        monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
+
+        response = client.get(f"/api/leagues/{_LEAGUE_ID}/sessions", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()[0]["game_count"] == 7
+        assert response.json()[0]["player_count"] == 6
+
     def test_requires_auth(self):
         """Returns 401 when no token is provided."""
         client = TestClient(app)

@@ -31,7 +31,7 @@ export interface ResolvedUserLocation {
   readonly coords: Coords | null;
   /** Which tier produced `coords`. */
   readonly source: LocationSource | null;
-  /** True until the device-GPS attempt has settled (granted or denied). */
+  /** True until device and profile-backed location resolution has settled. */
   readonly isResolving: boolean;
 }
 
@@ -110,10 +110,28 @@ export function useResolvedUserLocation(
 
     const match = resolved.find(([coords]) => coords != null);
 
+    const profileIsResolving =
+      player.isLoading ||
+      (needsFallback &&
+        (homeCourts.isLoading || (locationId != null && locations.isLoading)));
+
     return {
       coords: match ? match[0] : null,
       source: match ? match[1] : null,
-      isResolving: !skipDevice && device.status === 'pending',
+      isResolving:
+        (!skipDevice && device.status === 'pending') || profileIsResolving,
     };
-  }, [skipDevice, device.coords, device.status, cityCoords, homeCourtCoords, hubCoords]);
+  }, [
+    skipDevice,
+    device.coords,
+    device.status,
+    player.isLoading,
+    needsFallback,
+    homeCourts.isLoading,
+    locationId,
+    locations.isLoading,
+    cityCoords,
+    homeCourtCoords,
+    hubCoords,
+  ]);
 }

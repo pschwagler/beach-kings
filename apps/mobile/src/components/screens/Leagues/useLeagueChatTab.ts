@@ -42,11 +42,14 @@ function withInitials(row: BackendLeagueMessage): LeagueChatMessage {
 /**
  * Returns all data and handlers needed by LeagueChatTab.
  */
-export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabResult {
+export function useLeagueChatTab(
+  leagueId: number | string,
+  messageText: string,
+  setMessageText: (value: string) => void,
+): UseLeagueChatTabResult {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? 0;
-  const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -63,7 +66,7 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
 
   const onChangeText = useCallback((v: string) => {
     setMessageText(v);
-  }, []);
+  }, [setMessageText]);
 
   const onSend = useCallback(async (): Promise<void> => {
     const text = messageText.trim();
@@ -84,7 +87,14 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
     } finally {
       setIsSending(false);
     }
-  }, [leagueId, messageText, isSending, queryClient, userId]);
+  }, [
+    isSending,
+    leagueId,
+    messageText,
+    queryClient,
+    setMessageText,
+    userId,
+  ]);
 
   return {
     messages: chatQuery.data ?? [],

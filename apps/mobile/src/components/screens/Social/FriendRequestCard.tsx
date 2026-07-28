@@ -66,8 +66,7 @@ export default function FriendRequestCard({
       <Pressable
         testID={`friend-request-sender-${request.id}`}
         onPress={handlePress}
-        accessibilityRole="button"
-        accessibilityLabel={`View profile of ${request.sender_name}`}
+        accessible={false}
         className="active:opacity-70"
       >
         <Avatar

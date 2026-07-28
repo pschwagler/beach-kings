@@ -24,7 +24,6 @@ import PendingInvitesBanner from '@/components/home/PendingInvitesBanner';
 import SessionCard from '@/components/home/SessionCard';
 import RecentGamesScroll from '@/components/home/RecentGamesScroll';
 import LeaguesScroll from '@/components/home/LeaguesScroll';
-import TournamentsEmpty from '@/components/home/TournamentsEmpty';
 import CourtsScroll from '@/components/home/CourtsScroll';
 import NewUserWelcome from '@/components/home/NewUserWelcome';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
@@ -225,11 +224,6 @@ export default function HomeScreen(): React.ReactNode {
                   currentUserPlayerId={playerData?.id ?? null}
                 />
               )}
-            </View>
-
-            <View className="mb-lg">
-              <SectionHeader title="Tournaments" />
-              <TournamentsEmpty />
             </View>
 
             <View className="mb-lg">

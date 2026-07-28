@@ -54,7 +54,7 @@ must not become alternate homes for domain caches or query policy.
 - Connect React Native `AppState` to Query focus handling and network
   reachability to Query online handling.
 
-## Social and notification pilot
+## Social, notification, and messaging domains
 
 Social query keys are user-scoped and cover friends, discovery, player
 relationships, notification feeds, and unread counts. The relationship contract
@@ -66,6 +66,16 @@ Query. It is not a data provider. Notification feeds, authoritative badge counts
 and read mutations are exposed by Query-backed feature hooks. Events are upserted
 by notification ID so reconnects and retries cannot duplicate rows.
 
+The mobile notification surface is an unread inbox. Its query selector exposes
+only notifications that are unread and not dismissed. Marking a notification
+read removes it from every mobile notification category without deleting server
+history; dismissal remains a separate backend lifecycle state for obsolete
+domain events.
+
+Backend notification links use web route shapes. Mobile resolves them through
+the notification domain's route adapter before navigation; unsupported or
+external links are ignored rather than passed directly to Expo Router.
+
 Socket delivery into an unhydrated cache leaves that query stale so a later
 consumer still fetches the complete server value. When an event's prior unread
 state is unknown, invalidate the authoritative unread-count query rather than
@@ -74,13 +84,19 @@ guessing.
 Shared friendship mutations update affected social views optimistically, roll
 back only their own changes on failure, and then invalidate the user-scoped keys.
 
+Direct-message conversations, threads, peer profiles, and true unread-message
+counts are also Query-owned. Opening a thread uses one shared read mutation to
+reconcile the thread, conversation row, aggregate DM count, and direct-message
+summary notification. Direct-message socket events enter those same caches.
+
 ## Migration status
 
 Social relationships and notifications are the first complete Query-owned pilot.
-Existing Query-backed current-player, dashboard, and league data follow the same
-private-key and account-transition invariants. Sessions, games, venues, messages,
-and some profile flows still contain legacy `useApi` consumers; those are explicit
-migration exceptions, not examples for new code.
+Messaging is now a complete Query-owned domain. Existing Query-backed
+current-player, dashboard, and league data follow the same private-key and
+account-transition invariants. Sessions, games, venues, and some profile flows
+still contain legacy `useApi` consumers; those are explicit migration exceptions,
+not examples for new code.
 
 Migration remains incremental, one complete domain at a time:
 

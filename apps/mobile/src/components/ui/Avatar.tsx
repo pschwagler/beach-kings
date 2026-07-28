@@ -20,11 +20,11 @@
  * other than identity (e.g. team color on the scoreboard / seated roster chip).
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Image } from 'react-native';
 
-export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
-export type AvatarVariant = 'teal' | 'gold' | 'brand' | 'muted';
+export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl' | number;
+export type AvatarVariant = 'teal' | 'gold' | 'brand' | 'muted' | 'guest';
 
 interface AvatarProps {
   readonly imageUrl?: string | null;
@@ -38,18 +38,21 @@ interface AvatarProps {
    */
   readonly colorSeed?: number | string;
   readonly className?: string;
+  /** Classes applied only to the initials fallback (for example, guest borders). */
+  readonly fallbackClassName?: string;
+  readonly testID?: string;
   /** Set false when the parent element already provides an accessibility label for this avatar. */
   readonly accessible?: boolean;
 }
 
-const sizeDimensions: Record<AvatarSize, number> = {
+const sizeDimensions: Record<Exclude<AvatarSize, number>, number> = {
   sm: 32,
   md: 40,
   lg: 56,
   xl: 80,
 };
 
-const textSizes: Record<AvatarSize, string> = {
+const textSizes: Record<Exclude<AvatarSize, number>, string> = {
   sm: 'text-xs',
   md: 'text-sm',
   lg: 'text-lg',
@@ -71,6 +74,7 @@ const variantBgColor: Record<AvatarVariant, string | undefined> = {
   gold: '#d4a843',
   brand: undefined,
   muted: undefined,
+  guest: undefined,
 };
 
 /** Applied only when the variant has no inline bg color (brand/muted). */
@@ -79,6 +83,7 @@ const variantBgClass: Record<AvatarVariant, string> = {
   gold: '',
   brand: 'bg-brand-teal',
   muted: 'bg-elevated',
+  guest: 'bg-transparent',
 };
 
 const variantTextClass: Record<AvatarVariant, string> = {
@@ -86,6 +91,7 @@ const variantTextClass: Record<AvatarVariant, string> = {
   gold: 'text-white',
   brand: 'text-white',
   muted: 'text-muted',
+  guest: 'text-brand-gold',
 };
 
 /** A single decorative variety color: tinted circle bg + readable initials fg. */
@@ -149,15 +155,23 @@ export default function Avatar({
   variant = 'teal',
   colorSeed,
   className = '',
+  fallbackClassName = '',
+  testID,
   accessible = true,
 }: AvatarProps): React.ReactNode {
-  const dimension = sizeDimensions[size];
+  const dimension = typeof size === 'number' ? size : sizeDimensions[size];
+  const textClassName = typeof size === 'number' ? '' : textSizes[size];
   const initials = getInitials(name);
   const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [imageUrl]);
 
   if (imageUrl != null && imageUrl.length > 0 && !imgError) {
     return (
       <Image
+        testID={testID}
         source={{ uri: imageUrl }}
         style={{ width: dimension, height: dimension, borderRadius: dimension / 2 }}
         className={className}
@@ -174,19 +188,23 @@ export default function Avatar({
 
   return (
     <View
+      testID={testID}
       style={{
         width: dimension,
         height: dimension,
         borderRadius: dimension / 2,
         ...(bgColor != null ? { backgroundColor: bgColor } : {}),
       }}
-      className={`${variety != null ? '' : variantBgClass[variant]} items-center justify-center ${className}`}
+      className={`${variety != null ? '' : variantBgClass[variant]} items-center justify-center ${fallbackClassName} ${className}`}
       accessible={accessible}
       accessibilityLabel={accessible ? name : undefined}
     >
       <Text
-        style={variety != null ? { color: variety.fg } : undefined}
-        className={`font-semibold ${variety != null ? '' : variantTextClass[variant]} ${textSizes[size]}`}
+        style={{
+          ...(variety != null ? { color: variety.fg } : {}),
+          ...(typeof size === 'number' ? { fontSize: Math.max(9, Math.round(size * 0.32)) } : {}),
+        }}
+        className={`font-semibold ${variety != null ? '' : variantTextClass[variant]} ${textClassName}`}
       >
         {initials}
       </Text>

@@ -25,11 +25,12 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { shareLink } from "@/utils/share";
 import { routes } from "@/lib/navigation";
 import { useAddNewPlayer } from "@/contexts/AddNewPlayerContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { reconcileGameMutation } from "@/features/matches";
+import { shareSessionInvitation } from "@/features/sessions";
+import { formatLocalCalendarDate } from "@/lib/calendarDate";
 import type {
   SessionGame,
   PlayerSearchTag,
@@ -39,7 +40,7 @@ import type {
   Player,
   StatsJobIds,
 } from "@beach-kings/shared";
-import { SKILL_LEVEL_OPTIONS } from "@beach-kings/shared";
+import { SKILL_LEVEL_OPTIONS, validateMatchScore } from "@beach-kings/shared";
 
 export type SubmitState = "idle" | "loading" | "success" | "error";
 export type DeleteState = "idle" | "loading" | "error";
@@ -137,6 +138,8 @@ export interface UseScoreGameScreenResult {
   } | null;
   /** Inline validation warning to show near the save button. */
   readonly scoreWarning: string | null;
+  /** Blocking score errors are styled and announced more strongly than hints. */
+  readonly scoreWarningKind: "error" | "warning" | null;
   /**
    * Logged-in player ID. Sourced from `options.currentPlayerId` when provided,
    * otherwise from `api.getCurrentUserPlayer()`. Null until the fetch resolves,
@@ -149,20 +152,13 @@ export interface UseScoreGameScreenResult {
   readonly deleteState: DeleteState;
   /**
    * Current session id — initially `options.sessionId`, but updated when the
-   * hook lazily creates a session (via `onManageSession` or `onSubmit`). The
+   * hook captures a session created atomically by `onSubmit`. The
    * screen uses this to decide where to navigate on close and whether the
    * Share menu option is available.
    */
   readonly sessionId: number | null;
-  /** True when a "Manage Session" tap is awaiting backend session create. */
-  readonly isCreatingSession: boolean;
   /** True when a session exists — drives Share menu visibility. */
   readonly canShare: boolean;
-  /**
-   * Lazily create a session if needed, then return its id. Resolves to null
-   * if creation fails (errorMessage is populated for the caller to surface).
-   */
-  readonly onManageSession: () => Promise<number | null>;
   /**
    * Share the current session via the native share sheet. No-op when no
    * session exists.
@@ -371,8 +367,8 @@ export function useScoreGameScreen(
   const userId = user?.id ?? 0;
   const addNewPlayerBridge = useAddNewPlayer();
 
-  // sessionId lives in state because lazy create (Manage Session / first
-  // Save) may produce one mid-session. Initial value comes from the prop and
+  // sessionId lives in state because the first Save may produce one
+  // atomically with the game. Initial value comes from the prop and
   // never resets on prop changes — the screen owns the lifecycle of the
   // session it's editing.
   const [sessionId, setSessionId] = useState<number | null>(
@@ -396,7 +392,6 @@ export function useScoreGameScreen(
   const [lastSessionId, setLastSessionId] = useState<number | null>(null);
   const [savedMatchId, setSavedMatchId] = useState<number | null>(null);
   const [deleteState, setDeleteState] = useState<DeleteState>("idle");
-  const [isCreatingSession, setIsCreatingSession] = useState(false);
 
   // --- AddNewPlayer formSheet state ---
   // inferredGender/Level are computed here (the inference effects need
@@ -744,17 +739,24 @@ export function useScoreGameScreen(
     return null;
   }, [team1, team2]);
 
+  const scoreValidation = useMemo(
+    () => validateMatchScore(score1, score2),
+    [score1, score2],
+  );
+
   const scoreWarning = useMemo<string | null>(() => {
     if (isBuilding) return null;
-    if (score1 === 0 && score2 === 0) return "Enter scores to save";
-    if (score1 === score2)
-      return "Scores are tied — beach volleyball has no ties";
-    // Untied (handled above) + at least one non-zero (handled above) + both < 10
+    if (!scoreValidation.isValid) return scoreValidation.errorMessage;
     if (score1 < 10 && score2 < 10) {
       return "Scores look incomplete — save anyway?";
     }
     return null;
-  }, [isBuilding, score1, score2]);
+  }, [isBuilding, score1, score2, scoreValidation]);
+
+  const scoreWarningKind = useMemo<"error" | "warning" | null>(() => {
+    if (scoreWarning == null) return null;
+    return scoreValidation.isValid ? "warning" : "error";
+  }, [scoreValidation.isValid, scoreWarning]);
 
   // --- Slot assignment ---
   const assignPlayer = useCallback(
@@ -838,8 +840,8 @@ export function useScoreGameScreen(
       team1[1].player_id != null &&
       team2[0].player_id != null &&
       team2[1].player_id != null &&
-      (score1 > 0 || score2 > 0),
-    [team1, team2, score1, score2],
+      scoreValidation.isValid,
+    [team1, team2, scoreValidation.isValid],
   );
 
   // --- Submit (create OR update) ---
@@ -865,6 +867,9 @@ export function useScoreGameScreen(
           session_id: sessionId ?? null,
           league_id: leagueId ?? null,
           season_id: seasonId ?? null,
+          ...(sessionId == null
+            ? { date: formatLocalCalendarDate() }
+            : {}),
           team1_player1_id: team1[0].player_id!,
           team1_player2_id: team1[1].player_id!,
           team2_player1_id: team2[0].player_id!,
@@ -937,55 +942,15 @@ export function useScoreGameScreen(
     }
   }, [leagueId, matchId, queryClient, userId]);
 
-  // --- Lazy session creation (Manage Session / Share) ---
-  //
-  // Validation doc Flows 2.3 and 4.3: tapping "Manage Session" before any
-  // matches have been saved must create the session on demand. We POST to
-  // /api/sessions; the backend routes through get-or-create when league_id
-  // is provided so the call is idempotent for league flows.
-  const ensureSession = useCallback(async (): Promise<number | null> => {
-    if (sessionId != null) return sessionId;
-    setIsCreatingSession(true);
-    setErrorMessage(null);
-    try {
-      const created = await api.createSession({
-        league_id: leagueId ?? null,
-        season_id: seasonId ?? null,
-      });
-      const newId = created?.id ?? null;
-      if (newId != null) {
-        setSessionId(newId);
-        void reconcileGameMutation(queryClient, { userId, leagueId });
-      }
-      return newId;
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Could not create a session. Please try again.";
-      setErrorMessage(message);
-      return null;
-    } finally {
-      setIsCreatingSession(false);
-    }
-  }, [sessionId, leagueId, seasonId, queryClient, userId]);
-
-  const onManageSession = useCallback(async (): Promise<number | null> => {
-    return ensureSession();
-  }, [ensureSession]);
-
   const onShareSession = useCallback(async (): Promise<void> => {
     if (sessionId == null) return;
     try {
       const session = await api.getSessionById(sessionId);
-      const code = session?.code ?? null;
-      const message =
-        code != null
-          ? `Join my Beach Kings session — code: ${code}`
-          : "Join my Beach Kings session.";
-      await shareLink(message, "Share Session");
+      await shareSessionInvitation(session?.code);
     } catch {
-      // Silent: sharing is non-essential. The menu can be re-tapped.
+      setErrorMessage(
+        "Could not share this session. Check your connection and try again.",
+      );
     }
   }, [sessionId]);
 
@@ -1128,13 +1093,12 @@ export function useScoreGameScreen(
     isBuilding,
     activeNextSlot,
     scoreWarning,
+    scoreWarningKind,
     currentPlayerId,
     isEditMode,
     deleteState,
     sessionId,
-    isCreatingSession,
     canShare,
-    onManageSession,
     onShareSession,
     setScore1,
     setScore2,

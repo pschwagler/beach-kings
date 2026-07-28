@@ -37,4 +37,6 @@ export const socialMutationKeys = {
     [...socialKeys.all(userId), 'decline-request'] as const,
   cancel: (userId: AuthenticatedUserId) =>
     [...socialKeys.all(userId), 'cancel-request'] as const,
+  remove: (userId: AuthenticatedUserId) =>
+    [...socialKeys.all(userId), 'remove-friend'] as const,
 };

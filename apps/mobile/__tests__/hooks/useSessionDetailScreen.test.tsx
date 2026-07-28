@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetSessionById = jest.fn();
 const mockLockInSession = jest.fn();
+const mockUpdateSession = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();
 const mockHapticMedium = jest.fn().mockResolvedValue(undefined);
 const mockHapticLight = jest.fn().mockResolvedValue(undefined);
@@ -24,6 +25,7 @@ jest.mock('@/lib/api', () => ({
   api: {
     getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
     lockInSession: (...args: unknown[]) => mockLockInSession(...args),
+    updateSession: (...args: unknown[]) => mockUpdateSession(...args),
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
   },
 }));
@@ -92,6 +94,7 @@ beforeEach(() => {
     defaultOptions: { queries: { retry: false } },
   });
   mockGetSessionById.mockResolvedValue(SESSION);
+  mockUpdateSession.mockResolvedValue({ status: 'success' });
   mockGetCurrentUserPlayer.mockResolvedValue({
     id: 1,
     name: 'Test User',
@@ -249,6 +252,33 @@ describe('useSessionDetailScreen', () => {
       result.current.onClearSubmitError();
     });
     expect(result.current.submitError).toBeNull();
+  });
+
+  it('updates the court and refreshes the session snapshot', async () => {
+    const { result } = renderScreen(7);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.onCourtChange(9, 'Mission Bay');
+    });
+
+    expect(mockUpdateSession).toHaveBeenCalledWith(7, { court_id: 9 });
+    expect(result.current.courtUpdateError).toBeNull();
+  });
+
+  it('restores the previous court when the update fails', async () => {
+    mockUpdateSession.mockRejectedValue(new Error('Court update failed'));
+    const { result } = renderScreen(7);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.onCourtChange(9, 'Mission Bay');
+    });
+
+    expect(result.current.courtUpdateError).toBe('Court update failed');
+    expect(
+      queryClient.getQueryData<SessionDetail>(sessionKeys.detail(7, 7)),
+    ).toEqual(SESSION);
   });
 
   it('openMenu and closeMenu toggle isMenuOpen', async () => {

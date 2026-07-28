@@ -34,10 +34,12 @@ import SessionDetailErrorState from './SessionDetailErrorState';
 import SessionPlayerChip from './SessionPlayerChip';
 import SessionGameCard from './SessionGameCard';
 import SessionBottomSheet from './SessionBottomSheet';
+import SessionCourtPicker from './SessionCourtPicker';
 import { useSessionDetailScreen } from './useSessionDetailScreen';
 import { parseSessionDate } from '@/lib/formatters';
 import { routes } from '@/lib/navigation';
 import { useInvitePlayers } from '@/contexts/InvitePlayersContext';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import type { SessionDetail, SessionGame, SessionPlayer } from '@beach-kings/shared';
 
 /**
@@ -100,7 +102,9 @@ function StatsBar({ session }: StatsBarProps): React.ReactNode {
     { label: 'Games', value: String(session.games.length) },
     { label: 'Players', value: String(session.players.length) },
     { label: 'Your W-L', value: `${session.user_wins}-${session.user_losses}` },
-    { label: 'Rating', value: ratingText },
+    ...(session.status === 'submitted'
+      ? [{ label: 'Rating', value: ratingText }]
+      : []),
   ];
 
   return (
@@ -218,13 +222,6 @@ function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
             {session.session_type === 'pickup' ? 'Pickup' : 'League'}
           </Text>
         </View>
-        {session.court_name != null && (
-          <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
-            <Text className="text-[11px] text-muted">
-              {session.court_name}
-            </Text>
-          </View>
-        )}
       </View>
     </View>
   );
@@ -290,6 +287,7 @@ interface Props {
 
 export default function SessionDetailScreen({ sessionId }: Props): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
   const { setPending: setInvitePending } = useInvitePlayers();
   const {
     session,
@@ -299,6 +297,8 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     isMenuOpen,
     isSubmitting,
     submitError,
+    isUpdatingCourt,
+    courtUpdateError,
     currentPlayerName,
     onRefresh,
     onRetry,
@@ -307,6 +307,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     onAddGame,
     onEditGame,
     onSubmitSession,
+    onCourtChange,
     onClearSubmitError,
   } = useSessionDetailScreen(sessionId);
 
@@ -367,7 +368,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
             accessibilityRole="button"
             className="min-w-touch min-h-touch items-center justify-center"
           >
-            <EllipsisIcon size={22} color="#ffffff" />
+            <EllipsisIcon size={22} color={palette.textInverse} />
           </TouchableOpacity>
         }
       />
@@ -383,6 +384,19 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           <>
             <SessionHeader session={session} />
             <StatsBar session={session} />
+            <View className="mx-[16px] mt-[16px]">
+              <Text className="text-[15px] font-bold text-default">Location</Text>
+              <SessionCourtPicker
+                selectedCourtId={session.court_id}
+                selectedCourtName={session.court_name}
+                onChange={(courtId, courtName) => {
+                  void onCourtChange(courtId, courtName);
+                }}
+                testIDPrefix="session-detail"
+                isUpdating={isUpdatingCourt}
+                error={courtUpdateError}
+              />
+            </View>
 
             {/* Roster strip */}
             <FlatList
@@ -494,7 +508,9 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           <TouchableOpacity
             testID="session-add-game-btn"
             onPress={onAddGame}
-            className="border border-brand-teal rounded-[12px] px-[16px] py-[12px]"
+            accessibilityRole="button"
+            accessibilityLabel="Add game"
+            className="min-h-touch border border-brand-teal rounded-[12px] px-[16px] py-[12px]"
           >
             <Text className="text-[14px] font-semibold text-brand-teal">
               Add Game
@@ -505,10 +521,19 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
             testID="session-submit-btn"
             onPress={() => { setSubmitConfirmVisible(true); }}
             disabled={isSubmitting}
-            className="flex-1 bg-brand-gold rounded-[12px] items-center justify-center py-[12px]"
+            accessibilityRole="button"
+            accessibilityLabel={
+              isSubmitting ? 'Submitting session' : 'Submit session'
+            }
+            accessibilityHint="Locks scores and updates player ratings after confirmation"
+            accessibilityState={{
+              disabled: isSubmitting,
+              busy: isSubmitting,
+            }}
+            className="min-h-touch flex-1 bg-brand-gold rounded-[12px] items-center justify-center py-[12px]"
           >
             {isSubmitting ? (
-              <ActivityIndicator color="#fff" testID="session-submit-loading" />
+              <ActivityIndicator color={palette.textInverse} testID="session-submit-loading" />
             ) : (
               <Text className="text-white text-[14px] font-bold">Submit Session</Text>
             )}
@@ -538,6 +563,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           visible={isMenuOpen}
           onClose={closeMenu}
           sessionId={session.id}
+          sessionCode={session.code}
           leagueId={session.league_id}
           sessionLabel={`Session #${session.session_number}`}
           gameCount={session.games.length}

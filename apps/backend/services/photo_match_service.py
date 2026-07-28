@@ -30,6 +30,7 @@ from backend.database import db
 from backend.database.models import PhotoMatchJob, PhotoMatchJobStatus
 from backend.services import data_service
 from backend.services import redis_service
+from backend.services.match_validation import validate_match_score
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
@@ -1372,6 +1373,10 @@ async def create_matches_from_session(
                     [],
                     f"Match {i + 1} has unresolved player: {field.replace('_id', '')}",
                 )
+        try:
+            validate_match_score(match["team1_score"], match["team2_score"])
+        except (KeyError, TypeError, ValueError) as error:
+            return False, [], f"Match {i + 1}: {error}"
 
     # Create matches
     created_ids = []

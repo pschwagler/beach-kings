@@ -50,6 +50,7 @@ async def get_league_messages(
             LeagueMessage.user_id,
             Player.id.label("player_id"),
             Player.full_name.label("player_name"),
+            Player.profile_picture_url.label("avatar_url"),
             LeagueMessage.message_text.label("message"),
             LeagueMessage.created_at,
         )
@@ -65,6 +66,7 @@ async def get_league_messages(
             "user_id": row.user_id,
             "player_id": row.player_id,
             "player_name": row.player_name,
+            "avatar_url": row.avatar_url,
             "message": row.message,
             "created_at": row.created_at.isoformat() if row.created_at else None,
             "is_mine": current_user_id is not None and row.user_id == current_user_id,
@@ -105,13 +107,17 @@ async def create_league_message(
     # Resolve player name for the response
     player_id: Optional[int] = None
     player_name: Optional[str] = None
+    avatar_url: Optional[str] = None
     player_result = await session.execute(
-        select(Player.id, Player.full_name).where(Player.user_id == user_id)
+        select(Player.id, Player.full_name, Player.profile_picture_url).where(
+            Player.user_id == user_id
+        )
     )
     player_row = player_result.one_or_none()
     if player_row is not None:
         player_id = player_row.id
         player_name = player_row.full_name
+        avatar_url = player_row.profile_picture_url
 
     return {
         "id": msg.id,
@@ -119,6 +125,7 @@ async def create_league_message(
         "user_id": msg.user_id,
         "player_id": player_id,
         "player_name": player_name,
+        "avatar_url": avatar_url,
         "message": msg.message_text,
         "created_at": msg.created_at.isoformat() if msg.created_at else None,
         "is_mine": True,

@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { Session } from '@beach-kings/shared';
+import type { PlayerSearchResponse, Session } from '@beach-kings/shared';
 import { api } from '@/lib/api';
 import { sessionKeys } from './keys';
 
@@ -21,4 +21,30 @@ export const sessionQueries = {
     enabled: enabled && userId > 0 && sessionId > 0,
     staleTime: SESSION_STALE_TIME_MS,
   }),
+
+  playerSearch: (
+    userId: number,
+    sessionId: number,
+    query: string,
+    leagueId?: number | null,
+    enabled = true,
+  ) => {
+    const normalizedQuery = query.trim();
+    return queryOptions({
+      queryKey: sessionKeys.playerSearch(
+        userId,
+        sessionId,
+        normalizedQuery,
+        leagueId,
+      ),
+      queryFn: (): Promise<PlayerSearchResponse> =>
+        api.searchPlayers(normalizedQuery, {
+          sessionId,
+          leagueId,
+          limit: 50,
+        }),
+      enabled: enabled && userId > 0 && sessionId > 0,
+      staleTime: 15_000,
+    });
+  },
 };

@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
 import { formatElo, formatGameScore } from '@/lib/formatters';
+import Avatar from '@/components/ui/Avatar';
 import {
   useLeagueStatsTab,
   type StatsInnerTab,
@@ -126,6 +127,7 @@ interface BreakdownRow {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
+  readonly avatar_url?: string | null;
   readonly games_played: number;
   readonly wins: number;
   readonly losses: number;
@@ -163,11 +165,13 @@ function BreakdownTable({
           className="flex-row items-center px-4 py-[10px] border-t border-divider"
         >
           <View className="flex-1 flex-row items-center gap-2">
-            <View className="w-7 h-7 rounded-full bg-elevated items-center justify-center">
-              <Text className="text-[9px] font-bold text-muted">
-                {row.initials}
-              </Text>
-            </View>
+            <Avatar
+              imageUrl={row.avatar_url}
+              name={row.display_name}
+              size={28}
+              colorSeed={row.player_id}
+              accessible={false}
+            />
             <Text className="text-[13px] font-semibold text-default" numberOfLines={1}>
               {row.display_name}
             </Text>
@@ -396,11 +400,14 @@ export default function LeagueStatsTab({
       {/* Player hero */}
       <View className="bg-surface px-4 py-5 border-b border-divider mb-4">
         <View className="items-center mb-3">
-          <View className="w-16 h-16 rounded-full bg-brand-teal/30 items-center justify-center mb-2">
-            <Text className="text-[20px] font-bold text-white">
-              {stats.initials}
-            </Text>
-          </View>
+          <Avatar
+            imageUrl={stats.avatar_url}
+            name={stats.display_name}
+            size={64}
+            colorSeed={stats.player_id}
+            className="mb-2"
+            accessible={false}
+          />
           <Text className="text-[18px] font-bold text-default">
             {stats.display_name}
           </Text>

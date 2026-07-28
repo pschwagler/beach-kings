@@ -5,17 +5,18 @@
  */
 
 import { useState, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { routes } from "@/lib/navigation";
 import { api } from "@/lib/api";
-import type {
-  FindLeagueResult,
-  LeagueQueryResponse,
-} from "@beach-kings/shared";
+import type { FindLeagueResult } from "@beach-kings/shared";
 import useDebounce from "@/hooks/useDebounce";
 import { leagueKeys } from "./leagueKeys";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  getJoinLeagueErrorMessage,
+  useJoinLeagueMutation,
+} from "@/features/leagues";
 
 export type FindLeaguesFilter =
   | "all"
@@ -38,8 +39,12 @@ export interface UseFindLeaguesScreenResult {
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly onPressLeague: (id: number) => void;
-  readonly onRequestJoin: (id: number) => Promise<void>;
+  readonly onJoinLeague: (id: number) => Promise<void>;
   readonly requestingIds: ReadonlySet<number>;
+  readonly joinError: {
+    readonly leagueId: number;
+    readonly message: string;
+  } | null;
   readonly onCreateLeague: () => void;
 }
 
@@ -71,13 +76,17 @@ function filterToParams(filter: FindLeaguesFilter): {
  */
 export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FindLeaguesFilter>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [requestingIds, setRequestingIds] = useState<Set<number>>(new Set());
+  const [joinError, setJoinError] = useState<{
+    leagueId: number;
+    message: string;
+  } | null>(null);
+  const joinLeague = useJoinLeagueMutation();
 
   const debouncedSearch = useDebounce(searchQuery, 350);
   const queryParams = {
@@ -92,10 +101,12 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   });
 
   const onChangeSearch = useCallback((v: string) => {
+    setJoinError(null);
     setSearchQuery(v);
   }, []);
 
   const onSelectFilter = useCallback((f: FindLeaguesFilter) => {
+    setJoinError(null);
     setActiveFilter(f);
   }, []);
 
@@ -110,33 +121,23 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
 
   const onPressLeague = useCallback(
     (id: number) => {
+      setJoinError(null);
       router.push(routes.league(id));
     },
     [router],
   );
 
-  const onRequestJoin = useCallback(
+  const onJoinLeague = useCallback(
     async (id: number): Promise<void> => {
+      setJoinError(null);
       setRequestingIds((prev) => new Set([...prev, id]));
-      queryClient.setQueriesData<LeagueQueryResponse>(
-        { queryKey: leagueKeys.findRoot(userId) },
-        (old) =>
-          old
-            ? {
-                ...old,
-                items: old.items.map((l) =>
-                  l.id === id ? { ...l, user_status: "requested" as const } : l,
-                ),
-              }
-            : old,
-      );
       try {
-        await api.requestToJoinLeague(id);
+        await joinLeague.mutateAsync(id);
       } catch (err) {
-        void queryClient.invalidateQueries({
-          queryKey: leagueKeys.findRoot(userId),
+        setJoinError({
+          leagueId: id,
+          message: getJoinLeagueErrorMessage(err),
         });
-        throw err;
       } finally {
         setRequestingIds((prev) => {
           const next = new Set(prev);
@@ -145,7 +146,7 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
         });
       }
     },
-    [queryClient, userId],
+    [joinLeague],
   );
 
   const onCreateLeague = useCallback(() => {
@@ -169,8 +170,9 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
     onRefresh,
     onRetry,
     onPressLeague,
-    onRequestJoin,
+    onJoinLeague,
     requestingIds,
+    joinError,
     onCreateLeague,
   };
 }

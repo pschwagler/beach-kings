@@ -1247,7 +1247,12 @@ async def get_league_player_stats_full(
     if season_id is not None:
         PartnerPlayer = aliased(Player)
         partner_rows = await session.execute(
-            select(PartnershipStatsSeason, PartnerPlayer.id, PartnerPlayer.full_name)
+            select(
+                PartnershipStatsSeason,
+                PartnerPlayer.id,
+                PartnerPlayer.full_name,
+                PartnerPlayer.profile_picture_url,
+            )
             .join(PartnerPlayer, PartnershipStatsSeason.partner_id == PartnerPlayer.id)
             .where(
                 and_(
@@ -1262,7 +1267,12 @@ async def get_league_player_stats_full(
         )
         OpponentPlayer = aliased(Player)
         opponent_rows = await session.execute(
-            select(OpponentStatsSeason, OpponentPlayer.id, OpponentPlayer.full_name)
+            select(
+                OpponentStatsSeason,
+                OpponentPlayer.id,
+                OpponentPlayer.full_name,
+                OpponentPlayer.profile_picture_url,
+            )
             .join(OpponentPlayer, OpponentStatsSeason.opponent_id == OpponentPlayer.id)
             .where(
                 and_(
@@ -1278,7 +1288,12 @@ async def get_league_player_stats_full(
     else:
         PartnerPlayer = aliased(Player)
         partner_rows = await session.execute(
-            select(PartnershipStatsLeague, PartnerPlayer.id, PartnerPlayer.full_name)
+            select(
+                PartnershipStatsLeague,
+                PartnerPlayer.id,
+                PartnerPlayer.full_name,
+                PartnerPlayer.profile_picture_url,
+            )
             .join(PartnerPlayer, PartnershipStatsLeague.partner_id == PartnerPlayer.id)
             .where(
                 and_(
@@ -1293,7 +1308,12 @@ async def get_league_player_stats_full(
         )
         OpponentPlayer = aliased(Player)
         opponent_rows = await session.execute(
-            select(OpponentStatsLeague, OpponentPlayer.id, OpponentPlayer.full_name)
+            select(
+                OpponentStatsLeague,
+                OpponentPlayer.id,
+                OpponentPlayer.full_name,
+                OpponentPlayer.profile_picture_url,
+            )
             .join(OpponentPlayer, OpponentStatsLeague.opponent_id == OpponentPlayer.id)
             .where(
                 and_(
@@ -1312,6 +1332,7 @@ async def get_league_player_stats_full(
             "player_id": row[1],
             "display_name": row[2],
             "initials": generate_player_initials(row[2] or ""),
+            "avatar_url": row[3],
             "games_played": row[0].games,
             "wins": row[0].wins,
             "losses": row[0].games - row[0].wins,
@@ -1324,6 +1345,7 @@ async def get_league_player_stats_full(
             "player_id": row[1],
             "display_name": row[2],
             "initials": generate_player_initials(row[2] or ""),
+            "avatar_url": row[3],
             "games_played": row[0].games,
             "wins": row[0].wins,
             "losses": row[0].games - row[0].wins,
@@ -1415,6 +1437,7 @@ async def get_league_player_stats_full(
         "player_id": player.id,
         "display_name": display_name,
         "initials": generate_player_initials(display_name),
+        "avatar_url": player.profile_picture_url,
         "level": player.level,
         "location_name": location_name,
         "league_id": league.id,

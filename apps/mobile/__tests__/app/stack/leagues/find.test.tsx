@@ -69,13 +69,20 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    textTertiary: 'gray',
+    textInverse: 'white',
+  }),
+}));
+
 const mockQueryLeagues = jest.fn();
-const mockRequestToJoin = jest.fn();
+const mockJoinLeague = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     queryLeagues: (...args: unknown[]) => mockQueryLeagues(...args),
-    requestToJoinLeague: (...args: unknown[]) => mockRequestToJoin(...args),
+    joinLeague: (...args: unknown[]) => mockJoinLeague(...args),
   },
 }));
 
@@ -91,7 +98,10 @@ import FindLeaguesRoute from '../../../../app/(stack)/find-leagues';
 
 function makeWrapper() {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: 0 } },
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0, staleTime: 0 },
+      mutations: { retry: false, gcTime: 0 },
+    },
   });
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
@@ -128,7 +138,7 @@ const MOCK_RESPONSE = { items: MOCK_LEAGUES, page: 1, page_size: 25, total_count
 beforeEach(() => {
   jest.clearAllMocks();
   mockQueryLeagues.mockResolvedValue(MOCK_RESPONSE);
-  mockRequestToJoin.mockResolvedValue(undefined);
+  mockJoinLeague.mockResolvedValue({ success: true, message: 'Joined' });
 });
 
 // ---------------------------------------------------------------------------
@@ -210,13 +220,84 @@ describe('FindLeaguesScreen — request to join', () => {
     });
   });
 
-  it('calls requestToJoinLeague when join button pressed', async () => {
+  it('calls joinLeague when the open-league action is pressed', async () => {
     render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('request-join-btn-1')).toBeTruthy());
     fireEvent.press(screen.getByTestId('request-join-btn-1'));
     await waitFor(() => {
-      expect(mockRequestToJoin).toHaveBeenCalledWith(1);
+      expect(mockJoinLeague).toHaveBeenCalledWith(1);
     });
+  });
+
+  it('opens an invite-only league without attempting a direct join', async () => {
+    render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
+    await waitFor(() =>
+      expect(screen.getByTestId('request-join-btn-2')).toBeTruthy(),
+    );
+
+    fireEvent.press(screen.getByTestId('request-join-btn-2'));
+
+    expect(mockJoinLeague).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      '400',
+      { response: { status: 400, data: { detail: 'Invalid join request' } } },
+      'We could not join this league',
+    ],
+    [
+      '403',
+      { response: { status: 403, data: { detail: 'Forbidden' } } },
+      'You do not have permission',
+    ],
+    [
+      'duplicate request',
+      {
+        response: {
+          status: 400,
+          data: { detail: 'A request already exists and is pending' },
+        },
+      },
+      'Your request is already pending',
+    ],
+    [
+      'offline',
+      new Error('Network Error'),
+      'You appear to be offline',
+    ],
+  ])('rolls back and shows product feedback for a %s failure', async (
+    _label,
+    error,
+    expectedCopy,
+  ) => {
+    mockJoinLeague.mockRejectedValueOnce(error);
+    render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('request-join-btn-1')).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId('request-join-btn-1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('join-league-error-1')).toHaveTextContent(
+        expectedCopy as string,
+      );
+      expect(screen.getByText('Try Again')).toBeTruthy();
+      expect(screen.queryByText("You're a Member")).toBeNull();
+    });
+  });
+
+  it('clears join feedback when navigating to the league', async () => {
+    mockJoinLeague.mockRejectedValueOnce(new Error('Network Error'));
+    render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('request-join-btn-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('request-join-btn-1'));
+    await waitFor(() => expect(screen.getByTestId('join-league-error-1')).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId('league-result-card-1'));
+
+    expect(mockPush).toHaveBeenCalled();
+    expect(screen.queryByTestId('join-league-error-1')).toBeNull();
   });
 });
 

@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
-import { formatElo } from '@/lib/formatters';
+import { formatElo, formatWinRate } from '@/lib/formatters';
 
 interface StatsBarProps {
   readonly games: number | null;
@@ -65,8 +65,7 @@ export default function StatsBar({
   }
 
   const hasNoData = games === 0 || games == null;
-  const winRate =
-    wins + losses > 0 ? `${Math.round((wins / (wins + losses)) * 100)}%` : '--';
+  const winRate = formatWinRate(wins, losses);
 
   return (
     <View className="flex-row bg-surface border-t border-divider border-b">

@@ -92,6 +92,7 @@ export default function WriteReviewModal({
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const submitDisabled = rating === 0 || submitting;
 
   // Reset form when modal opens or existingReview changes
   useEffect(() => {
@@ -236,8 +237,9 @@ export default function WriteReviewModal({
                 key={star}
                 testID={selected ? `star-btn-selected-${star}` : `star-btn-${star}`}
                 onPress={() => setRating(star)}
-                accessibilityRole="button"
+                accessibilityRole="radio"
                 accessibilityLabel={`${star} star${star !== 1 ? 's' : ''}`}
+                accessibilityState={{ selected: star === rating }}
                 className="p-1"
               >
                 <Text
@@ -324,11 +326,12 @@ export default function WriteReviewModal({
         <Pressable
           testID="submit-review-btn"
           onPress={() => void handleSubmit()}
-          disabled={submitting}
+          disabled={submitDisabled}
           accessibilityRole="button"
           accessibilityLabel={isEdit ? 'Save review' : 'Submit review'}
+          accessibilityState={{ disabled: submitDisabled, busy: submitting }}
           className="bg-brand-teal py-4 rounded-[10px] items-center mb-3 active:opacity-80"
-          style={{ opacity: submitting ? 0.6 : 1 }}
+          style={{ opacity: submitDisabled ? 0.6 : 1 }}
         >
           {submitting ? (
             <ActivityIndicator color={palette.textInverse} />

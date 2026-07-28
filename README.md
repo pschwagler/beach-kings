@@ -9,7 +9,7 @@ A modern web application for tracking beach volleyball player rankings using an 
 - **👥 Partnership Analytics** - See performance with different partners
 - **⚔️ Opponent Analysis** - Track win rates against specific opponents
 - **📅 Match History** - Complete game-by-game breakdown for each player
-- **🎨 Modern UI** - React-based interface with vintage Malibu beach theme
+- **🎨 Modern UI** - React-based interface with a shared, token-driven design system
 - **💾 Database-Driven** - PostgreSQL database for reliable data storage
 - **🎮 Live Session Management** - Create sessions and add matches in real-time
 - **📱 WhatsApp Integration** - Send notifications and updates via WhatsApp
@@ -70,7 +70,7 @@ The default branch is `develop`. Open PRs against `develop`; CI (lint + tests) a
 - **Next.js 15** - React framework with App Router
 - **React 19** - UI library
 - **Lucide React** - Modern icon library
-- **Vanilla CSS** - Vintage Malibu beach theme
+- **Vanilla CSS** - Shared token-driven styling
 
 **Deployment:**
 - **Docker** - Containerization

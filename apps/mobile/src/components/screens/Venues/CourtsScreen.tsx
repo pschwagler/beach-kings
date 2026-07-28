@@ -36,6 +36,7 @@ import CourtsMapView from './CourtsMapView';
 import CourtsMapPreview from './CourtsMapPreview';
 import type { Court } from '@beach-kings/shared';
 import type { CourtsViewMode } from './useCourtsScreen';
+import { getCourtFilterPresentation } from './courtFilters';
 
 // ---------------------------------------------------------------------------
 // View-mode toggle
@@ -114,7 +115,10 @@ function ViewModeToggle({
 
 function SectionLabel({ text }: { text: string }): React.ReactNode {
   return (
-    <Text className="text-[13px] font-semibold text-muted uppercase tracking-wide px-4 py-2 bg-page">
+    <Text
+      testID="courts-section-label"
+      className="text-[13px] font-semibold text-muted uppercase tracking-wide px-4 py-2 bg-page"
+    >
       {text}
     </Text>
   );
@@ -159,6 +163,7 @@ export default function CourtsScreen(): React.ReactNode {
     },
     [router],
   );
+  const filterPresentation = getCourtFilterPresentation(activeFilter);
 
   // Shared TopNav rendered in every branch
   const topNav = (
@@ -246,12 +251,12 @@ export default function CourtsScreen(): React.ReactNode {
               activeFilter={activeFilter}
               onFilterChange={setActiveFilter}
             />
-            <SectionLabel text="Nearby Courts" />
+            <SectionLabel text={filterPresentation.sectionLabel} />
           </>
         }
         ListEmptyComponent={
           <CourtsEmptyState
-            hasActiveFilter={activeFilter != null}
+            activeFilter={activeFilter}
             onClearFilter={activeFilter != null ? handleClearFilter : undefined}
           />
         }

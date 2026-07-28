@@ -14,13 +14,18 @@ import { Share } from 'react-native';
  *
  * @param url - The URL to share.
  * @param title - Optional sheet / message title (shown on Android and some iOS contexts).
+ * @param message - Optional context shown alongside the URL.
  */
-export async function shareLink(url: string, title?: string): Promise<void> {
+export async function shareLink(
+  url: string,
+  title?: string,
+  message = url,
+): Promise<void> {
   try {
     await Share.share(
       {
         url,
-        message: url,
+        message,
         title,
       },
       {

@@ -532,6 +532,51 @@ describe('getCourts', () => {
 
     expect(result).toEqual(mockCourts);
   });
+
+  it('retrieves every page so picker search is not limited to page one', async () => {
+    const firstPage = Array.from({ length: 20 }, (_, index) => ({
+      id: index + 1,
+      name: `Court ${index + 1}`,
+    }));
+    const lastCourt = { id: 21, name: 'Hidden Beach Court' };
+    const mockGet = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          items: firstPage,
+          total_count: 21,
+          page: 1,
+          page_size: 20,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          items: [lastCourt],
+          total_count: 21,
+          page: 2,
+          page_size: 20,
+        },
+      });
+    const client = makeClient({ get: mockGet });
+    const methods = createApiMethods(client);
+
+    const result = await methods.getCourts({
+      user_lat: 32.78,
+      user_lng: -117.23,
+      all: true,
+    });
+
+    expect(result).toHaveLength(21);
+    expect(result[20]).toEqual(lastCourt);
+    expect(mockGet).toHaveBeenNthCalledWith(2, '/api/public/courts', {
+      params: {
+        user_lat: 32.78,
+        user_lng: -117.23,
+        page: 2,
+        page_size: 20,
+      },
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

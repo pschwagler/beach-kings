@@ -287,6 +287,28 @@ describe('MyStatsScreen — stats bar', () => {
       expect(screen.getAllByText('66-28').length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  it('uses the canonical unavailable win rate when no games have been played', async () => {
+    mockGetMyStats.mockResolvedValue({
+      ...MOCK_STATS,
+      overall: {
+        ...MOCK_STATS.overall,
+        wins: 0,
+        losses: 0,
+        games_played: 0,
+        win_rate: 0,
+      },
+    });
+
+    render(<MyStatsScreen />);
+
+    await waitFor(() => {
+      // The stats bar and overview grid share the same formatter contract.
+      expect(screen.getAllByText('--')).toHaveLength(2);
+    });
+    expect(screen.queryByText('0%')).toBeNull();
+    expect(screen.queryByText('0.0%')).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

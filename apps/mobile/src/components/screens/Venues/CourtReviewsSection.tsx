@@ -50,6 +50,7 @@ export default function CourtReviewsSection({
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
   }, [court.reviews]);
+  const hasReviews = reviews.length > 0;
 
   // Detect whether the current player already has a review.
   const myReview = useMemo(
@@ -97,29 +98,34 @@ export default function CourtReviewsSection({
           Reviews{reviewCount > 0 ? ` (${reviewCount})` : ''}
         </Text>
 
-        <Pressable
-          testID="write-review-btn"
-          onPress={handleActionPress}
-          accessibilityRole="button"
-          accessibilityLabel={myReview != null ? 'Edit Your Review' : 'Write a Review'}
-          className="px-3 py-1.5 rounded-full border border-brand-teal active:opacity-70"
-        >
-          <Text className="text-[13px] font-semibold text-brand-teal">
-            {myReview != null ? 'Edit Your Review' : 'Write a Review'}
-          </Text>
-        </Pressable>
+        {hasReviews && (
+          <Pressable
+            testID="write-review-btn"
+            onPress={handleActionPress}
+            accessibilityRole="button"
+            accessibilityLabel={
+              myReview != null ? 'Edit Your Review' : 'Write a Review'
+            }
+            className="px-3 py-1.5 rounded-full border border-brand-teal active:opacity-70"
+          >
+            <Text className="text-[13px] font-semibold text-brand-teal">
+              {myReview != null ? 'Edit Your Review' : 'Write a Review'}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Empty state */}
-      {reviews.length === 0 && (
+      {!hasReviews && (
         <View testID="reviews-empty-state" className="py-6 items-center">
           <Text className="text-[14px] text-muted text-center mb-4">
             No reviews yet. Be the first to review!
           </Text>
           <Pressable
+            testID="write-review-btn"
             onPress={handleActionPress}
             accessibilityRole="button"
-            accessibilityLabel="Write a review"
+            accessibilityLabel="Write a Review"
             className="px-5 py-3 rounded-[10px] bg-brand-teal active:opacity-80"
           >
             <Text className="text-inverse font-bold text-[14px]">

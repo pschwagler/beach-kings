@@ -8,6 +8,7 @@
 import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import type { MyStatsRelationStat } from '@beach-kings/shared';
+import Avatar from '@/components/ui/Avatar';
 import type { BreakdownTab } from './useMyStatsScreen';
 
 // ---------------------------------------------------------------------------
@@ -77,11 +78,13 @@ function DataRow({ row }: RowProps): React.ReactNode {
     <View className="flex-row items-center px-[14px] py-[11px] border-b border-divider last:border-b-0">
       {/* Avatar initials + name */}
       <View className="flex-1 flex-row items-center gap-2">
-        <View className="w-7 h-7 rounded-full bg-info-tint items-center justify-center">
-          <Text className="text-[11px] font-bold text-brand-teal">
-            {row.initials}
-          </Text>
-        </View>
+        <Avatar
+          imageUrl={row.avatar_url}
+          name={row.display_name}
+          size={28}
+          colorSeed={row.player_id}
+          accessible={false}
+        />
         <Text className="text-[13px] font-bold text-default">
           {row.display_name}
         </Text>

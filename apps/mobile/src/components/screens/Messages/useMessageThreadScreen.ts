@@ -5,11 +5,21 @@
  * and manages the send-message form state.
  */
 
-import { useState, useCallback } from 'react';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  messageKeys,
+  messageQueries,
+  useMessageMutations,
+} from '@/features/messages';
 import { hapticMedium, hapticError } from '@/utils/haptics';
-import type { DirectMessage } from '@beach-kings/shared';
+import type {
+  ConversationListResponse,
+  DirectMessage,
+} from '@beach-kings/shared';
+
+const EMPTY_MESSAGES: readonly DirectMessage[] = [];
 
 export interface UseMessageThreadScreenResult {
   readonly messages: readonly DirectMessage[];
@@ -20,6 +30,8 @@ export interface UseMessageThreadScreenResult {
   readonly setMessageText: (text: string) => void;
   readonly isSending: boolean;
   readonly sendError: string | null;
+  readonly peerName: string | null;
+  readonly peerAvatarUrl: string | null;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly onSend: () => Promise<void>;
@@ -38,27 +50,55 @@ export function useMessageThreadScreen(
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
-  const { data, isLoading, error, refetch, mutate } = useApi<{
-    items: DirectMessage[];
-    total_count: number;
-    has_more?: boolean;
-  }>(
-    () => api.getThread(playerId),
-    [playerId],
-  );
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
+  const queryClient = useQueryClient();
+  const threadQuery = useQuery(messageQueries.thread(userId, playerId));
+  const peerQuery = useQuery(messageQueries.peer(userId, playerId));
+  const { markThreadRead, sendMessage } = useMessageMutations();
+  const messages = threadQuery.data?.items ?? EMPTY_MESSAGES;
+  const attemptedReadSignature = useRef<string | null>(null);
 
-  const messages = data?.items ?? [];
+  const unreadSignature = useMemo(() => {
+    const unreadMessageIds = messages
+      .filter((message) =>
+        message.sender_player_id === playerId && !message.is_read
+      )
+      .map((message) => message.id)
+      .sort((a, b) => a - b);
+    const conversationUnread =
+      queryClient.getQueryData<ConversationListResponse>(
+        messageKeys.conversations(userId),
+      )?.items.find((conversation) => conversation.player_id === playerId)
+        ?.unread_count ?? 0;
+    if (unreadMessageIds.length === 0 && conversationUnread === 0) return null;
+    return `${playerId}:${conversationUnread}:${unreadMessageIds.join(',')}`;
+  }, [messages, playerId, queryClient, userId]);
+
+  useEffect(() => {
+    if (
+      unreadSignature == null ||
+      attemptedReadSignature.current === unreadSignature ||
+      markThreadRead.isPending
+    ) {
+      return;
+    }
+    attemptedReadSignature.current = unreadSignature;
+    markThreadRead.mutate(playerId);
+  }, [markThreadRead, playerId, unreadSignature]);
 
   const onRefresh = useCallback(() => {
+    attemptedReadSignature.current = null;
     setIsRefreshing(true);
-    refetch().finally(() => {
+    threadQuery.refetch().finally(() => {
       setIsRefreshing(false);
     });
-  }, [refetch]);
+  }, [threadQuery]);
 
   const onRetry = useCallback(() => {
-    void refetch();
-  }, [refetch]);
+    attemptedReadSignature.current = null;
+    void threadQuery.refetch();
+  }, [threadQuery]);
 
   const onSend = useCallback(async () => {
     const text = messageText.trim();
@@ -69,31 +109,27 @@ export function useMessageThreadScreen(
     setSendError(null);
 
     try {
-      const newMsg = await api.sendDirectMessage(playerId, text);
+      await sendMessage.mutateAsync({ playerId, text });
       setMessageText('');
-      // Optimistically prepend the new message (thread newest-first).
-      mutate({
-        items: [newMsg, ...(data?.items ?? [])],
-        total_count: (data?.total_count ?? 0) + 1,
-        has_more: data?.has_more,
-      });
     } catch {
       void hapticError();
       setSendError('Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
     }
-  }, [messageText, playerId, data, mutate]);
+  }, [messageText, playerId, sendMessage]);
 
   return {
     messages,
-    isLoading,
-    error,
+    isLoading: threadQuery.isPending,
+    error: threadQuery.error,
     isRefreshing,
     messageText,
     setMessageText,
     isSending,
     sendError,
+    peerName: peerQuery.data?.full_name ?? null,
+    peerAvatarUrl: peerQuery.data?.profile_picture_url ?? null,
     onRefresh,
     onRetry,
     onSend,

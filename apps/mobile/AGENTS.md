@@ -13,7 +13,7 @@ fetching, caching, or auth transitions. The hard rules:
   `publicKeys`. Always use the exported key factories — never hand-build the
   prefix.
 - Never add new `useApi` consumers. The remaining ones (Sessions, Games,
-  Tournaments, Messages, Venues, Settings, Kob) are migration exceptions
+  Tournaments, Venues, Settings, Kob) are migration exceptions
   scheduled for Wave 3, not examples to copy.
 - No mock-data fallback in production API access. Unreleased features use an
   explicit unavailable route and a rejecting adapter

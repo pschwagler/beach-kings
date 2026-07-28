@@ -57,4 +57,19 @@ describe("notification API response contracts", () => {
 
     await expect(methods.getNotifications()).resolves.toEqual([]);
   });
+
+  it("maps unreadOnly to the backend unread_only filter before pagination", async () => {
+    const get = jest.fn().mockResolvedValue({ data: { items: [] } });
+    const methods = createApiMethods(makeClient(get));
+
+    await methods.getNotifications({
+      unreadOnly: true,
+      limit: 25,
+      offset: 50,
+    });
+
+    expect(get).toHaveBeenCalledWith("/api/notifications", {
+      params: { unread_only: true, limit: 25, offset: 50 },
+    });
+  });
 });

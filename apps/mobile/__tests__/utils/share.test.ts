@@ -45,6 +45,22 @@ describe('shareLink', () => {
     );
   });
 
+  it('uses a custom message while preserving the share URL', async () => {
+    await shareLink(
+      'https://example.com/session/ABC123',
+      'Share Session',
+      'Join with code ABC123',
+    );
+
+    expect(mockShare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: 'https://example.com/session/ABC123',
+        message: 'Join with code ABC123',
+      }),
+      expect.anything(),
+    );
+  });
+
   it('passes undefined title when title is omitted', async () => {
     await shareLink('https://example.com');
 

@@ -11,15 +11,16 @@
  * render the right thing based on the SessionGroup.mode discriminator.
  */
 
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type {
   GameHistoryEntry,
   LeagueGameEntry,
+  LeagueSessionSummary,
   SessionStatus,
 } from '@beach-kings/shared';
-import { leagueKeys } from './leagueKeys';
+import { leagueQueries, leagueKeys } from '@/features/leagues';
 import { useAuth } from '@/contexts/AuthContext';
 
 export type LeagueMatchesMode = 'mine' | 'all';
@@ -47,6 +48,10 @@ export interface SessionGroup {
   readonly userLosses: number;
   /** Sum of rating_change across user games; 0 when mode='all'. */
   readonly ratingChange: number;
+  /** Session-wide game count. In mine mode this is the user's game count. */
+  readonly gameCount: number;
+  /** Session-wide unique player count. Used by the all-sessions footer. */
+  readonly playerCount: number;
 }
 
 export interface UseLeagueMatchesTabResult {
@@ -131,6 +136,8 @@ function groupMyGamesBySessions(
       userWins,
       userLosses,
       ratingChange,
+      gameCount: sessionGames.length,
+      playerCount: 0,
     };
   });
 
@@ -143,19 +150,22 @@ function groupMyGamesBySessions(
 
 function groupAllGamesBySessions(
   games: readonly LeagueGameEntry[],
+  leagueSessions: readonly LeagueSessionSummary[],
 ): SessionGroup[] {
-  const groups: SessionGroup[] = Array.from(
-    groupBySessionId(games).entries(),
-  ).map(([sessionId, sessionGames]) => ({
-    session_id: sessionId,
-    session_date: sessionGames[0]?.session_date ?? null,
-    session_status: sessionGames[0]?.session_status ?? 'SUBMITTED',
+  const gamesBySession = groupBySessionId(games);
+  const groups: SessionGroup[] = leagueSessions.map((session) => ({
+    session_id: session.id,
+    session_date:
+      gamesBySession.get(session.id)?.[0]?.session_date ?? session.date,
+    session_status: session.status ?? 'SUBMITTED',
     mode: 'all' as const,
     myGames: [],
-    allGames: sessionGames,
+    allGames: gamesBySession.get(session.id) ?? [],
     userWins: 0,
     userLosses: 0,
     ratingChange: 0,
+    gameCount: session.game_count,
+    playerCount: session.player_count,
   }));
 
   return sortSessionsActiveFirstThenNewest(groups);
@@ -186,33 +196,62 @@ export function useLeagueMatchesTab(
   });
 
   // Only fetch league-wide data when the user has opened the All view.
-  const allGamesQuery = useQuery({
-    queryKey: leagueKeys.allGames(userId, leagueId),
-    queryFn: async () => {
-      const response = await api.getLeagueGames(Number(leagueId));
-      return response.games;
-    },
-    enabled: userId > 0 && mode === 'all',
-  });
+  const allModeEnabled = userId > 0 && mode === 'all';
+  const leagueSessionsQuery = useQuery(
+    leagueQueries.sessions(userId, leagueId, allModeEnabled),
+  );
+  const allGamesQuery = useInfiniteQuery(
+    leagueQueries.allGames(userId, leagueId, allModeEnabled),
+  );
+
+  // The UI promises a complete session history. Continue through the
+  // league-games pages before revealing the cards so no session is truncated.
+  useEffect(() => {
+    if (
+      allModeEnabled &&
+      allGamesQuery.hasNextPage &&
+      !allGamesQuery.isFetchingNextPage
+    ) {
+      void allGamesQuery.fetchNextPage();
+    }
+  }, [
+    allModeEnabled,
+    allGamesQuery.fetchNextPage,
+    allGamesQuery.hasNextPage,
+    allGamesQuery.isFetchingNextPage,
+  ]);
 
   const mineGroups = useMemo(
     () => (myGamesQuery.data != null ? groupMyGamesBySessions(myGamesQuery.data) : []),
     [myGamesQuery.data],
   );
   const allGroups = useMemo(
-    () => (allGamesQuery.data != null ? groupAllGamesBySessions(allGamesQuery.data) : []),
-    [allGamesQuery.data],
+    () =>
+      allGamesQuery.data != null && leagueSessionsQuery.data != null
+        ? groupAllGamesBySessions(
+            allGamesQuery.data.pages.flatMap((page) => page.games),
+            leagueSessionsQuery.data,
+          )
+        : [],
+    [allGamesQuery.data, leagueSessionsQuery.data],
   );
 
   const sessions = mode === 'mine' ? mineGroups : allGroups;
   const myGameCount = myGamesQuery.data?.length ?? 0;
-  const allGameCount = allGamesQuery.data?.length ?? 0;
+  const allGameCount = allGamesQuery.data?.pages[0]?.total ?? 0;
 
   // Loading: the active query is the one that gates the UI.
   const isLoading =
-    mode === 'mine' ? myGamesQuery.isLoading : allGamesQuery.isLoading;
+    mode === 'mine'
+      ? myGamesQuery.isLoading
+      : allGamesQuery.isLoading ||
+        leagueSessionsQuery.isLoading ||
+        allGamesQuery.hasNextPage ||
+        allGamesQuery.isFetchingNextPage;
   const isError =
-    mode === 'mine' ? myGamesQuery.isError : allGamesQuery.isError;
+    mode === 'mine'
+      ? myGamesQuery.isError
+      : allGamesQuery.isError || leagueSessionsQuery.isError;
 
   return {
     mode,

@@ -34,6 +34,7 @@ export interface MyStatsRelationStat {
   readonly player_id: number;
   readonly display_name: string;
   readonly initials: string;
+  readonly avatar_url?: string | null;
   readonly games_played: number;
   readonly wins: number;
   readonly losses: number;
@@ -42,6 +43,7 @@ export interface MyStatsRelationStat {
 
 export interface MyStatsPayload {
   readonly player_name: string;
+  readonly player_avatar_url?: string | null;
   readonly player_city: string | null;
   readonly player_level: string | null;
   readonly overall: MyStatsOverall;

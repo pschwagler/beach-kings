@@ -26,6 +26,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,7 +34,11 @@ import TopNav from '@/components/ui/TopNav';
 import BottomTabBar, { BottomTabBarHeightContext } from '@/components/navigation/BottomTabBar';
 import { hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
-import { useLeagueDetailScreen, type LeagueDetailTab } from './useLeagueDetailScreen';
+import {
+  normalizeLeagueDetailTab,
+  useLeagueDetailScreen,
+  type LeagueDetailTab,
+} from './useLeagueDetailScreen';
 import LeagueDashboardTab from './LeagueDashboardTab';
 import LeagueChatTab from './LeagueChatTab';
 import LeagueSignupsTab from './LeagueSignupsTab';
@@ -68,6 +73,7 @@ function SegmentBar({ tabs, activeTab, onSetTab }: SegmentBarProps): React.React
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
       testID="league-segment-bar"
       className="bg-surface border-b border-divider grow-0 shrink-0"
       style={{ flexGrow: 0, flexShrink: 0 }}
@@ -80,9 +86,13 @@ function SegmentBar({ tabs, activeTab, onSetTab }: SegmentBarProps): React.React
             key={tab.key}
             testID={`segment-tab-${tab.key}`}
             onPress={() => {
+              Keyboard.dismiss();
               void hapticLight();
               onSetTab(tab.key);
             }}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.label}
+            accessibilityState={{ selected: isActive }}
             className="px-4 py-[12px] mr-1"
           >
             <Text
@@ -255,6 +265,8 @@ interface TabContentProps {
   readonly activeTab: LeagueDetailTab;
   readonly statsPlayerId: number | string | null;
   readonly onViewPlayerStats: (id: number | string) => void;
+  readonly chatDraft: string;
+  readonly onChatDraftChange: (value: string) => void;
 }
 
 function TabContent({
@@ -263,6 +275,8 @@ function TabContent({
   activeTab,
   statsPlayerId,
   onViewPlayerStats,
+  chatDraft,
+  onChatDraftChange,
 }: TabContentProps): React.ReactNode {
   // Stats sub-view is pushed from standings tab
   if (activeTab === 'standings' && statsPlayerId != null) {
@@ -285,7 +299,13 @@ function TabContent({
         />
       );
     case 'chat':
-      return <LeagueChatTab leagueId={leagueId} />;
+      return (
+        <LeagueChatTab
+          leagueId={leagueId}
+          draft={chatDraft}
+          onDraftChange={onChatDraftChange}
+        />
+      );
     case 'signups':
       return <LeagueSignupsTab leagueId={leagueId} />;
     case 'info':
@@ -306,8 +326,9 @@ interface LeagueDetailScreenProps {
 export default function LeagueDetailScreen({
   leagueId: leagueIdProp,
 }: LeagueDetailScreenProps): React.ReactNode {
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; tab?: string }>();
   const resolvedId = leagueIdProp ?? params.id ?? '1';
+  const initialTab = normalizeLeagueDetailTab(params.tab);
   const router = useRouter();
 
   const {
@@ -326,10 +347,14 @@ export default function LeagueDetailScreen({
     isRequestingToJoin,
     onJoinLeague,
     onRequestToJoin,
-  } = useLeagueDetailScreen(resolvedId);
+  } = useLeagueDetailScreen(resolvedId, initialTab);
 
   // Track which player row was tapped in standings to push stats sub-view
   const [statsPlayerId, setStatsPlayerId] = useState<number | string | null>(null);
+  // Preserve an unsent league-chat draft when the user visits another league
+  // tab. Sending or explicitly editing the composer remains the only way this
+  // text changes.
+  const [chatDraft, setChatDraft] = useState('');
 
   // Measured at runtime so LeagueChatTab can align its composer to the keyboard
   // top precisely (avoids hardcoded estimate drift across devices / iOS versions).
@@ -482,6 +507,8 @@ export default function LeagueDetailScreen({
               activeTab={activeTab}
               statsPlayerId={statsPlayerId}
               onViewPlayerStats={handlePressPlayer}
+              chatDraft={chatDraft}
+              onChatDraftChange={setChatDraft}
             />
           </View>
         </View>

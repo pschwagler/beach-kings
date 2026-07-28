@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
+import Avatar from '@/components/ui/Avatar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { useLeagueInviteScreen } from './useLeagueInviteScreen';
 import type { InvitablePlayer } from '@beach-kings/shared';
@@ -127,11 +128,13 @@ function PlayerRow({ player, isSelected, onToggle }: PlayerRowProps): React.Reac
       </View>
 
       {/* Avatar */}
-      <View className="w-9 h-9 rounded-full bg-brand-teal items-center justify-center flex-shrink-0">
-        <Text className="text-[10px] font-bold text-white">
-          {player.initials}
-        </Text>
-      </View>
+      <Avatar
+        imageUrl={player.avatar_url}
+        name={player.display_name}
+        size={36}
+        colorSeed={player.player_id}
+        accessible={false}
+      />
 
       {/* Name / meta */}
       <View className="flex-1 min-w-0">

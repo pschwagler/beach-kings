@@ -15,6 +15,7 @@ import { usePaletteColors } from '@/theme/usePaletteColors';
 export interface CourtPickerOption {
   readonly id: number;
   readonly name: string;
+  readonly detail?: string | null;
 }
 
 interface Props {
@@ -95,6 +96,7 @@ export default function CourtPickerModal({
             onChangeText={setQuery}
             placeholder="Search courts"
             placeholderTextColor={palette.textTertiary}
+            accessibilityLabel="Search courts"
             className="rounded-[8px] bg-surface px-3 py-[10px] text-[15px] text-default"
             autoCapitalize="none"
             autoCorrect={false}
@@ -137,9 +139,16 @@ export default function CourtPickerModal({
                   >
                     {isSelected && <View className="w-2.5 h-2.5 rounded-full bg-brand-teal" />}
                   </View>
-                  <Text className={`flex-1 text-[15px] ${item == null ? 'text-muted' : 'text-default'}`}>
-                    {item?.name ?? noneLabel}
-                  </Text>
+                  <View className="flex-1">
+                    <Text className={`text-[15px] ${item == null ? 'text-muted' : 'text-default'}`}>
+                      {item?.name ?? noneLabel}
+                    </Text>
+                    {item?.detail != null && (
+                      <Text className="mt-0.5 text-[12px] text-muted">
+                        {item.detail}
+                      </Text>
+                    )}
+                  </View>
                 </Pressable>
               );
             }}

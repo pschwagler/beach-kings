@@ -51,13 +51,47 @@ export function createCourtMethods(api: AxiosInstance) {
       location_id?: string | null;
       user_lat?: number;
       user_lng?: number;
+      search?: string;
+      /** Retrieve every page. Intended for complete picker catalogs. */
+      all?: boolean;
     }) {
-      const response = await api.get<{ items: Court[] } | Court[]>('/api/public/courts', {
-        params: params ?? {},
+      type CourtPage = {
+        items: Court[];
+        total_count?: number;
+        page?: number;
+        page_size?: number;
+      };
+
+      const { all = false, ...requestParams } = params ?? {};
+      const response = await api.get<CourtPage | Court[]>('/api/public/courts', {
+        params: requestParams,
       });
       const data = response.data;
       if (Array.isArray(data)) return data;
-      return data?.items ?? [];
+
+      const courts = [...(data?.items ?? [])];
+      if (!all) return courts;
+
+      const totalCount = data?.total_count ?? courts.length;
+      const pageSize = data?.page_size ?? courts.length;
+      let page = data?.page ?? 1;
+
+      // The public endpoint is paginated. Fetch every remaining page so local
+      // pickers and filters operate on the full catalog, not only page one.
+      // The total/page bounds protect against a malformed pagination envelope.
+      const lastPage =
+        pageSize > 0 ? Math.min(Math.ceil(totalCount / pageSize), 1_000) : page;
+      while (courts.length < totalCount && page < lastPage) {
+        page += 1;
+        const next = await api.get<CourtPage>('/api/public/courts', {
+          params: { ...requestParams, page, page_size: pageSize },
+        });
+        const items = next.data?.items ?? [];
+        if (items.length === 0) break;
+        courts.push(...items);
+      }
+
+      return courts;
     },
 
     /**

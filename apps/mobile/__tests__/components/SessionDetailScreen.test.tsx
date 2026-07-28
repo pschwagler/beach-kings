@@ -76,6 +76,27 @@ jest.mock('@/components/screens/Sessions/SessionBottomSheet', () => () => null);
 jest.mock('@/components/screens/Sessions/SessionDetailSkeleton', () => () => null);
 jest.mock('@/components/screens/Sessions/SessionDetailErrorState', () => () => null);
 jest.mock('@/components/screens/Sessions/SessionPlayerChip', () => () => null);
+jest.mock(
+  '@/components/screens/Sessions/SessionCourtPicker',
+  () => {
+    const React = require('react');
+    const { Pressable, Text } = require('react-native');
+    return ({
+      selectedCourtName,
+      onChange,
+    }: {
+      selectedCourtName?: string | null;
+      onChange: (id: number, name: string) => void;
+    }) => (
+      <Pressable
+        testID="mock-session-court-picker"
+        onPress={() => onChange(9, 'Mission Bay')}
+      >
+        <Text>{selectedCourtName ?? 'Select a court'}</Text>
+      </Pressable>
+    );
+  },
+);
 
 // Stub the invite-players bridge so the SessionDetailScreen can be rendered
 // outside of an InvitePlayersProvider in these unit tests.
@@ -146,6 +167,8 @@ const defaultHookResult = {
   isMenuOpen: false,
   isSubmitting: false,
   submitError: null,
+  isUpdatingCourt: false,
+  courtUpdateError: null,
   currentPlayerName: 'Patrick Schwagler',
   onRefresh: jest.fn(),
   onRetry: jest.fn(),
@@ -154,6 +177,7 @@ const defaultHookResult = {
   onAddGame: jest.fn(),
   onEditGame: jest.fn(),
   onSubmitSession: jest.fn(),
+  onCourtChange: jest.fn(),
   onClearSubmitError: jest.fn(),
 };
 
@@ -242,6 +266,35 @@ describe('SessionDetailScreen — games filter toggle', () => {
     render(<SessionDetailScreen sessionId={42} />);
     expect(screen.queryByText('My Games')).toBeNull();
     expect(screen.queryByText('All Games')).toBeNull();
+  });
+});
+
+describe('SessionDetailScreen — session summary', () => {
+  beforeEach(() => {
+    mockUseSessionDetailScreen.mockReturnValue(defaultHookResult);
+  });
+
+  it('shows rating only after the session is submitted', () => {
+    render(<SessionDetailScreen sessionId={42} />);
+    expect(screen.getByText('Rating')).toBeTruthy();
+
+    mockUseSessionDetailScreen.mockReturnValue({
+      ...defaultHookResult,
+      session: { ...baseSession, status: 'active' },
+    });
+    render(<SessionDetailScreen sessionId={42} />);
+    expect(screen.queryByText('Rating')).toBeNull();
+  });
+
+  it('shows the selected court and supports changing it inline', () => {
+    render(<SessionDetailScreen sessionId={42} />);
+    expect(screen.getByText('Court A')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('mock-session-court-picker'));
+    expect(defaultHookResult.onCourtChange).toHaveBeenCalledWith(
+      9,
+      'Mission Bay',
+    );
   });
 });
 

@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import TopNav from '@/components/ui/TopNav';
+import { presentRelationship } from '@/features/social';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import { usePlayerProfileScreen } from './usePlayerProfileScreen';
@@ -71,6 +72,7 @@ export default function PlayerProfileScreen({
     onAddFriend,
     onAcceptFriend,
     onDeclineFriend,
+    onRemoveFriend,
     onMessage,
   } = usePlayerProfileScreen(playerId, navigateToMessages);
 
@@ -107,6 +109,33 @@ export default function PlayerProfileScreen({
           .filter(Boolean)
           .join(' ') || profileData.player.name || 'Player'
       : 'Player';
+  const canRemoveFriend =
+    profileData != null &&
+    presentRelationship(profileData.friendStatus).canRemove;
+
+  const handleRemoveFriend = useCallback(() => {
+    setShowActionSheet(false);
+    Alert.alert(
+      'Remove Friend',
+      `Remove ${playerName} from your friends? You can send another friend request later.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            void hapticMedium();
+            void onRemoveFriend().catch(() => {
+              Alert.alert(
+                'Could Not Remove Friend',
+                'Your friendship could not be removed. Check your connection and try again.',
+              );
+            });
+          },
+        },
+      ],
+    );
+  }, [onRemoveFriend, playerName]);
 
   const handleReport = useCallback(() => {
     setShowActionSheet(false);
@@ -186,6 +215,9 @@ export default function PlayerProfileScreen({
       {showActionSheet && (
         <ActionSheet
           playerName={playerName}
+          canRemoveFriend={canRemoveFriend}
+          isFriendActionLoading={isFriendActionLoading}
+          onRemoveFriend={handleRemoveFriend}
           onReport={handleReport}
           onCancel={() => setShowActionSheet(false)}
         />
@@ -200,12 +232,18 @@ export default function PlayerProfileScreen({
 
 interface ActionSheetProps {
   readonly playerName: string;
+  readonly canRemoveFriend: boolean;
+  readonly isFriendActionLoading: boolean;
+  readonly onRemoveFriend: () => void;
   readonly onReport: () => void;
   readonly onCancel: () => void;
 }
 
 function ActionSheet({
   playerName,
+  canRemoveFriend,
+  isFriendActionLoading,
+  onRemoveFriend,
   onReport,
   onCancel,
 }: ActionSheetProps): React.ReactNode {
@@ -222,10 +260,27 @@ function ActionSheet({
             </Text>
           </View>
 
+          {canRemoveFriend && (
+            <Pressable
+              testID="action-sheet-remove-friend"
+              onPress={onRemoveFriend}
+              disabled={isFriendActionLoading}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${playerName} from friends`}
+              accessibilityState={{ disabled: isFriendActionLoading }}
+              className="min-h-[56px] items-center justify-center border-b border-strong px-lg active:opacity-70"
+            >
+              <Text className="text-[17px] font-semibold text-danger">
+                Remove Friend
+              </Text>
+            </Pressable>
+          )}
+
           <Pressable
             testID="action-sheet-report"
             onPress={onReport}
             accessibilityRole="button"
+            accessibilityLabel={`Report ${playerName}`}
             className="flex-row items-center justify-center gap-sm px-lg min-h-[56px] active:opacity-70"
           >
             <Text className="text-[17px] font-semibold text-red-500">Report User</Text>

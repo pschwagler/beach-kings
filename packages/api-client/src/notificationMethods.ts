@@ -7,10 +7,17 @@ export function createNotificationMethods(api: AxiosInstance) {
     async getNotifications(params?: {
       limit?: number;
       offset?: number;
+      unreadOnly?: boolean;
     }): Promise<Notification[]> {
+      const { unreadOnly, ...pagination } = params ?? {};
       const response = await api.get<
         { items?: Notification[] } | Notification[]
-      >("/api/notifications", { params: params ?? {} });
+      >("/api/notifications", {
+        params: {
+          ...pagination,
+          ...(unreadOnly == null ? {} : { unread_only: unreadOnly }),
+        },
+      });
       return normalizeItems(response.data).filter(
         (notification) => notification.dismissed_at == null,
       );

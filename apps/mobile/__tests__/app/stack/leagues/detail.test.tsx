@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Keyboard } from 'react-native';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -23,6 +23,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+let mockSearchParams: { id: string; tab?: string } = { id: '1' };
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
@@ -33,7 +34,7 @@ jest.mock('expo-router', () => {
   return {
     useSegments: () => [],
     useRouter: () => ({ canGoBack: () => true, push: mockPush, back: mockBack, replace: mockReplace }),
-    useLocalSearchParams: () => ({ id: '1' }),
+    useLocalSearchParams: () => mockSearchParams,
     // The standings tab refetches on focus (useRefreshOnFocus → useFocusEffect).
     useFocusEffect: (cb: () => void | (() => void)): void => {
       ReactModule.useEffect(() => cb(), [cb]);
@@ -205,6 +206,7 @@ const ONE_STANDING = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockSearchParams = { id: '1' };
   mockGetLeague.mockResolvedValue(MOCK_DETAIL);
   mockGetLeagueStandings.mockResolvedValue({ standings: [], season_info: null });
   mockGetLeagueSeasons.mockResolvedValue([]);
@@ -291,6 +293,13 @@ describe('LeagueDetailScreen — segment tabs', () => {
     // 'signups' is disabled for now (needs a web-admin season/schedule; renders
     // empty on mobile). Re-enable via MEMBER_TABS in useLeagueDetailScreen.
     expect(screen.queryByTestId('segment-tab-signups')).toBeNull();
+    expect(screen.getByTestId('segment-tab-games')).toHaveProp(
+      'accessibilityRole',
+      'tab',
+    );
+    expect(screen.getByTestId('segment-tab-games')).toHaveAccessibilityState({
+      selected: true,
+    });
   });
 
   it('renders games tab content by default', async () => {
@@ -300,6 +309,18 @@ describe('LeagueDetailScreen — segment tabs', () => {
       const tabOrEmpty =
         screen.queryByTestId('matches-tab') ?? screen.queryByTestId('matches-empty');
       expect(tabOrEmpty).toBeTruthy();
+    });
+  });
+
+  it('opens the tab requested by a notification deep link', async () => {
+    mockSearchParams = { id: '1', tab: 'chat' };
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-tab')).toBeTruthy();
+    });
+    expect(screen.getByTestId('segment-tab-chat')).toHaveAccessibilityState({
+      selected: true,
     });
   });
 
@@ -339,6 +360,33 @@ describe('LeagueDetailScreen — segment tabs', () => {
     await waitFor(() => {
       expect(screen.getByTestId('info-tab')).toBeTruthy();
     });
+  });
+
+  it('dismisses the keyboard, navigates once, and preserves the chat draft', async () => {
+    const dismissSpy = jest.spyOn(Keyboard, 'dismiss');
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('segment-tab-chat')).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId('segment-tab-chat'));
+    await waitFor(() => expect(screen.getByTestId('chat-message-input')).toBeTruthy());
+    fireEvent.changeText(
+      screen.getByTestId('chat-message-input'),
+      'Unsaved league draft',
+    );
+
+    fireEvent.press(screen.getByTestId('segment-tab-info'));
+    await waitFor(() => expect(screen.getByTestId('info-tab')).toBeTruthy());
+    expect(dismissSpy).toHaveBeenCalledTimes(2);
+
+    fireEvent.press(screen.getByTestId('segment-tab-chat'));
+    await waitFor(() => {
+      expect(screen.getByTestId('chat-message-input')).toHaveProp(
+        'value',
+        'Unsaved league draft',
+      );
+    });
+    expect(dismissSpy).toHaveBeenCalledTimes(3);
+    dismissSpy.mockRestore();
   });
 });
 

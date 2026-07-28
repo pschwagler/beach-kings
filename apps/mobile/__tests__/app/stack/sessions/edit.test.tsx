@@ -29,7 +29,21 @@ jest.mock('@/utils/haptics', () => ({ hapticMedium: jest.fn().mockResolvedValue(
 jest.mock('@/theme/usePaletteColors', () => ({
   usePaletteColors: () => ({ textTertiary: 'gray', textInverse: 'white', brandTeal: 'teal' }),
 }));
-jest.mock('@/components/ui/icons', () => ({ ChevronLeftIcon: () => null }));
+jest.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({ isDark: false }),
+}));
+jest.mock('@/hooks/useResolvedUserLocation', () => ({
+  useResolvedUserLocation: () => ({
+    coords: { latitude: 32.78, longitude: -117.23 },
+    source: 'city',
+    isResolving: false,
+  }),
+}));
+jest.mock('@/components/ui/icons', () => ({
+  CalendarIcon: () => null,
+  ChevronLeftIcon: () => null,
+  ChevronRightIcon: () => null,
+}));
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
 }));
@@ -72,11 +86,56 @@ beforeEach(() => {
 });
 
 describe('SessionEditScreen', () => {
-  it('shows the connected league as read-only context and locks ranking for a season', async () => {
+  it('exposes a high-contrast labelled close button', async () => {
     render(<SessionEditRoute />);
-    await waitFor(() => expect(screen.getByTestId('edit-session-context-label').props.children).toBe('QBK Open Men'));
+    await waitFor(() => expect(screen.getByTestId('session-edit-close-btn')).toBeTruthy());
+
+    const close = screen.getByTestId('session-edit-close-btn');
+    expect(close.props.accessibilityRole).toBe('button');
+    expect(close.props.accessibilityLabel).toBe('Close edit session');
+    expect(close).toHaveTextContent('✕');
+  });
+
+  it('shows the connected league and locks ranking for a season', async () => {
+    render(<SessionEditRoute />);
+    await waitFor(() =>
+      expect(screen.getByTestId('edit-session-league-label')).toHaveTextContent(
+        'QBK Open Men',
+      ),
+    );
+    expect(screen.queryByText('Context')).toBeNull();
     expect(screen.getByTestId('edit-session-ranked-toggle').props.disabled).toBe(true);
     expect(screen.queryByTestId('edit-session-type-league')).toBeNull();
+  });
+
+  it('omits the league/context block for pickup sessions', async () => {
+    mockGetSessionById.mockResolvedValue({
+      id: 42,
+      code: null,
+      league_id: null,
+      league_name: null,
+      season_id: null,
+      court_id: 7,
+      court_name: 'Ocean Beach',
+      date: '2026-03-19',
+      start_time: null,
+      session_number: 3,
+      status: 'active',
+      session_type: 'pickup',
+      is_ranked: true,
+      players: [],
+      games: [],
+      user_wins: 0,
+      user_losses: 0,
+      user_rating_change: null,
+    });
+
+    render(<SessionEditRoute />);
+    await waitFor(() =>
+      expect(screen.getByTestId('edit-session-court-picker')).toBeTruthy(),
+    );
+    expect(screen.queryByTestId('edit-session-league-label')).toBeNull();
+    expect(screen.queryByText('Context')).toBeNull();
   });
 
   it('selects a court by ID and includes is_ranked in the update payload', async () => {

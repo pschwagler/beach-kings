@@ -28,6 +28,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
+import Avatar from '@/components/ui/Avatar';
 import { CheckIcon } from '@/components/ui/icons';
 import { useBack } from '@/hooks/useBack';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -42,19 +43,6 @@ const DEFAULT_TEMPLATE =
 
 /** Sent ✓ revert duration. */
 const SENT_REVERT_MS = 3_000;
-
-/**
- * Avatar palette — cycled by row index for per-player variety. Deliberately
- * non-semantic (decorative identity colors, not theme roles), so these are the
- * documented exception to the no-hardcoded-hex rule and don't track dark mode.
- */
-const AVATAR_COLORS = [
-  { bg: '#bae6fd', fg: '#0c4a6e' },
-  { bg: '#fed7aa', fg: '#9a3412' },
-  { bg: '#ddd6fe', fg: '#5b21b6' },
-  { bg: '#bbf7d0', fg: '#14532d' },
-  { bg: '#fde68a', fg: '#854d0e' },
-];
 
 const EMPTY_TITLE_DEFAULT = 'All players on Beach League';
 const EMPTY_SUBTITLE =
@@ -105,14 +93,12 @@ export function renderTemplate(
 interface InviteRowProps {
   readonly player: InvitePlayersParams['players'][number];
   readonly isSent: boolean;
-  readonly avatar: { bg: string; fg: string };
   readonly onSend: () => void;
 }
 
 function InviteRow({
   player,
   isSent,
-  avatar,
   onSend,
 }: InviteRowProps): React.ReactNode {
   const palette = usePaletteColors();
@@ -125,16 +111,13 @@ function InviteRow({
       accessibilityLabel={`Send invite to ${player.name}`}
       className="flex-row items-center bg-surface border border-divider rounded-[14px] p-[12px] mx-[16px] mb-[10px]"
     >
-      <View
-        style={{ backgroundColor: avatar.bg }}
-        className="w-[48px] h-[48px] rounded-full items-center justify-center mr-[12px]"
-      >
-        <Text
-          style={{ color: avatar.fg }}
-          className="text-[16px] font-bold"
-        >
-          {player.initials}
-        </Text>
+      <View className="relative mr-[12px]">
+        <Avatar
+          name={player.name}
+          size={48}
+          colorSeed={player.id}
+          accessible={false}
+        />
         <View
           className="absolute top-0 right-0 w-[12px] h-[12px] rounded-full border-2 border-surface bg-status-live"
         />
@@ -333,12 +316,11 @@ export default function InvitePlayersScreen({
           </View>
 
           {/* List */}
-          {players.map((p, idx) => (
+          {players.map((p) => (
             <InviteRow
               key={p.id}
               player={p}
               isSent={sentIds.has(p.id)}
-              avatar={AVATAR_COLORS[idx % AVATAR_COLORS.length]!}
               onSend={() => { void handleSend(p); }}
             />
           ))}

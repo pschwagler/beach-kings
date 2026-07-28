@@ -6,12 +6,14 @@
  */
 
 import { useState, useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import useApi from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { messageQueries } from "@/features/messages";
+import { useCurrentPlayer } from "@/hooks/useCurrentPlayer";
 import { routes } from "@/lib/navigation";
 import { hapticLight } from "@/utils/haptics";
-import type { Conversation, Player } from "@beach-kings/shared";
+import type { Conversation } from "@beach-kings/shared";
 
 export interface UseMessagesScreenResult {
   readonly conversations: readonly Conversation[];
@@ -29,41 +31,29 @@ export interface UseMessagesScreenResult {
 
 export function useMessagesScreen(): UseMessagesScreenResult {
   const router = useRouter();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data, isLoading, error, refetch } = useApi<{
-    items: Conversation[];
-    total_count: number;
-  }>(() => api.getConversations(), []);
-
-  const { data: player } = useApi<Player | null>(async () => {
-    try {
-      return (await api.getCurrentUserPlayer()) ?? null;
-    } catch {
-      return null;
-    }
-  }, []);
+  const conversationsQuery = useQuery(messageQueries.conversations(userId));
+  const playerQuery = useCurrentPlayer();
 
   const conversations = useMemo(() => {
-    const allConversations = data?.items ?? [];
+    const allConversations = conversationsQuery.data?.items ?? [];
     if (searchQuery.trim() === "") return allConversations;
     const q = searchQuery.toLowerCase();
     return allConversations.filter((c) =>
       c.full_name.toLowerCase().includes(q),
     );
-  }, [data, searchQuery]);
+  }, [conversationsQuery.data, searchQuery]);
 
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    refetch().finally(() => {
-      setIsRefreshing(false);
-    });
-  }, [refetch]);
+    void conversationsQuery.refetch();
+  }, [conversationsQuery]);
 
   const onRetry = useCallback(() => {
-    void refetch();
-  }, [refetch]);
+    void conversationsQuery.refetch();
+  }, [conversationsQuery]);
 
   const onConversationPress = useCallback(
     (playerId: number, name?: string) => {
@@ -75,14 +65,14 @@ export function useMessagesScreen(): UseMessagesScreenResult {
 
   return {
     conversations,
-    isLoading,
-    error,
-    isRefreshing,
+    isLoading: conversationsQuery.isPending,
+    error: conversationsQuery.error,
+    isRefreshing: conversationsQuery.isRefetching,
     searchQuery,
     setSearchQuery,
     onRefresh,
     onRetry,
     onConversationPress,
-    currentPlayerId: player?.id ?? 0,
+    currentPlayerId: playerQuery.data?.id ?? 0,
   };
 }

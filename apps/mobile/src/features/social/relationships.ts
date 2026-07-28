@@ -5,6 +5,7 @@ export interface RelationshipPresentation {
   readonly profileLabel: string | null;
   readonly canAdd: boolean;
   readonly canRespond: boolean;
+  readonly canRemove: boolean;
   readonly showMessage: boolean;
 }
 
@@ -14,6 +15,7 @@ const PRESENTATION: Readonly<Record<FriendshipStatus, RelationshipPresentation>>
     profileLabel: null,
     canAdd: false,
     canRespond: false,
+    canRemove: false,
     showMessage: false,
   },
   none: {
@@ -21,6 +23,7 @@ const PRESENTATION: Readonly<Record<FriendshipStatus, RelationshipPresentation>>
     profileLabel: 'Add Friend',
     canAdd: true,
     canRespond: false,
+    canRemove: false,
     showMessage: true,
   },
   friend: {
@@ -28,6 +31,7 @@ const PRESENTATION: Readonly<Record<FriendshipStatus, RelationshipPresentation>>
     profileLabel: 'Friends',
     canAdd: false,
     canRespond: false,
+    canRemove: true,
     showMessage: true,
   },
   pending_outgoing: {
@@ -35,6 +39,7 @@ const PRESENTATION: Readonly<Record<FriendshipStatus, RelationshipPresentation>>
     profileLabel: 'Request sent',
     canAdd: false,
     canRespond: false,
+    canRemove: false,
     showMessage: true,
   },
   pending_incoming: {
@@ -42,6 +47,7 @@ const PRESENTATION: Readonly<Record<FriendshipStatus, RelationshipPresentation>>
     profileLabel: null,
     canAdd: false,
     canRespond: true,
+    canRemove: false,
     showMessage: true,
   },
 };

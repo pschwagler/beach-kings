@@ -25,6 +25,16 @@ jest.mock('@/utils/haptics', () => ({
 
 import LeagueChatTab from '@/components/screens/Leagues/LeagueChatTab';
 
+function renderChat(draft = '') {
+  return render(
+    <LeagueChatTab
+      leagueId={7}
+      draft={draft}
+      onDraftChange={mockOnChangeText}
+    />,
+  );
+}
+
 const MESSAGE: LeagueChatMessage = {
   id: 1,
   league_id: 7,
@@ -62,7 +72,7 @@ describe('LeagueChatTab', () => {
   it('explains an empty chat while keeping the composer usable', () => {
     arrangeHook({ messageText: 'Who is playing tonight?' });
 
-    render(<LeagueChatTab leagueId={7} />);
+    renderChat('Who is playing tonight?');
 
     expect(screen.getByTestId('league-chat-empty-state')).toBeTruthy();
     expect(screen.getByText('No messages yet')).toBeTruthy();
@@ -85,7 +95,7 @@ describe('LeagueChatTab', () => {
   it('suppresses the empty state when messages exist', () => {
     arrangeHook({ messages: [MESSAGE] });
 
-    render(<LeagueChatTab leagueId={7} />);
+    renderChat();
 
     expect(screen.queryByTestId('league-chat-empty-state')).toBeNull();
     expect(screen.getByTestId('message-bubble-1')).toBeTruthy();
@@ -96,7 +106,7 @@ describe('LeagueChatTab', () => {
   it('renders the loading state without an empty state or composer', () => {
     arrangeHook({ isLoading: true });
 
-    render(<LeagueChatTab leagueId={7} />);
+    renderChat();
 
     expect(screen.getByTestId('chat-loading')).toBeTruthy();
     expect(screen.queryByTestId('league-chat-empty-state')).toBeNull();
@@ -106,7 +116,7 @@ describe('LeagueChatTab', () => {
   it('renders the error state without an empty state or composer', () => {
     arrangeHook({ isError: true });
 
-    render(<LeagueChatTab leagueId={7} />);
+    renderChat();
 
     expect(screen.getByTestId('chat-error')).toBeTruthy();
     expect(screen.getByText('Failed to load messages')).toBeTruthy();

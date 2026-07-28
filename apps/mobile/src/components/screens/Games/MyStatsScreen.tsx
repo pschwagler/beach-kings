@@ -18,7 +18,7 @@ import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
-import { formatElo } from '@/lib/formatters';
+import { formatElo, formatWinRate } from '@/lib/formatters';
 import { useMyStatsScreen, type TimeFilter } from './useMyStatsScreen';
 import StatsSkeleton from './StatsSkeleton';
 import StatsErrorState from './StatsErrorState';
@@ -26,6 +26,7 @@ import TrophyRow from './TrophyRow';
 import StatsGrid from './StatsGrid';
 import RatingChart from './RatingChart';
 import BreakdownTable from './BreakdownTable';
+import Avatar from '@/components/ui/Avatar';
 
 // ---------------------------------------------------------------------------
 // Profile header
@@ -35,17 +36,25 @@ interface ProfileHeaderProps {
   readonly name: string;
   readonly city: string | null;
   readonly level: string | null;
+  readonly avatarUrl: string | null;
 }
 
-function ProfileHeader({ name, city, level }: ProfileHeaderProps): React.ReactNode {
+function ProfileHeader({
+  name,
+  city,
+  level,
+  avatarUrl,
+}: ProfileHeaderProps): React.ReactNode {
   return (
     <View className="flex-row items-center gap-[14px] px-4 py-4 bg-surface">
-      {/* Avatar placeholder */}
-      <View className="w-14 h-14 rounded-full bg-info-tint border-[2.5px] border-divider items-center justify-center">
-        <Text className="text-[20px] font-bold text-brand-teal">
-          {name.slice(0, 1).toUpperCase()}
-        </Text>
-      </View>
+      <Avatar
+        imageUrl={avatarUrl}
+        name={name}
+        size="lg"
+        colorSeed={name}
+        className="border-[2.5px] border-divider"
+        accessible={false}
+      />
 
       <View className="flex-1">
         <Text className="text-[18px] font-bold text-default">
@@ -221,6 +230,7 @@ export default function MyStatsScreen(): React.ReactNode {
           name={stats.player_name}
           city={stats.player_city}
           level={stats.player_level}
+          avatarUrl={stats.player_avatar_url ?? null}
         />
 
         {/* Stats bar */}
@@ -231,7 +241,10 @@ export default function MyStatsScreen(): React.ReactNode {
           <View className="w-px bg-divider" />
           <StatsBarItem value={`${overall.wins}-${overall.losses}`} label="W-L" />
           <View className="w-px bg-divider" />
-          <StatsBarItem value={`${overall.win_rate.toFixed(0)}%`} label="Win Rate" />
+          <StatsBarItem
+            value={formatWinRate(overall.wins, overall.losses)}
+            label="Win Rate"
+          />
         </View>
 
         {/* Content */}

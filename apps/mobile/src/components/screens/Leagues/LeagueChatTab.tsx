@@ -12,6 +12,7 @@ import React from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import ChatComposer from '@/components/ui/ChatComposer';
 import ChatView from '@/components/ui/ChatView';
+import Avatar from '@/components/ui/Avatar';
 import { ChatIcon } from '@/components/ui/icons';
 import { useBottomTabBarHeight } from '@/components/navigation/BottomTabBar';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -59,11 +60,13 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
     <View testID={`message-bubble-${message.id}`} className="px-4 mb-[6px]">
       <View className="flex-row items-end gap-2">
         {showSender ? (
-          <View className="w-7 h-7 rounded-full bg-elevated items-center justify-center">
-            <Text className="text-[9px] font-bold text-muted">
-              {message.initials}
-            </Text>
-          </View>
+          <Avatar
+            imageUrl={message.avatar_url}
+            name={message.player_name ?? 'Unknown'}
+            size={28}
+            colorSeed={message.player_id ?? message.user_id}
+            accessible={false}
+          />
         ) : (
           <View className="w-7" />
         )}
@@ -122,9 +125,15 @@ function LeagueChatEmptyState(): React.ReactNode {
 
 interface LeagueChatTabProps {
   readonly leagueId: number | string;
+  readonly draft: string;
+  readonly onDraftChange: (value: string) => void;
 }
 
-export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.ReactNode {
+export default function LeagueChatTab({
+  leagueId,
+  draft,
+  onDraftChange,
+}: LeagueChatTabProps): React.ReactNode {
   // Composer starts above the BottomTabBar, so KeyboardStickyView overshoots
   // the keyboard top by exactly the tab bar's height. Measured via onLayout in
   // LeagueDetailScreen and provided through BottomTabBarHeightContext.
@@ -138,7 +147,7 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
     sendError,
     onChangeText,
     onSend,
-  } = useLeagueChatTab(leagueId);
+  } = useLeagueChatTab(leagueId, draft, onDraftChange);
 
   if (isLoading) {
     return (

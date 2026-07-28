@@ -15,7 +15,14 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
+import {
+  render as testingRender,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -60,6 +67,17 @@ jest.mock('@/lib/api', () => ({
   },
 }));
 
+jest.mock('@/hooks/useCurrentPlayer', () => ({
+  useCurrentPlayer: () => ({ data: { id: 0 } }),
+}));
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 7 },
+    isAuthenticated: true,
+  }),
+}));
+
 // ---------------------------------------------------------------------------
 // Module under test
 // ---------------------------------------------------------------------------
@@ -96,12 +114,28 @@ const MOCK_CONVERSATIONS = {
   total_count: 2,
 };
 
+let queryClient: QueryClient;
+
+function render(ui: React.ReactElement) {
+  return testingRender(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
   jest.clearAllMocks();
+  queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
   mockGetConversations.mockResolvedValue(MOCK_CONVERSATIONS);
 });
 
@@ -191,6 +225,7 @@ describe('MessagesTab — conversations list', () => {
   it('does not show unread dot for read conversations', async () => {
     render(<MessagesTab />);
     await waitFor(() => {
+      expect(screen.getByTestId('convo-row-11')).toBeTruthy();
       expect(screen.queryByTestId('convo-unread-dot-11')).toBeNull();
     });
   });
@@ -243,6 +278,7 @@ describe('MessagesTab — search', () => {
   it('renders search input', async () => {
     render(<MessagesTab />);
     await waitFor(() => {
+      expect(screen.getByTestId('convo-row-10')).toBeTruthy();
       expect(screen.getByTestId('messages-search-input')).toBeTruthy();
     });
   });
@@ -250,7 +286,8 @@ describe('MessagesTab — search', () => {
   it('filters conversations by name when search query is typed', async () => {
     render(<MessagesTab />);
     await waitFor(() => {
-      expect(screen.getByTestId('messages-search-input')).toBeTruthy();
+      expect(screen.getByTestId('convo-row-10')).toBeTruthy();
+      expect(screen.getByTestId('convo-row-11')).toBeTruthy();
     });
     fireEvent.changeText(screen.getByTestId('messages-search-input'), 'Alex');
     await waitFor(() => {
@@ -262,7 +299,8 @@ describe('MessagesTab — search', () => {
   it('shows all conversations when search is cleared', async () => {
     render(<MessagesTab />);
     await waitFor(() => {
-      expect(screen.getByTestId('messages-search-input')).toBeTruthy();
+      expect(screen.getByTestId('convo-row-10')).toBeTruthy();
+      expect(screen.getByTestId('convo-row-11')).toBeTruthy();
     });
     fireEvent.changeText(screen.getByTestId('messages-search-input'), 'Alex');
     fireEvent.changeText(screen.getByTestId('messages-search-input'), '');
@@ -286,6 +324,7 @@ describe('MessagesTab — compose action', () => {
     );
     await waitFor(() => {
       expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything());
+      expect(screen.getByTestId('convo-row-10')).toBeTruthy();
     });
     const [node] = mockSetHeaderAction.mock.calls[0];
     expect(node).toBeTruthy();
@@ -299,6 +338,7 @@ describe('MessagesTab — compose action', () => {
     );
     await waitFor(() => {
       expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything());
+      expect(screen.getByTestId('convo-row-10')).toBeTruthy();
     });
 
     const [composeNode] = mockSetHeaderAction.mock.calls[0];
@@ -318,6 +358,7 @@ describe('MessagesTab — compose action', () => {
     );
     await waitFor(() => {
       expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything());
+      expect(screen.getByTestId('convo-row-10')).toBeTruthy();
     });
     unmount();
     expect(mockSetHeaderAction).toHaveBeenLastCalledWith(null);

@@ -6,6 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { socialKeys } from '@/features/social/keys';
 import { playerKeys } from '@/features/player';
 import { reconcileGameMutation } from '@/features/matches';
+import {
+  getSocketDirectMessage,
+  reconcileDirectMessageEvent,
+} from '@/features/messages';
 import useWebSocket from '@/hooks/useWebSocket';
 import { api } from '@/lib/api';
 import { getSocketNotification, reconcileNotificationEvent } from './cache';
@@ -24,6 +28,11 @@ export default function NotificationTransport(): null {
 
   const handleMessage = useCallback((data: unknown) => {
     if (userId === 0) return;
+    const directMessage = getSocketDirectMessage(data);
+    if (directMessage != null) {
+      reconcileDirectMessageEvent(queryClient, userId, directMessage);
+      return;
+    }
     const message = getSocketNotification(data);
     if (message == null) return;
     const { eventType, notification } = message;

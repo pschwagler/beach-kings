@@ -4,8 +4,8 @@
  */
 
 import React from 'react';
-import { Alert } from 'react-native';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert, Share } from 'react-native';
+import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 
 const mockReplace = jest.fn();
 const mockDeleteSession = jest.fn();
@@ -35,6 +35,7 @@ jest.mock('@/lib/api', () => ({
 }));
 
 jest.spyOn(Alert, 'alert');
+jest.spyOn(Share, 'share');
 
 // Module under test — imported AFTER all jest.mock() calls.
 import SessionBottomSheet from '@/components/screens/Sessions/SessionBottomSheet';
@@ -43,11 +44,87 @@ const baseProps = {
   visible: true,
   onClose: jest.fn(),
   sessionId: 42,
+  sessionCode: 'BK42TEST',
   sessionLabel: '3/19/2026 Session #1',
   gameCount: 5,
   playerCount: 4,
   status: 'active' as const,
 };
+
+describe('SessionBottomSheet — Share Session', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(Share.share).mockResolvedValue({
+      action: Share.sharedAction,
+      activityType: null,
+    });
+  });
+
+  it('opens the native share sheet with a stable session URL', async () => {
+    const onClose = jest.fn();
+    const { getByTestId } = render(
+      <SessionBottomSheet {...baseProps} onClose={onClose} />,
+    );
+
+    fireEvent.press(getByTestId('session-menu-share'));
+
+    await waitFor(() =>
+      expect(Share.share).toHaveBeenCalledWith(
+        {
+          title: 'Share Session',
+          message: expect.stringContaining(
+            'https://beachleaguevb.com/session/BK42TEST',
+          ),
+          url: 'https://beachleaguevb.com/session/BK42TEST',
+        },
+        { dialogTitle: 'Share Session' },
+      ),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows a clear error and keeps the menu open without a session code', async () => {
+    const onClose = jest.fn();
+    const { getByTestId } = render(
+      <SessionBottomSheet
+        {...baseProps}
+        sessionCode={null}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.press(getByTestId('session-menu-share'));
+
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Could not share session',
+        expect.stringContaining('share code'),
+        expect.any(Array),
+      ),
+    );
+    expect(Share.share).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows a product error if the native share sheet fails', async () => {
+    jest.mocked(Share.share).mockRejectedValueOnce(new Error('unavailable'));
+    const onClose = jest.fn();
+    const { getByTestId } = render(
+      <SessionBottomSheet {...baseProps} onClose={onClose} />,
+    );
+
+    fireEvent.press(getByTestId('session-menu-share'));
+
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Could not share session',
+        expect.stringContaining('could not be opened'),
+        expect.any(Array),
+      ),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
 
 /** Grab the onPress of a named button from the most recent Alert.alert call. */
 function pressAlertButton(text: string): Promise<void> | void {
@@ -88,7 +165,9 @@ describe('SessionBottomSheet — Delete Session', () => {
 
     fireEvent.press(getByTestId('session-menu-delete'));
     await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
-    await pressAlertButton('Delete');
+    await act(async () => {
+      await pressAlertButton('Delete');
+    });
 
     await waitFor(() => expect(mockDeleteSession).toHaveBeenCalledWith(42));
     expect(onClose).toHaveBeenCalled();
@@ -101,7 +180,9 @@ describe('SessionBottomSheet — Delete Session', () => {
 
     fireEvent.press(getByTestId('session-menu-delete'));
     await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
-    await pressAlertButton('Delete');
+    await act(async () => {
+      await pressAlertButton('Delete');
+    });
 
     await waitFor(() =>
       expect(Alert.alert).toHaveBeenCalledWith(

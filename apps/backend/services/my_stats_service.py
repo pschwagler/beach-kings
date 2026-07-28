@@ -90,6 +90,7 @@ async def get_my_stats(
         return None
 
     player_name = player.full_name or player.nickname or f"Player {player_id}"
+    player_avatar_url = player.profile_picture_url
     player_city = getattr(player, "city", None)
     player_level = player.level
 
@@ -149,6 +150,7 @@ async def get_my_stats(
 
     return {
         "player_name": player_name,
+        "player_avatar_url": player_avatar_url,
         "player_city": player_city,
         "player_level": player_level,
         "overall": {
@@ -273,6 +275,7 @@ async def _partners_from_aggregates(
                 PartnershipStats,
                 PartnerPlayer.id.label("partner_player_id"),
                 PartnerPlayer.full_name.label("partner_name"),
+                PartnerPlayer.profile_picture_url.label("partner_avatar_url"),
             )
             .join(PartnerPlayer, PartnershipStats.partner_id == PartnerPlayer.id)
             .where(PartnershipStats.player_id == player_id)
@@ -284,6 +287,7 @@ async def _partners_from_aggregates(
                 PartnershipStatsLeague,
                 PartnerPlayer.id.label("partner_player_id"),
                 PartnerPlayer.full_name.label("partner_name"),
+                PartnerPlayer.profile_picture_url.label("partner_avatar_url"),
             )
             .join(PartnerPlayer, PartnershipStatsLeague.partner_id == PartnerPlayer.id)
             .where(
@@ -300,6 +304,7 @@ async def _partners_from_aggregates(
         _build_relation_row(
             player_id=row.partner_player_id,
             full_name=row.partner_name,
+            avatar_url=row.partner_avatar_url,
             games=row[0].games,
             wins=row[0].wins,
             # Stored win_rate is canonically 0-1; the payload contract is 0-100
@@ -321,6 +326,7 @@ async def _opponents_from_aggregates(
                 OpponentStats,
                 OpponentPlayer.id.label("opponent_player_id"),
                 OpponentPlayer.full_name.label("opponent_name"),
+                OpponentPlayer.profile_picture_url.label("opponent_avatar_url"),
             )
             .join(OpponentPlayer, OpponentStats.opponent_id == OpponentPlayer.id)
             .where(OpponentStats.player_id == player_id)
@@ -332,6 +338,7 @@ async def _opponents_from_aggregates(
                 OpponentStatsLeague,
                 OpponentPlayer.id.label("opponent_player_id"),
                 OpponentPlayer.full_name.label("opponent_name"),
+                OpponentPlayer.profile_picture_url.label("opponent_avatar_url"),
             )
             .join(OpponentPlayer, OpponentStatsLeague.opponent_id == OpponentPlayer.id)
             .where(
@@ -348,6 +355,7 @@ async def _opponents_from_aggregates(
         _build_relation_row(
             player_id=row.opponent_player_id,
             full_name=row.opponent_name,
+            avatar_url=row.opponent_avatar_url,
             games=row[0].games,
             wins=row[0].wins,
             # Stored win_rate is canonically 0-1; the payload contract is 0-100
@@ -537,9 +545,16 @@ async def _relations_from_matches(
 
     other_ids = list(counter.keys())
     name_rows = (
-        await session.execute(select(Player.id, Player.full_name).where(Player.id.in_(other_ids)))
+        await session.execute(
+            select(Player.id, Player.full_name, Player.profile_picture_url).where(
+                Player.id.in_(other_ids)
+            )
+        )
     ).all()
-    names = {pid: name for pid, name in name_rows}
+    players = {
+        pid: {"name": name, "avatar_url": avatar_url}
+        for pid, name, avatar_url in name_rows
+    }
 
     out: List[Dict] = []
     for other_id, (games, wins) in counter.items():
@@ -547,7 +562,8 @@ async def _relations_from_matches(
         out.append(
             _build_relation_row(
                 player_id=other_id,
-                full_name=names.get(other_id),
+                full_name=players.get(other_id, {}).get("name"),
+                avatar_url=players.get(other_id, {}).get("avatar_url"),
                 games=games,
                 wins=wins,
                 win_rate=win_rate,
@@ -659,6 +675,7 @@ async def _compute_current_streak(
 def _build_relation_row(
     player_id: int,
     full_name: Optional[str],
+    avatar_url: Optional[str],
     games: int,
     wins: int,
     win_rate: float,
@@ -668,6 +685,7 @@ def _build_relation_row(
     Args:
         player_id: ID of the partner or opponent player.
         full_name: Full name used to derive display_name and initials.
+        avatar_url: Uploaded player profile photo URL, when available.
         games: Total games played together/against.
         wins: Number of wins.
         win_rate: Win rate percentage.
@@ -687,6 +705,7 @@ def _build_relation_row(
         "player_id": player_id,
         "display_name": display_name,
         "initials": initials,
+        "avatar_url": avatar_url,
         "games_played": games,
         "wins": wins,
         "losses": games - wins,

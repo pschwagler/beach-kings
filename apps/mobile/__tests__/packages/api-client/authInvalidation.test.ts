@@ -78,7 +78,44 @@ function unauthorized(url: string) {
   };
 }
 
+function forbidden(url: string) {
+  return {
+    config: { url, headers: {} },
+    response: { status: 403 },
+  };
+}
+
 describe("ApiClient auth invalidation", () => {
+  it("returns the original 403 when CustomEvent is unavailable on native", async () => {
+    const { rejectResponse } = await makeClient();
+    const customEventDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "CustomEvent",
+    );
+    Object.defineProperty(globalThis, "CustomEvent", {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      await expect(
+        rejectResponse(forbidden("/api/sessions/9/participants/5")),
+      ).rejects.toMatchObject({
+        response: { status: 403 },
+      });
+    } finally {
+      if (customEventDescriptor == null) {
+        delete (globalThis as { CustomEvent?: unknown }).CustomEvent;
+      } else {
+        Object.defineProperty(
+          globalThis,
+          "CustomEvent",
+          customEventDescriptor,
+        );
+      }
+    }
+  });
+
   it("attempts to remove both stored credentials when one removal fails", async () => {
     const removeItem = jest.fn(async (key: string) => {
       if (key === "beach_access_token") throw new Error("storage failed");

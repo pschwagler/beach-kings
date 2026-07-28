@@ -116,14 +116,14 @@ export function formatRecord(wins: number, losses: number): string {
 
 /**
  * Formats a win rate percentage string, rounding to the nearest integer.
- * Returns "0%" when there are no games played.
+ * Returns "--" when there are no games because a rate is not defined yet.
  *
  * @example formatWinRate(8, 2) // "80%"
- * @example formatWinRate(0, 0) // "0%"
+ * @example formatWinRate(0, 0) // "--"
  */
 export function formatWinRate(wins: number, losses: number): string {
   const total = wins + losses;
-  if (total === 0) return '0%';
+  if (total === 0) return '--';
   return `${Math.round((wins / total) * 100)}%`;
 }
 

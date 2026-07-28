@@ -92,6 +92,19 @@ for normal forward navigation.
 4. Render `<TopNav title=… showBack />` — no `backFallback` needed.
 5. If the screen is the end of a creation flow, `replace` into it, don't `push`.
 
+## Notification links
+
+The backend stores notification targets using web route shapes such as
+`/home?tab=friends`, `/league/7?tab=messages`, and `/player/12/name`.
+Notification UI must pass those values through
+`features/notifications/navigation.ts`; it must never push `link_url` directly
+into Expo Router.
+
+The adapter maps known web destinations to `routes.*`, translates web league
+tabs to their mobile equivalents, and rejects unsupported or external targets.
+Add new backend notification link shapes to that adapter and its table-driven
+test in the same change.
+
 ## Testing note
 
 `useBack` reads `useSegments()`, `useLocalSearchParams()`, and

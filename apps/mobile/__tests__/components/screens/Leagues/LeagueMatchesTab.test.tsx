@@ -18,6 +18,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetMyGames = jest.fn();
 const mockGetLeagueGames = jest.fn();
+const mockGetLeagueSessions = jest.fn();
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
@@ -27,6 +28,7 @@ jest.mock('@/lib/api', () => ({
   api: {
     getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
     getLeagueGames: (...args: unknown[]) => mockGetLeagueGames(...args),
+    getLeagueSessions: (...args: unknown[]) => mockGetLeagueSessions(...args),
   },
 }));
 
@@ -94,6 +96,41 @@ const ALL_GAME_SUBMITTED = {
   session_status: 'SUBMITTED' as const,
 };
 
+const LEAGUE_SESSIONS = [
+  {
+    id: 200,
+    date: '2024-06-02',
+    name: 'June 2',
+    status: 'ACTIVE' as const,
+    season_id: null,
+    court_id: null,
+    court_name: null,
+    court_slug: null,
+    created_at: null,
+    updated_at: null,
+    created_by: null,
+    updated_by: null,
+    game_count: 1,
+    player_count: 4,
+  },
+  {
+    id: 100,
+    date: '2024-06-01',
+    name: 'June 1',
+    status: 'SUBMITTED' as const,
+    season_id: null,
+    court_id: null,
+    court_name: null,
+    court_slug: null,
+    created_at: null,
+    updated_at: null,
+    created_by: null,
+    updated_by: null,
+    game_count: 1,
+    player_count: 4,
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -111,6 +148,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetMyGames.mockResolvedValue({ games: [], total: 0 });
   mockGetLeagueGames.mockResolvedValue({ games: [], total: 0 });
+  mockGetLeagueSessions.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -144,7 +182,11 @@ describe('LeagueMatchesTab — toggle', () => {
     fireEvent.press(screen.getByTestId('league-games-mode-all'));
 
     await waitFor(() => {
-      expect(mockGetLeagueGames).toHaveBeenCalledWith(5);
+      expect(mockGetLeagueGames).toHaveBeenCalledWith(5, {
+        limit: 500,
+        offset: 0,
+      });
+      expect(mockGetLeagueSessions).toHaveBeenCalledWith(5);
     });
   });
 });
@@ -226,11 +268,39 @@ describe('LeagueMatchesTab — active session styling (mine)', () => {
 // ---------------------------------------------------------------------------
 
 describe('LeagueMatchesTab — All Games rendering', () => {
+  it('loads every page before rendering the complete session history', async () => {
+    mockGetLeagueSessions.mockResolvedValue(LEAGUE_SESSIONS);
+    mockGetLeagueGames.mockImplementation(
+      (_leagueId: number, params: { offset: number }) =>
+        Promise.resolve(
+          params.offset === 0
+            ? { games: [ALL_GAME_ACTIVE], total: 2 }
+            : { games: [ALL_GAME_SUBMITTED], total: 2 },
+        ),
+    );
+
+    render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(mockGetMyGames).toHaveBeenCalled());
+
+    fireEvent.press(screen.getByTestId('league-games-mode-all'));
+
+    await waitFor(() => {
+      expect(mockGetLeagueGames).toHaveBeenCalledWith(5, {
+        limit: 500,
+        offset: 1,
+      });
+      expect(
+        screen.getByTestId(`league-game-row-${ALL_GAME_SUBMITTED.id}`),
+      ).toBeTruthy();
+    });
+  });
+
   it('renders team-neutral rows after switching to All Games', async () => {
     mockGetLeagueGames.mockResolvedValue({
       games: [ALL_GAME_ACTIVE, ALL_GAME_SUBMITTED],
       total: 2,
     });
+    mockGetLeagueSessions.mockResolvedValue(LEAGUE_SESSIONS);
 
     render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
     await waitFor(() => expect(mockGetMyGames).toHaveBeenCalled());
@@ -249,6 +319,12 @@ describe('LeagueMatchesTab — All Games rendering', () => {
       screen.getByTestId(`league-game-score-${ALL_GAME_ACTIVE.id}`).props
         .accessibilityLabel,
     ).toBe('Score 21-14');
+    expect(
+      screen.getByTestId('session-card-200-game-count').props.children,
+    ).toBe(1);
+    expect(
+      screen.getByTestId('session-card-200-player-count').props.children,
+    ).toBe(4);
   });
 
   it('renders a TIE badge for a drawn game, distinct from an unscored game', async () => {
@@ -263,6 +339,12 @@ describe('LeagueMatchesTab — All Games rendering', () => {
       games: [tieGame, unscoredGame],
       total: 2,
     });
+    mockGetLeagueSessions.mockResolvedValue([
+      {
+        ...LEAGUE_SESSIONS[1],
+        game_count: 2,
+      },
+    ]);
 
     render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
     await waitFor(() => expect(mockGetMyGames).toHaveBeenCalled());
@@ -301,5 +383,27 @@ describe('LeagueMatchesTab — empty state', () => {
     await waitFor(() => {
       expect(screen.getByText('No League Games Yet')).toBeTruthy();
     });
+  });
+
+  it('shows league sessions that do not have games yet', async () => {
+    mockGetLeagueSessions.mockResolvedValue([
+      {
+        ...LEAGUE_SESSIONS[0],
+        id: 300,
+        game_count: 0,
+        player_count: 3,
+      },
+    ]);
+
+    render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(mockGetMyGames).toHaveBeenCalled());
+
+    fireEvent.press(screen.getByTestId('league-games-mode-all'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-card-300')).toBeTruthy();
+    });
+    expect(screen.getByTestId('session-card-300-game-count').props.children).toBe(0);
+    expect(screen.getByTestId('session-card-300-player-count').props.children).toBe(3);
   });
 });

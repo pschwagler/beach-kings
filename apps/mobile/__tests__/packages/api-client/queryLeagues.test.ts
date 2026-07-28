@@ -90,7 +90,11 @@ describe('queryLeagues — friends_in_league mapping', () => {
     ]);
     const methods = createApiMethods(client);
     const result = await methods.queryLeagues({});
-    expect(result.items[0].friends_in_league[0]).toEqual({ player_id: 10, initials: 'AS' });
+    expect(result.items[0].friends_in_league[0]).toEqual({
+      player_id: 10,
+      initials: 'AS',
+      avatar_url: null,
+    });
   });
 
   it('produces single-character initials when last_name is null', async () => {
@@ -101,7 +105,11 @@ describe('queryLeagues — friends_in_league mapping', () => {
     ]);
     const methods = createApiMethods(client);
     const result = await methods.queryLeagues({});
-    expect(result.items[0].friends_in_league[0]).toEqual({ player_id: 11, initials: 'B' });
+    expect(result.items[0].friends_in_league[0]).toEqual({
+      player_id: 11,
+      initials: 'B',
+      avatar_url: null,
+    });
   });
 
   it('maps empty friends_preview to empty friends_in_league', async () => {
@@ -122,6 +130,26 @@ describe('queryLeagues — friends_in_league mapping', () => {
     const methods = createApiMethods(client);
     const result = await methods.queryLeagues({});
     expect(result.items[0].friends_in_league[0].player_id).toBe(42);
+  });
+
+  it('preserves the uploaded profile picture for each friend', async () => {
+    const client = makeMockClient([
+      makeRawItem({
+        friends_preview: [
+          {
+            player_id: 42,
+            first_name: 'Carlos',
+            last_name: 'Ruiz',
+            avatar: 'https://cdn.example.com/carlos.jpg',
+          },
+        ],
+      }),
+    ]);
+    const methods = createApiMethods(client);
+    const result = await methods.queryLeagues({});
+    expect(result.items[0].friends_in_league[0].avatar_url).toBe(
+      'https://cdn.example.com/carlos.jpg',
+    );
   });
 });
 

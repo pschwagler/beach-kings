@@ -12,6 +12,7 @@ jest.mock('@/lib/api', () => ({
   api: {
     getNotifications: jest.fn(),
     getUnreadNotificationCount: jest.fn(),
+    getDmUnreadCount: jest.fn(),
     markNotificationRead: jest.fn(),
     markAllNotificationsRead: jest.fn(),
   },
@@ -45,23 +46,45 @@ const notification = {
   created_at: '2026-07-18T12:00:00Z',
 };
 
+const readNotification = {
+  ...notification,
+  id: 5,
+  is_read: true,
+  read_at: '2026-07-18T12:05:00Z',
+};
+
+const dismissedNotification = {
+  ...notification,
+  id: 6,
+  dismissed_at: '2026-07-18T12:06:00Z',
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
-  mockApi.getNotifications.mockResolvedValue([notification]);
+  mockApi.getNotifications.mockResolvedValue([
+    notification,
+    readNotification,
+    dismissedNotification,
+  ]);
   mockApi.getUnreadNotificationCount.mockResolvedValue({ count: 9 });
+  mockApi.getDmUnreadCount.mockResolvedValue({ count: 3 });
   mockApi.markNotificationRead.mockReturnValue(new Promise(() => {}));
   mockApi.markAllNotificationsRead.mockReturnValue(new Promise(() => {}));
 });
 
 describe('useNotifications', () => {
-  it('hydrates the feed and uses the server total for badges', async () => {
+  it('hydrates an unread inbox and uses the server total for badges', async () => {
     const { result } = renderHook(() => useNotifications(), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     await waitFor(() => expect(result.current.unreadCount).toBe(9));
+    await waitFor(() => expect(result.current.dmUnreadCount).toBe(3));
     expect(result.current.notifications).toEqual([notification]);
+    expect(mockApi.getNotifications).toHaveBeenCalledWith({
+      unreadOnly: true,
+    });
   });
 
   it('optimistically synchronizes feed and total count when marking read', async () => {
@@ -73,7 +96,7 @@ describe('useNotifications', () => {
     act(() => result.current.markAsRead(notification.id));
 
     await waitFor(() => expect(result.current.unreadCount).toBe(8));
-    expect(result.current.notifications[0]?.is_read).toBe(true);
+    expect(result.current.notifications).toEqual([]);
   });
 
   it('optimistically clears both feed unread state and the badge total', async () => {
@@ -85,7 +108,7 @@ describe('useNotifications', () => {
     act(() => result.current.markAllAsRead());
 
     await waitFor(() => expect(result.current.unreadCount).toBe(0));
-    expect(result.current.notifications[0]?.is_read).toBe(true);
+    expect(result.current.notifications).toEqual([]);
   });
 
   it('keeps public handlers stable across Query and mutation rerenders', async () => {
