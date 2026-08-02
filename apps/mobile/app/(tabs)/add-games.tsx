@@ -16,7 +16,7 @@
  *                 add-games-pickup.html
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -33,89 +33,22 @@ import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
 import { formatSessionSubtitle } from '@/lib/formatters';
 import { hapticMedium } from '@/utils/haptics';
-import Svg, { Path, Circle } from 'react-native-svg';
+import { TrophyIcon, VolleyballIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
 // ---------------------------------------------------------------------------
-// Inline icons (SVG path copied from wireframe)
+// Game-type icons
 // ---------------------------------------------------------------------------
 
 function LeagueIconSvg(): React.ReactNode {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"
-        stroke="#2a7d9c"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"
-        stroke="#2a7d9c"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M18 9h1.5a1 1 0 0 0 0-5H18"
-        stroke="#2a7d9c"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M4 22h16"
-        stroke="#2a7d9c"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"
-        stroke="#2a7d9c"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M6 9H4.5a1 1 0 0 1 0-5H6"
-        stroke="#2a7d9c"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
+  const palette = usePaletteColors();
+  return <TrophyIcon size={24} color={palette.brandTeal} />;
 }
 
 function PickupIconSvg(): React.ReactNode {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Circle
-        cx={12}
-        cy={12}
-        r={10}
-        stroke="#d4a843"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"
-        stroke="#d4a843"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M2 12h20"
-        stroke="#d4a843"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
+  const palette = usePaletteColors();
+  return <VolleyballIcon size={24} color={palette.brandGold} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -193,8 +126,16 @@ interface LeagueWithSession extends League {
 
 export default function AddGamesScreen(): React.ReactNode {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const { user } = useAuth();
   const userId = user?.id ?? 0;
+
+  useEffect(
+    () => registerRootTabScroll('add-games', () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }),
+    [],
+  );
 
   // Which sub-view is active
   const [view, setView] = useState<ScreenView>('chooser');
@@ -371,6 +312,7 @@ export default function AddGamesScreen(): React.ReactNode {
     >
       <TopNav title="Add Games" />
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         refreshControl={

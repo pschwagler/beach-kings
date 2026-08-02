@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { StatsJobIds } from '@beach-kings/shared';
 import { api } from '@/lib/api';
-import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
+import { leagueKeys } from '@/features/leagues';
 import { playerKeys } from '@/features/player';
 import { sessionKeys } from '@/features/sessions';
 import { matchKeys } from './keys';

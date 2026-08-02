@@ -44,6 +44,10 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
 }));
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({ brandTeal: '#1a3a4a', brandGold: '#d4a843' }),
+}));
+
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -117,6 +121,7 @@ jest.mock('@/components/ui/icons', () => {
     ChevronRightIcon: makeIcon('ChevronRightIcon'),
     ChevronLeftIcon: makeIcon('ChevronLeftIcon'),
     TrophyIcon: makeIcon('TrophyIcon'),
+    VolleyballIcon: makeIcon('VolleyballIcon'),
     AlertTriangleIcon: makeIcon('AlertTriangleIcon'),
     HomeIcon: makeIcon('HomeIcon'),
     PlusIcon: makeIcon('PlusIcon'),

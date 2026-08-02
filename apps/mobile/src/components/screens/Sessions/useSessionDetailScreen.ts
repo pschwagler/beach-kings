@@ -72,7 +72,7 @@ export function useSessionDetailScreen(
     sessionQueries.detail(userId, sessionId),
   );
   const updateCourt = useMutation(
-    sessionMutationOptions.updateCourt(sessionId),
+    sessionMutationOptions.updateCourt(userId, sessionId),
   );
 
   // Refresh on focus so returning from score-game (after a save / edit /

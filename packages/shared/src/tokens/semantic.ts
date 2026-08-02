@@ -44,7 +44,8 @@ const roles = {
   borderDivider: [colors.border, darkColors.borderSubtle],
 
   // Brand (intentionally flips per theme — light mode uses the deeper teal
-  // for contrast on white; dark mode uses a lifted teal that reads on #161b22)
+  // for contrast on warm white; dark mode uses a lifted teal that reads on
+  // the deep teal surface)
   brandTeal: [colors.primary, darkColors.brandTeal],
   brandGold: [colors.accent, darkColors.brandGold],
 

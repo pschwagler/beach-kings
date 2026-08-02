@@ -479,12 +479,13 @@ describe('CourtsScreen — list/map toggle', () => {
     });
   });
 
-  it('"View Full Map" button in list mode switches to map mode', async () => {
+  it('uses the Map segment as the single entry to map exploration', async () => {
     renderScreen();
     await waitFor(() => {
-      expect(screen.getByTestId('courts-view-full-map-btn')).toBeTruthy();
+      expect(screen.getByTestId('courts-view-toggle-map')).toBeTruthy();
     });
-    fireEvent.press(screen.getByTestId('courts-view-full-map-btn'));
+    expect(screen.queryByTestId('courts-view-full-map-btn')).toBeNull();
+    fireEvent.press(screen.getByTestId('courts-view-toggle-map'));
     await waitFor(() => {
       expect(screen.getByTestId('courts-map-view')).toBeTruthy();
     });

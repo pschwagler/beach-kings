@@ -19,7 +19,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, FlatList, RefreshControl, Pressable } from 'react-native';
+import { View, Text, FlatList, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -33,7 +33,7 @@ import CourtsEmptyState from './CourtsEmptyState';
 import CourtsErrorState from './CourtsErrorState';
 import CourtsFilterBar from './CourtsFilterBar';
 import CourtsMapView from './CourtsMapView';
-import CourtsMapPreview from './CourtsMapPreview';
+import SegmentControl from '@/components/ui/SegmentControl';
 import type { Court } from '@beach-kings/shared';
 import type { CourtsViewMode } from './useCourtsScreen';
 import { getCourtFilterPresentation } from './courtFilters';
@@ -66,46 +66,17 @@ function ViewModeToggle({
   }, [onToggle]);
 
   return (
-    <View
+    <SegmentControl
       testID="courts-view-toggle"
-      className="flex-row mx-4 my-2 rounded-lg bg-surface border border-strong overflow-hidden"
-    >
-      <Pressable
-        testID="courts-view-toggle-list"
-        onPress={handleList}
-        accessibilityRole="button"
-        accessibilityLabel="List view"
-        className={`flex-1 py-2 items-center ${
-          viewMode === 'list' ? 'bg-brand-teal' : 'bg-surface'
-        } active:opacity-80`}
-      >
-        <Text
-          className={`text-[13px] font-semibold ${
-            viewMode === 'list' ? 'text-inverse' : 'text-muted'
-          }`}
-        >
-          List
-        </Text>
-      </Pressable>
-
-      <Pressable
-        testID="courts-view-toggle-map"
-        onPress={handleMap}
-        accessibilityRole="button"
-        accessibilityLabel="Map view"
-        className={`flex-1 py-2 items-center ${
-          viewMode === 'map' ? 'bg-brand-teal' : 'bg-surface'
-        } active:opacity-80`}
-      >
-        <Text
-          className={`text-[13px] font-semibold ${
-            viewMode === 'map' ? 'text-inverse' : 'text-muted'
-          }`}
-        >
-          Map
-        </Text>
-      </Pressable>
-    </View>
+      segmentTestIDs={['courts-view-toggle-list', 'courts-view-toggle-map']}
+      segments={['List', 'Map']}
+      selectedIndex={viewMode === 'list' ? 0 : 1}
+      className="mx-4 my-2"
+      onSelect={(index) => {
+        if (index === 0) handleList();
+        else handleMap();
+      }}
+    />
   );
 }
 
@@ -150,11 +121,6 @@ export default function CourtsScreen(): React.ReactNode {
   const handleClearFilter = useCallback(() => {
     setActiveFilter(null);
   }, [setActiveFilter]);
-
-  const handleViewFullMap = useCallback(() => {
-    void hapticLight();
-    setViewMode('map');
-  }, [setViewMode]);
 
   const handleSelectCourt = useCallback(
     (court: Court) => {
@@ -242,11 +208,6 @@ export default function CourtsScreen(): React.ReactNode {
         ListHeaderComponent={
           <>
             <ViewModeToggle viewMode={viewMode} onToggle={setViewMode} />
-            <CourtsMapPreview
-              courts={courts}
-              userLocation={userLocation}
-              onViewFullMap={handleViewFullMap}
-            />
             <CourtsFilterBar
               activeFilter={activeFilter}
               onFilterChange={setActiveFilter}

@@ -38,7 +38,7 @@ export interface GameCreatePayload {
  * The `session_id` is always present — when a new session was created it
  * reflects the newly created session's id.
  */
-export interface GameCreateResponse {
+export interface GameCreateResponse extends StatsJobIds {
   readonly status: string;
   readonly message: string;
   readonly match_id: number;

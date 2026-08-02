@@ -33,6 +33,7 @@ import MessagesTab from "./MessagesTab";
 import NotificationsTab from "./NotificationsTab";
 import FriendsTab from "./FriendsTab";
 import FindPlayersTab from "./FindPlayersTab";
+import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
 const DEFAULT_TAB: SocialTab = "messages";
 const VALID_TABS: readonly SocialTab[] = [
@@ -62,6 +63,14 @@ export default function SocialScreen(): React.ReactNode {
   // header controls. Only one tab is mounted at a time (lazy per-tab fetch), so
   // there's never a race between two tabs' actions.
   const [headerAction, setHeaderAction] = useState<React.ReactNode>(null);
+  const [scrollRequest, setScrollRequest] = useState(0);
+
+  useEffect(
+    () => registerRootTabScroll('social', () => {
+      setScrollRequest((value) => value + 1);
+    }),
+    [],
+  );
 
   // Sync to the `?tab=` param when it changes (e.g. a deep link arriving while
   // the screen is already mounted). Functional update leaves in-app tab taps
@@ -82,14 +91,15 @@ export default function SocialScreen(): React.ReactNode {
           <MessagesTab
             setHeaderAction={setHeaderAction}
             onCompose={goToFindPlayers}
+            scrollRequest={scrollRequest}
           />
         );
       case "notifications":
-        return <NotificationsTab setHeaderAction={setHeaderAction} />;
+        return <NotificationsTab setHeaderAction={setHeaderAction} scrollRequest={scrollRequest} />;
       case "friends":
-        return <FriendsTab onFindPlayers={goToFindPlayers} />;
+        return <FriendsTab onFindPlayers={goToFindPlayers} scrollRequest={scrollRequest} />;
       case "findplayers":
-        return <FindPlayersTab />;
+        return <FindPlayersTab scrollRequest={scrollRequest} />;
     }
   }
 

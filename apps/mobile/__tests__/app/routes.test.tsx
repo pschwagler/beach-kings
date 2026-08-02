@@ -73,6 +73,17 @@ jest.mock('expo-router', () => {
   };
 });
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    brandTeal: '#1a3a4a',
+    brandGold: '#d4a843',
+    textDefault: '#182326',
+    textMuted: '#596568',
+    textTertiary: '#697577',
+    textInverse: '#fffdf8',
+  }),
+}));
+
 function render(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -396,6 +407,7 @@ jest.mock('@/components/ui/icons', () => {
   return {
     HomeIcon: makeIcon('HomeIcon'),
     TrophyIcon: makeIcon('TrophyIcon'),
+    VolleyballIcon: makeIcon('VolleyballIcon'),
     PlusIcon: makeIcon('PlusIcon'),
     ChatIcon: makeIcon('ChatIcon'),
     UserIcon: makeIcon('UserIcon'),
@@ -937,6 +949,7 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
       return {
         HomeIcon: makeIcon('HomeIcon'),
         TrophyIcon: makeIcon('TrophyIcon'),
+        VolleyballIcon: makeIcon('VolleyballIcon'),
         PlusIcon: makeIcon('PlusIcon'),
         ChatIcon: makeIcon('ChatIcon'),
         UserIcon: makeIcon('UserIcon'),

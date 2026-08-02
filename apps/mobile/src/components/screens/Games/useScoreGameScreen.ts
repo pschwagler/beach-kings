@@ -4,7 +4,7 @@
  * Manages:
  *   - team1 and team2 player slots (up to 2 each)
  *   - score inputs for each team
- *   - roster data for the picker (fetched from API based on context)
+ *   - Query-backed roster data composed for the picker
  *   - is_ranked — derived from context: league sessions are ranked by default,
  *     pickup sessions are unranked. In edit mode, the persisted game value is
  *     hydrated from session detail. Session-level is_ranked is set at session
@@ -12,341 +12,60 @@
  *   - submit flow with loading / error / success states
  *   - onAddAnother — resets form while preserving session/league context
  *   - edit mode (matchId provided) — pre-fills slots from session detail and
- *     calls api.updateMatch on submit instead of api.submitScoredGame
- *   - delete (matchId provided) — calls api.deleteMatch
+ *     uses the shared match mutation contracts
+ *   - delete (matchId provided) through the shared match mutation contract
  *
- * Roster source priority:
- *   1. sessionId → GET /api/sessions/:id/participants (+ friends appended)
- *   2. leagueId (only) → GET /api/leagues/:id/members (source='session')
- *   3. Neither → GET /api/friends (fallback)
+ * Server data is owned by the session, league, player, social, and match
+ * feature modules. This hook keeps only form and interaction state locally.
  */
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { routes } from "@/lib/navigation";
 import { useAddNewPlayer } from "@/contexts/AddNewPlayerContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { reconcileGameMutation } from "@/features/matches";
-import { shareSessionInvitation } from "@/features/sessions";
+import {
+  matchMutationOptions,
+  reconcileGameMutation,
+} from "@/features/matches";
+import { sessionQueries, shareSessionInvitation } from "@/features/sessions";
+import { leagueQueries } from "@/features/leagues";
+import { playerQueries } from "@/features/player";
+import { socialQueries } from "@/features/social";
+import useDebounce from "@/hooks/useDebounce";
 import { formatLocalCalendarDate } from "@/lib/calendarDate";
 import type {
-  SessionGame,
-  PlayerSearchTag,
-  PlayerSearchItem,
   PlayerGender,
   SkillLevel,
   Player,
   StatsJobIds,
 } from "@beach-kings/shared";
 import { SKILL_LEVEL_OPTIONS, validateMatchScore } from "@beach-kings/shared";
+import {
+  EMPTY_SLOT,
+  buildFallbackRoster,
+  deriveInitialSlots,
+  inferGenderLevel,
+  mapSearchItem,
+  toInitials,
+  type DeleteState,
+  type PlayerSlot,
+  type RosterPlayer,
+  type SubmitState,
+  type UseScoreGameScreenOptions,
+  type UseScoreGameScreenResult,
+} from "./scoreGameModel";
 
-export type SubmitState = "idle" | "loading" | "success" | "error";
-export type DeleteState = "idle" | "loading" | "error";
-
-export interface PlayerSlot {
-  readonly player_id: number | null;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly is_guest?: boolean;
-  readonly avatar_url?: string | null;
-}
-
-const EMPTY_SLOT: PlayerSlot = {
-  player_id: null,
-  display_name: "",
-  initials: "",
-};
-
-/** Minimal roster player shape used within this hook.
- *
- * `tags` are the (≤3) pills to render, mirroring the backend's additive
- * relevance result. `isSession` is a distinct layout signal (not a pill):
- * session players render as compact chips, everyone else as ranked rows.
- * `is_guest` marks placeholder players created via the "Add New Player" flow. */
-export interface RosterPlayer {
-  readonly player_id: number;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly tags: readonly PlayerSearchTag[];
-  readonly isSession: boolean;
-  readonly is_guest?: boolean;
-  readonly avatar_url?: string | null;
-}
-
-/** Context passed into the hook from the parent screen/route. */
-export interface UseScoreGameScreenOptions {
-  /** Existing session to add the game to. Null/undefined → backend creates a new session. */
-  readonly sessionId?: number | null;
-  /** League context — sets is_ranked default to true and drives roster source. */
-  readonly leagueId?: number | null;
-  /**
-   * Season to attach a lazily-created league session to. Only used when both
-   * `leagueId` is set and the user triggers a session create (via "Manage
-   * Session" or by saving the first match).
-   */
-  readonly seasonId?: number | null;
-  /**
-   * Match id to edit. When provided, the hook fetches the session detail to
-   * pre-fill slots/scores and routes submit through `api.updateMatch`.
-   */
-  readonly matchId?: number | null;
-  /**
-   * Logged-in player ID, used to mark the current user's chip with a "YOU"
-   * badge in the picker. When omitted, the hook fetches it once via
-   * `api.getCurrentUserPlayer()` on mount.
-   */
-  readonly currentPlayerId?: number | null;
-}
-
-export interface UseScoreGameScreenResult {
-  readonly team1: readonly [PlayerSlot, PlayerSlot];
-  readonly team2: readonly [PlayerSlot, PlayerSlot];
-  readonly score1: number;
-  readonly score2: number;
-  readonly roster: readonly RosterPlayer[];
-  readonly search: string;
-  readonly filteredRoster: readonly RosterPlayer[];
-  /** True while a backend search is in flight (debounced). */
-  readonly isSearching: boolean;
-  readonly submitState: SubmitState;
-  readonly errorMessage: string | null;
-  readonly canSubmit: boolean;
-  /**
-   * Whether the game is counted toward rankings.
-   *
-   * For new games in an existing session, hydrated from session.is_ranked
-   * (GET /api/sessions/:id) so the value reflects what the session creator
-   * chose. Falls back to leagueId != null while the fetch is in flight or when
-   * there is no session. In edit mode the persisted per-game value is hydrated
-   * from the game record in session detail. Pickup with no session → false.
-   */
-  readonly isRanked: boolean;
-  /** session_id returned by the last successful submit (new or existing). */
-  readonly lastSessionId: number | null;
-  /** match_id returned by the last successful submitScoredGame (null in edit mode or before first save). */
-  readonly savedMatchId: number | null;
-  /** How many of the 4 slots are filled. */
-  readonly filledCount: number;
-  /** True while fewer than 4 slots are filled (picker shown, score hidden). */
-  readonly isBuilding: boolean;
-  /** The next empty slot to fill, scanning team1[0] → team1[1] → team2[0] → team2[1]. */
-  readonly activeNextSlot: {
-    readonly team: 1 | 2;
-    readonly slot: 0 | 1;
-  } | null;
-  /** Inline validation warning to show near the save button. */
-  readonly scoreWarning: string | null;
-  /** Blocking score errors are styled and announced more strongly than hints. */
-  readonly scoreWarningKind: "error" | "warning" | null;
-  /**
-   * Logged-in player ID. Sourced from `options.currentPlayerId` when provided,
-   * otherwise from `api.getCurrentUserPlayer()`. Null until the fetch resolves,
-   * or permanently null if the fetch fails.
-   */
-  readonly currentPlayerId: number | null;
-  /** True when `matchId` was provided — submit uses updateMatch, delete is enabled. */
-  readonly isEditMode: boolean;
-  /** State of the in-flight `onDelete` request. */
-  readonly deleteState: DeleteState;
-  /**
-   * Current session id — initially `options.sessionId`, but updated when the
-   * hook captures a session created atomically by `onSubmit`. The
-   * screen uses this to decide where to navigate on close and whether the
-   * Share menu option is available.
-   */
-  readonly sessionId: number | null;
-  /** True when a session exists — drives Share menu visibility. */
-  readonly canShare: boolean;
-  /**
-   * Share the current session via the native share sheet. No-op when no
-   * session exists.
-   */
-  readonly onShareSession: () => Promise<void>;
-  readonly setScore1: (n: number) => void;
-  readonly setScore2: (n: number) => void;
-  readonly assignPlayer: (
-    team: 1 | 2,
-    slot: 0 | 1,
-    player: RosterPlayer | null,
-  ) => void;
-  readonly removePlayer: (team: 1 | 2, slot: 0 | 1) => void;
-  readonly swapSlots: (
-    from: { team: 1 | 2; slot: 0 | 1 },
-    to: { team: 1 | 2; slot: 0 | 1 },
-  ) => void;
-  readonly setSearch: (q: string) => void;
-  readonly onSubmit: () => void;
-  readonly onRetry: () => void;
-  readonly onDismissError: () => void;
-  readonly onAddAnother: () => void;
-  /**
-   * Delete the current match. Resolves to `true` when the delete succeeded,
-   * `false` when it failed (caller should stay on the screen so the user can
-   * see the error) or there was nothing to delete.
-   */
-  readonly onDelete: () => Promise<boolean>;
-
-  // --- AddNewPlayer formSheet route ---
-
-  /**
-   * Stashed share invite produced after the add-new-player sheet returns a
-   * created placeholder. Drives the `ScoreboardToast` "Share" action. Null
-   * until a placeholder is created, and cleared by `clearPendingShareInvite`.
-   *
-   * `team` indicates which team the new player was assigned to, for the toast
-   * message "Brad K added to Team 2".
-   */
-  readonly pendingShareInvite: {
-    readonly name: string;
-    readonly invite_url: string;
-    readonly team: 1 | 2;
-  } | null;
-  /**
-   * Navigate to the "Add New Player" formSheet route for the given team/slot
-   * target. Passes the current `search` string and inferred gender/level into
-   * the sheet via AddNewPlayerContext; the created player flows back through
-   * the same context (consumed here to seat the player + raise the toast).
-   */
-  readonly openAddNewPlayer: (target: { team: 1 | 2; slot: 0 | 1 }) => void;
-  /** Dismiss the scoreboard toast by clearing the pending share invite. */
-  readonly clearPendingShareInvite: () => void;
-}
-
-/**
- * Pure helper — turn a `SessionGame` into the four-slot/score/is_ranked tuple
- * the hook uses to pre-fill state in edit mode. Names come from the game
- * payload directly; initials are derived from those names.
- */
-export function deriveInitialSlots(game: SessionGame | null): {
-  readonly team1: [PlayerSlot, PlayerSlot];
-  readonly team2: [PlayerSlot, PlayerSlot];
-  readonly score1: number;
-  readonly score2: number;
-  readonly isRanked: boolean;
-} {
-  if (game == null) {
-    return {
-      team1: [EMPTY_SLOT, EMPTY_SLOT],
-      team2: [EMPTY_SLOT, EMPTY_SLOT],
-      score1: 0,
-      score2: 0,
-      isRanked: false,
-    };
-  }
-  const slot = (id: number | null, name: string): PlayerSlot =>
-    id == null
-      ? EMPTY_SLOT
-      : { player_id: id, display_name: name, initials: toInitials(name) };
-  return {
-    team1: [
-      slot(game.team1_player1_id, game.team1_player1_name),
-      slot(game.team1_player2_id, game.team1_player2_name),
-    ],
-    team2: [
-      slot(game.team2_player1_id, game.team2_player1_name),
-      slot(game.team2_player2_id, game.team2_player2_name),
-    ],
-    score1: game.team1_score ?? 0,
-    score2: game.team2_score ?? 0,
-    isRanked: game.is_ranked ?? false,
-  };
-}
-
-/** Derive two-letter initials from a full name string. */
-function toInitials(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/);
-  if (parts.length === 0) return "";
-  if (parts.length === 1) return (parts[0]?.[0] ?? "").toUpperCase();
-  return (
-    (parts[0]?.[0] ?? "").toUpperCase() +
-    (parts[parts.length - 1]?.[0] ?? "").toUpperCase()
-  );
-}
-
-/** Map a backend relevance-search hit to the picker's roster shape. */
-function mapSearchItem(item: PlayerSearchItem): RosterPlayer {
-  return {
-    player_id: item.id,
-    display_name: item.full_name ?? `Player ${item.id}`,
-    initials:
-      item.initials && item.initials.length > 0
-        ? item.initials
-        : toInitials(item.full_name ?? ""),
-    tags: item.tags ?? [],
-    isSession: item.in_session ?? false,
-    is_guest: item.is_guest ?? false,
-    avatar_url: item.profile_picture_url ?? null,
-  };
-}
-
-/**
- * Best-effort roster used only when the relevance search is unavailable or
- * returns nothing. Shared by every flow: session participants (rendered as
- * chips) followed by any friends not already among them. A pickup game with
- * no session simply yields the friends list here — but this is a degraded
- * fallback, never the primary picker source.
- */
-function buildFallbackRoster(
-  participants: ReadonlyArray<{ player_id: number; full_name: string }>,
-  friendItems: ReadonlyArray<{ player_id: number; full_name: string }>,
-): RosterPlayer[] {
-  const sessionPlayers: RosterPlayer[] = participants.map((p) => ({
-    player_id: p.player_id,
-    display_name: p.full_name,
-    initials: toInitials(p.full_name),
-    tags: [],
-    isSession: true,
-  }));
-  const seated = new Set(sessionPlayers.map((p) => p.player_id));
-  const friendPlayers: RosterPlayer[] = friendItems
-    .filter((f) => !seated.has(f.player_id))
-    .map((f) => ({
-      player_id: f.player_id,
-      display_name: f.full_name,
-      initials: toInitials(f.full_name),
-      tags: ["friend"],
-      isSession: false,
-    }));
-  return [...sessionPlayers, ...friendPlayers];
-}
-
-/**
- * Infer the dominant gender and skill level from session participants via a
- * simple majority vote, ignoring blanks and unrecognized levels. Returns only
- * the signals that are present; used to pre-fill the new-player / placeholder
- * modal from the session's makeup.
- */
-function inferGenderLevel(
-  participants: ReadonlyArray<{
-    gender?: string | null;
-    level?: string | null;
-  }>,
-): { gender?: "male" | "female"; level?: SkillLevel } {
-  const validLevels = new Set<string>(SKILL_LEVEL_OPTIONS.map((o) => o.value));
-  const genderCounts = new Map<string, number>();
-  const levelCounts = new Map<string, number>();
-  for (const p of participants) {
-    if (p.gender != null && p.gender !== "") {
-      genderCounts.set(p.gender, (genderCounts.get(p.gender) ?? 0) + 1);
-    }
-    if (p.level != null && p.level !== "" && validLevels.has(p.level)) {
-      levelCounts.set(p.level, (levelCounts.get(p.level) ?? 0) + 1);
-    }
-  }
-  const topGender = [...genderCounts.entries()].sort(
-    (a, b) => b[1] - a[1],
-  )[0]?.[0];
-  const topLevel = [...levelCounts.entries()].sort(
-    (a, b) => b[1] - a[1],
-  )[0]?.[0];
-  const result: { gender?: "male" | "female"; level?: SkillLevel } = {};
-  if (topGender === "male" || topGender === "female") result.gender = topGender;
-  if (topLevel != null && validLevels.has(topLevel))
-    result.level = topLevel as SkillLevel;
-  return result;
-}
+export { deriveInitialSlots } from "./scoreGameModel";
+export type {
+  DeleteState,
+  PlayerSlot,
+  RosterPlayer,
+  SubmitState,
+  UseScoreGameScreenOptions,
+  UseScoreGameScreenResult,
+} from "./scoreGameModel";
 
 export function useScoreGameScreen(
   options: UseScoreGameScreenOptions = {},
@@ -392,15 +111,49 @@ export function useScoreGameScreen(
   const [lastSessionId, setLastSessionId] = useState<number | null>(null);
   const [savedMatchId, setSavedMatchId] = useState<number | null>(null);
   const [deleteState, setDeleteState] = useState<DeleteState>("idle");
+  const debouncedSearch = useDebounce(search, 250);
+
+  const sessionDetailQuery = useQuery(
+    sessionQueries.detail(userId, sessionId ?? 0, sessionId != null),
+  );
+  const participantsQuery = useQuery(
+    sessionQueries.participants(userId, sessionId ?? 0, sessionId != null),
+  );
+  const rosterQuery = useQuery(
+    sessionQueries.playerSearch(userId, sessionId, "", leagueId),
+  );
+  const searchQuery = useQuery(
+    sessionQueries.playerSearch(
+      userId,
+      sessionId,
+      debouncedSearch,
+      leagueId,
+      debouncedSearch.trim() !== "",
+    ),
+  );
+  const friendsQuery = useQuery(
+    socialQueries.friends(
+      userId,
+      rosterQuery.isFetched && (rosterQuery.data?.items.length ?? 0) === 0,
+    ),
+  );
+  const leagueQuery = useQuery(
+    leagueQueries.detail(userId, leagueId ?? 0, leagueId != null),
+  );
+  const currentPlayerQuery = useQuery(
+    playerQueries.me(userId, currentPlayerIdOption == null),
+  );
+  const createMatch = useMutation(matchMutationOptions.create(userId));
+  const updateMatch = useMutation(
+    matchMutationOptions.update(userId, matchId ?? 0),
+  );
+  const deleteMatch = useMutation(
+    matchMutationOptions.remove(userId, matchId ?? 0),
+  );
 
   // --- AddNewPlayer formSheet state ---
-  // inferredGender/Level are computed here (the inference effects need
-  // sessionId/leagueId, which only exist on this screen) and handed to the
-  // sheet via AddNewPlayerContext when `openAddNewPlayer` navigates.
-  const [inferredGender, setInferredGender] = useState<PlayerGender | null>(
-    null,
-  );
-  const [inferredLevel, setInferredLevel] = useState<SkillLevel | null>(null);
+  // Gender/level inference is derived below from Query-owned server data and
+  // handed to AddNewPlayerContext when `openAddNewPlayer` navigates.
   const [pendingShareInvite, setPendingShareInvite] = useState<{
     readonly name: string;
     readonly invite_url: string;
@@ -416,85 +169,25 @@ export function useScoreGameScreen(
     matchId == null ? leagueId != null : false,
   );
 
-  // --- New-game path: hydrate is_ranked from session.is_ranked ---
-  // When adding a game to an existing session (matchId == null, sessionId set),
-  // fetch the session once to read the session-level is_ranked the creator
-  // chose. This overrides the leagueId heuristic and ensures unranked pickup
-  // sessions created without a leagueId stay unranked. No-session pickup
-  // (sessionId == null) keeps the leagueId != null default above.
+  // Hydrate form-only state from the canonical session-detail query.
   useEffect(() => {
-    if (matchId != null || sessionId == null) return;
-    let cancelled = false;
-    void api
-      .getSessionById(sessionId)
-      .then((session) => {
-        if (cancelled) return;
-        setIsRanked(session.is_ranked ?? false);
-      })
-      .catch(() => {
-        // Non-fatal — leagueId heuristic remains as fallback.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [matchId, sessionId]);
+    const session = sessionDetailQuery.data;
+    if (session == null) return;
+    if (matchId == null) {
+      if (session.is_ranked != null) setIsRanked(session.is_ranked);
+      return;
+    }
+    const game = session.games.find((candidate) => candidate.id === matchId);
+    if (game == null) return;
+    const slots = deriveInitialSlots(game);
+    setTeam1(slots.team1);
+    setTeam2(slots.team2);
+    setScore1(slots.score1);
+    setScore2(slots.score2);
+    setIsRanked(slots.isRanked);
+  }, [matchId, sessionDetailQuery.data]);
 
-  // --- Edit mode: pre-fill slots/scores from the matching game ---
-  // Single source of truth: fetch session detail, find the game by matchId,
-  // hydrate state. Keeping this in a one-shot effect (vs. param-encoding the
-  // game) ensures the screen always shows current backend data.
-  useEffect(() => {
-    if (matchId == null || sessionId == null) return;
-    let cancelled = false;
-    void api
-      .getSessionById(sessionId)
-      .then((session) => {
-        if (cancelled) return;
-        const game = session.games.find((g) => g.id === matchId);
-        if (game == null) return;
-        const slots = deriveInitialSlots(game);
-        setTeam1(slots.team1);
-        setTeam2(slots.team2);
-        setScore1(slots.score1);
-        setScore2(slots.score2);
-        setIsRanked(slots.isRanked);
-      })
-      .catch(() => {
-        // Non-fatal — user can still edit manually if pre-fill fails.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [matchId, sessionId]);
-
-  // --- Current player (drives the "YOU" chip + badge) ---
-  // Prefer the explicit option for the id; otherwise one-shot fetch the full
-  // player. We keep the whole object (not just the id) because the caller is
-  // seated into the picker as a pickable chip — most score entries include
-  // the person logging them — and the chip needs their name + avatar. The
-  // backend relevance search deliberately excludes the caller, so this chip
-  // is injected client-side (see `selfRosterPlayer` / `filteredRoster`).
-  const [currentUserPlayer, setCurrentUserPlayer] = useState<Player | null>(
-    null,
-  );
-
-  useEffect(() => {
-    if (currentPlayerIdOption != null) return;
-    let cancelled = false;
-    void api
-      .getCurrentUserPlayer()
-      .then((player) => {
-        if (!cancelled && player != null && typeof player.id === "number") {
-          setCurrentUserPlayer(player);
-        }
-      })
-      .catch(() => {
-        // Non-fatal — the YOU chip simply won't render
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentPlayerIdOption]);
+  const currentUserPlayer: Player | null = currentPlayerQuery.data ?? null;
 
   const currentPlayerId =
     currentPlayerIdOption != null
@@ -521,156 +214,54 @@ export function useScoreGameScreen(
   }, [currentUserPlayer]);
 
   // --- Roster ---
-  const [roster, setRoster] = useState<RosterPlayer[]>([]);
+  const participants = useMemo(
+    () => participantsQuery.data ?? [],
+    [participantsQuery.data],
+  );
+  const roster = useMemo<RosterPlayer[]>(() => {
+    const searchItems = rosterQuery.data?.items ?? [];
+    return searchItems.length > 0
+      ? searchItems.map(mapSearchItem)
+      : buildFallbackRoster(participants, friendsQuery.data ?? []);
+  }, [friendsQuery.data, participants, rosterQuery.data?.items]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadRoster(): Promise<void> {
-      try {
-        // Unified roster source for every flow (league/pickup, new/continue):
-        // the caller's full relevance-ranked network. sessionId / leagueId are
-        // optional context that only add live-membership flags + ranking
-        // boosts (in_session, in_league); the network itself — friends, recent
-        // partners/opponents, shared leagues, FoF — is returned regardless. A
-        // pickup game with no IDs therefore gets the SAME ranked picker as a
-        // league game, not a friends-only list.
-        //
-        // Participants are fetched in parallel only when a session is in
-        // context — purely for gender/level inference and the fallback roster
-        // (PlayerSearchItem omits gender/level).
-        const [searchResp, participants] = await Promise.all([
-          api
-            .searchPlayers("", {
-              sessionId: sessionId ?? undefined,
-              leagueId: leagueId ?? undefined,
-            })
-            .catch(() => null),
-          sessionId != null
-            ? api.getSessionParticipants(sessionId).catch(() => [])
-            : Promise.resolve(
-                [] as Awaited<ReturnType<typeof api.getSessionParticipants>>,
-              ),
-        ]);
-        if (cancelled) return;
-
-        const searchItems = searchResp?.items ?? [];
-        if (searchItems.length > 0) {
-          setRoster(searchItems.map(mapSearchItem));
-        } else {
-          // Relevance search unavailable or empty → best-effort fallback,
-          // identical across flows: session participants (if any) + friends.
-          const friendsResp = await api
-            .getFriends()
-            .catch(() => []);
-          if (cancelled) return;
-          setRoster(buildFallbackRoster(participants, friendsResp));
-        }
-
-        // Session signal: infer gender/level from participants. The league
-        // effect (below) overrides these when the league provides values.
-        if (sessionId != null && participants.length > 0) {
-          const inferred = inferGenderLevel(
-            participants as Array<{
-              gender?: string | null;
-              level?: string | null;
-            }>,
-          );
-          if (inferred.gender) setInferredGender(inferred.gender);
-          if (inferred.level) setInferredLevel(inferred.level);
-        }
-      } catch {
-        // Non-fatal — roster stays empty; user can still manually search
-      }
-    }
-
-    void loadRoster();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId, leagueId]);
-
-  // --- League inference effect ---
-  // Fetches league details when leagueId is set and overrides the session-derived
-  // inferred gender/level when the league provides a non-null value. Cancel-safe.
-  useEffect(() => {
-    if (leagueId == null) return;
-    let cancelled = false;
+  // Session inference is derived from cached participants; league metadata
+  // takes precedence when it provides an explicit value.
+  const inferredFromParticipants = useMemo(
+    () => inferGenderLevel(participants),
+    [participants],
+  );
+  const { inferredGender, inferredLevel } = useMemo(() => {
     const validLevels = new Set<string>(
       SKILL_LEVEL_OPTIONS.map((o) => o.value),
     );
-    void api
-      .getLeague(leagueId)
-      .then((league) => {
-        if (cancelled) return;
-        // Map league gender to PlayerGender; coed → null (ambiguous).
-        const leagueGender: PlayerGender | null =
-          league.gender === "mens"
-            ? "male"
-            : league.gender === "womens"
-              ? "female"
-              : null;
-        const leagueLevel: SkillLevel | null =
-          league.level != null && validLevels.has(league.level)
-            ? (league.level as SkillLevel)
-            : null;
-        // League signal overrides session signal when present.
-        if (leagueGender != null) {
-          setInferredGender(leagueGender);
-        }
-        if (leagueLevel != null) {
-          setInferredLevel(leagueLevel);
-        }
-      })
-      .catch(() => {
-        // Non-fatal — inferred values stay as-is from the session signal.
-      });
-    return () => {
-      cancelled = true;
+    const league = leagueQuery.data;
+    const leagueGender: PlayerGender | null =
+      league?.gender === "mens"
+        ? "male"
+        : league?.gender === "womens"
+          ? "female"
+          : null;
+    const leagueLevel: SkillLevel | null =
+      league?.level != null && validLevels.has(league.level)
+        ? (league.level as SkillLevel)
+        : null;
+    return {
+      inferredGender: leagueGender ?? inferredFromParticipants.gender ?? null,
+      inferredLevel: leagueLevel ?? inferredFromParticipants.level ?? null,
     };
-  }, [leagueId]);
+  }, [inferredFromParticipants, leagueQuery.data]);
 
-  // --- Search results (relevance-ranked, fetched from backend) ---
-  // When the user types, we query the full player table so they can find
-  // anyone — not just folks pre-loaded into the local roster. Results are
-  // debounced to avoid hammering the API on every keystroke.
-  const [searchResults, setSearchResults] = useState<RosterPlayer[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
-  useEffect(() => {
-    const trimmed = search.trim();
-    if (trimmed === "") {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-    setIsSearching(true);
-    let cancelled = false;
-    const handle = setTimeout(async () => {
-      try {
-        const response = await api.searchPlayers(trimmed, {
-          sessionId: sessionId ?? undefined,
-          leagueId: leagueId ?? undefined,
-          limit: 50,
-        });
-        if (cancelled) return;
-        setSearchResults((response?.items ?? []).map(mapSearchItem));
-      } catch {
-        // Network error or endpoint unavailable — fall back to the local
-        // filter against the pre-loaded roster (handled in filteredRoster).
-        if (!cancelled) {
-          setSearchResults([]);
-        }
-      } finally {
-        if (!cancelled) setIsSearching(false);
-      }
-    }, 250);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(handle);
-    };
-  }, [search, sessionId, leagueId]);
+  const searchResults = useMemo(
+    () =>
+      debouncedSearch.trim() === ""
+        ? []
+        : (searchQuery.data?.items ?? []).map(mapSearchItem),
+    [debouncedSearch, searchQuery.data?.items],
+  );
+  const isSearching =
+    search.trim() !== "" &&
+    (debouncedSearch !== search || searchQuery.isFetching);
 
   // --- Seated player IDs (those already on a team) ---
   // Seated players are shown on the scoreboard with their team — repeating
@@ -852,7 +443,7 @@ export function useScoreGameScreen(
     try {
       let statsJobs: StatsJobIds | undefined;
       if (matchId != null) {
-        statsJobs = await api.updateMatch(matchId, {
+        statsJobs = await updateMatch.mutateAsync({
           team1_player1_id: team1[0].player_id!,
           team1_player2_id: team1[1].player_id!,
           team2_player1_id: team2[0].player_id!,
@@ -863,13 +454,11 @@ export function useScoreGameScreen(
         });
         setLastSessionId(sessionId ?? null);
       } else {
-        const response = await api.submitScoredGame({
+        const response = await createMatch.mutateAsync({
           session_id: sessionId ?? null,
           league_id: leagueId ?? null,
           season_id: seasonId ?? null,
-          ...(sessionId == null
-            ? { date: formatLocalCalendarDate() }
-            : {}),
+          ...(sessionId == null ? { date: formatLocalCalendarDate() } : {}),
           team1_player1_id: team1[0].player_id!,
           team1_player2_id: team1[1].player_id!,
           team2_player1_id: team2[0].player_id!,
@@ -880,6 +469,7 @@ export function useScoreGameScreen(
         });
         setLastSessionId(response.session_id);
         setSavedMatchId(response.match_id);
+        statsJobs = response;
         // Capture the session id the backend returned — for a brand-new
         // session this is what unlocks Share in the three-dot menu and
         // routes the close button to SessionDetail instead of Add Games.
@@ -912,6 +502,8 @@ export function useScoreGameScreen(
     isRanked,
     queryClient,
     userId,
+    createMatch,
+    updateMatch,
   ]);
 
   // --- Delete (edit mode only) ---
@@ -923,7 +515,7 @@ export function useScoreGameScreen(
     setDeleteState("loading");
     setErrorMessage(null);
     try {
-      const response = await api.deleteMatch(matchId);
+      const response = await deleteMatch.mutateAsync();
       void reconcileGameMutation(queryClient, {
         userId,
         leagueId,
@@ -940,19 +532,21 @@ export function useScoreGameScreen(
       setDeleteState("error");
       return false;
     }
-  }, [leagueId, matchId, queryClient, userId]);
+  }, [deleteMatch, leagueId, matchId, queryClient, userId]);
 
   const onShareSession = useCallback(async (): Promise<void> => {
     if (sessionId == null) return;
     try {
-      const session = await api.getSessionById(sessionId);
+      const session = await queryClient.ensureQueryData(
+        sessionQueries.detail(userId, sessionId),
+      );
       await shareSessionInvitation(session?.code);
     } catch {
       setErrorMessage(
         "Could not share this session. Check your connection and try again.",
       );
     }
-  }, [sessionId]);
+  }, [queryClient, sessionId, userId]);
 
   const canShare = sessionId != null;
 

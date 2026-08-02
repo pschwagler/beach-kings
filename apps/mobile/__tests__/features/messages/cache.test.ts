@@ -28,16 +28,18 @@ const incoming: DirectMessage = {
 };
 
 const conversations: ConversationListResponse = {
-  items: [{
-    player_id: PLAYER_ID,
-    full_name: 'Alex Torres',
-    avatar: null,
-    last_message_text: incoming.message_text,
-    last_message_at: incoming.created_at,
-    last_message_sender_id: PLAYER_ID,
-    unread_count: 2,
-    is_friend: true,
-  }],
+  items: [
+    {
+      player_id: PLAYER_ID,
+      full_name: 'Alex Torres',
+      avatar: null,
+      last_message_text: incoming.message_text,
+      last_message_at: incoming.created_at,
+      last_message_sender_id: PLAYER_ID,
+      unread_count: 2,
+      is_friend: true,
+    },
+  ],
   total_count: 1,
 };
 
@@ -92,12 +94,7 @@ describe('message cache reconciliation', () => {
   it('optimistically clears a thread, inbox row, counts, and DM summary', () => {
     const client = makeClient();
 
-    const patch = applyMarkThreadRead(
-      client,
-      USER_ID,
-      PLAYER_ID,
-      'read:1',
-    );
+    const patch = applyMarkThreadRead(client, USER_ID, PLAYER_ID, 'read:1');
 
     expect(
       client.getQueryData<ConversationListResponse>(
@@ -108,19 +105,18 @@ describe('message cache reconciliation', () => {
       client.getQueryData<ThreadResponse>(
         messageKeys.thread(USER_ID, PLAYER_ID),
       )?.items[0],
-    ).toEqual(expect.objectContaining({
-      is_read: true,
-      read_at: 'optimistic:read:1',
-    }));
+    ).toEqual(
+      expect.objectContaining({
+        is_read: true,
+        read_at: 'optimistic:read:1',
+      }),
+    );
     expect(
-      client.getQueryData<{ count: number }>(
-        messageKeys.unreadCount(USER_ID),
-      )?.count,
+      client.getQueryData<{ count: number }>(messageKeys.unreadCount(USER_ID))
+        ?.count,
     ).toBe(0);
     expect(
-      client.getQueryData<Notification[]>(
-        notificationKeys.feed(USER_ID),
-      )?.[0],
+      client.getQueryData<Notification[]>(notificationKeys.feed(USER_ID))?.[0],
     ).toEqual(expect.objectContaining({ is_read: true }));
     expect(
       client.getQueryData<{ count: number }>(
@@ -138,12 +134,7 @@ describe('message cache reconciliation', () => {
 
   it('rolls back only cache values still owned by the failed mutation', () => {
     const client = makeClient();
-    const patch = applyMarkThreadRead(
-      client,
-      USER_ID,
-      PLAYER_ID,
-      'read:2',
-    );
+    const patch = applyMarkThreadRead(client, USER_ID, PLAYER_ID, 'read:2');
 
     const newerConversation = {
       ...conversations.items[0]!,
@@ -168,14 +159,11 @@ describe('message cache reconciliation', () => {
       )?.items[0],
     ).toEqual(incoming);
     expect(
-      client.getQueryData<{ count: number }>(
-        messageKeys.unreadCount(USER_ID),
-      )?.count,
+      client.getQueryData<{ count: number }>(messageKeys.unreadCount(USER_ID))
+        ?.count,
     ).toBe(2);
     expect(
-      client.getQueryData<Notification[]>(
-        notificationKeys.feed(USER_ID),
-      )?.[0],
+      client.getQueryData<Notification[]>(notificationKeys.feed(USER_ID))?.[0],
     ).toEqual(dmNotification);
   });
 
@@ -199,14 +187,72 @@ describe('message cache reconciliation', () => {
       client.getQueryData<ConversationListResponse>(
         messageKeys.conversations(USER_ID),
       )?.items[0],
-    ).toEqual(expect.objectContaining({
-      last_message_text: 'Latest',
-      unread_count: 3,
-    }));
+    ).toEqual(
+      expect.objectContaining({
+        last_message_text: 'Latest',
+        unread_count: 3,
+      }),
+    );
     expect(
-      client.getQueryData<{ count: number }>(
-        messageKeys.unreadCount(USER_ID),
-      )?.count,
+      client.getQueryData<{ count: number }>(messageKeys.unreadCount(USER_ID))
+        ?.count,
     ).toBe(3);
+  });
+
+  it('does not advance unread caches twice for a duplicate socket message', () => {
+    const client = makeClient();
+    const socketMessage: DirectMessage = {
+      ...incoming,
+      id: 12,
+      message_text: 'Latest',
+      created_at: '2026-07-25T12:01:00Z',
+    };
+
+    reconcileDirectMessageEvent(client, USER_ID, socketMessage);
+    reconcileDirectMessageEvent(client, USER_ID, socketMessage);
+
+    expect(
+      client
+        .getQueryData<ThreadResponse>(messageKeys.thread(USER_ID, PLAYER_ID))
+        ?.items.filter((message) => message.id === socketMessage.id),
+    ).toHaveLength(1);
+    expect(
+      client.getQueryData<ConversationListResponse>(
+        messageKeys.conversations(USER_ID),
+      )?.items[0]?.unread_count,
+    ).toBe(3);
+    expect(
+      client.getQueryData<{ count: number }>(messageKeys.unreadCount(USER_ID))
+        ?.count,
+    ).toBe(3);
+  });
+
+  it('actively refreshes conversations when the sender row is missing', () => {
+    const client = makeClient();
+    const invalidateQueries = jest.spyOn(client, 'invalidateQueries');
+    client.setQueryData<ConversationListResponse>(
+      messageKeys.conversations(USER_ID),
+      { items: [], total_count: 0 },
+    );
+    const socketMessage: DirectMessage = {
+      ...incoming,
+      id: 13,
+      sender_player_id: PLAYER_ID + 1,
+    };
+
+    reconcileDirectMessageEvent(client, USER_ID, socketMessage);
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: messageKeys.conversations(USER_ID),
+      refetchType: 'active',
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: messageKeys.unreadCount(USER_ID),
+      refetchType: 'active',
+    });
+    expect(
+      client.getQueryData<{ count: number }>(messageKeys.unreadCount(USER_ID))
+        ?.count,
+    ).toBe(2);
   });
 });

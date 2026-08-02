@@ -19,10 +19,12 @@ import FriendsBody from "./FriendsBody";
 interface FriendsTabProps {
   /** Switch the hub to the Find Players subnav (empty-state CTA) — no push. */
   readonly onFindPlayers?: () => void;
+  readonly scrollRequest?: number;
 }
 
 export default function FriendsTab({
   onFindPlayers,
+  scrollRequest,
 }: FriendsTabProps): React.ReactNode {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,6 +48,7 @@ export default function FriendsTab({
       setSearchQuery={setSearchQuery}
       onPlayerPress={onPlayerPress}
       onFindPlayers={handleFindPlayers}
+      scrollRequest={scrollRequest}
     />
   );
 }

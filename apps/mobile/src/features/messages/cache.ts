@@ -18,6 +18,41 @@ interface MessageUnreadCountCache {
   readonly __optimisticDeltas?: Readonly<Record<string, number>>;
 }
 
+interface SocketReceiptCache {
+  readonly messageIds: readonly number[];
+}
+
+const MAX_SOCKET_RECEIPTS = 250;
+
+function socketReceiptKey(userId: number) {
+  return [...messageKeys.all(userId), 'socket-receipts'] as const;
+}
+
+function rememberSocketMessage(
+  queryClient: QueryClient,
+  userId: number,
+  messageId: number,
+  alreadyInThread: boolean,
+): boolean {
+  let alreadyReceived = alreadyInThread;
+  queryClient.setQueryData<SocketReceiptCache>(
+    socketReceiptKey(userId),
+    (current) => {
+      if (current?.messageIds.includes(messageId)) {
+        alreadyReceived = true;
+        return current;
+      }
+      return {
+        messageIds: [messageId, ...(current?.messageIds ?? [])].slice(
+          0,
+          MAX_SOCKET_RECEIPTS,
+        ),
+      };
+    },
+  );
+  return alreadyReceived;
+}
+
 interface ConversationPatch {
   readonly previous: Conversation;
   readonly optimistic: Conversation & {
@@ -132,30 +167,27 @@ export function applyMarkThreadRead(
     };
     queryClient.setQueryData<ConversationListResponse>(
       conversationsKey,
-      (current) => current == null
-        ? current
-        : {
-            ...current,
-            items: current.items.map((candidate) =>
-              candidate === previousConversation ? optimistic : candidate,
-            ),
-          },
+      (current) =>
+        current == null
+          ? current
+          : {
+              ...current,
+              items: current.items.map((candidate) =>
+                candidate === previousConversation ? optimistic : candidate,
+              ),
+            },
     );
     conversation = { previous: previousConversation, optimistic };
   }
 
   const threadMessages: ThreadMessagePatch[] = [];
-  queryClient.setQueryData<ThreadResponse>(
-    threadKey,
-    (current) => current == null
+  queryClient.setQueryData<ThreadResponse>(threadKey, (current) =>
+    current == null
       ? current
       : {
           ...current,
           items: current.items.map((message) => {
-            if (
-              message.sender_player_id !== playerId ||
-              message.is_read
-            ) {
+            if (message.sender_player_id !== playerId || message.is_read) {
               return message;
             }
             const optimistic: DirectMessage = {
@@ -175,14 +207,15 @@ export function applyMarkThreadRead(
     token,
     -unreadMessages,
   );
-  const notification = remainingUnread == null
-    ? undefined
-    : applyDirectMessageSummaryRead(
-        queryClient,
-        userId,
-        remainingUnread,
-        token,
-      );
+  const notification =
+    remainingUnread == null
+      ? undefined
+      : applyDirectMessageSummaryRead(
+          queryClient,
+          userId,
+          remainingUnread,
+          token,
+        );
 
   return {
     token,
@@ -203,20 +236,21 @@ export function rollbackMarkThreadRead(
     const conversationPatch = patch.conversation;
     queryClient.setQueryData<ConversationListResponse>(
       messageKeys.conversations(userId),
-      (current) => current == null
-        ? current
-        : {
-            ...current,
-            items: current.items.map((conversation) =>
-              (
-                conversation as Conversation & {
-                  readonly __optimisticReadToken?: string;
-                }
-              ).__optimisticReadToken === patch.token
-                ? conversationPatch.previous
-                : conversation,
-            ),
-          },
+      (current) =>
+        current == null
+          ? current
+          : {
+              ...current,
+              items: current.items.map((conversation) =>
+                (
+                  conversation as Conversation & {
+                    readonly __optimisticReadToken?: string;
+                  }
+                ).__optimisticReadToken === patch.token
+                  ? conversationPatch.previous
+                  : conversation,
+              ),
+            },
     );
   }
   const byId = new Map(
@@ -224,25 +258,22 @@ export function rollbackMarkThreadRead(
   );
   queryClient.setQueryData<ThreadResponse>(
     messageKeys.thread(userId, patch.playerId),
-    (current) => current == null
-      ? current
-      : {
-          ...current,
-          items: current.items.map((message) => {
-            const entry = byId.get(message.id);
-            return entry != null &&
-              message.read_at === `optimistic:${patch.token}`
-              ? entry.previous
-              : message;
-          }),
-        },
+    (current) =>
+      current == null
+        ? current
+        : {
+            ...current,
+            items: current.items.map((message) => {
+              const entry = byId.get(message.id);
+              return entry != null &&
+                message.read_at === `optimistic:${patch.token}`
+                ? entry.previous
+                : message;
+            }),
+          },
   );
   finishUnreadDelta(queryClient, userId, patch.token, true);
-  rollbackDirectMessageSummaryRead(
-    queryClient,
-    userId,
-    patch.notification,
-  );
+  rollbackDirectMessageSummaryRead(queryClient, userId, patch.notification);
 }
 
 export function commitMarkThreadRead(
@@ -254,42 +285,44 @@ export function commitMarkThreadRead(
   const committedAt = new Date().toISOString();
   queryClient.setQueryData<ConversationListResponse>(
     messageKeys.conversations(userId),
-    (current) => current == null
-      ? current
-      : {
-          ...current,
-          items: current.items.map((conversation) => {
-            const optimistic = conversation as Conversation & {
-              readonly __optimisticReadToken?: string;
-            };
-            if (optimistic.__optimisticReadToken !== patch.token) {
-              return conversation;
-            }
-            const {
-              __optimisticReadToken: _optimisticReadToken,
-              ...committed
-            } = optimistic;
-            return committed;
-          }),
-        },
+    (current) =>
+      current == null
+        ? current
+        : {
+            ...current,
+            items: current.items.map((conversation) => {
+              const optimistic = conversation as Conversation & {
+                readonly __optimisticReadToken?: string;
+              };
+              if (optimistic.__optimisticReadToken !== patch.token) {
+                return conversation;
+              }
+              const {
+                __optimisticReadToken: _optimisticReadToken,
+                ...committed
+              } = optimistic;
+              return committed;
+            }),
+          },
   );
   const byId = new Map(
     patch.threadMessages.map((entry) => [entry.previous.id, entry]),
   );
   queryClient.setQueryData<ThreadResponse>(
     messageKeys.thread(userId, patch.playerId),
-    (current) => current == null
-      ? current
-      : {
-          ...current,
-          items: current.items.map((message) => {
-            const entry = byId.get(message.id);
-            return entry != null &&
-              message.read_at === `optimistic:${patch.token}`
-              ? { ...message, read_at: committedAt }
-              : message;
-          }),
-        },
+    (current) =>
+      current == null
+        ? current
+        : {
+            ...current,
+            items: current.items.map((message) => {
+              const entry = byId.get(message.id);
+              return entry != null &&
+                message.read_at === `optimistic:${patch.token}`
+                ? { ...message, read_at: committedAt }
+                : message;
+            }),
+          },
   );
   finishUnreadDelta(queryClient, userId, patch.token, false);
   commitDirectMessageSummaryRead(queryClient, userId, patch.notification);
@@ -319,7 +352,7 @@ export function getSocketDirectMessage(value: unknown): DirectMessage | null {
   const message = event.message;
   if (message == null || typeof message !== 'object') return null;
   return typeof (message as { id?: unknown }).id === 'number'
-    ? message as DirectMessage
+    ? (message as DirectMessage)
     : null;
 }
 
@@ -330,18 +363,27 @@ export function reconcileDirectMessageEvent(
   message: DirectMessage,
 ): void {
   const conversationsKey = messageKeys.conversations(userId);
+  const threadKey = messageKeys.thread(userId, message.sender_player_id);
   const current =
     queryClient.getQueryData<ConversationListResponse>(conversationsKey);
   const existing = current?.items.find(
     (conversation) => conversation.player_id === message.sender_player_id,
   );
-  if (current != null && existing != null) {
-    const {
-      __optimisticReadToken: _optimisticReadToken,
-      ...stableExisting
-    } = existing as Conversation & {
-      readonly __optimisticReadToken?: string;
-    };
+  const currentThread = queryClient.getQueryData<ThreadResponse>(threadKey);
+  const alreadyReceived = rememberSocketMessage(
+    queryClient,
+    userId,
+    message.id,
+    currentThread?.items.some((candidate) => candidate.id === message.id) ??
+      false,
+  );
+  const canApplyUnreadDelta = !alreadyReceived && currentThread != null;
+
+  if (canApplyUnreadDelta && current != null && existing != null) {
+    const { __optimisticReadToken: _optimisticReadToken, ...stableExisting } =
+      existing as Conversation & {
+        readonly __optimisticReadToken?: string;
+      };
     const updated: Conversation = {
       ...stableExisting,
       last_message_text: message.message_text,
@@ -349,33 +391,34 @@ export function reconcileDirectMessageEvent(
       last_message_sender_id: message.sender_player_id,
       unread_count: existing.unread_count + 1,
     };
-    queryClient.setQueryData<ConversationListResponse>(
-      conversationsKey,
-      {
-        ...current,
-        items: [
-          updated,
-          ...current.items.filter((conversation) => conversation !== existing),
-        ],
-      },
+    queryClient.setQueryData<ConversationListResponse>(conversationsKey, {
+      ...current,
+      items: [
+        updated,
+        ...current.items.filter((conversation) => conversation !== existing),
+      ],
+    });
+  }
+
+  queryClient.setQueryData<ThreadResponse>(threadKey, (thread) =>
+    upsertThreadMessage(thread, message),
+  );
+  if (canApplyUnreadDelta) {
+    queryClient.setQueryData<MessageUnreadCountCache>(
+      messageKeys.unreadCount(userId),
+      (count) => (count == null ? count : { ...count, count: count.count + 1 }),
     );
   }
 
-  queryClient.setQueryData<ThreadResponse>(
-    messageKeys.thread(userId, message.sender_player_id),
-    (thread) => upsertThreadMessage(thread, message),
-  );
-  queryClient.setQueryData<MessageUnreadCountCache>(
-    messageKeys.unreadCount(userId),
-    (count) => count == null ? count : { ...count, count: count.count + 1 },
-  );
-
   void queryClient.invalidateQueries({
     queryKey: conversationsKey,
-    refetchType: 'none',
+    refetchType: existing == null ? 'active' : 'none',
   });
   void queryClient.invalidateQueries({
     queryKey: messageKeys.unreadCount(userId),
-    refetchType: 'none',
+    // Without a hydrated thread we cannot know whether this ID was already
+    // reflected in the authoritative count (for example after reconnect).
+    refetchType:
+      !alreadyReceived && currentThread == null ? 'active' : 'none',
   });
 }

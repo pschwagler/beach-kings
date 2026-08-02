@@ -14,22 +14,43 @@ function makeClient(post: jest.Mock, patch: jest.Mock): ApiClient {
 }
 
 describe('session API methods', () => {
+  it('normalizes edited sessions as finalized rather than active', async () => {
+    const client = makeClient(jest.fn(), jest.fn());
+    const get = client.axiosInstance.get as jest.Mock;
+    get.mockResolvedValue({ data: { id: 7, status: 'EDITED' } });
+    const methods = createApiMethods(client);
+
+    await expect(methods.getSessionById(7)).resolves.toEqual(
+      expect.objectContaining({ status: 'submitted' }),
+    );
+  });
+
   it('posts create payloads with court_id and ranked intent', async () => {
-    const post = jest.fn().mockResolvedValue({ data: { status: 'ok', message: 'created', session: { id: 7 } } });
+    const post = jest.fn().mockResolvedValue({
+      data: { status: 'ok', message: 'created', session: { id: 7 } },
+    });
     const methods = createApiMethods(makeClient(post, jest.fn()));
 
     await methods.createSession({ court_id: 12, is_ranked: false });
 
-    expect(post).toHaveBeenCalledWith('/api/sessions', { court_id: 12, is_ranked: false });
+    expect(post).toHaveBeenCalledWith('/api/sessions', {
+      court_id: 12,
+      is_ranked: false,
+    });
   });
 
   it('patches updates with the typed session update payload', async () => {
-    const patch = jest.fn().mockResolvedValue({ data: { status: 'ok', message: 'updated', session: { id: 7 } } });
+    const patch = jest.fn().mockResolvedValue({
+      data: { status: 'ok', message: 'updated', session: { id: 7 } },
+    });
     const methods = createApiMethods(makeClient(jest.fn(), patch));
 
     await methods.updateSession(7, { court_id: 12, is_ranked: true });
 
-    expect(patch).toHaveBeenCalledWith('/api/sessions/7', { court_id: 12, is_ranked: true });
+    expect(patch).toHaveBeenCalledWith('/api/sessions/7', {
+      court_id: 12,
+      is_ranked: true,
+    });
   });
 
   it('batch-invites selected players into an active session', async () => {

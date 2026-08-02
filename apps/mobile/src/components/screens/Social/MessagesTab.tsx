@@ -22,11 +22,13 @@ interface MessagesTabProps {
   readonly setHeaderAction?: SetHeaderAction;
   /** Start a new conversation — switches the hub to the Find Players subnav. */
   readonly onCompose?: () => void;
+  readonly scrollRequest?: number;
 }
 
 export default function MessagesTab({
   setHeaderAction,
   onCompose,
+  scrollRequest,
 }: MessagesTabProps): React.ReactNode {
   const state = useMessagesScreen();
 
@@ -62,5 +64,5 @@ export default function MessagesTab({
 
   useHeaderAction(setHeaderAction, composeAction);
 
-  return <MessagesBody {...state} />;
+  return <MessagesBody {...state} onCompose={onCompose} scrollRequest={scrollRequest} />;
 }

@@ -3,7 +3,8 @@
  *
  * Renders a single relevance-ranked list (order comes straight from the
  * backend's additive scoring at `/api/players/search`). Session players lead
- * as compact chips; everyone else is a row annotated with up to three pills
+ * as compact chips; everyone else is a row annotated with its strongest
+ * relationship signal
  * derived from `player.tags`. The list is one bounded, deduped set — the
  * client scrolls it locally; there is no paging.
  *
@@ -77,7 +78,7 @@ const TAG_TONE: Record<PlayerSearchTag, 'teal' | 'gold'> = {
 function orderedTags(
   tags: readonly PlayerSearchTag[],
 ): readonly PlayerSearchTag[] {
-  return PILL_ORDER.filter((t) => tags.includes(t));
+  return PILL_ORDER.filter((t) => tags.includes(t)).slice(0, 1);
 }
 
 // ---------------------------------------------------------------------------

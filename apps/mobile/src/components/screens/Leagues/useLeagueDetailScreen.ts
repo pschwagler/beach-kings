@@ -18,6 +18,7 @@ import { useRouter } from "expo-router";
 import type { LeagueDetail } from "@beach-kings/shared";
 import { api } from "@/lib/api";
 import { leagueKeys } from "./leagueKeys";
+import { leagueQueries } from "@/features/leagues";
 import { routes, type LeagueTab } from "@/lib/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -103,11 +104,7 @@ export function useLeagueDetailScreen(
   const [isRequestingToJoin, setIsRequestingToJoin] = useState(false);
   const [isJoiningLeague, setIsJoiningLeague] = useState(false);
 
-  const detailQuery = useQuery({
-    queryKey: leagueKeys.detail(userId, leagueId),
-    queryFn: () => api.getLeague(Number(leagueId)),
-    enabled: userId > 0,
-  });
+  const detailQuery = useQuery(leagueQueries.detail(userId, leagueId));
 
   const detail = detailQuery.data ?? null;
 

@@ -10,7 +10,7 @@
  * Wireframe ref: messages.html
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -88,7 +88,7 @@ function MessagesSearchBar({
 // Empty state
 // ---------------------------------------------------------------------------
 
-function MessagesEmptyState(): React.ReactNode {
+function MessagesEmptyState({ onCompose }: { readonly onCompose?: () => void }): React.ReactNode {
   return (
     <View
       testID="messages-empty-state"
@@ -109,6 +109,17 @@ function MessagesEmptyState(): React.ReactNode {
       <Text className="text-[13px] text-muted text-center leading-[1.5]">
         Start a conversation with a friend or league member
       </Text>
+      {onCompose != null && (
+        <Pressable
+          testID="messages-empty-compose-btn"
+          onPress={onCompose}
+          accessibilityRole="button"
+          accessibilityLabel="Find someone to message"
+          className="mt-5 min-h-touch items-center justify-center rounded-button bg-brand-gold px-5"
+        >
+          <Text className="text-[14px] font-bold text-inverse">Find someone to message</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -117,7 +128,10 @@ function MessagesEmptyState(): React.ReactNode {
 // Body
 // ---------------------------------------------------------------------------
 
-export type MessagesBodyProps = UseMessagesScreenResult;
+export type MessagesBodyProps = UseMessagesScreenResult & {
+  readonly onCompose?: () => void;
+  readonly scrollRequest?: number;
+};
 
 export default function MessagesBody({
   conversations,
@@ -130,7 +144,17 @@ export default function MessagesBody({
   onRetry,
   onConversationPress,
   currentPlayerId,
+  onCompose,
+  scrollRequest = 0,
 }: MessagesBodyProps): React.ReactNode {
+  const listRef = useRef<FlatList<Conversation>>(null);
+
+  useEffect(() => {
+    if (scrollRequest > 0) {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [scrollRequest]);
+
   const renderContent = (): React.ReactNode => {
     if (isLoading && !isRefreshing) {
       return (
@@ -149,9 +173,10 @@ export default function MessagesBody({
       <>
         <MessagesSearchBar value={searchQuery} onChangeText={setSearchQuery} />
         {conversations.length === 0 ? (
-          <MessagesEmptyState />
+          <MessagesEmptyState onCompose={onCompose} />
         ) : (
           <FlatList<Conversation>
+            ref={listRef}
             testID="conversations-list"
             data={conversations as Conversation[]}
             keyExtractor={(item) => String(item.player_id)}

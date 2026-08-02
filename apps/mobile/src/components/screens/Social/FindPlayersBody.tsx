@@ -23,7 +23,7 @@
  * Wireframe ref: find-players.html
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -238,6 +238,7 @@ export interface FindPlayersBodyProps extends UseDiscoverPlayersResult {
   readonly setSearchQuery: (q: string) => void;
   /** Navigate to a player's profile. */
   readonly onPlayerPress: (playerId: number) => void;
+  readonly scrollRequest?: number;
 }
 
 export default function FindPlayersBody({
@@ -258,7 +259,16 @@ export default function FindPlayersBody({
   onToggleLevel,
   onToggleSameLeague,
   onToggleSharedFriends,
+  scrollRequest = 0,
 }: FindPlayersBodyProps): React.ReactNode {
+  const listRef = useRef<FlatList<DiscoverPlayer>>(null);
+
+  useEffect(() => {
+    if (scrollRequest > 0) {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [scrollRequest]);
+
   const filterChips = (
     <FilterChipsRow
       levelFilter={levelFilter}
@@ -312,6 +322,7 @@ export default function FindPlayersBody({
         <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} />
         {filterChips}
         <FlatList<DiscoverPlayer>
+          ref={listRef}
           testID="find-players-list"
           data={players as DiscoverPlayer[]}
           keyExtractor={(item) => String(item.player_id)}

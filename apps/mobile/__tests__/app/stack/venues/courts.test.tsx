@@ -346,20 +346,14 @@ describe('CourtsScreen — courts list', () => {
     expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/court/1'));
   });
 
-  it('renders map stub area', async () => {
+  it('keeps list mode results-first without a map preview', async () => {
     mockGetCourts.mockResolvedValue([]);
     renderScreen();
     await waitFor(() => {
-      expect(screen.getByTestId('courts-map-stub')).toBeTruthy();
+      expect(screen.getByTestId('courts-list')).toBeTruthy();
     });
-  });
-
-  it('renders View Full Map button', async () => {
-    mockGetCourts.mockResolvedValue([]);
-    renderScreen();
-    await waitFor(() => {
-      expect(screen.getByTestId('courts-view-full-map-btn')).toBeTruthy();
-    });
+    expect(screen.queryByTestId('courts-map-stub')).toBeNull();
+    expect(screen.queryByTestId('courts-view-full-map-btn')).toBeNull();
   });
 });
 

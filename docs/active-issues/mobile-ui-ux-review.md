@@ -1,8 +1,8 @@
 # Mobile UI/UX Review
 
-Last verified: July 16, 2026<br>
-Documented: July 18, 2026<br>
-Platform: iOS simulator, iPhone 17 Pro<br>
+Last verified: August 1, 2026<br>
+Documented: July 18, 2026; status updated August 1, 2026<br>
+Platform: iOS simulator, iPhone 17 Pro / iPhone 17 Pro Max<br>
 App: Beach League (`com.beachleague.app`)
 
 ## Purpose
@@ -35,6 +35,21 @@ No games, messages, friend requests, or other persistent user data were submitte
 The app is coherent, usable, and more polished than a typical early product. The final score-entry interface is the strongest experience because it feels purpose-built for beach volleyball: scores are large, teams are visually separated, and the custom number pad is easy to operate.
 
 The largest opportunity is systemic rather than screen-specific. Navigation, screen hierarchy, information density, and component semantics vary by feature. The visual language is consistent enough to feel like one product, but it relies heavily on familiar rounded cards, dashboard metrics, and charcoal/cyan dark-mode patterns. A focused normalization and brand pass would make the app feel more deliberate, more accessible, and more recognizably Beach League.
+
+## Current status
+
+All eight findings were rechecked against the current code on August 1, 2026, followed by a focused implementation pass. The affected mobile TypeScript project and 21 focused Jest suites pass. Authenticated simulator verification remains incomplete because the available simulator restored an existing unsaved game draft; that user state was left untouched. A development warning banner was reproducible on relaunch, so no finding is considered fully closed yet.
+
+| Finding | Status | Since the original review |
+| --- | --- | --- |
+| BK-UIUX-001 Navigation | Partial | Pushed league details no longer render faux root tabs; court titles are deduplicated; Social, league, and court segments share one component; active root-tab retaps now scroll to top. Navigation-template documentation and remaining filter/chip variants still need consolidation. |
+| BK-UIUX-002 Dashboard density | Partial | Active sessions now lead Home, promotional banners yield to that task, and Recent Games/Leagues use compact vertical lists. Home still contains several sections, and authenticated device verification is pending. |
+| BK-UIUX-003 Player selection | Implemented; verification pending | The active slot is named explicitly, score-slot labels are team-specific, and relationship metadata is limited to the strongest signal. Focused accessibility tests pass. |
+| BK-UIUX-004 Accessibility | Implemented; verification pending | Duplicate score-slot labels and the color-only Invite Players indicator are fixed in addition to the existing tab semantics. VoiceOver, Dynamic Type, and reduced-motion device checks remain. |
+| BK-UIUX-005 Brand | Partial | Semantic surfaces now use warm sand and deep teal neutrals, Pickup has a volleyball icon, and theming docs match the tokens. Custom typography and the broader shadow cleanup remain. |
+| BK-UIUX-006 Courts list/map | Partial | List is results-first, Map is the only full-map entry, and supported relevance signals are surfaced. Clustering and activity-based ranking still depend on richer data. |
+| BK-UIUX-007 Profiles/placeholders | Implemented; verification pending | Standings now explain when data appears and Social's message empty state offers a player-discovery action. Authenticated device verification remains. |
+| BK-UIUX-008 Dev warnings/test quirks | Partial | The notification assertion now waits for the async update, but the runtime warning banner was reproduced on simulator relaunch and still needs a root-cause fix. |
 
 ## Anti-pattern verdict
 
@@ -74,7 +89,16 @@ Actions such as Add Game, Send Invites, Create League, and View Full Map are gen
 ### BK-UIUX-001 — Standardize navigation and screen hierarchy
 
 Priority: P1<br>
-Area: Navigation, information architecture
+Area: Navigation, information architecture<br>
+Status: Partial — implementation updated August 1, 2026
+
+#### Progress since review
+
+- League detail uses `League` in TopNav and no longer renders a faux root `BottomTabBar`.
+- Court detail now uses `Court` in TopNav rather than repeating the court name above its body heading.
+- Social, league details, and Courts now use the shared `SegmentControl` with tab semantics.
+- Retapping any selected root tab requests that tab's primary content scroll to the top.
+- A documented set of navigation templates and consolidation of remaining filter/chip variants are still outstanding.
 
 #### Evidence
 
@@ -106,7 +130,16 @@ Users must relearn whether a screen is a destination, a detail, or a temporary t
 ### BK-UIUX-002 — Reduce dashboard density and repeated information
 
 Priority: P1<br>
-Area: Home, leagues, content hierarchy
+Area: Home, leagues, content hierarchy<br>
+Status: Partial — implementation updated August 1, 2026
+
+#### Progress since review
+
+- League match rows are now grouped by session, with aggregate information in per-session footers rather than repeated on every match.
+- Home includes a `QuickStatsRow` summary.
+- An active session now appears first as `Continue Playing`; invite and profile banners do not compete with it.
+- Recent Games and Leagues are compact vertical lists, leaving Courts as the only horizontal discovery carousel.
+- Recent-game names have more space and may use two lines, but the overall number of Home sections still warrants authenticated device review.
 
 #### Evidence
 
@@ -137,7 +170,16 @@ The next meaningful action competes with historical and promotional content. Rep
 ### BK-UIUX-003 — Simplify player selection before score entry
 
 Priority: P1<br>
-Area: Add Games, score setup
+Area: Add Games, score setup<br>
+Status: Implemented; authenticated device verification pending — August 1, 2026
+
+#### Progress since review
+
+- Scoring controls remain hidden until four players are selected.
+- Slot names now use a mostly consistent `First L.` format, and instructional overlays are gone.
+- The pulsing `NEXT` badge is replaced by an explicit active-slot label such as `Choose Team 1 player 1`.
+- Player rows show only the strongest available relationship signal instead of stacking up to four pills.
+- Focused tests cover the active-slot text, all four unique accessibility labels, and relationship-pill prioritization.
 
 #### Evidence
 
@@ -170,7 +212,15 @@ Game entry is the central workflow and may be used outdoors, one-handed, and und
 ### BK-UIUX-004 — Correct accessibility semantics and ambiguous labels
 
 Priority: P1<br>
-Area: Accessibility, controls
+Area: Accessibility, controls<br>
+Status: Implemented; VoiceOver and Dynamic Type verification pending — August 1, 2026
+
+#### Progress since review
+
+- Tab roles and selected states are now exposed, and status pills pair color with text.
+- Score setup now exposes unique labels such as `Add Team 1 player 1` across all four slots.
+- The color-only presence dot has been removed from Invite Players.
+- Shared segment semantics and the score-setup accessibility behavior are covered by focused tests; full assistive-technology verification remains.
 
 #### Evidence
 
@@ -201,7 +251,15 @@ VoiceOver users cannot reliably understand or navigate controls that lack roles,
 ### BK-UIUX-005 — Make the brand more specific to beach volleyball
 
 Priority: P2<br>
-Area: Visual identity, typography, theming
+Area: Visual identity, typography, theming<br>
+Status: Partial — implementation updated August 1, 2026
+
+#### Current verification
+
+- Light semantic surfaces now use warm sand-tinted neutrals, while dark surfaces use a deeper warm teal family.
+- Pickup uses a volleyball icon instead of a globe, and selected Home cards rely more on borders than generic shadows.
+- The mobile theming token table is synchronized with the shared token values.
+- No custom fonts are loaded; `Font.loadAsync({})` remains empty, and generic shadows remain widespread elsewhere.
 
 #### Evidence
 
@@ -233,7 +291,15 @@ The interface is usable but not yet distinctive enough to be recognized without 
 ### BK-UIUX-006 — Clarify court discovery's list and map modes
 
 Priority: P2<br>
-Area: Courts, geographic discovery
+Area: Courts, geographic discovery<br>
+Status: Partial — implementation updated August 1, 2026
+
+#### Current verification
+
+- List is now results-first and no longer opens with the 180px map preview.
+- The Map segment is now the single route into full-map exploration; the duplicate `View Full Map` action is removed.
+- Court rows surface supported signals such as Saved, Outdoor, Lighted, and Free play alongside distance/rating.
+- Clustering and activity-based relevance remain outstanding and require supporting data.
 
 #### Evidence
 
@@ -263,7 +329,15 @@ Geographic discovery is a core product pillar. The current hybrid makes both mod
 ### BK-UIUX-007 — Improve read-only profiles and placeholder states
 
 Priority: P2<br>
-Area: Profile, Home, empty states
+Area: Profile, Home, empty states<br>
+Status: Implemented; authenticated device verification pending — August 1, 2026
+
+#### Progress since review
+
+- Read-only profile attributes now render as rows rather than input-like controls.
+- The Home Tournaments placeholder is removed.
+- The Standings empty state explains that standings appear after the season's first submitted game.
+- Social's Messages empty state includes a `Find someone to message` action that opens player discovery.
 
 #### Evidence
 
@@ -290,7 +364,15 @@ Input styling implies editability. Prominent non-actionable placeholders interru
 ### BK-UIUX-008 — Keep development warnings out of visual QA
 
 Priority: P2<br>
-Area: Development quality, QA
+Area: Development quality, QA<br>
+Status: Partial — reproduced August 1, 2026
+
+#### Progress since review
+
+- No LogBox suppression or obvious static warning-producing pattern was found.
+- The QueryClient GC-timer fix is in place.
+- The NotificationsTab assertion now uses `waitFor`, and the focused suite passes.
+- The `Open debugger to view warnings` banner was reproduced after relaunching the development build. Its source remains unresolved.
 
 #### Evidence
 

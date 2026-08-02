@@ -8,10 +8,14 @@ import React from 'react';
 import { View, Pressable, Text } from 'react-native';
 
 interface SegmentControlProps {
-  readonly segments: string[];
+  readonly segments: readonly string[];
   readonly selectedIndex: number;
   readonly onSelect: (index: number) => void;
   readonly className?: string;
+  readonly testID?: string;
+  readonly segmentTestIDPrefix?: string;
+  readonly segmentTestIDs?: readonly string[];
+  readonly compact?: boolean;
 }
 
 export default function SegmentControl({
@@ -19,14 +23,24 @@ export default function SegmentControl({
   selectedIndex,
   onSelect,
   className = '',
+  testID,
+  segmentTestIDPrefix,
+  segmentTestIDs,
+  compact = false,
 }: SegmentControlProps): React.ReactNode {
   return (
     <View
-      className={`flex-row bg-elevated rounded-lg p-1 ${className}`}
+      testID={testID}
+      accessibilityRole="tablist"
+      className={`flex-row bg-elevated rounded-lg border border-divider p-1 ${className}`}
     >
       {segments.map((segment, index) => (
         <Pressable
           key={segment}
+          testID={
+            segmentTestIDs?.[index] ??
+            (segmentTestIDPrefix != null ? `${segmentTestIDPrefix}-${index}` : undefined)
+          }
           onPress={() => onSelect(index)}
           className={`flex-1 min-h-touch items-center justify-center rounded-md ${
             index === selectedIndex
@@ -38,7 +52,10 @@ export default function SegmentControl({
           accessibilityLabel={segment}
         >
           <Text
-            className={`text-sm font-medium ${
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            className={`${compact ? 'text-[12px]' : 'text-sm'} font-medium ${
               index === selectedIndex
                 ? 'text-white'
                 : 'text-muted'

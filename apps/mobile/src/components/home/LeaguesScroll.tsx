@@ -1,10 +1,9 @@
 /**
- * Horizontal scroller of the user's leagues + a dashed "+ Join a League" card.
- * Mirrors `home.html` `.league-scroll` + `.league-card`.
+ * Compact league list plus a dashed "+ Join a League" action.
  */
 
 import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { League } from '@beach-kings/shared';
 import { formatOrdinal } from '@/lib/formatters';
@@ -39,7 +38,7 @@ function LeagueCard({
       onPress={() => router.push(routes.league(league.id))}
       accessibilityRole="link"
       accessibilityLabel={`League ${league.name}`}
-      className="min-w-[150px] bg-surface rounded-card p-md shadow-sm dark:shadow-none dark:border dark:border-divider"
+      className="bg-surface rounded-card p-md border border-divider"
     >
       <Text
         className="text-footnote font-semibold text-default leading-[17px]"
@@ -68,7 +67,7 @@ function JoinLeagueCard(): React.ReactNode {
       onPress={() => router.push(routes.findLeagues())}
       accessibilityRole="link"
       accessibilityLabel="Join a league"
-      className="min-w-[150px] rounded-card p-md border border-dashed border-divider opacity-80"
+      className="rounded-card p-md border border-dashed border-divider opacity-80"
     >
       <Text className="text-footnote font-semibold text-brand-teal">
         + Join a League
@@ -85,12 +84,8 @@ export default function LeaguesScroll({
   currentUserPlayerId,
 }: LeaguesScrollProps): React.ReactNode {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
-    >
-      {leagues.map((league) => (
+    <View className="gap-2">
+      {leagues.slice(0, 3).map((league) => (
         <LeagueCard
           key={league.id}
           league={league}
@@ -98,6 +93,6 @@ export default function LeaguesScroll({
         />
       ))}
       <JoinLeagueCard />
-    </ScrollView>
+    </View>
   );
 }

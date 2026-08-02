@@ -505,6 +505,8 @@ describe('NotificationsTab — mark-all header action', () => {
       expect(screen.getByTestId('notifications-screen')).toBeTruthy();
     });
 
-    expect(mockSetHeaderAction).toHaveBeenLastCalledWith(null);
+    await waitFor(() => {
+      expect(mockSetHeaderAction).toHaveBeenLastCalledWith(null);
+    });
   });
 });

@@ -111,15 +111,12 @@ function InviteRow({
       accessibilityLabel={`Send invite to ${player.name}`}
       className="flex-row items-center bg-surface border border-divider rounded-[14px] p-[12px] mx-[16px] mb-[10px]"
     >
-      <View className="relative mr-[12px]">
+      <View className="mr-[12px]">
         <Avatar
           name={player.name}
           size={48}
           colorSeed={player.id}
           accessible={false}
-        />
-        <View
-          className="absolute top-0 right-0 w-[12px] h-[12px] rounded-full border-2 border-surface bg-status-live"
         />
       </View>
 

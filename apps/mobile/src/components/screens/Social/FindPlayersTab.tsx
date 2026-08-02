@@ -16,7 +16,11 @@ import { routes } from "@/lib/navigation";
 import { useDiscoverPlayers } from "@/components/screens/FindPlayers/useDiscoverPlayers";
 import FindPlayersBody from "./FindPlayersBody";
 
-export default function FindPlayersTab(): React.ReactNode {
+export default function FindPlayersTab({
+  scrollRequest,
+}: {
+  readonly scrollRequest?: number;
+}): React.ReactNode {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const discover = useDiscoverPlayers({ searchQuery });
@@ -34,6 +38,7 @@ export default function FindPlayersTab(): React.ReactNode {
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       onPlayerPress={onPlayerPress}
+      scrollRequest={scrollRequest}
     />
   );
 }

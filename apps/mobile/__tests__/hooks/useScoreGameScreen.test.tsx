@@ -16,7 +16,16 @@
  */
 
 import React from 'react';
-import { renderHook, act, waitFor } from '@testing-library/react-native';
+import {
+  renderHook as testingRenderHook,
+  act,
+  waitFor,
+} from '@testing-library/react-native';
+import {
+  QueryClient,
+  QueryClientProvider,
+  notifyManager,
+} from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -26,10 +35,14 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
+const mockEnsureQueryData = jest.fn();
 
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
-  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+  useQueryClient: () => ({
+    invalidateQueries: mockInvalidateQueries,
+    ensureQueryData: mockEnsureQueryData,
+  }),
 }));
 
 jest.mock('@/contexts/AuthContext', () => ({
@@ -129,6 +142,28 @@ jest.mock('@/contexts/AddNewPlayerContext', () => ({
 
 import { useScoreGameScreen } from '@/components/screens/Games/useScoreGameScreen';
 
+beforeAll(() => {
+  notifyManager.setNotifyFunction((callback) => {
+    void act(callback);
+  });
+});
+afterAll(() => {
+  notifyManager.setNotifyFunction((callback) => callback());
+});
+
+const renderHook: typeof testingRenderHook = (callback, options) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false, gcTime: 0 },
+    },
+  });
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  return testingRenderHook(callback, { ...options, wrapper });
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -202,6 +237,7 @@ beforeEach(() => {
   mockUpdateMatch.mockResolvedValue({});
   mockDeleteMatch.mockResolvedValue({});
   mockGetSessionById.mockResolvedValue({ id: 7, games: [] });
+  mockEnsureQueryData.mockImplementation(() => mockGetSessionById());
   mockShareLink.mockResolvedValue(undefined);
   // For initial roster load with leagueId-only, the hook calls searchPlayers
   // with q=''. Live search calls pass a non-empty q. Default both: empty q
@@ -763,33 +799,29 @@ describe('useScoreGameScreen — roster source', () => {
       return Promise.resolve(q === '' ? MOCK_LEAGUE_DEFAULT_ROSTER : { items: [] });
     });
 
-    jest.useFakeTimers();
-    try {
-      act(() => {
-        result.current.setSearch('gulla');
-      });
+    act(() => {
+      result.current.setSearch('gulla');
+    });
 
-      // Debounce window: the local stopgap filter of the pre-loaded roster.
-      expect(
-        result.current.filteredRoster.map((p) => p.display_name),
-      ).toEqual(['Chris Gulla']);
+    // Debounce window: the local stopgap filter of the pre-loaded roster.
+    expect(
+      result.current.filteredRoster.map((p) => p.display_name),
+    ).toEqual(['Chris Gulla']);
 
-      // Past the 250ms debounce the backend query fires, scoped to the league.
-      await act(async () => {
-        jest.advanceTimersByTime(250);
-      });
+    // Past the 250ms debounce the backend query fires, scoped to the league.
+    await waitFor(() => {
       expect(mockSearchPlayers).toHaveBeenCalledWith(
         'gulla',
         expect.objectContaining({ leagueId: 3 }),
       );
+    });
 
-      // Backend results replace the local filter entirely.
+    // Backend results replace the local filter entirely.
+    await waitFor(() => {
       expect(
         result.current.filteredRoster.map((p) => p.display_name),
       ).toEqual(['Gulliver Backend']);
-    } finally {
-      jest.useRealTimers();
-    }
+    });
   });
 
   it('shows full roster (caller seated at the head) when search is empty', async () => {

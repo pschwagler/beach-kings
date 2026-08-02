@@ -13,7 +13,7 @@
  * Wireframe ref: notifications.html
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
 import NotificationItem from './NotificationItem';
@@ -124,7 +124,9 @@ function NotificationsEmptyState({
 // Body
 // ---------------------------------------------------------------------------
 
-export type NotificationsBodyProps = UseNotificationsScreenResult;
+export type NotificationsBodyProps = UseNotificationsScreenResult & {
+  readonly scrollRequest?: number;
+};
 
 export default function NotificationsBody({
   notifications,
@@ -139,7 +141,16 @@ export default function NotificationsBody({
   onNotificationPress,
   onAcceptFriendRequest,
   onDeclineFriendRequest,
+  scrollRequest = 0,
 }: NotificationsBodyProps): React.ReactNode {
+  const listRef = useRef<FlatList<Notification>>(null);
+
+  useEffect(() => {
+    if (scrollRequest > 0) {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [scrollRequest]);
+
   const renderContent = (): React.ReactNode => {
     if (isLoading && !isRefreshing) {
       return <NotificationsSkeleton count={6} />;
@@ -153,6 +164,7 @@ export default function NotificationsBody({
 
     return (
       <FlatList<Notification>
+        ref={listRef}
         testID="notifications-list"
         data={notifications}
         keyExtractor={(item) => String(item.id)}

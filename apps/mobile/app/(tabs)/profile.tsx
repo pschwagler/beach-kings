@@ -4,7 +4,7 @@
  * player info fields, and settings/logout shortcuts.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,6 +23,7 @@ import StatsBar from '@/components/screens/Profile/StatsBar';
 import ProfileInfoSection from '@/components/screens/Profile/ProfileInfoSection';
 import ProfileMenuSection from '@/components/screens/Profile/ProfileMenuSection';
 import ProfileSkeleton from '@/components/screens/Profile/ProfileSkeleton';
+import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -32,6 +33,7 @@ export default function ProfileScreen(): React.ReactNode {
   const router = useRouter();
   const { logout, user } = useAuth();
   const palette = usePaletteColors();
+  const scrollRef = useRef<ScrollView>(null);
   const userId = user?.id ?? 0;
   const playerQuery = useCurrentPlayer();
   const friendCountQuery = useQuery(socialQueries.friendCount(userId));
@@ -46,6 +48,13 @@ export default function ProfileScreen(): React.ReactNode {
   }, [refetchFriendCount, refetchPlayer]);
 
   useRefreshOnFocus(onRefresh, 0);
+
+  useEffect(
+    () => registerRootTabScroll('profile', () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }),
+    [],
+  );
 
   const player = playerQuery.data ?? null;
   const friendCount = friendCountQuery.data ?? null;
@@ -86,6 +95,7 @@ export default function ProfileScreen(): React.ReactNode {
       <TopNav title="Profile" rightAction={rightAction} />
 
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         testID="profile-scroll-view"
         refreshControl={

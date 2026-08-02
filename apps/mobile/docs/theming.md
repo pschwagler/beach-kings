@@ -4,28 +4,30 @@
 
 | Tailwind class | Role | Light | Dark |
 |---|---|---|---|
-| `bg-page` | Screen background | `#f2f2f7` | `#0d1117` |
-| `bg-surface` | Cards, sheets | `#ffffff` | `#161b22` |
-| `bg-elevated` | Inputs, raised cards | `#ffffff` | `#1e2430` |
-| `bg-inset` | Recessed areas inside surfaces | `#f2f2f7` | `#0d1117` |
-| `bg-nav` | Top navigation bar | `#1a3a4a` | `#161b22` |
-| `bg-tabbar` | Bottom tab bar | `#ffffff` | `#161b22` |
-| `text-default` | Primary body copy | `#1a1a1a` | `#e6edf3` |
-| `text-muted` | Secondary / subdued labels | `#6e6e73` | `#8b949e` |
-| `text-tertiary` | Placeholder text, hints | `#8e8e93` | `#6e7681` |
-| `text-inverse` | Text on dark backgrounds | `#ffffff` | `#1a1a1a` |
-| `border-strong` | Input borders, prominent dividers | `#c6c6c8` | `#30363d` |
-| `border-divider` | List separators, subtle lines | `#c6c6c8` | `#21262d` |
-| `text-brand-teal` / `bg-brand-teal` | Primary brand color | `#1a3a4a` | `#14b8a6` |
-| `text-brand-gold` / `bg-brand-gold` | Secondary brand color | `#d4a843` | `#f59e0b` |
-| `text-success` / `bg-success` | Success foreground | `#34c759` | `#3fb950` |
-| `text-danger` / `bg-danger` | Danger / error foreground | `#ff3b30` | `#f85149` |
-| `text-warning` / `bg-warning` | Warning foreground | `#ff9500` | `#d29922` |
-| `text-info` / `bg-info` | Info foreground | `#007aff` | `#58a6ff` |
-| `bg-success-tint` | Success chip / row bg | `#e6f9ec` | `#1a3a2a` |
-| `bg-danger-tint` | Danger chip / row bg | `#fff0ef` | `#3a1a1a` |
-| `bg-warning-tint` | Warning chip / row bg | `#fff8e6` | `#3a2e1a` |
-| `bg-info-tint` | Info chip / row bg | `#e6f2ff` | `#1a2a3a` |
+| `bg-page` | Screen background | `#f5f1e8` | `#0f1718` |
+| `bg-surface` | Cards, sheets | `#fffdf8` | `#172224` |
+| `bg-elevated` | Inputs, raised cards | `#fffdf8` | `#202d2f` |
+| `bg-inset` | Recessed areas inside surfaces | `#f5f1e8` | `#0c1415` |
+| `bg-nav` | Top navigation bar | `#1a3a4a` | `#102f38` |
+| `bg-tabbar` | Bottom tab bar | `#fffdf8` | `#121c1e` |
+| `text-default` | Primary body copy | `#182326` | `#e8efec` |
+| `text-muted` | Secondary / subdued labels | `#596568` | `#9faaa6` |
+| `text-tertiary` | Placeholder text, hints | `#697577` | `#818e88` |
+| `text-inverse` | Text on dark backgrounds | `#fffdf8` | `#182326` |
+| `border-strong` | Input borders, prominent dividers | `#ded8cc` | `#354245` |
+| `border-divider` | List separators, subtle lines | `#ded8cc` | `#253134` |
+| `text-brand-teal` / `bg-brand-teal` | Primary brand color | `#1a3a4a` | `#4daacc` |
+| `text-brand-gold` / `bg-brand-gold` | Secondary brand color | `#d4a843` | `#e0b44c` |
+| `text-success` / `bg-success` | Success foreground | `#34a853` | `#3fb950` |
+| `text-danger` / `bg-danger` | Danger / error foreground | `#dc3545` | `#f85149` |
+| `text-warning` / `bg-warning` | Warning foreground | `#f0ad4e` | `#d29922` |
+| `text-info` / `bg-info` | Info foreground | `#3b82f6` | `#58a6ff` |
+| `bg-success-tint` | Success chip / row bg | `#dcfce7` | `#0d2818` |
+| `bg-danger-tint` | Danger chip / row bg | `#fee2e2` | `#2a1215` |
+| `bg-warning-tint` | Warning chip / row bg | `#fef3c7` | `#2a1f05` |
+| `bg-info-tint` | Info chip / row bg | `#dbeafe` | `#0d1d35` |
+| `text-status-live` / `bg-status-live` | Live or in-progress status | `#b87900` | `#f4c060` |
+| `bg-status-live-tint` | Live or in-progress status background | `#fff1d6` | `#3a2a14` |
 
 ## How it works
 

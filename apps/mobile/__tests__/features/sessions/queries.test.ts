@@ -18,9 +18,8 @@ describe('sessionQueries.playerSearch', () => {
       'private',
       7,
       'sessions',
-      'detail',
-      42,
       'player-search',
+      42,
       3,
       'Jordan',
     ]);
@@ -28,9 +27,9 @@ describe('sessionQueries.playerSearch', () => {
     expect(otherLeague.queryKey).not.toEqual(first.queryKey);
   });
 
-  it('does not run before an authenticated account and valid session exist', () => {
+  it('requires an authenticated account but supports new-game searches without a session', () => {
     expect(sessionQueries.playerSearch(0, 42, '', null).enabled).toBe(false);
-    expect(sessionQueries.playerSearch(7, 0, '', null).enabled).toBe(false);
+    expect(sessionQueries.playerSearch(7, null, '', null).enabled).toBe(true);
     expect(sessionQueries.playerSearch(7, 42, '', null).enabled).toBe(true);
   });
 });

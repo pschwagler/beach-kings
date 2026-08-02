@@ -12,7 +12,7 @@ import logging
 from typing import Optional, Dict, Callable, Awaitable, Coroutine, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.utils.datetime_utils import utcnow
-from sqlalchemy import select, update, and_, func
+from sqlalchemy import select, update, and_
 from backend.database.models import StatsCalculationJob, StatsCalculationJobStatus
 from backend.database import db
 
@@ -56,7 +56,7 @@ class StatsCalculationQueue:
 
         Deduplication logic:
         - If same (calc_type, league_id) already pending/running, return existing job_id
-        - If calculation is running and more than 1 request comes in, only queue 1 additional
+        - If a calculation is running, queue every distinct calculation target
         - Otherwise, start immediately or queue as pending
 
         Args:
@@ -78,32 +78,17 @@ class StatsCalculationQueue:
         # Check if any calculation is currently running
         running_job = await self._get_running_job(session)
         if running_job:
-            # Check if same type already queued
+            # A same-target pending job may not have been returned by
+            # _find_existing_job if a newer terminal job exists, so retain this
+            # explicit check before creating another pending job.
             queued = await self._find_queued_job(session, calc_type, league_id)
             if queued:
                 return queued.id
 
-            # Check how many jobs are already queued
-            queued_count = await self._count_queued_jobs(session)
-            if queued_count == 0:
-                # No jobs queued, add this one
-                job = StatsCalculationJob(
-                    calc_type=calc_type,
-                    league_id=league_id,
-                    status=StatsCalculationJobStatus.PENDING,
-                )
-                session.add(job)
-                await session.commit()
-                await session.refresh(job)
-                return job.id
-            else:
-                # Already have one queued, return the first one
-                first_queued = await self._get_first_queued_job(session)
-                return (
-                    first_queued.id
-                    if first_queued
-                    else await self._create_pending_job(session, calc_type, league_id)
-                )
+            # Never alias a distinct request to an unrelated pending job. The
+            # worker remains serial and will process each target in creation
+            # order, while repeated requests for this target deduplicate above.
+            return await self._create_pending_job(session, calc_type, league_id)
         else:
             # No calculation running, start immediately
             job = StatsCalculationJob(
@@ -164,15 +149,6 @@ class StatsCalculationQueue:
             select(StatsCalculationJob).where(and_(*conditions)).limit(1)
         )
         return result.scalar_one_or_none()
-
-    async def _count_queued_jobs(self, session: AsyncSession) -> int:
-        """Count pending jobs."""
-        result = await session.execute(
-            select(func.count())
-            .select_from(StatsCalculationJob)
-            .where(StatsCalculationJob.status == StatsCalculationJobStatus.PENDING)
-        )
-        return result.scalar() or 0
 
     async def _get_first_queued_job(self, session: AsyncSession) -> Optional[StatsCalculationJob]:
         """Get first pending job."""

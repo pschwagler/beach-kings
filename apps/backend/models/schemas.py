@@ -157,6 +157,8 @@ class CreateMatchResponse(BaseModel):
     message: str
     match_id: int
     session_id: int
+    global_job_id: Optional[int] = None
+    league_job_id: Optional[int] = None
 
 
 class MatchStatusResponse(BaseModel):

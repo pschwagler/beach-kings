@@ -17,6 +17,7 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
+from backend.api import auth_dependencies
 from backend.services import auth_service, data_service, photo_match_service, user_service
 
 
@@ -111,6 +112,73 @@ class TestCreateMatchScoreValidation:
         )
 
 
+class TestCreateMatchAuthorizationAndStats:
+    """Authorization and finalized-session reconciliation for match creation."""
+
+    def test_active_league_session_rejects_non_member(self, monkeypatch):
+        client, headers = _make_admin_client(monkeypatch)
+        create_called = False
+
+        async def fake_get_session(session, session_id):
+            return {"id": session_id, "status": "ACTIVE", "league_id": 12}
+
+        async def fake_has_league_role(session, user_id, league_id, required_role):
+            assert league_id == 12
+            assert required_role is None
+            return False
+
+        async def fake_create_match(session, match_request, session_id):
+            nonlocal create_called
+            create_called = True
+            return 100
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            auth_dependencies, "_has_league_role", fake_has_league_role, raising=True
+        )
+        monkeypatch.setattr(data_service, "create_match_async", fake_create_match, raising=True)
+
+        response = client.post("/api/matches", json=_VALID_CREATE_BODY, headers=headers)
+
+        assert response.status_code == 403
+        assert create_called is False
+
+    def test_submitted_session_create_returns_stats_jobs(self, monkeypatch):
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_session(session, session_id):
+            return {
+                "id": session_id,
+                "status": "SUBMITTED",
+                "league_id": None,
+                "created_by": 99,
+            }
+
+        async def fake_can_add(session, session_id, session_obj, user_id):
+            return True
+
+        async def fake_create_match(session, match_request, session_id):
+            return 100
+
+        async def fake_enqueue(session, league_id):
+            assert league_id is None
+            return {"global_job_id": 73, "league_job_id": None}
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            data_service, "can_user_add_match_to_session", fake_can_add, raising=True
+        )
+        monkeypatch.setattr(data_service, "create_match_async", fake_create_match, raising=True)
+        monkeypatch.setattr(
+            data_service, "enqueue_stats_recalculation", fake_enqueue, raising=True
+        )
+
+        response = client.post("/api/matches", json=_VALID_CREATE_BODY, headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["global_job_id"] == 73
+
+
 # ---------------------------------------------------------------------------
 # PUT /api/matches/{match_id}
 # ---------------------------------------------------------------------------
@@ -129,10 +197,25 @@ class TestUpdateMatch:
         async def fake_get_player_by_user_id(session, user_id):
             return {"id": 99}
 
+        async def fake_get_session(session, session_id):
+            return {
+                "id": session_id,
+                "status": "ACTIVE",
+                "league_id": None,
+                "created_by": 99,
+            }
+
+        async def fake_can_add(session, session_id, session_obj, user_id):
+            return True
+
         async def fake_update_match(session, match_id, match_request, updated_by):
             return True
 
         monkeypatch.setattr(data_service, "get_match_async", fake_get_match, raising=True)
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            data_service, "can_user_add_match_to_session", fake_can_add, raising=True
+        )
         monkeypatch.setattr(
             data_service, "get_player_by_user_id", fake_get_player_by_user_id, raising=True
         )
@@ -144,6 +227,36 @@ class TestUpdateMatch:
         body = response.json()
         assert body["status"] == "success"
         assert body["match_id"] == 10
+
+    def test_active_pickup_match_rejects_non_participant(self, monkeypatch):
+        client, headers = _make_admin_client(monkeypatch)
+        update_called = False
+
+        async def fake_get_match(session, match_id):
+            return _ACTIVE_MATCH.copy()
+
+        async def fake_get_session(session, session_id):
+            return {"id": session_id, "status": "ACTIVE", "league_id": None}
+
+        async def fake_can_add(session, session_id, session_obj, user_id):
+            return False
+
+        async def fake_update(session, match_id, match_request, updated_by):
+            nonlocal update_called
+            update_called = True
+            return True
+
+        monkeypatch.setattr(data_service, "get_match_async", fake_get_match, raising=True)
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            data_service, "can_user_add_match_to_session", fake_can_add, raising=True
+        )
+        monkeypatch.setattr(data_service, "update_match_async", fake_update, raising=True)
+
+        response = client.put("/api/matches/10", json=_VALID_UPDATE_BODY, headers=headers)
+
+        assert response.status_code == 403
+        assert update_called is False
 
     def test_update_match_not_found(self, monkeypatch):
         """Returns 404 when the match does not exist."""
@@ -166,7 +279,12 @@ class TestUpdateMatch:
             return {**_ACTIVE_MATCH, "session_status": "SUBMITTED"}
 
         async def fake_get_session(session, session_id):
-            return {"id": session_id, "league_id": None, "created_by": 99}
+            return {
+                "id": session_id,
+                "status": "SUBMITTED",
+                "league_id": None,
+                "created_by": 99,
+            }
 
         async def fake_get_player(session, user_id):
             return {"id": 99}
@@ -238,7 +356,17 @@ class TestDeleteMatch:
         async def fake_delete_match(session, match_id):
             return True
 
+        async def fake_get_session(session, session_id):
+            return {"id": session_id, "status": "ACTIVE", "league_id": None}
+
+        async def fake_can_add(session, session_id, session_obj, user_id):
+            return True
+
         monkeypatch.setattr(data_service, "get_match_async", fake_get_match, raising=True)
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            data_service, "can_user_add_match_to_session", fake_can_add, raising=True
+        )
         monkeypatch.setattr(data_service, "delete_match_async", fake_delete_match, raising=True)
 
         response = client.delete("/api/matches/10", headers=headers)
@@ -247,6 +375,36 @@ class TestDeleteMatch:
         body = response.json()
         assert body["status"] == "success"
         assert body["match_id"] == 10
+
+    def test_active_league_match_rejects_non_member(self, monkeypatch):
+        client, headers = _make_admin_client(monkeypatch)
+        delete_called = False
+
+        async def fake_get_match(session, match_id):
+            return _ACTIVE_MATCH.copy()
+
+        async def fake_get_session(session, session_id):
+            return {"id": session_id, "status": "ACTIVE", "league_id": 12}
+
+        async def fake_has_league_role(session, user_id, league_id, required_role):
+            return False
+
+        async def fake_delete(session, match_id):
+            nonlocal delete_called
+            delete_called = True
+            return True
+
+        monkeypatch.setattr(data_service, "get_match_async", fake_get_match, raising=True)
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            auth_dependencies, "_has_league_role", fake_has_league_role, raising=True
+        )
+        monkeypatch.setattr(data_service, "delete_match_async", fake_delete, raising=True)
+
+        response = client.delete("/api/matches/10", headers=headers)
+
+        assert response.status_code == 403
+        assert delete_called is False
 
     def test_delete_match_not_found(self, monkeypatch):
         """Returns 404 when the match does not exist."""
@@ -269,7 +427,12 @@ class TestDeleteMatch:
             return {**_ACTIVE_MATCH, "session_status": "EDITED"}
 
         async def fake_get_session(session, session_id):
-            return {"id": session_id, "league_id": None, "created_by": 99}
+            return {
+                "id": session_id,
+                "status": "EDITED",
+                "league_id": None,
+                "created_by": 99,
+            }
 
         async def fake_get_player(session, user_id):
             return {"id": 99}

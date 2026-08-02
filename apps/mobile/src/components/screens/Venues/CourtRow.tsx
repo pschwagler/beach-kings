@@ -8,26 +8,13 @@
 import React, { useCallback } from "react";
 import { View, Text, Pressable, Image } from "react-native";
 import { useRouter } from "expo-router";
-import Svg, { Path } from "react-native-svg";
 import { hapticLight } from "@/utils/haptics";
 import { routes } from "@/lib/navigation";
 import { formatDistance } from "@/lib/formatters";
+import { ChevronRightIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import CourtRating from "./CourtRating";
 import type { Court } from "@beach-kings/shared";
-
-function ChevronRight(): React.ReactNode {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 18l6-6-6-6"
-        stroke="#9ca3af"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 interface CourtRowProps {
   readonly court: Court;
@@ -35,6 +22,7 @@ interface CourtRowProps {
 
 export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
 
   const handlePress = useCallback(() => {
     void hapticLight();
@@ -58,6 +46,12 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
   const accessibilityLabel = locationLabel
     ? `${court.name} in ${locationLabel}`
     : court.name;
+  const signals = [
+    court.is_saved === true ? 'Saved' : null,
+    court.surface_type === 'indoor' ? 'Indoor' : court.surface_type === 'sand' ? 'Outdoor' : null,
+    court.has_lights === true ? 'Lighted' : null,
+    court.is_free === true ? 'Free play' : null,
+  ].filter((signal): signal is string => signal != null);
 
   return (
     <Pressable
@@ -94,6 +88,12 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
           </Text>
         )}
 
+        {signals.length > 0 && (
+          <Text className="text-[11px] font-medium text-brand-teal mb-1" numberOfLines={1}>
+            {signals.join(' · ')}
+          </Text>
+        )}
+
         {/* Rating + distance row */}
         <View className="flex-row items-center gap-2">
           <CourtRating
@@ -109,7 +109,7 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
         </View>
       </View>
 
-      <ChevronRight />
+      <ChevronRightIcon size={16} color={palette.textTertiary} />
     </Pressable>
   );
 }

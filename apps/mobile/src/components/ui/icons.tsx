@@ -39,6 +39,33 @@ export function TrophyIcon({ size = 24, color = '#000' }: IconProps): React.Reac
   );
 }
 
+/** Beach-volleyball ball with curved panel seams. */
+export function VolleyballIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9.5} stroke={color} strokeWidth={2} />
+      <Path
+        d="M5.3 5.3c3.8.1 6.9 3.2 6.9 7"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M18.8 5.5c-1.9 3.2-6.2 4.4-9.4 2.5"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M12.2 21.5c-1.9-3.2-.8-7.5 2.5-9.4"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 export function PlusIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

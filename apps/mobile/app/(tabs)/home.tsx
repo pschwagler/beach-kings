@@ -3,7 +3,7 @@
  * Mirrors `mobile-audit/wireframes/home.html` structure.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, View, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -27,6 +27,7 @@ import LeaguesScroll from '@/components/home/LeaguesScroll';
 import CourtsScroll from '@/components/home/CourtsScroll';
 import NewUserWelcome from '@/components/home/NewUserWelcome';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
+import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
 function computeProfilePercent(player: Player | null): number {
   if (!player) return 0;
@@ -55,6 +56,7 @@ function countPendingInviteGames(matches: readonly MatchRecord[]): number {
 
 export default function HomeScreen(): React.ReactNode {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const palette = usePaletteColors();
   const { profileComplete } = useAuth();
   const { unreadCount, dmUnreadCount } = useNotifications();
@@ -82,6 +84,13 @@ export default function HomeScreen(): React.ReactNode {
     await Promise.allSettled([refetchPlayer(), refetchActiveSession()]);
   }, [refetchActiveSession, refetchPlayer]);
   useRefreshOnFocus(refreshCriticalData, 0);
+
+  useEffect(
+    () => registerRootTabScroll('home', () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }),
+    [],
+  );
 
   const playerData = player.data ?? null;
   const leaguesData = leagues.data ?? [];
@@ -136,6 +145,7 @@ export default function HomeScreen(): React.ReactNode {
       )}
 
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         refreshControl={
           <RefreshControl
@@ -151,16 +161,6 @@ export default function HomeScreen(): React.ReactNode {
           <NewUserWelcome />
         ) : (
           <View className="px-lg pt-md pb-xxxl">
-            {!profileComplete && <ProfileBanner percent={profilePercent} />}
-
-            {invitesPending > 0 && profileComplete && (
-              <PendingInvitesBanner
-                playerCount={invitesPending}
-                gameCount={pendingGameCount}
-                onPress={() => router.push(routes.social())}
-              />
-            )}
-
             {activeSession.isError && activeSessionData == null && (
               <View className="mb-lg">
                 <SectionHeader title="Active Session" />
@@ -173,7 +173,7 @@ export default function HomeScreen(): React.ReactNode {
 
             {activeSessionData && (
               <View className="mb-lg">
-                <SectionHeader title="Active Session" />
+                <SectionHeader title="Continue Playing" />
                 <SessionCard
                   session={activeSessionData}
                   badgeLabel="ACTIVE"
@@ -189,6 +189,18 @@ export default function HomeScreen(): React.ReactNode {
                   </View>
                 )}
               </View>
+            )}
+
+            {activeSessionData == null && invitesPending > 0 && profileComplete && (
+              <PendingInvitesBanner
+                playerCount={invitesPending}
+                gameCount={pendingGameCount}
+                onPress={() => router.push(routes.social())}
+              />
+            )}
+
+            {activeSessionData == null && !profileComplete && (
+              <ProfileBanner percent={profilePercent} />
             )}
 
             <View className="mb-lg">

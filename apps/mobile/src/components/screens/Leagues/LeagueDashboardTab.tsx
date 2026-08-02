@@ -507,9 +507,12 @@ export default function LeagueDashboardTab({
           <StandingsRow key={s.player_id} standing={s} isSeasonView={isSeasonView} onPress={onPressPlayer} />
         ))}
         {sortedStandings.length === 0 && (
-          <View className="py-10 items-center">
-            <Text className="text-[14px] text-muted">
+          <View className="py-10 px-6 items-center">
+            <Text className="text-[15px] font-semibold text-default text-center">
               No standings yet
+            </Text>
+            <Text className="text-[13px] text-muted text-center mt-1 leading-[18px]">
+              Standings will appear after this season's first submitted game.
             </Text>
           </View>
         )}

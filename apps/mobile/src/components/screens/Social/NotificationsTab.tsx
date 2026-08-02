@@ -19,10 +19,12 @@ import { useHeaderAction, type SetHeaderAction } from './useHeaderAction';
 
 interface NotificationsTabProps {
   readonly setHeaderAction?: SetHeaderAction;
+  readonly scrollRequest?: number;
 }
 
 export default function NotificationsTab({
   setHeaderAction,
+  scrollRequest,
 }: NotificationsTabProps): React.ReactNode {
   const state = useNotificationsScreen();
   const { unreadCount, isLoading, onMarkAllRead } = state;
@@ -46,5 +48,5 @@ export default function NotificationsTab({
 
   useHeaderAction(setHeaderAction, markAllAction);
 
-  return <NotificationsBody {...state} />;
+  return <NotificationsBody {...state} scrollRequest={scrollRequest} />;
 }

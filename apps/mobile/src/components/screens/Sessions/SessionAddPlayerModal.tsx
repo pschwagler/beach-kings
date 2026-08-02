@@ -9,15 +9,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { PlayerSearchItem } from '@beach-kings/shared';
 import TopNav from '@/components/ui/TopNav';
 import Avatar from '@/components/ui/Avatar';
 import useDebounce from '@/hooks/useDebounce';
-import {
-  sessionMutationOptions,
-  sessionQueries,
-} from '@/features/sessions';
+import { sessionQueries, useSessionPlayerMutations } from '@/features/sessions';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 
@@ -41,7 +38,8 @@ function getAddPlayerError(error: unknown): string {
       : '';
 
   if (response == null) return 'Check your connection and try again.';
-  if (detail.includes('already')) return 'This player is already in the session.';
+  if (detail.includes('already'))
+    return 'This player is already in the session.';
   if (detail.includes('full')) return 'This session is full.';
   if (response.status === 403) {
     return "You don't have permission to add players to this session.";
@@ -64,32 +62,18 @@ export default function SessionAddPlayerModal({
   const debouncedSearch = useDebounce(search, 250);
 
   const playersQuery = useQuery(
-    sessionQueries.playerSearch(
-      userId,
-      sessionId,
-      debouncedSearch,
-      leagueId,
-    ),
+    sessionQueries.playerSearch(userId, sessionId, debouncedSearch, leagueId),
   );
 
-  const addPlayer = useMutation({
-    ...sessionMutationOptions.invitePlayer(sessionId),
-    onMutate: () => {
-      setAddError(null);
-    },
-    onSuccess: () => {
-      onAdded();
-    },
-    onError: (error) => {
-      setAddError(getAddPlayerError(error));
-    },
-  });
+  const { invitePlayer: addPlayer } = useSessionPlayerMutations(
+    userId,
+    sessionId,
+  );
 
   const players = useMemo(
     () =>
       (playersQuery.data?.items ?? []).filter(
-        (player) =>
-          !player.in_session && !existingPlayerIds.has(player.id),
+        (player) => !player.in_session && !existingPlayerIds.has(player.id),
       ),
     [existingPlayerIds, playersQuery.data?.items],
   );
@@ -99,12 +83,17 @@ export default function SessionAddPlayerModal({
   }: {
     readonly item: PlayerSearchItem;
   }): React.JSX.Element => {
-    const isAdding =
-      addPlayer.isPending && addPlayer.variables === item.id;
+    const isAdding = addPlayer.isPending && addPlayer.variables === item.id;
     return (
       <TouchableOpacity
         testID={`roster-player-option-${item.id}`}
-        onPress={() => addPlayer.mutate(item.id)}
+        onPress={() => {
+          setAddError(null);
+          addPlayer.mutate(item.id, {
+            onSuccess: onAdded,
+            onError: (error) => setAddError(getAddPlayerError(error)),
+          });
+        }}
         disabled={addPlayer.isPending}
         accessibilityRole="button"
         accessibilityLabel={`Add ${item.full_name ?? `${item.first_name} ${item.last_name}`}`}

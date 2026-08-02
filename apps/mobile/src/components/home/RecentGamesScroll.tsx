@@ -1,10 +1,10 @@
 /**
- * Horizontal scroller of the user's recent games.
- * Mirrors `home.html` `.game-scroll` + `.game-card`.
+ * Compact recent-games list. Sequential history stays vertical so names and
+ * scores have room and Home does not become a stack of carousels.
  */
 
 import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { MatchRecord } from '@beach-kings/shared';
 import { formatDate } from '@/lib/formatters';
@@ -34,7 +34,7 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
       }}
       accessibilityRole="link"
       accessibilityLabel={`${isWin ? 'Win' : 'Loss'} ${match.score ?? ''}`}
-      className="min-w-[200px] bg-surface rounded-card p-md shadow-sm dark:shadow-none dark:border dark:border-divider"
+      className="bg-surface rounded-card p-md border border-divider"
     >
       <View className="flex-row items-center gap-xs mb-xs">
         <View
@@ -59,7 +59,7 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
           {match.score}
         </Text>
       )}
-      <Text className="text-caption text-muted leading-[18px]">
+      <Text className="text-caption text-muted leading-[18px]" numberOfLines={2}>
         <Text className="font-semibold text-default">
           You
         </Text>
@@ -72,7 +72,7 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
           {match.partner ?? ''}
         </Text>
       </Text>
-      <Text className="text-caption text-muted leading-[18px]">
+      <Text className="text-caption text-muted leading-[18px]" numberOfLines={2}>
         vs{' '}
         <Text
           className={
@@ -101,7 +101,7 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
 
 export default function RecentGamesScroll({
   matches,
-  maxItems = 10,
+  maxItems = 3,
 }: RecentGamesScrollProps): React.ReactNode {
   const visible = matches.slice(0, maxItems);
 
@@ -116,14 +116,10 @@ export default function RecentGamesScroll({
   }
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
-    >
+    <View className="gap-2">
       {visible.map((match, idx) => (
         <GameCard key={(match.id as number | undefined) ?? idx} match={match} />
       ))}
-    </ScrollView>
+    </View>
   );
 }

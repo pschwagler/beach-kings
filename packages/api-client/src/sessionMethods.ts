@@ -97,7 +97,7 @@ export function createSessionMethods(api: AxiosInstance) {
       const raw = response.data;
       const normalized = (raw.status ?? '').toString().toLowerCase();
       const status: SessionDetail['status'] =
-        normalized === 'submitted' ? 'submitted' : 'active';
+        normalized === 'active' ? 'active' : 'submitted';
       return { ...raw, status };
     },
 

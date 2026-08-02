@@ -12,9 +12,9 @@
  */
 
 import React from "react";
-import { View, Text, Pressable } from "react-native";
 import { hapticLight } from "@/utils/haptics";
 import type { SocialTab } from "@/lib/navigation";
+import SegmentControl from '@/components/ui/SegmentControl';
 
 /**
  * The four destinations reachable from the Social hub subnav. Re-exported from
@@ -40,41 +40,22 @@ export default function SocialSubnav({
   activeTab,
   onTabPress,
 }: SocialSubnavProps): React.ReactNode {
+  const selectedIndex = TABS.findIndex(({ key }) => key === activeTab);
+
   return (
-    <View
+    <SegmentControl
       testID="social-subnav"
-      accessibilityRole="tablist"
-      className="flex-row bg-surface border-b border-divider px-4"
-    >
-      {TABS.map(({ key, label }) => {
-        const isActive = key === activeTab;
-        return (
-          <Pressable
-            key={key}
-            testID={`social-subnav-tab-${key}`}
-            onPress={() => {
-              void hapticLight();
-              onTabPress(key);
-            }}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            accessibilityLabel={label}
-            className="flex-1 min-h-[44px] py-3 items-center justify-center"
-          >
-            <Text
-              numberOfLines={1}
-              className={`text-[13px] font-semibold ${
-                isActive ? "text-brand-teal" : "text-muted"
-              }`}
-            >
-              {label}
-            </Text>
-            {isActive && (
-              <View className="absolute bottom-0 left-2 right-2 h-[2px] bg-brand-teal" />
-            )}
-          </Pressable>
-        );
-      })}
-    </View>
+      segmentTestIDs={TABS.map(({ key }) => `social-subnav-tab-${key}`)}
+      segments={TABS.map(({ label }) => label)}
+      selectedIndex={selectedIndex}
+      compact
+      className="mx-4 my-2"
+      onSelect={(index) => {
+        const tab = TABS[index];
+        if (tab == null) return;
+        void hapticLight();
+        onTabPress(tab.key);
+      }}
+    />
   );
 }

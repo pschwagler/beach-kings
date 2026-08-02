@@ -6,6 +6,17 @@ import { colors, darkColors } from '@beach-kings/shared/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNotifications } from '@/features/notifications';
 import { HomeIcon, TrophyIcon, PlusIcon, ChatIcon, UserIcon } from '@/components/ui/icons';
+import { scrollRootTabToTop, type RootTabKey } from '@/lib/rootTabScroll';
+
+function scrollOnRetap(tab: RootTabKey) {
+  return ({ navigation }: { navigation: { isFocused: () => boolean } }) => ({
+    tabPress: () => {
+      if (navigation.isFocused()) {
+        scrollRootTabToTop(tab);
+      }
+    },
+  });
+}
 
 interface TabIconProps {
   readonly icon: React.ComponentType<{ size?: number; color?: string }>;
@@ -76,6 +87,7 @@ export default function TabLayout(): React.ReactNode {
     >
       <Tabs.Screen
         name="home"
+        listeners={scrollOnRetap('home')}
         options={{
           title: 'Home',
           tabBarAccessibilityLabel: 'Home tab',
@@ -86,6 +98,7 @@ export default function TabLayout(): React.ReactNode {
       />
       <Tabs.Screen
         name="leagues"
+        listeners={scrollOnRetap('leagues')}
         options={{
           title: 'Leagues',
           tabBarAccessibilityLabel: 'Leagues tab',
@@ -96,6 +109,7 @@ export default function TabLayout(): React.ReactNode {
       />
       <Tabs.Screen
         name="add-games"
+        listeners={scrollOnRetap('add-games')}
         options={{
           title: 'Add Games',
           tabBarAccessibilityLabel: 'Add games tab',
@@ -111,6 +125,7 @@ export default function TabLayout(): React.ReactNode {
       />
       <Tabs.Screen
         name="social"
+        listeners={scrollOnRetap('social')}
         options={{
           title: 'Social',
           tabBarAccessibilityLabel: 'Social tab',
@@ -126,6 +141,7 @@ export default function TabLayout(): React.ReactNode {
       />
       <Tabs.Screen
         name="profile"
+        listeners={scrollOnRetap('profile')}
         options={{
           title: 'Profile',
           tabBarAccessibilityLabel: 'Profile tab',

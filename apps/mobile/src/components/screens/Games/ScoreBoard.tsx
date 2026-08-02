@@ -2,7 +2,7 @@
  * ScoreBoard — split scoreboard for score entry.
  *
  * Two modes driven by the `isBuilding` prop:
- *   building  — team slots visible, score steppers hidden, active-slot NEXT badge shown
+ *   building  — team slots visible, score steppers hidden, active slot named explicitly
  *   scoring   — all 4 seats filled, tappable score display visible with numpad below
  *
  * The board is split horizontally. Each half occupies half the screen width.
@@ -15,9 +15,6 @@ import type { AvatarVariant } from '@/components/ui/Avatar';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  cancelAnimation,
   runOnJS,
 } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
@@ -194,24 +191,6 @@ function FilledChip({
 function PlayerChip(props: PlayerChipProps): React.ReactNode {
   const { slot, index, team, isActive, onPress } = props;
   const isEmpty = slot.player_id == null;
-  const pulseOpacity = useSharedValue(1);
-
-  useEffect(() => {
-    if (isActive && isEmpty) {
-      pulseOpacity.value = withRepeat(
-        withTiming(0.25, { duration: 800 }),
-        -1,
-        true,
-      );
-    } else {
-      cancelAnimation(pulseOpacity);
-      pulseOpacity.value = withTiming(1, { duration: 150 });
-    }
-  }, [isActive, isEmpty, pulseOpacity]);
-
-  const badgeAnimStyle = useAnimatedStyle(() => ({
-    opacity: pulseOpacity.value,
-  }));
 
   if (isEmpty) {
     return (
@@ -219,13 +198,12 @@ function PlayerChip(props: PlayerChipProps): React.ReactNode {
         testID={`team${team}-slot${index}`}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`Add player ${index + 1}`}
+        accessibilityLabel={`Add Team ${team} player ${index + 1}`}
         className={`relative flex-row items-center justify-center px-3 py-2 rounded-[10px] min-h-[44px] w-full ${
           isActive
-            ? 'border-2 border-brand-gold'
+            ? 'border-2 border-brand-gold bg-warning-tint'
             : 'border border-dashed border-divider'
         }`}
-        style={isActive ? { backgroundColor: 'rgba(212,168,67,0.12)' } : undefined}
       >
         <Text
           className={`text-[12px] ${
@@ -234,27 +212,6 @@ function PlayerChip(props: PlayerChipProps): React.ReactNode {
         >
           {isActive ? 'Tap a player below' : '+ Add Player'}
         </Text>
-
-        {isActive && (
-          <Animated.View
-            style={[
-              {
-                position: 'absolute',
-                top: -8,
-                right: 8,
-                backgroundColor: '#d4a843',
-                borderRadius: 6,
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-              },
-              badgeAnimStyle,
-            ]}
-          >
-            <Text className="text-white text-[9px] font-black tracking-wider">
-              NEXT
-            </Text>
-          </Animated.View>
-        )}
       </Pressable>
     );
   }
@@ -488,15 +445,12 @@ function CompactBoardHalf({
               testID={`compact-slot-team${team}-${idx}`}
               onPress={handlePress}
               accessibilityRole="button"
-              accessibilityLabel={`Add player ${idx + 1}`}
-              className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-[26px] border ${
+              accessibilityLabel={`Add Team ${team} player ${idx + 1}`}
+              className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-touch border ${
                 isActive
-                  ? 'border-brand-gold'
+                  ? 'border-brand-gold bg-warning-tint'
                   : 'border-dashed border-divider'
               }`}
-              style={
-                isActive ? { backgroundColor: 'rgba(212,168,67,0.18)' } : undefined
-              }
             >
               <Text
                 className={`text-[11px] ${
@@ -516,7 +470,7 @@ function CompactBoardHalf({
             onPress={handlePress}
             accessibilityRole="button"
             accessibilityLabel={slot.display_name}
-            className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-[26px] ${
+            className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-touch ${
               isTeal ? 'bg-brand-teal' : 'bg-brand-gold'
             }`}
           >
@@ -652,32 +606,48 @@ export default function ScoreBoard({
     ? (dragFrom.team === 1 ? team1Slots[dragFrom.slot] : team2Slots[dragFrom.slot])
     : null;
   const ghostLabel = ghostSlot != null ? formatPlayerShort(ghostSlot.display_name) : '';
+  const activeSlotLabel = activeSlot != null
+    ? `Choose Team ${activeSlot.team} player ${activeSlot.slot + 1}`
+    : null;
 
   // Compact mode only applies while building — once all 4 seats are filled the
   // picker (and its search input) is gone, so there's no keyboard to dodge.
   if (compact && isBuilding) {
     return (
-      <View testID="scoreboard" className="flex-row border-b border-divider">
-        <CompactBoardHalf
-          team={1}
-          slots={team1Slots}
-          activeSlot={activeSlot ?? null}
-          onSlotPress={handleSlot1Press}
-        />
-        <View className="w-[1px] bg-divider" />
-        <CompactBoardHalf
-          team={2}
-          slots={team2Slots}
-          activeSlot={activeSlot ?? null}
-          onSlotPress={handleSlot2Press}
-        />
+      <View testID="scoreboard" className="border-b border-divider">
+        {activeSlotLabel != null && (
+          <Text testID="active-slot-label" className="bg-surface px-3 py-1.5 text-[12px] font-bold text-default">
+            {activeSlotLabel}
+          </Text>
+        )}
+        <View className="flex-row">
+          <CompactBoardHalf
+            team={1}
+            slots={team1Slots}
+            activeSlot={activeSlot ?? null}
+            onSlotPress={handleSlot1Press}
+          />
+          <View className="w-[1px] bg-divider" />
+          <CompactBoardHalf
+            team={2}
+            slots={team2Slots}
+            activeSlot={activeSlot ?? null}
+            onSlotPress={handleSlot2Press}
+          />
+        </View>
       </View>
     );
   }
 
   return (
-    <View testID="scoreboard" ref={boardRef} className="flex-row">
-      <BoardHalf
+    <View testID="scoreboard">
+      {isBuilding && activeSlotLabel != null && (
+        <Text testID="active-slot-label" className="bg-surface px-4 py-2 text-[13px] font-bold text-default">
+          {activeSlotLabel}
+        </Text>
+      )}
+      <View ref={boardRef} className="flex-row">
+        <BoardHalf
         team={1}
         slots={team1Slots}
         score={score1}
@@ -696,9 +666,9 @@ export default function ScoreBoard({
         onChipDragCancel={onChipDragCancel}
       />
 
-      <View className="w-[2px] bg-divider" />
+        <View className="w-[2px] bg-divider" />
 
-      <BoardHalf
+        <BoardHalf
         team={2}
         slots={team2Slots}
         score={score2}
@@ -717,13 +687,14 @@ export default function ScoreBoard({
         onChipDragCancel={onChipDragCancel}
       />
 
-      <GhostChip
-        visible={dragFrom != null}
-        label={ghostLabel}
-        team={dragFrom?.team ?? null}
-        ghostX={ghostX}
-        ghostY={ghostY}
-      />
+        <GhostChip
+          visible={dragFrom != null}
+          label={ghostLabel}
+          team={dragFrom?.team ?? null}
+          ghostX={ghostX}
+          ghostY={ghostY}
+        />
+      </View>
     </View>
   );
 }

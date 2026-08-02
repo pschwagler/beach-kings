@@ -5,7 +5,7 @@
  * States: loading (skeleton) → error → empty → populated list.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -20,6 +20,8 @@ import LeaguesEmptyState from '@/components/screens/Leagues/LeaguesEmptyState';
 import LeaguesErrorState from '@/components/screens/Leagues/LeaguesErrorState';
 import LeaguesActionBar from '@/components/screens/Leagues/LeaguesActionBar';
 import JoinAnotherLeagueCta from '@/components/screens/Leagues/JoinAnotherLeagueCta';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,8 +41,17 @@ function getUserStandingRow(
 
 export default function LeaguesScreen(): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
+  const scrollRef = useRef<ScrollView>(null);
   const { leagues, player, isLoading, isRefreshing, isError, onRefresh, onRetry } =
     useLeaguesScreen();
+
+  useEffect(
+    () => registerRootTabScroll('leagues', () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }),
+    [],
+  );
 
   const playerId = player?.id ?? null;
 
@@ -97,6 +108,7 @@ export default function LeaguesScreen(): React.ReactNode {
         <LeaguesErrorState onRetry={onRetry} />
       ) : (
         <ScrollView
+          ref={scrollRef}
           className="flex-1"
           contentContainerStyle={
             leagues.length === 0 ? { flex: 1 } : undefined
@@ -105,7 +117,7 @@ export default function LeaguesScreen(): React.ReactNode {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={onRefresh}
-              tintColor="#2a7d9c"
+              tintColor={palette.brandTeal}
             />
           }
         >

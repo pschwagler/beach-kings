@@ -20,7 +20,7 @@
  * Wireframe ref: friends.html
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -130,6 +130,7 @@ function FriendsEmptyState({
   onFindPlayers,
 }: {
   readonly onFindPlayers: () => void;
+  readonly scrollRequest?: number;
 }): React.ReactNode {
   const palette = usePaletteColors();
   const handlePress = useCallback(() => {
@@ -330,6 +331,7 @@ export interface FriendsBodyProps extends UseFriendsResult {
   readonly onPlayerPress: (playerId: number) => void;
   /** Navigate to the Find Players destination (empty-state CTA). */
   readonly onFindPlayers: () => void;
+  readonly scrollRequest?: number;
 }
 
 export default function FriendsBody({
@@ -351,8 +353,16 @@ export default function FriendsBody({
   setSearchQuery,
   onPlayerPress,
   onFindPlayers,
+  scrollRequest = 0,
 }: FriendsBodyProps): React.ReactNode {
+  const listRef = useRef<FlatList<FriendsListItem>>(null);
   const requestsFailed = friendRequestsError != null && !isRefreshingFriends;
+
+  useEffect(() => {
+    if (scrollRequest > 0) {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [scrollRequest]);
 
   const renderItem = useCallback<ListRenderItem<FriendsListItem>>(
     ({ item }) => {
@@ -454,6 +464,7 @@ export default function FriendsBody({
       <>
         <FriendsSearchBar value={searchQuery} onChangeText={setSearchQuery} />
         <FlatList<FriendsListItem>
+          ref={listRef}
           testID="friends-list"
           data={listItems}
           keyExtractor={(item) => {

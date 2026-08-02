@@ -24,16 +24,15 @@ import {
   Text,
   Pressable,
   ActivityIndicator,
-  ScrollView,
   Alert,
   Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
-import BottomTabBar, { BottomTabBarHeightContext } from '@/components/navigation/BottomTabBar';
 import { hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
+import SegmentControl from '@/components/ui/SegmentControl';
 import {
   normalizeLeagueDetailTab,
   useLeagueDetailScreen,
@@ -69,48 +68,24 @@ interface SegmentBarProps {
 }
 
 function SegmentBar({ tabs, activeTab, onSetTab }: SegmentBarProps): React.ReactNode {
+  const selectedIndex = tabs.findIndex(({ key }) => key === activeTab);
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
+    <SegmentControl
       testID="league-segment-bar"
-      className="bg-surface border-b border-divider grow-0 shrink-0"
-      style={{ flexGrow: 0, flexShrink: 0 }}
-      contentContainerStyle={{ paddingHorizontal: 8, alignItems: 'center' }}
-    >
-      {tabs.map((tab) => {
-        const isActive = tab.key === activeTab;
-        return (
-          <Pressable
-            key={tab.key}
-            testID={`segment-tab-${tab.key}`}
-            onPress={() => {
-              Keyboard.dismiss();
-              void hapticLight();
-              onSetTab(tab.key);
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel={tab.label}
-            accessibilityState={{ selected: isActive }}
-            className="px-4 py-[12px] mr-1"
-          >
-            <Text
-              className={`text-[13px] font-semibold ${
-                isActive
-                  ? 'text-brand-teal'
-                  : 'text-muted'
-              }`}
-            >
-              {tab.label}
-            </Text>
-            {isActive && (
-              <View className="absolute bottom-0 left-4 right-4 h-[2px] bg-brand-teal rounded-full" />
-            )}
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+      segments={tabs.map(({ label }) => label)}
+      segmentTestIDs={tabs.map(({ key }) => `segment-tab-${key}`)}
+      selectedIndex={selectedIndex}
+      compact
+      className="mx-2 my-2 grow-0 shrink-0"
+      onSelect={(index) => {
+        const tab = tabs[index];
+        if (tab == null) return;
+        Keyboard.dismiss();
+        void hapticLight();
+        onSetTab(tab.key);
+      }}
+    />
   );
 }
 
@@ -356,10 +331,6 @@ export default function LeagueDetailScreen({
   // text changes.
   const [chatDraft, setChatDraft] = useState('');
 
-  // Measured at runtime so LeagueChatTab can align its composer to the keyboard
-  // top precisely (avoids hardcoded estimate drift across devices / iOS versions).
-  const [tabBarHeight, setTabBarHeight] = useState(0);
-
   // Surface join/request failures instead of letting them fail silently —
   // both handlers can reject (network error, backend 400, etc).
   const handleJoinLeague = async (): Promise<void> => {
@@ -423,97 +394,82 @@ export default function LeagueDetailScreen({
     </Pressable>
   ) : undefined;
 
-  const measuredTabBar = (
-    <View onLayout={(e) => setTabBarHeight(e.nativeEvent.layout.height)}>
-      <BottomTabBar active="leagues" />
-    </View>
-  );
-
   if (isLoading) {
     return (
-      <BottomTabBarHeightContext.Provider value={tabBarHeight}>
-        <SafeAreaView
-          className="flex-1 bg-page"
-          edges={['top']}
-        >
-          <TopNav title="League" showBack />
-          <View testID="league-detail-loading" className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" />
-          </View>
-          {measuredTabBar}
-        </SafeAreaView>
-      </BottomTabBarHeightContext.Provider>
+      <SafeAreaView
+        className="flex-1 bg-page"
+        edges={['top', 'bottom']}
+      >
+        <TopNav title="League" showBack />
+        <View testID="league-detail-loading" className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (isError || detail == null) {
     return (
-      <BottomTabBarHeightContext.Provider value={tabBarHeight}>
-        <SafeAreaView
-          className="flex-1 bg-page"
-          edges={['top']}
+      <SafeAreaView
+        className="flex-1 bg-page"
+        edges={['top', 'bottom']}
+      >
+        <TopNav title="League" showBack />
+        <View
+          testID="league-detail-error"
+          className="flex-1 items-center justify-center px-8"
         >
-          <TopNav title="League" showBack />
-          <View
-            testID="league-detail-error"
-            className="flex-1 items-center justify-center px-8"
-          >
-            <Text className="text-[16px] font-bold text-default text-center">
-              Failed to load league
-            </Text>
-          </View>
-          {measuredTabBar}
-        </SafeAreaView>
-      </BottomTabBarHeightContext.Provider>
+          <Text className="text-[16px] font-bold text-default text-center">
+            Failed to load league
+          </Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <BottomTabBarHeightContext.Provider value={tabBarHeight}>
-      <SafeAreaView
-        className="flex-1 bg-page"
-        edges={['top']}
-      >
-        <TopNav title="League" showBack rightAction={addGameAction} />
-        <View testID="league-detail-screen" className="flex-1 bg-page">
-          <LeagueHeader
-            name={detail.name}
-            locationName={detail.location_name}
-            memberCount={detail.member_count}
+    <SafeAreaView
+      className="flex-1 bg-page"
+      edges={['top', 'bottom']}
+    >
+      <TopNav title="League" showBack rightAction={addGameAction} />
+      <View testID="league-detail-screen" className="flex-1 bg-page">
+        <LeagueHeader
+          name={detail.name}
+          locationName={detail.location_name}
+          memberCount={detail.member_count}
+        />
+
+        {isVisitor && (
+          <VisitorJoinBanner
+            canJoinDirectly={canJoinDirectly}
+            canRequestToJoin={canRequestToJoin}
+            hasPendingRequest={hasPendingRequest}
+            isJoiningLeague={isJoiningLeague}
+            isRequestingToJoin={isRequestingToJoin}
+            onJoinLeague={() => void handleJoinLeague()}
+            onRequestToJoin={() => void handleRequestToJoin()}
           />
+        )}
 
-          {isVisitor && (
-            <VisitorJoinBanner
-              canJoinDirectly={canJoinDirectly}
-              canRequestToJoin={canRequestToJoin}
-              hasPendingRequest={hasPendingRequest}
-              isJoiningLeague={isJoiningLeague}
-              isRequestingToJoin={isRequestingToJoin}
-              onJoinLeague={() => void handleJoinLeague()}
-              onRequestToJoin={() => void handleRequestToJoin()}
-            />
-          )}
+        <SegmentBar
+          tabs={tabsForRole}
+          activeTab={activeTab}
+          onSetTab={handleSetTab}
+        />
 
-          <SegmentBar
-            tabs={tabsForRole}
+        <View className="flex-1">
+          <TabContent
+            leagueId={resolvedId}
+            userRole={detail.user_role}
             activeTab={activeTab}
-            onSetTab={handleSetTab}
+            statsPlayerId={statsPlayerId}
+            onViewPlayerStats={handlePressPlayer}
+            chatDraft={chatDraft}
+            onChatDraftChange={setChatDraft}
           />
-
-          <View className="flex-1">
-            <TabContent
-              leagueId={resolvedId}
-              userRole={detail.user_role}
-              activeTab={activeTab}
-              statsPlayerId={statsPlayerId}
-              onViewPlayerStats={handlePressPlayer}
-              chatDraft={chatDraft}
-              onChatDraftChange={setChatDraft}
-            />
-          </View>
         </View>
-        {measuredTabBar}
-      </SafeAreaView>
-    </BottomTabBarHeightContext.Provider>
+      </View>
+    </SafeAreaView>
   );
 }

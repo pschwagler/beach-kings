@@ -26,22 +26,22 @@ export const colors = {
   infoTint: '#dbeafe',
 
   // Neutrals
-  textPrimary: '#1a1a1a',
-  textSecondary: '#666666',
-  textTertiary: '#999999',
-  textInverse: '#ffffff',
+  textPrimary: '#182326',
+  textSecondary: '#596568',
+  textTertiary: '#697577',
+  textInverse: '#fffdf8',
 
   // Disabled state
-  disabledBg: '#e8e8e8',
-  disabledText: '#aaaaaa',
+  disabledBg: '#e8e3d9',
+  disabledText: '#9b9a94',
 
   // Backgrounds
-  bgPrimary: '#f5f5f5',
-  bgSurface: '#ffffff',
+  bgPrimary: '#f5f1e8',
+  bgSurface: '#fffdf8',
   bgNav: '#1a3a4a',
 
   // Borders
-  border: '#e0e0e0',
+  border: '#ded8cc',
 
   // Gray scale (full)
   gray50: '#fafafa',
@@ -63,25 +63,25 @@ export const colors = {
 
 export const darkColors = {
   // Backgrounds (three-tier surface hierarchy)
-  bgBase: '#0d1117',
-  bgSurface: '#161b22',
-  bgElevated: '#1c2128',
-  bgInset: '#0d1117',
-  bgNav: '#010409',
-  bgTabbar: '#0d1117',
+  bgBase: '#0f1718',
+  bgSurface: '#172224',
+  bgElevated: '#202d2f',
+  bgInset: '#0c1415',
+  bgNav: '#102f38',
+  bgTabbar: '#121c1e',
 
   // Text
-  textPrimary: '#e6edf3',
-  textSecondary: '#8b949e',
-  textTertiary: '#656d76',
+  textPrimary: '#e8efec',
+  textSecondary: '#9faaa6',
+  textTertiary: '#818e88',
 
   // Brand (adjusted for dark backgrounds)
   brandTeal: '#4daacc',
   brandGold: '#e0b44c',
 
   // Borders
-  border: '#30363d',
-  borderSubtle: '#21262d',
+  border: '#354245',
+  borderSubtle: '#253134',
 
   // Semantic (background + text pairs)
   successBg: '#0d2818',

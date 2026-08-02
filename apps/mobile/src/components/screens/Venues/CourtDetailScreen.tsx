@@ -260,7 +260,7 @@ export default function CourtDetailScreen({
       edges={['top']}
       testID="court-detail-screen"
     >
-      <TopNav title={court.name} showBack />
+      <TopNav title="Court" showBack />
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
