@@ -13,10 +13,11 @@
  * Wireframe ref: league-info.html
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   ActivityIndicator,
@@ -28,20 +29,21 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
-import { api } from '@/lib/api';
-import { useBottomTabBarContentPadding } from '@/components/navigation/BottomTabBar';
 import { routes } from '@/lib/navigation';
 import CourtPickerModal from '@/components/ui/CourtPickerModal';
 import Avatar from '@/components/ui/Avatar';
 import { useLeagueInfoTab } from './useLeagueInfoTab';
 import SeasonFormSheet from './SeasonFormSheet';
 import type { HomeCourtResponse, JoinRequest, LeagueMemberRow, LeagueSeason } from '@beach-kings/shared';
+import { useAuth } from '@/contexts/AuthContext';
+import { courtQueries } from '@/features/courts';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const LEVEL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced', 'Open'];
+const CONTENT_BOTTOM_SPACING = 32;
 const ACCESS_OPTIONS: Array<{ label: string; value: 'open' | 'invite_only' }> = [
   { label: 'Public', value: 'open' },
   { label: 'Invite Only', value: 'invite_only' },
@@ -53,9 +55,9 @@ const ACCESS_OPTIONS: Array<{ label: string; value: 'open' | 'invite_only' }> = 
 
 function SectionLabel({ title }: { readonly title: string }): React.ReactNode {
   return (
-    <Text className="text-[12px] font-semibold text-muted uppercase tracking-wider px-4 pt-5 pb-2">
+    <AppText className="text-[12px] font-semibold text-muted uppercase tracking-wider px-4 pt-5 pb-2">
       {title}
-    </Text>
+    </AppText>
   );
 }
 
@@ -88,16 +90,16 @@ function JoinRequestRow({ request, onApprove, onDeny }: JoinRequestRowProps): Re
         accessible={false}
       />
       <View className="flex-1 min-w-0">
-        <Text
+        <AppText
           className="text-[14px] font-semibold text-default"
           numberOfLines={1}
         >
           {request.display_name}
-        </Text>
-        <Text className="text-[12px] text-muted mt-[1px]">
+        </AppText>
+        <AppText className="text-[12px] text-muted mt-[1px]">
           Requested {dateLabel}
           {request.message != null ? ` · "${request.message}"` : ''}
-        </Text>
+        </AppText>
       </View>
       <View className="flex-row gap-2">
         <Pressable
@@ -108,7 +110,7 @@ function JoinRequestRow({ request, onApprove, onDeny }: JoinRequestRowProps): Re
           }}
           className="px-[12px] py-[8px] rounded-[8px] bg-brand-teal active:opacity-80"
         >
-          <Text className="text-[12px] font-bold text-white">Approve</Text>
+          <AppText className="text-[12px] font-bold text-on-brand-teal">Approve</AppText>
         </Pressable>
         <Pressable
           testID={`deny-request-btn-${request.id}`}
@@ -118,9 +120,9 @@ function JoinRequestRow({ request, onApprove, onDeny }: JoinRequestRowProps): Re
           }}
           className="px-[12px] py-[8px] rounded-[8px] border border-strong active:opacity-70"
         >
-          <Text className="text-[12px] font-bold text-muted">
+          <AppText className="text-[12px] font-bold text-muted">
             Deny
-          </Text>
+          </AppText>
         </Pressable>
       </View>
     </View>
@@ -188,12 +190,12 @@ function MemberRow({
         colorSeed={member.player_id}
         accessible={false}
       />
-      <Text
+      <AppText
         className="flex-1 text-[14px] font-semibold text-default"
         numberOfLines={1}
       >
         {member.display_name}
-      </Text>
+      </AppText>
       {/* Role badge — admin can tap to toggle */}
       {member.role === 'admin' && (
         <Pressable
@@ -202,7 +204,7 @@ function MemberRow({
           disabled={!isAdmin}
           className="bg-warning-tint rounded-[6px] px-2 py-[2px] active:opacity-70"
         >
-          <Text className="text-[10px] font-bold text-warning">Admin</Text>
+          <AppText className="text-[10px] font-bold text-warning">Admin</AppText>
         </Pressable>
       )}
       {member.role === 'member' && isAdmin && (
@@ -211,7 +213,7 @@ function MemberRow({
           onPress={handleRoleTap}
           className="bg-elevated rounded-[6px] px-2 py-[2px] active:opacity-70"
         >
-          <Text className="text-[10px] font-semibold text-muted">Member</Text>
+          <AppText className="text-[10px] font-semibold text-muted">Member</AppText>
         </Pressable>
       )}
       {/* Remove button — disabled for self */}
@@ -224,11 +226,11 @@ function MemberRow({
             isSelf ? 'border-divider opacity-40' : 'border-danger-tint active:opacity-70'
           }`}
         >
-          <Text
+          <AppText
             className={`text-[11px] font-semibold ${isSelf ? 'text-muted' : 'text-danger'}`}
           >
             Remove
-          </Text>
+          </AppText>
         </Pressable>
       )}
     </View>
@@ -263,14 +265,14 @@ function SeasonRow({
       className="flex-row items-center px-4 py-[12px] border-b border-divider gap-3"
     >
       <View className="flex-1">
-        <Text className="text-[14px] font-semibold text-default">
+        <AppText className="text-[14px] font-semibold text-default">
           {season.name || 'Untitled Season'}
-        </Text>
-        <Text className="text-[12px] text-muted">
+        </AppText>
+        <AppText className="text-[12px] text-muted">
           {startDate} - {endDate} · {season.session_count}{' '}
           {season.session_count === 1 ? 'session' : 'sessions'} · {season.game_count}{' '}
           {season.game_count === 1 ? 'game' : 'games'}
-        </Text>
+        </AppText>
       </View>
       <View className="flex-row items-center gap-2">
         <View
@@ -280,7 +282,7 @@ function SeasonRow({
               : 'bg-elevated'
           }`}
         >
-          <Text
+          <AppText
             className={`text-[10px] font-semibold ${
               season.is_active
                 ? 'text-success'
@@ -288,9 +290,9 @@ function SeasonRow({
             }`}
           >
             {season.is_active ? 'Active' : 'Past'}
-          </Text>
+          </AppText>
         </View>
-        {isAdmin && <Text className="text-[14px] text-brand-teal">Edit</Text>}
+        {isAdmin && <AppText className="text-[14px] text-brand-teal">Edit</AppText>}
       </View>
     </View>
   );
@@ -328,9 +330,9 @@ function CourtPill({ court, isPrimary, isAdmin, onRemove }: CourtPillProps): Rea
       className="flex-row items-center gap-1 bg-elevated rounded-full px-3 py-[6px] border border-divider"
     >
       {isPrimary && (
-        <Text className="text-[11px] text-brand-teal">★</Text>
+        <AppText className="text-[11px] text-brand-teal">★</AppText>
       )}
-      <Text className="text-[12px] font-semibold text-default">{court.name}</Text>
+      <AppText className="text-[12px] font-semibold text-default">{court.name}</AppText>
       {isAdmin && (
         <Pressable
           testID={`remove-court-btn-${court.id}`}
@@ -341,7 +343,7 @@ function CourtPill({ court, isPrimary, isAdmin, onRemove }: CourtPillProps): Rea
           hitSlop={8}
           className="ml-1 active:opacity-60"
         >
-          <Text className="text-[12px] text-muted">×</Text>
+          <AppText className="text-[12px] text-muted">×</AppText>
         </Pressable>
       )}
     </View>
@@ -378,7 +380,7 @@ function OptionPickerModal<T extends string>({
     >
       <Pressable className="flex-1 bg-black/40" onPress={onClose} />
       <View className="bg-surface rounded-t-[20px] px-4 pt-4 pb-8">
-        <Text className="text-[16px] font-bold text-default mb-3">{title}</Text>
+        <AppText className="text-[16px] font-bold text-default mb-3">{title}</AppText>
         {options.map((opt) => (
           <TouchableOpacity
             key={opt.value}
@@ -389,9 +391,9 @@ function OptionPickerModal<T extends string>({
             }}
             className="flex-row justify-between items-center py-[14px] border-b border-divider"
           >
-            <Text className="text-[14px] text-default">{opt.label}</Text>
+            <AppText className="text-[14px] text-default">{opt.label}</AppText>
             {selected === opt.value && (
-              <Text className="text-[14px] text-brand-teal font-bold">✓</Text>
+              <AppText className="text-[14px] text-brand-teal font-bold">✓</AppText>
             )}
           </TouchableOpacity>
         ))}
@@ -421,14 +423,14 @@ function InfoRow({ label, value, isAdmin, onPress, testID }: InfoRowProps): Reac
         isAdmin && onPress ? 'active:opacity-70' : ''
       }`}
     >
-      <Text className="w-[110px] text-[12px] text-muted flex-shrink-0">
+      <AppText className="w-[110px] text-[12px] text-muted flex-shrink-0">
         {label}
-      </Text>
-      <Text className="flex-1 text-[13px] font-semibold text-default">
+      </AppText>
+      <AppText className="flex-1 text-[13px] font-semibold text-default">
         {value ?? '—'}
-      </Text>
+      </AppText>
       {isAdmin && onPress && (
-        <Text className="text-[12px] text-brand-teal">Edit</Text>
+        <AppText className="text-[12px] text-brand-teal">Edit</AppText>
       )}
     </View>
   );
@@ -457,7 +459,7 @@ export default function LeagueInfoTab({
   userRole,
 }: LeagueInfoTabProps): React.ReactNode {
   const router = useRouter();
-  const bottomContentPadding = useBottomTabBarContentPadding();
+  const { user } = useAuth();
   const {
     info,
     isLoading,
@@ -491,8 +493,22 @@ export default function LeagueInfoTab({
   const [seasonSheetMode, setSeasonSheetMode] = useState<'create' | 'edit' | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<LeagueSeason | null>(null);
 
-  // Courts available for the picker (loaded lazily from getCourts)
-  const [availableCourts, setAvailableCourts] = useState<Array<{ id: number; name: string }>>([]);
+  const courtLocationId = info?.location_id ?? null;
+  const availableCourtsQuery = useQuery(
+    courtQueries.nearby(
+      user?.id ?? 0,
+      null,
+      courtLocationId,
+      courtLocationId != null && courtLocationId.length > 0,
+    ),
+  );
+  const availableCourts = useMemo(
+    () => (availableCourtsQuery.data ?? []).flatMap((court) => {
+      const id = Number(court.id);
+      return Number.isFinite(id) ? [{ id, name: court.name }] : [];
+    }),
+    [availableCourtsQuery.data],
+  );
 
   const handleLeave = (): void => {
     Alert.alert(
@@ -531,24 +547,8 @@ export default function LeagueInfoTab({
   };
 
   const handleAddCourtPress = async (): Promise<void> => {
-    // No location ⇒ skip the API call; backend would receive `?location_id=` (empty
-    // string) and return an unfiltered list, which is not what the picker should show.
-    if (!info?.location_id) {
-      setAvailableCourts([]);
-      setShowCourtPicker(true);
-      return;
-    }
-    try {
-      const courts = await api.getCourts({ location_id: info.location_id });
-      const normalized = Array.isArray(courts) ? courts : (courts as { items: typeof courts }).items ?? [];
-      setAvailableCourts(
-        (normalized as Array<{ id: number | string; name: string }>).map((c) => ({
-          id: Number(c.id),
-          name: c.name,
-        })),
-      );
-    } catch {
-      setAvailableCourts([]);
+    if (courtLocationId != null) {
+      await availableCourtsQuery.refetch();
     }
     setShowCourtPicker(true);
   };
@@ -577,12 +577,12 @@ export default function LeagueInfoTab({
         testID="info-error"
         className="flex-1 items-center justify-center px-8"
       >
-        <Text className="text-[16px] font-bold text-default text-center">
+        <AppText className="text-[16px] font-bold text-default text-center">
           Failed to load info
-        </Text>
-        <Text className="text-[13px] text-muted text-center mt-2">
+        </AppText>
+        <AppText className="text-[13px] text-muted text-center mt-2">
           Check your connection and try again.
-        </Text>
+        </AppText>
         <Pressable
           testID="info-retry-button"
           onPress={() => {
@@ -592,7 +592,7 @@ export default function LeagueInfoTab({
           accessibilityLabel="Retry loading league info"
           className="min-h-touch mt-4 px-5 items-center justify-center rounded-[10px] bg-brand-teal active:opacity-80"
         >
-          <Text className="text-[14px] font-semibold text-white">Retry</Text>
+          <AppText className="text-[14px] font-semibold text-on-brand-teal">Retry</AppText>
         </Pressable>
       </View>
     );
@@ -615,7 +615,7 @@ export default function LeagueInfoTab({
         testID="info-tab"
         className="flex-1 bg-page"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: bottomContentPadding }}
+        contentContainerStyle={{ paddingBottom: CONTENT_BOTTOM_SPACING }}
       >
       {/* Description */}
       {(info.description != null || isAdmin) && (
@@ -638,13 +638,13 @@ export default function LeagueInfoTab({
                 testID="description-edit-btn"
                 onPress={isAdmin ? handleDescriptionEdit : undefined}
               >
-                <Text className="text-[14px] text-default leading-[1.5]">
+                <AppText className="text-[14px] text-default leading-[1.5]">
                   {info.description ?? (isAdmin ? 'Tap to add a description…' : '')}
-                </Text>
+                </AppText>
                 {isAdmin && (
-                  <Text className="text-[11px] text-brand-teal mt-1">
+                  <AppText className="text-[11px] text-brand-teal mt-1">
                     {info.description != null ? 'Tap to edit' : ''}
-                  </Text>
+                  </AppText>
                 )}
               </Pressable>
             )}
@@ -699,7 +699,7 @@ export default function LeagueInfoTab({
                 onPress={handleNewSeason}
                 className="active:opacity-70"
               >
-                <Text className="text-[13px] font-semibold text-brand-teal">+ New Season</Text>
+                <AppText className="text-[13px] font-semibold text-brand-teal">+ New Season</AppText>
               </Pressable>
             )}
           </View>
@@ -738,10 +738,10 @@ export default function LeagueInfoTab({
         <InfoRow label="Location" value={info.location_name} />
         {/* Home Courts pill row */}
         <View className="px-4 py-[12px] border-b border-divider">
-          <Text className="text-[12px] text-muted mb-2">Home Courts</Text>
+          <AppText className="text-[12px] text-muted mb-2">Home Courts</AppText>
           <View className="flex-row flex-wrap gap-2">
             {info.home_courts.length === 0 && (
-              <Text
+              <AppText
                 testID="home-courts-empty"
                 accessibilityRole="text"
                 className="w-full text-[13px] text-muted"
@@ -749,7 +749,7 @@ export default function LeagueInfoTab({
                 {isAdmin
                   ? 'No home courts selected. Add one so players know where to meet.'
                   : 'No home courts selected yet.'}
-              </Text>
+              </AppText>
             )}
             {info.home_courts.map((court) => (
               <CourtPill
@@ -768,7 +768,7 @@ export default function LeagueInfoTab({
                 accessibilityLabel="Add a home court"
                 className="flex-row items-center gap-1 bg-elevated rounded-full px-3 py-[6px] border border-dashed border-divider active:opacity-70"
               >
-                <Text className="text-[12px] text-brand-teal font-semibold">+ Add Court</Text>
+                <AppText className="text-[12px] text-brand-teal font-semibold">+ Add Court</AppText>
               </Pressable>
             )}
           </View>
@@ -791,16 +791,16 @@ export default function LeagueInfoTab({
             className="min-h-touch bg-surface rounded-[12px] mx-4 border border-divider px-4 py-4 flex-row items-center active:opacity-70"
           >
             <View className="flex-1">
-              <Text className="text-[14px] font-semibold text-default">
+              <AppText className="text-[14px] font-semibold text-default">
                 Invite Players
-              </Text>
-              <Text className="text-[12px] text-muted mt-1">
+              </AppText>
+              <AppText className="text-[12px] text-muted mt-1">
                 Send league invitations to eligible players.
-              </Text>
+              </AppText>
             </View>
-            <Text className="text-[18px] text-brand-teal" importantForAccessibility="no">
+            <AppText className="text-[18px] text-brand-teal" importantForAccessibility="no">
               ›
-            </Text>
+            </AppText>
           </Pressable>
         </>
       )}
@@ -816,9 +816,9 @@ export default function LeagueInfoTab({
           {leavePending ? (
             <ActivityIndicator size="small" />
           ) : (
-            <Text className="text-[14px] font-semibold text-danger">
+            <AppText className="text-[14px] font-semibold text-danger">
               Leave League
-            </Text>
+            </AppText>
           )}
         </Pressable>
       )}

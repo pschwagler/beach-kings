@@ -10,9 +10,13 @@
  */
 
 import React, { useRef } from 'react';
-import { View, Text, FlatList, RefreshControl } from 'react-native';
+import { View, FlatList, RefreshControl } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { KeyboardStickyView, useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
+import {
+  KeyboardStickyView,
+  useReanimatedKeyboardAnimation,
+} from 'react-native-keyboard-controller';
 
 // ---------------------------------------------------------------------------
 // Date helpers
@@ -49,7 +53,7 @@ function DateDivider({ label }: { readonly label: string }): React.ReactNode {
   return (
     <View className="flex-row items-center px-4 py-3 gap-3">
       <View className="flex-1 h-[1px] bg-divider" />
-      <Text className="text-[11px] text-muted font-medium">{label}</Text>
+      <AppText className="text-[11px] text-muted font-medium">{label}</AppText>
       <View className="flex-1 h-[1px] bg-divider" />
     </View>
   );
@@ -100,7 +104,7 @@ export interface ChatViewProps<T> {
    */
   readonly bottomInset?: number;
   /**
-   * Height of UI rendered BELOW this component (e.g. a BottomTabBar).
+   * Height of fixed UI rendered below this component.
    * KeyboardStickyView translates by the full keyboard height but the composer
    * starts that many pixels above the screen bottom, so it overshoots the
    * keyboard top by this amount. Passing this value corrects the gap.
@@ -176,7 +180,10 @@ export default function ChatView<T>({
           if (item.kind === 'divider') {
             return <DateDivider label={item.label} />;
           }
-          return renderBubble(item.item, item.nextItem) as React.ReactElement | null;
+          return renderBubble(
+            item.item,
+            item.nextItem,
+          ) as React.ReactElement | null;
         }}
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 8 }}

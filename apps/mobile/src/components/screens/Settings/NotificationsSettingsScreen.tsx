@@ -9,7 +9,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, Switch } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
@@ -17,6 +18,8 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { hapticLight } from '@/utils/haptics';
 import { useNotificationsScreen } from './useNotificationsScreen';
 import type { PushNotificationPrefs } from '@beach-kings/shared';
+import AppSwitch from '@/components/ui/AppSwitch';
+import Button from '@/components/ui/Button';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,9 +50,9 @@ interface SectionHeaderProps {
 
 function SectionHeader({ title }: SectionHeaderProps): React.ReactNode {
   return (
-    <Text className="text-[12px] font-bold uppercase tracking-wider px-lg pt-xl pb-sm text-muted">
+    <AppText className="text-[12px] font-bold uppercase tracking-wider px-lg pt-xl pb-sm text-muted">
       {title}
-    </Text>
+    </AppText>
   );
 }
 
@@ -74,8 +77,8 @@ function ToggleRow({
         disabled ? 'opacity-40' : ''
       }`}
     >
-      <Text className="text-[15px] text-default">{label}</Text>
-      <Switch
+      <AppText className="text-[15px] text-default">{label}</AppText>
+      <AppSwitch
         testID={testID}
         accessibilityLabel={label}
         accessibilityHint={
@@ -89,9 +92,6 @@ function ToggleRow({
           }
         }}
         disabled={disabled}
-        trackColor={{ false: '#e0e0e0', true: '#22c55e' }}
-        thumbColor="#fff"
-        ios_backgroundColor="#e0e0e0"
       />
     </View>
   );
@@ -127,16 +127,15 @@ function NotificationsErrorState({ onRetry }: ErrorStateProps): React.ReactNode 
       testID="notifications-error"
       className="flex-1 items-center justify-center px-xl py-xxxl"
     >
-      <Text className="text-base font-semibold text-default text-center mb-sm">
+      <AppText className="text-base font-semibold text-default text-center mb-sm">
         Could not load notification settings
-      </Text>
-      <Pressable
+      </AppText>
+      <Button
         testID="notifications-retry-btn"
+        title="Retry"
         onPress={onRetry}
-        className="bg-brand-teal px-xl py-sm rounded-xl active:opacity-80"
-      >
-        <Text className="text-white font-semibold text-sm">Retry</Text>
-      </Pressable>
+        className="px-xl"
+      />
     </View>
   );
 }
@@ -194,9 +193,9 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
             onToggle={handleMasterToggle}
           />
           {!allEnabled && prefs != null && (
-            <Text className="text-[12px] text-muted px-lg py-sm">
+            <AppText className="text-[12px] text-muted px-lg py-sm">
               Enable push notifications to customize alerts
-            </Text>
+            </AppText>
           )}
         </View>
 

@@ -64,6 +64,9 @@ jest.mock('@beach-kings/shared/tokens', () => ({
     borderDivider: '#e5e7eb',
     brandTeal: '#1a3a4a',
     brandGold: '#c8a84b',
+    onBrandTeal: '#ffffff',
+    onBrandGold: '#1a1a1a',
+    onDanger: '#ffffff',
     success: '#16a34a',
     danger: '#dc2626',
     warning: '#d97706',
@@ -88,6 +91,9 @@ jest.mock('@beach-kings/shared/tokens', () => ({
     borderDivider: '#21262d',
     brandTeal: '#14b8a6',
     brandGold: '#d4a843',
+    onBrandTeal: '#0d1117',
+    onBrandGold: '#0d1117',
+    onDanger: '#0d1117',
     success: '#4ade80',
     danger: '#f87171',
     warning: '#fbbf24',
@@ -118,7 +124,6 @@ import PasswordStrength from '@/components/ui/PasswordStrength';
 import PullToRefresh from '@/components/ui/PullToRefresh';
 import TabView from '@/components/ui/TabView';
 import SearchBar from '@/components/ui/SearchBar';
-import FilterChips from '@/components/ui/FilterChips';
 import Toast from '@/components/ui/Toast';
 import ListItem from '@/components/ui/ListItem';
 import ProgressBar from '@/components/ui/ProgressBar';
@@ -250,6 +255,9 @@ describe('Button', () => {
     fireEvent.press(getByLabelText('Submit'));
     expect(hapticMedium).toHaveBeenCalledTimes(1);
     expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Submit').props.className).toContain(
+      'text-on-brand-teal',
+    );
   });
 
   it('calls hapticMedium when a secondary button is pressed', () => {
@@ -259,6 +267,9 @@ describe('Button', () => {
     );
     fireEvent.press(getByLabelText('Save'));
     expect(hapticMedium).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Save').props.className).toContain(
+      'text-on-brand-gold',
+    );
   });
 
   it('calls hapticLight when an outline button is pressed', () => {
@@ -334,8 +345,11 @@ describe('Chip', () => {
   });
 
   it('renders with active state', () => {
-    const { toJSON } = render(<Chip label="Advanced" active />);
+    const { toJSON, getByText } = render(<Chip label="Advanced" active />);
     expect(toJSON()).toBeTruthy();
+    expect(getByText('Advanced').props.className).toContain(
+      'text-on-brand-teal',
+    );
   });
 });
 
@@ -345,7 +359,12 @@ describe('Chip', () => {
 
 describe('EmptyState', () => {
   it('renders title and description', () => {
-    render(<EmptyState title="No games yet" description="Play your first game to see stats" />);
+    render(
+      <EmptyState
+        title="No games yet"
+        description="Play your first game to see stats"
+      />,
+    );
     expect(screen.getByText('No games yet')).toBeTruthy();
     expect(screen.getByText('Play your first game to see stats')).toBeTruthy();
   });
@@ -357,7 +376,7 @@ describe('EmptyState', () => {
         title="No friends"
         actionLabel="Find Players"
         onAction={onAction}
-      />
+      />,
     );
     fireEvent.press(screen.getByText('Find Players'));
     expect(onAction).toHaveBeenCalledTimes(1);
@@ -367,6 +386,25 @@ describe('EmptyState', () => {
     render(<EmptyState title="Empty" actionLabel="Add" />);
     // Button absent because onAction is missing
     expect(screen.queryByText('Add')).toBeNull();
+  });
+
+  it('exposes stable test IDs on both actionable buttons', () => {
+    const onPrimary = jest.fn();
+    const onSecondary = jest.fn();
+    render(
+      <EmptyState
+        testID="friends-empty"
+        layout="section"
+        title="No friends"
+        primaryAction={{ label: 'Find Players', onPress: onPrimary }}
+        secondaryAction={{ label: 'Invite someone', onPress: onSecondary }}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('friends-empty-primary-action'));
+    fireEvent.press(screen.getByTestId('friends-empty-secondary-action'));
+    expect(onPrimary).toHaveBeenCalledTimes(1);
+    expect(onSecondary).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -381,7 +419,9 @@ describe('LoadingSkeleton', () => {
   });
 
   it('renders without crashing with explicit dimensions', () => {
-    const { toJSON } = render(<LoadingSkeleton width={200} height={32} borderRadius={4} />);
+    const { toJSON } = render(
+      <LoadingSkeleton width={200} height={32} borderRadius={4} />,
+    );
     expect(toJSON()).toBeTruthy();
   });
 });
@@ -391,32 +431,63 @@ describe('LoadingSkeleton', () => {
 // ---------------------------------------------------------------------------
 
 describe('SegmentControl', () => {
-  const segments = ['Wins', 'Losses', 'Ties'];
+  const segments = [
+    { value: 'wins', label: 'Wins' },
+    { value: 'losses', label: 'Losses' },
+    { value: 'ties', label: 'Ties' },
+  ] as const;
 
   it('renders all segment labels', () => {
     render(
-      <SegmentControl segments={segments} selectedIndex={0} onSelect={jest.fn()} />
+      <SegmentControl
+        items={segments}
+        value="wins"
+        onValueChange={jest.fn()}
+      />,
     );
-    segments.forEach((label) => {
+    segments.forEach(({ label }) => {
       expect(screen.getByText(label)).toBeTruthy();
     });
   });
 
-  it('calls onSelect with the correct index when a segment is pressed', () => {
-    const onSelect = jest.fn();
+  it('calls onValueChange with the stable key when a segment is pressed', () => {
+    const onValueChange = jest.fn();
     render(
-      <SegmentControl segments={segments} selectedIndex={0} onSelect={onSelect} />
+      <SegmentControl
+        items={segments}
+        value="wins"
+        onValueChange={onValueChange}
+      />,
     );
     fireEvent.press(screen.getByText('Losses'));
-    expect(onSelect).toHaveBeenCalledWith(1);
+    expect(onValueChange).toHaveBeenCalledWith('losses');
   });
 
   it('marks selected segment with selected accessibility state', () => {
     render(
-      <SegmentControl segments={segments} selectedIndex={2} onSelect={jest.fn()} />
+      <SegmentControl
+        items={segments}
+        value="ties"
+        onValueChange={jest.fn()}
+      />,
     );
     const tiesElement = screen.getByRole('tab', { selected: true });
     expect(tiesElement).toBeTruthy();
+  });
+
+  it('hugs its content height when placed beside a flexing screen body', () => {
+    const { getByTestId } = render(
+      <SegmentControl
+        testID="test-segment-control"
+        items={segments}
+        value="wins"
+        onValueChange={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('test-segment-control').props.style).toEqual(
+      expect.objectContaining({ flexGrow: 0 }),
+    );
   });
 });
 
@@ -451,7 +522,7 @@ describe('BottomSheet', () => {
     render(
       <BottomSheet visible onClose={jest.fn()}>
         <></>
-      </BottomSheet>
+      </BottomSheet>,
     );
     // The backdrop close button is always rendered inside the Modal
     expect(screen.getByLabelText('Close')).toBeTruthy();
@@ -461,7 +532,7 @@ describe('BottomSheet', () => {
     const { toJSON } = render(
       <BottomSheet visible={false} onClose={jest.fn()}>
         <></>
-      </BottomSheet>
+      </BottomSheet>,
     );
     // Modal is not visible, tree should still be non-null (RN Modal renders null or empty)
     expect(toJSON()).toBeNull();
@@ -538,12 +609,12 @@ describe('PullToRefresh', () => {
     render(
       <PullToRefresh refreshing={false} onRefresh={jest.fn()}>
         <></>
-      </PullToRefresh>
+      </PullToRefresh>,
     );
     const { toJSON } = render(
       <PullToRefresh refreshing={false} onRefresh={jest.fn()}>
         <></>
-      </PullToRefresh>
+      </PullToRefresh>,
     );
     expect(toJSON()).toBeTruthy();
   });
@@ -552,7 +623,7 @@ describe('PullToRefresh', () => {
     const { toJSON } = render(
       <PullToRefresh refreshing onRefresh={jest.fn()}>
         <></>
-      </PullToRefresh>
+      </PullToRefresh>,
     );
     expect(toJSON()).toBeTruthy();
   });
@@ -563,24 +634,28 @@ describe('PullToRefresh', () => {
 // ---------------------------------------------------------------------------
 
 describe('TabView', () => {
-  const tabs = ['Overview', 'Stats', 'Friends'];
+  const tabs = [
+    { value: 'overview', label: 'Overview' },
+    { value: 'stats', label: 'Stats' },
+    { value: 'friends', label: 'Friends' },
+  ] as const;
 
   it('renders all tab labels', () => {
-    render(<TabView tabs={tabs} activeIndex={0} onTabPress={jest.fn()} />);
-    tabs.forEach((tab) => {
-      expect(screen.getByText(tab)).toBeTruthy();
+    render(<TabView items={tabs} value="overview" onValueChange={jest.fn()} />);
+    tabs.forEach(({ label }) => {
+      expect(screen.getByText(label)).toBeTruthy();
     });
   });
 
-  it('calls onTabPress with the correct index', () => {
-    const onTabPress = jest.fn();
-    render(<TabView tabs={tabs} activeIndex={0} onTabPress={onTabPress} />);
+  it('calls onValueChange with the stable key', () => {
+    const onValueChange = jest.fn();
+    render(<TabView items={tabs} value="overview" onValueChange={onValueChange} />);
     fireEvent.press(screen.getByText('Friends'));
-    expect(onTabPress).toHaveBeenCalledWith(2);
+    expect(onValueChange).toHaveBeenCalledWith('friends');
   });
 
   it('marks active tab with selected accessibility state', () => {
-    render(<TabView tabs={tabs} activeIndex={1} onTabPress={jest.fn()} />);
+    render(<TabView items={tabs} value="stats" onValueChange={jest.fn()} />);
     const selectedTab = screen.getByRole('tab', { selected: true });
     expect(selectedTab).toBeTruthy();
   });
@@ -592,7 +667,13 @@ describe('TabView', () => {
 
 describe('SearchBar', () => {
   it('renders placeholder text', () => {
-    render(<SearchBar value="" onChangeText={jest.fn()} placeholder="Search players" />);
+    render(
+      <SearchBar
+        value=""
+        onChangeText={jest.fn()}
+        placeholder="Search players"
+      />,
+    );
     expect(screen.getByPlaceholderText('Search players')).toBeTruthy();
   });
 
@@ -610,41 +691,6 @@ describe('SearchBar', () => {
 });
 
 // ---------------------------------------------------------------------------
-// FilterChips
-// ---------------------------------------------------------------------------
-
-describe('FilterChips', () => {
-  const options = [
-    { label: 'Beginner', value: 'beginner' },
-    { label: 'Intermediate', value: 'intermediate' },
-    { label: 'Advanced', value: 'advanced' },
-  ];
-
-  it('renders all option labels', () => {
-    render(<FilterChips options={options} selected={[]} onToggle={jest.fn()} />);
-    options.forEach(({ label }) => {
-      expect(screen.getByText(label)).toBeTruthy();
-    });
-  });
-
-  it('calls onToggle with correct value when chip pressed', () => {
-    const onToggle = jest.fn();
-    render(<FilterChips options={options} selected={[]} onToggle={onToggle} />);
-    fireEvent.press(screen.getByText('Intermediate'));
-    expect(onToggle).toHaveBeenCalledWith('intermediate');
-  });
-
-  it('renders selected chip with active state', () => {
-    render(
-      <FilterChips options={options} selected={['advanced']} onToggle={jest.fn()} />
-    );
-    // The "Advanced" chip has accessibilityRole="button" and selected=true
-    const selected = screen.getByRole('button', { selected: true, name: 'Advanced' });
-    expect(selected).toBeTruthy();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Toast
 // ---------------------------------------------------------------------------
 
@@ -656,7 +702,7 @@ describe('Toast', () => {
         type="success"
         visible
         onDismiss={jest.fn()}
-      />
+      />,
     );
     expect(screen.getByText('Saved successfully')).toBeTruthy();
   });
@@ -668,16 +714,14 @@ describe('Toast', () => {
         type="error"
         visible={false}
         onDismiss={jest.fn()}
-      />
+      />,
     );
     expect(toJSON()).toBeNull();
   });
 
   it('calls onDismiss when pressed', () => {
     const onDismiss = jest.fn();
-    render(
-      <Toast message="Info" type="info" visible onDismiss={onDismiss} />
-    );
+    render(<Toast message="Info" type="info" visible onDismiss={onDismiss} />);
     fireEvent.press(screen.getByText('Info'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
@@ -694,7 +738,9 @@ describe('ListItem', () => {
   });
 
   it('renders subtitle when provided', () => {
-    render(<ListItem title="Notifications" subtitle="Manage push notifications" />);
+    render(
+      <ListItem title="Notifications" subtitle="Manage push notifications" />,
+    );
     expect(screen.getByText('Manage push notifications')).toBeTruthy();
   });
 

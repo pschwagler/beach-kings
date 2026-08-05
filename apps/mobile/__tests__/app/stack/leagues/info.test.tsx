@@ -32,10 +32,6 @@ import {
   within,
 } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  BottomTabBarHeightContext,
-  BOTTOM_TAB_CONTENT_SPACING,
-} from '@/components/navigation/BottomTabBar';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -104,22 +100,18 @@ jest.mock('@/lib/api', () => ({
 // ---------------------------------------------------------------------------
 
 import LeagueInfoTab from '../../../../src/components/screens/Leagues/LeagueInfoTab';
+import { courtKeys } from '@/features/courts';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeWrapper(bottomTabBarHeight = 0) {
-  const client = new QueryClient({
+function makeWrapper(client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: 0 } },
-  });
+  })) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
-      <QueryClientProvider client={client}>
-        <BottomTabBarHeightContext.Provider value={bottomTabBarHeight}>
-          {children}
-        </BottomTabBarHeightContext.Provider>
-      </QueryClientProvider>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
   };
 }
@@ -685,16 +677,14 @@ describe('LeagueInfoTab — seasons', () => {
 // ---------------------------------------------------------------------------
 
 describe('LeagueInfoTab — league info section', () => {
-  it('keeps the final content clear of the measured bottom tab bar', async () => {
-    const bottomTabBarHeight = 72;
-
+  it('keeps breathing room below the final content', async () => {
     render(<LeagueInfoTab leagueId={1} userRole="member" />, {
-      wrapper: makeWrapper(bottomTabBarHeight),
+      wrapper: makeWrapper(),
     });
 
     await waitFor(() => expect(screen.getByTestId('info-tab')).toBeTruthy());
     expect(screen.getByTestId('info-tab').props.contentContainerStyle).toEqual({
-      paddingBottom: bottomTabBarHeight + BOTTOM_TAB_CONTENT_SPACING,
+      paddingBottom: 32,
     });
   });
 
@@ -756,6 +746,22 @@ describe('LeagueInfoTab — league info section', () => {
 
     expect(within(infoScrollView).queryByTestId('court-picker-modal')).toBeNull();
     expect(screen.getByTestId('court-picker-modal')).toBeTruthy();
+  });
+
+  it('shares the account-scoped nearby court Query definition', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, {
+      wrapper: makeWrapper(client),
+    });
+
+    await waitFor(() => {
+      expect(mockGetCourts).toHaveBeenCalledWith({ location_id: 'socal_sd' });
+      expect(
+        client.getQueryData(courtKeys.nearby(7, null, null, 'socal_sd')),
+      ).toEqual([{ id: 99, name: 'New Court' }]);
+    });
   });
 
   it('admin sees remove button on court pills', async () => {

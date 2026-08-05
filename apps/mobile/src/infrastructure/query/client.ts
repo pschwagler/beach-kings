@@ -6,12 +6,14 @@ import {
 } from '@tanstack/react-query';
 import { AppState } from 'react-native';
 
+const QUERY_GC_TIME = process.env.NODE_ENV === 'test' ? Infinity : 5 * 60_000;
+
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 30_000,
-        gcTime: 5 * 60_000,
+        gcTime: QUERY_GC_TIME,
         retry: 1,
         refetchOnWindowFocus: false,
         refetchOnReconnect: true,

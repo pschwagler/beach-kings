@@ -13,9 +13,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   ActivityIndicator,
@@ -28,6 +28,8 @@ import {
   type StatsInnerTab,
 } from './useLeagueStatsTab';
 import type { GameHistoryEntry, LeaguePlayerStats } from '@beach-kings/shared';
+import FilterChipBar from '@/components/ui/FilterChipBar';
+import TabView from '@/components/ui/TabView';
 
 // Backend returns win_rate as a 0–1 float; render as a 0–100 percentage.
 function formatWinRate(rate: number): string {
@@ -46,41 +48,21 @@ interface SeasonSelectorProps {
 
 function SeasonSelector({ seasons, selectedId, onSelect }: SeasonSelectorProps): React.ReactNode {
   if (seasons.length <= 1) return null;
-
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 6 }}
-    >
-      {seasons.map((s) => {
-        const isActive = selectedId === s.id || (selectedId === null && seasons[0]?.id === s.id);
-        return (
-          <Pressable
-            key={s.id}
-            testID={`stats-season-${s.id}`}
-            onPress={() => {
-              void hapticLight();
-              onSelect(s.id);
-            }}
-            className={`px-3 py-[6px] rounded-full border text-xs ${
-              isActive
-                ? 'bg-brand-teal border-brand-teal'
-                : 'bg-surface border-strong'
-            } active:opacity-70`}
-          >
-            <Text
-              className={`text-[11px] font-semibold ${
-                isActive ? 'text-white' : 'text-muted'
-              }`}
-            >
-              {s.name}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
+  const value = String(selectedId ?? seasons[0]?.id);
+  return <FilterChipBar
+    items={seasons.map((season) => ({
+      value: String(season.id),
+      label: season.name,
+      testID: `stats-season-${season.id}`,
+    }))}
+    value={value}
+    onValueChange={(nextValue) => {
+      void hapticLight();
+      onSelect(Number(nextValue));
+    }}
+    accessibilityLabel="Stats season filters"
+    contentClassName="py-2"
+  />;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,14 +80,14 @@ function OverviewTile({
 }): React.ReactNode {
   return (
     <View className="flex-1 items-center bg-surface rounded-[12px] border border-divider py-3 px-2">
-      <Text className="text-[11px] text-muted uppercase tracking-wide mb-1">
+      <AppText className="text-[11px] text-muted uppercase tracking-wide mb-1">
         {label}
-      </Text>
-      <Text className="text-[20px] font-extrabold text-default">
+      </AppText>
+      <AppText className="text-[20px] font-bold text-default">
         {value}
-      </Text>
+      </AppText>
       {delta != null && (
-        <Text
+        <AppText
           className={`text-[11px] font-medium ${
             delta >= 0
               ? 'text-success'
@@ -113,7 +95,7 @@ function OverviewTile({
           }`}
         >
           {delta >= 0 ? '+' : ''}{delta}
-        </Text>
+        </AppText>
       )}
     </View>
   );
@@ -146,18 +128,18 @@ function BreakdownTable({
   return (
     <View className="mx-4 mb-4 bg-surface rounded-[12px] border border-divider overflow-hidden">
       <View className="px-4 py-[10px] border-b border-divider">
-        <Text className="text-[13px] font-bold text-default">
+        <AppText className="text-[13px] font-bold text-default">
           {title}
-        </Text>
+        </AppText>
       </View>
       {/* Header */}
       <View className="flex-row px-4 py-[6px] bg-elevated">
-        <Text className="flex-1 text-[10px] font-bold text-tertiary uppercase">
+        <AppText className="flex-1 text-[10px] font-bold text-tertiary uppercase">
           Player
-        </Text>
-        <Text className="w-10 text-[10px] font-bold text-tertiary uppercase text-center">GP</Text>
-        <Text className="w-10 text-[10px] font-bold text-tertiary uppercase text-center">W-L</Text>
-        <Text className="w-12 text-[10px] font-bold text-tertiary uppercase text-right">Win%</Text>
+        </AppText>
+        <AppText className="w-10 text-[10px] font-bold text-tertiary uppercase text-center">GP</AppText>
+        <AppText className="w-10 text-[10px] font-bold text-tertiary uppercase text-center">W-L</AppText>
+        <AppText className="w-12 text-[10px] font-bold text-tertiary uppercase text-right">Win%</AppText>
       </View>
       {rows.map((row) => (
         <View
@@ -172,19 +154,19 @@ function BreakdownTable({
               colorSeed={row.player_id}
               accessible={false}
             />
-            <Text className="text-[13px] font-semibold text-default" numberOfLines={1}>
+            <AppText className="text-[13px] font-semibold text-default" numberOfLines={1}>
               {row.display_name}
-            </Text>
+            </AppText>
           </View>
-          <Text className="w-10 text-[12px] text-muted text-center">
+          <AppText className="w-10 text-[12px] text-muted text-center">
             {row.games_played}
-          </Text>
-          <Text className="w-10 text-[12px] text-muted text-center">
+          </AppText>
+          <AppText className="w-10 text-[12px] text-muted text-center">
             {row.wins}-{row.losses}
-          </Text>
-          <Text className="w-12 text-[12px] font-semibold text-default text-right">
+          </AppText>
+          <AppText className="w-12 text-[12px] font-semibold text-default text-right">
             {formatWinRate(row.win_rate)}
-          </Text>
+          </AppText>
         </View>
       ))}
     </View>
@@ -230,13 +212,13 @@ function GameHistoryCard({ game, selfLabel }: GameHistoryCardProps): React.React
       className="flex-row items-center px-4 py-[10px] border-b border-divider"
     >
       <View className="flex-1 min-w-0">
-        <Text className="text-[13px] font-semibold text-default" numberOfLines={1}>
+        <AppText className="text-[13px] font-semibold text-default" numberOfLines={1}>
           {myTeam} vs {oppTeam}
-        </Text>
+        </AppText>
       </View>
-      <Text className="text-[14px] font-bold text-default mx-3">
+      <AppText className="text-[14px] font-bold text-default mx-3">
         {formatGameScore(game.my_score, game.opponent_score)}
-      </Text>
+      </AppText>
       <View
         className={`rounded-[6px] px-2 py-[3px] ${
           isWin
@@ -246,7 +228,7 @@ function GameHistoryCard({ game, selfLabel }: GameHistoryCardProps): React.React
               : 'bg-danger-tint'
         }`}
       >
-        <Text
+        <AppText
           className={`text-[11px] font-bold ${
             isWin
               ? 'text-success'
@@ -256,7 +238,7 @@ function GameHistoryCard({ game, selfLabel }: GameHistoryCardProps): React.React
           }`}
         >
           {game.result}
-        </Text>
+        </AppText>
       </View>
     </View>
   );
@@ -272,37 +254,18 @@ interface InnerTabBarProps {
 }
 
 function InnerTabBar({ active, onSelect }: InnerTabBarProps): React.ReactNode {
-  return (
-    <View className="flex-row bg-elevated rounded-[8px] mx-4 mb-4 p-[3px]">
-      {(['stats', 'history'] as const).map((tab) => {
-        const isActive = active === tab;
-        const label = tab === 'stats' ? 'Stats' : 'Game History';
-        return (
-          <Pressable
-            key={tab}
-            testID={`stats-inner-tab-${tab}`}
-            onPress={() => {
-              void hapticLight();
-              onSelect(tab);
-            }}
-            className={`flex-1 py-[8px] rounded-[6px] items-center ${
-              isActive ? 'bg-surface' : ''
-            } active:opacity-70`}
-          >
-            <Text
-              className={`text-[13px] font-semibold ${
-                isActive
-                  ? 'text-default'
-                  : 'text-muted'
-              }`}
-            >
-              {label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
+  return <TabView
+    items={[
+      { value: 'stats', label: 'Stats', testID: 'stats-inner-tab-stats' },
+      { value: 'history', label: 'Game History', testID: 'stats-inner-tab-history' },
+    ]}
+    value={active}
+    onValueChange={(tab) => {
+      void hapticLight();
+      onSelect(tab);
+    }}
+    className="mb-4"
+  />;
 }
 
 // ---------------------------------------------------------------------------
@@ -315,9 +278,9 @@ function StatsContent({ stats }: { readonly stats: LeaguePlayerStats }): React.R
       {/* Overall stats */}
       <View className="mx-4 mb-4 bg-surface rounded-[12px] border border-divider overflow-hidden">
         <View className="px-4 py-[10px] border-b border-divider">
-          <Text className="text-[13px] font-bold text-default">
+          <AppText className="text-[13px] font-bold text-default">
             Overall
-          </Text>
+          </AppText>
         </View>
         <View className="flex-row flex-wrap px-4 py-3 gap-y-2">
           {[
@@ -328,12 +291,12 @@ function StatsContent({ stats }: { readonly stats: LeaguePlayerStats }): React.R
             { label: '+/-', value: stats.overall.point_diff > 0 ? `+${stats.overall.point_diff.toFixed(1)}` : String(stats.overall.point_diff.toFixed(1)) },
           ].map(({ label, value }) => (
             <View key={label} className="w-1/3 items-center py-1">
-              <Text className="text-[11px] text-muted uppercase tracking-wide mb-[2px]">
+              <AppText className="text-[11px] text-muted uppercase tracking-wide mb-[2px]">
                 {label}
-              </Text>
-              <Text className="text-[16px] font-bold text-default">
+              </AppText>
+              <AppText className="text-[16px] font-bold text-default">
                 {value}
-              </Text>
+              </AppText>
             </View>
           ))}
         </View>
@@ -383,9 +346,9 @@ export default function LeagueStatsTab({
         testID="player-stats-error"
         className="flex-1 items-center justify-center px-8"
       >
-        <Text className="text-[16px] font-bold text-default text-center">
+        <AppText className="text-[16px] font-bold text-default text-center">
           Failed to load stats
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -408,26 +371,26 @@ export default function LeagueStatsTab({
             className="mb-2"
             accessible={false}
           />
-          <Text className="text-[18px] font-bold text-default">
+          <AppText className="text-[18px] font-bold text-default">
             {stats.display_name}
-          </Text>
+          </AppText>
           {stats.level != null && (
             <View className="bg-info-tint rounded-[6px] px-3 py-[2px] mt-1">
-              <Text className="text-[11px] font-bold text-info">
+              <AppText className="text-[11px] font-bold text-info">
                 {stats.level}
-              </Text>
+              </AppText>
             </View>
           )}
         </View>
       </View>
 
       {/* Context banner — season_name is null for all-time stats */}
-      <View className="bg-brand-teal/20 px-4 py-2 mb-2">
-        <Text className="text-[12px] font-semibold text-white">
+      <View className="bg-info-tint px-4 py-2 mb-2">
+        <AppText className="text-[12px] font-semibold text-info">
           {stats.season_name != null
             ? `${stats.league_name} · ${stats.season_name}`
             : `${stats.league_name} · All-time`}
-        </Text>
+        </AppText>
       </View>
 
       <SeasonSelector
@@ -466,9 +429,9 @@ export default function LeagueStatsTab({
         >
           {stats.game_history.length === 0 ? (
             <View className="py-10 items-center">
-              <Text className="text-[14px] text-muted">
+              <AppText className="text-[14px] text-muted">
                 No games yet
-              </Text>
+              </AppText>
             </View>
           ) : (
             stats.game_history.map((g) => (

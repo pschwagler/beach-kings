@@ -1,13 +1,12 @@
 /** Form for starting a pickup or league-connected session. */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Switch,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -16,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import AppSwitch from '@/components/ui/AppSwitch';
 import SessionCourtPicker from './SessionCourtPicker';
 import SessionSeasonSelector from './SessionSeasonSelector';
 import SessionDateField from './SessionDateField';
@@ -39,7 +39,7 @@ function FormRow({
   const palette = usePaletteColors();
   return (
     <View className="min-h-[64px] flex-row items-center px-4">
-      <Text className="text-[14px] font-semibold text-muted w-[100px]">{label}</Text>
+      <AppText className="text-[14px] font-semibold text-muted w-[100px]">{label}</AppText>
       <TextInput
         className="flex-1 text-[14px] text-default"
         value={value}
@@ -90,7 +90,7 @@ export default function SessionCreateScreen({
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-          <Text className="text-[15px] font-bold text-default mt-[20px] mb-[4px]">Date &amp; Time</Text>
+          <AppText className="text-[15px] font-bold text-default mt-[20px] mb-[4px]">Date &amp; Time</AppText>
           <View className="mt-2 overflow-hidden rounded-[14px] border border-divider bg-surface">
             <SessionDateField
               value={date}
@@ -101,7 +101,7 @@ export default function SessionCreateScreen({
             <FormRow label="Start time" value={startTime} onChangeText={setStartTime} placeholder="e.g. 3:00 PM" testID="session-time-input" />
           </View>
 
-          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Location</Text>
+          <AppText className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Location</AppText>
           <SessionCourtPicker
             selectedCourtId={courtId}
             onChange={setCourtId}
@@ -112,18 +112,18 @@ export default function SessionCreateScreen({
 
           {leagueId != null && (
             <>
-              <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">League</Text>
+              <AppText className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">League</AppText>
               <View className="py-[14px] border-b border-divider">
-                <Text testID="session-league-label" className="text-[14px] text-default">
+                <AppText testID="session-league-label" className="text-[14px] text-default">
                   {leagueName ?? 'League session'}
-                </Text>
+                </AppText>
               </View>
             </>
           )}
 
           {showsSeasonAssignment && (
             <>
-              <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Season</Text>
+              <AppText className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Season</AppText>
               <SessionSeasonSelector
                 seasons={leagueSeasons}
                 selectedSeasonId={selectedSeasonId}
@@ -133,19 +133,19 @@ export default function SessionCreateScreen({
             </>
           )}
 
-          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Rankings</Text>
+          <AppText className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Rankings</AppText>
           <View className="flex-row items-center justify-between py-[14px] border-b border-divider">
             <View className="flex-1 pr-[12px]">
-              <Text className="text-[14px] font-semibold text-muted">
+              <AppText className="text-[14px] font-semibold text-muted">
                 {isRanked ? 'Ranked' : 'Casual'}
-              </Text>
-              <Text className="text-[12px] text-muted mt-[2px]">
+              </AppText>
+              <AppText className="text-[12px] text-muted mt-[2px]">
                 {isRanked
                   ? 'Games affect player rankings'
                   : 'Games do not affect player rankings'}
-              </Text>
+              </AppText>
             </View>
-            <Switch
+            <AppSwitch
               testID="session-ranked-toggle"
               value={isRanked}
               onValueChange={setIsRanked}
@@ -155,9 +155,9 @@ export default function SessionCreateScreen({
           </View>
 
           {submitError != null && (
-            <Text testID="session-create-error" className="text-[13px] text-danger mt-[12px] text-center">
+            <AppText testID="session-create-error" className="text-[13px] text-danger mt-[12px] text-center">
               {submitError}
-            </Text>
+            </AppText>
           )}
         </ScrollView>
 
@@ -172,9 +172,9 @@ export default function SessionCreateScreen({
             className="bg-brand-gold rounded-[8px] items-center justify-center py-[16px]"
           >
             {isSubmitting ? (
-              <ActivityIndicator color={palette.textInverse} testID="session-create-loading" />
+              <ActivityIndicator color={palette.onBrandGold} testID="session-create-loading" />
             ) : (
-              <Text className="text-white text-[16px] font-bold">Start Session</Text>
+              <AppText className="text-on-brand-gold text-[16px] font-bold">Start Session</AppText>
             )}
           </TouchableOpacity>
         </View>

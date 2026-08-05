@@ -18,6 +18,7 @@ import { privateKeys } from '@/infrastructure/query/keys';
 import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
 import { sessionKeys, sessionQueries } from '@/features/sessions';
 import { matchKeys } from '@/features/matches';
+import { courtKeys, courtQueries, type CourtQueryCoords } from '@/features/courts';
 
 export const dashboardKeys = {
   root: (userId: number) =>
@@ -27,8 +28,16 @@ export const dashboardKeys = {
   leagues: (userId: number) => leagueKeys.userLeagues(userId),
   activeSession: (userId: number) => sessionKeys.open(userId),
   friendRequests: (userId: number) => socialKeys.requests(userId, 'incoming'),
-  courts: (userId: number, locationId: string | null | undefined) =>
-    [...dashboardKeys.root(userId), 'courts', locationId ?? 'null'] as const,
+  courts: (
+    userId: number,
+    coords: CourtQueryCoords | null,
+    locationId: string | null,
+  ) => courtKeys.nearby(
+    userId,
+    coords?.latitude ?? null,
+    coords?.longitude ?? null,
+    coords == null ? locationId : null,
+  ),
   matches: (userId: number, playerId: number | null | undefined) =>
     matchKeys.history(userId, playerId),
 };
@@ -62,9 +71,7 @@ export function useDashboard(): UseDashboardResult {
   // courts; fall back to the location_id filter for the hub-only case.
   const { coords, source } = useResolvedUserLocation({ skipDevice: true });
   const usePreciseCoords = coords != null && source !== 'hub';
-  const courtsKey = usePreciseCoords
-    ? `${coords.latitude},${coords.longitude}`
-    : locationId;
+  const nearbyCoords = usePreciseCoords ? coords : null;
 
   const leagues = useQuery({
     queryKey: dashboardKeys.leagues(userId),
@@ -82,16 +89,9 @@ export function useDashboard(): UseDashboardResult {
 
   const friendRequests = useQuery(socialQueries.requests(userId, 'incoming'));
 
-  const courts = useQuery({
-    queryKey: dashboardKeys.courts(userId, courtsKey),
-    queryFn: async (): Promise<readonly Court[]> => {
-      const result = usePreciseCoords
-        ? await api.getCourts({ user_lat: coords.latitude, user_lng: coords.longitude })
-        : await api.getCourts({ location_id: locationId });
-      return result ?? [];
-    },
-    enabled: player.isSuccess,
-  });
+  const courts = useQuery(
+    courtQueries.nearby(userId, nearbyCoords, locationId, player.isSuccess),
+  );
 
   const matches = useQuery({
     queryKey: dashboardKeys.matches(userId, playerId),

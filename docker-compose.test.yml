@@ -105,6 +105,7 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 0
       ENV: test
+      FRONTEND_URL: http://localhost:3002
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-test-secret-key-for-testing-only-change-in-production}
       ENABLE_SMS: "false"
       ENABLE_EMAIL: "false"

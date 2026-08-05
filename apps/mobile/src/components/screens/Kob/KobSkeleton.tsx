@@ -9,7 +9,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 
 function SkeletonMatchCard(): React.ReactNode {
   return (
-    <View className="bg-surface rounded-xl p-4 shadow-sm dark:shadow-none dark:border border-divider mb-3 mx-4">
+    <View className="bg-surface rounded-xl p-4 border border-divider mb-3 mx-4">
       {/* Court label */}
       <LoadingSkeleton width={64} height={13} borderRadius={6} className="mb-3" />
       {/* Teams row */}

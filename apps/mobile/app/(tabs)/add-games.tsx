@@ -17,7 +17,8 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { View, Pressable, ScrollView, RefreshControl } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -34,6 +35,7 @@ import { routes } from '@/lib/navigation';
 import { formatSessionSubtitle } from '@/lib/formatters';
 import { hapticMedium } from '@/utils/haptics';
 import { TrophyIcon, VolleyballIcon } from '@/components/ui/icons';
+import CourtLineMotif from '@/components/brand/CourtLineMotif';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
@@ -66,22 +68,26 @@ function ActiveSessionBanner({
 }: ActiveSessionBannerProps): React.ReactNode {
   return (
     <View className="mb-5">
-      <Text className="text-[12px] font-semibold text-muted uppercase tracking-wide mb-[10px]">
+      <AppText className="text-[12px] font-semibold text-muted uppercase tracking-wide mb-[10px]">
         Active Session
-      </Text>
-      <View className="bg-surface rounded-[14px] p-4 shadow-sm border-l-4 border-l-success dark:shadow-none dark:border border-divider">
+      </AppText>
+      <View className="bg-surface rounded-[14px] p-4 border border-divider border-l-4 border-l-status-live">
         {/* Header row — status indicator only; the date is shown as the title below */}
         <View className="flex-row items-center gap-[5px] mb-3">
-          <View className="w-[7px] h-[7px] rounded-full bg-green-500" />
-          <Text className="text-[11px] font-bold text-success uppercase tracking-wide">
+          <View className="w-[7px] h-[7px] rounded-full bg-status-live-fill" />
+          <AppText className="text-[11px] font-bold text-status-live uppercase tracking-wide">
             Active
-          </Text>
+          </AppText>
         </View>
 
         {/* Session name (falls back to the date-based auto name) */}
-        <Text className="text-[16px] font-bold text-default mb-1">
-          {session.name ?? (session.date != null ? session.date : `Session #${session.id}`)}
-        </Text>
+        <AppText
+          className="text-[16px] font-bold text-default mb-1"
+          numberOfLines={2}
+        >
+          {session.name ??
+            (session.date != null ? session.date : `Session #${session.id}`)}
+        </AppText>
 
         {/* Continue button */}
         <Pressable
@@ -91,7 +97,9 @@ function ActiveSessionBanner({
           accessibilityLabel="Continue Session"
           className="w-full py-[14px] rounded-[10px] bg-brand-gold items-center mt-3"
         >
-          <Text className="text-white font-bold text-[15px]">Continue Session</Text>
+          <AppText className="text-on-brand-gold font-bold text-[15px]">
+            Continue Session
+          </AppText>
         </Pressable>
       </View>
     </View>
@@ -106,10 +114,29 @@ function OrStartNewDivider(): React.ReactNode {
   return (
     <View className="flex-row items-center gap-3 mb-5">
       <View className="flex-1 h-px bg-divider" />
-      <Text className="text-[12px] font-semibold text-muted uppercase tracking-wide">
+      <AppText className="text-[12px] font-semibold text-muted uppercase tracking-wide">
         or start new
-      </Text>
+      </AppText>
       <View className="flex-1 h-px bg-divider" />
+    </View>
+  );
+}
+
+function AddGamesIntro(): React.ReactNode {
+  return (
+    <View className="relative mb-lg min-h-[142px] overflow-hidden rounded-card border border-divider bg-surface p-lg">
+      <CourtLineMotif variant="add-games" />
+      <View className="relative max-w-[74%]">
+        <AppText className="text-caption font-bold uppercase tracking-wide text-brand-teal">
+          Match day
+        </AppText>
+        <AppText className="mt-xs text-title3 font-bold text-default">
+          What are you playing?
+        </AppText>
+        <AppText className="mt-xs text-caption leading-[19px] text-muted">
+          Record a league or pickup game to keep your stats current.
+        </AppText>
+      </View>
     </View>
   );
 }
@@ -131,9 +158,10 @@ export default function AddGamesScreen(): React.ReactNode {
   const userId = user?.id ?? 0;
 
   useEffect(
-    () => registerRootTabScroll('add-games', () => {
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-    }),
+    () =>
+      registerRootTabScroll('add-games', () => {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }),
     [],
   );
 
@@ -165,8 +193,7 @@ export default function AddGamesScreen(): React.ReactNode {
     return leagues.map((league) => {
       const activeSession = allSessions.find(
         (session) =>
-          session.league_id === league.id &&
-          session.status === 'ACTIVE'
+          session.league_id === league.id && session.status === 'ACTIVE',
       );
 
       return {
@@ -284,9 +311,9 @@ export default function AddGamesScreen(): React.ReactNode {
       >
         <TopNav title="Select League" showBack onBack={handleBack} />
         <View className="flex-1 px-4 pt-4">
-          <Text className="text-[13px] text-muted mb-4 leading-[1.4]">
+          <AppText className="text-[13px] text-muted mb-4 leading-[1.4]">
             Choose a league to record a game in.
-          </Text>
+          </AppText>
           <LeagueSelectList
             leagues={leaguesWithSessions}
             isLoading={leaguesLoading || sessionLoading}
@@ -322,6 +349,8 @@ export default function AddGamesScreen(): React.ReactNode {
           />
         }
       >
+        <AddGamesIntro />
+
         {/* Active session banner (when present) */}
         {pickupSession != null && !sessionLoading && (
           <>
@@ -330,19 +359,6 @@ export default function AddGamesScreen(): React.ReactNode {
               onContinue={handleContinuePickupSession}
             />
             <OrStartNewDivider />
-          </>
-        )}
-
-        {/* No session description */}
-        {(pickupSession == null && !sessionLoading) && (
-          <>
-            <Text className="text-[14px] text-muted mb-6 leading-[1.5]">
-              Record your beach volleyball games to track your stats and climb
-              the rankings.
-            </Text>
-            <Text className="text-[12px] font-semibold text-muted uppercase tracking-wide mb-[10px]">
-              What are you playing?
-            </Text>
           </>
         )}
 

@@ -6,7 +6,7 @@
  *
  *   1. The exported `api` object has the expected shape (key methods present).
  *   2. `EXPO_PUBLIC_API_URL` controls the base URL passed to `createApiClient`.
- *   3. The default fallback base URL is used when the env var is absent.
+ *   3. The development fallback is used when the env var is absent.
  *   4. MobileStorageAdapter is constructed with the SecureStore module.
  *   5. Construction is lazy — deferred until the first property access on `api`.
  *   6. Missing real methods do not fall back to runtime fixture data.
@@ -137,11 +137,11 @@ describe('base URL resolution', () => {
   });
 
   it('uses EXPO_PUBLIC_API_URL when set', () => {
-    process.env.EXPO_PUBLIC_API_URL = 'https://api.beachleague.app';
+    process.env.EXPO_PUBLIC_API_URL = 'https://beachleaguevb.com';
     const { api } = loadApiModule();
     triggerApiConstruction(api);
     expect(mockCreateApiClient).toHaveBeenCalledWith(
-      'https://api.beachleague.app',
+      'https://beachleaguevb.com',
       expect.anything(),
     );
   });

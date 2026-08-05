@@ -149,7 +149,7 @@ afterEach(() => {
 
 describe('renderTemplate', () => {
   const defaultTemplate =
-    'Hey {firstName}, claim your Beach League profile so the games we played together count toward your stats: {url}';
+    'Hey {firstName}, join me on the Beach League app to claim the games we played together: {url}';
 
   it('replaces {firstName} with the first word of the player name', () => {
     const result = renderTemplate(defaultTemplate, {
@@ -181,7 +181,7 @@ describe('renderTemplate', () => {
       inviteUrl: 'https://beachleaguevb.com/invite/tok',
     });
     expect(result).toBe(
-      'Hey Dan, claim your Beach League profile so the games we played together count toward your stats: https://beachleaguevb.com/invite/tok',
+      'Hey Dan, join me on the Beach League app to claim the games we played together: https://beachleaguevb.com/invite/tok',
     );
   });
 
@@ -233,9 +233,9 @@ describe('InvitePlayersScreen — list state', () => {
     expect(sendButtons).toHaveLength(2);
   });
 
-  it('uses the default title "Invite Players" when no title prop is given', () => {
+  it('uses the default title "Invite Players to the App" when no title prop is given', () => {
     render(<InvitePlayersScreen {...BASE_PARAMS} />);
-    expect(screen.getByText('Invite Players')).toBeTruthy();
+    expect(screen.getByText('Invite Players to the App')).toBeTruthy();
   });
 
   it('renders a custom title when provided', () => {

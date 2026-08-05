@@ -4,50 +4,93 @@
  */
 
 import React from 'react';
-import { ScrollView, Pressable, Text, View } from 'react-native';
+import { ScrollView, Pressable, View } from 'react-native';
+import AppText from './AppText';
+import {
+  selectionAccessibilityLabel,
+  selectionAccessibilityValue,
+  type SelectionControlItem,
+} from './selectionControlTypes';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
-interface TabViewProps {
-  readonly tabs: string[];
-  readonly activeIndex: number;
-  readonly onTabPress: (index: number) => void;
+interface TabViewBaseProps {
   readonly className?: string;
+  readonly testID?: string;
+  readonly tabTestIDPrefix?: string;
 }
 
-export default function TabView({
-  tabs,
-  activeIndex,
-  onTabPress,
-  className = '',
-}: TabViewProps): React.ReactNode {
+interface KeyedTabViewProps<Value extends string> {
+  readonly items: readonly SelectionControlItem<Value>[];
+  readonly value: Value;
+  readonly onValueChange: (value: Value) => void;
+}
+
+export type TabViewProps<Value extends string> =
+  TabViewBaseProps & KeyedTabViewProps<Value>;
+
+export default function TabView<Value extends string = string>(
+  props: TabViewProps<Value>,
+): React.ReactNode {
+  const {
+    className = '',
+    testID,
+    tabTestIDPrefix,
+    items,
+    value,
+    onValueChange,
+  } = props;
+  const palette = usePaletteColors();
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      className={`border-b border-divider ${className}`}
+      testID={testID}
+      accessibilityRole="tablist"
+      className={`grow-0 shrink-0 border-b border-divider ${className}`}
       contentContainerClassName="flex-row"
     >
-      {tabs.map((tab, index) => {
-        const isActive = index === activeIndex;
+      {items.map((item, index) => {
+        const isActive = item.value === value;
         return (
           <Pressable
-            key={tab}
-            onPress={() => onTabPress(index)}
-            className="min-h-touch px-4 justify-center items-center"
+            key={item.value}
+            testID={
+              item.testID ??
+              (tabTestIDPrefix != null ? `${tabTestIDPrefix}-${item.value}` : undefined)
+            }
+            disabled={item.disabled}
+            onPress={() => onValueChange(item.value)}
+            className={`min-h-touch min-w-[88px] px-4 py-2 justify-center items-center ${
+              item.disabled === true ? 'opacity-disabled' : ''
+            }`}
             accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            accessibilityLabel={tab}
+            accessibilityState={{ selected: isActive, disabled: item.disabled }}
+            accessibilityLabel={selectionAccessibilityLabel(item)}
+            accessibilityValue={selectionAccessibilityValue(index, items.length)}
           >
-            <Text
-              className={`text-sm font-medium ${
-                isActive
-                  ? 'text-brand-teal'
-                  : 'text-muted'
-              }`}
-            >
-              {tab}
-            </Text>
+            <View className="flex-row items-center justify-center gap-1">
+              <AppText
+                className={`text-sm text-center font-medium ${
+                  isActive ? 'text-brand-teal' : 'text-muted'
+                }`}
+                style={{ color: isActive ? palette.brandTeal : palette.textMuted }}
+              >
+                {item.label}
+              </AppText>
+              {item.badge != null && (
+                <View className="min-w-[20px] min-h-[20px] px-1 rounded-full bg-elevated items-center justify-center">
+                  <AppText className="text-[11px] font-semibold text-default">
+                    {item.badge}
+                  </AppText>
+                </View>
+              )}
+            </View>
             {isActive && (
-              <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-teal" />
+              <View
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-teal"
+                style={{ backgroundColor: palette.brandTeal }}
+              />
             )}
           </Pressable>
         );

@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable } from 'react-native';
 import { useBack } from '@/hooks/useBack';
 import { ChevronLeftIcon } from './icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface BackButtonProps {
   /**
@@ -14,8 +15,9 @@ interface BackButtonProps {
 
 export default function BackButton({
   onPress,
-  color = '#ffffff',
+  color,
 }: BackButtonProps): React.ReactNode {
+  const palette = usePaletteColors();
   const handleBack = useBack();
   return (
     <Pressable
@@ -24,7 +26,7 @@ export default function BackButton({
       accessibilityLabel="Go back"
       accessibilityRole="button"
     >
-      <ChevronLeftIcon size={20} color={color} />
+      <ChevronLeftIcon size={20} color={color ?? palette.textInverse} />
     </Pressable>
   );
 }

@@ -4,13 +4,10 @@
  */
 
 import React from 'react';
-import {
-  Modal as RNModal,
-  View,
-  Text,
-  Pressable,
-} from 'react-native';
+import { Modal as RNModal, View, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface ModalProps {
   readonly visible: boolean;
@@ -27,10 +24,11 @@ export default function Modal({
   children,
   className = '',
 }: ModalProps): React.ReactNode {
+  const reduceMotion = useReducedMotion();
   return (
     <RNModal
       visible={visible}
-      animationType="slide"
+      animationType={reduceMotion ? 'none' : 'slide'}
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
@@ -45,31 +43,26 @@ export default function Modal({
       <SafeAreaView style={{ flex: 1 }} className={`bg-page ${className}`}>
         {/* Handle bar */}
         <View className="items-center pt-sm pb-xs">
-          {/* eslint-disable-next-line no-restricted-syntax -- drag handle: no semantic token for this gray pair */}
-          <View className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+          <View className="w-10 h-1 rounded-full bg-divider" />
         </View>
 
         {/* Title row — always rendered so the X close button is always accessible */}
         <View className="flex-row items-center justify-between px-lg py-md border-b border-divider">
-          <Text className="text-lg font-bold text-default flex-1">
+          <AppText className="text-lg font-bold text-default flex-1">
             {title ?? ''}
-          </Text>
+          </AppText>
           <Pressable
             onPress={onClose}
             className="min-h-touch min-w-touch items-center justify-center"
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <Text className="text-2xl text-muted leading-none">
-              x
-            </Text>
+            <AppText className="text-2xl text-muted leading-none">x</AppText>
           </Pressable>
         </View>
 
         {/* Content */}
-        <View style={{ flex: 1 }}>
-          {children}
-        </View>
+        <View style={{ flex: 1 }}>{children}</View>
       </SafeAreaView>
     </RNModal>
   );

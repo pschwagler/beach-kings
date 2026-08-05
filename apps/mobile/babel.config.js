@@ -1,5 +1,6 @@
 module.exports = function (api) {
   const isTest = api.env('test');
+  const isProduction = !isTest && process.env.NODE_ENV === 'production';
   api.cache(true);
 
   return {
@@ -12,6 +13,9 @@ module.exports = function (api) {
       ...(isTest ? [] : ['nativewind/babel']),
     ],
     plugins: [
+      ...(isProduction
+        ? ['./babel-plugins/redirect-production-development-modules']
+        : []),
       ...(isTest ? [] : ['react-native-worklets/plugin']),
     ],
   };

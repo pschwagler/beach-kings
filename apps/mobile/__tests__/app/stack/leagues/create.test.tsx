@@ -12,7 +12,13 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import {
+  render as renderWithoutQuery,
+  screen,
+  fireEvent,
+  waitFor,
+} from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -74,6 +80,10 @@ jest.mock('@/theme/usePaletteColors', () => ({
   }),
 }));
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 const mockCreateLeague = jest.fn();
 const mockGetLocations = jest.fn();
 const mockGetCourts = jest.fn();
@@ -103,6 +113,22 @@ jest.mock('@/lib/api', () => ({
 // ---------------------------------------------------------------------------
 
 import CreateLeagueRoute from '../../../../app/(stack)/create-league';
+import { courtKeys } from '@/features/courts';
+
+function makeClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function render(ui: React.ReactElement, client = makeClient()) {
+  return renderWithoutQuery(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -120,7 +146,9 @@ const MOCK_COURTS = [
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
+  // Most tests exercise form behavior independently of location discovery.
+  // Keep that request pending so an unrelated async effect cannot race cleanup.
+  mockGetLocations.mockReturnValue(new Promise(() => {}));
   mockGetCourts.mockResolvedValue(MOCK_COURTS);
   mockAddLeagueHomeCourt.mockResolvedValue({ id: 1, name: 'QBK Sports', position: 0 });
   mockCreateLeagueSeason.mockResolvedValue({ id: 1, name: 'Season 1', is_active: true });
@@ -173,6 +201,31 @@ describe('CreateLeagueScreen — render', () => {
   it('renders the court picker row', () => {
     render(<CreateLeagueRoute />);
     expect(screen.getByTestId('court-picker-row')).toBeTruthy();
+  });
+
+  it('loads selected-location courts through the private court Query catalog', async () => {
+    mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
+    const client = makeClient();
+    render(<CreateLeagueRoute />, client);
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('location-picker-row').props.accessibilityState
+          ?.disabled,
+      ).toBe(false);
+    });
+    fireEvent.press(screen.getByTestId('location-picker-row'));
+    fireEvent.press(await screen.findByTestId('location-modal-option-socal_sd'));
+
+    await waitFor(() => {
+      expect(mockGetCourts).toHaveBeenCalledWith({ location_id: 'socal_sd' });
+      expect(
+        client.getQueryData(courtKeys.nearby(7, null, null, 'socal_sd')),
+      ).toEqual(MOCK_COURTS);
+    });
+
+    fireEvent.press(screen.getByTestId('court-picker-row'));
+    expect(await screen.findByTestId('court-modal-option-1')).toBeTruthy();
   });
 });
 

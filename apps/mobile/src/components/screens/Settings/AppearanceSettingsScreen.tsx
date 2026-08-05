@@ -6,7 +6,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
@@ -63,9 +64,9 @@ export default function AppearanceSettingsScreen(): React.ReactNode {
       <TopNav title="Appearance" showBack />
 
       <ScrollView className="flex-1">
-        <Text className="text-[15px] font-bold px-lg pt-xl pb-sm text-default">
+        <AppText className="text-[15px] font-bold px-lg pt-xl pb-sm text-default">
           Theme
-        </Text>
+        </AppText>
 
         <View>
           {OPTIONS.map((option) => {
@@ -81,20 +82,20 @@ export default function AppearanceSettingsScreen(): React.ReactNode {
                 className="flex-row items-center justify-between px-lg py-[14px] bg-surface border-b border-divider last:border-0 active:opacity-70"
               >
                 <View className="flex-1 pr-md">
-                  <Text className="text-[15px] text-default">
+                  <AppText className="text-[15px] text-default">
                     {option.label}
-                  </Text>
-                  <Text className="text-[13px] text-muted mt-[2px]">
+                  </AppText>
+                  <AppText className="text-[13px] text-muted mt-[2px]">
                     {option.description}
-                  </Text>
+                  </AppText>
                 </View>
                 {isActive && (
-                  <Text
+                  <AppText
                     testID={`${option.testID}-check`}
                     className="text-[18px] font-bold text-brand-teal"
                   >
                     ✓
-                  </Text>
+                  </AppText>
                 )}
               </Pressable>
             );

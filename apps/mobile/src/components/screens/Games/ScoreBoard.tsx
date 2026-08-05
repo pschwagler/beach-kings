@@ -9,13 +9,15 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { AccessibilityInfo, View, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import type { AvatarVariant } from '@/components/ui/Avatar';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   runOnJS,
+  withTiming,
 } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Svg, { Circle } from 'react-native-svg';
@@ -27,27 +29,26 @@ import {
   toChipKey,
 } from './useScoreBoardDrag';
 import type { SlotKey, ChipKey } from './useScoreBoardDrag';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 /** Upper bound for a single team's score in a game. Display is 2-digit; product cap. */
 export const MAX_SCORE = 99;
-
-const TEAL = '#4daacc';
-const GOLD = '#e0b44c';
 
 // ---------------------------------------------------------------------------
 // Drag handle (6-dot grip)
 // ---------------------------------------------------------------------------
 
 function GripHandle(): React.ReactNode {
+  const { textMuted } = usePaletteColors();
   return (
     <View className="w-[12px] h-[18px] items-center justify-center opacity-25">
       <Svg width={10} height={14} viewBox="0 0 24 24">
-        <Circle cx={9} cy={6} r={1.5} fill="#888" />
-        <Circle cx={15} cy={6} r={1.5} fill="#888" />
-        <Circle cx={9} cy={12} r={1.5} fill="#888" />
-        <Circle cx={15} cy={12} r={1.5} fill="#888" />
-        <Circle cx={9} cy={18} r={1.5} fill="#888" />
-        <Circle cx={15} cy={18} r={1.5} fill="#888" />
+        <Circle cx={9} cy={6} r={1.5} fill={textMuted} />
+        <Circle cx={15} cy={6} r={1.5} fill={textMuted} />
+        <Circle cx={9} cy={12} r={1.5} fill={textMuted} />
+        <Circle cx={15} cy={12} r={1.5} fill={textMuted} />
+        <Circle cx={9} cy={18} r={1.5} fill={textMuted} />
+        <Circle cx={15} cy={18} r={1.5} fill={textMuted} />
       </Svg>
     </View>
   );
@@ -90,7 +91,17 @@ function FilledChip({
 }: PlayerChipProps): React.ReactNode {
   const isTeal = team === 1;
   const palette = usePaletteColors();
+  const reduceMotion = useReducedMotion();
   const avatarVariant: AvatarVariant = isTeal ? 'teal' : 'gold';
+  const placement = useSharedValue(reduceMotion ? 1 : 0);
+  const placementStyle = useAnimatedStyle(() => ({
+    opacity: placement.value,
+    transform: [{ scale: 0.96 + placement.value * 0.04 }],
+  }));
+
+  useEffect(() => {
+    placement.value = reduceMotion ? 1 : withTiming(1, { duration: 180 });
+  }, [placement, reduceMotion]);
 
   const stableDragStart = useCallback(
     (absX: number, absY: number) => onDragStart?.(absX, absY),
@@ -133,19 +144,23 @@ function FilledChip({
   );
 
   return (
-    <View
+    <Animated.View
       ref={containerRef}
       className={`flex-row items-center rounded-[10px] min-h-[44px] w-full ${
         isTeal ? 'bg-info-tint' : 'bg-warning-tint'
       }`}
-      style={isDragTarget ? { borderWidth: 2, borderColor: TEAL } : undefined}
+      style={[
+        placementStyle,
+        isDragTarget ? { borderWidth: 2, borderColor: palette.brandTeal } : undefined,
+      ]}
     >
       <GestureDetector gesture={panGesture}>
         <Pressable
           testID={`team${team}-slot${index}`}
           onPress={onPress}
           accessibilityRole="button"
-          accessibilityLabel={slot.display_name}
+          accessibilityLabel={`Team ${team} player ${index + 1}, ${slot.display_name}${slot.is_guest === true ? ', guest' : ''}`}
+          accessibilityState={{ selected: isActive }}
           className="flex-1 flex-row items-center gap-1 px-2 py-2"
           style={isDragging ? { opacity: 0.35 } : undefined}
         >
@@ -158,17 +173,15 @@ function FilledChip({
             accessible={false}
           />
           <View className="flex-1">
-            <Text
+            <AppText
               className="text-[14px] font-bold text-default"
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
+              numberOfLines={2}
             >
               {formatPlayerShort(slot.display_name)}
               {slot.is_guest === true && (
-                <Text className="text-[12px] font-normal text-muted"> (guest)</Text>
+                <AppText className="text-[12px] font-normal text-muted"> (guest)</AppText>
               )}
-            </Text>
+            </AppText>
           </View>
         </Pressable>
       </GestureDetector>
@@ -176,15 +189,14 @@ function FilledChip({
         onPress={onRemove}
         accessibilityRole="button"
         accessibilityLabel={`Remove ${slot.display_name}`}
-        hitSlop={8}
-        className="w-[22px] h-[22px] rounded-full items-center justify-center mr-2"
+        className="min-w-touch min-h-touch rounded-full items-center justify-center mr-1"
         style={{ backgroundColor: `${palette.textMuted}22` }}
       >
-        <Text className="text-[13px] font-semibold" style={{ color: palette.textMuted, lineHeight: 16 }}>
+        <AppText className="text-[13px] font-semibold" style={{ color: palette.textMuted, lineHeight: 16 }}>
           ×
-        </Text>
+        </AppText>
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -199,19 +211,20 @@ function PlayerChip(props: PlayerChipProps): React.ReactNode {
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`Add Team ${team} player ${index + 1}`}
+        accessibilityState={{ selected: isActive }}
         className={`relative flex-row items-center justify-center px-3 py-2 rounded-[10px] min-h-[44px] w-full ${
           isActive
             ? 'border-2 border-brand-gold bg-warning-tint'
             : 'border border-dashed border-divider'
         }`}
       >
-        <Text
+        <AppText
           className={`text-[12px] ${
             isActive ? 'font-bold text-warning' : 'text-muted'
           }`}
         >
           {isActive ? 'Tap a player below' : '+ Add Player'}
-        </Text>
+        </AppText>
       </Pressable>
     );
   }
@@ -232,15 +245,18 @@ interface ScoreDisplayProps {
 
 function ScoreDisplay({ score, team, isActive, onPress }: ScoreDisplayProps): React.ReactNode {
   const isTeal = team === 1;
-  const ringColor = isTeal ? TEAL : GOLD;
+  const palette = usePaletteColors();
+  const ringColor = isTeal ? palette.brandTeal : palette.brandGold;
 
   return (
     <Pressable
       testID={`score-box-team${team}`}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Score for team ${team}`}
-      className="items-center py-2"
+      accessibilityLabel={`Team ${team} score, ${score}`}
+      accessibilityValue={{ now: score, text: String(score) }}
+      accessibilityState={{ selected: isActive }}
+      className="min-h-touch items-center py-2"
     >
       <View
         style={{
@@ -251,15 +267,16 @@ function ScoreDisplay({ score, team, isActive, onPress }: ScoreDisplayProps): Re
           paddingVertical: 4,
         }}
       >
-        <Text
+        <AppText
           testID={`score-display-team${team}`}
-          className={`text-[72px] font-black leading-none text-center ${
+          family="display"
+          className={`text-[72px] font-bold leading-none text-center ${
             isTeal ? 'text-brand-teal' : 'text-warning'
           }`}
           style={{ opacity: 0.85, minWidth: 90 }}
         >
           {String(score).padStart(2, '0')}
-        </Text>
+        </AppText>
       </View>
     </Pressable>
   );
@@ -323,13 +340,13 @@ function BoardHalf({
         isTeal ? 'bg-info-tint' : 'bg-warning-tint'
       }`}
     >
-      <Text
+      <AppText
         className={`text-[11px] font-bold uppercase tracking-widest ${
           isTeal ? 'text-brand-teal' : 'text-warning'
         }`}
       >
         Team {team}
-      </Text>
+      </AppText>
 
       <View className="w-full gap-2">
         <PlayerChip
@@ -424,13 +441,13 @@ function CompactBoardHalf({
         isTeal ? 'bg-info-tint' : 'bg-warning-tint'
       }`}
     >
-      <Text
+      <AppText
         className={`text-[10px] font-bold uppercase tracking-wider ${
           isTeal ? 'text-brand-teal' : 'text-warning'
         }`}
       >
         T{team}
-      </Text>
+      </AppText>
       {[0, 1].map((idx) => {
         const slot = slots[idx as 0 | 1];
         const isEmpty = slot.player_id == null;
@@ -446,19 +463,20 @@ function CompactBoardHalf({
               onPress={handlePress}
               accessibilityRole="button"
               accessibilityLabel={`Add Team ${team} player ${idx + 1}`}
+              accessibilityState={{ selected: isActive }}
               className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-touch border ${
                 isActive
                   ? 'border-brand-gold bg-warning-tint'
                   : 'border-dashed border-divider'
               }`}
             >
-              <Text
+              <AppText
                 className={`text-[11px] ${
                   isActive ? 'font-bold text-warning' : 'text-muted'
                 }`}
               >
                 {isActive ? 'Tap below' : '+ Add'}
-              </Text>
+              </AppText>
             </Pressable>
           );
         }
@@ -469,17 +487,18 @@ function CompactBoardHalf({
             testID={`compact-slot-team${team}-${idx}`}
             onPress={handlePress}
             accessibilityRole="button"
-            accessibilityLabel={slot.display_name}
+            accessibilityLabel={`Team ${team} player ${idx + 1}, ${slot.display_name}`}
+            accessibilityState={{ selected: isActive }}
             className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-touch ${
               isTeal ? 'bg-brand-teal' : 'bg-brand-gold'
             }`}
           >
-            <Text
-              className="text-[11px] font-bold text-white"
-              numberOfLines={1}
+            <AppText
+              className={`text-[11px] font-bold ${isTeal ? 'text-on-brand-teal' : 'text-on-brand-gold'}`}
+              numberOfLines={2}
             >
               {formatPlayerShort(slot.display_name)}
-            </Text>
+            </AppText>
           </Pressable>
         );
       })}
@@ -500,6 +519,7 @@ interface GhostChipProps {
 }
 
 function GhostChip({ visible, label, team, ghostX, ghostY }: GhostChipProps): React.ReactNode {
+  const palette = usePaletteColors();
   const animStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: ghostX.value - 50 },
@@ -509,7 +529,7 @@ function GhostChip({ visible, label, team, ghostX, ghostY }: GhostChipProps): Re
 
   if (!visible) return null;
 
-  const bgColor = team === 1 ? 'rgba(77,170,204,0.92)' : 'rgba(224,180,76,0.92)';
+  const bgColor = team === 1 ? palette.brandTeal : palette.brandGold;
 
   return (
     <Animated.View
@@ -528,9 +548,12 @@ function GhostChip({ visible, label, team, ghostX, ghostY }: GhostChipProps): Re
         animStyle,
       ]}
     >
-      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }} numberOfLines={1}>
+      <AppText
+        className={`text-[13px] font-bold ${team === 1 ? 'text-on-brand-teal' : 'text-on-brand-gold'}`}
+        numberOfLines={1}
+      >
         {label}
-      </Text>
+      </AppText>
     </Animated.View>
   );
 }
@@ -549,6 +572,7 @@ export default function ScoreBoard({
   onRemovePlayer,
   onSwapSlots,
 }: ScoreBoardProps): React.ReactNode {
+  const previousActiveSlot = useRef<string | null>(null);
   const handleScoreTeam1Press = useCallback(
     () => onScoreTeamPress?.(1),
     [onScoreTeamPress],
@@ -610,15 +634,23 @@ export default function ScoreBoard({
     ? `Choose Team ${activeSlot.team} player ${activeSlot.slot + 1}`
     : null;
 
+  useEffect(() => {
+    if (!isBuilding || activeSlotLabel == null) return;
+    if (previousActiveSlot.current != null && previousActiveSlot.current !== activeSlotLabel) {
+      AccessibilityInfo.announceForAccessibility(activeSlotLabel);
+    }
+    previousActiveSlot.current = activeSlotLabel;
+  }, [activeSlotLabel, isBuilding]);
+
   // Compact mode only applies while building — once all 4 seats are filled the
   // picker (and its search input) is gone, so there's no keyboard to dodge.
   if (compact && isBuilding) {
     return (
       <View testID="scoreboard" className="border-b border-divider">
         {activeSlotLabel != null && (
-          <Text testID="active-slot-label" className="bg-surface px-3 py-1.5 text-[12px] font-bold text-default">
+          <AppText testID="active-slot-label" className="bg-surface px-3 py-1.5 text-[12px] font-bold text-default">
             {activeSlotLabel}
-          </Text>
+          </AppText>
         )}
         <View className="flex-row">
           <CompactBoardHalf
@@ -642,9 +674,9 @@ export default function ScoreBoard({
   return (
     <View testID="scoreboard">
       {isBuilding && activeSlotLabel != null && (
-        <Text testID="active-slot-label" className="bg-surface px-4 py-2 text-[13px] font-bold text-default">
+        <AppText testID="active-slot-label" className="bg-surface px-4 py-2 text-[13px] font-bold text-default">
           {activeSlotLabel}
-        </Text>
+        </AppText>
       )}
       <View ref={boardRef} className="flex-row">
         <BoardHalf

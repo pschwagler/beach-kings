@@ -10,9 +10,9 @@
  */
 
 import React from "react";
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   ScrollView,
   ActivityIndicator,
   Pressable,
@@ -86,7 +86,7 @@ function PlayerName({
 }: PlayerNameProps): React.ReactNode {
   const router = useRouter();
   if (playerId == null) {
-    return <Text className={className}>{name}</Text>;
+    return <AppText className={className}>{name}</AppText>;
   }
   return (
     <Pressable
@@ -95,7 +95,7 @@ function PlayerName({
       }}
       hitSlop={{ top: 6, bottom: 6, left: 2, right: 2 }}
     >
-      <Text className={className}>{name}</Text>
+      <AppText className={className}>{name}</AppText>
     </Pressable>
   );
 }
@@ -125,10 +125,10 @@ function MyGameRow({
       <View className="flex-row items-start">
         <View className="flex-1 min-w-0 mr-2">
           <View className="flex-row flex-wrap items-center">
-            <Text className="text-[13px] font-semibold text-default">You</Text>
+            <AppText className="text-[13px] font-semibold text-default">You</AppText>
             {game.partner_names.map((partnerName, i) => (
               <React.Fragment key={game.partner_ids[i] ?? `partner-${i}`}>
-                <Text className="text-[13px] text-muted"> / </Text>
+                <AppText className="text-[13px] text-muted"> / </AppText>
                 <PlayerName
                   name={partnerName}
                   playerId={game.partner_ids[i] ?? null}
@@ -138,10 +138,10 @@ function MyGameRow({
             ))}
           </View>
           <View className="flex-row flex-wrap items-center mt-[4px]">
-            <Text className="text-[12px] text-muted">vs </Text>
+            <AppText className="text-[12px] text-muted">vs </AppText>
             {game.opponent_names.map((oppName, i) => (
               <React.Fragment key={game.opponent_ids[i] ?? `opp-${i}`}>
-                {i > 0 && <Text className="text-[12px] text-muted"> / </Text>}
+                {i > 0 && <AppText className="text-[12px] text-muted"> / </AppText>}
                 <PlayerName
                   name={oppName}
                   playerId={game.opponent_ids[i] ?? null}
@@ -152,9 +152,9 @@ function MyGameRow({
           </View>
         </View>
 
-        <Text className="text-[14px] font-bold text-default mr-2">
+        <AppText className="text-[14px] font-bold text-default mr-2">
           {score}
-        </Text>
+        </AppText>
 
         <View
           className={`rounded-[6px] px-[8px] py-[3px] ${
@@ -165,18 +165,18 @@ function MyGameRow({
                 : "bg-danger-tint"
           }`}
         >
-          <Text
+          <AppText
             className={`text-[11px] font-bold ${
               isWin ? "text-success" : isDraw ? "text-warning" : "text-danger"
             }`}
           >
             {game.result}
-          </Text>
+          </AppText>
         </View>
       </View>
 
       {!hideRatingChange && game.rating_change != null && (
-        <Text
+        <AppText
           className={`text-[11px] mt-[4px] ${
             game.rating_change > 0
               ? "text-success"
@@ -187,7 +187,7 @@ function MyGameRow({
         >
           {game.rating_change > 0 ? "+" : ""}
           {game.rating_change} pts
-        </Text>
+        </AppText>
       )}
     </View>
   );
@@ -219,7 +219,7 @@ function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
           <View className="flex-row flex-wrap items-center">
             {game.team1_player_names.map((name, i) => (
               <React.Fragment key={game.team1_player_ids[i] ?? `t1-${i}`}>
-                {i > 0 && <Text className="text-[13px] text-muted"> / </Text>}
+                {i > 0 && <AppText className="text-[13px] text-muted"> / </AppText>}
                 <PlayerName
                   name={name}
                   playerId={game.team1_player_ids[i] ?? null}
@@ -230,10 +230,10 @@ function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
           </View>
           {/* Team 2 */}
           <View className="flex-row flex-wrap items-center mt-[4px]">
-            <Text className="text-[12px] text-muted">vs </Text>
+            <AppText className="text-[12px] text-muted">vs </AppText>
             {game.team2_player_names.map((name, i) => (
               <React.Fragment key={game.team2_player_ids[i] ?? `t2-${i}`}>
-                {i > 0 && <Text className="text-[12px] text-muted"> / </Text>}
+                {i > 0 && <AppText className="text-[12px] text-muted"> / </AppText>}
                 <PlayerName
                   name={name}
                   playerId={game.team2_player_ids[i] ?? null}
@@ -245,30 +245,30 @@ function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
         </View>
 
         {/* Score: bold the winning side's number */}
-        <Text
+        <AppText
           testID={`league-game-score-${game.id}`}
           accessibilityLabel={`Score ${score}`}
           className="text-[14px] text-muted mr-2"
         >
-          <Text
+          <AppText
             className={`text-[14px] ${team1Won ? "font-bold text-default" : "text-muted"}`}
           >
             {game.team1_score}
-          </Text>
+          </AppText>
           {GAME_SCORE_SEPARATOR}
-          <Text
+          <AppText
             className={`text-[14px] ${team2Won ? "font-bold text-default" : "text-muted"}`}
           >
             {game.team2_score}
-          </Text>
-        </Text>
+          </AppText>
+        </AppText>
 
         {noResult && (
           <View
             testID={`league-game-noresult-${game.id}`}
             className="rounded-[6px] px-[8px] py-[3px] bg-elevated"
           >
-            <Text className="text-[11px] font-bold text-muted">—</Text>
+            <AppText className="text-[11px] font-bold text-muted">—</AppText>
           </View>
         )}
 
@@ -277,7 +277,7 @@ function AllGameRow({ game }: AllGameRowProps): React.ReactNode {
             testID={`league-game-tie-${game.id}`}
             className="rounded-[6px] px-[8px] py-[3px] bg-elevated"
           >
-            <Text className="text-[11px] font-bold text-muted">TIE</Text>
+            <AppText className="text-[11px] font-bold text-muted">TIE</AppText>
           </View>
         )}
       </View>
@@ -313,7 +313,7 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
       {isActive && (
         <View
           testID={`session-card-${session.session_id}-active-stripe`}
-          className="w-[4px] bg-status-live"
+          className="w-[4px] bg-status-live-fill"
         />
       )}
 
@@ -329,9 +329,9 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
           <View className="flex-1">
             {/* Primary: the (user-editable) play date. Falls back to a stable
                 session identifier only for legacy rows with no date. */}
-            <Text className="text-[13px] font-bold text-default">
+            <AppText className="text-[13px] font-bold text-default">
               {dateLabel ?? `Session ${session.session_id}`}
-            </Text>
+            </AppText>
             {/* Active sessions get a Live pill; finalized sessions show just the
                 date header — the game count lives in the footer, not here. */}
             {isActive && (
@@ -339,10 +339,10 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
                 testID={`session-card-${session.session_id}-live-pill`}
                 className="self-start mt-[3px] flex-row items-center bg-status-live-tint rounded-[6px] px-[8px] py-[2px]"
               >
-                <View className="w-[6px] h-[6px] rounded-full bg-status-live mr-[5px]" />
-                <Text className="text-[10px] font-bold text-status-live uppercase tracking-wide">
+                <View className="w-[6px] h-[6px] rounded-full bg-status-live-fill mr-[5px]" />
+                <AppText className="text-[10px] font-bold text-status-live uppercase tracking-wide">
                   Live
-                </Text>
+                </AppText>
               </View>
             )}
           </View>
@@ -359,46 +359,46 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
         {/* Footer stats */}
         <View className="flex-row px-4 py-[12px] gap-4 border-t border-divider">
           <View>
-            <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+            <AppText className="text-[11px] text-tertiary uppercase tracking-wide">
               {session.mode === "mine" ? "Your Games" : "Games"}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               testID={`session-card-${session.session_id}-game-count`}
               className="text-[14px] font-bold text-default"
             >
               {gameCount}
-            </Text>
+            </AppText>
           </View>
 
           {session.mode === "all" && (
             <View>
-              <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+              <AppText className="text-[11px] text-tertiary uppercase tracking-wide">
                 Players
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 testID={`session-card-${session.session_id}-player-count`}
                 className="text-[14px] font-bold text-default"
               >
                 {session.playerCount}
-              </Text>
+              </AppText>
             </View>
           )}
 
           {session.mode === "mine" && !isActive && (
             <>
               <View>
-                <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+                <AppText className="text-[11px] text-tertiary uppercase tracking-wide">
                   W-L
-                </Text>
-                <Text className="text-[14px] font-bold text-default">
+                </AppText>
+                <AppText className="text-[14px] font-bold text-default">
                   {session.userWins}-{session.userLosses}
-                </Text>
+                </AppText>
               </View>
               <View>
-                <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+                <AppText className="text-[11px] text-tertiary uppercase tracking-wide">
                   Rating
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   className={`text-[14px] font-bold ${
                     totalRating > 0
                       ? "text-success"
@@ -409,19 +409,19 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
                 >
                   {totalRating > 0 ? "+" : ""}
                   {totalRating}
-                </Text>
+                </AppText>
               </View>
             </>
           )}
 
           {session.mode === "mine" && isActive && (
             <View>
-              <Text className="text-[11px] text-tertiary uppercase tracking-wide">
+              <AppText className="text-[11px] text-tertiary uppercase tracking-wide">
                 Status
-              </Text>
-              <Text className="text-[14px] font-bold text-status-live">
+              </AppText>
+              <AppText className="text-[14px] font-bold text-status-live">
                 In progress
-              </Text>
+              </AppText>
             </View>
           )}
         </View>
@@ -465,17 +465,17 @@ function ModeToggle({
         }}
         className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === "mine" ? "bg-brand-teal" : ""}`}
       >
-        <Text
-          className={`text-[12px] font-semibold ${mode === "mine" ? "text-white" : "text-muted"}`}
+        <AppText
+          className={`text-[12px] font-semibold ${mode === "mine" ? "text-on-brand-teal" : "text-muted"}`}
         >
           My Games
-        </Text>
+        </AppText>
         {myGameCount > 0 && (
-          <Text
-            className={`text-[11px] font-bold ${mode === "mine" ? "text-white/80" : "text-muted"}`}
+          <AppText
+            className={`text-[11px] font-bold ${mode === "mine" ? "text-on-brand-teal" : "text-muted"}`}
           >
             {myGameCount}
-          </Text>
+          </AppText>
         )}
       </TouchableOpacity>
       <TouchableOpacity
@@ -485,17 +485,17 @@ function ModeToggle({
         }}
         className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === "all" ? "bg-brand-teal" : ""}`}
       >
-        <Text
-          className={`text-[12px] font-semibold ${mode === "all" ? "text-white" : "text-muted"}`}
+        <AppText
+          className={`text-[12px] font-semibold ${mode === "all" ? "text-on-brand-teal" : "text-muted"}`}
         >
           All Games
-        </Text>
+        </AppText>
         {allGameCount > 0 && (
-          <Text
-            className={`text-[11px] font-bold ${mode === "all" ? "text-white/80" : "text-muted"}`}
+          <AppText
+            className={`text-[11px] font-bold ${mode === "all" ? "text-on-brand-teal" : "text-muted"}`}
           >
             {allGameCount}
-          </Text>
+          </AppText>
         )}
       </TouchableOpacity>
     </View>
@@ -555,9 +555,9 @@ export default function LeagueMatchesTab({
           testID="matches-error"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[16px] font-bold text-default text-center">
+          <AppText className="text-[16px] font-bold text-default text-center">
             Failed to load games
-          </Text>
+          </AppText>
         </View>
       </View>
     );
@@ -571,14 +571,14 @@ export default function LeagueMatchesTab({
           testID="matches-empty"
           className="flex-1 items-center justify-center px-8 py-16"
         >
-          <Text className="text-[18px] font-bold text-default mb-2 text-center">
+          <AppText className="text-[18px] font-bold text-default mb-2 text-center">
             {mode === "mine" ? "No Games Yet" : "No League Games Yet"}
-          </Text>
-          <Text className="text-[14px] text-muted text-center">
+          </AppText>
+          <AppText className="text-[14px] text-muted text-center">
             {mode === "mine"
               ? "Your games will appear here after sessions are submitted."
               : "League games will appear here as sessions are played."}
-          </Text>
+          </AppText>
         </View>
       </View>
     );

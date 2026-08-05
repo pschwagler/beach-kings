@@ -8,13 +8,8 @@
  */
 
 import React, { useRef } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-} from 'react-native';
+import { View, TextInput, Pressable, ActivityIndicator } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import Svg, { Path } from 'react-native-svg';
 import { hapticLight } from '@/utils/haptics';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -52,13 +47,14 @@ export default function ChatComposer({
   const palette = usePaletteColors();
   const inputRef = useRef<TextInput>(null);
   const trimmed = value.trim();
-  const canSend = trimmed.length > 0 && !isSending;
+  const hasMessage = trimmed.length > 0;
+  const canSend = hasMessage && !isSending;
   // Keep the class set stable while typing. NativeWind v4/css-interop can
   // crash when a controlled TextInput re-render swaps utility-driven
   // background styles, surfacing a misleading React Navigation context error.
   // Plain RN style is safe here and still uses the active semantic palette.
   const sendButtonStyle = {
-    backgroundColor: canSend ? palette.brandTeal : palette.bgElevated,
+    backgroundColor: hasMessage ? palette.brandTeal : palette.bgElevated,
   };
 
   const handleSend = (): void => {
@@ -75,13 +71,13 @@ export default function ChatComposer({
     >
       {sendError != null && (
         <View className="px-4 py-2 bg-danger-tint">
-          <Text
+          <AppText
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
             className="text-[12px] text-danger"
           >
             {sendError}
-          </Text>
+          </AppText>
         </View>
       )}
       <View className="flex-row items-end gap-[8px] px-3 py-[8px]">
@@ -119,13 +115,13 @@ export default function ChatComposer({
               style={sendButtonStyle}
             >
               {isSending ? (
-                <ActivityIndicator size="small" color={palette.textInverse} />
+                <ActivityIndicator size="small" color={palette.onBrandTeal} />
               ) : (
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M12 20V5M6 11l6-6 6 6"
                     stroke={
-                      canSend ? palette.textInverse : palette.textTertiary
+                      canSend ? palette.onBrandTeal : palette.textTertiary
                     }
                     strokeWidth={2.5}
                     strokeLinecap="round"

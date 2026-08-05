@@ -1,7 +1,7 @@
 /**
  * Card component matching wireframe design.
- * White background, 12px radius, subtle shadow.
- * Dark mode: elevated surface with subtle border replacing shadow.
+ * Content surface with a restrained border. Elevation is reserved for
+ * genuinely floating UI such as dialogs and toasts.
  */
 
 import React from 'react';
@@ -19,7 +19,7 @@ export default function Card({
 }: CardProps): React.ReactNode {
   return (
     <View
-      className={`bg-surface rounded-card p-lg shadow-sm dark:shadow-none dark:border border-divider ${className}`}
+      className={`bg-surface rounded-card border border-divider p-lg ${className}`}
       {...rest}
     >
       {children}

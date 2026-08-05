@@ -7,8 +7,10 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View } from 'react-native';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Polygon } from 'react-native-svg';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 const CHART_WIDTH = 320;
 const CHART_HEIGHT = 70;
@@ -77,6 +79,7 @@ function shortDate(iso: string): string {
 }
 
 export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
+  const palette = usePaletteColors();
   const points = useMemo(
     () => buildPolylinePoints(timeline, CHART_WIDTH, CHART_HEIGHT),
     [timeline],
@@ -90,14 +93,14 @@ export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
     return (
       <View
         testID="rating-chart"
-        className="bg-surface rounded-[12px] p-4 shadow-sm dark:shadow-none dark:border border-divider mb-4"
+        className="bg-surface rounded-[12px] p-4 border border-divider mb-4"
       >
-        <Text className="text-[13px] font-bold text-default mb-2">
+        <AppText className="text-[13px] font-bold text-default mb-2">
           Rating History
-        </Text>
-        <Text className="text-[12px] text-muted">
+        </AppText>
+        <AppText className="text-[12px] text-muted">
           Play more games to see your rating trend.
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -113,14 +116,14 @@ export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
   return (
     <View
       testID="rating-chart"
-      className="bg-surface rounded-[12px] p-4 shadow-sm dark:shadow-none dark:border border-divider mb-4"
+      className="bg-surface rounded-[12px] p-4 border border-divider mb-4"
     >
       {/* Header */}
       <View className="flex-row justify-between items-baseline mb-3">
-        <Text className="text-[13px] font-bold text-default">
+        <AppText className="text-[13px] font-bold text-default">
           Rating History
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           className={`text-[11px] font-bold ${
             deltaUp
               ? 'text-success'
@@ -128,15 +131,15 @@ export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
           }`}
         >
           {deltaLabel}
-        </Text>
+        </AppText>
       </View>
 
       {/* Chart */}
       <Svg width="100%" height={CHART_HEIGHT} viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}>
         <Defs>
           <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#2a7d9c" stopOpacity="0.15" />
-            <Stop offset="100%" stopColor="#2a7d9c" stopOpacity="0" />
+            <Stop offset="0%" stopColor={palette.brandTeal} stopOpacity="0.15" />
+            <Stop offset="100%" stopColor={palette.brandTeal} stopOpacity="0" />
           </LinearGradient>
         </Defs>
         {/* Fill area */}
@@ -150,7 +153,7 @@ export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
         <Polyline
           points={points}
           fill="none"
-          stroke="#2a7d9c"
+          stroke={palette.brandTeal}
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -159,12 +162,12 @@ export default function RatingChart({ timeline }: ChartProps): React.ReactNode {
 
       {/* Date labels */}
       <View className="flex-row justify-between mt-1">
-        <Text className="text-[10px] text-muted">
+        <AppText className="text-[10px] text-muted">
           {firstLabel}
-        </Text>
-        <Text className="text-[10px] text-muted">
+        </AppText>
+        <AppText className="text-[10px] text-muted">
           {lastLabel}
-        </Text>
+        </AppText>
       </View>
     </View>
   );

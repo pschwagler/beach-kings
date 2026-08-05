@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
 
 interface SectionErrorProps {
   readonly message?: string;
@@ -15,9 +16,9 @@ export default function SectionError({
       testID="section-error"
       className="bg-surface rounded-card p-lg items-center border border-danger-tint"
     >
-      <Text className="text-footnote text-muted text-center mb-sm">
+      <AppText className="text-footnote text-muted text-center mb-sm">
         {message}
-      </Text>
+      </AppText>
       {onRetry != null && (
         <Pressable
           onPress={onRetry}
@@ -25,7 +26,9 @@ export default function SectionError({
           accessibilityLabel="Retry loading this section"
           className="bg-brand-teal rounded-chip px-md py-xs min-h-touch items-center justify-center"
         >
-          <Text className="text-white font-semibold text-footnote">Retry</Text>
+          <AppText className="text-on-brand-teal font-semibold text-footnote">
+            Retry
+          </AppText>
         </Pressable>
       )}
     </View>

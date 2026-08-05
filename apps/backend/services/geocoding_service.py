@@ -22,12 +22,15 @@ def _get_mapbox_token() -> Optional[str]:
     return os.environ.get("MAPBOX_ACCESS_TOKEN")
 
 
-async def geocode_address(address: str) -> Tuple[Optional[float], Optional[float]]:
+async def geocode_address(
+    address: str, country_code: str = "US"
+) -> Tuple[Optional[float], Optional[float]]:
     """
     Geocode an address string to (latitude, longitude) using the Mapbox Geocoding API.
 
     Args:
         address: Free-form address string (e.g., "123 Main St, New York, NY 10001")
+        country_code: ISO 3166-1 alpha-2 country code used to constrain results.
 
     Returns:
         Tuple of (latitude, longitude) or (None, None) if geocoding fails.
@@ -45,7 +48,7 @@ async def geocode_address(address: str) -> Tuple[Optional[float], Optional[float
                     "access_token": token,
                     "limit": 1,
                     "types": "address,poi",
-                    "country": "US",
+                    "country": country_code.upper(),
                 },
             )
             resp.raise_for_status()

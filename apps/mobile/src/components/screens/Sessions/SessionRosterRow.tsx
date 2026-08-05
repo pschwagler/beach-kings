@@ -7,7 +7,8 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import type { SessionPlayerEntry } from '@beach-kings/shared';
 import Avatar from '@/components/ui/Avatar';
 
@@ -44,20 +45,20 @@ export default function SessionRosterRow({
 
       {/* Info */}
       <View className="flex-1">
-        <Text className="text-[14px] font-semibold text-default">
+        <AppText className="text-[14px] font-semibold text-default">
           {player.display_name}
-        </Text>
-        <Text className="text-[12px] text-muted mt-[1px]">
+        </AppText>
+        <AppText className="text-[12px] text-muted mt-[1px]">
           {player.is_placeholder ? `Guest · ${player.game_count} game${player.game_count !== 1 ? 's' : ''}` : `${player.game_count} game${player.game_count !== 1 ? 's' : ''}`}
-        </Text>
+        </AppText>
       </View>
 
       {/* Game count badge */}
       {player.game_count > 0 && (
         <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] font-semibold text-muted">
+          <AppText className="text-[11px] font-semibold text-muted">
             {player.game_count}
-          </Text>
+          </AppText>
         </View>
       )}
 
@@ -73,7 +74,7 @@ export default function SessionRosterRow({
             accessibilityLabel={`Remove ${player.display_name} from session`}
             className="min-h-touch justify-center rounded-[8px] border border-danger-tint bg-surface px-[12px]"
           >
-            <Text className="text-[12px] font-semibold text-danger">Remove</Text>
+            <AppText className="text-[12px] font-semibold text-danger">Remove</AppText>
           </TouchableOpacity>
         )
       )}

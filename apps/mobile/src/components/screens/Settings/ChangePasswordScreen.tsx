@@ -11,9 +11,9 @@
  */
 
 import React, { useRef, useState, useCallback } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -66,13 +66,13 @@ export default function ChangePasswordScreen(): React.ReactNode {
     setBanner(null);
   }, []);
 
-  const validate = (): string | null => {
+  const validate = useCallback((): string | null => {
     if (form.currentPassword.length === 0) return 'Please enter your current password.';
     if (form.newPassword.length < 8) return 'New password must be at least 8 characters.';
     if (form.newPassword !== form.confirmPassword) return 'Passwords do not match.';
     if (form.newPassword === form.currentPassword) return 'New password must differ from your current password.';
     return null;
-  };
+  }, [form]);
 
   const handleSubmit = useCallback(async () => {
     const validationError = validate();
@@ -108,7 +108,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
     } finally {
       setIsSubmitting(false);
     }
-  }, [form]);
+  }, [form, router, validate]);
 
   return (
     <SafeAreaView
@@ -139,21 +139,21 @@ export default function ChangePasswordScreen(): React.ReactNode {
                   : 'bg-danger-tint border-danger'
               }`}
             >
-              <Text
+              <AppText
                 className={`text-sm font-medium text-center ${
                   banner.type === 'success' ? 'text-success' : 'text-danger'
                 }`}
               >
                 {banner.message}
-              </Text>
+              </AppText>
             </View>
           )}
 
           {/* Current Password */}
           <View className="mb-lg">
-            <Text className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
+            <AppText className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
               Current Password
-            </Text>
+            </AppText>
             <Input
               testID="input-current-password"
               value={form.currentPassword}
@@ -172,9 +172,9 @@ export default function ChangePasswordScreen(): React.ReactNode {
 
           {/* New Password */}
           <View className="mb-lg">
-            <Text className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
+            <AppText className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
               New Password
-            </Text>
+            </AppText>
             <Input
               testID="input-new-password"
               ref={newPasswordRef}
@@ -194,9 +194,9 @@ export default function ChangePasswordScreen(): React.ReactNode {
 
           {/* Confirm New Password */}
           <View className="mb-xl">
-            <Text className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
+            <AppText className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
               Confirm New Password
-            </Text>
+            </AppText>
             <Input
               testID="input-confirm-password"
               ref={confirmPasswordRef}
@@ -224,9 +224,9 @@ export default function ChangePasswordScreen(): React.ReactNode {
               isSubmitting ? 'opacity-50' : ''
             }`}
           >
-            <Text className="text-white font-bold text-[15px]">
+            <AppText className="text-on-brand-gold font-bold text-[15px]">
               {isSubmitting ? 'Updating…' : 'Update Password'}
-            </Text>
+            </AppText>
           </Pressable>
 
         </ScrollView>

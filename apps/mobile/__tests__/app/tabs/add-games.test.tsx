@@ -84,9 +84,10 @@ jest.mock('react-native-svg', () => {
   const { View } = require('react-native');
   const Svg = ({ children }: { children?: React.ReactNode }) => <View>{children}</View>;
   const Path = () => null;
+  const Line = () => null;
   const Circle = () => null;
   const G = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
-  return { __esModule: true, default: Svg, Svg, Path, Circle, G };
+  return { __esModule: true, default: Svg, Svg, Path, Line, Circle, G };
 });
 
 // Haptics
@@ -214,12 +215,15 @@ describe('AddGamesScreen — chooser view (no active session)', () => {
     });
   });
 
-  it('renders the description text when there is no active session', async () => {
+  it('renders the branded intro when there is no active session', async () => {
     renderAddGames();
     await waitFor(() => {
       expect(
-        screen.getByText(/Record your beach volleyball games/i),
+        screen.getByText(/Record a league or pickup game/i),
       ).toBeTruthy();
+      expect(screen.getByTestId('court-line-motif-add-games', {
+        includeHiddenElements: true,
+      })).toBeTruthy();
     });
   });
 

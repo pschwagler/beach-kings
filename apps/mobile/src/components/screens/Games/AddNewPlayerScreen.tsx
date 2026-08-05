@@ -10,11 +10,11 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   Keyboard,
   Pressable,
   View,
-  Text,
   ScrollView,
   TextInput,
 } from 'react-native';
@@ -80,13 +80,13 @@ function SelectChip({
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
     >
-      <Text
+      <AppText
         className={`text-sm font-medium ${
-          active ? 'text-white' : 'text-default'
+          active ? 'text-on-brand-teal' : 'text-default'
         }`}
       >
         {label}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
@@ -123,7 +123,7 @@ function SubmitButton({
       accessibilityLabel={title}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
-      <Text className="font-semibold text-body text-white">{title}</Text>
+      <AppText className="font-semibold text-body text-on-brand-teal">{title}</AppText>
     </Pressable>
   );
 }
@@ -244,7 +244,7 @@ export default function AddNewPlayerScreen(): React.ReactNode {
         className="px-lg pb-md border-b border-divider"
         style={{ paddingTop: insets.top + 12 }}
       >
-        <Text className="text-lg font-bold text-default">Add New Player</Text>
+        <AppText className="text-lg font-bold text-default">Add New Player</AppText>
       </View>
 
       <ScrollView
@@ -253,27 +253,27 @@ export default function AddNewPlayerScreen(): React.ReactNode {
         keyboardShouldPersistTaps="handled"
       >
         {/* Subtitle */}
-        <Text className="text-muted text-sm mt-sm mb-lg">
-          Creates a profile they can claim later by joining Beach League.
-        </Text>
+        <AppText className="text-muted text-sm mt-sm mb-lg">
+          Add them now, then invite them to the app to claim their games.
+        </AppText>
 
         {/* Search context — omit when prefillName is empty */}
         {prefillName.trim().length > 0 && (
           <View className="flex-row items-center gap-xs mb-md py-sm px-md rounded-lg bg-inset">
-            <Text className="text-muted text-sm flex-1">
+            <AppText className="text-muted text-sm flex-1">
               {`No Beach League match for "${prefillName}"`}
-            </Text>
+            </AppText>
           </View>
         )}
 
         {/* First Name */}
         <View className="mb-md">
-          <Text className="text-xs font-bold text-muted uppercase tracking-wide mb-xs">
+          <AppText className="text-xs font-bold text-muted uppercase tracking-wide mb-xs">
             First Name{' '}
-            <Text className="text-danger normal-case font-normal text-xs">
+            <AppText className="text-danger normal-case font-normal text-xs">
               *
-            </Text>
-          </Text>
+            </AppText>
+          </AppText>
           <Input
             testID="add-new-player-first"
             value={first}
@@ -289,12 +289,12 @@ export default function AddNewPlayerScreen(): React.ReactNode {
 
         {/* Last Name */}
         <View className="mb-md">
-          <Text className="text-xs font-bold text-muted uppercase tracking-wide mb-xs">
+          <AppText className="text-xs font-bold text-muted uppercase tracking-wide mb-xs">
             Last Name{' '}
-            <Text className="text-tertiary normal-case font-normal text-xs">
+            <AppText className="text-tertiary normal-case font-normal text-xs">
               (optional)
-            </Text>
-          </Text>
+            </AppText>
+          </AppText>
           <Input
             testID="add-new-player-last"
             ref={lastNameRef}
@@ -312,12 +312,12 @@ export default function AddNewPlayerScreen(): React.ReactNode {
 
         {/* Level chips */}
         <View className="mb-md">
-          <Text className="text-xs font-bold text-muted uppercase tracking-wide mb-xs">
+          <AppText className="text-xs font-bold text-muted uppercase tracking-wide mb-xs">
             Level{' '}
-            <Text className="text-tertiary normal-case font-normal text-xs">
+            <AppText className="text-tertiary normal-case font-normal text-xs">
               (optional)
-            </Text>
-          </Text>
+            </AppText>
+          </AppText>
           <View className="flex-row flex-wrap gap-xs">
             {SKILL_LEVEL_OPTIONS.map((opt) => (
               <SelectChip
@@ -333,12 +333,12 @@ export default function AddNewPlayerScreen(): React.ReactNode {
 
         {/* Gender chips */}
         <View className="mb-lg">
-          <Text className="text-xs font-bold text-muted uppercase tracking-wide mb-xs">
+          <AppText className="text-xs font-bold text-muted uppercase tracking-wide mb-xs">
             Gender{' '}
-            <Text className="text-tertiary normal-case font-normal text-xs">
+            <AppText className="text-tertiary normal-case font-normal text-xs">
               (optional)
-            </Text>
-          </Text>
+            </AppText>
+          </AppText>
           <View className="flex-row gap-xs">
             {GENDER_OPTIONS.map((opt) => (
               <SelectChip
@@ -352,38 +352,25 @@ export default function AddNewPlayerScreen(): React.ReactNode {
           </View>
         </View>
 
-        {/* Info callout
-            The amber/warm tones (#fffbeb bg, #92400e text) have no semantic
-            token — bg-warning-tint is used for the container bg (closest
-            available warm tint), and inline style is used for the text color
-            to match the wireframe amber callout exactly. This mirrors the
-            established pattern for the few raw-color exceptions in the Games
-            screens where no semantic token covers the exact wireframe intent. */}
-        <View
-          className="rounded-xl mb-lg px-md py-sm bg-warning-tint"
-          style={{ borderWidth: 1, borderColor: '#fde68a' }}
-        >
-          <Text
-            className="text-sm leading-5"
-            style={{ color: '#92400e' }}
-          >
-            <Text style={{ fontWeight: '700', color: '#92400e' }}>
+        <View className="rounded-xl mb-lg px-md py-sm bg-warning-tint border border-warning">
+          <AppText className="text-sm leading-5 text-warning">
+            <AppText className="font-bold text-warning">
               New players
-            </Text>{' '}
-            appear in session rosters with a &ldquo;New&rdquo; label. Share a
-            link after the session so they can join Beach League and own their
+            </AppText>{' '}
+            appear in session rosters with a &ldquo;New&rdquo; label. Invite them
+            to the app after the session so they can claim their games and
             stats.
-          </Text>
+          </AppText>
         </View>
 
         {/* Inline error */}
         {errorMsg !== null && (
-          <Text
+          <AppText
             testID="add-new-player-error"
             className="text-danger text-sm mb-md"
           >
             {errorMsg}
-          </Text>
+          </AppText>
         )}
 
         {/* Submit */}

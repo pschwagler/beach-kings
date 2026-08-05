@@ -4,10 +4,18 @@
  */
 
 export const fontFamily = {
-  /** iOS: SF Pro. Android: Roboto. Fallback chain for both platforms. */
-  sans: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Roboto", "Helvetica Neue", sans-serif',
+  /** Embedded by expo-font. Use weight 400-700 to select the correct face. */
+  sans: ['Barlow'],
+  /** Sporting display face for headings, wordmarks, and large scores. */
+  display: ['Barlow Condensed'],
   /** Monospace for code/stats */
-  mono: '"SF Mono", "Roboto Mono", "Courier New", monospace',
+  mono: ['SF Mono', 'Roboto Mono', 'Courier New', 'monospace'],
+} as const;
+
+/** Native font-family names registered by the embedded font files. */
+export const nativeFontFamily = {
+  sans: 'Barlow',
+  display: 'Barlow Condensed',
 } as const;
 
 export const fontSizes = {

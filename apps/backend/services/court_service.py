@@ -45,6 +45,13 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def _longitude_bounds_filter(west: float, east: float):
+    """Build a longitude predicate, including bounds that cross the date line."""
+    if west <= east:
+        return and_(Court.longitude >= west, Court.longitude <= east)
+    return or_(Court.longitude >= west, Court.longitude <= east)
+
+
 # ---------------------------------------------------------------------------
 # Slug helpers
 # ---------------------------------------------------------------------------
@@ -118,6 +125,10 @@ async def list_courts_public(
     search: Optional[str] = None,
     user_lat: Optional[float] = None,
     user_lng: Optional[float] = None,
+    north: Optional[float] = None,
+    south: Optional[float] = None,
+    east: Optional[float] = None,
+    west: Optional[float] = None,
     player_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
@@ -188,6 +199,14 @@ async def list_courts_public(
     if search:
         pattern = f"%{_escape_like(search)}%"
         base = base.where(or_(Court.name.ilike(pattern), Court.address.ilike(pattern)))
+    if all(value is not None for value in (north, south, east, west)):
+        base = base.where(
+            Court.latitude.isnot(None),
+            Court.longitude.isnot(None),
+            Court.latitude >= south,
+            Court.latitude <= north,
+            _longitude_bounds_filter(west, east),
+        )
 
     # Count
     count_q = select(func.count()).select_from(base.subquery())

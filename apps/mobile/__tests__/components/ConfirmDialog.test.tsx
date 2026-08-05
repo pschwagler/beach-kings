@@ -104,6 +104,9 @@ describe('ConfirmDialog', () => {
       const className: string = confirmBtn.props.className ?? '';
       expect(className).toContain('bg-danger');
       expect(className).not.toContain('bg-brand-gold');
+      expect(screen.getByText('Discard').props.className).toContain(
+        'text-on-danger',
+      );
     });
 
     it('applies bg-brand-gold to confirm button in primary variant', () => {
@@ -112,6 +115,9 @@ describe('ConfirmDialog', () => {
       const className: string = confirmBtn.props.className ?? '';
       expect(className).toContain('bg-brand-gold');
       expect(className).not.toContain('bg-danger');
+      expect(screen.getByText('Discard').props.className).toContain(
+        'text-on-brand-gold',
+      );
     });
 
     it('defaults to primary variant when confirmVariant is omitted', () => {

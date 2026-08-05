@@ -79,6 +79,13 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    textInverse: '#fffdf8',
+    textTertiary: '#697577',
+  }),
+}));
+
 jest.mock('@/components/ui/icons', () => {
   const React = require('react');
   const { View } = require('react-native');

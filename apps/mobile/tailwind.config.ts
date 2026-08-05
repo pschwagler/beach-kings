@@ -81,8 +81,9 @@ const config: Config = {
 
       /* ── Typography ─────────────────────────────────────────── */
       fontFamily: {
-        sans: fontFamily.sans,
-        mono: fontFamily.mono,
+        sans: [...fontFamily.sans],
+        display: [...fontFamily.display],
+        mono: [...fontFamily.mono],
       },
       fontSize: {
         caption: [`${fontSizes.caption}px`, { lineHeight: `${lineHeights.caption}px` }],

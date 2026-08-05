@@ -11,17 +11,20 @@ import useApi from '@/hooks/useApi';
 import { unavailableTournamentApi } from '@/features/tournaments/unavailableApi';
 import type { KobTournamentDetail } from '@beach-kings/shared';
 
-export type KobTab = 'Live' | 'Schedule' | 'Standings';
-export const KOB_TABS: KobTab[] = ['Live', 'Schedule', 'Standings'];
+export type KobTab = 'live' | 'schedule' | 'standings';
+export const KOB_TABS = [
+  { value: 'live', label: 'Live', testID: 'kob-tab-live' },
+  { value: 'schedule', label: 'Schedule', testID: 'kob-tab-schedule' },
+  { value: 'standings', label: 'Standings', testID: 'kob-tab-standings' },
+] as const satisfies readonly { value: KobTab; label: string; testID: string }[];
 
 export interface UseKobScreenResult {
   readonly tournament: KobTournamentDetail | undefined;
   readonly isLoading: boolean;
   readonly error: Error | null;
   readonly isRefreshing: boolean;
-  readonly activeTabIndex: number;
   readonly activeTab: KobTab;
-  readonly onTabPress: (index: number) => void;
+  readonly onTabChange: (tab: KobTab) => void;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
 }
@@ -32,7 +35,7 @@ export interface UseKobScreenResult {
  * @param code - Tournament code or numeric id (e.g. "MB2026" or 1).
  */
 export function useKobScreen(code: string | number): UseKobScreenResult {
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<KobTab>('live');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data: tournament, isLoading, error, refetch } = useApi<KobTournamentDetail>(
@@ -40,8 +43,8 @@ export function useKobScreen(code: string | number): UseKobScreenResult {
     [code],
   );
 
-  const onTabPress = useCallback((index: number) => {
-    setActiveTabIndex(index);
+  const onTabChange = useCallback((tab: KobTab) => {
+    setActiveTab(tab);
   }, []);
 
   const onRefresh = useCallback(() => {
@@ -60,9 +63,8 @@ export function useKobScreen(code: string | number): UseKobScreenResult {
     isLoading,
     error,
     isRefreshing,
-    activeTabIndex,
-    activeTab: KOB_TABS[activeTabIndex] ?? 'Live',
-    onTabPress,
+    activeTab,
+    onTabChange,
     onRefresh,
     onRetry,
   };

@@ -12,9 +12,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
+import FilterChipBar from '@/components/ui/FilterChipBar';
 import TournamentListSkeleton from './TournamentListSkeleton';
 import { ActiveCard, ListCard, PastCard, CreateCTA } from './TournamentCard';
 import { useTournamentsListScreen } from './useTournamentsListScreen';
@@ -31,53 +32,14 @@ import type { TournamentFilter } from './useTournamentsListScreen';
 // Filter chips
 // ---------------------------------------------------------------------------
 
-const FILTER_OPTIONS: { key: TournamentFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'kob', label: 'KoB' },
-  { key: 'bracket', label: 'Bracket' },
-  { key: 'this_week', label: 'This Week' },
-  { key: 'this_month', label: 'This Month' },
-  { key: 'open_spots', label: 'Open Spots' },
-];
-
-interface FilterChipsProps {
-  readonly selected: TournamentFilter;
-  readonly onChange: (f: TournamentFilter) => void;
-}
-
-function FilterChips({ selected, onChange }: FilterChipsProps): React.ReactNode {
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-    >
-      {FILTER_OPTIONS.map(({ key, label }) => {
-        const isActive = selected === key;
-        return (
-          <TouchableOpacity
-            key={key}
-            testID={`tournament-filter-${key}`}
-            onPress={() => onChange(key)}
-            className={`px-[14px] py-[6px] rounded-[20px] border ${
-              isActive
-                ? 'border-brand-teal bg-brand-teal'
-                : 'border-divider bg-surface'
-            }`}
-          >
-            <Text
-              className={`text-[13px] font-semibold ${
-                isActive ? 'text-white' : 'text-muted'
-              }`}
-            >
-              {label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
-  );
-}
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'All', testID: 'tournament-filter-all' },
+  { value: 'kob', label: 'KoB', testID: 'tournament-filter-kob' },
+  { value: 'bracket', label: 'Bracket', testID: 'tournament-filter-bracket' },
+  { value: 'this_week', label: 'This Week', testID: 'tournament-filter-this_week' },
+  { value: 'this_month', label: 'This Month', testID: 'tournament-filter-this_month' },
+  { value: 'open_spots', label: 'Open Spots', testID: 'tournament-filter-open_spots' },
+] as const satisfies readonly { value: TournamentFilter; label: string; testID: string }[];
 
 // ---------------------------------------------------------------------------
 // Empty upcoming state
@@ -89,12 +51,12 @@ function UpcomingEmptyState(): React.ReactNode {
       testID="tournaments-upcoming-empty"
       className="bg-surface rounded-[12px] border border-divider p-[20px] items-center"
     >
-      <Text className="text-[14px] font-semibold text-default mb-[4px]">
+      <AppText className="text-[14px] font-semibold text-default mb-[4px]">
         No Upcoming Tournaments
-      </Text>
-      <Text className="text-[12px] text-muted text-center">
+      </AppText>
+      <AppText className="text-[12px] text-muted text-center">
         Browse nearby tournaments or create your own.
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -113,15 +75,15 @@ function TournamentsErrorState({ onRetry }: ErrorStateProps): React.ReactNode {
       testID="tournaments-error"
       className="flex-1 items-center justify-center px-[24px] gap-[16px]"
     >
-      <Text className="text-[16px] font-semibold text-default text-center">
+      <AppText className="text-[16px] font-semibold text-default text-center">
         Could not load tournaments
-      </Text>
+      </AppText>
       <TouchableOpacity
         testID="tournaments-retry-btn"
         onPress={onRetry}
         className="bg-brand-teal px-[24px] py-[12px] rounded-[10px]"
       >
-        <Text className="text-white text-[14px] font-semibold">Retry</Text>
+        <AppText className="text-on-brand-teal text-[14px] font-semibold">Retry</AppText>
       </TouchableOpacity>
     </View>
   );
@@ -164,7 +126,7 @@ export default function TournamentsListScreen(): React.ReactNode {
               testID="tournaments-create-btn"
               className="px-[12px] py-[6px]"
             >
-              <Text className="text-[14px] font-semibold text-brand-gold">+ New</Text>
+              <AppText className="text-[14px] font-semibold text-brand-gold">+ New</AppText>
             </TouchableOpacity>
           }
         />
@@ -201,7 +163,7 @@ export default function TournamentsListScreen(): React.ReactNode {
             testID="tournaments-create-btn"
             className="px-[12px] py-[6px]"
           >
-            <Text className="text-[14px] font-semibold text-brand-gold">+ New</Text>
+            <AppText className="text-[14px] font-semibold text-brand-gold">+ New</AppText>
           </TouchableOpacity>
         }
       />
@@ -216,9 +178,9 @@ export default function TournamentsListScreen(): React.ReactNode {
         {/* Active Now */}
         {activeTournament != null && (
           <View className="px-[16px] pt-[16px]">
-            <Text className="text-[15px] font-bold text-default mb-[10px]">
+            <AppText className="text-[15px] font-bold text-default mb-[10px]">
               Active Now
-            </Text>
+            </AppText>
             <ActiveCard
               tournament={activeTournament}
               onPress={() => onTournamentPress(activeTournament.id)}
@@ -228,9 +190,9 @@ export default function TournamentsListScreen(): React.ReactNode {
 
         {/* My Upcoming */}
         <View className="px-[16px] pt-[16px]">
-          <Text className="text-[15px] font-bold text-default mb-[10px]">
+          <AppText className="text-[15px] font-bold text-default mb-[10px]">
             My Upcoming
-          </Text>
+          </AppText>
           {upcomingTournaments.length === 0 ? (
             <UpcomingEmptyState />
           ) : (
@@ -242,18 +204,23 @@ export default function TournamentsListScreen(): React.ReactNode {
 
         {/* Nearby section with filter chips */}
         <View className="pt-[16px]">
-          <Text className="text-[15px] font-bold text-default mb-[10px] px-[16px]">
+          <AppText className="text-[15px] font-bold text-default mb-[10px] px-[16px]">
             Nearby
-          </Text>
-          <FilterChips selected={filter} onChange={setFilter} />
+          </AppText>
+          <FilterChipBar
+            items={FILTER_OPTIONS}
+            value={filter}
+            onValueChange={setFilter}
+            accessibilityLabel="Tournament filters"
+          />
           <View className="px-[16px] mt-[10px]">
             {nearbyTournaments.length === 0 ? (
-              <Text
+              <AppText
                 testID="tournaments-nearby-empty"
                 className="text-[14px] text-muted text-center py-[20px]"
               >
                 No tournaments found nearby.
-              </Text>
+              </AppText>
             ) : (
               nearbyTournaments.map((t) => (
                 <ListCard key={t.id} tournament={t} onPress={() => onTournamentPress(t.id)} />
@@ -265,9 +232,9 @@ export default function TournamentsListScreen(): React.ReactNode {
         {/* Past Tournaments */}
         {pastTournaments.length > 0 && (
           <View className="px-[16px] pt-[16px]">
-            <Text className="text-[15px] font-bold text-default mb-[10px]">
+            <AppText className="text-[15px] font-bold text-default mb-[10px]">
               Past Tournaments
-            </Text>
+            </AppText>
             {pastTournaments.map((t) => (
               <PastCard key={t.id} tournament={t} onPress={() => onTournamentPress(t.id)} />
             ))}

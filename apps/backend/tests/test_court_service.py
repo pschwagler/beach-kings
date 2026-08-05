@@ -270,6 +270,19 @@ class TestCourtCRUD:
             assert item["is_free"] is True
 
     @pytest.mark.asyncio
+    async def test_list_courts_filters_by_bounds_and_coordinates(self, db_session, court, location):
+        """Bounds include in-area courts and exclude both outside and coordinate-less courts."""
+        inside = Court(name="Inside", slug="inside", location_id=location.id, status="approved", is_active=True, latitude=40.7, longitude=-74.0)
+        outside = Court(name="Outside", slug="outside", location_id=location.id, status="approved", is_active=True, latitude=34.0, longitude=-118.0)
+        db_session.add_all([inside, outside])
+        await db_session.commit()
+
+        result = await court_service.list_courts_public(db_session, north=41, south=40, east=-73, west=-75)
+
+        assert [item["slug"] for item in result["items"]] == ["inside"]
+        assert result["total_count"] == 1
+
+    @pytest.mark.asyncio
     async def test_get_court_by_slug(self, db_session, court):
         """Getting court by slug returns detail with reviews."""
         detail = await court_service.get_court_by_slug(db_session, court["slug"])

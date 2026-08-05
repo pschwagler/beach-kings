@@ -4,16 +4,20 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { ActivityIndicator, View, Pressable } from 'react-native';
 import { type Player, formatLocation } from '@beach-kings/shared';
 import Avatar from '@/components/ui/Avatar';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
+import { CameraIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface ProfileHeaderProps {
   readonly player: Player | null;
   readonly isLoading: boolean;
   readonly friendCount: number | null;
-  readonly onEditPress: () => void;
+  readonly onPhotoPress: () => void;
+  readonly photoBusy?: boolean;
   readonly onFriendsPress: () => void;
 }
 
@@ -21,9 +25,11 @@ export default function ProfileHeader({
   player,
   isLoading,
   friendCount,
-  onEditPress,
+  onPhotoPress,
+  photoBusy = false,
   onFriendsPress,
 }: ProfileHeaderProps): React.ReactNode {
+  const palette = usePaletteColors();
   if (isLoading) {
     return (
       <View
@@ -58,9 +64,11 @@ export default function ProfileHeader({
   return (
     <View className="bg-surface items-center px-lg pt-xxl pb-xl">
       <Pressable
-        onPress={onEditPress}
-        accessibilityLabel="Edit profile picture"
+        onPress={onPhotoPress}
+        disabled={photoBusy}
+        accessibilityLabel="Manage profile photo"
         accessibilityRole="button"
+        accessibilityState={{ disabled: photoBusy, busy: photoBusy }}
         className="relative"
       >
         <Avatar
@@ -69,53 +77,58 @@ export default function ProfileHeader({
           size="xl"
           colorSeed={player?.id}
         />
+        {photoBusy ? (
+          <View className="absolute inset-0 rounded-full bg-nav/70 items-center justify-center">
+            <ActivityIndicator color={palette.textInverse} />
+          </View>
+        ) : null}
         <View className="absolute -bottom-2 -right-3 w-11 h-11 rounded-full bg-nav border-2 border-surface items-center justify-center">
-          <Text className="text-white text-xs font-semibold">+</Text>
+          <CameraIcon size={19} color={palette.textInverse} />
         </View>
       </Pressable>
 
-      <Text className="text-title2 font-bold text-default mt-md">
+      <AppText family="display" weight="bold" className="text-title2 text-default mt-md">
         {fullName}
-      </Text>
+      </AppText>
 
       {hasMetaInfo ? (
         <View className="flex-row items-center gap-xs mt-xs flex-wrap justify-center">
           {locationLabel != null && (
-            <Text className="text-sm text-muted">
+            <AppText className="text-sm text-muted">
               {locationLabel}
-            </Text>
+            </AppText>
           )}
           {locationLabel != null && levelLabel != null && (
-            <Text className="text-sm text-muted">
+            <AppText className="text-sm text-muted">
               {' · '}
-            </Text>
+            </AppText>
           )}
           {levelLabel != null && (
-            <View className="bg-brand-teal/10 rounded-full px-sm py-0.5">
-              <Text className="text-xs font-semibold text-brand-teal">
+            <View className="bg-info-tint rounded-full px-sm py-0.5">
+              <AppText className="text-xs font-semibold text-brand-teal">
                 {levelLabel}
-              </Text>
+              </AppText>
             </View>
           )}
           {(locationLabel != null || levelLabel != null) && (
-            <Text className="text-sm text-muted">
+            <AppText className="text-sm text-muted">
               {' · '}
-            </Text>
+            </AppText>
           )}
           <Pressable
             onPress={onFriendsPress}
             accessibilityRole="button"
             accessibilityLabel={friendCount == null ? 'Friends' : `${friendCount} Friends`}
           >
-            <Text className="text-sm font-semibold text-brand-teal">
+            <AppText className="text-sm font-semibold text-brand-teal">
               {friendCount == null ? 'Friends' : `${friendCount} Friends`}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       ) : (
-        <Text className="text-sm text-muted mt-xs italic">
+        <AppText className="text-sm text-muted mt-xs italic">
           Add your details below
-        </Text>
+        </AppText>
       )}
     </View>
   );

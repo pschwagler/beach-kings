@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  Pressable,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
@@ -144,81 +151,79 @@ export default function VerifyScreen(): React.ReactNode {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-      <View className="flex-1 justify-center px-lg">
-        <View className="items-center mb-xl">
-          <Text className="text-title2 font-bold text-default mb-sm">
-            Enter Verification Code
-          </Text>
-          <Text className="text-body text-muted text-center">
-            We sent a 6-digit code to {masked}
-          </Text>
-        </View>
+        <View className="flex-1 justify-center px-lg">
+          <View className="items-center mb-xl">
+            <AppText className="text-title2 font-bold text-default mb-sm">
+              Enter Verification Code
+            </AppText>
+            <AppText className="text-body text-muted text-center">
+              We sent a 6-digit code to {masked}
+            </AppText>
+          </View>
 
-        <View className="items-center mb-md">
-          <Controller
-            control={control}
-            name="code"
-            render={({ field: { value, onChange } }) => (
-              <OtpInput
-                value={value}
-                onChange={onChange}
-                onComplete={() => {
-                  void handleSubmit(onSubmit)();
-                }}
-                length={6}
-                shakeKey={shakeKey}
-              />
-            )}
-          />
-        </View>
-        <View className="items-center mb-md">
-          <FormError message={errors.code?.message} />
-        </View>
+          <View className="items-center mb-md">
+            <Controller
+              control={control}
+              name="code"
+              render={({ field: { value, onChange } }) => (
+                <OtpInput
+                  value={value}
+                  onChange={onChange}
+                  onComplete={() => {
+                    void handleSubmit(onSubmit)();
+                  }}
+                  length={6}
+                  shakeKey={shakeKey}
+                />
+              )}
+            />
+          </View>
+          <View className="items-center mb-md">
+            <FormError message={errors.code?.message} />
+          </View>
 
-        <View className="gap-md">
-          <Button
-            title="Verify"
-            onPress={handleSubmit(onSubmit)}
-            disabled={isSubmitting}
-            loading={isSubmitting}
-          />
+          <View className="gap-md">
+            <Button
+              title="Verify"
+              onPress={handleSubmit(onSubmit)}
+              disabled={isSubmitting}
+              loading={isSubmitting}
+            />
 
-          <Pressable
-            className="min-h-touch items-center justify-center"
-            onPress={handleResend}
-            disabled={resendDisabled}
-            accessibilityLabel={
-              resendDisabled
-                ? `Resend code in ${countdown} seconds`
-                : 'Resend verification code'
-            }
-            accessibilityRole="button"
-          >
-            <Text
-              className={`text-footnote font-medium ${
+            <Pressable
+              className="min-h-touch items-center justify-center"
+              onPress={handleResend}
+              disabled={resendDisabled}
+              accessibilityLabel={
                 resendDisabled
-                  ? 'text-muted'
-                  : 'text-brand-teal'
-              }`}
+                  ? `Resend code in ${countdown} seconds`
+                  : 'Resend verification code'
+              }
+              accessibilityRole="button"
             >
-              {resendDisabled
-                ? `Resend code in ${countdown}s`
-                : "Didn't receive a code? Resend"}
-            </Text>
-          </Pressable>
+              <AppText
+                className={`text-footnote font-medium ${
+                  resendDisabled ? 'text-muted' : 'text-brand-teal'
+                }`}
+              >
+                {resendDisabled
+                  ? `Resend code in ${countdown}s`
+                  : "Didn't receive a code? Resend"}
+              </AppText>
+            </Pressable>
 
-          <Pressable
-            className="min-h-touch items-center justify-center"
-            onPress={handleUseDifferent}
-            accessibilityLabel={useDifferentA11y}
-            accessibilityRole="link"
-          >
-            <Text className="text-footnote font-medium text-muted">
-              {useDifferentLabel}
-            </Text>
-          </Pressable>
+            <Pressable
+              className="min-h-touch items-center justify-center"
+              onPress={handleUseDifferent}
+              accessibilityLabel={useDifferentA11y}
+              accessibilityRole="link"
+            >
+              <AppText className="text-footnote font-medium text-muted">
+                {useDifferentLabel}
+              </AppText>
+            </Pressable>
+          </View>
         </View>
-      </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

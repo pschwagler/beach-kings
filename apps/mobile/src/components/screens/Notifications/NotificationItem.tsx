@@ -8,7 +8,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import {
@@ -16,6 +17,7 @@ import {
   type NotificationType,
   formatRelativeTime,
 } from '@beach-kings/shared';
+import { usePaletteColors, type PaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Icon helpers
@@ -23,34 +25,34 @@ import {
 
 interface NotificationIconConfig {
   readonly bgClass: string;
-  readonly iconColor: string;
+  readonly iconRole: keyof Pick<PaletteColors, 'info' | 'warning' | 'success' | 'textMuted'>;
 }
 
 function getIconConfig(type: NotificationType): NotificationIconConfig {
   switch (type) {
     case 'friend_request':
     case 'friend_accepted':
-      return { bgClass: 'bg-info-tint', iconColor: '#2a7d9c' };
+      return { bgClass: 'bg-info-tint', iconRole: 'info' };
     case 'direct_message':
-      return { bgClass: 'bg-info-tint', iconColor: '#2a7d9c' };
+      return { bgClass: 'bg-info-tint', iconRole: 'info' };
     case 'league_message':
     case 'league_invite':
     case 'league_join_request':
     case 'league_join_rejected':
     case 'member_joined':
     case 'member_removed':
-      return { bgClass: 'bg-warning-tint', iconColor: '#c0892a' };
+      return { bgClass: 'bg-warning-tint', iconRole: 'warning' };
     case 'season_start':
     case 'season_activated':
     case 'season_award':
-      return { bgClass: 'bg-warning-tint', iconColor: '#c0892a' };
+      return { bgClass: 'bg-warning-tint', iconRole: 'warning' };
     case 'session_submitted':
     case 'session_auto_submitted':
     case 'session_auto_deleted':
     case 'placeholder_claimed':
-      return { bgClass: 'bg-success-tint', iconColor: '#2d7a3a' };
+      return { bgClass: 'bg-success-tint', iconRole: 'success' };
     default:
-      return { bgClass: 'bg-elevated', iconColor: '#666' };
+      return { bgClass: 'bg-elevated', iconRole: 'textMuted' };
   }
 }
 
@@ -165,7 +167,9 @@ export default function NotificationItem({
   onAcceptFriendRequest,
   onDeclineFriendRequest,
 }: NotificationItemProps): React.ReactNode {
-  const { bgClass, iconColor } = getIconConfig(notification.type);
+  const palette = usePaletteColors();
+  const { bgClass, iconRole } = getIconConfig(notification.type);
+  const iconColor = palette[iconRole];
 
   const handlePress = useCallback(() => {
     void hapticLight();
@@ -203,7 +207,7 @@ export default function NotificationItem({
 
       {/* Content */}
       <View className="flex-1 min-w-0">
-        <Text
+        <AppText
           className={`text-[14px] leading-[1.4] ${
             notification.is_read
               ? 'font-normal text-default'
@@ -212,18 +216,18 @@ export default function NotificationItem({
           numberOfLines={2}
         >
           {notification.title}
-        </Text>
+        </AppText>
         {notification.message.length > 0 && (
-          <Text
+          <AppText
             className="text-[12px] text-muted mt-[2px]"
             numberOfLines={2}
           >
             {notification.message}
-          </Text>
+          </AppText>
         )}
-        <Text className="text-[11px] text-tertiary mt-[4px]">
+        <AppText className="text-[11px] text-tertiary mt-[4px]">
           {formatRelativeTime(notification.created_at, { style: 'short' })}
-        </Text>
+        </AppText>
 
         {/* Friend request actions */}
         {isFriendRequest && !notification.is_read && (
@@ -233,20 +237,20 @@ export default function NotificationItem({
               onPress={handleAccept}
               accessibilityRole="button"
               accessibilityLabel="Accept friend request"
-              className="px-[14px] py-[8px] rounded-[8px] bg-brand-teal min-h-[40px] justify-center active:opacity-80"
+              className="px-[14px] py-[8px] rounded-[8px] bg-brand-teal min-h-touch justify-center active:opacity-80"
             >
-              <Text className="text-[12px] font-bold text-white">Accept</Text>
+              <AppText className="text-[12px] font-bold text-on-brand-teal">Accept</AppText>
             </Pressable>
             <Pressable
               testID={`notif-decline-btn-${notification.id}`}
               onPress={handleDecline}
               accessibilityRole="button"
               accessibilityLabel="Decline friend request"
-              className="px-[14px] py-[8px] rounded-[8px] border border-strong min-h-[40px] justify-center active:opacity-70"
+              className="px-[14px] py-[8px] rounded-[8px] border border-strong min-h-touch justify-center active:opacity-70"
             >
-              <Text className="text-[12px] font-bold text-muted">
+              <AppText className="text-[12px] font-bold text-muted">
                 Decline
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         )}

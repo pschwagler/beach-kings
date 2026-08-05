@@ -8,6 +8,10 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({ textInverse: '#fff' }),
+}));
+
 // Avatar stub — reflects the colorSeed via accessibilityHint for assertion.
 jest.mock('@/components/ui/Avatar', () => {
   const ReactLib = require('react');
@@ -35,7 +39,7 @@ import ProfileHeader from '@/components/screens/Profile/ProfileHeader';
 const baseProps = {
   isLoading: false,
   friendCount: 0,
-  onEditPress: jest.fn(),
+  onPhotoPress: jest.fn(),
   onFriendsPress: jest.fn(),
 };
 

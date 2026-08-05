@@ -136,7 +136,7 @@ export default function PlayerDetails({ playerId, playerName, stats, matchHistor
               onClick={handleInviteShare}
               disabled={!inviteUrl}
             >
-              <Share2 size={13} /> {inviteUrl ? 'Invite to claim profile' : 'Loading...'}
+              <Share2 size={13} /> {inviteUrl ? 'Invite to the App' : 'Loading...'}
             </button>
           ) : (
             <>

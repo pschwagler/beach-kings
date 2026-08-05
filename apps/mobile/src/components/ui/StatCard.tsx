@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import AppText from './AppText';
 
 type Trend = 'up' | 'down' | 'neutral';
 
@@ -31,21 +32,21 @@ export default function StatCard({
 
   return (
     <View
-      className={`bg-surface rounded-card p-lg shadow-sm dark:shadow-none dark:border dark:border-divider items-center ${className}`}
+      className={`bg-surface rounded-card border border-divider p-lg items-center ${className}`}
     >
       <View className="flex-row items-center gap-xs">
-        <Text className="text-3xl font-bold text-default">
+        <AppText family="display" className="text-3xl font-bold text-default">
           {value}
-        </Text>
+        </AppText>
         {trendInfo != null && (
-          <Text className={`text-lg font-semibold ${trendInfo.color}`}>
+          <AppText className={`text-lg font-semibold ${trendInfo.color}`}>
             {trendInfo.symbol}
-          </Text>
+          </AppText>
         )}
       </View>
-      <Text className="text-caption text-muted mt-xs text-center">
+      <AppText className="text-caption text-muted mt-xs text-center">
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }

@@ -86,10 +86,6 @@ describe('routes', () => {
     expect(routes.myStats()).toContain('my-stats');
   });
 
-  it('editProfile route is the profile editor', () => {
-    expect(routes.editProfile()).toBe('/(stack)/edit-profile');
-  });
-
   it('friends deep-link is deterministic', () => {
     expect(routes.social({ tab: 'friends' })).toBe(
       '/(tabs)/social?tab=friends',

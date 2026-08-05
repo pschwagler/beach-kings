@@ -24,6 +24,15 @@ jest.mock('@/lib/api', () => ({
 const mockUseWebSocket = useWebSocket as jest.MockedFunction<typeof useWebSocket>;
 const mockGetStoredTokens = api.getStoredTokens as jest.Mock;
 
+function makeClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+}
+
 describe('NotificationTransport', () => {
   it('authenticates an open socket with the stored access token', async () => {
     const send = jest.fn();
@@ -36,7 +45,7 @@ describe('NotificationTransport', () => {
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
     });
-    const client = new QueryClient();
+    const client = makeClient();
 
     render(
       <QueryClientProvider client={client}>
@@ -56,7 +65,27 @@ describe('NotificationTransport', () => {
       lastMessage: null,
       send: jest.fn(),
     });
-    const client = new QueryClient();
+    const client = makeClient();
+    client.setQueryData(messageKeys.conversations(7), {
+      items: [
+        {
+          player_id: 42,
+          full_name: 'Alex Torres',
+          avatar: null,
+          last_message_text: null,
+          last_message_at: null,
+          last_message_sender_id: null,
+          unread_count: 0,
+          is_friend: true,
+        },
+      ],
+      total_count: 1,
+    });
+    client.setQueryData(messageKeys.thread(7, 42), {
+      items: [],
+      total_count: 0,
+      has_more: false,
+    });
     client.setQueryData(messageKeys.unreadCount(7), { count: 0 });
 
     render(
@@ -68,11 +97,61 @@ describe('NotificationTransport', () => {
     const latestCall =
       mockUseWebSocket.mock.calls[mockUseWebSocket.mock.calls.length - 1];
     const options = latestCall?.[0];
+    const event = {
+      type: 'direct_message',
+      message: {
+        id: 90,
+        sender_player_id: 42,
+        receiver_player_id: 9,
+        message_text: 'Socket message',
+        is_read: false,
+        read_at: null,
+        created_at: '2026-07-25T12:00:00Z',
+      },
+    };
     act(() => {
-      options?.onMessage?.({
+      options?.onMessage?.(event);
+      options?.onMessage?.(event);
+    });
+
+    expect(
+      client.getQueryData<{ count: number }>(messageKeys.unreadCount(7)),
+    ).toEqual(expect.objectContaining({ count: 1 }));
+    expect(
+      client.getQueryData<{ items: Array<{ id: number }> }>(
+        messageKeys.thread(7, 42),
+      )?.items.filter((message) => message.id === 90),
+    ).toHaveLength(1);
+    expect(
+      client.getQueryData<{ items: Array<{ unread_count: number }> }>(
+        messageKeys.conversations(7),
+      )?.items[0]?.unread_count,
+    ).toBe(1);
+  });
+
+  it('invalidates rather than guessing when a direct-message thread is unhydrated', () => {
+    mockUseWebSocket.mockReturnValue({
+      isConnected: false,
+      lastMessage: null,
+      send: jest.fn(),
+    });
+    const client = makeClient();
+    const invalidateQueries = jest.spyOn(client, 'invalidateQueries');
+    client.setQueryData(messageKeys.unreadCount(7), { count: 0 });
+
+    render(
+      <QueryClientProvider client={client}>
+        <NotificationTransport />
+      </QueryClientProvider>,
+    );
+
+    const latestCall =
+      mockUseWebSocket.mock.calls[mockUseWebSocket.mock.calls.length - 1];
+    act(() => {
+      latestCall?.[0]?.onMessage?.({
         type: 'direct_message',
         message: {
-          id: 90,
+          id: 91,
           sender_player_id: 42,
           receiver_player_id: 9,
           message_text: 'Socket message',
@@ -85,6 +164,14 @@ describe('NotificationTransport', () => {
 
     expect(
       client.getQueryData<{ count: number }>(messageKeys.unreadCount(7)),
-    ).toEqual(expect.objectContaining({ count: 1 }));
+    ).toEqual(expect.objectContaining({ count: 0 }));
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: messageKeys.conversations(7),
+      refetchType: 'active',
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: messageKeys.unreadCount(7),
+      refetchType: 'active',
+    });
   });
 });

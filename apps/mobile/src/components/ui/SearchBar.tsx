@@ -15,6 +15,7 @@ interface SearchBarProps {
   readonly placeholder?: string;
   readonly onClear?: () => void;
   readonly className?: string;
+  readonly compact?: boolean;
 }
 
 function SearchIcon({ color }: { color: string }): React.ReactNode {
@@ -45,6 +46,7 @@ export default function SearchBar({
   placeholder = 'Search',
   onClear,
   className = '',
+  compact = false,
 }: SearchBarProps): React.ReactNode {
   const { isDark } = useTheme();
   const palette = usePaletteColors();
@@ -58,7 +60,7 @@ export default function SearchBar({
 
   return (
     <View
-      className={`flex-row items-center h-11 px-3 rounded-xl bg-elevated gap-2 ${className}`}
+      className={`flex-row items-center ${compact ? 'h-9 rounded-lg' : 'h-11 rounded-xl'} px-3 bg-elevated gap-2 ${className}`}
     >
       <SearchIcon color={iconColor} />
       <TextInput

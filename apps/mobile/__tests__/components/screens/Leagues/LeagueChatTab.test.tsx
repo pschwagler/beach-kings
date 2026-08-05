@@ -11,10 +11,6 @@ jest.mock('@/components/screens/Leagues/useLeagueChatTab', () => ({
   useLeagueChatTab: (...args: unknown[]) => mockUseLeagueChatTab(...args),
 }));
 
-jest.mock('@/components/navigation/BottomTabBar', () => ({
-  useBottomTabBarHeight: () => 72,
-}));
-
 jest.mock('@/theme/usePaletteColors', () => ({
   usePaletteColors: () => ({ brandTeal: '#007788' }),
 }));

@@ -5,11 +5,10 @@
  *   - TopNav with integrated search mode
  *   - List/Map toggle bar (mirrors the web CourtDirectoryClient toggle)
  *   - In list mode:
- *     - 180px map stub area with a "View Full Map" link that switches to map mode
  *     - Horizontal filter chips (Nearby/My Courts/Top Rated/Indoor/Outdoor/Lighted)
  *     - FlatList of CourtRow items
  *   - In map mode:
- *     - Full-screen CourtsMapView; tapping a marker navigates to its detail screen
+ *     - Full-screen clustered map; tapping a court marker opens its detail screen
  *   - Skeleton while loading
  *   - Empty state (no courts / no location)
  *   - Error state with retry
@@ -19,7 +18,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, FlatList, RefreshControl } from 'react-native';
+import { View, FlatList, RefreshControl, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -33,7 +32,7 @@ import CourtsEmptyState from './CourtsEmptyState';
 import CourtsErrorState from './CourtsErrorState';
 import CourtsFilterBar from './CourtsFilterBar';
 import CourtsMapView from './CourtsMapView';
-import SegmentControl from '@/components/ui/SegmentControl';
+import AppText from '@/components/ui/AppText';
 import type { Court } from '@beach-kings/shared';
 import type { CourtsViewMode } from './useCourtsScreen';
 import { getCourtFilterPresentation } from './courtFilters';
@@ -48,8 +47,8 @@ interface ViewModeToggleProps {
 }
 
 /**
- * Pill-shaped toggle that switches between List and Map view modes.
- * Mirrors the court-view-toggle on the web CourtDirectoryClient.
+ * Directory-specific compact tabs. The row keeps 44-point targets while the
+ * selected teal surface is inset from the control bounds.
  */
 function ViewModeToggle({
   viewMode,
@@ -66,17 +65,31 @@ function ViewModeToggle({
   }, [onToggle]);
 
   return (
-    <SegmentControl
+    <View
       testID="courts-view-toggle"
-      segmentTestIDs={['courts-view-toggle-list', 'courts-view-toggle-map']}
-      segments={['List', 'Map']}
-      selectedIndex={viewMode === 'list' ? 0 : 1}
-      className="mx-4 my-2"
-      onSelect={(index) => {
-        if (index === 0) handleList();
-        else handleMap();
-      }}
-    />
+      accessibilityRole="tablist"
+      className="h-11 mx-4 my-1 flex-row rounded-lg bg-elevated border border-divider p-1"
+    >
+      {(['list', 'map'] as const).map((mode) => {
+        const selected = viewMode === mode;
+        const label = mode === 'list' ? 'List' : 'Map';
+        return (
+          <Pressable
+            key={mode}
+            testID={`courts-view-toggle-${mode}`}
+            onPress={mode === 'list' ? handleList : handleMap}
+            accessibilityRole="tab"
+            accessibilityLabel={`${label} view`}
+            accessibilityState={{ selected }}
+            className={`flex-1 items-center justify-center rounded-md ${selected ? 'bg-brand-teal' : 'bg-transparent'}`}
+          >
+            <AppText className={`text-sm font-medium ${selected ? 'text-on-brand-teal' : 'text-muted'}`}>
+              {label}
+            </AppText>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -86,12 +99,12 @@ function ViewModeToggle({
 
 function SectionLabel({ text }: { text: string }): React.ReactNode {
   return (
-    <Text
+    <AppText
       testID="courts-section-label"
       className="text-[13px] font-semibold text-muted uppercase tracking-wide px-4 py-2 bg-page"
     >
       {text}
-    </Text>
+    </AppText>
   );
 }
 
@@ -111,8 +124,11 @@ export default function CourtsScreen(): React.ReactNode {
     searchQuery,
     viewMode,
     userLocation,
+    preferredMapRegion,
+    isCatalogEmpty,
     setActiveFilter,
     setSearchQuery,
+    clearSearch,
     setViewMode,
     onRefresh,
     onRetry,
@@ -139,6 +155,7 @@ export default function CourtsScreen(): React.ReactNode {
       searchMode
       searchValue={searchQuery}
       onSearchChange={setSearchQuery}
+      searchPlaceholder="Search courts"
     />
   );
 
@@ -180,11 +197,23 @@ export default function CourtsScreen(): React.ReactNode {
       >
         {topNav}
         <ViewModeToggle viewMode={viewMode} onToggle={setViewMode} />
-        <CourtsMapView
-          courts={courts}
-          onSelectCourt={handleSelectCourt}
-          userLocation={userLocation}
-        />
+        <CourtsFilterBar activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+        {courts.length === 0 ? (
+          <CourtsEmptyState
+            activeFilter={activeFilter}
+            searchQuery={searchQuery}
+            isCatalogEmpty={isCatalogEmpty}
+            onClearSearch={clearSearch}
+            onClearFilter={activeFilter != null ? handleClearFilter : undefined}
+          />
+        ) : (
+          <CourtsMapView
+            courts={courts}
+            onSelectCourt={handleSelectCourt}
+            userLocation={userLocation}
+            preferredRegion={preferredMapRegion}
+          />
+        )}
       </SafeAreaView>
     );
   }
@@ -218,6 +247,9 @@ export default function CourtsScreen(): React.ReactNode {
         ListEmptyComponent={
           <CourtsEmptyState
             activeFilter={activeFilter}
+            searchQuery={searchQuery}
+            isCatalogEmpty={isCatalogEmpty}
+            onClearSearch={clearSearch}
             onClearFilter={activeFilter != null ? handleClearFilter : undefined}
           />
         }

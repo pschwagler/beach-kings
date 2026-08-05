@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { formatElo, formatRecord } from '@/lib/formatters';
 
 interface QuickStatsRowProps {
@@ -20,22 +21,29 @@ export default function QuickStatsRow({
   wins,
   losses,
 }: QuickStatsRowProps): React.ReactNode {
+  const { fontScale } = useWindowDimensions();
+  const usesAccessibilityLayout = fontScale >= 1.6;
+
   return (
-    <View className="flex-row items-center gap-3 px-lg py-sm bg-surface border-b border-divider">
-      <Text className="flex-1 text-subhead font-semibold text-default">
+    <View
+      className={`${usesAccessibilityLayout ? 'items-start' : 'flex-row items-center'} gap-3 px-lg py-sm bg-surface border-b border-divider`}
+    >
+      <AppText className={`${usesAccessibilityLayout ? '' : 'flex-1'} text-subhead font-semibold text-default`}>
         Hey {firstName}
-      </Text>
-      {rating != null && (
+      </AppText>
+      <View className="flex-row flex-wrap items-center gap-3">
+        {rating != null && (
+          <View className="bg-info-tint px-sm py-xxs rounded-chip">
+            <AppText className="text-caption font-semibold text-info">
+              <AppText className="font-bold">{formatElo(rating)}</AppText> Rating
+            </AppText>
+          </View>
+        )}
         <View className="bg-info-tint px-sm py-xxs rounded-chip">
-          <Text className="text-caption font-semibold text-info">
-            <Text className="font-bold">{formatElo(rating)}</Text> Rating
-          </Text>
+          <AppText className="text-caption font-semibold text-info">
+            <AppText className="font-bold">{formatRecord(wins, losses)}</AppText>
+          </AppText>
         </View>
-      )}
-      <View className="bg-info-tint px-sm py-xxs rounded-chip">
-        <Text className="text-caption font-semibold text-info">
-          <Text className="font-bold">{formatRecord(wins, losses)}</Text>
-        </Text>
       </View>
     </View>
   );

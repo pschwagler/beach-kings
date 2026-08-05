@@ -9,7 +9,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 
 function SkeletonCard(): React.ReactNode {
   return (
-    <View className="bg-surface rounded-xl p-4 shadow-sm dark:shadow-none dark:border border-divider mb-3">
+    <View className="bg-surface rounded-xl p-4 border border-divider mb-3">
       {/* top row: result badge + date */}
       <View className="flex-row justify-between items-center mb-3">
         <LoadingSkeleton width={48} height={20} borderRadius={10} />

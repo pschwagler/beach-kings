@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Alert, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import {
+  View,
+  Pressable,
+  Alert,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
@@ -10,6 +19,7 @@ import { FormError } from '@/components/forms';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
 import { hapticSuccess, hapticError } from '@/utils/haptics';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import {
   otpSchema,
   resetPasswordRequestSchema,
@@ -26,6 +36,7 @@ type Method = 'email' | 'phone';
 
 export default function ForgotPasswordScreen(): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
 
   const confirmPasswordRef = useRef<TextInput>(null);
 
@@ -183,314 +194,313 @@ export default function ForgotPasswordScreen(): React.ReactNode {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="flex-grow justify-center px-lg"
-        keyboardShouldPersistTaps="handled"
-      >
-        {step === 'request' && (
-          <View className="gap-md">
-            <Text className="text-title2 font-bold text-default text-center mb-sm">
-              Forgot your password?
-            </Text>
-            <Text className="text-body text-muted text-center mb-md">
-              {method === 'email'
-                ? "Enter your email and we'll send you a code to reset it."
-                : "Enter your phone number and we'll send you a code to reset it."}
-            </Text>
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="flex-grow justify-center px-lg"
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === 'request' && (
+            <View className="gap-md">
+              <AppText className="text-title2 font-bold text-default text-center mb-sm">
+                Forgot your password?
+              </AppText>
+              <AppText className="text-body text-muted text-center mb-md">
+                {method === 'email'
+                  ? "Enter your email and we'll send you a code to reset it."
+                  : "Enter your phone number and we'll send you a code to reset it."}
+              </AppText>
 
-            <View className="flex-row bg-surface rounded-card p-xs">
-              <Pressable
-                onPress={() => setMethod('email')}
-                accessibilityRole="button"
-                accessibilityLabel="Use email to reset password"
-                accessibilityState={{ selected: method === 'email' }}
-                className={`flex-1 py-sm rounded-card items-center justify-center ${
-                  method === 'email'
-                    ? 'bg-brand-teal'
-                    : 'bg-transparent'
-                }`}
-              >
-                <Text
-                  className={`text-footnote font-medium ${
-                    method === 'email'
-                      ? 'text-white'
-                      : 'text-muted'
+              <View className="flex-row bg-surface rounded-card p-xs">
+                <Pressable
+                  onPress={() => setMethod('email')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Use email to reset password"
+                  accessibilityState={{ selected: method === 'email' }}
+                  className={`flex-1 py-sm rounded-card items-center justify-center ${
+                    method === 'email' ? 'bg-brand-teal' : 'bg-transparent'
                   }`}
                 >
-                  Email
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setMethod('phone')}
-                accessibilityRole="button"
-                accessibilityLabel="Use phone number to reset password"
-                accessibilityState={{ selected: method === 'phone' }}
-                className={`flex-1 py-sm rounded-card items-center justify-center ${
-                  method === 'phone'
-                    ? 'bg-brand-teal'
-                    : 'bg-transparent'
-                }`}
-              >
-                <Text
-                  className={`text-footnote font-medium ${
-                    method === 'phone'
-                      ? 'text-white'
-                      : 'text-muted'
+                  <AppText
+                    className={`text-footnote font-medium ${
+                      method === 'email' ? 'text-on-brand-teal' : 'text-muted'
+                    }`}
+                  >
+                    Email
+                  </AppText>
+                </Pressable>
+                <Pressable
+                  onPress={() => setMethod('phone')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Use phone number to reset password"
+                  accessibilityState={{ selected: method === 'phone' }}
+                  className={`flex-1 py-sm rounded-card items-center justify-center ${
+                    method === 'phone' ? 'bg-brand-teal' : 'bg-transparent'
                   }`}
                 >
-                  Phone
-                </Text>
-              </Pressable>
-            </View>
-
-            <View className="bg-surface rounded-card p-lg gap-md">
-              <View style={method === 'email' ? undefined : { display: 'none' }}>
-                <Controller
-                  control={emailForm.control}
-                  name="email"
-                  render={({ field: { value, onChange, onBlur } }) => (
-                    <Input
-                      placeholder="Email"
-                      value={value ?? ''}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      textContentType="emailAddress"
-                      returnKeyType="go"
-                      onSubmitEditing={emailForm.handleSubmit(onSubmitEmail)}
-                      className={
-                        emailForm.formState.errors.email
-                          ? 'border-red-500'
-                          : ''
-                      }
-                    />
-                  )}
-                />
-                <FormError
-                  message={emailForm.formState.errors.email?.message}
-                />
+                  <AppText
+                    className={`text-footnote font-medium ${
+                      method === 'phone' ? 'text-on-brand-teal' : 'text-muted'
+                    }`}
+                  >
+                    Phone
+                  </AppText>
+                </Pressable>
               </View>
-              <View style={method === 'phone' ? undefined : { display: 'none' }}>
-                <Controller
-                  control={phoneForm.control}
-                  name="phoneNumber"
-                  render={({ field: { value, onChange, onBlur } }) => (
-                    <Input
-                      placeholder="Phone Number"
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                      keyboardType="phone-pad"
-                      autoComplete="tel"
-                      textContentType="telephoneNumber"
-                      returnKeyType="go"
-                      onSubmitEditing={phoneForm.handleSubmit(onSubmitPhone)}
-                      className={
-                        phoneForm.formState.errors.phoneNumber
-                          ? 'border-red-500'
-                          : ''
-                      }
-                    />
-                  )}
-                />
-                <FormError
-                  message={phoneForm.formState.errors.phoneNumber?.message}
-                />
-              </View>
-              {method === 'email' ? (
-                <Button
-                  title="Send Code"
-                  onPress={emailForm.handleSubmit(onSubmitEmail)}
-                  disabled={emailForm.formState.isSubmitting}
-                  loading={emailForm.formState.isSubmitting}
-                />
-              ) : (
-                <Button
-                  title="Send Code"
-                  onPress={phoneForm.handleSubmit(onSubmitPhone)}
-                  disabled={phoneForm.formState.isSubmitting}
-                  loading={phoneForm.formState.isSubmitting}
-                />
-              )}
-            </View>
 
-            <Pressable
-              className="min-h-touch items-center justify-center mt-md"
-              onPress={() => router.back()}
-              accessibilityLabel="Go back to sign in"
-              accessibilityRole="link"
-            >
-              <Text className="text-footnote text-brand-teal font-medium">
-                Back to Sign In
-              </Text>
-            </Pressable>
-          </View>
-        )}
-
-        {step === 'otp' && (
-          <View className="gap-md">
-            <Text className="text-title2 font-bold text-default text-center mb-sm">
-              Enter Verification Code
-            </Text>
-            <Text className="text-body text-muted text-center mb-md">
-              {otpSubtitle}
-            </Text>
-
-            <View className="items-center mb-md">
-              <Controller
-                control={otpForm.control}
-                name="code"
-                render={({ field: { value, onChange } }) => (
-                  <OtpInput
-                    value={value}
-                    onChange={onChange}
-                    onComplete={() => {
-                      void otpForm.handleSubmit(onSubmitOtp)();
-                    }}
-                    length={6}
-                    shakeKey={otpShakeKey}
+              <View className="bg-surface rounded-card p-lg gap-md">
+                <View
+                  style={method === 'email' ? undefined : { display: 'none' }}
+                >
+                  <Controller
+                    control={emailForm.control}
+                    name="email"
+                    render={({ field: { value, onChange, onBlur } }) => (
+                      <Input
+                        placeholder="Email"
+                        value={value ?? ''}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoComplete="email"
+                        textContentType="emailAddress"
+                        returnKeyType="go"
+                        onSubmitEditing={emailForm.handleSubmit(onSubmitEmail)}
+                        className={
+                          emailForm.formState.errors.email
+                            ? 'border-danger'
+                            : ''
+                        }
+                      />
+                    )}
+                  />
+                  <FormError
+                    message={emailForm.formState.errors.email?.message}
+                  />
+                </View>
+                <View
+                  style={method === 'phone' ? undefined : { display: 'none' }}
+                >
+                  <Controller
+                    control={phoneForm.control}
+                    name="phoneNumber"
+                    render={({ field: { value, onChange, onBlur } }) => (
+                      <Input
+                        placeholder="Phone Number"
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        keyboardType="phone-pad"
+                        autoComplete="tel"
+                        textContentType="telephoneNumber"
+                        returnKeyType="go"
+                        onSubmitEditing={phoneForm.handleSubmit(onSubmitPhone)}
+                        className={
+                          phoneForm.formState.errors.phoneNumber
+                            ? 'border-danger'
+                            : ''
+                        }
+                      />
+                    )}
+                  />
+                  <FormError
+                    message={phoneForm.formState.errors.phoneNumber?.message}
+                  />
+                </View>
+                {method === 'email' ? (
+                  <Button
+                    title="Send Code"
+                    onPress={emailForm.handleSubmit(onSubmitEmail)}
+                    disabled={emailForm.formState.isSubmitting}
+                    loading={emailForm.formState.isSubmitting}
+                  />
+                ) : (
+                  <Button
+                    title="Send Code"
+                    onPress={phoneForm.handleSubmit(onSubmitPhone)}
+                    disabled={phoneForm.formState.isSubmitting}
+                    loading={phoneForm.formState.isSubmitting}
                   />
                 )}
-              />
-            </View>
-            <FormError message={otpForm.formState.errors.code?.message} />
+              </View>
 
-            <Button
-              title="Verify Code"
-              onPress={otpForm.handleSubmit(onSubmitOtp)}
-              disabled={otpForm.formState.isSubmitting}
-              loading={otpForm.formState.isSubmitting}
-            />
-
-            <Pressable
-              className="min-h-touch items-center justify-center"
-              onPress={handleResendCode}
-              disabled={resendCountdown > 0}
-              accessibilityLabel={
-                resendCountdown > 0
-                  ? `Resend code in ${resendCountdown} seconds`
-                  : 'Resend verification code'
-              }
-              accessibilityRole="button"
-            >
-              <Text
-                className={`text-footnote font-medium ${
-                  resendCountdown > 0
-                    ? 'text-muted'
-                    : 'text-brand-teal'
-                }`}
+              <Pressable
+                className="min-h-touch items-center justify-center mt-md"
+                onPress={() => router.back()}
+                accessibilityLabel="Go back to sign in"
+                accessibilityRole="link"
               >
-                {resendCountdown > 0
-                  ? `Resend code in ${resendCountdown}s`
-                  : "Didn't receive a code? Resend"}
-              </Text>
-            </Pressable>
-          </View>
-        )}
+                <AppText className="text-footnote text-brand-teal font-medium">
+                  Back to Sign In
+                </AppText>
+              </Pressable>
+            </View>
+          )}
 
-        {step === 'newPassword' && (
-          <View className="gap-md">
-            <Text className="text-title2 font-bold text-default text-center mb-sm">
-              Set New Password
-            </Text>
-            <Text className="text-body text-muted text-center mb-md">
-              Choose a strong password with at least 8 characters.
-            </Text>
+          {step === 'otp' && (
+            <View className="gap-md">
+              <AppText className="text-title2 font-bold text-default text-center mb-sm">
+                Enter Verification Code
+              </AppText>
+              <AppText className="text-body text-muted text-center mb-md">
+                {otpSubtitle}
+              </AppText>
 
-            <View className="bg-surface rounded-card p-lg gap-md">
-              <View>
+              <View className="items-center mb-md">
                 <Controller
-                  control={passwordForm.control}
-                  name="newPassword"
-                  render={({ field: { value, onChange, onBlur } }) => (
-                    <Input
-                      placeholder="New Password"
+                  control={otpForm.control}
+                  name="code"
+                  render={({ field: { value, onChange } }) => (
+                    <OtpInput
                       value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                      secureTextEntry
-                      showPasswordToggle
-                      autoComplete="password-new"
-                      textContentType="newPassword"
-                      returnKeyType="next"
-                      blurOnSubmit={false}
-                      onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-                      className={
-                        passwordForm.formState.errors.newPassword
-                          ? 'border-red-500'
-                          : ''
-                      }
+                      onChange={onChange}
+                      onComplete={() => {
+                        void otpForm.handleSubmit(onSubmitOtp)();
+                      }}
+                      length={6}
+                      shakeKey={otpShakeKey}
                     />
                   )}
                 />
-                <FormError
-                  message={passwordForm.formState.errors.newPassword?.message}
-                />
               </View>
-              <View>
-                <Controller
-                  control={passwordForm.control}
-                  name="confirmPassword"
-                  render={({ field: { value, onChange, onBlur } }) => (
-                    <Input
-                      ref={confirmPasswordRef}
-                      placeholder="Confirm Password"
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                      secureTextEntry
-                      showPasswordToggle
-                      autoComplete="password-new"
-                      textContentType="newPassword"
-                      returnKeyType="go"
-                      onSubmitEditing={passwordForm.handleSubmit(onSubmitNewPassword)}
-                      className={
-                        passwordForm.formState.errors.confirmPassword
-                          ? 'border-red-500'
-                          : ''
-                      }
-                    />
-                  )}
-                />
-                <FormError
-                  message={
-                    passwordForm.formState.errors.confirmPassword?.message
-                  }
-                />
-              </View>
-              <Button
-                title="Reset Password"
-                onPress={passwordForm.handleSubmit(onSubmitNewPassword)}
-                disabled={passwordForm.formState.isSubmitting}
-                loading={passwordForm.formState.isSubmitting}
-              />
-            </View>
-          </View>
-        )}
+              <FormError message={otpForm.formState.errors.code?.message} />
 
-        {step === 'success' && (
-          <View className="items-center gap-md">
-            <View className="w-20 h-20 rounded-full bg-success-tint items-center justify-center mb-md">
-              <CheckIcon size={48} color="#15803d" />
-            </View>
-            <Text className="text-title2 font-bold text-success text-center">
-              Password Reset!
-            </Text>
-            <Text className="text-body text-muted text-center mb-md">
-              Your password has been updated. You can now sign in with your new password.
-            </Text>
-            <View className="w-full">
               <Button
-                title="Continue to Login"
-                onPress={handleContinueToLogin}
+                title="Verify Code"
+                onPress={otpForm.handleSubmit(onSubmitOtp)}
+                disabled={otpForm.formState.isSubmitting}
+                loading={otpForm.formState.isSubmitting}
               />
+
+              <Pressable
+                className="min-h-touch items-center justify-center"
+                onPress={handleResendCode}
+                disabled={resendCountdown > 0}
+                accessibilityLabel={
+                  resendCountdown > 0
+                    ? `Resend code in ${resendCountdown} seconds`
+                    : 'Resend verification code'
+                }
+                accessibilityRole="button"
+              >
+                <AppText
+                  className={`text-footnote font-medium ${
+                    resendCountdown > 0 ? 'text-muted' : 'text-brand-teal'
+                  }`}
+                >
+                  {resendCountdown > 0
+                    ? `Resend code in ${resendCountdown}s`
+                    : "Didn't receive a code? Resend"}
+                </AppText>
+              </Pressable>
             </View>
-          </View>
-        )}
-      </ScrollView>
+          )}
+
+          {step === 'newPassword' && (
+            <View className="gap-md">
+              <AppText className="text-title2 font-bold text-default text-center mb-sm">
+                Set New Password
+              </AppText>
+              <AppText className="text-body text-muted text-center mb-md">
+                Choose a strong password with at least 8 characters.
+              </AppText>
+
+              <View className="bg-surface rounded-card p-lg gap-md">
+                <View>
+                  <Controller
+                    control={passwordForm.control}
+                    name="newPassword"
+                    render={({ field: { value, onChange, onBlur } }) => (
+                      <Input
+                        placeholder="New Password"
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        secureTextEntry
+                        showPasswordToggle
+                        autoComplete="password-new"
+                        textContentType="newPassword"
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onSubmitEditing={() =>
+                          confirmPasswordRef.current?.focus()
+                        }
+                        className={
+                          passwordForm.formState.errors.newPassword
+                            ? 'border-danger'
+                            : ''
+                        }
+                      />
+                    )}
+                  />
+                  <FormError
+                    message={passwordForm.formState.errors.newPassword?.message}
+                  />
+                </View>
+                <View>
+                  <Controller
+                    control={passwordForm.control}
+                    name="confirmPassword"
+                    render={({ field: { value, onChange, onBlur } }) => (
+                      <Input
+                        ref={confirmPasswordRef}
+                        placeholder="Confirm Password"
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        secureTextEntry
+                        showPasswordToggle
+                        autoComplete="password-new"
+                        textContentType="newPassword"
+                        returnKeyType="go"
+                        onSubmitEditing={passwordForm.handleSubmit(
+                          onSubmitNewPassword,
+                        )}
+                        className={
+                          passwordForm.formState.errors.confirmPassword
+                            ? 'border-danger'
+                            : ''
+                        }
+                      />
+                    )}
+                  />
+                  <FormError
+                    message={
+                      passwordForm.formState.errors.confirmPassword?.message
+                    }
+                  />
+                </View>
+                <Button
+                  title="Reset Password"
+                  onPress={passwordForm.handleSubmit(onSubmitNewPassword)}
+                  disabled={passwordForm.formState.isSubmitting}
+                  loading={passwordForm.formState.isSubmitting}
+                />
+              </View>
+            </View>
+          )}
+
+          {step === 'success' && (
+            <View className="items-center gap-md">
+              <View className="w-20 h-20 rounded-full bg-success-tint items-center justify-center mb-md">
+                <CheckIcon size={48} color={palette.success} />
+              </View>
+              <AppText className="text-title2 font-bold text-success text-center">
+                Password Reset!
+              </AppText>
+              <AppText className="text-body text-muted text-center mb-md">
+                Your password has been updated. You can now sign in with your
+                new password.
+              </AppText>
+              <View className="w-full">
+                <Button
+                  title="Continue to Login"
+                  onPress={handleContinueToLogin}
+                />
+              </View>
+            </View>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

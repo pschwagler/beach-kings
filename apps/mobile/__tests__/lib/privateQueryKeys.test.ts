@@ -11,7 +11,7 @@ describe('private Query key namespaces', () => {
       currentPlayerKeys.homeCourts(12, 44),
       dashboardKeys.root(12),
       dashboardKeys.activeSession(12),
-      dashboardKeys.courts(12, 'socal_sd'),
+      dashboardKeys.courts(12, null, 'socal_sd'),
       dashboardKeys.matches(12, 44),
       leagueKeys.userLeagues(12),
       leagueKeys.findLeagues(12, { q: 'open' }),

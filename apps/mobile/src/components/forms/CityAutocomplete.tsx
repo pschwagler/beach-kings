@@ -21,11 +21,11 @@ import React, {
 import {
   View,
   Pressable,
-  Text,
   ActivityIndicator,
   TextInput,
   Keyboard,
 } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { Input } from '@/components/ui';
 import { api } from '@/lib/api';
 import useDebounce from '@/hooks/useDebounce';
@@ -220,16 +220,16 @@ const CityAutocomplete = forwardRef<TextInput, CityAutocompleteProps>(
                 accessibilityRole="button"
                 accessibilityLabel={`Select ${s.formatted}`}
                 testID={
-                  testID ? `${testID}-suggestion-${s.city}-${s.state}` : undefined
+                  testID
+                    ? `${testID}-suggestion-${s.city}-${s.state}`
+                    : undefined
                 }
               >
-                <Text className="text-body text-default">
-                  {s.city}
-                </Text>
+                <AppText className="text-body text-default">{s.city}</AppText>
                 {s.state ? (
-                  <Text className="text-caption text-muted">
+                  <AppText className="text-caption text-muted">
                     {s.state}
-                  </Text>
+                  </AppText>
                 ) : null}
               </Pressable>
             ))}

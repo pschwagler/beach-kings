@@ -30,6 +30,60 @@ then pressing back returns to **that tab**, not Home.
   so stack-scoped providers (`AddNewPlayerProvider`, `InvitePlayersProvider`)
   stay scoped to detail screens instead of polluting the root.
 
+## The four screen templates
+
+Choose one template before building a screen. These templates decide route
+placement, root-tab visibility, safe-area ownership, and back behavior.
+
+### 1. Tab root
+
+- Lives directly in `(tabs)` and is one of Home, Leagues, Add Games, Social,
+  or Profile. The native root tab bar is visible.
+- Does not render a back button or a second/faux tab bar.
+- Registers its primary scroll container with `registerRootTabScroll`; tapping
+  the already-selected root tab scrolls that screen to the top.
+- Owns the top safe area. The native tab navigator owns the bottom inset.
+
+### 2. Pushed detail or list
+
+- Lives in `(stack)` and is opened with `router.push(routes.*())`. The native
+  root tab bar remains mounted underneath the stack but is not visible.
+- Uses `TopNav` with `showBack`; `useBack` supplies temporal Back and the
+  centralized `routeUp` map supplies a deep-link Up fallback.
+- The screen owns both top and bottom safe areas. Scroll content may add normal
+  end spacing, but must not reserve tab-bar height or render a cloned tab bar.
+
+### 3. Full-screen task
+
+- Lives in `(stack)` when the task is navigable/deep-linkable (for example,
+  scoring or a multi-step creation flow). Root tabs are not visible.
+- Owns all safe areas and provides an explicit Back/Cancel affordance. Avoid
+  lateral app navigation while the task contains unsaved input.
+- Normal steps use `push`. A successful terminal step uses `replace` so Back
+  cannot reopen a completed form.
+
+### 4. Modal or form sheet
+
+- Is presented by the owning screen with the shared sheet/modal primitives;
+  the underlying route and its tab/detail template remain unchanged.
+- Owns its close/cancel behavior, keyboard avoidance, and bottom safe area.
+  Do not add it to root navigation history unless it must be deep-linkable.
+- Destructive or unsaved dismissal requires confirmation. On close, restore
+  focus to the control that opened the sheet.
+
+## Selection controls
+
+Use the control whose navigation meaning matches the interaction:
+
+- `SegmentControl` switches a compact view mode, such as List/Map.
+- `TabView` switches between peer content destinations, such as league tabs.
+- `FilterChipBar` applies a browse filter and is not page navigation.
+
+All three use keyed `items` plus `value` and `onValueChange`. Keys are domain
+values, not array indexes or labels. Put count badges, stable test IDs, disabled
+state, and any custom spoken label on the item. Index-based selection props are
+not supported.
+
 ## Back vs. Up
 
 Two different ideas — keep them separate:

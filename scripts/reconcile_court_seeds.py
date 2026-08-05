@@ -45,10 +45,7 @@ def _bool(value: str) -> bool:
 def _values(row: dict[str, str]) -> dict:
     latitude = float(row["latitude"]) if row["latitude"] else None
     longitude = float(row["longitude"]) if row["longitude"] else None
-    geojson = None
-    if latitude is not None and longitude is not None:
-        geojson = json.dumps({"type": "Point", "coordinates": [longitude, latitude]})
-    return {
+    values = {
         "name": row["name"],
         "address": row["address"],
         "location_id": row["location_id"],
@@ -59,13 +56,22 @@ def _values(row: dict[str, str]) -> dict:
         "has_restrooms": _bool(row["has_restrooms"]),
         "has_parking": _bool(row["has_parking"]),
         "nets_provided": _bool(row["nets_provided"]),
-        "latitude": latitude,
-        "longitude": longitude,
-        "geoJson": geojson,
         "description": row["description"] or None,
         "status": "approved",
         "is_active": True,
     }
+    # A verified venue may be seeded before coordinates are available. Never
+    # erase coordinates already present in the database just because the CSV
+    # leaves those fields blank.
+    if latitude is not None and longitude is not None:
+        values.update(
+            latitude=latitude,
+            longitude=longitude,
+            geoJson=json.dumps(
+                {"type": "Point", "coordinates": [longitude, latitude]}
+            ),
+        )
+    return values
 
 
 async def reconcile(apply: bool) -> tuple[int, int, int]:

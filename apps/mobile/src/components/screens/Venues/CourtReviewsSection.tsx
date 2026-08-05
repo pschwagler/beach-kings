@@ -13,7 +13,8 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import type { Court, CourtReview } from '@beach-kings/shared';
 import CourtReviewCard from './CourtReviewCard';
 import WriteReviewModal from './WriteReviewModal';
@@ -94,9 +95,9 @@ export default function CourtReviewsSection({
     >
       {/* Section header */}
       <View className="flex-row items-center justify-between mb-4">
-        <Text className="text-[16px] font-bold text-default">
+        <AppText className="text-[16px] font-bold text-default">
           Reviews{reviewCount > 0 ? ` (${reviewCount})` : ''}
-        </Text>
+        </AppText>
 
         {hasReviews && (
           <Pressable
@@ -106,11 +107,11 @@ export default function CourtReviewsSection({
             accessibilityLabel={
               myReview != null ? 'Edit Your Review' : 'Write a Review'
             }
-            className="px-3 py-1.5 rounded-full border border-brand-teal active:opacity-70"
+            className="min-h-touch px-3 rounded-full border border-brand-teal items-center justify-center active:opacity-70"
           >
-            <Text className="text-[13px] font-semibold text-brand-teal">
+            <AppText className="text-[13px] font-semibold text-brand-teal">
               {myReview != null ? 'Edit Your Review' : 'Write a Review'}
-            </Text>
+            </AppText>
           </Pressable>
         )}
       </View>
@@ -118,19 +119,19 @@ export default function CourtReviewsSection({
       {/* Empty state */}
       {!hasReviews && (
         <View testID="reviews-empty-state" className="py-6 items-center">
-          <Text className="text-[14px] text-muted text-center mb-4">
+          <AppText className="text-[14px] text-muted text-center mb-4">
             No reviews yet. Be the first to review!
-          </Text>
+          </AppText>
           <Pressable
             testID="write-review-btn"
             onPress={handleActionPress}
             accessibilityRole="button"
             accessibilityLabel="Write a Review"
-            className="px-5 py-3 rounded-[10px] bg-brand-teal active:opacity-80"
+            className="min-h-touch px-5 rounded-[10px] bg-brand-teal items-center justify-center active:opacity-80"
           >
-            <Text className="text-inverse font-bold text-[14px]">
+            <AppText className="text-on-brand-teal font-bold text-[14px]">
               Write a Review
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       )}

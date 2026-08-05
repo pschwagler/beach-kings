@@ -12,7 +12,8 @@
  */
 
 import React, { useMemo } from 'react';
-import { Text, Pressable } from 'react-native';
+import { Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { useNotificationsScreen } from '@/components/screens/Notifications/useNotificationsScreen';
 import NotificationsBody from '@/components/screens/Notifications/NotificationsBody';
 import { useHeaderAction, type SetHeaderAction } from './useHeaderAction';
@@ -40,7 +41,7 @@ export default function NotificationsTab({
           className="min-h-touch items-center justify-center active:opacity-70"
           hitSlop={8}
         >
-          <Text className="text-[12px] font-semibold text-white">Mark all</Text>
+          <AppText className="text-[12px] font-semibold text-inverse">Mark all</AppText>
         </Pressable>
       ) : null,
     [unreadCount, isLoading, onMarkAllRead],

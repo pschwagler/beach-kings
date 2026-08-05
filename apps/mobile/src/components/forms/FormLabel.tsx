@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import AppText from '@/components/ui/AppText';
 
 interface FormLabelProps {
   readonly children: React.ReactNode;
@@ -13,11 +13,11 @@ export default function FormLabel({
   className = '',
 }: FormLabelProps): React.ReactNode {
   return (
-    <Text
+    <AppText
       className={`text-footnote font-semibold text-muted mb-xs ${className}`}
     >
-      {required ? <Text className="text-red-500">* </Text> : null}
+      {required ? <AppText className="text-danger">* </AppText> : null}
       {children}
-    </Text>
+    </AppText>
   );
 }

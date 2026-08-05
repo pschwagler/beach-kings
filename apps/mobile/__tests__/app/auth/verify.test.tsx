@@ -129,8 +129,10 @@ describe('VerifyScreen', () => {
     });
   });
 
-  it('does not submit with incomplete code', () => {
-    const { getAllByLabelText, getByLabelText } = render(<VerifyScreen />);
+  it('does not submit with incomplete code', async () => {
+    const { getAllByLabelText, getByLabelText, getByText } = render(
+      <VerifyScreen />,
+    );
 
     const cells = getAllByLabelText(/OTP digit/);
     fireEvent.changeText(cells[0], '1');
@@ -138,6 +140,10 @@ describe('VerifyScreen', () => {
     // Only 2 digits
 
     fireEvent.press(getByLabelText('Verify'));
+
+    await waitFor(() => {
+      expect(getByText('Code must be exactly 6 digits.')).toBeTruthy();
+    });
     expect(mockVerifyPhone).not.toHaveBeenCalled();
   });
 

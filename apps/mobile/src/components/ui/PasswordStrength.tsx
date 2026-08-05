@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import AppText from '@/components/ui/AppText';
 
 interface PasswordStrengthProps {
   readonly password: string;
@@ -23,11 +24,11 @@ function calcStrength(password: string): number {
   return Math.min(4, score);
 }
 
-const SEGMENT_COLORS = [
-  'bg-red-500',
-  'bg-orange-400',
-  'bg-yellow-400',
-  'bg-green-500',
+const SEGMENTS = [
+  { key: 'weak', color: 'bg-danger-fill' },
+  { key: 'fair', color: 'bg-warning-fill' },
+  { key: 'good', color: 'bg-warning-fill' },
+  { key: 'strong', color: 'bg-success-fill' },
 ] as const;
 
 const LABELS = ['', 'Weak', 'Fair', 'Good', 'Strong'] as const;
@@ -41,19 +42,17 @@ export default function PasswordStrength({
   return (
     <View className={`gap-1 ${className}`}>
       <View className="flex-row gap-1">
-        {SEGMENT_COLORS.map((color, index) => (
+        {SEGMENTS.map((segment, index) => (
           <View
-            key={index}
+            key={segment.key}
             className={`flex-1 h-1.5 rounded-full ${
-              index < strength ? color : 'bg-elevated'
+              index < strength ? segment.color : 'bg-elevated'
             }`}
           />
         ))}
       </View>
       {strength > 0 && (
-        <Text className="text-xs text-muted">
-          {LABELS[strength]}
-        </Text>
+        <AppText className="text-xs text-muted">{LABELS[strength]}</AppText>
       )}
     </View>
   );

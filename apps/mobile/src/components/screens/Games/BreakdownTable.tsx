@@ -6,7 +6,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import type { MyStatsRelationStat } from '@beach-kings/shared';
 import Avatar from '@/components/ui/Avatar';
 import type { BreakdownTab } from './useMyStatsScreen';
@@ -19,19 +20,6 @@ interface ToggleProps {
   readonly tab: BreakdownTab;
   readonly onTabChange: (tab: BreakdownTab) => void;
 }
-
-// Shadow for the active segment as a plain RN style, NOT a `shadow-sm` class:
-// toggling a shadow-* class between renders crashes NativeWind v4's css
-// interop (nativewind 4.1.23 / react-native-css-interop 0.2.3) with a
-// misleading "Couldn't find a navigation context" render error. Values match
-// the `shadow-sm` token. Black shadow color is universal, not themed.
-const ACTIVE_SEGMENT_SHADOW = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.05,
-  shadowRadius: 2,
-  elevation: 1,
-} as const;
 
 function TableToggle({ tab, onTabChange }: ToggleProps): React.ReactNode {
   return (
@@ -48,9 +36,8 @@ function TableToggle({ tab, onTabChange }: ToggleProps): React.ReactNode {
               ? 'bg-surface'
               : ''
           }`}
-          style={tab === t ? ACTIVE_SEGMENT_SHADOW : undefined}
         >
-          <Text
+          <AppText
             className={`text-[12px] font-bold ${
               tab === t
                 ? 'text-default'
@@ -58,7 +45,7 @@ function TableToggle({ tab, onTabChange }: ToggleProps): React.ReactNode {
             }`}
           >
             {t === 'partners' ? 'Partners' : 'Opponents'}
-          </Text>
+          </AppText>
         </Pressable>
       ))}
     </View>
@@ -85,25 +72,25 @@ function DataRow({ row }: RowProps): React.ReactNode {
           colorSeed={row.player_id}
           accessible={false}
         />
-        <Text className="text-[13px] font-bold text-default">
+        <AppText className="text-[13px] font-bold text-default">
           {row.display_name}
-        </Text>
+        </AppText>
       </View>
 
       {/* G */}
-      <Text className="w-[36px] text-center text-[12px] text-muted">
+      <AppText className="w-[36px] text-center text-[12px] text-muted">
         {row.games_played}
-      </Text>
+      </AppText>
 
       {/* W-L */}
-      <Text className="w-[44px] text-center text-[12px] text-muted">
+      <AppText className="w-[44px] text-center text-[12px] text-muted">
         {row.wins}-{row.losses}
-      </Text>
+      </AppText>
 
       {/* W% */}
-      <Text className="w-[40px] text-center text-[12px] text-muted">
+      <AppText className="w-[40px] text-center text-[12px] text-muted">
         {row.win_rate}%
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -132,25 +119,25 @@ export default function BreakdownTable({
       <TableToggle tab={tab} onTabChange={onTabChange} />
 
       {rows.length === 0 ? (
-        <Text className="text-[13px] text-muted italic py-4 text-center">
+        <AppText className="text-[13px] text-muted italic py-4 text-center">
           No data for this period.
-        </Text>
+        </AppText>
       ) : (
-        <View className="bg-surface rounded-[12px] shadow-sm dark:shadow-none dark:border border-divider overflow-hidden">
+        <View className="bg-surface rounded-[12px] border border-divider overflow-hidden">
           {/* Header */}
           <View className="flex-row px-[14px] py-[10px] bg-page">
-            <Text className="flex-1 text-[11px] font-bold text-muted uppercase tracking-wider">
+            <AppText className="flex-1 text-[11px] font-bold text-muted uppercase tracking-wider">
               Name
-            </Text>
-            <Text className="w-[36px] text-center text-[11px] font-bold text-muted uppercase tracking-wider">
+            </AppText>
+            <AppText className="w-[36px] text-center text-[11px] font-bold text-muted uppercase tracking-wider">
               G
-            </Text>
-            <Text className="w-[44px] text-center text-[11px] font-bold text-muted uppercase tracking-wider">
+            </AppText>
+            <AppText className="w-[44px] text-center text-[11px] font-bold text-muted uppercase tracking-wider">
               W-L
-            </Text>
-            <Text className="w-[40px] text-center text-[11px] font-bold text-muted uppercase tracking-wider">
+            </AppText>
+            <AppText className="w-[40px] text-center text-[11px] font-bold text-muted uppercase tracking-wider">
               W%
-            </Text>
+            </AppText>
           </View>
 
           {/* Rows */}

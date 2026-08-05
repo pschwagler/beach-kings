@@ -9,7 +9,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import BackButton from './BackButton';
 import SearchBar from './SearchBar';
 
@@ -57,9 +58,9 @@ export default function TopNav({
     <View className={containerClass}>
       {/* Left slot — custom leftAction overrides showBack */}
       <View className="min-w-11 items-start justify-center">
-        {leftAction != null ? leftAction : showBack && (
-          <BackButton onPress={onBack} />
-        )}
+        {leftAction != null
+          ? leftAction
+          : showBack && <BackButton onPress={onBack} />}
       </View>
 
       {/* Center — title or search input */}
@@ -69,18 +70,20 @@ export default function TopNav({
             value={searchValue}
             onChangeText={onSearchChange ?? (() => undefined)}
             placeholder={searchPlaceholder ?? 'Search...'}
+            compact
           />
         ) : (
-          <Text className="text-white font-semibold text-headline" accessibilityRole="header">
+          <AppText
+            className="text-inverse font-semibold text-headline"
+            accessibilityRole="header"
+          >
             {title}
-          </Text>
+          </AppText>
         )}
       </View>
 
       {/* Right slot */}
-      <View className="min-w-11 items-end justify-center">
-        {rightAction}
-      </View>
+      <View className="min-w-11 items-end justify-center">{rightAction}</View>
     </View>
   );
 }

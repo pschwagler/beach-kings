@@ -11,7 +11,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight } from '@/utils/haptics';
 import { formatActivityLabel } from '@/lib/formatters';
@@ -39,7 +40,7 @@ export default function FriendRow({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`View profile of ${friend.full_name}`}
-      className="flex-row items-center gap-3 px-4 py-3 bg-surface border-b border-divider active:opacity-70"
+      className="flex-row items-center gap-md px-lg py-md bg-surface border-b border-divider active:opacity-pressed"
     >
       <Avatar
         imageUrl={friend.avatar}
@@ -50,41 +51,41 @@ export default function FriendRow({
       />
       <View className="flex-1 min-w-0">
         <View className="flex-row items-center gap-[6px]">
-          <Text
-            className="text-[14px] font-semibold text-default shrink"
+          <AppText
+            className="text-subhead font-semibold text-default shrink"
             numberOfLines={1}
           >
             {friend.full_name}
-          </Text>
+          </AppText>
           {friend.level != null && (
             <View className="bg-info-tint rounded-[8px] px-2 py-[2px] shrink-0">
-              <Text className="text-[10px] font-bold text-info">
+              <AppText className="text-caption font-semibold text-info">
                 {friend.level}
-              </Text>
+              </AppText>
             </View>
           )}
         </View>
         {(friend.shared_league_name != null || friend.location_name != null) && (
-          <Text
-            className="text-[12px] text-muted mt-[2px]"
+          <AppText
+            className="text-caption text-muted mt-xxs"
             numberOfLines={1}
           >
             {[friend.shared_league_name, friend.location_name]
               .filter((part) => part != null)
               .join(' · ')}
-          </Text>
+          </AppText>
         )}
       </View>
       {activity != null && (
-        <Text
+        <AppText
           className={
             activity.isRecent
-              ? 'text-[11px] font-semibold text-success shrink-0'
-              : 'text-[11px] text-muted shrink-0'
+              ? 'text-caption font-semibold text-success shrink-0'
+              : 'text-caption text-muted shrink-0'
           }
         >
           {activity.label}
-        </Text>
+        </AppText>
       )}
     </Pressable>
   );

@@ -91,6 +91,22 @@ class TestGeocodeAddressNoToken:
 
 class TestGeocodeAddressSuccess:
     @pytest.mark.asyncio
+    async def test_passes_country_constraint(self):
+        resp = _mock_response({"features": [_make_feature(-79.3832, 43.6532)]})
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=resp)
+
+        with (
+            patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
+            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+        ):
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+            await geocode_address("1561 Lake Shore Blvd E, Toronto, ON", "CA")
+
+        assert mock_client.get.await_args.kwargs["params"]["country"] == "CA"
+
+    @pytest.mark.asyncio
     async def test_returns_correct_lat_lng(self):
         resp = _mock_response({"features": [_make_feature(-117.1611, 32.7157)]})
 

@@ -14,7 +14,7 @@
 import React from "react";
 import { hapticLight } from "@/utils/haptics";
 import type { SocialTab } from "@/lib/navigation";
-import SegmentControl from '@/components/ui/SegmentControl';
+import TabView from '@/components/ui/TabView';
 
 /**
  * The four destinations reachable from the Social hub subnav. Re-exported from
@@ -40,21 +40,18 @@ export default function SocialSubnav({
   activeTab,
   onTabPress,
 }: SocialSubnavProps): React.ReactNode {
-  const selectedIndex = TABS.findIndex(({ key }) => key === activeTab);
-
   return (
-    <SegmentControl
+    <TabView<SocialTab>
       testID="social-subnav"
-      segmentTestIDs={TABS.map(({ key }) => `social-subnav-tab-${key}`)}
-      segments={TABS.map(({ label }) => label)}
-      selectedIndex={selectedIndex}
-      compact
-      className="mx-4 my-2"
-      onSelect={(index) => {
-        const tab = TABS[index];
-        if (tab == null) return;
+      items={TABS.map(({ key, label }) => ({
+        value: key,
+        label,
+        testID: `social-subnav-tab-${key}`,
+      }))}
+      value={activeTab}
+      onValueChange={(value) => {
         void hapticLight();
-        onTabPress(tab.key);
+        onTabPress(value);
       }}
     />
   );

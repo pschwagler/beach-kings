@@ -59,6 +59,13 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    textInverse: '#fffdf8',
+    textTertiary: '#697577',
+  }),
+}));
+
 const mockGetConversations = jest.fn();
 
 jest.mock('@/lib/api', () => ({
@@ -245,15 +252,15 @@ describe('MessagesTab — conversations list', () => {
 
     // player_id 10 → 10 % 6 === 4 → variety entry #fde68a.
     const rowA = within(screen.getByTestId('convo-row-10'));
-    const avatarTextA = rowA.getByText('AT');
-    expect(StyleSheet.flatten(avatarTextA.parent?.parent?.props.style)).toEqual(
+    const avatarA = rowA.getByTestId('convo-avatar-10');
+    expect(StyleSheet.flatten(avatarA.props.style)).toEqual(
       expect.objectContaining({ backgroundColor: '#fde68a' }),
     );
 
     // player_id 11 → 11 % 6 === 5 → variety entry #fbcfe8.
     const rowB = within(screen.getByTestId('convo-row-11'));
-    const avatarTextB = rowB.getByText('SR');
-    expect(StyleSheet.flatten(avatarTextB.parent?.parent?.props.style)).toEqual(
+    const avatarB = rowB.getByTestId('convo-avatar-11');
+    expect(StyleSheet.flatten(avatarB.props.style)).toEqual(
       expect.objectContaining({ backgroundColor: '#fbcfe8' }),
     );
   });

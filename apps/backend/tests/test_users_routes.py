@@ -7,6 +7,7 @@ Covered here:
 - DELETE /api/users/me/avatar     — delete avatar
 - GET  /api/users/me/leagues      — list user's leagues
 - POST /api/users/me/delete       — schedule account deletion
+- DELETE /api/users/me            — delete account immediately
 - POST /api/users/me/cancel-deletion — cancel account deletion
 
 Already tested in test_api_routes_comprehensive.py:
@@ -534,6 +535,70 @@ class TestScheduleAccountDeletion:
         client = TestClient(app)
         response = client.post("/api/users/me/delete")
         assert response.status_code == 401
+
+
+# ============================================================================
+# DELETE /api/users/me
+# ============================================================================
+
+
+class TestImmediateAccountDeletion:
+    """Tests for DELETE /api/users/me."""
+
+    def test_immediate_deletion_success(self, monkeypatch):
+        client, headers = _make_authed_client(monkeypatch)
+
+        async def fake_execute_deletion(session, user_id):
+            assert user_id == USER_ID
+            return True
+
+        monkeypatch.setattr(
+            user_service, "execute_account_deletion", fake_execute_deletion, raising=True
+        )
+
+        response = client.delete("/api/users/me", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "success",
+            "message": "Account permanently deleted.",
+        }
+
+    def test_immediate_deletion_user_not_found_returns_404(self, monkeypatch):
+        client, headers = _make_authed_client(monkeypatch)
+
+        async def fake_execute_deletion(session, user_id):
+            return False
+
+        monkeypatch.setattr(
+            user_service, "execute_account_deletion", fake_execute_deletion, raising=True
+        )
+
+        response = client.delete("/api/users/me", headers=headers)
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "User not found"
+
+    def test_immediate_deletion_requires_auth(self):
+        response = TestClient(app).delete("/api/users/me")
+        assert response.status_code == 401
+
+    def test_permanently_deleted_user_cannot_reuse_access_token(self, monkeypatch):
+        def fake_verify_token(token: str):
+            return {"user_id": USER_ID, "phone_number": PHONE}
+
+        async def fake_get_deleted_user(session, user_id: int):
+            return {**FAKE_USER, "deleted_at": "2026-08-04T12:00:00+00:00"}
+
+        monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
+        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_deleted_user, raising=True)
+
+        response = TestClient(app).get(
+            "/api/users/me/player", headers={"Authorization": "Bearer old-access-token"}
+        )
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Account has been deleted"
 
 
 # ============================================================================

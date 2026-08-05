@@ -196,3 +196,27 @@ class TestGeocodeAutocomplete:
         response = client.get("/api/geocode/autocomplete?text=S")
         assert response.status_code == 200
         assert response.json()["features"] == []
+
+
+class TestGeocodePlaces:
+    def test_places_success(self, monkeypatch):
+        async def fake_search(text, lat, lng):
+            assert (text, lat, lng) == ("Brooklyn", 40.7, -74.0)
+            return [{"id": "1", "primary_text": "Brooklyn", "secondary_text": "New York", "latitude": 40.65, "longitude": -73.95, "result_type": "city"}]
+
+        monkeypatch.setattr(location_service, "search_places", fake_search, raising=True)
+        response = TestClient(app).get("/api/geocode/places?text=Brooklyn&lat=40.7&lng=-74")
+        assert response.status_code == 200
+        assert response.json()[0]["primary_text"] == "Brooklyn"
+
+    def test_places_requires_complete_proximity(self):
+        response = TestClient(app).get("/api/geocode/places?text=Brooklyn&lat=40.7")
+        assert response.status_code == 422
+
+    def test_places_reports_missing_provider_key(self, monkeypatch):
+        async def fake_search(text, lat, lng):
+            raise ValueError("Geoapify API key not configured")
+
+        monkeypatch.setattr(location_service, "search_places", fake_search, raising=True)
+        response = TestClient(app).get("/api/geocode/places?text=Brooklyn")
+        assert response.status_code == 503

@@ -14,9 +14,47 @@ import {
   lightPalette,
   darkPalette,
   SEMANTIC_ROLES,
+  CANONICAL_CONTRAST_PAIRS,
   cssVarName,
   tailwindClassName,
 } from '@beach-kings/shared/tokens';
+
+function relativeLuminance(hex: string): number {
+  const channels = hex
+    .slice(1)
+    .match(/.{2}/g)!
+    .map((channel) => parseInt(channel, 16) / 255)
+    .map((channel) =>
+      channel <= 0.04045
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4,
+    );
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const foregroundLuminance = relativeLuminance(foreground);
+  const backgroundLuminance = relativeLuminance(background);
+  return (
+    (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+    (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+  );
+}
+
+const canonicalContrastCases = (
+  [
+    ['light', lightPalette],
+    ['dark', darkPalette],
+  ] as const
+).flatMap(([theme, palette]) =>
+  CANONICAL_CONTRAST_PAIRS.map(({ foreground, background }) => [
+    theme,
+    foreground,
+    background,
+    palette[foreground],
+    palette[background],
+  ] as const),
+);
 
 describe('semantic theme tokens', () => {
   it('lightVars and darkVars share identical key sets', () => {
@@ -67,10 +105,29 @@ describe('semantic theme tokens', () => {
     expect(tailwindClassName('textDefault')).toBe('default');
     expect(tailwindClassName('textMuted')).toBe('muted');
     expect(tailwindClassName('textTertiary')).toBe('tertiary');
+    expect(tailwindClassName('textAccent')).toBe('accent');
     expect(tailwindClassName('borderDivider')).toBe('divider');
     expect(tailwindClassName('borderStrong')).toBe('strong');
     expect(tailwindClassName('brandTeal')).toBe('brand-teal');
+    expect(tailwindClassName('onBrandTeal')).toBe('on-brand-teal');
+    expect(tailwindClassName('onBrandGold')).toBe('on-brand-gold');
+    expect(tailwindClassName('onDanger')).toBe('on-danger');
+    expect(tailwindClassName('successFill')).toBe('success-fill');
     expect(tailwindClassName('successTint')).toBe('success-tint');
     expect(tailwindClassName('success')).toBe('success');
   });
+
+  it('defines each canonical contrast pair only once', () => {
+    const pairKeys = CANONICAL_CONTRAST_PAIRS.map(
+      ({ foreground, background }) => `${foreground}/${background}`,
+    );
+    expect(new Set(pairKeys).size).toBe(pairKeys.length);
+  });
+
+  it.each(canonicalContrastCases)(
+    '%s %s on %s meets WCAG AA',
+    (_, _foregroundRole, _backgroundRole, foreground, background) => {
+      expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
 });

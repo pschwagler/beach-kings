@@ -99,20 +99,24 @@ jest.mock('react-native-maps', () => {
     onPress,
     onCalloutPress,
     testID,
+    accessibilityLabel,
+    children,
   }: {
     title?: string;
     onPress?: () => void;
     onCalloutPress?: () => void;
     testID?: string;
+    accessibilityLabel?: string;
+    children?: React.ReactNode;
     [key: string]: unknown;
   }): React.ReactNode {
     return (
       <Pressable
         testID={testID ?? `marker-${title ?? 'unknown'}`}
         onPress={onPress}
-        accessibilityLabel={title ?? 'marker'}
+        accessibilityLabel={accessibilityLabel ?? title ?? 'marker'}
       >
-        <Text>{title}</Text>
+        {children ?? <Text>{title}</Text>}
       </Pressable>
     );
   }
@@ -412,6 +416,25 @@ describe('CourtsMapView — markers', () => {
     expect(onSelectCourt).toHaveBeenCalledWith(COURT_WITH_COORDS);
   });
 
+  it('renders nearby courts as one accessible count marker', () => {
+    const nearbyCourt = {
+      ...COURT_WITH_COORDS,
+      id: 9,
+      name: 'Nearby Court',
+      latitude: COURT_WITH_COORDS.latitude + 0.0001,
+      longitude: COURT_WITH_COORDS.longitude + 0.0001,
+    };
+    render(
+      <CourtsMapView
+        courts={[COURT_WITH_COORDS, nearbyCourt]}
+        onSelectCourt={onSelectCourt}
+      />,
+    );
+
+    expect(screen.getByLabelText('2 courts')).toBeTruthy();
+    expect(screen.queryByText('Manhattan Beach Courts')).toBeNull();
+  });
+
   it('shows empty state when no courts have coordinates', () => {
     render(
       <CourtsMapView courts={[COURT_NO_COORDS]} onSelectCourt={onSelectCourt} />,
@@ -492,6 +515,9 @@ describe('CourtsScreen — list/map toggle', () => {
   });
 
   it('navigates to court detail when a map marker is pressed', async () => {
+    mockGetCurrentPositionAsync.mockResolvedValue({
+      coords: { latitude: 33.8847, longitude: -118.4109 },
+    });
     renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('courts-view-toggle-map')).toBeTruthy();

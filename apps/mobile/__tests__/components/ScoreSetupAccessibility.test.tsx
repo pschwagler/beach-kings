@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 
 jest.mock('@/theme/usePaletteColors', () => ({
   usePaletteColors: () => ({
@@ -51,6 +52,39 @@ describe('score setup accessibility', () => {
     expect(screen.getByLabelText('Add Team 2 player 2')).toBeTruthy();
   });
 
+  it('announces slot changes without claiming a player was added', () => {
+    const announceSpy = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockImplementation(jest.fn());
+    const { rerender } = render(
+      <ScoreBoard
+        team1Slots={EMPTY_TEAM}
+        team2Slots={EMPTY_TEAM}
+        score1={0}
+        score2={0}
+        isBuilding
+        activeSlot={{ team: 1, slot: 0 }}
+      />,
+    );
+
+    rerender(
+      <ScoreBoard
+        team1Slots={EMPTY_TEAM}
+        team2Slots={EMPTY_TEAM}
+        score1={0}
+        score2={0}
+        isBuilding
+        activeSlot={{ team: 2, slot: 0 }}
+      />,
+    );
+
+    expect(announceSpy).toHaveBeenCalledWith('Choose Team 2 player 1');
+    expect(announceSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('Player added'),
+    );
+    announceSpy.mockRestore();
+  });
+
   it('shows only the strongest relationship signal on a player row', () => {
     const player: RosterPlayer = {
       player_id: 42,
@@ -77,5 +111,8 @@ describe('score setup accessibility', () => {
     expect(screen.queryByTestId('roster-pill-shared_league')).toBeNull();
     expect(screen.queryByTestId('roster-pill-friend')).toBeNull();
     expect(screen.queryByTestId('roster-pill-recent_opp')).toBeNull();
+    expect(screen.getByLabelText('Add Taylor Beach').props.className).toContain(
+      'min-h-touch',
+    );
   });
 });

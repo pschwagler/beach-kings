@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
 
 interface SectionHeaderProps {
   readonly title: string;
@@ -19,19 +20,17 @@ export default function SectionHeader({
 }: SectionHeaderProps): React.ReactNode {
   return (
     <View className="flex-row justify-between items-center mb-sm">
-      <Text className="text-callout font-bold text-default">
-        {title}
-      </Text>
+      <AppText className="text-callout font-bold text-default">{title}</AppText>
       {linkLabel != null && onLinkPress != null && (
         <Pressable
           onPress={onLinkPress}
           accessibilityRole="link"
-          accessibilityLabel={linkLabel}
+          accessibilityLabel={`${linkLabel}, ${title}`}
           hitSlop={8}
         >
-          <Text className="text-footnote font-medium text-brand-teal">
+          <AppText className="text-footnote font-medium text-brand-teal">
             {linkLabel}
-          </Text>
+          </AppText>
         </Pressable>
       )}
     </View>

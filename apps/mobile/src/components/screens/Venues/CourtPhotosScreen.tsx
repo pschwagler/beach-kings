@@ -15,9 +15,9 @@
  */
 
 import React, { useCallback } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   FlatList,
   Image,
   Pressable,
@@ -33,6 +33,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { useCourtPhotosScreen } from './useCourtPhotosScreen';
 import { hapticMedium } from '@/utils/haptics';
 import type { CourtPhoto } from '@beach-kings/shared';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 const NUM_COLUMNS = 3;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -68,18 +69,19 @@ function PhotoGrid({
   refreshing,
   onRefresh,
 }: PhotoGridProps): React.ReactNode {
+  const palette = usePaletteColors();
   if (photos.length === 0) {
     return (
       <View
         testID="court-photos-empty"
         className="flex-1 items-center justify-center py-16 px-8"
       >
-        <Text className="text-[16px] font-semibold text-default mb-2 text-center">
+        <AppText className="text-[16px] font-semibold text-default mb-2 text-center">
           No Photos Yet
-        </Text>
-        <Text className="text-[14px] text-muted text-center mb-6">
+        </AppText>
+        <AppText className="text-[14px] text-muted text-center mb-6">
           Add photos that help other players find and judge this court.
-        </Text>
+        </AppText>
         <Pressable
           testID="court-photos-add-first-btn"
           onPress={onAddPhoto}
@@ -87,7 +89,7 @@ function PhotoGrid({
           accessibilityLabel="Add Photo"
           className="bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
         >
-          <Text className="text-white font-bold text-[15px]">Add Photo</Text>
+          <AppText className="text-on-brand-gold font-bold text-[15px]">Add Photo</AppText>
         </Pressable>
       </View>
     );
@@ -107,7 +109,7 @@ function PhotoGrid({
             width: PHOTO_SIZE,
             height: PHOTO_SIZE,
             margin: 0.5,
-            backgroundColor: '#e5e7eb',
+            backgroundColor: palette.bgElevated,
           }}
           accessibilityIgnoresInvertColors
           accessibilityLabel={item.caption ?? 'Court photo'}
@@ -132,6 +134,7 @@ interface CourtPhotosScreenProps {
 export default function CourtPhotosScreen({
   idOrSlug,
 }: CourtPhotosScreenProps): React.ReactNode {
+  const palette = usePaletteColors();
   const {
     photos,
     header,
@@ -166,15 +169,16 @@ export default function CourtPhotosScreen({
       accessibilityRole="button"
       accessibilityLabel="Add photo"
       disabled={isUploading}
+      className="min-h-touch min-w-touch items-center justify-center"
     >
       {isUploading ? (
         <ActivityIndicator
           testID="court-photos-upload-spinner"
           size="small"
-          color="#0ea5a5"
+          color={palette.brandTeal}
         />
       ) : (
-        <Text className="text-brand-teal font-semibold text-[15px]">+ Add</Text>
+        <AppText className="text-brand-teal font-semibold text-[15px]">+ Add</AppText>
       )}
     </Pressable>
   );
@@ -206,9 +210,9 @@ export default function CourtPhotosScreen({
           testID="court-photos-error"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[16px] font-semibold text-default mb-2">
+          <AppText className="text-[16px] font-semibold text-default mb-2">
             Could Not Load Photos
-          </Text>
+          </AppText>
           <Pressable
             testID="court-photos-retry-btn"
             onPress={onRetry}
@@ -216,7 +220,7 @@ export default function CourtPhotosScreen({
             accessibilityLabel="Try Again"
             className="mt-4 bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
           >
-            <Text className="text-white font-bold text-[15px]">Try Again</Text>
+            <AppText className="text-on-brand-gold font-bold text-[15px]">Try Again</AppText>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -236,21 +240,21 @@ export default function CourtPhotosScreen({
         testID="court-photos-header"
         className="px-4 py-3 border-b border-strong"
       >
-        <Text className="text-[15px] font-semibold text-default">
+        <AppText className="text-[15px] font-semibold text-default">
           {header.name}
-        </Text>
+        </AppText>
         {header.address != null && (
-          <Text className="text-[13px] text-muted mt-0.5">
+          <AppText className="text-[13px] text-muted mt-0.5">
             {header.address}
-          </Text>
+          </AppText>
         )}
       </View>
 
       {/* Guidance text */}
       <View className="px-4 py-2 border-b border-strong">
-        <Text className="text-[13px] text-muted">
+        <AppText className="text-[13px] text-muted">
           Add photos that help other players find and judge this court.
-        </Text>
+        </AppText>
       </View>
 
       {/* Photo count */}
@@ -258,9 +262,9 @@ export default function CourtPhotosScreen({
         testID="court-photos-count-bar"
         className="px-4 py-2 border-b border-strong"
       >
-        <Text className="text-[13px] font-medium text-default">
+        <AppText className="text-[13px] font-medium text-default">
           {photos.length} photo{photos.length !== 1 ? 's' : ''}
-        </Text>
+        </AppText>
       </View>
 
       <PhotoGrid

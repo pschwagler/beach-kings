@@ -1,6 +1,8 @@
 import React from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { ChevronDownIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface SelectFieldProps {
   readonly placeholder: string;
@@ -19,6 +21,7 @@ export default function SelectField({
   onPress,
   testID,
 }: SelectFieldProps): React.ReactNode {
+  const palette = usePaletteColors();
   const hasValue = !!value;
   return (
     <Pressable
@@ -32,15 +35,15 @@ export default function SelectField({
       accessibilityState={{ disabled }}
       testID={testID}
     >
-      <Text
+      <AppText
         className={`text-body flex-1 ${
           hasValue ? 'text-default' : 'text-tertiary'
         }`}
         numberOfLines={1}
       >
         {hasValue ? value : placeholder}
-      </Text>
-      <ChevronDownIcon size={16} color="#999" />
+      </AppText>
+      <ChevronDownIcon size={16} color={palette.textTertiary} />
     </Pressable>
   );
 }

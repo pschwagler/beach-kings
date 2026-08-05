@@ -12,9 +12,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   FlatList,
   TextInput,
@@ -28,6 +28,7 @@ import Avatar from '@/components/ui/Avatar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { useLeagueInviteScreen } from './useLeagueInviteScreen';
 import type { InvitablePlayer } from '@beach-kings/shared';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Section label used between player groups
@@ -35,9 +36,9 @@ import type { InvitablePlayer } from '@beach-kings/shared';
 
 function SectionLabel({ title }: { readonly title: string }): React.ReactNode {
   return (
-    <Text className="text-[11px] font-bold text-muted uppercase tracking-wider px-4 pt-4 pb-2">
+    <AppText className="text-[11px] font-bold text-muted uppercase tracking-wider px-4 pt-4 pb-2">
       {title}
-    </Text>
+    </AppText>
   );
 }
 
@@ -77,7 +78,7 @@ function StatusBadge({
 
   return (
     <View className={`rounded-[6px] px-2 py-[2px] ${wrapClass}`}>
-      <Text className={`text-[10px] font-bold ${textClassName}`}>{label}</Text>
+      <AppText className={`text-[10px] font-bold ${textClassName}`}>{label}</AppText>
     </View>
   );
 }
@@ -123,7 +124,7 @@ function PlayerRow({ player, isSelected, onToggle }: PlayerRowProps): React.Reac
         }`}
       >
         {isSelected && (
-          <Text className="text-[11px] font-bold text-white">✓</Text>
+          <AppText className="text-[11px] font-bold text-on-brand-teal">✓</AppText>
         )}
       </View>
 
@@ -138,15 +139,15 @@ function PlayerRow({ player, isSelected, onToggle }: PlayerRowProps): React.Reac
 
       {/* Name / meta */}
       <View className="flex-1 min-w-0">
-        <Text
+        <AppText
           className="text-[14px] font-semibold text-default"
           numberOfLines={1}
         >
           {player.display_name}
-        </Text>
-        <Text className="text-[12px] text-muted">
+        </AppText>
+        <AppText className="text-[12px] text-muted">
           {[player.level, player.location_name].filter(Boolean).join(' · ')}
-        </Text>
+        </AppText>
       </View>
 
       {/* Status badge */}
@@ -199,6 +200,7 @@ function buildListItems(players: InvitablePlayer[]): ListItem[] {
 export default function LeagueInviteScreen({
   leagueId,
 }: LeagueInviteScreenProps): React.ReactNode {
+  const palette = usePaletteColors();
   const {
     players,
     isLoading,
@@ -242,13 +244,13 @@ export default function LeagueInviteScreen({
       {/* Search bar */}
       <View className="bg-surface px-4 py-3 border-b border-divider">
         <View className="flex-row items-center bg-elevated rounded-[10px] px-3 py-[10px] gap-2">
-          <Text className="text-[14px] text-tertiary">🔍</Text>
+          <AppText className="text-[14px] text-tertiary">🔍</AppText>
           <TextInput
             testID="invite-search-input"
             value={searchQuery}
             onChangeText={onChangeSearch}
             placeholder="Search players..."
-            placeholderTextColor="#999"
+            placeholderTextColor={palette.textTertiary}
             returnKeyType="search"
             autoCapitalize="none"
             autoCorrect={false}
@@ -264,18 +266,18 @@ export default function LeagueInviteScreen({
         </View>
       ) : isError ? (
         <View testID="invite-error" className="flex-1 items-center justify-center px-8">
-          <Text className="text-[15px] font-bold text-default text-center">
+          <AppText className="text-[15px] font-bold text-default text-center">
             Failed to load players
-          </Text>
+          </AppText>
         </View>
       ) : listItems.length === 0 ? (
         <View testID="invite-empty" className="flex-1 items-center justify-center px-8">
-          <Text className="text-[18px] font-bold text-default mb-2 text-center">
+          <AppText className="text-[18px] font-bold text-default mb-2 text-center">
             No Players Found
-          </Text>
-          <Text className="text-[14px] text-tertiary text-center">
+          </AppText>
+          <AppText className="text-[14px] text-tertiary text-center">
             Try a different search term.
-          </Text>
+          </AppText>
         </View>
       ) : (
         <FlatList<ListItem>
@@ -297,10 +299,10 @@ export default function LeagueInviteScreen({
           onPress={onClearInviteError}
           className="bg-danger-tint px-4 py-3 border-t border-divider"
         >
-          <Text className="text-[13px] text-danger font-semibold">
+          <AppText className="text-[13px] text-danger font-semibold">
             {inviteError}
-          </Text>
-          <Text className="text-[11px] text-danger mt-[2px]">Tap to dismiss</Text>
+          </AppText>
+          <AppText className="text-[11px] text-danger mt-[2px]">Tap to dismiss</AppText>
         </Pressable>
       ) : null}
 
@@ -314,9 +316,9 @@ export default function LeagueInviteScreen({
           }}
           className="flex-1 rounded-[12px] py-[12px] items-center border border-brand-teal active:opacity-70"
         >
-          <Text className="text-[14px] font-semibold text-brand-teal">
+          <AppText className="text-[14px] font-semibold text-brand-teal">
             Share Link
-          </Text>
+          </AppText>
         </Pressable>
 
         <Pressable
@@ -335,13 +337,13 @@ export default function LeagueInviteScreen({
           {isSending ? (
             <ActivityIndicator size="small" color="white" />
           ) : (
-            <Text
+            <AppText
               className={`text-[14px] font-bold ${
-                selectedIds.size > 0 ? 'text-white' : 'text-tertiary'
+                selectedIds.size > 0 ? 'text-on-brand-teal' : 'text-tertiary'
               }`}
             >
               {selectedIds.size > 0 ? `Send (${selectedIds.size})` : 'Send'}
-            </Text>
+            </AppText>
           )}
         </Pressable>
       </View>

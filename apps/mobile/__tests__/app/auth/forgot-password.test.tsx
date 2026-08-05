@@ -127,9 +127,13 @@ describe('ForgotPasswordScreen', () => {
     });
   });
 
-  it('does not submit step 1 when email is empty', () => {
-    const { getByLabelText } = render(<ForgotPasswordScreen />);
+  it('does not submit step 1 when email is empty', async () => {
+    const { getByLabelText, getByText } = render(<ForgotPasswordScreen />);
     fireEvent.press(getByLabelText('Send Code'));
+
+    await waitFor(() => {
+      expect(getByText('Email is required.')).toBeTruthy();
+    });
     expect(mockResetPasswordEmail).not.toHaveBeenCalled();
   });
 

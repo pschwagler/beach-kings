@@ -11,10 +11,26 @@
  */
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import {
+  render as renderTestingLibrary,
+  fireEvent,
+} from '@testing-library/react-native';
 import type { League } from '@beach-kings/shared';
 
 import LeagueCard from '@/components/screens/Leagues/LeagueCard';
+import ThemeProvider from '@/contexts/ThemeContext';
+
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+  }),
+  vars: (values: object) => values,
+}));
+
+function render(ui: React.ReactElement) {
+  return renderTestingLibrary(<ThemeProvider>{ui}</ThemeProvider>);
+}
 
 // ---------------------------------------------------------------------------
 // Fixtures

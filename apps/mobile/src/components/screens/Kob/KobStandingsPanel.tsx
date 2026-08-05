@@ -14,8 +14,10 @@
  */
 
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, ScrollView } from 'react-native';
 import type { KobTournamentDetail, KobStanding } from '@beach-kings/shared';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -38,45 +40,45 @@ const COL_WIDTHS = {
 function TableHeader(): React.ReactNode {
   return (
     <View className="flex-row items-center px-4 py-2 bg-page border-b border-strong">
-      <Text
+      <AppText
         style={{ width: COL_WIDTHS.rank }}
         className="text-[12px] font-bold text-muted text-center"
       >
         #
-      </Text>
-      <Text className="text-[12px] font-bold text-muted flex-1">
+      </AppText>
+      <AppText className="text-[12px] font-bold text-muted flex-1">
         Player
-      </Text>
-      <Text
+      </AppText>
+      <AppText
         style={{ width: COL_WIDTHS.w }}
         className="text-[12px] font-bold text-muted text-center"
       >
         W
-      </Text>
-      <Text
+      </AppText>
+      <AppText
         style={{ width: COL_WIDTHS.l }}
         className="text-[12px] font-bold text-muted text-center"
       >
         L
-      </Text>
-      <Text
+      </AppText>
+      <AppText
         style={{ width: COL_WIDTHS.pf }}
         className="text-[12px] font-bold text-muted text-center"
       >
         PF
-      </Text>
-      <Text
+      </AppText>
+      <AppText
         style={{ width: COL_WIDTHS.pa }}
         className="text-[12px] font-bold text-muted text-center"
       >
         PA
-      </Text>
-      <Text
+      </AppText>
+      <AppText
         style={{ width: COL_WIDTHS.diff }}
         className="text-[12px] font-bold text-muted text-center"
       >
         +/-
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -88,6 +90,7 @@ function StandingRow({
   standing: KobStanding;
   isCurrentUser: boolean;
 }): React.ReactNode {
+  const palette = usePaletteColors();
   const isFirst = standing.rank === 1;
   const diffPositive = (standing.point_diff ?? 0) > 0;
   const diffNegative = (standing.point_diff ?? 0) < 0;
@@ -102,23 +105,23 @@ function StandingRow({
       }`}
       style={
         isCurrentUser
-          ? { borderLeftWidth: 3, borderLeftColor: '#d97706' }
+          ? { borderLeftWidth: 3, borderLeftColor: palette.warning }
           : undefined
       }
     >
       {/* Rank */}
       <View style={{ width: COL_WIDTHS.rank }} className="items-center">
         {isFirst ? (
-          <Text className="text-[16px]">🏆</Text>
+          <AppText className="text-[16px]">🏆</AppText>
         ) : (
-          <Text className="text-[13px] font-semibold text-muted">
+          <AppText className="text-[13px] font-semibold text-muted">
             {standing.rank}
-          </Text>
+          </AppText>
         )}
       </View>
 
       {/* Player name */}
-      <Text
+      <AppText
         className={`flex-1 text-[13px] ${
           isCurrentUser
             ? 'font-bold text-default'
@@ -127,42 +130,42 @@ function StandingRow({
         numberOfLines={1}
       >
         {isCurrentUser ? 'YOU' : standing.player_name}
-      </Text>
+      </AppText>
 
       {/* W */}
-      <Text
+      <AppText
         style={{ width: COL_WIDTHS.w }}
         className="text-[13px] font-semibold text-default text-center"
       >
         {standing.wins}
-      </Text>
+      </AppText>
 
       {/* L */}
-      <Text
+      <AppText
         style={{ width: COL_WIDTHS.l }}
         className="text-[13px] text-muted text-center"
       >
         {standing.losses}
-      </Text>
+      </AppText>
 
       {/* PF */}
-      <Text
+      <AppText
         style={{ width: COL_WIDTHS.pf }}
         className="text-[13px] text-default text-center"
       >
         {standing.points_for}
-      </Text>
+      </AppText>
 
       {/* PA */}
-      <Text
+      <AppText
         style={{ width: COL_WIDTHS.pa }}
         className="text-[13px] text-muted text-center"
       >
         {standing.points_against}
-      </Text>
+      </AppText>
 
       {/* +/- */}
-      <Text
+      <AppText
         style={{ width: COL_WIDTHS.diff }}
         className={`text-[13px] font-semibold text-center ${
           diffPositive
@@ -174,7 +177,7 @@ function StandingRow({
       >
         {(standing.point_diff ?? 0) > 0 ? '+' : ''}
         {standing.point_diff ?? 0}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -201,12 +204,12 @@ export default function KobStandingsPanel({
         testID="kob-standings-empty"
         className="flex-1 items-center justify-center py-16 px-8"
       >
-        <Text className="text-[16px] font-semibold text-default mb-2 text-center">
+        <AppText className="text-[16px] font-semibold text-default mb-2 text-center">
           Standings Not Available
-        </Text>
-        <Text className="text-[14px] text-muted text-center">
+        </AppText>
+        <AppText className="text-[14px] text-muted text-center">
           Standings will appear here once the tournament begins.
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -228,10 +231,10 @@ export default function KobStandingsPanel({
 
       {/* Tiebreaker note */}
       <View className="px-4 pt-3 pb-2">
-        <Text className="text-[11px] text-muted italic">
+        <AppText className="text-[11px] text-muted italic">
           Tiebreakers: Head-to-head record, then point differential (+/-), then
           points for (PF).
-        </Text>
+        </AppText>
       </View>
     </ScrollView>
   );

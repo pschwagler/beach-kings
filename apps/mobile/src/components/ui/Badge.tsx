@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import AppText from './AppText';
 
 type BadgeVariant = 'default' | 'success' | 'danger' | 'warning' | 'info' | 'accent';
 
@@ -37,7 +38,7 @@ const variantStyles: Record<BadgeVariant, { bg: string; text: string }> = {
   },
   accent: {
     bg: 'bg-warning-tint',
-    text: 'text-brand-gold',
+    text: 'text-accent',
   },
 };
 
@@ -50,9 +51,9 @@ export default function Badge({
 
   return (
     <View className={`px-sm py-xxs rounded-full ${styles.bg} ${className}`}>
-      <Text className={`text-caption font-medium ${styles.text}`}>
+      <AppText className={`text-caption font-medium ${styles.text}`}>
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }

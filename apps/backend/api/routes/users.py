@@ -420,6 +420,24 @@ async def schedule_account_deletion(
         raise HTTPException(status_code=500, detail="Error scheduling account deletion")
 
 
+@router.delete("/api/users/me", response_model=StatusResponse)
+async def delete_account_immediately(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Permanently delete and anonymize the authenticated account immediately."""
+    try:
+        success = await user_service.execute_account_deletion(session, current_user["id"])
+        if not success:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"status": "success", "message": "Account permanently deleted."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting account immediately: {e}")
+        raise HTTPException(status_code=500, detail="Error deleting account")
+
+
 @router.post("/api/users/me/cancel-deletion", response_model=StatusResponse)
 async def cancel_account_deletion(
     current_user: dict = Depends(get_current_user),

@@ -10,15 +10,14 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   FlatList,
   Pressable,
   TextInput,
   RefreshControl,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -31,6 +30,7 @@ import {
 } from './useFindLeaguesScreen';
 import type { FindLeagueResult } from '@beach-kings/shared';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import FilterChipBar from '@/components/ui/FilterChipBar';
 
 // ---------------------------------------------------------------------------
 // Search bar
@@ -74,64 +74,15 @@ function FindLeaguesSearchBar({ value, onChangeText }: SearchBarProps): React.Re
 // Filter chips
 // ---------------------------------------------------------------------------
 
-interface FilterChipsProps {
-  readonly activeFilter: FindLeaguesFilter;
-  readonly onSelect: (f: FindLeaguesFilter) => void;
-}
-
-const FILTER_OPTIONS: Array<{ key: FindLeaguesFilter; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'public', label: 'Public' },
-  { key: 'mens', label: "Men's" },
-  { key: 'womens', label: "Women's" },
-  { key: 'coed', label: 'Coed' },
-  { key: 'beginner', label: 'Beginner' },
-  { key: 'intermediate', label: 'Intermediate' },
-];
-
-function FilterChips({ activeFilter, onSelect }: FilterChipsProps): React.ReactNode {
-  return (
-    <View className="bg-surface border-b border-divider">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 10, gap: 8 }}
-        accessibilityRole="tablist"
-      >
-        {FILTER_OPTIONS.map(({ key, label }) => {
-          const isActive = key === activeFilter;
-          return (
-            <Pressable
-              key={key}
-              testID={`filter-chip-${key}`}
-              onPress={() => {
-                void hapticLight();
-                onSelect(key);
-              }}
-              className={`px-[14px] py-[8px] rounded-full border ${
-                isActive
-                  ? 'bg-brand-teal border-brand-teal'
-                  : 'bg-surface border-strong'
-              } active:opacity-70`}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-            >
-              <Text
-                className={`text-[13px] font-semibold ${
-                  isActive
-                    ? 'text-inverse'
-                    : 'text-muted'
-                }`}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-}
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'All', testID: 'filter-chip-all' },
+  { value: 'public', label: 'Public', testID: 'filter-chip-public' },
+  { value: 'mens', label: "Men's", testID: 'filter-chip-mens' },
+  { value: 'womens', label: "Women's", testID: 'filter-chip-womens' },
+  { value: 'coed', label: 'Coed', testID: 'filter-chip-coed' },
+  { value: 'beginner', label: 'Beginner', testID: 'filter-chip-beginner' },
+  { value: 'intermediate', label: 'Intermediate', testID: 'filter-chip-intermediate' },
+] as const satisfies readonly { value: FindLeaguesFilter; label: string; testID: string }[];
 
 // ---------------------------------------------------------------------------
 // League result card
@@ -174,16 +125,16 @@ function LeagueResultCard({
         {/* Top row */}
         <View className="flex-row items-start mb-2">
           <View className="flex-1 min-w-0 mr-2">
-            <Text
+            <AppText
               className="text-[15px] font-bold text-default"
               numberOfLines={2}
             >
               {league.name}
-            </Text>
+            </AppText>
             {league.location_name != null && (
-              <Text className="text-[12px] text-muted mt-[2px]">
+              <AppText className="text-[12px] text-muted mt-[2px]">
                 {league.location_name}
-              </Text>
+              </AppText>
             )}
           </View>
 
@@ -195,7 +146,7 @@ function LeagueResultCard({
                 : 'bg-warning-tint'
             }`}
           >
-            <Text
+            <AppText
               className={`text-[11px] font-semibold ${
                 league.access_type === 'open'
                   ? 'text-success'
@@ -203,7 +154,7 @@ function LeagueResultCard({
               }`}
             >
               {league.access_type === 'open' ? 'Public' : 'Invite Only'}
-            </Text>
+            </AppText>
           </View>
         </View>
 
@@ -211,21 +162,21 @@ function LeagueResultCard({
         <View className="flex-row flex-wrap gap-2 mb-3">
           {league.level != null && (
             <View className="bg-info-tint rounded-[8px] px-2 py-[3px]">
-              <Text className="text-[11px] font-semibold text-info">
+              <AppText className="text-[11px] font-semibold text-info">
                 {league.level}
-              </Text>
+              </AppText>
             </View>
           )}
           <View className="bg-elevated rounded-[8px] px-2 py-[3px]">
-            <Text className="text-[11px] font-semibold text-muted">
+            <AppText className="text-[11px] font-semibold text-muted">
               {genderLabel(league.gender)}
-            </Text>
+            </AppText>
           </View>
           <View className="bg-elevated rounded-[8px] px-2 py-[3px]">
-            <Text className="text-[11px] text-muted">
+            <AppText className="text-[11px] text-muted">
               {league.member_count}{' '}
               {league.member_count === 1 ? 'member' : 'members'}
-            </Text>
+            </AppText>
           </View>
         </View>
 
@@ -249,12 +200,12 @@ function LeagueResultCard({
                 </View>
               ))}
             </View>
-            <Text className="text-[12px] text-muted">
+            <AppText className="text-[12px] text-muted">
               {league.friends_in_league.length === 1
                 ? '1 friend'
                 : `${league.friends_in_league.length} friends`}{' '}
               in this league
-            </Text>
+            </AppText>
           </View>
         )}
       </Pressable>
@@ -265,18 +216,18 @@ function LeagueResultCard({
           accessibilityLabel={`You are a member of ${league.name}`}
           className="bg-info-tint rounded-[8px] py-[10px] items-center"
         >
-          <Text className="text-[13px] font-semibold text-info">
+          <AppText className="text-[13px] font-semibold text-info">
             You're a Member
-          </Text>
+          </AppText>
         </View>
       ) : league.user_status === 'requested' ? (
         <View
           accessibilityLabel={`Request to join ${league.name} pending`}
           className="bg-warning-tint rounded-[8px] py-[10px] items-center"
         >
-          <Text className="text-[13px] font-semibold text-warning">
+          <AppText className="text-[13px] font-semibold text-warning">
             Request Pending
-          </Text>
+          </AppText>
         </View>
       ) : (
         <>
@@ -306,25 +257,25 @@ function LeagueResultCard({
             className="bg-brand-teal rounded-[8px] py-[10px] items-center active:opacity-80"
           >
             {isRequesting ? (
-              <ActivityIndicator size="small" color={palette.textInverse} />
+              <ActivityIndicator size="small" color={palette.onBrandTeal} />
             ) : (
-              <Text className="text-[13px] font-bold text-inverse">
+              <AppText className="text-[13px] font-bold text-on-brand-teal">
                 {league.access_type === 'open'
                   ? joinError != null
                     ? 'Try Again'
                     : 'Join League'
                   : 'View League'}
-              </Text>
+              </AppText>
             )}
           </Pressable>
           {joinError != null && (
-            <Text
+            <AppText
               testID={`join-league-error-${league.id}`}
               accessibilityRole="alert"
               className="text-[12px] font-medium text-danger text-center mt-2"
             >
               {joinError}
-            </Text>
+            </AppText>
           )}
         </>
       )}
@@ -346,12 +297,12 @@ function FindLeaguesEmptyState({ onCreateLeague }: EmptyStateProps): React.React
       testID="find-leagues-empty"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <Text className="text-[18px] font-bold text-default mb-2 text-center">
+      <AppText className="text-[18px] font-bold text-default mb-2 text-center">
         No Leagues Found
-      </Text>
-      <Text className="text-[14px] text-muted text-center leading-[1.5] mb-6">
+      </AppText>
+      <AppText className="text-[14px] text-muted text-center leading-[1.5] mb-6">
         Try adjusting your search or filters, or start your own league.
-      </Text>
+      </AppText>
       <Pressable
         testID="empty-create-league-btn"
         onPress={() => {
@@ -360,7 +311,7 @@ function FindLeaguesEmptyState({ onCreateLeague }: EmptyStateProps): React.React
         }}
         className="bg-brand-gold rounded-[10px] px-6 py-[12px] active:opacity-80"
       >
-        <Text className="text-[14px] font-bold text-white">Create a League</Text>
+        <AppText className="text-[14px] font-bold text-on-brand-gold">Create a League</AppText>
       </Pressable>
     </View>
   );
@@ -376,15 +327,15 @@ function FindLeaguesErrorState({ onRetry }: { readonly onRetry: () => void }): R
       testID="find-leagues-error"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <Text className="text-[16px] font-bold text-default mb-2">
+      <AppText className="text-[16px] font-bold text-default mb-2">
         Something went wrong
-      </Text>
+      </AppText>
       <Pressable
         testID="find-leagues-retry"
         onPress={onRetry}
         className="mt-4 px-5 py-[10px] rounded-[8px] bg-brand-teal active:opacity-80"
       >
-        <Text className="text-[14px] font-semibold text-white">Try Again</Text>
+        <AppText className="text-[14px] font-semibold text-on-brand-teal">Try Again</AppText>
       </Pressable>
     </View>
   );
@@ -462,7 +413,17 @@ export default function FindLeaguesScreen(): React.ReactNode {
       <TopNav title="Find Leagues" showBack />
       <View testID="find-leagues-screen" className="flex-1 bg-page">
         <FindLeaguesSearchBar value={searchQuery} onChangeText={onChangeSearch} />
-        <FilterChips activeFilter={activeFilter} onSelect={onSelectFilter} />
+        <View className="bg-surface border-b border-divider py-2">
+          <FilterChipBar
+            items={FILTER_OPTIONS}
+            value={activeFilter}
+            onValueChange={(value) => {
+              void hapticLight();
+              onSelectFilter(value);
+            }}
+            accessibilityLabel="League filters"
+          />
+        </View>
         {renderContent()}
       </View>
     </SafeAreaView>

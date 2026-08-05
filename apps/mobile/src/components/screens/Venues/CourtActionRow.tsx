@@ -18,7 +18,8 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import { useCourtCheckIn } from './useCourtCheckIn';
 import { useSaveCourt } from './useSaveCourt';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -69,13 +70,13 @@ function CheckInBreakdown({
     >
       {breakdown.map((item, index) => (
         <View
-          key={index}
+          key={`${item.level ?? 'unspecified'}:${item.gender ?? 'unspecified'}`}
           testID={`check-in-breakdown-chip-${index}`}
           className="flex-row items-center px-2 py-0.5 rounded-full bg-surface border border-strong"
         >
-          <Text className="text-[11px] text-muted">
+          <AppText className="text-[11px] text-muted">
             {`${formatBreakdownLabel(item)} · ${item.count}`}
-          </Text>
+          </AppText>
         </View>
       ))}
     </View>
@@ -142,27 +143,27 @@ export default function CourtActionRow({
           disabled={isCheckInDisabled}
           className={`py-[14px] rounded-[10px] items-center ${
             isCheckedIn
-              ? 'bg-brand-teal/20 border border-brand-teal'
+              ? 'bg-info-tint border border-brand-teal'
               : 'bg-brand-gold active:opacity-80'
           } ${isSubmitting ? 'opacity-60' : ''}`}
         >
-          <Text
+          <AppText
             className={`font-bold text-[15px] ${
-              isCheckedIn ? 'text-brand-teal' : 'text-white'
+              isCheckedIn ? 'text-brand-teal' : 'text-on-brand-gold'
             }`}
           >
             {checkInLabel}
-          </Text>
+          </AppText>
         </Pressable>
 
         {/* Live count badge */}
         {total > 0 && (
-          <Text
+          <AppText
             testID={`check-in-count-${court.id}`}
             className="text-[12px] text-muted text-center mt-1"
           >
             {total} here now
-          </Text>
+          </AppText>
         )}
 
         {/* Level/gender breakdown chips */}
@@ -179,16 +180,16 @@ export default function CourtActionRow({
         disabled={isMyCourtsDisabled}
         className={`flex-1 py-[14px] rounded-[10px] items-center border active:opacity-80 ${
           isSaved
-            ? 'bg-brand-teal/20 border-brand-teal'
+            ? 'bg-info-tint border-brand-teal'
             : 'border-brand-teal'
         } ${isMyCourtsDisabled ? 'opacity-60' : ''}`}
         style={isSaved ? { borderColor: palette.brandTeal } : undefined}
       >
-        <Text
+        <AppText
           className="font-semibold text-[15px] text-brand-teal"
         >
           {myCourtsLabel}
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );

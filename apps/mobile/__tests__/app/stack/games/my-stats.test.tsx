@@ -14,7 +14,17 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render as renderTestingLibrary, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import ThemeProvider from '@/contexts/ThemeContext';
+
+function render(ui: React.ReactElement): ReturnType<typeof renderTestingLibrary> {
+  return renderTestingLibrary(<ThemeProvider>{ui}</ThemeProvider>);
+}
+
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({ colorScheme: 'light', setColorScheme: jest.fn() }),
+  vars: (values: object) => values,
+}));
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -344,6 +354,15 @@ describe('MyStatsScreen — time chips', () => {
       expect(screen.getByTestId('time-chip-30d')).toBeTruthy();
       expect(screen.getByTestId('time-chip-90d')).toBeTruthy();
       expect(screen.getByTestId('time-chip-1y')).toBeTruthy();
+    });
+  });
+
+  it('exposes the selected time range to assistive technology', async () => {
+    render(<MyStatsScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId('time-chip-all').props.accessibilityState).toEqual(
+        expect.objectContaining({ selected: true }),
+      );
     });
   });
 

@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View } from 'react-native';
 
 interface CourtRatingProps {
   readonly rating: number;
@@ -17,6 +18,11 @@ interface CourtRatingProps {
   readonly testID?: string;
 }
 
+function formatRatingLabel(rating: number): string {
+  const value = Number.isInteger(rating) ? rating.toFixed(0) : rating.toFixed(1);
+  return `${value} out of 5 stars`;
+}
+
 function Stars({
   rating,
   starTextClassName,
@@ -25,16 +31,17 @@ function Stars({
   readonly starTextClassName: string;
 }): React.ReactNode {
   return (
-    <View className="flex-row items-center gap-0.5">
+    <View className="flex-row items-center gap-0.5" accessible={false}>
       {[1, 2, 3, 4, 5].map((star) => (
-        <Text
+        <AppText
           key={star}
+          accessible={false}
           className={`${starTextClassName} ${
-            star <= Math.round(rating) ? 'text-yellow-400' : 'text-gray-300'
+            star <= Math.round(rating) ? 'text-accent' : 'text-tertiary'
           }`}
         >
           ★
-        </Text>
+        </AppText>
       ))}
     </View>
   );
@@ -53,27 +60,32 @@ export default function CourtRating({
 }: CourtRatingProps): React.ReactNode {
   if (reviewCount === 0) {
     return (
-      <Text testID={testID} className={emptyTextClassName}>
+      <AppText testID={testID} className={emptyTextClassName}>
         No reviews yet
-      </Text>
+      </AppText>
     );
   }
 
   return (
-    <View testID={testID} className="flex-row items-center gap-2">
+    <View
+      testID={testID}
+      className="flex-row items-center gap-2"
+      accessible
+      accessibilityLabel={formatRatingLabel(rating)}
+    >
       <Stars rating={rating} starTextClassName={starTextClassName} />
       {combineScoreAndCount ? (
-        <Text className={scoreTextClassName}>
+        <AppText className={scoreTextClassName}>
           {rating.toFixed(1)} ({reviewCount})
-        </Text>
+        </AppText>
       ) : (
         <>
-          <Text className={scoreTextClassName}>{rating.toFixed(1)}</Text>
-          <Text className={countTextClassName}>
+          <AppText className={scoreTextClassName}>{rating.toFixed(1)}</AppText>
+          <AppText className={countTextClassName}>
             {showReviewWord
               ? `(${reviewCount} review${reviewCount !== 1 ? 's' : ''})`
               : `(${reviewCount})`}
-          </Text>
+          </AppText>
         </>
       )}
     </View>

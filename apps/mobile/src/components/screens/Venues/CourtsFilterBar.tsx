@@ -5,8 +5,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { ScrollView, Pressable, Text } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
+import FilterChipBar from '@/components/ui/FilterChipBar';
 import type { CourtFilterChip } from './useCourtsScreen';
 import { COURT_FILTERS } from './courtFilters';
 
@@ -28,41 +28,18 @@ export default function CourtsFilterBar({
   );
 
   return (
-    <ScrollView
+    <FilterChipBar
       testID="courts-filter-bar"
-      horizontal
-      showsHorizontalScrollIndicator={false}
+      accessibilityLabel="Court filters"
+      items={COURT_FILTERS.map((chip) => ({
+        value: chip.id,
+        label: chip.label,
+        testID: `filter-court-${chip.id}`,
+      }))}
+      value={activeFilter ?? 'nearby'}
+      onValueChange={handleChipPress}
       className="border-b border-strong"
-      contentContainerClassName="flex-row gap-2 px-4 py-3"
-    >
-      {COURT_FILTERS.map((chip) => {
-        const isActive = activeFilter === chip.id;
-        return (
-          <Pressable
-            key={chip.id}
-            testID={`filter-court-${chip.id}`}
-            onPress={() => handleChipPress(chip.id)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: isActive }}
-            accessibilityLabel={chip.label}
-            className={`px-4 py-1.5 rounded-full border ${
-              isActive
-                ? 'bg-brand-teal border-brand-teal'
-                : 'bg-surface border-strong'
-            } active:opacity-80`}
-          >
-            <Text
-              className={`text-[13px] font-medium ${
-                isActive
-                  ? 'text-white'
-                  : 'text-muted'
-              }`}
-            >
-              {chip.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+      contentClassName="py-1"
+    />
   );
 }

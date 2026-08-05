@@ -14,9 +14,9 @@
  */
 
 import React, { useCallback, useRef, useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Image,
   ScrollView,
   type NativeSyntheticEvent,
@@ -98,11 +98,12 @@ function PhotoCountBadge({ count }: PhotoCountBadgeProps): React.ReactNode {
   return (
     <View
       testID="photo-count-badge"
-      className="absolute bottom-3 right-3 bg-black/60 rounded-lg px-2 py-1"
+      className="absolute bottom-3 right-3 rounded-lg overflow-hidden"
     >
-      <Text className="text-white text-[12px] font-medium">
+      <View className="absolute inset-0 bg-nav opacity-80" />
+      <AppText className="text-inverse text-[12px] font-medium px-2 py-1">
         {count} photos
-      </Text>
+      </AppText>
     </View>
   );
 }

@@ -12,6 +12,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface LoadingSkeletonProps {
   readonly width?: DimensionValue;
@@ -26,15 +27,18 @@ export default function LoadingSkeleton({
   borderRadius = 8,
   className = '',
 }: LoadingSkeletonProps): React.ReactNode {
+  const reduceMotion = useReducedMotion();
   const opacity = useSharedValue(0.3);
 
   useEffect(() => {
-    opacity.value = withRepeat(
-      withTiming(0.7, { duration: 750, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
-  }, [opacity]);
+    opacity.value = reduceMotion
+      ? 0.55
+      : withRepeat(
+          withTiming(0.7, { duration: 750, easing: Easing.inOut(Easing.ease) }),
+          -1,
+          true,
+        );
+  }, [opacity, reduceMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -43,8 +47,7 @@ export default function LoadingSkeleton({
   return (
     <Animated.View
       style={[{ width, height, borderRadius }, animatedStyle]}
-      // eslint-disable-next-line no-restricted-syntax -- skeleton shimmer: no semantic token for this gray pair
-      className={`bg-gray-300 dark:bg-gray-600 ${className}`}
+      className={`bg-divider ${className}`}
       accessibilityRole="none"
       accessible={false}
     />

@@ -9,12 +9,7 @@
 
 import React from 'react';
 import { renderHook, act } from '@testing-library/react-native';
-
-const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
-jest.mock('@tanstack/react-query', () => ({
-  ...jest.requireActual('@tanstack/react-query'),
-  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
-}));
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
 }));
@@ -47,6 +42,20 @@ jest.mock('@/utils/haptics', () => ({
 
 import { useScoreGameScreen } from '@/components/screens/Games/useScoreGameScreen';
 import type { RosterPlayer } from '@/components/screens/Games/useScoreGameScreen';
+
+function renderScoreGameHook() {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+  return renderHook(() => useScoreGameScreen(), {
+    wrapper: ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -112,7 +121,7 @@ function fillAllSlots(result: ReturnType<typeof useScoreGameScreen>): void {
 
 describe('swapSlots', () => {
   it('swaps players across teams (team1[0] <-> team2[0])', () => {
-    const { result } = renderHook(() => useScoreGameScreen());
+    const { result } = renderScoreGameHook();
     fillAllSlots(result.current);
 
     act(() => {
@@ -127,7 +136,7 @@ describe('swapSlots', () => {
   });
 
   it('swaps players across teams (team1[1] <-> team2[1])', () => {
-    const { result } = renderHook(() => useScoreGameScreen());
+    const { result } = renderScoreGameHook();
     fillAllSlots(result.current);
 
     act(() => {
@@ -141,7 +150,7 @@ describe('swapSlots', () => {
   });
 
   it('swaps players within team 1', () => {
-    const { result } = renderHook(() => useScoreGameScreen());
+    const { result } = renderScoreGameHook();
     fillAllSlots(result.current);
 
     act(() => {
@@ -156,7 +165,7 @@ describe('swapSlots', () => {
   });
 
   it('swaps players within team 2', () => {
-    const { result } = renderHook(() => useScoreGameScreen());
+    const { result } = renderScoreGameHook();
     fillAllSlots(result.current);
 
     act(() => {
@@ -171,7 +180,7 @@ describe('swapSlots', () => {
   });
 
   it('is a no-op when from and to are the same slot', () => {
-    const { result } = renderHook(() => useScoreGameScreen());
+    const { result } = renderScoreGameHook();
     fillAllSlots(result.current);
 
     const before1 = result.current.team1;
@@ -186,7 +195,7 @@ describe('swapSlots', () => {
   });
 
   it('cross-team: team2[0] -> team1[1] leaves other slots untouched', () => {
-    const { result } = renderHook(() => useScoreGameScreen());
+    const { result } = renderScoreGameHook();
     fillAllSlots(result.current);
 
     act(() => {

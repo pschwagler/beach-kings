@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
 import { TrophyIcon } from '@/components/ui/icons';
+import EmptyState from '@/components/ui/EmptyState';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface LeaguesEmptyStateProps {
   readonly onFindLeagues: () => void;
@@ -16,42 +17,13 @@ export default function LeaguesEmptyState({
   onFindLeagues,
   onCreateLeague,
 }: LeaguesEmptyStateProps): React.ReactNode {
-  return (
-    <View
-      testID="leagues-empty-state"
-      className="flex-1 items-center justify-center px-lg pt-xl"
-    >
-      <View className="bg-info-tint rounded-full p-lg mb-lg">
-        <TrophyIcon size={32} color="#2a7d9c" />
-      </View>
-
-      <Text className="text-headline font-bold text-default text-center mb-xs">
-        No Leagues Yet
-      </Text>
-      <Text className="text-footnote text-tertiary text-center mb-xl">
-        Join a league to start playing and tracking your stats
-      </Text>
-
-      <Pressable
-        testID="find-leagues-cta"
-        onPress={onFindLeagues}
-        accessibilityRole="button"
-        accessibilityLabel="Find a League"
-        className="w-full bg-brand-teal rounded-card py-md mb-sm items-center min-h-touch justify-center"
-      >
-        <Text className="text-white font-semibold text-callout">Find a League</Text>
-      </Pressable>
-
-      <Pressable
-        onPress={onCreateLeague}
-        accessibilityRole="button"
-        accessibilityLabel="Create a League"
-        className="w-full bg-info-tint rounded-card py-md items-center min-h-touch justify-center"
-      >
-        <Text className="text-brand-teal font-semibold text-callout">
-          Create a League
-        </Text>
-      </Pressable>
-    </View>
-  );
+  const palette = usePaletteColors();
+  return <EmptyState
+    testID="leagues-empty-state"
+    icon={<TrophyIcon size={32} color={palette.brandTeal} />}
+    title="No Leagues Yet"
+    description="Join a league to start playing and tracking your stats"
+    primaryAction={{ label: 'Find a League', onPress: onFindLeagues, testID: 'find-leagues-cta' }}
+    secondaryAction={{ label: 'Create a League', onPress: onCreateLeague }}
+  />;
 }

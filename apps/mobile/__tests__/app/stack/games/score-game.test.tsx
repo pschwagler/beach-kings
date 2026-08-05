@@ -16,6 +16,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -25,12 +26,6 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockLocalSearchParams = jest.fn(() => ({}));
-const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
-
-jest.mock('@tanstack/react-query', () => ({
-  ...jest.requireActual('@tanstack/react-query'),
-  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
-}));
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
 }));
@@ -270,10 +265,15 @@ async function fillAllSlots(): Promise<void> {
  * provider is mandatory for the screen to mount at all.
  */
 function renderScoreGame(): ReturnType<typeof render> {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
   return render(
-    <AddNewPlayerProvider>
-      <ScoreGameScreen />
-    </AddNewPlayerProvider>,
+    <QueryClientProvider client={queryClient}>
+      <AddNewPlayerProvider>
+        <ScoreGameScreen />
+      </AddNewPlayerProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -301,7 +301,14 @@ function renderScoreGameWithSheet(): ReturnType<typeof render> {
       </AddNewPlayerProvider>
     );
   }
-  return render(<Harness />);
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <Harness />
+    </QueryClientProvider>,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1469,10 +1476,9 @@ describe('ScoreGameScreen — Add New Player flow', () => {
       fireEvent.press(screen.getByTestId('add-new-player-submit'));
     });
 
-    // Guest player should now occupy team1-slot0 — both the Pressable chip and
-    // the Avatar inside share the player's name as their accessibilityLabel.
+    // Guest player should now occupy team1-slot0 with its team/position context.
     await waitFor(() => {
-      expect(screen.getAllByLabelText('Brad K').length).toBeGreaterThan(0);
+      expect(screen.getByLabelText('Team 1 player 1, Brad K, guest')).toBeTruthy();
     });
   });
 

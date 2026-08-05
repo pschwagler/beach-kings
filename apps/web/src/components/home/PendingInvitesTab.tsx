@@ -151,7 +151,7 @@ export default function PendingInvitesTab() {
           <UserPlus size={48} className="pending-invites__empty-icon" />
           <p className="pending-invites__empty-title">No pending invites</p>
           <p className="pending-invites__empty-desc">
-            During match creation or session setup, you can type a new name and create a placeholder player on the spot. They&apos;ll appear here with an invite link to share.
+            Add a new player during match creation or session setup. They&apos;ll appear here so you can invite them to the app.
           </p>
         </div>
       ) : (
@@ -180,10 +180,10 @@ export default function PendingInvitesTab() {
                   variant="outline"
                   className="pending-invites__copy-btn"
                   onClick={() => handleShare(p)}
-                  title="Share invite link"
+                  title="Invite player to the app"
                 >
                   <Share2 size={14} />
-                  <span>Share</span>
+                  <span>Invite</span>
                 </Button>
                 <Button
                   variant="ghost"

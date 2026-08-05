@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable, Alert } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable, Alert } from 'react-native';
 import { hapticMedium } from '@/utils/haptics';
 
 interface MenuRowProps {
@@ -22,17 +23,17 @@ function MenuRow({ label, onPress, accessibilityLabel, danger = false }: MenuRow
       accessibilityLabel={accessibilityLabel ?? label}
       className="flex-row items-center justify-between py-md px-lg bg-surface border-b border-divider active:opacity-70"
     >
-      <Text
+      <AppText
         className={`text-sm font-medium ${
           danger ? 'text-danger' : 'text-default'
         }`}
       >
         {label}
-      </Text>
+      </AppText>
       {!danger && (
-        <Text className="text-muted text-lg leading-none">
+        <AppText className="text-muted text-lg leading-none">
           {'›'}
-        </Text>
+        </AppText>
       )}
     </Pressable>
   );
@@ -74,18 +75,18 @@ export default function ProfileMenuSection({
 
   return (
     <View className="mt-lg mb-xxxl">
-      <Text className="text-2xs uppercase tracking-wide font-semibold text-muted px-lg mb-xs">
+      <AppText className="text-2xs uppercase tracking-wide font-semibold text-muted px-lg mb-xs">
         Activity
-      </Text>
+      </AppText>
       <View className="rounded-xl overflow-hidden mx-lg mb-lg">
         <MenuRow label="My Stats" onPress={onMyStatsPress} accessibilityLabel="My Stats" />
         <MenuRow label="My Games" onPress={onMyGamesPress} accessibilityLabel="My Games" />
         <MenuRow label="Friends" onPress={onFriendsPress} accessibilityLabel="Friends" />
       </View>
 
-      <Text className="text-2xs uppercase tracking-wide font-semibold text-muted px-lg mb-xs">
+      <AppText className="text-2xs uppercase tracking-wide font-semibold text-muted px-lg mb-xs">
         Account
-      </Text>
+      </AppText>
       <View className="rounded-xl overflow-hidden mx-lg">
         <MenuRow label="Settings" onPress={onSettingsPress} accessibilityLabel="Settings" />
         <MenuRow

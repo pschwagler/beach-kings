@@ -81,6 +81,9 @@ jest.mock('@/theme/usePaletteColors', () => ({
     textMuted: '#596568',
     textTertiary: '#697577',
     textInverse: '#fffdf8',
+    onBrandTeal: '#fffdf8',
+    onBrandGold: '#182326',
+    onDanger: '#fffdf8',
   }),
 }));
 
@@ -103,11 +106,6 @@ jest.mock('expo-status-bar', () => {
     ),
   };
 });
-
-// expo-font
-jest.mock('expo-font', () => ({
-  loadAsync: jest.fn().mockResolvedValue(undefined),
-}));
 
 // ThemeContext
 const mockUseTheme = jest.fn(() => ({
@@ -148,7 +146,9 @@ jest.mock('@/lib/oauth', () => ({
   __esModule: true,
   useGoogleSignIn: () => ({ promptGoogle: jest.fn() }),
   signInWithApple: jest.fn().mockResolvedValue('apple-id-token'),
-  isAppleSignInAvailable: jest.fn().mockResolvedValue(false),
+  // Route assertions do not exercise provider availability; keep the probe
+  // pending so it cannot schedule an unrelated post-render state update.
+  isAppleSignInAvailable: jest.fn(() => new Promise(() => {})),
   OAuthCancelledError: class OAuthCancelledError extends Error {},
   OAuthNotConfiguredError: class OAuthNotConfiguredError extends Error {},
 }));
@@ -192,6 +192,7 @@ jest.mock('@beach-kings/shared/tokens', () => ({
     bgNav: '#ffffff', bgTabbar: '#ffffff', textDefault: '#1a1a1a', textMuted: '#666666',
     textTertiary: '#999999', textInverse: '#ffffff', borderStrong: '#d1d5db',
     borderDivider: '#e5e7eb', brandTeal: '#1a3a4a', brandGold: '#c8a84b',
+    onBrandTeal: '#ffffff', onBrandGold: '#1a1a1a', onDanger: '#ffffff',
     success: '#16a34a', danger: '#dc2626', warning: '#d97706', info: '#2563eb',
     successTint: '#dcfce7', dangerTint: '#fee2e2', warningTint: '#fef3c7', infoTint: '#dbeafe',
   },
@@ -200,6 +201,7 @@ jest.mock('@beach-kings/shared/tokens', () => ({
     bgNav: '#161b22', bgTabbar: '#161b22', textDefault: '#e6edf3', textMuted: '#8b949e',
     textTertiary: '#6e7681', textInverse: '#1a1a1a', borderStrong: '#30363d',
     borderDivider: '#21262d', brandTeal: '#14b8a6', brandGold: '#d4a843',
+    onBrandTeal: '#0d1117', onBrandGold: '#0d1117', onDanger: '#0d1117',
     success: '#4ade80', danger: '#f87171', warning: '#fbbf24', info: '#60a5fa',
     successTint: '#14532d', dangerTint: '#7f1d1d', warningTint: '#78350f', infoTint: '#1e3a5f',
   },
@@ -318,13 +320,9 @@ jest.mock('@/components/home/SectionHeader', () => {
     default: ({ title }: { title?: string }) => <Text>{title}</Text>,
   };
 });
-jest.mock('@/components/home/ProfileBanner', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/home/PendingInvitesBanner', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/home/SessionCard', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/RecentGamesScroll', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/LeaguesScroll', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/CourtsScroll', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/home/NewUserWelcome', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/DashboardSkeleton', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -336,6 +334,9 @@ jest.mock('@/components/ui', () => {
   const React = require('react');
   const { Pressable, Text, TextInput, View } = require('react-native');
   return {
+    AppText: ({ children, ...props }: { children?: React.ReactNode }) => (
+      <Text {...props}>{children}</Text>
+    ),
     Button: ({ title, onPress, disabled }: { title: string; onPress: () => void; disabled?: boolean }) => (
       <Pressable testID={`button-${title}`} onPress={onPress} disabled={disabled ?? false}>
         <Text>{title}</Text>
@@ -374,11 +375,23 @@ jest.mock('@/components/ui', () => {
     PullToRefresh: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
     TabView: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
     SearchBar: () => <View />,
-    FilterChips: () => <View />,
     Toast: () => <View />,
     ListItem: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
     ProgressBar: () => <View />,
     FAB: () => <View />,
+  };
+});
+
+// Components that import AppText from its leaf module need the same lightweight
+// host-text behavior as the UI barrel above.
+jest.mock('@/components/ui/AppText', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ children, ...props }: { children?: React.ReactNode }) => (
+      <Text {...props}>{children}</Text>
+    ),
   };
 });
 
@@ -429,10 +442,11 @@ jest.mock('react-native-svg', () => {
   const { View } = require('react-native');
   const Svg = ({ children }: { children?: React.ReactNode }) => <View>{children}</View>;
   const Path = () => null;
+  const Line = () => null;
   const Circle = () => null;
   const Polygon = () => null;
   const G = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
-  return { __esModule: true, default: Svg, Svg, Path, Circle, Polygon, G };
+  return { __esModule: true, default: Svg, Svg, Path, Line, Circle, Polygon, G };
 });
 
 // ---------------------------------------------------------------------------
@@ -529,17 +543,11 @@ describe('app/(stack)/_layout — StackLayout', () => {
 describe('app/_layout — RootLayout', () => {
   let RootLayout: React.ComponentType;
   let SplashScreen: { preventAutoHideAsync: jest.Mock; hideAsync: jest.Mock };
-  let FontModule: { loadAsync: jest.Mock };
 
   beforeAll(() => {
     SplashScreen = require('expo-router').SplashScreen;
-    FontModule = require('expo-font');
     // Import AFTER mocks are in place
     RootLayout = require('../../app/_layout').default;
-  });
-
-  beforeEach(() => {
-    FontModule.loadAsync.mockResolvedValue(undefined);
   });
 
   it('calls SplashScreen.preventAutoHideAsync at module load', () => {
@@ -547,67 +555,35 @@ describe('app/_layout — RootLayout', () => {
     expect(SplashScreen.preventAutoHideAsync).toHaveBeenCalled();
   });
 
-  it('calls Font.loadAsync on mount and renders children once fonts are loaded', async () => {
-    let resolveFont: () => void;
-    FontModule.loadAsync.mockReturnValue(
-      new Promise<void>((res) => { resolveFont = res; }),
-    );
-
-    const { queryByTestId } = render(<RootLayout />);
-
-    // Before fonts load, the component returns null
-    expect(queryByTestId('stack')).toBeNull();
-
-    await act(async () => {
-      resolveFont!();
-    });
-
-    expect(FontModule.loadAsync).toHaveBeenCalledWith({});
+  it('renders the root Stack immediately because fonts are embedded', () => {
+    const { getByTestId } = render(<RootLayout />);
+    expect(getByTestId('stack')).toBeTruthy();
   });
 
-  it('renders the root Stack after fonts load successfully', async () => {
-    FontModule.loadAsync.mockResolvedValue(undefined);
-    const { findByTestId } = render(<RootLayout />);
-    expect(await findByTestId('stack')).toBeTruthy();
-  });
-
-  it('renders the root Stack even when Font.loadAsync rejects', async () => {
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    FontModule.loadAsync.mockRejectedValue(new Error('font load failed'));
-    const { findByTestId } = render(<RootLayout />);
-    expect(await findByTestId('stack')).toBeTruthy();
-    spy.mockRestore();
-  });
-
-  it('registers the four top-level route groups on the root Stack', async () => {
-    FontModule.loadAsync.mockResolvedValue(undefined);
-    const { findByTestId, getAllByTestId } = render(<RootLayout />);
-    await findByTestId('stack');
+  it('registers the four top-level route groups on the root Stack', () => {
+    const { getAllByTestId } = render(<RootLayout />);
     // index, (auth), (tabs), (stack)
     expect(getAllByTestId('stack-screen')).toHaveLength(4);
   });
 
-  it('calls SplashScreen.hideAsync after fonts load', async () => {
+  it('calls SplashScreen.hideAsync after navigation mounts', async () => {
     SplashScreen.hideAsync.mockClear();
-    FontModule.loadAsync.mockResolvedValue(undefined);
     render(<RootLayout />);
     await waitFor(() => {
       expect(SplashScreen.hideAsync).toHaveBeenCalled();
     });
   });
 
-  it('renders StatusBar with style="dark" in light mode', async () => {
+  it('renders StatusBar with style="dark" in light mode', () => {
     mockUseTheme.mockReturnValue({ isDark: false, colorScheme: 'light', themeMode: 'light', setThemeMode: jest.fn() });
-    FontModule.loadAsync.mockResolvedValue(undefined);
-    const { findByTestId } = render(<RootLayout />);
-    expect(await findByTestId('status-bar-dark')).toBeTruthy();
+    const { getByTestId } = render(<RootLayout />);
+    expect(getByTestId('status-bar-dark')).toBeTruthy();
   });
 
-  it('renders StatusBar with style="light" in dark mode', async () => {
+  it('renders StatusBar with style="light" in dark mode', () => {
     mockUseTheme.mockReturnValue({ isDark: true, colorScheme: 'dark', themeMode: 'dark', setThemeMode: jest.fn() });
-    FontModule.loadAsync.mockResolvedValue(undefined);
-    const { findByTestId } = render(<RootLayout />);
-    expect(await findByTestId('status-bar-light')).toBeTruthy();
+    const { getByTestId } = render(<RootLayout />);
+    expect(getByTestId('status-bar-light')).toBeTruthy();
   });
 });
 
@@ -1043,8 +1019,8 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
     render(<TabLayout />);
     const renderer = getTabIconRenderer('social');
     expect(renderer).not.toBeNull();
-    const { getByText } = render(renderer!({ focused: false }) as React.ReactElement);
-    expect(getByText('5')).toBeTruthy();
+    const { getByTestId } = render(renderer!({ focused: false }) as React.ReactElement);
+    expect(getByTestId('social-unread-badge').props.children.props.children).toBe(5);
   });
 
   it('TabIcon — badge count > 99 shows "99+"', () => {
@@ -1063,8 +1039,8 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
     render(<TabLayout />);
     const renderer = getTabIconRenderer('social');
     expect(renderer).not.toBeNull();
-    const { getByText } = render(renderer!({ focused: false }) as React.ReactElement);
-    expect(getByText('99+')).toBeTruthy();
+    const { getByTestId } = render(renderer!({ focused: false }) as React.ReactElement);
+    expect(getByTestId('social-unread-badge').props.children.props.children).toBe('99+');
   });
 
   it('TabIcon — badge with count 0 does not render badge text', () => {
@@ -1072,7 +1048,7 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
     render(<TabLayout />);
     const renderer = getTabIconRenderer('social');
     expect(renderer).not.toBeNull();
-    const { queryByText } = render(renderer!({ focused: false }) as React.ReactElement);
-    expect(queryByText('0')).toBeNull();
+    const { queryByTestId } = render(renderer!({ focused: false }) as React.ReactElement);
+    expect(queryByTestId('social-unread-badge')).toBeNull();
   });
 });

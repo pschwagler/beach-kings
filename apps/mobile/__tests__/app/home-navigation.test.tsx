@@ -107,13 +107,9 @@ jest.mock('@/components/home/HomeHeader', () => {
   return { __esModule: true, default: () => <Text testID="home-header">Beach League</Text> };
 });
 jest.mock('@/components/home/QuickStatsRow', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/home/ProfileBanner', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/home/PendingInvitesBanner', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/home/SessionCard', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/RecentGamesScroll', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/LeaguesScroll', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/CourtsScroll', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/home/NewUserWelcome', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/DashboardSkeleton', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -134,7 +130,59 @@ jest.mock('react-native-safe-area-context', () => {
 
 // ---------------------------------------------------------------------------
 
-import HomeScreen from '../../app/(tabs)/home';
+import HomeScreen, { resolveHomeLeadState } from '../../app/(tabs)/home';
+
+describe('resolveHomeLeadState', () => {
+  const profileDefaults = {
+    profileComplete: false,
+    profilePercent: 50,
+  };
+  const request = { sender_name: 'Avery' } as any;
+  const session = { id: 8, name: 'Sunset Session' } as any;
+
+  it('keeps cached active session first and marks refresh failure as stale', () => {
+    expect(resolveHomeLeadState({
+      ...profileDefaults,
+      activeSession: session,
+      activeSessionError: true,
+      friendRequests: [request],
+    })).toEqual({ kind: 'active-session', session, refreshFailed: true });
+  });
+
+  it('shows retry before lower-priority actions when session absence is unknown', () => {
+    expect(resolveHomeLeadState({
+      ...profileDefaults,
+      activeSession: null,
+      activeSessionError: true,
+      friendRequests: [request],
+    })).toEqual({ kind: 'active-session-error' });
+  });
+
+  it('prioritizes incoming friend requests over profile completion', () => {
+    expect(resolveHomeLeadState({
+      ...profileDefaults,
+      activeSession: null,
+      activeSessionError: false,
+      friendRequests: [request],
+    })).toEqual({ kind: 'friend-request', count: 1, senderName: 'Avery' });
+  });
+
+  it('uses profile completion then Record a Game as the final fallbacks', () => {
+    expect(resolveHomeLeadState({
+      ...profileDefaults,
+      activeSession: null,
+      activeSessionError: false,
+      friendRequests: [],
+    })).toEqual({ kind: 'profile', percent: 50 });
+    expect(resolveHomeLeadState({
+      ...profileDefaults,
+      profileComplete: true,
+      activeSession: null,
+      activeSessionError: false,
+      friendRequests: [],
+    })).toEqual({ kind: 'record-game' });
+  });
+});
 
 describe('HomeScreen navigation', () => {
   beforeEach(() => {

@@ -6,7 +6,8 @@
  */
 
 import React from 'react';
-import { ScrollView, View, Text } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { ScrollView, View } from 'react-native';
 import type { MyStatsTrophy } from '@beach-kings/shared';
 
 function placeMedal(place: number): string {
@@ -38,18 +39,18 @@ function TrophyCard({ trophy }: TrophyCardProps): React.ReactNode {
       className={`min-w-[100px] rounded-[10px] p-[10px] items-center ${trophyBg(trophy.place)}`}
     >
       {/* Trophy icon: medal emoji rendered as text for simplicity */}
-      <Text className="text-[22px] mb-[3px]">
+      <AppText className="text-[22px] mb-[3px]">
         {trophy.place === 1 ? '\uD83E\uDD47' : trophy.place === 2 ? '\uD83E\uDD48' : '\uD83E\uDD49'}
-      </Text>
-      <Text className={`text-[10px] font-bold ${trophyPlaceColor(trophy.place)}`}>
+      </AppText>
+      <AppText className={`text-[10px] font-bold ${trophyPlaceColor(trophy.place)}`}>
         {placeMedal(trophy.place)} Place
-      </Text>
-      <Text className="text-[10px] text-muted mt-[2px] text-center leading-[1.3]">
+      </AppText>
+      <AppText className="text-[10px] text-muted mt-[2px] text-center leading-[1.3]">
         {trophy.league_name}
-      </Text>
-      <Text className="text-[9px] text-muted text-center leading-[1.3]">
+      </AppText>
+      <AppText className="text-[9px] text-muted text-center leading-[1.3]">
         {trophy.season_name}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -61,9 +62,9 @@ interface TrophyRowProps {
 export default function TrophyRow({ trophies }: TrophyRowProps): React.ReactNode {
   if (trophies.length === 0) {
     return (
-      <Text className="text-[13px] text-muted italic">
+      <AppText className="text-[13px] text-muted italic">
         No trophies yet — keep playing!
-      </Text>
+      </AppText>
     );
   }
 

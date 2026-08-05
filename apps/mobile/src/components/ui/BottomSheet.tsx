@@ -12,6 +12,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface BottomSheetProps {
   readonly visible: boolean;
@@ -29,21 +30,22 @@ export default function BottomSheet({
   children,
   className = '',
 }: BottomSheetProps): React.ReactNode {
+  const reduceMotion = useReducedMotion();
   const translateY = useSharedValue(600);
 
   useEffect(() => {
     if (visible) {
       translateY.value = withTiming(0, {
-        duration: SLIDE_DURATION,
+        duration: reduceMotion ? 0 : SLIDE_DURATION,
         easing: Easing.out(Easing.cubic),
       });
     } else {
       translateY.value = withTiming(600, {
-        duration: SLIDE_DURATION,
+        duration: reduceMotion ? 0 : SLIDE_DURATION,
         easing: Easing.in(Easing.cubic),
       });
     }
-  }, [visible, translateY]);
+  }, [reduceMotion, translateY, visible]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -71,8 +73,7 @@ export default function BottomSheet({
       >
         {/* Handle bar */}
         <View className="items-center pt-sm pb-xs">
-          {/* eslint-disable-next-line no-restricted-syntax -- drag handle: no semantic token for this gray pair */}
-          <View className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+          <View className="w-10 h-1 rounded-full bg-divider" />
         </View>
 
         {children}

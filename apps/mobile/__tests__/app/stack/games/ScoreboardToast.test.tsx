@@ -10,7 +10,29 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import {
+  render as renderTestingLibrary,
+  screen,
+  fireEvent,
+  act,
+} from '@testing-library/react-native';
+import ThemeProvider from '@/contexts/ThemeContext';
+
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+  }),
+  vars: (values: object) => values,
+}));
+
+jest.mock('@/hooks/useReducedMotion', () => ({
+  useReducedMotion: () => false,
+}));
+
+function render(ui: React.ReactElement) {
+  return renderTestingLibrary(<ThemeProvider>{ui}</ThemeProvider>);
+}
 
 // ---------------------------------------------------------------------------
 // Mocks — reanimated (synchronous stubs so withTiming/withDelay/runOnJS

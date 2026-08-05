@@ -29,10 +29,23 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/theme/usePaletteColors', () => ({
-  usePaletteColors: () => ({ brandTeal: '#2a7d9c' }),
+  usePaletteColors: () => ({
+    brandTeal: '#2a7d9c',
+    onBrandTeal: '#fff',
+    textInverse: '#fff',
+    textDefault: '#111',
+    textTertiary: '#777',
+  }),
+}));
+jest.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({ isDark: false }),
 }));
 
 const mockLogout = jest.fn();
+const mockShowToast = jest.fn();
+jest.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     logout: mockLogout,
@@ -44,10 +57,15 @@ jest.mock('@/contexts/AuthContext', () => ({
 
 const mockGetCurrentUserPlayer = jest.fn();
 const mockGetFriendsPage = jest.fn();
+const mockUpdatePlayerProfile = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
     getFriendsPage: (...args: unknown[]) => mockGetFriendsPage(...args),
+    updatePlayerProfile: (...args: unknown[]) => mockUpdatePlayerProfile(...args),
+    uploadAvatar: jest.fn(),
+    deleteAvatar: jest.fn(),
+    getLocations: jest.fn(),
   },
 }));
 
@@ -134,6 +152,7 @@ describe('ProfileScreen', () => {
     });
     mockGetCurrentUserPlayer.mockResolvedValue(MOCK_PLAYER);
     mockGetFriendsPage.mockResolvedValue(MOCK_FRIENDS_RESPONSE);
+    mockUpdatePlayerProfile.mockImplementation(async (updates) => updates);
   });
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -150,8 +169,8 @@ describe('ProfileScreen', () => {
   // ── Data display ───────────────────────────────────────────────────────────
 
   it('shows player name after data loads', async () => {
-    const { findByText } = render(<ProfileScreen />);
-    expect(await findByText('Patrick Schwagler')).toBeTruthy();
+    const { findAllByText } = render(<ProfileScreen />);
+    expect((await findAllByText('Patrick Schwagler')).length).toBeGreaterThan(0);
   });
 
   it('shows stats bar with games, rating, wins/losses, win rate', async () => {
@@ -198,7 +217,7 @@ describe('ProfileScreen', () => {
     expect(elements.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('presents profile details as a read-only list instead of form fields', async () => {
+  it('presents profile details as compact tappable rows instead of permanent inputs', async () => {
     const { findByTestId } = render(<ProfileScreen />);
     const infoList = await findByTestId('profile-info-list');
     const nicknameRow = await findByTestId('profile-info-nickname');
@@ -206,6 +225,7 @@ describe('ProfileScreen', () => {
     expect(infoList.props.className).toContain('bg-surface');
     expect(nicknameRow.props.className).toContain('border-b');
     expect(nicknameRow.props.className).not.toContain('rounded');
+    expect(nicknameRow.props.accessibilityRole).toBe('button');
   });
 
   it('uses neutral copy for optional details that have not been provided', async () => {
@@ -216,9 +236,9 @@ describe('ProfileScreen', () => {
 
     const { findByTestId, queryByText } = render(<ProfileScreen />);
     expect(await findByTestId('profile-info-nickname')).toHaveTextContent(
-      'Not provided',
+      'Add nickname',
     );
-    expect(queryByText('Add a nickname')).toBeNull();
+    expect(queryByText('Not provided')).toBeNull();
   });
 
   it('normalizes preferred-side display formatting', async () => {
@@ -248,11 +268,11 @@ describe('ProfileScreen', () => {
 
   // ── Settings navigation ────────────────────────────────────────────────────
 
-  it('pressing Settings in top nav navigates to settings', async () => {
-    const { findByLabelText } = render(<ProfileScreen />);
-    const settingsBtn = await findByLabelText('Settings');
-    fireEvent.press(settingsBtn);
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/settings');
+  it('does not show a Settings or Edit action in the top nav', async () => {
+    const { findAllByText, getAllByLabelText, queryByLabelText } = render(<ProfileScreen />);
+    await findAllByText('Patrick Schwagler');
+    expect(getAllByLabelText('Settings')).toHaveLength(1);
+    expect(queryByLabelText('Edit Profile')).toBeNull();
   });
 
   it('pressing Settings in menu section navigates to settings', async () => {
@@ -277,10 +297,35 @@ describe('ProfileScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(stack)/my-games');
   });
 
-  it('pressing the profile photo opens the real profile editor', async () => {
-    const { findByLabelText } = render(<ProfileScreen />);
-    fireEvent.press(await findByLabelText('Edit profile picture'));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/edit-profile');
+  it('pressing a profile value opens its focused editor without navigation', async () => {
+    const { findByTestId } = render(<ProfileScreen />);
+    fireEvent.press(await findByTestId('profile-info-nickname'));
+    expect(await findByTestId('profile-editor-nickname')).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalledWith('/(stack)/edit-profile');
+  });
+
+  it('saves only the field owned by the focused editor', async () => {
+    const { findByTestId } = render(<ProfileScreen />);
+    fireEvent.press(await findByTestId('profile-info-nickname'));
+    fireEvent.changeText(await findByTestId('profile-editor-nickname'), '  Ace  ');
+    fireEvent.press(await findByTestId('profile-editor-nickname-save'));
+
+    await waitFor(() => {
+      expect(mockUpdatePlayerProfile).toHaveBeenCalledWith({ nickname: 'Ace' });
+    });
+    expect(mockShowToast).toHaveBeenCalledWith('Profile updated.', 'success');
+  });
+
+  it('asks before dismissing a dirty editor', async () => {
+    const { findByTestId, findByLabelText } = render(<ProfileScreen />);
+    fireEvent.press(await findByTestId('profile-info-height'));
+    fireEvent.changeText(await findByTestId('profile-editor-height'), '6 ft');
+    fireEvent.press(await findByLabelText('Cancel'));
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Discard changes?',
+      expect.stringContaining('unsaved'),
+      expect.any(Array),
+    );
   });
 
   it('pressing Friends opens the Friends subsection deterministically', async () => {
@@ -373,18 +418,18 @@ describe('ProfileScreen', () => {
       .mockRejectedValueOnce(new Error('fail'))
       .mockResolvedValueOnce(MOCK_FRIENDS_RESPONSE);
 
-    const { findByLabelText, findByText } = render(<ProfileScreen />);
+    const { findByLabelText, findAllByText } = render(<ProfileScreen />);
     const retryBtn = await findByLabelText('Retry loading profile');
     fireEvent.press(retryBtn);
 
-    expect(await findByText('Patrick Schwagler')).toBeTruthy();
+    expect((await findAllByText('Patrick Schwagler')).length).toBeGreaterThan(0);
   });
 
   // ── Pull-to-refresh ────────────────────────────────────────────────────────
 
   it('pull-to-refresh triggers a refetch', async () => {
-    const { findByText, getByTestId } = render(<ProfileScreen />);
-    await findByText('Patrick Schwagler');
+    const { findAllByText, getByTestId } = render(<ProfileScreen />);
+    await findAllByText('Patrick Schwagler');
 
     // Clear previous calls
     mockGetCurrentUserPlayer.mockClear();

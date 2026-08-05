@@ -1,8 +1,8 @@
 /**
  * FriendRequestCard — an incoming friend request in the Social hub's Friends tab.
  *
- * A highlighted (info-tint) card with the sender's avatar, name, a meta line,
- * and stacked Accept / Decline actions. Tapping the sender's avatar or name
+ * A compact list row with the sender's avatar, name, a meta line, and
+ * Accept / Decline actions. Tapping the sender's avatar or name
  * opens their profile so it can be reviewed before responding. Accept/decline
  * are handled optimistically upstream in {@link useFriends}. The meta line
  * matches the wireframe's
@@ -14,11 +14,13 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight } from '@/utils/haptics';
 import { pluralize } from '@/lib/formatters';
 import type { FriendRequest } from '@beach-kings/shared';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface FriendRequestCardProps {
   readonly request: FriendRequest;
@@ -45,6 +47,7 @@ export default function FriendRequestCard({
   onDecline,
   onPress,
 }: FriendRequestCardProps): React.ReactNode {
+  const palette = usePaletteColors();
   const handleAccept = useCallback(
     () => onAccept(request.id),
     [onAccept, request.id],
@@ -61,7 +64,7 @@ export default function FriendRequestCard({
   return (
     <View
       testID={`friend-request-card-${request.id}`}
-      className="flex-row gap-3 px-4 py-[14px] bg-info-tint border-b border-divider"
+      className="flex-row gap-md px-lg py-md bg-surface border-b border-divider"
     >
       <Pressable
         testID={`friend-request-sender-${request.id}`}
@@ -84,34 +87,40 @@ export default function FriendRequestCard({
           accessibilityLabel={`View profile of ${request.sender_name}`}
           className="active:opacity-70"
         >
-          <Text
-            className="text-[14px] font-semibold text-default"
+          <AppText
+            className="text-subhead font-semibold text-default"
             numberOfLines={1}
           >
             {request.sender_name}
-          </Text>
-          <Text className="text-[12px] text-muted mt-[2px]" numberOfLines={1}>
+          </AppText>
+          <AppText className="text-caption text-muted mt-xxs" numberOfLines={1}>
             {requestMeta(request)}
-          </Text>
+          </AppText>
         </Pressable>
-        <View className="flex-row gap-2 mt-2">
+        <View className="flex-row items-center gap-xs mt-xs">
           <Pressable
             testID={`accept-request-btn-${request.id}`}
             onPress={handleAccept}
             accessibilityRole="button"
             accessibilityLabel={`Accept friend request from ${request.sender_name}`}
-            className="px-[18px] py-[10px] rounded-[8px] bg-brand-teal min-h-[44px] justify-center active:opacity-80"
+            className="min-h-touch justify-center rounded-button bg-brand-teal px-md active:opacity-pressed"
+            style={{ backgroundColor: palette.brandTeal }}
           >
-            <Text className="text-[12px] font-bold text-white">Accept</Text>
+            <AppText
+              className="text-footnote font-semibold text-on-brand-teal"
+              style={{ color: palette.onBrandTeal }}
+            >
+              Accept
+            </AppText>
           </Pressable>
           <Pressable
             testID={`decline-request-btn-${request.id}`}
             onPress={handleDecline}
             accessibilityRole="button"
             accessibilityLabel={`Decline friend request from ${request.sender_name}`}
-            className="px-[18px] py-[10px] rounded-[8px] bg-elevated min-h-[44px] justify-center active:opacity-70"
+            className="min-h-touch justify-center rounded-button px-md active:bg-elevated"
           >
-            <Text className="text-[12px] font-bold text-muted">Decline</Text>
+            <AppText className="text-footnote font-medium text-muted">Decline</AppText>
           </Pressable>
         </View>
       </View>

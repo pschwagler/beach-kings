@@ -5,10 +5,38 @@
  */
 
 import React, { ReactNode } from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangleIcon } from '@/components/ui/icons';
 import Button from '@/components/ui/Button';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+
+function DefaultErrorFallback({
+  error,
+  onReset,
+}: {
+  readonly error: Error | null;
+  readonly onReset: () => void;
+}): React.ReactNode {
+  const palette = usePaletteColors();
+  return (
+    <SafeAreaView style={{ flex: 1 }} className="bg-surface">
+      <View className="flex-1 items-center justify-center px-xl gap-lg">
+        <AlertTriangleIcon size={48} color={palette.warning} />
+        <AppText className="text-xl font-semibold text-default text-center">
+          Something went wrong
+        </AppText>
+        {__DEV__ && error !== null && (
+          <AppText className="text-sm text-danger text-center">
+            {error.message}
+          </AppText>
+        )}
+        <Button title="Try Again" onPress={onReset} variant="primary" />
+      </View>
+    </SafeAreaView>
+  );
+}
 
 interface ErrorBoundaryProps {
   readonly children: ReactNode;
@@ -20,7 +48,10 @@ interface ErrorBoundaryState {
   readonly error: Error | null;
 }
 
-export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export default class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -53,21 +84,6 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
       return fallback;
     }
 
-    return (
-      <SafeAreaView style={{ flex: 1 }} className="bg-surface">
-        <View className="flex-1 items-center justify-center px-xl gap-lg">
-          <AlertTriangleIcon size={48} color="#f59e0b" />
-          <Text className="text-xl font-semibold text-default text-center">
-            Something went wrong
-          </Text>
-          {__DEV__ && error !== null && (
-            <Text className="text-sm text-danger text-center font-mono">
-              {error.message}
-            </Text>
-          )}
-          <Button title="Try Again" onPress={this.handleReset} variant="primary" />
-        </View>
-      </SafeAreaView>
-    );
+    return <DefaultErrorFallback error={error} onReset={this.handleReset} />;
   }
 }

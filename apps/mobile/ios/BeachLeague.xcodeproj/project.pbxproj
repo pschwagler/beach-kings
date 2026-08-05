@@ -9,24 +9,36 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		1A33E04F93D5BA7732892E4D /* libPods-BeachLeague.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8281135ECA9F7EEF0EEA380F /* libPods-BeachLeague.a */; };
+		32FF570EA2564CEFA4C6DE7A /* BarlowCondensed_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 242F4D3BF1314E1099A94822 /* BarlowCondensed_700Bold.ttf */; };
+		39EE5BAE80D44958AE822245 /* Barlow_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 158EBA29071541B4A13416CB /* Barlow_600SemiBold.ttf */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4E2D7F28A2116B821C476DE1 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2DCF2A4A66AE0AF5062FB86 /* ExpoModulesProvider.swift */; };
+		6841425D6FB54E2E9FC35C03 /* BarlowCondensed_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 14E08188A7234B9E93E624BF /* BarlowCondensed_600SemiBold.ttf */; };
+		9BCC966A0A0E45959D510940 /* Barlow_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = ACF2A8B134694BA99527F29A /* Barlow_700Bold.ttf */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		CB300B231AACE99CCD37379F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BC46DBD87142C37953F51D1E /* PrivacyInfo.xcprivacy */; };
+		D622B83A5C594FB9A8F9CA90 /* Barlow_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DE525DE13956456E9E4AF492 /* Barlow_400Regular.ttf */; };
+		DE538F8010DD46F1A78141DB /* Barlow_500Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0EDB55CB89984C4399A51642 /* Barlow_500Medium.ttf */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0EDB55CB89984C4399A51642 /* Barlow_500Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Barlow_500Medium.ttf; path = "../../../node_modules/@expo-google-fonts/barlow/500Medium/Barlow_500Medium.ttf"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* BeachLeague.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeachLeague.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = BeachLeague/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = BeachLeague/Info.plist; sourceTree = "<group>"; };
+		14E08188A7234B9E93E624BF /* BarlowCondensed_600SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BarlowCondensed_600SemiBold.ttf; path = "../../../node_modules/@expo-google-fonts/barlow-condensed/600SemiBold/BarlowCondensed_600SemiBold.ttf"; sourceTree = "<group>"; };
+		158EBA29071541B4A13416CB /* Barlow_600SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Barlow_600SemiBold.ttf; path = "../../../node_modules/@expo-google-fonts/barlow/600SemiBold/Barlow_600SemiBold.ttf"; sourceTree = "<group>"; };
+		242F4D3BF1314E1099A94822 /* BarlowCondensed_700Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BarlowCondensed_700Bold.ttf; path = "../../../node_modules/@expo-google-fonts/barlow-condensed/700Bold/BarlowCondensed_700Bold.ttf"; sourceTree = "<group>"; };
 		4279132C4790143909BE1B6B /* Pods-BeachLeague.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BeachLeague.debug.xcconfig"; path = "Target Support Files/Pods-BeachLeague/Pods-BeachLeague.debug.xcconfig"; sourceTree = "<group>"; };
 		749B5A74B6E649CE0D0D3B8E /* Pods-BeachLeague.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-BeachLeague.release.xcconfig"; path = "Target Support Files/Pods-BeachLeague/Pods-BeachLeague.release.xcconfig"; sourceTree = "<group>"; };
 		8281135ECA9F7EEF0EEA380F /* libPods-BeachLeague.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-BeachLeague.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = BeachLeague/SplashScreen.storyboard; sourceTree = "<group>"; };
+		ACF2A8B134694BA99527F29A /* Barlow_700Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Barlow_700Bold.ttf; path = "../../../node_modules/@expo-google-fonts/barlow/700Bold/Barlow_700Bold.ttf"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		BC46DBD87142C37953F51D1E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = BeachLeague/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C2DCF2A4A66AE0AF5062FB86 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-BeachLeague/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		DE525DE13956456E9E4AF492 /* Barlow_400Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Barlow_400Regular.ttf; path = "../../../node_modules/@expo-google-fonts/barlow/400Regular/Barlow_400Regular.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = BeachLeague/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* BeachLeague-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "BeachLeague-Bridging-Header.h"; path = "BeachLeague/BeachLeague-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -91,6 +103,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				9759958DC83B5296A2150327 /* Pods */,
 				9E7CABE24EE879749DD0F6A6 /* ExpoModulesProviders */,
+				EE9ED1EC73054447B513F520 /* Resources */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -130,6 +143,20 @@
 			);
 			name = Supporting;
 			path = BeachLeague/Supporting;
+			sourceTree = "<group>";
+		};
+		EE9ED1EC73054447B513F520 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				DE525DE13956456E9E4AF492 /* Barlow_400Regular.ttf */,
+				0EDB55CB89984C4399A51642 /* Barlow_500Medium.ttf */,
+				158EBA29071541B4A13416CB /* Barlow_600SemiBold.ttf */,
+				ACF2A8B134694BA99527F29A /* Barlow_700Bold.ttf */,
+				14E08188A7234B9E93E624BF /* BarlowCondensed_600SemiBold.ttf */,
+				242F4D3BF1314E1099A94822 /* BarlowCondensed_700Bold.ttf */,
+			);
+			name = Resources;
+			path = "";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -197,6 +224,12 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				CB300B231AACE99CCD37379F /* PrivacyInfo.xcprivacy in Resources */,
+				D622B83A5C594FB9A8F9CA90 /* Barlow_400Regular.ttf in Resources */,
+				DE538F8010DD46F1A78141DB /* Barlow_500Medium.ttf in Resources */,
+				39EE5BAE80D44958AE822245 /* Barlow_600SemiBold.ttf in Resources */,
+				9BCC966A0A0E45959D510940 /* Barlow_700Bold.ttf in Resources */,
+				6841425D6FB54E2E9FC35C03 /* BarlowCondensed_600SemiBold.ttf in Resources */,
+				32FF570EA2564CEFA4C6DE7A /* BarlowCondensed_700Bold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -259,6 +292,8 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/SDWebImage/SDWebImage.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-launcher/EXDevLauncher.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-menu/EXDevMenu.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/react-native-maps/ReactNativeMapsPrivacy.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
@@ -273,6 +308,8 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SDWebImage.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevLauncher.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevMenu.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ReactNativeMapsPrivacy.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -360,7 +397,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -372,7 +409,7 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "BeachLeague/BeachLeague-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -391,7 +428,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -402,7 +439,7 @@
 				PRODUCT_NAME = BeachLeague;
 				SWIFT_OBJC_BRIDGING_HEADER = "BeachLeague/BeachLeague-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;

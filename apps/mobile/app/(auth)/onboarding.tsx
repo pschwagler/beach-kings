@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   Pressable,
   Alert,
   ScrollView,
@@ -9,6 +8,7 @@ import {
   KeyboardAvoidingView,
   type TextInput,
 } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
@@ -35,9 +35,7 @@ import {
   birthdayDisplayToIso,
   type OnboardingFormValues,
 } from '@/lib/validators';
-import {
-  useLocationAutoSelect,
-} from '@/lib/useLocationAutoSelect';
+import { useLocationAutoSelect } from '@/lib/useLocationAutoSelect';
 import type { PlayerGender, SkillLevel, Location } from '@beach-kings/shared';
 import {
   buildLocationSearchText,
@@ -46,12 +44,14 @@ import {
   SKILL_LEVEL_SELECT_OPTIONS,
 } from '@/components/screens/Profile/profileFormOptions';
 import { locationQueries } from '@/features/locations';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 type Screen = 'form' | 'success';
 
 export default function OnboardingScreen(): React.ReactNode {
   const { setProfileComplete } = useAuth();
   const router = useRouter();
+  const palette = usePaletteColors();
 
   const [screen, setScreen] = useState<Screen>('form');
   const locationsQuery = useQuery(locationQueries.all());
@@ -176,15 +176,15 @@ export default function OnboardingScreen(): React.ReactNode {
               testID="onboarding-success-check"
               className="w-16 h-16 rounded-full bg-success-tint items-center justify-center mb-md"
             >
-              <CheckIcon size={32} color="#15803d" />
+              <CheckIcon size={32} color={palette.success} />
             </View>
-            <Text className="text-title3 font-bold text-default text-center mb-xs">
+            <AppText className="text-title3 font-bold text-default text-center mb-xs">
               Profile Complete!
-            </Text>
-            <Text className="text-body text-muted text-center mb-lg">
+            </AppText>
+            <AppText className="text-body text-muted text-center mb-lg">
               You're all set. Find leagues near you, connect with players, and
               start tracking your games.
-            </Text>
+            </AppText>
             <View className="w-full">
               <Button title="Get Started" onPress={handleGetStarted} />
             </View>
@@ -208,20 +208,20 @@ export default function OnboardingScreen(): React.ReactNode {
             accessibilityLabel="Skip for now"
             hitSlop={8}
           >
-            <Text className="text-footnote font-semibold text-brand-gold">
+            <AppText className="text-footnote font-semibold text-accent">
               Skip for now
-            </Text>
+            </AppText>
           </Pressable>
           <View className="items-center mb-sm">
-            <CrownIcon size={36} color="#d4a843" />
+            <CrownIcon size={36} color={palette.brandGold} />
           </View>
-          <Text className="text-title3 font-bold text-default text-center mb-xs">
+          <AppText className="text-title3 font-bold text-default text-center mb-xs">
             Complete Your Profile
-          </Text>
-          <Text className="text-footnote text-muted text-center">
+          </AppText>
+          <AppText className="text-footnote text-muted text-center">
             Tell us about yourself so we can match you with the right leagues
             and players.
-          </Text>
+          </AppText>
         </View>
         <ScrollView
           className="flex-1"
@@ -229,9 +229,9 @@ export default function OnboardingScreen(): React.ReactNode {
           keyboardShouldPersistTaps="handled"
         >
           <View>
-            <Text className="text-caption font-medium text-red-500 mb-md">
+            <AppText className="text-caption font-medium text-danger mb-md">
               * Required fields
-            </Text>
+            </AppText>
 
             <FormLabel required>Gender</FormLabel>
             <Controller
@@ -277,7 +277,9 @@ export default function OnboardingScreen(): React.ReactNode {
               <View className="mb-sm">
                 <SectionError
                   message="Locations could not be loaded."
-                  onRetry={() => { void locationsQuery.refetch(); }}
+                  onRetry={() => {
+                    void locationsQuery.refetch();
+                  }}
                 />
               </View>
             ) : null}
@@ -312,9 +314,9 @@ export default function OnboardingScreen(): React.ReactNode {
             {errors.locationId ? (
               <FormError message={errors.locationId.message} />
             ) : (
-              <Text className="text-caption text-muted mt-xxs">
+              <AppText className="text-caption text-muted mt-xxs">
                 Closest region auto-selected from your city — change if needed
-              </Text>
+              </AppText>
             )}
 
             <FormLabel required className="mt-md">
@@ -339,9 +341,9 @@ export default function OnboardingScreen(): React.ReactNode {
 
             <View className="h-px bg-divider my-lg" />
 
-            <Text className="text-caption font-semibold text-muted uppercase tracking-wider mb-md">
+            <AppText className="text-caption font-semibold text-muted uppercase tracking-wider mb-md">
               Optional
-            </Text>
+            </AppText>
 
             <FormLabel>Nickname</FormLabel>
             <Controller

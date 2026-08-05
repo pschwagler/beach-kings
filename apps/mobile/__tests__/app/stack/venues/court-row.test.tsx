@@ -17,6 +17,9 @@ jest.mock('react-native-svg', () => {
 });
 
 jest.mock('@/utils/haptics', () => ({ hapticLight: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({ textTertiary: '#697577' }),
+}));
 
 import CourtRow from '@/components/screens/Venues/CourtRow';
 
@@ -62,6 +65,7 @@ describe('CourtRow rating', () => {
       />,
     );
     expect(screen.getByText('4.6 (42)')).toBeTruthy();
+    expect(screen.getByLabelText('4.6 out of 5 stars')).toBeTruthy();
     expect(screen.queryByText('No reviews yet')).toBeNull();
   });
 });

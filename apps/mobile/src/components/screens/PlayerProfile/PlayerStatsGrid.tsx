@@ -9,7 +9,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View } from 'react-native';
 import type { Player } from '@beach-kings/shared';
 import { formatWinRate } from '@/lib/formatters';
 import { normalizePlayerStats } from '@beach-kings/shared';
@@ -35,25 +36,25 @@ function StatCard({ value, label, hero = false, secondary = false, testID }: Sta
       testID={testID}
       className={`rounded-xl p-md items-center ${
         hero
-          ? 'bg-brand-teal/10 col-span-2 py-lg'
+          ? 'bg-info-tint col-span-2 py-lg'
           : 'bg-page'
       }`}
       style={hero ? { flex: 1 } : { width: '48%' }}
     >
-      <Text
+      <AppText
         className={`font-bold text-default ${
           hero ? 'text-[28px]' : secondary ? 'text-base text-muted' : 'text-[22px]'
         }`}
       >
         {value}
-      </Text>
-      <Text
+      </AppText>
+      <AppText
         className={`text-[11px] uppercase tracking-wider mt-[3px] ${
           secondary ? 'text-tertiary' : 'text-muted'
         }`}
       >
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -77,15 +78,15 @@ function PrivateStat({ label, hero = false, testID }: PrivateStatProps): React.R
     <View
       testID={testID}
       className={`rounded-xl p-md items-center justify-center ${
-        hero ? 'bg-brand-teal/10 py-lg' : 'bg-page'
+        hero ? 'bg-info-tint py-lg' : 'bg-page'
       }`}
       style={hero ? { flex: 1 } : { width: '48%' }}
     >
       <LockIcon size={hero ? 20 : 16} color={palette.textMuted} />
-      <Text className="text-muted text-[11px] mt-[3px]">Private</Text>
-      <Text className="text-[11px] uppercase tracking-wider mt-[3px] text-muted">
+      <AppText className="text-muted text-[11px] mt-[3px]">Private</AppText>
+      <AppText className="text-[11px] uppercase tracking-wider mt-[3px] text-muted">
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -108,9 +109,9 @@ export default function PlayerStatsGrid({ player }: PlayerStatsGridProps): React
       testID="player-stats-grid"
       className="bg-elevated px-lg pt-md pb-lg mt-sm"
     >
-      <Text className="text-[15px] font-bold text-default mb-md">
+      <AppText className="text-[15px] font-bold text-default mb-md">
         Stats
-      </Text>
+      </AppText>
 
       {/* Hero win rate card — replaced by a private placeholder when history is hidden. */}
       <View className="flex-row mb-sm">

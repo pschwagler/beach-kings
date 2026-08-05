@@ -13,6 +13,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -20,6 +21,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    bgElevated: '#e8e3d9',
+    brandTeal: '#146b72',
+  }),
+}));
 
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -124,6 +136,17 @@ jest.mock('@/components/ui/icons', () => {
 
 import CourtPhotosRoute from '../../../../app/(stack)/court/[id]/photos';
 
+function renderScreen() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <CourtPhotosRoute />
+    </QueryClientProvider>,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Mock data
 // ---------------------------------------------------------------------------
@@ -170,7 +193,7 @@ beforeEach(() => {
 describe('CourtPhotosScreen — loading state', () => {
   it('renders loading skeleton while data is fetching', async () => {
     mockGetCourtPhotos.mockReturnValue(new Promise(() => {}));
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-loading')).toBeTruthy();
     });
@@ -184,7 +207,7 @@ describe('CourtPhotosScreen — loading state', () => {
 describe('CourtPhotosScreen — error state', () => {
   it('renders error state when fetch fails', async () => {
     mockGetCourtPhotos.mockRejectedValue(new Error('Network error'));
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-error')).toBeTruthy();
     });
@@ -192,7 +215,7 @@ describe('CourtPhotosScreen — error state', () => {
 
   it('renders retry button', async () => {
     mockGetCourtPhotos.mockRejectedValue(new Error('Network error'));
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-retry-btn')).toBeTruthy();
     });
@@ -201,7 +224,7 @@ describe('CourtPhotosScreen — error state', () => {
   it('calls api again when retry is pressed', async () => {
     mockGetCourtPhotos.mockRejectedValueOnce(new Error('fail'));
     mockGetCourtPhotos.mockResolvedValue([]);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-retry-btn')).toBeTruthy();
     });
@@ -219,7 +242,7 @@ describe('CourtPhotosScreen — error state', () => {
 describe('CourtPhotosScreen — empty state', () => {
   it('renders empty state when no photos', async () => {
     mockGetCourtPhotos.mockResolvedValue([]);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-empty')).toBeTruthy();
     });
@@ -227,7 +250,7 @@ describe('CourtPhotosScreen — empty state', () => {
 
   it('renders Add Photo CTA in empty state', async () => {
     mockGetCourtPhotos.mockResolvedValue([]);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-add-first-btn')).toBeTruthy();
     });
@@ -241,7 +264,7 @@ describe('CourtPhotosScreen — empty state', () => {
 describe('CourtPhotosScreen — photos grid', () => {
   it('renders the screen container', async () => {
     mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-screen')).toBeTruthy();
     });
@@ -249,7 +272,7 @@ describe('CourtPhotosScreen — photos grid', () => {
 
   it('renders photo grid when photos are present', async () => {
     mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-grid')).toBeTruthy();
     });
@@ -257,7 +280,7 @@ describe('CourtPhotosScreen — photos grid', () => {
 
   it('renders photo count bar with correct count', async () => {
     mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-count-bar')).toBeTruthy();
       expect(screen.getByText('3 photos')).toBeTruthy();
@@ -266,7 +289,7 @@ describe('CourtPhotosScreen — photos grid', () => {
 
   it('renders singular "photo" when count is 1', async () => {
     mockGetCourtPhotos.mockResolvedValue([MOCK_PHOTOS[0]]);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByText('1 photo')).toBeTruthy();
     });
@@ -274,7 +297,7 @@ describe('CourtPhotosScreen — photos grid', () => {
 
   it('renders + Add button in header', async () => {
     mockGetCourtPhotos.mockResolvedValue([]);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-add-btn')).toBeTruthy();
     });
@@ -282,7 +305,7 @@ describe('CourtPhotosScreen — photos grid', () => {
 
   it('renders court info header', async () => {
     mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-header')).toBeTruthy();
     });
@@ -290,7 +313,7 @@ describe('CourtPhotosScreen — photos grid', () => {
 
   it('renders guidance text', async () => {
     mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(
         screen.getByText(/Add photos that help other players/i),
@@ -323,7 +346,7 @@ describe('CourtPhotosScreen — upload flow', () => {
       { id: 4, url: 'https://x', caption: null, created_at: null },
     ]);
 
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-add-btn')).toBeTruthy();
     });
@@ -348,7 +371,7 @@ describe('CourtPhotosScreen — upload flow', () => {
       assets: [],
     });
 
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-add-btn')).toBeTruthy();
     });
@@ -369,7 +392,7 @@ describe('CourtPhotosScreen — upload flow', () => {
     mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
     mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: [] });
 
-    render(<CourtPhotosRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-add-btn')).toBeTruthy();
     });

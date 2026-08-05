@@ -15,8 +15,7 @@
  */
 
 import type { createApiClient } from '@beach-kings/api-client';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_ORIGIN } from '@/config/apiOrigin';
 
 type ApiClient = ReturnType<typeof createApiClient>;
 
@@ -32,7 +31,7 @@ function getApi(): ApiClient {
     } = require('@beach-kings/api-client') as typeof import('@beach-kings/api-client');
     const SecureStore =
       require('expo-secure-store') as typeof import('expo-secure-store');
-    instance = create(API_BASE_URL, new MobileStorageAdapter(SecureStore));
+    instance = create(API_ORIGIN, new MobileStorageAdapter(SecureStore));
   }
   return instance;
 }

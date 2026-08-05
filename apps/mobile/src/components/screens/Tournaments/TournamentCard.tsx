@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, TouchableOpacity } from 'react-native';
 import type { KobTournament } from '@beach-kings/shared';
 import { hapticLight } from '@/utils/haptics';
 import { pluralize } from '@/lib/formatters';
@@ -53,27 +54,27 @@ function ActiveCard({ tournament, onPress }: ActiveCardProps): React.ReactNode {
       className="bg-surface rounded-[14px] border border-divider p-[14px] mb-[12px]"
     >
       <View className="flex-row items-center gap-[6px] mb-[8px]">
-        <View className="w-[8px] h-[8px] rounded-full bg-[#dc2626]" />
-        <Text className="text-[11px] font-bold text-[#dc2626]">
+        <View className="w-[8px] h-[8px] rounded-full bg-danger-fill" />
+        <AppText className="text-[11px] font-bold text-danger">
           Live · Round {tournament.current_round} of {tournament.num_courts * 2}
-        </Text>
+        </AppText>
       </View>
-      <Text className="text-[16px] font-bold text-default mb-[6px]">
+      <AppText className="text-[16px] font-bold text-default mb-[6px]">
         {tournament.name}
-      </Text>
+      </AppText>
       <View className="flex-row gap-[6px] flex-wrap">
         <View className="bg-info-tint px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] font-semibold text-brand-teal">{formatBadge(tournament)}</Text>
+          <AppText className="text-[11px] font-semibold text-brand-teal">{formatBadge(tournament)}</AppText>
         </View>
         <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] text-muted">
+          <AppText className="text-[11px] text-muted">
             {pluralize(tournament.player_count, 'player')}
-          </Text>
+          </AppText>
         </View>
         <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] text-muted">
+          <AppText className="text-[11px] text-muted">
             {GENDER_LABELS[tournament.gender] ?? tournament.gender}
-          </Text>
+          </AppText>
         </View>
       </View>
     </TouchableOpacity>
@@ -98,28 +99,28 @@ function ListCard({ tournament, onPress }: ListCardProps): React.ReactNode {
     >
       {/* Icon block */}
       <View className="w-[44px] h-[44px] rounded-[10px] bg-info-tint items-center justify-center">
-        <Text className="text-[18px]">🏐</Text>
+        <AppText className="text-[18px]">🏐</AppText>
       </View>
 
       {/* Info */}
       <View className="flex-1">
-        <Text className="text-[14px] font-semibold text-default" numberOfLines={1}>
+        <AppText className="text-[14px] font-semibold text-default" numberOfLines={1}>
           {tournament.name}
-        </Text>
-        <Text className="text-[12px] text-muted mt-[2px]">
+        </AppText>
+        <AppText className="text-[12px] text-muted mt-[2px]">
           {formatBadge(tournament)} · {GENDER_LABELS[tournament.gender] ?? tournament.gender}
-        </Text>
+        </AppText>
       </View>
 
       {/* Date + badge */}
       <View className="items-end">
-        <Text className="text-[11px] text-muted">
+        <AppText className="text-[11px] text-muted">
           {formatDate(tournament.scheduled_date)}
-        </Text>
+        </AppText>
         <View className="bg-elevated px-[6px] py-[2px] rounded-[6px] mt-[4px]">
-          <Text className="text-[10px] font-semibold text-muted">
+          <AppText className="text-[10px] font-semibold text-muted">
             {tournament.player_count} player{tournament.player_count === 1 ? '' : 's'}
-          </Text>
+          </AppText>
         </View>
       </View>
     </TouchableOpacity>
@@ -143,15 +144,15 @@ function PastCard({ tournament, onPress }: PastCardProps): React.ReactNode {
       className="bg-surface rounded-[12px] border border-divider p-[12px] mb-[8px] flex-row items-center gap-[12px]"
     >
       <View className="w-[44px] h-[44px] rounded-[10px] bg-elevated items-center justify-center">
-        <Text className="text-[18px]">🏆</Text>
+        <AppText className="text-[18px]">🏆</AppText>
       </View>
       <View className="flex-1">
-        <Text className="text-[14px] font-semibold text-default" numberOfLines={1}>
+        <AppText className="text-[14px] font-semibold text-default" numberOfLines={1}>
           {tournament.name}
-        </Text>
-        <Text className="text-[12px] text-muted mt-[2px]">
+        </AppText>
+        <AppText className="text-[12px] text-muted mt-[2px]">
           {formatDate(tournament.scheduled_date)} · {pluralize(tournament.player_count, 'player')}
-        </Text>
+        </AppText>
       </View>
     </TouchableOpacity>
   );
@@ -170,9 +171,9 @@ function CreateCTA({ onPress }: CreateCTAProps): React.ReactNode {
     <TouchableOpacity
       onPress={() => { void hapticLight(); onPress(); }}
       testID="tournaments-create-cta"
-      className="border-2 border-dashed border-[#d4a843] rounded-[12px] items-center justify-center py-[20px] mt-[8px]"
+      className="border-2 border-dashed border-brand-gold rounded-[12px] items-center justify-center py-[20px] mt-[8px]"
     >
-      <Text className="text-[14px] font-bold text-[#d4a843]">+ Create Tournament</Text>
+      <AppText className="text-[14px] font-bold text-accent">+ Create Tournament</AppText>
     </TouchableOpacity>
   );
 }

@@ -14,7 +14,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
@@ -27,6 +28,7 @@ import StatsGrid from './StatsGrid';
 import RatingChart from './RatingChart';
 import BreakdownTable from './BreakdownTable';
 import Avatar from '@/components/ui/Avatar';
+import FilterChipBar from '@/components/ui/FilterChipBar';
 
 // ---------------------------------------------------------------------------
 // Profile header
@@ -57,20 +59,20 @@ function ProfileHeader({
       />
 
       <View className="flex-1">
-        <Text className="text-[18px] font-bold text-default">
+        <AppText className="text-[18px] font-bold text-default">
           {name}
-        </Text>
+        </AppText>
         <View className="flex-row items-center gap-[6px] mt-[2px]">
           {city != null && (
-            <Text className="text-[12px] text-muted">
+            <AppText className="text-[12px] text-muted">
               {city}
-            </Text>
+            </AppText>
           )}
           {level != null && (
             <View className="px-2 py-[2px] rounded-[10px] bg-info-tint">
-              <Text className="text-[11px] font-bold text-brand-teal">
+              <AppText className="text-[11px] font-bold text-brand-teal">
                 {level}
-              </Text>
+              </AppText>
             </View>
           )}
         </View>
@@ -91,12 +93,12 @@ interface StatsBarItemProps {
 function StatsBarItem({ value, label }: StatsBarItemProps): React.ReactNode {
   return (
     <View className="flex-1 items-center py-[10px] px-1">
-      <Text className="text-[18px] font-bold text-default">
+      <AppText className="text-[18px] font-bold text-default">
         {value}
-      </Text>
-      <Text className="text-[10px] text-muted uppercase tracking-wide mt-[2px]">
+      </AppText>
+      <AppText className="text-[10px] text-muted uppercase tracking-wide mt-[2px]">
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -119,32 +121,14 @@ interface TimeChipsProps {
 
 function TimeChips({ active, onSelect }: TimeChipsProps): React.ReactNode {
   return (
-    <View className="flex-row gap-[6px]">
-      {TIME_OPTIONS.map(({ label, value }) => (
-        <Pressable
-          key={value}
-          testID={`time-chip-${value}`}
-          onPress={() => onSelect(value)}
-          accessibilityRole="button"
-          accessibilityLabel={label}
-          className={`px-[14px] rounded-[16px] min-h-[36px] items-center justify-center border ${
-            active === value
-              ? 'bg-default border-default'
-              : 'bg-surface border-divider'
-          }`}
-        >
-          <Text
-            className={`text-[12px] font-bold ${
-              active === value
-                ? 'text-inverse'
-                : 'text-muted'
-            }`}
-          >
-            {label}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
+    <FilterChipBar
+      items={TIME_OPTIONS}
+      value={active}
+      onValueChange={onSelect}
+      accessibilityLabel="Stats time range"
+      chipTestIDPrefix="time-chip"
+      contentClassName="px-0"
+    />
   );
 }
 
@@ -252,17 +236,17 @@ export default function MyStatsScreen(): React.ReactNode {
           {/* Trophies */}
           {stats.trophies.length > 0 && (
             <View className="mb-4">
-              <Text className="text-[15px] font-bold text-default mb-[10px]">
+              <AppText className="text-[15px] font-bold text-default mb-[10px]">
                 Trophies
-              </Text>
+              </AppText>
               <TrophyRow trophies={stats.trophies} />
             </View>
           )}
 
           {/* Overview section */}
-          <Text className="text-[15px] font-bold text-default mb-[10px]">
+          <AppText className="text-[15px] font-bold text-default mb-[10px]">
             Overview
-          </Text>
+          </AppText>
 
           {/* Time chips */}
           <View className="mb-[12px]">
@@ -280,9 +264,9 @@ export default function MyStatsScreen(): React.ReactNode {
           )}
 
           {/* Partners / Opponents breakdown */}
-          <Text className="text-[15px] font-bold text-default mb-[10px]">
+          <AppText className="text-[15px] font-bold text-default mb-[10px]">
             Breakdown
-          </Text>
+          </AppText>
           <BreakdownTable
             tab={breakdownTab}
             partners={stats.partners}

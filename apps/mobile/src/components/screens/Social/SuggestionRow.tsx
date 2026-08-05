@@ -11,7 +11,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import type { Friend } from '@beach-kings/shared';
@@ -46,7 +47,7 @@ export default function SuggestionRow({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`View profile of ${suggestion.full_name}`}
-      className="flex-row items-center gap-3 px-4 py-3 bg-surface border-b border-divider active:opacity-70"
+      className="flex-row items-center gap-md px-lg py-md bg-surface border-b border-divider active:opacity-pressed"
     >
       <Avatar
         imageUrl={suggestion.avatar}
@@ -56,27 +57,27 @@ export default function SuggestionRow({
         accessible={false}
       />
       <View className="flex-1 min-w-0">
-        <Text
-          className="text-[14px] font-semibold text-default"
+        <AppText
+          className="text-subhead font-semibold text-default"
           numberOfLines={1}
         >
           {suggestion.full_name}
-        </Text>
+        </AppText>
         {suggestion.location_name != null && (
-          <Text
-            className="text-[12px] text-muted mt-[2px]"
+          <AppText
+            className="text-caption text-muted mt-xxs"
             numberOfLines={1}
           >
             {suggestion.location_name}
-          </Text>
+          </AppText>
         )}
       </View>
       {isPending ? (
         <View
           testID={`suggestion-pending-${suggestion.player_id}`}
-          className="px-[14px] py-[10px] rounded-[8px] bg-info-tint min-h-[44px] justify-center"
+          className="px-md rounded-button bg-info-tint min-h-touch justify-center"
         >
-          <Text className="text-[12px] font-bold text-info">Requested</Text>
+          <AppText className="text-footnote font-semibold text-info">Requested</AppText>
         </View>
       ) : (
         <Pressable
@@ -84,9 +85,9 @@ export default function SuggestionRow({
           onPress={handleAdd}
           accessibilityRole="button"
           accessibilityLabel={`Add ${suggestion.full_name} as friend`}
-          className="px-[14px] py-[10px] rounded-[8px] border border-brand-teal bg-transparent min-h-[44px] justify-center active:opacity-70"
+          className="px-md rounded-button border border-brand-teal bg-transparent min-h-touch justify-center active:opacity-pressed"
         >
-          <Text className="text-[12px] font-bold text-brand-teal">Add</Text>
+          <AppText className="text-footnote font-semibold text-brand-teal">Add</AppText>
         </Pressable>
       )}
     </Pressable>

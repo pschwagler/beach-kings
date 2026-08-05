@@ -11,7 +11,7 @@ import React, {
   useEffect,
   useMemo,
 } from 'react';
-import { Text, Pressable } from 'react-native';
+import { Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,6 +20,8 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppText from '@/components/ui/AppText';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -51,9 +53,15 @@ const TOAST_DURATION = 3000;
 const ANIMATION_DURATION = 300;
 
 const TYPE_STYLES: Record<ToastType, string> = {
-  success: 'bg-green-700',
-  error: 'bg-red-700',
-  info: 'bg-blue-700',
+  success: 'bg-success-fill',
+  error: 'bg-danger-fill',
+  info: 'bg-info-fill',
+};
+
+const TYPE_TEXT_STYLES: Record<ToastType, string> = {
+  success: 'text-on-success',
+  error: 'text-on-danger',
+  info: 'text-on-info',
 };
 
 let nextToastId = 0;
@@ -62,7 +70,9 @@ interface ToastProviderProps {
   readonly children: React.ReactNode;
 }
 
-export default function ToastProvider({ children }: ToastProviderProps): React.ReactNode {
+export default function ToastProvider({
+  children,
+}: ToastProviderProps): React.ReactNode {
   const [toasts, setToasts] = useState<readonly Toast[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
@@ -97,24 +107,35 @@ interface AnimatedToastProps {
   readonly onDismiss: (id: number) => void;
 }
 
-function AnimatedToast({ toast, index, onDismiss }: AnimatedToastProps): React.ReactNode {
+function AnimatedToast({
+  toast,
+  index,
+  onDismiss,
+}: AnimatedToastProps): React.ReactNode {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const translateY = useSharedValue(-100);
 
   useEffect(() => {
     // Slide in
-    translateY.value = withTiming(0, { duration: ANIMATION_DURATION });
+    translateY.value = withTiming(0, {
+      duration: reduceMotion ? 0 : ANIMATION_DURATION,
+    });
 
     // Auto-dismiss: slide out then remove
     translateY.value = withDelay(
       TOAST_DURATION,
-      withTiming(-100, { duration: ANIMATION_DURATION }, (finished) => {
-        if (finished) {
-          runOnJS(onDismiss)(toast.id);
-        }
-      }),
+      withTiming(
+        -100,
+        { duration: reduceMotion ? 0 : ANIMATION_DURATION },
+        (finished) => {
+          if (finished) {
+            runOnJS(onDismiss)(toast.id);
+          }
+        },
+      ),
     );
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [reduceMotion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -141,7 +162,11 @@ function AnimatedToast({ toast, index, onDismiss }: AnimatedToastProps): React.R
         className={`${TYPE_STYLES[toast.type]} rounded-xl px-4 py-3 shadow-lg`}
         accessibilityRole="alert"
       >
-        <Text className="text-white text-sm font-medium">{toast.message}</Text>
+        <AppText
+          className={`${TYPE_TEXT_STYLES[toast.type]} text-sm font-medium`}
+        >
+          {toast.message}
+        </AppText>
       </Pressable>
     </Animated.View>
   );

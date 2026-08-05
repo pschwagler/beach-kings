@@ -10,20 +10,15 @@
  */
 
 import React, { forwardRef, useCallback, useMemo, useState } from 'react';
-import {
-  View,
-  TextInput,
-  Pressable,
-  Platform,
-  Modal,
-  Text,
-} from 'react-native';
+import { View, TextInput, Pressable, Platform, Modal } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { CalendarIcon } from '@/components/ui/icons';
 import { useTheme } from '@/contexts/ThemeContext';
-import { colors, darkColors } from '@beach-kings/shared/tokens';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface DateOfBirthFieldProps {
   readonly value: string;
@@ -72,6 +67,8 @@ function dateToDisplay(date: Date): string {
 const DateOfBirthField = forwardRef<TextInput, DateOfBirthFieldProps>(
   function DateOfBirthField({ value, onChange, error = false, testID }, ref) {
     const { isDark } = useTheme();
+    const palette = usePaletteColors();
+    const reduceMotion = useReducedMotion();
     const [pickerOpen, setPickerOpen] = useState(false);
 
     const maximumDate = useMemo(() => new Date(), []);
@@ -124,12 +121,10 @@ const DateOfBirthField = forwardRef<TextInput, DateOfBirthFieldProps>(
             value={value}
             onChangeText={handleTextChange}
             placeholder={DISPLAY_PLACEHOLDER}
-            placeholderTextColor={
-              isDark ? darkColors.textTertiary : colors.textTertiary
-            }
+            placeholderTextColor={palette.textTertiary}
             keyboardAppearance={isDark ? 'dark' : 'light'}
             style={{
-              color: isDark ? darkColors.textPrimary : colors.textPrimary,
+              color: palette.textDefault,
               fontSize: 15,
               paddingVertical: 0,
             }}
@@ -147,10 +142,7 @@ const DateOfBirthField = forwardRef<TextInput, DateOfBirthFieldProps>(
             testID={testID ? `${testID}-picker-button` : undefined}
             hitSlop={8}
           >
-            <CalendarIcon
-              size={20}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
+            <CalendarIcon size={20} color={palette.textMuted} />
           </Pressable>
         </View>
 
@@ -169,7 +161,7 @@ const DateOfBirthField = forwardRef<TextInput, DateOfBirthFieldProps>(
           <Modal
             visible={pickerOpen}
             transparent
-            animationType="fade"
+            animationType={reduceMotion ? 'none' : 'fade'}
             onRequestClose={closePicker}
           >
             <Pressable
@@ -182,9 +174,9 @@ const DateOfBirthField = forwardRef<TextInput, DateOfBirthFieldProps>(
               >
                 <View className="flex-row justify-end px-lg pt-md">
                   <Pressable onPress={closePicker} hitSlop={8}>
-                    <Text className="text-body font-semibold text-brand-teal">
+                    <AppText className="text-body font-semibold text-brand-teal">
                       Done
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
                 <DateTimePicker

@@ -47,6 +47,7 @@ async def seed_locations() -> None:
                     "radius_miles": float(row["radius_miles"])
                     if row.get("radius_miles")
                     else None,
+                    "country": row.get("country") or "USA",
                 }
             )
 
@@ -73,7 +74,7 @@ async def seed_locations() -> None:
                         name=loc["name"],
                         city=loc["city"],
                         state=loc["state"],
-                        country="USA",
+                        country=loc["country"],
                         region_id=loc["region_id"],
                         tier=loc["tier"],
                         latitude=loc["latitude"],

@@ -1,6 +1,16 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render as renderTestingLibrary, screen } from '@testing-library/react-native';
 import TournamentCreateRoute from '../../../../app/(stack)/tournament/create';
+import ThemeProvider from '@/contexts/ThemeContext';
+
+function render(ui: React.ReactElement): ReturnType<typeof renderTestingLibrary> {
+  return renderTestingLibrary(<ThemeProvider>{ui}</ThemeProvider>);
+}
+
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({ colorScheme: 'light', setColorScheme: jest.fn() }),
+  vars: (values: object) => values,
+}));
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ canGoBack: () => false, back: jest.fn(), replace: jest.fn() }),

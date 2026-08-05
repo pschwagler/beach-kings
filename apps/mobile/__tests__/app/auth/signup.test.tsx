@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert, KeyboardAvoidingView } from 'react-native';
+import { Alert, KeyboardAvoidingView, Linking } from 'react-native';
 
 jest.mock('@/utils/haptics', () => ({
   hapticLight: jest.fn(),
@@ -40,6 +40,14 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+const mockIsAppleSignInAvailable = jest.fn<Promise<boolean>, []>(
+  () => new Promise(() => {}),
+);
+jest.mock('@/lib/oauth', () => ({
+  ...jest.requireActual('@/lib/oauth'),
+  isAppleSignInAvailable: () => mockIsAppleSignInAvailable(),
+}));
+
 jest.spyOn(Alert, 'alert');
 
 import SignupScreen from '../../../app/(auth)/signup';
@@ -52,6 +60,7 @@ function getCreateButton(helpers: ReturnType<typeof render>) {
 describe('SignupScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   });
 
   it('renders Google OAuth button at the top', () => {
@@ -60,8 +69,7 @@ describe('SignupScreen', () => {
   });
 
   it('renders Apple OAuth button on iOS when available', async () => {
-    const AppleAuth = require('expo-apple-authentication');
-    (AppleAuth.isAvailableAsync as jest.Mock).mockResolvedValueOnce(true);
+    mockIsAppleSignInAvailable.mockResolvedValueOnce(true);
     const Platform = require('react-native').Platform;
     Platform.OS = 'ios';
     const { findByText } = render(<SignupScreen />);
@@ -104,6 +112,15 @@ describe('SignupScreen', () => {
     expect(getByText(/terms of service/i)).toBeTruthy();
   });
 
+  it.each([
+    ['Terms of Service', 'https://beachleaguevb.com/terms-of-service'],
+    ['Privacy Policy', 'https://beachleaguevb.com/privacy-policy'],
+  ])('opens the canonical %s URL', (label, expectedUrl) => {
+    const { getByText } = render(<SignupScreen />);
+    fireEvent.press(getByText(label));
+    expect(Linking.openURL).toHaveBeenCalledWith(expectedUrl);
+  });
+
   it('calls signup with correct params and navigates to verify', async () => {
     mockSignup.mockResolvedValueOnce(undefined);
     const result = render(<SignupScreen />);
@@ -130,9 +147,18 @@ describe('SignupScreen', () => {
     });
   });
 
-  it('does not submit when required fields are empty', () => {
+  it('does not submit when required fields are empty', async () => {
     const result = render(<SignupScreen />);
     fireEvent.press(getCreateButton(result));
+
+    await waitFor(() => {
+      expect(result.getByText('First name is required.')).toBeTruthy();
+      expect(result.getByText('Last name is required.')).toBeTruthy();
+      expect(result.getByText('Email is required.')).toBeTruthy();
+      expect(
+        result.getByText('Password must be at least 8 characters.'),
+      ).toBeTruthy();
+    });
     expect(mockSignup).not.toHaveBeenCalled();
   });
 

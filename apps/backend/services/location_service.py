@@ -170,3 +170,76 @@ async def autocomplete(text: str) -> Dict:
     except Exception as e:
         logger.error(f"Error fetching autocomplete: {str(e)}")
         raise
+
+
+async def search_places(
+    text: str, lat: Optional[float] = None, lng: Optional[float] = None
+) -> List[Dict]:
+    """Return normalized US place suggestions for court discovery."""
+    query = text.strip()
+    if len(query) < 2:
+        return []
+
+    geoapify_key = os.getenv("GEOAPIFY_API_KEY")
+    if not geoapify_key:
+        raise ValueError("Geoapify API key not configured")
+
+    params = {
+        "text": query,
+        "apiKey": geoapify_key,
+        "limit": 5,
+        "filter": "countrycode:us",
+        "lang": "en",
+        "format": "json",
+    }
+    if lat is not None and lng is not None:
+        params["bias"] = f"proximity:{lng},{lat}"
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(
+            "https://api.geoapify.com/v1/geocode/autocomplete", params=params
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    raw_results = payload.get("results")
+    if raw_results is None:
+        raw_results = [feature.get("properties", {}) for feature in payload.get("features", [])]
+
+    suggestions = []
+    for index, place in enumerate(raw_results[:5]):
+        latitude = place.get("lat")
+        longitude = place.get("lon")
+        if latitude is None or longitude is None:
+            continue
+        primary = (
+            place.get("name")
+            or place.get("address_line1")
+            or place.get("city")
+            or place.get("postcode")
+            or place.get("formatted")
+        )
+        secondary = place.get("address_line2") or place.get("formatted") or ""
+        if secondary == primary:
+            secondary = ""
+        bbox = place.get("bbox")
+        bounds = None
+        if isinstance(bbox, dict):
+            bounds = {
+                "north": bbox.get("lat2"), "south": bbox.get("lat1"),
+                "east": bbox.get("lon2"), "west": bbox.get("lon1"),
+            }
+        elif isinstance(bbox, (list, tuple)) and len(bbox) == 4:
+            bounds = {"west": bbox[0], "south": bbox[1], "east": bbox[2], "north": bbox[3]}
+        if bounds and any(value is None for value in bounds.values()):
+            bounds = None
+        suggestions.append({
+            "id": str(place.get("place_id") or f"place-{index}-{latitude}-{longitude}"),
+            "primary_text": primary or "Place",
+            "secondary_text": secondary,
+            "latitude": latitude,
+            "longitude": longitude,
+            "result_type": place.get("result_type") or place.get("type") or "place",
+            **({"bounds": bounds} if bounds else {}),
+        })
+    return suggestions

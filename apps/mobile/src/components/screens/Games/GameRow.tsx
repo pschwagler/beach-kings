@@ -10,7 +10,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import { hapticMedium } from '@/utils/haptics';
 import { formatGameScore } from '@/lib/formatters';
 import type { GameHistoryEntry } from '@beach-kings/shared';
@@ -37,7 +38,7 @@ function ResultBadge({ result }: { result: 'W' | 'L' | 'D' }): React.ReactNode {
 
   return (
     <View className={`px-2 py-[3px] rounded-[10px] ${bgClass}`}>
-      <Text className={`text-[11px] font-bold ${textClass}`}>{label}</Text>
+      <AppText className={`text-[11px] font-bold ${textClass}`}>{label}</AppText>
     </View>
   );
 }
@@ -53,18 +54,18 @@ function RatingChange({
     return (
       <View className="flex-row items-center gap-[3px]">
         <View className="px-2 py-[2px] rounded-[8px] bg-warning-tint border border-warning-tint">
-          <Text className="text-[10px] font-bold text-warning">
+          <AppText className="text-[10px] font-bold text-warning">
             PENDING
-          </Text>
+          </AppText>
         </View>
       </View>
     );
   }
   const isUp = change >= 0;
   return (
-    <Text className="text-[11px] text-muted">
+    <AppText className="text-[11px] text-muted">
       Rating:{' '}
-      <Text
+      <AppText
         className={`font-bold ${
           isUp
             ? 'text-success'
@@ -73,8 +74,8 @@ function RatingChange({
       >
         {isUp ? '+' : ''}
         {change}
-      </Text>
-    </Text>
+      </AppText>
+    </AppText>
   );
 }
 
@@ -84,13 +85,13 @@ function TeamLine({ game }: { game: GameHistoryEntry }): React.ReactNode {
   const mySide = partners.length > 0 ? `You / ${partners}` : 'You';
 
   return (
-    <Text className="text-[12px] text-muted leading-[1.5]">
-      <Text className="font-bold text-default">
+    <AppText className="text-[12px] text-muted leading-[1.5]">
+      <AppText className="font-bold text-default">
         You
-      </Text>
+      </AppText>
       {partners.length > 0 ? ` / ${partners}` : ''}
       {` vs ${opponents}`}
-    </Text>
+    </AppText>
   );
 }
 
@@ -107,7 +108,7 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`Game result: ${game.result}, score: ${score}`}
-      className="bg-surface rounded-[12px] px-[14px] py-[14px] shadow-sm dark:shadow-none dark:border border-divider mb-[10px] active:opacity-80"
+      className="bg-surface rounded-[12px] px-[14px] py-[14px] border border-divider mb-[10px] active:opacity-80"
     >
       {/* Top row: result badge */}
       <View className="flex-row justify-between items-center mb-2">
@@ -115,30 +116,30 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
       </View>
 
       {/* Score */}
-      <Text className="text-[20px] font-bold text-default mb-1">
+      <AppText className="text-[20px] font-bold text-default mb-1">
         {score}
-      </Text>
+      </AppText>
 
       {/* Teams */}
       <TeamLine game={game} />
 
       {/* Pending note — session not yet submitted */}
       {!game.session_submitted && (
-        <Text className="text-[11px] text-warning mt-[3px]">
+        <AppText className="text-[11px] text-warning mt-[3px]">
           Awaiting session submission
-        </Text>
+        </AppText>
       )}
 
       {/* Meta row */}
       <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-divider">
         {game.league_name != null ? (
-          <Text className="text-[11px] font-bold text-brand-teal">
+          <AppText className="text-[11px] font-bold text-brand-teal">
             {game.league_name}
-          </Text>
+          </AppText>
         ) : (
-          <Text className="text-[11px] text-muted">
+          <AppText className="text-[11px] text-muted">
             Pickup
-          </Text>
+          </AppText>
         )}
         <RatingChange change={game.rating_change} submitted={game.session_submitted} />
       </View>

@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import EmptyState from '@/components/ui/EmptyState';
 
 interface LeaguesErrorStateProps {
   readonly onRetry: () => void;
@@ -12,26 +12,7 @@ interface LeaguesErrorStateProps {
 export default function LeaguesErrorState({
   onRetry,
 }: LeaguesErrorStateProps): React.ReactNode {
-  return (
-    <View
-      testID="leagues-error-state"
-      className="flex-1 items-center justify-center px-lg"
-    >
-      <Text className="text-headline font-bold text-default text-center mb-xs">
-        Could not load leagues
-      </Text>
-      <Text className="text-footnote text-tertiary text-center mb-xl">
-        Check your connection and try again.
-      </Text>
-      <Pressable
-        testID="retry-btn"
-        onPress={onRetry}
-        accessibilityRole="button"
-        accessibilityLabel="Retry loading leagues"
-        className="bg-brand-teal rounded-card px-xl py-sm min-h-touch items-center justify-center active:opacity-80"
-      >
-        <Text className="text-white font-semibold text-callout">Try Again</Text>
-      </Pressable>
-    </View>
-  );
+  return <EmptyState testID="leagues-error-state" title="Could not load leagues"
+    description="Check your connection and try again."
+    primaryAction={{ label: 'Try Again', onPress: onRetry, testID: 'retry-btn' }} />;
 }

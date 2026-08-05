@@ -1,6 +1,7 @@
 import React from 'react';
-import EditProfileScreen from '@/components/screens/Profile/EditProfileScreen';
+import { Redirect } from 'expo-router';
+import { routes } from '@/lib/navigation';
 
 export default function EditProfileRoute(): React.ReactNode {
-  return <EditProfileScreen />;
+  return <Redirect href={routes.profile()} />;
 }

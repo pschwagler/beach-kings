@@ -138,6 +138,7 @@ jest.mock('@/components/ui/icons', () => {
     ChevronRightIcon: makeIcon('ChevronRightIcon'),
     ChevronLeftIcon: makeIcon('ChevronLeftIcon'),
     ArrowLeftIcon: makeIcon('ArrowLeftIcon'),
+    VolleyballIcon: makeIcon('VolleyballIcon'),
   };
 });
 

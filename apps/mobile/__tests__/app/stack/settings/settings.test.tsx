@@ -20,7 +20,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -39,6 +39,12 @@ let mockUser: Record<string, unknown> = {
   profile_is_private: false,
   show_game_history: false,
   deletion_scheduled_at: null,
+};
+
+let mockCurrentPlayer: Record<string, unknown> = {
+  id: 1,
+  email: 'test@example.com',
+  phone_number: null,
 };
 
 jest.mock('expo-router', () => {
@@ -101,15 +107,30 @@ jest.mock('@/contexts/AuthContext', () => ({
   }),
 }));
 
+// Settings behavior is independent of the legacy fetch hook's async lifecycle.
+// Give these UI tests explicit, synchronous server state instead.
+jest.mock('@/hooks/useApi', () => ({
+  __esModule: true,
+  default: () => ({
+    data: mockCurrentPlayer,
+    error: null,
+    isLoading: false,
+    refetch: jest.fn().mockResolvedValue(undefined),
+    mutate: jest.fn(),
+  }),
+}));
+
 const mockSubmitFeedback = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();
 const mockScheduleAccountDeletion = jest.fn();
+const mockDeleteAccountNow = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     submitFeedback: (...args: unknown[]) => mockSubmitFeedback(...args),
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
     scheduleAccountDeletion: (...args: unknown[]) => mockScheduleAccountDeletion(...args),
+    deleteAccountNow: (...args: unknown[]) => mockDeleteAccountNow(...args),
   },
 }));
 
@@ -211,12 +232,18 @@ beforeEach(() => {
     show_game_history: false,
     deletion_scheduled_at: null,
   };
+  mockCurrentPlayer = {
+    id: 1,
+    email: 'test@example.com',
+    phone_number: null,
+  };
   mockGetCurrentUserPlayer.mockResolvedValue({
     id: 1,
     email: 'test@example.com',
     phone_number: null,
   });
   mockScheduleAccountDeletion.mockResolvedValue({ status: 'ok' });
+  mockDeleteAccountNow.mockResolvedValue({ status: 'ok' });
 });
 
 // ---------------------------------------------------------------------------
@@ -242,6 +269,8 @@ describe('SettingsScreen — render', () => {
       expect(screen.getByTestId('settings-row-feedback')).toBeTruthy();
       expect(screen.getByTestId('settings-row-contact')).toBeTruthy();
       expect(screen.getByTestId('settings-row-rate')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-terms')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-privacy-policy')).toBeTruthy();
       expect(screen.getByTestId('settings-row-delete')).toBeTruthy();
     });
   });
@@ -311,11 +340,11 @@ describe('SettingsScreen — phone row', () => {
   });
 
   it('opens support mailto when phone is already set', async () => {
-    mockGetCurrentUserPlayer.mockResolvedValue({
+    mockCurrentPlayer = {
       id: 1,
       email: 'test@example.com',
       phone_number: '+15551234567',
-    });
+    };
     render(<SettingsRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('settings-row-phone')).toBeTruthy();
@@ -363,30 +392,25 @@ describe('SettingsScreen — connected accounts', () => {
 // ---------------------------------------------------------------------------
 
 describe('SettingsScreen — contact support', () => {
-  it('opens a support mailto link when Contact Support is pressed', async () => {
+  it('opens the canonical public support page', async () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-contact'));
     await waitFor(() => {
       expect(mockOpenURL).toHaveBeenCalledTimes(1);
     });
     const calledUrl = mockOpenURL.mock.calls[0][0] as string;
-    expect(calledUrl).toMatch(/beachleaguevb\+support@gmail\.com/);
-    expect(calledUrl).toContain('subject=');
+    expect(calledUrl).toBe('https://beachleaguevb.com/support');
   });
+});
 
-  it('shows the support address when no email app is available', async () => {
-    mockCanOpenURL.mockResolvedValue(false);
-
+describe('SettingsScreen — legal links', () => {
+  it.each([
+    ['settings-row-terms', 'https://beachleaguevb.com/terms-of-service'],
+    ['settings-row-privacy-policy', 'https://beachleaguevb.com/privacy-policy'],
+  ])('opens the canonical URL from %s', (testID, expectedUrl) => {
     render(<SettingsRoute />);
-    fireEvent.press(screen.getByTestId('settings-row-contact'));
-
-    await waitFor(() => {
-      expect(mockAlert).toHaveBeenCalledWith(
-        'Email app unavailable',
-        expect.stringContaining('beachleaguevb+support@gmail.com'),
-      );
-    });
-    expect(mockOpenURL).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId(testID));
+    expect(mockOpenURL).toHaveBeenCalledWith(expectedUrl);
   });
 });
 
@@ -398,22 +422,22 @@ describe('SettingsScreen — logout modal', () => {
   it('opens logout modal when log out button is pressed', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-logout-btn'));
-    expect(screen.getByTestId('logout-modal')).toBeTruthy();
+    expect(screen.getByTestId('logout-dialog')).toBeTruthy();
   });
 
   it('calls logout when confirm is pressed in modal', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-logout-btn'));
-    fireEvent.press(screen.getByTestId('logout-confirm-btn'));
+    fireEvent.press(screen.getByTestId('logout-dialog-confirm'));
     expect(mockLogout).toHaveBeenCalled();
   });
 
   it('closes modal when cancel is pressed', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-logout-btn'));
-    expect(screen.getByTestId('logout-modal')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('logout-cancel-btn'));
-    expect(screen.queryByTestId('logout-modal')).toBeNull();
+    expect(screen.getByTestId('logout-dialog')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('logout-dialog-cancel'));
+    expect(screen.queryByTestId('logout-dialog')).toBeNull();
   });
 });
 
@@ -427,9 +451,51 @@ describe('SettingsScreen — delete account', () => {
     expect(screen.getByTestId('settings-row-delete')).toBeTruthy();
   });
 
-  it('delete account row is pressable', () => {
+  it('offers cancel, scheduled deletion, and immediate deletion', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-delete'));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      'Delete Account?',
+      expect.any(String),
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'Cancel' }),
+        expect.objectContaining({ text: 'Delete in 30 Days' }),
+        expect.objectContaining({ text: 'Delete Now' }),
+      ]),
+    );
+  });
+
+  it('calls the scheduled deletion endpoint for the recovery option', async () => {
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-delete'));
+    const buttons = mockAlert.mock.calls[0][2] as Array<{
+      text: string;
+      onPress?: () => void;
+    }>;
+    await act(async () => {
+      buttons.find(({ text }) => text === 'Delete in 30 Days')?.onPress?.();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(mockScheduleAccountDeletion).toHaveBeenCalledTimes(1));
+    expect(mockDeleteAccountNow).not.toHaveBeenCalled();
+  });
+
+  it('calls immediate deletion for Delete Now', async () => {
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-delete'));
+    const buttons = mockAlert.mock.calls[0][2] as Array<{
+      text: string;
+      onPress?: () => void;
+    }>;
+    await act(async () => {
+      buttons.find(({ text }) => text === 'Delete Now')?.onPress?.();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(mockDeleteAccountNow).toHaveBeenCalledTimes(1));
+    expect(mockScheduleAccountDeletion).not.toHaveBeenCalled();
   });
 });
 

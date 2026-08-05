@@ -15,9 +15,9 @@
  */
 
 import React, { useState } from "react";
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   TouchableOpacity,
   Modal,
   Pressable,
@@ -80,13 +80,13 @@ function MenuItem({
       className="py-[16px] border-b border-divider"
       style={{ opacity: disabled ? 0.6 : 1 }}
     >
-      <Text
+      <AppText
         className={`text-[16px] font-semibold text-center ${
           destructive ? "text-danger" : "text-brand-teal"
         }`}
       >
         {label}
-      </Text>
+      </AppText>
     </TouchableOpacity>
   );
 }
@@ -213,13 +213,13 @@ export default function SessionBottomSheet({
         <View className="mb-[12px] h-[4px] w-[36px] self-center rounded-full bg-divider" />
 
         {/* Header */}
-        <Text className="text-[15px] font-bold text-default text-center mb-[2px]">
+        <AppText className="text-[15px] font-bold text-default text-center mb-[2px]">
           {sessionLabel}
-        </Text>
-        <Text className="text-[12px] text-muted text-center mb-[16px]">
+        </AppText>
+        <AppText className="text-[12px] text-muted text-center mb-[16px]">
           {isSubmitted ? "Submitted" : "Active"} ·{" "}
           {pluralize(gameCount, "game")} · {pluralize(playerCount, "player")}
-        </Text>
+        </AppText>
 
         <MenuItem
           label="Edit Session Details"
@@ -281,9 +281,9 @@ export default function SessionBottomSheet({
           accessibilityLabel="Cancel"
           className="mt-[8px] py-[14px] rounded-[12px] border border-divider bg-elevated"
         >
-          <Text className="text-[15px] font-semibold text-muted text-center">
+          <AppText className="text-[15px] font-semibold text-muted text-center">
             Cancel
-          </Text>
+          </AppText>
         </TouchableOpacity>
       </View>
     </Modal>

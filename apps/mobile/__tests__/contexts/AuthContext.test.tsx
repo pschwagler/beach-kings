@@ -27,7 +27,9 @@ let mockRootNavigationState = {
 };
 const mockCancelQueries = jest.fn(() => Promise.resolve());
 const mockClearQueryClient = jest.fn();
-const mockFetchQuery = jest.fn((options: { queryFn: () => unknown }) => options.queryFn());
+const mockFetchQuery = jest.fn((options: { queryFn: () => unknown }) =>
+  options.queryFn(),
+);
 const mockQueryClient = {
   cancelQueries: mockCancelQueries,
   clear: mockClearQueryClient,
@@ -93,7 +95,8 @@ const mockClearAuthTokens = api.clearAuthTokens as jest.MockedFunction<
   typeof api.clearAuthTokens
 >;
 const mockGetMe = api.getMe as jest.MockedFunction<any>;
-const mockGetCurrentUserPlayer = api.getCurrentUserPlayer as jest.MockedFunction<any>;
+const mockGetCurrentUserPlayer =
+  api.getCurrentUserPlayer as jest.MockedFunction<any>;
 const mockLogin = api.login as jest.MockedFunction<any>;
 const mockSignup = api.signup as jest.MockedFunction<any>;
 const mockGoogleAuth = api.googleAuth as jest.MockedFunction<any>;
@@ -401,6 +404,52 @@ describe('AuthProvider — login', () => {
   });
 });
 
+describe('AuthProvider — development token login', () => {
+  it('installs the pair, resolves identity through getMe, and publishes profile state', async () => {
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.devLoginWithTokens!({
+        accessToken: '  qa-access  ',
+        refreshToken: '  qa-refresh  ',
+      });
+    });
+
+    expect(mockSetAuthTokens).toHaveBeenCalledWith('qa-access', 'qa-refresh');
+    expect(mockGetMe).toHaveBeenCalledTimes(1);
+    expect(mockSetAuthTokens.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetMe.mock.invocationCallOrder[0],
+    );
+    expect(mockFetchQuery).toHaveBeenCalled();
+    expect(result.current.user?.id).toBe(mockMeResponse.id);
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.profileComplete).toBe(true);
+  });
+
+  it('does not publish an unverifiable imported pair', async () => {
+    mockGetMe.mockRejectedValue(new Error('Unauthorized'));
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await expect(
+      act(async () => {
+        await result.current.devLoginWithTokens!({
+          accessToken: 'bad-access',
+          refreshToken: 'bad-refresh',
+        });
+      }),
+    ).rejects.toThrow('Unauthorized');
+
+    expect(result.current.isAuthenticated).toBe(false);
+  });
+
+});
+
 describe('AuthProvider — signup', () => {
   it('signs up with email and does not authenticate until verification', async () => {
     mockSignup.mockResolvedValue({
@@ -558,8 +607,10 @@ describe('AuthProvider — logout', () => {
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
 
-    const credentialClearOrder = mockClearAuthTokens.mock.invocationCallOrder.at(-1)!;
-    const queryClearOrder = mockClearQueryClient.mock.invocationCallOrder.at(-1)!;
+    const credentialClearOrder =
+      mockClearAuthTokens.mock.invocationCallOrder.at(-1)!;
+    const queryClearOrder =
+      mockClearQueryClient.mock.invocationCallOrder.at(-1)!;
     expect(credentialClearOrder).toBeLessThan(queryClearOrder);
 
     // S1 PII-flash fix: the route guard must dismiss retained (tabs)/(stack)
@@ -598,7 +649,9 @@ describe('AuthProvider — logout', () => {
     mockGetMe.mockResolvedValue(mockMeResponse);
     mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
     mockLogout.mockResolvedValue(undefined);
-    mockClearAuthTokens.mockRejectedValue(new Error('secure storage unavailable'));
+    mockClearAuthTokens.mockRejectedValue(
+      new Error('secure storage unavailable'),
+    );
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
@@ -859,7 +912,10 @@ describe('AuthProvider — route guard', () => {
       refreshToken: 'ref',
     });
     mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerIncomplete);
-    mockGetStoredTokens.mockResolvedValue({ accessToken: null, refreshToken: null });
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: null,
+      refreshToken: null,
+    });
     mockSegments.push('(tabs)');
 
     const { getByTestId } = render(
@@ -941,7 +997,10 @@ describe('AuthProvider — route guard', () => {
       is_new_user: true,
     });
     mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerIncomplete);
-    mockGetStoredTokens.mockResolvedValue({ accessToken: null, refreshToken: null });
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: null,
+      refreshToken: null,
+    });
     mockSegments.push('(auth)', 'onboarding');
 
     const { result } = renderHook(() => useAuth(), { wrapper });

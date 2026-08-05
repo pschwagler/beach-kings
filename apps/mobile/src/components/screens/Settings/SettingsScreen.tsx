@@ -14,10 +14,10 @@
  * Wireframe ref: settings.html + settings-account.html (merged)
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   Alert,
@@ -30,13 +30,14 @@ import { useRouter } from 'expo-router';
 import * as StoreReview from 'expo-store-review';
 
 import TopNav from '@/components/ui/TopNav';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import {
   openSupportMailto,
   supportMailtoPhoneChange,
-  supportMailtoGeneral,
 } from '@/lib/support';
+import { PUBLIC_URLS } from '@/lib/publicUrls';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -76,17 +77,17 @@ function SettingsRow({
       accessibilityLabel={label}
       className="flex-row items-center justify-between px-lg py-[14px] bg-surface border-b border-divider last:border-0 active:opacity-70"
     >
-      <Text className={`text-[15px] ${labelColor}`}>{label}</Text>
+      <AppText className={`text-[15px] ${labelColor}`}>{label}</AppText>
 
       {rightElement != null ? (
         rightElement
       ) : (
         <View className="flex-row items-center gap-sm">
           {value != null && (
-            <Text className={`text-[13px] ${valueColor}`}>{value}</Text>
+            <AppText className={`text-[13px] ${valueColor}`}>{value}</AppText>
           )}
           {onPress != null && (
-            <Text className="text-muted text-lg">›</Text>
+            <AppText className="text-muted text-lg">›</AppText>
           )}
         </View>
       )}
@@ -101,13 +102,13 @@ interface SectionLabelProps {
 
 function SectionLabel({ title, danger = false }: SectionLabelProps): React.ReactNode {
   return (
-    <Text
+    <AppText
       className={`text-[15px] font-bold px-lg pt-xl pb-sm ${
-        danger ? 'text-red-500' : 'text-default'
+        danger ? 'text-danger' : 'text-default'
       }`}
     >
       {title}
-    </Text>
+    </AppText>
   );
 }
 
@@ -118,8 +119,8 @@ function SectionLabel({ title, danger = false }: SectionLabelProps): React.React
 function ConnectedBadge(): React.ReactNode {
   return (
     <View className="flex-row items-center gap-sm">
-      <View className="w-2 h-2 rounded-full bg-green-500" />
-      <Text className="text-[14px] text-green-500">Connected</Text>
+      <View className="w-2 h-2 rounded-full bg-success-fill" />
+      <AppText className="text-[14px] text-success">Connected</AppText>
     </View>
   );
 }
@@ -137,12 +138,12 @@ function ConnectButton({ onPress, loading = false, testID }: ConnectButtonProps)
       testID={testID}
       onPress={onPress}
       accessibilityRole="button"
-      className="px-md py-[6px] rounded-lg border-[1.5px] border-default active:opacity-70"
+      className="min-h-touch px-md rounded-lg border-[1.5px] border-default items-center justify-center active:opacity-70"
     >
       {loading ? (
         <ActivityIndicator size="small" color={palette.textDefault} />
       ) : (
-        <Text className="text-[13px] font-semibold text-default">Connect</Text>
+        <AppText className="text-[13px] font-semibold text-default">Connect</AppText>
       )}
     </Pressable>
   );
@@ -228,7 +229,17 @@ export default function SettingsScreen(): React.ReactNode {
 
   const handleContactSupport = useCallback(() => {
     void hapticLight();
-    void openSupportMailto(supportMailtoGeneral());
+    void Linking.openURL(PUBLIC_URLS.support);
+  }, []);
+
+  const handleTerms = useCallback(() => {
+    void hapticLight();
+    void Linking.openURL(PUBLIC_URLS.terms);
+  }, []);
+
+  const handlePrivacyPolicy = useCallback(() => {
+    void hapticLight();
+    void Linking.openURL(PUBLIC_URLS.privacy);
   }, []);
 
   const handleRateApp = useCallback(() => {
@@ -259,11 +270,11 @@ export default function SettingsScreen(): React.ReactNode {
     void hapticMedium();
     Alert.alert(
       'Delete Account?',
-      'This will permanently delete your account, game history, and all associated data. You will have 30 days to cancel before deletion is finalised. Logging back in during that period automatically cancels the request.',
+      'Delete now to permanently remove your account immediately, or schedule deletion with 30 days to recover your account.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete My Account',
+          text: 'Delete in 30 Days',
           style: 'destructive',
           onPress: () => {
             setIsDeletingAccount(true);
@@ -282,6 +293,27 @@ export default function SettingsScreen(): React.ReactNode {
               })
               .catch(() => {
                 Alert.alert('Error', 'Could not schedule account deletion. Please try again.');
+              })
+              .finally(() => {
+                setIsDeletingAccount(false);
+              });
+          },
+        },
+        {
+          text: 'Delete Now',
+          style: 'destructive',
+          onPress: () => {
+            setIsDeletingAccount(true);
+            void api.deleteAccountNow()
+              .then(() => {
+                Alert.alert(
+                  'Account Deleted',
+                  'Your account and associated personal data have been permanently deleted.',
+                  [{ text: 'OK', onPress: () => { void logout(); } }],
+                );
+              })
+              .catch(() => {
+                Alert.alert('Error', 'Could not delete your account. Please try again.');
               })
               .finally(() => {
                 setIsDeletingAccount(false);
@@ -421,6 +453,20 @@ export default function SettingsScreen(): React.ReactNode {
           />
         </View>
 
+        <SectionLabel title="Legal" />
+        <View>
+          <SettingsRow
+            testID="settings-row-terms"
+            label="Terms of Service"
+            onPress={handleTerms}
+          />
+          <SettingsRow
+            testID="settings-row-privacy-policy"
+            label="Privacy Policy"
+            onPress={handlePrivacyPolicy}
+          />
+        </View>
+
         <Pressable
           testID="settings-logout-btn"
           onPress={handleLogout}
@@ -428,7 +474,7 @@ export default function SettingsScreen(): React.ReactNode {
           accessibilityLabel="Log Out"
           className="mx-lg my-xl py-[14px] rounded-xl border-[1.5px] border-strong items-center active:opacity-70"
         >
-          <Text className="text-[15px] font-semibold text-default">Log Out</Text>
+          <AppText className="text-[15px] font-semibold text-default">Log Out</AppText>
         </Pressable>
 
         <SectionLabel title="Danger Zone" danger />
@@ -436,24 +482,29 @@ export default function SettingsScreen(): React.ReactNode {
           <SettingsRow
             testID="settings-row-delete"
             label={isDeletingAccount ? 'Deleting…' : 'Delete Account'}
-            labelColor="text-red-500 font-semibold"
-            valueColor="text-red-400"
+            labelColor="text-danger font-semibold"
+            valueColor="text-danger"
             onPress={isDeletingAccount ? undefined : handleDeleteAccount}
           />
         </View>
 
-        <Text className="text-center text-[12px] text-muted pb-lg">
+        <AppText className="text-center text-[12px] text-muted pb-lg">
           Beach League v1.0.0
-        </Text>
+        </AppText>
 
       </ScrollView>
 
-      {showLogoutConfirm && (
-        <LogoutModal
-          onConfirm={confirmLogout}
-          onCancel={() => setShowLogoutConfirm(false)}
-        />
-      )}
+      <ConfirmDialog
+        visible={showLogoutConfirm}
+        title="Log Out?"
+        message="Are you sure you want to log out of Beach League?"
+        confirmLabel="Log Out"
+        cancelLabel="Cancel"
+        confirmVariant="destructive"
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+        testID="logout-dialog"
+      />
     </SafeAreaView>
   );
 }
@@ -472,47 +523,4 @@ function maskEmail(email: string): string {
 function maskPhone(phone: string): string {
   if (phone.length < 4) return phone;
   return phone.slice(0, -4).replace(/\d/g, '*') + phone.slice(-4);
-}
-
-// ---------------------------------------------------------------------------
-// Logout modal
-// ---------------------------------------------------------------------------
-
-interface LogoutModalProps {
-  readonly onConfirm: () => void;
-  readonly onCancel: () => void;
-}
-
-function LogoutModal({ onConfirm, onCancel }: LogoutModalProps): React.ReactNode {
-  return (
-    <View
-      testID="logout-modal"
-      className="absolute inset-0 bg-black/50 items-center justify-center px-xl"
-    >
-      <View className="w-full bg-surface rounded-2xl p-xl">
-        <Text className="text-[18px] font-bold text-default text-center mb-sm">
-          Log Out?
-        </Text>
-        <Text className="text-sm text-muted text-center mb-lg">
-          Are you sure you want to log out of Beach League?
-        </Text>
-
-        <Pressable
-          testID="logout-confirm-btn"
-          onPress={onConfirm}
-          className="bg-red-500 py-sm rounded-xl mb-sm items-center active:opacity-70"
-        >
-          <Text className="text-white font-semibold">Log Out</Text>
-        </Pressable>
-
-        <Pressable
-          testID="logout-cancel-btn"
-          onPress={onCancel}
-          className="py-sm rounded-xl items-center active:opacity-70"
-        >
-          <Text className="text-muted font-semibold">Cancel</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
 }

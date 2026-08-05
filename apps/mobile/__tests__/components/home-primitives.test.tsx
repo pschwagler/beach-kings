@@ -1,7 +1,6 @@
 /**
  * Tests for the simple home dashboard primitives: HomeHeader, QuickStatsRow,
- * SectionHeader, SectionError, PendingInvitesBanner, ProfileBanner,
- * NewUserWelcome, and DashboardSkeleton.
+ * SectionHeader, SectionError, HomeLeadAction, and DashboardSkeleton.
  */
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
@@ -15,6 +14,14 @@ jest.mock('expo-router', () => ({
     navigate: mockNavigate,
     replace: jest.fn(),
     back: jest.fn(),
+  }),
+}));
+
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    textInverse: '#fffdf8',
+    brandTeal: '#155b65',
+    brandGold: '#e0b44c',
   }),
 }));
 
@@ -60,7 +67,7 @@ jest.mock('@/components/ui/Avatar', () => {
   };
 });
 
-// react-native-svg stub used by ProfileBanner — swap to plain Views so we
+// react-native-svg stub used by the Home brand motif — swap to plain Views so we
 // don't need the real native deps in jest-dom.
 jest.mock('react-native-svg', () => {
   const React = require('react');
@@ -68,7 +75,14 @@ jest.mock('react-native-svg', () => {
   const Stub = ({ children }: { children?: React.ReactNode }) => (
     <View>{children}</View>
   );
-  return { __esModule: true, default: Stub, Svg: Stub, Circle: Stub };
+  return {
+    __esModule: true,
+    default: Stub,
+    Svg: Stub,
+    Circle: Stub,
+    Path: Stub,
+    Line: Stub,
+  };
 });
 
 // LoadingSkeleton stub — renders a plain View with its className for DashboardSkeleton.
@@ -84,14 +98,27 @@ import HomeHeader from '@/components/home/HomeHeader';
 import QuickStatsRow from '@/components/home/QuickStatsRow';
 import SectionHeader from '@/components/home/SectionHeader';
 import SectionError from '@/components/home/SectionError';
-import PendingInvitesBanner from '@/components/home/PendingInvitesBanner';
-import ProfileBanner from '@/components/home/ProfileBanner';
-import NewUserWelcome from '@/components/home/NewUserWelcome';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
+import HomeLeadAction from '@/components/home/HomeLeadAction';
+
+const useWindowDimensionsSpy = jest.spyOn(
+  require('react-native'),
+  'useWindowDimensions',
+);
 
 beforeEach(() => {
   mockPush.mockClear();
   mockNavigate.mockClear();
+  useWindowDimensionsSpy.mockReturnValue({
+    width: 393,
+    height: 852,
+    scale: 3,
+    fontScale: 1,
+  });
+});
+
+afterAll(() => {
+  useWindowDimensionsSpy.mockRestore();
 });
 
 // ---------------------------------------------------------------------------
@@ -99,7 +126,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 describe('HomeHeader', () => {
   it('renders the brand wordmark + avatar', () => {
-    const { getByText, getByTestId } = render(
+    const { getByLabelText, getByText, getByTestId } = render(
       <HomeHeader
         userName="Ava"
         avatarUrl={null}
@@ -108,7 +135,30 @@ describe('HomeHeader', () => {
       />,
     );
     expect(getByText('BEACH LEAGUE')).toBeTruthy();
+    expect(getByLabelText('Beach League home')).toBeTruthy();
     expect(getByTestId('avatar')).toBeTruthy();
+  });
+
+  it('preserves header actions without capping text at accessibility sizes', () => {
+    useWindowDimensionsSpy.mockReturnValue({
+      width: 393,
+      height: 852,
+      scale: 3,
+      fontScale: 2,
+    });
+
+    const { getByLabelText, queryByText } = render(
+      <HomeHeader
+        userName="Ava"
+        dmUnreadCount={0}
+        notificationUnreadCount={0}
+      />,
+    );
+
+    expect(queryByText('BEACH LEAGUE')).toBeNull();
+    expect(getByLabelText('Beach League home')).toBeTruthy();
+    expect(getByLabelText('Messages')).toBeTruthy();
+    expect(getByLabelText('Notifications')).toBeTruthy();
   });
 
   it('seeds the avatar color with the player id for cross-screen consistency', () => {
@@ -126,37 +176,38 @@ describe('HomeHeader', () => {
   });
 
   it('hides badges when unread counts are zero', () => {
-    const { queryByText } = render(
+    const { queryByTestId } = render(
       <HomeHeader
         userName="Ava"
         dmUnreadCount={0}
         notificationUnreadCount={0}
       />,
     );
-    expect(queryByText('0')).toBeNull();
+    expect(queryByTestId('messages-unread-badge')).toBeNull();
+    expect(queryByTestId('notifications-unread-badge')).toBeNull();
   });
 
   it('shows unread counts on both badges', () => {
-    const { getByText } = render(
+    const { getByTestId } = render(
       <HomeHeader
         userName="Ava"
         dmUnreadCount={3}
         notificationUnreadCount={5}
       />,
     );
-    expect(getByText('3')).toBeTruthy();
-    expect(getByText('5')).toBeTruthy();
+    expect(getByTestId('messages-unread-badge').props.children.props.children).toBe(3);
+    expect(getByTestId('notifications-unread-badge').props.children.props.children).toBe(5);
   });
 
   it('clamps counts above 99 to 99+', () => {
-    const { getByText } = render(
+    const { getByTestId } = render(
       <HomeHeader
         userName="Ava"
         dmUnreadCount={120}
         notificationUnreadCount={0}
       />,
     );
-    expect(getByText('99+')).toBeTruthy();
+    expect(getByTestId('messages-unread-badge').props.children.props.children).toBe('99+');
   });
 
   it('navigates when each icon button is pressed', () => {
@@ -215,9 +266,10 @@ describe('SectionHeader', () => {
 
   it('renders a pressable link when linkLabel + onLinkPress are provided', () => {
     const onLinkPress = jest.fn();
-    const { getByRole } = render(
+    const { getByRole, getByLabelText } = render(
       <SectionHeader title="Leagues" linkLabel="See all" onLinkPress={onLinkPress} />,
     );
+    expect(getByLabelText('See all, Leagues')).toBeTruthy();
     fireEvent.press(getByRole('link'));
     expect(onLinkPress).toHaveBeenCalled();
   });
@@ -248,110 +300,79 @@ describe('SectionError', () => {
 });
 
 // ---------------------------------------------------------------------------
-// PendingInvitesBanner
+// HomeLeadAction
 // ---------------------------------------------------------------------------
-describe('PendingInvitesBanner', () => {
-  it('pluralises players + games correctly', () => {
-    const { getByText } = render(
-      <PendingInvitesBanner
-        playerCount={1}
-        gameCount={1}
-        onPress={() => {}}
-      />,
+describe('HomeLeadAction', () => {
+  it('renders the record-game fallback as one branded lead', () => {
+    const { getByLabelText, getByTestId } = render(
+      <HomeLeadAction state={{ kind: 'record-game' }} onRetryActiveSession={() => {}} />,
     );
-    expect(getByText(/1 player waiting/)).toBeTruthy();
-    expect(getByText(/1 game pending/)).toBeTruthy();
-  });
-
-  it('uses plural forms for counts greater than 1', () => {
-    const { getByText } = render(
-      <PendingInvitesBanner
-        playerCount={4}
-        gameCount={2}
-        onPress={() => {}}
-      />,
-    );
-    expect(getByText(/4 players waiting/)).toBeTruthy();
-    expect(getByText(/2 games pending/)).toBeTruthy();
-  });
-
-  it('fires onPress when the Send Invites button is tapped', () => {
-    const onPress = jest.fn();
-    const { getByLabelText } = render(
-      <PendingInvitesBanner playerCount={1} gameCount={1} onPress={onPress} />,
-    );
-    fireEvent.press(getByLabelText('Send invites'));
-    expect(onPress).toHaveBeenCalled();
-  });
-
-  it('fires onDismiss when the X is tapped', () => {
-    const onDismiss = jest.fn();
-    const { getByLabelText } = render(
-      <PendingInvitesBanner
-        playerCount={1}
-        gameCount={1}
-        onPress={() => {}}
-        onDismiss={onDismiss}
-      />,
-    );
-    fireEvent.press(getByLabelText('Dismiss pending invites banner'));
-    expect(onDismiss).toHaveBeenCalled();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// ProfileBanner
-// ---------------------------------------------------------------------------
-describe('ProfileBanner', () => {
-  it('navigates to onboarding when pressed', () => {
-    const { getByLabelText } = render(<ProfileBanner percent={50} />);
-    fireEvent.press(getByLabelText('Finish setting up your profile'));
-    expect(mockPush).toHaveBeenCalledWith('/(auth)/onboarding');
-  });
-
-  it('rounds percent for display', () => {
-    const { getByText } = render(<ProfileBanner percent={62.7} />);
-    expect(getByText('63%')).toBeTruthy();
-  });
-
-  it('clamps percent into the [0, 100] range', () => {
-    const { getByText, rerender } = render(<ProfileBanner percent={120} />);
-    expect(getByText('100%')).toBeTruthy();
-
-    rerender(<ProfileBanner percent={-5} />);
-    expect(getByText('0%')).toBeTruthy();
-  });
-
-  it('fires onDismiss without bubbling to the card press', () => {
-    const onDismiss = jest.fn();
-    const { getByLabelText } = render(
-      <ProfileBanner percent={50} onDismiss={onDismiss} />,
-    );
-    fireEvent.press(getByLabelText('Dismiss profile banner'));
-    expect(onDismiss).toHaveBeenCalled();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// NewUserWelcome
-// ---------------------------------------------------------------------------
-describe('NewUserWelcome', () => {
-  it('renders the welcome copy + three CTAs', () => {
-    const { getByText } = render(<NewUserWelcome />);
-    expect(getByText('Welcome to Beach League')).toBeTruthy();
-    expect(getByText('Find a League')).toBeTruthy();
-    expect(getByText('Add Your First Game')).toBeTruthy();
-    expect(getByText('Find Courts')).toBeTruthy();
-  });
-
-  it('each CTA routes to the expected destination', () => {
-    const { getByText } = render(<NewUserWelcome />);
-    fireEvent.press(getByText('Find a League'));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/find-leagues');
-    fireEvent.press(getByText('Add Your First Game'));
+    expect(getByTestId('home-lead-record-game')).toBeTruthy();
+    expect(getByTestId('court-line-motif-home', {
+      includeHiddenElements: true,
+    })).toBeTruthy();
+    fireEvent.press(getByLabelText('Record a Game'));
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/add-games');
-    fireEvent.press(getByText('Find Courts'));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/courts');
+  });
+
+  it('uses truthful friend-request copy and opens Social Friends', () => {
+    const { getByLabelText, getByText } = render(
+      <HomeLeadAction
+        state={{ kind: 'friend-request', count: 1, senderName: 'Avery Kim' }}
+        onRetryActiveSession={() => {}}
+      />,
+    );
+    expect(getByText('Avery Kim sent you a friend request.')).toBeTruthy();
+    fireEvent.press(getByLabelText('Review Request'));
+    expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/social?tab=friends');
+  });
+
+  it('uses the matching semantic foreground for each brand fill', () => {
+    const gold = render(
+      <HomeLeadAction state={{ kind: 'record-game' }} onRetryActiveSession={() => {}} />,
+    );
+    expect(gold.getByText('Record a Game').props.className).toContain(
+      'text-on-brand-gold',
+    );
+    gold.unmount();
+
+    const teal = render(
+      <HomeLeadAction state={{ kind: 'active-session-error' }} onRetryActiveSession={() => {}} />,
+    );
+    expect(teal.getByText('Try Again').props.className).toContain(
+      'text-on-brand-teal',
+    );
+  });
+
+  it('retries rather than offering a new game when session absence is unknown', () => {
+    const onRetry = jest.fn();
+    const { getByLabelText, queryByLabelText } = render(
+      <HomeLeadAction state={{ kind: 'active-session-error' }} onRetryActiveSession={onRetry} />,
+    );
+    expect(queryByLabelText('Record a Game')).toBeNull();
+    fireEvent.press(getByLabelText('Try Again'));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes the decorative motif at accessibility text sizes', () => {
+    useWindowDimensionsSpy.mockReturnValue({
+      width: 393,
+      height: 852,
+      scale: 3,
+      fontScale: 2,
+    });
+
+    const { queryByTestId } = render(
+      <HomeLeadAction
+        state={{ kind: 'record-game' }}
+        onRetryActiveSession={() => {}}
+      />,
+    );
+    expect(
+      queryByTestId('court-line-motif-home', {
+        includeHiddenElements: true,
+      }),
+    ).toBeNull();
   });
 });
 

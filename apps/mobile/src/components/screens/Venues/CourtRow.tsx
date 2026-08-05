@@ -6,13 +6,15 @@
  */
 
 import React, { useCallback } from "react";
-import { View, Text, Pressable, Image } from "react-native";
+import { View, Pressable, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { hapticLight } from "@/utils/haptics";
 import { routes } from "@/lib/navigation";
 import { formatDistance } from "@/lib/formatters";
 import { ChevronRightIcon } from '@/components/ui/icons';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import AppText from '@/components/ui/AppText';
+import { courtSurfaceLabel } from '@/features/courts';
 import CourtRating from "./CourtRating";
 import type { Court } from "@beach-kings/shared";
 
@@ -48,7 +50,7 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
     : court.name;
   const signals = [
     court.is_saved === true ? 'Saved' : null,
-    court.surface_type === 'indoor' ? 'Indoor' : court.surface_type === 'sand' ? 'Outdoor' : null,
+    courtSurfaceLabel(court),
     court.has_lights === true ? 'Lighted' : null,
     court.is_free === true ? 'Free play' : null,
   ].filter((signal): signal is string => signal != null);
@@ -79,19 +81,19 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
 
       {/* Content */}
       <View className="flex-1 ml-3">
-        <Text className="text-[15px] font-semibold text-default mb-0.5">
+        <AppText className="text-[15px] font-semibold text-default mb-0.5" numberOfLines={2}>
           {court.name}
-        </Text>
+        </AppText>
         {locationLabel.length > 0 && (
-          <Text className="text-[13px] text-tertiary mb-1.5">
+          <AppText className="text-[13px] text-tertiary mb-1.5" numberOfLines={2}>
             {locationLabel}
-          </Text>
+          </AppText>
         )}
 
         {signals.length > 0 && (
-          <Text className="text-[11px] font-medium text-brand-teal mb-1" numberOfLines={1}>
+          <AppText className="text-[11px] font-medium text-brand-teal mb-1" numberOfLines={2}>
             {signals.join(' · ')}
-          </Text>
+          </AppText>
         )}
 
         {/* Rating + distance row */}
@@ -102,9 +104,9 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
             combineScoreAndCount
           />
           {court.distance_miles != null && (
-            <Text className="text-[12px] text-tertiary">
+            <AppText className="text-[12px] text-tertiary">
               · {formatDistance(court.distance_miles)}
-            </Text>
+            </AppText>
           )}
         </View>
       </View>

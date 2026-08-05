@@ -7,7 +7,8 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, TouchableOpacity } from 'react-native';
 import type { SessionGame } from '@beach-kings/shared';
 
 interface Props {
@@ -50,21 +51,21 @@ function TeamRow({ name, score, isWinner, isLoser }: TeamRowProps): React.ReactN
         isWinner ? 'bg-success-tint' : ''
       }`}
     >
-      <Text
+      <AppText
         className={`flex-1 text-[13px] font-semibold pr-[8px] ${
           isLoser ? 'text-muted' : 'text-default'
         }`}
         numberOfLines={1}
       >
         {name}
-      </Text>
-      <Text
+      </AppText>
+      <AppText
         className={`text-[18px] font-bold ${
           isWinner ? 'text-success' : 'text-muted'
         }`}
       >
         {score != null ? String(score) : '—'}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -92,13 +93,13 @@ export default function SessionGameCard({
     >
       {/* Header row */}
       <View className="flex-row items-center justify-between mb-[8px]">
-        <Text className="text-[12px] text-muted font-semibold">
+        <AppText className="text-[12px] text-muted font-semibold">
           Game {game.game_number}
-        </Text>
+        </AppText>
         <View className="flex-row items-center gap-[8px]">
           {badgeStyles != null && (
             <View className={`px-[8px] py-[3px] rounded-[10px] ${badgeStyles.badge}`}>
-              <Text className={`text-[10px] font-bold ${badgeStyles.text}`}>{badgeStyles.label}</Text>
+              <AppText className={`text-[10px] font-bold ${badgeStyles.text}`}>{badgeStyles.label}</AppText>
             </View>
           )}
           {onEdit != null && (
@@ -107,7 +108,7 @@ export default function SessionGameCard({
               testID={`session-game-edit-${game.id}`}
               className="p-[4px]"
             >
-              <Text className="text-[12px] text-brand-teal">Edit</Text>
+              <AppText className="text-[12px] text-brand-teal">Edit</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -130,13 +131,13 @@ export default function SessionGameCard({
       </View>
 
       {ratingText != null && (
-        <Text
+        <AppText
           className={`text-[12px] font-semibold mt-[6px] text-right ${
             (game.rating_change ?? 0) > 0 ? 'text-success' : 'text-danger'
           }`}
         >
           {ratingText}
-        </Text>
+        </AppText>
       )}
     </View>
   );

@@ -4,13 +4,14 @@ import {
   FlatList,
   Modal,
   Pressable,
-  Text,
   TextInput,
   View,
 } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 export interface CourtPickerOption {
   readonly id: number;
@@ -51,6 +52,7 @@ export default function CourtPickerModal({
   closeTestID,
 }: Props): React.ReactNode {
   const palette = usePaletteColors();
+  const reduceMotion = useReducedMotion();
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -60,7 +62,9 @@ export default function CourtPickerModal({
   const filteredCourts = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (normalized.length === 0) return courts;
-    return courts.filter((court) => court.name.toLowerCase().includes(normalized));
+    return courts.filter((court) =>
+      court.name.toLowerCase().includes(normalized),
+    );
   }, [courts, query]);
 
   const options: ReadonlyArray<CourtPickerOption | null> = allowNone
@@ -71,13 +75,15 @@ export default function CourtPickerModal({
     <Modal
       testID={modalTestID ?? `${testIDPrefix}-modal`}
       visible={visible}
-      animationType="slide"
+      animationType={reduceMotion ? 'none' : 'slide'}
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
       <SafeAreaView className="flex-1 bg-page" edges={['top']}>
         <View className="flex-row items-center px-4 pt-2 pb-3 border-b border-divider">
-          <Text className="flex-1 text-[17px] font-semibold text-default">{title}</Text>
+          <AppText className="flex-1 text-[17px] font-semibold text-default">
+            {title}
+          </AppText>
           <Pressable
             testID={closeTestID ?? `${testIDPrefix}-close`}
             onPress={onClose}
@@ -85,7 +91,9 @@ export default function CourtPickerModal({
             accessibilityLabel="Close court picker"
             className="py-1 pl-4 active:opacity-70"
           >
-            <Text className="text-[15px] font-semibold text-brand-teal">Done</Text>
+            <AppText className="text-[15px] font-semibold text-brand-teal">
+              Done
+            </AppText>
           </Pressable>
         </View>
 
@@ -113,9 +121,11 @@ export default function CourtPickerModal({
             data={options}
             keyExtractor={(court) => String(court?.id ?? 'none')}
             keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={(
-              <Text className="px-4 py-8 text-center text-[14px] text-muted">{emptyLabel}</Text>
-            )}
+            ListEmptyComponent={
+              <AppText className="px-4 py-8 text-center text-[14px] text-muted">
+                {emptyLabel}
+              </AppText>
+            }
             renderItem={({ item, index }) => {
               const id = item?.id ?? null;
               const isSelected = id === selectedCourtId;
@@ -137,16 +147,20 @@ export default function CourtPickerModal({
                       isSelected ? 'border-brand-teal' : 'border-strong'
                     }`}
                   >
-                    {isSelected && <View className="w-2.5 h-2.5 rounded-full bg-brand-teal" />}
+                    {isSelected && (
+                      <View className="w-2.5 h-2.5 rounded-full bg-brand-teal" />
+                    )}
                   </View>
                   <View className="flex-1">
-                    <Text className={`text-[15px] ${item == null ? 'text-muted' : 'text-default'}`}>
+                    <AppText
+                      className={`text-[15px] ${item == null ? 'text-muted' : 'text-default'}`}
+                    >
                       {item?.name ?? noneLabel}
-                    </Text>
+                    </AppText>
                     {item?.detail != null && (
-                      <Text className="mt-0.5 text-[12px] text-muted">
+                      <AppText className="mt-0.5 text-[12px] text-muted">
                         {item.detail}
-                      </Text>
+                      </AppText>
                     )}
                   </View>
                 </Pressable>

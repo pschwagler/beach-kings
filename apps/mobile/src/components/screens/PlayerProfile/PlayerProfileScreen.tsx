@@ -16,7 +16,8 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl, Alert, Linking } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable, ScrollView, RefreshControl, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -166,7 +167,7 @@ export default function PlayerProfileScreen({
       accessibilityLabel="More options"
       className="min-w-touch min-h-touch items-center justify-center"
     >
-      <Text className="text-white text-xl">•••</Text>
+      <AppText className="text-inverse text-xl">•••</AppText>
     </Pressable>
   );
 
@@ -250,14 +251,14 @@ function ActionSheet({
   return (
     <View
       testID="player-action-sheet"
-      className="absolute inset-0 bg-black/50 justify-end"
+      className="absolute inset-0 bg-black/70 justify-end"
     >
       <View className="mx-sm mb-[34px]">
         <View className="bg-elevated rounded-[14px] overflow-hidden mb-sm">
           <View className="items-center px-lg py-md border-b border-strong">
-            <Text className="text-sm font-bold text-default">
+            <AppText className="text-sm font-bold text-default">
               {playerName}
-            </Text>
+            </AppText>
           </View>
 
           {canRemoveFriend && (
@@ -270,9 +271,9 @@ function ActionSheet({
               accessibilityState={{ disabled: isFriendActionLoading }}
               className="min-h-[56px] items-center justify-center border-b border-strong px-lg active:opacity-70"
             >
-              <Text className="text-[17px] font-semibold text-danger">
+              <AppText className="text-[17px] font-semibold text-danger">
                 Remove Friend
-              </Text>
+              </AppText>
             </Pressable>
           )}
 
@@ -283,7 +284,7 @@ function ActionSheet({
             accessibilityLabel={`Report ${playerName}`}
             className="flex-row items-center justify-center gap-sm px-lg min-h-[56px] active:opacity-70"
           >
-            <Text className="text-[17px] font-semibold text-red-500">Report User</Text>
+            <AppText className="text-[17px] font-semibold text-danger">Report User</AppText>
           </Pressable>
         </View>
 
@@ -293,7 +294,7 @@ function ActionSheet({
           accessibilityRole="button"
           className="bg-elevated rounded-[14px] min-h-[56px] items-center justify-center active:opacity-70"
         >
-          <Text className="text-[17px] font-semibold text-blue-500">Cancel</Text>
+          <AppText className="text-[17px] font-semibold text-brand-teal">Cancel</AppText>
         </Pressable>
       </View>
     </View>

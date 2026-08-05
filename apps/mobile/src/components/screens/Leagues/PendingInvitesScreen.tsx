@@ -10,9 +10,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
@@ -56,7 +56,7 @@ function InviteStatusBadge({
 
   return (
     <View className={`rounded-[6px] px-2 py-[3px] ${wrapClass}`}>
-      <Text className={`text-[11px] font-bold ${textClass}`}>{label}</Text>
+      <AppText className={`text-[11px] font-bold ${textClass}`}>{label}</AppText>
     </View>
   );
 }
@@ -95,24 +95,24 @@ function InviteRow({ invite }: { readonly invite: LeagueInviteItem }): React.Rea
 
       {/* Content */}
       <View className="flex-1 min-w-0">
-        <Text
+        <AppText
           className="text-[14px] font-semibold text-default"
           numberOfLines={1}
         >
           {invite.display_name}
-        </Text>
+        </AppText>
         {isGuest ? (
-          <Text className="text-[12px] text-brand-gold mt-[2px]" numberOfLines={1}>
+          <AppText className="text-[12px] text-accent mt-[2px]" numberOfLines={1}>
             {gamesLabel}
-          </Text>
+          </AppText>
         ) : (
-          <Text className="text-[12px] text-muted mt-[2px]" numberOfLines={1}>
+          <AppText className="text-[12px] text-muted mt-[2px]" numberOfLines={1}>
             {invite.league_name}
-          </Text>
+          </AppText>
         )}
-        <Text className="text-[11px] text-tertiary mt-[2px]">
+        <AppText className="text-[11px] text-tertiary mt-[2px]">
           Invited {dateLabel}
-        </Text>
+        </AppText>
       </View>
 
       {/* Status */}
@@ -143,9 +143,9 @@ export default function PendingInvitesScreen(): React.ReactNode {
           testID="pending-invites-error"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[16px] font-bold text-default text-center">
+          <AppText className="text-[16px] font-bold text-default text-center">
             Failed to load invites
-          </Text>
+          </AppText>
         </View>
       );
     }
@@ -156,12 +156,12 @@ export default function PendingInvitesScreen(): React.ReactNode {
           testID="pending-invites-empty"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[20px] font-bold text-default mb-2 text-center">
+          <AppText className="text-[20px] font-bold text-default mb-2 text-center">
             No Invites Sent
-          </Text>
-          <Text className="text-[14px] text-muted text-center">
+          </AppText>
+          <AppText className="text-[14px] text-muted text-center">
             Invite players to your leagues from the league detail screen.
-          </Text>
+          </AppText>
         </View>
       );
     }

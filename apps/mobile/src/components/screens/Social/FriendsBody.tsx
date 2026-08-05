@@ -2,9 +2,9 @@
  * FriendsBody — chrome-free content for the Social hub's Friends tab.
  *
  * Renders the friend search bar and a single sectioned FlatList of:
- *   - Pending Requests (N)  → FriendRequestCard rows (accept / decline)
- *   - My Friends (N)        → FriendRow rows
- *   - Suggested Friends     → SuggestionRow rows (add)
+ *   - Pending requests · N  → FriendRequestCard rows (accept / decline)
+ *   - Friends · N           → FriendRow rows
+ *   - Suggested players     → SuggestionRow rows (add)
  * plus the loading / error / empty states.
  *
  * Presentational: all data and handlers arrive via props (the {@link useFriends}
@@ -14,16 +14,16 @@
  * while a friends-list failure shows the full-page error state.
  *
  * While the search box is active the view scopes to the (filtered) friends list
- * only: the unfiltered Pending Requests / Suggested Friends sections are hidden
+ * only: the unfiltered pending-request / suggested-player sections are hidden
  * so a no-match search reads as "No matches" rather than a half-populated list.
  *
  * Wireframe ref: friends.html
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   FlatList,
   Pressable,
   TextInput,
@@ -55,8 +55,8 @@ function FriendsSearchBar({
 }: FriendsSearchBarProps): React.ReactNode {
   const palette = usePaletteColors();
   return (
-    <View className="px-4 py-3 bg-surface border-b border-divider">
-      <View className="flex-row items-center bg-elevated rounded-[10px] px-[12px] h-[40px] gap-[8px]">
+    <View className="bg-page px-lg py-sm border-b border-divider">
+      <View className="flex-row items-center bg-surface rounded-input border border-divider px-md min-h-touch gap-sm">
         <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
           <Circle cx={11} cy={11} r={8} stroke={palette.textTertiary} strokeWidth={2} />
           <Path
@@ -72,7 +72,7 @@ function FriendsSearchBar({
           onChangeText={onChangeText}
           placeholder="Search friends..."
           placeholderTextColor={palette.textTertiary}
-          className="flex-1 text-[14px] text-default"
+          className="flex-1 text-subhead text-default"
           returnKeyType="search"
           autoCapitalize="none"
           autoCorrect={false}
@@ -92,9 +92,9 @@ function FriendsSearchBar({
 
 function SectionLabel({ label }: { label: string }): React.ReactNode {
   return (
-    <Text className="text-[15px] font-bold text-default px-4 pt-[14px] pb-2">
+    <AppText className="bg-page px-lg pt-md pb-sm text-footnote font-semibold text-muted uppercase tracking-wide">
       {label}
-    </Text>
+    </AppText>
   );
 }
 
@@ -162,12 +162,12 @@ function FriendsEmptyState({
           />
         </Svg>
       </View>
-      <Text className="text-[16px] font-bold text-default mb-1 text-center">
+      <AppText className="text-[16px] font-bold text-default mb-1 text-center">
         No friends yet
-      </Text>
-      <Text className="text-[13px] text-muted text-center leading-[1.4] mb-4">
+      </AppText>
+      <AppText className="text-[13px] text-muted text-center leading-[1.4] mb-4">
         Connect with players you meet on the court.
-      </Text>
+      </AppText>
       <Pressable
         testID="friends-empty-find-players"
         onPress={handlePress}
@@ -175,7 +175,7 @@ function FriendsEmptyState({
         accessibilityLabel="Find Players"
         className="bg-brand-teal rounded-xl px-6 py-3 min-h-[44px] justify-center active:opacity-80"
       >
-        <Text className="text-white font-bold text-[14px]">Find Players</Text>
+        <AppText className="text-on-brand-teal font-bold text-[14px]">Find Players</AppText>
       </Pressable>
     </View>
   );
@@ -187,12 +187,12 @@ function FriendsNoResults({ query }: { readonly query: string }): React.ReactNod
       testID="friends-no-results"
       className="items-center justify-center px-8 py-12"
     >
-      <Text className="text-[15px] font-bold text-default mb-1 text-center">
+      <AppText className="text-[15px] font-bold text-default mb-1 text-center">
         No matches
-      </Text>
-      <Text className="text-[13px] text-muted text-center leading-[1.4]">
+      </AppText>
+      <AppText className="text-[13px] text-muted text-center leading-[1.4]">
         No friends match &ldquo;{query.trim()}&rdquo;.
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -212,13 +212,13 @@ function FriendsErrorState({
       testID="friends-error-state"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <Text className="text-[18px] font-bold text-default mb-2 text-center">
+      <AppText className="text-[18px] font-bold text-default mb-2 text-center">
         Could Not Load Friends
-      </Text>
-      <Text className="text-[14px] text-muted text-center leading-[1.5] mb-6">
+      </AppText>
+      <AppText className="text-[14px] text-muted text-center leading-[1.5] mb-6">
         Something went wrong while loading your friends. Check your connection
         and try again.
-      </Text>
+      </AppText>
       <Pressable
         testID="friends-retry-btn"
         onPress={handleRetry}
@@ -226,7 +226,7 @@ function FriendsErrorState({
         accessibilityLabel="Try Again"
         className="bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
       >
-        <Text className="text-white font-bold text-[15px]">Try Again</Text>
+        <AppText className="text-on-brand-gold font-bold text-[15px]">Try Again</AppText>
       </Pressable>
     </View>
   );
@@ -253,17 +253,18 @@ function FriendRequestsErrorNotice({
       accessibilityRole="alert"
       className="flex-row items-center justify-between gap-3 mx-4 mt-3 mb-1 px-4 py-3 rounded-[10px] bg-danger-tint border border-danger"
     >
-      <Text className="flex-1 text-[13px] text-danger">
+      <AppText className="flex-1 text-[13px] text-danger">
         Couldn&apos;t load friend requests.
-      </Text>
+      </AppText>
       <Pressable
         testID="friend-requests-error-retry"
         onPress={handleRetry}
         accessibilityRole="button"
         accessibilityLabel="Retry loading friend requests"
         hitSlop={8}
+        className="min-h-touch min-w-touch items-center justify-center"
       >
-        <Text className="text-[13px] font-bold text-danger">Retry</Text>
+        <AppText className="text-[13px] font-bold text-danger">Retry</AppText>
       </Pressable>
     </View>
   );
@@ -290,7 +291,7 @@ function buildListItems(
     items.push({
       kind: 'section',
       key: 'section-requests',
-      label: `Pending Requests (${friendRequests.length})`,
+      label: `Pending requests · ${friendRequests.length}`,
     });
     friendRequests.forEach((request) =>
       items.push({ kind: 'request', request }),
@@ -301,7 +302,7 @@ function buildListItems(
     items.push({
       kind: 'section',
       key: 'section-friends',
-      label: `My Friends (${friends.length})`,
+      label: `Friends · ${friends.length}`,
     });
     friends.forEach((friend) => items.push({ kind: 'friend', friend }));
   }
@@ -310,7 +311,7 @@ function buildListItems(
     items.push({
       kind: 'section',
       key: 'section-suggestions',
-      label: 'Suggested Friends',
+      label: 'Suggested players',
     });
     suggestions.forEach((suggestion) =>
       items.push({ kind: 'suggestion', suggestion }),
@@ -417,7 +418,7 @@ export default function FriendsBody({
     }
 
     // While searching, scope the view to the friends list only. The box is
-    // labelled "Search friends…", so the unfiltered Pending Requests / Suggested
+    // labelled "Search friends…", so the unfiltered pending-request / suggested
     // Friends sections (and the requests-error notice) would be noise — hide
     // them so "No matches" fires whenever the friend filter comes up empty.
     const isSearching = searchQuery.trim() !== '';
@@ -433,7 +434,7 @@ export default function FriendsBody({
     if (isEmpty && !showRequestsNotice) {
       // Suggestions load decoupled from the primary content; with nothing
       // else to show yet, hold the skeleton rather than flash "No friends
-      // yet" before a Suggested Friends section can still arrive.
+      // yet" before a suggested-players section can still arrive.
       if (isLoadingSuggestions && !isSearching) {
         return (
           <>

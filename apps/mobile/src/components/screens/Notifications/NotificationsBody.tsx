@@ -14,8 +14,10 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
+import { View, FlatList, RefreshControl } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
+import TabView from '@/components/ui/TabView';
+import EmptyState from '@/components/ui/EmptyState';
 import NotificationItem from './NotificationItem';
 import NotificationsSkeleton from './NotificationsSkeleton';
 import NotificationsErrorState from './NotificationsErrorState';
@@ -36,58 +38,35 @@ const FILTER_TABS: Array<{ key: NotificationFilter; label: string }> = [
   { key: 'leagues', label: 'Leagues' },
 ];
 
-interface FilterTabBarProps {
+interface NotificationsTabsProps {
   readonly activeFilter: NotificationFilter;
   readonly unreadCount: number;
   readonly onFilterPress: (filter: NotificationFilter) => void;
 }
 
-function FilterTabBar({
+function NotificationsTabs({
   activeFilter,
   unreadCount,
   onFilterPress,
-}: FilterTabBarProps): React.ReactNode {
+}: NotificationsTabsProps): React.ReactNode {
   return (
-    <View className="flex-row bg-surface border-b border-divider">
-      {FILTER_TABS.map(({ key, label }) => {
-        const isActive = key === activeFilter;
-        const showBadge = key === 'all' && unreadCount > 0;
-        return (
-          <Pressable
-            key={key}
-            testID={`filter-tab-${key}`}
-            onPress={() => {
-              void hapticLight();
-              onFilterPress(key);
-            }}
-            className="flex-1 py-[14px] items-center justify-center"
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            accessibilityLabel={label}
-          >
-            <View className="flex-row items-center gap-1">
-              <Text
-                className={`text-[13px] font-semibold ${
-                  isActive ? 'text-brand-teal' : 'text-muted'
-                }`}
-              >
-                {label}
-              </Text>
-              {showBadge && (
-                <View className="w-[18px] h-[18px] rounded-full bg-brand-gold items-center justify-center">
-                  <Text className="text-[10px] font-bold text-white">
-                    {unreadCount > 9 ? '9+' : String(unreadCount)}
-                  </Text>
-                </View>
-              )}
-            </View>
-            {isActive && (
-              <View className="absolute bottom-0 left-2 right-2 h-[2px] bg-brand-teal" />
-            )}
-          </Pressable>
-        );
-      })}
-    </View>
+    <TabView<NotificationFilter>
+      testID="notifications-filter-tabs"
+      items={FILTER_TABS.map(({ key, label }) => ({
+        value: key,
+        label,
+        badge:
+          key === 'all' && unreadCount > 0
+            ? unreadCount > 9 ? '9+' : String(unreadCount)
+            : undefined,
+        testID: `filter-tab-${key}`,
+      }))}
+      value={activeFilter}
+      onValueChange={(value) => {
+        void hapticLight();
+        onFilterPress(value);
+      }}
+    />
   );
 }
 
@@ -106,17 +85,11 @@ function NotificationsEmptyState({
       : `No ${filter} notifications.`;
 
   return (
-    <View
+    <EmptyState
       testID="notifications-empty-state"
-      className="flex-1 items-center justify-center px-8 py-16"
-    >
-      <Text className="text-[18px] font-bold text-default mb-2 text-center">
-        No Notifications
-      </Text>
-      <Text className="text-[14px] text-tertiary text-center leading-[1.5]">
-        {message}
-      </Text>
-    </View>
+      title="No Notifications"
+      description={message}
+    />
   );
 }
 
@@ -185,7 +158,7 @@ export default function NotificationsBody({
 
   return (
     <View testID="notifications-screen" className="flex-1">
-      <FilterTabBar
+      <NotificationsTabs
         activeFilter={activeFilter}
         unreadCount={unreadCount}
         onFilterPress={setActiveFilter}

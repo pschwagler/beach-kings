@@ -13,7 +13,7 @@ export const colors = {
 
   // Semantic
   success: '#34a853',
-  danger: '#dc3545',
+  danger: '#c32e3b',
   warning: '#f0ad4e',
   info: '#3b82f6',
 
@@ -28,7 +28,7 @@ export const colors = {
   // Neutrals
   textPrimary: '#182326',
   textSecondary: '#596568',
-  textTertiary: '#697577',
+  textTertiary: '#626d6f',
   textInverse: '#fffdf8',
 
   // Disabled state
@@ -73,7 +73,7 @@ export const darkColors = {
   // Text
   textPrimary: '#e8efec',
   textSecondary: '#9faaa6',
-  textTertiary: '#818e88',
+  textTertiary: '#8a9690',
 
   // Brand (adjusted for dark backgrounds)
   brandTeal: '#4daacc',
@@ -87,7 +87,8 @@ export const darkColors = {
   successBg: '#0d2818',
   successText: '#3fb950',
   dangerBg: '#2a1215',
-  dangerText: '#f85149',
+  dangerFill: '#f85149',
+  dangerText: '#ff6962',
   warningBg: '#2a1f05',
   warningText: '#d29922',
   infoBg: '#0d1d35',

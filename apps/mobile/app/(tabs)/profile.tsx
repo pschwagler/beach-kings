@@ -4,12 +4,14 @@
  * player info fields, and settings/logout shortcuts.
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
-import { ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollView, View, Pressable, RefreshControl } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { normalizePlayerStats } from '@beach-kings/shared';
+import type { Player } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
 import { routes } from '@/lib/navigation';
 import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
@@ -23,7 +25,14 @@ import StatsBar from '@/components/screens/Profile/StatsBar';
 import ProfileInfoSection from '@/components/screens/Profile/ProfileInfoSection';
 import ProfileMenuSection from '@/components/screens/Profile/ProfileMenuSection';
 import ProfileSkeleton from '@/components/screens/Profile/ProfileSkeleton';
+import ProfileFieldSheet from '@/components/screens/Profile/ProfileFieldSheet';
+import type { ProfileEditorKey } from '@/components/screens/Profile/profileEditorModel';
+import { useProfilePhotoActions } from '@/components/screens/Profile/useProfilePhotoActions';
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
+import { usePlayerProfileMutations } from '@/features/player';
+import { useToast } from '@/contexts/ToastContext';
+import { hapticSuccess } from '@/utils/haptics';
+import { getApiErrorMessage } from '@/lib/apiError';
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -34,6 +43,7 @@ export default function ProfileScreen(): React.ReactNode {
   const { logout, user } = useAuth();
   const palette = usePaletteColors();
   const scrollRef = useRef<ScrollView>(null);
+  const [editor, setEditor] = useState<ProfileEditorKey | null>(null);
   const userId = user?.id ?? 0;
   const playerQuery = useCurrentPlayer();
   const friendCountQuery = useQuery(socialQueries.friendCount(userId));
@@ -41,30 +51,31 @@ export default function ProfileScreen(): React.ReactNode {
   const refetchFriendCount = friendCountQuery.refetch;
 
   const onRefresh = useCallback(async () => {
-    await Promise.allSettled([
-      refetchPlayer(),
-      refetchFriendCount(),
-    ]);
+    await Promise.allSettled([refetchPlayer(), refetchFriendCount()]);
   }, [refetchFriendCount, refetchPlayer]);
 
   useRefreshOnFocus(onRefresh, 0);
 
   useEffect(
-    () => registerRootTabScroll('profile', () => {
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-    }),
+    () =>
+      registerRootTabScroll('profile', () => {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }),
     [],
   );
 
   const player = playerQuery.data ?? null;
+  const { updateProfile } = usePlayerProfileMutations();
+  const { showToast } = useToast();
+  const photoActions = useProfilePhotoActions(player);
   const friendCount = friendCountQuery.data ?? null;
   const hasPlayerData = playerQuery.data !== undefined;
   const isInitialLoading = !hasPlayerData && playerQuery.isPending;
   const isInitialError = !hasPlayerData && playerQuery.isError;
-  const hasRefreshError = hasPlayerData
-    && (playerQuery.isError || friendCountQuery.isError);
-  const isRefreshing = hasPlayerData
-    && (playerQuery.isFetching || friendCountQuery.isFetching);
+  const hasRefreshError =
+    hasPlayerData && (playerQuery.isError || friendCountQuery.isError);
+  const isRefreshing =
+    hasPlayerData && (playerQuery.isFetching || friendCountQuery.isFetching);
 
   // `/api/users/me/player` nests aggregates under `stats` (current_rating,
   // total_games, total_wins) and exposes no `losses` field — derive it. Fall
@@ -73,26 +84,31 @@ export default function ProfileScreen(): React.ReactNode {
   // This is the caller's OWN player, so wins/losses are never privacy-hidden
   // (`normalizePlayerStats` returns null for a hidden public profile) — the
   // `?? 0` floors are type-satisfiers that never fire here.
-  const { rating, games, wins: winsRaw, losses: lossesRaw } = normalizePlayerStats(player);
+  const {
+    rating,
+    games,
+    wins: winsRaw,
+    losses: lossesRaw,
+  } = normalizePlayerStats(player);
   const wins = winsRaw ?? 0;
   const losses = lossesRaw ?? 0;
 
-  const rightAction = (
-    <Pressable
-      onPress={() => router.push(routes.settings())}
-      accessibilityRole="button"
-      accessibilityLabel="Settings"
-      className="min-w-touch min-h-touch items-center justify-center"
-    >
-      <Text className="text-brand-gold font-semibold text-sm">
-        Settings
-      </Text>
-    </Pressable>
-  );
+  const saveProfileFields = useCallback(async (updates: Partial<Player>) => {
+    try {
+      await updateProfile.mutateAsync(updates);
+      void hapticSuccess();
+      showToast('Profile updated.', 'success');
+    } catch (error) {
+      throw new Error(getApiErrorMessage(
+        error,
+        'Your profile could not be saved. Please try again.',
+      ));
+    }
+  }, [showToast, updateProfile]);
 
   return (
     <SafeAreaView className="flex-1 bg-page" edges={['top']}>
-      <TopNav title="Profile" rightAction={rightAction} />
+      <TopNav title="Profile" />
 
       <ScrollView
         ref={scrollRef}
@@ -101,7 +117,9 @@ export default function ProfileScreen(): React.ReactNode {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={() => { void onRefresh(); }}
+            onRefresh={() => {
+              void onRefresh();
+            }}
             tintColor={palette.brandTeal}
           />
         }
@@ -109,14 +127,20 @@ export default function ProfileScreen(): React.ReactNode {
         {isInitialLoading ? (
           <ProfileSkeleton />
         ) : isInitialError ? (
-          <ErrorState onRetry={() => { void onRefresh(); }} />
+          <ErrorState
+            onRetry={() => {
+              void onRefresh();
+            }}
+          />
         ) : (
           <>
             {hasRefreshError && (
               <View className="px-lg pt-lg">
                 <SectionError
                   message="Some profile details could not be refreshed. Showing the last saved version."
-                  onRetry={() => { void onRefresh(); }}
+                  onRetry={() => {
+                    void onRefresh();
+                  }}
                 />
               </View>
             )}
@@ -125,8 +149,11 @@ export default function ProfileScreen(): React.ReactNode {
               player={player}
               isLoading={false}
               friendCount={friendCount}
-              onEditPress={() => router.push(routes.editProfile())}
-              onFriendsPress={() => router.push(routes.social({ tab: 'friends' }))}
+              onPhotoPress={photoActions.onPhotoPress}
+              photoBusy={photoActions.busy}
+              onFriendsPress={() =>
+                router.push(routes.social({ tab: 'friends' }))
+              }
             />
 
             <StatsBar
@@ -138,19 +165,30 @@ export default function ProfileScreen(): React.ReactNode {
             />
 
             {player != null && (
-              <ProfileInfoSection player={player} />
+              <ProfileInfoSection player={player} onEdit={setEditor} />
             )}
 
             <ProfileMenuSection
               onSettingsPress={() => router.push(routes.settings())}
               onMyStatsPress={() => router.push(routes.myStats())}
               onMyGamesPress={() => router.push(routes.myGames())}
-              onFriendsPress={() => router.push(routes.social({ tab: 'friends' }))}
+              onFriendsPress={() =>
+                router.push(routes.social({ tab: 'friends' }))
+              }
               onLogout={logout}
             />
           </>
         )}
       </ScrollView>
+      {player != null ? (
+        <ProfileFieldSheet
+          editor={editor}
+          player={player}
+          saving={updateProfile.isPending}
+          onClose={() => setEditor(null)}
+          onSave={saveProfileFields}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -170,19 +208,21 @@ function ErrorState({ onRetry }: ErrorStateProps): React.ReactNode {
       accessibilityRole="alert"
       accessibilityLabel="Failed to load profile"
     >
-      <Text className="text-base font-semibold text-default text-center mb-sm">
+      <AppText className="text-base font-semibold text-default text-center mb-sm">
         Could not load your profile
-      </Text>
-      <Text className="text-sm text-muted text-center mb-lg">
+      </AppText>
+      <AppText className="text-sm text-muted text-center mb-lg">
         Check your connection and try again.
-      </Text>
+      </AppText>
       <Pressable
         onPress={onRetry}
         accessibilityRole="button"
         accessibilityLabel="Retry loading profile"
         className="bg-brand-teal px-xl py-sm rounded-xl active:opacity-80"
       >
-        <Text className="text-white font-semibold text-sm">Retry</Text>
+        <AppText className="text-on-brand-teal font-semibold text-sm">
+          Retry
+        </AppText>
       </Pressable>
     </View>
   );

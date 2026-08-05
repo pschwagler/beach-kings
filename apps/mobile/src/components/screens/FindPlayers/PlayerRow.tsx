@@ -5,7 +5,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { pluralize } from '@/lib/formatters';
@@ -72,38 +73,38 @@ export default function PlayerRow({
 
       {/* Info */}
       <View className="flex-1 min-w-0">
-        <Text className="text-[14px] font-semibold text-default" numberOfLines={1}>
+        <AppText className="text-[14px] font-semibold text-default" numberOfLines={1}>
           {player.full_name}
-        </Text>
+        </AppText>
         {player.city != null && (
-          <Text className="text-[12px] text-muted mt-[2px]" numberOfLines={1}>
+          <AppText className="text-[12px] text-muted mt-[2px]" numberOfLines={1}>
             {player.city}
-          </Text>
+          </AppText>
         )}
         <View className="flex-row gap-[6px] mt-1 flex-wrap">
           {player.level != null && (
             <View className="bg-info-tint rounded-[8px] px-2 py-[2px]">
-              <Text className="text-[10px] font-bold text-info">
+              <AppText className="text-[10px] font-bold text-info">
                 {player.level}
-              </Text>
+              </AppText>
             </View>
           )}
           {player.mutual_friends_count > 0 && (
             <View className="bg-elevated rounded-[8px] px-2 py-[2px]">
-              <Text className="text-[10px] font-bold text-muted">
+              <AppText className="text-[10px] font-bold text-muted">
                 {player.mutual_friends_count} mutual
-              </Text>
+              </AppText>
             </View>
           )}
         </View>
         {(player.games_played > 0 || player.last_active_label != null) && (
-          <Text className="text-[11px] text-tertiary mt-1">
+          <AppText className="text-[11px] text-tertiary mt-1">
             {player.games_played > 0 ? pluralize(player.games_played, 'game') : ''}
             {player.games_played > 0 && player.last_active_label != null
               ? ' · '
               : ''}
             {player.last_active_label ?? ''}
-          </Text>
+          </AppText>
         )}
       </View>
 
@@ -116,9 +117,9 @@ export default function PlayerRow({
           accessibilityLabel={`Add ${player.full_name} as friend`}
           className="px-[14px] py-[10px] rounded-[8px] border border-brand-teal bg-transparent min-h-[44px] justify-center active:opacity-70"
         >
-          <Text className="text-[12px] font-bold text-brand-teal">
+          <AppText className="text-[12px] font-bold text-brand-teal">
             Add
-          </Text>
+          </AppText>
         </Pressable>
       )}
       {!relationship.canAdd && relationship.discoveryLabel != null && (
@@ -126,9 +127,9 @@ export default function PlayerRow({
           testID={`relationship-status-${player.player_id}`}
           className="px-[14px] py-[10px] rounded-[8px] bg-info-tint min-h-[44px] justify-center"
         >
-          <Text className="text-[12px] font-bold text-info">
+          <AppText className="text-[12px] font-bold text-info">
             {relationship.discoveryLabel}
-          </Text>
+          </AppText>
         </View>
       )}
     </Pressable>

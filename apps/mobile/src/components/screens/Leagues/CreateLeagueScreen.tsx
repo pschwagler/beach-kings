@@ -12,9 +12,9 @@
  */
 
 import React, { useRef, useState, useMemo } from "react";
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   TextInput,
   ScrollView,
   Pressable,
@@ -46,9 +46,9 @@ import {
 
 function SectionHeader({ title }: { readonly title: string }): React.ReactNode {
   return (
-    <Text className="text-[12px] font-semibold text-muted uppercase tracking-wider px-4 pt-5 pb-1">
+    <AppText className="text-[12px] font-semibold text-muted uppercase tracking-wider px-4 pt-5 pb-1">
       {title}
-    </Text>
+    </AppText>
   );
 }
 
@@ -100,10 +100,10 @@ function AccessToggle({ value, onChange }: AccessToggleProps): React.ReactNode {
               )}
             </View>
             <View className="flex-1">
-              <Text className="text-[14px] font-semibold text-default">
+              <AppText className="text-[14px] font-semibold text-default">
                 {label}
-              </Text>
-              <Text className="text-[12px] text-muted mt-[2px]">{desc}</Text>
+              </AppText>
+              <AppText className="text-[12px] text-muted mt-[2px]">{desc}</AppText>
             </View>
           </Pressable>
         );
@@ -148,13 +148,13 @@ function GenderPills({ value, onChange }: GenderPillsProps): React.ReactNode {
             accessibilityRole="radio"
             accessibilityState={{ checked: isActive }}
           >
-            <Text
+            <AppText
               className={`text-[13px] font-semibold ${
-                isActive ? "text-white" : "text-muted"
+                isActive ? "text-on-brand-teal" : "text-muted"
               }`}
             >
               {label}
-            </Text>
+            </AppText>
           </Pressable>
         );
       })}
@@ -195,13 +195,13 @@ function LevelSelector({
                 : "bg-surface border-strong"
             } active:opacity-70`}
           >
-            <Text
+            <AppText
               className={`text-[13px] font-semibold ${
-                isActive ? "text-white" : "text-muted"
+                isActive ? "text-on-brand-teal" : "text-muted"
               }`}
             >
               {lvl}
-            </Text>
+            </AppText>
           </Pressable>
         );
       })}
@@ -249,20 +249,20 @@ function PickerRow({
       accessibilityLabel={label}
     >
       <View className="flex-1">
-        <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-[2px]">
+        <AppText className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-[2px]">
           {label}
-        </Text>
+        </AppText>
         {loading ? (
           <ActivityIndicator size="small" style={{ alignSelf: "flex-start" }} />
         ) : (
-          <Text
+          <AppText
             className={`text-[15px] ${hasValue ? "text-default" : "text-muted"}`}
           >
             {hasValue ? value : placeholder}
-          </Text>
+          </AppText>
         )}
       </View>
-      <Text className="text-muted text-[18px] ml-2">›</Text>
+      <AppText className="text-muted text-[18px] ml-2">›</AppText>
     </Pressable>
   );
 }
@@ -318,24 +318,24 @@ function LocationPickerModal({
     >
       <SafeAreaView className="flex-1 bg-page" edges={["top"]}>
         <View className="flex-row items-center px-4 pt-2 pb-3 border-b border-divider">
-          <Text className="flex-1 text-[17px] font-semibold text-default">
+          <AppText className="flex-1 text-[17px] font-semibold text-default">
             Select Location
-          </Text>
+          </AppText>
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
             accessibilityLabel="Close"
             className="active:opacity-70 py-1 pl-4"
           >
-            <Text className="text-[15px] font-semibold text-brand-teal">
+            <AppText className="text-[15px] font-semibold text-brand-teal">
               Done
-            </Text>
+            </AppText>
           </Pressable>
         </View>
 
         <View className="px-4 py-3 border-b border-divider">
           <View className="bg-surface rounded-[10px] flex-row items-center px-3 py-[10px]">
-            <Text className="text-muted mr-2">🔍</Text>
+            <AppText className="text-muted mr-2">🔍</AppText>
             <TextInput
               value={query}
               onChangeText={setQuery}
@@ -377,7 +377,7 @@ function LocationPickerModal({
                 }}
                 className={`flex-row items-center px-4 py-[14px] ${
                   index > 0 ? "border-t border-divider" : ""
-                } active:opacity-70 ${isActive ? "bg-brand-teal/10" : ""}`}
+                } active:opacity-70 ${isActive ? "bg-info-tint" : ""}`}
               >
                 <View
                   className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
@@ -388,7 +388,7 @@ function LocationPickerModal({
                     <View className="w-2.5 h-2.5 rounded-full bg-brand-teal" />
                   )}
                 </View>
-                <Text
+                <AppText
                   className={`text-[15px] flex-1 ${
                     isNone
                       ? "text-muted"
@@ -398,7 +398,7 @@ function LocationPickerModal({
                   }`}
                 >
                   {label}
-                </Text>
+                </AppText>
               </Pressable>
             );
           }}
@@ -468,9 +468,11 @@ export default function CreateLeagueScreen(): React.ReactNode {
       onPress={() => router.back()}
       accessibilityRole="button"
       accessibilityLabel="Cancel"
-      className="min-w-touch min-h-touch items-center justify-center active:opacity-70"
+      className={`min-w-touch min-h-touch items-center justify-center active:opacity-70 ${
+        !isValid || isSubmitting ? "opacity-disabled" : ""
+      }`}
     >
-      <Text className="text-[14px] font-semibold text-white">Cancel</Text>
+      <AppText className="text-[14px] font-semibold text-inverse">Cancel</AppText>
     </Pressable>
   );
 
@@ -486,15 +488,13 @@ export default function CreateLeagueScreen(): React.ReactNode {
       className="min-w-touch min-h-touch items-center justify-center active:opacity-70"
     >
       {isSubmitting ? (
-        <ActivityIndicator size="small" color={palette.textInverse} />
+        <ActivityIndicator size="small" color={palette.brandGold} />
       ) : (
-        <Text
-          className={`text-[14px] font-semibold ${
-            isValid ? "text-white" : "text-white/40"
-          }`}
+        <AppText
+          className="text-[14px] font-semibold text-brand-gold"
         >
           Create
-        </Text>
+        </AppText>
       )}
     </Pressable>
   );
@@ -522,9 +522,9 @@ export default function CreateLeagueScreen(): React.ReactNode {
 
           <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
             <View className="px-4 pt-[14px] pb-[10px]">
-              <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
+              <AppText className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
                 League Name *
-              </Text>
+              </AppText>
               <TextInput
                 testID="league-name-input"
                 accessibilityLabel="League name"
@@ -546,9 +546,9 @@ export default function CreateLeagueScreen(): React.ReactNode {
             <View className="h-[1px] bg-divider mx-4" />
 
             <View className="px-4 pt-[14px] pb-[10px]">
-              <Text className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
+              <AppText className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">
                 Description (optional)
-              </Text>
+              </AppText>
               <TextInput
                 ref={descriptionRef}
                 testID="league-description-input"
@@ -580,14 +580,14 @@ export default function CreateLeagueScreen(): React.ReactNode {
           <SectionHeader title="Settings" />
 
           <View className="mb-3">
-            <Text className="text-[12px] text-muted px-4 mb-2">Gender</Text>
+            <AppText className="text-[12px] text-muted px-4 mb-2">Gender</AppText>
             <GenderPills value={form.gender} onChange={onChangeGender} />
           </View>
 
           <View className="mb-3">
-            <Text className="text-[12px] text-muted px-4 mb-2">
+            <AppText className="text-[12px] text-muted px-4 mb-2">
               Skill Level
-            </Text>
+            </AppText>
             <LevelSelector value={form.level} onChange={onChangeLevel} />
           </View>
 
@@ -621,7 +621,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
               testID="submit-error"
               className="mx-4 mt-4 bg-danger-tint rounded-[10px] p-3"
             >
-              <Text className="text-[13px] text-danger">{submitError}</Text>
+              <AppText className="text-[13px] text-danger">{submitError}</AppText>
             </View>
           )}
 
@@ -637,19 +637,19 @@ export default function CreateLeagueScreen(): React.ReactNode {
             className={`mx-4 mt-6 rounded-[12px] py-[16px] items-center justify-center ${
               isValid && !isSubmitting
                 ? "bg-brand-gold active:opacity-80"
-                : "bg-brand-gold/30"
+                : "bg-warning-tint"
             }`}
           >
             {isSubmitting ? (
-              <ActivityIndicator color={palette.textInverse} />
+              <ActivityIndicator color={palette.onBrandGold} />
             ) : (
-              <Text
+              <AppText
                 className={`text-[16px] font-bold ${
-                  isValid ? "text-white" : "text-tertiary"
+                  isValid ? "text-on-brand-gold" : "text-tertiary"
                 }`}
               >
                 Create League
-              </Text>
+              </AppText>
             )}
           </Pressable>
         </ScrollView>

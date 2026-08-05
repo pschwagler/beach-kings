@@ -7,8 +7,10 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import { TrophyIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface JoinAnotherLeagueCtaProps {
   readonly onPress: () => void;
@@ -17,6 +19,7 @@ interface JoinAnotherLeagueCtaProps {
 export default function JoinAnotherLeagueCta({
   onPress,
 }: JoinAnotherLeagueCtaProps): React.ReactNode {
+  const palette = usePaletteColors();
   return (
     <Pressable
       testID="join-another-league-cta"
@@ -26,14 +29,14 @@ export default function JoinAnotherLeagueCta({
       className="bg-surface rounded-card p-lg mt-xs items-center border border-dashed border-divider active:opacity-80"
     >
       <View className="mb-xs">
-        <TrophyIcon size={24} color="#2a7d9c" />
+        <TrophyIcon size={24} color={palette.brandTeal} />
       </View>
-      <Text className="text-footnote font-semibold text-info">
+      <AppText className="text-footnote font-semibold text-info">
         Join Another League
-      </Text>
-      <Text className="text-[12px] text-tertiary mt-[4px]">
+      </AppText>
+      <AppText className="text-[12px] text-tertiary mt-[4px]">
         Browse open leagues near you
-      </Text>
+      </AppText>
     </Pressable>
   );
 }

@@ -6,7 +6,6 @@ deletion (with match reassignment), placeholder detection for
 is_ranked enforcement, invite details, and claim/merge flows.
 """
 
-import os
 import re
 import secrets
 import logging
@@ -15,6 +14,7 @@ from typing import Optional
 from backend.services.gender_inference import infer_gender_from_name
 
 from backend.utils.constants import APP_NAME
+from backend.utils.frontend_url import build_invite_url
 from backend.utils.slugify import slugify
 
 from sqlalchemy import select, and_, or_, func, update, delete
@@ -41,10 +41,6 @@ from backend.models.schemas import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Canonical app domain. Override with the FRONTEND_URL env var per environment
-# (staging, preview). NEVER use beachkings.com — that is a stale legacy domain.
-FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://beachleaguevb.com")
 
 # --- Module-level constants ---
 
@@ -161,7 +157,7 @@ async def create_placeholder(
     await session.commit()
     await session.refresh(player)
 
-    invite_url = f"{FRONTEND_BASE_URL}/invite/{token}"
+    invite_url = build_invite_url(token)
     logger.info(
         "Created placeholder player %d '%s' by player %d",
         player.id,
@@ -217,7 +213,7 @@ async def list_placeholders(
 
     items = []
     for player, invite in rows:
-        invite_url = f"{FRONTEND_BASE_URL}/invite/{invite.invite_token}"
+        invite_url = build_invite_url(invite.invite_token)
         items.append(
             PlaceholderListItem(
                 player_id=player.id,
@@ -460,7 +456,7 @@ async def get_invite_url_by_player_id(
     if invite is None:
         raise InviteNotFoundError("No pending invite found for this player")
 
-    invite_url = f"{FRONTEND_BASE_URL}/invite/{invite.invite_token}"
+    invite_url = build_invite_url(invite.invite_token)
     return InviteUrlResponse(invite_url=invite_url)
 
 

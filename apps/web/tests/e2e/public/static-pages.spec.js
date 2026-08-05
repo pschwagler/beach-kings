@@ -36,6 +36,14 @@ test.describe('Static Pages', () => {
     await expect(page.locator('text=Acceptance of Terms')).toBeVisible();
   });
 
+  test('support page renders with navbar and contact method', async ({ page }) => {
+    await page.goto('/support');
+
+    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.legal-page-title')).toHaveText('Beach League Support');
+    await expect(page.locator('a[href^="mailto:"]')).toBeVisible();
+  });
+
   test('contribute page renders with navbar', async ({ page }) => {
     await page.goto('/contribute');
 

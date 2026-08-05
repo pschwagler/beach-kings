@@ -13,6 +13,10 @@ jest.mock('@/theme/usePaletteColors', () => ({
   usePaletteColors: () => ({ textTertiary: 'gray', brandTeal: 'teal' }),
 }));
 
+jest.mock('@/hooks/useReducedMotion', () => ({
+  useReducedMotion: () => false,
+}));
+
 describe('CourtPickerModal', () => {
   const courts = [
     { id: 1, name: 'Ocean Beach' },

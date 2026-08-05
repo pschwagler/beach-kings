@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   ActivityIndicator,
   FlatList,
   Modal,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -107,13 +107,13 @@ export default function SessionAddPlayerModal({
           className="mr-3"
           accessible={false}
         />
-        <Text className="flex-1 text-[15px] font-semibold text-default">
+        <AppText className="flex-1 text-[15px] font-semibold text-default">
           {item.full_name ?? `${item.first_name} ${item.last_name}`}
-        </Text>
+        </AppText>
         {isAdding ? (
           <ActivityIndicator size="small" color={palette.brandTeal} />
         ) : (
-          <Text className="text-[13px] font-bold text-brand-teal">Add</Text>
+          <AppText className="text-[13px] font-bold text-brand-teal">Add</AppText>
         )}
       </TouchableOpacity>
     );
@@ -137,7 +137,7 @@ export default function SessionAddPlayerModal({
               accessibilityLabel="Close player picker"
               className="min-h-touch min-w-touch items-center justify-center"
             >
-              <Text className="text-[16px] text-inverse">Cancel</Text>
+              <AppText className="text-[16px] text-inverse">Cancel</AppText>
             </TouchableOpacity>
           }
         />
@@ -156,13 +156,13 @@ export default function SessionAddPlayerModal({
         </View>
 
         {addError != null && (
-          <Text
+          <AppText
             testID="roster-add-player-error"
             accessibilityRole="alert"
             className="mx-4 mt-3 rounded-[10px] bg-danger-tint px-3 py-3 text-[13px] font-semibold text-danger"
           >
             {addError}
-          </Text>
+          </AppText>
         )}
 
         {playersQuery.isLoading ? (
@@ -174,9 +174,9 @@ export default function SessionAddPlayerModal({
           </View>
         ) : playersQuery.isError ? (
           <View className="flex-1 items-center justify-center px-8">
-            <Text className="text-center text-[14px] text-muted">
+            <AppText className="text-center text-[14px] text-muted">
               We couldn't load players. Check your connection and try again.
-            </Text>
+            </AppText>
             <TouchableOpacity
               testID="roster-player-search-retry"
               onPress={() => void playersQuery.refetch()}
@@ -184,9 +184,9 @@ export default function SessionAddPlayerModal({
               accessibilityLabel="Try loading players again"
               className="mt-4 min-h-touch justify-center"
             >
-              <Text className="text-[14px] font-bold text-brand-teal">
+              <AppText className="text-[14px] font-bold text-brand-teal">
                 Try Again
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         ) : (
@@ -202,11 +202,11 @@ export default function SessionAddPlayerModal({
             }}
             ListEmptyComponent={
               <View className="flex-1 items-center justify-center px-8">
-                <Text className="text-center text-[14px] text-muted">
+                <AppText className="text-center text-[14px] text-muted">
                   {search.trim() === ''
                     ? 'No more players are available to add.'
                     : 'No players match your search.'}
-                </Text>
+                </AppText>
               </View>
             }
           />

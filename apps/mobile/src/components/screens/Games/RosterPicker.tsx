@@ -13,9 +13,9 @@
  */
 
 import React, { useCallback } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   TextInput,
   FlatList,
@@ -136,26 +136,26 @@ function SessionChip({
         size="sm"
         variant={avatarVariant}
       />
-      <Text
+      <AppText
         className={`text-[13px] font-semibold ${
           badge === 'T1' ? 'text-brand-teal' : badge === 'T2' ? 'text-warning' : 'text-default'
         }`}
       >
         {player.display_name}
-      </Text>
+      </AppText>
       {badge != null && (
         <View
           className={`px-[5px] py-[1px] rounded-[4px] ${
             badge === 'T1' ? 'bg-info-tint' : 'bg-warning-tint'
           }`}
         >
-          <Text
-            className={`text-[9px] font-black ${
+          <AppText
+            className={`text-[9px] font-bold ${
               badge === 'T1' ? 'text-brand-teal' : 'text-warning'
             }`}
           >
             {badge}
-          </Text>
+          </AppText>
         </View>
       )}
       {showYouPill && (
@@ -163,7 +163,7 @@ function SessionChip({
           testID={`roster-chip-${player.player_id}-you-badge`}
           className="px-[5px] py-[1px] rounded-[4px] bg-brand-gold"
         >
-          <Text className="text-[9px] font-black text-white">YOU</Text>
+          <AppText className="text-[9px] font-bold text-on-brand-gold">YOU</AppText>
         </View>
       )}
     </Pressable>
@@ -189,7 +189,7 @@ function PillBadge({ tag }: { readonly tag: PlayerSearchTag }): React.ReactNode 
       testID={`roster-pill-${tag}`}
       className={`px-[6px] py-[1px] rounded-[4px] ${box}`}
     >
-      <Text className={`text-[10px] font-bold ${text}`}>{TAG_LABEL[tag]}</Text>
+      <AppText className={`text-[10px] font-bold ${text}`}>{TAG_LABEL[tag]}</AppText>
     </View>
   );
 }
@@ -213,9 +213,9 @@ function PlayerRow({ player, badge, onPress }: PlayerRowProps): React.ReactNode 
         colorSeed={player.player_id}
       />
       <View className="flex-1 min-w-0">
-        <Text className="text-[14px] font-semibold text-default">
+        <AppText className="text-[14px] font-semibold text-default">
           {player.display_name}
-        </Text>
+        </AppText>
         {pills.length > 0 && (
           <View className="flex-row items-center flex-wrap gap-[5px] mt-[3px]">
             {pills.map((tag) => (
@@ -230,11 +230,11 @@ function PlayerRow({ player, badge, onPress }: PlayerRowProps): React.ReactNode 
         disabled={isSeated}
         accessibilityRole="button"
         accessibilityLabel={`Add ${player.display_name}`}
-        className="px-4 py-2 rounded-[20px] border border-brand-teal min-h-[36px] items-center justify-center"
+        className="px-4 py-2 rounded-[20px] border border-brand-teal min-h-touch items-center justify-center"
       >
-        <Text className="text-[13px] font-bold text-brand-teal">
+        <AppText className="text-[13px] font-bold text-brand-teal">
           {badge != null ? badge : 'Add'}
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );
@@ -258,11 +258,11 @@ function SectionLabel({
       testID={testID}
       className="flex-row items-center gap-2 pt-3 pb-2"
     >
-      <Text className="text-[11px] font-bold text-muted uppercase tracking-wider">
+      <AppText className="text-[11px] font-bold text-muted uppercase tracking-wider">
         {label}
-      </Text>
+      </AppText>
       {count != null && (
-        <Text className="text-[11px] text-muted">{count}</Text>
+        <AppText className="text-[11px] text-muted">{count}</AppText>
       )}
       <View className="flex-1 h-[1px] bg-divider" />
     </View>
@@ -292,15 +292,15 @@ function AddNewCta({ searchQuery, onPress }: AddNewCtaProps): React.ReactNode {
       className="my-3 flex-row items-center gap-[10px] rounded-[12px] border border-dashed border-brand-gold bg-warning-tint px-[14px] py-3"
     >
       <View className="w-[30px] h-[30px] rounded-full bg-brand-gold items-center justify-center">
-        <PlusIcon size={16} color={palette.textInverse} />
+        <PlusIcon size={16} color={palette.onBrandGold} />
       </View>
       <View className="flex-1 min-w-0">
-        <Text className="text-[13px] font-bold text-warning">
+        <AppText className="text-[13px] font-bold text-warning">
           {title}
-        </Text>
-        <Text className="text-[11px] text-warning">
-          Creates a profile they can claim later
-        </Text>
+        </AppText>
+        <AppText className="text-[11px] text-warning">
+          Invite them to the app later to claim their games
+        </AppText>
       </View>
     </Pressable>
   );
@@ -474,11 +474,11 @@ export default function RosterPicker({
         }
         ListEmptyComponent={
           showEmpty ? (
-            <Text className="text-[13px] text-muted italic py-4 text-center">
+            <AppText className="text-[13px] text-muted italic py-4 text-center">
               {search.trim()
                 ? 'No players match your search.'
                 : 'Search for a player to add them.'}
-            </Text>
+            </AppText>
           ) : null
         }
         ListFooterComponent={

@@ -38,8 +38,6 @@ import { useReceivedInvitesScreen } from '@/components/screens/Leagues/useReceiv
 import type { LeagueInviteItem } from '@beach-kings/shared';
 import { Alert } from 'react-native';
 
-jest.spyOn(Alert, 'alert');
-
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -87,9 +85,14 @@ function makeWrapper(client: QueryClient) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(Alert, 'alert');
   mockGetReceivedLeagueInvites.mockResolvedValue(MOCK_INVITES);
   mockAcceptLeagueInvite.mockResolvedValue({ status: 'accepted' });
   mockDeclineLeagueInvite.mockResolvedValue({ status: 'declined' });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 // ---------------------------------------------------------------------------
@@ -207,7 +210,9 @@ describe('useReceivedInvitesScreen', () => {
   });
 
   it('shows generic Alert (not raw error) and restores row when accept fails', async () => {
-    mockAcceptLeagueInvite.mockRejectedValue(new Error('Server error'));
+    const error = new Error('Server error');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockAcceptLeagueInvite.mockRejectedValue(error);
 
     const { result } = renderHook(() => useReceivedInvitesScreen(), {
       wrapper: makeWrapper(makeClient()),
@@ -226,10 +231,16 @@ describe('useReceivedInvitesScreen', () => {
       'Error',
       'Could not accept the invite. Please try again.',
     );
+    expect(consoleError).toHaveBeenCalledWith(
+      '[useReceivedInvitesScreen] invite respond failed',
+      error,
+    );
   });
 
   it('shows generic Alert (not raw error) and restores row when decline fails', async () => {
-    mockDeclineLeagueInvite.mockRejectedValue(new Error('Network error'));
+    const error = new Error('Network error');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockDeclineLeagueInvite.mockRejectedValue(error);
 
     const { result } = renderHook(() => useReceivedInvitesScreen(), {
       wrapper: makeWrapper(makeClient()),
@@ -247,9 +258,14 @@ describe('useReceivedInvitesScreen', () => {
       'Error',
       'Could not decline the invite. Please try again.',
     );
+    expect(consoleError).toHaveBeenCalledWith(
+      '[useReceivedInvitesScreen] invite respond failed',
+      error,
+    );
   });
 
   it('shows fallback message in Alert when reject value is not an Error', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockDeclineLeagueInvite.mockRejectedValue('plain rejection');
 
     const { result } = renderHook(() => useReceivedInvitesScreen(), {
@@ -265,6 +281,10 @@ describe('useReceivedInvitesScreen', () => {
     expect(Alert.alert).toHaveBeenCalledWith(
       'Error',
       expect.stringMatching(/Could not decline/i),
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      '[useReceivedInvitesScreen] invite respond failed',
+      'plain rejection',
     );
   });
 

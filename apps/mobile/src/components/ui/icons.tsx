@@ -6,13 +6,16 @@
 
 import React from 'react';
 import Svg, { Path, Circle, Polygon, G } from 'react-native-svg';
+import { lightPalette } from '@beach-kings/shared/tokens';
+
+const DEFAULT_ICON_COLOR = lightPalette.textDefault;
 
 interface IconProps {
   readonly size?: number;
   readonly color?: string;
 }
 
-export function HomeIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function HomeIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -26,7 +29,7 @@ export function HomeIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function TrophyIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function TrophyIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -40,7 +43,7 @@ export function TrophyIcon({ size = 24, color = '#000' }: IconProps): React.Reac
 }
 
 /** Beach-volleyball ball with curved panel seams. */
-export function VolleyballIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function VolleyballIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={12} r={9.5} stroke={color} strokeWidth={2} />
@@ -66,7 +69,7 @@ export function VolleyballIcon({ size = 24, color = '#000' }: IconProps): React.
   );
 }
 
-export function PlusIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function PlusIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -80,7 +83,7 @@ export function PlusIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function ChatIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function ChatIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -94,7 +97,7 @@ export function ChatIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function UserIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function UserIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -108,7 +111,7 @@ export function UserIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function ChevronLeftIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function ChevronLeftIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -126,7 +129,7 @@ export function ChevronLeftIcon({ size = 24, color = '#000' }: IconProps): React
 // Navigation
 // ---------------------------------------------------------------------------
 
-export function ChevronRightIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function ChevronRightIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -140,7 +143,7 @@ export function ChevronRightIcon({ size = 24, color = '#000' }: IconProps): Reac
   );
 }
 
-export function ChevronDownIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function ChevronDownIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -154,7 +157,7 @@ export function ChevronDownIcon({ size = 24, color = '#000' }: IconProps): React
   );
 }
 
-export function EllipsisIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function EllipsisIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   const r = Math.max(1, Math.round(size / 12));
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -169,7 +172,7 @@ export function EllipsisIcon({ size = 24, color = '#000' }: IconProps): React.Re
 // Actions
 // ---------------------------------------------------------------------------
 
-export function SearchIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function SearchIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={11} cy={11} r={8} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -184,7 +187,7 @@ export function SearchIcon({ size = 24, color = '#000' }: IconProps): React.Reac
   );
 }
 
-export function FilterIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function FilterIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -198,7 +201,7 @@ export function FilterIcon({ size = 24, color = '#000' }: IconProps): React.Reac
   );
 }
 
-export function SettingsIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function SettingsIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -213,7 +216,7 @@ export function SettingsIcon({ size = 24, color = '#000' }: IconProps): React.Re
   );
 }
 
-export function EditIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function EditIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -234,7 +237,7 @@ export function EditIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function TrashIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function TrashIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -255,7 +258,7 @@ export function TrashIcon({ size = 24, color = '#000' }: IconProps): React.React
   );
 }
 
-export function ShareIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function ShareIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={18} cy={5} r={3} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -272,7 +275,7 @@ export function ShareIcon({ size = 24, color = '#000' }: IconProps): React.React
   );
 }
 
-export function CameraIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function CameraIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -287,7 +290,7 @@ export function CameraIcon({ size = 24, color = '#000' }: IconProps): React.Reac
   );
 }
 
-export function SendIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function SendIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -312,7 +315,7 @@ export function SendIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
 // Social
 // ---------------------------------------------------------------------------
 
-export function HeartIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function HeartIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -326,7 +329,7 @@ export function HeartIcon({ size = 24, color = '#000' }: IconProps): React.React
   );
 }
 
-export function BellIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function BellIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -340,7 +343,7 @@ export function BellIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function BellDotIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function BellDotIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -355,7 +358,7 @@ export function BellDotIcon({ size = 24, color = '#000' }: IconProps): React.Rea
   );
 }
 
-export function UsersIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function UsersIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -377,7 +380,7 @@ export function UsersIcon({ size = 24, color = '#000' }: IconProps): React.React
   );
 }
 
-export function UserPlusIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function UserPlusIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -399,7 +402,7 @@ export function UserPlusIcon({ size = 24, color = '#000' }: IconProps): React.Re
   );
 }
 
-export function UserCheckIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function UserCheckIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -421,7 +424,7 @@ export function UserCheckIcon({ size = 24, color = '#000' }: IconProps): React.R
   );
 }
 
-export function UserMinusIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function UserMinusIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -443,7 +446,7 @@ export function UserMinusIcon({ size = 24, color = '#000' }: IconProps): React.R
   );
 }
 
-export function MessageCircleIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function MessageCircleIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -461,7 +464,7 @@ export function MessageCircleIcon({ size = 24, color = '#000' }: IconProps): Rea
 // Sports
 // ---------------------------------------------------------------------------
 
-export function MapPinIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function MapPinIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -476,7 +479,7 @@ export function MapPinIcon({ size = 24, color = '#000' }: IconProps): React.Reac
   );
 }
 
-export function StarIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function StarIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -490,7 +493,7 @@ export function StarIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function StarFilledIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function StarFilledIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
@@ -501,7 +504,7 @@ export function StarFilledIcon({ size = 24, color = '#000' }: IconProps): React.
   );
 }
 
-export function CrownIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function CrownIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -519,7 +522,7 @@ export function CrownIcon({ size = 24, color = '#000' }: IconProps): React.React
 // Status
 // ---------------------------------------------------------------------------
 
-export function CheckIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function CheckIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -533,7 +536,7 @@ export function CheckIcon({ size = 24, color = '#000' }: IconProps): React.React
   );
 }
 
-export function CheckCircleIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function CheckCircleIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -554,7 +557,7 @@ export function CheckCircleIcon({ size = 24, color = '#000' }: IconProps): React
   );
 }
 
-export function XCircleIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function XCircleIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -569,7 +572,7 @@ export function XCircleIcon({ size = 24, color = '#000' }: IconProps): React.Rea
   );
 }
 
-export function XIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function XIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -583,7 +586,7 @@ export function XIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode
   );
 }
 
-export function AlertTriangleIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function AlertTriangleIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -604,7 +607,7 @@ export function AlertTriangleIcon({ size = 24, color = '#000' }: IconProps): Rea
   );
 }
 
-export function ClockIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function ClockIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -619,7 +622,7 @@ export function ClockIcon({ size = 24, color = '#000' }: IconProps): React.React
   );
 }
 
-export function LockIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function LockIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -640,7 +643,7 @@ export function LockIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function EyeIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function EyeIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -655,7 +658,7 @@ export function EyeIcon({ size = 24, color = '#000' }: IconProps): React.ReactNo
   );
 }
 
-export function EyeOffIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function EyeOffIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -680,7 +683,7 @@ export function EyeOffIcon({ size = 24, color = '#000' }: IconProps): React.Reac
 // Misc
 // ---------------------------------------------------------------------------
 
-export function CopyIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function CopyIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -701,7 +704,7 @@ export function CopyIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function LinkIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function LinkIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -722,7 +725,7 @@ export function LinkIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
   );
 }
 
-export function CalendarIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function CalendarIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -736,7 +739,7 @@ export function CalendarIcon({ size = 24, color = '#000' }: IconProps): React.Re
   );
 }
 
-export function BarChartIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function BarChartIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -750,7 +753,7 @@ export function BarChartIcon({ size = 24, color = '#000' }: IconProps): React.Re
   );
 }
 
-export function TrendingUpIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function TrendingUpIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -771,7 +774,7 @@ export function TrendingUpIcon({ size = 24, color = '#000' }: IconProps): React.
   );
 }
 
-export function AwardIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
+export function AwardIcon({ size = 24, color = DEFAULT_ICON_COLOR }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={8} r={7} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />

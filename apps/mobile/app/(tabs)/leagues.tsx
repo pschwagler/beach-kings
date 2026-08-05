@@ -6,7 +6,8 @@
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import { ScrollView, View, Text, Pressable, RefreshControl } from 'react-native';
+import { ScrollView, View, Pressable, RefreshControl } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { League } from '@beach-kings/shared';
@@ -43,13 +44,21 @@ export default function LeaguesScreen(): React.ReactNode {
   const router = useRouter();
   const palette = usePaletteColors();
   const scrollRef = useRef<ScrollView>(null);
-  const { leagues, player, isLoading, isRefreshing, isError, onRefresh, onRetry } =
-    useLeaguesScreen();
+  const {
+    leagues,
+    player,
+    isLoading,
+    isRefreshing,
+    isError,
+    onRefresh,
+    onRetry,
+  } = useLeaguesScreen();
 
   useEffect(
-    () => registerRootTabScroll('leagues', () => {
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-    }),
+    () =>
+      registerRootTabScroll('leagues', () => {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }),
     [],
   );
 
@@ -96,10 +105,10 @@ export default function LeaguesScreen(): React.ReactNode {
         accessibilityLabel="Invitations"
         className="flex-row items-center justify-between px-lg py-sm bg-surface border-b border-divider active:opacity-70"
       >
-        <Text className="text-footnote font-medium text-default">
+        <AppText className="text-footnote font-medium text-default">
           Invitations Received
-        </Text>
-        <Text className="text-muted text-[12px]">›</Text>
+        </AppText>
+        <AppText className="text-muted text-[12px]">›</AppText>
       </Pressable>
 
       {isLoading ? (
@@ -110,9 +119,7 @@ export default function LeaguesScreen(): React.ReactNode {
         <ScrollView
           ref={scrollRef}
           className="flex-1"
-          contentContainerStyle={
-            leagues.length === 0 ? { flex: 1 } : undefined
-          }
+          contentContainerStyle={leagues.length === 0 ? { flex: 1 } : undefined}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -128,9 +135,9 @@ export default function LeaguesScreen(): React.ReactNode {
             />
           ) : (
             <View className="px-lg pt-md pb-xxxl">
-              <Text className="text-callout font-bold text-default mb-md">
+              <AppText className="text-callout font-bold text-default mb-md">
                 My Leagues
-              </Text>
+              </AppText>
 
               {leagues.map((league) => {
                 const standing = getUserStandingRow(league, playerId);

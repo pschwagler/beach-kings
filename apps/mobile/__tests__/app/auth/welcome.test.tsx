@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -21,6 +22,7 @@ import WelcomeScreen from '../../../app/(auth)/welcome';
 describe('WelcomeScreen', () => {
   beforeEach(() => {
     mockPush.mockClear();
+    jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   });
 
   it('renders the app title', () => {
@@ -31,6 +33,15 @@ describe('WelcomeScreen', () => {
   it('renders the crown icon', () => {
     const { getByTestId } = render(<WelcomeScreen />);
     expect(getByTestId('welcome-crown-icon')).toBeTruthy();
+  });
+
+  it('renders the full court-line brand motif as decoration', () => {
+    const { getByTestId } = render(<WelcomeScreen />);
+    const motif = getByTestId('court-line-motif-welcome', {
+      includeHiddenElements: true,
+    });
+    expect(motif.props.accessible).toBe(false);
+    expect(motif.props.pointerEvents).toBe('none');
   });
 
   it('renders "Get Started" button', () => {
@@ -68,5 +79,14 @@ describe('WelcomeScreen', () => {
   it('has a stable E2E selector on the sign in link', () => {
     const { getByTestId } = render(<WelcomeScreen />);
     expect(getByTestId('welcome-sign-in-link')).toBeTruthy();
+  });
+
+  it.each([
+    ['Terms of Service', 'https://beachleaguevb.com/terms-of-service'],
+    ['Privacy Policy', 'https://beachleaguevb.com/privacy-policy'],
+  ])('opens the canonical %s URL', (label, expectedUrl) => {
+    const { getByText } = render(<WelcomeScreen />);
+    fireEvent.press(getByText(label));
+    expect(Linking.openURL).toHaveBeenCalledWith(expectedUrl);
   });
 });

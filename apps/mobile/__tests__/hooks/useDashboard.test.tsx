@@ -30,6 +30,7 @@ jest.mock('@/lib/api', () => {
 
 import { api } from '@/lib/api';
 import { useDashboard, dashboardKeys } from '@/hooks/useDashboard';
+import { courtQueries } from '@/features/courts';
 
 const mockApi = api as unknown as {
   getCurrentUserPlayer: jest.Mock;
@@ -76,20 +77,27 @@ describe('dashboardKeys', () => {
     expect(dashboardKeys.root(7)).toEqual(['private', 7, 'dashboard']);
     // The player is centralized under its own key (see useCurrentPlayer).
     expect(dashboardKeys.player(7)).toEqual(['private', 7, 'player', 'me']);
-    expect(dashboardKeys.courts(7, null)).toEqual([
+    expect(dashboardKeys.courts(7, null, null)).toEqual([
       'private',
       7,
-      'dashboard',
       'courts',
-      'null',
+      'nearby',
+      null,
+      null,
+      null,
     ]);
-    expect(dashboardKeys.courts(7, 'socal_sd')).toEqual([
+    expect(dashboardKeys.courts(7, null, 'socal_sd')).toEqual([
       'private',
       7,
-      'dashboard',
       'courts',
+      'nearby',
+      null,
+      null,
       'socal_sd',
     ]);
+    expect(
+      dashboardKeys.courts(7, null, 'socal_sd'),
+    ).toEqual(courtQueries.nearby(7, null, 'socal_sd').queryKey);
     expect(dashboardKeys.matches(7, 42)).toEqual([
       'private',
       7,

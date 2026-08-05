@@ -10,9 +10,9 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -240,21 +240,21 @@ export default function AddPhoneScreen(): React.ReactNode {
               testID="add-phone-banner"
               className="mb-lg px-md py-sm rounded-xl border bg-danger-tint border-danger"
             >
-              <Text className="text-sm font-medium text-center text-danger">
+              <AppText className="text-sm font-medium text-center text-danger">
                 {banner.message}
-              </Text>
+              </AppText>
             </View>
           )}
 
           {step === 'input' ? (
             <View>
-              <Text className="text-body text-muted mb-lg">
+              <AppText className="text-body text-muted mb-lg">
                 We'll send a 6-digit code to verify the number.
-              </Text>
+              </AppText>
 
-              <Text className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
+              <AppText className="text-[13px] font-semibold text-muted uppercase tracking-wider mb-sm">
                 Phone Number
-              </Text>
+              </AppText>
               <Controller
                 control={phoneForm.control}
                 name="phoneNumber"
@@ -287,19 +287,19 @@ export default function AddPhoneScreen(): React.ReactNode {
                   phoneForm.formState.isSubmitting ? 'opacity-50' : ''
                 }`}
               >
-                <Text className="text-white font-bold text-[15px]">
+                <AppText className="text-on-brand-gold font-bold text-[15px]">
                   {phoneForm.formState.isSubmitting ? 'Sending…' : 'Send code'}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           ) : (
             <View>
-              <Text className="text-body text-muted text-center mb-lg">
+              <AppText className="text-body text-muted text-center mb-lg">
                 We sent a 6-digit code to{' '}
-                <Text className="font-semibold text-default">
+                <AppText className="font-semibold text-default">
                   {maskPhone(phone)}
-                </Text>
-              </Text>
+                </AppText>
+              </AppText>
 
               <View className="items-center mb-md">
                 <Controller
@@ -332,9 +332,9 @@ export default function AddPhoneScreen(): React.ReactNode {
                   otpForm.formState.isSubmitting ? 'opacity-50' : ''
                 }`}
               >
-                <Text className="text-white font-bold text-[15px]">
+                <AppText className="text-on-brand-gold font-bold text-[15px]">
                   {otpForm.formState.isSubmitting ? 'Verifying…' : 'Verify'}
-                </Text>
+                </AppText>
               </Pressable>
 
               <Pressable
@@ -349,7 +349,7 @@ export default function AddPhoneScreen(): React.ReactNode {
                 }
                 className="min-h-touch items-center justify-center mt-md"
               >
-                <Text
+                <AppText
                   className={`text-footnote font-medium ${
                     resendDisabled
                       ? 'text-muted'
@@ -359,7 +359,7 @@ export default function AddPhoneScreen(): React.ReactNode {
                   {resendDisabled
                     ? `Resend code in ${countdown}s`
                     : "Didn't receive a code? Resend"}
-                </Text>
+                </AppText>
               </Pressable>
 
               <Pressable
@@ -369,9 +369,9 @@ export default function AddPhoneScreen(): React.ReactNode {
                 accessibilityLabel="Use a different number"
                 className="min-h-touch items-center justify-center"
               >
-                <Text className="text-footnote font-medium text-muted">
+                <AppText className="text-footnote font-medium text-muted">
                   Use a different number
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           )}

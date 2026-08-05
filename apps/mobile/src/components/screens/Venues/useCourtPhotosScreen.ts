@@ -8,10 +8,12 @@
 
 import { useCallback, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import { useQuery } from '@tanstack/react-query';
 
-import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import type { Court, CourtPhoto } from '@beach-kings/shared';
+import { useAuth } from '@/contexts/AuthContext';
+import { courtQueries } from '@/features/courts';
 
 export interface CourtPhotosHeader {
   readonly id: number | null;
@@ -30,11 +32,6 @@ export interface UseCourtPhotosScreenResult {
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly onUploadPhoto: (caption?: string) => Promise<void>;
-}
-
-interface PhotosScreenData {
-  readonly court: Court | null;
-  readonly photos: readonly CourtPhoto[];
 }
 
 function buildHeader(court: Court | null): CourtPhotosHeader {
@@ -66,24 +63,16 @@ function buildHeader(court: Court | null): CourtPhotosHeader {
 export function useCourtPhotosScreen(
   idOrSlug: number | string,
 ): UseCourtPhotosScreenResult {
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<Error | null>(null);
+  const { user } = useAuth();
 
-  const { data, isLoading, error, refetch } = useApi<PhotosScreenData>(
-    async () => {
-      const [photos, court] = await Promise.all([
-        api.getCourtPhotos(idOrSlug),
-        api.getCourtById(idOrSlug).catch(() => null as Court | null),
-      ]);
-      return { photos, court };
-    },
-    [idOrSlug],
+  const { data, isLoading, error, isRefetching, refetch } = useQuery(
+    courtQueries.photos(user?.id ?? 0, idOrSlug),
   );
 
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    void refetch().finally(() => setIsRefreshing(false));
+    void refetch();
   }, [refetch]);
 
   const onRetry = useCallback(() => {
@@ -146,7 +135,7 @@ export function useCourtPhotosScreen(
     header: buildHeader(data?.court ?? null),
     isLoading,
     error,
-    isRefreshing,
+    isRefreshing: isRefetching,
     isUploading,
     uploadError,
     onRefresh,

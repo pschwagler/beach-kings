@@ -4,6 +4,8 @@
 import {
   fitRegion,
   computeRegion,
+  directoryMapRegion,
+  DIRECTORY_NEARBY_DELTA,
   courtsWithCoords,
   singlePinRegion,
   DEFAULT_REGION,
@@ -52,6 +54,41 @@ describe('fitRegion', () => {
     expect(region?.latitudeDelta).toBeGreaterThan(10);
     expect(region?.longitudeDelta).toBeGreaterThan(20);
   });
+
+  it('fits date-line coordinates over the smallest longitude arc', () => {
+    const region = fitRegion([
+      { latitude: 0, longitude: 179 },
+      { latitude: 10, longitude: -179 },
+    ]);
+
+    expect(Math.abs(region?.longitude ?? 0)).toBe(180);
+    expect(region?.longitudeDelta).toBeCloseTo(2.05);
+    expect(region?.latitude).toBe(5);
+  });
+
+  it('treats wrapped longitudes as equivalent near the date line', () => {
+    const region = fitRegion([
+      { latitude: 0, longitude: 170 },
+      { latitude: 0, longitude: -170 },
+      { latitude: 0, longitude: 190 },
+    ]);
+
+    expect(Math.abs(region?.longitude ?? 0)).toBe(180);
+    expect(region?.longitudeDelta).toBeCloseTo(20.05);
+  });
+
+  it('does not mutate the supplied coordinate order', () => {
+    const coords = [
+      { latitude: 0, longitude: 179 },
+      { latitude: 0, longitude: -179 },
+      { latitude: 0, longitude: 170 },
+    ] as const;
+    const before = coords.map((coord) => ({ ...coord }));
+
+    fitRegion(coords);
+
+    expect(coords).toEqual(before);
+  });
 });
 
 describe('computeRegion', () => {
@@ -66,6 +103,42 @@ describe('computeRegion', () => {
     });
     expect(region.latitude).toBe(5);
     expect(region.longitude).toBe(5);
+  });
+});
+
+describe('directoryMapRegion', () => {
+  const local = { latitude: 40.7, longitude: -74 };
+  const courts = [
+    { id: 1, name: 'West', latitude: 34, longitude: -118 },
+    { id: 2, name: 'East', latitude: 34.2, longitude: -117.8 },
+  ] as never;
+
+  it('centers nearby browsing on the player at city scale', () => {
+    expect(directoryMapRegion(courts, local, '', null)).toEqual({
+      ...local,
+      latitudeDelta: DIRECTORY_NEARBY_DELTA,
+      longitudeDelta: DIRECTORY_NEARBY_DELTA,
+    });
+  });
+
+  it('fits remote search results without including player location', () => {
+    const region = directoryMapRegion(courts, local, 'Los Angeles', null);
+    expect(region.latitude).toBeCloseTo(34.1);
+    expect(region.longitude).toBeCloseTo(-117.9);
+  });
+
+  it('fits non-nearby filtered results without including player location', () => {
+    const region = directoryMapRegion(courts, local, '', 'lighted');
+    expect(region.latitude).toBeCloseTo(34.1);
+    expect(region.longitude).toBeCloseTo(-117.9);
+  });
+
+  it('uses the continental fallback when nearby location is unavailable', () => {
+    expect(directoryMapRegion(courts, null, '', null)).toEqual(DEFAULT_REGION);
+  });
+
+  it('uses the continental fallback when matching results have no coordinates', () => {
+    expect(directoryMapRegion([], local, 'missing', null)).toEqual(DEFAULT_REGION);
   });
 });
 

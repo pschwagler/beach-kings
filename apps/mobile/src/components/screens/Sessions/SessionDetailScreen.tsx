@@ -14,9 +14,9 @@
  */
 
 import React, { useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   ScrollView,
   FlatList,
   TouchableOpacity,
@@ -117,12 +117,12 @@ function StatsBar({ session }: StatsBarProps): React.ReactNode {
           key={label}
           className={`flex-1 items-center ${i < stats.length - 1 ? 'border-r border-divider' : ''}`}
         >
-          <Text className="text-[16px] font-bold text-default">
+          <AppText className="text-[16px] font-bold text-default">
             {value}
-          </Text>
-          <Text className="text-[11px] text-muted mt-[2px]">
+          </AppText>
+          <AppText className="text-[11px] text-muted mt-[2px]">
             {label}
-          </Text>
+          </AppText>
         </View>
       ))}
     </View>
@@ -137,18 +137,15 @@ interface InviteBannerProps {
   readonly onPress?: () => void;
 }
 
-// Light-mode brand-teal hex; chevron lives on info-tint background and reads
-// well in both themes. Inlined to keep this leaf component theme-context-free.
-const INVITE_CHEVRON_COLOR = '#0D9488';
-
 function InviteBanner({ onPress }: InviteBannerProps): React.ReactNode {
+  const palette = usePaletteColors();
   const body = (
     <View className="flex-row items-center">
-      <Text className="flex-1 text-[12px] text-info font-semibold pr-[8px]">
-        Invite players to claim their Beach League profile
-      </Text>
+      <AppText className="flex-1 text-[12px] text-info font-semibold pr-[8px]">
+        Invite players to the app to claim their games
+      </AppText>
       {onPress != null && (
-        <ChevronRightIcon size={16} color={INVITE_CHEVRON_COLOR} />
+        <ChevronRightIcon size={16} color={palette.brandTeal} />
       )}
     </View>
   );
@@ -169,7 +166,7 @@ function InviteBanner({ onPress }: InviteBannerProps): React.ReactNode {
       testID="session-invite-banner"
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Invite players"
+      accessibilityLabel="Invite players to the Beach League app"
       className="mx-[16px] mt-[12px] bg-info-tint rounded-[10px] p-[10px]"
     >
       {body}
@@ -198,9 +195,9 @@ function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
 
   return (
     <View className="px-[16px] pt-[16px]">
-      <Text className="text-[20px] font-bold text-default">
+      <AppText className="text-[20px] font-bold text-default">
         {dateLabel} · Session #{session.session_number}
-      </Text>
+      </AppText>
       <View className="flex-row items-center gap-[8px] mt-[6px] flex-wrap">
         <View
           className={`px-[8px] py-[3px] rounded-[10px] ${
@@ -209,18 +206,18 @@ function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
               : 'bg-success-tint'
           }`}
         >
-          <Text
+          <AppText
             className={`text-[11px] font-bold ${
               session.status === 'active' ? 'text-status-live' : 'text-success'
             }`}
           >
             {session.status === 'active' ? 'Active' : 'Submitted'}
-          </Text>
+          </AppText>
         </View>
         <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
-          <Text className="text-[11px] text-muted">
+          <AppText className="text-[11px] text-muted">
             {session.session_type === 'pickup' ? 'Pickup' : 'League'}
-          </Text>
+          </AppText>
         </View>
       </View>
     </View>
@@ -254,24 +251,24 @@ function GamesFilterToggle({
         onPress={() => { onToggle(true); }}
         className={`flex-1 flex-row items-center justify-center gap-[6px] py-[7px] rounded-[9px] ${showMyGamesOnly ? 'bg-brand-teal' : ''}`}
       >
-        <Text className={`text-[13px] font-semibold ${showMyGamesOnly ? 'text-white' : 'text-muted'}`}>
+        <AppText className={`text-[13px] font-semibold ${showMyGamesOnly ? 'text-on-brand-teal' : 'text-muted'}`}>
           My Games
-        </Text>
-        <Text className={`text-[12px] font-bold ${showMyGamesOnly ? 'text-white/80' : 'text-muted'}`}>
+        </AppText>
+        <AppText className={`text-[12px] font-bold ${showMyGamesOnly ? 'text-on-brand-teal' : 'text-muted'}`}>
           {myCount}
-        </Text>
+        </AppText>
       </TouchableOpacity>
       <TouchableOpacity
         testID="games-filter-all"
         onPress={() => { onToggle(false); }}
         className={`flex-1 flex-row items-center justify-center gap-[6px] py-[7px] rounded-[9px] ${!showMyGamesOnly ? 'bg-brand-teal' : ''}`}
       >
-        <Text className={`text-[13px] font-semibold ${!showMyGamesOnly ? 'text-white' : 'text-muted'}`}>
+        <AppText className={`text-[13px] font-semibold ${!showMyGamesOnly ? 'text-on-brand-teal' : 'text-muted'}`}>
           All Games
-        </Text>
-        <Text className={`text-[12px] font-bold ${!showMyGamesOnly ? 'text-white/80' : 'text-muted'}`}>
+        </AppText>
+        <AppText className={`text-[12px] font-bold ${!showMyGamesOnly ? 'text-on-brand-teal' : 'text-muted'}`}>
           {allCount}
-        </Text>
+        </AppText>
       </TouchableOpacity>
     </View>
   );
@@ -385,7 +382,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
             <SessionHeader session={session} />
             <StatsBar session={session} />
             <View className="mx-[16px] mt-[16px]">
-              <Text className="text-[15px] font-bold text-default">Location</Text>
+              <AppText className="text-[15px] font-bold text-default">Location</AppText>
               <SessionCourtPicker
                 selectedCourtId={session.court_id}
                 selectedCourtName={session.court_name}
@@ -448,9 +445,9 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
 
             {/* Games list */}
             <View className="px-[16px] mt-[16px]">
-              <Text className="text-[15px] font-bold text-default">
+              <AppText className="text-[15px] font-bold text-default">
                 Games
-              </Text>
+              </AppText>
               {showToggle && (
                 <GamesFilterToggle
                   myCount={myGames.length}
@@ -461,12 +458,12 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
               )}
               <View className="mt-[10px]">
                 {session.games.length === 0 ? (
-                  <Text
+                  <AppText
                     testID="session-no-games"
                     className="text-[14px] text-muted text-center py-[24px]"
                   >
                     No games yet. Tap &quot;Add Game&quot; to record a game.
-                  </Text>
+                  </AppText>
                 ) : (
                   displayedGames.map((game) => (
                     <SessionGameCard
@@ -495,10 +492,10 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           onPress={onClearSubmitError}
           className="absolute bottom-[80px] left-0 right-0 mx-[16px] bg-danger-tint rounded-[10px] px-[12px] py-[10px]"
         >
-          <Text className="text-[13px] text-danger font-semibold">
+          <AppText className="text-[13px] text-danger font-semibold">
             {submitError}
-          </Text>
-          <Text className="text-[11px] text-danger mt-[2px]">Tap to dismiss</Text>
+          </AppText>
+          <AppText className="text-[11px] text-danger mt-[2px]">Tap to dismiss</AppText>
         </TouchableOpacity>
       )}
 
@@ -512,9 +509,9 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
             accessibilityLabel="Add game"
             className="min-h-touch border border-brand-teal rounded-[12px] px-[16px] py-[12px]"
           >
-            <Text className="text-[14px] font-semibold text-brand-teal">
+            <AppText className="text-[14px] font-semibold text-brand-teal">
               Add Game
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -533,9 +530,9 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
             className="min-h-touch flex-1 bg-brand-gold rounded-[12px] items-center justify-center py-[12px]"
           >
             {isSubmitting ? (
-              <ActivityIndicator color={palette.textInverse} testID="session-submit-loading" />
+              <ActivityIndicator color={palette.onBrandGold} testID="session-submit-loading" />
             ) : (
-              <Text className="text-white text-[14px] font-bold">Submit Session</Text>
+              <AppText className="text-on-brand-gold text-[14px] font-bold">Submit Session</AppText>
             )}
           </TouchableOpacity>
         </View>

@@ -104,6 +104,13 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if user.get("deleted_at"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account has been deleted",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if _is_deletion_expired(user):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

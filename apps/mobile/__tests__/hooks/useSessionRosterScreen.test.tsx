@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetSessionById = jest.fn();
 const mockRemoveSessionPlayer = jest.fn();
@@ -23,12 +24,30 @@ jest.mock('expo-router', () => ({
   useRouter: jest.fn(() => ({ back: mockBack })),
 }));
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 jest.mock('@/utils/haptics', () => ({
   hapticMedium: (...args: unknown[]) => mockHapticMedium(...args),
 }));
 
 import { useSessionRosterScreen } from '@/components/screens/Sessions/useSessionRosterScreen';
 import type { SessionDetail } from '@beach-kings/shared';
+
+function renderRosterHook() {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+  return renderHook(() => useSessionRosterScreen(9), {
+    wrapper: ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
 
 function makeSession(
   players: SessionDetail['players'],
@@ -66,7 +85,7 @@ describe('useSessionRosterScreen', () => {
       ]),
     );
 
-    const { result } = renderHook(() => useSessionRosterScreen(9));
+    const { result } = renderRosterHook();
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.players[0].entry_id).toBe(11);
@@ -89,7 +108,7 @@ describe('useSessionRosterScreen', () => {
       ]),
     );
 
-    const { result } = renderHook(() => useSessionRosterScreen(9));
+    const { result } = renderRosterHook();
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.players[0].entry_id).toBe(22);
@@ -104,7 +123,7 @@ describe('useSessionRosterScreen', () => {
     );
     mockRemoveSessionPlayer.mockResolvedValue(undefined);
 
-    const { result } = renderHook(() => useSessionRosterScreen(9));
+    const { result } = renderRosterHook();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
@@ -123,7 +142,7 @@ describe('useSessionRosterScreen', () => {
     );
     mockRemoveSessionPlayer.mockRejectedValue(new Error('Cannot remove player in active games'));
 
-    const { result } = renderHook(() => useSessionRosterScreen(9));
+    const { result } = renderRosterHook();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
@@ -147,7 +166,7 @@ describe('useSessionRosterScreen', () => {
       },
     });
 
-    const { result } = renderHook(() => useSessionRosterScreen(9));
+    const { result } = renderRosterHook();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
@@ -163,7 +182,7 @@ describe('useSessionRosterScreen', () => {
   it('onClose calls router.back', async () => {
     mockGetSessionById.mockResolvedValue(makeSession([]));
 
-    const { result } = renderHook(() => useSessionRosterScreen(9));
+    const { result } = renderRosterHook();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     act(() => {

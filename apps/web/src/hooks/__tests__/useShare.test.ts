@@ -12,11 +12,15 @@ import useShare, { SHARE_TITLE, getShareText } from '../useShare';
 
 describe('getShareText', () => {
   it('returns the correct share text format', () => {
-    expect(getShareText('Alice')).toBe('Alice — claim your matches on Beach League');
+    expect(getShareText('Alice')).toBe(
+      'Alice — join me on the Beach League app to claim your games',
+    );
   });
 
   it('handles names with special characters', () => {
-    expect(getShareText('O\'Brien')).toBe("O'Brien — claim your matches on Beach League");
+    expect(getShareText('O\'Brien')).toBe(
+      "O'Brien — join me on the Beach League app to claim your games",
+    );
   });
 });
 

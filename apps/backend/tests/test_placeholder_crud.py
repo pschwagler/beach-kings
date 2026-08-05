@@ -32,7 +32,7 @@ from backend.services import (
     session_data,
     user_service,
 )
-from backend.services.placeholder_service import FRONTEND_BASE_URL
+from backend.utils.frontend_url import build_invite_url
 
 
 # ============================================================================
@@ -804,7 +804,7 @@ class TestSessionRosterInviteUrl:
             db_session, test_session.id
         )
         entry = next(r for r in roster if r["entry_id"] == placeholder.id)
-        assert entry["invite_url"] == f"{FRONTEND_BASE_URL}/invite/tok_pending"
+        assert entry["invite_url"] == build_invite_url("tok_pending")
 
     @pytest.mark.asyncio
     async def test_claimed_invite_yields_no_url(self, db_session, test_session, creator_player):

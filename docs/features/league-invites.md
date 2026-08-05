@@ -21,7 +21,7 @@ Commissioners need to invite players to their league. Invited players should be 
 | `PlayerInvite` model | Exists (`player_invites` table) — for placeholder players only; does NOT capture league context |
 | Backend routes | Implemented (`apps/backend/api/routes/leagues.py`, `apps/backend/api/routes/users.py`) — see endpoint table below |
 | Mobile screens | Implemented — TanStack Query hooks under `leagueKeys` calling real endpoints (`usePendingInvitesScreen`, `useReceivedInvitesScreen`, `useLeagueInviteScreen`) |
-| Navigation | `routes.pendingInvites()` defined; `PendingInvitesBanner` wired on the home screen with real counts |
+| Navigation | `routes.pendingInvites()` is defined; league-invite screens are reached from their league flows and notifications |
 
 ---
 
@@ -78,7 +78,7 @@ The "Share" button in the wireframe should reuse the existing `GET /api/players/
 - `usePendingInvitesScreen.ts` — Query hook (`leagueKeys.pendingInvites`) calling `GET /api/users/me/league-invites/sent`
 - `useReceivedInvitesScreen.ts` — Query hook (`leagueKeys.receivedInvites`) calling `GET /api/users/me/league-invites/received`
 - `useLeagueInviteScreen.ts` — Query hooks for invitable players + `POST /api/leagues/{id}/invites`
-- `PendingInvitesBanner` on the home screen — wired with real counts, navigates to the pending-invites screen
+- Home intentionally reserves its single lead action for the highest-priority player task. Incoming **friend** requests may occupy that lead; outgoing league invites do not.
 
 ---
 
@@ -87,4 +87,4 @@ The "Share" button in the wireframe should reuse the existing `GET /api/players/
 1. Should non-registered users (invited by phone/email) be auto-linked to a `PlayerInvite` record so the share link enrolls them into the league on claim?
 2. Do accepted invites auto-add the player as a league member, or does the commissioner still need to approve?
 3. Expiry policy — do invites expire, and if so, after how long?
-4. Home screen banner: does it show pending outgoing invites (commissioner POV) or pending received invites (player POV)?
+4. ~~Home screen banner scope~~ — resolved: neither outgoing nor received league invites occupy Home's lead; league invitations surface in their league flow and notifications.

@@ -117,6 +117,26 @@ async def geocode_autocomplete(
         raise HTTPException(status_code=500, detail=f"Error fetching autocomplete: {str(e)}")
 
 
+@router.get("/api/geocode/places", response_model=list)
+async def geocode_places(
+    text: str,
+    lat: float | None = Query(None, ge=-90.0, le=90.0),
+    lng: float | None = Query(None, ge=-180.0, le=180.0),
+    current_user: dict = Depends(get_current_user_optional),
+):
+    """Search US addresses and places for the court discovery map."""
+    if (lat is None) != (lng is None):
+        raise HTTPException(status_code=422, detail="lat and lng must be provided together")
+    try:
+        return await location_service.search_places(text, lat, lng)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail="Place search provider returned an error") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail="Place search provider is unavailable") from exc
+
+
 @router.put("/api/locations/{location_id}", response_model=LocationResponse)
 async def update_location(
     location_id: str,

@@ -13,9 +13,12 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import * as ExpoLocation from 'expo-location';
 import { api } from '@/lib/api';
 import type { Location, Court } from '@beach-kings/shared';
+import { useAuth } from '@/contexts/AuthContext';
+import { courtQueries } from '@/features/courts';
 
 export type LeagueAccessType = 'open' | 'invite_only';
 export type GenderOption = 'mens' | 'womens' | 'coed';
@@ -70,7 +73,10 @@ const DEFAULT_FORM: CreateLeagueForm = {
   court_id: null,
 };
 
+const EMPTY_COURTS: readonly Court[] = [];
+
 export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
+  const { user } = useAuth();
   const [form, setForm] = useState<CreateLeagueForm>({ ...DEFAULT_FORM });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -78,8 +84,16 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
   const [locations, setLocations] = useState<readonly LocationWithDistance[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
 
-  const [courts, setCourts] = useState<readonly Court[]>([]);
-  const [courtsLoading, setCourtsLoading] = useState(false);
+  const courtsQuery = useQuery(
+    courtQueries.nearby(
+      user?.id ?? 0,
+      null,
+      form.location_id || null,
+      form.location_id.length > 0,
+    ),
+  );
+  const courts: readonly Court[] = courtsQuery.data ?? EMPTY_COURTS;
+  const courtsLoading = form.location_id.length > 0 && courtsQuery.isFetching;
 
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [courtModalOpen, setCourtModalOpen] = useState(false);
@@ -138,38 +152,18 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
     return () => { cancelled = true; };
   }, []);
 
-  // Load courts when location changes; auto-select first court if set by GPS
+  // Keep the form selection in sync with the canonical location-scoped query.
   useEffect(() => {
-    if (!form.location_id) {
-      setCourts([]);
-      return;
-    }
-    let cancelled = false;
-    setCourtsLoading(true);
-    api.getCourts({ location_id: form.location_id })
-      .then((data) => {
-        if (!cancelled) {
-          setCourts(data);
-          // Auto-select first court only when no court is chosen yet
-          if (data.length > 0) {
-            setForm((prev) => {
-              if (prev.court_id != null) return prev;
-              const firstId = typeof data[0].id === 'string'
-                ? parseInt(data[0].id, 10)
-                : data[0].id;
-              return { ...prev, court_id: firstId };
-            });
-          }
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setCourts([]);
-      })
-      .finally(() => {
-        if (!cancelled) setCourtsLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [form.location_id]);
+    const first = courts[0];
+    if (!form.location_id || first == null) return;
+    setForm((prev) => {
+      if (prev.location_id !== form.location_id || prev.court_id != null) {
+        return prev;
+      }
+      const firstId = Number(first.id);
+      return Number.isFinite(firstId) ? { ...prev, court_id: firstId } : prev;
+    });
+  }, [courts, form.location_id]);
 
   const onChangeName = useCallback((v: string) => {
     setForm((prev) => ({ ...prev, name: v }));

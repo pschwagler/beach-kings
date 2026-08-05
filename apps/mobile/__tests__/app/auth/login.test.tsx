@@ -41,6 +41,14 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+const mockIsAppleSignInAvailable = jest.fn<Promise<boolean>, []>(
+  () => new Promise(() => {}),
+);
+jest.mock('@/lib/oauth', () => ({
+  ...jest.requireActual('@/lib/oauth'),
+  isAppleSignInAvailable: () => mockIsAppleSignInAvailable(),
+}));
+
 jest.spyOn(Alert, 'alert');
 
 import LoginScreen from '../../../app/(auth)/login';
@@ -91,8 +99,7 @@ describe('LoginScreen', () => {
   });
 
   it('renders Apple sign in button on iOS when available', async () => {
-    const AppleAuth = require('expo-apple-authentication');
-    (AppleAuth.isAvailableAsync as jest.Mock).mockResolvedValueOnce(true);
+    mockIsAppleSignInAvailable.mockResolvedValueOnce(true);
     const OriginalPlatform = require('react-native').Platform;
     OriginalPlatform.OS = 'ios';
     const { getByText, findByText } = render(<LoginScreen />);
@@ -164,9 +171,18 @@ describe('LoginScreen', () => {
     });
   });
 
-  it('does not submit when fields are empty', () => {
+  it('does not submit when fields are empty', async () => {
     const result = render(<LoginScreen />);
     fireEvent.press(getLogInButton(result));
+
+    await waitFor(() => {
+      expect(
+        result.getByText('Please enter a valid email address.'),
+      ).toBeTruthy();
+      expect(
+        result.getByText('Password must be at least 8 characters.'),
+      ).toBeTruthy();
+    });
     expect(mockLogin).not.toHaveBeenCalled();
   });
 

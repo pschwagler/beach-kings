@@ -21,7 +21,9 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Image } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { avatarTeamColors, avatarVarietyColors } from '@/theme/avatarColors';
 
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl' | number;
 export type AvatarVariant = 'teal' | 'gold' | 'brand' | 'muted' | 'guest';
@@ -70,8 +72,8 @@ const textSizes: Record<Exclude<AvatarSize, number>, string> = {
  * match the filled navy avatars used elsewhere.
  */
 const variantBgColor: Record<AvatarVariant, string | undefined> = {
-  teal: '#4daacc',
-  gold: '#d4a843',
+  teal: avatarTeamColors.teal.bg,
+  gold: avatarTeamColors.gold.bg,
   brand: undefined,
   muted: undefined,
   guest: undefined,
@@ -87,11 +89,11 @@ const variantBgClass: Record<AvatarVariant, string> = {
 };
 
 const variantTextClass: Record<AvatarVariant, string> = {
-  teal: 'text-white',
-  gold: 'text-white',
-  brand: 'text-white',
+  teal: '',
+  gold: '',
+  brand: 'text-on-brand-teal',
   muted: 'text-muted',
-  guest: 'text-brand-gold',
+  guest: 'text-accent',
 };
 
 /** A single decorative variety color: tinted circle bg + readable initials fg. */
@@ -106,19 +108,9 @@ interface VarietyColor {
  * no-hardcoded-hex theming rule — so they intentionally do NOT track dark mode.
  * Mirrors the palette used by InvitePlayersScreen for app-wide consistency.
  */
-const varietyColors: readonly VarietyColor[] = [
-  { bg: '#bae6fd', fg: '#0c4a6e' },
-  { bg: '#fed7aa', fg: '#9a3412' },
-  { bg: '#ddd6fe', fg: '#5b21b6' },
-  { bg: '#bbf7d0', fg: '#14532d' },
-  { bg: '#fde68a', fg: '#854d0e' },
-  { bg: '#fbcfe8', fg: '#9d174d' },
-];
+const varietyColors: readonly VarietyColor[] = avatarVarietyColors;
 
-const varietyFallback: VarietyColor = varietyColors[0] ?? {
-  bg: '#4daacc',
-  fg: '#ffffff',
-};
+const varietyFallback: VarietyColor = varietyColors[0] ?? avatarTeamColors.teal;
 
 /** Deterministically map a stable seed to one of the {@link varietyColors}. */
 function varietyColorFor(seed: number | string): VarietyColor {
@@ -144,7 +136,9 @@ export function getInitials(name: string): string {
   }
   const first = letterParts[0]?.[0] ?? '';
   const last =
-    letterParts.length > 1 ? (letterParts[letterParts.length - 1]?.[0] ?? '') : '';
+    letterParts.length > 1
+      ? (letterParts[letterParts.length - 1]?.[0] ?? '')
+      : '';
   return (first + last).toUpperCase();
 }
 
@@ -173,7 +167,11 @@ export default function Avatar({
       <Image
         testID={testID}
         source={{ uri: imageUrl }}
-        style={{ width: dimension, height: dimension, borderRadius: dimension / 2 }}
+        style={{
+          width: dimension,
+          height: dimension,
+          borderRadius: dimension / 2,
+        }}
         className={className}
         accessible={accessible}
         accessibilityLabel={accessible ? name : undefined}
@@ -185,6 +183,12 @@ export default function Avatar({
 
   const variety = colorSeed != null ? varietyColorFor(colorSeed) : null;
   const bgColor = variety?.bg ?? variantBgColor[variant];
+  const variantFg =
+    variant === 'teal'
+      ? avatarTeamColors.teal.fg
+      : variant === 'gold'
+        ? avatarTeamColors.gold.fg
+        : undefined;
 
   return (
     <View
@@ -199,15 +203,18 @@ export default function Avatar({
       accessible={accessible}
       accessibilityLabel={accessible ? name : undefined}
     >
-      <Text
+      <AppText
         style={{
           ...(variety != null ? { color: variety.fg } : {}),
-          ...(typeof size === 'number' ? { fontSize: Math.max(9, Math.round(size * 0.32)) } : {}),
+          ...(variety == null && variantFg != null ? { color: variantFg } : {}),
+          ...(typeof size === 'number'
+            ? { fontSize: Math.max(9, Math.round(size * 0.32)) }
+            : {}),
         }}
         className={`font-semibold ${variety != null ? '' : variantTextClass[variant]} ${textClassName}`}
       >
         {initials}
-      </Text>
+      </AppText>
     </View>
   );
 }

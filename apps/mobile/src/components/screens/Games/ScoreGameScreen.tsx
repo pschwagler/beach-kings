@@ -16,7 +16,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import AppText from '@/components/ui/AppText';
+import { View, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRouter } from "expo-router";
 
@@ -32,6 +33,7 @@ import ScoreGameMenu from "./ScoreGameMenu";
 import ScoreboardToast from "./ScoreboardToast";
 import { hapticLight, hapticMedium } from "@/utils/haptics";
 import { shareLink } from "@/utils/share";
+import { usePaletteColors } from '@/theme/usePaletteColors';
 import type { RosterPlayer, PlayerSlot } from "./useScoreGameScreen";
 
 export interface ScoreGameScreenProps {
@@ -94,6 +96,7 @@ function ModalNav({
   onOpenMenu,
   disabled = false,
 }: ModalNavProps): React.ReactNode {
+  const palette = usePaletteColors();
   return (
     <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider bg-page">
       <Pressable
@@ -106,13 +109,13 @@ function ModalNav({
         hitSlop={8}
         className={`w-9 h-9 items-center justify-center ${disabled ? "opacity-40" : ""}`}
       >
-        <XIcon size={20} color="#888" />
+        <XIcon size={20} color={palette.textMuted} />
       </Pressable>
 
       <View className="absolute left-0 right-0 items-center pointer-events-none">
-        <Text className="text-[15px] font-bold text-default">{title}</Text>
+        <AppText className="text-[15px] font-bold text-default">{title}</AppText>
         {subtitle != null && (
-          <Text className="text-[11px] text-muted mt-[1px]">{subtitle}</Text>
+          <AppText className="text-[11px] text-muted mt-[1px]">{subtitle}</AppText>
         )}
       </View>
 
@@ -125,7 +128,7 @@ function ModalNav({
           hitSlop={8}
           className="w-9 h-9 items-center justify-center"
         >
-          <Text className="text-[20px] text-default">···</Text>
+          <AppText className="text-[20px] text-default">···</AppText>
         </Pressable>
       ) : (
         // Placeholder to balance the X button
@@ -162,30 +165,30 @@ function SuccessView({
       className="flex-1 items-center justify-center px-6 py-16 gap-5"
     >
       <View className="w-20 h-20 rounded-full bg-success-tint border-[3px] border-success items-center justify-center">
-        <Text className="text-[36px]">{"✓"}</Text>
+        <AppText className="text-[36px]">{"✓"}</AppText>
       </View>
 
-      <Text className="text-[22px] font-black text-default text-center">
+      <AppText className="text-[22px] font-bold text-default text-center">
         Game Saved!
-      </Text>
+      </AppText>
 
-      <Text
+      <AppText
         testID="score-success-desc"
         className="text-[14px] text-muted text-center leading-[1.55] max-w-[280px]"
       >
         {desc}
-      </Text>
+      </AppText>
 
       <View className="items-center mt-2">
-        <Text
+        <AppText
           testID="score-success-final"
-          className="text-[28px] font-black text-default"
+          className="text-[28px] font-bold text-default"
         >
           {formatGameScore(score1, score2)}
-        </Text>
-        <Text className="text-[11px] text-muted uppercase tracking-wide mt-[2px]">
+        </AppText>
+        <AppText className="text-[11px] text-muted uppercase tracking-wide mt-[2px]">
           Final Score
-        </Text>
+        </AppText>
       </View>
 
       <View className="w-full gap-2 mt-3">
@@ -196,7 +199,7 @@ function SuccessView({
           accessibilityLabel="Done"
           className="w-full py-4 rounded-[12px] bg-brand-gold items-center"
         >
-          <Text className="text-white font-bold text-[16px]">Done</Text>
+          <AppText className="text-on-brand-gold font-bold text-[16px]">Done</AppText>
         </Pressable>
 
         <Pressable
@@ -206,9 +209,9 @@ function SuccessView({
           accessibilityLabel="Add Another Game"
           className="w-full py-[14px] rounded-[12px] border border-brand-gold items-center"
         >
-          <Text className="text-[15px] font-bold text-brand-gold">
+          <AppText className="text-[15px] font-bold text-accent">
             Add Another Game
-          </Text>
+          </AppText>
         </Pressable>
 
         {onEdit != null && (
@@ -219,9 +222,9 @@ function SuccessView({
             accessibilityLabel="Edit Game"
             className="w-full py-3 items-center mt-1"
           >
-            <Text className="text-[13px] font-medium text-muted underline">
+            <AppText className="text-[13px] font-medium text-muted underline">
               Edit Game
-            </Text>
+            </AppText>
           </Pressable>
         )}
       </View>
@@ -250,16 +253,16 @@ function ErrorView({
       className="flex-1 items-center justify-center px-6 py-16 gap-5"
     >
       <View className="w-[72px] h-[72px] rounded-full bg-danger-tint border-[3px] border-danger items-center justify-center">
-        <Text className="text-[30px] text-red-500">!</Text>
+        <AppText className="text-[30px] text-red-500">!</AppText>
       </View>
 
-      <Text className="text-[20px] font-black text-default text-center">
+      <AppText className="text-[20px] font-bold text-default text-center">
         Couldn't Save Game
-      </Text>
+      </AppText>
 
-      <Text className="text-[14px] text-muted text-center leading-[1.55] max-w-[300px]">
+      <AppText className="text-[14px] text-muted text-center leading-[1.55] max-w-[300px]">
         {message ?? "Something went wrong. Please try again."}
-      </Text>
+      </AppText>
 
       <View className="w-full gap-2 mt-3">
         <Pressable
@@ -269,7 +272,7 @@ function ErrorView({
           accessibilityLabel="Try Again"
           className="w-full py-4 rounded-[12px] bg-brand-gold items-center"
         >
-          <Text className="text-white font-bold text-[16px]">Try Again</Text>
+          <AppText className="text-on-brand-gold font-bold text-[16px]">Try Again</AppText>
         </Pressable>
 
         <Pressable
@@ -279,7 +282,7 @@ function ErrorView({
           accessibilityLabel="Discard"
           className="w-full py-[14px] rounded-[12px] border border-divider items-center"
         >
-          <Text className="text-[14px] font-bold text-muted">Discard</Text>
+          <AppText className="text-[14px] font-bold text-muted">Discard</AppText>
         </Pressable>
       </View>
     </View>
@@ -299,6 +302,7 @@ export default function ScoreGameScreen({
   sessionLabel,
   headerTitle,
 }: ScoreGameScreenProps = {}): React.ReactNode {
+  const palette = usePaletteColors();
   const router = useRouter();
   const {
     team1,
@@ -724,36 +728,20 @@ export default function ScoreGameScreen({
               disabled: !canSubmit || isSaving,
               busy: isSaving,
             }}
-            className="w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2"
-            style={
-              canSubmit && !isSaving
-                ? { backgroundColor: "#d4a843" }
-                : isSaving
-                  ? { backgroundColor: "#d4a843", opacity: 0.6 }
-                  : {
-                      backgroundColor: "rgba(212,168,67,0.12)",
-                      borderWidth: 1,
-                      borderColor: "rgba(212,168,67,0.35)",
-                    }
-            }
+            className={`w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2 border ${
+              canSubmit ? 'bg-brand-gold border-brand-gold' : 'bg-warning-tint border-brand-gold opacity-disabled'
+            }`}
           >
-            {isSaving && <ActivityIndicator size="small" color="#fff" />}
-            <Text
-              className="font-bold text-[16px]"
-              style={
-                canSubmit && !isSaving
-                  ? { color: "#fff" }
-                  : isSaving
-                    ? { color: "#fff" }
-                    : { color: "rgba(212,168,67,0.7)" }
-              }
+            {isSaving && <ActivityIndicator size="small" color={palette.onBrandGold} />}
+            <AppText
+              className={`font-bold text-[16px] ${canSubmit ? 'text-on-brand-gold' : 'text-warning'}`}
             >
               {saveButtonLabel}
-            </Text>
+            </AppText>
           </Pressable>
 
           {scoreWarning != null && (
-            <Text
+            <AppText
               testID="score-warning"
               accessibilityRole={scoreWarningKind === "error" ? "alert" : undefined}
               accessibilityLiveRegion={
@@ -766,7 +754,7 @@ export default function ScoreGameScreen({
               }`}
             >
               {scoreWarning}
-            </Text>
+            </AppText>
           )}
 
           {isEditMode && (
@@ -779,9 +767,9 @@ export default function ScoreGameScreen({
               hitSlop={8}
               className="mt-3 items-center"
             >
-              <Text className="text-[14px] font-semibold text-danger">
+              <AppText className="text-[14px] font-semibold text-danger">
                 {isDeleting ? "Deleting…" : "Delete Game"}
-              </Text>
+              </AppText>
             </Pressable>
           )}
         </View>
@@ -845,7 +833,7 @@ export default function ScoreGameScreen({
         onShare={
           pendingShareInvite != null
             ? () => {
-                void shareLink(pendingShareInvite.invite_url, "Share invite");
+                void shareLink(pendingShareInvite.invite_url, "Invite player to the app");
               }
             : undefined
         }

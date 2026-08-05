@@ -6,11 +6,14 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { useRouter } from 'expo-router';
 import Avatar from '@/components/ui/Avatar';
 import { CrownIcon, ChatIcon, BellIcon } from '@/components/ui/icons';
 import { routes } from '@/lib/navigation';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+import UnreadBadge from '@/components/ui/UnreadBadge';
 
 interface HomeHeaderProps {
   readonly userName: string;
@@ -24,20 +27,6 @@ interface HomeHeaderProps {
   readonly notificationUnreadCount: number;
 }
 
-function Badge({ count }: { readonly count: number }): React.ReactNode {
-  if (count <= 0) return null;
-  const label = count > 99 ? '99+' : String(count);
-  return (
-    <View
-      className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] rounded-full bg-danger items-center justify-center px-1 border-2 border-nav"
-    >
-      <Text className="text-white font-bold text-[10px] leading-none">
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 export default function HomeHeader({
   userName,
   avatarUrl,
@@ -46,38 +35,59 @@ export default function HomeHeader({
   notificationUnreadCount,
 }: HomeHeaderProps): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
+  const { fontScale } = useWindowDimensions();
+  const showWordmark = fontScale <= 1;
 
   return (
     <View
-      className="h-nav-bar bg-nav flex-row items-center justify-between px-lg dark:border-b dark:border-divider"
+      className="h-nav-bar bg-nav flex-row items-center justify-between px-lg border-b border-divider"
       accessibilityRole="header"
+      accessibilityLabel="Beach League home"
     >
       <View className="flex-row items-center gap-2">
-        <CrownIcon size={20} color="#d4a843" />
-        <Text className="text-white font-bold text-headline tracking-wider">
-          BEACH LEAGUE
-        </Text>
+        <CrownIcon size={20} color={palette.brandGold} />
+        {showWordmark && (
+          <AppText
+            family="display"
+            className="text-inverse font-bold text-headline tracking-wider"
+          >
+            BEACH LEAGUE
+          </AppText>
+        )}
       </View>
 
       <View className="flex-row items-center gap-3">
         <Pressable
-          className="w-11 h-11 rounded-full bg-white/15 items-center justify-center"
+          className="w-11 h-11 rounded-full border border-inverse items-center justify-center"
           onPress={() => router.navigate(routes.social({ tab: 'messages' }))}
           accessibilityLabel={`Messages${dmUnreadCount > 0 ? `, ${dmUnreadCount} unread` : ''}`}
           accessibilityRole="button"
         >
-          <ChatIcon size={22} color="#ffffff" />
-          <Badge count={dmUnreadCount} />
+          <ChatIcon size={22} color={palette.textInverse} />
+          <UnreadBadge
+            count={dmUnreadCount}
+            borderColor={palette.bgNav}
+            className="absolute top-0.5 right-0.5"
+            testID="messages-unread-badge"
+          />
         </Pressable>
 
         <Pressable
-          className="w-11 h-11 rounded-full bg-white/15 items-center justify-center"
-          onPress={() => router.navigate(routes.social({ tab: 'notifications' }))}
+          className="w-11 h-11 rounded-full border border-inverse items-center justify-center"
+          onPress={() =>
+            router.navigate(routes.social({ tab: 'notifications' }))
+          }
           accessibilityLabel={`Notifications${notificationUnreadCount > 0 ? `, ${notificationUnreadCount} unread` : ''}`}
           accessibilityRole="button"
         >
-          <BellIcon size={22} color="#ffffff" />
-          <Badge count={notificationUnreadCount} />
+          <BellIcon size={22} color={palette.textInverse} />
+          <UnreadBadge
+            count={notificationUnreadCount}
+            borderColor={palette.bgNav}
+            className="absolute top-0.5 right-0.5"
+            testID="notifications-unread-badge"
+          />
         </Pressable>
 
         <Pressable

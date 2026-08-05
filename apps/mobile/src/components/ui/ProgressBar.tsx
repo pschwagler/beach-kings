@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { View } from 'react-native';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface ProgressBarProps {
   readonly progress: number;
@@ -13,22 +14,23 @@ interface ProgressBarProps {
   readonly className?: string;
 }
 
-const DEFAULT_COLOR = '#0D9488';
-
 export default function ProgressBar({
   progress,
-  color = DEFAULT_COLOR,
+  color,
   className = '',
 }: ProgressBarProps): React.ReactNode {
+  const palette = usePaletteColors();
   const clampedProgress = Math.min(1, Math.max(0, progress));
 
   return (
-    <View className={`h-1.5 rounded-full bg-elevated overflow-hidden ${className}`}>
+    <View
+      className={`h-1.5 rounded-full bg-elevated overflow-hidden ${className}`}
+    >
       <View
         className="h-full rounded-full"
         style={{
           width: `${clampedProgress * 100}%`,
-          backgroundColor: color,
+          backgroundColor: color ?? palette.brandTeal,
         }}
       />
     </View>

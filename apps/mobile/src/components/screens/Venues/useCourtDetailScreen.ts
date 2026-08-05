@@ -5,8 +5,9 @@
  */
 
 import { useCallback } from 'react';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { courtQueries } from '@/features/courts';
 import type { Court } from '@beach-kings/shared';
 
 export interface UseCourtDetailScreenResult {
@@ -26,12 +27,10 @@ export interface UseCourtDetailScreenResult {
 export function useCourtDetailScreen(
   idOrSlug: number | string,
 ): UseCourtDetailScreenResult {
-  const { data: court, isLoading, error, refetch, mutate: _mutate } = useApi<Court>(
-    () => api.getCourtById(idOrSlug),
-    [idOrSlug],
+  const { user } = useAuth();
+  const { data: court, isLoading, error, isRefetching, refetch } = useQuery(
+    courtQueries.detail(user?.id ?? 0, idOrSlug),
   );
-
-  const isRefreshing = false;
 
   const onRefresh = useCallback(() => {
     void refetch();
@@ -45,7 +44,7 @@ export function useCourtDetailScreen(
     court,
     isLoading,
     error,
-    isRefreshing,
+    isRefreshing: isRefetching,
     onRefresh,
     onRetry,
   };

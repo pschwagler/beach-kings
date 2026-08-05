@@ -15,10 +15,13 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
-jest.mock('@beach-kings/shared/tokens', () => ({
-  colors: { textPrimary: '#1a1a1a' },
-  darkColors: { textPrimary: '#f5f5f5' },
+jest.mock('@/hooks/useReducedMotion', () => ({
+  useReducedMotion: () => false,
 }));
+
+jest.mock('@beach-kings/shared/tokens', () =>
+  jest.requireActual('@beach-kings/shared/tokens'),
+);
 
 // ---------------------------------------------------------------------------
 // Imports

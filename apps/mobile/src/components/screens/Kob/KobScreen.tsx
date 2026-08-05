@@ -13,7 +13,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, ScrollView, RefreshControl } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
@@ -61,23 +62,23 @@ function TournamentHeader({
       testID="kob-tournament-header"
       className="px-4 py-4 border-b border-strong"
     >
-      <Text className="text-[20px] font-bold text-default mb-2">
+      <AppText family="display" className="text-[20px] font-bold text-default mb-2">
         {name}
-      </Text>
+      </AppText>
 
       <View className="flex-row items-center gap-3">
         <View
           className={`px-3 py-1 rounded-full border ${statusClass}`}
         >
-          <Text className={`text-[12px] font-semibold ${statusClass.split(' ').slice(-2).join(' ')}`}>
+          <AppText className={`text-[12px] font-semibold ${statusClass.split(' ').slice(-2).join(' ')}`}>
             {statusLabel}
-          </Text>
+          </AppText>
         </View>
 
         {currentRound != null && maxRounds != null && isActive && (
-          <Text className="text-[13px] text-muted">
+          <AppText className="text-[13px] text-muted">
             Round {currentRound} of {maxRounds}
-          </Text>
+          </AppText>
         )}
       </View>
     </View>
@@ -102,18 +103,18 @@ export default function KobScreen({
     isLoading,
     error,
     isRefreshing,
-    activeTabIndex,
-    onTabPress,
+    activeTab,
+    onTabChange,
     onRefresh,
     onRetry,
   } = useKobScreen(code);
 
-  const handleTabPress = useCallback(
-    (index: number) => {
+  const handleTabChange = useCallback(
+    (tab: typeof activeTab) => {
       void hapticLight();
-      onTabPress(index);
+      onTabChange(tab);
     },
-    [onTabPress],
+    [onTabChange],
   );
 
   // --- Loading skeleton ---
@@ -145,12 +146,12 @@ export default function KobScreen({
   }
 
   const renderPanel = () => {
-    switch (activeTabIndex) {
-      case 0:
+    switch (activeTab) {
+      case 'live':
         return <KobLivePanel tournament={tournament} />;
-      case 1:
+      case 'schedule':
         return <KobSchedulePanel tournament={tournament} />;
-      case 2:
+      case 'standings':
         return (
           <KobStandingsPanel
             tournament={tournament}
@@ -178,9 +179,9 @@ export default function KobScreen({
       />
 
       <TabView
-        tabs={KOB_TABS}
-        activeIndex={activeTabIndex}
-        onTabPress={handleTabPress}
+        items={KOB_TABS}
+        value={activeTab}
+        onValueChange={handleTabChange}
       />
 
       <View

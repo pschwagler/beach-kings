@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { TouchableOpacity, View } from 'react-native';
 import type { Season } from '@beach-kings/shared';
 
 interface Props {
@@ -31,13 +32,13 @@ export default function SessionSeasonSelector({
             : 'border-divider bg-surface'
         }`}
       >
-        <Text
+        <AppText
           className={`text-[14px] font-semibold ${
             selectedSeasonId == null ? 'text-brand-teal' : 'text-default'
           }`}
         >
           No season
-        </Text>
+        </AppText>
       </TouchableOpacity>
 
       {seasons.map((season) => {
@@ -54,18 +55,18 @@ export default function SessionSeasonSelector({
             }`}
           >
             <View className="flex-row items-center justify-between gap-3">
-              <Text
+              <AppText
                 className={`text-[14px] font-semibold flex-1 ${
                   selected ? 'text-brand-teal' : 'text-default'
                 }`}
                 numberOfLines={1}
               >
                 {seasonLabel(season)}
-              </Text>
+              </AppText>
               {season.is_active === true && (
-                <Text className="text-[11px] font-bold text-brand-teal">
+                <AppText className="text-[11px] font-bold text-brand-teal">
                   Current
-                </Text>
+                </AppText>
               )}
             </View>
           </TouchableOpacity>

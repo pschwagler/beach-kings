@@ -5,7 +5,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import { type Conversation, formatRelativeTime } from '@beach-kings/shared';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight } from '@/utils/haptics';
@@ -41,6 +42,7 @@ export default function ConversationRow({
     >
       {/* Avatar */}
       <Avatar
+        testID={`convo-avatar-${conversation.player_id}`}
         imageUrl={conversation.avatar}
         name={conversation.full_name}
         size="md"
@@ -51,21 +53,21 @@ export default function ConversationRow({
       {/* Body */}
       <View className="flex-1 min-w-0">
         <View className="flex-row justify-between items-center">
-          <Text
+          <AppText
             className={`text-[15px] ${
               isUnread
                 ? 'font-bold text-default'
                 : 'font-semibold text-default'
             }`}
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {conversation.full_name}
-          </Text>
-          <Text className="text-[11px] text-muted flex-shrink-0 ml-2">
+          </AppText>
+          <AppText className="text-[11px] text-muted flex-shrink-0 ml-2">
             {formatRelativeTime(conversation.last_message_at, { style: 'short' })}
-          </Text>
+          </AppText>
         </View>
-        <Text
+        <AppText
           className={`text-[13px] mt-[3px] ${
             isUnread
               ? 'text-default font-medium'
@@ -75,14 +77,14 @@ export default function ConversationRow({
         >
           {isSentByMe ? 'You: ' : ''}
           {conversation.last_message_text}
-        </Text>
+        </AppText>
       </View>
 
       {/* Unread indicator */}
       {isUnread && (
         <View
           testID={`convo-unread-dot-${conversation.player_id}`}
-          className="w-[10px] h-[10px] rounded-full bg-[#2a7d9c] flex-shrink-0"
+          className="w-[10px] h-[10px] rounded-full bg-brand-teal flex-shrink-0"
         />
       )}
     </Pressable>

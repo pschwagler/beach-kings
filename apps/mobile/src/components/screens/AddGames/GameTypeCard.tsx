@@ -8,9 +8,11 @@
  */
 
 import React, { useCallback } from 'react';
-import { Pressable, View, Text } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { Pressable, View } from 'react-native';
 import { ChevronRightIcon } from '@/components/ui/icons';
 import { hapticMedium } from '@/utils/haptics';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface GameTypeCardProps {
   /** testID used for interaction in tests. */
@@ -32,6 +34,7 @@ export default function GameTypeCard({
   description,
   onPress,
 }: GameTypeCardProps): React.ReactNode {
+  const palette = usePaletteColors();
   const handlePress = useCallback(() => {
     void hapticMedium();
     onPress();
@@ -43,7 +46,7 @@ export default function GameTypeCard({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={title}
-      className="flex-row items-center gap-[14px] bg-surface rounded-[14px] px-4 py-[18px] shadow-sm dark:shadow-none dark:border border-divider mb-3 active:border active:border-brand-teal"
+      className="flex-row items-center gap-[14px] bg-surface rounded-[14px] px-4 py-[18px] border border-divider mb-3 active:border active:border-brand-teal"
     >
       {/* Icon container */}
       <View
@@ -54,16 +57,16 @@ export default function GameTypeCard({
 
       {/* Text block */}
       <View className="flex-1">
-        <Text className="text-[15px] font-bold text-default mb-[3px]">
+        <AppText className="text-[15px] font-bold text-default mb-[3px]">
           {title}
-        </Text>
-        <Text className="text-[12px] text-muted leading-[1.4]">
+        </AppText>
+        <AppText className="text-[12px] text-muted leading-[1.4]">
           {description}
-        </Text>
+        </AppText>
       </View>
 
       {/* Chevron */}
-      <ChevronRightIcon size={20} color="#cccccc" />
+      <ChevronRightIcon size={20} color={palette.textTertiary} />
     </Pressable>
   );
 }

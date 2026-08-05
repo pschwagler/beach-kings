@@ -1,9 +1,8 @@
 import '../global.css';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { Stack, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as Font from 'expo-font';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -18,7 +17,8 @@ import {
 import ToastProvider from '@/contexts/ToastContext';
 import ErrorBoundary from '@/lib/ErrorBoundary';
 
-// Prevent splash screen from auto-hiding until fonts + auth are ready
+// Fonts are embedded at build time by the expo-font config plugin. Keep the
+// splash visible only until the provider tree and navigation are mounted.
 SplashScreen.preventAutoHideAsync();
 
 /**
@@ -63,34 +63,13 @@ function RootLayoutInner({ onReady }: { readonly onReady: () => void }): React.R
 }
 
 export default function RootLayout(): React.ReactNode {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
   const queryClient = useMemo(() => createQueryClient(), []);
-
-  useEffect(() => {
-    async function loadFonts() {
-      try {
-        // Load custom fonts here when added to assets/fonts/
-        await Font.loadAsync({});
-      } catch {
-        // Font loading failed — continue with system fonts
-      } finally {
-        setFontsLoaded(true);
-      }
-    }
-    loadFonts();
-  }, []);
 
   useEffect(() => subscribeQueryLifecycle(), []);
 
   const handleReady = useCallback(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
-  if (!fontsLoaded) {
-    return null;
-  }
+    void SplashScreen.hideAsync();
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

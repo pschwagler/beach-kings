@@ -1,8 +1,8 @@
 /**
  * Shared map-region math for the courts maps.
  *
- * Extracted from CourtsMapView so the full-screen map, the list-header preview,
- * and the court-detail card all compute regions the same way.
+ * Extracted from CourtsMapView so the court directory and court-detail preview
+ * compute regions the same way.
  */
 
 import type { Court } from '@beach-kings/shared';
@@ -28,6 +28,9 @@ export const MIN_DELTA = 0.05;
 /** Delta used when framing a single pin (~1 km view). */
 export const SINGLE_PIN_DELTA = 0.008;
 
+/** City-scale framing used by the courts directory's Nearby mode. */
+export const DIRECTORY_NEARBY_DELTA = 0.35;
+
 /** Default region (continental US) used when no pins exist. */
 export const DEFAULT_REGION: Region = {
   latitude: 37.5,
@@ -46,6 +49,53 @@ export function courtsWithCoords(courts: readonly Court[]): CourtWithCoords[] {
   );
 }
 
+interface LongitudeArc {
+  readonly center: number;
+  readonly span: number;
+}
+
+/** Normalizes a longitude to the conventional [-180, 180) range. */
+function normalizeLongitude(longitude: number): number {
+  const normalized = ((longitude + 180) % 360 + 360) % 360 - 180;
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
+/**
+ * Finds the smallest circular arc containing every longitude.
+ *
+ * The input is copied before sorting, so callers' coordinate arrays remain
+ * untouched. The uncovered portion of the globe is the largest gap between
+ * adjacent longitudes; its complement is the desired map span.
+ */
+function smallestLongitudeArc(longitudes: readonly number[]): LongitudeArc {
+  if (longitudes.length === 1) {
+    return { center: longitudes[0]!, span: 0 };
+  }
+
+  const sorted = longitudes
+    .map((longitude) => ((longitude % 360) + 360) % 360)
+    .sort((a, b) => a - b);
+
+  let largestGap = -1;
+  let arcStart = sorted[0]!;
+  for (let index = 0; index < sorted.length; index += 1) {
+    const current = sorted[index]!;
+    const next =
+      index === sorted.length - 1 ? sorted[0]! + 360 : sorted[index + 1]!;
+    const gap = next - current;
+    if (gap > largestGap) {
+      largestGap = gap;
+      arcStart = next % 360;
+    }
+  }
+
+  const span = 360 - largestGap;
+  return {
+    center: normalizeLongitude(arcStart + span / 2),
+    span,
+  };
+}
+
 /** Computes the region that fits all supplied coordinates, or null when empty. */
 export function fitRegion(coords: readonly LatLng[]): Region | null {
   if (coords.length === 0) return null;
@@ -55,14 +105,16 @@ export function fitRegion(coords: readonly LatLng[]): Region | null {
 
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
+  const longitudeArc = smallestLongitudeArc(lons);
 
   return {
     latitude: (minLat + maxLat) / 2,
-    longitude: (minLon + maxLon) / 2,
+    longitude: longitudeArc.center,
     latitudeDelta: Math.max(maxLat - minLat + REGION_PADDING, MIN_DELTA),
-    longitudeDelta: Math.max(maxLon - minLon + REGION_PADDING, MIN_DELTA),
+    longitudeDelta: Math.max(
+      Math.min(longitudeArc.span + REGION_PADDING, 360),
+      MIN_DELTA,
+    ),
   };
 }
 
@@ -78,6 +130,33 @@ export function computeRegion(
 ): Region {
   const allCoords = userLocation != null ? [userLocation, ...courtCoords] : courtCoords;
   return fitRegion(allCoords) ?? DEFAULT_REGION;
+}
+
+/**
+ * Preferred framing for the courts directory. Search and non-nearby filters
+ * deliberately exclude the player location from their result bounds.
+ */
+export function directoryMapRegion(
+  courts: readonly Court[],
+  userLocation: LatLng | null,
+  searchQuery: string,
+  activeFilter: string | null,
+): Region {
+  const isNearbyBrowse = searchQuery.trim().length === 0 &&
+    (activeFilter == null || activeFilter === 'nearby');
+  if (isNearbyBrowse) {
+    return userLocation == null
+      ? DEFAULT_REGION
+      : {
+          ...userLocation,
+          latitudeDelta: DIRECTORY_NEARBY_DELTA,
+          longitudeDelta: DIRECTORY_NEARBY_DELTA,
+        };
+  }
+
+  return fitRegion(
+    courtsWithCoords(courts).map(({ latitude, longitude }) => ({ latitude, longitude })),
+  ) ?? DEFAULT_REGION;
 }
 
 /** Tight region centered on a single coordinate. */

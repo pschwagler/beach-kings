@@ -10,9 +10,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -67,7 +67,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
             accessibilityLabel="Close manage players"
             className="min-h-touch min-w-touch items-center justify-center"
           >
-            <Text className="text-[18px] font-semibold text-inverse">✕</Text>
+            <AppText className="text-[18px] font-semibold text-inverse">✕</AppText>
           </TouchableOpacity>
         }
       />
@@ -78,9 +78,9 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           testID="roster-subtitle-bar"
           className="px-[16px] py-[12px] bg-surface border-b border-divider"
         >
-          <Text className="text-[13px] font-semibold text-muted">
+          <AppText className="text-[13px] font-semibold text-muted">
             {sessionSubtitle}
-          </Text>
+          </AppText>
         </View>
       )}
 
@@ -93,9 +93,9 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           {/* In Games section */}
           {playersInGames.length > 0 && (
             <View className="px-[16px]">
-              <Text className="text-[13px] font-bold text-muted uppercase tracking-wider pt-[14px] pb-[8px]">
+              <AppText className="text-[13px] font-bold text-muted uppercase tracking-wider pt-[14px] pb-[8px]">
                 In Games (cannot remove)
-              </Text>
+              </AppText>
               {playersInGames.map((player) => (
                 <SessionRosterRow
                   key={player.entry_id}
@@ -111,9 +111,9 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           {/* No Games Yet section */}
           {playersNoGames.length > 0 && (
             <View className="px-[16px]">
-              <Text className="text-[13px] font-bold text-muted uppercase tracking-wider pt-[14px] pb-[8px]">
+              <AppText className="text-[13px] font-bold text-muted uppercase tracking-wider pt-[14px] pb-[8px]">
                 No Games Yet
-              </Text>
+              </AppText>
               {playersNoGames.map((player) => (
                 <SessionRosterRow
                   key={player.entry_id}
@@ -127,21 +127,21 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           )}
 
           {players.length === 0 && (
-            <Text
+            <AppText
               testID="roster-empty"
               className="text-[14px] text-muted text-center py-[32px]"
             >
               No players in this session yet.
-            </Text>
+            </AppText>
           )}
 
           {removeError != null && (
-            <Text
+            <AppText
               testID="roster-remove-error"
               className="text-[13px] text-red-500 text-center px-[16px] mt-[8px]"
             >
               {removeError}
-            </Text>
+            </AppText>
           )}
         </ScrollView>
       )}
@@ -155,7 +155,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           accessibilityLabel="Add player to session"
           className="border-2 border-dashed border-brand-gold rounded-[12px] items-center justify-center py-[14px]"
         >
-          <Text className="text-[15px] font-bold text-brand-gold">+ Add Player</Text>
+          <AppText className="text-[15px] font-bold text-accent">+ Add Player</AppText>
         </TouchableOpacity>
       </View>
 

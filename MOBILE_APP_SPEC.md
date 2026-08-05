@@ -3146,6 +3146,13 @@ Establish performance baselines before polish phase:
 
 ### Epic 10.4 — App Store Prep
 
+> **Active source of truth:**
+> [`apps/mobile/docs/app-store-backlog.md`](apps/mobile/docs/app-store-backlog.md).
+> App Store readiness is the highest-priority mobile initiative other than
+> active production defect fixes. The backlog contains current audit findings,
+> Apple requirements, acceptance criteria, and product decisions required for
+> submission.
+
 #### Task 10.4.1 — App Configuration
 
 - `app.json` / `app.config.js`: icons, splash, permissions, schemes

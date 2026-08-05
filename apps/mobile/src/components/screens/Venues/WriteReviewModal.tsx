@@ -12,9 +12,10 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   TextInput,
   Pressable,
   ScrollView,
@@ -23,6 +24,12 @@ import {
 import Modal from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import {
+  courtQueries,
+  invalidateCourtQueries,
+  type CourtReviewTag,
+} from '@/features/courts';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,12 +39,6 @@ import { usePaletteColors } from '@/theme/usePaletteColors';
  * Minimal local tag shape for state. The api-client returns additional fields
  * (slug, sort_order) that are not needed for display; they are dropped here.
  */
-interface CourtTag {
-  readonly id: number;
-  readonly name: string;
-  readonly category: string | null;
-}
-
 interface ExistingReview {
   readonly id: number;
   readonly rating: number;
@@ -76,6 +77,8 @@ export default function WriteReviewModal({
   onSuccess,
 }: WriteReviewModalProps): React.ReactNode {
   const palette = usePaletteColors();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const isEdit = existingReview != null;
 
@@ -85,7 +88,8 @@ export default function WriteReviewModal({
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>(
     existingReview?.tags?.map((t) => t.id) ?? [],
   );
-  const [allTags, setAllTags] = useState<CourtTag[]>([]);
+  const reviewTags = useQuery(courtQueries.reviewTags(visible));
+  const allTags = reviewTags.data ?? [];
 
   // UI state
   const [submitting, setSubmitting] = useState(false);
@@ -104,18 +108,6 @@ export default function WriteReviewModal({
       setConfirmingDelete(false);
     }
   }, [visible, existingReview]);
-
-  // Fetch available tags once on mount.
-  // Guard against the method being absent (falls through the Proxy as undefined
-  // in test environments that only stub getCourtById).
-  useEffect(() => {
-    if (typeof api.getCourtTags !== 'function') return;
-    void api.getCourtTags()
-      .then((tags) => setAllTags(tags.map((t) => ({ id: t.id, name: t.name, category: t.category ?? null }))))
-      .catch(() => {
-        // Non-fatal: tags are optional
-      });
-  }, []);
 
   const toggleTag = useCallback((tagId: number) => {
     setSelectedTagIds((prev) =>
@@ -153,6 +145,7 @@ export default function WriteReviewModal({
         });
       }
 
+      await invalidateCourtQueries(queryClient, user?.id ?? 0);
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -163,7 +156,7 @@ export default function WriteReviewModal({
     } finally {
       setSubmitting(false);
     }
-  }, [rating, text, selectedTagIds, isEdit, existingReview, courtId, onSuccess, onClose]);
+  }, [rating, text, selectedTagIds, isEdit, existingReview, courtId, queryClient, user?.id, onSuccess, onClose]);
 
   const handleDeletePress = useCallback(() => {
     setConfirmingDelete(true);
@@ -182,6 +175,7 @@ export default function WriteReviewModal({
     try {
       await api.deleteCourtReview(courtId, existingReview.id);
 
+      await invalidateCourtQueries(queryClient, user?.id ?? 0);
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -193,10 +187,10 @@ export default function WriteReviewModal({
     } finally {
       setDeleting(false);
     }
-  }, [existingReview, courtId, onSuccess, onClose]);
+  }, [existingReview, courtId, queryClient, user?.id, onSuccess, onClose]);
 
   // Group tags by category for display
-  const tagsByCategory = allTags.reduce<Record<string, CourtTag[]>>(
+  const tagsByCategory = allTags.reduce<Record<string, CourtReviewTag[]>>(
     (acc, tag) => {
       const cat = tag.category ?? 'General';
       return { ...acc, [cat]: [...(acc[cat] ?? []), tag] };
@@ -221,14 +215,14 @@ export default function WriteReviewModal({
             testID="review-error-msg"
             className="bg-danger-tint border border-danger rounded-lg px-4 py-3 mb-4"
           >
-            <Text className="text-[13px] text-danger">{error}</Text>
+            <AppText className="text-[13px] text-danger">{error}</AppText>
           </View>
         )}
 
         {/* Star rating selector */}
-        <Text className="text-[14px] font-semibold text-default mb-2">
-          Your Rating <Text className="text-danger">*</Text>
-        </Text>
+        <AppText className="text-[14px] font-semibold text-default mb-2">
+          Your Rating <AppText className="text-danger">*</AppText>
+        </AppText>
         <View className="flex-row gap-2 mb-5">
           {Array.from({ length: STAR_COUNT }, (_, i) => i + 1).map((star) => {
             const selected = star <= rating;
@@ -240,24 +234,24 @@ export default function WriteReviewModal({
                 accessibilityRole="radio"
                 accessibilityLabel={`${star} star${star !== 1 ? 's' : ''}`}
                 accessibilityState={{ selected: star === rating }}
-                className="p-1"
+                className="min-h-touch min-w-touch items-center justify-center"
               >
-                <Text
+                <AppText
                   className={`text-[32px] leading-none ${
-                    selected ? 'text-yellow-400' : 'text-gray-300'
+                    selected ? 'text-accent' : 'text-tertiary'
                   }`}
                 >
                   ★
-                </Text>
+                </AppText>
               </Pressable>
             );
           })}
         </View>
 
         {/* Review text */}
-        <Text className="text-[14px] font-semibold text-default mb-2">
-          Review <Text className="text-muted">(optional)</Text>
-        </Text>
+        <AppText className="text-[14px] font-semibold text-default mb-2">
+          Review <AppText className="text-muted">(optional)</AppText>
+        </AppText>
         <TextInput
           testID="review-text-input"
           value={text}
@@ -282,14 +276,14 @@ export default function WriteReviewModal({
         {/* Tag picker */}
         {Object.keys(tagsByCategory).length > 0 && (
           <View className="mb-5">
-            <Text className="text-[14px] font-semibold text-default mb-3">
-              Tags <Text className="text-muted">(optional)</Text>
-            </Text>
+            <AppText className="text-[14px] font-semibold text-default mb-3">
+              Tags <AppText className="text-muted">(optional)</AppText>
+            </AppText>
             {Object.entries(tagsByCategory).map(([category, tags]) => (
               <View key={category} className="mb-3">
-                <Text className="text-[12px] text-tertiary uppercase tracking-wide mb-2">
+                <AppText className="text-[12px] text-tertiary uppercase tracking-wide mb-2">
                   {category}
-                </Text>
+                </AppText>
                 <View className="flex-row flex-wrap gap-2">
                   {tags.map((tag) => {
                     const active = selectedTagIds.includes(tag.id);
@@ -306,13 +300,13 @@ export default function WriteReviewModal({
                             : 'bg-surface border-strong'
                         }`}
                       >
-                        <Text
+                        <AppText
                           className={`text-[13px] font-medium ${
-                            active ? 'text-inverse' : 'text-default'
+                            active ? 'text-on-brand-teal' : 'text-default'
                           }`}
                         >
                           {tag.name}
-                        </Text>
+                        </AppText>
                       </Pressable>
                     );
                   })}
@@ -334,11 +328,11 @@ export default function WriteReviewModal({
           style={{ opacity: submitDisabled ? 0.6 : 1 }}
         >
           {submitting ? (
-            <ActivityIndicator color={palette.textInverse} />
+            <ActivityIndicator color={palette.onBrandTeal} />
           ) : (
-            <Text className="text-inverse font-bold text-[15px]">
+            <AppText className="text-on-brand-teal font-bold text-[15px]">
               {isEdit ? 'Save Review' : 'Submit Review'}
-            </Text>
+            </AppText>
           )}
         </Pressable>
 
@@ -346,9 +340,9 @@ export default function WriteReviewModal({
         {isEdit && (
           confirmingDelete ? (
             <View className="mt-2">
-              <Text className="text-[13px] text-muted text-center mb-3">
+              <AppText className="text-[13px] text-muted text-center mb-3">
                 Are you sure you want to delete your review?
-              </Text>
+              </AppText>
               <View className="flex-row gap-3">
                 <Pressable
                   testID="cancel-delete-btn"
@@ -357,9 +351,9 @@ export default function WriteReviewModal({
                   accessibilityLabel="Cancel delete"
                   className="flex-1 py-3 rounded-[10px] border border-strong items-center"
                 >
-                  <Text className="text-[14px] font-semibold text-default">
+                  <AppText className="text-[14px] font-semibold text-default">
                     Cancel
-                  </Text>
+                  </AppText>
                 </Pressable>
                 <Pressable
                   testID="confirm-delete-btn"
@@ -367,15 +361,15 @@ export default function WriteReviewModal({
                   disabled={deleting}
                   accessibilityRole="button"
                   accessibilityLabel="Confirm delete review"
-                  className="flex-1 py-3 rounded-[10px] bg-danger items-center active:opacity-80"
+                  className="flex-1 py-3 rounded-[10px] bg-danger-fill items-center active:opacity-80"
                   style={{ opacity: deleting ? 0.6 : 1 }}
                 >
                   {deleting ? (
-                    <ActivityIndicator color={palette.textInverse} />
+                    <ActivityIndicator color={palette.onDanger} />
                   ) : (
-                    <Text className="text-inverse font-bold text-[14px]">
+                    <AppText className="text-on-danger font-bold text-[14px]">
                       Delete
-                    </Text>
+                    </AppText>
                   )}
                 </Pressable>
               </View>
@@ -388,9 +382,9 @@ export default function WriteReviewModal({
               accessibilityLabel="Delete review"
               className="py-3 rounded-[10px] items-center border border-danger mt-2"
             >
-              <Text className="text-[14px] font-semibold text-danger">
+              <AppText className="text-[14px] font-semibold text-danger">
                 Delete Review
-              </Text>
+              </AppText>
             </Pressable>
           )
         )}

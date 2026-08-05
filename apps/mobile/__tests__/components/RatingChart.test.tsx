@@ -3,7 +3,23 @@
  * regression when a timeline point carries an empty/malformed date.
  */
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import {
+  render as renderTestingLibrary,
+  screen,
+} from '@testing-library/react-native';
+import ThemeProvider from '@/contexts/ThemeContext';
+
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+  }),
+  vars: (values: object) => values,
+}));
+
+function render(ui: React.ReactElement) {
+  return renderTestingLibrary(<ThemeProvider>{ui}</ThemeProvider>);
+}
 
 jest.mock('react-native-svg', () => {
   const React = require('react');

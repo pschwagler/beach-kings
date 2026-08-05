@@ -15,7 +15,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRootNavigationState, useSegments } from 'expo-router';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
-import { playerQueries } from '@/features/player';
+// Import the leaf query module directly. The player feature barrel exports
+// mutations that consume AuthContext, so importing the barrel here creates a
+// runtime cycle during app bootstrap.
+import { playerQueries } from '@/features/player/queries';
+import { useDevelopmentAuthExtension } from '@/components/dev/authExtension';
+import type { DevelopmentAuthExtension } from '@/components/dev/authExtension.types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,22 +72,22 @@ interface SignupParams {
   readonly phoneNumber?: string;
 }
 
-interface AuthContextValue extends AuthState {
+interface CoreAuthContextValue extends AuthState {
   readonly login: (
     params: LoginWithEmailParams | LoginWithPhoneParams,
   ) => Promise<void>;
   readonly signup: (params: SignupParams) => Promise<void>;
   readonly loginWithGoogle: (idToken: string) => Promise<void>;
   readonly loginWithApple: (idToken: string) => Promise<void>;
-  readonly verifyPhone: (
-    phoneNumber: string,
-    code: string,
-  ) => Promise<void>;
+  readonly verifyPhone: (phoneNumber: string, code: string) => Promise<void>;
   readonly verifyEmail: (email: string, code: string) => Promise<void>;
   readonly logout: () => Promise<void>;
   readonly setProfileComplete: (complete: boolean) => void;
   readonly refreshUser: () => Promise<void>;
 }
+
+type AuthContextValue = CoreAuthContextValue &
+  Partial<DevelopmentAuthExtension>;
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -146,21 +151,44 @@ function parseAuthResponse(response: AuthResponse): {
 }
 
 /** A profile is "complete" only when all required fields are present. */
-function isProfileComplete(player: {
-  readonly gender?: string | null;
-  readonly level?: string | number | null;
-  readonly city?: string | null;
-  readonly state?: string | null;
-  readonly location_id?: string | null;
-} | null | undefined): boolean {
+function isProfileComplete(
+  player:
+    | {
+        readonly gender?: string | null;
+        readonly level?: string | number | null;
+        readonly city?: string | null;
+        readonly state?: string | null;
+        readonly location_id?: string | null;
+      }
+    | null
+    | undefined,
+): boolean {
   if (!player) return false;
   return Boolean(
     player.gender &&
-      player.level &&
-      player.city &&
-      player.state &&
-      player.location_id,
+    player.level &&
+    player.city &&
+    player.state &&
+    player.location_id,
   );
+}
+
+function parseUserResponse(
+  userData: Awaited<ReturnType<typeof api.getMe>>,
+): User {
+  return {
+    id: userData.id,
+    phone_number: userData.phone_number ?? null,
+    email: userData.email ?? null,
+    is_verified: userData.is_verified,
+    auth_provider: userData.auth_provider ?? 'phone',
+    has_password: userData.has_password !== false,
+    google_connected: userData.google_connected ?? false,
+    apple_connected: userData.apple_connected ?? false,
+    profile_is_private: userData.profile_is_private ?? false,
+    show_game_history: userData.show_game_history ?? false,
+    deletion_scheduled_at: userData.deletion_scheduled_at ?? null,
+  };
 }
 
 function hasRetainedAuthenticatedStack(
@@ -219,29 +247,35 @@ export default function AuthProvider({
     [],
   );
 
-  const enqueueTransition = useCallback(<T,>(work: () => Promise<T>): Promise<T> => {
-    const result = transitionQueueRef.current
-      .catch(() => undefined)
-      .then(work);
-    transitionQueueRef.current = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
-  }, []);
+  const enqueueTransition = useCallback(
+    <T,>(work: () => Promise<T>): Promise<T> => {
+      const result = transitionQueueRef.current
+        .catch(() => undefined)
+        .then(work);
+      transitionQueueRef.current = result.then(
+        () => undefined,
+        () => undefined,
+      );
+      return result;
+    },
+    [],
+  );
 
   const cancelQueryWork = useCallback(async (): Promise<void> => {
     await queryClient.cancelQueries();
   }, [queryClient]);
 
-  const fetchProfileComplete = useCallback(async (userId: number): Promise<boolean> => {
-    try {
-      const player = await queryClient.fetchQuery(playerQueries.me(userId));
-      return isProfileComplete(player);
-    } catch {
-      return false;
-    }
-  }, [queryClient]);
+  const fetchProfileComplete = useCallback(
+    async (userId: number): Promise<boolean> => {
+      try {
+        const player = await queryClient.fetchQuery(playerQueries.me(userId));
+        return isProfileComplete(player);
+      } catch {
+        return false;
+      }
+    },
+    [queryClient],
+  );
 
   const clearCacheAndPublish = useCallback(
     (nextState: AuthState): void => {
@@ -273,7 +307,12 @@ export default function AuthProvider({
         clearCacheAndPublish(UNAUTHENTICATED_STATE);
         return true;
       }),
-    [cancelQueryWork, clearCacheAndPublish, enqueueTransition, isCurrentOperation],
+    [
+      cancelQueryWork,
+      clearCacheAndPublish,
+      enqueueTransition,
+      isCurrentOperation,
+    ],
   );
 
   const prepareAuthentication = useCallback(
@@ -296,7 +335,12 @@ export default function AuthProvider({
         clearCacheAndPublish(UNAUTHENTICATED_STATE);
         return true;
       }),
-    [cancelQueryWork, clearCacheAndPublish, enqueueTransition, isCurrentOperation],
+    [
+      cancelQueryWork,
+      clearCacheAndPublish,
+      enqueueTransition,
+      isCurrentOperation,
+    ],
   );
 
   const completeAuthentication = useCallback(
@@ -364,19 +408,7 @@ export default function AuthProvider({
 
         const userData = await api.getMe();
         if (!isCurrentOperation(revision)) return;
-        const user: User = {
-          id: userData.id,
-          phone_number: userData.phone_number ?? null,
-          email: userData.email ?? null,
-          is_verified: userData.is_verified,
-          auth_provider: userData.auth_provider ?? 'phone',
-          has_password: userData.has_password !== false,
-          google_connected: userData.google_connected ?? false,
-          apple_connected: userData.apple_connected ?? false,
-          profile_is_private: userData.profile_is_private ?? false,
-          show_game_history: userData.show_game_history ?? false,
-          deletion_scheduled_at: userData.deletion_scheduled_at ?? null,
-        };
+        const user = parseUserResponse(userData);
 
         const cachePrepared = await enqueueTransition(async () => {
           if (!isCurrentOperation(revision)) return false;
@@ -425,8 +457,7 @@ export default function AuthProvider({
     if (state.isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inOnboarding =
-      inAuthGroup && segments[1] === 'onboarding';
+    const inOnboarding = inAuthGroup && segments[1] === 'onboarding';
 
     if (!state.isAuthenticated && !inAuthGroup) {
       // The root Stack (app/_layout.tsx) keeps (tabs) and (stack) history
@@ -504,19 +535,25 @@ export default function AuthProvider({
     });
   }, []);
 
-  const loginWithGoogle = useCallback(async (idToken: string) => {
-    const revision = beginAuthOperation();
-    if (!(await prepareAuthentication(revision))) return;
-    const data = await api.googleAuth(idToken);
-    await completeAuthentication(revision, data);
-  }, [beginAuthOperation, completeAuthentication, prepareAuthentication]);
+  const loginWithGoogle = useCallback(
+    async (idToken: string) => {
+      const revision = beginAuthOperation();
+      if (!(await prepareAuthentication(revision))) return;
+      const data = await api.googleAuth(idToken);
+      await completeAuthentication(revision, data);
+    },
+    [beginAuthOperation, completeAuthentication, prepareAuthentication],
+  );
 
-  const loginWithApple = useCallback(async (idToken: string) => {
-    const revision = beginAuthOperation();
-    if (!(await prepareAuthentication(revision))) return;
-    const data = await api.appleAuth(idToken);
-    await completeAuthentication(revision, data);
-  }, [beginAuthOperation, completeAuthentication, prepareAuthentication]);
+  const loginWithApple = useCallback(
+    async (idToken: string) => {
+      const revision = beginAuthOperation();
+      if (!(await prepareAuthentication(revision))) return;
+      const data = await api.appleAuth(idToken);
+      await completeAuthentication(revision, data);
+    },
+    [beginAuthOperation, completeAuthentication, prepareAuthentication],
+  );
 
   const verifyPhone = useCallback(
     async (phoneNumber: string, code: string) => {
@@ -552,10 +589,13 @@ export default function AuthProvider({
     }
   }, [beginAuthOperation, commitUnauthenticated, isCurrentOperation]);
 
-  const setProfileComplete = useCallback((complete: boolean) => {
-    const nextState = { ...stateRef.current, profileComplete: complete };
-    publishState(nextState);
-  }, [publishState]);
+  const setProfileComplete = useCallback(
+    (complete: boolean) => {
+      const nextState = { ...stateRef.current, profileComplete: complete };
+      publishState(nextState);
+    },
+    [publishState],
+  );
 
   const refreshUser = useCallback(async () => {
     const revision = operationRevisionRef.current;
@@ -569,21 +609,47 @@ export default function AuthProvider({
     ) {
       return;
     }
-    const user: User = {
-      id: userData.id,
-      phone_number: userData.phone_number ?? null,
-      email: userData.email ?? null,
-      is_verified: userData.is_verified,
-      auth_provider: userData.auth_provider ?? 'phone',
-      has_password: userData.has_password !== false,
-      google_connected: userData.google_connected ?? false,
-      apple_connected: userData.apple_connected ?? false,
-      profile_is_private: userData.profile_is_private ?? false,
-      show_game_history: userData.show_game_history ?? false,
-      deletion_scheduled_at: userData.deletion_scheduled_at ?? null,
-    };
+    const user = parseUserResponse(userData);
     publishState({ ...stateRef.current, user });
   }, [isCurrentOperation, publishState]);
+
+  const publishResolvedIdentity = useCallback(
+    (
+      identity: Awaited<ReturnType<typeof api.getMe>>,
+      profileComplete: boolean,
+    ) => {
+      publishState({
+        user: parseUserResponse(identity),
+        isLoading: false,
+        isAuthenticated: true,
+        profileComplete,
+        isNewUser: false,
+      });
+    },
+    [publishState],
+  );
+
+  const publishUnauthenticated = useCallback(() => {
+    clearCacheAndPublish(UNAUTHENTICATED_STATE);
+  }, [clearCacheAndPublish]);
+
+  const clearQueryCache = useCallback(() => {
+    queryClient.clear();
+  }, [queryClient]);
+
+  // Production builds resolve this hook to an inert stub before Metro walks
+  // the dependency graph, so its implementation is absent from bytecode.
+  const developmentAuthExtension = useDevelopmentAuthExtension({
+    beginOperation: beginAuthOperation,
+    prepareAuthentication,
+    enqueueTransition,
+    isCurrentOperation,
+    cancelQueryWork,
+    clearQueryCache,
+    fetchProfileComplete,
+    publishIdentity: publishResolvedIdentity,
+    publishUnauthenticated,
+  });
 
   // -----------------------------------------------------------------------
   // Context value
@@ -595,6 +661,7 @@ export default function AuthProvider({
     signup,
     loginWithGoogle,
     loginWithApple,
+    ...developmentAuthExtension,
     verifyPhone,
     verifyEmail,
     logout,
@@ -602,7 +669,5 @@ export default function AuthProvider({
     refreshUser,
   };
 
-  return (
-    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

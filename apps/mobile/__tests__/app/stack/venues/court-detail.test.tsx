@@ -15,6 +15,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -23,6 +24,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -148,6 +153,17 @@ jest.mock('@/utils/maps', () => ({
 
 import CourtDetailRoute from '../../../../app/(stack)/court/[id]';
 
+function renderScreen() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <CourtDetailRoute />
+    </QueryClientProvider>,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Mock data
 // ---------------------------------------------------------------------------
@@ -224,7 +240,10 @@ beforeEach(() => {
   mockHapticMedium.mockResolvedValue(undefined);
   mockGetCourtById.mockResolvedValue(MOCK_COURT);
   mockGetCurrentUserPlayer.mockResolvedValue(null);
-  mockGetCourtCheckIns.mockResolvedValue({ total: 0, breakdown: [] });
+  // Aggregate check-in resolution is covered by useCourtCheckIn.test.ts. Keep
+  // it pending here so this route suite has no secondary async update racing
+  // its court-detail assertions and teardown.
+  mockGetCourtCheckIns.mockReturnValue(new Promise(() => {}));
   mockCheckInToCourt.mockResolvedValue({
     id: 1,
     court_id: 1,
@@ -240,7 +259,7 @@ beforeEach(() => {
 describe('CourtDetailScreen — loading state', () => {
   it('renders loading skeleton while data is fetching', async () => {
     mockGetCourtById.mockReturnValue(new Promise(() => {}));
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-detail-loading')).toBeTruthy();
     });
@@ -254,7 +273,7 @@ describe('CourtDetailScreen — loading state', () => {
 describe('CourtDetailScreen — error state', () => {
   it('renders error state when fetch fails', async () => {
     mockGetCourtById.mockRejectedValue(new Error('Network error'));
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-detail-error-state')).toBeTruthy();
     });
@@ -262,7 +281,7 @@ describe('CourtDetailScreen — error state', () => {
 
   it('renders retry button in error state', async () => {
     mockGetCourtById.mockRejectedValue(new Error('Network error'));
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-detail-retry-btn')).toBeTruthy();
     });
@@ -271,7 +290,7 @@ describe('CourtDetailScreen — error state', () => {
   it('calls api again when retry is pressed', async () => {
     mockGetCourtById.mockRejectedValueOnce(new Error('fail'));
     mockGetCourtById.mockResolvedValue(MOCK_COURT);
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-detail-retry-btn')).toBeTruthy();
     });
@@ -288,14 +307,14 @@ describe('CourtDetailScreen — error state', () => {
 
 describe('CourtDetailScreen — court content', () => {
   it('renders the court detail screen container', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-detail-screen')).toBeTruthy();
     });
   });
 
   it('renders court name in header', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       // Court name appears in both TopNav title and the content header
       const elements = screen.getAllByText('Manhattan Beach Courts');
@@ -304,7 +323,7 @@ describe('CourtDetailScreen — court content', () => {
   });
 
   it('renders court city and state', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Manhattan Beach, CA')).toBeTruthy();
     });
@@ -316,7 +335,7 @@ describe('CourtDetailScreen — court content', () => {
       city: '',
       state: '',
     });
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       // Name still renders; the empty city/state line must not produce a lone comma.
       expect(screen.getAllByText('Manhattan Beach Courts').length).toBeGreaterThan(0);
@@ -326,21 +345,21 @@ describe('CourtDetailScreen — court content', () => {
   });
 
   it('renders Outdoor badge for sand courts', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Outdoor')).toBeTruthy();
     });
   });
 
   it('renders Free Play badge for free courts', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Free Play')).toBeTruthy();
     });
   });
 
   it('renders rating bar with rating and review count', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-rating-bar')).toBeTruthy();
     });
@@ -352,7 +371,7 @@ describe('CourtDetailScreen — court content', () => {
       average_rating: 0,
       review_count: 0,
     });
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-rating-bar')).toBeTruthy();
     });
@@ -361,49 +380,49 @@ describe('CourtDetailScreen — court content', () => {
   });
 
   it('renders check-in button', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('check-in-btn-1')).toBeTruthy();
     });
   });
 
   it('renders add-to-my-courts button', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('add-court-btn-1')).toBeTruthy();
     });
   });
 
   it('renders court info section', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-info-section')).toBeTruthy();
     });
   });
 
   it('renders court map preview', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-map-preview')).toBeTruthy();
     });
   });
 
   it('renders photos section', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-photos-section')).toBeTruthy();
     });
   });
 
   it('renders see all photos button', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-see-all-photos-btn')).toBeTruthy();
     });
   });
 
   it('navigates to court photos when See All is pressed', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-see-all-photos-btn')).toBeTruthy();
     });
@@ -414,28 +433,28 @@ describe('CourtDetailScreen — court content', () => {
   });
 
   it('renders reviews section', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-reviews-section')).toBeTruthy();
     });
   });
 
   it('renders hero image area', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-hero-image')).toBeTruthy();
     });
   });
 
   it('renders hours in court info', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Dawn to dusk')).toBeTruthy();
     });
   });
 
   it('renders court address', async () => {
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByText('1 Manhattan Beach Blvd')).toBeTruthy();
     });
@@ -454,7 +473,7 @@ describe('CourtDetailScreen — court without photos', () => {
       court_photos: [],
     };
     mockGetCourtById.mockResolvedValue(courtNoPhotos);
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-add-photo-placeholder')).toBeTruthy();
     });
@@ -471,7 +490,7 @@ describe('CourtDetailScreen — court without photos', () => {
       ],
     };
     mockGetCourtById.mockResolvedValue(courtManyPhotos);
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByTestId('court-more-photos-btn')).toBeTruthy();
     });
@@ -485,7 +504,7 @@ describe('CourtDetailScreen — court without photos', () => {
 describe('CourtDetailScreen — different ids render different courts', () => {
   it('renders Manhattan Beach when api returns court id 1', async () => {
     mockGetCourtById.mockResolvedValue(MOCK_COURT);
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       const elements = screen.getAllByText('Manhattan Beach Courts');
       expect(elements.length).toBeGreaterThanOrEqual(1);
@@ -495,7 +514,7 @@ describe('CourtDetailScreen — different ids render different courts', () => {
 
   it('renders Venice Beach when api returns court id 2', async () => {
     mockGetCourtById.mockResolvedValue(MOCK_COURT_VENICE);
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       const elements = screen.getAllByText('Venice Beach Courts');
       expect(elements.length).toBeGreaterThanOrEqual(1);
@@ -504,7 +523,7 @@ describe('CourtDetailScreen — different ids render different courts', () => {
 
   it('api is called with the idOrSlug from route params', async () => {
     mockGetCourtById.mockResolvedValue(MOCK_COURT);
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(mockGetCourtById).toHaveBeenCalledWith('1');
     });
@@ -512,7 +531,7 @@ describe('CourtDetailScreen — different ids render different courts', () => {
 
   it('each court renders its own city/state', async () => {
     mockGetCourtById.mockResolvedValue(MOCK_COURT_VENICE);
-    render(<CourtDetailRoute />);
+    renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Venice, CA')).toBeTruthy();
     });

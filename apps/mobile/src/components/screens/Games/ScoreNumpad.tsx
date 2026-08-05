@@ -7,10 +7,9 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
-
-const TEAL = '#4daacc';
-const GOLD = '#e0b44c';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 const DIGIT_ROWS: ReadonlyArray<readonly [number, number, number]> = [
   [1, 2, 3],
@@ -31,8 +30,13 @@ export default function ScoreNumpad({
   onDelete,
   onNext,
 }: ScoreNumpadProps): React.ReactNode {
+  const palette = usePaletteColors();
   const nextLabel = activeTeam === 2 ? 'DONE' : 'NEXT';
-  const nextBg = activeTeam === 2 ? GOLD : activeTeam === 1 ? TEAL : '#aaa';
+  const nextBg = activeTeam === 2
+    ? palette.brandGold
+    : activeTeam === 1
+      ? palette.brandTeal
+      : palette.bgInset;
 
   return (
     <View testID="score-numpad" className="px-4 py-3 gap-[10px]">
@@ -48,7 +52,7 @@ export default function ScoreNumpad({
               className="flex-1 h-[58px] rounded-2xl bg-elevated items-center justify-center"
               style={({ pressed }) => (pressed ? { opacity: 0.55 } : undefined)}
             >
-              <Text className="text-[24px] font-bold text-default">{digit}</Text>
+              <AppText className="text-[24px] font-bold text-default">{digit}</AppText>
             </Pressable>
           ))}
         </View>
@@ -64,7 +68,7 @@ export default function ScoreNumpad({
           className="flex-1 h-[58px] rounded-2xl bg-elevated items-center justify-center"
           style={({ pressed }) => (pressed ? { opacity: 0.55 } : undefined)}
         >
-          <Text className="text-[22px] text-default">⌫</Text>
+          <AppText className="text-[22px] text-default">⌫</AppText>
         </Pressable>
 
         <Pressable
@@ -75,7 +79,7 @@ export default function ScoreNumpad({
           className="flex-1 h-[58px] rounded-2xl bg-elevated items-center justify-center"
           style={({ pressed }) => (pressed ? { opacity: 0.55 } : undefined)}
         >
-          <Text className="text-[24px] font-bold text-default">0</Text>
+          <AppText className="text-[24px] font-bold text-default">0</AppText>
         </Pressable>
 
         <Pressable
@@ -91,9 +95,13 @@ export default function ScoreNumpad({
             pressed && { opacity: 0.65 },
           ]}
         >
-          <Text className="text-[13px] font-black text-white tracking-widest">
+          <AppText
+            className={`text-[13px] font-bold tracking-widest ${
+              activeTeam === 2 ? 'text-on-brand-gold' : 'text-on-brand-teal'
+            }`}
+          >
             {nextLabel}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
     </View>

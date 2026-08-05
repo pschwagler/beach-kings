@@ -88,7 +88,7 @@ beforeEach(() => {
 describe('SessionEditScreen', () => {
   it('exposes a high-contrast labelled close button', async () => {
     render(<SessionEditRoute />);
-    await waitFor(() => expect(screen.getByTestId('session-edit-close-btn')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('edit-session-season-10')).toBeTruthy());
 
     const close = screen.getByTestId('session-edit-close-btn');
     expect(close.props.accessibilityRole).toBe('button');
@@ -103,6 +103,7 @@ describe('SessionEditScreen', () => {
         'QBK Open Men',
       ),
     );
+    await waitFor(() => expect(screen.getByTestId('edit-session-season-10')).toBeTruthy());
     expect(screen.queryByText('Context')).toBeNull();
     expect(screen.getByTestId('edit-session-ranked-toggle').props.disabled).toBe(true);
     expect(screen.queryByTestId('edit-session-type-league')).toBeNull();
@@ -141,7 +142,7 @@ describe('SessionEditScreen', () => {
   it('selects a court by ID and includes is_ranked in the update payload', async () => {
     mockUpdateSession.mockResolvedValue({});
     render(<SessionEditRoute />);
-    await waitFor(() => expect(screen.getByTestId('edit-session-court-picker')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('edit-session-season-10')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('edit-session-court-picker'));
     await waitFor(() => expect(screen.getByTestId('edit-session-court-option-8')).toBeTruthy());
@@ -157,7 +158,7 @@ describe('SessionEditScreen', () => {
 
   it('clears the selected court name when choosing no court', async () => {
     render(<SessionEditRoute />);
-    await waitFor(() => expect(screen.getByTestId('edit-session-court-picker')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('edit-session-season-10')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('edit-session-court-picker'));
     await waitFor(() => expect(screen.getByTestId('edit-session-court-option-none')).toBeTruthy());

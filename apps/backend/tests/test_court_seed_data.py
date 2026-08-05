@@ -1,4 +1,5 @@
 import csv
+import math
 from pathlib import Path
 
 
@@ -24,9 +25,22 @@ def _rows(filename: str) -> list[dict[str, str]]:
         return list(csv.DictReader(file))
 
 
+def _distance_miles(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lng2 - lng1)
+    value = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    )
+    return 2 * 3958.8 * math.asin(math.sqrt(value))
+
+
 def test_court_seed_catalog_is_consistent():
     courts = _rows("courts.csv")
-    location_ids = {row["hub_id"] for row in _rows("locations.csv")}
+    locations = _rows("locations.csv")
+    locations_by_id = {row["hub_id"]: row for row in locations}
+    location_ids = set(locations_by_id)
     slugs = [row["slug"] for row in courts]
 
     assert len(slugs) == len(set(slugs))
@@ -41,7 +55,34 @@ def test_court_seed_catalog_is_consistent():
         assert row["has_restrooms"] in {"true", "false"}
         assert row["has_parking"] in {"true", "false"}
         assert row["nets_provided"] in {"true", "false"}
-        if row["latitude"]:
-            assert -90 <= float(row["latitude"]) <= 90
-        if row["longitude"]:
-            assert -180 <= float(row["longitude"]) <= 180
+        assert row["latitude"] and row["longitude"]
+        latitude = float(row["latitude"])
+        longitude = float(row["longitude"])
+        assert -90 <= latitude <= 90
+        assert -180 <= longitude <= 180
+
+        location = locations_by_id[row["location_id"]]
+        distance = _distance_miles(
+            float(location["lat"]),
+            float(location["lng"]),
+            latitude,
+            longitude,
+        )
+        allowed_distance = max(30, float(location["radius_miles"]) * 1.35)
+        assert distance <= allowed_distance, row["slug"]
+
+
+def test_canadian_courts_use_country_aware_hubs():
+    locations = _rows("locations.csv")
+    courts = _rows("courts.csv")
+    canada_hubs = {
+        row["hub_id"] for row in locations if row["country"] == "Canada"
+    }
+
+    assert canada_hubs
+    assert all(row["hub_id"].startswith("ca_") for row in locations if row["country"] == "Canada")
+    assert all(
+        row["location_id"] in canada_hubs
+        for row in courts
+        if row["location_id"].startswith("ca_")
+    )

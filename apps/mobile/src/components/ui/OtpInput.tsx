@@ -21,8 +21,8 @@ import {
   NativeSyntheticEvent,
   TextInputKeyPressEventData,
 } from 'react-native';
-import { useTheme } from '@/contexts/ThemeContext';
-import { colors, darkColors } from '@beach-kings/shared/tokens';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface OtpInputProps {
   readonly length?: number;
@@ -50,13 +50,17 @@ export default function OtpInput({
   className = '',
   shakeKey = 0,
 }: OtpInputProps): React.ReactNode {
-  const { isDark } = useTheme();
+  const palette = usePaletteColors();
+  const reduceMotion = useReducedMotion();
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const completedRef = useRef(false);
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  const cells = Array.from({ length }, (_, i) => value[i] ?? '');
+  const cells = Array.from({ length }, (_, index) => ({
+    key: `otp-cell-${index + 1}`,
+    value: value[index] ?? '',
+  }));
 
   // Fire onComplete exactly once per full-length entry.
   useEffect(() => {
@@ -71,6 +75,10 @@ export default function OtpInput({
   // Trigger shake when shakeKey increments (skip initial render where it is 0).
   useEffect(() => {
     if (shakeKey === 0) return;
+    if (reduceMotion) {
+      shakeAnim.setValue(0);
+      return;
+    }
 
     const steps = SHAKE_SEQUENCE.map((toValue) =>
       Animated.timing(shakeAnim, {
@@ -81,7 +89,7 @@ export default function OtpInput({
     );
 
     Animated.sequence(steps).start();
-  }, [shakeKey, shakeAnim]);
+  }, [reduceMotion, shakeKey, shakeAnim]);
 
   const handleChangeText = (text: string, index: number) => {
     if (text.length > 1) {
@@ -108,7 +116,11 @@ export default function OtpInput({
     e: NativeSyntheticEvent<TextInputKeyPressEventData>,
     index: number,
   ) => {
-    if (e.nativeEvent.key === 'Backspace' && !cells[index] && index > 0) {
+    if (
+      e.nativeEvent.key === 'Backspace' &&
+      !cells[index]?.value &&
+      index > 0
+    ) {
       const next = value.split('');
       next[index - 1] = '';
       onChange(next.join(''));
@@ -116,21 +128,22 @@ export default function OtpInput({
     }
   };
 
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
-
   return (
     <Animated.View
       className={`flex-row gap-2 ${className}`}
       style={{ transform: [{ translateX: shakeAnim }] }}
     >
-      {cells.map((cell, index) => {
+      {cells.map((cellItem, index) => {
+        const cell = cellItem.value;
         const isFocused = focusedIndex === index;
         const isFirst = index === 0;
         const isLast = index === length - 1;
         return (
           <TextInput
-            key={index}
-            ref={(ref) => { inputRefs.current[index] = ref; }}
+            key={cellItem.key}
+            ref={(ref) => {
+              inputRefs.current[index] = ref;
+            }}
             value={cell}
             onChangeText={(text) => handleChangeText(text, index)}
             onKeyPress={(e) => handleKeyPress(e, index)}
@@ -146,7 +159,7 @@ export default function OtpInput({
             className={`w-11 h-12 border-2 rounded-lg text-center text-xl font-semibold bg-surface ${
               isFocused ? 'border-brand-teal' : 'border-divider'
             }`}
-            style={{ color: textColor }}
+            style={{ color: palette.textDefault }}
             accessibilityLabel={`OTP digit ${index + 1}`}
           />
         );

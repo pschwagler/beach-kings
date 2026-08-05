@@ -9,12 +9,12 @@
  */
 
 import React from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, ActivityIndicator } from 'react-native';
 import ChatComposer from '@/components/ui/ChatComposer';
 import ChatView from '@/components/ui/ChatView';
 import Avatar from '@/components/ui/Avatar';
 import { ChatIcon } from '@/components/ui/icons';
-import { useBottomTabBarHeight } from '@/components/navigation/BottomTabBar';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { useLeagueChatTab } from './useLeagueChatTab';
 import type { LeagueChatMessage } from '@beach-kings/shared';
@@ -47,11 +47,11 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
         className="items-end px-4 mb-[6px]"
       >
         <View className="max-w-[80%] bg-brand-teal rounded-[16px] rounded-tr-[4px] px-4 py-[10px]">
-          <Text className="text-[14px] text-white">{message.message}</Text>
+          <AppText className="text-[14px] text-on-brand-teal">{message.message}</AppText>
         </View>
-        <Text className="text-[10px] text-tertiary mt-[2px]">
+        <AppText className="text-[10px] text-tertiary mt-[2px]">
           {timeLabel}
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -71,24 +71,24 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
           <View className="w-7" />
         )}
         <View className="max-w-[80%] bg-surface rounded-[16px] rounded-tl-[4px] px-4 py-[10px] border border-divider">
-          <Text className="text-[14px] text-default">
+          <AppText className="text-[14px] text-default">
             {message.message}
-          </Text>
+          </AppText>
         </View>
       </View>
       {showSender && (
         <View className="flex-row items-center gap-2 mt-[2px]">
           <View className="w-7" />
-          <Text className="text-[12px] font-semibold text-muted">
+          <AppText className="text-[12px] font-semibold text-muted">
             {message.player_name ?? 'Unknown'}
-          </Text>
+          </AppText>
         </View>
       )}
       <View className="flex-row items-center gap-2 mt-[2px]">
         <View className="w-7" />
-        <Text className="text-[10px] text-tertiary">
+        <AppText className="text-[10px] text-tertiary">
           {timeLabel}
-        </Text>
+        </AppText>
       </View>
     </View>
   );
@@ -109,12 +109,12 @@ function LeagueChatEmptyState(): React.ReactNode {
       <View className="w-16 h-16 rounded-full bg-info-tint items-center justify-center mb-4">
         <ChatIcon size={32} color={palette.brandTeal} />
       </View>
-      <Text className="text-[18px] font-bold text-default text-center mb-2">
+      <AppText className="text-[18px] font-bold text-default text-center mb-2">
         No messages yet
-      </Text>
-      <Text className="text-[14px] text-muted text-center leading-[1.5]">
+      </AppText>
+      <AppText className="text-[14px] text-muted text-center leading-[1.5]">
         Be the first to message your league.
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -134,10 +134,6 @@ export default function LeagueChatTab({
   draft,
   onDraftChange,
 }: LeagueChatTabProps): React.ReactNode {
-  // Composer starts above the BottomTabBar, so KeyboardStickyView overshoots
-  // the keyboard top by exactly the tab bar's height. Measured via onLayout in
-  // LeagueDetailScreen and provided through BottomTabBarHeightContext.
-  const keyboardOpenedOffset = useBottomTabBarHeight();
   const {
     messages,
     isLoading,
@@ -163,9 +159,9 @@ export default function LeagueChatTab({
         testID="chat-error"
         className="flex-1 items-center justify-center px-8"
       >
-        <Text className="text-[16px] font-bold text-default text-center">
+        <AppText className="text-[16px] font-bold text-default text-center">
           Failed to load messages
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -174,7 +170,6 @@ export default function LeagueChatTab({
     <ChatView<LeagueChatMessage>
       testID="chat-tab"
       listTestID="chat-messages-list"
-      keyboardOpenedOffset={keyboardOpenedOffset}
       data={messages}
       keyExtractor={(msg) => `msg-${msg.id}`}
       renderBubble={(msg, nextMsg) => (

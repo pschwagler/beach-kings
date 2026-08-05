@@ -19,9 +19,9 @@
  */
 
 import React, { useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   ActivityIndicator,
   Alert,
@@ -32,7 +32,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import { hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
-import SegmentControl from '@/components/ui/SegmentControl';
+import TabView from '@/components/ui/TabView';
 import {
   normalizeLeagueDetailTab,
   useLeagueDetailScreen,
@@ -49,41 +49,34 @@ import LeagueStatsTab from './LeagueStatsTab';
 // Tab definition
 // ---------------------------------------------------------------------------
 
-const TABS: { key: LeagueDetailTab; label: string }[] = [
-  { key: 'games', label: 'Games' },
-  { key: 'standings', label: 'Standings' },
-  { key: 'chat', label: 'Chat' },
-  { key: 'signups', label: 'Sign Ups' },
-  { key: 'info', label: 'Info' },
-];
+const TABS = [
+  { value: 'games', label: 'Games', testID: 'segment-tab-games' },
+  { value: 'standings', label: 'Standings', testID: 'segment-tab-standings' },
+  { value: 'chat', label: 'Chat', testID: 'segment-tab-chat' },
+  { value: 'signups', label: 'Sign Ups', testID: 'segment-tab-signups' },
+  { value: 'info', label: 'Info', testID: 'segment-tab-info' },
+] as const;
 
 // ---------------------------------------------------------------------------
 // Segment bar
 // ---------------------------------------------------------------------------
 
 interface SegmentBarProps {
-  readonly tabs: readonly { key: LeagueDetailTab; label: string }[];
+  readonly items: readonly (typeof TABS)[number][];
   readonly activeTab: LeagueDetailTab;
   readonly onSetTab: (tab: LeagueDetailTab) => void;
 }
 
-function SegmentBar({ tabs, activeTab, onSetTab }: SegmentBarProps): React.ReactNode {
-  const selectedIndex = tabs.findIndex(({ key }) => key === activeTab);
-
+function SegmentBar({ items, activeTab, onSetTab }: SegmentBarProps): React.ReactNode {
   return (
-    <SegmentControl
+    <TabView
       testID="league-segment-bar"
-      segments={tabs.map(({ label }) => label)}
-      segmentTestIDs={tabs.map(({ key }) => `segment-tab-${key}`)}
-      selectedIndex={selectedIndex}
-      compact
-      className="mx-2 my-2 grow-0 shrink-0"
-      onSelect={(index) => {
-        const tab = tabs[index];
-        if (tab == null) return;
+      items={items}
+      value={activeTab}
+      onValueChange={(tab) => {
         Keyboard.dismiss();
         void hapticLight();
-        onSetTab(tab.key);
+        onSetTab(tab);
       }}
     />
   );
@@ -109,24 +102,26 @@ function LeagueHeader({
       testID="league-header"
       className="bg-surface px-4 pt-3 pb-3 border-b border-divider"
     >
-      <Text
+      <AppText
         testID="league-header-name"
-        className="text-[20px] font-extrabold text-default"
-        numberOfLines={1}
+        family="display"
+        className="text-[20px] font-bold text-default"
+        numberOfLines={2}
+        accessibilityLabel={name}
       >
         {name}
-      </Text>
+      </AppText>
 
       <View className="flex-row flex-wrap items-center gap-x-2 mt-[2px]">
         {locationName != null && (
-          <Text className="text-[12px] text-muted">{locationName}</Text>
+          <AppText className="text-[12px] text-muted">{locationName}</AppText>
         )}
         {locationName != null && (
-          <Text className="text-[12px] text-muted">·</Text>
+          <AppText className="text-[12px] text-muted">·</AppText>
         )}
-        <Text className="text-[12px] text-muted">
+        <AppText className="text-[12px] text-muted">
           {memberCount} {memberCount === 1 ? 'member' : 'members'}
-        </Text>
+        </AppText>
       </View>
     </View>
   );
@@ -168,7 +163,7 @@ function VisitorJoinBanner({
           testID="league-join-pending"
           className="px-4 py-2 rounded-full bg-page"
         >
-          <Text className="text-[13px] font-semibold text-muted">Request sent</Text>
+          <AppText className="text-[13px] font-semibold text-muted">Request sent</AppText>
         </View>
       );
     }
@@ -185,9 +180,9 @@ function VisitorJoinBanner({
           accessibilityLabel="Join league"
           className="px-4 py-2 rounded-full bg-brand-teal active:opacity-70"
         >
-          <Text className="text-[13px] font-semibold text-white">
+          <AppText className="text-[13px] font-semibold text-on-brand-teal">
             {isJoiningLeague ? 'Joining…' : 'Join'}
-          </Text>
+          </AppText>
         </Pressable>
       );
     }
@@ -204,9 +199,9 @@ function VisitorJoinBanner({
           accessibilityLabel="Request to join league"
           className="px-4 py-2 rounded-full bg-brand-teal active:opacity-70"
         >
-          <Text className="text-[13px] font-semibold text-white">
+          <AppText className="text-[13px] font-semibold text-on-brand-teal">
             {isRequestingToJoin ? 'Sending…' : 'Request to join'}
-          </Text>
+          </AppText>
         </Pressable>
       );
     }
@@ -222,9 +217,9 @@ function VisitorJoinBanner({
       testID="league-join-banner"
       className="bg-surface px-4 py-3 border-b border-divider flex-row items-center justify-between gap-x-3"
     >
-      <Text className="text-[13px] text-muted flex-1" numberOfLines={2}>
+      <AppText className="text-[13px] text-muted flex-1" numberOfLines={2}>
         Viewing as a non-member
-      </Text>
+      </AppText>
       {action}
     </View>
   );
@@ -360,7 +355,7 @@ export default function LeagueDetailScreen({
   };
 
   // Only render the tabs the caller is allowed to see.
-  const tabsForRole = TABS.filter((t) => visibleTabs.includes(t.key));
+  const tabsForRole = TABS.filter((tab) => visibleTabs.includes(tab.value));
 
   const handleSetTab = (tab: LeagueDetailTab): void => {
     // Always clear the stats sub-view on tab switch — including re-tapping
@@ -390,7 +385,7 @@ export default function LeagueDetailScreen({
       accessibilityLabel="Add game"
       className="min-h-touch items-center justify-center px-2 active:opacity-70"
     >
-      <Text className="text-[14px] font-semibold text-white">+ Add Game</Text>
+      <AppText className="text-[14px] font-semibold text-inverse">+ Add Game</AppText>
     </Pressable>
   ) : undefined;
 
@@ -419,9 +414,9 @@ export default function LeagueDetailScreen({
           testID="league-detail-error"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[16px] font-bold text-default text-center">
+          <AppText className="text-[16px] font-bold text-default text-center">
             Failed to load league
-          </Text>
+          </AppText>
         </View>
       </SafeAreaView>
     );
@@ -453,7 +448,7 @@ export default function LeagueDetailScreen({
         )}
 
         <SegmentBar
-          tabs={tabsForRole}
+          items={tabsForRole}
           activeTab={activeTab}
           onSetTab={handleSetTab}
         />

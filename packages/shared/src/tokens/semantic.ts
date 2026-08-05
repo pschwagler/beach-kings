@@ -37,7 +37,11 @@ const roles = {
   textDefault: [colors.textPrimary, darkColors.textPrimary],
   textMuted: [colors.textSecondary, darkColors.textSecondary],
   textTertiary: [colors.textTertiary, darkColors.textTertiary],
-  textInverse: [colors.textInverse, colors.textPrimary],
+  textInverse: [colors.textInverse, colors.textInverse],
+  // Brand gold is intentionally brighter than AA allows as foreground text
+  // on light surfaces. Keep brandGold for fills and decorative marks; use
+  // this deeper role anywhere gold carries readable content.
+  textAccent: ['#765800', darkColors.brandGold],
 
   // Borders
   borderStrong: [colors.border, darkColors.border],
@@ -49,14 +53,33 @@ const roles = {
   brandTeal: [colors.primary, darkColors.brandTeal],
   brandGold: [colors.accent, darkColors.brandGold],
 
+  // Foregrounds for filled controls. These are intentionally separate from
+  // textInverse: a lifted brand fill in dark mode needs a dark foreground,
+  // while navigation and other dark surfaces continue to use textInverse.
+  onBrandTeal: [colors.textInverse, darkColors.bgBase],
+  onBrandGold: [colors.textPrimary, darkColors.bgBase],
+  onDanger: [colors.textInverse, darkColors.bgBase],
+  onSuccess: [darkColors.bgBase, darkColors.bgBase],
+  onWarning: [darkColors.bgBase, darkColors.bgBase],
+  onInfo: [darkColors.bgBase, darkColors.bgBase],
+  onStatusLive: [darkColors.bgBase, darkColors.bgBase],
+
   // Status text colors
-  success: [colors.success, darkColors.successText],
+  success: ['#166534', darkColors.successText],
   danger: [colors.danger, darkColors.dangerText],
-  warning: [colors.warning, darkColors.warningText],
-  info: [colors.info, darkColors.infoText],
+  warning: ['#854d0e', darkColors.warningText],
+  info: ['#1d4ed8', darkColors.infoText],
   // "Live / in-progress" — warm amber. Distinct from success (completed) and
   // warning (problem). Used on session "Active" badges, live-event chips, etc.
-  statusLive: ['#b87900', '#f4c060'],
+  statusLive: ['#92400e', '#f4c060'],
+
+  // Saturated fills/dots retain the sporting palette independently from the
+  // darker light-mode text roles above.
+  successFill: [colors.success, darkColors.successText],
+  dangerFill: [colors.danger, darkColors.dangerFill],
+  warningFill: [colors.warning, darkColors.warningText],
+  infoFill: [colors.info, darkColors.infoText],
+  statusLiveFill: ['#b87900', '#f4c060'],
 
   // Status tinted-surface colors (chip / row background pairs)
   successTint: [colors.successTint, darkColors.successBg],
@@ -67,6 +90,63 @@ const roles = {
 } as const satisfies Record<string, ThemeHexPair>;
 
 export type SemanticRole = keyof typeof roles;
+
+export interface CanonicalContrastPair {
+  readonly foreground: SemanticRole;
+  readonly background: SemanticRole;
+}
+
+const readingSurfaces = [
+  'bgPage',
+  'bgSurface',
+  'bgElevated',
+  'bgInset',
+] as const satisfies readonly SemanticRole[];
+
+const readingForegrounds = [
+  'textDefault',
+  'textMuted',
+  'textTertiary',
+  'brandTeal',
+  'textAccent',
+  'success',
+  'danger',
+  'warning',
+  'info',
+  'statusLive',
+] as const satisfies readonly SemanticRole[];
+
+/**
+ * Every foreground/background pairing supported by the semantic UI system.
+ * Consumers should choose one of these pairs instead of combining roles ad
+ * hoc. Tests enforce WCAG AA in both themes for the complete table.
+ */
+export const CANONICAL_CONTRAST_PAIRS: readonly CanonicalContrastPair[] = [
+  ...readingForegrounds.flatMap((foreground) =>
+    readingSurfaces.map((background) => ({ foreground, background })),
+  ),
+  { foreground: 'textInverse', background: 'bgNav' },
+  { foreground: 'brandGold', background: 'bgNav' },
+  { foreground: 'onBrandTeal', background: 'brandTeal' },
+  { foreground: 'onBrandGold', background: 'brandGold' },
+  { foreground: 'onDanger', background: 'dangerFill' },
+  { foreground: 'onSuccess', background: 'successFill' },
+  { foreground: 'onWarning', background: 'warningFill' },
+  { foreground: 'onInfo', background: 'infoFill' },
+  { foreground: 'onStatusLive', background: 'statusLiveFill' },
+  { foreground: 'textDefault', background: 'successTint' },
+  { foreground: 'textDefault', background: 'dangerTint' },
+  { foreground: 'textDefault', background: 'warningTint' },
+  { foreground: 'textDefault', background: 'infoTint' },
+  { foreground: 'textDefault', background: 'statusLiveTint' },
+  { foreground: 'success', background: 'successTint' },
+  { foreground: 'danger', background: 'dangerTint' },
+  { foreground: 'warning', background: 'warningTint' },
+  { foreground: 'info', background: 'infoTint' },
+  { foreground: 'statusLive', background: 'statusLiveTint' },
+  { foreground: 'brandTeal', background: 'infoTint' },
+  { foreground: 'textAccent', background: 'warningTint' },
+];
 
 /**
  * camelCase → kebab-case ("bgSurface" → "bg-surface").

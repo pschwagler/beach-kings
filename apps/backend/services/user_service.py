@@ -438,6 +438,7 @@ def _user_to_dict(user: User) -> Dict:
         "deletion_scheduled_at": (
             user.deletion_scheduled_at.isoformat() if user.deletion_scheduled_at else None
         ),
+        "deleted_at": user.deleted_at.isoformat() if user.deleted_at else None,
         "password_changed_at": (
             user.password_changed_at.isoformat() if user.password_changed_at else None
         ),
@@ -1115,8 +1116,10 @@ async def _delete_user_data(session: AsyncSession, user: User) -> None:
     user.phone_number = None
     user.email = None
     user.google_id = None
+    user.apple_id = None
     user.password_hash = None
     user.deletion_scheduled_at = None
+    user.deleted_at = utcnow()
     user.is_verified = False
 
 

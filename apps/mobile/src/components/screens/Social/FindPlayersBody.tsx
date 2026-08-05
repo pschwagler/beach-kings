@@ -26,11 +26,8 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TextInput,
-  Pressable,
-  ScrollView,
   RefreshControl,
 } from 'react-native';
 import type { ListRenderItem } from 'react-native';
@@ -41,6 +38,8 @@ import PlayerRow from '@/components/screens/FindPlayers/PlayerRow';
 import type { DiscoverPlayer } from '@/components/screens/FindPlayers/PlayerRow';
 import FindPlayersSkeleton from '@/components/screens/FindPlayers/FindPlayersSkeleton';
 import FindPlayersErrorState from '@/components/screens/FindPlayers/FindPlayersErrorState';
+import FilterChipBar from '@/components/ui/FilterChipBar';
+import EmptyState from '@/components/ui/EmptyState';
 import type {
   DiscoverLevel,
   UseDiscoverPlayersResult,
@@ -62,7 +61,7 @@ function PlayersSearchBar({
   const palette = usePaletteColors();
   return (
     <View className="px-4 py-3 bg-surface border-b border-divider">
-      <View className="flex-row items-center bg-elevated rounded-[10px] px-[12px] h-[40px] gap-[8px]">
+      <View className="flex-row items-center bg-elevated rounded-[10px] px-[12px] min-h-touch gap-[8px]">
         <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
           <Circle cx={11} cy={11} r={8} stroke={palette.textTertiary} strokeWidth={2} />
           <Path
@@ -105,50 +104,6 @@ const LEVEL_CHIPS: readonly { value: DiscoverLevel; label: string }[] = [
   { value: 'beginner', label: 'Beginner' },
 ];
 
-interface FilterChipProps {
-  readonly label: string;
-  readonly active: boolean;
-  readonly onPress: () => void;
-  readonly testID: string;
-}
-
-function FilterChip({
-  label,
-  active,
-  onPress,
-  testID,
-}: FilterChipProps): React.ReactNode {
-  const handlePress = useCallback(() => {
-    void hapticLight();
-    onPress();
-  }, [onPress]);
-
-  return (
-    <Pressable
-      testID={testID}
-      onPress={handlePress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      accessibilityLabel={`Filter by ${label}`}
-      className={
-        active
-          ? 'px-[14px] rounded-[20px] border-[1.5px] border-brand-teal bg-brand-teal min-h-[44px] justify-center active:opacity-80'
-          : 'px-[14px] rounded-[20px] border-[1.5px] border-divider bg-surface min-h-[44px] justify-center active:opacity-70'
-      }
-    >
-      <Text
-        className={
-          active
-            ? 'text-[12px] font-semibold text-white'
-            : 'text-[12px] font-semibold text-muted'
-        }
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 interface FilterChipsRowProps {
   readonly levelFilter: DiscoverLevel | null;
   readonly sameLeagueOnly: boolean;
@@ -166,39 +121,56 @@ function FilterChipsRow({
   onToggleSameLeague,
   onToggleSharedFriends,
 }: FilterChipsRowProps): React.ReactNode {
+  type ConnectionFilter = 'any' | 'same-league' | 'shared-friends';
+  type LevelFilter = 'any' | DiscoverLevel;
+  const connectionValue: ConnectionFilter = sameLeagueOnly
+    ? 'same-league'
+    : sharedFriendsOnly
+      ? 'shared-friends'
+      : 'any';
+
+  const changeConnection = (next: ConnectionFilter) => {
+    void hapticLight();
+    if (sameLeagueOnly && next !== 'same-league') onToggleSameLeague();
+    if (sharedFriendsOnly && next !== 'shared-friends') onToggleSharedFriends();
+    if (next === 'same-league' && !sameLeagueOnly) onToggleSameLeague();
+    if (next === 'shared-friends' && !sharedFriendsOnly) onToggleSharedFriends();
+  };
+
   return (
-    <View className="bg-surface border-b border-divider">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          gap: 8,
-          paddingHorizontal: 16,
-          paddingVertical: 10,
+    <View className="bg-surface border-b border-divider gap-2 py-2">
+      <FilterChipBar<ConnectionFilter>
+        testID="discover-connection-filters"
+        accessibilityLabel="Player connection filters"
+        items={[
+          { value: 'any', label: 'All Players', testID: 'discover-chip-all-players' },
+          { value: 'same-league', label: 'Same League', testID: 'discover-chip-same-league' },
+          { value: 'shared-friends', label: 'Shared Friends', testID: 'discover-chip-shared-friends' },
+        ]}
+        value={connectionValue}
+        onValueChange={changeConnection}
+      />
+      <FilterChipBar<LevelFilter>
+        testID="discover-level-filters"
+        accessibilityLabel="Player level filters"
+        items={[
+          { value: 'any', label: 'Any Level', testID: 'discover-chip-level-any' },
+          ...LEVEL_CHIPS.map((chip) => ({
+            value: chip.value,
+            label: chip.label,
+            testID: `discover-chip-level-${chip.value}`,
+          })),
+        ]}
+        value={levelFilter ?? 'any'}
+        onValueChange={(next) => {
+          void hapticLight();
+          if (next === 'any') {
+            if (levelFilter != null) onToggleLevel(levelFilter);
+            return;
+          }
+          onToggleLevel(next);
         }}
-      >
-        <FilterChip
-          testID="discover-chip-same-league"
-          label="Same League"
-          active={sameLeagueOnly}
-          onPress={onToggleSameLeague}
-        />
-        <FilterChip
-          testID="discover-chip-shared-friends"
-          label="Shared Friends"
-          active={sharedFriendsOnly}
-          onPress={onToggleSharedFriends}
-        />
-        {LEVEL_CHIPS.map((chip) => (
-          <FilterChip
-            key={chip.value}
-            testID={`discover-chip-level-${chip.value}`}
-            label={chip.label}
-            active={levelFilter === chip.value}
-            onPress={() => onToggleLevel(chip.value)}
-          />
-        ))}
-      </ScrollView>
+      />
     </View>
   );
 }
@@ -213,19 +185,15 @@ function PlayersEmptyState({
   readonly isSearching: boolean;
 }): React.ReactNode {
   return (
-    <View
+    <EmptyState
       testID="find-players-empty-state"
-      className="flex-1 items-center justify-center px-8 py-16"
-    >
-      <Text className="text-[18px] font-bold text-default mb-2 text-center">
-        No Players Found
-      </Text>
-      <Text className="text-[14px] text-muted text-center leading-[1.5]">
-        {isSearching
-          ? 'Try adjusting your search to discover more players.'
-          : 'Check back soon — new players join all the time.'}
-      </Text>
-    </View>
+      title="No Players Found"
+      description={
+        isSearching
+          ? 'Try adjusting your search or filters to discover more players.'
+          : 'Check back soon — new players join all the time.'
+      }
+    />
   );
 }
 

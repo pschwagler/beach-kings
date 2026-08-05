@@ -9,9 +9,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   ActivityIndicator,
@@ -43,26 +43,26 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
     >
       {/* Date badge */}
       <View className="w-[60px] items-center justify-center py-4 bg-brand-teal">
-        <Text className="text-[11px] font-bold text-white uppercase">
+        <AppText className="text-[11px] font-bold text-on-brand-teal uppercase">
           {event.month_abbr}
-        </Text>
-        <Text className="text-[22px] font-extrabold text-white leading-tight">
+        </AppText>
+        <AppText className="text-[22px] font-bold text-on-brand-teal leading-tight">
           {event.day}
-        </Text>
+        </AppText>
       </View>
 
       {/* Content */}
       <View className="flex-1 px-4 py-3">
-        <Text className="text-[14px] font-bold text-default mb-[2px]">
+        <AppText className="text-[14px] font-bold text-default mb-[2px]">
           {event.title}
-        </Text>
-        <Text className="text-[12px] text-muted">
+        </AppText>
+        <AppText className="text-[12px] text-muted">
           {event.time_label}
-        </Text>
+        </AppText>
         {event.court_name != null && (
-          <Text className="text-[12px] text-muted">
+          <AppText className="text-[12px] text-muted">
             {event.court_name}
-          </Text>
+          </AppText>
         )}
 
         {/* Tags */}
@@ -75,7 +75,7 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
                   : 'bg-elevated'
               }`}
             >
-              <Text
+              <AppText
                 className={`text-[10px] font-semibold ${
                   (event.spots_remaining ?? 0) <= 3
                     ? 'text-warning'
@@ -83,14 +83,14 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
                 }`}
               >
                 {spotsLabel}
-              </Text>
+              </AppText>
             </View>
           )}
           {event.spots_remaining === 0 && (
             <View className="bg-danger-tint rounded-[6px] px-2 py-[2px]">
-              <Text className="text-[10px] font-semibold text-danger">
+              <AppText className="text-[10px] font-semibold text-danger">
                 Full
-              </Text>
+              </AppText>
             </View>
           )}
         </View>
@@ -100,9 +100,9 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
           {event.user_status === 'signed_up' ? (
             <View className="flex-row items-center justify-between">
               <View className="bg-success-tint rounded-[6px] px-3 py-[5px]">
-                <Text className="text-[12px] font-semibold text-success">
+                <AppText className="text-[12px] font-semibold text-success">
                   Signed Up
-                </Text>
+                </AppText>
               </View>
               <Pressable
                 testID={`drop-event-btn-${event.id}`}
@@ -112,17 +112,17 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
                 }}
                 className="px-3 py-[5px] rounded-[6px] border border-danger-tint active:opacity-70"
               >
-                <Text className="text-[12px] font-semibold text-danger">
+                <AppText className="text-[12px] font-semibold text-danger">
                   Drop
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           ) : event.user_status === 'waitlisted' ? (
             <View className="flex-row items-center justify-between">
               <View className="bg-warning-tint rounded-[6px] px-3 py-[5px]">
-                <Text className="text-[12px] font-semibold text-warning">
+                <AppText className="text-[12px] font-semibold text-warning">
                   Waitlisted
-                </Text>
+                </AppText>
               </View>
               <Pressable
                 testID={`drop-event-btn-${event.id}`}
@@ -132,16 +132,16 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
                 }}
                 className="px-3 py-[5px] rounded-[6px] border border-strong active:opacity-70"
               >
-                <Text className="text-[12px] text-muted">
+                <AppText className="text-[12px] text-muted">
                   Leave Waitlist
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           ) : (
             <View className="flex-row items-center justify-between">
-              <Text className="text-[12px] text-muted">
+              <AppText className="text-[12px] text-muted">
                 {event.attendee_count} going
-              </Text>
+              </AppText>
               <Pressable
                 testID={`signup-event-btn-${event.id}`}
                 onPress={() => {
@@ -155,15 +155,15 @@ function EventCard({ event, onSignUp, onDrop }: EventCardProps): React.ReactNode
                     : 'bg-brand-teal active:opacity-80'
                 }`}
               >
-                <Text
+                <AppText
                   className={`text-[12px] font-bold ${
                     event.spots_remaining === 0
                       ? 'text-tertiary'
-                      : 'text-white'
+                      : 'text-on-brand-teal'
                   }`}
                 >
                   {event.spots_remaining === 0 ? 'Waitlist' : 'Join'}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           )}
@@ -186,17 +186,17 @@ interface ScheduleRowProps {
 function ScheduleRow({ day, time, court }: ScheduleRowProps): React.ReactNode {
   return (
     <View className="flex-row items-center px-4 py-[12px] border-b border-divider">
-      <Text className="w-[90px] text-[13px] font-semibold text-default">
+      <AppText className="w-[90px] text-[13px] font-semibold text-default">
         {day}
-      </Text>
+      </AppText>
       <View className="flex-1">
-        <Text className="text-[13px] text-muted">
+        <AppText className="text-[13px] text-muted">
           {time}
-        </Text>
+        </AppText>
         {court != null && (
-          <Text className="text-[12px] text-tertiary">
+          <AppText className="text-[12px] text-tertiary">
             {court}
-          </Text>
+          </AppText>
         )}
       </View>
     </View>
@@ -209,9 +209,9 @@ function ScheduleRow({ day, time, court }: ScheduleRowProps): React.ReactNode {
 
 function SectionLabel({ title }: { readonly title: string }): React.ReactNode {
   return (
-    <Text className="text-[12px] font-semibold text-muted uppercase tracking-wider px-4 pt-5 pb-2">
+    <AppText className="text-[12px] font-semibold text-muted uppercase tracking-wider px-4 pt-5 pb-2">
       {title}
-    </Text>
+    </AppText>
   );
 }
 
@@ -241,9 +241,9 @@ export default function LeagueSignupsTab({ leagueId }: LeagueSignupsTabProps): R
         testID="signups-error"
         className="flex-1 items-center justify-center px-8"
       >
-        <Text className="text-[16px] font-bold text-default text-center">
+        <AppText className="text-[16px] font-bold text-default text-center">
           Failed to load events
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -284,12 +284,12 @@ export default function LeagueSignupsTab({ leagueId }: LeagueSignupsTabProps): R
 
       {events.length === 0 && schedule.length === 0 && (
         <View className="flex-1 items-center justify-center px-8 py-16">
-          <Text className="text-[18px] font-bold text-default mb-2 text-center">
+          <AppText className="text-[18px] font-bold text-default mb-2 text-center">
             No Upcoming Events
-          </Text>
-          <Text className="text-[14px] text-muted text-center">
+          </AppText>
+          <AppText className="text-[14px] text-muted text-center">
             Check back later for scheduled sessions.
-          </Text>
+          </AppText>
         </View>
       )}
     </ScrollView>

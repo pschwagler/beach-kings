@@ -7,9 +7,9 @@
  */
 
 import React, { useCallback, useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -25,6 +25,7 @@ import { useRouter } from 'expo-router';
 import TopNav from '@/components/ui/TopNav';
 import { hapticMedium } from '@/utils/haptics';
 import { api } from '@/lib/api';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 const MAX_LENGTH = 2000;
 const INPUT_MIN_HEIGHT = 180;
@@ -32,6 +33,7 @@ const INPUT_MAX_HEIGHT = 280;
 
 export default function FeedbackScreen(): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
   const [text, setText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export default function FeedbackScreen(): React.ReactNode {
             accessibilityLabel="Cancel"
             className="min-w-touch min-h-touch items-start justify-center"
           >
-            <Text className="text-white text-[15px]">Cancel</Text>
+            <AppText className="text-inverse text-[15px]">Cancel</AppText>
           </Pressable>
         }
         rightAction={
@@ -93,15 +95,15 @@ export default function FeedbackScreen(): React.ReactNode {
             className="min-w-touch min-h-touch items-end justify-center"
           >
             {isSubmitting ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color={palette.textInverse} />
             ) : (
-              <Text
+              <AppText
                 className={`text-[15px] font-semibold ${
-                  canSubmit ? 'text-white' : 'text-white/40'
+                  canSubmit ? 'text-inverse' : 'text-inverse opacity-40'
                 }`}
               >
                 Send
-              </Text>
+              </AppText>
             )}
           </Pressable>
         }
@@ -122,9 +124,9 @@ export default function FeedbackScreen(): React.ReactNode {
             keyboardShouldPersistTaps="handled"
             contentContainerClassName="px-lg pt-xl pb-xxxl"
           >
-            <Text className="text-[15px] text-muted mb-lg">
+            <AppText className="text-[15px] text-muted mb-lg">
               Tell us what you think, what's broken, or what you'd like to see.
-            </Text>
+            </AppText>
 
             <TextInput
               testID="feedback-input"
@@ -140,7 +142,7 @@ export default function FeedbackScreen(): React.ReactNode {
                 );
               }}
               placeholder="Your feedback…"
-              placeholderTextColor="#999"
+              placeholderTextColor={palette.textTertiary}
               multiline
               maxLength={MAX_LENGTH}
               editable={!isSubmitting}
@@ -154,14 +156,14 @@ export default function FeedbackScreen(): React.ReactNode {
             <View className="flex-row justify-between mt-sm">
               <View className="flex-1">
                 {error != null && (
-                  <Text testID="feedback-error" className="text-red-500 text-sm">
+                  <AppText testID="feedback-error" className="text-danger text-sm">
                     {error}
-                  </Text>
+                  </AppText>
                 )}
               </View>
-              <Text className="text-[12px] text-muted">
+              <AppText className="text-[12px] text-muted">
                 {text.length}/{MAX_LENGTH}
-              </Text>
+              </AppText>
             </View>
           </ScrollView>
         </Pressable>

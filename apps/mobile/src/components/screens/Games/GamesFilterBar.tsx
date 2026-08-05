@@ -8,60 +8,19 @@
  * Sub-selection filtering is handled client-side in useMyGamesScreen.
  */
 
-import React, { useRef, useState } from 'react';
-import {
-  View,
-  Pressable,
-  Text,
-  ScrollView,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  type LayoutChangeEvent,
-} from 'react-native';
-import { ChevronRightIcon } from '@/components/ui/icons';
-import { usePaletteColors } from '@/theme/usePaletteColors';
+import React from 'react';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
+import FilterChipBar from '@/components/ui/FilterChipBar';
 import type { ResultFilter } from './useMyGamesScreen';
 
-interface FilterChipProps {
-  readonly label: string;
-  readonly isActive: boolean;
-  readonly testID?: string;
-  readonly onPress: () => void;
-}
-
-function FilterChip({ label, isActive, testID, onPress }: FilterChipProps): React.ReactNode {
-  return (
-    <Pressable
-      testID={testID}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={{ flexShrink: 0 }}
-      className={`px-3 py-[9px] rounded-[8px] border mr-2 ${
-        isActive
-          ? 'bg-brand-teal border-brand-teal'
-          : 'bg-surface border-divider'
-      }`}
-    >
-      <Text
-        numberOfLines={1}
-        className={`text-[12px] font-semibold ${
-          isActive ? 'text-white' : 'text-muted'
-        }`}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-const RESULT_OPTIONS: { label: string; value: ResultFilter }[] = [
-  { label: 'All Results', value: 'all' },
-  { label: 'Wins', value: 'W' },
-  { label: 'Losses', value: 'L' },
-  { label: 'Partner', value: 'partner' },
-  { label: 'Opponent', value: 'opponent' },
-];
+const RESULT_OPTIONS = [
+  { label: 'All Results', value: 'all', testID: 'filter-result-all' },
+  { label: 'Wins', value: 'W', testID: 'filter-result-W' },
+  { label: 'Losses', value: 'L', testID: 'filter-result-L' },
+  { label: 'Partner', value: 'partner', testID: 'filter-result-partner' },
+  { label: 'Opponent', value: 'opponent', testID: 'filter-result-opponent' },
+] as const;
 
 interface GamesFilterBarProps {
   readonly resultFilter: ResultFilter;
@@ -93,124 +52,49 @@ export default function GamesFilterBar({
   const showPartnerRow = resultFilter === 'partner' && availablePartners.length > 0;
   const showOpponentRow = resultFilter === 'opponent' && availableOpponents.length > 0;
 
-  const palette = usePaletteColors();
-  const surfaceColor = palette.bgSurface;
-
-  // Scroll affordance: show a right-edge fade when primary row has off-screen chips
-  const [showRightFade, setShowRightFade] = useState(false);
-  const contentW = useRef(0);
-  const containerW = useRef(0);
-
-  const updateFade = (scrollX: number) => {
-    setShowRightFade(contentW.current - containerW.current - scrollX > 8);
-  };
-
-  const handleLayout = (e: LayoutChangeEvent) => {
-    containerW.current = e.nativeEvent.layout.width;
-    updateFade(0);
-  };
-
-  const handleContentSizeChange = (w: number) => {
-    contentW.current = w;
-    updateFade(0);
-  };
-
-  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    updateFade(e.nativeEvent.contentOffset.x);
-  };
-
   return (
     <View
       testID="games-filter-bar"
       className="bg-surface border-b border-divider"
     >
-      {/* Primary filter row with scroll-affordance overlay */}
-      <View style={{ overflow: 'hidden' }} onLayout={handleLayout}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={handleScroll}
-          onContentSizeChange={handleContentSizeChange}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10 }}
-        >
-          {leagueFilter != null && (
-            <FilterChip
-              testID="filter-league-active"
-              label={activeLeagueName ?? `League #${leagueFilter} ×`}
-              isActive
-              onPress={onLeagueClear}
-            />
-          )}
-          {RESULT_OPTIONS.map(({ label, value }) => (
-            <FilterChip
-              key={value}
-              testID={`filter-result-${value}`}
-              label={label}
-              isActive={resultFilter === value}
-              onPress={() => onResultChange(value)}
-            />
-          ))}
-        </ScrollView>
-
-        {showRightFade && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: 48,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              paddingRight: 6,
-            }}
+      {leagueFilter != null && (
+        <View className="px-4 pt-2">
+          <Pressable
+            testID="filter-league-active"
+            onPress={onLeagueClear}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${activeLeagueName ?? `League ${leagueFilter}`} filter`}
+            className="self-start min-h-touch justify-center rounded-full border border-brand-teal bg-info-tint px-4"
           >
-            <View
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                right: 0,
-                flexDirection: 'row',
-              }}
-            >
-              <View style={{ flex: 1, backgroundColor: `${surfaceColor}00` }} />
-              <View style={{ flex: 1, backgroundColor: `${surfaceColor}88` }} />
-              <View style={{ flex: 1, backgroundColor: `${surfaceColor}dd` }} />
-            </View>
-            <ChevronRightIcon size={14} color={palette.textMuted} />
-          </View>
-        )}
-      </View>
+            <AppText className="text-sm font-medium text-brand-teal">
+              {activeLeagueName ?? `League #${leagueFilter}`} ×
+            </AppText>
+          </Pressable>
+        </View>
+      )}
+      <FilterChipBar
+        items={RESULT_OPTIONS}
+        value={resultFilter}
+        onValueChange={onResultChange}
+        accessibilityLabel="Game result filters"
+        contentClassName="py-2"
+      />
 
       {showPartnerRow && (
         <View
           testID="partner-filter-row"
           className="border-t border-divider"
         >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 }}
-          >
-            <FilterChip
-              label="All Partners"
-              isActive={selectedPartner == null}
-              onPress={() => onPartnerSelect(null)}
-            />
-            {availablePartners.map((name) => (
-              <FilterChip
-                key={name}
-                label={name}
-                isActive={selectedPartner === name}
-                onPress={() => onPartnerSelect(selectedPartner === name ? null : name)}
-              />
-            ))}
-          </ScrollView>
+          <FilterChipBar
+            items={[
+              { value: '__all__', label: 'All Partners' },
+              ...availablePartners.map((name) => ({ value: name, label: name })),
+            ]}
+            value={selectedPartner ?? '__all__'}
+            onValueChange={(value) => onPartnerSelect(value === '__all__' ? null : value)}
+            accessibilityLabel="Partner filters"
+            contentClassName="py-2"
+          />
         </View>
       )}
 
@@ -219,25 +103,16 @@ export default function GamesFilterBar({
           testID="opponent-filter-row"
           className="border-t border-divider"
         >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 }}
-          >
-            <FilterChip
-              label="All Opponents"
-              isActive={selectedOpponent == null}
-              onPress={() => onOpponentSelect(null)}
-            />
-            {availableOpponents.map((name) => (
-              <FilterChip
-                key={name}
-                label={name}
-                isActive={selectedOpponent === name}
-                onPress={() => onOpponentSelect(selectedOpponent === name ? null : name)}
-              />
-            ))}
-          </ScrollView>
+          <FilterChipBar
+            items={[
+              { value: '__all__', label: 'All Opponents' },
+              ...availableOpponents.map((name) => ({ value: name, label: name })),
+            ]}
+            value={selectedOpponent ?? '__all__'}
+            onValueChange={(value) => onOpponentSelect(value === '__all__' ? null : value)}
+            accessibilityLabel="Opponent filters"
+            contentClassName="py-2"
+          />
         </View>
       )}
     </View>

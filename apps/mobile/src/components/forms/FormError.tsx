@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import AppText from '@/components/ui/AppText';
 
 interface FormErrorProps {
   readonly message?: string;
@@ -12,11 +12,11 @@ export default function FormError({
 }: FormErrorProps): React.ReactNode {
   if (!message) return null;
   return (
-    <Text
-      className={`text-caption text-red-500 mt-xxs ${className}`}
+    <AppText
+      className={`text-caption text-danger mt-xxs ${className}`}
       accessibilityRole="alert"
     >
       {message}
-    </Text>
+    </AppText>
   );
 }

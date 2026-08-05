@@ -15,10 +15,10 @@
  * Wireframe ref: court-detail.html
  */
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   ScrollView,
   Image,
   Pressable,
@@ -38,8 +38,9 @@ import CourtReviewsSection from './CourtReviewsSection';
 import CourtRating from './CourtRating';
 import { hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
-import { api } from '@/lib/api';
-import { type Court, type Player, formatLocation } from '@beach-kings/shared';
+import { type Court, formatLocation } from '@beach-kings/shared';
+import { courtSurfaceLabel, isIndoorCourt } from '@/features/courts';
+import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -48,40 +49,11 @@ import { type Court, type Player, formatLocation } from '@beach-kings/shared';
 function Badge({ label }: { label: string }): React.ReactNode {
   return (
     <View className="px-3 py-1 rounded-full bg-info-tint border border-brand-teal">
-      <Text className="text-[12px] font-medium text-brand-teal">
+      <AppText className="text-[12px] font-medium text-brand-teal">
         {label}
-      </Text>
+      </AppText>
     </View>
   );
-}
-
-/**
- * Derives the current player id for a signed-in user.
- *
- * Mirrors the pattern used by useMessagesScreen. Returns null while loading
- * or when the user is not authenticated.
- */
-function useCurrentPlayerId(): number | null {
-  const [currentPlayerId, setCurrentPlayerId] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const player = (await api.getCurrentUserPlayer()) as Player | null;
-        if (!cancelled && player != null) {
-          setCurrentPlayerId(player.id);
-        }
-      } catch {
-        // Not authenticated or network error — remain null.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return currentPlayerId;
 }
 
 function CourtInfoSection({ court }: { court: Court }): React.ReactNode {
@@ -90,37 +62,37 @@ function CourtInfoSection({ court }: { court: Court }): React.ReactNode {
       testID="court-info-section"
       className="px-4 pt-4 pb-4 border-b border-strong"
     >
-      <Text className="text-[16px] font-bold text-default mb-3">
+      <AppText className="text-[16px] font-bold text-default mb-3">
         Court Info
-      </Text>
+      </AppText>
 
       <View className="flex-row flex-wrap gap-x-6 gap-y-2 mb-4">
         {court.court_count != null && (
           <View>
-            <Text className="text-[12px] text-tertiary uppercase tracking-wide">
+            <AppText className="text-[12px] text-tertiary uppercase tracking-wide">
               Courts
-            </Text>
-            <Text className="text-[14px] font-semibold text-default">
+            </AppText>
+            <AppText className="text-[14px] font-semibold text-default">
               {court.court_count}
-            </Text>
+            </AppText>
           </View>
         )}
         <View>
-          <Text className="text-[12px] text-tertiary uppercase tracking-wide">
+          <AppText className="text-[12px] text-tertiary uppercase tracking-wide">
             Surface
-          </Text>
-          <Text className="text-[14px] font-semibold text-default capitalize">
-            {court.surface_type}
-          </Text>
+          </AppText>
+          <AppText className="text-[14px] font-semibold text-default">
+            {courtSurfaceLabel(court) ?? 'Not specified'}
+          </AppText>
         </View>
         {court.hours != null && (
           <View>
-            <Text className="text-[12px] text-tertiary uppercase tracking-wide">
+            <AppText className="text-[12px] text-tertiary uppercase tracking-wide">
               Hours
-            </Text>
-            <Text className="text-[14px] font-semibold text-default">
+            </AppText>
+            <AppText className="text-[14px] font-semibold text-default">
               {court.hours}
-            </Text>
+            </AppText>
           </View>
         )}
       </View>
@@ -145,18 +117,19 @@ function PhotosSection({
       className="px-4 pt-4 pb-4 border-b border-strong"
     >
       <View className="flex-row justify-between items-center mb-3">
-        <Text className="text-[16px] font-bold text-default">
+        <AppText className="text-[16px] font-bold text-default">
           Photos
-        </Text>
+        </AppText>
         <Pressable
           testID="court-see-all-photos-btn"
           onPress={onViewAll}
           accessibilityRole="button"
           accessibilityLabel="See all photos"
+          className="min-h-touch px-sm items-center justify-center"
         >
-          <Text className="text-[14px] text-brand-teal font-medium">
+          <AppText className="text-[14px] text-brand-teal font-medium">
             See All
-          </Text>
+          </AppText>
         </Pressable>
       </View>
 
@@ -177,9 +150,9 @@ function PhotosSection({
             accessibilityLabel={`View ${remaining} more photos`}
             className="w-[100px] h-[100px] rounded-lg bg-surface items-center justify-center"
           >
-            <Text className="text-[16px] font-bold text-tertiary">
+            <AppText className="text-[16px] font-bold text-tertiary">
               +{remaining}
-            </Text>
+            </AppText>
           </Pressable>
         )}
         {photos.length === 0 && (
@@ -190,10 +163,10 @@ function PhotosSection({
             accessibilityLabel="Add photos"
             className="w-[100px] h-[100px] rounded-lg border-2 border-dashed border-strong items-center justify-center"
           >
-            <Text className="text-[24px] text-tertiary">+</Text>
-            <Text className="text-[11px] text-tertiary mt-1">
+            <AppText className="text-[24px] text-tertiary">+</AppText>
+            <AppText className="text-[11px] text-tertiary mt-1">
               Add Photo
-            </Text>
+            </AppText>
           </Pressable>
         )}
       </View>
@@ -215,7 +188,7 @@ export default function CourtDetailScreen({
   const router = useRouter();
   const { court, isLoading, error, isRefreshing, onRefresh, onRetry } =
     useCourtDetailScreen(idOrSlug);
-  const currentPlayerId = useCurrentPlayerId();
+  const currentPlayerId = useCurrentPlayer().data?.id ?? null;
 
   const handleViewPhotos = useCallback(() => {
     void hapticMedium();
@@ -276,19 +249,19 @@ export default function CourtDetailScreen({
           testID="court-header"
           className="px-4 pt-4 pb-3 border-b border-strong"
         >
-          <Text className="text-[20px] font-bold text-default mb-0.5">
+          <AppText family="display" weight="bold" className="text-[20px] text-default mb-0.5" numberOfLines={2}>
             {court.name}
-          </Text>
+          </AppText>
           {locationLabel != null && (
-            <Text className="text-[14px] text-muted mb-3">
+            <AppText className="text-[14px] text-muted mb-3">
               {locationLabel}
-            </Text>
+            </AppText>
           )}
 
           {/* Feature badges */}
           <View className="flex-row flex-wrap gap-2">
             {court.surface_type === 'sand' && <Badge label="Outdoor" />}
-            {court.surface_type === 'indoor' && <Badge label="Indoor" />}
+            {isIndoorCourt(court) && <Badge label="Indoor" />}
             {court.has_lights === true && <Badge label="Lighted" />}
             {court.is_free === true && <Badge label="Free Play" />}
             {court.nets_provided === true && <Badge label="Nets Provided" />}

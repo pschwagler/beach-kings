@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { useRouter } from 'expo-router';
 import type { League } from '@beach-kings/shared';
 import { formatOrdinal } from '@/lib/formatters';
@@ -12,6 +13,7 @@ import { routes } from '@/lib/navigation';
 interface LeaguesScrollProps {
   readonly leagues: readonly League[];
   readonly currentUserPlayerId?: number | null;
+  readonly maxItems?: number;
 }
 
 function getUserRank(
@@ -32,6 +34,36 @@ function LeagueCard({
 }): React.ReactNode {
   const router = useRouter();
   const memberCount = league.member_count ?? 0;
+  const hasDestination = Number.isInteger(league.id) && league.id > 0;
+
+  const content = (
+    <>
+      <AppText
+        className="text-footnote font-semibold text-default leading-[17px]"
+        numberOfLines={2}
+      >
+        {league.name}
+      </AppText>
+      <AppText className="text-[11px] text-tertiary mt-xs">
+        {memberCount} {memberCount === 1 ? 'player' : 'players'}
+      </AppText>
+      {rank != null && (
+        <View className="self-start mt-sm bg-info-tint px-sm py-[3px] rounded-[10px]">
+          <AppText className="text-[11px] font-semibold text-info">
+            {formatOrdinal(rank)} Ranked
+          </AppText>
+        </View>
+      )}
+    </>
+  );
+
+  if (!hasDestination) {
+    return (
+      <View className="bg-surface rounded-card p-md border border-divider">
+        {content}
+      </View>
+    );
+  }
 
   return (
     <Pressable
@@ -40,22 +72,7 @@ function LeagueCard({
       accessibilityLabel={`League ${league.name}`}
       className="bg-surface rounded-card p-md border border-divider"
     >
-      <Text
-        className="text-footnote font-semibold text-default leading-[17px]"
-        numberOfLines={2}
-      >
-        {league.name}
-      </Text>
-      <Text className="text-[11px] text-tertiary mt-xs">
-        {memberCount} {memberCount === 1 ? 'player' : 'players'}
-      </Text>
-      {rank != null && (
-        <View className="self-start mt-sm bg-info-tint px-sm py-[3px] rounded-[10px]">
-          <Text className="text-[11px] font-semibold text-info">
-            {formatOrdinal(rank)} Ranked
-          </Text>
-        </View>
-      )}
+      {content}
     </Pressable>
   );
 }
@@ -69,12 +86,12 @@ function JoinLeagueCard(): React.ReactNode {
       accessibilityLabel="Join a league"
       className="rounded-card p-md border border-dashed border-divider opacity-80"
     >
-      <Text className="text-footnote font-semibold text-brand-teal">
+      <AppText className="text-footnote font-semibold text-brand-teal">
         + Join a League
-      </Text>
-      <Text className="text-[11px] text-tertiary mt-xs">
+      </AppText>
+      <AppText className="text-[11px] text-tertiary mt-xs">
         Browse open leagues near you
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
@@ -82,17 +99,19 @@ function JoinLeagueCard(): React.ReactNode {
 export default function LeaguesScroll({
   leagues,
   currentUserPlayerId,
+  maxItems = 2,
 }: LeaguesScrollProps): React.ReactNode {
+  const visibleLeagues = leagues.slice(0, maxItems);
   return (
     <View className="gap-2">
-      {leagues.slice(0, 3).map((league) => (
+      {visibleLeagues.map((league) => (
         <LeagueCard
           key={league.id}
           league={league}
           rank={getUserRank(league, currentUserPlayerId)}
         />
       ))}
-      <JoinLeagueCard />
+      {leagues.length === 0 && <JoinLeagueCard />}
     </View>
   );
 }

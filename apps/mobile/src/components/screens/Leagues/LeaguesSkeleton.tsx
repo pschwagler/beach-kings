@@ -10,7 +10,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 function LeagueCardSkeleton(): React.ReactNode {
   return (
     <View
-      className="bg-surface rounded-card p-md mb-sm shadow-sm"
+      className="bg-surface rounded-card p-md mb-sm border border-divider"
       accessibilityRole="none"
       accessible={false}
     >

@@ -80,6 +80,8 @@ async def _patch_missing_columns(conn):
         ("users", "apple_id", "VARCHAR"),
         # Migration 026 — Account deletion
         ("users", "deletion_scheduled_at", "TIMESTAMPTZ"),
+        # Migration 059 — irreversible account deletion marker
+        ("users", "deleted_at", "TIMESTAMPTZ"),
         # Migration 040 — track when a password was last changed
         ("users", "password_changed_at", "TIMESTAMPTZ"),
         # Privacy feature — profile visibility toggles

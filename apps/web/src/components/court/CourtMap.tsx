@@ -1,247 +1,139 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import Map, { Marker, Popup, NavigationControl } from 'react-map-gl/mapbox';
-import { MapPin, LocateFixed } from 'lucide-react';
-import { useUserPosition } from '../../hooks/useUserPosition';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ReactMap, { Marker, NavigationControl, Popup, type MapRef, type ViewStateChangeEvent } from 'react-map-gl/mapbox';
+import { Layers3, LocateFixed, MapPin } from 'lucide-react';
 import StarRating from '../ui/StarRating';
-import { Court } from '../../types';
+import type { Court } from '../../types';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './CourtMap.css';
+import {
+  normalizeMapBounds,
+  toMapboxBounds,
+  type MapBounds,
+} from '../../utils/mapBounds';
+
+export type { MapBounds } from '../../utils/mapBounds';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-
-/** Fallback center — continental US */
-const DEFAULT_VIEW = { latitude: 39.5, longitude: -98.35, zoom: 4 };
-
+const NYC_VIEW = { latitude: 40.7128, longitude: -74.006, zoom: 10 };
 const MAP_STYLES = [
-  { id: 'streets', label: 'Streets', url: 'mapbox://styles/mapbox/streets-v12' },
-  { id: 'satellite', label: 'Satellite', url: 'mapbox://styles/mapbox/satellite-streets-v12' },
-  { id: 'outdoors', label: 'Terrain', url: 'mapbox://styles/mapbox/outdoors-v12' },
+  { label: 'Streets', url: 'mapbox://styles/mapbox/streets-v12' },
+  { label: 'Satellite', url: 'mapbox://styles/mapbox/satellite-streets-v12' },
+  { label: 'Terrain', url: 'mapbox://styles/mapbox/outdoors-v12' },
 ];
 
-/** Number of nearest courts to auto-fit the initial viewport around. */
-const AUTO_FIT_COUNT = 10;
-
-/**
- * Haversine distance in miles between two lat/lng points.
- */
-function distanceMiles(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const R = 3958.8; // Earth radius in miles
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-/**
- * Interactive Mapbox map displaying court pins.
- *
- * Centers on the user's location (browser geolocation → player profile → default).
- * Clicking a pin shows a popup with court info and a link to the detail page.
- *
- * @param {Object} props
- * @param {Array} props.courts - Court list items with latitude/longitude
- * @param {Object} [props.userLocation] - { latitude, longitude } from player profile
- * @param {string} [props.locationFilter] - Location ID filter; when set, map fits to filtered courts instead of user position
- */
-interface CourtMapProps {
+interface Props {
   courts: Court[];
+  selectedCourt: Court | null;
+  highlightedCourt?: Court | null;
+  committedBounds: MapBounds;
   userLocation?: { latitude: number; longitude: number };
-  locationFilter?: string;
+  onSelectCourt: (court: Court | null) => void;
+  onHighlightCourt: (court: Court | null) => void;
+  onBoundsChange: (bounds: MapBounds) => void;
 }
 
-export default function CourtMap({ courts, userLocation, locationFilter }: CourtMapProps) {
-  const { position: userPos, source: posSource } = useUserPosition(userLocation);
+interface Cluster { id: string; latitude: number; longitude: number; courts: Array<Court & { latitude: number; longitude: number }> }
 
-  const [popupCourt, setPopupCourt] = useState<Court | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
+export default function CourtMap({ courts, selectedCourt, highlightedCourt, committedBounds, userLocation, onSelectCourt, onHighlightCourt, onBoundsChange }: Props) {
+  const mapRef = useRef<MapRef>(null);
+  const programmaticMove = useRef(false);
+  const [loaded, setLoaded] = useState(false);
+  const [providerError, setProviderError] = useState(false);
+  const [zoom, setZoom] = useState(NYC_VIEW.zoom);
   const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
-  const mapRef = useRef<any>(null);
-  const hasFittedWithGeo = useRef(false);
+  const [styleOpen, setStyleOpen] = useState(false);
+  const mappable = useMemo(() => courts.filter((court): court is Court & { latitude: number; longitude: number } => court.latitude != null && court.longitude != null), [courts]);
 
-  // Filter to only courts with coordinates
-  const mappable = useMemo(
-    () => courts.filter((c): c is Court & { latitude: number; longitude: number } =>
-      c.latitude != null && c.longitude != null
-    ),
-    [courts]
-  );
+  const clusters = useMemo(() => {
+    const cellSize = Math.max(0.002, 40 / (2 ** zoom));
+    const groups = new Map<string, Array<Court & { latitude: number; longitude: number }>>();
+    mappable.forEach((court) => {
+      const key = `${Math.floor(court.latitude / cellSize)}:${Math.floor(court.longitude / cellSize)}`;
+      groups.set(key, [...(groups.get(key) || []), court]);
+    });
+    return [...groups.entries()].map(([id, items]): Cluster => ({
+      id,
+      courts: items,
+      latitude: items.reduce((sum, item) => sum + item.latitude, 0) / items.length,
+      longitude: items.reduce((sum, item) => sum + item.longitude, 0) / items.length,
+    }));
+  }, [mappable, zoom]);
 
-  // Fit map bounds to nearest courts once map is loaded + we have position/courts
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || mappable.length === 0) return;
-
-    if (locationFilter) {
-      // Location-filtered: fit bounds to all filtered courts, skip user centering
-      const lngs = mappable.map((c) => c.longitude);
-      const lats = mappable.map((c) => c.latitude);
-      const sw = [Math.min(...lngs), Math.min(...lats)];
-      const ne = [Math.max(...lngs), Math.max(...lats)];
-      mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: 0 });
-    } else if (userPos) {
-      // Sort by distance, take nearest N, fit bounds around them + user
-      const withDist = mappable.map((c) => ({
-        ...c,
-        _dist: distanceMiles(userPos.latitude, userPos.longitude, c.latitude, c.longitude),
-      }));
-      withDist.sort((a, b) => a._dist - b._dist);
-      const nearest = withDist.slice(0, AUTO_FIT_COUNT);
-
-      const lngs = [userPos.longitude, ...nearest.map((c) => c.longitude)];
-      const lats = [userPos.latitude, ...nearest.map((c) => c.latitude)];
-      const sw = [Math.min(...lngs), Math.min(...lats)];
-      const ne = [Math.max(...lngs), Math.max(...lats)];
-      // Animate when geolocation resolved after initial render, instant otherwise
-      const animate = hasFittedWithGeo.current === false && posSource === 'geolocation';
-      mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: animate ? 800 : 0 });
-      hasFittedWithGeo.current = true;
-    } else if (mappable.length > 1) {
-      const lngs = mappable.map((c) => c.longitude);
-      const lats = mappable.map((c) => c.latitude);
-      const sw = [Math.min(...lngs), Math.min(...lats)];
-      const ne = [Math.max(...lngs), Math.max(...lats)];
-      mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: 0 });
-    }
-  }, [mappable, userPos, mapLoaded, posSource, locationFilter]);
-
-  const handleLocateClick = useCallback(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (mapRef.current) {
-          mapRef.current.flyTo({
-            center: [pos.coords.longitude, pos.coords.latitude],
-            zoom: 11,
-            duration: 800,
-          });
-        }
-      },
-      () => {},
-      { timeout: 5000, maximumAge: 0 }
+    if (!loaded || !mapRef.current) return;
+    programmaticMove.current = true;
+    mapRef.current.fitBounds(
+      toMapboxBounds(committedBounds),
+      { padding: 56, duration: 500, maxZoom: 14 },
     );
-  }, []);
+  }, [committedBounds, loaded]);
 
-  const handleMarkerClick = useCallback((court: Court) => {
-    setPopupCourt(court);
-  }, []);
+  const reportBounds = useCallback((event: ViewStateChangeEvent) => {
+    setZoom(event.viewState.zoom);
+    if (programmaticMove.current) { programmaticMove.current = false; return; }
+    const bounds = event.target.getBounds();
+    if (!bounds) return;
+    onBoundsChange(normalizeMapBounds({ north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() }));
+  }, [onBoundsChange]);
 
-  if (!MAPBOX_TOKEN) {
-    return (
-      <div className="court-map court-map--no-token">
-        <p>Map unavailable — Mapbox token not configured.</p>
-      </div>
-    );
+  if (!MAPBOX_TOKEN || providerError) {
+    return <div className="court-map court-map--error" role="alert"><Layers3 size={26} /><strong>Map unavailable</strong><span>{!MAPBOX_TOKEN ? 'Map configuration is missing.' : 'The map provider could not load.'}</span></div>;
   }
-
-  const initialView = locationFilter && mappable.length > 0
-    ? { latitude: mappable[0].latitude, longitude: mappable[0].longitude, zoom: 10 }
-    : userPos
-      ? { latitude: userPos.latitude, longitude: userPos.longitude, zoom: 10 }
-      : mappable.length === 1
-        ? { latitude: mappable[0].latitude, longitude: mappable[0].longitude, zoom: 13 }
-        : DEFAULT_VIEW;
 
   return (
     <div className="court-map">
-      <Map
+      {!loaded && <div className="court-map__skeleton" role="status" aria-label="Loading map"><span /></div>}
+      <ReactMap
         ref={mapRef}
-        initialViewState={initialView}
-        style={{ width: '100%', height: '100%' }}
+        initialViewState={{ ...NYC_VIEW, latitude: userLocation?.latitude ?? NYC_VIEW.latitude, longitude: userLocation?.longitude ?? NYC_VIEW.longitude }}
         mapStyle={mapStyle}
         mapboxAccessToken={MAPBOX_TOKEN}
-        onLoad={() => setMapLoaded(true)}
+        onLoad={() => setLoaded(true)}
+        onError={() => setProviderError(true)}
+        onMoveEnd={reportBounds}
+        onClick={() => onSelectCourt(null)}
         reuseMaps
       >
         <NavigationControl position="top-right" />
-
-        {mappable.map((court) => (
-          <Marker
-            key={court.id}
-            latitude={court.latitude}
-            longitude={court.longitude}
-            anchor="bottom"
-            onClick={(e: { originalEvent?: MouseEvent }) => {
-              e.originalEvent?.stopPropagation();
-              handleMarkerClick(court);
-            }}
-          >
-            <div
-              className={`court-map__pin${popupCourt?.id === court.id ? ' court-map__pin--active' : ''}`}
-              title={court.name}
-            >
-              <MapPin size={24} />
-            </div>
+        {clusters.map((cluster) => cluster.courts.length > 1 ? (
+          <Marker key={cluster.id} latitude={cluster.latitude} longitude={cluster.longitude} anchor="center">
+            <button type="button" className="court-map__cluster" aria-label={`Zoom to ${cluster.courts.length} courts`} onClick={(event) => { event.stopPropagation(); mapRef.current?.flyTo({ center: [cluster.longitude, cluster.latitude], zoom: zoom + 2, duration: 400 }); }}>
+              {cluster.courts.length}
+            </button>
+          </Marker>
+        ) : (
+          <Marker key={cluster.courts[0].id} latitude={cluster.latitude} longitude={cluster.longitude} anchor="bottom">
+            <button
+              type="button"
+              className={`court-map__pin${selectedCourt?.id === cluster.courts[0].id ? ' court-map__pin--selected' : ''}${highlightedCourt?.id === cluster.courts[0].id ? ' court-map__pin--highlighted' : ''}`}
+              aria-label={`Select ${cluster.courts[0].name}`}
+              onMouseEnter={() => onHighlightCourt(cluster.courts[0])}
+              onMouseLeave={() => onHighlightCourt(null)}
+              onFocus={() => onHighlightCourt(cluster.courts[0])}
+              onBlur={() => onHighlightCourt(null)}
+              onClick={(event) => { event.stopPropagation(); onSelectCourt(cluster.courts[0]); }}
+            ><MapPin size={28} /></button>
           </Marker>
         ))}
-
-        {/* User location dot */}
-        {userPos && (
-          <Marker latitude={userPos.latitude} longitude={userPos.longitude} anchor="center">
-            <div className="court-map__user-dot" title="Your location" />
-          </Marker>
-        )}
-
-        {popupCourt && (
-          <Popup
-            latitude={popupCourt.latitude as number}
-            longitude={popupCourt.longitude as number}
-            anchor="bottom"
-            offset={30}
-            closeOnClick={false}
-            onClose={() => setPopupCourt(null)}
-            className="court-map__popup"
-          >
-            <a href={`/courts/${popupCourt.slug}`} className="court-map__popup-link">
-              <h4 className="court-map__popup-name">{popupCourt.name}</h4>
-              <div className="court-map__popup-rating">
-                {(popupCourt.review_count ?? 0) > 0 ? (
-                  <>
-                    <StarRating value={popupCourt.average_rating || 0} size={12} />
-                    <span>({popupCourt.review_count})</span>
-                  </>
-                ) : (
-                  <span className="court-map__popup-new">New</span>
-                )}
-              </div>
-              {popupCourt.address && (
-                <p className="court-map__popup-address">{popupCourt.address}</p>
-              )}
-              {userPos && popupCourt.latitude && popupCourt.longitude && (
-                <p className="court-map__popup-distance">
-                  {distanceMiles(userPos.latitude, userPos.longitude, popupCourt.latitude, popupCourt.longitude).toFixed(1)} mi away
-                </p>
-              )}
-            </a>
+        {userLocation && <Marker latitude={userLocation.latitude} longitude={userLocation.longitude} anchor="center"><span className="court-map__user-dot" aria-label="Your location" /></Marker>}
+        {(selectedCourt || highlightedCourt)?.latitude != null && (selectedCourt || highlightedCourt)?.longitude != null && (() => {
+          const preview = (selectedCourt || highlightedCourt)!;
+          return <Popup latitude={preview.latitude!} longitude={preview.longitude!} anchor="bottom" offset={34} closeOnClick={false} closeButton={Boolean(selectedCourt)} onClose={() => selectedCourt ? onSelectCourt(null) : onHighlightCourt(null)} className="court-map__popup">
+            <h3>{preview.name}</h3>
+            <div className="court-map__popup-rating">{(preview.review_count || 0) > 0 ? <><StarRating value={preview.average_rating || 0} size={12} /><span>({preview.review_count})</span></> : <span>New court</span>}</div>
+            {preview.address && <p>{preview.address}</p>}
+            {selectedCourt && <a href={`/courts/${preview.slug}`}>View court details</a>}
           </Popup>
-        )}
-      </Map>
+        })()}
+      </ReactMap>
 
-      {/* Map style toggle */}
-      <div className="court-map__style-toggle">
-        {MAP_STYLES.map((s) => (
-          <button
-            key={s.id}
-            className={`court-map__style-btn${mapStyle === s.url ? ' court-map__style-btn--active' : ''}`}
-            onClick={() => setMapStyle(s.url)}
-          >
-            {s.label}
-          </button>
-        ))}
+      <div className="court-map__style-control">
+        <button type="button" aria-expanded={styleOpen} onClick={() => setStyleOpen((value) => !value)}><Layers3 size={16} /> Map style</button>
+        {styleOpen && <div role="menu">{MAP_STYLES.map((style) => <button role="menuitemradio" aria-checked={mapStyle === style.url} key={style.url} type="button" onClick={() => { setMapStyle(style.url); setStyleOpen(false); }}>{style.label}</button>)}</div>}
       </div>
-
-      {/* Locate me button */}
-      <button
-        className="court-map__locate-btn"
-        onClick={handleLocateClick}
-        title="Center on my location"
-        aria-label="Center on my location"
-      >
-        <LocateFixed size={18} />
-      </button>
+      <button type="button" className="court-map__locate-btn" aria-label="Center on my location" disabled={!userLocation} onClick={() => userLocation && mapRef.current?.flyTo({ center: [userLocation.longitude, userLocation.latitude], zoom: 12, duration: 450 })}><LocateFixed size={18} /></button>
     </div>
   );
 }

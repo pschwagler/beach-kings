@@ -71,15 +71,17 @@ describe('InviteClaimScreen', () => {
 
   // ── Loading state ─────────────────────────────────────────────────────────
 
-  it('renders loading state initially', () => {
+  it('renders loading state while invite details are pending', () => {
+    mockGetInviteDetails.mockReturnValue(new Promise(() => {}));
     const { getByTestId } = render(<InviteClaimScreen />);
     expect(getByTestId('invite-loading')).toBeTruthy();
   });
 
   it('fetches invite details on mount', async () => {
-    render(<InviteClaimScreen />);
+    const { getByText } = render(<InviteClaimScreen />);
     await waitFor(() => {
       expect(mockGetInviteDetails).toHaveBeenCalledWith('abc123');
+      expect(getByText(/Jane Doe/)).toBeTruthy();
     });
   });
 

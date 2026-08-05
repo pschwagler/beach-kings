@@ -12,7 +12,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, Platform } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable, Platform } from 'react-native';
 import MapView from 'react-native-maps';
 import { openDirections } from '@/utils/maps';
 import CourtMarker from './CourtMarker';
@@ -43,9 +44,9 @@ function MapPlaceholder({ address }: MapPlaceholderProps): React.ReactNode {
       className="items-center justify-center bg-surface border border-strong rounded-xl"
       style={{ height: MAP_HEIGHT }}
     >
-      <Text className="text-[13px] text-muted">Map unavailable</Text>
+      <AppText className="text-[13px] text-muted">Map unavailable</AppText>
       {address != null && address.length > 0 && (
-        <Text className="text-[12px] text-tertiary mt-1">{address}</Text>
+        <AppText className="text-[12px] text-tertiary mt-1">{address}</AppText>
       )}
     </View>
   );
@@ -86,9 +87,9 @@ export default function CourtMapPreview({
   return (
     <View testID="court-map-preview" className="px-4 pb-4">
       {/* Section header */}
-      <Text className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">
+      <AppText className="text-[13px] font-semibold text-muted uppercase tracking-wide mb-2">
         Location
-      </Text>
+      </AppText>
 
       {/* Map card or placeholder */}
       {hasCoords ? (
@@ -126,14 +127,14 @@ export default function CourtMapPreview({
 
       {/* Address line (shown below the map card when coords are present) */}
       {hasCoords && court.address != null && court.address.length > 0 && (
-        <Text className="text-[13px] text-muted mt-2">{court.address}</Text>
+        <AppText className="text-[13px] text-muted mt-2">{court.address}</AppText>
       )}
 
       {/* Directions hint */}
       {hasCoords && (
-        <Text className="text-[11px] text-tertiary mt-1">
+        <AppText className="text-[11px] text-tertiary mt-1">
           Tap map to open directions
-        </Text>
+        </AppText>
       )}
     </View>
   );

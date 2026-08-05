@@ -45,8 +45,8 @@ export default function ShareInviteIcon({ playerId, playerName }: ShareInviteIco
       className="share-invite-icon"
       onClick={handleClick}
       disabled={!inviteUrl}
-      aria-label={`Invite ${playerName}`}
-      title={inviteUrl ? `Invite ${playerName}` : 'Loading invite...'}
+      aria-label={`Invite ${playerName} to the Beach League app`}
+      title={inviteUrl ? `Invite ${playerName} to the app` : 'Loading invite...'}
     >
       <Share2 size={11} />
     </button>

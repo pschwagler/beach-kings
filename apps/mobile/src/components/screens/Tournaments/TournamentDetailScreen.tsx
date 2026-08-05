@@ -12,9 +12,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
@@ -26,6 +26,7 @@ import TopNav from '@/components/ui/TopNav';
 import TournamentDetailSkeleton from './TournamentDetailSkeleton';
 import { useTournamentDetailScreen } from './useTournamentDetailScreen';
 import type { KobTournamentDetail } from '@beach-kings/shared';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,35 +71,35 @@ function Hero({ tournament }: HeroProps): React.ReactNode {
 
   return (
     <View className="px-[16px] pt-[16px]">
-      <Text className="text-[22px] font-bold text-default">
+      <AppText className="text-[22px] font-bold text-default">
         {tournament.name}
-      </Text>
-      <Text className="text-[13px] text-muted mt-[4px]">
+      </AppText>
+      <AppText className="text-[13px] text-muted mt-[4px]">
         {formatDate(tournament.scheduled_date)}
-      </Text>
+      </AppText>
       {tournament.director_name != null && (
-        <Text className="text-[13px] text-muted mt-[2px]">
+        <AppText className="text-[13px] text-muted mt-[2px]">
           Organized by {tournament.director_name}
-        </Text>
+        </AppText>
       )}
       <View className="flex-row gap-[6px] flex-wrap mt-[10px]">
         <View className="bg-info-tint px-[10px] py-[4px] rounded-[12px]">
-          <Text className="text-[12px] font-semibold text-brand-teal">
+          <AppText className="text-[12px] font-semibold text-brand-teal">
             {FORMAT_LABELS[tournament.format] ?? tournament.format}
-          </Text>
+          </AppText>
         </View>
         <View className="bg-elevated px-[10px] py-[4px] rounded-[12px]">
-          <Text className="text-[12px] text-muted">{spotsLabel}</Text>
+          <AppText className="text-[12px] text-muted">{spotsLabel}</AppText>
         </View>
         <View className="bg-elevated px-[10px] py-[4px] rounded-[12px]">
-          <Text className="text-[12px] text-muted">
+          <AppText className="text-[12px] text-muted">
             {GENDER_LABELS[tournament.gender] ?? tournament.gender}
-          </Text>
+          </AppText>
         </View>
         <View className="bg-elevated px-[10px] py-[4px] rounded-[12px]">
-          <Text className="text-[12px] text-muted">
+          <AppText className="text-[12px] text-muted">
             {tournament.status === 'ACTIVE' ? 'In Progress' : tournament.status === 'SETUP' ? 'Upcoming' : tournament.status}
-          </Text>
+          </AppText>
         </View>
       </View>
     </View>
@@ -122,6 +123,7 @@ function ActionBar({
   onRequestJoin,
   onInviteFriends,
 }: ActionBarProps): React.ReactNode {
+  const palette = usePaletteColors();
   if (role === 'visitor') {
     return (
       <View className="px-[16px] mt-[16px]">
@@ -132,9 +134,9 @@ function ActionBar({
           className="bg-brand-teal rounded-[12px] py-[14px] items-center"
         >
           {isActioning ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={palette.onBrandTeal} />
           ) : (
-            <Text className="text-white text-[15px] font-bold">Request to Join</Text>
+            <AppText className="text-on-brand-teal text-[15px] font-bold">Request to Join</AppText>
           )}
         </TouchableOpacity>
       </View>
@@ -146,9 +148,9 @@ function ActionBar({
       <View className="px-[16px] mt-[16px]">
         <View
           testID="tournament-pending-badge"
-          className="bg-warning-tint border border-brand-gold/30 rounded-[12px] py-[14px] items-center"
+          className="bg-warning-tint border border-warning rounded-[12px] py-[14px] items-center"
         >
-          <Text className="text-warning text-[15px] font-semibold">Request Pending</Text>
+          <AppText className="text-warning text-[15px] font-semibold">Request Pending</AppText>
         </View>
       </View>
     );
@@ -159,18 +161,18 @@ function ActionBar({
       <View className="px-[16px] mt-[16px] gap-[8px]">
         <View
           testID="tournament-registered-badge"
-          className="bg-success-tint border border-success/30 rounded-[12px] py-[14px] items-center"
+          className="bg-success-tint border border-success rounded-[12px] py-[14px] items-center"
         >
-          <Text className="text-success text-[15px] font-semibold">Registered</Text>
+          <AppText className="text-success text-[15px] font-semibold">Registered</AppText>
         </View>
         <TouchableOpacity
           testID="tournament-invite-friends-btn"
           onPress={onInviteFriends}
           className="border border-brand-teal rounded-[12px] py-[12px] items-center"
         >
-          <Text className="text-brand-teal text-[14px] font-semibold">
+          <AppText className="text-brand-teal text-[14px] font-semibold">
             Invite Friends
-          </Text>
+          </AppText>
         </TouchableOpacity>
       </View>
     );
@@ -183,9 +185,9 @@ function ActionBar({
           testID="tournament-waitlist-badge"
           className="bg-elevated border border-divider rounded-[12px] py-[14px] items-center"
         >
-          <Text className="text-muted text-[15px] font-semibold">
+          <AppText className="text-muted text-[15px] font-semibold">
             On Waitlist
-          </Text>
+          </AppText>
         </View>
       </View>
     );
@@ -214,9 +216,9 @@ function DetailsGrid({ tournament }: DetailsGridProps): React.ReactNode {
 
   return (
     <View className="px-[16px] mt-[20px]">
-      <Text className="text-[15px] font-bold text-default mb-[10px]">
+      <AppText className="text-[15px] font-bold text-default mb-[10px]">
         Details
-      </Text>
+      </AppText>
       <View
         testID="tournament-details-grid"
         className="bg-surface rounded-[12px] border border-divider overflow-hidden"
@@ -228,8 +230,8 @@ function DetailsGrid({ tournament }: DetailsGridProps): React.ReactNode {
               i < items.length - 1 ? 'border-b border-divider' : ''
             }`}
           >
-            <Text className="text-[13px] text-muted flex-1">{label}</Text>
-            <Text className="text-[13px] font-semibold text-default">{value}</Text>
+            <AppText className="text-[13px] text-muted flex-1">{label}</AppText>
+            <AppText className="text-[13px] font-semibold text-default">{value}</AppText>
           </View>
         ))}
       </View>
@@ -251,15 +253,15 @@ function TournamentDetailErrorState({ onRetry }: ErrorStateProps): React.ReactNo
       testID="tournament-detail-error"
       className="flex-1 items-center justify-center px-[24px] gap-[16px]"
     >
-      <Text className="text-[16px] font-semibold text-default text-center">
+      <AppText className="text-[16px] font-semibold text-default text-center">
         Could not load tournament
-      </Text>
+      </AppText>
       <TouchableOpacity
         testID="tournament-detail-retry-btn"
         onPress={onRetry}
         className="bg-brand-teal px-[24px] py-[12px] rounded-[10px]"
       >
-        <Text className="text-white text-[14px] font-semibold">Retry</Text>
+        <AppText className="text-on-brand-teal text-[14px] font-semibold">Retry</AppText>
       </TouchableOpacity>
     </View>
   );
@@ -342,16 +344,16 @@ export default function TournamentDetailScreen({ tournamentId }: Props): React.R
             {/* Players section */}
             {tournament.players.length > 0 && (
               <View className="px-[16px] mt-[20px]">
-                <Text className="text-[15px] font-bold text-default mb-[10px]">
+                <AppText className="text-[15px] font-bold text-default mb-[10px]">
                   Players ({tournament.players.length})
-                </Text>
+                </AppText>
                 <View
                   testID="tournament-players-section"
                   className="bg-surface rounded-[12px] border border-divider p-[14px]"
                 >
-                  <Text className="text-[13px] text-muted">
+                  <AppText className="text-[13px] text-muted">
                     {tournament.players.length} player{tournament.players.length !== 1 ? 's' : ''} registered
-                  </Text>
+                  </AppText>
                 </View>
               </View>
             )}

@@ -12,9 +12,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
@@ -27,6 +27,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import { useTournamentCreateScreen } from './useTournamentCreateScreen';
 import type { TournamentGender, TournamentFormat, RegistrationType } from './useTournamentCreateScreen';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -48,17 +49,17 @@ function Stepper({ value, min, max, onChange, testID }: StepperProps): React.Rea
         testID="stepper-decrement"
         className="w-[44px] h-[44px] rounded-[10px] border border-divider bg-surface items-center justify-center"
       >
-        <Text className="text-[18px] font-bold text-brand-teal">−</Text>
+        <AppText className="text-[18px] font-bold text-brand-teal">−</AppText>
       </TouchableOpacity>
-      <Text testID="stepper-value" className="text-[20px] font-bold text-default min-w-[40px] text-center">
+      <AppText testID="stepper-value" className="text-[20px] font-bold text-default min-w-[40px] text-center">
         {value}
-      </Text>
+      </AppText>
       <TouchableOpacity
         onPress={() => onChange(max != null ? Math.min(max, value + 1) : value + 1)}
         testID="stepper-increment"
         className="w-[44px] h-[44px] rounded-[10px] border border-divider bg-surface items-center justify-center"
       >
-        <Text className="text-[18px] font-bold text-brand-teal">+</Text>
+        <AppText className="text-[18px] font-bold text-brand-teal">+</AppText>
       </TouchableOpacity>
     </View>
   );
@@ -83,11 +84,11 @@ function ToggleRow({ options, selected, onSelect, testIDPrefix }: ToggleRowProps
             onPress={() => onSelect(key)}
             className={`flex-1 py-[10px] items-center ${isActive ? 'bg-brand-teal' : 'bg-surface'}`}
           >
-            <Text
-              className={`text-[13px] font-semibold ${isActive ? 'text-white' : 'text-muted'}`}
+            <AppText
+              className={`text-[13px] font-semibold ${isActive ? 'text-on-brand-teal' : 'text-muted'}`}
             >
               {label}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         );
       })}
@@ -121,9 +122,9 @@ function GenderPills({ selected, onChange }: GenderPillsProps): React.ReactNode 
                 : 'border-divider bg-surface'
             }`}
           >
-            <Text className={`text-[13px] font-semibold ${isActive ? 'text-brand-teal' : 'text-muted'}`}>
+            <AppText className={`text-[13px] font-semibold ${isActive ? 'text-brand-teal' : 'text-muted'}`}>
               {label}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         );
       })}
@@ -136,6 +137,7 @@ function GenderPills({ selected, onChange }: GenderPillsProps): React.ReactNode 
 // ---------------------------------------------------------------------------
 
 export default function TournamentCreateScreen(): React.ReactNode {
+  const palette = usePaletteColors();
   const {
     name,
     scheduledDate,
@@ -177,37 +179,37 @@ export default function TournamentCreateScreen(): React.ReactNode {
           keyboardShouldPersistTaps="handled"
         >
           {/* Tournament Setup */}
-          <Text className="text-[15px] font-bold text-default mt-[20px] mb-[10px]">
+          <AppText className="text-[15px] font-bold text-default mt-[20px] mb-[10px]">
             Tournament Setup
-          </Text>
+          </AppText>
 
-          <Text className="text-[13px] font-semibold text-muted mb-[6px]">
+          <AppText className="text-[13px] font-semibold text-muted mb-[6px]">
             Tournament Name
-          </Text>
+          </AppText>
           <TextInput
             testID="tournament-name-input"
             value={name}
             onChangeText={setName}
             placeholder="e.g. Sunday Showdown KoB"
-            placeholderTextColor="#999"
+            placeholderTextColor={palette.textTertiary}
             className="border border-divider rounded-[10px] p-[12px] text-[14px] text-default mb-[16px]"
           />
 
-          <Text className="text-[13px] font-semibold text-muted mb-[6px]">
+          <AppText className="text-[13px] font-semibold text-muted mb-[6px]">
             Date
-          </Text>
+          </AppText>
           <TextInput
             testID="tournament-date-input"
             value={scheduledDate}
             onChangeText={setScheduledDate}
             placeholder="YYYY-MM-DD"
-            placeholderTextColor="#999"
+            placeholderTextColor={palette.textTertiary}
             className="border border-divider rounded-[10px] p-[12px] text-[14px] text-default mb-[16px]"
           />
 
-          <Text className="text-[13px] font-semibold text-muted mb-[8px]">
+          <AppText className="text-[13px] font-semibold text-muted mb-[8px]">
             Max Players
-          </Text>
+          </AppText>
           <Stepper
             value={maxPlayers}
             min={2}
@@ -215,9 +217,9 @@ export default function TournamentCreateScreen(): React.ReactNode {
             testID="max-players-stepper"
           />
 
-          <Text className="text-[13px] font-semibold text-muted mt-[16px] mb-[8px]">
+          <AppText className="text-[13px] font-semibold text-muted mt-[16px] mb-[8px]">
             Courts
-          </Text>
+          </AppText>
           <Stepper
             value={numCourts}
             min={1}
@@ -226,13 +228,13 @@ export default function TournamentCreateScreen(): React.ReactNode {
           />
 
           {/* Registration */}
-          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[10px]">
+          <AppText className="text-[15px] font-bold text-default mt-[24px] mb-[10px]">
             Registration
-          </Text>
+          </AppText>
 
-          <Text className="text-[13px] font-semibold text-muted mb-[8px]">
+          <AppText className="text-[13px] font-semibold text-muted mb-[8px]">
             Registration Type
-          </Text>
+          </AppText>
           <ToggleRow
             options={[
               { key: 'open', label: 'Open' },
@@ -242,18 +244,18 @@ export default function TournamentCreateScreen(): React.ReactNode {
             onSelect={(k) => setRegistrationType(k as RegistrationType)}
             testIDPrefix="tournament-registration"
           />
-          <Text className="text-[11px] text-muted mt-[6px] mb-[16px]">
+          <AppText className="text-[11px] text-muted mt-[6px] mb-[16px]">
             Open: players request to join, you approve. Invite Only: only players you invite can join.
-          </Text>
+          </AppText>
 
           {/* Game Settings */}
-          <Text className="text-[15px] font-bold text-default mt-[8px] mb-[10px]">
+          <AppText className="text-[15px] font-bold text-default mt-[8px] mb-[10px]">
             Game Settings
-          </Text>
+          </AppText>
 
-          <Text className="text-[13px] font-semibold text-muted mb-[8px]">
+          <AppText className="text-[13px] font-semibold text-muted mb-[8px]">
             Format
-          </Text>
+          </AppText>
           <ToggleRow
             options={[
               { key: 'POOLS_PLAYOFFS', label: 'KoB' },
@@ -264,33 +266,33 @@ export default function TournamentCreateScreen(): React.ReactNode {
             testIDPrefix="tournament-format"
           />
 
-          <Text className="text-[13px] font-semibold text-muted mt-[16px] mb-[8px]">
+          <AppText className="text-[13px] font-semibold text-muted mt-[16px] mb-[8px]">
             Game To
-          </Text>
+          </AppText>
           <Stepper value={gameTo} min={1} onChange={setGameTo} testID="game-to-stepper" />
 
-          <Text className="text-[13px] font-semibold text-muted mt-[16px] mb-[8px]">
+          <AppText className="text-[13px] font-semibold text-muted mt-[16px] mb-[8px]">
             Score Cap
-          </Text>
+          </AppText>
           <Stepper value={scoreCap} min={1} onChange={setScoreCap} testID="score-cap-stepper" />
 
           {/* Additional */}
-          <Text className="text-[15px] font-bold text-default mt-[24px] mb-[10px]">
+          <AppText className="text-[15px] font-bold text-default mt-[24px] mb-[10px]">
             Additional
-          </Text>
+          </AppText>
 
-          <Text className="text-[13px] font-semibold text-muted mb-[8px]">
+          <AppText className="text-[13px] font-semibold text-muted mb-[8px]">
             Gender
-          </Text>
+          </AppText>
           <GenderPills selected={gender} onChange={setGender} />
 
           {submitError != null && (
-            <Text
+            <AppText
               testID="tournament-create-error"
               className="text-[13px] text-red-500 mt-[16px] text-center"
             >
               {submitError}
-            </Text>
+            </AppText>
           )}
         </ScrollView>
 
@@ -303,9 +305,9 @@ export default function TournamentCreateScreen(): React.ReactNode {
             className="bg-brand-teal rounded-[12px] items-center justify-center py-[16px]"
           >
             {isSubmitting ? (
-              <ActivityIndicator color="#fff" testID="tournament-create-loading" />
+              <ActivityIndicator color={palette.onBrandTeal} testID="tournament-create-loading" />
             ) : (
-              <Text className="text-white text-[16px] font-bold">Create Tournament</Text>
+              <AppText className="text-on-brand-teal text-[16px] font-bold">Create Tournament</AppText>
             )}
           </TouchableOpacity>
         </View>

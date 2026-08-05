@@ -19,9 +19,9 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   Share,
@@ -39,7 +39,7 @@ import { usePaletteColors } from '@/theme/usePaletteColors';
 
 /** Default share message — overridden via `shareMessageTemplate` prop. */
 const DEFAULT_TEMPLATE =
-  'Hey {firstName}, claim your Beach League profile so the games we played together count toward your stats: {url}';
+  'Hey {firstName}, join me on the Beach League app to claim the games we played together: {url}';
 
 /** Sent ✓ revert duration. */
 const SENT_REVERT_MS = 3_000;
@@ -108,7 +108,7 @@ function InviteRow({
       onPress={onSend}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={`Send invite to ${player.name}`}
+      accessibilityLabel={`Invite ${player.name} to the Beach League app`}
       className="flex-row items-center bg-surface border border-divider rounded-[14px] p-[12px] mx-[16px] mb-[10px]"
     >
       <View className="mr-[12px]">
@@ -121,12 +121,12 @@ function InviteRow({
       </View>
 
       <View className="flex-1">
-        <Text className="text-[15px] font-semibold text-default">
+        <AppText className="text-[15px] font-semibold text-default">
           {player.name}
-        </Text>
-        <Text className="text-[12px] text-muted mt-[2px]">
+        </AppText>
+        <AppText className="text-[12px] text-muted mt-[2px]">
           {player.metaLabel}
-        </Text>
+        </AppText>
       </View>
 
       {isSent ? (
@@ -135,19 +135,19 @@ function InviteRow({
           className="flex-row items-center bg-success-tint rounded-full px-[12px] py-[8px]"
         >
           <CheckIcon size={14} color={palette.success} />
-          <Text className="text-[13px] font-semibold text-success ml-[4px]">
+          <AppText className="text-[13px] font-semibold text-success ml-[4px]">
             Sent
-          </Text>
+          </AppText>
         </View>
       ) : (
         <TouchableOpacity
           testID={`invite-send-btn-${player.id}`}
           onPress={onSend}
           accessibilityRole="button"
-          accessibilityLabel={`Send invite to ${player.name}`}
+          accessibilityLabel={`Invite ${player.name} to the Beach League app`}
           className="bg-brand-teal rounded-full px-[14px] py-[8px]"
         >
-          <Text className="text-[13px] font-semibold text-white">Send</Text>
+          <AppText className="text-[13px] font-semibold text-on-brand-teal">Send</AppText>
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -166,12 +166,12 @@ function EmptyState({ title, onBack }: EmptyStateProps): React.ReactNode {
       <View className="w-[80px] h-[80px] rounded-full items-center justify-center mb-[20px] bg-success-tint">
         <CheckIcon size={34} color={palette.success} />
       </View>
-      <Text className="text-[20px] font-bold text-default text-center">
+      <AppText className="text-[20px] font-bold text-default text-center">
         {title}
-      </Text>
-      <Text className="text-[14px] text-muted text-center mt-[8px] leading-[20px]">
+      </AppText>
+      <AppText className="text-[14px] text-muted text-center mt-[8px] leading-[20px]">
         {EMPTY_SUBTITLE}
-      </Text>
+      </AppText>
       <TouchableOpacity
         testID="invite-empty-back-btn"
         onPress={onBack}
@@ -179,7 +179,7 @@ function EmptyState({ title, onBack }: EmptyStateProps): React.ReactNode {
         accessibilityLabel="Back"
         className="bg-brand-teal rounded-full px-[28px] py-[12px] mt-[24px]"
       >
-        <Text className="text-[14px] font-semibold text-white">Back</Text>
+        <AppText className="text-[14px] font-semibold text-on-brand-teal">Back</AppText>
       </TouchableOpacity>
     </View>
   );
@@ -190,7 +190,7 @@ function EmptyState({ title, onBack }: EmptyStateProps): React.ReactNode {
 // ---------------------------------------------------------------------------
 
 export default function InvitePlayersScreen({
-  title = 'Invite Players',
+  title = 'Invite Players to the App',
   contextLabel,
   contextSubLabel,
   players,
@@ -281,35 +281,35 @@ export default function InvitePlayersScreen({
         >
           {/* Context strip */}
           <View className="mx-[16px] bg-elevated rounded-[12px] px-[14px] py-[12px] mb-[16px]">
-            <Text className="text-[14px] font-semibold text-default">
+            <AppText className="text-[14px] font-semibold text-default">
               {contextLabel}
-            </Text>
+            </AppText>
             {contextSubLabel != null && contextSubLabel.length > 0 && (
-              <Text className="text-[12px] text-muted mt-[2px]">
+              <AppText className="text-[12px] text-muted mt-[2px]">
                 {contextSubLabel}
-              </Text>
+              </AppText>
             )}
           </View>
 
           {/* Intro */}
           <View className="mx-[16px] mb-[16px]">
-            <Text className="text-[16px] font-bold text-default">
-              Send them a link to claim their games
-            </Text>
-            <Text className="text-[13px] text-muted mt-[4px] leading-[18px]">
-              When a player claims their profile, the games you recorded
-              together count toward both of your stats and rankings.
-            </Text>
+            <AppText className="text-[16px] font-bold text-default">
+              Invite players to the app
+            </AppText>
+            <AppText className="text-[13px] text-muted mt-[4px] leading-[18px]">
+              Send each player a link to join Beach League and claim their
+              games. Then those games count toward both of your stats and rankings.
+            </AppText>
           </View>
 
           {/* Section label */}
           <View className="flex-row items-center justify-between mx-[16px] mb-[10px]">
-            <Text className="text-[12px] font-bold uppercase text-muted tracking-wider">
-              Unclaimed players
-            </Text>
-            <Text className="text-[12px] font-bold text-muted">
+            <AppText className="text-[12px] font-bold uppercase text-muted tracking-wider">
+              Players to invite
+            </AppText>
+            <AppText className="text-[12px] font-bold text-muted">
               {players.length}
-            </Text>
+            </AppText>
           </View>
 
           {/* List */}

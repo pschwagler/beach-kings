@@ -38,7 +38,7 @@
   },
   "dependencies": {
     "react-native-web": "^0.21.0",
-    "expo": "~54.0.33",
+    "expo": "~54.0.36",
     "react": "19.1.0",
     "react-native": "0.81.5"
   }

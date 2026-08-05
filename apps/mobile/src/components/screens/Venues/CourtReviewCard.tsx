@@ -7,9 +7,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Image,
   Pressable,
   ScrollView,
@@ -95,12 +95,12 @@ export default function CourtReviewCard({
 
         {/* Name + date */}
         <View className="flex-1">
-          <Text className="text-[14px] font-semibold text-default" numberOfLines={1}>
+          <AppText className="text-[14px] font-semibold text-default" numberOfLines={1}>
             {review.author?.full_name ?? 'Anonymous'}
-          </Text>
-          <Text className="text-[12px] text-muted">
+          </AppText>
+          <AppText className="text-[12px] text-muted">
             {formatDate(review.created_at)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Edit button — own review only */}
@@ -112,30 +112,36 @@ export default function CourtReviewCard({
             accessibilityLabel="Edit review"
             className="min-h-touch min-w-touch items-center justify-center"
           >
-            <Text className="text-[13px] text-brand-teal font-medium">Edit</Text>
+            <AppText className="text-[13px] text-brand-teal font-medium">Edit</AppText>
           </Pressable>
         )}
       </View>
 
       {/* Star rating */}
-      <View testID="review-card-stars" className="flex-row mb-2">
+      <View
+        testID="review-card-stars"
+        className="flex-row mb-2"
+        accessible
+        accessibilityLabel={`${review.rating} out of 5 stars`}
+      >
         {[1, 2, 3, 4, 5].map((star) => (
-          <Text
+          <AppText
             key={star}
+            accessible={false}
             className={`text-[16px] mr-0.5 ${
-              star <= Math.round(review.rating) ? 'text-yellow-400' : 'text-gray-200'
+              star <= Math.round(review.rating) ? 'text-accent' : 'text-tertiary'
             }`}
           >
             ★
-          </Text>
+          </AppText>
         ))}
       </View>
 
       {/* Review text */}
       {review.review_text != null && review.review_text.length > 0 && (
-        <Text className="text-[14px] text-default leading-5 mb-3">
+        <AppText className="text-[14px] text-default leading-5 mb-3">
           {review.review_text}
-        </Text>
+        </AppText>
       )}
 
       {/* Tag pills */}
@@ -146,9 +152,9 @@ export default function CourtReviewCard({
               key={tag.id}
               className="px-2 py-0.5 rounded-full bg-info-tint border border-brand-teal"
             >
-              <Text className="text-[12px] text-brand-teal font-medium">
+              <AppText className="text-[12px] text-brand-teal font-medium">
                 {tag.name}
-              </Text>
+              </AppText>
             </View>
           ))}
         </View>
@@ -163,11 +169,13 @@ export default function CourtReviewCard({
           className="flex-row"
           contentContainerStyle={{ gap: 8 }}
         >
-          {(review.photos ?? []).map((photo) => (
+          {(review.photos ?? []).map((photo, index, photos) => (
             <Image
               key={photo.id}
               source={{ uri: photo.url }}
               className="w-[80px] h-[80px] rounded-lg bg-surface"
+              accessible
+              accessibilityLabel={`Review photo ${index + 1} of ${photos.length}`}
               accessibilityIgnoresInvertColors
             />
           ))}

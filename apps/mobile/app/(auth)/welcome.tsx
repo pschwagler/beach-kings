@@ -1,7 +1,9 @@
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, Linking } from 'react-native';
+import { View, Pressable, Linking } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import {
   CrownIcon,
   TrophyIcon,
@@ -11,7 +13,10 @@ import {
   AwardIcon,
 } from '@/components/ui/icons';
 import { Button } from '@/components/ui';
+import CourtLineMotif from '@/components/brand/CourtLineMotif';
 import { routes } from '@/lib/navigation';
+import { PUBLIC_URLS } from '@/lib/publicUrls';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface FeatureRow {
   readonly title: string;
@@ -49,6 +54,7 @@ const FEATURES: readonly FeatureRow[] = [
 
 export default function WelcomeScreen(): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
 
   const handleGetStarted = useCallback(() => {
     router.push(routes.signup());
@@ -59,82 +65,89 @@ export default function WelcomeScreen(): React.ReactNode {
   }, [router]);
 
   const handleTos = useCallback(() => {
-    Linking.openURL('https://beachleague.app/terms');
+    void Linking.openURL(PUBLIC_URLS.terms);
   }, []);
 
   const handlePrivacy = useCallback(() => {
-    Linking.openURL('https://beachleague.app/privacy');
+    void Linking.openURL(PUBLIC_URLS.privacy);
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-primary">
-      <View className="flex-1 justify-between px-lg py-xl">
-        <View className="flex-1 justify-center">
-          <View className="items-center mb-xxl">
-            <View testID="welcome-crown-icon" className="mb-md">
-              <CrownIcon size={64} color="#d4a843" />
-            </View>
-            <Text className="text-large-title font-bold text-white tracking-wider mb-xs">
-              BEACH LEAGUE
-            </Text>
-            <Text className="text-body text-white/70 text-center">
-              Track your games. Find new players.{'\n'}Rule the Sand.
-            </Text>
-          </View>
-
-          <View className="gap-md mb-xl">
-            {FEATURES.map(({ title, description, Icon }) => (
-              <View key={title} className="flex-row items-center gap-md">
-                <View className="w-11 h-11 rounded-xl bg-white/10 items-center justify-center">
-                  <Icon size={20} color="#ffffff" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-footnote font-semibold text-white">
-                    {title}
-                  </Text>
-                  <Text className="text-caption text-white/60 mt-xxs">
-                    {description}
-                  </Text>
-                </View>
+    <SafeAreaView className="flex-1 bg-nav">
+      <StatusBar style="light" />
+      <View className="relative flex-1 overflow-hidden">
+        <CourtLineMotif variant="welcome" />
+        <View className="relative flex-1 justify-between px-lg py-xl">
+          <View className="flex-1 justify-center">
+            <View className="items-center mb-xxl">
+              <View testID="welcome-crown-icon" className="mb-md">
+                <CrownIcon size={64} color={palette.brandGold} />
               </View>
-            ))}
+              <AppText
+                family="display"
+                className="text-large-title font-bold text-inverse tracking-wider mb-xs"
+              >
+                BEACH LEAGUE
+              </AppText>
+              <AppText className="text-body text-inverse text-center">
+                Track your games. Find new players.{'\n'}Rule the Sand.
+              </AppText>
+            </View>
+
+            <View className="gap-md mb-xl">
+              {FEATURES.map(({ title, description, Icon }) => (
+                <View key={title} className="flex-row items-center gap-md">
+                  <View className="w-11 h-11 items-center justify-center">
+                    <Icon size={20} color={palette.textInverse} />
+                  </View>
+                  <View className="flex-1">
+                    <AppText className="text-footnote font-semibold text-inverse">
+                      {title}
+                    </AppText>
+                    <AppText className="text-caption text-inverse mt-xxs">
+                      {description}
+                    </AppText>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
 
-        <View className="gap-sm">
-          <Button
-            title="Get Started"
-            onPress={handleGetStarted}
-            variant="secondary"
-          />
-          <Pressable
-            className="min-h-touch items-center justify-center rounded-card border border-white/30"
-            onPress={handleSignIn}
-            testID="welcome-sign-in-link"
-            accessibilityLabel="I already have an account"
-            accessibilityRole="link"
-          >
-            <Text className="text-body font-semibold text-white">
-              I Already Have an Account
-            </Text>
-          </Pressable>
+          <View className="gap-sm">
+            <Button
+              title="Get Started"
+              onPress={handleGetStarted}
+              variant="secondary"
+            />
+            <Pressable
+              className="min-h-touch items-center justify-center rounded-card border border-inverse"
+              onPress={handleSignIn}
+              testID="welcome-sign-in-link"
+              accessibilityLabel="I already have an account"
+              accessibilityRole="link"
+            >
+              <AppText className="text-body font-semibold text-inverse">
+                I Already Have an Account
+              </AppText>
+            </Pressable>
 
-          <View className="items-center mt-md">
-            <Text className="text-caption text-white/65 text-center">
-              By continuing, you agree to our
-            </Text>
-            <View className="flex-row gap-xs mt-xxs">
-              <Pressable onPress={handleTos} accessibilityRole="link">
-                <Text className="text-caption text-white/70 underline">
-                  Terms of Service
-                </Text>
-              </Pressable>
-              <Text className="text-caption text-white/65">and</Text>
-              <Pressable onPress={handlePrivacy} accessibilityRole="link">
-                <Text className="text-caption text-white/70 underline">
-                  Privacy Policy
-                </Text>
-              </Pressable>
+            <View className="items-center mt-md">
+              <AppText className="text-caption text-inverse text-center">
+                By continuing, you agree to our
+              </AppText>
+              <View className="flex-row gap-xs mt-xxs">
+                <Pressable onPress={handleTos} accessibilityRole="link">
+                  <AppText className="text-caption text-inverse underline">
+                    Terms of Service
+                  </AppText>
+                </Pressable>
+                <AppText className="text-caption text-inverse">and</AppText>
+                <Pressable onPress={handlePrivacy} accessibilityRole="link">
+                  <AppText className="text-caption text-inverse underline">
+                    Privacy Policy
+                  </AppText>
+                </Pressable>
+              </View>
             </View>
           </View>
         </View>

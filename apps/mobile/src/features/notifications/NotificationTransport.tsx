@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
+import { apiWebSocketUrl } from '@/config/apiOrigin';
 import { useAuth } from '@/contexts/AuthContext';
 import { socialKeys } from '@/features/social/keys';
 import { playerKeys } from '@/features/player';
@@ -13,11 +14,6 @@ import {
 import useWebSocket from '@/hooks/useWebSocket';
 import { api } from '@/lib/api';
 import { getSocketNotification, reconcileNotificationEvent } from './cache';
-
-function buildWsUrl(): string {
-  const baseUrl = process.env.EXPO_PUBLIC_API_URL ?? '';
-  return baseUrl.replace(/^http/, 'ws') + '/api/ws/notifications';
-}
 
 /** WebSocket lifecycle and cache reconciliation for notification events. */
 export default function NotificationTransport(): null {
@@ -76,7 +72,7 @@ export default function NotificationTransport(): null {
   }, [isAuthenticated, userId]);
 
   const { isConnected, send } = useWebSocket({
-    url: buildWsUrl(),
+    url: apiWebSocketUrl('/api/ws/notifications'),
     enabled: transportEnabled,
     onMessage: handleMessage,
   });

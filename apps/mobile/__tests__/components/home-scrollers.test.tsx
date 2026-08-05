@@ -1,6 +1,5 @@
 /**
- * Tests for the richer home scrollers: SessionCard, RecentGamesScroll,
- * LeaguesScroll, and CourtsScroll.
+ * Tests for the Home recent-games, leagues, and courts collections.
  */
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
@@ -10,88 +9,12 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
 }));
 
-import SessionCard from '@/components/home/SessionCard';
 import RecentGamesScroll from '@/components/home/RecentGamesScroll';
 import LeaguesScroll from '@/components/home/LeaguesScroll';
 import CourtsScroll from '@/components/home/CourtsScroll';
 
 beforeEach(() => {
   mockPush.mockClear();
-});
-
-// ---------------------------------------------------------------------------
-// SessionCard
-// ---------------------------------------------------------------------------
-describe('SessionCard', () => {
-  const baseSession = {
-    id: 7,
-    season_id: 1,
-    name: 'Monday Open',
-    league_name: 'South Bay League',
-    match_count: 3,
-  };
-
-  it('renders title, meta, and default match-count stat', () => {
-    const { getByText } = render(
-      <SessionCard session={baseSession as any} badgeLabel="LIVE" />,
-    );
-    expect(getByText('Monday Open')).toBeTruthy();
-    expect(getByText('South Bay League')).toBeTruthy();
-    expect(getByText('3 games')).toBeTruthy();
-    expect(getByText('LIVE')).toBeTruthy();
-  });
-
-  it('singularises the default match-count stat when there is only one game', () => {
-    const { getByText } = render(
-      <SessionCard
-        session={{ ...baseSession, match_count: 1 } as any}
-        badgeLabel="LIVE"
-      />,
-    );
-    expect(getByText('1 game')).toBeTruthy();
-  });
-
-  it('falls back to session code / id when no name is set', () => {
-    const { getByText, rerender } = render(
-      <SessionCard
-        session={{ id: 9, season_id: 1, code: 'ABC123' } as any}
-        badgeLabel="LEAGUE"
-      />,
-    );
-    expect(getByText('ABC123')).toBeTruthy();
-
-    rerender(
-      <SessionCard
-        session={{ id: 12, season_id: 1 } as any}
-        badgeLabel="LEAGUE"
-      />,
-    );
-    expect(getByText('Session #12')).toBeTruthy();
-  });
-
-  it('uses metaPrimary + metaSecondary overrides when provided', () => {
-    const { getByText, queryByText } = render(
-      <SessionCard
-        session={baseSession as any}
-        badgeLabel="LIVE"
-        metaPrimary="Custom meta"
-        metaSecondary={['Stat A', 'Stat B']}
-      />,
-    );
-    expect(getByText('Custom meta')).toBeTruthy();
-    expect(getByText('Stat A')).toBeTruthy();
-    expect(getByText('Stat B')).toBeTruthy();
-    // Default league_name should be overridden.
-    expect(queryByText('South Bay League')).toBeNull();
-  });
-
-  it('navigates to the session route when pressed', () => {
-    const { getByLabelText } = render(
-      <SessionCard session={baseSession as any} badgeLabel="LIVE" />,
-    );
-    fireEvent.press(getByLabelText('Session Monday Open'));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/session/7');
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -129,6 +52,15 @@ describe('RecentGamesScroll', () => {
     expect(getByText('LOSS')).toBeTruthy();
   });
 
+  it('renders an unknown result as pending instead of a loss', () => {
+    const match = { id: 2, result: null, score: null };
+    const { getByText, queryByText } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    expect(getByText('PENDING')).toBeTruthy();
+    expect(queryByText('LOSS')).toBeNull();
+  });
+
   it('shows a Pending chip when session is pending or active', () => {
     const match = { id: 3, result: 'W', session_status: 'pending' };
     const { getByText } = render(
@@ -140,6 +72,7 @@ describe('RecentGamesScroll', () => {
   it('caps the number of visible cards at maxItems', () => {
     const matches = Array.from({ length: 12 }, (_, i) => ({
       id: i + 1,
+      session_id: i + 1,
       result: 'W',
       score: `21-${i}`,
     }));
@@ -149,21 +82,32 @@ describe('RecentGamesScroll', () => {
     expect(getAllByLabelText(/^Win/).length).toBe(3);
   });
 
+  it('defaults to two recent games', () => {
+    const matches = Array.from({ length: 3 }, (_, i) => ({
+      id: i + 1,
+      session_id: i + 1,
+      result: 'W',
+      score: `21-${i}`,
+    }));
+    const { getAllByRole } = render(<RecentGamesScroll matches={matches as any} />);
+    expect(getAllByRole('link')).toHaveLength(2);
+  });
+
   it('navigates to session when a game card with a session_id is pressed', () => {
     const match = { id: 1, result: 'W', score: '21-18', session_id: 42 };
     const { getByLabelText } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
-    fireEvent.press(getByLabelText('Win 21-18'));
+    fireEvent.press(getByLabelText('Win, 21-18'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/session/42');
   });
 
   it('does not navigate when a game card has no session_id', () => {
     const match = { id: 1, result: 'W', score: '21-18' };
-    const { getByLabelText } = render(
+    const { queryByRole } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
-    fireEvent.press(getByLabelText('Win 21-18'));
+    expect(queryByRole('link')).toBeNull();
     expect(mockPush).not.toHaveBeenCalled();
   });
 });
@@ -172,9 +116,25 @@ describe('RecentGamesScroll', () => {
 // LeaguesScroll
 // ---------------------------------------------------------------------------
 describe('LeaguesScroll', () => {
-  it('always renders the trailing "+ Join a League" card', () => {
+  it('renders "+ Join a League" when there are no leagues', () => {
     const { getByText } = render(<LeaguesScroll leagues={[]} />);
     expect(getByText('+ Join a League')).toBeTruthy();
+  });
+
+  it('does not render Join a League when memberships exist', () => {
+    const { queryByText } = render(
+      <LeaguesScroll leagues={[{ id: 1, name: 'Open' }] as any} />,
+    );
+    expect(queryByText('+ Join a League')).toBeNull();
+  });
+
+  it('defaults to two league rows', () => {
+    const leagues = Array.from({ length: 3 }, (_, index) => ({
+      id: index + 1,
+      name: `League ${index + 1}`,
+    }));
+    const { getAllByRole } = render(<LeaguesScroll leagues={leagues as any} />);
+    expect(getAllByRole('link')).toHaveLength(2);
   });
 
   it('pluralises member counts', () => {
@@ -270,5 +230,14 @@ describe('CourtsScroll', () => {
     const { getByLabelText } = render(<CourtsScroll courts={courts as any} />);
     fireEvent.press(getByLabelText('Court Main St'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/court/5');
+  });
+
+  it('limits the discovery sample to three courts by default', () => {
+    const courts = Array.from({ length: 5 }, (_, index) => ({
+      id: index + 1,
+      name: `Court ${index + 1}`,
+    }));
+    const { getAllByRole } = render(<CourtsScroll courts={courts as any} />);
+    expect(getAllByRole('link')).toHaveLength(3);
   });
 });

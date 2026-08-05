@@ -263,3 +263,21 @@ export const profileEditSchema = z.object({
 });
 
 export type ProfileEditFormValues = z.infer<typeof profileEditSchema>;
+
+/** Focused contracts used by the direct-edit sheets on the Profile tab. */
+export const profileNameSchema = profileEditSchema.pick({
+  firstName: true,
+  lastName: true,
+});
+export const profileNicknameSchema = profileEditSchema.pick({ nickname: true });
+export const profileGenderSchema = profileEditSchema.pick({ gender: true });
+export const profileBirthdaySchema = profileEditSchema.pick({ dateOfBirth: true });
+export const profileHeightSchema = profileEditSchema.pick({ height: true });
+export const profileLevelSchema = profileEditSchema.pick({ level: true });
+export const profileLocationSchema = profileEditSchema.pick({
+  city: true,
+  locationId: true,
+});
+export const profilePreferredSideSchema = profileEditSchema.pick({
+  preferredSide: true,
+});

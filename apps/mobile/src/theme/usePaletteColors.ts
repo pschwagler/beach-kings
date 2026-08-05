@@ -3,8 +3,8 @@
  *
  * Used by the ~11 components that bypass Tailwind and consume colors as
  * style values (Button, Input, SearchBar, ListItem, OtpInput,
- * DateOfBirthField, SheetOptionList, BottomTabBar, plus the three
- * route-group `_layout.tsx` files). Replaces direct `colors`/`darkColors`
+ * DateOfBirthField, SheetOptionList, plus the three route-group `_layout.tsx`
+ * files). Replaces direct `colors`/`darkColors`
  * imports during their migration in Phase 3.9.
  *
  * Returns the canonical light or dark palette based on `useTheme().isDark`.

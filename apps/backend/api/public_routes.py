@@ -403,6 +403,10 @@ async def list_public_courts(
     user_lng: Optional[float] = Query(
         None, ge=-180.0, le=180.0, description="User longitude for distance sort"
     ),
+    north: Optional[float] = Query(None, ge=-90.0, le=90.0),
+    south: Optional[float] = Query(None, ge=-90.0, le=90.0),
+    east: Optional[float] = Query(None, ge=-180.0, le=180.0),
+    west: Optional[float] = Query(None, ge=-180.0, le=180.0),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=500, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
@@ -418,6 +422,21 @@ async def list_public_courts(
     request is authenticated, each card includes ``is_saved`` (the caller's "My
     Courts" state).
     """
+    bounds = (north, south, east, west)
+    if any(value is not None for value in bounds):
+        if not all(value is not None for value in bounds):
+            raise HTTPException(
+                status_code=422,
+                detail="north, south, east, and west must be provided together",
+            )
+        if north <= south or east == west:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Bounds must have north > south and distinct east/west; "
+                    "west > east represents a date-line crossing"
+                ),
+            )
     player_id = await court_service.get_player_id_for_user(session, caller)
     return await court_service.list_courts_public(
         session,
@@ -433,6 +452,10 @@ async def list_public_courts(
         search=search,
         user_lat=user_lat,
         user_lng=user_lng,
+        north=north,
+        south=south,
+        east=east,
+        west=west,
         player_id=player_id,
         page=page,
         page_size=page_size,

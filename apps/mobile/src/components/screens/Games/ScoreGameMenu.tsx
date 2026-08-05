@@ -12,10 +12,10 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   Modal,
   Pressable,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -54,9 +54,9 @@ function MenuItem({
         disabled ? 'opacity-50' : ''
       }`}
     >
-      <Text className="text-[16px] font-semibold text-center text-brand-teal">
+      <AppText className="text-[16px] font-semibold text-center text-brand-teal">
         {label}
-      </Text>
+      </AppText>
     </TouchableOpacity>
   );
 }
@@ -106,9 +106,9 @@ export default function ScoreGameMenu({
           onPress={onClose}
           className="mt-[8px] py-[14px] rounded-[12px] border border-divider bg-elevated"
         >
-          <Text className="text-[15px] font-semibold text-muted text-center">
+          <AppText className="text-[15px] font-semibold text-muted text-center">
             Cancel
-          </Text>
+          </AppText>
         </TouchableOpacity>
       </View>
     </Modal>

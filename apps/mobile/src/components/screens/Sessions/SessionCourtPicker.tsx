@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { Court } from '@beach-kings/shared';
 
@@ -8,6 +9,7 @@ import { courtQueries } from '@/features/courts';
 import { formatDistance } from '@/lib/formatters';
 import { useResolvedUserLocation } from '@/hooks/useResolvedUserLocation';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   readonly selectedCourtId: number | null;
@@ -38,11 +40,12 @@ export default function SessionCourtPicker({
   error = null,
 }: Props): React.ReactNode {
   const palette = usePaletteColors();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const didSelectDefault = useRef(false);
   const { coords, isResolving } = useResolvedUserLocation({ skipDevice: true });
   const { data: courts, isLoading } = useQuery(
-    courtQueries.picker(coords, !isResolving),
+    courtQueries.catalog(user?.id ?? 0, coords, !isResolving && user != null),
   );
 
   const courtOptions = useMemo<readonly CourtPickerOption[]>(
@@ -99,10 +102,10 @@ export default function SessionCourtPicker({
         accessibilityLabel="Select court"
         className="flex-row items-center py-[14px] border-b border-divider active:opacity-70"
       >
-        <Text className="text-[14px] font-semibold text-muted w-[100px]">
+        <AppText className="text-[14px] font-semibold text-muted w-[100px]">
           Court
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           testID={`${testIDPrefix}-selected-court`}
           className={`flex-1 text-[14px] ${
             selectedCourtId == null ? 'text-muted' : 'text-default'
@@ -110,25 +113,25 @@ export default function SessionCourtPicker({
           numberOfLines={1}
         >
           {selectedName}
-        </Text>
+        </AppText>
         {isUpdating ? (
           <ActivityIndicator
             testID={`${testIDPrefix}-court-saving`}
             color={palette.brandTeal}
           />
         ) : (
-          <Text className="text-[14px] font-semibold text-brand-teal">Change</Text>
+          <AppText className="text-[14px] font-semibold text-brand-teal">Change</AppText>
         )}
       </Pressable>
       {error != null && (
         <View className="pt-2">
-          <Text
+          <AppText
             testID={`${testIDPrefix}-court-error`}
             accessibilityRole="alert"
             className="text-[12px] text-danger"
           >
             {error}
-          </Text>
+          </AppText>
         </View>
       )}
 

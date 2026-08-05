@@ -198,9 +198,10 @@ describe('OnboardingScreen', () => {
     });
   });
 
-  it('does not submit when required fields are empty', () => {
-    const { getByText } = render(<OnboardingScreen />);
+  it('does not submit when required fields are empty', async () => {
+    const { getByText, findByText } = render(<OnboardingScreen />);
     fireEvent.press(getByText('Save Profile'));
+    expect(await findByText('Please select a gender.')).toBeTruthy();
     expect(mockUpdatePlayerProfile).not.toHaveBeenCalled();
   });
 
@@ -461,6 +462,7 @@ describe('OnboardingScreen', () => {
     await waitFor(() => {
       expect(mockUpdatePlayerProfile).toHaveBeenCalled();
     });
+    await findByText('Profile Complete!');
     expect(hapticSuccess).toHaveBeenCalledTimes(1);
   });
 });

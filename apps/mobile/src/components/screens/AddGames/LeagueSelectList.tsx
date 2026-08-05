@@ -16,12 +16,14 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable, ScrollView, RefreshControl } from 'react-native';
 import type { League, Session } from '@beach-kings/shared';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { TrophyIcon } from '@/components/ui/icons';
 import { pluralize } from '@/lib/formatters';
 import { hapticMedium } from '@/utils/haptics';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -47,6 +49,7 @@ interface LeagueRowProps {
 }
 
 function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.ReactNode {
+  const palette = usePaletteColors();
   const handleContinue = useCallback(() => {
     if (league.activeSession != null) {
       void hapticMedium();
@@ -67,32 +70,32 @@ function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.Re
   return (
     <View
       testID={`league-card-${league.id}`}
-      className="bg-surface rounded-[14px] p-4 mb-[10px] shadow-sm dark:shadow-none dark:border border-divider"
+      className="bg-surface rounded-[14px] p-4 mb-[10px] border border-divider"
     >
       {/* Card header: icon + name + location + season */}
       <View className="flex-row items-center gap-[14px] mb-[14px]">
         {/* Icon */}
         <View className="w-11 h-11 rounded-[10px] bg-info-tint items-center justify-center flex-shrink-0">
-          <TrophyIcon size={22} color="#2a7d9c" />
+          <TrophyIcon size={22} color={palette.brandTeal} />
         </View>
 
         {/* Info */}
         <View className="flex-1">
-          <Text
+          <AppText
             className="text-[15px] font-bold text-default mb-[2px]"
             numberOfLines={1}
           >
             {league.name}
-          </Text>
+          </AppText>
           {location != null && (
-            <Text className="text-[12px] text-muted">
+            <AppText className="text-[12px] text-muted">
               {location}
-            </Text>
+            </AppText>
           )}
           {activeSeasonName != null && (
-            <Text className="text-[11px] font-semibold text-brand-teal mt-[3px]">
+            <AppText className="text-[11px] font-semibold text-brand-teal mt-[3px]">
               {activeSeasonName}
-            </Text>
+            </AppText>
           )}
         </View>
       </View>
@@ -100,10 +103,10 @@ function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.Re
       {/* Active session badge */}
       {hasActiveSession && (
         <View className="flex-row items-center gap-1 mb-[10px]">
-          <View className="w-1.5 h-1.5 rounded-full bg-success" />
-          <Text className="text-[10px] font-bold text-success uppercase tracking-wide">
+          <View className="w-1.5 h-1.5 rounded-full bg-success-fill" />
+          <AppText className="text-[10px] font-bold text-success uppercase tracking-wide">
             Active Session
-          </Text>
+          </AppText>
         </View>
       )}
 
@@ -117,9 +120,9 @@ function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.Re
           hasActiveSession ? 'bg-brand-gold' : 'bg-brand-teal'
         }`}
       >
-        <Text className="font-bold text-body text-inverse">
+        <AppText className={`font-bold text-body ${hasActiveSession ? 'text-on-brand-gold' : 'text-on-brand-teal'}`}>
           {hasActiveSession ? `Continue (${pluralize(matchCount, 'game')})` : 'Add Game'}
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );
@@ -167,9 +170,9 @@ export default function LeagueSelectList({
         testID="league-list-error"
         className="items-center py-xl px-lg"
       >
-        <Text className="text-body text-muted mb-md text-center">
+        <AppText className="text-body text-muted mb-md text-center">
           Could not load your leagues. Please try again.
-        </Text>
+        </AppText>
         <Pressable
           testID="league-list-retry"
           onPress={onRetry}
@@ -177,7 +180,7 @@ export default function LeagueSelectList({
           accessibilityLabel="Retry"
           className="px-lg py-sm bg-brand-teal rounded-lg"
         >
-          <Text className="text-white font-semibold text-body">Retry</Text>
+          <AppText className="text-on-brand-teal font-semibold text-body">Retry</AppText>
         </Pressable>
       </View>
     );
@@ -191,12 +194,12 @@ export default function LeagueSelectList({
         testID="league-list-empty"
         className="items-center py-xl px-lg"
       >
-        <Text className="text-body font-bold text-default mb-sm text-center">
+        <AppText className="text-body font-bold text-default mb-sm text-center">
           No leagues yet
-        </Text>
-        <Text className="text-body text-muted mb-xl text-center">
+        </AppText>
+        <AppText className="text-body text-muted mb-xl text-center">
           You&apos;re not in any leagues yet. Join one to start recording games.
-        </Text>
+        </AppText>
         <Pressable
           testID="league-list-join-cta"
           onPress={onJoinLeague}
@@ -204,7 +207,7 @@ export default function LeagueSelectList({
           accessibilityLabel="Find leagues"
           className="px-lg py-sm bg-brand-teal rounded-lg"
         >
-          <Text className="text-white font-semibold text-body">Find Leagues</Text>
+          <AppText className="text-on-brand-teal font-semibold text-body">Find Leagues</AppText>
         </Pressable>
       </View>
     );
@@ -218,9 +221,9 @@ export default function LeagueSelectList({
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
     >
-      <Text className="text-[12px] font-semibold text-muted uppercase tracking-wide mb-[10px]">
+      <AppText className="text-[12px] font-semibold text-muted uppercase tracking-wide mb-[10px]">
         Your Leagues
-      </Text>
+      </AppText>
       {leagues!.map((league) => (
         <LeagueRow
           key={league.id}

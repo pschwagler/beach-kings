@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
+import AppText from './AppText';
 
 interface FABProps {
   readonly onPress: () => void;
@@ -31,9 +32,9 @@ export default function FAB({
     >
       {icon}
       {label ? (
-        <Text className="font-semibold text-body text-white">
+        <AppText className="font-semibold text-body text-on-brand-teal">
           {label}
-        </Text>
+        </AppText>
       ) : null}
     </Pressable>
   );

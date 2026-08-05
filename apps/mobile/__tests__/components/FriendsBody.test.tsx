@@ -5,7 +5,7 @@
  *   - Loading skeleton and full-page error state.
  *   - Empty state ("No friends yet" + Find Players CTA) and its navigation.
  *   - "No matches" state while searching with no results.
- *   - Sectioned rendering: Pending Requests / My Friends / Suggested Friends
+ *   - Sectioned rendering: Pending requests / Friends / Suggested players
  *     with correct counts.
  *   - Accept / decline request handlers.
  *   - Suggestion add handler and the pending ("Requested") state.
@@ -129,7 +129,7 @@ describe('FriendsBody — loading & error', () => {
     expect(screen.getByTestId('friends-list')).toBeTruthy();
     expect(screen.getByText('Morgan Davis')).toBeTruthy();
     expect(screen.queryByTestId('friends-loading')).toBeNull();
-    expect(screen.queryByText('Suggested Friends')).toBeNull();
+    expect(screen.queryByText('Suggested players')).toBeNull();
   });
 
   it('keeps the skeleton while suggestions load and nothing else has content', () => {
@@ -220,8 +220,8 @@ describe('FriendsBody — empty states', () => {
       <FriendsBody {...makeProps({ friends: [], searchQuery: 'zzz' })} />,
     );
     expect(screen.getByTestId('friends-no-results')).toBeTruthy();
-    expect(screen.queryByText(/Pending Requests/)).toBeNull();
-    expect(screen.queryByText('Suggested Friends')).toBeNull();
+    expect(screen.queryByText(/Pending requests/)).toBeNull();
+    expect(screen.queryByText('Suggested players')).toBeNull();
   });
 });
 
@@ -233,10 +233,10 @@ describe('FriendsBody — search scoping', () => {
   it('hides requests + suggestions while searching, keeping only friends', () => {
     render(<FriendsBody {...makeProps({ searchQuery: 'morgan' })} />);
 
-    expect(screen.getByText('My Friends (2)')).toBeTruthy();
+    expect(screen.getByText('Friends · 2')).toBeTruthy();
     expect(screen.getByTestId(`friend-row-${FRIEND.player_id}`)).toBeTruthy();
-    expect(screen.queryByText(/Pending Requests/)).toBeNull();
-    expect(screen.queryByText('Suggested Friends')).toBeNull();
+    expect(screen.queryByText(/Pending requests/)).toBeNull();
+    expect(screen.queryByText('Suggested players')).toBeNull();
     expect(
       screen.queryByTestId(`friend-request-card-${REQUEST.id}`),
     ).toBeNull();
@@ -254,7 +254,7 @@ describe('FriendsBody — search scoping', () => {
     );
 
     expect(screen.queryByTestId('friend-requests-error-notice')).toBeNull();
-    expect(screen.getByText('My Friends (2)')).toBeTruthy();
+    expect(screen.getByText('Friends · 2')).toBeTruthy();
   });
 });
 
@@ -266,9 +266,9 @@ describe('FriendsBody — sections', () => {
   it('renders all three sections with counts', () => {
     render(<FriendsBody {...makeProps()} />);
 
-    expect(screen.getByText('Pending Requests (1)')).toBeTruthy();
-    expect(screen.getByText('My Friends (2)')).toBeTruthy();
-    expect(screen.getByText('Suggested Friends')).toBeTruthy();
+    expect(screen.getByText('Pending requests · 1')).toBeTruthy();
+    expect(screen.getByText('Friends · 2')).toBeTruthy();
+    expect(screen.getByText('Suggested players')).toBeTruthy();
   });
 
   it('renders friend, request, and suggestion rows', () => {
@@ -395,9 +395,9 @@ describe('FriendsBody — sections', () => {
       <FriendsBody {...makeProps({ friendRequests: [], suggestions: [] })} />,
     );
 
-    expect(screen.queryByText(/Pending Requests/)).toBeNull();
-    expect(screen.queryByText('Suggested Friends')).toBeNull();
-    expect(screen.getByText('My Friends (2)')).toBeTruthy();
+    expect(screen.queryByText(/Pending requests/)).toBeNull();
+    expect(screen.queryByText('Suggested players')).toBeNull();
+    expect(screen.getByText('Friends · 2')).toBeTruthy();
   });
 });
 

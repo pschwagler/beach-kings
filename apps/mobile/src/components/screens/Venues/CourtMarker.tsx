@@ -29,12 +29,16 @@ export default function CourtMarker({ court, onPress }: CourtMarkerProps): React
 
   return (
     <Marker
+      testID={`court-marker-${court.id}`}
       coordinate={{ latitude: court.latitude, longitude: court.longitude }}
       title={court.name}
       description={describeCourt(court)}
       pinColor={palette.brandTeal}
       onPress={handlePress}
       onCalloutPress={handlePress}
+      accessibilityLabel={court.name}
+      accessibilityHint="Opens court details"
+      accessibilityRole="button"
     />
   );
 }

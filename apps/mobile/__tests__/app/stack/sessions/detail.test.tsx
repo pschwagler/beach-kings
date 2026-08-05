@@ -92,6 +92,38 @@ jest.mock('@/theme/usePaletteColors', () => ({
   usePaletteColors: () => ({ textInverse: 'white' }),
 }));
 
+// VirtualizedList schedules deferred cell-window updates that are useful on a
+// device but can fire after a route-level assertion completes. Render every
+// roster item synchronously here; FlatList itself is not under test.
+jest.mock('react-native/Libraries/Lists/FlatList', () => {
+  const React = require('react');
+  const View = require('react-native/Libraries/Components/View/View').default;
+
+  function TestFlatList({
+    data = [],
+    renderItem,
+    keyExtractor,
+    ...props
+  }: {
+    data?: readonly unknown[];
+    renderItem: (info: { item: unknown; index: number }) => React.ReactNode;
+    keyExtractor?: (item: unknown, index: number) => string;
+    [key: string]: unknown;
+  }) {
+    return (
+      <View {...props}>
+        {data.map((item, index) => (
+          <React.Fragment key={keyExtractor?.(item, index) ?? String(index)}>
+            {renderItem({ item, index })}
+          </React.Fragment>
+        ))}
+      </View>
+    );
+  }
+
+  return { __esModule: true, default: TestFlatList };
+});
+
 const mockGetSessionById = jest.fn();
 const mockLockInSession = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();

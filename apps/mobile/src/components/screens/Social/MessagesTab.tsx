@@ -17,6 +17,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useMessagesScreen } from '@/components/screens/Messages/useMessagesScreen';
 import MessagesBody from '@/components/screens/Messages/MessagesBody';
 import { useHeaderAction, type SetHeaderAction } from './useHeaderAction';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface MessagesTabProps {
   readonly setHeaderAction?: SetHeaderAction;
@@ -31,6 +32,7 @@ export default function MessagesTab({
   scrollRequest,
 }: MessagesTabProps): React.ReactNode {
   const state = useMessagesScreen();
+  const palette = usePaletteColors();
 
   const composeAction = useMemo(
     () => (
@@ -44,14 +46,14 @@ export default function MessagesTab({
         <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
           <Path
             d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
-            stroke="#ffffff"
+            stroke={palette.textInverse}
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
           <Path
             d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
-            stroke="#ffffff"
+            stroke={palette.textInverse}
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -59,7 +61,7 @@ export default function MessagesTab({
         </Svg>
       </Pressable>
     ),
-    [onCompose],
+    [onCompose, palette.textInverse],
   );
 
   useHeaderAction(setHeaderAction, composeAction);

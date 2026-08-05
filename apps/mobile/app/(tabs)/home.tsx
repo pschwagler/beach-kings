@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, View, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import type { Player, MatchRecord } from '@beach-kings/shared';
+import type { FriendRequest, Player, Session } from '@beach-kings/shared';
 import { normalizePlayerStats } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/features/notifications';
@@ -19,13 +19,10 @@ import HomeHeader from '@/components/home/HomeHeader';
 import QuickStatsRow from '@/components/home/QuickStatsRow';
 import SectionHeader from '@/components/home/SectionHeader';
 import SectionError from '@/components/home/SectionError';
-import ProfileBanner from '@/components/home/ProfileBanner';
-import PendingInvitesBanner from '@/components/home/PendingInvitesBanner';
-import SessionCard from '@/components/home/SessionCard';
+import HomeLeadAction, { type HomeLeadState } from '@/components/home/HomeLeadAction';
 import RecentGamesScroll from '@/components/home/RecentGamesScroll';
 import LeaguesScroll from '@/components/home/LeaguesScroll';
 import CourtsScroll from '@/components/home/CourtsScroll';
-import NewUserWelcome from '@/components/home/NewUserWelcome';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
@@ -45,13 +42,36 @@ function computeProfilePercent(player: Player | null): number {
   return Math.round((completed / fields.length) * 100);
 }
 
-function countPendingInviteGames(matches: readonly MatchRecord[]): number {
-  return matches.filter(
-    (m) =>
-      m.partner_is_placeholder === true ||
-      m.opponent_1_is_placeholder === true ||
-      m.opponent_2_is_placeholder === true,
-  ).length;
+export function resolveHomeLeadState({
+  activeSession,
+  activeSessionError,
+  friendRequests,
+  profileComplete,
+  profilePercent,
+}: {
+  readonly activeSession: Session | null;
+  readonly activeSessionError: boolean;
+  readonly friendRequests: readonly FriendRequest[];
+  readonly profileComplete: boolean;
+  readonly profilePercent: number;
+}): HomeLeadState {
+  if (activeSession != null) {
+    return {
+      kind: 'active-session',
+      session: activeSession,
+      refreshFailed: activeSessionError,
+    };
+  }
+  if (activeSessionError) return { kind: 'active-session-error' };
+  if (friendRequests.length > 0) {
+    return {
+      kind: 'friend-request',
+      count: friendRequests.length,
+      senderName: friendRequests[0]?.sender_name ?? null,
+    };
+  }
+  if (!profileComplete) return { kind: 'profile', percent: profilePercent };
+  return { kind: 'record-game' };
 }
 
 export default function HomeScreen(): React.ReactNode {
@@ -112,15 +132,13 @@ export default function HomeScreen(): React.ReactNode {
   const wins = winsRaw ?? 0;
   const losses = lossesRaw ?? 0;
   const profilePercent = computeProfilePercent(playerData);
-  const invitesPending = friendRequestsData.length;
-  const pendingGameCount = countPendingInviteGames(matchesData);
-
-  const isBrandNewUser =
-    !isInitialLoading &&
-    matches.isSuccess &&
-    leagues.isSuccess &&
-    matchesData.length === 0 &&
-    leaguesData.length === 0;
+  const leadState = resolveHomeLeadState({
+    activeSession: activeSessionData,
+    activeSessionError: activeSession.isError,
+    friendRequests: friendRequestsData,
+    profileComplete,
+    profilePercent,
+  });
 
   return (
     <SafeAreaView
@@ -135,14 +153,12 @@ export default function HomeScreen(): React.ReactNode {
         notificationUnreadCount={unreadCount}
       />
 
-      {!isBrandNewUser && (
-        <QuickStatsRow
-          firstName={firstName}
-          rating={rating}
-          wins={wins}
-          losses={losses}
-        />
-      )}
+      <QuickStatsRow
+        firstName={firstName}
+        rating={rating}
+        wins={wins}
+        losses={losses}
+      />
 
       <ScrollView
         ref={scrollRef}
@@ -157,51 +173,12 @@ export default function HomeScreen(): React.ReactNode {
       >
         {isInitialLoading ? (
           <DashboardSkeleton />
-        ) : isBrandNewUser ? (
-          <NewUserWelcome />
         ) : (
           <View className="px-lg pt-md pb-xxxl">
-            {activeSession.isError && activeSessionData == null && (
-              <View className="mb-lg">
-                <SectionHeader title="Active Session" />
-                <SectionError
-                  message="Could not load your active session."
-                  onRetry={() => void activeSession.refetch()}
-                />
-              </View>
-            )}
-
-            {activeSessionData && (
-              <View className="mb-lg">
-                <SectionHeader title="Continue Playing" />
-                <SessionCard
-                  session={activeSessionData}
-                  badgeLabel="ACTIVE"
-                  badgeTone="active"
-                  accentBorder
-                />
-                {activeSession.isError && (
-                  <View className="mt-sm">
-                    <SectionError
-                      message="Could not refresh your active session. Showing the last saved version."
-                      onRetry={() => void activeSession.refetch()}
-                    />
-                  </View>
-                )}
-              </View>
-            )}
-
-            {activeSessionData == null && invitesPending > 0 && profileComplete && (
-              <PendingInvitesBanner
-                playerCount={invitesPending}
-                gameCount={pendingGameCount}
-                onPress={() => router.push(routes.social())}
-              />
-            )}
-
-            {activeSessionData == null && !profileComplete && (
-              <ProfileBanner percent={profilePercent} />
-            )}
+            <HomeLeadAction
+              state={leadState}
+              onRetryActiveSession={() => void activeSession.refetch()}
+            />
 
             <View className="mb-lg">
               <SectionHeader
@@ -215,7 +192,7 @@ export default function HomeScreen(): React.ReactNode {
                   onRetry={() => void matches.refetch()}
                 />
               ) : (
-                <RecentGamesScroll matches={matchesData} />
+                <RecentGamesScroll matches={matchesData} maxItems={2} />
               )}
             </View>
 
@@ -234,6 +211,7 @@ export default function HomeScreen(): React.ReactNode {
                 <LeaguesScroll
                   leagues={leaguesData}
                   currentUserPlayerId={playerData?.id ?? null}
+                  maxItems={2}
                 />
               )}
             </View>
@@ -250,7 +228,7 @@ export default function HomeScreen(): React.ReactNode {
                   onRetry={() => void courts.refetch()}
                 />
               ) : (
-                <CourtsScroll courts={courtsData} />
+                <CourtsScroll courts={courtsData} maxItems={3} />
               )}
             </View>
           </View>

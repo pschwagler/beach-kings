@@ -180,6 +180,7 @@ class User(Base):
     failed_verification_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(String, nullable=True)  # ISO timestamp
     deletion_scheduled_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     password_changed_at = Column(DateTime(timezone=True), nullable=True)
     profile_is_private = Column(
         Boolean, nullable=False, server_default="false"

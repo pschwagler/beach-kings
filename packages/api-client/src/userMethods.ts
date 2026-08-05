@@ -95,6 +95,12 @@ export function createUserMethods(api: AxiosInstance) {
       return response.data;
     },
 
+    /** Permanently delete and anonymize the authenticated account now. */
+    async deleteAccountNow(): Promise<StatusResponse> {
+      const response = await api.delete<StatusResponse>('/api/users/me');
+      return response.data;
+    },
+
     /**
      * Cancel a pending account deletion while still within the 30-day grace
      * period.

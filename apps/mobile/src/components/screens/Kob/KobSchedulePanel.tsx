@@ -11,7 +11,8 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, ScrollView, Pressable } from 'react-native';
 import { formatGameScore } from '@/lib/formatters';
 import type { KobTournamentDetail, KobMatch } from '@beach-kings/shared';
 
@@ -44,9 +45,9 @@ function StatusBadge({
 
   return (
     <View className={`px-2 py-0.5 rounded-full ${config.className}`}>
-      <Text className={`text-[11px] font-semibold ${config.textClassName}`}>
+      <AppText className={`text-[11px] font-semibold ${config.textClassName}`}>
         {config.label}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -66,13 +67,13 @@ function MatchRow({ match }: { match: KobMatch }): React.ReactNode {
       className="flex-row items-center py-2 px-4 border-b border-strong last:border-0"
     >
       {/* Court */}
-      <Text className="text-[12px] text-muted w-14">
+      <AppText className="text-[12px] text-muted w-14">
         Ct {match.court_num}
-      </Text>
+      </AppText>
 
       {/* Teams + score */}
       <View className="flex-1 flex-row items-center justify-between">
-        <Text
+        <AppText
           className={`text-[13px] flex-1 ${
             team1Won
               ? 'font-bold text-default'
@@ -81,13 +82,13 @@ function MatchRow({ match }: { match: KobMatch }): React.ReactNode {
           numberOfLines={1}
         >
           {match.team1_player1_name} / {match.team1_player2_name}
-        </Text>
+        </AppText>
 
-        <Text className="text-[13px] font-bold text-muted mx-2 min-w-[40px] text-center">
+        <AppText className="text-[13px] font-bold text-muted mx-2 min-w-[40px] text-center">
           {completedScore ?? 'vs'}
-        </Text>
+        </AppText>
 
-        <Text
+        <AppText
           className={`text-[13px] flex-1 text-right ${
             team2Won
               ? 'font-bold text-default'
@@ -96,7 +97,7 @@ function MatchRow({ match }: { match: KobMatch }): React.ReactNode {
           numberOfLines={1}
         >
           {match.team2_player1_name} / {match.team2_player2_name}
-        </Text>
+        </AppText>
       </View>
     </View>
   );
@@ -128,7 +129,7 @@ function RoundCard({
   return (
     <View
       testID={`kob-round-card-${roundNum}`}
-      className="mx-4 mb-3 bg-surface rounded-xl shadow-sm dark:shadow-none dark:border border-divider overflow-hidden"
+      className="mx-4 mb-3 bg-surface rounded-xl border border-divider overflow-hidden"
     >
       {/* Header */}
       <Pressable
@@ -137,14 +138,14 @@ function RoundCard({
         accessibilityLabel={`${title} — ${status.replace('_', ' ')}`}
         className="flex-row items-center justify-between px-4 py-3 active:bg-page"
       >
-        <Text className="text-[15px] font-semibold text-default">
+        <AppText className="text-[15px] font-semibold text-default">
           {title}
-        </Text>
+        </AppText>
         <View className="flex-row items-center gap-2">
           <StatusBadge status={status} />
-          <Text className="text-[16px] text-muted">
+          <AppText className="text-[16px] text-muted">
             {expanded ? '▲' : '▼'}
-          </Text>
+          </AppText>
         </View>
       </Pressable>
 
@@ -152,9 +153,9 @@ function RoundCard({
       {expanded && (
         <View className="border-t border-strong">
           {matches.length === 0 || status === 'upcoming' ? (
-            <Text className="px-4 py-3 text-[13px] text-muted italic">
+            <AppText className="px-4 py-3 text-[13px] text-muted italic">
               Pairings TBD
-            </Text>
+            </AppText>
           ) : (
             matches.map((match) => (
               <MatchRow key={match.id} match={match} />
@@ -209,12 +210,12 @@ export default function KobSchedulePanel({
         testID="kob-schedule-empty"
         className="flex-1 items-center justify-center py-16 px-8"
       >
-        <Text className="text-[16px] font-semibold text-default mb-2 text-center">
+        <AppText className="text-[16px] font-semibold text-default mb-2 text-center">
           Schedule Not Available
-        </Text>
-        <Text className="text-[14px] text-muted text-center">
+        </AppText>
+        <AppText className="text-[14px] text-muted text-center">
           The tournament schedule will appear here once it begins.
-        </Text>
+        </AppText>
       </View>
     );
   }

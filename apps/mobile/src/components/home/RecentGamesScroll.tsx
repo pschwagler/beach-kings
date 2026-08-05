@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { useRouter } from 'expo-router';
 import type { MatchRecord } from '@beach-kings/shared';
 import { formatDate } from '@/lib/formatters';
@@ -17,100 +18,134 @@ interface RecentGamesScrollProps {
 
 function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
   const router = useRouter();
-  const isWin = match.result === 'W' || match.result === 'win';
+  const normalizedResult = match.result?.trim().toLowerCase() ?? '';
+  const outcome =
+    normalizedResult === 'w' || normalizedResult === 'win'
+      ? 'win'
+      : normalizedResult === 'l' || normalizedResult === 'loss'
+        ? 'loss'
+        : 'pending';
+  const isWin = outcome === 'win';
   const isPending =
-    match.session_status === 'pending' || match.session_status === 'active';
+    outcome === 'pending' ||
+    match.session_status?.toLowerCase() === 'pending' ||
+    match.session_status?.toLowerCase() === 'active';
+  const sessionId = match.session_id;
+  const hasDestination =
+    (typeof sessionId === 'number' &&
+      Number.isInteger(sessionId) &&
+      sessionId > 0) ||
+    (typeof sessionId === 'string' && sessionId.trim().length > 0);
 
   const dateLabel = match.date ? formatDate(match.date, 'short') : '';
   const leagueLabel = match.league_name || match.session_code || '';
   const meta = [dateLabel, leagueLabel].filter(Boolean).join(' · ');
 
-  return (
-    <Pressable
-      onPress={() => {
-        if (match.session_id != null) {
-          router.push(routes.session(match.session_id as number));
-        }
-      }}
-      accessibilityRole="link"
-      accessibilityLabel={`${isWin ? 'Win' : 'Loss'} ${match.score ?? ''}`}
-      className="bg-surface rounded-card p-md border border-divider"
-    >
+  const outcomeLabel =
+    outcome === 'win' ? 'Win' : outcome === 'loss' ? 'Loss' : 'Pending game';
+  const playersLabel = [match.partner, match.opponent_1, match.opponent_2]
+    .filter(
+      (name): name is string => typeof name === 'string' && name.length > 0,
+    )
+    .join(', ');
+  const accessibilityLabel = [outcomeLabel, match.score, playersLabel, meta]
+    .filter(Boolean)
+    .join(', ');
+
+  const content = (
+    <>
       <View className="flex-row items-center gap-xs mb-xs">
         <View
-          className={`${isWin ? 'bg-success-tint' : 'bg-danger-tint'} px-sm py-[2px] rounded-chip`}
+          className={`${outcome === 'pending' ? 'bg-warning-tint' : isWin ? 'bg-success-tint' : 'bg-danger-tint'} px-sm py-[2px] rounded-chip`}
         >
-          <Text
-            className={`text-[11px] font-semibold ${isWin ? 'text-success' : 'text-danger'}`}
+          <AppText
+            className={`text-[11px] font-semibold ${outcome === 'pending' ? 'text-warning' : isWin ? 'text-success' : 'text-danger'}`}
           >
-            {isWin ? 'WIN' : 'LOSS'}
-          </Text>
+            {outcome === 'pending' ? 'PENDING' : isWin ? 'WIN' : 'LOSS'}
+          </AppText>
         </View>
-        {isPending && (
+        {isPending && outcome !== 'pending' && (
           <View className="bg-warning-tint border border-warning px-[6px] py-[1px] rounded-lg">
-            <Text className="text-[10px] font-bold text-warning">
+            <AppText className="text-[10px] font-bold text-warning">
               Pending
-            </Text>
+            </AppText>
           </View>
         )}
       </View>
       {match.score != null && match.score !== '' && (
-        <Text className="text-title3 font-bold text-brand-teal mb-0.5">
+        <AppText className="text-title3 font-bold text-brand-teal mb-0.5">
           {match.score}
-        </Text>
+        </AppText>
       )}
-      <Text className="text-caption text-muted leading-[18px]" numberOfLines={2}>
-        <Text className="font-semibold text-default">
-          You
-        </Text>
+      <AppText
+        className="text-caption text-muted leading-[18px]"
+        numberOfLines={2}
+      >
+        <AppText className="font-semibold text-default">You</AppText>
         {match.partner ? ' / ' : ''}
-        <Text
-          className={
-            match.partner_is_placeholder ? 'italic text-warning' : ''
-          }
+        <AppText
+          className={match.partner_is_placeholder ? 'italic text-warning' : ''}
         >
           {match.partner ?? ''}
-        </Text>
-      </Text>
-      <Text className="text-caption text-muted leading-[18px]" numberOfLines={2}>
+        </AppText>
+      </AppText>
+      <AppText
+        className="text-caption text-muted leading-[18px]"
+        numberOfLines={2}
+      >
         vs{' '}
-        <Text
+        <AppText
           className={
             match.opponent_1_is_placeholder ? 'italic text-warning' : ''
           }
         >
           {match.opponent_1 ?? ''}
-        </Text>
+        </AppText>
         {match.opponent_2 ? ' / ' : ''}
-        <Text
+        <AppText
           className={
             match.opponent_2_is_placeholder ? 'italic text-warning' : ''
           }
         >
           {match.opponent_2 ?? ''}
-        </Text>
-      </Text>
+        </AppText>
+      </AppText>
       {meta !== '' && (
-        <Text className="text-[11px] text-tertiary mt-xs">
-          {meta}
-        </Text>
+        <AppText className="text-[11px] text-tertiary mt-xs">{meta}</AppText>
       )}
+    </>
+  );
+
+  if (!hasDestination) {
+    return (
+      <View className="bg-surface rounded-card p-md border border-divider">
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={() => router.push(routes.session(sessionId))}
+      accessibilityRole="link"
+      accessibilityLabel={accessibilityLabel}
+      className="bg-surface rounded-card p-md border border-divider"
+    >
+      {content}
     </Pressable>
   );
 }
 
 export default function RecentGamesScroll({
   matches,
-  maxItems = 3,
+  maxItems = 2,
 }: RecentGamesScrollProps): React.ReactNode {
   const visible = matches.slice(0, maxItems);
 
   if (visible.length === 0) {
     return (
       <View className="bg-surface rounded-card p-xl items-center">
-        <Text className="text-footnote text-tertiary">
-          No games yet
-        </Text>
+        <AppText className="text-footnote text-tertiary">No games yet</AppText>
       </View>
     );
   }

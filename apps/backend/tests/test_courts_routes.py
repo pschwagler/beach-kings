@@ -445,8 +445,8 @@ class TestSubmitCourt:
         """If lat/lng are absent, geocoding service is called."""
         geocode_called = []
 
-        async def fake_geocode(address):
-            geocode_called.append(address)
+        async def fake_geocode(address, country_code="US"):
+            geocode_called.append((address, country_code))
             return (32.7, -117.2)
 
         async def fake_create_court(session, **kwargs):
@@ -463,7 +463,33 @@ class TestSubmitCourt:
         _restore_verified_player()
 
         assert response.status_code == 200
-        assert len(geocode_called) == 1
+        assert geocode_called == [(body_no_coords["address"], "US")]
+
+    def test_submit_canadian_court_uses_canadian_geocoding(self, monkeypatch):
+        """Canadian location hubs constrain address geocoding to Canada."""
+        geocode_calls = []
+
+        async def fake_geocode(address, country_code="US"):
+            geocode_calls.append((address, country_code))
+            return (43.6532, -79.3832)
+
+        async def fake_create_court(session, **kwargs):
+            return FAKE_COURT
+
+        monkeypatch.setattr(geocoding_service, "geocode_address", fake_geocode, raising=True)
+        monkeypatch.setattr(court_service, "create_court", fake_create_court, raising=True)
+
+        body = {
+            "name": "Canadian Beach Court",
+            "address": "1561 Lake Shore Blvd E, Toronto, ON",
+            "location_id": "ca_on_toronto",
+        }
+        client, headers = _make_verified_player_client(monkeypatch)
+        response = client.post("/api/courts/submit", json=body, headers=headers)
+        _restore_verified_player()
+
+        assert response.status_code == 200
+        assert geocode_calls == [(body["address"], "CA")]
 
     def test_submit_court_no_auth_returns_403(self):
         """Unauthenticated request returns 401/403."""
@@ -475,7 +501,7 @@ class TestSubmitCourt:
     def test_submit_court_service_error_returns_500(self, monkeypatch):
         """Unexpected exception returns 500."""
 
-        async def fake_geocode(address):
+        async def fake_geocode(address, country_code="US"):
             return (32.7, -117.2)
 
         async def fake_create_court(session, **kwargs):

@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View } from 'react-native';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { formatElo, formatWinRate } from '@/lib/formatters';
 
@@ -28,16 +29,16 @@ function StatCell({ value, label, muted, isLast = false }: StatCellProps): React
     <View
       className={`flex-1 items-center py-md ${isLast ? '' : 'border-r border-divider'}`}
     >
-      <Text
+      <AppText
         className={`text-lg font-bold ${
           muted ? 'text-muted' : 'text-default'
         }`}
       >
         {value}
-      </Text>
-      <Text className="text-2xs uppercase tracking-wide text-muted mt-0.5">
+      </AppText>
+      <AppText className="text-2xs uppercase tracking-wide text-muted mt-0.5">
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 }

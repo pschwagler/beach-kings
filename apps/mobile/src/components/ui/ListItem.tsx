@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import Svg, { Path } from 'react-native-svg';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 
@@ -22,7 +23,13 @@ interface ListItemProps {
 function ChevronRight({ color }: { color: string }): React.ReactNode {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 5l7 7-7 7" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M9 5l7 7-7 7"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -46,24 +53,20 @@ export default function ListItem({
         <View className="w-8 h-8 items-center justify-center">{leftIcon}</View>
       )}
       <View className="flex-1">
-        <Text
-          className="text-sm font-medium text-default"
-          numberOfLines={1}
-        >
+        <AppText className="text-sm font-medium text-default" numberOfLines={1}>
           {title}
-        </Text>
+        </AppText>
         {subtitle && (
-          <Text
-            className="text-xs text-muted mt-0.5"
-            numberOfLines={1}
-          >
+          <AppText className="text-xs text-muted mt-0.5" numberOfLines={1}>
             {subtitle}
-          </Text>
+          </AppText>
         )}
       </View>
       {badge !== undefined && (
         <View className="bg-brand-teal rounded-full px-2 py-0.5 min-w-[20px] items-center">
-          <Text className="text-white text-xs font-semibold">{badge}</Text>
+          <AppText className="text-on-brand-teal text-xs font-semibold">
+            {badge}
+          </AppText>
         </View>
       )}
       {rightElement}
@@ -72,9 +75,7 @@ export default function ListItem({
   );
 
   if (!onPress) {
-    return (
-      <View className={`bg-surface ${className}`}>{content}</View>
-    );
+    return <View className={`bg-surface ${className}`}>{content}</View>;
   }
 
   return (

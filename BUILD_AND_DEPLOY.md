@@ -18,21 +18,28 @@ npm install -g eas-cli
 eas login
 ```
 
-3. Create an EAS project:
+3. Link the existing configuration to an EAS project when Expo account access
+   is available:
 ```bash
 cd apps/mobile
-eas build:configure
+eas init
 ```
 
-This will create an `eas.json` file (already created) and link your project to EAS.
+The checked-in `eas.json` already defines development-simulator, preview, and
+production profiles. Expo project linking and signing credentials remain
+external setup steps; do not replace the reviewed profiles with
+`eas build:configure`.
 
 #### Building for Development
 
 ```bash
 cd apps/mobile
-eas build --profile development --platform ios
-eas build --profile development --platform android
+eas build --profile development-simulator --platform ios
 ```
+
+The checked-in development profile is intentionally an iOS simulator build.
+Add a separate Android development profile before documenting or invoking an
+Android development-client build.
 
 #### Building for Preview/Testing
 
@@ -66,7 +73,7 @@ Create `.env` files for different environments:
 
 ```bash
 # apps/mobile/.env.production
-EXPO_PUBLIC_API_URL=https://api.beachleaguevb.com
+EXPO_PUBLIC_API_URL=https://beachleaguevb.com
 
 # apps/mobile/.env.development
 EXPO_PUBLIC_API_URL=http://localhost:8000
@@ -152,4 +159,3 @@ The web app deployment remains unchanged - use existing Docker Compose setup or 
 ## Backend Deployment
 
 The backend deployment remains unchanged - use existing Docker Compose setup or your current deployment method.
-

@@ -7,7 +7,7 @@
 
 ## Problem Statement
 
-Placeholder players (users without an account, created inline during match logging — see [placeholder-players.md](./placeholder-players.md)) need to be invited to claim their profile so their games count toward stats and rankings. Today the invite-link UX is scattered: the session detail banner is wired only for league sessions and routes to a league-wide invite screen, while pickup sessions have a dead banner. We need one reusable screen that lists unclaimed placeholders in a given context and lets the user share their invite link.
+Placeholder players (users without an account, created inline during match logging — see [placeholder-players.md](./placeholder-players.md)) need to be invited to the app, where they can claim their games so those games count toward stats and rankings. Today the invite-link UX is scattered: the session detail banner is wired only for league sessions and routes to a league-wide invite screen, while pickup sessions have a dead banner. We need one reusable screen that lists unclaimed placeholders in a given context and lets the user share their invite link.
 
 ## Scope
 
@@ -32,7 +32,7 @@ Placeholder players (users without an account, created inline during match loggi
 
 The screen is invoked with a **scope** (list of placeholders + context label). Initial sources:
 
-1. **Session Detail** — banner "Invite players to claim their Beach League profile." Scope = placeholders in this session. (Replaces current league-only routing on the banner.)
+1. **Session Detail** — banner "Invite players to the app to claim their games." Scope = placeholders in this session. (Replaces current league-only routing on the banner.)
 2. **Match Detail** (future) — "Invite N players" action when a match has placeholders. Scope = placeholders in this match.
 3. **Profile → Pending Invites** (future) — "Manage invites." Scope = all placeholders created by the current user.
 4. **League Detail** (future, if needed) — placeholders within a league's roster.
@@ -54,7 +54,7 @@ type InvitePlayersScreenParams = {
     inviteUrl: string;       // from existing placeholder invite-link API
   }>;
   shareMessageTemplate?: string;
-  // default: "Hey {firstName}, claim your Beach League profile so our games count: {url}"
+  // default: "Hey {firstName}, join me on the Beach League app to claim the games we played together: {url}"
   emptyStateCopy?: string;   // default "All players on Beach League"
 };
 ```
@@ -74,7 +74,7 @@ Callers are responsible for fetching/filtering the placeholder list. The screen 
 
 Template (callers may override):
 
-> Hey {firstName}, claim your Beach League profile so the games we played together count toward your stats: {url}
+> Hey {firstName}, join me on the Beach League app to claim the games we played together: {url}
 
 Rendered per-player at tap time. Keep it under 160 chars so it fits in a single SMS.
 

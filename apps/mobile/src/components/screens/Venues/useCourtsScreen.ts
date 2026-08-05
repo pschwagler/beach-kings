@@ -13,11 +13,13 @@
  * component stays thin.
  */
 
-import { useState, useCallback } from 'react';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useResolvedUserLocation } from '@/hooks/useResolvedUserLocation';
+import { useAuth } from '@/contexts/AuthContext';
+import { courtQueries, isIndoorCourt } from '@/features/courts';
 import type { Court } from '@beach-kings/shared';
+import { directoryMapRegion, type Region } from '@/utils/mapRegion';
 
 export type CourtFilterChip = 'nearby' | 'my-courts' | 'top-rated' | 'indoor' | 'outdoor' | 'lighted';
 
@@ -38,8 +40,11 @@ export interface UseCourtsScreenResult {
   readonly searchQuery: string;
   readonly viewMode: CourtsViewMode;
   readonly userLocation: UserCoords | null;
+  readonly preferredMapRegion: Region;
+  readonly isCatalogEmpty: boolean;
   readonly setActiveFilter: (filter: CourtFilterChip | null) => void;
   readonly setSearchQuery: (q: string) => void;
+  readonly clearSearch: () => void;
   readonly setViewMode: (mode: CourtsViewMode) => void;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
@@ -49,34 +54,32 @@ export interface UseCourtsScreenResult {
 export function useCourtsScreen(): UseCourtsScreenResult {
   const [activeFilter, setActiveFilter] = useState<CourtFilterChip | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<CourtsViewMode>('list');
 
   // -------------------------------------------------------------------------
   // Location resolution (device GPS -> city -> home court -> hub)
   // -------------------------------------------------------------------------
 
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const { coords: userLocation } = useResolvedUserLocation();
 
   // -------------------------------------------------------------------------
   // Data fetch (re-runs when resolved coordinates change, for distance sort)
   // -------------------------------------------------------------------------
 
-  const { data, isLoading, error, refetch } = useApi<Court[]>(
-    () =>
-      api.getCourts(
-        userLocation != null
-          ? { user_lat: userLocation.latitude, user_lng: userLocation.longitude }
-          : {},
-      ),
-    [userLocation],
+  const {
+    data,
+    isLoading,
+    error,
+    isRefetching,
+    refetch,
+  } = useQuery(
+    courtQueries.catalog(userId, userLocation),
   );
 
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    refetch().finally(() => {
-      setIsRefreshing(false);
-    });
+    void refetch();
   }, [refetch]);
 
   const onRetry = useCallback(() => {
@@ -92,7 +95,7 @@ export function useCourtsScreen(): UseCourtsScreenResult {
   const filtered = allCourts.filter((court) => {
     if (activeFilter === 'my-courts') return court.is_saved === true;
     if (activeFilter === 'outdoor') return court.surface_type === 'sand';
-    if (activeFilter === 'indoor') return court.surface_type === 'indoor';
+    if (activeFilter === 'indoor') return isIndoorCourt(court);
     if (activeFilter === 'lighted') return court.has_lights === true;
     if (activeFilter === 'top-rated') return (court.average_rating ?? 0) >= 4.0;
     return true;
@@ -108,17 +111,26 @@ export function useCourtsScreen(): UseCourtsScreenResult {
           (c.address?.toLowerCase().includes(q) ?? false),
       );
 
+  const preferredMapRegion = useMemo(
+    () => directoryMapRegion(courts, userLocation, searchQuery, activeFilter),
+    [courts, userLocation, searchQuery, activeFilter],
+  );
+  const clearSearch = useCallback(() => setSearchQuery(''), []);
+
   return {
     courts,
     isLoading,
     error,
-    isRefreshing,
+    isRefreshing: isRefetching,
     activeFilter,
     searchQuery,
     viewMode,
     userLocation,
+    preferredMapRegion,
+    isCatalogEmpty: allCourts.length === 0,
     setActiveFilter,
     setSearchQuery,
+    clearSearch,
     setViewMode,
     onRefresh,
     onRetry,

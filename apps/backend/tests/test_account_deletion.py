@@ -299,6 +299,12 @@ async def test_execute_deletion_anonymizes_user_pii(db_session, rich_user):
     """User PII fields are cleared after execution."""
     user_id = rich_user["user_id"]
 
+    result = await db_session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one()
+    user.google_id = f"google-{uuid.uuid4().hex}"
+    user.apple_id = f"apple-{uuid.uuid4().hex}"
+    await db_session.commit()
+
     success = await user_service.execute_account_deletion(db_session, user_id)
     assert success is True
 
@@ -309,8 +315,10 @@ async def test_execute_deletion_anonymizes_user_pii(db_session, rich_user):
     assert user.phone_number is None
     assert user.email is None
     assert user.google_id is None
+    assert user.apple_id is None
     assert user.password_hash is None
     assert user.deletion_scheduled_at is None
+    assert user.deleted_at is not None
     assert user.is_verified is False
 
 
@@ -521,6 +529,17 @@ async def test_user_dict_includes_deletion_scheduled_at(db_session, user_and_pla
     await user_service.schedule_account_deletion(db_session, user_id)
     user = await user_service.get_user_by_id(db_session, user_id)
     assert user["deletion_scheduled_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_user_dict_includes_permanent_deletion_marker(db_session, user_and_player):
+    """Deleted accounts retain a timestamp that invalidates old access tokens."""
+    user_id = user_and_player["user_id"]
+
+    await user_service.execute_account_deletion(db_session, user_id)
+
+    user = await user_service.get_user_by_id(db_session, user_id)
+    assert user["deleted_at"] is not None
 
 
 # ---------------------------------------------------------------------------

@@ -12,7 +12,8 @@
  */
 
 import React, { useCallback } from "react";
-import { View, Text, Pressable } from "react-native";
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -28,6 +29,7 @@ import { useMessageThreadScreen } from "./useMessageThreadScreen";
 import MessagesSkeleton from "./MessagesSkeleton";
 import MessagesErrorState from "./MessagesErrorState";
 import type { DirectMessage } from "@beach-kings/shared";
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Message bubble
@@ -58,23 +60,23 @@ function MessageBubble({
         className={`max-w-[280px] px-[14px] py-[10px] rounded-2xl ${
           isOwn
             ? "bg-brand-teal rounded-br-sm"
-            : "bg-surface rounded-bl-sm shadow-sm"
+            : "bg-surface rounded-bl-sm border border-divider"
         }`}
       >
-        <Text
+        <AppText
           className={`text-[14px] leading-[1.4] ${
-            isOwn ? "text-white" : "text-default"
+            isOwn ? "text-on-brand-teal" : "text-default"
           }`}
         >
           {message.message_text}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           className={`text-[11px] mt-1 ${
-            isOwn ? "text-white/50" : "text-muted"
+            isOwn ? "text-on-brand-teal" : "text-muted"
           }`}
         >
           {formatMsgTime(message.created_at)}
-        </Text>
+        </AppText>
       </View>
     </View>
   );
@@ -90,9 +92,9 @@ function ThreadEmptyState(): React.ReactNode {
       testID="thread-empty-state"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <Text className="text-[14px] text-muted text-center">
+      <AppText className="text-[14px] text-muted text-center">
         No messages yet. Say hello!
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -114,6 +116,7 @@ export default function MessageThreadScreen({
   currentPlayerId,
 }: MessageThreadScreenProps): React.ReactNode {
   const router = useRouter();
+  const palette = usePaletteColors();
   const handleBack = useBack();
   const insets = useSafeAreaInsets();
   const {
@@ -194,10 +197,10 @@ export default function MessageThreadScreen({
           accessibilityLabel="Back to Messages"
           className="min-w-touch min-h-touch flex-row items-center"
         >
-          <ChevronLeftIcon size={18} color="#ffffff" />
-          <Text className="text-white text-[15px] font-medium ml-0.5">
+          <ChevronLeftIcon size={18} color={palette.textInverse} />
+          <AppText className="text-inverse text-[15px] font-medium ml-0.5">
             Messages
-          </Text>
+          </AppText>
         </Pressable>
 
         <Avatar
@@ -209,13 +212,13 @@ export default function MessageThreadScreen({
         />
 
         <View className="flex-1 min-w-0">
-          <Text
-            className="text-white text-[15px] font-bold"
-            numberOfLines={1}
+          <AppText
+            className="text-inverse text-[15px] font-bold"
+            numberOfLines={2}
             accessibilityRole="header"
           >
             {displayName}
-          </Text>
+          </AppText>
         </View>
 
         <Pressable
@@ -225,7 +228,7 @@ export default function MessageThreadScreen({
           accessibilityLabel={`View ${displayName}'s profile`}
           className="min-h-touch items-end justify-center px-1"
         >
-          <Text className="text-white text-[14px] font-medium">Profile</Text>
+          <AppText className="text-inverse text-[14px] font-medium">Profile</AppText>
         </Pressable>
       </View>
       {renderBody()}

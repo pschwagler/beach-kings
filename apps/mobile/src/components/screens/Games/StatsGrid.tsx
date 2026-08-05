@@ -7,7 +7,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View } from 'react-native';
 import type { MyStatsOverall } from '@beach-kings/shared';
 import { formatWinRate } from '@/lib/formatters';
 
@@ -20,15 +21,15 @@ interface StatCardProps {
 
 function StatCard({ label, value, trend, trendUp }: StatCardProps): React.ReactNode {
   return (
-    <View className="flex-1 bg-surface rounded-[12px] p-[14px] shadow-sm dark:shadow-none dark:border border-divider">
-      <Text className="text-[11px] text-muted uppercase tracking-wider">
+    <View className="flex-1 bg-surface rounded-[12px] p-[14px] border border-divider">
+      <AppText className="text-[11px] text-muted uppercase tracking-wider">
         {label}
-      </Text>
-      <Text className="text-[22px] font-bold text-default mt-1">
+      </AppText>
+      <AppText className="text-[22px] font-bold text-default mt-1">
         {value}
-      </Text>
+      </AppText>
       {trend != null && (
-        <Text
+        <AppText
           className={`text-[11px] font-bold mt-[3px] ${
             trendUp
               ? 'text-success'
@@ -36,7 +37,7 @@ function StatCard({ label, value, trend, trendUp }: StatCardProps): React.ReactN
           }`}
         >
           {trend}
-        </Text>
+        </AppText>
       )}
     </View>
   );

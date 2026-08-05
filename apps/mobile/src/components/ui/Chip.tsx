@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
+import AppText from './AppText';
 
 interface ChipProps {
   readonly label: string;
@@ -32,15 +33,15 @@ export default function Chip({
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
     >
-      <Text
+      <AppText
         className={`text-sm font-medium ${
           active
-            ? 'text-white'
+            ? 'text-on-brand-teal'
             : 'text-default'
         }`}
       >
         {label}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }

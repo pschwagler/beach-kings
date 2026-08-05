@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, ScrollView } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import type { MutualFriend } from '@beach-kings/shared';
 
@@ -25,9 +26,9 @@ export default function PlayerMutualFriends({
       testID="player-mutual-friends"
       className="bg-elevated px-lg py-md border-b border-strong"
     >
-      <Text className="text-[15px] font-bold text-default mb-md">
+      <AppText className="text-[15px] font-bold text-default mb-md">
         {label}
-      </Text>
+      </AppText>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-lg">
@@ -46,9 +47,9 @@ export default function PlayerMutualFriends({
                   size="md"
                   colorSeed={friend.player_id}
                 />
-                <Text className="text-[11px] text-muted max-w-[60px] text-center">
+                <AppText className="text-[11px] text-muted max-w-[60px] text-center">
                   {name}
-                </Text>
+                </AppText>
               </View>
             );
           })}

@@ -29,12 +29,13 @@
 
 import React from 'react';
 import {
-  render,
+  render as renderWithoutQuery,
   screen,
   fireEvent,
   waitFor,
   act,
 } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Global mocks
@@ -100,6 +101,10 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
+
 const mockCreateCourtReview = jest.fn();
 const mockUpdateCourtReview = jest.fn();
 const mockDeleteCourtReview = jest.fn();
@@ -123,6 +128,18 @@ jest.mock('@/lib/api', () => ({
 import CourtReviewCard from '../../../../src/components/screens/Venues/CourtReviewCard';
 import CourtReviewsSection from '../../../../src/components/screens/Venues/CourtReviewsSection';
 import WriteReviewModal from '../../../../src/components/screens/Venues/WriteReviewModal';
+
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+  return renderWithoutQuery(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -203,6 +220,7 @@ describe('CourtReviewCard', () => {
       />,
     );
     expect(screen.getByTestId('review-card-stars')).toBeTruthy();
+    expect(screen.getByLabelText('4 out of 5 stars')).toBeTruthy();
   });
 
   it('renders the author full name', () => {
@@ -269,6 +287,8 @@ describe('CourtReviewCard', () => {
       />,
     );
     expect(screen.getByTestId('review-card-photos')).toBeTruthy();
+    expect(screen.getByLabelText('Review photo 1 of 2')).toBeTruthy();
+    expect(screen.getByLabelText('Review photo 2 of 2')).toBeTruthy();
   });
 
   it('renders fallback initial when author has no avatar', () => {

@@ -9,7 +9,8 @@
  */
 
 import React, { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -20,6 +21,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { CheckIcon, ShareIcon } from '@/components/ui/icons';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface ScoreboardToastProps {
   readonly visible: boolean;
@@ -44,6 +47,8 @@ export default function ScoreboardToast({
   onDismiss,
 }: ScoreboardToastProps): React.ReactNode {
   const { bottom: bottomInset } = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+  const palette = usePaletteColors();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(12);
 
@@ -52,6 +57,13 @@ export default function ScoreboardToast({
       opacity.value = 0;
       translateY.value = 12;
       return;
+    }
+
+    if (reduceMotion) {
+      opacity.value = 1;
+      translateY.value = 0;
+      const timeout = setTimeout(onDismiss, LINGER_MS);
+      return () => clearTimeout(timeout);
     }
 
     // Fade + translate-up on entry
@@ -75,7 +87,7 @@ export default function ScoreboardToast({
       LINGER_MS,
       withTiming(12, { duration: FADE_OUT_MS }),
     );
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onDismiss, opacity, reduceMotion, translateY, visible]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -87,23 +99,23 @@ export default function ScoreboardToast({
   return (
     <Animated.View
       testID="scoreboard-toast"
-      style={[animatedStyle, { bottom: 16 + bottomInset, left: 16, right: 16, shadowColor: '#1a3a4a', shadowOpacity: 0.32, shadowRadius: 14, shadowOffset: { width: 0, height: 10 } }]}
-      className="absolute flex-row items-center rounded-full bg-brand-teal px-3 py-3 gap-3"
+      style={[animatedStyle, { bottom: 16 + bottomInset, left: 16, right: 16 }]}
+      className="absolute flex-row items-center rounded-full bg-brand-teal px-3 py-3 gap-3 shadow-lg"
       accessibilityLiveRegion="polite"
     >
       {/* Success check circle */}
-      <View className="w-7 h-7 rounded-full bg-success items-center justify-center flex-shrink-0">
-        <CheckIcon size={CHECK_ICON_SIZE} color="#ffffff" />
+      <View className="w-7 h-7 rounded-full bg-success-fill items-center justify-center flex-shrink-0">
+        <CheckIcon size={CHECK_ICON_SIZE} color={palette.onSuccess} />
       </View>
 
       {/* Message */}
-      <Text
+      <AppText
         testID="scoreboard-toast-message"
-        className="flex-1 text-white text-sm font-semibold"
+        className="flex-1 text-on-brand-teal text-sm font-semibold"
         numberOfLines={1}
       >
         {message}
-      </Text>
+      </AppText>
 
       {/* Optional share action */}
       {onShare != null && (
@@ -111,13 +123,13 @@ export default function ScoreboardToast({
           testID="scoreboard-toast-share"
           onPress={onShare}
           accessibilityRole="button"
-          accessibilityLabel="Share invite link"
+          accessibilityLabel="Invite player to the Beach League app"
           className="px-3 py-1.5 flex-shrink-0 flex-row items-center gap-1"
         >
-          <ShareIcon size={SHARE_ICON_SIZE} color="#d4a843" />
-          <Text className="text-brand-gold text-xs font-bold uppercase tracking-widest">
-            Share
-          </Text>
+          <ShareIcon size={SHARE_ICON_SIZE} color={palette.onBrandTeal} />
+          <AppText className="text-on-brand-teal text-xs font-bold uppercase tracking-widest">
+            Invite
+          </AppText>
         </Pressable>
       )}
     </Animated.View>

@@ -1,9 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   Modal,
   Platform,
   Pressable,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -107,12 +107,12 @@ export default function SessionDateField({
           <CalendarIcon size={19} color={palette.brandTeal} />
         </View>
         <View className="ml-3 flex-1">
-          <Text className="text-[12px] font-semibold text-muted">
+          <AppText className="text-[12px] font-semibold text-muted">
             Session date
-          </Text>
-          <Text className="mt-0.5 text-[15px] font-semibold text-default">
+          </AppText>
+          <AppText className="mt-0.5 text-[15px] font-semibold text-default">
             {formatCalendarDateLabel(value, today)}
-          </Text>
+          </AppText>
         </View>
         <ChevronRightIcon size={18} color={palette.textTertiary} />
       </TouchableOpacity>
@@ -154,20 +154,20 @@ export default function SessionDateField({
                   accessibilityRole="button"
                   className="min-h-touch min-w-touch justify-center"
                 >
-                  <Text className="text-[15px] font-semibold text-muted">
+                  <AppText className="text-[15px] font-semibold text-muted">
                     Cancel
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
                 <View className="items-center">
-                  <Text className="text-[16px] font-bold text-default">
+                  <AppText className="text-[16px] font-bold text-default">
                     Session date
-                  </Text>
-                  <Text className="mt-0.5 text-[12px] text-muted">
+                  </AppText>
+                  <AppText className="mt-0.5 text-[12px] text-muted">
                     {formatCalendarDateLabel(
                       formatLocalCalendarDate(draftDate),
                       today,
                     )}
-                  </Text>
+                  </AppText>
                 </View>
                 <TouchableOpacity
                   testID={`${testID}-done`}
@@ -175,9 +175,9 @@ export default function SessionDateField({
                   accessibilityRole="button"
                   className="min-h-touch min-w-touch items-end justify-center"
                 >
-                  <Text className="text-[15px] font-bold text-brand-teal">
+                  <AppText className="text-[15px] font-bold text-brand-teal">
                     Done
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
 
@@ -201,9 +201,9 @@ export default function SessionDateField({
                   accessibilityLabel="Use today's date"
                   className="min-h-touch flex-1 items-center justify-center rounded-[12px] border border-divider bg-elevated active:opacity-75"
                 >
-                  <Text className="text-[14px] font-semibold text-default">
+                  <AppText className="text-[14px] font-semibold text-default">
                     Today
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   testID={`${testID}-tomorrow`}
@@ -212,9 +212,9 @@ export default function SessionDateField({
                   accessibilityLabel="Use tomorrow's date"
                   className="min-h-touch flex-1 items-center justify-center rounded-[12px] border border-divider bg-elevated active:opacity-75"
                 >
-                  <Text className="text-[14px] font-semibold text-default">
+                  <AppText className="text-[14px] font-semibold text-default">
                     Tomorrow
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
             </View>

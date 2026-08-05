@@ -293,6 +293,23 @@ describe('CourtsScreen — empty state', () => {
       expect(screen.getByTestId('courts-empty-state')).toBeTruthy();
     });
   });
+
+  it('does not mislabel an empty catalog as a location-permission problem', async () => {
+    mockGetCourts.mockResolvedValue([]);
+    renderScreen();
+    await waitFor(() => expect(screen.getByText('No courts yet')).toBeTruthy());
+    expect(screen.queryByText('Enable Location')).toBeNull();
+  });
+
+  it('offers search recovery before filter recovery', async () => {
+    mockGetCourts.mockResolvedValue([MOCK_COURT_1]);
+    renderScreen();
+    const search = await screen.findByPlaceholderText('Search courts');
+    fireEvent.changeText(search, 'nowhere');
+    await waitFor(() => expect(screen.getByTestId('courts-clear-search-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('courts-clear-search-btn'));
+    await waitFor(() => expect(screen.getByTestId('court-row-1')).toBeTruthy());
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -368,6 +385,17 @@ describe('CourtsScreen — filter bar', () => {
     await waitFor(() => {
       expect(screen.getByTestId('courts-filter-bar')).toBeTruthy();
     });
+  });
+
+  it('keeps filters visible and selected in map mode', async () => {
+    mockGetCourts.mockResolvedValue([MOCK_COURT_1, MOCK_COURT_2]);
+    renderScreen();
+    await screen.findByTestId('filter-court-lighted');
+    fireEvent.press(screen.getByTestId('filter-court-lighted'));
+    fireEvent.press(screen.getByTestId('courts-view-toggle-map'));
+    await waitFor(() => expect(screen.getByTestId('courts-map-view')).toBeTruthy());
+    expect(screen.getByTestId('courts-filter-bar')).toBeTruthy();
+    expect(screen.getByTestId('filter-court-lighted')).toHaveAccessibilityState({ selected: true });
   });
 
   it('renders all filter chips', async () => {

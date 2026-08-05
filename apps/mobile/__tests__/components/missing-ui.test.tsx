@@ -20,7 +20,12 @@ jest.mock('@/contexts/ThemeContext', () => ({
   }),
 }));
 
+jest.mock('@/hooks/useReducedMotion', () => ({
+  useReducedMotion: () => false,
+}));
+
 jest.mock('@beach-kings/shared/tokens', () => ({
+  ...jest.requireActual('@beach-kings/shared/tokens'),
   colors: {
     primary: '#1a3a4a',
     textPrimary: '#1a1a1a',

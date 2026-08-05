@@ -2,11 +2,12 @@
  * Profile header section for the Player Profile screen.
  * Shows avatar, name, location, level badge, and Add Friend / Message buttons.
  * For guest players (is_placeholder), renders a "not on Beach League yet" banner
- * and a Send Invite button instead of the social actions.
+ * and an Invite to App button instead of the social actions.
  */
 
 import React from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable, ActivityIndicator } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
 import { presentRelationship } from '@/features/social';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -65,38 +66,40 @@ export default function PlayerProfileHeader({
         className={`mb-sm ${
           isGuest
             ? 'border-2 border-dashed border-brand-gold'
-            : 'border-2 border-brand-teal/20'
+            : 'border-2 border-divider'
         }`}
       />
 
       {/* Name */}
-      <Text
+      <AppText
         testID="player-profile-name"
-        className="text-[22px] font-bold text-default"
+        family="display"
+        weight="bold"
+        className="text-[22px] text-default"
       >
         {displayName}
-      </Text>
+      </AppText>
 
       {/* Guest badge */}
       {isGuest && (
-        <View className="bg-brand-gold/15 px-sm py-[3px] rounded-xl mt-xs">
-          <Text className="text-xs font-semibold text-brand-gold">Guest</Text>
+        <View className="bg-warning-tint px-sm py-[3px] rounded-xl mt-xs">
+          <AppText className="text-xs font-semibold text-accent">Guest</AppText>
         </View>
       )}
 
       {/* Meta row: location + level badge */}
       <View className="flex-row items-center gap-sm mt-xs">
         {location.length > 0 && (
-          <Text className="text-sm text-muted">
+          <AppText className="text-sm text-muted">
             {location}
-          </Text>
+          </AppText>
         )}
         {location.length > 0 && level != null && (
-          <Text className="text-muted">·</Text>
+          <AppText className="text-muted">·</AppText>
         )}
         {level != null && (
-          <View className="bg-brand-teal/10 px-sm py-[3px] rounded-xl">
-            <Text className="text-xs font-semibold text-brand-teal">{level}</Text>
+          <View className="bg-info-tint px-sm py-[3px] rounded-xl">
+            <AppText className="text-xs font-semibold text-brand-teal">{level}</AppText>
           </View>
         )}
       </View>
@@ -105,11 +108,11 @@ export default function PlayerProfileHeader({
       {isGuest && (
         <View
           testID="guest-not-joined-banner"
-          className="mt-md px-md py-sm rounded-xl bg-brand-gold/10 border border-brand-gold/30 items-center"
+          className="mt-md px-md py-sm rounded-xl bg-warning-tint border border-warning items-center"
         >
-          <Text className="text-sm text-brand-gold text-center">
+          <AppText className="text-sm text-accent text-center">
             This player hasn't joined Beach League yet.
-          </Text>
+          </AppText>
         </View>
       )}
 
@@ -120,10 +123,10 @@ export default function PlayerProfileHeader({
             testID="player-send-invite-btn"
             onPress={onSendInvite}
             accessibilityRole="button"
-            accessibilityLabel={`Invite ${displayName} to Beach League`}
+            accessibilityLabel={`Invite ${displayName} to the Beach League app`}
             className="px-xl py-sm rounded-xl bg-brand-gold min-h-touch items-center justify-center active:opacity-70"
           >
-            <Text className="text-sm font-semibold text-white">Send Invite</Text>
+            <AppText className="text-sm font-semibold text-on-brand-gold">Invite to App</AppText>
           </Pressable>
         ) : (
           <>
@@ -134,7 +137,7 @@ export default function PlayerProfileHeader({
                   testID="player-accept-friend-btn"
                   isLoading={isFriendActionLoading}
                   onPress={onAcceptFriend}
-                  spinnerColor={palette.textInverse}
+                  spinnerColor={palette.onBrandTeal}
                   primary
                 />
                 <RelationshipResponseButton
@@ -151,7 +154,7 @@ export default function PlayerProfileHeader({
                 canAdd={relationship.canAdd}
                 isLoading={isFriendActionLoading}
                 onPress={onAddFriend}
-                spinnerColor={palette.textInverse}
+                spinnerColor={palette.onBrandTeal}
               />
             ) : null}
             {relationship.showMessage && (
@@ -162,9 +165,9 @@ export default function PlayerProfileHeader({
                 accessibilityLabel={`Send message to ${displayName}`}
                 className="px-xl py-sm rounded-xl border-[1.5px] border-default min-h-touch items-center justify-center active:opacity-70"
               >
-                <Text className="text-sm font-semibold text-default">
+                <AppText className="text-sm font-semibold text-default">
                   Message
-                </Text>
+                </AppText>
               </Pressable>
             )}
           </>
@@ -204,22 +207,22 @@ function FriendButton({
       disabled={isDisabled}
       className={`px-xl py-sm rounded-xl min-h-touch items-center justify-center active:opacity-70 ${
         isDisabled
-          ? 'bg-default/20'
-          : 'bg-default'
+          ? 'bg-elevated'
+          : 'bg-brand-teal'
       }`}
     >
       {isLoading ? (
         <ActivityIndicator size="small" color={spinnerColor} />
       ) : (
-        <Text
+        <AppText
           className={`text-sm font-semibold ${
             isDisabled
               ? 'text-default'
-              : 'text-inverse'
+              : 'text-on-brand-teal'
           }`}
         >
           {label}
-        </Text>
+        </AppText>
       )}
     </Pressable>
   );
@@ -250,19 +253,19 @@ function RelationshipResponseButton({
       accessibilityLabel={`${label} friend request`}
       disabled={isLoading}
       className={`px-lg py-sm rounded-xl min-h-touch items-center justify-center active:opacity-70 ${
-        primary ? 'bg-default' : 'border-[1.5px] border-default'
+        primary ? 'bg-brand-teal' : 'border-[1.5px] border-default'
       }`}
     >
       {isLoading ? (
         <ActivityIndicator size="small" color={spinnerColor} />
       ) : (
-        <Text
+        <AppText
           className={`text-sm font-semibold ${
-            primary ? 'text-inverse' : 'text-default'
+            primary ? 'text-on-brand-teal' : 'text-default'
           }`}
         >
           {label}
-        </Text>
+        </AppText>
       )}
     </Pressable>
   );

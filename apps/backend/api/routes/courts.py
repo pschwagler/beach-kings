@@ -220,7 +220,10 @@ async def submit_court(
     try:
         lat, lng = payload.latitude, payload.longitude
         if lat is None or lng is None:
-            lat, lng = await geocoding_service.geocode_address(payload.address)
+            country_code = "CA" if payload.location_id.startswith("ca_") else "US"
+            lat, lng = await geocoding_service.geocode_address(
+                payload.address, country_code=country_code
+            )
 
         result = await court_service.create_court(
             session,

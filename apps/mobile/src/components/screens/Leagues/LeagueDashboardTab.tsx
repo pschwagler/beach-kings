@@ -8,9 +8,9 @@
  */
 
 import React, { useMemo, useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   ActivityIndicator,
@@ -64,15 +64,15 @@ function SeasonPicker({ seasons, selectedId, onSelect }: SeasonPickerProps): Rea
             : 'bg-surface border-strong'
         } active:opacity-70`}
       >
-        <Text
+        <AppText
           className={`text-[12px] font-semibold ${
             allActive
-              ? 'text-white'
+              ? 'text-on-brand-teal'
               : 'text-muted'
           }`}
         >
           All
-        </Text>
+        </AppText>
       </Pressable>
 
       {seasons.map((s) => {
@@ -91,16 +91,16 @@ function SeasonPicker({ seasons, selectedId, onSelect }: SeasonPickerProps): Rea
                 : 'bg-surface border-strong'
             } active:opacity-70`}
           >
-            <Text
+            <AppText
               className={`text-[12px] font-semibold ${
                 isActive
-                  ? 'text-white'
+                  ? 'text-on-brand-teal'
                   : 'text-muted'
               }`}
             >
               {s.name}
               {s.is_active ? ' (Active)' : ''}
-            </Text>
+            </AppText>
           </Pressable>
         );
       })}
@@ -133,9 +133,9 @@ function StandingsRow({ standing, isSeasonView, onPress }: StandingsRowProps): R
       className="flex-row items-center px-4 py-[12px] border-b border-divider bg-surface active:opacity-70"
     >
       {/* Rank */}
-      <Text className="w-8 text-[13px] font-bold text-muted">
+      <AppText className="w-8 text-[13px] font-bold text-muted">
         {standing.rank}
-      </Text>
+      </AppText>
 
       {/* Avatar + Name */}
       <View className="flex-1 flex-row items-center gap-2 min-w-0">
@@ -146,31 +146,31 @@ function StandingsRow({ standing, isSeasonView, onPress }: StandingsRowProps): R
           colorSeed={standing.player_id}
           accessible={false}
         />
-        <Text
+        <AppText
           className="text-[14px] font-semibold text-default"
           numberOfLines={1}
         >
           {standing.display_name}
-        </Text>
+        </AppText>
       </View>
 
       {/* W-L */}
-      <Text className="w-12 text-[13px] text-muted text-center">
+      <AppText className="w-12 text-[13px] text-muted text-center">
         {standing.wins}-{standing.losses}
-      </Text>
+      </AppText>
 
       {/* Win% */}
-      <Text className="w-12 text-[13px] text-muted text-center">
+      <AppText className="w-12 text-[13px] text-muted text-center">
         {standing.win_rate}%
-      </Text>
+      </AppText>
 
       {/* PTS / Rating */}
       <View className="w-16 items-end">
-        <Text className="text-[14px] font-semibold text-default">
+        <AppText className="text-[14px] font-semibold text-default">
           {ratingDisplay}
-        </Text>
+        </AppText>
         {!isSeasonView && deltaDisplay != null && (
-          <Text
+          <AppText
             className={`text-[10px] font-medium ${
               deltaDisplay >= 0
                 ? 'text-success'
@@ -179,7 +179,7 @@ function StandingsRow({ standing, isSeasonView, onPress }: StandingsRowProps): R
           >
             {deltaDisplay >= 0 ? '+' : ''}
             {deltaDisplay}
-          </Text>
+          </AppText>
         )}
       </View>
     </Pressable>
@@ -208,9 +208,9 @@ function SortIndicator({
 }): React.ReactNode {
   if (field !== sortField) return null;
   return (
-    <Text className="text-[9px] text-default ml-[2px]">
+    <AppText className="text-[9px] text-default ml-[2px]">
       {sortDir === 'desc' ? '▼' : '▲'}
-    </Text>
+    </AppText>
   );
 }
 
@@ -266,7 +266,7 @@ function SortableHeader({
       }
       className={`${className} flex-row items-center ${justify} active:opacity-70`}
     >
-      <Text
+      <AppText
         className={`text-[12px] font-semibold ${textAlignClass} ${
           isActive
             ? 'text-default'
@@ -274,7 +274,7 @@ function SortableHeader({
         }`}
       >
         {label}
-      </Text>
+      </AppText>
       <SortIndicator field={field} sortField={sortField} sortDir={sortDir} />
     </Pressable>
   );
@@ -363,41 +363,41 @@ function SeasonInfoCard({ info }: SeasonInfoCardProps): React.ReactNode {
       testID="season-info-card"
       className="mx-4 mt-4 mb-2 bg-surface rounded-[12px] border border-divider p-4"
     >
-      <Text className="text-[13px] font-bold text-default mb-3">
+      <AppText className="text-[13px] font-bold text-default mb-3">
         {info.name}
-      </Text>
+      </AppText>
       <View className="flex-row flex-wrap gap-y-2">
         <View className="w-1/2">
-          <Text className="text-[11px] text-muted uppercase tracking-wide">
+          <AppText className="text-[11px] text-muted uppercase tracking-wide">
             Started
-          </Text>
-          <Text className="text-[14px] font-semibold text-default">
+          </AppText>
+          <AppText className="text-[14px] font-semibold text-default">
             {formatDate(info.started_at)}
-          </Text>
+          </AppText>
         </View>
         <View className="w-1/2">
-          <Text className="text-[11px] text-muted uppercase tracking-wide">
+          <AppText className="text-[11px] text-muted uppercase tracking-wide">
             {endedLabel(info.ended_at)}
-          </Text>
-          <Text className="text-[14px] font-semibold text-default">
+          </AppText>
+          <AppText className="text-[14px] font-semibold text-default">
             {formatDate(info.ended_at)}
-          </Text>
+          </AppText>
         </View>
         <View className="w-1/2">
-          <Text className="text-[11px] text-muted uppercase tracking-wide">
+          <AppText className="text-[11px] text-muted uppercase tracking-wide">
             Sessions
-          </Text>
-          <Text className="text-[14px] font-semibold text-default">
+          </AppText>
+          <AppText className="text-[14px] font-semibold text-default">
             {info.session_count}
-          </Text>
+          </AppText>
         </View>
         <View className="w-1/2">
-          <Text className="text-[11px] text-muted uppercase tracking-wide">
+          <AppText className="text-[11px] text-muted uppercase tracking-wide">
             Total Games
-          </Text>
-          <Text className="text-[14px] font-semibold text-default">
+          </AppText>
+          <AppText className="text-[14px] font-semibold text-default">
             {info.game_count}
-          </Text>
+          </AppText>
         </View>
       </View>
     </View>
@@ -477,9 +477,9 @@ export default function LeagueDashboardTab({
         testID="standings-error"
         className="flex-1 items-center justify-center px-8"
       >
-        <Text className="text-[16px] font-bold text-default text-center mb-2">
+        <AppText className="text-[16px] font-bold text-default text-center mb-2">
           Failed to load standings
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -508,12 +508,12 @@ export default function LeagueDashboardTab({
         ))}
         {sortedStandings.length === 0 && (
           <View className="py-10 px-6 items-center">
-            <Text className="text-[15px] font-semibold text-default text-center">
+            <AppText className="text-[15px] font-semibold text-default text-center">
               No standings yet
-            </Text>
-            <Text className="text-[13px] text-muted text-center mt-1 leading-[18px]">
+            </AppText>
+            <AppText className="text-[13px] text-muted text-center mt-1 leading-[18px]">
               Standings will appear after this season's first submitted game.
-            </Text>
+            </AppText>
           </View>
         )}
       </View>

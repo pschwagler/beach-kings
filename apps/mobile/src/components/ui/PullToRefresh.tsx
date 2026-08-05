@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { ScrollView, RefreshControl } from 'react-native';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface PullToRefreshProps {
   readonly refreshing: boolean;
@@ -13,14 +14,13 @@ interface PullToRefreshProps {
   readonly className?: string;
 }
 
-const TEAL_COLOR = '#0D9488';
-
 export default function PullToRefresh({
   refreshing,
   onRefresh,
   children,
   className = '',
 }: PullToRefreshProps): React.ReactNode {
+  const palette = usePaletteColors();
   return (
     <ScrollView
       className={`flex-1 ${className}`}
@@ -28,8 +28,8 @@ export default function PullToRefresh({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={TEAL_COLOR}
-          colors={[TEAL_COLOR]}
+          tintColor={palette.brandTeal}
+          colors={[palette.brandTeal]}
         />
       }
     >

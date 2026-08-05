@@ -334,6 +334,34 @@ def test_list_courts_invalid_min_rating(client):
     assert response.status_code == 422
 
 
+def test_list_courts_rejects_incomplete_or_invalid_latitude_bounds(client):
+    assert client.get("/api/public/courts?north=41").status_code == 422
+    assert client.get("/api/public/courts?north=40&south=41&east=-73&west=-74").status_code == 422
+    assert client.get("/api/public/courts?north=41&south=40&east=-74&west=-74").status_code == 422
+
+
+@patch("backend.services.court_service.list_courts_public", new_callable=AsyncMock)
+def test_list_courts_forwards_bounds(mock_list, client):
+    mock_list.return_value = {"items": [], "total_count": 0, "page": 1, "page_size": 20}
+    response = client.get("/api/public/courts?north=41&south=40&east=-73&west=-74")
+    assert response.status_code == 200
+    assert {key: mock_list.call_args.kwargs[key] for key in ("north", "south", "east", "west")} == {
+        "north": 41.0, "south": 40.0, "east": -73.0, "west": -74.0,
+    }
+
+
+@patch("backend.services.court_service.list_courts_public", new_callable=AsyncMock)
+def test_list_courts_accepts_and_forwards_date_line_crossing_bounds(mock_list, client):
+    mock_list.return_value = {"items": [], "total_count": 0, "page": 1, "page_size": 20}
+
+    response = client.get("/api/public/courts?north=10&south=-10&east=-179&west=179")
+
+    assert response.status_code == 200
+    assert {key: mock_list.call_args.kwargs[key] for key in ("north", "south", "east", "west")} == {
+        "north": 10.0, "south": -10.0, "east": -179.0, "west": 179.0,
+    }
+
+
 # ===========================================================================
 # GET /api/public/courts/tags
 # ===========================================================================

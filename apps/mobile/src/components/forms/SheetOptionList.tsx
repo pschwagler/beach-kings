@@ -1,15 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   Pressable,
   ScrollView,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
+import AppText from '@/components/ui/AppText';
 import { CheckIcon, SearchIcon } from '@/components/ui/icons';
 import { useTheme } from '@/contexts/ThemeContext';
-import { colors, darkColors } from '@beach-kings/shared/tokens';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 export interface SelectOption {
   readonly value: string;
@@ -45,6 +45,7 @@ export default function SheetOptionList({
   searchPlaceholder = 'Search',
 }: SheetOptionListProps): React.ReactNode {
   const { isDark } = useTheme();
+  const palette = usePaletteColors();
   const [query, setQuery] = useState('');
 
   const filtered = useMemo<readonly SelectOption[]>(() => {
@@ -61,27 +62,22 @@ export default function SheetOptionList({
 
   return (
     <View className="px-lg pb-xl pt-sm">
-      <Text className="text-footnote font-semibold text-muted uppercase tracking-wider mb-md">
+      <AppText className="text-footnote font-semibold text-muted uppercase tracking-wider mb-md">
         {title}
-      </Text>
+      </AppText>
 
       {searchable ? (
         <View className="flex-row items-center border border-divider rounded-lg px-md mb-md h-10 bg-surface">
-          <SearchIcon
-            size={16}
-            color={isDark ? darkColors.textTertiary : colors.textTertiary}
-          />
+          <SearchIcon size={16} color={palette.textTertiary} />
           <TextInput
             className="flex-1 ml-sm"
             value={query}
             onChangeText={setQuery}
             placeholder={searchPlaceholder}
-            placeholderTextColor={
-              isDark ? darkColors.textTertiary : colors.textTertiary
-            }
+            placeholderTextColor={palette.textTertiary}
             keyboardAppearance={isDark ? 'dark' : 'light'}
             style={{
-              color: isDark ? darkColors.textPrimary : colors.textPrimary,
+              color: palette.textDefault,
               fontSize: 15,
               paddingVertical: 0,
             }}
@@ -98,11 +94,11 @@ export default function SheetOptionList({
           {loading ? (
             <ActivityIndicator />
           ) : (
-            <Text className="text-body text-muted">
+            <AppText className="text-body text-muted">
               {searchable && query
                 ? 'No matches'
                 : (emptyMessage ?? 'No options')}
-            </Text>
+            </AppText>
           )}
         </View>
       ) : (
@@ -116,7 +112,7 @@ export default function SheetOptionList({
               <Pressable
                 key={opt.value}
                 className={`flex-row items-center justify-between py-md px-md rounded-lg ${
-                  selected ? 'bg-brand-teal/10' : 'bg-transparent'
+                  selected ? 'bg-info-tint' : 'bg-transparent'
                 }`}
                 onPress={() => onSelect(opt.value)}
                 accessibilityRole="radio"
@@ -124,20 +120,22 @@ export default function SheetOptionList({
                 accessibilityLabel={opt.label}
               >
                 <View className="flex-1">
-                  <Text
+                  <AppText
                     className={`text-body font-medium ${
                       selected ? 'text-brand-teal' : 'text-default'
                     }`}
                   >
                     {opt.label}
-                  </Text>
+                  </AppText>
                   {opt.sublabel ? (
-                    <Text className="text-caption text-muted mt-xxs">
+                    <AppText className="text-caption text-muted mt-xxs">
                       {opt.sublabel}
-                    </Text>
+                    </AppText>
                   ) : null}
                 </View>
-                {selected ? <CheckIcon size={18} color="#2a7d9c" /> : null}
+                {selected ? (
+                  <CheckIcon size={18} color={palette.brandTeal} />
+                ) : null}
               </Pressable>
             );
           })}

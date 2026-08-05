@@ -12,9 +12,9 @@
  */
 
 import React from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   View,
-  Text,
   FlatList,
   ActivityIndicator,
   Pressable,
@@ -72,30 +72,30 @@ function InviteRow({
       <View className="flex-row items-center px-4 pt-[14px] pb-[10px] gap-3">
         {/* League avatar / initials */}
         <View className="w-10 h-10 rounded-full items-center justify-center flex-shrink-0 bg-brand-teal">
-          <Text className="text-[11px] font-bold text-white">
+          <AppText className="text-[11px] font-bold text-on-brand-teal">
             {invite.initials}
-          </Text>
+          </AppText>
         </View>
 
         {/* Content */}
         <View className="flex-1 min-w-0">
-          <Text
+          <AppText
             className="text-[14px] font-semibold text-default"
             numberOfLines={1}
           >
             {invite.league_name}
-          </Text>
-          <Text className="text-[12px] text-muted mt-[2px]" numberOfLines={1}>
+          </AppText>
+          <AppText className="text-[12px] text-muted mt-[2px]" numberOfLines={1}>
             Invited by {invite.display_name}
-          </Text>
+          </AppText>
           {gamesLabel != null ? (
-            <Text className="text-[11px] text-brand-teal mt-[2px]">
+            <AppText className="text-[11px] text-brand-teal mt-[2px]">
               {gamesLabel}
-            </Text>
+            </AppText>
           ) : null}
-          <Text className="text-[11px] text-tertiary mt-[2px]">
+          <AppText className="text-[11px] text-tertiary mt-[2px]">
             {dateLabel}
-          </Text>
+          </AppText>
         </View>
       </View>
 
@@ -114,9 +114,9 @@ function InviteRow({
           {isResponding ? (
             <ActivityIndicator size="small" />
           ) : (
-            <Text className="text-[14px] font-semibold text-danger">
+            <AppText className="text-[14px] font-semibold text-danger">
               Decline
-            </Text>
+            </AppText>
           )}
         </Pressable>
 
@@ -133,9 +133,9 @@ function InviteRow({
           {isResponding ? (
             <ActivityIndicator size="small" />
           ) : (
-            <Text className="text-[14px] font-bold text-brand-teal">
+            <AppText className="text-[14px] font-bold text-brand-teal">
               Accept
-            </Text>
+            </AppText>
           )}
         </Pressable>
       </View>
@@ -169,12 +169,12 @@ export default function ReceivedInvitesScreen(): React.ReactNode {
           testID="received-invites-error"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[16px] font-bold text-default text-center">
+          <AppText className="text-[16px] font-bold text-default text-center">
             Failed to load invitations
-          </Text>
-          <Text className="text-[13px] text-muted text-center mt-2">
+          </AppText>
+          <AppText className="text-[13px] text-muted text-center mt-2">
             Pull to retry.
-          </Text>
+          </AppText>
         </View>
       );
     }
@@ -185,12 +185,12 @@ export default function ReceivedInvitesScreen(): React.ReactNode {
           testID="received-invites-empty"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[20px] font-bold text-default mb-2 text-center">
+          <AppText className="text-[20px] font-bold text-default mb-2 text-center">
             No Invitations
-          </Text>
-          <Text className="text-[14px] text-muted text-center">
+          </AppText>
+          <AppText className="text-[14px] text-muted text-center">
             When someone invites you to their league, it will appear here.
-          </Text>
+          </AppText>
         </View>
       );
     }

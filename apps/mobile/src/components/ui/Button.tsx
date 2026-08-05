@@ -6,9 +6,10 @@
  */
 
 import React, { useCallback } from 'react';
-import { Pressable, Text, ActivityIndicator } from 'react-native';
+import { Pressable, ActivityIndicator } from 'react-native';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
+import AppText from './AppText';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 
@@ -19,16 +20,20 @@ interface ButtonProps {
   readonly disabled?: boolean;
   readonly loading?: boolean;
   readonly className?: string;
+  readonly testID?: string;
 }
 
-const variantStyles: Record<ButtonVariant, { container: string; text: string }> = {
+const variantStyles: Record<
+  ButtonVariant,
+  { container: string; text: string }
+> = {
   primary: {
     container: 'bg-brand-teal',
-    text: 'text-white',
+    text: 'text-on-brand-teal',
   },
   secondary: {
     container: 'bg-brand-gold',
-    text: 'text-white',
+    text: 'text-on-brand-gold',
   },
   outline: {
     container: 'bg-transparent border border-brand-teal',
@@ -39,8 +44,8 @@ const variantStyles: Record<ButtonVariant, { container: string; text: string }> 
     text: 'text-brand-teal',
   },
   danger: {
-    container: 'bg-danger',
-    text: 'text-white',
+    container: 'bg-danger-fill',
+    text: 'text-on-danger',
   },
 };
 
@@ -51,15 +56,47 @@ export default function Button({
   disabled = false,
   loading = false,
   className = '',
+  testID,
 }: ButtonProps): React.ReactNode {
   const palette = usePaletteColors();
   const styles = variantStyles[variant];
+
+  const containerStyle = (() => {
+    switch (variant) {
+      case 'primary':
+        return { backgroundColor: palette.brandTeal };
+      case 'secondary':
+        return { backgroundColor: palette.brandGold };
+      case 'danger':
+        return { backgroundColor: palette.dangerFill };
+      case 'outline':
+        return { borderColor: palette.brandTeal };
+      case 'ghost':
+        return undefined;
+    }
+  })();
+
+  const textColor = (() => {
+    switch (variant) {
+      case 'primary':
+        return palette.onBrandTeal;
+      case 'secondary':
+        return palette.onBrandGold;
+      case 'danger':
+        return palette.onDanger;
+      case 'outline':
+      case 'ghost':
+        return palette.brandTeal;
+    }
+  })();
 
   const spinnerColor = (() => {
     if (variant === 'outline' || variant === 'ghost') {
       return palette.brandTeal;
     }
-    return palette.textInverse;
+    if (variant === 'secondary') return palette.onBrandGold;
+    if (variant === 'danger') return palette.onDanger;
+    return palette.onBrandTeal;
   })();
 
   const handlePress = useCallback(() => {
@@ -74,7 +111,9 @@ export default function Button({
 
   return (
     <Pressable
+      testID={testID}
       className={`min-h-touch rounded-lg items-center justify-center px-lg ${styles.container} ${disabled ? 'opacity-50' : ''} ${className}`}
+      style={containerStyle}
       onPress={handlePress}
       disabled={disabled || loading}
       accessibilityLabel={title}
@@ -84,9 +123,12 @@ export default function Button({
       {loading ? (
         <ActivityIndicator color={spinnerColor} />
       ) : (
-        <Text className={`font-semibold text-body ${styles.text}`}>
+        <AppText
+          className={`font-semibold text-body ${styles.text}`}
+          style={{ color: textColor }}
+        >
           {title}
-        </Text>
+        </AppText>
       )}
     </Pressable>
   );

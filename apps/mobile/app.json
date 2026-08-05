@@ -14,7 +14,7 @@
       "backgroundColor": "#1a3a4a"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.beachleague.app",
       "entitlements": {
         "keychain-access-groups": ["$(AppIdentifierPrefix)com.beachleague.app"]
@@ -34,7 +34,59 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "Barlow",
+                "fontDefinitions": [
+                  {
+                    "path": "../../node_modules/@expo-google-fonts/barlow/400Regular/Barlow_400Regular.ttf",
+                    "weight": 400
+                  },
+                  {
+                    "path": "../../node_modules/@expo-google-fonts/barlow/500Medium/Barlow_500Medium.ttf",
+                    "weight": 500
+                  },
+                  {
+                    "path": "../../node_modules/@expo-google-fonts/barlow/600SemiBold/Barlow_600SemiBold.ttf",
+                    "weight": 600
+                  },
+                  {
+                    "path": "../../node_modules/@expo-google-fonts/barlow/700Bold/Barlow_700Bold.ttf",
+                    "weight": 700
+                  }
+                ]
+              },
+              {
+                "fontFamily": "Barlow Condensed",
+                "fontDefinitions": [
+                  {
+                    "path": "../../node_modules/@expo-google-fonts/barlow-condensed/600SemiBold/BarlowCondensed_600SemiBold.ttf",
+                    "weight": 600
+                  },
+                  {
+                    "path": "../../node_modules/@expo-google-fonts/barlow-condensed/700Bold/BarlowCondensed_700Bold.ttf",
+                    "weight": 700
+                  }
+                ]
+              }
+            ]
+          },
+          "ios": {
+            "fonts": [
+              "../../node_modules/@expo-google-fonts/barlow/400Regular/Barlow_400Regular.ttf",
+              "../../node_modules/@expo-google-fonts/barlow/500Medium/Barlow_500Medium.ttf",
+              "../../node_modules/@expo-google-fonts/barlow/600SemiBold/Barlow_600SemiBold.ttf",
+              "../../node_modules/@expo-google-fonts/barlow/700Bold/Barlow_700Bold.ttf",
+              "../../node_modules/@expo-google-fonts/barlow-condensed/600SemiBold/BarlowCondensed_600SemiBold.ttf",
+              "../../node_modules/@expo-google-fonts/barlow-condensed/700Bold/BarlowCondensed_700Bold.ttf"
+            ]
+          }
+        }
+      ],
       "expo-web-browser",
       "expo-notifications",
       "@react-native-community/datetimepicker",

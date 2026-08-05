@@ -188,6 +188,7 @@ function render(ui: React.ReactElement) {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  jest.useFakeTimers();
   jest.clearAllMocks();
   queryClient = new QueryClient({
     defaultOptions: {
@@ -213,6 +214,13 @@ beforeEach(() => {
     read_at: null,
     created_at: new Date().toISOString(),
   });
+});
+
+afterEach(() => {
+  act(() => {
+    jest.runOnlyPendingTimers();
+  });
+  jest.useRealTimers();
 });
 
 // ---------------------------------------------------------------------------

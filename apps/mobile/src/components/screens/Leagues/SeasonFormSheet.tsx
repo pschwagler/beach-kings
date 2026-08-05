@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import AppText from '@/components/ui/AppText';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -6,12 +7,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import type { LeagueSeason } from '@beach-kings/shared';
 import type { SeasonFormPayload } from './useLeagueInfoTab';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 type ScoringSystem = 'points_system' | 'season_rating';
 
@@ -142,15 +143,16 @@ function FormField({
   keyboardType = 'default',
   testID,
 }: FormFieldProps): React.ReactNode {
+  const palette = usePaletteColors();
   return (
     <View className="py-[12px] border-b border-divider">
-      <Text className="text-[12px] font-semibold text-muted mb-2">{label}</Text>
+      <AppText className="text-[12px] font-semibold text-muted mb-2">{label}</AppText>
       <TextInput
         testID={testID}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#999"
+        placeholderTextColor={palette.textTertiary}
         keyboardType={keyboardType}
         className="text-[15px] text-default bg-elevated rounded-[8px] px-3 py-[10px]"
       />
@@ -243,16 +245,16 @@ export default function SeasonFormSheet({
           <View className="bg-surface rounded-t-[20px] max-h-[88%]">
             <View className="px-4 pt-4">
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-[18px] font-bold text-default">
+                <AppText className="text-[18px] font-bold text-default">
                   {mode === 'create' ? 'New Season' : 'Edit Season'}
-                </Text>
+                </AppText>
                 <Pressable
                   testID="close-season-form"
                   onPress={onClose}
                   hitSlop={8}
                   className="active:opacity-70"
                 >
-                  <Text className="text-[14px] font-semibold text-brand-teal">Done</Text>
+                  <AppText className="text-[14px] font-semibold text-brand-teal">Done</AppText>
                 </Pressable>
               </View>
             </View>
@@ -288,7 +290,7 @@ export default function SeasonFormSheet({
               />
 
               <View className="py-[12px] border-b border-divider">
-                <Text className="text-[12px] font-semibold text-muted mb-2">Scoring system</Text>
+                <AppText className="text-[12px] font-semibold text-muted mb-2">Scoring system</AppText>
                 <View className="flex-row gap-2">
                   {[
                     { label: 'Points System', value: 'points_system' as const },
@@ -304,21 +306,21 @@ export default function SeasonFormSheet({
                           selected ? 'border-brand-teal bg-info-tint' : 'border-divider bg-elevated'
                         }`}
                       >
-                        <Text
+                        <AppText
                           className={`text-[12px] font-bold ${
                             selected ? 'text-brand-teal' : 'text-muted'
                           }`}
                         >
                           {option.label}
-                        </Text>
+                        </AppText>
                       </Pressable>
                     );
                   })}
                 </View>
                 {scoringChanged && (
-                  <Text testID="season-scoring-warning" className="text-[12px] text-warning mt-2">
+                  <AppText testID="season-scoring-warning" className="text-[12px] text-warning mt-2">
                     Changing scoring system will recalculate all stats.
-                  </Text>
+                  </AppText>
                 )}
               </View>
 
@@ -341,14 +343,14 @@ export default function SeasonFormSheet({
                 </>
               ) : (
                 <View className="bg-info-tint rounded-[8px] px-3 py-3 mt-3">
-                  <Text className="text-[12px] text-default">{SEASON_RATING_DESCRIPTION}</Text>
+                  <AppText className="text-[12px] text-default">{SEASON_RATING_DESCRIPTION}</AppText>
                 </View>
               )}
 
               {error != null && (
-                <Text testID="season-form-error" className="text-[12px] text-danger mt-3">
+                <AppText testID="season-form-error" className="text-[12px] text-danger mt-3">
                   {error}
-                </Text>
+                </AppText>
               )}
             </ScrollView>
 
@@ -361,7 +363,7 @@ export default function SeasonFormSheet({
                 onPress={onClose}
                 className="flex-1 items-center rounded-[8px] border border-divider py-[12px] active:opacity-70"
               >
-                <Text className="text-[13px] font-bold text-muted">Cancel</Text>
+                <AppText className="text-[13px] font-bold text-muted">Cancel</AppText>
               </Pressable>
               <Pressable
                 testID="season-submit-btn"
@@ -376,9 +378,9 @@ export default function SeasonFormSheet({
                 {isSaving ? (
                   <ActivityIndicator size="small" />
                 ) : (
-                  <Text className="text-[13px] font-bold text-white">
+                  <AppText className="text-[13px] font-bold text-on-brand-teal">
                     {mode === 'create' ? 'Create' : 'Update'}
-                  </Text>
+                  </AppText>
                 )}
               </Pressable>
             </View>

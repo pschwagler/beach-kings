@@ -78,6 +78,16 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    danger: '#b91c1c',
+    info: '#2a7d9c',
+    warning: '#b87900',
+    success: '#2d7a3a',
+    textMuted: '#596568',
+  }),
+}));
+
 const mockGetNotifications = jest.fn();
 const mockMarkNotificationRead = jest.fn();
 const mockMarkAllNotificationsRead = jest.fn();
@@ -489,24 +499,5 @@ describe('NotificationsTab — mark-all header action', () => {
       fireEvent.press(screen.getByTestId('mark-all-read-btn'));
     });
     expect(mockMarkAllNotificationsRead).toHaveBeenCalled();
-  });
-
-  it('publishes null when all notifications are read', async () => {
-    mockGetNotifications.mockResolvedValue(MOCK_NOTIFICATIONS.map((notification) => ({
-      ...notification,
-      is_read: true,
-      read_at: '2026-04-19T14:00:00Z',
-    })));
-    mockGetUnreadNotificationCount.mockResolvedValue({ count: 0 });
-    const mockSetHeaderAction = jest.fn();
-    renderNotificationsTab(mockSetHeaderAction);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('notifications-screen')).toBeTruthy();
-    });
-
-    await waitFor(() => {
-      expect(mockSetHeaderAction).toHaveBeenLastCalledWith(null);
-    });
   });
 });

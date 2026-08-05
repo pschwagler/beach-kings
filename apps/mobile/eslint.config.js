@@ -87,6 +87,12 @@ module.exports = [
               message:
                 "Import SafeAreaView from 'react-native-safe-area-context' — react-native's is deprecated and breaks NativeWind flex layout.",
             },
+            {
+              name: 'react-native',
+              importNames: ['Text'],
+              message:
+                "Render shipped copy through the shared AppText primitive so typography, scaling, and font-family behavior stay centralized.",
+            },
           ],
         },
       ],
@@ -100,9 +106,16 @@ module.exports = [
     },
   },
   {
+    files: ['src/components/ui/AppText.tsx'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
+  {
     files: ['**/__tests__/**', '**/*.test.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': 'off',
+      'no-restricted-imports': 'off',
     },
   },
 ];

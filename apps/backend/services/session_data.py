@@ -42,7 +42,7 @@ __all__ = [
 from backend.services import player_search_cache
 from backend.services.match_validation import validate_match_score
 from backend.services.session_geo_service import resolve_session_geo
-from backend.services.placeholder_service import FRONTEND_BASE_URL
+from backend.utils.frontend_url import build_invite_url
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, and_, or_, cast, Integer
@@ -1758,9 +1758,7 @@ async def get_session_roster_with_game_counts(
             display_name = f"Player {r.id}"
             initials = "??"
 
-        invite_url = (
-            f"{FRONTEND_BASE_URL}/invite/{r.invite_token}" if r.invite_token is not None else None
-        )
+        invite_url = build_invite_url(r.invite_token) if r.invite_token is not None else None
 
         roster.append(
             {

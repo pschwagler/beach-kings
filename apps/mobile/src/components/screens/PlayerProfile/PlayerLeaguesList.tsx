@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
 import { pluralize } from '@/lib/formatters';
 import type { PlayerLeague } from '@beach-kings/shared';
@@ -25,9 +26,9 @@ export default function PlayerLeaguesList({
       testID="player-leagues-list"
       className="bg-elevated px-lg pt-md pb-lg mt-sm mb-[100px]"
     >
-      <Text className="text-[15px] font-bold text-default mb-md">
+      <AppText className="text-[15px] font-bold text-default mb-md">
         Leagues
-      </Text>
+      </AppText>
 
       {leagues.map((league) => (
         <Pressable
@@ -42,23 +43,23 @@ export default function PlayerLeaguesList({
           className="flex-row items-center gap-md py-sm border-b border-strong last:border-0 active:opacity-70"
         >
           {/* Icon */}
-          <View className="w-[40px] h-[40px] rounded-xl bg-brand-teal/10 items-center justify-center flex-shrink-0">
-            <Text className="text-lg text-brand-teal">L</Text>
+          <View className="w-[40px] h-[40px] rounded-xl bg-info-tint items-center justify-center flex-shrink-0">
+            <AppText className="text-lg text-brand-teal">L</AppText>
           </View>
 
           {/* Info */}
           <View className="flex-1">
-            <Text className="text-sm font-semibold text-default">
+            <AppText className="text-sm font-semibold text-default">
               {league.name}
-            </Text>
-            <Text className="text-xs text-muted mt-[2px]">
+            </AppText>
+            <AppText className="text-xs text-muted mt-[2px]">
               {league.rank != null ? `Ranked #${league.rank} · ` : ''}
               {pluralize(league.games_played, 'game')}
-            </Text>
+            </AppText>
           </View>
 
           {/* Chevron */}
-          <Text className="text-text-disabled text-lg">›</Text>
+          <AppText className="text-text-disabled text-lg">›</AppText>
         </Pressable>
       ))}
     </View>
