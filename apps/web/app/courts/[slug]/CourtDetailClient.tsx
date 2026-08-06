@@ -244,15 +244,37 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
 
         <CourtAmenities court={court} />
 
-        {(court.hours || court.phone || court.website) && (
+        {(court.wind_exposure || court.wind_notes || court.sand_depth || court.sand_notes) && (
+          <section className="court-detail__conditions" aria-labelledby="playing-conditions-title">
+            <h2 id="playing-conditions-title" className="court-detail__section-title">Playing Conditions</h2>
+            <div className="court-detail__conditions-grid">
+              {(court.wind_exposure || court.wind_notes) && (
+                <div className="court-detail__condition">
+                  <span className="court-detail__condition-label">Typical wind</span>
+                  {court.wind_exposure && <strong>{({ sheltered: 'Sheltered', mixed: 'Mixed', exposed: 'Exposed' } as Record<string, string>)[court.wind_exposure] || court.wind_exposure}</strong>}
+                  {court.wind_notes && <p>{court.wind_notes}</p>}
+                </div>
+              )}
+              {(court.sand_depth || court.sand_notes) && (
+                <div className="court-detail__condition">
+                  <span className="court-detail__condition-label">Sand depth</span>
+                  {court.sand_depth && <strong>{({ shallow: 'Shallow', typical: 'Typical', deep: 'Deep' } as Record<string, string>)[court.sand_depth] || court.sand_depth}</strong>}
+                  {court.sand_notes && <p>{court.sand_notes}</p>}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {(court.hours || court.phone || court.website || court.cost_info || court.parking_info) && (
           <div className="court-detail__info-section">
-            <h2 className="court-detail__section-title">Hours & Contact</h2>
+            <h2 className="court-detail__section-title">Plan Your Visit</h2>
             {court.hours && <p className="court-detail__info-row"><strong>Hours:</strong> {court.hours}</p>}
             {court.phone && <p className="court-detail__info-row"><strong>Phone:</strong> {court.phone}</p>}
             {court.website && (
               <p className="court-detail__info-row">
-                <strong>Website:</strong>{' '}
-                <a href={court.website} target="_blank" rel="noopener noreferrer">{court.website}</a>
+                <strong>Official site / booking:</strong>{' '}
+                <a href={court.website} target="_blank" rel="noopener noreferrer">Open website</a>
               </p>
             )}
             {court.cost_info && <p className="court-detail__info-row"><strong>Cost:</strong> {court.cost_info}</p>}

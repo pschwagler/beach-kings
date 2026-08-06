@@ -266,7 +266,6 @@ describe('SessionDetailScreen — loading state', () => {
     });
   });
 });
-
 // ---------------------------------------------------------------------------
 // Error state
 // ---------------------------------------------------------------------------
@@ -488,6 +487,9 @@ describe('SessionDetailScreen — menu', () => {
     expect(screen.queryByTestId('session-menu-duplicate')).toBeNull();
     expect(screen.getByTestId('session-menu-edit')).toBeTruthy();
     expect(screen.getByTestId('session-menu-roster')).toBeTruthy();
+    expect(screen.getByTestId('session-menu-roster')).toHaveTextContent(
+      'Manage Players',
+    );
     expect(screen.getByTestId('session-menu-share')).toBeTruthy();
     expect(screen.getByTestId('session-menu-delete')).toBeTruthy();
   });
@@ -504,5 +506,8 @@ describe('SessionDetailScreen — menu', () => {
     });
     expect(screen.getByTestId('session-menu-copy-results')).toBeTruthy();
     expect(screen.getByTestId('session-menu-duplicate')).toBeTruthy();
+    expect(screen.getByTestId('session-menu-roster')).toHaveTextContent(
+      'View Players',
+    );
   });
 });

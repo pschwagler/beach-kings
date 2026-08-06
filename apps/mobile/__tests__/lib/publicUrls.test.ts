@@ -7,6 +7,7 @@ describe('public URLs', () => {
       terms: 'https://beachleaguevb.com/terms-of-service',
       privacy: 'https://beachleaguevb.com/privacy-policy',
       support: 'https://beachleaguevb.com/support',
+      communityGuidelines: 'https://beachleaguevb.com/community-guidelines',
     });
     expect(Object.values(PUBLIC_URLS).every((url) => url.startsWith(`${PUBLIC_WEB_ORIGIN}/`)))
       .toBe(true);

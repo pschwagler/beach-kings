@@ -161,9 +161,15 @@ jest.mock('@/features/notifications', () => ({
   NotificationTransport: () => null,
 }));
 
+jest.mock('@/features/notifications/NativePushProvider', () => ({
+  __esModule: true,
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 // ToastContext
 jest.mock('@/contexts/ToastContext', () => ({
   __esModule: true,
+  useToast: () => ({ showToast: jest.fn() }),
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 

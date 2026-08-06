@@ -21,6 +21,7 @@ const STATIC_PAGES = [
   { path: '/beach-volleyball', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/privacy-policy', changeFrequency: 'yearly', priority: 0.2 },
   { path: '/terms-of-service', changeFrequency: 'yearly', priority: 0.2 },
+  { path: '/community-guidelines', changeFrequency: 'yearly', priority: 0.3 },
 ];
 
 /**

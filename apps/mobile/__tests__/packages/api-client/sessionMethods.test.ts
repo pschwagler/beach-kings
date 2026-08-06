@@ -14,14 +14,21 @@ function makeClient(post: jest.Mock, patch: jest.Mock): ApiClient {
 }
 
 describe('session API methods', () => {
-  it('normalizes edited sessions as finalized rather than active', async () => {
+  it.each([
+    ['ACTIVE', 'active'],
+    ['active', 'active'],
+    ['SUBMITTED', 'submitted'],
+    ['EDITED', 'submitted'],
+    ['UNKNOWN', 'submitted'],
+    [undefined, 'submitted'],
+  ])('normalizes session status %s as %s', async (rawStatus, expectedStatus) => {
     const client = makeClient(jest.fn(), jest.fn());
     const get = client.axiosInstance.get as jest.Mock;
-    get.mockResolvedValue({ data: { id: 7, status: 'EDITED' } });
+    get.mockResolvedValue({ data: { id: 7, status: rawStatus } });
     const methods = createApiMethods(client);
 
     await expect(methods.getSessionById(7)).resolves.toEqual(
-      expect.objectContaining({ status: 'submitted' }),
+      expect.objectContaining({ status: expectedStatus }),
     );
   });
 

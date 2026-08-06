@@ -9,7 +9,54 @@ import type {
   ReviewActionResponse,
   CreateCourtReviewInput,
   UpdateCourtReviewInput,
+  SuggestCourtEditInput,
+  CourtEditSuggestionReceipt,
 } from '@beach-kings/shared';
+
+const WIND_EXPOSURES = new Set(['sheltered', 'mixed', 'exposed']);
+const SAND_DEPTHS = new Set(['shallow', 'typical', 'deep']);
+
+function normalizeCourt(court: Court): Court {
+  const normalized = { ...court };
+  if ('wind_exposure' in court) {
+    normalized.wind_exposure = WIND_EXPOSURES.has(String(court.wind_exposure))
+      ? court.wind_exposure
+      : null;
+  }
+  if ('wind_notes' in court) {
+    normalized.wind_notes = typeof court.wind_notes === 'string' ? court.wind_notes : null;
+  }
+  if ('sand_depth' in court) {
+    normalized.sand_depth = SAND_DEPTHS.has(String(court.sand_depth))
+      ? court.sand_depth
+      : null;
+  }
+  if ('sand_notes' in court) {
+    normalized.sand_notes = typeof court.sand_notes === 'string' ? court.sand_notes : null;
+  }
+  if ('website' in court) {
+    normalized.website = typeof court.website === 'string' ? court.website : null;
+  }
+  return normalized;
+}
+
+function validateSuggestion(input: SuggestCourtEditInput): SuggestCourtEditInput {
+  const hasLatitude = Object.prototype.hasOwnProperty.call(input.changes, 'latitude');
+  const hasLongitude = Object.prototype.hasOwnProperty.call(input.changes, 'longitude');
+  if (hasLatitude !== hasLongitude) {
+    throw new Error('Latitude and longitude must be suggested together.');
+  }
+  if ((input.changes.wind_notes?.length ?? 0) > 140) {
+    throw new Error('Wind notes must be 140 characters or fewer.');
+  }
+  if ((input.changes.sand_notes?.length ?? 0) > 140) {
+    throw new Error('Sand notes must be 140 characters or fewer.');
+  }
+  if ((input.note?.length ?? 0) > 280) {
+    throw new Error('Suggestion note must be 280 characters or fewer.');
+  }
+  return input;
+}
 
 /** API methods for the Location, court, saved-court, and weekly-schedule domain. */
 export function createCourtMethods(api: AxiosInstance) {
@@ -67,10 +114,10 @@ export function createCourtMethods(api: AxiosInstance) {
         params: requestParams,
       });
       const data = response.data;
-      if (Array.isArray(data)) return data;
+      if (Array.isArray(data)) return data.map(normalizeCourt);
 
       const courts = [...(data?.items ?? [])];
-      if (!all) return courts;
+      if (!all) return courts.map(normalizeCourt);
 
       const totalCount = data?.total_count ?? courts.length;
       const pageSize = data?.page_size ?? courts.length;
@@ -91,7 +138,7 @@ export function createCourtMethods(api: AxiosInstance) {
         courts.push(...items);
       }
 
-      return courts;
+      return courts.map(normalizeCourt);
     },
 
     /**
@@ -107,13 +154,29 @@ export function createCourtMethods(api: AxiosInstance) {
       return response.data;
     },
 
+    async suggestCourtEdit(
+      courtId: number,
+      input: SuggestCourtEditInput,
+    ): Promise<CourtEditSuggestionReceipt> {
+      const response = await api.post<CourtEditSuggestionReceipt>(
+        `/api/courts/${courtId}/suggest-edit`,
+        validateSuggestion(input),
+      );
+      return {
+        id: response.data.id,
+        court_id: response.data.court_id,
+        status: response.data.status ?? 'pending',
+        created_at: response.data.created_at ?? null,
+      };
+    },
+
     /**
      * Fetch full detail for a single court by numeric id or slug.
      * Returns 404 when the court is not found.
      */
     async getCourtById(idOrSlug: string | number): Promise<Court> {
       const response = await api.get<Court>(`/api/courts/${idOrSlug}`);
-      return response.data;
+      return normalizeCourt(response.data);
     },
 
     /**
@@ -317,7 +380,7 @@ export function createCourtMethods(api: AxiosInstance) {
      */
     async getMyCourts(): Promise<Court[]> {
       const response = await api.get<Court[]>('/api/users/me/courts');
-      return response.data;
+      return response.data.map(normalizeCourt);
     },
 
     // -----------------------------------------------------------------------

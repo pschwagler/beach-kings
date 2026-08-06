@@ -9,6 +9,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import AuthProvider from '@/contexts/AuthContext';
 import ThemeProvider, { useTheme } from '@/contexts/ThemeContext';
 import { NotificationTransport } from '@/features/notifications';
+import NativePushProvider from '@/features/notifications/NativePushProvider';
 import {
   createQueryClient,
   PrivateQueryCacheGuard,
@@ -53,6 +54,10 @@ function RootLayoutInner({ onReady }: { readonly onReady: () => void }): React.R
           options={{ gestureEnabled: false, animation: 'fade' }}
         />
         <Stack.Screen
+          name="(account)"
+          options={{ gestureEnabled: false, animation: 'fade' }}
+        />
+        <Stack.Screen
           name="(tabs)"
           options={{ gestureEnabled: false, animation: 'fade' }}
         />
@@ -78,11 +83,13 @@ export default function RootLayout(): React.ReactNode {
           <ThemeProvider>
             <AuthProvider>
               <PrivateQueryCacheGuard>
-                <NotificationTransport />
                 <ToastProvider>
-                  <ErrorBoundary>
-                    <RootLayoutInner onReady={handleReady} />
-                  </ErrorBoundary>
+                  <NativePushProvider>
+                    <NotificationTransport />
+                    <ErrorBoundary>
+                      <RootLayoutInner onReady={handleReady} />
+                    </ErrorBoundary>
+                  </NativePushProvider>
                 </ToastProvider>
               </PrivateQueryCacheGuard>
             </AuthProvider>

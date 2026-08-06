@@ -10,6 +10,8 @@ export interface CourtPhoto {
   caption?: string | null;
   sort_order?: number;
   created_at?: string | null;
+  moderation_visibility?: import('./moderation').ModerationVisibility;
+  target_type?: 'court_photo' | 'court_review_photo';
 }
 
 export interface CourtReview {
@@ -22,6 +24,7 @@ export interface CourtReview {
   photos: CourtPhoto[] | null;
   created_at: string;
   updated_at: string;
+  moderation_visibility?: import('./moderation').ModerationVisibility;
 }
 
 /** Returned by create/update/delete review endpoints. */
@@ -77,6 +80,45 @@ export interface UpdateCourtReviewInput {
   tag_ids?: number[];
 }
 
+export type CourtWindExposure = 'sheltered' | 'mixed' | 'exposed';
+export type CourtSandDepth = 'shallow' | 'typical' | 'deep';
+
+export interface CourtEditChanges {
+  name?: string;
+  address?: string;
+  description?: string | null;
+  court_count?: number | null;
+  surface_type?: string | null;
+  is_free?: boolean | null;
+  cost_info?: string | null;
+  has_lights?: boolean | null;
+  has_restrooms?: boolean | null;
+  has_parking?: boolean | null;
+  parking_info?: string | null;
+  nets_provided?: boolean | null;
+  hours?: string | null;
+  phone?: string | null;
+  wind_exposure?: CourtWindExposure | null;
+  wind_notes?: string | null;
+  sand_depth?: CourtSandDepth | null;
+  sand_notes?: string | null;
+  website?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface SuggestCourtEditInput {
+  changes: CourtEditChanges;
+  note?: string;
+}
+
+export interface CourtEditSuggestionReceipt {
+  id: number;
+  court_id: number;
+  status: 'pending' | string;
+  created_at: string | null;
+}
+
 export interface Court {
   id: number | string;
   name: string;
@@ -97,6 +139,10 @@ export interface Court {
   has_parking?: boolean | null;
   nets_provided?: boolean | null;
   website?: string | null;
+  wind_exposure?: CourtWindExposure | null;
+  wind_notes?: string | null;
+  sand_depth?: CourtSandDepth | null;
+  sand_notes?: string | null;
   phone?: string | null;
   parking_info?: string | null;
   hours?: string | null;

@@ -1,7 +1,7 @@
 """
 Seed court tags and courts for all locations from CSV files on startup.
 
-Idempotent: creates new rows and backfills missing coordinates on existing rows.
+Idempotent: creates new rows and backfills missing curated fields on existing rows.
 Does NOT overwrite existing court data — users may edit courts based on their
 experience, and those changes should be preserved across restarts.
 To force a full re-seed, delete rows from the courts table first.
@@ -75,7 +75,7 @@ async def _seed_courts_from_csv(session, csv_filename: str) -> tuple[int, int]:
             result = await session.execute(select(Court).where(Court.slug == row["slug"]))
             existing = result.scalar_one_or_none()
             if existing:
-                # Backfill missing coordinates on existing courts
+                # Backfill only missing values; preserve user/admin edits.
                 changed = False
                 if existing.latitude is None and lat is not None:
                     existing.latitude = lat
@@ -86,6 +86,11 @@ async def _seed_courts_from_csv(session, csv_filename: str) -> tuple[int, int]:
                 if existing.geoJson is None and geo is not None:
                     existing.geoJson = geo
                     changed = True
+                for field in ("wind_exposure", "wind_notes", "sand_depth", "sand_notes"):
+                    value = row.get(field) or None
+                    if getattr(existing, field) is None and value is not None:
+                        setattr(existing, field, value)
+                        changed = True
                 if changed:
                     updated += 1
                 continue
@@ -107,6 +112,10 @@ async def _seed_courts_from_csv(session, csv_filename: str) -> tuple[int, int]:
                     longitude=lng,
                     geoJson=geo,
                     description=row.get("description") or None,
+                    wind_exposure=row.get("wind_exposure") or None,
+                    wind_notes=row.get("wind_notes") or None,
+                    sand_depth=row.get("sand_depth") or None,
+                    sand_notes=row.get("sand_notes") or None,
                     status="approved",
                     is_active=True,
                 )
@@ -128,6 +137,6 @@ async def seed_courts():
         if courts_created:
             logger.info("Seeded %d new courts", courts_created)
         if courts_updated:
-            logger.info("Backfilled coordinates on %d existing courts", courts_updated)
+            logger.info("Backfilled seed data on %d existing courts", courts_updated)
 
         await session.commit()

@@ -51,6 +51,7 @@ function renderRosterHook() {
 
 function makeSession(
   players: SessionDetail['players'],
+  status: SessionDetail['status'] = 'active',
 ): SessionDetail {
   return {
     id: 9,
@@ -62,7 +63,7 @@ function makeSession(
     date: '2026-04-02',
     start_time: '5:00 PM',
     session_number: 1,
-    status: 'active',
+    status,
     session_type: 'pickup',
     is_ranked: false,
     players,
@@ -177,6 +178,48 @@ describe('useSessionRosterScreen', () => {
       'Only session participants can remove players',
     );
     expect(result.current.isRemoving).toBeNull();
+  });
+
+  it('does not open the add-player modal for a submitted session', async () => {
+    mockGetSessionById.mockResolvedValue(makeSession([], 'submitted'));
+
+    const { result } = renderRosterHook();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.onAddPlayer();
+    });
+
+    expect(result.current.isRosterEditable).toBe(false);
+    expect(result.current.isAddPlayerOpen).toBe(false);
+  });
+
+  it('does not remove a player from a submitted session', async () => {
+    mockGetSessionById.mockResolvedValue(
+      makeSession(
+        [
+          {
+            entry_id: 5,
+            player_id: 5,
+            display_name: 'P',
+            initials: 'P',
+            is_placeholder: false,
+            game_count: 0,
+          },
+        ],
+        'submitted',
+      ),
+    );
+
+    const { result } = renderRosterHook();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.onRemovePlayer(5);
+    });
+
+    expect(mockHapticMedium).not.toHaveBeenCalled();
+    expect(mockRemoveSessionPlayer).not.toHaveBeenCalled();
   });
 
   it('onClose calls router.back', async () => {

@@ -22,6 +22,10 @@ interface PlayerProfileHeaderProps {
   readonly onDeclineFriend: () => void;
   readonly onMessage: () => void;
   readonly onSendInvite?: () => void;
+  readonly interactionAvailable?: boolean;
+  readonly blockedByViewer?: boolean;
+  readonly safetyPending?: boolean;
+  readonly onUnblock?: () => void;
 }
 
 export default function PlayerProfileHeader({
@@ -33,6 +37,10 @@ export default function PlayerProfileHeader({
   onDeclineFriend,
   onMessage,
   onSendInvite,
+  interactionAvailable = true,
+  blockedByViewer = false,
+  safetyPending = false,
+  onUnblock,
 }: PlayerProfileHeaderProps): React.ReactNode {
   const palette = usePaletteColors();
   const displayName = [player.first_name, player.last_name]
@@ -128,6 +136,26 @@ export default function PlayerProfileHeader({
           >
             <AppText className="text-sm font-semibold text-on-brand-gold">Invite to App</AppText>
           </Pressable>
+        ) : !interactionAvailable ? (
+          <View className="items-center gap-xs">
+            <AppText className="text-sm text-muted text-center">
+              {safetyPending
+                ? 'Checking interaction availability…'
+                : blockedByViewer
+                  ? 'You blocked this player.'
+                  : "This interaction isn't available."}
+            </AppText>
+            {blockedByViewer && onUnblock != null && (
+              <Pressable
+                testID="player-unblock-btn"
+                onPress={onUnblock}
+                accessibilityRole="button"
+                className="min-h-touch px-xl items-center justify-center rounded-xl border border-brand-teal"
+              >
+                <AppText className="text-sm font-semibold text-brand-teal">Unblock</AppText>
+              </Pressable>
+            )}
+          </View>
         ) : (
           <>
             {relationship.canRespond ? (

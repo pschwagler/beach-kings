@@ -12,6 +12,7 @@
  */
 
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -361,6 +362,32 @@ describe('CourtPhotosScreen — upload flow', () => {
       uri: 'file:///tmp/photo.jpg',
       name: 'photo.jpg',
       type: 'image/jpeg',
+    });
+  });
+
+  it('explains that a pending upload will appear after review', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockGetCourtPhotos.mockResolvedValue([]);
+    mockGetCourtById.mockResolvedValue({ id: 1, name: 'Court A' });
+    mockLaunchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///tmp/photo.jpg', fileName: 'photo.jpg', mimeType: 'image/jpeg' }],
+    });
+    mockUploadCourtPhoto.mockResolvedValue({
+      id: 4,
+      url: 'https://x',
+      moderation_visibility: 'pending',
+    });
+
+    renderScreen();
+    await waitFor(() => expect(screen.getByTestId('court-photos-add-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('court-photos-add-btn'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Photo submitted',
+        'Your photo is being reviewed and will appear after approval.',
+      );
     });
   });
 

@@ -7,6 +7,7 @@ import type { NotificationType } from './enums';
 export interface Notification {
   id: number;
   user_id: number;
+  actor_player_id?: number | null;
   type: NotificationType;
   title: string;
   message: string;
@@ -34,4 +35,33 @@ export interface PushNotificationPrefs {
   match_invites: boolean;
   tournament_updates: boolean;
   ranking_changes: boolean;
+}
+
+export type PushPlatform = 'ios' | 'android';
+
+export interface RegisterPushTokenRequest {
+  token: string;
+  platform: PushPlatform;
+  installation_id: string;
+}
+
+export interface PushTokenRegistration {
+  id: number;
+  token: string;
+  platform: PushPlatform;
+  installation_id: string | null;
+  unregister_secret: string | null;
+  created_at: string;
+}
+
+export interface UnregisterPushInstallationRequest {
+  installation_id: string;
+  unregister_secret: string;
+}
+
+export interface NativePushData {
+  notificationId: number;
+  type: NotificationType;
+  linkUrl: string | null;
+  data: Record<string, string | number>;
 }

@@ -23,7 +23,7 @@ export default function PrivacyPolicyPageRoute() {
             Privacy Policy
           </h1>
           <p className="legal-page-date">
-            <strong>Last updated:</strong> December 2, 2025
+            <strong>Last updated:</strong> August 5, 2026
           </p>
         </div>
         
@@ -75,6 +75,7 @@ export default function PrivacyPolicyPageRoute() {
             <li><strong>Communication:</strong> Send account-related notifications, security alerts, and respond to your inquiries</li>
             <li><strong>Service Improvement:</strong> Analyze usage patterns, troubleshoot issues, and develop new features</li>
             <li><strong>Security:</strong> Detect and prevent fraud, abuse, security incidents, and other harmful activity</li>
+            <li><strong>Community Safety:</strong> Process messages, reviews, photos, reports, and related safety signals using automated classification and human review to detect possible guideline violations</li>
             <li><strong>Legal Compliance:</strong> Comply with legal obligations and enforce our Terms of Service</li>
           </ul>
 
@@ -95,6 +96,7 @@ export default function PrivacyPolicyPageRoute() {
             <li><strong>SMS Service Provider (Twilio):</strong> To send verification codes and account-related SMS messages</li>
             <li><strong>Hosting and Infrastructure:</strong> To store data and host the Service</li>
             <li><strong>Database Services:</strong> To securely store and manage user data</li>
+            <li><strong>OpenAI:</strong> To provide automated text and image safety classification and recommendation-only case triage. We limit submissions to the content and pseudonymous identifiers needed for safety review, disable response storage where supported, and do not opt this data into model training. Provider abuse-monitoring and legally required safety retention may still apply.</li>
           </ul>
           <p>These service providers are contractually obligated to use your information only for the purposes we specify and to maintain appropriate security measures.</p>
 
@@ -124,6 +126,7 @@ export default function PrivacyPolicyPageRoute() {
             <li>Resolve disputes and enforce our agreements</li>
           </ul>
           <p>We retain data for a reasonable period after account closure or inactivity to allow for potential account recovery and to maintain league historical records. You may request deletion of your data at any time as described in Section 7.</p>
+          <p>When content is reported or restricted, a limited evidence copy may be stored in a separate access-controlled system for up to 180 days after the moderation case closes, unless a legal hold requires longer retention. Content-free moderation audit metadata may be retained for one year.</p>
 
           <h3>5. Data Security</h3>
           <p>We implement reasonable technical and organizational security measures to protect your personal information from unauthorized access, disclosure, alteration, and destruction, including:</p>

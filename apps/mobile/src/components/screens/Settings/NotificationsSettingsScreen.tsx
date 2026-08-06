@@ -145,10 +145,19 @@ function NotificationsErrorState({ onRetry }: ErrorStateProps): React.ReactNode 
 // ---------------------------------------------------------------------------
 
 export default function NotificationsSettingsScreen(): React.ReactNode {
-  const { prefs, isLoading, error, onToggle, onRetry } = useNotificationsScreen();
+  const {
+    prefs,
+    authorization,
+    isLoading,
+    error,
+    isSaving,
+    onToggle,
+    onRetry,
+    openSettings,
+  } = useNotificationsScreen();
 
   // Master toggle is backed by the dedicated push_enabled field.
-  const allEnabled = prefs?.push_enabled ?? false;
+  const allEnabled = authorization === 'authorized' && (prefs?.push_enabled ?? false);
 
   const handleMasterToggle = useCallback(() => {
     if (prefs == null) return;
@@ -190,11 +199,25 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
             testID="toggle-master"
             label="Push Notifications"
             value={allEnabled}
+            disabled={isSaving}
             onToggle={handleMasterToggle}
           />
-          {!allEnabled && prefs != null && (
+          {authorization === 'denied' && (
+            <View className="px-lg py-sm bg-surface">
+              <AppText className="text-[12px] text-muted mb-sm">
+                Notifications are blocked in your device settings.
+              </AppText>
+              <Button
+                testID="notifications-open-settings"
+                title="Open Settings"
+                variant="outline"
+                onPress={openSettings}
+              />
+            </View>
+          )}
+          {!allEnabled && authorization !== 'denied' && prefs != null && (
             <AppText className="text-[12px] text-muted px-lg py-sm">
-              Enable push notifications to customize alerts
+              Enable push notifications to customize alerts.
             </AppText>
           )}
         </View>

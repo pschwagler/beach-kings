@@ -641,8 +641,15 @@ async def search_players_with_relevance(
 
     # 3. Candidate id set = network ∪ live context, caller removed.
     candidate: Set[int] = set(network) | session_ids | league_ids
+    blocked_ids: Set[int] = set()
     if caller_player_id is not None:
         candidate.discard(caller_player_id)
+        from backend.services import interaction_policy
+
+        blocked_ids = await interaction_policy.blocked_player_ids(session, caller_player_id)
+        # Existing session/league members are shared operational content and
+        # stay visible. Blocked non-members are not invite candidates.
+        candidate -= blocked_ids - session_ids - league_ids
 
     # Name predicate pushed into SQL rather than Python post-filtering: at
     # thousands of network members the picker must fetch only matching rows,
@@ -760,6 +767,8 @@ async def search_players_with_relevance(
         )
         if seen:
             s_stmt = s_stmt.where(Player.id.notin_(seen))
+        if blocked_ids:
+            s_stmt = s_stmt.where(Player.id.notin_(blocked_ids))
         s_stmt = s_stmt.order_by(
             match_rank.asc(), func.lower(Player.full_name).asc(), Player.id.asc()
         ).limit(stranger_cap)

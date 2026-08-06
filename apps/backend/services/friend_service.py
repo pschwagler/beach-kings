@@ -26,7 +26,7 @@ from backend.database.models import (
     SessionParticipant,
     NotificationType,
 )
-from backend.services import notification_service
+from backend.services import notification_service, interaction_policy
 from backend.services.relationship_service import resolve_relationship, resolve_relationships
 from backend.utils.datetime_utils import utcnow
 import logging
@@ -149,6 +149,12 @@ async def send_friend_request(
     """
     if sender_player_id == receiver_player_id:
         raise ValueError("Cannot send a friend request to yourself")
+    await interaction_policy.enforce_action(
+        session,
+        sender_player_id,
+        receiver_player_id,
+        interaction_policy.InteractionAction.FRIEND_REQUEST,
+    )
 
     relationship = await resolve_relationship(session, sender_player_id, receiver_player_id)
     if relationship["status"] == "friend":
@@ -226,6 +232,7 @@ async def send_friend_request(
                 },
                 link_url="/home?tab=friends",
                 dedup_key=f"friend_request:{friend_request.id}",
+                actor_player_id=sender_player_id,
             )
         except Exception as e:
             logger.warning(f"Failed to send friend request notification: {e}")
@@ -260,6 +267,12 @@ async def accept_friend_request(
 
     if not friend_request:
         raise ValueError("Friend request not found")
+    await interaction_policy.enforce_action(
+        session,
+        receiver_player_id,
+        friend_request.sender_player_id,
+        interaction_policy.InteractionAction.FRIEND_REQUEST,
+    )
     if friend_request.receiver_player_id != receiver_player_id:
         raise ValueError("Not authorized to accept this request")
     if friend_request.status != FriendRequestStatus.PENDING.value:
@@ -350,6 +363,7 @@ async def accept_friend_request(
                 message=f"{receiver_name} accepted your friend request",
                 data={"player_id": receiver_player_id},
                 link_url=f"/player/{receiver_player_id}/{slugify(receiver_name)}",
+                actor_player_id=receiver_player_id,
             )
         except Exception as e:
             logger.warning(f"Failed to send friend accepted notification: {e}")
@@ -500,6 +514,7 @@ async def get_friends(
     base_query = select(Friend.id, friend_id_col).where(
         or_(Friend.player1_id == player_id, Friend.player2_id == player_id)
     )
+    base_query = interaction_policy.exclude_blocked_players(base_query, player_id, friend_id_col)
 
     # Total count
     count_query = select(func.count()).select_from(base_query.subquery())
@@ -588,6 +603,12 @@ async def get_friend_requests(
             )
         )
 
+    counterpart_id = case(
+        (FriendRequest.sender_player_id == player_id, FriendRequest.receiver_player_id),
+        else_=FriendRequest.sender_player_id,
+    )
+    query = interaction_policy.exclude_blocked_players(query, player_id, counterpart_id)
+
     query = query.order_by(FriendRequest.created_at.desc())
     result = await session.execute(query)
     requests = result.scalars().all()
@@ -612,6 +633,7 @@ async def get_mutual_friends(
     my_friends = await get_friend_ids(session, player_id)
     their_friends = await get_friend_ids(session, other_player_id)
     mutual_ids = my_friends & their_friends
+    mutual_ids -= await interaction_policy.blocked_player_ids(session, player_id)
 
     if not mutual_ids:
         return []
@@ -650,7 +672,9 @@ async def get_mutual_friend_count(
     """
     my_friends = await get_friend_ids(session, player_id)
     their_friends = await get_friend_ids(session, other_player_id)
-    return len(my_friends & their_friends)
+    mutual_ids = my_friends & their_friends
+    mutual_ids -= await interaction_policy.blocked_player_ids(session, player_id)
+    return len(mutual_ids)
 
 
 async def batch_last_active(session: AsyncSession, target_player_ids: List[int]) -> Dict:
@@ -931,6 +955,9 @@ async def discover_players(
             )
         )
     )
+    base_query = interaction_policy.exclude_blocked_players(
+        base_query, caller_player_id, Player.id
+    )
 
     # Apply filters
     if search:
@@ -1049,7 +1076,9 @@ async def get_friend_suggestions(
     """
     # --- 1. Build exclusion set ---
     my_friends = await get_friend_ids(session, player_id)
-    exclude_ids = my_friends | {player_id}
+    exclude_ids = (
+        my_friends | {player_id} | await interaction_policy.blocked_player_ids(session, player_id)
+    )
 
     pending_result = await session.execute(
         select(FriendRequest.sender_player_id, FriendRequest.receiver_player_id).where(
@@ -1346,9 +1375,7 @@ async def _format_friend_requests_batch(
                 "id": req.id,
                 "sender_player_id": req.sender_player_id,
                 "sender_name": sender.full_name if sender else "Unknown",
-                "sender_avatar": (
-                    sender.profile_picture_url or sender.avatar if sender else None
-                ),
+                "sender_avatar": (sender.profile_picture_url or sender.avatar if sender else None),
                 "receiver_player_id": req.receiver_player_id,
                 "receiver_name": receiver.full_name if receiver else "Unknown",
                 "receiver_avatar": (

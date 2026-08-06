@@ -305,9 +305,16 @@
 /* Info Section */
 
 .court-detail__info-section,
-.court-detail__description {
+.court-detail__description,
+.court-detail__conditions {
   margin-bottom: 24px;
 }
+
+.court-detail__conditions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.court-detail__condition { padding: 14px 16px; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); }
+.court-detail__condition-label { display: block; margin-bottom: 3px; color: var(--gray-500); font-size: 11px; font-weight: 700; letter-spacing: .045em; text-transform: uppercase; }
+.court-detail__condition strong { color: var(--gray-900); font-size: 15px; }
+.court-detail__condition p { margin: 5px 0 0; color: var(--gray-700); font-size: 13px; line-height: 1.45; }
 
 .court-detail__info-row {
   font-size: 14px;
@@ -329,6 +336,10 @@
   color: var(--gray-700);
   line-height: 1.6;
   margin: 0;
+}
+
+@media (max-width: 560px) {
+  .court-detail__conditions-grid { grid-template-columns: 1fr; }
 }
 
 /* Reviews */

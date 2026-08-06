@@ -90,7 +90,6 @@ function MenuItem({
     </TouchableOpacity>
   );
 }
-
 export default function SessionBottomSheet({
   visible,
   onClose,
@@ -229,7 +228,7 @@ export default function SessionBottomSheet({
           }}
         />
         <MenuItem
-          label="Manage Players"
+          label={isSubmitted ? "View Players" : "Manage Players"}
           testID="session-menu-roster"
           onPress={() => {
             void handleManagePlayers();

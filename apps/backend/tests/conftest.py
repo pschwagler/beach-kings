@@ -101,6 +101,10 @@ async def _patch_missing_columns(conn):
         ("courts", "hours", "TEXT"),
         ("courts", "phone", "VARCHAR(30)"),
         ("courts", "website", "VARCHAR(500)"),
+        ("courts", "wind_exposure", "VARCHAR(20)"),
+        ("courts", "wind_notes", "VARCHAR(140)"),
+        ("courts", "sand_depth", "VARCHAR(20)"),
+        ("courts", "sand_notes", "VARCHAR(140)"),
         ("courts", "latitude", "FLOAT"),
         ("courts", "longitude", "FLOAT"),
         ("courts", "average_rating", "FLOAT"),
@@ -133,6 +137,19 @@ async def _patch_missing_columns(conn):
         # Migrations 057-058 — notification lifecycle and deduplication
         ("notifications", "dismissed_at", "TIMESTAMPTZ"),
         ("notifications", "dedup_key", "VARCHAR(255)"),
+        # Migration 060 — UGC safety foundation
+        ("notifications", "actor_player_id", "INTEGER REFERENCES players(id) ON DELETE SET NULL"),
+        # Migration 061 — installation-scoped push registration
+        ("device_tokens", "installation_id", "VARCHAR(128)"),
+        ("device_tokens", "unregister_secret_hash", "VARCHAR(64)"),
+        ("device_tokens", "last_registered_at", "TIMESTAMPTZ DEFAULT NOW()"),
+        ("direct_messages", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("league_messages", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("court_reviews", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("court_review_photos", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("court_photos", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("court_edit_suggestions", "note", "VARCHAR(280)"),
+        ("court_edit_suggestions", "applied_changes", "JSONB"),
     ]
     # Migration 024 — make phone_number and password_hash nullable for Google SSO
     # Migration 045 — make verification_codes.phone_number nullable for email flows
@@ -213,6 +230,13 @@ async def _patch_missing_columns(conn):
             "ON notifications (user_id, dedup_key) "
             "WHERE dedup_key IS NOT NULL AND dismissed_at IS NULL",
         ),
+        (
+            "device_tokens",
+            "installation_id",
+            "uq_device_tokens_installation_id",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_device_tokens_installation_id "
+            "ON device_tokens (installation_id)",
+        ),
     ]
     for table, idx_name, ddl in partial_index_patches:
         idx_exists = await conn.execute(
@@ -265,6 +289,29 @@ async def _patch_missing_columns(conn):
         )
         if col_exists.scalar() is None:
             await conn.execute(text(f'ALTER TABLE {table} ADD COLUMN "{column}" {ddl}'))
+
+    # Migration 062 expands the resolution lifecycle. Existing reusable test
+    # databases need the altered constraint because create_all cannot replace it.
+    suggestions_exists = await conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_name = 'court_edit_suggestions'"
+        )
+    )
+    if suggestions_exists.scalar() is not None:
+        await conn.execute(
+            text(
+                "ALTER TABLE court_edit_suggestions "
+                "DROP CONSTRAINT IF EXISTS ck_court_edit_suggestions_status"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE court_edit_suggestions ADD CONSTRAINT "
+                "ck_court_edit_suggestions_status CHECK "
+                "(status IN ('pending', 'approved', 'partially_applied', 'rejected'))"
+            )
+        )
 
     # Column-level index patches — run after the patches loop so their columns exist.
     for table, column, idx_name, ddl in column_index_patches:

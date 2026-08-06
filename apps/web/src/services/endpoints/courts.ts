@@ -133,8 +133,8 @@ export const uploadReviewPhoto = async (courtId: number, reviewId: number, file:
 };
 
 /** Submit an edit suggestion for a court. */
-export const suggestCourtEdit = async (courtId: number, changes: Record<string, any>) => {
-  const response = await api.post(`/api/courts/${courtId}/suggest-edit`, { changes });
+export const suggestCourtEdit = async (courtId: number, changes: Record<string, any>, note?: string) => {
+  const response = await api.post(`/api/courts/${courtId}/suggest-edit`, { changes, note: note || undefined });
   return response.data;
 };
 
@@ -145,8 +145,12 @@ export const getCourtEditSuggestions = async (courtId: number) => {
 };
 
 /** Approve or reject an edit suggestion. */
-export const resolveCourtEditSuggestion = async (suggestionId: number, action: string) => {
-  const response = await api.put(`/api/courts/suggestions/${suggestionId}?action=${action}`);
+export const resolveCourtEditSuggestion = async (
+  suggestionId: number,
+  action: string,
+  body?: { applied_changes: Record<string, unknown> },
+) => {
+  const response = await api.put(`/api/courts/suggestions/${suggestionId}?action=${action}`, body);
   return response.data;
 };
 

@@ -4,7 +4,10 @@ Push notification service for sending Expo push notifications.
 Handles device token CRUD and delivery via the Expo Push API.
 """
 
+import hashlib
+import hmac
 import logging
+import secrets
 from typing import List, Optional, Dict
 
 import httpx
@@ -13,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import DeviceToken
+from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +54,72 @@ async def register_token(
         .returning(DeviceToken)
     )
     result = await session.execute(stmt)
-    await session.commit()
-    row = result.scalar_one()
-    return row
+    return result.scalar_one()
+
+
+def _hash_unregister_secret(secret: str) -> str:
+    return hashlib.sha256(secret.encode("utf-8")).hexdigest()
+
+
+async def register_installation(
+    session: AsyncSession,
+    user_id: int,
+    token: str,
+    platform: str,
+    installation_id: Optional[str],
+) -> tuple[DeviceToken, Optional[str]]:
+    """Register an installation and rotate its one-time unregister credential.
+
+    ``installation_id`` is optional only for compatibility with older clients.
+    New clients receive a high-entropy secret; only its SHA-256 digest is stored.
+    """
+    if installation_id is None:
+        return await register_token(session, user_id, token, platform), None
+
+    installation_row = (
+        await session.execute(
+            select(DeviceToken)
+            .where(DeviceToken.installation_id == installation_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    token_row = (
+        await session.execute(
+            select(DeviceToken).where(DeviceToken.token == token).with_for_update()
+        )
+    ).scalar_one_or_none()
+
+    # Token rotation can briefly leave the new token attached to a legacy row.
+    # Consolidate onto the stable installation row without exposing either token.
+    if (
+        installation_row is not None
+        and token_row is not None
+        and token_row.id != installation_row.id
+    ):
+        await session.delete(token_row)
+        await session.flush()
+
+    row = installation_row or token_row
+    unregister_secret = secrets.token_urlsafe(32)
+    if row is None:
+        row = DeviceToken(
+            user_id=user_id,
+            token=token,
+            platform=platform,
+            installation_id=installation_id,
+        )
+        session.add(row)
+    else:
+        row.user_id = user_id
+        row.token = token
+        row.platform = platform
+        row.installation_id = installation_id
+
+    row.unregister_secret_hash = _hash_unregister_secret(unregister_secret)
+    row.last_registered_at = utcnow()
+    await session.flush()
+    await session.refresh(row)
+    return row, unregister_secret
 
 
 async def unregister_token(
@@ -74,8 +141,30 @@ async def unregister_token(
     """
     stmt = delete(DeviceToken).where(DeviceToken.user_id == user_id, DeviceToken.token == token)
     result = await session.execute(stmt)
-    await session.commit()
     return result.rowcount > 0
+
+
+async def unregister_installation(
+    session: AsyncSession,
+    installation_id: str,
+    unregister_secret: str,
+) -> bool:
+    """Retire one installation using a credential that is independent of auth."""
+    row = (
+        await session.execute(
+            select(DeviceToken)
+            .where(DeviceToken.installation_id == installation_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if row is None or row.unregister_secret_hash is None:
+        return False
+    candidate = _hash_unregister_secret(unregister_secret)
+    if not hmac.compare_digest(candidate, row.unregister_secret_hash):
+        return False
+    await session.delete(row)
+    await session.flush()
+    return True
 
 
 async def unregister_all_tokens(
@@ -93,7 +182,6 @@ async def unregister_all_tokens(
     """
     stmt = delete(DeviceToken).where(DeviceToken.user_id == user_id)
     result = await session.execute(stmt)
-    await session.commit()
     return result.rowcount
 
 
@@ -159,9 +247,8 @@ async def send_push_notifications(
             )
             if response.status_code != 200:
                 logger.error(
-                    "Expo Push API returned %d: %s",
+                    "expo_push_request_failed status_code=%d",
                     response.status_code,
-                    response.text,
                 )
             else:
                 resp_data = response.json()
@@ -171,9 +258,20 @@ async def send_push_notifications(
                     if ticket.get("status") == "error"
                 ]
                 if errors:
-                    logger.warning("Expo push errors: %s", errors)
-    except Exception:
-        logger.exception("Failed to send push notifications")
+                    codes = sorted(
+                        {
+                            str(ticket.get("details", {}).get("error", "unknown"))[:100]
+                            for ticket in errors
+                            if isinstance(ticket, dict)
+                        }
+                    )
+                    logger.warning(
+                        "expo_push_ticket_errors count=%d error_codes=%s",
+                        len(errors),
+                        ",".join(codes),
+                    )
+    except Exception as exc:
+        logger.error("expo_push_request_failed error_code=%s", type(exc).__name__)
 
 
 async def send_push_to_user(

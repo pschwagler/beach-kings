@@ -59,11 +59,15 @@ test.describe('Admin Panel', () => {
       await authenticateAndGoto(page, adminUser, '/admin-view');
       await expect(page.locator('.admin-view-container')).toBeVisible({ timeout: 15000 });
 
-      // All four tabs should be present
-      await expect(page.locator('.admin-tab-btn', { hasText: 'Dashboard' })).toBeVisible();
-      await expect(page.locator('.admin-tab-btn', { hasText: 'Settings' })).toBeVisible();
-      await expect(page.locator('.admin-tab-btn', { hasText: 'Courts' })).toBeVisible();
-      await expect(page.locator('.admin-tab-btn', { hasText: 'Feedback' })).toBeVisible();
+      const adminNavigation = page.getByRole('navigation', { name: 'Admin navigation' });
+      const destinations = ['Dashboard', 'Settings', 'Courts', 'Feedback', 'Moderation'];
+
+      await expect(adminNavigation).toBeVisible();
+      for (const destination of destinations) {
+        await expect(adminNavigation.getByRole('button', { name: destination })).toBeVisible();
+      }
+      await expect(adminNavigation.getByRole('button', { name: 'Dashboard' }))
+        .toHaveAttribute('aria-current', 'page');
     } finally {
       await context.close();
     }
@@ -80,14 +84,80 @@ test.describe('Admin Panel', () => {
       await authenticateAndGoto(page, adminUser, '/admin-view');
       await expect(page.locator('.admin-view-container')).toBeVisible({ timeout: 15000 });
 
+      const adminNavigation = page.getByRole('navigation', { name: 'Admin navigation' });
+
       // Click Courts tab
-      await page.locator('.admin-tab-btn', { hasText: 'Courts' }).click();
+      await adminNavigation.getByRole('button', { name: 'Courts' }).click();
 
       // Courts sub-tab pills should appear
       await expect(page.locator('.admin-courts-pill').first()).toBeVisible({ timeout: 10000 });
 
       // URL should update
       await expect(page).toHaveURL(/tab=courts/);
+      await expect(adminNavigation.getByRole('button', { name: 'Courts' }))
+        .toHaveAttribute('aria-current', 'page');
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('phone-width admin navigation keeps every destination visible and usable', async ({
+    browser,
+    adminUser,
+  }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const destinations = [
+      { name: 'Dashboard', tab: 'dashboard', content: page.getByRole('heading', { name: 'Platform Stats' }) },
+      { name: 'Settings', tab: 'settings', content: page.getByText('SMS Enabled') },
+      { name: 'Courts', tab: 'courts', content: page.getByRole('heading', { name: 'Court review desk' }) },
+      { name: 'Feedback', tab: 'feedback', content: page.getByRole('heading', { name: 'Feedback', exact: true }) },
+      { name: 'Moderation', tab: 'moderation', content: page.getByRole('heading', { name: 'Moderation control desk' }) },
+    ];
+
+    try {
+      await page.setViewportSize({ width: 320, height: 844 });
+      await authenticateAndGoto(page, adminUser, '/admin-view');
+      await expect(page.locator('.admin-view-container')).toBeVisible({ timeout: 15000 });
+
+      for (const width of [320, 390, 430]) {
+        await page.setViewportSize({ width, height: 844 });
+        const adminNavigation = page.getByRole('navigation', { name: 'Admin navigation' });
+
+        for (const { name, tab, content } of destinations) {
+          const destination = adminNavigation.getByRole('button', { name });
+          await expect(destination).toBeVisible();
+          await destination.click();
+          await expect(page).toHaveURL(new RegExp(`tab=${tab}`));
+          await expect(destination).toHaveAttribute('aria-current', 'page');
+          await expect(content).toBeVisible({ timeout: 10000 });
+
+          const navLayout = await adminNavigation.evaluate((navigation) => {
+            const bounds = navigation.getBoundingClientRect();
+            const buttons = [...navigation.querySelectorAll('button')];
+            return {
+              clientWidth: navigation.clientWidth,
+              scrollWidth: navigation.scrollWidth,
+              buttonsFit: buttons.every((button) => {
+                const buttonBounds = button.getBoundingClientRect();
+                return buttonBounds.left >= bounds.left - 1
+                  && buttonBounds.right <= bounds.right + 1
+                  && buttonBounds.height >= 44;
+              }),
+            };
+          });
+          expect(navLayout.scrollWidth).toBeLessThanOrEqual(navLayout.clientWidth + 1);
+          expect(navLayout.buttonsFit).toBe(true);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth))
+            .toBeLessThanOrEqual(width + 1);
+
+          if (tab === 'courts') {
+            await page.getByRole('tab', { name: /Court directory/ }).click();
+            await expect(page.getByRole('heading', { name: 'All courts' }))
+              .toBeVisible({ timeout: 10000 });
+          }
+        }
+      }
     } finally {
       await context.close();
     }

@@ -85,6 +85,7 @@ class NotificationType(str, enum.Enum):
     MEMBER_REMOVED = "member_removed"
     DIRECT_MESSAGE = "direct_message"
     SEASON_AWARD = "season_award"
+    MODERATION_UPDATE = "moderation_update"
 
 
 class InviteStatus(str, enum.Enum):
@@ -181,6 +182,12 @@ class User(Base):
     locked_until = Column(String, nullable=True)  # ISO timestamp
     deletion_scheduled_at = Column(DateTime(timezone=True), nullable=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    moderation_status = Column(String(20), nullable=False, server_default="active")
+    moderation_expires_at = Column(DateTime(timezone=True), nullable=True)
+    moderation_case_id = Column(
+        Integer, ForeignKey("moderation_cases.id", ondelete="SET NULL"), nullable=True
+    )
+    moderation_updated_at = Column(DateTime(timezone=True), nullable=True)
     password_changed_at = Column(DateTime(timezone=True), nullable=True)
     profile_is_private = Column(
         Boolean, nullable=False, server_default="false"
@@ -206,6 +213,11 @@ class User(Base):
         Index("idx_users_email", "email", unique=True),
         Index("idx_users_google_id", "google_id", unique=True),
         Index("idx_users_apple_id", "apple_id", unique=True),
+        Index("idx_users_moderation_status", "moderation_status", "moderation_expires_at"),
+        CheckConstraint(
+            "moderation_status IN ('active', 'suspended', 'banned')",
+            name="ck_users_moderation_status",
+        ),
     )
 
 
@@ -497,6 +509,10 @@ class Court(Base):
     hours = Column(Text, nullable=True)
     phone = Column(String(30), nullable=True)
     website = Column(String(500), nullable=True)
+    wind_exposure = Column(String(20), nullable=True)
+    wind_notes = Column(String(140), nullable=True)
+    sand_depth = Column(String(20), nullable=True)
+    sand_notes = Column(String(140), nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     average_rating = Column(Float, nullable=True)
@@ -536,6 +552,14 @@ class Court(Base):
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_courts")
 
     __table_args__ = (
+        CheckConstraint(
+            "wind_exposure IS NULL OR wind_exposure IN ('sheltered', 'mixed', 'exposed')",
+            name="ck_courts_wind_exposure",
+        ),
+        CheckConstraint(
+            "sand_depth IS NULL OR sand_depth IN ('shallow', 'typical', 'deep')",
+            name="ck_courts_sand_depth",
+        ),
         Index("idx_courts_location", "location_id"),
         Index("idx_courts_slug", "slug", unique=True),
         Index("idx_courts_status", "status"),
@@ -613,6 +637,7 @@ class DirectMessage(Base):
     is_read = Column(Boolean, default=False, nullable=False)
     read_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    moderation_visibility = Column(String(20), nullable=False, server_default="visible")
 
     # Relationships
     sender = relationship("Player", foreign_keys=[sender_player_id])
@@ -1370,6 +1395,7 @@ class LeagueMessage(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     message_text = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    moderation_visibility = Column(String(20), nullable=False, server_default="visible")
 
     # Relationships
     league = relationship("League", back_populates="messages")
@@ -1464,6 +1490,7 @@ class Notification(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    actor_player_id = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
     type = Column(String, nullable=False)  # NotificationType enum value
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
@@ -1523,6 +1550,7 @@ class CourtReview(Base):
     review_text = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    moderation_visibility = Column(String(20), nullable=False, server_default="visible")
 
     # Relationships
     court = relationship("Court", back_populates="reviews")
@@ -1574,6 +1602,7 @@ class CourtReviewPhoto(Base):
     url = Column(String(500), nullable=False)
     sort_order = Column(Integer, nullable=False, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    moderation_visibility = Column(String(20), nullable=False, server_default="visible")
 
     # Relationships
     review = relationship("CourtReview", back_populates="photos")
@@ -1594,12 +1623,182 @@ class CourtPhoto(Base):
     sort_order = Column(Integer, nullable=False, server_default="0")
     caption = Column(String(280), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    moderation_visibility = Column(String(20), nullable=False, server_default="visible")
 
     # Relationships
     court = relationship("Court", back_populates="photos")
     uploader = relationship("Player", foreign_keys=[uploaded_by])
 
     __table_args__ = (Index("idx_court_photos_court", "court_id"),)
+
+
+class UserBlock(Base):
+    """Directed, idempotent player block."""
+
+    __tablename__ = "user_blocks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    blocker_player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    blocked_player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("blocker_player_id", "blocked_player_id", name="uq_user_blocks_pair"),
+        CheckConstraint("blocker_player_id <> blocked_player_id", name="ck_user_blocks_not_self"),
+        Index("idx_user_blocks_blocked", "blocked_player_id", "blocker_player_id"),
+    )
+
+
+class InteractionRestriction(Base):
+    """Time-bounded account interaction restriction applied by moderation."""
+
+    __tablename__ = "interaction_restrictions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    reason = Column(Text, nullable=False)
+    starts_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="SET NULL"), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("expires_at > starts_at", name="ck_interaction_restrictions_window"),
+        Index("idx_interaction_restrictions_active", "player_id", "expires_at"),
+    )
+
+
+class ModerationCase(Base):
+    """Owner-reviewed moderation case without reporter identity in subject-facing data."""
+
+    __tablename__ = "moderation_cases"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    target_type = Column(String(40), nullable=False)
+    target_id = Column(Integer, nullable=False)
+    subject_player_id = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
+    state = Column(String(30), nullable=False, server_default="open")
+    severity = Column(String(20), nullable=False, server_default="ordinary")
+    junior_involved = Column(Boolean, nullable=True)
+    due_at = Column(DateTime(timezone=True), nullable=True)
+    legal_hold = Column(Boolean, nullable=False, server_default="false")
+    current_action = Column(String(30), nullable=True)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_moderation_cases_queue", "state", "severity", "due_at"),
+        Index("idx_moderation_cases_target", "target_type", "target_id"),
+    )
+
+
+class ModerationReport(Base):
+    """A reporter's submission. Reporter fields are restricted to moderation services."""
+
+    __tablename__ = "moderation_reports"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
+    reporter_player_id = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
+    target_type = Column(String(40), nullable=False)
+    target_id = Column(Integer, nullable=False)
+    reason = Column(String(40), nullable=False)
+    details = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, server_default="open")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_moderation_reports_reporter", "reporter_player_id", "created_at"),
+        Index("uq_moderation_reports_open_target", "reporter_player_id", "target_type", "target_id", unique=True, postgresql_where=text("status = 'open'")),
+    )
+
+
+class ModerationAppeal(Base):
+    """User appeal of a case-level interaction or account restriction."""
+
+    __tablename__ = "moderation_appeals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
+    statement = Column(Text, nullable=False)
+    status = Column(String(20), nullable=False, server_default="open")
+    resolution_reason = Column(Text, nullable=True)
+    resolved_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open', 'granted', 'upheld')",
+            name="ck_moderation_appeals_status",
+        ),
+        Index("idx_moderation_appeals_case", "case_id", "created_at"),
+        Index(
+            "uq_moderation_appeals_open_case_player",
+            "case_id",
+            "player_id",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+        ),
+    )
+
+
+class ModerationEvent(Base):
+    """Append-only case audit and provider history."""
+
+    __tablename__ = "moderation_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String(40), nullable=False)
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reason = Column(Text, nullable=True)
+    metadata_json = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (Index("idx_moderation_events_case", "case_id", "created_at"),)
+
+
+class ModerationJob(Base):
+    """Durable database-backed provider job."""
+
+    __tablename__ = "moderation_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    idempotency_key = Column(String(255), nullable=False, unique=True)
+    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=True)
+    target_type = Column(String(40), nullable=False)
+    target_id = Column(Integer, nullable=False)
+    status = Column(String(20), nullable=False, server_default="pending")
+    attempts = Column(Integer, nullable=False, server_default="0")
+    available_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (Index("idx_moderation_jobs_claim", "status", "available_at"),)
+
+
+class ModerationEvidence(Base):
+    """Restricted evidence object metadata; media remains in a private bucket."""
+
+    __tablename__ = "moderation_evidence"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
+    object_key = Column(String(500), nullable=False, unique=True)
+    content_type = Column(String(100), nullable=True)
+    captured_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    purge_after = Column(DateTime(timezone=True), nullable=True)
+    purged_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("idx_moderation_evidence_purge", "purge_after", "purged_at"),)
 
 
 class CourtEditSuggestion(Base):
@@ -1611,6 +1810,8 @@ class CourtEditSuggestion(Base):
     court_id = Column(Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False)
     suggested_by = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
     changes = Column(JSONB, nullable=False)  # JSON object of field -> new_value
+    applied_changes = Column(JSONB, nullable=True)
+    note = Column(String(280), nullable=True)
     status = Column(String(20), nullable=False, server_default="pending")
     reviewed_by = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -1627,7 +1828,7 @@ class CourtEditSuggestion(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'approved', 'rejected')",
+            "status IN ('pending', 'approved', 'partially_applied', 'rejected')",
             name="ck_court_edit_suggestions_status",
         ),
         Index("idx_court_edit_suggestions_court", "court_id"),
@@ -1890,6 +2091,9 @@ class DeviceToken(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     token = Column(String(255), nullable=False)
     platform = Column(String(10), nullable=False)  # "ios", "android"
+    installation_id = Column(String(128), nullable=True)
+    unregister_secret_hash = Column(String(64), nullable=True)
+    last_registered_at = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -1898,7 +2102,42 @@ class DeviceToken(Base):
 
     __table_args__ = (
         UniqueConstraint("token", name="uq_device_tokens_token"),
+        UniqueConstraint("installation_id", name="uq_device_tokens_installation_id"),
         Index("idx_device_tokens_user", "user_id"),
+    )
+
+
+class PushDeliveryJob(Base):
+    """Durable Expo push delivery and receipt-tracking job."""
+
+    __tablename__ = "push_delivery_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    device_token_id = Column(
+        Integer, ForeignKey("device_tokens.id", ondelete="SET NULL"), nullable=True
+    )
+    notification_id = Column(
+        Integer, ForeignKey("notifications.id", ondelete="SET NULL"), nullable=True
+    )
+    payload = Column(JSONB, nullable=False)
+    idempotency_key = Column(String(255), nullable=False, unique=True)
+    status = Column(String(24), nullable=False, server_default="pending")
+    attempts = Column(Integer, nullable=False, server_default="0")
+    available_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    expo_ticket_id = Column(String(255), nullable=True)
+    last_error_code = Column(String(100), nullable=True)
+    last_error_detail = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_push_delivery_jobs_claim", "status", "available_at"),
+        Index("idx_push_delivery_jobs_ticket", "expo_ticket_id"),
+        Index("idx_push_delivery_jobs_terminal", "status", "updated_at"),
     )
 
 

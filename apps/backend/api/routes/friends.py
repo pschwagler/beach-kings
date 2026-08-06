@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.services import friend_service
+from backend.services import friend_service, interaction_policy
 from backend.api.auth_dependencies import require_verified_player
 from typing import Literal, Optional
 
@@ -38,6 +38,8 @@ async def send_friend_request(
             session, user["player_id"], payload.receiver_player_id
         )
         return result
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -55,6 +57,8 @@ async def accept_friend_request(
     try:
         result = await friend_service.accept_friend_request(session, request_id, user["player_id"])
         return result
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

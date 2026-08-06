@@ -97,6 +97,33 @@ class TestRegisterPushToken:
         assert response.status_code == 200
         assert response.json()["platform"] == "android"
 
+    def test_register_installation_returns_one_time_secret(self, monkeypatch):
+        client, headers = make_client_with_auth(monkeypatch)
+        mock_device_token = MagicMock(
+            id=44,
+            token="ExponentPushToken[installed]",
+            platform="ios",
+            installation_id="installation-uuid-0001",
+            created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        )
+
+        async def fake_register(session, user_id, token, platform, installation_id):
+            assert installation_id == "installation-uuid-0001"
+            return mock_device_token, "unregister-secret-value-000000000000"
+
+        monkeypatch.setattr(push_service, "register_installation", fake_register, raising=True)
+        response = client.post(
+            "/api/push-tokens",
+            json={
+                "token": "ExponentPushToken[installed]",
+                "platform": "ios",
+                "installation_id": "installation-uuid-0001",
+            },
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["unregister_secret"] == ("unregister-secret-value-000000000000")
+
     def test_register_invalid_platform(self, monkeypatch):
         """Invalid platform returns 422 validation error."""
         client, headers = make_client_with_auth(monkeypatch)
@@ -239,3 +266,38 @@ class TestUnregisterPushToken:
         )
         assert response.status_code == 500
         assert "Failed to unregister push token" in response.json()["detail"]
+
+
+class TestUnregisterInstallation:
+    def test_unregister_with_installation_credential(self, monkeypatch):
+        client = TestClient(app)
+
+        async def fake_unregister(session, installation_id, unregister_secret):
+            return installation_id == "installation-uuid-0001"
+
+        monkeypatch.setattr(push_service, "unregister_installation", fake_unregister, raising=True)
+        response = client.post(
+            "/api/push-installations/unregister",
+            json={
+                "installation_id": "installation-uuid-0001",
+                "unregister_secret": "unregister-secret-value-000000000000",
+            },
+        )
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+
+    def test_invalid_installation_credential_is_not_found(self, monkeypatch):
+        client = TestClient(app)
+
+        async def fake_unregister(session, installation_id, unregister_secret):
+            return False
+
+        monkeypatch.setattr(push_service, "unregister_installation", fake_unregister, raising=True)
+        response = client.post(
+            "/api/push-installations/unregister",
+            json={
+                "installation_id": "installation-uuid-0001",
+                "unregister_secret": "wrong-secret-value-0000000000000000",
+            },
+        )
+        assert response.status_code == 404

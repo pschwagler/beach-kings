@@ -3,9 +3,40 @@ Pydantic models for API request/response validation.
 """
 
 from datetime import datetime
-from typing import Any, Optional, List
+from typing import Annotated, Any, Dict, Optional, List
 from typing import Literal
-from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
+from urllib.parse import urlsplit
+
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
+
+
+def _normalize_court_website(value):
+    """Normalize optional court links and reject unsafe/non-web schemes."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return value
+
+    value = value.strip()
+    if not value:
+        return None
+    if len(value) > 500:
+        raise ValueError("website must be at most 500 characters")
+
+    parsed = urlsplit(value)
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("website must be an absolute http:// or https:// URL")
+    return value
+
+
+CourtWebsite = Annotated[Optional[str], BeforeValidator(_normalize_court_website)]
 
 
 class RankingResponse(BaseModel):
@@ -473,6 +504,11 @@ class UserResponse(BaseModel):
     show_game_history: bool = False
     google_connected: bool = False
     apple_connected: bool = False
+    moderation_status: Literal["active", "suspended", "banned"] = "active"
+    moderation_expires_at: Optional[datetime] = None
+    moderation_case_id: Optional[int] = None
+    interaction_restricted_until: Optional[datetime] = None
+    interaction_restriction_case_id: Optional[int] = None
 
 
 class UserUpdate(BaseModel):
@@ -937,6 +973,48 @@ class DirectMessageResponse(BaseModel):
     is_read: bool
     read_at: Optional[datetime] = None
     created_at: datetime
+    moderation_visibility: str = "visible"
+
+
+class InteractionCapabilityResponse(BaseModel):
+    """Privacy-safe, action-specific interaction state for one player."""
+
+    actions: Dict[str, bool]
+    blocked_by_viewer: bool = False
+    viewer_restricted: bool = False
+
+
+def _available_interaction_capability() -> InteractionCapabilityResponse:
+    return InteractionCapabilityResponse(
+        actions={
+            "direct_message": True,
+            "friend_request": True,
+            "league_invite": True,
+            "session_invite": True,
+            "mention": True,
+            "reply": True,
+            "presence": True,
+            "read_receipt": True,
+            "notification": True,
+            "discovery": True,
+            "shared_operational_content": True,
+        }
+    )
+
+
+class InteractionCapabilityBatchRequest(BaseModel):
+    player_ids: List[int] = Field(min_length=1, max_length=100)
+
+    @field_validator("player_ids")
+    @classmethod
+    def unique_player_ids(cls, value: List[int]) -> List[int]:
+        if len(set(value)) != len(value):
+            raise ValueError("player_ids must be unique")
+        return value
+
+
+class InteractionCapabilityBatchResponse(BaseModel):
+    capabilities: Dict[str, InteractionCapabilityResponse]
 
 
 class ConversationResponse(BaseModel):
@@ -950,6 +1028,9 @@ class ConversationResponse(BaseModel):
     last_message_sender_id: int
     unread_count: int = 0
     is_friend: bool = False
+    capability: InteractionCapabilityResponse = Field(
+        default_factory=_available_interaction_capability
+    )
 
 
 class ConversationListResponse(BaseModel):
@@ -965,6 +1046,9 @@ class ThreadResponse(BaseModel):
     items: List[DirectMessageResponse]
     total_count: int
     has_more: bool
+    capability: InteractionCapabilityResponse = Field(
+        default_factory=_available_interaction_capability
+    )
 
 
 class FriendCreate(BaseModel):
@@ -1508,6 +1592,8 @@ class LeagueMessageResponse(BaseModel):
     player_name: Optional[str] = None
     message: str
     created_at: str
+    moderation_visibility: str = "visible"
+    collapsed_for_viewer: bool = False
 
 
 # Feedback schemas
@@ -1540,6 +1626,7 @@ class NotificationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     user_id: int
+    actor_player_id: Optional[int] = None
     type: str
     title: str
     message: str
@@ -1582,6 +1669,7 @@ class RegisterPushTokenRequest(BaseModel):
 
     token: str
     platform: str  # "ios" or "android"
+    installation_id: Optional[str] = Field(default=None, min_length=16, max_length=128)
 
     @field_validator("platform")
     @classmethod
@@ -1610,7 +1698,16 @@ class PushTokenResponse(BaseModel):
     id: int
     token: str
     platform: str
+    installation_id: Optional[str] = None
+    unregister_secret: Optional[str] = None
     created_at: str
+
+
+class UnregisterPushInstallationRequest(BaseModel):
+    """Credentialed installation retirement after an auth session expires."""
+
+    installation_id: str = Field(min_length=16, max_length=128)
+    unregister_secret: str = Field(min_length=32, max_length=255)
 
 
 # ---------------------------------------------------------------------------
@@ -2233,6 +2330,8 @@ class CourtReviewPhotoResponse(BaseModel):
     id: int
     url: str
     sort_order: int = 0
+    moderation_visibility: str = "visible"
+    target_type: str = "court_review_photo"
 
 
 class CourtReviewAuthor(BaseModel):
@@ -2255,6 +2354,7 @@ class CourtReviewResponse(BaseModel):
     photos: List[CourtReviewPhotoResponse] = []
     created_at: str
     updated_at: str
+    moderation_visibility: str = "visible"
 
 
 class CourtListItem(BaseModel):
@@ -2271,6 +2371,10 @@ class CourtListItem(BaseModel):
     state: Optional[str] = None
     court_count: Optional[int] = None
     surface_type: Optional[str] = None
+    wind_exposure: Optional[Literal["sheltered", "mixed", "exposed"]] = None
+    wind_notes: Optional[str] = Field(default=None, max_length=140)
+    sand_depth: Optional[Literal["shallow", "typical", "deep"]] = None
+    sand_notes: Optional[str] = Field(default=None, max_length=140)
     is_free: Optional[bool] = None
     has_lights: Optional[bool] = None
     nets_provided: Optional[bool] = None
@@ -2316,6 +2420,10 @@ class CourtDetailResponse(BaseModel):
     hours: Optional[str] = None
     phone: Optional[str] = None
     website: Optional[str] = None
+    wind_exposure: Optional[Literal["sheltered", "mixed", "exposed"]] = None
+    wind_notes: Optional[str] = Field(default=None, max_length=140)
+    sand_depth: Optional[Literal["shallow", "typical", "deep"]] = None
+    sand_notes: Optional[str] = Field(default=None, max_length=140)
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     average_rating: Optional[float] = None
@@ -2338,6 +2446,8 @@ class CourtPhotoResponse(BaseModel):
     caption: Optional[str] = None
     sort_order: int = 0
     created_at: Optional[str] = None
+    moderation_visibility: str = "visible"
+    target_type: str = "court_photo"
 
 
 class CourtPhotoUploadResponse(BaseModel):
@@ -2348,6 +2458,110 @@ class CourtPhotoUploadResponse(BaseModel):
     caption: Optional[str] = None
     sort_order: int = 0
     created_at: Optional[str] = None
+    moderation_visibility: str = "visible"
+
+
+# Moderation and blocking
+class BlockCreate(BaseModel):
+    player_id: int
+
+
+class BlockedPlayerResponse(BaseModel):
+    player_id: int
+    full_name: str
+    avatar: Optional[str] = None
+    blocked_at: datetime
+
+
+class ModerationReportCreate(BaseModel):
+    target_type: Literal[
+        "player",
+        "direct_message",
+        "league_message",
+        "court_review",
+        "court_photo",
+        "court_review_photo",
+    ]
+    target_id: int
+    reason: Literal[
+        "harassment",
+        "hate_discrimination",
+        "threats_violence",
+        "sexual_content",
+        "minor_safety",
+        "self_harm",
+        "privacy_impersonation",
+        "spam_scam",
+        "other",
+    ]
+    details: Optional[str] = Field(default=None, max_length=1000)
+
+
+class ModerationReportReceipt(BaseModel):
+    id: int
+    target_type: str
+    target_id: int
+    reason: str
+    status: str
+    created_at: datetime
+
+
+class ModerationActionRequest(BaseModel):
+    action: Literal[
+        "acknowledge",
+        "dismiss",
+        "quarantine",
+        "restore",
+        "remove",
+        "warn",
+        "interaction_lock",
+        "account_suspend",
+        "account_ban",
+        "account_restore",
+        "grant_appeal",
+        "uphold_appeal",
+        "legal_hold",
+    ]
+    reason: str = Field(min_length=1, max_length=1000)
+    lock_hours: Optional[int] = Field(default=None, ge=1, le=24 * 30)
+    legal_hold: Optional[bool] = None
+    appeal_id: Optional[int] = None
+
+
+class ModerationAppealCreate(BaseModel):
+    case_id: int
+    statement: str = Field(min_length=10, max_length=2000)
+
+    @field_validator("statement")
+    @classmethod
+    def validate_statement(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 10:
+            raise ValueError("statement must be at least 10 characters")
+        return normalized
+
+
+class ModerationAppealReceipt(BaseModel):
+    id: int
+    case_id: int
+    status: Literal["open", "granted", "upheld"]
+    statement: str
+    resolution_reason: Optional[str] = None
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+
+
+class AccountModerationStatusResponse(BaseModel):
+    account_status: Literal["active", "suspended", "banned"]
+    account_expires_at: Optional[datetime] = None
+    account_case_id: Optional[int] = None
+    interaction_restricted_until: Optional[datetime] = None
+    interaction_restriction_case_id: Optional[int] = None
+    appeals: List[ModerationAppealReceipt] = Field(default_factory=list)
+
+
+class ModerationRetryRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=1000)
 
 
 class ReorderCourtPhotosRequest(BaseModel):
@@ -2430,9 +2644,19 @@ class CreateCourtRequest(BaseModel):
     nets_provided: Optional[bool] = None
     hours: Optional[str] = None
     phone: Optional[str] = None
-    website: Optional[str] = None
+    website: CourtWebsite = None
+    wind_exposure: Optional[Literal["sheltered", "mixed", "exposed"]] = None
+    wind_notes: Optional[str] = Field(default=None, max_length=140)
+    sand_depth: Optional[Literal["shallow", "typical", "deep"]] = None
+    sand_notes: Optional[str] = Field(default=None, max_length=140)
     latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
     longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
+
+    @model_validator(mode="after")
+    def validate_coordinates(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be provided together")
+        return self
 
 
 class UpdateCourtRequest(BaseModel):
@@ -2452,10 +2676,22 @@ class UpdateCourtRequest(BaseModel):
     nets_provided: Optional[bool] = None
     hours: Optional[str] = None
     phone: Optional[str] = None
-    website: Optional[str] = None
+    website: CourtWebsite = None
+    wind_exposure: Optional[Literal["sheltered", "mixed", "exposed"]] = None
+    wind_notes: Optional[str] = Field(default=None, max_length=140)
+    sand_depth: Optional[Literal["shallow", "typical", "deep"]] = None
+    sand_notes: Optional[str] = Field(default=None, max_length=140)
     latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
     longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
     is_active: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def validate_coordinates(self):
+        lat_set = "latitude" in self.model_fields_set
+        lng_set = "longitude" in self.model_fields_set
+        if lat_set != lng_set or (lat_set and (self.latitude is None or self.longitude is None)):
+            raise ValueError("latitude and longitude must be provided together")
+        return self
 
 
 class CreateReviewRequest(BaseModel):
@@ -2474,10 +2710,60 @@ class UpdateReviewRequest(BaseModel):
     tag_ids: Optional[List[int]] = None
 
 
-class CourtEditSuggestionRequest(BaseModel):
-    """Request to suggest edits to a court."""
+class CourtEditSuggestionChanges(BaseModel):
+    """Strict set of court fields a community member may suggest changing."""
 
-    changes: dict  # field -> new_value
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = None
+    address: Optional[str] = None
+    description: Optional[str] = None
+    court_count: Optional[int] = Field(default=None, ge=0)
+    surface_type: Optional[str] = None
+    is_free: Optional[bool] = None
+    cost_info: Optional[str] = None
+    has_lights: Optional[bool] = None
+    has_restrooms: Optional[bool] = None
+    has_parking: Optional[bool] = None
+    parking_info: Optional[str] = None
+    nets_provided: Optional[bool] = None
+    hours: Optional[str] = None
+    phone: Optional[str] = Field(default=None, max_length=30)
+    website: CourtWebsite = None
+    wind_exposure: Optional[Literal["sheltered", "mixed", "exposed"]] = None
+    wind_notes: Optional[str] = Field(default=None, max_length=140)
+    sand_depth: Optional[Literal["shallow", "typical", "deep"]] = None
+    sand_notes: Optional[str] = Field(default=None, max_length=140)
+    latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
+
+    @model_validator(mode="after")
+    def validate_changes(self):
+        if not self.model_fields_set:
+            raise ValueError("at least one court change is required")
+
+        lat_set = "latitude" in self.model_fields_set
+        lng_set = "longitude" in self.model_fields_set
+        if lat_set != lng_set or (lat_set and (self.latitude is None or self.longitude is None)):
+            raise ValueError("latitude and longitude must be proposed together")
+        return self
+
+
+class CourtEditSuggestionRequest(BaseModel):
+    """Request to suggest moderated edits to a court."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    changes: CourtEditSuggestionChanges
+    note: Optional[str] = Field(default=None, max_length=280)
+
+
+class CourtEditSuggestionResolutionRequest(BaseModel):
+    """Optional selected proposal fields for a partial moderation decision."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    applied_changes: Optional[CourtEditSuggestionChanges] = None
 
 
 class CourtEditSuggestionResponse(BaseModel):
@@ -2488,6 +2774,8 @@ class CourtEditSuggestionResponse(BaseModel):
     suggested_by: int
     suggester_name: Optional[str] = None
     changes: dict
+    applied_changes: Optional[dict] = None
+    note: Optional[str] = None
     status: str = "pending"
     reviewed_by: Optional[int] = None
     created_at: str

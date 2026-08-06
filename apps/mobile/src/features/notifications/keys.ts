@@ -7,4 +7,6 @@ export const notificationKeys = {
     [...notificationKeys.all(userId), 'feed'] as const,
   unreadCount: (userId: number) =>
     [...notificationKeys.all(userId), 'unread-count'] as const,
+  preferences: (userId: number) =>
+    [...notificationKeys.all(userId), 'push-preferences'] as const,
 };

@@ -16,3 +16,4 @@ export * from './kob';
 export * from './common';
 export * from './stats';
 export * from './game';
+export * from './moderation';

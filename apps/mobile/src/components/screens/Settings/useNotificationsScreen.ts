@@ -1,59 +1,51 @@
-/**
- * Data hook for the Notification Settings screen.
- *
- * Loads push notification preferences from the API and provides
- * optimistic toggle handlers.
- */
-
 import { useCallback } from 'react';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
 import type { PushNotificationPrefs } from '@beach-kings/shared';
+import { useNativePush } from '@/features/notifications/nativePushContext';
+import { usePushPreferences } from '@/features/notifications';
 
-export interface UseNotificationsScreenResult {
-  readonly prefs: PushNotificationPrefs | null;
-  readonly isLoading: boolean;
-  readonly error: Error | null;
-  readonly isSaving: boolean;
-  readonly onToggle: (key: keyof PushNotificationPrefs) => void;
-  readonly onRetry: () => void;
-}
+export function useNotificationsScreen() {
+  const {
+    prefs,
+    isLoading,
+    error,
+    isSaving,
+    refetch,
+    updatePreferences,
+  } = usePushPreferences();
+  const {
+    authorization,
+    enablePush,
+    openSettings,
+    isRegistering,
+  } = useNativePush();
 
-export function useNotificationsScreen(): UseNotificationsScreenResult {
-  const { data: prefs, isLoading, error, refetch, mutate } = useApi<PushNotificationPrefs>(
-    () => api.getPushNotificationPrefs(),
-    [],
-  );
-
-  // We track saving via a lightweight approach — fire-and-forget with optimistic update
-  const onToggle = useCallback(
-    (key: keyof PushNotificationPrefs) => {
-      if (prefs == null) return;
-
-      const updated: PushNotificationPrefs = { ...prefs, [key]: !prefs[key] };
-
-      // Optimistic update
-      mutate(updated);
-
-      // Fire-and-forget — errors silently revert via next load
-      void api.updatePushNotificationPrefs({ [key]: !prefs[key] }).catch(() => {
-        // Revert on error
-        mutate(prefs);
-      });
-    },
-    [prefs, mutate],
-  );
+  const onToggle = useCallback(async (key: keyof PushNotificationPrefs) => {
+    if (prefs == null) return;
+    if (key === 'push_enabled') {
+      if (authorization !== 'authorized' || !prefs.push_enabled) {
+        await enablePush();
+      } else {
+        await updatePreferences({ push_enabled: false });
+      }
+      return;
+    }
+    await updatePreferences({ [key]: !prefs[key] });
+  }, [authorization, enablePush, prefs, updatePreferences]);
 
   const onRetry = useCallback(() => {
     void refetch();
   }, [refetch]);
 
   return {
-    prefs: prefs ?? null,
+    prefs,
+    authorization,
     isLoading,
-    error,
-    isSaving: false,
-    onToggle,
+    error: error instanceof Error ? error : error == null ? null : new Error(String(error)),
+    isSaving: isSaving || isRegistering,
+    onToggle: (key: keyof PushNotificationPrefs) => { void onToggle(key); },
     onRetry,
+    openSettings: () => { void openSettings(); },
   };
 }
+
+export type UseNotificationsScreenResult = ReturnType<typeof useNotificationsScreen>;

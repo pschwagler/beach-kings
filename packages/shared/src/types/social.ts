@@ -128,6 +128,7 @@ export interface DirectMessage {
   is_read: boolean;
   read_at: string | null;
   created_at: string;
+  moderation_visibility?: import('./moderation').ModerationVisibility;
 }
 
 export interface Conversation {
@@ -139,6 +140,7 @@ export interface Conversation {
   last_message_sender_id: number;
   unread_count: number;
   is_friend: boolean;
+  capability?: import('./moderation').InteractionCapability;
 }
 
 export interface ConversationListResponse {
@@ -150,6 +152,7 @@ export interface ThreadResponse {
   items: DirectMessage[];
   total_count: number;
   has_more?: boolean;
+  capability?: import('./moderation').InteractionCapability;
 }
 
 export interface MarkReadResponse {

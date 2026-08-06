@@ -8,9 +8,9 @@
  * Wireframe ref: league-chat.html
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import AppText from '@/components/ui/AppText';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Pressable, Alert } from 'react-native';
 import ChatComposer from '@/components/ui/ChatComposer';
 import ChatView from '@/components/ui/ChatView';
 import Avatar from '@/components/ui/Avatar';
@@ -18,6 +18,7 @@ import { ChatIcon } from '@/components/ui/icons';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { useLeagueChatTab } from './useLeagueChatTab';
 import type { LeagueChatMessage } from '@beach-kings/shared';
+import ReportSheet from '@/components/moderation/ReportSheet';
 
 // ---------------------------------------------------------------------------
 // Message bubble
@@ -30,9 +31,11 @@ interface MessageBubbleProps {
    * Avatar + name appear below this bubble (bottom-of-run style).
    */
   readonly showSender: boolean;
+  readonly onReport: (id: number) => void;
 }
 
-function MessageBubble({ message, showSender }: MessageBubbleProps): React.ReactNode {
+function MessageBubble({ message, showSender, onReport }: MessageBubbleProps): React.ReactNode {
+  const [revealed, setRevealed] = useState(false);
   const timeLabel = message.created_at
     ? new Date(message.created_at).toLocaleTimeString('en-US', {
         hour: 'numeric',
@@ -40,17 +43,34 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
       })
     : '';
 
+  if (message.collapsed_for_viewer && !revealed) {
+    return (
+      <View className="mx-lg mb-sm rounded-xl bg-inset px-md py-sm flex-row items-center justify-between">
+        <AppText className="text-sm text-muted">Message hidden due to your block settings.</AppText>
+        <Pressable
+          onPress={() => setRevealed(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Reveal hidden league message"
+          className="min-h-touch px-sm items-center justify-center"
+        >
+          <AppText className="text-brand-teal font-bold">Reveal</AppText>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (message.is_mine) {
     return (
       <View
         testID={`message-bubble-${message.id}`}
         className="items-end px-4 mb-[6px]"
       >
-        <View className="max-w-[80%] bg-brand-teal rounded-[16px] rounded-tr-[4px] px-4 py-[10px]">
+        <Pressable onLongPress={() => onReport(message.id)} accessibilityHint="Long press for message actions" className="max-w-[80%] bg-brand-teal rounded-[16px] rounded-tr-[4px] px-4 py-[10px]">
           <AppText className="text-[14px] text-on-brand-teal">{message.message}</AppText>
-        </View>
+        </Pressable>
         <AppText className="text-[10px] text-tertiary mt-[2px]">
           {timeLabel}
+          {message.moderation_visibility === 'pending' ? ' · Reviewing' : ''}
         </AppText>
       </View>
     );
@@ -70,11 +90,11 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
         ) : (
           <View className="w-7" />
         )}
-        <View className="max-w-[80%] bg-surface rounded-[16px] rounded-tl-[4px] px-4 py-[10px] border border-divider">
+        <Pressable onLongPress={() => onReport(message.id)} accessibilityHint="Long press for message actions" className="max-w-[80%] bg-surface rounded-[16px] rounded-tl-[4px] px-4 py-[10px] border border-divider">
           <AppText className="text-[14px] text-default">
             {message.message}
           </AppText>
-        </View>
+        </Pressable>
       </View>
       {showSender && (
         <View className="flex-row items-center gap-2 mt-[2px]">
@@ -134,6 +154,7 @@ export default function LeagueChatTab({
   draft,
   onDraftChange,
 }: LeagueChatTabProps): React.ReactNode {
+  const [reportMessageId, setReportMessageId] = useState<number | null>(null);
   const {
     messages,
     isLoading,
@@ -167,6 +188,7 @@ export default function LeagueChatTab({
   }
 
   return (
+    <View className="flex-1">
     <ChatView<LeagueChatMessage>
       testID="chat-tab"
       listTestID="chat-messages-list"
@@ -179,6 +201,7 @@ export default function LeagueChatTab({
             !msg.is_mine &&
             (nextMsg === null || nextMsg.player_id !== msg.player_id)
           }
+          onReport={setReportMessageId}
         />
       )}
       getTimestamp={(msg) => msg.created_at ?? ''}
@@ -197,5 +220,14 @@ export default function LeagueChatTab({
         />
       )}
     />
+    {reportMessageId != null && (
+      <ReportSheet
+        targetType="league_message"
+        targetId={reportMessageId}
+        onClose={() => setReportMessageId(null)}
+        onSubmitted={() => Alert.alert('Report received', 'Thank you for helping keep Beach League safe.')}
+      />
+    )}
+    </View>
   );
 }

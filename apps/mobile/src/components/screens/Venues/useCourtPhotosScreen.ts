@@ -31,7 +31,7 @@ export interface UseCourtPhotosScreenResult {
   readonly uploadError: Error | null;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
-  readonly onUploadPhoto: (caption?: string) => Promise<void>;
+  readonly onUploadPhoto: (caption?: string) => Promise<CourtPhoto | undefined>;
 }
 
 function buildHeader(court: Court | null): CourtPhotosHeader {
@@ -117,8 +117,9 @@ export function useCourtPhotosScreen(
 
       setIsUploading(true);
       try {
-        await api.uploadCourtPhoto(courtId as number, file, caption);
+        const uploaded = await api.uploadCourtPhoto(courtId as number, file, caption);
         await refetch();
+        return uploaded;
       } catch (err) {
         const wrapped = err instanceof Error ? err : new Error('Upload failed');
         setUploadError(wrapped);

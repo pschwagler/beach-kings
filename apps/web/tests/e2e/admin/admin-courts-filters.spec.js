@@ -26,8 +26,11 @@ async function gotoAdminCourts(page, user) {
   await page.goto('/admin-view?tab=courts');
   await authMePromise;
 
+  // Court operations opens on the decision queue; these tests exercise the directory.
+  await page.getByRole('tab', { name: /Court directory/ }).click();
+
   // Wait for the courts panel to finish loading (either table rows or empty text)
-  await page.locator('.admin-courts-row--clickable, :text("No courts found.")')
+  await page.locator('.admin-courts-row--clickable, :text("No courts match these filters")')
     .first().waitFor({ timeout: 20000 });
 
   // If the initial load returned 0 (race with parallel admin fixture teardowns),
@@ -48,13 +51,13 @@ async function gotoAdminCourts(page, user) {
       await page.reload({ waitUntil: 'networkidle' });
     }
 
-    await page.locator('.admin-courts-row--clickable, :text("No courts found.")')
+    await page.locator('.admin-courts-row--clickable, :text("No courts match these filters")')
       .first().waitFor({ timeout: 10000 });
   }
 }
 
 test.describe('Admin Courts Tab', () => {
-  test('"All Courts" sub-tab is active by default', async ({
+  test('court directory is available from the review desk', async ({
     browser,
     adminUser,
   }) => {
@@ -65,13 +68,11 @@ test.describe('Admin Courts Tab', () => {
       await gotoAdminCourts(page, adminUser);
       await expect(page.locator('h1')).toContainText('Admin Panel', { timeout: 15000 });
 
-      // "All Courts" pill should be active (first pill)
-      const allPill = page.locator('.admin-courts-pill').first();
-      await expect(allPill).toContainText('All Courts');
+      const allPill = page.getByRole('tab', { name: /Court directory/ });
+      await expect(allPill).toContainText('Court directory');
       await expect(allPill).toHaveClass(/admin-courts-pill--active/);
 
-      // "All Courts" header should be visible (from AllCourtsPanel)
-      await expect(page.locator('h2', { hasText: 'All Courts' }))
+      await expect(page.locator('h3', { hasText: 'All courts' }))
         .toBeVisible({ timeout: 10000 });
 
       // Search bar should be visible (AllCourtsPanel is rendered)
@@ -177,7 +178,7 @@ test.describe('Admin Courts Tab', () => {
 
       // Should show results or empty state
       const hasTable = await page.locator('.admin-feedback-table').isVisible();
-      const hasEmpty = await page.locator('text=No courts found.').isVisible();
+      const hasEmpty = await page.locator('text=No courts match these filters').isVisible();
       expect(hasTable || hasEmpty).toBe(true);
     } finally {
       await context.close();

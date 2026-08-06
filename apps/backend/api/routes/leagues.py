@@ -11,7 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
 from backend.database.models import Player, LeagueMember
-from backend.services import data_service, league_games_service, notification_service
+from backend.services import (
+    data_service,
+    interaction_policy,
+    league_games_service,
+    notification_service,
+)
 from backend.api.auth_dependencies import (
     get_current_user_optional,
     require_user,
@@ -54,6 +59,7 @@ async def create_league(
     Create a new league. Any authenticated user can create.
     """
     try:
+        await interaction_policy.enforce_user_ugc_creation(session, user["id"])
         league = await data_service.create_league(
             session=session,
             name=payload.name,
@@ -66,6 +72,8 @@ async def create_league(
             level=payload.level,
         )
         return league
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:
@@ -170,6 +178,7 @@ async def update_league(
     Update league profile fields (league_admin or system_admin).
     """
     try:
+        await interaction_policy.enforce_user_ugc_creation(session, user["id"])
         league = await data_service.update_league(
             session=session,
             league_id=league_id,
@@ -184,6 +193,8 @@ async def update_league(
         if not league:
             raise HTTPException(status_code=404, detail="League not found")
         return league
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:
@@ -865,24 +876,11 @@ async def create_league_message(
             raise HTTPException(status_code=400, detail="Message cannot be empty")
 
         user_id = user.get("id")
-        message = await data_service.create_league_message(
+        return await data_service.create_league_message(
             session, league_id, user_id, message_text
         )
-
-        # Notify all league members except sender
-        try:
-            await notification_service.notify_league_members_about_message(
-                session=session,
-                league_id=league_id,
-                message_id=message["id"],
-                sender_user_id=user_id,
-                message_text=message_text,
-            )
-        except Exception as e:
-            # Don't fail the message creation if notification fails
-            logger.warning(f"Failed to create notifications for league message: {e}")
-
-        return message
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:
@@ -1025,11 +1023,14 @@ async def send_league_invites(
                         league_id=league_id,
                         player_user_id=invited_player.user_id,
                         league_name=league.get("name"),
+                        actor_player_id=admin_player.id,
                     )
             except Exception as e:
                 logger.warning(f"Failed to notify player {pid} about league invite: {e}")
 
         return {"success": True, "message": "Invites sent"}
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:

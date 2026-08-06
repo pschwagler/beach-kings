@@ -3,6 +3,8 @@ Unit tests for notification API routes.
 Tests GET, PUT endpoints for notifications.
 """
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 from backend.api.main import app
@@ -364,7 +366,11 @@ class TestWebSocketNotifications:
         async def fake_update_activity(ws):
             pass
 
+        async def fake_get_user_by_id(session, user_id):
+            return {"id": user_id, "moderation_status": "active"}
+
         monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
+        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
         monkeypatch.setattr(manager, "connect", fake_connect)
         monkeypatch.setattr(manager, "disconnect", fake_disconnect)
         monkeypatch.setattr(manager, "update_activity", fake_update_activity)
@@ -378,3 +384,23 @@ class TestWebSocketNotifications:
             ws.send_text("ping")
             data = ws.receive_text()
             assert data == "pong"
+
+    def test_websocket_rejects_suspended_account(self, monkeypatch):
+        def fake_verify_token(token: str):
+            return {"user_id": 7}
+
+        async def fake_get_user_by_id(session, user_id):
+            return {
+                "id": user_id,
+                "moderation_status": "suspended",
+                "moderation_expires_at": "2099-01-01T00:00:00+00:00",
+            }
+
+        monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
+        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
+
+        client = TestClient(app)
+        with client.websocket_connect("/api/ws/notifications") as ws:
+            ws.send_text(json.dumps({"type": "auth", "token": "valid_token"}))
+            with pytest.raises(Exception):
+                ws.receive_text()

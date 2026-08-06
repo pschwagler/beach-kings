@@ -2722,6 +2722,10 @@ async def get_invitable_players(
     if query:
         player_q = player_q.where(Player.full_name.ilike(f"%{query}%"))
 
+    from backend.services import interaction_policy
+
+    player_q = interaction_policy.exclude_blocked_players(player_q, admin_player_id, Player.id)
+
     player_result = await session.execute(player_q.order_by(Player.full_name.asc()))
     rows = player_result.all()
 
@@ -2783,6 +2787,16 @@ async def create_league_invites(
     """
     if not player_ids:
         return 0
+
+    if invited_by_player_id is not None:
+        from backend.services import interaction_policy
+
+        await interaction_policy.enforce_actions(
+            session,
+            invited_by_player_id,
+            player_ids,
+            interaction_policy.InteractionAction.LEAGUE_INVITE,
+        )
 
     # Filter out players that already have a pending invite.
     existing_result = await session.execute(

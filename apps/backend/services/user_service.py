@@ -3,7 +3,7 @@ User service layer for user and verification code database operations.
 """
 
 from typing import Optional, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from backend.utils.datetime_utils import utcnow
@@ -42,6 +42,23 @@ from backend.database.models import (
     CourtEditSuggestion,
     PlayerInvite,
 )
+
+
+def effective_moderation_status(user: dict) -> str:
+    """Return the account status after applying time-bound suspension expiry."""
+    account_status = user.get("moderation_status") or "active"
+    if account_status != "suspended":
+        return account_status
+    expires_at = user.get("moderation_expires_at")
+    if not expires_at:
+        return account_status
+    try:
+        expiry = datetime.fromisoformat(expires_at) if isinstance(expires_at, str) else expires_at
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        return "active" if expiry <= utcnow() else account_status
+    except (TypeError, ValueError):
+        return account_status
 import asyncio
 import logging
 
@@ -439,6 +456,14 @@ def _user_to_dict(user: User) -> Dict:
             user.deletion_scheduled_at.isoformat() if user.deletion_scheduled_at else None
         ),
         "deleted_at": user.deleted_at.isoformat() if user.deleted_at else None,
+        "moderation_status": user.moderation_status or "active",
+        "moderation_expires_at": (
+            user.moderation_expires_at.isoformat() if user.moderation_expires_at else None
+        ),
+        "moderation_case_id": user.moderation_case_id,
+        "moderation_updated_at": (
+            user.moderation_updated_at.isoformat() if user.moderation_updated_at else None
+        ),
         "password_changed_at": (
             user.password_changed_at.isoformat() if user.password_changed_at else None
         ),

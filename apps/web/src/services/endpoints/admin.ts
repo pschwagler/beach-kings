@@ -76,3 +76,42 @@ export const submitFeedback = async ({ feedback, email }: { feedback: string; em
   });
   return response.data;
 };
+
+export type ModerationQueue = 'urgent' | 'due' | 'ordinary';
+export type ModerationState = 'active' | 'open' | 'acknowledged' | 'closed' | 'all';
+
+export interface ModerationCaseFilters {
+  queue?: ModerationQueue;
+  state?: ModerationState;
+  target_type?: string;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export const getModerationCases = async (params: ModerationCaseFilters = {}) => {
+  const response = await api.get('/api/admin-view/moderation/cases', { params });
+  return response.data;
+};
+
+export const getModerationOverview = async () =>
+  (await api.get('/api/admin-view/moderation/overview')).data;
+
+export const getModerationCase = async (caseId: number) => {
+  return (await api.get(`/api/admin-view/moderation/cases/${caseId}`)).data;
+};
+
+export const getModerationContext = async (caseId: number) => {
+  return (await api.get(`/api/admin-view/moderation/cases/${caseId}/context`)).data;
+};
+
+export const applyModerationAction = async (
+  caseId: number,
+  input: { action: string; reason: string; lock_hours?: number; legal_hold?: boolean; appeal_id?: number },
+) => (await api.post(`/api/admin-view/moderation/cases/${caseId}/actions`, input)).data;
+
+export const retryModerationJob = async (jobId: number, reason: string) =>
+  (await api.post(`/api/admin-view/moderation/jobs/${jobId}/retry`, { reason })).data;
+
+export const getModerationEvidenceUrl = async (caseId: number, evidenceId: number) =>
+  (await api.get(`/api/admin-view/moderation/cases/${caseId}/evidence/${evidenceId}/url`)).data;

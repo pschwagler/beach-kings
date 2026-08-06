@@ -38,6 +38,10 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
     hours: '',
     website: '',
     phone: '',
+    wind_exposure: '',
+    wind_notes: '',
+    sand_depth: '',
+    sand_notes: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
@@ -79,6 +83,10 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
         website: form.website || null,
         phone: form.phone || null,
         description: form.description || null,
+        wind_exposure: form.wind_exposure || null,
+        wind_notes: form.wind_notes || null,
+        sand_depth: form.sand_depth || null,
+        sand_notes: form.sand_notes || null,
       };
       await submitCourt(payload);
       showToast('Court submitted for review!', 'success');
@@ -130,6 +138,33 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
             />
           </div>
 
+          <fieldset className="add-court-form__conditions">
+            <legend>Playing conditions</legend>
+            <p>Optional details about the court&apos;s usual conditions.</p>
+            <div className="add-court-form__conditions-grid">
+              <div className="add-court-form__field">
+                <label htmlFor="court-wind-exposure">Typical wind</label>
+                <select id="court-wind-exposure" value={form.wind_exposure} onChange={(e) => handleChange('wind_exposure', e.target.value)}>
+                  <option value="">Unknown</option><option value="sheltered">Sheltered</option><option value="mixed">Mixed</option><option value="exposed">Exposed</option>
+                </select>
+              </div>
+              <div className="add-court-form__field">
+                <label htmlFor="court-sand-depth">Sand depth</label>
+                <select id="court-sand-depth" value={form.sand_depth} onChange={(e) => handleChange('sand_depth', e.target.value)}>
+                  <option value="">Unknown</option><option value="shallow">Shallow</option><option value="typical">Typical</option><option value="deep">Deep</option>
+                </select>
+              </div>
+              <div className="add-court-form__field">
+                <label htmlFor="court-wind-notes">Wind notes <span>{form.wind_notes.length}/140</span></label>
+                <textarea id="court-wind-notes" value={form.wind_notes} maxLength={140} rows={2} onChange={(e) => handleChange('wind_notes', e.target.value)} placeholder="e.g. Afternoon crosswind is common" />
+              </div>
+              <div className="add-court-form__field">
+                <label htmlFor="court-sand-notes">Sand notes <span>{form.sand_notes.length}/140</span></label>
+                <textarea id="court-sand-notes" value={form.sand_notes} maxLength={140} rows={2} onChange={(e) => handleChange('sand_notes', e.target.value)} placeholder="e.g. Deep near the net" />
+              </div>
+            </div>
+          </fieldset>
+
           <div className="add-court-form__field">
             <label htmlFor="court-location">Location Hub *</label>
             <select
@@ -172,12 +207,12 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field add-court-form__field--full">
-            <label htmlFor="court-description">Description</label>
+            <label htmlFor="court-description">About</label>
             <textarea
               id="court-description"
               value={form.description}
               onChange={(e) => handleChange('description', e.target.value)}
-              placeholder="Describe the courts..."
+              placeholder="Describe the setting, court setup, and what players should know."
               rows={3}
             />
           </div>
@@ -216,7 +251,7 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field">
-            <label htmlFor="court-website">Website</label>
+            <label htmlFor="court-website">Official site / booking</label>
             <input
               id="court-website"
               type="url"

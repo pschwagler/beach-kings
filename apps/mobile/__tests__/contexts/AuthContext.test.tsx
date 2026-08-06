@@ -74,11 +74,16 @@ jest.mock('@/lib/api', () => ({
   },
 }));
 
+jest.mock('@/features/notifications/pushInstallationStore', () => ({
+  retirePushInstallation: jest.fn(() => Promise.resolve()),
+}));
+
 // ---------------------------------------------------------------------------
 // Subject under test (imported after mocks)
 // ---------------------------------------------------------------------------
 
 import AuthProvider, { useAuth } from '@/contexts/AuthContext';
+import { retirePushInstallation } from '@/features/notifications/pushInstallationStore';
 import { api } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
@@ -103,6 +108,9 @@ const mockGoogleAuth = api.googleAuth as jest.MockedFunction<any>;
 const mockAppleAuth = api.appleAuth as jest.MockedFunction<any>;
 const mockVerifyPhone = api.verifyPhone as jest.MockedFunction<any>;
 const mockLogout = api.logout as jest.MockedFunction<any>;
+const mockRetirePushInstallation = retirePushInstallation as jest.MockedFunction<
+  typeof retirePushInstallation
+>;
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -192,9 +200,11 @@ beforeEach(() => {
     accessToken: null,
     refreshToken: null,
   });
+  mockGetMe.mockResolvedValue(mockMeResponse);
   mockSetAuthTokens.mockResolvedValue(undefined);
   mockClearAuthTokens.mockResolvedValue(undefined);
   mockCancelQueries.mockResolvedValue(undefined);
+  mockRetirePushInstallation.mockResolvedValue(undefined);
   mockAuthInvalidatedListener = null;
   mockSegments.splice(0, mockSegments.length);
   mockCanDismiss = jest.fn(() => true);
@@ -402,6 +412,7 @@ describe('AuthProvider — login', () => {
 
     expect(result.current.isAuthenticated).toBe(false);
   });
+
 });
 
 describe('AuthProvider — development token login', () => {
@@ -603,6 +614,10 @@ describe('AuthProvider — logout', () => {
     });
 
     expect(mockLogout).toHaveBeenCalledTimes(1);
+    expect(mockRetirePushInstallation).toHaveBeenCalledTimes(1);
+    expect(mockRetirePushInstallation.mock.invocationCallOrder[0]).toBeLessThan(
+      mockLogout.mock.invocationCallOrder[0],
+    );
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
@@ -700,6 +715,7 @@ describe('AuthProvider — transition races', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.user?.id).toBe(1));
+    mockGetMe.mockResolvedValue({ ...mockMeResponse, id: 2, email: 'second@example.com' });
 
     await act(async () => {
       await result.current.login({
@@ -709,7 +725,11 @@ describe('AuthProvider — transition races', () => {
     });
 
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
+    expect(mockRetirePushInstallation).toHaveBeenCalledTimes(1);
     expect(mockSetAuthTokens).toHaveBeenCalledWith('acc', 'ref');
+    expect(mockRetirePushInstallation.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSetAuthTokens.mock.invocationCallOrder[0],
+    );
     expect(mockClearAuthTokens.mock.invocationCallOrder[0]).toBeLessThan(
       mockSetAuthTokens.mock.invocationCallOrder[0],
     );
@@ -801,6 +821,24 @@ describe('AuthProvider — setProfileComplete', () => {
 });
 
 describe('AuthProvider — route guard', () => {
+  it('routes a suspended account to the account-status boundary without fetching player data', async () => {
+    mockGetStoredTokens.mockResolvedValue({ accessToken: 'valid', refreshToken: 'ref' });
+    mockGetMe.mockResolvedValue({
+      ...mockMeResponse,
+      moderation_status: 'suspended',
+      moderation_expires_at: '2099-01-01T00:00:00Z',
+      moderation_case_id: 17,
+    });
+    mockSegments.push('(tabs)');
+
+    render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(account)/restricted');
+    });
+    expect(mockGetCurrentUserPlayer).not.toHaveBeenCalled();
+  });
+
   it('redirects to welcome when unauthenticated and not in auth group', async () => {
     mockSegments.push('(tabs)');
 

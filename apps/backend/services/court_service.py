@@ -5,6 +5,7 @@ Handles court listing with filters, detail retrieval, court submission,
 and nearby-court calculations using haversine distance.
 """
 
+import json
 import logging
 import math
 import re
@@ -15,6 +16,7 @@ from sqlalchemy import and_, case, delete, func, literal, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from pydantic import ValidationError
 
 from backend.database.models import (
     Court,
@@ -35,9 +37,24 @@ from backend.database.models import (
     Session,
     SessionStatus,
 )
+from backend.models.schemas import CourtEditSuggestionChanges
+from backend.services import interaction_policy
 from backend.utils.geo_utils import calculate_distance_miles
 
 logger = logging.getLogger(__name__)
+
+
+class SuggestionResolutionConflictError(ValueError):
+    """The suggestion was already resolved by another moderation action."""
+
+
+class SuggestionResolutionValidationError(ValueError):
+    """Stored or selected suggestion changes fail the court-edit contract."""
+
+
+def _point_geojson(latitude: float, longitude: float) -> str:
+    """Return canonical GeoJSON for a court pin."""
+    return json.dumps({"type": "Point", "coordinates": [longitude, latitude]})
 
 
 def _escape_like(value: str) -> str:
@@ -282,6 +299,10 @@ async def list_courts_public(
             "state": loc_state,
             "court_count": court.court_count,
             "surface_type": court.surface_type,
+            "wind_exposure": court.wind_exposure,
+            "wind_notes": court.wind_notes,
+            "sand_depth": court.sand_depth,
+            "sand_notes": court.sand_notes,
             "is_free": court.is_free,
             "has_lights": court.has_lights,
             "nets_provided": court.nets_provided,
@@ -460,6 +481,8 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
     reviews = []
     all_photos = []
     for r in sorted(court.reviews, key=lambda x: x.created_at, reverse=True):
+        if r.moderation_visibility != "visible":
+            continue
         tags = [
             {
                 "id": rt.tag.id,
@@ -471,8 +494,9 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
             for rt in r.review_tags
         ]
         photos = [
-            {"id": p.id, "url": p.url, "sort_order": p.sort_order}
+            {"id": p.id, "url": p.url, "sort_order": p.sort_order, "target_type": "court_review_photo", "moderation_visibility": p.moderation_visibility}
             for p in sorted(r.photos, key=lambda x: x.sort_order)
+            if p.moderation_visibility == "visible"
         ]
         all_photos.extend(photos)
 
@@ -496,8 +520,9 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
 
     # Standalone court photos
     court_photos = [
-        {"id": p.id, "url": p.url, "sort_order": p.sort_order}
+        {"id": p.id, "url": p.url, "sort_order": p.sort_order, "target_type": "court_photo", "moderation_visibility": p.moderation_visibility}
         for p in sorted(court.photos, key=lambda x: x.sort_order)
+        if p.moderation_visibility == "visible"
     ]
 
     return {
@@ -521,6 +546,10 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
         "hours": court.hours,
         "phone": court.phone,
         "website": court.website,
+        "wind_exposure": court.wind_exposure,
+        "wind_notes": court.wind_notes,
+        "sand_depth": court.sand_depth,
+        "sand_notes": court.sand_notes,
         "latitude": court.latitude,
         "longitude": court.longitude,
         "average_rating": court.average_rating,
@@ -563,6 +592,8 @@ async def add_court_photo(
     Returns:
         Dict with id, url, caption, sort_order, created_at.
     """
+    await interaction_policy.enforce_ugc_creation(session, player_id)
+
     # Verify court exists
     court = await session.get(Court, court_id)
     if not court:
@@ -579,6 +610,8 @@ async def add_court_photo(
     )
     next_order = max_order_result.scalar() + 1
 
+    from backend.services import moderation_worker
+
     photo = CourtPhoto(
         court_id=court_id,
         s3_key=s3_key,
@@ -586,8 +619,11 @@ async def add_court_photo(
         uploaded_by=player_id,
         sort_order=next_order,
         caption=caption,
+        moderation_visibility=moderation_worker.initial_visibility(),
     )
     session.add(photo)
+    await session.flush()
+    await moderation_worker.enqueue_target(session, "court_photo", photo.id)
     await session.commit()
 
     return {
@@ -596,6 +632,7 @@ async def add_court_photo(
         "caption": photo.caption,
         "sort_order": photo.sort_order,
         "created_at": photo.created_at.isoformat() if photo.created_at else None,
+        "moderation_visibility": photo.moderation_visibility,
     }
 
 
@@ -611,7 +648,7 @@ async def list_court_photos(
     """
     result = await session.execute(
         select(CourtPhoto)
-        .where(CourtPhoto.court_id == court_id)
+        .where(CourtPhoto.court_id == court_id, CourtPhoto.moderation_visibility == "visible")
         .order_by(CourtPhoto.sort_order.asc(), CourtPhoto.id.asc())
     )
     photos = result.scalars().all()
@@ -622,6 +659,8 @@ async def list_court_photos(
             "caption": p.caption,
             "sort_order": p.sort_order,
             "created_at": p.created_at.isoformat() if p.created_at else None,
+            "target_type": "court_photo",
+            "moderation_visibility": p.moderation_visibility,
         }
         for p in photos
     ]
@@ -800,6 +839,10 @@ async def create_court(
     hours: Optional[str] = None,
     phone: Optional[str] = None,
     website: Optional[str] = None,
+    wind_exposure: Optional[str] = None,
+    wind_notes: Optional[str] = None,
+    sand_depth: Optional[str] = None,
+    sand_notes: Optional[str] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
 ) -> Dict:
@@ -808,6 +851,8 @@ async def create_court(
 
     Generates a unique slug from name + location city.
     """
+    if created_by_player_id is not None:
+        await interaction_policy.enforce_ugc_creation(session, created_by_player_id)
     # Resolve city from location for slug
     city = None
     loc_result = await session.execute(select(Location.city).where(Location.id == location_id))
@@ -837,8 +882,17 @@ async def create_court(
         hours=hours,
         phone=phone,
         website=website,
+        wind_exposure=wind_exposure,
+        wind_notes=wind_notes,
+        sand_depth=sand_depth,
+        sand_notes=sand_notes,
         latitude=latitude,
         longitude=longitude,
+        geoJson=(
+            _point_geojson(latitude, longitude)
+            if latitude is not None and longitude is not None
+            else None
+        ),
         created_by=created_by_player_id,
         review_count=0,
     )
@@ -855,6 +909,28 @@ async def create_court(
     }
 
 
+_NULLABLE_COURT_UPDATE_FIELDS = {
+    "address",
+    "description",
+    "court_count",
+    "surface_type",
+    "is_free",
+    "cost_info",
+    "has_lights",
+    "has_restrooms",
+    "has_parking",
+    "parking_info",
+    "nets_provided",
+    "hours",
+    "phone",
+    "website",
+    "wind_exposure",
+    "wind_notes",
+    "sand_depth",
+    "sand_notes",
+}
+
+
 async def update_court_fields(
     session: AsyncSession,
     court_id: int,
@@ -867,8 +943,18 @@ async def update_court_fields(
 
     Returns the updated court dict, or None if not found.
     """
-    # Filter out None values (caller passes Optional fields)
-    update_values = {k: v for k, v in fields.items() if v is not None}
+    # The route passes only explicitly-set fields. Preserve explicit nulls for
+    # nullable columns so staff can clear stale metadata instead of silently
+    # recording a partial suggestion as applied without changing the court.
+    update_values = {
+        key: value
+        for key, value in fields.items()
+        if value is not None or key in _NULLABLE_COURT_UPDATE_FIELDS
+    }
+    if "latitude" in update_values and "longitude" in update_values:
+        update_values["geoJson"] = _point_geojson(
+            update_values["latitude"], update_values["longitude"]
+        )
     if updater_player_id is not None:
         update_values["updated_by"] = updater_player_id
 
@@ -913,6 +999,13 @@ async def list_pending_courts(session: AsyncSession) -> List[Dict]:
             "location_id": court.location_id,
             "surface_type": court.surface_type,
             "court_count": court.court_count,
+            "wind_exposure": court.wind_exposure,
+            "wind_notes": court.wind_notes,
+            "sand_depth": court.sand_depth,
+            "sand_notes": court.sand_notes,
+            "website": court.website,
+            "latitude": court.latitude,
+            "longitude": court.longitude,
             "submitter_name": submitter_name,
             "created_at": court.created_at.isoformat() if court.created_at else None,
             "status": court.status,
@@ -967,6 +1060,9 @@ async def list_all_courts_admin(
     search: Optional[str] = None,
     region_id: Optional[str] = None,
     location_id: Optional[str] = None,
+    status: Optional[str] = None,
+    surface_type: Optional[str] = None,
+    has_photos: Optional[bool] = None,
     sort_by: Optional[str] = None,
     sort_dir: Optional[str] = "desc",
     page: int = 1,
@@ -976,7 +1072,7 @@ async def list_all_courts_admin(
     List all courts for admin with search, filters, sorting, and pagination.
 
     Supports sorting by name, created_at, court_count, surface_type, status.
-    Supports filtering by region_id and location_id.
+    Supports filtering by region, location, status, surface, and photo presence.
     Returns dict with ``items`` list and ``total`` count.
     """
     # Photo count subquery for response data
@@ -1014,6 +1110,14 @@ async def list_all_courts_admin(
         filters.append(Court.location_id == location_id)
     elif region_id:
         filters.append(Location.region_id == region_id)
+    if status and status != "all":
+        filters.append(Court.status == status)
+    if surface_type and surface_type != "all":
+        filters.append(Court.surface_type == surface_type)
+    if has_photos is True:
+        filters.append(func.coalesce(photo_count_sq.c.photo_count, 0) > 0)
+    elif has_photos is False:
+        filters.append(func.coalesce(photo_count_sq.c.photo_count, 0) == 0)
 
     if filters:
         base = base.where(and_(*filters))
@@ -1050,6 +1154,12 @@ async def list_all_courts_admin(
             "hours": court.hours,
             "phone": court.phone,
             "website": court.website,
+            "wind_exposure": court.wind_exposure,
+            "wind_notes": court.wind_notes,
+            "sand_depth": court.sand_depth,
+            "sand_notes": court.sand_notes,
+            "latitude": court.latitude,
+            "longitude": court.longitude,
             "cost_info": court.cost_info,
             "parking_info": court.parking_info,
             "submitter_name": submitter_name,
@@ -1078,6 +1188,12 @@ _SUGGESTION_FIELDS = [
     "hours",
     "phone",
     "website",
+    "wind_exposure",
+    "wind_notes",
+    "sand_depth",
+    "sand_notes",
+    "latitude",
+    "longitude",
 ]
 
 
@@ -1124,7 +1240,13 @@ async def list_all_suggestions_admin(
             "suggested_by": suggestion.suggested_by,
             "suggester_name": suggester_name,
             "changes": suggestion.changes,
+            "applied_changes": suggestion.applied_changes,
+            "note": suggestion.note,
             "status": suggestion.status,
+            "reviewed_by": suggestion.reviewed_by,
+            "reviewed_at": (
+                suggestion.reviewed_at.isoformat() if suggestion.reviewed_at else None
+            ),
             "created_at": (suggestion.created_at.isoformat() if suggestion.created_at else None),
             "current": {field: getattr(court, field) for field in _SUGGESTION_FIELDS},
         }
@@ -1154,6 +1276,8 @@ async def create_review(
     Attaches tags, recalculates court average_rating and review_count.
     Raises ValueError if the user already reviewed this court.
     """
+    await interaction_policy.enforce_ugc_creation(session, player_id)
+
     # Check for existing review
     existing = await session.execute(
         select(CourtReview.id).where(
@@ -1163,14 +1287,23 @@ async def create_review(
     if existing.scalar_one_or_none() is not None:
         raise ValueError("You have already reviewed this court")
 
+    from backend.services import moderation_worker
+
     review = CourtReview(
         court_id=court_id,
         player_id=player_id,
         rating=rating,
         review_text=review_text,
+        moderation_visibility=moderation_worker.initial_visibility(),
     )
     session.add(review)
     await session.flush()  # get review.id before adding tags
+    await moderation_worker.enqueue_target(
+        session,
+        "court_review",
+        review.id,
+        revision=moderation_worker.content_revision(review.review_text),
+    )
 
     # Attach tags
     if tag_ids:
@@ -1204,6 +1337,7 @@ async def update_review(
 
     Returns updated stats, or None if review not found / not the author.
     """
+    await interaction_policy.enforce_ugc_creation(session, player_id)
     result = await session.execute(select(CourtReview).where(CourtReview.id == review_id))
     review = result.scalar_one_or_none()
     if not review or review.player_id != player_id:
@@ -1212,7 +1346,16 @@ async def update_review(
     if rating is not None:
         review.rating = rating
     if review_text is not None:
+        from backend.services import moderation_worker
+
         review.review_text = review_text
+        review.moderation_visibility = moderation_worker.initial_visibility()
+        await moderation_worker.enqueue_target(
+            session,
+            "court_review",
+            review.id,
+            revision=moderation_worker.content_revision(review_text),
+        )
 
     # Replace tags if provided
     if tag_ids is not None:
@@ -1364,7 +1507,10 @@ async def list_reviews(
     page_size: int = 20,
 ) -> Dict:
     """Paginated reviews for a court with tags, photos, and author info."""
-    base = select(CourtReview).where(CourtReview.court_id == court_id)
+    base = select(CourtReview).where(
+        CourtReview.court_id == court_id,
+        CourtReview.moderation_visibility == "visible",
+    )
     total = (
         await session.execute(select(func.count()).select_from(base.subquery()))
     ).scalar() or 0
@@ -1395,8 +1541,9 @@ async def list_reviews(
             for rt in r.review_tags
         ]
         photos = [
-            {"id": p.id, "url": p.url, "sort_order": p.sort_order}
+            {"id": p.id, "url": p.url, "sort_order": p.sort_order, "target_type": "court_review_photo", "moderation_visibility": p.moderation_visibility}
             for p in sorted(r.photos, key=lambda x: x.sort_order)
+            if p.moderation_visibility == "visible"
         ]
         items.append(
             {
@@ -1424,7 +1571,8 @@ async def _recalc_court_rating(
 ) -> Tuple[Optional[float], int]:
     """Recalculate and persist average_rating and review_count for a court."""
     q = select(func.avg(CourtReview.rating), func.count(CourtReview.id)).where(
-        CourtReview.court_id == court_id
+        CourtReview.court_id == court_id,
+        CourtReview.moderation_visibility == "visible",
     )
     row = (await session.execute(q)).first()
     avg_val = round(float(row[0]), 2) if row[0] is not None else None
@@ -1460,6 +1608,8 @@ async def add_review_photo(
     Returns the new photo dict, or None if not authorized.
     Raises ValueError if photo limit exceeded.
     """
+    await interaction_policy.enforce_ugc_creation(session, player_id)
+
     # Verify authorship
     result = await session.execute(select(CourtReview).where(CourtReview.id == review_id))
     review = result.scalar_one_or_none()
@@ -1474,13 +1624,18 @@ async def add_review_photo(
     if current_count >= MAX_PHOTOS_PER_REVIEW:
         raise ValueError(f"Maximum {MAX_PHOTOS_PER_REVIEW} photos per review")
 
+    from backend.services import moderation_worker
+
     photo = CourtReviewPhoto(
         review_id=review_id,
         s3_key=s3_key,
         url=url,
         sort_order=current_count,
+        moderation_visibility=moderation_worker.initial_visibility(),
     )
     session.add(photo)
+    await session.flush()
+    await moderation_worker.enqueue_target(session, "court_review_photo", photo.id)
     await session.commit()
     await session.refresh(photo)
 
@@ -1488,6 +1643,7 @@ async def add_review_photo(
         "id": photo.id,
         "url": photo.url,
         "sort_order": photo.sort_order,
+        "moderation_visibility": photo.moderation_visibility,
     }
 
 
@@ -1502,12 +1658,15 @@ async def create_edit_suggestion(
     court_id: int,
     suggested_by_player_id: int,
     changes: dict,
+    note: Optional[str] = None,
 ) -> Dict:
     """Create a court edit suggestion."""
+    await interaction_policy.enforce_ugc_creation(session, suggested_by_player_id)
     suggestion = CourtEditSuggestion(
         court_id=court_id,
         suggested_by=suggested_by_player_id,
         changes=changes,
+        note=note,
         status="pending",
     )
     session.add(suggestion)
@@ -1518,6 +1677,8 @@ async def create_edit_suggestion(
         "id": suggestion.id,
         "court_id": suggestion.court_id,
         "status": suggestion.status,
+        "changes": suggestion.changes,
+        "note": suggestion.note,
         "created_at": suggestion.created_at.isoformat() if suggestion.created_at else None,
     }
 
@@ -1538,6 +1699,8 @@ async def list_edit_suggestions(session: AsyncSession, court_id: int) -> List[Di
             "suggested_by": s.suggested_by,
             "suggester_name": name,
             "changes": s.changes,
+            "applied_changes": s.applied_changes,
+            "note": s.note,
             "status": s.status,
             "reviewed_by": s.reviewed_by,
             "created_at": s.created_at.isoformat() if s.created_at else None,
@@ -1551,11 +1714,12 @@ async def resolve_edit_suggestion(
     session: AsyncSession,
     *,
     suggestion_id: int,
-    action: str,  # 'approved' or 'rejected'
+    action: str,  # 'approved', 'partially_applied', or 'rejected'
     reviewer_player_id: int,
+    applied_changes: Optional[dict] = None,
 ) -> Optional[Dict]:
     """
-    Approve or reject an edit suggestion.
+    Resolve an edit suggestion after approval, partial application, or rejection.
 
     If approved, apply changes to the court.
     Returns updated suggestion dict or None if not found.
@@ -1563,49 +1727,86 @@ async def resolve_edit_suggestion(
     from datetime import datetime, timezone
 
     result = await session.execute(
-        select(CourtEditSuggestion).where(CourtEditSuggestion.id == suggestion_id)
+        select(CourtEditSuggestion)
+        .where(CourtEditSuggestion.id == suggestion_id)
+        .with_for_update()
     )
     suggestion = result.scalar_one_or_none()
     if not suggestion:
         return None
 
+    if suggestion.status != "pending":
+        resolved_status = suggestion.status
+        await session.rollback()
+        raise SuggestionResolutionConflictError(
+            f"Suggestion has already been resolved as {resolved_status}"
+        )
+
+    update_values: Dict = {}
+    applied_snapshot: Optional[Dict] = None
+    if action in {"approved", "partially_applied"}:
+        try:
+            proposal_model = CourtEditSuggestionChanges.model_validate(suggestion.changes)
+            proposal = proposal_model.model_dump(exclude_unset=True)
+        except ValidationError as exc:
+            await session.rollback()
+            raise SuggestionResolutionValidationError(
+                "Stored suggestion changes are invalid"
+            ) from exc
+
+        if action == "approved":
+            applied_snapshot = proposal
+        else:
+            if applied_changes is None:
+                await session.rollback()
+                raise SuggestionResolutionValidationError(
+                    "applied_changes is required for a partial approval"
+                )
+            try:
+                selected_model = CourtEditSuggestionChanges.model_validate(applied_changes)
+                selected = selected_model.model_dump(exclude_unset=True)
+            except ValidationError as exc:
+                await session.rollback()
+                raise SuggestionResolutionValidationError(
+                    "Applied suggestion changes are invalid"
+                ) from exc
+
+            if any(key not in proposal for key in selected):
+                await session.rollback()
+                raise SuggestionResolutionValidationError(
+                    "applied_changes fields must be selected from the proposal"
+                )
+            applied_snapshot = selected
+
+        update_values = dict(applied_snapshot)
+        if "latitude" in update_values:
+            update_values["geoJson"] = _point_geojson(
+                update_values["latitude"], update_values["longitude"]
+            )
+
+    if update_values:
+        await session.execute(
+            update(Court).where(Court.id == suggestion.court_id).values(**update_values)
+        )
+
     suggestion.status = action
+    suggestion.applied_changes = applied_snapshot
     suggestion.reviewed_by = reviewer_player_id
     suggestion.reviewed_at = datetime.now(timezone.utc)
 
-    if action == "approved":
-        changes = suggestion.changes
-        # Only apply known court fields
-        allowed_fields = {
-            "name",
-            "address",
-            "description",
-            "court_count",
-            "surface_type",
-            "is_free",
-            "cost_info",
-            "has_lights",
-            "has_restrooms",
-            "has_parking",
-            "parking_info",
-            "nets_provided",
-            "hours",
-            "phone",
-            "website",
-        }
-        update_values = {k: v for k, v in changes.items() if k in allowed_fields}
-        if update_values:
-            await session.execute(
-                update(Court).where(Court.id == suggestion.court_id).values(**update_values)
-            )
-
-    await session.commit()
-    await session.refresh(suggestion)
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
 
     return {
         "id": suggestion.id,
         "court_id": suggestion.court_id,
         "status": suggestion.status,
+        "changes": suggestion.changes,
+        "applied_changes": suggestion.applied_changes,
+        "note": suggestion.note,
         "reviewed_at": suggestion.reviewed_at.isoformat() if suggestion.reviewed_at else None,
     }
 

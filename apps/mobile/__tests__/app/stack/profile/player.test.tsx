@@ -10,13 +10,13 @@
  *   - Add Friend button triggers API call
  *   - Message button navigates to messages
  *   - More (•••) button opens action sheet
- *   - Report action opens a prefilled mailto (no Block action)
+ *   - Report and Block actions use the in-app safety flow
  *   - Action sheet cancel closes overlay
  *   - Pull-to-refresh triggers refetch
  */
 
 import React from 'react';
-import { Alert, Linking } from 'react-native';
+import { Alert } from 'react-native';
 import type { AlertButton } from 'react-native';
 import {
   render as renderWithTestingLibrary,
@@ -66,7 +66,7 @@ jest.mock('react-native-reanimated', () => {
     useAnimatedStyle: () => ({}),
     withRepeat: (v: unknown) => v,
     withTiming: (v: unknown) => v,
-    Easing: { inOut: () => ({}), ease: {} },
+    Easing: { inOut: () => ({}), in: () => ({}), out: () => ({}), cubic: {} },
   };
 });
 
@@ -102,6 +102,31 @@ jest.mock('@/lib/api', () => ({
     sendFriendRequest: (...args: unknown[]) => mockSendFriendRequest(...args),
     removeFriend: (...args: unknown[]) => mockRemoveFriend(...args),
     getPlayerLeagues: (...args: unknown[]) => mockGetPlayerLeagues(...args),
+    getBlockedPlayers: jest.fn().mockResolvedValue([]),
+    blockPlayer: jest.fn().mockResolvedValue({ player_id: 42, status: 'blocked' }),
+    unblockPlayer: jest.fn().mockResolvedValue({ player_id: 42, status: 'unblocked' }),
+    getInteractionCapabilities: jest.fn().mockResolvedValue({
+      capabilities: {
+        '42': {
+          actions: {
+            direct_message: true,
+            friend_request: true,
+            league_invite: true,
+            session_invite: true,
+            mention: true,
+            reply: true,
+            presence: true,
+            read_receipt: true,
+            notification: true,
+            discovery: true,
+            shared_operational_content: true,
+          },
+          blocked_by_viewer: false,
+          viewer_restricted: false,
+        },
+      },
+    }),
+    reportContent: jest.fn(),
   },
 }));
 
@@ -365,12 +390,12 @@ describe('PlayerProfileScreen — action sheet', () => {
     expect(screen.getByTestId('player-action-sheet')).toBeTruthy();
   });
 
-  it('shows a report option but no block option in the action sheet', async () => {
+  it('shows report and block options in the action sheet', async () => {
     render(<PlayerProfileRoute />);
     await waitFor(() => expect(screen.getByTestId('player-profile-screen')).toBeTruthy());
     fireEvent.press(screen.getByTestId('player-more-btn'));
     expect(screen.getByTestId('action-sheet-report')).toBeTruthy();
-    expect(screen.queryByTestId('action-sheet-block')).toBeNull();
+    expect(screen.getByTestId('action-sheet-block')).toBeTruthy();
   });
 
   it('confirms and removes an accepted friend through the shared API', async () => {
@@ -413,24 +438,16 @@ describe('PlayerProfileScreen — action sheet', () => {
     expect(screen.queryByTestId('action-sheet-remove-friend')).toBeNull();
   });
 
-  it('opens a prefilled report email when report is pressed', async () => {
-    const openURL = jest
-      .spyOn(Linking, 'openURL')
-      .mockResolvedValue(undefined as unknown as never);
+  it('opens the in-app report flow when report is pressed', async () => {
     render(<PlayerProfileRoute />);
     await waitFor(() => expect(screen.getByTestId('player-profile-screen')).toBeTruthy());
     fireEvent.press(screen.getByTestId('player-more-btn'));
     fireEvent.press(screen.getByTestId('action-sheet-report'));
 
-    await waitFor(() => expect(openURL).toHaveBeenCalledTimes(1));
-    const url = openURL.mock.calls[0][0];
-    expect(url).toContain('mailto:beachleaguevb+report@gmail.com');
-    expect(url).toContain('subject=');
-    // Reported player's ID (from route params) is embedded in the body.
-    expect(decodeURIComponent(url)).toContain('Player ID: 42');
+    expect(screen.getByText('Choose the reason that best describes the problem.')).toBeTruthy();
+    expect(screen.getByText('Harassment or bullying')).toBeTruthy();
     // Action sheet closes after choosing report.
     expect(screen.queryByTestId('player-action-sheet')).toBeNull();
-    openURL.mockRestore();
   });
 
   it('closes action sheet when cancel is pressed', async () => {

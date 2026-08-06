@@ -891,7 +891,12 @@ class TestSuggestCourtEdit:
     def test_suggest_edit_success(self, monkeypatch):
         """Verified player can suggest an edit."""
 
-        async def fake_create_suggestion(session, court_id, suggested_by_player_id, changes):
+        captured = {}
+
+        async def fake_create_suggestion(
+            session, court_id, suggested_by_player_id, changes, note=None
+        ):
+            captured.update(changes=changes, note=note)
             return FAKE_SUGGESTION
 
         monkeypatch.setattr(
@@ -901,13 +906,44 @@ class TestSuggestCourtEdit:
         client, headers = _make_verified_player_client(monkeypatch)
         response = client.post(
             "/api/courts/1/suggest-edit",
-            json={"changes": {"name": "Better Name"}},
+            json={
+                "changes": {
+                    "name": "Better Name",
+                    "wind_exposure": "exposed",
+                    "latitude": 37.77,
+                    "longitude": -122.51,
+                },
+                "note": "The marker is currently in the parking lot.",
+            },
             headers=headers,
         )
         _restore_verified_player()
 
         assert response.status_code == 200
         assert response.json()["status"] == "pending"
+        assert captured["changes"]["wind_exposure"] == "exposed"
+        assert captured["changes"]["longitude"] == -122.51
+        assert captured["note"] == "The marker is currently in the parking lot."
+
+    def test_suggest_edit_rejects_unpaired_pin(self, monkeypatch):
+        client, headers = _make_verified_player_client(monkeypatch)
+        response = client.post(
+            "/api/courts/1/suggest-edit",
+            json={"changes": {"latitude": 37.77}},
+            headers=headers,
+        )
+        _restore_verified_player()
+        assert response.status_code == 422
+
+    def test_suggest_edit_rejects_unknown_field(self, monkeypatch):
+        client, headers = _make_verified_player_client(monkeypatch)
+        response = client.post(
+            "/api/courts/1/suggest-edit",
+            json={"changes": {"unreviewed_field": "value"}},
+            headers=headers,
+        )
+        _restore_verified_player()
+        assert response.status_code == 422
 
     def test_suggest_edit_no_auth_returns_403(self):
         """Unauthenticated request returns 401/403."""
@@ -929,6 +965,106 @@ class TestSuggestCourtEdit:
         )
         _restore_verified_player()
         assert response.status_code == 422
+
+
+# ============================================================================
+# PUT /api/courts/suggestions/{suggestion_id}
+# ============================================================================
+
+
+class TestResolveCourtEditSuggestion:
+    """HTTP contract for atomic suggestion moderation."""
+
+    @staticmethod
+    def _override_session(monkeypatch):
+        fake_session = MagicMock()
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = 1
+        fake_session.execute = AsyncMock(return_value=result)
+
+        async def fake_session_dependency():
+            yield fake_session
+
+        async def fake_owner_guard(session, court_id, user):
+            return None
+
+        app.dependency_overrides[get_db_session] = fake_session_dependency
+        monkeypatch.setattr(
+            "backend.api.routes.courts.require_court_owner_or_admin",
+            fake_owner_guard,
+            raising=True,
+        )
+        return fake_session
+
+    def test_partial_resolution_forwards_validated_applied_snapshot(self, monkeypatch):
+        self._override_session(monkeypatch)
+        captured = {}
+
+        async def fake_resolve(session, **kwargs):
+            captured.update(kwargs)
+            return {
+                "id": 1,
+                "court_id": 1,
+                "status": "partially_applied",
+                "applied_changes": kwargs["applied_changes"],
+            }
+
+        monkeypatch.setattr(court_service, "resolve_edit_suggestion", fake_resolve, raising=True)
+        client, headers = _make_verified_player_client(monkeypatch)
+        try:
+            response = client.put(
+                "/api/courts/suggestions/1?action=partially_applied",
+                json={"applied_changes": {"sand_depth": "typical"}},
+                headers=headers,
+            )
+        finally:
+            _restore_verified_player()
+            app.dependency_overrides.pop(get_db_session, None)
+
+        assert response.status_code == 200
+        assert captured["applied_changes"] == {"sand_depth": "typical"}
+
+    def test_repeat_resolution_conflict_returns_409(self, monkeypatch):
+        self._override_session(monkeypatch)
+
+        async def fake_resolve(session, **kwargs):
+            raise court_service.SuggestionResolutionConflictError(
+                "Suggestion has already been resolved as approved"
+            )
+
+        monkeypatch.setattr(court_service, "resolve_edit_suggestion", fake_resolve, raising=True)
+        client, headers = _make_verified_player_client(monkeypatch)
+        try:
+            response = client.put(
+                "/api/courts/suggestions/1?action=approved", headers=headers
+            )
+        finally:
+            _restore_verified_player()
+            app.dependency_overrides.pop(get_db_session, None)
+
+        assert response.status_code == 409
+        assert "already been resolved" in response.json()["detail"]
+
+    def test_invalid_stored_suggestion_returns_422(self, monkeypatch):
+        self._override_session(monkeypatch)
+
+        async def fake_resolve(session, **kwargs):
+            raise court_service.SuggestionResolutionValidationError(
+                "Stored suggestion changes are invalid"
+            )
+
+        monkeypatch.setattr(court_service, "resolve_edit_suggestion", fake_resolve, raising=True)
+        client, headers = _make_verified_player_client(monkeypatch)
+        try:
+            response = client.put(
+                "/api/courts/suggestions/1?action=approved", headers=headers
+            )
+        finally:
+            _restore_verified_player()
+            app.dependency_overrides.pop(get_db_session, None)
+
+        assert response.status_code == 422
+        assert response.json()["detail"] == "Stored suggestion changes are invalid"
 
 
 # ============================================================================
@@ -1213,12 +1349,16 @@ class TestListAllCourtsAdmin:
 
         client, headers = _make_system_admin_client(monkeypatch)
         response = client.get(
-            "/api/admin-view/courts?search=mission&region_id=socal&page=2",
+            "/api/admin-view/courts?search=mission&region_id=socal&status=pending"
+            "&surface_type=sand&has_photos=false&page=2",
             headers=headers,
         )
         assert response.status_code == 200
         assert captured["search"] == "mission"
         assert captured["region_id"] == "socal"
+        assert captured["status"] == "pending"
+        assert captured["surface_type"] == "sand"
+        assert captured["has_photos"] is False
         assert captured["page"] == 2
 
     def test_list_all_courts_non_admin_returns_403(self, monkeypatch):

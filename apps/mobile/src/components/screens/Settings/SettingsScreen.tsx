@@ -212,6 +212,16 @@ export default function SettingsScreen(): React.ReactNode {
     router.push(routes.settingsPrivacy());
   }, [router]);
 
+  const handleBlocked = useCallback(() => {
+    void hapticLight();
+    router.push(routes.settingsBlocked());
+  }, [router]);
+
+  const handleAccountStatus = useCallback(() => {
+    void hapticLight();
+    router.push(routes.settingsAccountStatus());
+  }, [router]);
+
   const handleNotifications = useCallback(() => {
     void hapticLight();
     router.push(routes.settingsNotifications());
@@ -240,6 +250,11 @@ export default function SettingsScreen(): React.ReactNode {
   const handlePrivacyPolicy = useCallback(() => {
     void hapticLight();
     void Linking.openURL(PUBLIC_URLS.privacy);
+  }, []);
+
+  const handleCommunityGuidelines = useCallback(() => {
+    void hapticLight();
+    void Linking.openURL(PUBLIC_URLS.communityGuidelines);
   }, []);
 
   const handleRateApp = useCallback(() => {
@@ -413,7 +428,27 @@ export default function SettingsScreen(): React.ReactNode {
             label="Privacy Settings"
             onPress={handlePrivacy}
           />
+          <SettingsRow
+            testID="settings-row-blocked"
+            label="Blocked Accounts"
+            onPress={handleBlocked}
+          />
         </View>
+
+        {user?.interaction_restricted_until != null && (
+          <>
+            <SectionLabel title="Account" />
+            <View>
+              <SettingsRow
+                testID="settings-row-account-status"
+                label="Social features limited"
+                value="View status"
+                valueColor="text-brand-teal"
+                onPress={handleAccountStatus}
+              />
+            </View>
+          </>
+        )}
 
         <SectionLabel title="Notifications" />
         <View>
@@ -455,6 +490,11 @@ export default function SettingsScreen(): React.ReactNode {
 
         <SectionLabel title="Legal" />
         <View>
+          <SettingsRow
+            testID="settings-row-community-guidelines"
+            label="Community Guidelines"
+            onPress={handleCommunityGuidelines}
+          />
           <SettingsRow
             testID="settings-row-terms"
             label="Terms of Service"

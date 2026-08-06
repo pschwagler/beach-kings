@@ -26,6 +26,12 @@ describe('routes', () => {
     expect(routes.court('venice-beach')).toContain('court/venice-beach');
   });
 
+  it('court edit suggestion route contains the slug', () => {
+    expect(routes.courtSuggestEdit('venice-beach')).toBe(
+      '/(stack)/court/venice-beach/suggest-edit',
+    );
+  });
+
   it('kob route contains the code', () => {
     expect(routes.kob('xyz')).toContain('kob/xyz');
   });
@@ -146,6 +152,9 @@ describe('resolveUp', () => {
       routes.league(7),
     );
     expect(resolveUp(seg('(stack)/court/[id]/photos'), { id: 'venice' })).toBe(
+      routes.court('venice'),
+    );
+    expect(resolveUp(seg('(stack)/court/[id]/suggest-edit'), { id: 'venice' })).toBe(
       routes.court('venice'),
     );
     expect(resolveUp(seg('(stack)/session/[id]/edit'), { id: '99' })).toBe(

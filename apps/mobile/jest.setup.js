@@ -43,6 +43,34 @@ jest.mock('expo-web-browser', () => ({
   maybeCompleteAuthSession: jest.fn(),
 }));
 
+// Remote notification native modules are unavailable in Jest/Expo Go. Tests
+// that exercise NativePushProvider override these functions per scenario.
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  getPermissionsAsync: jest.fn(async () => ({
+    granted: false,
+    status: 'undetermined',
+    canAskAgain: true,
+    expires: 'never',
+  })),
+  requestPermissionsAsync: jest.fn(async () => ({
+    granted: false,
+    status: 'denied',
+    canAskAgain: false,
+    expires: 'never',
+  })),
+  getExpoPushTokenAsync: jest.fn(async () => ({ data: 'ExponentPushToken[test]' })),
+  setNotificationChannelAsync: jest.fn(async () => undefined),
+  setBadgeCountAsync: jest.fn(async () => true),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
+  clearLastNotificationResponseAsync: jest.fn(async () => undefined),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addPushTokenListener: jest.fn(() => ({ remove: jest.fn() })),
+  AndroidImportance: { MAX: 5 },
+  DEFAULT_ACTION_IDENTIFIER: 'default',
+}));
+
 // Mock expo-apple-authentication — sheet isn't available in tests.
 jest.mock('expo-apple-authentication', () => ({
   isAvailableAsync: jest.fn(async () => false),

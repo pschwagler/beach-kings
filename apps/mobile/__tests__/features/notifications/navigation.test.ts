@@ -1,6 +1,11 @@
 import { resolveNotificationRoute } from '@/features/notifications/navigation';
 
 describe('resolveNotificationRoute', () => {
+  it('routes account safety updates to the account status screen', () => {
+    expect(resolveNotificationRoute('/account-status')).toBe(
+      '/(stack)/settings/account-status',
+    );
+  });
   it.each([
     ['/home', '/(tabs)/home'],
     ['/home?tab=messages', '/(tabs)/social?tab=messages'],

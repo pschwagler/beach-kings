@@ -14,7 +14,12 @@ from sqlalchemy import select, update, func, and_, or_, case
 from sqlalchemy.orm import aliased
 
 from backend.database.models import DirectMessage, Notification, NotificationType, Player
-from backend.services import friend_service, notification_service
+from backend.services import (
+    friend_service,
+    notification_service,
+    interaction_policy,
+    moderation_worker,
+)
 from backend.services.notification_service import notification_to_dict
 from backend.services.websocket_manager import get_websocket_manager
 from backend.utils.datetime_utils import utcnow
@@ -49,6 +54,13 @@ async def send_message(
     if sender_player_id == receiver_player_id:
         raise ValueError("Cannot send a message to yourself")
 
+    await interaction_policy.enforce_action(
+        session,
+        sender_player_id,
+        receiver_player_id,
+        interaction_policy.InteractionAction.DIRECT_MESSAGE,
+    )
+
     # Validate friendship
     friends = await friend_service.are_friends(session, sender_player_id, receiver_player_id)
     if not friends:
@@ -66,21 +78,43 @@ async def send_message(
         sender_player_id=sender_player_id,
         receiver_player_id=receiver_player_id,
         message_text=message_text,
+        moderation_visibility=moderation_worker.initial_visibility(),
     )
     session.add(dm)
     await session.flush()
     await session.refresh(dm)
+    await moderation_worker.enqueue_target(session, "direct_message", dm.id)
+
+    message_dict = _dm_to_dict(dm)
+
+    if dm.moderation_visibility == "visible":
+        await publish_approved_message(session, dm)
+
+    return message_dict
+
+
+async def publish_approved_message(session: AsyncSession, dm: DirectMessage) -> bool:
+    """Deliver a visible message after policy and moderation checks pass."""
+    try:
+        await interaction_policy.enforce_action(
+            session,
+            dm.sender_player_id,
+            dm.receiver_player_id,
+            interaction_policy.InteractionAction.DIRECT_MESSAGE,
+        )
+    except interaction_policy.InteractionUnavailable:
+        return False
 
     message_dict = _dm_to_dict(dm)
 
     # Resolve receiver's user_id once for WebSocket + notification
     receiver_user_id = None
     try:
-        receiver_user_id = await _get_user_id_for_player(session, receiver_player_id)
+        receiver_user_id = await _get_user_id_for_player(session, dm.receiver_player_id)
     except Exception as e:
         logger.warning(
             "Could not resolve receiver user_id for player %s: %s",
-            receiver_player_id,
+            dm.receiver_player_id,
             e,
             exc_info=True,
         )
@@ -96,7 +130,7 @@ async def send_message(
         except Exception as e:
             logger.warning(
                 "Failed to send DM via WebSocket to player %s: %s",
-                receiver_player_id,
+                dm.receiver_player_id,
                 e,
                 exc_info=True,
             )
@@ -104,14 +138,20 @@ async def send_message(
     # Summary bell notification (upsert: one notification per user for all unread DMs)
     if receiver_user_id:
         try:
-            sender_name = await _get_player_name(session, sender_player_id)
+            sender_name = await _get_player_name(session, dm.sender_player_id)
             await _upsert_dm_summary_notification(
-                session, receiver_user_id, receiver_player_id, sender_name, message_text
+                session,
+                receiver_user_id,
+                dm.receiver_player_id,
+                dm.sender_player_id,
+                sender_name,
+                dm.message_text,
+                dm.id,
             )
         except Exception as e:
             logger.warning("Failed to create DM notification: %s", e, exc_info=True)
 
-    return message_dict
+    return True
 
 
 async def get_conversations(
@@ -143,28 +183,35 @@ async def get_conversations(
 
     # Get all distinct conversation partners with latest message info
     # Using a window function approach for efficiency
-    all_msgs = (
-        select(
-            other_player,
-            DirectMessage.id.label("msg_id"),
-            DirectMessage.message_text,
-            DirectMessage.sender_player_id,
-            DirectMessage.created_at,
-            func.row_number()
-            .over(
-                partition_by=other_player,
-                order_by=DirectMessage.created_at.desc(),
-            )
-            .label("rn"),
+    all_msgs_query = select(
+        other_player,
+        DirectMessage.id.label("msg_id"),
+        DirectMessage.message_text,
+        DirectMessage.sender_player_id,
+        DirectMessage.created_at,
+        func.row_number()
+        .over(
+            partition_by=other_player,
+            order_by=DirectMessage.created_at.desc(),
         )
-        .where(
-            or_(
+        .label("rn"),
+    ).where(
+        or_(
+            DirectMessage.sender_player_id == player_id,
+            DirectMessage.receiver_player_id == player_id,
+        ),
+        or_(
+            DirectMessage.moderation_visibility == "visible",
+            and_(
                 DirectMessage.sender_player_id == player_id,
-                DirectMessage.receiver_player_id == player_id,
-            )
-        )
-        .subquery()
+                DirectMessage.moderation_visibility == "pending",
+            ),
+        ),
     )
+    all_msgs_query = interaction_policy.exclude_blocked_players(
+        all_msgs_query, player_id, other_player
+    )
+    all_msgs = all_msgs_query.subquery()
 
     # Only keep the latest message per conversation
     latest = select(all_msgs).where(all_msgs.c.rn == 1).subquery()
@@ -204,9 +251,13 @@ async def get_conversations(
             and_(
                 DirectMessage.receiver_player_id == player_id,
                 DirectMessage.is_read.is_(False),
+                DirectMessage.moderation_visibility == "visible",
             )
         )
         .group_by(DirectMessage.sender_player_id)
+    )
+    unread_q = interaction_policy.exclude_blocked_players(
+        unread_q, player_id, DirectMessage.sender_player_id
     )
     unread_result = await session.execute(unread_q)
     unread_map = {row.sender_player_id: row.cnt for row in unread_result.all()}
@@ -214,6 +265,9 @@ async def get_conversations(
     # Check friendship status for each partner
     friend_ids = await friend_service.get_friend_ids(session, player_id)
 
+    capabilities = await interaction_policy.interaction_capabilities(
+        session, player_id, [row.other_player_id for row in rows]
+    )
     conversations = []
     for row in rows:
         conversations.append(
@@ -226,6 +280,7 @@ async def get_conversations(
                 "last_message_sender_id": row.sender_player_id,
                 "unread_count": unread_map.get(row.other_player_id, 0),
                 "is_friend": row.other_player_id in friend_ids,
+                "capability": capabilities[row.other_player_id],
             }
         )
 
@@ -252,6 +307,21 @@ async def get_thread(
     Returns:
         Dict with messages list, total_count, and has_more
     """
+    capability = await interaction_policy.interaction_capability(
+        session, player_id, other_player_id
+    )
+    direct_message_decision = await interaction_policy.interaction_decision(
+        session,
+        player_id,
+        other_player_id,
+        interaction_policy.InteractionAction.DIRECT_MESSAGE,
+    )
+    if direct_message_decision.denial_reason in {
+        interaction_policy.DenialReason.BLOCKED_BY_VIEWER,
+        interaction_policy.DenialReason.BLOCKED_BY_OTHER,
+    }:
+        return {"items": [], "total_count": 0, "has_more": False, "capability": capability}
+
     base_filter = or_(
         and_(
             DirectMessage.sender_player_id == player_id,
@@ -262,16 +332,23 @@ async def get_thread(
             DirectMessage.receiver_player_id == player_id,
         ),
     )
+    visibility_filter = or_(
+        DirectMessage.moderation_visibility == "visible",
+        and_(
+            DirectMessage.sender_player_id == player_id,
+            DirectMessage.moderation_visibility == "pending",
+        ),
+    )
 
     # Total count
-    count_q = select(func.count()).select_from(DirectMessage).where(base_filter)
+    count_q = select(func.count()).select_from(DirectMessage).where(base_filter, visibility_filter)
     total_result = await session.execute(count_q)
     total_count = total_result.scalar_one() or 0
 
     # Fetch messages (newest first for pagination, frontend reverses for display)
     messages_q = (
         select(DirectMessage)
-        .where(base_filter)
+        .where(base_filter, visibility_filter)
         .order_by(DirectMessage.created_at.desc())
         .limit(limit)
         .offset(offset)
@@ -281,7 +358,12 @@ async def get_thread(
 
     has_more = (offset + len(messages)) < total_count
 
-    return {"items": messages, "total_count": total_count, "has_more": has_more}
+    return {
+        "items": messages,
+        "total_count": total_count,
+        "has_more": has_more,
+        "capability": capability,
+    }
 
 
 async def mark_thread_read(
@@ -300,6 +382,12 @@ async def mark_thread_read(
     Returns:
         Number of messages marked as read
     """
+    await interaction_policy.enforce_action(
+        session,
+        player_id,
+        other_player_id,
+        interaction_policy.InteractionAction.READ_RECEIPT,
+    )
     now = utcnow()
     result = await session.execute(
         update(DirectMessage)
@@ -308,6 +396,7 @@ async def mark_thread_read(
                 DirectMessage.sender_player_id == other_player_id,
                 DirectMessage.receiver_player_id == player_id,
                 DirectMessage.is_read.is_(False),
+                DirectMessage.moderation_visibility == "visible",
             )
         )
         .values(is_read=True, read_at=now)
@@ -343,16 +432,21 @@ async def get_unread_count(session: AsyncSession, player_id: int) -> int:
     Returns:
         Total unread message count
     """
-    result = await session.execute(
+    query = (
         select(func.count())
         .select_from(DirectMessage)
         .where(
             and_(
                 DirectMessage.receiver_player_id == player_id,
                 DirectMessage.is_read.is_(False),
+                DirectMessage.moderation_visibility == "visible",
             )
         )
     )
+    query = interaction_policy.exclude_blocked_players(
+        query, player_id, DirectMessage.sender_player_id
+    )
+    result = await session.execute(query)
     return result.scalar_one() or 0
 
 
@@ -365,8 +459,10 @@ async def _upsert_dm_summary_notification(
     session: AsyncSession,
     user_id: int,
     player_id: int,
+    sender_player_id: int,
     sender_name: str,
     message_text: str,
+    message_id: int,
 ) -> None:
     """
     Create or update a single summary notification for all unread DMs.
@@ -403,13 +499,25 @@ async def _upsert_dm_summary_notification(
 
     if notif:
         # Update existing notification
-        notif.title = title
-        notif.message = message
-        notif.data = json.dumps({"unread_count": unread_total})
-        notif.link_url = "/home?tab=messages"
-        notif.created_at = utcnow()
-        await session.flush()
-        await session.refresh(notif)
+        from backend.services.push_delivery_service import enqueue_notification_jobs
+
+        async with session.begin_nested():
+            notif.title = title
+            notif.message = message
+            notif.data = json.dumps({"unread_count": unread_total})
+            notif.link_url = "/home?tab=messages"
+            notif.actor_player_id = sender_player_id
+            notif.created_at = utcnow()
+            await session.flush()
+            await session.refresh(notif)
+            await enqueue_notification_jobs(
+                session,
+                notif,
+                {"message_id": message_id, "sender_player_id": sender_player_id},
+                push_title=f"New message from {sender_name}",
+                push_body="A new message is available.",
+                event_key=f"direct-message-{message_id}",
+            )
 
         notif_dict = notification_to_dict(notif)
 
@@ -431,6 +539,10 @@ async def _upsert_dm_summary_notification(
             message=message,
             data={"unread_count": unread_total},
             link_url="/home?tab=messages",
+            actor_player_id=sender_player_id,
+            push_title=f"New message from {sender_name}",
+            push_body="A new message is available.",
+            push_event_key=f"direct-message-{message_id}",
         )
 
 
@@ -507,6 +619,7 @@ def _dm_to_dict(dm: DirectMessage) -> Dict[str, Any]:
         "is_read": dm.is_read,
         "read_at": dm.read_at,
         "created_at": dm.created_at,
+        "moderation_visibility": dm.moderation_visibility,
     }
 
 

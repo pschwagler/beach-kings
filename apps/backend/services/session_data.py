@@ -1826,6 +1826,15 @@ async def add_session_participant(
     invited_by: Optional[int] = None,
 ) -> bool:
     """Add a player to session participants (idempotent). Returns True if added or already present."""
+    if invited_by is not None:
+        from backend.services import interaction_policy
+
+        await interaction_policy.enforce_action(
+            db_session,
+            invited_by,
+            player_id,
+            interaction_policy.InteractionAction.SESSION_INVITE,
+        )
     existing = await db_session.execute(
         select(SessionParticipant.id).where(
             and_(

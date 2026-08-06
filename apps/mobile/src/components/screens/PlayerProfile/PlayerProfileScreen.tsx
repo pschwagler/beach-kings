@@ -17,7 +17,7 @@
 
 import React, { useCallback, useState } from 'react';
 import AppText from '@/components/ui/AppText';
-import { View, Pressable, ScrollView, RefreshControl, Alert, Linking } from 'react-native';
+import { AccessibilityInfo, Pressable, ScrollView, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -32,9 +32,11 @@ import PlayerStatsGrid from './PlayerStatsGrid';
 import PlayerLeaguesList from './PlayerLeaguesList';
 import PlayerProfileSkeleton from './PlayerProfileSkeleton';
 import PlayerProfileErrorState from './PlayerProfileErrorState';
-
-/** Inbox that receives player reports (plus-addressed for filtering). */
-const REPORT_EMAIL = 'beachleaguevb+report@gmail.com';
+import ReportSheet from '@/components/moderation/ReportSheet';
+import BlockPlayerDialog from '@/components/moderation/BlockPlayerDialog';
+import PlayerSafetySheet from '@/components/moderation/PlayerSafetySheet';
+import UnblockPlayerDialog from '@/components/moderation/UnblockPlayerDialog';
+import { usePlayerSafety } from '@/features/moderation';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -53,6 +55,12 @@ export default function PlayerProfileScreen({
 }: PlayerProfileScreenProps): React.ReactNode {
   const router = useRouter();
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showReportSheet, setShowReportSheet] = useState(false);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showUnblockDialog, setShowUnblockDialog] = useState(false);
+  const [safetyError, setSafetyError] = useState<string | null>(null);
+  const numericPlayerId = typeof playerId === 'string' ? Number(playerId) : playerId;
+  const safety = usePlayerSafety(numericPlayerId);
 
   const navigateToMessages = useCallback(
     (id: number, name?: string) => {
@@ -140,24 +148,35 @@ export default function PlayerProfileScreen({
 
   const handleReport = useCallback(() => {
     setShowActionSheet(false);
-    const subject = `Report a player: ${playerName}`;
-    const body =
-      `I'd like to report the following player:\n\n` +
-      `Name: ${playerName}\n` +
-      `Player ID: ${playerId}\n\n` +
-      `Reason:\n`;
-    const url =
-      `mailto:${REPORT_EMAIL}` +
-      `?subject=${encodeURIComponent(subject)}` +
-      `&body=${encodeURIComponent(body)}`;
-    void Linking.openURL(url).catch(() => {
-      Alert.alert(
-        'Could not open email',
-        `Please email ${REPORT_EMAIL} to report this player.`,
-        [{ text: 'OK' }],
-      );
-    });
-  }, [playerName, playerId]);
+    setShowReportSheet(true);
+  }, []);
+
+  const handleBlock = useCallback(() => {
+    setShowActionSheet(false);
+    setSafetyError(null);
+    if (safety.blockedByViewer) setShowUnblockDialog(true);
+    else setShowBlockDialog(true);
+  }, [safety.blockedByViewer]);
+
+  const confirmBlock = useCallback(() => {
+    setSafetyError(null);
+    void safety.block.mutateAsync({
+      player_id: numericPlayerId,
+      full_name: playerName,
+      avatar: profileData?.player.profile_picture_url ?? null,
+    }).then(() => {
+      setShowBlockDialog(false);
+      AccessibilityInfo.announceForAccessibility(`${playerName} blocked.`);
+    }).catch(() => setSafetyError('Could not block this player. Please try again.'));
+  }, [numericPlayerId, playerName, profileData?.player.profile_picture_url, safety.block]);
+
+  const confirmUnblock = useCallback(() => {
+    setSafetyError(null);
+    void safety.unblock.mutateAsync(numericPlayerId).then(() => {
+      setShowUnblockDialog(false);
+      AccessibilityInfo.announceForAccessibility(`${playerName} unblocked.`);
+    }).catch(() => setSafetyError('Could not unblock this player. Please try again.'));
+  }, [numericPlayerId, playerName, safety.unblock]);
 
   const rightAction = (
     <Pressable
@@ -199,6 +218,10 @@ export default function PlayerProfileScreen({
             onAcceptFriend={handleAcceptFriend}
             onDeclineFriend={handleDeclineFriend}
             onMessage={onMessage}
+            interactionAvailable={safety.can('friend_request') && safety.can('direct_message')}
+            blockedByViewer={safety.blockedByViewer}
+            safetyPending={safety.isPending && safety.capability == null}
+            onUnblock={() => setShowUnblockDialog(true)}
           />
 
           <PlayerMutualFriends mutualFriends={profileData.mutualFriends} />
@@ -214,89 +237,40 @@ export default function PlayerProfileScreen({
 
       {/* Action sheet overlay */}
       {showActionSheet && (
-        <ActionSheet
+        <PlayerSafetySheet
+          visible
           playerName={playerName}
-          canRemoveFriend={canRemoveFriend}
-          isFriendActionLoading={isFriendActionLoading}
-          onRemoveFriend={handleRemoveFriend}
+          blockedByViewer={safety.blockedByViewer}
+          onRemoveFriend={canRemoveFriend ? handleRemoveFriend : undefined}
           onReport={handleReport}
-          onCancel={() => setShowActionSheet(false)}
+          onBlockChange={handleBlock}
+          onClose={() => setShowActionSheet(false)}
         />
       )}
+      {showReportSheet && (
+        <ReportSheet
+          targetType="player"
+          targetId={numericPlayerId}
+          onClose={() => setShowReportSheet(false)}
+          onSubmitted={() => Alert.alert('Report received', 'Thank you for helping keep Beach League safe.')}
+        />
+      )}
+      <BlockPlayerDialog
+        visible={showBlockDialog}
+        playerName={playerName}
+        isPending={safety.block.isPending}
+        errorMessage={safetyError}
+        onConfirm={confirmBlock}
+        onCancel={() => setShowBlockDialog(false)}
+      />
+      <UnblockPlayerDialog
+        visible={showUnblockDialog}
+        playerName={playerName}
+        isPending={safety.unblock.isPending}
+        errorMessage={safetyError}
+        onConfirm={confirmUnblock}
+        onCancel={() => setShowUnblockDialog(false)}
+      />
     </SafeAreaView>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Action sheet
-// ---------------------------------------------------------------------------
-
-interface ActionSheetProps {
-  readonly playerName: string;
-  readonly canRemoveFriend: boolean;
-  readonly isFriendActionLoading: boolean;
-  readonly onRemoveFriend: () => void;
-  readonly onReport: () => void;
-  readonly onCancel: () => void;
-}
-
-function ActionSheet({
-  playerName,
-  canRemoveFriend,
-  isFriendActionLoading,
-  onRemoveFriend,
-  onReport,
-  onCancel,
-}: ActionSheetProps): React.ReactNode {
-  return (
-    <View
-      testID="player-action-sheet"
-      className="absolute inset-0 bg-black/70 justify-end"
-    >
-      <View className="mx-sm mb-[34px]">
-        <View className="bg-elevated rounded-[14px] overflow-hidden mb-sm">
-          <View className="items-center px-lg py-md border-b border-strong">
-            <AppText className="text-sm font-bold text-default">
-              {playerName}
-            </AppText>
-          </View>
-
-          {canRemoveFriend && (
-            <Pressable
-              testID="action-sheet-remove-friend"
-              onPress={onRemoveFriend}
-              disabled={isFriendActionLoading}
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${playerName} from friends`}
-              accessibilityState={{ disabled: isFriendActionLoading }}
-              className="min-h-[56px] items-center justify-center border-b border-strong px-lg active:opacity-70"
-            >
-              <AppText className="text-[17px] font-semibold text-danger">
-                Remove Friend
-              </AppText>
-            </Pressable>
-          )}
-
-          <Pressable
-            testID="action-sheet-report"
-            onPress={onReport}
-            accessibilityRole="button"
-            accessibilityLabel={`Report ${playerName}`}
-            className="flex-row items-center justify-center gap-sm px-lg min-h-[56px] active:opacity-70"
-          >
-            <AppText className="text-[17px] font-semibold text-danger">Report User</AppText>
-          </Pressable>
-        </View>
-
-        <Pressable
-          testID="action-sheet-cancel"
-          onPress={onCancel}
-          accessibilityRole="button"
-          className="bg-elevated rounded-[14px] min-h-[56px] items-center justify-center active:opacity-70"
-        >
-          <AppText className="text-[17px] font-semibold text-brand-teal">Cancel</AppText>
-        </Pressable>
-      </View>
-    </View>
   );
 }

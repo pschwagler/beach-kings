@@ -64,4 +64,5 @@ export type NotificationType =
   | 'member_joined'
   | 'member_removed'
   | 'direct_message'
-  | 'season_award';
+  | 'season_award'
+  | 'moderation_update';

@@ -36,6 +36,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
     isRemoving,
     removeError,
     isAddPlayerOpen,
+    isRosterEditable,
     onRemovePlayer,
     onAddPlayer,
     onCloseAddPlayer,
@@ -58,7 +59,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
       testID="session-roster-screen"
     >
       <TopNav
-        title="Manage Players"
+        title={isRosterEditable ? 'Manage Players' : 'View Players'}
         leftAction={
           <TouchableOpacity
             onPress={onClose}
@@ -89,7 +90,19 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
           <ActivityIndicator />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: isRosterEditable ? 100 : 24 }}
+        >
+          {!isRosterEditable && session != null && (
+            <View
+              testID="roster-locked-message"
+              className="mx-[16px] mt-[16px] rounded-[10px] border border-divider bg-elevated px-[14px] py-[12px]"
+            >
+              <AppText className="text-[13px] font-semibold text-muted">
+                Roster locked after submission. Players can no longer be added or removed.
+              </AppText>
+            </View>
+          )}
           {/* In Games section */}
           {playersInGames.length > 0 && (
             <View className="px-[16px]">
@@ -118,7 +131,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
                 <SessionRosterRow
                   key={player.entry_id}
                   player={player}
-                  canRemove
+                  canRemove={isRosterEditable}
                   isRemoving={isRemoving === player.entry_id}
                   onRemove={() => { void onRemovePlayer(player.entry_id); }}
                 />
@@ -146,20 +159,21 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
         </ScrollView>
       )}
 
-      {/* Fixed bottom "+ Add Player" */}
-      <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[12px] pb-[34px]">
-        <TouchableOpacity
-          testID="roster-add-player-btn"
-          onPress={onAddPlayer}
-          accessibilityRole="button"
-          accessibilityLabel="Add player to session"
-          className="border-2 border-dashed border-brand-gold rounded-[12px] items-center justify-center py-[14px]"
-        >
-          <AppText className="text-[15px] font-bold text-accent">+ Add Player</AppText>
-        </TouchableOpacity>
-      </View>
+      {isRosterEditable && (
+        <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[12px] pb-[34px]">
+          <TouchableOpacity
+            testID="roster-add-player-btn"
+            onPress={onAddPlayer}
+            accessibilityRole="button"
+            accessibilityLabel="Add player to session"
+            className="border-2 border-dashed border-brand-gold rounded-[12px] items-center justify-center py-[14px]"
+          >
+            <AppText className="text-[15px] font-bold text-accent">+ Add Player</AppText>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      {isAddPlayerOpen && (
+      {isRosterEditable && isAddPlayerOpen && (
         <SessionAddPlayerModal
           sessionId={sessionId}
           leagueId={session?.league_id}

@@ -99,6 +99,22 @@ describe('LeagueChatTab', () => {
     expect(screen.getByTestId('chat-message-input')).toBeTruthy();
   });
 
+  it('labels an own pending message as under review', () => {
+    arrangeHook({
+      messages: [
+        {
+          ...MESSAGE,
+          is_mine: true,
+          moderation_visibility: 'pending',
+        },
+      ],
+    });
+
+    renderChat();
+
+    expect(screen.getByText(/Reviewing/)).toBeTruthy();
+  });
+
   it('renders the loading state without an empty state or composer', () => {
     arrangeHook({ isLoading: true });
 

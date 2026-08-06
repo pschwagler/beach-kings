@@ -99,6 +99,21 @@ async def test_disconnect_multiple_connections(ws_manager):
 
 
 @pytest.mark.asyncio
+async def test_close_user_removes_and_closes_every_connection(ws_manager):
+    ws1 = AsyncMock()
+    ws2 = AsyncMock()
+    await ws_manager.connect(7, ws1)
+    await ws_manager.connect(7, ws2)
+
+    closed = await ws_manager.close_user(7, reason="Account status changed")
+
+    assert closed == 2
+    assert await ws_manager.get_connection_count(7) == 0
+    ws1.close.assert_awaited_once_with(code=1008, reason="Account status changed")
+    ws2.close.assert_awaited_once_with(code=1008, reason="Account status changed")
+
+
+@pytest.mark.asyncio
 async def test_send_to_user(ws_manager, mock_websocket):
     """Test sending a message to a user."""
     user_id = 1

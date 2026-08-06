@@ -22,7 +22,7 @@ from backend.database.models import (
     Match,
     SessionParticipant,
 )
-from backend.services import data_service
+from backend.services import data_service, interaction_policy
 from backend.services.notification_service import notify_players_about_session_submitted
 from backend.api.auth_dependencies import (
     _has_league_role,
@@ -758,6 +758,8 @@ async def invite_to_session(
         return {"status": "success", "message": "Player invited to session"}
     except HTTPException:
         raise
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -793,6 +795,12 @@ async def invite_to_session_batch(
         player_ids = body.player_ids
         if not isinstance(player_ids, list):
             raise HTTPException(status_code=400, detail="player_ids must be an array")
+        await interaction_policy.enforce_actions(
+            session,
+            player["id"],
+            [int(pid) for pid in player_ids],
+            interaction_policy.InteractionAction.SESSION_INVITE,
+        )
         added = []
         failed = []
         for pid in player_ids:
@@ -812,6 +820,8 @@ async def invite_to_session_batch(
                     err_msg = "Player not found"
                 failed.append({"player_id": pid, "error": err_msg})
         return {"added": added, "failed": failed}
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:

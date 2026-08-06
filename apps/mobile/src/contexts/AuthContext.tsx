@@ -21,6 +21,7 @@ import { routes } from '@/lib/navigation';
 import { playerQueries } from '@/features/player/queries';
 import { useDevelopmentAuthExtension } from '@/components/dev/authExtension';
 import type { DevelopmentAuthExtension } from '@/components/dev/authExtension.types';
+import { retirePushInstallation } from '@/features/notifications/pushInstallationStore';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +45,11 @@ interface User {
   readonly show_game_history: boolean;
   /** ISO timestamp when account deletion was scheduled, or null. */
   readonly deletion_scheduled_at: string | null;
+  readonly moderation_status: 'active' | 'suspended' | 'banned';
+  readonly moderation_expires_at: string | null;
+  readonly moderation_case_id: number | null;
+  readonly interaction_restricted_until: string | null;
+  readonly interaction_restriction_case_id: number | null;
 }
 
 interface AuthState {
@@ -142,6 +148,11 @@ function parseAuthResponse(response: AuthResponse): {
     profile_is_private: false,
     show_game_history: false,
     deletion_scheduled_at: null,
+    moderation_status: 'active',
+    moderation_expires_at: null,
+    moderation_case_id: null,
+    interaction_restricted_until: null,
+    interaction_restriction_case_id: null,
   };
 
   return {
@@ -188,6 +199,12 @@ function parseUserResponse(
     profile_is_private: userData.profile_is_private ?? false,
     show_game_history: userData.show_game_history ?? false,
     deletion_scheduled_at: userData.deletion_scheduled_at ?? null,
+    moderation_status: userData.moderation_status ?? 'active',
+    moderation_expires_at: userData.moderation_expires_at ?? null,
+    moderation_case_id: userData.moderation_case_id ?? null,
+    interaction_restricted_until: userData.interaction_restricted_until ?? null,
+    interaction_restriction_case_id:
+      userData.interaction_restriction_case_id ?? null,
   };
 }
 
@@ -323,6 +340,8 @@ export default function AuthProvider({
 
         // Account replacement is explicitly two phase: fully retire the old
         // identity and its cache before a new credential is installed.
+        await retirePushInstallation().catch(() => undefined);
+        if (!isCurrentOperation(revision)) return false;
         await cancelQueryWork();
         if (!isCurrentOperation(revision)) return false;
         try {
@@ -358,14 +377,25 @@ export default function AuthProvider({
       });
       if (!installed) return;
 
-      const profileComplete = await fetchProfileComplete(parsed.user.id);
+      let identityData: Awaited<ReturnType<typeof api.getMe>>;
+      try {
+        identityData = await api.getMe();
+      } catch (error) {
+        await commitUnauthenticated(revision, true);
+        throw error;
+      }
+      if (!isCurrentOperation(revision)) return;
+      const identity = parseUserResponse(identityData);
+      const profileComplete = identity.moderation_status === 'active'
+        ? await fetchProfileComplete(identity.id)
+        : true;
 
       await enqueueTransition(async () => {
         if (!isCurrentOperation(revision)) return;
         // Keep the player query populated so the first authenticated screen
         // reads the same snapshot used to decide profile completeness.
         publishState({
-          user: parsed.user,
+          user: identity,
           isLoading: false,
           isAuthenticated: true,
           profileComplete,
@@ -375,6 +405,7 @@ export default function AuthProvider({
     },
     [
       cancelQueryWork,
+      commitUnauthenticated,
       enqueueTransition,
       fetchProfileComplete,
       isCurrentOperation,
@@ -388,7 +419,9 @@ export default function AuthProvider({
   useEffect(() => {
     return api.onAuthInvalidated(() => {
       const revision = beginAuthOperation();
-      void commitUnauthenticated(revision, false);
+      void retirePushInstallation().finally(() => {
+        void commitUnauthenticated(revision, false);
+      });
     });
   }, [beginAuthOperation, commitUnauthenticated]);
 
@@ -419,7 +452,9 @@ export default function AuthProvider({
         });
         if (!cachePrepared) return;
 
-        const profileComplete = await fetchProfileComplete(user.id);
+        const profileComplete = user.moderation_status === 'active'
+          ? await fetchProfileComplete(user.id)
+          : true;
         if (!isCurrentOperation(revision)) return;
 
         await enqueueTransition(async () => {
@@ -457,7 +492,10 @@ export default function AuthProvider({
     if (state.isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inAccountGroup = segments[0] === '(account)';
     const inOnboarding = inAuthGroup && segments[1] === 'onboarding';
+    const accountRestricted = state.user?.moderation_status === 'suspended' ||
+      state.user?.moderation_status === 'banned';
 
     if (!state.isAuthenticated && !inAuthGroup) {
       // The root Stack (app/_layout.tsx) keeps (tabs) and (stack) history
@@ -476,6 +514,10 @@ export default function AuthProvider({
         router.dismissAll();
       }
       router.replace(routes.welcome());
+    } else if (state.isAuthenticated && accountRestricted && !inAccountGroup) {
+      router.replace(routes.accountRestricted());
+    } else if (state.isAuthenticated && !accountRestricted && inAccountGroup) {
+      router.replace(routes.home());
     } else if (
       state.isAuthenticated &&
       state.isNewUser &&
@@ -495,6 +537,7 @@ export default function AuthProvider({
     state.isLoading,
     state.profileComplete,
     state.isNewUser,
+    state.user?.moderation_status,
     segments,
     rootNavigationState,
     router,
@@ -577,6 +620,7 @@ export default function AuthProvider({
 
   const logout = useCallback(async () => {
     const revision = beginAuthOperation();
+    await retirePushInstallation().catch(() => undefined);
     try {
       await api.logout();
     } catch {

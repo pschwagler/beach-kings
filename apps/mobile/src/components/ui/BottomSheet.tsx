@@ -20,6 +20,7 @@ interface BottomSheetProps {
   readonly children: React.ReactNode;
   readonly snapPoints?: number[];
   readonly className?: string;
+  readonly testID?: string;
 }
 
 const SLIDE_DURATION = 280;
@@ -29,6 +30,7 @@ export default function BottomSheet({
   onClose,
   children,
   className = '',
+  testID,
 }: BottomSheetProps): React.ReactNode {
   const reduceMotion = useReducedMotion();
   const translateY = useSharedValue(600);
@@ -68,6 +70,7 @@ export default function BottomSheet({
 
       {/* Sheet content */}
       <Animated.View
+        testID={testID}
         style={animatedStyle}
         className={`absolute bottom-0 left-0 right-0 bg-surface rounded-t-2xl ${className}`}
       >

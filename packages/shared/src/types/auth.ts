@@ -39,6 +39,12 @@ export interface UserMeResponse {
   profile_is_private: boolean;
   /** Whether the user's game history is visible to others. */
   show_game_history: boolean;
+  /** Full-account enforcement state. Interaction-only restrictions remain active users. */
+  moderation_status: 'active' | 'suspended' | 'banned';
+  moderation_expires_at: string | null;
+  moderation_case_id: number | null;
+  interaction_restricted_until: string | null;
+  interaction_restriction_case_id: number | null;
 }
 
 /** Generic status/message response (e.g. account deletion endpoints). */

@@ -5,10 +5,11 @@
  * Backdrop tap and hardware-back both invoke `onCancel`.
  */
 
-import React from 'react';
-import { Modal as RNModal, View, Pressable } from 'react-native';
+import React, { useEffect } from 'react';
+import { AccessibilityInfo, ActivityIndicator, Modal as RNModal, View, Pressable } from 'react-native';
 import AppText from './AppText';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { usePaletteColors } from '@/theme/usePaletteColors';
 
 export type ConfirmDialogVariant = 'destructive' | 'primary';
 
@@ -21,6 +22,8 @@ export interface ConfirmDialogProps {
   readonly cancelLabel: string;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
+  readonly isPending?: boolean;
+  readonly errorMessage?: string | null;
   readonly testID?: string;
 }
 
@@ -33,26 +36,34 @@ export default function ConfirmDialog({
   cancelLabel,
   onConfirm,
   onCancel,
+  isPending = false,
+  errorMessage = null,
   testID,
 }: ConfirmDialogProps): React.ReactNode {
   const reduceMotion = useReducedMotion();
+  const palette = usePaletteColors();
   const confirmBg =
     confirmVariant === 'destructive' ? 'bg-danger-fill' : 'bg-brand-gold';
   const confirmText =
     confirmVariant === 'destructive' ? 'text-on-danger' : 'text-on-brand-gold';
+
+  useEffect(() => {
+    if (visible) AccessibilityInfo.announceForAccessibility(title);
+  }, [title, visible]);
 
   return (
     <RNModal
       visible={visible}
       transparent
       animationType={reduceMotion ? 'none' : 'fade'}
-      onRequestClose={onCancel}
+      onRequestClose={isPending ? () => {} : onCancel}
+      accessibilityViewIsModal
     >
       <Pressable
         testID={
           testID != null ? `${testID}-backdrop` : 'confirm-dialog-backdrop'
         }
-        onPress={onCancel}
+        onPress={isPending ? undefined : onCancel}
         accessibilityRole="button"
         accessibilityLabel="Dismiss"
         className="flex-1 bg-black/70 items-center justify-center px-6"
@@ -61,6 +72,8 @@ export default function ConfirmDialog({
         <Pressable
           testID={testID ?? 'confirm-dialog'}
           onPress={() => {}}
+          onAccessibilityEscape={isPending ? undefined : onCancel}
+          accessibilityViewIsModal
           className="w-full max-w-[360px] bg-surface rounded-2xl px-5 py-5"
         >
           <AppText className="text-[17px] font-bold text-default text-center">
@@ -69,6 +82,11 @@ export default function ConfirmDialog({
           <AppText className="text-[14px] text-muted text-center leading-[1.45] mt-2">
             {message}
           </AppText>
+          {errorMessage != null && (
+            <AppText accessibilityRole="alert" className="text-sm text-danger text-center mt-sm">
+              {errorMessage}
+            </AppText>
+          )}
 
           <View className="mt-5 gap-2">
             <Pressable
@@ -76,23 +94,31 @@ export default function ConfirmDialog({
                 testID != null ? `${testID}-confirm` : 'confirm-dialog-confirm'
               }
               onPress={onConfirm}
+              disabled={isPending}
               accessibilityRole="button"
               accessibilityLabel={confirmLabel}
-              className={`w-full py-[14px] rounded-[12px] items-center ${confirmBg}`}
+              accessibilityState={{ disabled: isPending, busy: isPending }}
+              className={`w-full min-h-touch rounded-[12px] items-center justify-center ${confirmBg}`}
             >
-              <AppText className={`${confirmText} font-bold text-[15px]`}>
-                {confirmLabel}
-              </AppText>
+              {isPending ? (
+                <ActivityIndicator color={palette.textDefault} />
+              ) : (
+                <AppText className={`${confirmText} font-bold text-[15px]`}>
+                  {confirmLabel}
+                </AppText>
+              )}
             </Pressable>
 
             <Pressable
               testID={
                 testID != null ? `${testID}-cancel` : 'confirm-dialog-cancel'
               }
-              onPress={onCancel}
+              onPress={isPending ? undefined : onCancel}
+              disabled={isPending}
               accessibilityRole="button"
               accessibilityLabel={cancelLabel}
-              className="w-full py-[14px] rounded-[12px] border border-divider items-center"
+              accessibilityState={{ disabled: isPending }}
+              className="w-full min-h-touch rounded-[12px] border border-divider items-center justify-center"
             >
               <AppText className="text-[14px] font-bold text-muted">
                 {cancelLabel}

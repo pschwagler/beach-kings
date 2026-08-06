@@ -19,4 +19,10 @@ export const notificationQueries = {
     enabled: enabled && userId > 0,
     staleTime: NOTIFICATION_STALE_TIME_MS,
   }),
+  preferences: (userId: number, enabled = true) => queryOptions({
+    queryKey: notificationKeys.preferences(userId),
+    queryFn: () => api.getPushNotificationPrefs(),
+    enabled: enabled && userId > 0,
+    staleTime: NOTIFICATION_STALE_TIME_MS,
+  }),
 };

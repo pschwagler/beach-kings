@@ -1,17 +1,22 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Trash2, Star, Loader, Camera } from 'lucide-react';
+import { Trash2, Star, Loader, Camera, CheckCircle2 } from 'lucide-react';
 import { updateCourtDiscovery, adminDeleteCourtPhoto, adminReorderCourtPhotos, adminDeleteReview, uploadCourtPhoto } from '../../../services/api';
 import ImageLightbox from '../../ui/ImageLightbox';
+import CourtPinCorrectionMap from '../../court/CourtPinCorrectionMap';
 
 const CONFIRM_TIMEOUT_MS = 3000;
+
+const NULLABLE_CONDITION_FIELDS = new Set([
+  'wind_exposure', 'wind_notes', 'sand_depth', 'sand_notes',
+]);
 
 const TEXT_FIELDS = [
   { key: 'name', label: 'Name', type: 'text' },
   { key: 'address', label: 'Address', type: 'text' },
   { key: 'phone', label: 'Phone', type: 'text' },
-  { key: 'website', label: 'Website', type: 'url' },
+  { key: 'website', label: 'Official site / booking', type: 'url' },
   { key: 'hours', label: 'Hours', type: 'text' },
   { key: 'cost_info', label: 'Cost Info', type: 'text' },
   { key: 'parking_info', label: 'Parking Info', type: 'text' },
@@ -19,7 +24,9 @@ const TEXT_FIELDS = [
 ];
 
 const TEXTAREA_FIELDS = [
-  { key: 'description', label: 'Description' },
+  { key: 'description', label: 'About', hint: 'Describe the setting, court setup, and what players should know.' },
+  { key: 'wind_notes', label: 'Wind notes', hint: 'Typical wind details (140 characters max).', maxLength: 140 },
+  { key: 'sand_notes', label: 'Sand notes', hint: 'Useful depth or consistency details (140 characters max).', maxLength: 140 },
 ];
 
 const SELECT_FIELDS = [
@@ -32,6 +39,20 @@ const SELECT_FIELDS = [
       { value: 'indoor_sand', label: 'Indoor Sand' },
       { value: 'grass', label: 'Grass' },
       { value: 'hard', label: 'Hard Court' },
+    ],
+  },
+  {
+    key: 'wind_exposure',
+    label: 'Typical Wind',
+    options: [
+      { value: '', label: 'Unknown' }, { value: 'sheltered', label: 'Sheltered' }, { value: 'mixed', label: 'Mixed' }, { value: 'exposed', label: 'Exposed' },
+    ],
+  },
+  {
+    key: 'sand_depth',
+    label: 'Sand Depth',
+    options: [
+      { value: '', label: 'Unknown' }, { value: 'shallow', label: 'Shallow' }, { value: 'typical', label: 'Typical' }, { value: 'deep', label: 'Deep' },
     ],
   },
   {
@@ -80,6 +101,12 @@ export interface AdminCourt {
   website?: string;
   cost_info?: string;
   parking_info?: string;
+  wind_exposure?: string | null;
+  wind_notes?: string | null;
+  sand_depth?: string | null;
+  sand_notes?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   surface_type?: string;
   court_count?: number | string;
   status?: string;
@@ -89,7 +116,7 @@ export interface AdminCourt {
   has_parking?: boolean;
   nets_provided?: boolean;
   is_active?: boolean;
-  [key: string]: string | number | boolean | undefined;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 /**
@@ -104,6 +131,15 @@ interface CourtEditRowProps {
   photos?: CourtPhoto[];
   reviews?: CourtReview[];
   detailLoading?: boolean;
+  showStatus?: boolean;
+  showActive?: boolean;
+  saveLabel?: string;
+  closeLabel?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  onPublish?: (court: AdminCourt) => Promise<void>;
+  onReject?: () => void;
+  actionLoading?: boolean;
+  rejectLabel?: string;
 }
 
 type CourtFormState = {
@@ -115,6 +151,12 @@ type CourtFormState = {
   website: string;
   cost_info: string;
   parking_info: string;
+  wind_exposure: string;
+  wind_notes: string;
+  sand_depth: string;
+  sand_notes: string;
+  latitude: string | number;
+  longitude: string | number;
   surface_type: string;
   court_count: string | number;
   status: string;
@@ -127,7 +169,23 @@ type CourtFormState = {
   [key: string]: string | number | boolean;
 };
 
-export default function CourtEditRow({ court, onSave, onCancel, photos = [], reviews = [], detailLoading = false }: CourtEditRowProps) {
+export default function CourtEditRow({
+  court,
+  onSave,
+  onCancel,
+  photos = [],
+  reviews = [],
+  detailLoading = false,
+  showStatus = true,
+  showActive = true,
+  saveLabel = 'Save changes',
+  closeLabel = 'Close',
+  onDirtyChange,
+  onPublish,
+  onReject,
+  actionLoading = false,
+  rejectLabel = 'Reject draft',
+}: CourtEditRowProps) {
   const [form, setForm] = useState<CourtFormState>(() => ({
     name: court.name || '',
     address: court.address || '',
@@ -137,6 +195,12 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
     website: court.website || '',
     cost_info: court.cost_info || '',
     parking_info: court.parking_info || '',
+    wind_exposure: court.wind_exposure || '',
+    wind_notes: court.wind_notes || '',
+    sand_depth: court.sand_depth || '',
+    sand_notes: court.sand_notes || '',
+    latitude: court.latitude ?? '',
+    longitude: court.longitude ?? '',
     surface_type: court.surface_type || '',
     court_count: court.court_count ?? '',
     status: court.status || 'pending',
@@ -149,6 +213,7 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
   }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   // Local state for optimistic photo/review removal
   const [localPhotos, setLocalPhotos] = useState<CourtPhoto[]>(photos);
@@ -159,19 +224,23 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
   useEffect(() => { setLocalReviews(reviews); }, [reviews]);
 
   const handleChange = (key: string, value: string | number | boolean) => {
+    setSaved(false);
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   /** Compute only the fields that differ from the original court. */
   const getChangedFields = () => {
-    const changed: Record<string, string | number | boolean> = {};
+    const changed: Record<string, string | number | boolean | null> = {};
     for (const key of Object.keys(form)) {
+      if (key === 'latitude' || key === 'longitude') continue;
       let original = court[key];
       let current = form[key];
       // Normalize nulls to match form defaults
-      if (original == null) original = typeof current === 'boolean' ? false : '';
+      if (original == null) {
+        original = typeof current === 'boolean' ? key === 'is_active' : '';
+      }
       if (key === 'court_count') {
-        original = court.court_count ?? '';
+        original = court[key] ?? '';
         current = current === '' ? '' : Number(current);
         if (String(original) !== String(current) && current !== '') {
           changed[key] = current;
@@ -179,8 +248,27 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
         continue;
       }
       if (original !== current) {
-        changed[key] = current;
+        changed[key] = NULLABLE_CONDITION_FIELDS.has(key) && current === ''
+          ? null
+          : current;
       }
+    }
+
+    const latitude = form.latitude === '' ? null : Number(form.latitude);
+    const longitude = form.longitude === '' ? null : Number(form.longitude);
+    const latitudeChanged = latitude != null && String(court.latitude ?? '') !== String(latitude);
+    const longitudeChanged = longitude != null && String(court.longitude ?? '') !== String(longitude);
+    if (
+      (latitudeChanged || longitudeChanged)
+      && latitude != null
+      && longitude != null
+      && Number.isFinite(latitude)
+      && Number.isFinite(longitude)
+    ) {
+      // A map pin is one atomic value. The API deliberately rejects a lone
+      // coordinate, so include the unchanged half when either input moves.
+      changed.latitude = latitude;
+      changed.longitude = longitude;
     }
     return changed;
   };
@@ -197,6 +285,7 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
       await updateCourtDiscovery(court.id as number, changed);
       // Merge changed fields back for optimistic update
       onSave({ ...court, ...changed });
+      setSaved(true);
     } catch (err) {
       console.error('Error saving court:', err);
       setError(err.response?.data?.detail || 'Failed to save changes.');
@@ -205,15 +294,55 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
     }
   };
 
+  const handlePublish = async () => {
+    if (!onPublish) return;
+    const changed = getChangedFields();
+    const updatedCourt = { ...court, ...changed };
+    try {
+      setSaving(true);
+      setError(null);
+      if (Object.keys(changed).length > 0) {
+        await updateCourtDiscovery(court.id as number, changed);
+        onSave(updatedCourt);
+      }
+      await onPublish(updatedCourt);
+    } catch (publishError) {
+      console.error('Error publishing court:', publishError);
+      setError(publishError.response?.data?.detail || 'Could not publish this court. Your draft is still waiting for review.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changedCount = Object.keys(getChangedFields()).length;
+
+  useEffect(() => {
+    onDirtyChange?.(changedCount > 0);
+  }, [changedCount, onDirtyChange]);
+
   return (
     <div className="admin-court-edit-form" onClick={(e) => e.stopPropagation()}>
-      {error && <div className="error-message" style={{ marginBottom: 12 }}>{error}</div>}
+      <div className="admin-court-edit-heading">
+        <div>
+          <span>Staff controls</span>
+          <h4>Court details</h4>
+        </div>
+        <small>{changedCount > 0 ? `${changedCount} unsaved ${changedCount === 1 ? 'change' : 'changes'}` : 'No unsaved changes'}</small>
+      </div>
+
+      {error && <div className="error-message admin-court-edit-message" role="alert">{error}</div>}
+      {saved && (
+        <div className="admin-court-edit-saved" role="status">
+          <CheckCircle2 size={16} /> Changes saved
+        </div>
+      )}
 
       <div className="admin-court-edit-grid">
         {TEXT_FIELDS.map(({ key, label, type }) => (
           <div key={key} className="admin-court-edit-field">
-            <label>{label}</label>
+            <label htmlFor={`edit-${court.id}-${key}`}>{label}</label>
             <input
+              id={`edit-${court.id}-${key}`}
               type={type}
               value={form[key] as string | number}
               onChange={(e) => handleChange(key, type === 'number' ? e.target.value : e.target.value)}
@@ -221,20 +350,23 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
           </div>
         ))}
 
-        {TEXTAREA_FIELDS.map(({ key, label }) => (
+        {TEXTAREA_FIELDS.map(({ key, label, hint, maxLength }) => (
           <div key={key} className="admin-court-edit-field admin-court-edit-field--full">
-            <label>{label}</label>
+            <label htmlFor={`edit-${court.id}-${key}`}>{label}</label>
+            <small className="admin-court-edit-hint">{hint}</small>
             <textarea
+              id={`edit-${court.id}-${key}`}
               value={form[key] as string}
+              maxLength={maxLength}
               onChange={(e) => handleChange(key, e.target.value)}
             />
           </div>
         ))}
 
-        {SELECT_FIELDS.map(({ key, label, options }) => (
+        {SELECT_FIELDS.filter(({ key }) => showStatus || key !== 'status').map(({ key, label, options }) => (
           <div key={key} className="admin-court-edit-field">
-            <label>{label}</label>
-            <select value={form[key] as string} onChange={(e) => handleChange(key, e.target.value)}>
+            <label htmlFor={`edit-${court.id}-${key}`}>{label}</label>
+            <select id={`edit-${court.id}-${key}`} value={form[key] as string} onChange={(e) => handleChange(key, e.target.value)}>
               {options.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
@@ -243,9 +375,9 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
         ))}
 
         <div className="admin-court-edit-field admin-court-edit-field--full">
-          <label>Toggles</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-            {TOGGLE_FIELDS.map(({ key, label }) => (
+          <span className="admin-court-edit-field-label">{showActive ? 'Amenities & visibility' : 'Amenities'}</span>
+          <div className="admin-court-edit-toggles">
+            {TOGGLE_FIELDS.filter(({ key }) => showActive || key !== 'is_active').map(({ key, label }) => (
               <div key={key} className="admin-court-edit-toggle">
                 <input
                   type="checkbox"
@@ -260,12 +392,36 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
         </div>
       </div>
 
-      <div className="admin-court-edit-actions">
-        <button className="btn-save" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
-        <button className="btn-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
-      </div>
+      {court.latitude != null && court.longitude != null && Number.isFinite(Number(form.latitude)) && Number.isFinite(Number(form.longitude)) && (
+        <div className="admin-court-pin-editor">
+          <div><strong>Pin placement</strong><span>Click the map or drag the gold pin to set the precise court location.</span></div>
+          <CourtPinCorrectionMap
+            compact
+            current={{ latitude: court.latitude, longitude: court.longitude }}
+            proposed={{ latitude: Number(form.latitude), longitude: Number(form.longitude) }}
+            onChange={({ latitude, longitude }) => setForm((prev) => ({ ...prev, latitude: Number(latitude.toFixed(7)), longitude: Number(longitude.toFixed(7)) }))}
+          />
+        </div>
+      )}
+
+      {onPublish ? (
+        <div className="admin-court-edit-actions admin-court-edit-actions--publish">
+          <span>{changedCount > 0 ? 'Your corrections will be saved as part of publishing.' : 'Publishing makes this draft visible in the court directory.'}</span>
+          <button className="btn-cancel" onClick={onCancel} disabled={saving || actionLoading}>{closeLabel}</button>
+          {onReject && <button className="btn-reject" onClick={onReject} disabled={saving || actionLoading}>{rejectLabel}</button>}
+          <button className="btn-publish" onClick={() => void handlePublish()} disabled={saving || actionLoading}>
+            {saving || actionLoading ? <><Loader size={15} className="spinning" /> Publishing…</> : <>{changedCount > 0 ? 'Save & publish court' : 'Publish court'}</>}
+          </button>
+        </div>
+      ) : (
+        <div className="admin-court-edit-actions">
+          <span>{changedCount > 0 ? 'Review your changes, then save.' : 'Court details are up to date.'}</span>
+          <button className="btn-cancel" onClick={onCancel} disabled={saving}>{closeLabel}</button>
+          <button className="btn-save" onClick={handleSave} disabled={saving || changedCount === 0}>
+            {saving ? 'Saving…' : saveLabel}
+          </button>
+        </div>
+      )}
 
       {/* Photos section */}
       <PhotosSection

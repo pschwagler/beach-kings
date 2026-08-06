@@ -5,6 +5,8 @@ import { suggestCourtEdit } from '../../services/api';
 import { Button } from '../ui/UI';
 import { SURFACE_OPTIONS } from '../../constants/court';
 import { Court } from '../../types';
+import CourtPinCorrectionMap, { type CourtCoordinates } from './CourtPinCorrectionMap';
+import './SuggestEditForm.css';
 
 /**
  * Form for suggesting edits to an existing court.
@@ -32,11 +34,22 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
   const [costInfo, setCostInfo] = useState(court.cost_info || '');
   const [parkingInfo, setParkingInfo] = useState(court.parking_info || '');
   const [description, setDescription] = useState(court.description || '');
+  const [windExposure, setWindExposure] = useState(court.wind_exposure || '');
+  const [windNotes, setWindNotes] = useState(court.wind_notes || '');
+  const [sandDepth, setSandDepth] = useState(court.sand_depth || '');
+  const [sandNotes, setSandNotes] = useState(court.sand_notes || '');
   const [isFree, setIsFree] = useState(court.is_free ?? false);
   const [hasLights, setHasLights] = useState(court.has_lights ?? false);
   const [hasRestrooms, setHasRestrooms] = useState(court.has_restrooms ?? false);
   const [hasParking, setHasParking] = useState(court.has_parking ?? false);
   const [netsProvided, setNetsProvided] = useState(court.nets_provided ?? false);
+  const [correctingPin, setCorrectingPin] = useState(false);
+  const [proposedPin, setProposedPin] = useState<CourtCoordinates | null>(() => (
+    court.latitude != null && court.longitude != null
+      ? { latitude: court.latitude, longitude: court.longitude }
+      : null
+  ));
+  const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -57,11 +70,21 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
     if (costInfo !== (court.cost_info || '')) changes.cost_info = costInfo || null;
     if (parkingInfo !== (court.parking_info || '')) changes.parking_info = parkingInfo || null;
     if (description !== (court.description || '')) changes.description = description || null;
+    if (windExposure !== (court.wind_exposure || '')) changes.wind_exposure = windExposure || null;
+    if (windNotes !== (court.wind_notes || '')) changes.wind_notes = windNotes || null;
+    if (sandDepth !== (court.sand_depth || '')) changes.sand_depth = sandDepth || null;
+    if (sandNotes !== (court.sand_notes || '')) changes.sand_notes = sandNotes || null;
     if (isFree !== (court.is_free ?? false)) changes.is_free = isFree;
     if (hasLights !== (court.has_lights ?? false)) changes.has_lights = hasLights;
     if (hasRestrooms !== (court.has_restrooms ?? false)) changes.has_restrooms = hasRestrooms;
     if (hasParking !== (court.has_parking ?? false)) changes.has_parking = hasParking;
     if (netsProvided !== (court.nets_provided ?? false)) changes.nets_provided = netsProvided;
+    if (correctingPin && proposedPin && court.latitude != null && court.longitude != null) {
+      if (proposedPin.latitude !== court.latitude || proposedPin.longitude !== court.longitude) {
+        changes.latitude = Number(proposedPin.latitude.toFixed(7));
+        changes.longitude = Number(proposedPin.longitude.toFixed(7));
+      }
+    }
 
     if (Object.keys(changes).length === 0) {
       setError('No changes detected.');
@@ -71,7 +94,7 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
     setSubmitting(true);
     setError('');
     try {
-      await suggestCourtEdit(court.id as number, changes);
+      await suggestCourtEdit(court.id as number, changes, correctingPin ? note.trim() : undefined);
       onSuccess?.();
     } catch (err) {
       const detail = err.response?.data?.detail || 'Failed to submit suggestion.';
@@ -84,8 +107,8 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
   return (
     <form className="court-review-form" onSubmit={handleSubmit}>
       <h3 className="court-review-form__title">Suggest an Edit</h3>
-      <p style={{ fontSize: '13px', color: 'var(--gray-600)', margin: '0 0 16px' }}>
-        Update any fields that need correction. Only changed fields will be submitted for review.
+      <p className="suggest-edit__intro">
+        Update what needs correcting. An admin reviews every suggestion before the live court changes.
       </p>
 
       {error && <p className="court-review-form__error">{error}</p>}
@@ -139,6 +162,41 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
         </div>
       </div>
 
+      <fieldset className="suggest-edit__section">
+        <legend>Playing conditions</legend>
+        <p>Share stable, typical conditions—not today&apos;s weather.</p>
+        <div className="suggest-edit__pair">
+          <div className="court-review-form__field">
+            <label htmlFor="suggest-wind-exposure">Typical wind</label>
+            <select id="suggest-wind-exposure" value={windExposure} onChange={(e) => setWindExposure(e.target.value)}>
+              <option value="">Unknown</option>
+              <option value="sheltered">Sheltered</option>
+              <option value="mixed">Mixed</option>
+              <option value="exposed">Exposed</option>
+            </select>
+          </div>
+          <div className="court-review-form__field">
+            <label htmlFor="suggest-sand-depth">Sand depth</label>
+            <select id="suggest-sand-depth" value={sandDepth} onChange={(e) => setSandDepth(e.target.value)}>
+              <option value="">Unknown</option>
+              <option value="shallow">Shallow</option>
+              <option value="typical">Typical</option>
+              <option value="deep">Deep</option>
+            </select>
+          </div>
+        </div>
+        <div className="suggest-edit__pair">
+          <div className="court-review-form__field">
+            <label htmlFor="suggest-wind-notes">Wind notes <span>{windNotes.length}/140</span></label>
+            <textarea id="suggest-wind-notes" value={windNotes} maxLength={140} rows={2} onChange={(e) => setWindNotes(e.target.value)} placeholder="e.g. Afternoon crosswind is common" />
+          </div>
+          <div className="court-review-form__field">
+            <label htmlFor="suggest-sand-notes">Sand notes <span>{sandNotes.length}/140</span></label>
+            <textarea id="suggest-sand-notes" value={sandNotes} maxLength={140} rows={2} onChange={(e) => setSandNotes(e.target.value)} placeholder="e.g. Deep near the net, firmer at baseline" />
+          </div>
+        </div>
+      </fieldset>
+
       <div className="court-review-form__field">
         <label htmlFor="suggest-hours">Hours</label>
         <input
@@ -150,6 +208,30 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
           style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--gray-300)', borderRadius: '6px', fontSize: '14px' }}
         />
       </div>
+
+      {court.latitude != null && court.longitude != null && (
+        <fieldset className="suggest-edit__section suggest-edit__section--pin">
+          <legend>Map pin</legend>
+          <label className="suggest-edit__pin-toggle">
+            <input type="checkbox" checked={correctingPin} onChange={(e) => setCorrectingPin(e.target.checked)} />
+            <span><strong>Fix map pin</strong><small>Suggest a precise court location for admin review.</small></span>
+          </label>
+          {correctingPin && proposedPin && (
+            <div className="suggest-edit__pin-panel">
+              <p>Drag the gold pin or click the map to choose the court location. The gray pin shows the current location.</p>
+              <CourtPinCorrectionMap
+                current={{ latitude: court.latitude, longitude: court.longitude }}
+                proposed={proposedPin}
+                onChange={setProposedPin}
+              />
+              <div className="court-review-form__field">
+                <label htmlFor="suggest-pin-note">Why should the pin move? <span>{note.length}/280</span></label>
+                <textarea id="suggest-pin-note" value={note} maxLength={280} rows={2} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Courts are north of the parking lot, beside the boardwalk" />
+              </div>
+            </div>
+          )}
+        </fieldset>
+      )}
 
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
         <div className="court-review-form__field" style={{ flex: 1, marginBottom: 0 }}>
@@ -163,7 +245,7 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
           />
         </div>
         <div className="court-review-form__field" style={{ flex: 1, marginBottom: 0 }}>
-          <label htmlFor="suggest-website">Website</label>
+          <label htmlFor="suggest-website">Official site / booking</label>
           <input
             id="suggest-website"
             type="url"
@@ -199,12 +281,12 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
       </div>
 
       <div className="court-review-form__field">
-        <label htmlFor="suggest-description">Description</label>
+        <label htmlFor="suggest-description">About</label>
         <textarea
           id="suggest-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe the courts..."
+          placeholder="Describe the setting, court setup, and what players should know."
           rows={3}
           style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--gray-300)', borderRadius: '6px', fontSize: '14px', resize: 'vertical' }}
         />

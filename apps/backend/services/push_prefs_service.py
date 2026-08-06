@@ -17,10 +17,13 @@ from backend.database.models import PushNotificationPreference, NotificationType
 #
 # Maps each boolean column in PushNotificationPreference to the set of
 # NotificationType values it controls. Notification types that don't appear
-# here are sent unconditionally (no per-type toggle).
+# here fail closed until they are deliberately assigned to a preference.
 # ---------------------------------------------------------------------------
 
 _PREF_TO_TYPES: Dict[str, list[str]] = {
+    # Account safety decisions are controlled only by the master switch so a
+    # social-category opt-out cannot hide a suspension or appeal result.
+    "push_enabled": [NotificationType.MODERATION_UPDATE.value],
     "direct_messages": [NotificationType.DIRECT_MESSAGE.value],
     "league_messages": [
         NotificationType.LEAGUE_MESSAGE.value,
@@ -157,8 +160,8 @@ def should_send_push(prefs: Dict[str, bool], notification_type: str) -> bool:
 
     Decision logic:
     1. If ``push_enabled`` is False → suppress (master kill-switch).
-    2. Look up the per-type pref for ``notification_type``. If the type has
-       no per-type mapping it is treated as always-send (returns True).
+    2. Look up the per-type pref for ``notification_type``. Unknown types are
+       denied until they are deliberately assigned to a preference category.
     3. Return the per-type pref value.
 
     Args:
@@ -174,7 +177,6 @@ def should_send_push(prefs: Dict[str, bool], notification_type: str) -> bool:
 
     pref_key = _TYPE_TO_PREF.get(notification_type)
     if pref_key is None:
-        # No per-type pref configured → allow push
-        return True
+        return False
 
     return bool(prefs.get(pref_key, True))

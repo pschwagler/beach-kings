@@ -11,9 +11,9 @@
  * Wireframe ref: message-thread.html
  */
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import AppText from '@/components/ui/AppText';
-import { View, Pressable } from "react-native";
+import { AccessibilityInfo, View, Pressable, Alert } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -30,6 +30,11 @@ import MessagesSkeleton from "./MessagesSkeleton";
 import MessagesErrorState from "./MessagesErrorState";
 import type { DirectMessage } from "@beach-kings/shared";
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import ReportSheet from '@/components/moderation/ReportSheet';
+import { useModerationMutations } from '@/features/moderation';
+import BlockPlayerDialog from '@/components/moderation/BlockPlayerDialog';
+import PlayerSafetySheet from '@/components/moderation/PlayerSafetySheet';
+import UnblockPlayerDialog from '@/components/moderation/UnblockPlayerDialog';
 
 // ---------------------------------------------------------------------------
 // Message bubble
@@ -38,6 +43,7 @@ import { usePaletteColors } from '@/theme/usePaletteColors';
 interface MessageBubbleProps {
   readonly message: DirectMessage;
   readonly isOwn: boolean;
+  readonly onReport: (id: number) => void;
 }
 
 function formatMsgTime(isoString: string): string {
@@ -52,10 +58,13 @@ function formatMsgTime(isoString: string): string {
 function MessageBubble({
   message,
   isOwn,
+  onReport,
 }: MessageBubbleProps): React.ReactNode {
   return (
     <View className={`mb-3 px-4 ${isOwn ? "items-end" : "items-start"}`}>
-      <View
+      <Pressable
+        onLongPress={() => onReport(message.id)}
+        accessibilityHint="Long press for message actions"
         testID={`msg-bubble-${message.id}`}
         className={`max-w-[280px] px-[14px] py-[10px] rounded-2xl ${
           isOwn
@@ -76,8 +85,9 @@ function MessageBubble({
           }`}
         >
           {formatMsgTime(message.created_at)}
+          {message.moderation_visibility === 'pending' ? ' · Reviewing' : ''}
         </AppText>
-      </View>
+      </Pressable>
     </View>
   );
 }
@@ -117,6 +127,13 @@ export default function MessageThreadScreen({
 }: MessageThreadScreenProps): React.ReactNode {
   const router = useRouter();
   const palette = usePaletteColors();
+  const moderation = useModerationMutations();
+  const [reportMessageId, setReportMessageId] = useState<number | null>(null);
+  const [showPlayerReport, setShowPlayerReport] = useState(false);
+  const [showSafetySheet, setShowSafetySheet] = useState(false);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showUnblockDialog, setShowUnblockDialog] = useState(false);
+  const [safetyError, setSafetyError] = useState<string | null>(null);
   const handleBack = useBack();
   const insets = useSafeAreaInsets();
   const {
@@ -130,6 +147,8 @@ export default function MessageThreadScreen({
     sendError,
     peerName,
     peerAvatarUrl,
+    canInteract,
+    blockedByViewer,
     onRefresh,
     onRetry,
     onSend,
@@ -142,6 +161,36 @@ export default function MessageThreadScreen({
   const onProfile = useCallback(() => {
     router.push(routes.player(playerId));
   }, [router, playerId]);
+
+  const onPlayerActions = useCallback(() => setShowSafetySheet(true), []);
+
+  const onBlockChange = useCallback(() => {
+    setShowSafetySheet(false);
+    setSafetyError(null);
+    if (blockedByViewer) setShowUnblockDialog(true);
+    else setShowBlockDialog(true);
+  }, [blockedByViewer]);
+
+  const confirmBlock = useCallback(() => {
+    setSafetyError(null);
+    void moderation.block.mutateAsync({
+      player_id: playerId,
+      full_name: displayName,
+      avatar: peerAvatarUrl,
+    }).then(() => {
+      setShowBlockDialog(false);
+      AccessibilityInfo.announceForAccessibility(`${displayName} blocked.`);
+      router.replace(routes.messagesList());
+    }).catch(() => setSafetyError('Could not block this player. Please try again.'));
+  }, [displayName, moderation.block, peerAvatarUrl, playerId, router]);
+
+  const confirmUnblock = useCallback(() => {
+    setSafetyError(null);
+    void moderation.unblock.mutateAsync(playerId).then(() => {
+      setShowUnblockDialog(false);
+      AccessibilityInfo.announceForAccessibility(`${displayName} unblocked.`);
+    }).catch(() => setSafetyError('Could not unblock this player. Please try again.'));
+  }, [displayName, moderation.unblock, playerId]);
 
   const renderBody = (): React.ReactNode => {
     if (isLoading && !isRefreshing) {
@@ -165,10 +214,11 @@ export default function MessageThreadScreen({
           <MessageBubble
             message={msg}
             isOwn={msg.sender_player_id === currentPlayerId}
+            onReport={setReportMessageId}
           />
         )}
         getTimestamp={(msg) => msg.created_at}
-        renderComposer={() => (
+        renderComposer={() => canInteract ? (
           <ChatComposer
             value={messageText}
             onChangeText={setMessageText}
@@ -178,6 +228,21 @@ export default function MessageThreadScreen({
             inputTestID="message-input"
             sendTestID="send-btn"
           />
+        ) : (
+          <View className="px-lg py-md border-t border-divider bg-surface">
+            <AppText className="text-sm text-muted text-center">
+              {blockedByViewer ? 'You blocked this player.' : "This interaction isn't available."}
+            </AppText>
+            {blockedByViewer && (
+              <Pressable
+                onPress={() => setShowUnblockDialog(true)}
+                accessibilityRole="button"
+                className="min-h-touch items-center justify-center mt-xs"
+              >
+                <AppText className="text-brand-teal font-bold">Unblock</AppText>
+              </Pressable>
+            )}
+          </View>
         )}
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
@@ -189,7 +254,7 @@ export default function MessageThreadScreen({
 
   return (
     <SafeAreaView className="flex-1 bg-page" edges={["top"]}>
-      <View className="h-12 bg-nav flex-row items-center px-3 gap-2 dark:border-b border-divider">
+      <View className="h-12 bg-nav flex-row items-center px-3 gap-2 border-b border-divider">
         <Pressable
           testID="thread-back-btn"
           onPress={handleBack}
@@ -223,15 +288,64 @@ export default function MessageThreadScreen({
 
         <Pressable
           testID="thread-profile-btn"
-          onPress={onProfile}
+          onPress={onPlayerActions}
           accessibilityRole="button"
-          accessibilityLabel={`View ${displayName}'s profile`}
+          accessibilityLabel={`Actions for ${displayName}`}
           className="min-h-touch items-end justify-center px-1"
         >
-          <AppText className="text-inverse text-[14px] font-medium">Profile</AppText>
+          <AppText className="text-inverse text-xl font-medium">•••</AppText>
         </Pressable>
       </View>
       {renderBody()}
+      {reportMessageId != null && (
+        <ReportSheet
+          targetType="direct_message"
+          targetId={reportMessageId}
+          onClose={() => setReportMessageId(null)}
+          onSubmitted={() => Alert.alert('Report received', 'Thank you for helping keep Beach League safe.')}
+        />
+      )}
+      {showSafetySheet && (
+        <PlayerSafetySheet
+          visible
+          playerName={displayName}
+          blockedByViewer={blockedByViewer}
+          onViewProfile={() => {
+            setShowSafetySheet(false);
+            onProfile();
+          }}
+          onBlockChange={onBlockChange}
+          onReport={() => {
+            setShowSafetySheet(false);
+            setShowPlayerReport(true);
+          }}
+          onClose={() => setShowSafetySheet(false)}
+        />
+      )}
+      {showPlayerReport && (
+        <ReportSheet
+          targetType="player"
+          targetId={playerId}
+          onClose={() => setShowPlayerReport(false)}
+          onSubmitted={() => Alert.alert('Report received', 'Thank you for helping keep Beach League safe.')}
+        />
+      )}
+      <BlockPlayerDialog
+        visible={showBlockDialog}
+        playerName={displayName}
+        isPending={moderation.block.isPending}
+        errorMessage={safetyError}
+        onConfirm={confirmBlock}
+        onCancel={() => setShowBlockDialog(false)}
+      />
+      <UnblockPlayerDialog
+        visible={showUnblockDialog}
+        playerName={displayName}
+        isPending={moderation.unblock.isPending}
+        errorMessage={safetyError}
+        onConfirm={confirmUnblock}
+        onCancel={() => setShowUnblockDialog(false)}
+      />
     </SafeAreaView>
   );
 }

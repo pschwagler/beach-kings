@@ -21,6 +21,7 @@ export * from './rankingMethods';
 export * from './sessionMethods';
 export * from './signupMethods';
 export * from './userMethods';
+export * from './moderationMethods';
 export { createApiMethods } from './methods';
 
 import { ApiClient } from './client';

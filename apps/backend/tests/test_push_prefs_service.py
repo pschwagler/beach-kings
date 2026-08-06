@@ -8,7 +8,7 @@ Covers:
   - update_prefs: updates existing row (partial update, no-None fields only)
   - should_send_push: master kill-switch (push_enabled=False blocks all)
   - should_send_push: per-type pref respected
-  - should_send_push: notification types with no pref mapping are allowed
+  - should_send_push: every declared notification type has an explicit mapping
   - Route: GET /api/users/me/push-prefs returns 200 with defaults
   - Route: PATCH /api/users/me/push-prefs persists and returns updated prefs
   - notification_service integration: push skipped when prefs suppress it
@@ -19,6 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.services.push_prefs_service import (
     _DEFAULTS,
+    _TYPE_TO_PREF,
     get_prefs,
     update_prefs,
     should_send_push,
@@ -82,10 +83,24 @@ class TestShouldSendPush:
         prefs = self._prefs(push_enabled=True, ranking_changes=False)
         assert should_send_push(prefs, NotificationType.SEASON_AWARD.value) is False
 
-    def test_unknown_type_is_allowed(self) -> None:
-        """Notification types with no pref mapping are unconditionally allowed."""
+    def test_unknown_type_is_denied(self) -> None:
+        """Unknown notification types require an explicit preference mapping."""
         prefs = self._prefs(push_enabled=True)
-        assert should_send_push(prefs, "some_future_type") is True
+        assert should_send_push(prefs, "some_future_type") is False
+
+    def test_moderation_update_uses_only_the_master_switch(self) -> None:
+        prefs = self._prefs(
+            push_enabled=True,
+            direct_messages=False,
+            league_messages=False,
+            friend_requests=False,
+        )
+        assert should_send_push(prefs, NotificationType.MODERATION_UPDATE.value) is True
+
+    def test_every_notification_type_has_an_explicit_preference_mapping(self) -> None:
+        assert set(_TYPE_TO_PREF) == {
+            notification_type.value for notification_type in NotificationType
+        }
 
     def test_unknown_type_blocked_by_master(self) -> None:
         prefs = self._prefs(push_enabled=False)
@@ -271,13 +286,22 @@ class TestUpdatePrefs:
 
 
 class TestNotificationServicePushGating:
-    """Verify that create_notification skips push when prefs suppress it."""
+    """Notification creation queues delivery; preference gating is worker-owned."""
 
     def _make_notify_session(self, obj_id: int) -> AsyncMock:
         """Build a minimal session mock suitable for create_notification."""
         mock_session = AsyncMock()
         mock_session.flush = AsyncMock()
         mock_session.add = MagicMock()
+
+        class Nested:
+            async def __aenter__(self):
+                return None
+
+            async def __aexit__(self, *_args):
+                return False
+
+        mock_session.begin_nested = MagicMock(return_value=Nested())
 
         async def mock_refresh(obj):
             obj.id = obj_id
@@ -288,6 +312,9 @@ class TestNotificationServicePushGating:
             obj.data = None
             obj.is_read = False
             obj.read_at = None
+            obj.dismissed_at = None
+            obj.dedup_key = None
+            obj.actor_player_id = None
             obj.link_url = None
             obj.created_at = None
 
@@ -295,19 +322,18 @@ class TestNotificationServicePushGating:
         return mock_session
 
     @pytest.mark.asyncio
-    async def test_push_skipped_when_master_off(self) -> None:
-        """create_notification must not call push_service when push_enabled=False."""
-        import backend.services.push_prefs_service as pps_module
-        import backend.services.push_service as ps_module
+    async def test_notification_creation_queues_delivery(self) -> None:
         import backend.services.websocket_manager as ws_module
-        from backend.services import notification_service  # noqa: F401
+        import backend.services.push_delivery_service as delivery_module
 
-        suppressed_prefs = {**_DEFAULTS, "push_enabled": False}
         mock_session = self._make_notify_session(obj_id=1)
 
         with (
-            patch.object(pps_module, "get_prefs", new=AsyncMock(return_value=suppressed_prefs)),
-            patch.object(ps_module, "send_push_to_user", new=AsyncMock()) as mock_send_push,
+            patch.object(
+                delivery_module,
+                "enqueue_notification_jobs",
+                new=AsyncMock(return_value=1),
+            ) as mock_enqueue,
             patch.object(
                 ws_module,
                 "get_websocket_manager",
@@ -323,34 +349,9 @@ class TestNotificationServicePushGating:
                 title="Hi",
                 message="Hello",
             )
-            mock_send_push.assert_not_called()
+            mock_enqueue.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_push_sent_when_prefs_allow(self) -> None:
-        """create_notification must call push_service when prefs allow it."""
-        import backend.services.push_prefs_service as pps_module
-        import backend.services.push_service as ps_module
-        import backend.services.websocket_manager as ws_module
-
-        allowed_prefs = {**_DEFAULTS, "push_enabled": True, "direct_messages": True}
-        mock_session = self._make_notify_session(obj_id=2)
-
-        with (
-            patch.object(pps_module, "get_prefs", new=AsyncMock(return_value=allowed_prefs)),
-            patch.object(ps_module, "send_push_to_user", new=AsyncMock()) as mock_send_push,
-            patch.object(
-                ws_module,
-                "get_websocket_manager",
-                return_value=MagicMock(send_to_user=AsyncMock()),
-            ),
-        ):
-            from backend.services import notification_service as ns
-
-            await ns.create_notification(
-                session=mock_session,
-                user_id=99,
-                type=NotificationType.DIRECT_MESSAGE.value,
-                title="Hi",
-                message="Hello",
-            )
-            mock_send_push.assert_called_once()
+    async def test_unknown_type_is_suppressed_at_worker_gate(self) -> None:
+        prefs = {**_DEFAULTS, "push_enabled": True}
+        assert should_send_push(prefs, "unmapped_type") is False

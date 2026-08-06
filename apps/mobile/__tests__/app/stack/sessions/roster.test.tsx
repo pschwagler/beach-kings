@@ -172,7 +172,7 @@ const MOCK_SESSION_WITH_PLAYERS = {
   court_name: 'QBK Sports',
   court_id: null,
   session_type: 'league' as const,
-  status: 'ACTIVE',
+  status: 'active' as const,
   players: [PLAYER_IN_GAMES, PLAYER_NO_GAMES],
 };
 
@@ -180,6 +180,11 @@ const MOCK_SESSION_WITH_PLAYERS = {
 const MOCK_SESSION_EMPTY = {
   ...MOCK_SESSION_WITH_PLAYERS,
   players: [],
+};
+
+const MOCK_SESSION_SUBMITTED = {
+  ...MOCK_SESSION_WITH_PLAYERS,
+  status: 'submitted' as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -211,7 +216,6 @@ beforeEach(() => {
     message: 'Player invited',
   });
 });
-
 // ---------------------------------------------------------------------------
 // Loading state
 // ---------------------------------------------------------------------------
@@ -285,6 +289,22 @@ describe('SessionRosterScreen — empty state', () => {
     await waitFor(() => {
       expect(screen.getByTestId('roster-empty')).toBeTruthy();
     });
+  });
+});
+
+describe('SessionRosterScreen — submitted session', () => {
+  it('renders a read-only roster without mutation controls', async () => {
+    mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
+    renderRoute();
+
+    await waitFor(() => {
+      expect(screen.getByText('View Players')).toBeTruthy();
+      expect(screen.getByTestId('roster-locked-message')).toBeTruthy();
+    });
+    expect(screen.queryByTestId('roster-add-player-btn')).toBeNull();
+    expect(screen.queryByTestId('roster-remove-5')).toBeNull();
+    expect(screen.getByTestId('roster-row-1')).toBeTruthy();
+    expect(screen.getByTestId('roster-row-5')).toBeTruthy();
   });
 });
 

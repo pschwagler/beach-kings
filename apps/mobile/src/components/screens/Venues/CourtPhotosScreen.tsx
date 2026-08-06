@@ -14,7 +14,7 @@
  * Wireframe ref: court-photos.html
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -34,6 +34,7 @@ import { useCourtPhotosScreen } from './useCourtPhotosScreen';
 import { hapticMedium } from '@/utils/haptics';
 import type { CourtPhoto } from '@beach-kings/shared';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import ReportSheet from '@/components/moderation/ReportSheet';
 
 const NUM_COLUMNS = 3;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -61,6 +62,7 @@ interface PhotoGridProps {
   readonly onAddPhoto: () => void;
   readonly refreshing: boolean;
   readonly onRefresh: () => void;
+  readonly onReport: (photoId: number) => void;
 }
 
 function PhotoGrid({
@@ -68,6 +70,7 @@ function PhotoGrid({
   onAddPhoto,
   refreshing,
   onRefresh,
+  onReport,
 }: PhotoGridProps): React.ReactNode {
   const palette = usePaletteColors();
   if (photos.length === 0) {
@@ -102,18 +105,24 @@ function PhotoGrid({
       keyExtractor={(item) => String(item.id)}
       numColumns={NUM_COLUMNS}
       renderItem={({ item }) => (
-        <Image
+        <Pressable
           key={item.id}
-          source={{ uri: item.url }}
+          onLongPress={() => onReport(item.id)}
+          accessibilityHint="Long press to report this photo"
           style={{
             width: PHOTO_SIZE,
             height: PHOTO_SIZE,
             margin: 0.5,
             backgroundColor: palette.bgElevated,
           }}
-          accessibilityIgnoresInvertColors
-          accessibilityLabel={item.caption ?? 'Court photo'}
-        />
+        >
+          <Image
+            source={{ uri: item.url }}
+            style={{ width: PHOTO_SIZE, height: PHOTO_SIZE }}
+            accessibilityIgnoresInvertColors
+            accessibilityLabel={item.caption ?? 'Court photo'}
+          />
+        </Pressable>
       )}
       contentContainerStyle={{ paddingBottom: 100 }}
       refreshControl={
@@ -135,6 +144,7 @@ export default function CourtPhotosScreen({
   idOrSlug,
 }: CourtPhotosScreenProps): React.ReactNode {
   const palette = usePaletteColors();
+  const [reportPhotoId, setReportPhotoId] = useState<number | null>(null);
   const {
     photos,
     header,
@@ -150,9 +160,18 @@ export default function CourtPhotosScreen({
 
   const handleAddPhoto = useCallback(() => {
     void hapticMedium();
-    void onUploadPhoto().catch(() => {
-      // Errors are surfaced via uploadError state; nothing to do here.
-    });
+    void onUploadPhoto()
+      .then((photo) => {
+        if (photo?.moderation_visibility === 'pending') {
+          Alert.alert(
+            'Photo submitted',
+            'Your photo is being reviewed and will appear after approval.',
+          );
+        }
+      })
+      .catch(() => {
+        // Errors are surfaced via uploadError state; nothing to do here.
+      });
   }, [onUploadPhoto]);
 
   // Surface upload failures via Alert so users see them immediately.
@@ -272,7 +291,16 @@ export default function CourtPhotosScreen({
         onAddPhoto={handleAddPhoto}
         refreshing={isRefreshing}
         onRefresh={onRefresh}
+        onReport={setReportPhotoId}
       />
+      {reportPhotoId != null && (
+        <ReportSheet
+          targetType="court_photo"
+          targetId={reportPhotoId}
+          onClose={() => setReportPhotoId(null)}
+          onSubmitted={() => Alert.alert('Report received', 'Thank you for helping keep Beach League safe.')}
+        />
+      )}
     </SafeAreaView>
   );
 }

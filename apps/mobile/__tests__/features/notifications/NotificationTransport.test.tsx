@@ -5,15 +5,32 @@ import NotificationTransport from '@/features/notifications/NotificationTranspor
 import useWebSocket from '@/hooks/useWebSocket';
 import { api } from '@/lib/api';
 import { messageKeys } from '@/features/messages';
+import { privateKeys } from '@/infrastructure/query/keys';
+import { moderationKeys } from '@/features/moderation';
+
+const mockRefreshUser = jest.fn(() => Promise.resolve());
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     isAuthenticated: true,
     user: { id: 7 },
+    refreshUser: mockRefreshUser,
   }),
 }));
 
 jest.mock('@/hooks/useWebSocket', () => jest.fn());
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
+jest.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: jest.fn() }),
+}));
+
+jest.mock('@/features/notifications/useNotifications', () => ({
+  useNotifications: () => ({ markAsRead: jest.fn() }),
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -34,6 +51,9 @@ function makeClient(): QueryClient {
 }
 
 describe('NotificationTransport', () => {
+  beforeEach(() => {
+    mockRefreshUser.mockClear();
+  });
   it('authenticates an open socket with the stored access token', async () => {
     const send = jest.fn();
     mockUseWebSocket.mockReturnValue({
@@ -172,6 +192,75 @@ describe('NotificationTransport', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: messageKeys.unreadCount(7),
       refetchType: 'active',
+    });
+  });
+
+  it('invalidates the authenticated private cache for a quiet safety event', () => {
+    mockUseWebSocket.mockReturnValue({
+      isConnected: false,
+      lastMessage: null,
+      send: jest.fn(),
+    });
+    const client = makeClient();
+    const invalidateQueries = jest.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <NotificationTransport />
+      </QueryClientProvider>,
+    );
+
+    const latestCall =
+      mockUseWebSocket.mock.calls[mockUseWebSocket.mock.calls.length - 1];
+    act(() => {
+      latestCall?.[0]?.onMessage?.({
+        type: 'private_data_invalidated',
+        roots: ['social', 'messages', 'moderation', 'notifications'],
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: privateKeys.user(7),
+    });
+  });
+
+  it('refreshes identity when a moderation action arrives', async () => {
+    mockUseWebSocket.mockReturnValue({
+      isConnected: false,
+      lastMessage: null,
+      send: jest.fn(),
+    });
+    const client = makeClient();
+    const invalidateQueries = jest.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <NotificationTransport />
+      </QueryClientProvider>,
+    );
+
+    const latestCall = mockUseWebSocket.mock.calls.at(-1);
+    act(() => {
+      latestCall?.[0]?.onMessage?.({
+        type: 'notification',
+        notification: {
+          id: 31,
+          user_id: 7,
+          type: 'moderation_update',
+          title: 'Safety update',
+          message: 'Your account status changed.',
+          data: null,
+          is_read: false,
+          read_at: null,
+          link_url: null,
+          created_at: '2026-08-06T12:00:00Z',
+        },
+      });
+    });
+
+    await waitFor(() => expect(mockRefreshUser).toHaveBeenCalledTimes(1));
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: moderationKeys.accountStatus(7),
     });
   });
 });

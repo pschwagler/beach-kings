@@ -27,6 +27,9 @@ export const routes = {
   verify: () => '/(auth)/verify' as const,
   onboarding: () => '/(auth)/onboarding' as const,
 
+  // ---- Full-account enforcement group ----
+  accountRestricted: () => '/(account)/restricted' as const,
+
   // ---- Tab group ----
   home: () => '/(tabs)/home' as const,
   leagues: () => '/(tabs)/leagues' as const,
@@ -63,6 +66,8 @@ export const routes = {
   court: (idOrSlug: number | string) => `/(stack)/court/${idOrSlug}` as const,
   courtPhotos: (idOrSlug: number | string) =>
     `/(stack)/court/${idOrSlug}/photos` as const,
+  courtSuggestEdit: (idOrSlug: number | string) =>
+    `/(stack)/court/${idOrSlug}/suggest-edit` as const,
   tournament: (idOrCode: number | string) =>
     `/(stack)/tournament/${idOrCode}` as const,
   kob: (code: string) => `/(stack)/kob/${code}` as const,
@@ -141,6 +146,8 @@ export const routes = {
   changePassword: () => '/(stack)/settings/change-password' as const,
   settingsFeedback: () => '/(stack)/settings/feedback' as const,
   settingsPrivacy: () => '/(stack)/settings/privacy' as const,
+  settingsBlocked: () => '/(stack)/settings/blocked' as const,
+  settingsAccountStatus: () => '/(stack)/settings/account-status' as const,
 
   // ---- Stack: inbox ----
   messagesList: () => '/(stack)/messages' as const,
@@ -206,12 +213,16 @@ export const routeUp: Record<string, UpTarget> = {
   '(auth)/forgot-password': routes.welcome(),
   '(auth)/verify': routes.welcome(),
 
+  '(stack)/court/[id]/suggest-edit': (params) => routes.court(firstParam(params.id)),
+
   // Settings — hub reached from Profile, leaves reached from the hub
   '(stack)/settings': routes.profile(),
   '(stack)/settings/notifications': routes.settings(),
   '(stack)/settings/appearance': routes.settings(),
   '(stack)/settings/change-password': routes.settings(),
   '(stack)/settings/privacy': routes.settings(),
+  '(stack)/settings/blocked': routes.settings(),
+  '(stack)/settings/account-status': routes.settings(),
   '(stack)/settings/phone': routes.settings(),
   '(stack)/settings/feedback': routes.settings(),
 

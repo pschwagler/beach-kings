@@ -12,7 +12,13 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import {
+  render as rtlRender,
+  screen,
+  fireEvent,
+  waitFor,
+} from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -84,6 +90,22 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ isAuthenticated: true, user: { id: 7 } }),
+}));
+
+const mockEnablePush = jest.fn().mockResolvedValue(true);
+const mockOpenSettings = jest.fn().mockResolvedValue(undefined);
+let mockAuthorization = 'authorized';
+jest.mock('@/features/notifications/nativePushContext', () => ({
+  useNativePush: () => ({
+    authorization: mockAuthorization,
+    enablePush: mockEnablePush,
+    openSettings: mockOpenSettings,
+    isRegistering: false,
+  }),
+}));
+
 jest.mock('@/components/ui/icons', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -100,6 +122,18 @@ jest.mock('@/components/ui/icons', () => {
 // ---------------------------------------------------------------------------
 
 import NotificationsRoute from '../../../../app/(stack)/settings/notifications';
+
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+  return rtlRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -126,6 +160,7 @@ const MIXED_PREFS = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAuthorization = 'authorized';
   mockGetPushNotificationPrefs.mockResolvedValue(ALL_ON_PREFS);
   mockUpdatePushNotificationPrefs.mockResolvedValue({});
 });
@@ -239,5 +274,14 @@ describe('NotificationsSettingsScreen — toggles', () => {
         expect.objectContaining({ push_enabled: false }),
       );
     });
+  });
+
+  it('shows an Open Settings action when OS authorization is denied', async () => {
+    mockAuthorization = 'denied';
+    render(<NotificationsRoute />);
+    await waitFor(() => expect(screen.getByTestId('notifications-open-settings')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('notifications-open-settings'));
+    expect(mockOpenSettings).toHaveBeenCalled();
+    expect(screen.getByTestId('toggle-master').props.value).toBe(false);
   });
 });

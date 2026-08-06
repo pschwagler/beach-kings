@@ -21,6 +21,7 @@ import { createSignupMethods } from './signupMethods';
 import { createSocialMethods } from './socialMethods';
 import { createStatsMethods } from './statsMethods';
 import { createUserMethods } from './userMethods';
+import { createModerationMethods } from './moderationMethods';
 
 // Re-exported for backwards compatibility with deep imports from './methods'.
 export { mapPublicPlayerToPlayer } from './playerMethods';
@@ -59,6 +60,8 @@ export function createApiMethods(client: ApiClient) {
     ...createMessageMethods(api),
     // League invites
     ...createLeagueInviteMethods(api),
+    // Blocking and safety reports
+    ...createModerationMethods(api),
   };
 }
 

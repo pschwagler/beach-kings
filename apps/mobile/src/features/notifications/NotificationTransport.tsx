@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiWebSocketUrl } from '@/config/apiOrigin';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,17 +14,36 @@ import {
 } from '@/features/messages';
 import useWebSocket from '@/hooks/useWebSocket';
 import { api } from '@/lib/api';
+import { privateKeys } from '@/infrastructure/query/keys';
+import { useToast } from '@/contexts/ToastContext';
+import { routes } from '@/lib/navigation';
+import { moderationKeys } from '@/features/moderation';
 import { getSocketNotification, reconcileNotificationEvent } from './cache';
+import { claimNotificationPresentation } from './dedupe';
+import { resolveNotificationRoute } from './navigation';
+import { useNotifications } from './useNotifications';
 
 /** WebSocket lifecycle and cache reconciliation for notification events. */
 export default function NotificationTransport(): null {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, refreshUser } = useAuth();
   const userId = user?.id ?? 0;
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const { showToast } = useToast();
+  const { markAsRead } = useNotifications();
   const [transportEnabled, setTransportEnabled] = useState(false);
+  const moderationRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMessage = useCallback((data: unknown) => {
     if (userId === 0) return;
+    if (
+      data != null &&
+      typeof data === 'object' &&
+      (data as { readonly type?: unknown }).type === 'private_data_invalidated'
+    ) {
+      void queryClient.invalidateQueries({ queryKey: privateKeys.user(userId) });
+      return;
+    }
     const directMessage = getSocketDirectMessage(data);
     if (directMessage != null) {
       reconcileDirectMessageEvent(queryClient, userId, directMessage);
@@ -45,10 +65,34 @@ export default function NotificationTransport(): null {
       ).catch(() => {});
     }
     if (
+      eventType === 'notification' &&
+      claimNotificationPresentation(notification.id)
+    ) {
+      showToast(`${notification.title}\n${notification.message}`, 'info', () => {
+        markAsRead(notification.id);
+        router.push((
+          resolveNotificationRoute(notification.link_url) ??
+          routes.social({ tab: 'notifications' })
+        ) as never);
+      });
+    }
+    if (
       notification.type === 'friend_request' ||
       notification.type === 'friend_accepted'
     ) {
       void queryClient.invalidateQueries({ queryKey: socialKeys.all(userId) });
+    }
+    if (notification.type === 'moderation_update') {
+      void queryClient.invalidateQueries({
+        queryKey: moderationKeys.accountStatus(userId),
+      });
+      void refreshUser().catch(() => {});
+      if (moderationRefreshTimerRef.current != null) {
+        clearTimeout(moderationRefreshTimerRef.current);
+      }
+      moderationRefreshTimerRef.current = setTimeout(() => {
+        void refreshUser().catch(() => {});
+      }, 750);
     }
     if (
       notification.type === 'session_submitted' ||
@@ -65,11 +109,17 @@ export default function NotificationTransport(): null {
         refetchType: 'none',
       });
     }
-  }, [queryClient, userId]);
+  }, [markAsRead, queryClient, refreshUser, router, showToast, userId]);
 
   useEffect(() => {
     setTransportEnabled(isAuthenticated && userId > 0);
   }, [isAuthenticated, userId]);
+
+  useEffect(() => () => {
+    if (moderationRefreshTimerRef.current != null) {
+      clearTimeout(moderationRefreshTimerRef.current);
+    }
+  }, []);
 
   const { isConnected, send } = useWebSocket({
     url: apiWebSocketUrl('/api/ws/notifications'),
@@ -96,6 +146,7 @@ export default function NotificationTransport(): null {
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active' && isAuthenticated && userId > 0) {
+        void refreshUser().catch(() => {});
         setTransportEnabled(false);
         reconnectTimer = setTimeout(() => setTransportEnabled(true), 0);
       }
@@ -104,7 +155,7 @@ export default function NotificationTransport(): null {
       subscription.remove();
       if (reconnectTimer != null) clearTimeout(reconnectTimer);
     };
-  }, [isAuthenticated, userId]);
+  }, [isAuthenticated, refreshUser, userId]);
 
   return null;
 }

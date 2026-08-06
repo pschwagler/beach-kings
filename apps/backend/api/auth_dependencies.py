@@ -5,7 +5,7 @@ Authentication dependencies for FastAPI routes.
 import logging
 from datetime import datetime, timezone
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,7 +52,7 @@ def _is_deletion_expired(user: dict) -> bool:
         return False
 
 
-async def get_current_user(
+async def get_authenticated_user(
     session: AsyncSession = Depends(get_db_session),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> dict:
@@ -121,7 +121,43 @@ async def get_current_user(
     return user
 
 
+_RESTRICTED_ACCOUNT_ROUTES = {
+    ("GET", "/api/auth/me"),
+    ("POST", "/api/auth/logout"),
+    ("GET", "/api/moderation/account-status"),
+    ("GET", "/api/moderation/appeals/me"),
+    ("POST", "/api/moderation/appeals"),
+    ("POST", "/api/users/me/delete"),
+    ("DELETE", "/api/users/me"),
+    ("POST", "/api/users/me/cancel-deletion"),
+}
+
+
+def _enforce_account_access(request: Request, user: dict) -> dict:
+    account_status = user_service.effective_moderation_status(user)
+    resolved = {**user, "moderation_status": account_status}
+    if account_status == "active" or (request.method, request.url.path) in _RESTRICTED_ACCOUNT_ROUTES:
+        return resolved
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": f"account_{account_status}",
+            "expires_at": user.get("moderation_expires_at"),
+            "case_id": user.get("moderation_case_id"),
+        },
+    )
+
+
+async def get_current_user(
+    request: Request,
+    user: dict = Depends(get_authenticated_user),
+) -> dict:
+    """Authenticate and enforce full account suspension/ban boundaries."""
+    return _enforce_account_access(request, user)
+
+
 async def get_current_user_optional(
+    request: Request,
     session: AsyncSession = Depends(get_db_session),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
 ) -> Optional[dict]:
@@ -140,7 +176,8 @@ async def get_current_user_optional(
         return None
 
     try:
-        return await get_current_user(session, credentials)
+        user = await get_authenticated_user(session, credentials)
+        return _enforce_account_access(request, user)
     except HTTPException:
         return None
 
@@ -180,6 +217,32 @@ async def require_verified_player(
         )
 
     return {**user, "player_id": player.id}
+
+
+async def require_verified_player_allow_restricted(
+    user: dict = Depends(get_authenticated_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Verified-player identity for status, appeal, deletion, and logout surfaces only."""
+    if not user.get("is_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Phone verification required",
+        )
+    result = await session.execute(
+        select(Player).where(
+            Player.user_id == user["id"],
+            Player.is_placeholder == False,  # noqa: E712
+        )
+    )
+    player = result.scalar_one_or_none()
+    if not player:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Player profile required")
+    return {
+        **user,
+        "moderation_status": user_service.effective_moderation_status(user),
+        "player_id": player.id,
+    }
 
 
 async def _is_system_admin(session: AsyncSession, user: dict) -> bool:

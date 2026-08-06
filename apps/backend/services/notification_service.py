@@ -22,6 +22,7 @@ from backend.services.data_service import (
 )
 from backend.utils.datetime_utils import utcnow
 from backend.services.relationship_service import resolve_relationships
+from backend.services import interaction_policy
 import json
 import logging
 
@@ -38,6 +39,7 @@ def notification_to_dict(notif: Notification) -> Dict:
     return {
         "id": notif.id,
         "user_id": notif.user_id,
+        "actor_player_id": notif.actor_player_id,
         "type": notif.type,
         "title": notif.title,
         "message": notif.message,
@@ -60,6 +62,10 @@ async def create_notification(
     data: Optional[Dict] = None,
     link_url: Optional[str] = None,
     dedup_key: Optional[str] = None,
+    actor_player_id: Optional[int] = None,
+    push_title: Optional[str] = None,
+    push_body: Optional[str] = None,
+    push_event_key: Optional[str] = None,
 ) -> Dict:
     """
     Create a single notification for a user.
@@ -89,6 +95,18 @@ async def create_notification(
     if not message:
         raise ValueError("message is required")
 
+    if actor_player_id is not None:
+        recipient_player_id = (
+            await session.execute(select(Player.id).where(Player.user_id == user_id))
+        ).scalar_one_or_none()
+        if recipient_player_id is not None:
+            await interaction_policy.enforce_action(
+                session,
+                recipient_player_id,
+                actor_player_id,
+                interaction_policy.InteractionAction.NOTIFICATION,
+            )
+
     if dedup_key:
         existing_result = await session.execute(
             select(Notification).where(
@@ -116,13 +134,25 @@ async def create_notification(
         data=data_json,
         link_url=link_url,
         dedup_key=dedup_key,
+        actor_player_id=actor_player_id,
         is_read=False,
     )
+
+    from backend.services.push_delivery_service import enqueue_notification_jobs
 
     try:
         async with session.begin_nested():
             session.add(notification)
             await session.flush()
+            await session.refresh(notification)
+            await enqueue_notification_jobs(
+                session,
+                notification,
+                data,
+                push_title=push_title,
+                push_body=push_body,
+                event_key=push_event_key,
+            )
     except IntegrityError:
         # A concurrent retry may have inserted the same active dedup key after
         # the lookup above. Return that canonical row without rebroadcasting.
@@ -141,8 +171,6 @@ async def create_notification(
         if existing:
             return notification_to_dict(existing)
         raise
-    await session.refresh(notification)
-
     notification_dict = notification_to_dict(notification)
 
     # Broadcast via WebSocket (non-blocking - errors won't fail the notification creation)
@@ -156,16 +184,6 @@ async def create_notification(
     except Exception as e:
         # Log error but don't fail notification creation
         logger.warning(f"Failed to broadcast notification via WebSocket for user {user_id}: {e}")
-
-    # Send push notification (best-effort, non-blocking; gated by user prefs)
-    try:
-        from backend.services import push_service, push_prefs_service
-
-        prefs = await push_prefs_service.get_prefs(session, user_id)
-        if push_prefs_service.should_send_push(prefs, type):
-            await push_service.send_push_to_user(session, user_id, title, message, data=data)
-    except Exception as e:
-        logger.warning(f"Failed to send push notification to user {user_id}: {e}")
 
     return notification_dict
 
@@ -195,8 +213,6 @@ async def create_notifications_bulk(
     if not notifications_list:
         return []
 
-    # Validate and prepare notifications
-    notification_objects = []
     for notif_data in notifications_list:
         if not notif_data.get("user_id"):
             raise ValueError("user_id is required for all notifications")
@@ -207,6 +223,52 @@ async def create_notifications_bulk(
         if not notif_data.get("message"):
             raise ValueError("message is required for all notifications")
 
+    # Actor-bearing rows are filtered before persistence and real-time/push
+    # delivery. System rows without an actor remain eligible.
+    actor_rows = [row for row in notifications_list if row.get("actor_player_id") is not None]
+    if actor_rows:
+        recipient_user_ids = {int(row["user_id"]) for row in actor_rows if row.get("user_id")}
+        player_rows = await session.execute(
+            select(Player.user_id, Player.id).where(Player.user_id.in_(recipient_user_ids))
+        )
+        recipient_players = {row.user_id: row.id for row in player_rows.all()}
+        allowed_pairs: set[tuple[int, int]] = set()
+        actors_by_recipient: dict[int, set[int]] = {}
+        for row in actor_rows:
+            recipient_player_id = recipient_players.get(int(row["user_id"]))
+            if recipient_player_id is not None:
+                actors_by_recipient.setdefault(recipient_player_id, set()).add(
+                    int(row["actor_player_id"])
+                )
+        for recipient_player_id, actor_ids in actors_by_recipient.items():
+            actor_list = list(actor_ids)
+            for start in range(0, len(actor_list), 100):
+                capabilities = await interaction_policy.interaction_capabilities(
+                    session, recipient_player_id, actor_list[start : start + 100]
+                )
+                allowed_pairs.update(
+                    (recipient_player_id, actor_id)
+                    for actor_id, capability in capabilities.items()
+                    if capability["actions"][
+                        interaction_policy.InteractionAction.NOTIFICATION.value
+                    ]
+                )
+        notifications_list = [
+            row
+            for row in notifications_list
+            if row.get("actor_player_id") is None
+            or (
+                recipient_players.get(int(row["user_id"])),
+                int(row["actor_player_id"]),
+            )
+            in allowed_pairs
+        ]
+        if not notifications_list:
+            return []
+
+    # Validate and prepare notifications
+    notification_objects = []
+    for notif_data in notifications_list:
         # Serialize data dict to JSON string if provided
         data_json = None
         if notif_data.get("data") is not None:
@@ -221,34 +283,45 @@ async def create_notifications_bulk(
                 data=data_json,
                 link_url=notif_data.get("link_url"),
                 dedup_key=notif_data.get("dedup_key"),
+                actor_player_id=notif_data.get("actor_player_id"),
                 is_read=False,
             )
         )
 
-    # Bulk insert
-    session.add_all(notification_objects)
-    await session.flush()
+    from backend.services.push_delivery_service import enqueue_notification_jobs
 
-    # Batch refresh all notifications to get IDs and timestamps
-    # Refresh in batches to avoid overwhelming the database
-    batch_size = 100
-    for i in range(0, len(notification_objects), batch_size):
-        batch = notification_objects[i : i + batch_size]
-        await session.flush()  # Ensure all objects are persisted
-        for notif in batch:
-            await session.refresh(notif)
+    async with session.begin_nested():
+        session.add_all(notification_objects)
+        await session.flush()
 
-    # Convert to dicts
+        # Refresh in bounded batches so payload snapshots include stable IDs.
+        batch_size = 100
+        for i in range(0, len(notification_objects), batch_size):
+            batch = notification_objects[i : i + batch_size]
+            for notif in batch:
+                await session.refresh(notif)
+
+        for notification, source in zip(notification_objects, notifications_list):
+            await enqueue_notification_jobs(
+                session,
+                notification,
+                source.get("data"),
+                push_title=source.get("push_title"),
+                push_body=source.get("push_body"),
+                event_key=source.get("push_event_key"),
+            )
+
+    # Convert only after notification rows and jobs have left the same savepoint.
     notification_dicts = [notification_to_dict(notif) for notif in notification_objects]
 
     # Broadcast notifications via WebSocket (non-blocking - errors won't fail notification creation)
+    notifications_by_user: dict[int, list[Dict]] = {}
     try:
         from backend.services.websocket_manager import get_websocket_manager
 
         manager = get_websocket_manager()
 
         # Group notifications by user_id for efficient broadcasting
-        notifications_by_user = {}
         for notif_dict in notification_dicts:
             user_id = notif_dict["user_id"]
             if user_id not in notifications_by_user:
@@ -268,37 +341,6 @@ async def create_notifications_bulk(
                     )
     except Exception as e:
         logger.warning(f"Failed to broadcast bulk notifications via WebSocket: {e}")
-
-    # Send push notifications (best-effort, non-blocking; gated by user prefs)
-    try:
-        from backend.services import push_service, push_prefs_service
-
-        for push_user_id, user_notifications in notifications_by_user.items():
-            # Load prefs once per recipient; no stored row → defaults
-            try:
-                prefs = await push_prefs_service.get_prefs(session, push_user_id)
-            except Exception as e:
-                logger.warning(
-                    f"Failed to load push prefs for user {push_user_id}, skipping push: {e}"
-                )
-                continue
-            for notif_dict in user_notifications:
-                if not push_prefs_service.should_send_push(prefs, notif_dict["type"]):
-                    continue
-                try:
-                    await push_service.send_push_to_user(
-                        session,
-                        push_user_id,
-                        notif_dict["title"],
-                        notif_dict["message"],
-                        data=notif_dict.get("data"),
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to send push notification {notif_dict['id']} to user {push_user_id}: {e}"
-                    )
-    except Exception as e:
-        logger.warning(f"Failed to send bulk push notifications: {e}")
 
     return notification_dicts
 
@@ -333,6 +375,11 @@ async def get_user_notifications(
         Notification.user_id == user_id,
         Notification.dismissed_at.is_(None),
     )
+    viewer_player_id = (
+        await session.execute(select(Player.id).where(Player.user_id == user_id))
+    ).scalar_one_or_none()
+    if viewer_player_id is not None:
+        query = interaction_policy.exclude_blocked_notification_actors(query, viewer_player_id)
 
     if unread_only:
         query = query.where(Notification.is_read.is_(False))
@@ -372,7 +419,7 @@ async def get_unread_count(session: AsyncSession, user_id: int) -> int:
     """
     await reconcile_friend_request_notifications(session, user_id)
 
-    result = await session.execute(
+    query = (
         select(func.count())
         .select_from(Notification)
         .where(
@@ -383,6 +430,12 @@ async def get_unread_count(session: AsyncSession, user_id: int) -> int:
             )
         )
     )
+    viewer_player_id = (
+        await session.execute(select(Player.id).where(Player.user_id == user_id))
+    ).scalar_one_or_none()
+    if viewer_player_id is not None:
+        query = interaction_policy.exclude_blocked_notification_actors(query, viewer_player_id)
+    result = await session.execute(query)
     count = result.scalar_one() or 0
     return count
 
@@ -657,9 +710,11 @@ async def notify_league_members_about_message(
 
         # Get sender name
         player_result = await session.execute(
-            select(Player.full_name).where(Player.user_id == sender_user_id)
+            select(Player.id, Player.full_name).where(Player.user_id == sender_user_id)
         )
-        player_name = player_result.scalar_one_or_none() or "Unknown"
+        player_row = player_result.one_or_none()
+        sender_player_id = player_row.id if player_row else None
+        player_name = player_row.full_name if player_row else "Unknown"
 
         # Create notifications
         notifications_list = [
@@ -668,6 +723,10 @@ async def notify_league_members_about_message(
                 "type": NotificationType.LEAGUE_MESSAGE.value,
                 "title": f"New message in {league_name}",
                 "message": f"{player_name}: {message_text[:100]}{'...' if len(message_text) > 100 else ''}",
+                "push_title": f"New message in {league_name}",
+                "push_body": f"{player_name} sent a new league message.",
+                "push_event_key": f"league-message-{message_id}",
+                "actor_player_id": sender_player_id,
                 "data": {
                     "league_id": league_id,
                     "message_id": message_id,
@@ -798,7 +857,11 @@ async def notify_player_about_join_approval(
 
 
 async def notify_player_about_league_invite(
-    session: AsyncSession, league_id: int, player_user_id: int, league_name: Optional[str] = None
+    session: AsyncSession,
+    league_id: int,
+    player_user_id: int,
+    league_name: Optional[str] = None,
+    actor_player_id: Optional[int] = None,
 ) -> None:
     """
     Notify a player that they have been invited to a league.
@@ -822,6 +885,7 @@ async def notify_player_about_league_invite(
             message=f"You've been invited to join {league_name}!",
             data={"league_id": league_id},
             link_url=f"/league/{league_id}",
+            actor_player_id=actor_player_id,
         )
     except Exception as e:
         logger.warning(f"Failed to create league invite notification: {e}")

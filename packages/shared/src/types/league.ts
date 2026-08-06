@@ -155,6 +155,8 @@ export interface LeagueChatMessage {
   readonly avatar_url?: string | null;
   /** Client-derived from player_name (e.g. "Patrick Schwagler" -> "PS"). */
   readonly initials: string;
+  readonly moderation_visibility?: import('./moderation').ModerationVisibility;
+  readonly collapsed_for_viewer?: boolean;
 }
 
 // ---------------------------------------------------------------------------

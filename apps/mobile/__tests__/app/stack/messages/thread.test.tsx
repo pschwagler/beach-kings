@@ -73,7 +73,7 @@ jest.mock('react-native-reanimated', () => {
     useAnimatedStyle: () => ({}),
     withRepeat: (v: unknown) => v,
     withTiming: (v: unknown) => v,
-    Easing: { inOut: () => ({}), ease: {} },
+    Easing: { inOut: () => ({}), in: () => ({}), out: () => ({}), cubic: {} },
   };
 });
 
@@ -115,6 +115,8 @@ const mockGetThread = jest.fn();
 const mockGetPublicPlayer = jest.fn();
 const mockSendDirectMessage = jest.fn();
 const mockMarkThreadRead = jest.fn();
+const mockBlockPlayer = jest.fn();
+const mockUnblockPlayer = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -122,6 +124,8 @@ jest.mock('@/lib/api', () => ({
     getPublicPlayer: (...args: unknown[]) => mockGetPublicPlayer(...args),
     sendDirectMessage: (...args: unknown[]) => mockSendDirectMessage(...args),
     markThreadRead: (...args: unknown[]) => mockMarkThreadRead(...args),
+    blockPlayer: (...args: unknown[]) => mockBlockPlayer(...args),
+    unblockPlayer: (...args: unknown[]) => mockUnblockPlayer(...args),
   },
 }));
 
@@ -205,6 +209,8 @@ beforeEach(() => {
     profile_picture_url: null,
   });
   mockMarkThreadRead.mockResolvedValue({ status: 'ok', marked_count: 1 });
+  mockBlockPlayer.mockResolvedValue({ player_id: 42, status: 'blocked' });
+  mockUnblockPlayer.mockResolvedValue({ player_id: 42, status: 'unblocked' });
   mockSendDirectMessage.mockResolvedValue({
     id: 99,
     sender_player_id: 0,
@@ -332,6 +338,30 @@ describe('MessageThreadScreen — messages list', () => {
     });
   });
 
+  it('labels an own pending message as under review', async () => {
+    mockGetThread.mockResolvedValue({
+      items: [
+        {
+          id: 4,
+          sender_player_id: 0,
+          receiver_player_id: 42,
+          message_text: 'Waiting for review',
+          is_read: false,
+          read_at: null,
+          created_at: NOW,
+          moderation_visibility: 'pending',
+        },
+      ],
+      total_count: 1,
+    });
+
+    render(<MessageThreadRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Reviewing/)).toBeTruthy();
+    });
+  });
+
   it('renders the player name in the header, not "Chat"', async () => {
     render(<MessageThreadRoute />);
     await waitFor(() => {
@@ -387,6 +417,63 @@ describe('MessageThreadScreen — back button', () => {
 
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/social?tab=messages');
+  });
+});
+
+describe('MessageThreadScreen — player safety', () => {
+  it('confirms blocking and exits to the conversation list after success', async () => {
+    render(<MessageThreadRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('thread-screen')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('thread-profile-btn'));
+    fireEvent.press(screen.getByTestId('action-sheet-block'));
+    expect(screen.getByText("They won't be notified. Direct contact, friendship, discovery, and invites stop in both directions. Shared league facts remain visible. This conversation is hidden until you unblock them.")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('block-player-dialog-confirm'));
+    });
+
+    await waitFor(() => expect(mockBlockPlayer).toHaveBeenCalledWith(42));
+    expect(mockReplace).toHaveBeenCalledWith('/(stack)/messages');
+  });
+
+  it('uses generic unavailable copy when the viewer did not initiate the restriction', async () => {
+    mockGetThread.mockResolvedValue({
+      items: [],
+      total_count: 0,
+      capability: {
+        actions: { direct_message: false },
+        blocked_by_viewer: false,
+        viewer_restricted: false,
+      },
+    });
+    render(<MessageThreadRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText("This interaction isn't available.")).toBeTruthy();
+    });
+    expect(screen.queryByText('Unblock')).toBeNull();
+    expect(screen.queryByTestId('message-input')).toBeNull();
+  });
+
+  it('explains only the viewer-initiated block and offers unblock', async () => {
+    mockGetThread.mockResolvedValue({
+      items: [],
+      total_count: 0,
+      capability: {
+        actions: { direct_message: false },
+        blocked_by_viewer: true,
+        viewer_restricted: false,
+      },
+    });
+    render(<MessageThreadRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('You blocked this player.')).toBeTruthy();
+    });
+    expect(screen.getByText('Unblock')).toBeTruthy();
   });
 });
 

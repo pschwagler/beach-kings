@@ -1,5 +1,11 @@
 import type { AxiosInstance } from "axios";
-import type { Notification, PushNotificationPrefs } from "@beach-kings/shared";
+import type {
+  Notification,
+  PushNotificationPrefs,
+  PushTokenRegistration,
+  RegisterPushTokenRequest,
+  UnregisterPushInstallationRequest,
+} from "@beach-kings/shared";
 import { normalizeItems } from "./responseNormalization";
 
 export function createNotificationMethods(api: AxiosInstance) {
@@ -60,6 +66,36 @@ export function createNotificationMethods(api: AxiosInstance) {
       const response = await api.patch<PushNotificationPrefs>(
         "/api/users/me/push-prefs",
         partial,
+      );
+      return response.data;
+    },
+
+    async registerPushToken(
+      registration: RegisterPushTokenRequest,
+    ): Promise<PushTokenRegistration> {
+      const response = await api.post<PushTokenRegistration>(
+        "/api/push-tokens",
+        registration,
+      );
+      return response.data;
+    },
+
+    async unregisterPushToken(
+      registration: RegisterPushTokenRequest,
+    ): Promise<{ success: boolean }> {
+      const response = await api.delete<{ success: boolean }>(
+        "/api/push-tokens",
+        { data: registration },
+      );
+      return response.data;
+    },
+
+    async unregisterPushInstallation(
+      credential: UnregisterPushInstallationRequest,
+    ): Promise<{ success: boolean }> {
+      const response = await api.post<{ success: boolean }>(
+        "/api/push-installations/unregister",
+        credential,
       );
       return response.data;
     },

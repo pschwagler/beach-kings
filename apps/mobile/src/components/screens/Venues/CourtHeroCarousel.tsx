@@ -22,9 +22,12 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
   useWindowDimensions,
+  Pressable,
+  Alert,
 } from 'react-native';
 
 import type { Court, CourtPhoto } from '@beach-kings/shared';
+import ReportSheet from '@/components/moderation/ReportSheet';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -128,6 +131,7 @@ export default function CourtHeroCarousel({
 }: CourtHeroCarouselProps): React.ReactNode {
   const { width: windowWidth } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [reportPhoto, setReportPhoto] = useState<CourtPhoto | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const photos = resolvePhotos(court);
@@ -169,6 +173,11 @@ export default function CourtHeroCarousel({
             testID="carousel-slide"
             style={{ width: windowWidth, height: HERO_HEIGHT }}
           >
+            <Pressable
+              onLongPress={() => { if (photo.id > 0) setReportPhoto(photo); }}
+              accessibilityHint={photo.id > 0 ? 'Long press to report this photo' : undefined}
+              style={{ width: windowWidth, height: HERO_HEIGHT }}
+            >
             <Image
               source={{ uri: photo.url }}
               style={{ width: windowWidth, height: HERO_HEIGHT }}
@@ -180,12 +189,21 @@ export default function CourtHeroCarousel({
                 index === 0 ? `Court photo ${index + 1}` : undefined
               }
             />
+            </Pressable>
           </View>
         ))}
       </ScrollView>
 
       <DotIndicators count={slides.length} activeIndex={activeIndex} />
       <PhotoCountBadge count={totalPhotoCount} />
+      {reportPhoto != null && (
+        <ReportSheet
+          targetType={reportPhoto.target_type ?? 'court_photo'}
+          targetId={reportPhoto.id}
+          onClose={() => setReportPhoto(null)}
+          onSubmitted={() => Alert.alert('Report received', 'Thank you for helping keep Beach League safe.')}
+        />
+      )}
     </View>
   );
 }

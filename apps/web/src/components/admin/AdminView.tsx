@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { BarChart3, Settings, MapPin, MessageSquare } from 'lucide-react';
+import { BarChart3, Settings, MapPin, MessageSquare, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useApp } from '../../contexts/AppContext';
@@ -10,6 +10,7 @@ import AdminDashboardTab from './AdminDashboardTab';
 import AdminSettingsTab from './AdminSettingsTab';
 import AdminCourtsTab from './AdminCourtsTab';
 import AdminFeedbackTab from './AdminFeedbackTab';
+import AdminModerationTab from './AdminModerationTab';
 import './AdminView.css';
 
 const TABS = [
@@ -17,7 +18,14 @@ const TABS = [
   { key: 'settings', label: 'Settings', icon: Settings },
   { key: 'courts', label: 'Courts', icon: MapPin },
   { key: 'feedback', label: 'Feedback', icon: MessageSquare },
-];
+  { key: 'moderation', label: 'Moderation', icon: ShieldCheck },
+] as const;
+
+type AdminTab = (typeof TABS)[number]['key'];
+
+function isAdminTab(value: string | null): value is AdminTab {
+  return TABS.some(({ key }) => key === value);
+}
 
 /**
  * Admin view shell — horizontal tab bar + lazy-rendered tab content.
@@ -29,9 +37,10 @@ export default function AdminView() {
   const { openAuthModal } = useAuthModal();
   const { userLeagues } = useApp();
 
-  const activeTab = searchParams.get('tab') || 'dashboard';
+  const requestedTab = searchParams.get('tab');
+  const activeTab: AdminTab = isAdminTab(requestedTab) ? requestedTab : 'dashboard';
 
-  const setActiveTab = (key: string) => {
+  const setActiveTab = (key: AdminTab) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', key);
     router.replace(`?${params.toString()}`, { scroll: false });
@@ -52,6 +61,7 @@ export default function AdminView() {
       case 'settings': return <AdminSettingsTab />;
       case 'courts': return <AdminCourtsTab />;
       case 'feedback': return <AdminFeedbackTab />;
+      case 'moderation': return <AdminModerationTab />;
       default: return <AdminDashboardTab />;
     }
   };
@@ -72,18 +82,20 @@ export default function AdminView() {
         <div className="admin-view-container">
           <h1 className="admin-view-title">Admin Panel</h1>
 
-          <div className="admin-tab-bar">
+          <nav className="admin-tab-bar" aria-label="Admin navigation">
             {TABS.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
+                type="button"
+                aria-current={activeTab === key ? 'page' : undefined}
                 className={`admin-tab-btn ${activeTab === key ? 'admin-tab-btn--active' : ''}`}
                 onClick={() => setActiveTab(key)}
               >
-                <Icon size={16} />
+                <Icon size={16} aria-hidden="true" />
                 <span>{label}</span>
               </button>
             ))}
-          </div>
+          </nav>
 
           <div className="admin-tab-content">
             {renderTab()}

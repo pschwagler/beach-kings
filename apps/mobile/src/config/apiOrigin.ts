@@ -9,9 +9,40 @@ function isLoopbackHostname(hostname: string): boolean {
   );
 }
 
+function isPrivateIpv4Hostname(hostname: string): boolean {
+  const octets = hostname.split('.');
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !/^\d{1,3}$/.test(octet) || Number(octet) > 255)
+  ) {
+    return false;
+  }
+
+  const [first, second] = octets.map(Number);
+  return (
+    first === 10 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
+  );
+}
+
+function configuredHostname(value: string): string | null {
+  const authority = /^[a-z][a-z\d+.-]*:\/\/([^/?#]*)/i.exec(value)?.[1];
+  if (!authority) return null;
+
+  const hostAndPort = authority.slice(authority.lastIndexOf('@') + 1);
+  if (hostAndPort.startsWith('[')) {
+    const closingBracket = hostAndPort.indexOf(']');
+    return closingBracket === -1
+      ? null
+      : hostAndPort.slice(0, closingBracket + 1).toLowerCase();
+  }
+  return hostAndPort.split(':', 1)[0].toLowerCase();
+}
+
 /**
  * Resolve and validate the backend origin embedded in the mobile bundle.
- * Plain HTTP and loopback hosts are deliberately limited to development.
+ * Plain HTTP is limited to development loopback and RFC1918 IPv4 hosts.
  */
 export function resolveApiOrigin(
   configuredValue: string | undefined,
@@ -43,10 +74,16 @@ export function resolveApiOrigin(
   }
 
   const isLoopback = isLoopbackHostname(url.hostname);
+  const originalHostname = configuredHostname(value);
+  const isPrivateIpv4 =
+    originalHostname === url.hostname && isPrivateIpv4Hostname(originalHostname);
   if (isLoopback && !isDevelopment) {
     throw new Error('EXPO_PUBLIC_API_URL cannot use localhost in production.');
   }
-  if (url.protocol !== 'https:' && !(isDevelopment && isLoopback)) {
+  if (
+    url.protocol !== 'https:' &&
+    !(isDevelopment && (isLoopback || isPrivateIpv4))
+  ) {
     throw new Error('EXPO_PUBLIC_API_URL must use HTTPS.');
   }
 
@@ -66,4 +103,3 @@ export function apiWebSocketUrl(path: string): string {
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   return url.toString();
 }
-

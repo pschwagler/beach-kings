@@ -8,6 +8,7 @@ export { default as AddPhoneScreen } from './AddPhoneScreen';
 export { default as AppearanceSettingsScreen } from './AppearanceSettingsScreen';
 export { default as FeedbackScreen } from './FeedbackScreen';
 export { default as PrivacySettingsScreen } from './PrivacySettingsScreen';
+export { default as BlockedAccountsScreen } from './BlockedAccountsScreen';
 export { useNotificationsScreen } from './useNotificationsScreen';
 export type { UseNotificationsScreenResult } from './useNotificationsScreen';
 export { usePrivacySettingsScreen } from './usePrivacySettingsScreen';

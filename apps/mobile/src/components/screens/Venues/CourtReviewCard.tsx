@@ -6,16 +6,18 @@
  * are shown only for the current player's own review.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import AppText from '@/components/ui/AppText';
 import {
   View,
   Image,
   Pressable,
   ScrollView,
+  Alert,
 } from 'react-native';
 import type { CourtReview } from '@beach-kings/shared';
 import Avatar from '@/components/ui/Avatar';
+import ReportSheet from '@/components/moderation/ReportSheet';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,6 +72,7 @@ export default function CourtReviewCard({
 
   const hasTags = (review.tags?.length ?? 0) > 0;
   const hasPhotos = (review.photos?.length ?? 0) > 0;
+  const [reportTarget, setReportTarget] = useState<{ type: 'court_review' | 'court_review_photo'; id: number } | null>(null);
 
   return (
     <View
@@ -113,6 +116,16 @@ export default function CourtReviewCard({
             className="min-h-touch min-w-touch items-center justify-center"
           >
             <AppText className="text-[13px] text-brand-teal font-medium">Edit</AppText>
+          </Pressable>
+        )}
+        {!isOwn && (
+          <Pressable
+            onPress={() => setReportTarget({ type: 'court_review', id: review.id })}
+            accessibilityRole="button"
+            accessibilityLabel="Report review"
+            className="min-h-touch min-w-touch items-center justify-center"
+          >
+            <AppText className="text-[13px] text-muted font-medium">Report</AppText>
           </Pressable>
         )}
       </View>
@@ -170,16 +183,29 @@ export default function CourtReviewCard({
           contentContainerStyle={{ gap: 8 }}
         >
           {(review.photos ?? []).map((photo, index, photos) => (
-            <Image
+            <Pressable
               key={photo.id}
-              source={{ uri: photo.url }}
-              className="w-[80px] h-[80px] rounded-lg bg-surface"
-              accessible
-              accessibilityLabel={`Review photo ${index + 1} of ${photos.length}`}
-              accessibilityIgnoresInvertColors
-            />
+              onLongPress={() => setReportTarget({ type: 'court_review_photo', id: photo.id })}
+              accessibilityHint="Long press to report this photo"
+            >
+              <Image
+                source={{ uri: photo.url }}
+                className="w-[80px] h-[80px] rounded-lg bg-surface"
+                accessible
+                accessibilityLabel={`Review photo ${index + 1} of ${photos.length}`}
+                accessibilityIgnoresInvertColors
+              />
+            </Pressable>
           ))}
         </ScrollView>
+      )}
+      {reportTarget != null && (
+        <ReportSheet
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          onClose={() => setReportTarget(null)}
+          onSubmitted={() => Alert.alert('Report received', 'Thank you for helping keep Beach League safe.')}
+        />
       )}
     </View>
   );

@@ -25,6 +25,7 @@ from backend.services import (
     avatar_service,
     s3_service,
     email_service,
+    moderation_service,
 )
 from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import (
@@ -506,7 +507,7 @@ async def _set_apple_id(session: AsyncSession, user_id: int, apple_id: str) -> N
     await session.commit()
 
 
-def _build_user_response(user: dict) -> UserResponse:
+def _build_user_response(user: dict, moderation: dict | None = None) -> UserResponse:
     """
     Construct a ``UserResponse`` from a user dict, populating all optional flags.
 
@@ -519,6 +520,9 @@ def _build_user_response(user: dict) -> UserResponse:
     Returns:
         Fully-populated ``UserResponse``.
     """
+    moderation_status = (moderation or {}).get(
+        "account_status", user_service.effective_moderation_status(user)
+    )
     return UserResponse(
         id=user["id"],
         phone_number=user.get("phone_number"),
@@ -532,6 +536,21 @@ def _build_user_response(user: dict) -> UserResponse:
         apple_connected=user.get("apple_id") is not None,
         profile_is_private=bool(user.get("profile_is_private", False)),
         show_game_history=bool(user.get("show_game_history", False)),
+        moderation_status=moderation_status,
+        moderation_expires_at=(
+            (moderation or {}).get("account_expires_at", user.get("moderation_expires_at"))
+            if moderation_status != "active"
+            else None
+        ),
+        moderation_case_id=(
+            (moderation or {}).get("account_case_id", user.get("moderation_case_id"))
+            if moderation_status != "active"
+            else None
+        ),
+        interaction_restricted_until=(moderation or {}).get("interaction_restricted_until"),
+        interaction_restriction_case_id=(moderation or {}).get(
+            "interaction_restriction_case_id"
+        ),
     )
 
 
@@ -1175,9 +1194,15 @@ async def logout(
 
 
 @router.get("/api/auth/me", response_model=UserResponse)
-async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+async def get_current_user_info(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
     """Get current authenticated user information."""
-    return _build_user_response(current_user)
+    moderation = await moderation_service.account_status(
+        session, current_user["id"]
+    )
+    return _build_user_response(current_user, moderation)
 
 
 @router.post("/api/auth/google/add", response_model=UserResponse)

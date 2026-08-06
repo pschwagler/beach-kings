@@ -21,6 +21,7 @@ from backend.services import (
     my_games_service,
 )
 from backend.services import push_prefs_service, court_service
+from backend.services import interaction_policy, moderation_worker
 from backend.api.auth_dependencies import get_current_user, require_verified_player
 from backend.models.schemas import (
     UserResponse,
@@ -33,10 +34,74 @@ from backend.models.schemas import (
     PushPrefsUpdate,
     AddPlayerHomeCourt,
     CourtListItem,
+    BlockCreate,
+    BlockedPlayerResponse,
+    InteractionCapabilityBatchRequest,
+    InteractionCapabilityBatchResponse,
 )
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.get("/api/users/me/blocks", response_model=List[BlockedPlayerResponse])
+async def get_my_blocks(
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    return await interaction_policy.list_blocks(session, user["player_id"])
+
+
+@router.post("/api/users/me/blocks", status_code=201)
+async def block_player(
+    payload: BlockCreate,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        result = await interaction_policy.create_block(
+            session, user["player_id"], payload.player_id
+        )
+        await session.commit()
+        await interaction_policy.broadcast_private_data_invalidation(
+            session, [user["player_id"], payload.player_id]
+        )
+        return {**result, "status": "blocked"}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/api/users/me/blocks/{player_id}")
+async def unblock_player(
+    player_id: int,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    await interaction_policy.remove_block(session, user["player_id"], player_id)
+    await session.commit()
+    await interaction_policy.broadcast_private_data_invalidation(
+        session, [user["player_id"], player_id]
+    )
+    return {"player_id": player_id, "status": "unblocked"}
+
+
+@router.post(
+    "/api/users/interaction-capabilities",
+    response_model=InteractionCapabilityBatchResponse,
+)
+async def get_interaction_capabilities(
+    payload: InteractionCapabilityBatchRequest,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    capabilities = await interaction_policy.interaction_capabilities(
+        session, user["player_id"], payload.player_ids
+    )
+    return {
+        "capabilities": {
+            str(player_id): capability for player_id, capability in capabilities.items()
+        }
+    }
 
 
 def _build_user_response(user: dict) -> UserResponse:
@@ -54,6 +119,7 @@ def _build_user_response(user: dict) -> UserResponse:
     Returns:
         Fully-populated ``UserResponse`` including auth provider fields.
     """
+    moderation_status = user_service.effective_moderation_status(user)
     return UserResponse(
         id=user["id"],
         phone_number=user.get("phone_number"),
@@ -67,6 +133,13 @@ def _build_user_response(user: dict) -> UserResponse:
         apple_connected=user.get("apple_id") is not None,
         profile_is_private=bool(user.get("profile_is_private", False)),
         show_game_history=bool(user.get("show_game_history", False)),
+        moderation_status=moderation_status,
+        moderation_expires_at=(
+            user.get("moderation_expires_at") if moderation_status != "active" else None
+        ),
+        moderation_case_id=(
+            user.get("moderation_case_id") if moderation_status != "active" else None
+        ),
     )
 
 
@@ -184,9 +257,35 @@ async def update_current_user_player(
     Requires authentication.
     """
     try:
+        current_player = await data_service.get_player_by_user_id_with_stats(
+            session, current_user["id"]
+        )
+        if current_player:
+            await interaction_policy.enforce_ugc_creation(session, current_player["id"])
         user = await user_service.get_user_by_id(session, current_user["id"])
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+
+        public_profile_text = "\n".join(
+            value.strip()
+            for value in (payload.full_name, payload.nickname)
+            if value and value.strip()
+        )
+        try:
+            await moderation_worker.screen_text(
+                public_profile_text,
+                safety_identifier=f"player_profile_{current_user['id']}",
+            )
+        except moderation_worker.ModerationUnavailable:
+            raise HTTPException(
+                status_code=503,
+                detail="Profile review is temporarily unavailable. Please try again.",
+            )
+        except moderation_worker.ContentRejected:
+            raise HTTPException(
+                status_code=422,
+                detail="This profile text cannot be used. Please revise it.",
+            )
 
         player = await data_service.upsert_user_player(
             session=session,
@@ -233,6 +332,8 @@ async def update_current_user_player(
             "city_longitude": player.get("city_longitude"),
             "distance_to_location": player.get("distance_to_location"),
         }
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:
@@ -261,6 +362,7 @@ async def upload_avatar(
         player = await data_service.get_player_by_user_id_with_stats(session, current_user["id"])
         if not player:
             raise HTTPException(status_code=404, detail="Player profile not found")
+        await interaction_policy.enforce_ugc_creation(session, player["id"])
 
         file_bytes = await file.read()
         is_valid, error_msg = avatar_service.validate_avatar(file_bytes, file.content_type)
@@ -278,6 +380,23 @@ async def upload_avatar(
             None, s3_service.upload_avatar, player["id"], processed_bytes
         )
 
+        try:
+            await moderation_worker.screen_image_url(
+                new_url, safety_identifier=f"player_avatar_{player['id']}"
+            )
+        except moderation_worker.ModerationUnavailable:
+            await loop.run_in_executor(None, s3_service.delete_avatar, new_url)
+            raise HTTPException(
+                status_code=503,
+                detail="Photo review is temporarily unavailable. Please try again.",
+            )
+        except moderation_worker.ContentRejected:
+            await loop.run_in_executor(None, s3_service.delete_avatar, new_url)
+            raise HTTPException(
+                status_code=422,
+                detail="This photo cannot be used. Please choose another photo.",
+            )
+
         result = await session.execute(select(Player).where(Player.id == player["id"]))
         player_obj = result.scalar_one_or_none()
         if player_obj:
@@ -290,6 +409,8 @@ async def upload_avatar(
 
         return {"profile_picture_url": new_url}
 
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:

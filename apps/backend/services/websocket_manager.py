@@ -127,6 +127,21 @@ class WebSocketManager:
                 return 0
             return len(self.active_connections[user_id])
 
+    async def close_user(
+        self, user_id: int, *, code: int = 1008, reason: str = "Account unavailable"
+    ) -> int:
+        """Close and remove every live connection for one account."""
+        async with self._lock:
+            connections = tuple(self.active_connections.pop(user_id, set()))
+            for websocket in connections:
+                self.connection_timestamps.pop(websocket, None)
+        for websocket in connections:
+            try:
+                await websocket.close(code=code, reason=reason)
+            except Exception as exc:
+                logger.warning("Error closing WebSocket for user %s: %s", user_id, exc)
+        return len(connections)
+
     async def update_activity(self, websocket: WebSocket):
         """
         Update the last activity timestamp for a WebSocket connection.

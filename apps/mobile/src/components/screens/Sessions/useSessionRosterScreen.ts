@@ -19,6 +19,7 @@ export interface UseSessionRosterScreenResult {
   readonly isRemoving: number | null;
   readonly removeError: string | null;
   readonly isAddPlayerOpen: boolean;
+  readonly isRosterEditable: boolean;
   readonly onRemovePlayer: (entryId: number) => Promise<void>;
   readonly onAddPlayer: () => void;
   readonly onCloseAddPlayer: () => void;
@@ -46,9 +47,11 @@ export function useSessionRosterScreen(
     error,
   } = useQuery(sessionQueries.detail(userId, sessionId));
   const { removePlayer } = useSessionPlayerMutations(userId, sessionId);
+  const isRosterEditable = session?.status === 'active';
 
   const onRemovePlayer = useCallback(
     async (entryId: number) => {
+      if (!isRosterEditable) return;
       setRemoveError(null);
       setIsRemoving(entryId);
       await hapticMedium();
@@ -62,12 +65,13 @@ export function useSessionRosterScreen(
         setIsRemoving(null);
       }
     },
-    [removePlayer],
+    [isRosterEditable, removePlayer],
   );
 
   const onAddPlayer = useCallback(() => {
+    if (!isRosterEditable) return;
     setIsAddPlayerOpen(true);
-  }, []);
+  }, [isRosterEditable]);
 
   const onCloseAddPlayer = useCallback(() => {
     setIsAddPlayerOpen(false);
@@ -107,6 +111,7 @@ export function useSessionRosterScreen(
     isRemoving,
     removeError,
     isAddPlayerOpen,
+    isRosterEditable,
     onRemovePlayer,
     onAddPlayer,
     onCloseAddPlayer,

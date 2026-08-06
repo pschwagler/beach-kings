@@ -23,6 +23,7 @@ import {
   Image,
   Pressable,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -38,6 +39,7 @@ import CourtReviewsSection from './CourtReviewsSection';
 import CourtRating from './CourtRating';
 import { hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
+import { openHttpUrl } from '@/lib/externalUrls';
 import { type Court, formatLocation } from '@beach-kings/shared';
 import { courtSurfaceLabel, isIndoorCourt } from '@/features/courts';
 import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
@@ -85,17 +87,99 @@ function CourtInfoSection({ court }: { court: Court }): React.ReactNode {
             {courtSurfaceLabel(court) ?? 'Not specified'}
           </AppText>
         </View>
-        {court.hours != null && (
-          <View>
-            <AppText className="text-[12px] text-tertiary uppercase tracking-wide">
-              Hours
-            </AppText>
-            <AppText className="text-[14px] font-semibold text-default">
-              {court.hours}
-            </AppText>
-          </View>
-        )}
       </View>
+    </View>
+  );
+}
+
+const WIND_LABELS = {
+  sheltered: 'Sheltered',
+  mixed: 'Mixed',
+  exposed: 'Exposed',
+} as const;
+const SAND_LABELS = {
+  shallow: 'Shallow',
+  typical: 'Typical',
+  deep: 'Deep',
+} as const;
+
+function PlayingConditionsSection({ court }: { court: Court }): React.ReactNode {
+  const windNotes = court.wind_notes?.trim() || null;
+  const sandNotes = court.sand_notes?.trim() || null;
+  const hasConditions = court.wind_exposure != null || windNotes != null ||
+    court.sand_depth != null || sandNotes != null;
+  if (!hasConditions) return null;
+  return (
+    <View testID="court-playing-conditions" className="border-b border-strong px-4 py-4">
+      <AppText className="mb-3 text-[16px] font-bold text-default">Playing Conditions</AppText>
+      <View className="flex-row gap-3">
+        <View className="flex-1 rounded-xl bg-surface p-3">
+          <AppText className="text-[12px] uppercase tracking-wide text-tertiary">Wind</AppText>
+          <AppText className="mt-1 text-[14px] font-semibold text-default">
+            {court.wind_exposure == null ? 'Not reported' : WIND_LABELS[court.wind_exposure]}
+          </AppText>
+          {windNotes != null && <AppText className="mt-1 text-[12px] leading-4 text-muted">{windNotes}</AppText>}
+        </View>
+        <View className="flex-1 rounded-xl bg-surface p-3">
+          <AppText className="text-[12px] uppercase tracking-wide text-tertiary">Sand depth</AppText>
+          <AppText className="mt-1 text-[14px] font-semibold text-default">
+            {court.sand_depth == null ? 'Not reported' : SAND_LABELS[court.sand_depth]}
+          </AppText>
+          {sandNotes != null && <AppText className="mt-1 text-[12px] leading-4 text-muted">{sandNotes}</AppText>}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function PlanVisitSection({ court }: { court: Court }): React.ReactNode {
+  const details = [court.hours, court.cost_info, court.parking_info, court.phone].filter(
+    (value): value is string => value != null && value.length > 0,
+  );
+  if (details.length === 0 && !court.website) return null;
+  return (
+    <View testID="court-plan-visit" className="border-b border-strong px-4 py-4">
+      <AppText className="mb-2 text-[16px] font-bold text-default">Plan Your Visit</AppText>
+      {court.hours != null && (
+        <View className="mb-2">
+          <AppText className="text-[12px] font-semibold uppercase tracking-wide text-tertiary">Hours</AppText>
+          <AppText className="text-[13px] text-muted">{court.hours}</AppText>
+        </View>
+      )}
+      {court.cost_info != null && (
+        <View className="mb-2">
+          <AppText className="text-[12px] font-semibold uppercase tracking-wide text-tertiary">Cost</AppText>
+          <AppText className="text-[13px] text-muted">{court.cost_info}</AppText>
+        </View>
+      )}
+      {court.parking_info != null && (
+        <View className="mb-2">
+          <AppText className="text-[12px] font-semibold uppercase tracking-wide text-tertiary">Parking</AppText>
+          <AppText className="text-[13px] text-muted">{court.parking_info}</AppText>
+        </View>
+      )}
+      {court.phone != null && court.phone.length > 0 && (
+        <Pressable
+          testID="court-phone-link"
+          onPress={() => { void Linking.openURL(`tel:${court.phone}`); }}
+          accessibilityRole="link"
+          accessibilityLabel={`Call ${court.name} at ${court.phone}`}
+          className="min-h-touch self-start justify-center"
+        >
+          <AppText className="text-[13px] font-semibold text-brand-teal">Call {court.phone}</AppText>
+        </Pressable>
+      )}
+      {court.website != null && court.website.length > 0 && (
+        <Pressable
+          testID="court-official-website"
+          onPress={() => { void openHttpUrl(court.website!); }}
+          accessibilityRole="link"
+          accessibilityLabel={`Open official website for ${court.name}`}
+          className="min-h-touch self-start justify-center"
+        >
+          <AppText className="text-[14px] font-semibold text-brand-teal">Official site / booking ↗</AppText>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -193,6 +277,11 @@ export default function CourtDetailScreen({
   const handleViewPhotos = useCallback(() => {
     void hapticMedium();
     router.push(routes.courtPhotos(idOrSlug));
+  }, [router, idOrSlug]);
+
+  const handleSuggestEdit = useCallback(() => {
+    void hapticMedium();
+    router.push(routes.courtSuggestEdit(idOrSlug));
   }, [router, idOrSlug]);
 
   // --- Loading skeleton ---
@@ -294,8 +383,23 @@ export default function CourtDetailScreen({
         {/* Court info */}
         <CourtInfoSection court={court} />
 
+        <PlayingConditionsSection court={court} />
+
+        <PlanVisitSection court={court} />
+
         {/* Location map */}
         <CourtMapPreview court={court} />
+
+        <View className="border-b border-strong px-4 pb-4">
+          <Pressable
+            testID="suggest-court-edit-action"
+            onPress={handleSuggestEdit}
+            accessibilityRole="button"
+            className="min-h-touch items-center justify-center rounded-xl border border-brand-teal"
+          >
+            <AppText className="text-[14px] font-semibold text-brand-teal">Suggest an edit</AppText>
+          </Pressable>
+        </View>
 
         {/* Photos */}
         <PhotosSection court={court} onViewAll={handleViewPhotos} />

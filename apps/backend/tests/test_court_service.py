@@ -3,11 +3,14 @@ Tests for court_service — court CRUD, slug generation, nearby courts,
 review CRUD, rating recalculation, edit suggestions.
 """
 
+import json
+
 import pytest
 import pytest_asyncio
 
 from backend.database.models import (
     Court,
+    CourtEditSuggestion,
     CourtTag,
     League,
     LeagueHomeCourt,
@@ -312,6 +315,60 @@ class TestCourtCRUD:
         detail = await court_service.get_court_by_slug(db_session, court["slug"])
         assert detail["description"] == "Updated desc"
         assert detail["court_count"] == 6
+
+    @pytest.mark.asyncio
+    async def test_update_court_fields_clears_nullable_conditions(self, db_session, court):
+        """Explicit nulls clear condition metadata used by partial approvals."""
+        await court_service.update_court_fields(
+            db_session,
+            court["id"],
+            wind_exposure="exposed",
+            wind_notes="Afternoon crosswind",
+            sand_depth="deep",
+            sand_notes="Deep near the net",
+        )
+
+        await court_service.update_court_fields(
+            db_session,
+            court["id"],
+            wind_exposure=None,
+            wind_notes=None,
+            sand_depth=None,
+            sand_notes=None,
+        )
+
+        detail = await court_service.get_court_by_slug(db_session, court["slug"])
+        assert detail["wind_exposure"] is None
+        assert detail["wind_notes"] is None
+        assert detail["sand_depth"] is None
+        assert detail["sand_notes"] is None
+
+    @pytest.mark.asyncio
+    async def test_conditions_round_trip_in_list_and_detail(
+        self, db_session, location, test_player
+    ):
+        created = await court_service.create_court(
+            db_session,
+            name="Conditions Court",
+            address="10 Shoreline Dr",
+            location_id=location.id,
+            created_by_player_id=test_player.id,
+            status="approved",
+            wind_exposure="mixed",
+            wind_notes="Calmer in the morning; crosswind often builds after lunch.",
+            sand_depth="deep",
+            sand_notes="Deepest near the west baseline.",
+            latitude=37.77,
+            longitude=-122.51,
+        )
+
+        detail = await court_service.get_court_by_slug(db_session, created["slug"])
+        assert detail["wind_exposure"] == "mixed"
+        assert detail["sand_depth"] == "deep"
+        listing = await court_service.list_courts_public(db_session)
+        item = next(item for item in listing["items"] if item["id"] == created["id"])
+        assert item["wind_notes"].startswith("Calmer")
+        assert item["sand_notes"] == "Deepest near the west baseline."
 
 
 # ============================================================================
@@ -740,6 +797,160 @@ class TestEditSuggestions:
         # Verify changes were NOT applied
         detail = await court_service.get_court_by_slug(db_session, court["slug"])
         assert detail["court_count"] != 99
+
+    @pytest.mark.asyncio
+    async def test_approve_conditions_and_pin_synchronizes_geojson(
+        self, db_session, court, test_player
+    ):
+        suggestion = await court_service.create_edit_suggestion(
+            session=db_session,
+            court_id=court["id"],
+            suggested_by_player_id=test_player.id,
+            changes={
+                "wind_exposure": "exposed",
+                "wind_notes": "Strong onshore wind is common in the afternoon.",
+                "sand_depth": "typical",
+                "sand_notes": "Consistent depth across both courts.",
+                "latitude": 37.7694,
+                "longitude": -122.5107,
+            },
+            note="Pin should sit on the north-end courts.",
+        )
+
+        resolved = await court_service.resolve_edit_suggestion(
+            session=db_session,
+            suggestion_id=suggestion["id"],
+            action="approved",
+            reviewer_player_id=test_player.id,
+        )
+        assert resolved["note"] == "Pin should sit on the north-end courts."
+
+        court_row = await db_session.get(Court, court["id"])
+        await db_session.refresh(court_row)
+        assert court_row.wind_exposure == "exposed"
+        assert court_row.sand_depth == "typical"
+        assert court_row.latitude == pytest.approx(37.7694)
+        assert court_row.longitude == pytest.approx(-122.5107)
+        assert json.loads(court_row.geoJson) == {
+            "type": "Point",
+            "coordinates": [-122.5107, 37.7694],
+        }
+
+        admin_items = await court_service.list_all_suggestions_admin(db_session)
+        admin_item = next(item for item in admin_items["items"] if item["id"] == suggestion["id"])
+        assert admin_item["note"] == "Pin should sit on the north-end courts."
+        assert admin_item["current"]["latitude"] == pytest.approx(37.7694)
+
+    @pytest.mark.asyncio
+    async def test_partial_resolution_applies_atomic_snapshot_with_null_and_pin(
+        self, db_session, court, test_player
+    ):
+        await court_service.update_court_fields(
+            db_session,
+            court["id"],
+            wind_notes="Outdated wind note",
+            sand_depth="shallow",
+        )
+        suggestion = await court_service.create_edit_suggestion(
+            session=db_session,
+            court_id=court["id"],
+            suggested_by_player_id=test_player.id,
+            changes={
+                "wind_notes": None,
+                "sand_depth": "deep",
+                "latitude": 37.7694,
+                "longitude": -122.5107,
+            },
+        )
+
+        selected = {
+            "wind_notes": None,
+            "sand_depth": "typical",
+            "latitude": 37.7694,
+            "longitude": -122.5107,
+        }
+        resolved = await court_service.resolve_edit_suggestion(
+            session=db_session,
+            suggestion_id=suggestion["id"],
+            action="partially_applied",
+            reviewer_player_id=test_player.id,
+            applied_changes=selected,
+        )
+        assert resolved["status"] == "partially_applied"
+        assert resolved["applied_changes"] == selected
+
+        court_row = await db_session.get(Court, court["id"])
+        await db_session.refresh(court_row)
+        assert court_row.wind_notes is None
+        assert court_row.sand_depth == "typical"
+        assert json.loads(court_row.geoJson)["coordinates"] == [-122.5107, 37.7694]
+
+        with pytest.raises(
+            court_service.SuggestionResolutionConflictError,
+            match="already been resolved",
+        ):
+            await court_service.resolve_edit_suggestion(
+                session=db_session,
+                suggestion_id=suggestion["id"],
+                action="rejected",
+                reviewer_player_id=test_player.id,
+            )
+
+        stored = await db_session.get(CourtEditSuggestion, suggestion["id"])
+        assert stored.status == "partially_applied"
+        assert stored.applied_changes == selected
+
+    @pytest.mark.asyncio
+    async def test_partial_resolution_rejects_changes_not_in_proposal(
+        self, db_session, court, test_player
+    ):
+        suggestion = await court_service.create_edit_suggestion(
+            session=db_session,
+            court_id=court["id"],
+            suggested_by_player_id=test_player.id,
+            changes={"sand_depth": "deep"},
+        )
+
+        with pytest.raises(
+            court_service.SuggestionResolutionValidationError,
+            match="selected from",
+        ):
+            await court_service.resolve_edit_suggestion(
+                session=db_session,
+                suggestion_id=suggestion["id"],
+                action="partially_applied",
+                reviewer_player_id=test_player.id,
+                applied_changes={"wind_exposure": "mixed"},
+            )
+
+        stored = await db_session.get(CourtEditSuggestion, suggestion["id"])
+        assert stored.status == "pending"
+        assert stored.applied_changes is None
+
+    @pytest.mark.asyncio
+    async def test_approve_revalidates_legacy_stored_changes(
+        self, db_session, court, test_player
+    ):
+        suggestion = await court_service.create_edit_suggestion(
+            session=db_session,
+            court_id=court["id"],
+            suggested_by_player_id=test_player.id,
+            changes={"latitude": 37.7},
+        )
+
+        with pytest.raises(
+            court_service.SuggestionResolutionValidationError,
+            match="Stored suggestion changes are invalid",
+        ):
+            await court_service.resolve_edit_suggestion(
+                session=db_session,
+                suggestion_id=suggestion["id"],
+                action="approved",
+                reviewer_player_id=test_player.id,
+            )
+
+        stored = await db_session.get(CourtEditSuggestion, suggestion["id"])
+        assert stored.status == "pending"
 
 
 # ============================================================================

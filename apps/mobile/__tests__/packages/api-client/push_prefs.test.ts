@@ -136,3 +136,46 @@ describe('updatePushNotificationPrefs', () => {
     expect(result).toEqual(FULL_PREFS);
   });
 });
+
+describe('push installation methods', () => {
+  it('registers an installation through the typed client method', async () => {
+    const registration = {
+      id: 4,
+      token: 'ExponentPushToken[test]',
+      platform: 'ios' as const,
+      installation_id: 'installation-uuid-0001',
+      unregister_secret: 'secret',
+      created_at: '2026-08-05T12:00:00Z',
+    };
+    const post = jest.fn().mockResolvedValue({ data: registration });
+    const api = createApiMethods({ axiosInstance: { post } } as unknown as ApiClient);
+
+    await expect(api.registerPushToken({
+      token: registration.token,
+      platform: 'ios',
+      installation_id: registration.installation_id,
+    })).resolves.toEqual(registration);
+    expect(post).toHaveBeenCalledWith('/api/push-tokens', {
+      token: registration.token,
+      platform: 'ios',
+      installation_id: registration.installation_id,
+    });
+  });
+
+  it('retires an expired-session installation without Axios access', async () => {
+    const post = jest.fn().mockResolvedValue({ data: { success: true } });
+    const api = createApiMethods({ axiosInstance: { post } } as unknown as ApiClient);
+    const credential = {
+      installation_id: 'installation-uuid-0001',
+      unregister_secret: 'secret-value-00000000000000000000',
+    };
+
+    await expect(api.unregisterPushInstallation(credential)).resolves.toEqual({
+      success: true,
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/api/push-installations/unregister',
+      credential,
+    );
+  });
+});

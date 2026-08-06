@@ -32,6 +32,8 @@ export interface UseMessageThreadScreenResult {
   readonly sendError: string | null;
   readonly peerName: string | null;
   readonly peerAvatarUrl: string | null;
+  readonly canInteract: boolean;
+  readonly blockedByViewer: boolean;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly onSend: () => Promise<void>;
@@ -130,6 +132,8 @@ export function useMessageThreadScreen(
     sendError,
     peerName: peerQuery.data?.full_name ?? null,
     peerAvatarUrl: peerQuery.data?.profile_picture_url ?? null,
+    canInteract: threadQuery.data?.capability?.actions.direct_message ?? true,
+    blockedByViewer: threadQuery.data?.capability?.blocked_by_viewer ?? false,
     onRefresh,
     onRetry,
     onSend,

@@ -60,6 +60,9 @@ export function resolveNotificationRoute(linkUrl: string | null): string | null 
   if (pathname === '/messages') {
     return routes.social({ tab: 'messages' });
   }
+  if (pathname === '/account-status') {
+    return routes.settingsAccountStatus();
+  }
 
   const leagueMatch = pathname.match(/^\/leagues?\/(\d+)$/);
   if (leagueMatch != null) {

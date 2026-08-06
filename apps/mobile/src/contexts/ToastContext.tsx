@@ -29,10 +29,15 @@ interface Toast {
   readonly id: number;
   readonly message: string;
   readonly type: ToastType;
+  readonly onPress?: () => void;
 }
 
 interface ToastContextValue {
-  readonly showToast: (message: string, type?: ToastType) => void;
+  readonly showToast: (
+    message: string,
+    type?: ToastType,
+    onPress?: () => void,
+  ) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -75,9 +80,13 @@ export default function ToastProvider({
 }: ToastProviderProps): React.ReactNode {
   const [toasts, setToasts] = useState<readonly Toast[]>([]);
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+  const showToast = useCallback((
+    message: string,
+    type: ToastType = 'info',
+    onPress?: () => void,
+  ) => {
     const id = ++nextToastId;
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type, onPress }]);
   }, []);
 
   const dismissToast = useCallback((id: number) => {
@@ -158,9 +167,12 @@ function AnimatedToast({
       pointerEvents="box-none"
     >
       <Pressable
-        onPress={() => onDismiss(toast.id)}
+        onPress={() => {
+          onDismiss(toast.id);
+          toast.onPress?.();
+        }}
         className={`${TYPE_STYLES[toast.type]} rounded-xl px-4 py-3 shadow-lg`}
-        accessibilityRole="alert"
+        accessibilityRole={toast.onPress == null ? 'alert' : 'button'}
       >
         <AppText
           className={`${TYPE_TEXT_STYLES[toast.type]} text-sm font-medium`}
