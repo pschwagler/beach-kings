@@ -134,7 +134,7 @@ def main():
             else:
                 total_failed += 1
 
-    print(f"\nDone!")
+    print("\nDone!")
     print(f"  Uploaded: {total_uploaded}")
     print(f"  Failed: {total_failed}")
     print(f"  Skipped (no matching court): {total_skipped}")

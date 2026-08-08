@@ -65,14 +65,18 @@ async def capture_text(
     if not text:
         return None
     existing = (
-        await session.execute(
-            select(ModerationEvidence).where(
-                ModerationEvidence.case_id == case_id,
-                ModerationEvidence.content_type == "text/plain; charset=utf-8",
-                ModerationEvidence.purged_at.is_(None),
+        (
+            await session.execute(
+                select(ModerationEvidence).where(
+                    ModerationEvidence.case_id == case_id,
+                    ModerationEvidence.content_type == "text/plain; charset=utf-8",
+                    ModerationEvidence.purged_at.is_(None),
+                )
             )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if existing is not None:
         return existing
     return await capture(
@@ -83,9 +87,7 @@ async def capture_text(
     )
 
 
-async def capture_chat_context(
-    session: AsyncSession, case_id: int
-) -> ModerationEvidence | None:
+async def capture_chat_context(session: AsyncSession, case_id: int) -> ModerationEvidence | None:
     """Capture a bounded, identity-safe chat snapshot for a message case.
 
     The snapshot contains the target plus at most three messages on either side,
@@ -94,14 +96,18 @@ async def capture_chat_context(
     participant identifier is persisted in the evidence object.
     """
     existing = (
-        await session.execute(
-            select(ModerationEvidence).where(
-                ModerationEvidence.case_id == case_id,
-                ModerationEvidence.content_type == CHAT_CONTEXT_CONTENT_TYPE,
-                ModerationEvidence.purged_at.is_(None),
+        (
+            await session.execute(
+                select(ModerationEvidence).where(
+                    ModerationEvidence.case_id == case_id,
+                    ModerationEvidence.content_type == CHAT_CONTEXT_CONTENT_TYPE,
+                    ModerationEvidence.purged_at.is_(None),
+                )
             )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if existing is not None:
         return existing
 
@@ -155,30 +161,34 @@ async def capture_chat_context(
         )
 
     before = (
-        await session.execute(
-            select(model)
-            .where(scope, before_position)
-            .order_by(model.created_at.desc(), model.id.desc())
-            .limit(CHAT_CONTEXT_RADIUS)
+        (
+            await session.execute(
+                select(model)
+                .where(scope, before_position)
+                .order_by(model.created_at.desc(), model.id.desc())
+                .limit(CHAT_CONTEXT_RADIUS)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     after = (
-        await session.execute(
-            select(model)
-            .where(scope, after_position)
-            .order_by(model.created_at.asc(), model.id.asc())
-            .limit(CHAT_CONTEXT_RADIUS)
+        (
+            await session.execute(
+                select(model)
+                .where(scope, after_position)
+                .order_by(model.created_at.asc(), model.id.asc())
+                .limit(CHAT_CONTEXT_RADIUS)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     messages = [*reversed(before), target, *after]
 
     def speaker(message: Any) -> str:
         if case.target_type == "direct_message":
-            return (
-                "subject"
-                if message.sender_player_id == case.subject_player_id
-                else "other"
-            )
+            return "subject" if message.sender_player_id == case.subject_player_id else "other"
         return "subject" if message.user_id == subject_user_id else "other"
 
     payload = {
@@ -186,9 +196,7 @@ async def capture_chat_context(
         "messages": [
             {
                 "id": message.id,
-                "created_at": (
-                    message.created_at.isoformat() if message.created_at else None
-                ),
+                "created_at": (message.created_at.isoformat() if message.created_at else None),
                 "speaker": speaker(message),
                 "text": message.message_text,
                 "is_target": message.id == target.id,
@@ -212,24 +220,24 @@ async def read_chat_context(
     if case is None:
         raise ValueError("Case not found")
     if case.target_type not in {"direct_message", "league_message"}:
-        return await _context_unavailable(
-            session, case_id, actor_user_id, "not_applicable"
-        )
+        return await _context_unavailable(session, case_id, actor_user_id, "not_applicable")
 
     evidence = (
-        await session.execute(
-            select(ModerationEvidence)
-            .where(
-                ModerationEvidence.case_id == case_id,
-                ModerationEvidence.content_type == CHAT_CONTEXT_CONTENT_TYPE,
+        (
+            await session.execute(
+                select(ModerationEvidence)
+                .where(
+                    ModerationEvidence.case_id == case_id,
+                    ModerationEvidence.content_type == CHAT_CONTEXT_CONTENT_TYPE,
+                )
+                .order_by(ModerationEvidence.captured_at.desc(), ModerationEvidence.id.desc())
             )
-            .order_by(ModerationEvidence.captured_at.desc(), ModerationEvidence.id.desc())
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if evidence is None:
-        return await _context_unavailable(
-            session, case_id, actor_user_id, "not_captured"
-        )
+        return await _context_unavailable(session, case_id, actor_user_id, "not_captured")
     if evidence.purged_at is not None:
         return await _context_unavailable(
             session,
@@ -240,9 +248,7 @@ async def read_chat_context(
         )
 
     try:
-        response = _get_s3_client().get_object(
-            Bucket=_evidence_bucket(), Key=evidence.object_key
-        )
+        response = _get_s3_client().get_object(Bucket=_evidence_bucket(), Key=evidence.object_key)
         raw_body = response["Body"].read()
         payload = json.loads(raw_body.decode("utf-8"))
         messages = _validated_context_messages(payload["messages"])
@@ -331,15 +337,19 @@ async def capture_s3_object(
     session: AsyncSession, case_id: int, source_key: str, content_type: str | None = None
 ) -> ModerationEvidence:
     existing = (
-        await session.execute(
-            select(ModerationEvidence).where(
-                ModerationEvidence.case_id == case_id,
-                ModerationEvidence.object_key.like(f"cases/{case_id}/%"),
-                ModerationEvidence.content_type == content_type,
-                ModerationEvidence.purged_at.is_(None),
+        (
+            await session.execute(
+                select(ModerationEvidence).where(
+                    ModerationEvidence.case_id == case_id,
+                    ModerationEvidence.object_key.like(f"cases/{case_id}/%"),
+                    ModerationEvidence.content_type == content_type,
+                    ModerationEvidence.purged_at.is_(None),
+                )
             )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if existing is not None:
         return existing
     source_bucket = _get_config().get("bucket")
@@ -377,12 +387,12 @@ async def capture_s3_url(
     source_key = _extract_key_from_url(source_url, source_bucket)
     if not source_key:
         raise ValueError("Profile media URL is not an app-owned S3 object")
-    return await capture_s3_object(
-        session, case_id, source_key, content_type
-    )
+    return await capture_s3_object(session, case_id, source_key, content_type)
 
 
-async def signed_url(session: AsyncSession, case_id: int, evidence_id: int, actor_user_id: int) -> str:
+async def signed_url(
+    session: AsyncSession, case_id: int, evidence_id: int, actor_user_id: int
+) -> str:
     result = await session.execute(
         select(ModerationEvidence).where(
             ModerationEvidence.id == evidence_id,
@@ -414,7 +424,9 @@ async def schedule_case_purge(session: AsyncSession, case_id: int) -> None:
     if case is None or case.closed_at is None or case.legal_hold:
         return
     result = await session.execute(
-        select(ModerationEvidence).where(ModerationEvidence.case_id == case_id, ModerationEvidence.purge_after.is_(None))
+        select(ModerationEvidence).where(
+            ModerationEvidence.case_id == case_id, ModerationEvidence.purge_after.is_(None)
+        )
     )
     for evidence in result.scalars().all():
         evidence.purge_after = case.closed_at + timedelta(days=180)

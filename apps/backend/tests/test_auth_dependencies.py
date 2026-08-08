@@ -68,6 +68,7 @@ def test_expired_suspension_restores_normal_access():
 
 def test_banned_account_can_still_delete_itself():
     user = {"id": 7, "moderation_status": "banned", "moderation_case_id": 12}
-    assert _enforce_account_access(_request("DELETE", "/api/users/me"), user)[
-        "moderation_status"
-    ] == "banned"
+    assert (
+        _enforce_account_access(_request("DELETE", "/api/users/me"), user)["moderation_status"]
+        == "banned"
+    )

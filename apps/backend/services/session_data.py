@@ -42,6 +42,11 @@ __all__ = [
 from backend.services import player_search_cache
 from backend.services.match_validation import validate_match_score
 from backend.services.session_geo_service import resolve_session_geo
+from backend.services.player_lifecycle import (
+    historical_id,
+    historical_name,
+    require_active_players,
+)
 from backend.utils.frontend_url import build_invite_url
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -555,8 +560,8 @@ async def get_or_create_active_league_session(
     )
 
     # TODO: inherit this from the future season/league ranking policy.
-    effective_is_ranked = True if resolved_season_id is not None else (
-        is_ranked if is_ranked is not None else True
+    effective_is_ranked = (
+        True if resolved_season_id is not None else (is_ranked if is_ranked is not None else True)
     )
 
     code = await _generate_session_code(session)
@@ -716,8 +721,8 @@ async def create_league_session(
 
     code = await _generate_session_code(session)
     # TODO: inherit this from the future season/league ranking policy.
-    effective_is_ranked = True if resolved_season_id is not None else (
-        is_ranked if is_ranked is not None else True
+    effective_is_ranked = (
+        True if resolved_season_id is not None else (is_ranked if is_ranked is not None else True)
     )
     new_session = Session(
         date=date,
@@ -1057,9 +1062,11 @@ async def update_session(
 
     effective_is_ranked = update_values.get("is_ranked", session_obj.is_ranked)
     ranking_changed = effective_is_ranked != session_obj.is_ranked
-    ranking_propagation_requested = ranking_update_requested or (
-        update_season_id and effective_season_id is not None
-    ) or (effective_season_id is not None and session_obj.is_ranked is not True)
+    ranking_propagation_requested = (
+        ranking_update_requested
+        or (update_season_id and effective_season_id is not None)
+        or (effective_season_id is not None and session_obj.is_ranked is not True)
+    )
 
     if ranking_propagation_requested:
         from backend.services import placeholder_service
@@ -1191,6 +1198,10 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
             p2.full_name.label("team1_player2_name"),
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
             Match.team1_score,
             Match.team2_score,
             Match.winner,
@@ -1220,10 +1231,10 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
             "session_id": row.session_id,
             "session_name": row.session_name,
             "session_status": row.session_status.value if row.session_status else None,
-            "team1_player1_name": row.team1_player1_name,
-            "team1_player2_name": row.team1_player2_name,
-            "team2_player1_name": row.team2_player1_name,
-            "team2_player2_name": row.team2_player2_name,
+            "team1_player1_name": historical_name(row.team1_player1_name, row.t1p1_deleted_at),
+            "team1_player2_name": historical_name(row.team1_player2_name, row.t1p2_deleted_at),
+            "team2_player1_name": historical_name(row.team2_player1_name, row.t2p1_deleted_at),
+            "team2_player2_name": historical_name(row.team2_player2_name, row.t2p2_deleted_at),
             "team1_score": row.team1_score,
             "team2_score": row.team2_score,
             "winner": row.winner,
@@ -1259,6 +1270,10 @@ async def get_session_matches(db_session: AsyncSession, session_id: int) -> List
             p2.full_name.label("team1_player2_name"),
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
             Match.team1_score,
             Match.team2_score,
             Match.winner,
@@ -1283,14 +1298,14 @@ async def get_session_matches(db_session: AsyncSession, session_id: int) -> List
             "session_id": r.session_id,
             "session_name": r.session_name,
             "session_status": r.session_status.value if r.session_status else None,
-            "team1_player1_id": r.team1_player1_id,
-            "team1_player1_name": r.team1_player1_name or "",
-            "team1_player2_id": r.team1_player2_id,
-            "team1_player2_name": r.team1_player2_name or "",
-            "team2_player1_id": r.team2_player1_id,
-            "team2_player1_name": r.team2_player1_name or "",
-            "team2_player2_id": r.team2_player2_id,
-            "team2_player2_name": r.team2_player2_name or "",
+            "team1_player1_id": historical_id(r.team1_player1_id, r.t1p1_deleted_at),
+            "team1_player1_name": historical_name(r.team1_player1_name, r.t1p1_deleted_at),
+            "team1_player2_id": historical_id(r.team1_player2_id, r.t1p2_deleted_at),
+            "team1_player2_name": historical_name(r.team1_player2_name, r.t1p2_deleted_at),
+            "team2_player1_id": historical_id(r.team2_player1_id, r.t2p1_deleted_at),
+            "team2_player1_name": historical_name(r.team2_player1_name, r.t2p1_deleted_at),
+            "team2_player2_id": historical_id(r.team2_player2_id, r.t2p2_deleted_at),
+            "team2_player2_name": historical_name(r.team2_player2_name, r.t2p2_deleted_at),
             "team1_score": r.team1_score,
             "team2_score": r.team2_score,
             "winner": r.winner,
@@ -1426,6 +1441,15 @@ async def create_match_async(
         Match ID
     """
     validate_match_score(match_request.team1_score, match_request.team2_score)
+    await require_active_players(
+        session,
+        [
+            match_request.team1_player1_id,
+            match_request.team1_player2_id,
+            match_request.team2_player1_id,
+            match_request.team2_player2_id,
+        ],
+    )
 
     if match_request.team1_score > match_request.team2_score:
         winner = 1
@@ -1511,6 +1535,15 @@ async def update_match_async(
         True if successful, False if match not found
     """
     validate_match_score(match_request.team1_score, match_request.team2_score)
+    await require_active_players(
+        session,
+        [
+            match_request.team1_player1_id,
+            match_request.team1_player2_id,
+            match_request.team2_player1_id,
+            match_request.team2_player2_id,
+        ],
+    )
 
     result = await session.execute(select(Match).where(Match.id == match_id))
     match = result.scalar_one_or_none()
@@ -1637,7 +1670,7 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
             Location.name.label("location_name"),
         )
         .outerjoin(Location, Location.id == Player.location_id)
-        .where(Player.id.in_(part_player_ids))
+        .where(Player.id.in_(part_player_ids), Player.deleted_at.is_(None))
     )
     players_result = await db_session.execute(players_q)
     rows = players_result.all()
@@ -1730,7 +1763,7 @@ async def get_session_roster_with_game_counts(
                 PlayerInvite.status == InviteStatus.PENDING.value,
             ),
         )
-        .where(Player.id.in_(all_player_ids))
+        .where(Player.id.in_(all_player_ids), Player.deleted_at.is_(None))
     )
     players_result = await db_session.execute(players_q)
     rows = players_result.all()
@@ -1826,6 +1859,7 @@ async def add_session_participant(
     invited_by: Optional[int] = None,
 ) -> bool:
     """Add a player to session participants (idempotent). Returns True if added or already present."""
+    await require_active_players(db_session, [player_id])
     if invited_by is not None:
         from backend.services import interaction_policy
 

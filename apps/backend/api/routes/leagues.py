@@ -195,6 +195,8 @@ async def update_league(
         return league
     except interaction_policy.InteractionUnavailable:
         raise HTTPException(status_code=409, detail="Interaction unavailable")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:
@@ -876,9 +878,7 @@ async def create_league_message(
             raise HTTPException(status_code=400, detail="Message cannot be empty")
 
         user_id = user.get("id")
-        return await data_service.create_league_message(
-            session, league_id, user_id, message_text
-        )
+        return await data_service.create_league_message(session, league_id, user_id, message_text)
     except interaction_policy.InteractionUnavailable:
         raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:

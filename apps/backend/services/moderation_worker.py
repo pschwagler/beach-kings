@@ -57,6 +57,23 @@ def content_revision(value: str | None) -> str:
 def validate_worker_config() -> None:
     if moderation_mode() != "off" and not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY is required when moderation is enabled")
+    from backend.services.moderation_alerts import validate_alert_config
+
+    validate_alert_config()
+
+
+def provider_incident_type(categories: dict[str, Any]) -> str | None:
+    """Map deterministic severe provider flags to the urgent incident taxonomy."""
+    flagged = {name for name, value in categories.items() if value}
+    if flagged & {"sexual/minors", "sexual/minors/explicit"}:
+        return "sexual_exploitation"
+    if flagged & {"self-harm/intent", "self-harm/instructions"}:
+        return "self_harm"
+    if flagged & {"harassment/threatening", "hate/threatening"}:
+        return "credible_threat"
+    if flagged & {"illicit/violent", "violence/graphic", "violence"}:
+        return "other_urgent"
+    return None
 
 
 async def enqueue_target(
@@ -114,7 +131,13 @@ async def claim_job(session: AsyncSession) -> ModerationJob | None:
 async def process_job(session: AsyncSession, job: ModerationJob) -> None:
     model = TARGET_MODELS.get(job.target_type)
     if model is None:
-        await _complete(session, job, flagged=False, categories={}, provider_payload={"skipped": "player target"})
+        await _complete(
+            session,
+            job,
+            flagged=False,
+            categories={},
+            provider_payload={"skipped": "player target"},
+        )
         return
     target = await session.get(model, job.target_id)
     if target is None:
@@ -127,13 +150,13 @@ async def process_job(session: AsyncSession, job: ModerationJob) -> None:
         return
     content = _provider_content(job.target_type, target)
     try:
-        result = await classify(content, safety_identifier=f"target_{job.target_type}_{job.target_id}")
+        result = await classify(
+            content, safety_identifier=f"target_{job.target_type}_{job.target_id}"
+        )
         flagged = bool(result.get("flagged"))
         categories = result.get("categories") or {}
         if flagged or job.case_id is not None:
-            subject_player_id = await _subject_player_id(
-                session, job.target_type, target
-            )
+            subject_player_id = await _subject_player_id(session, job.target_type, target)
             repeat_context = await _repeat_behavior_context(
                 session, subject_player_id, exclude_case_id=job.case_id
             )
@@ -163,7 +186,9 @@ async def classify(content: dict[str, Any], safety_identifier: str) -> dict[str,
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
     model = os.getenv("MODERATION_MODEL", "omni-moderation-latest")
-    async with httpx.AsyncClient(timeout=float(os.getenv("MODERATION_PROVIDER_TIMEOUT", "20"))) as client:
+    async with httpx.AsyncClient(
+        timeout=float(os.getenv("MODERATION_PROVIDER_TIMEOUT", "20"))
+    ) as client:
         response = await client.post(
             "https://api.openai.com/v1/moderations",
             headers={"Authorization": f"Bearer {api_key}"},
@@ -270,7 +295,9 @@ async def triage_recommendation(
             }
         },
     }
-    async with httpx.AsyncClient(timeout=float(os.getenv("MODERATION_PROVIDER_TIMEOUT", "20"))) as client:
+    async with httpx.AsyncClient(
+        timeout=float(os.getenv("MODERATION_PROVIDER_TIMEOUT", "20"))
+    ) as client:
         response = await client.post(
             "https://api.openai.com/v1/responses",
             headers={"Authorization": f"Bearer {api_key}"},
@@ -301,18 +328,33 @@ async def _complete(
     provider_payload: dict[str, Any],
 ) -> None:
     case = (
-        await _ensure_flagged_case(
-            session, job, provider_payload.get("subject_player_id")
-        )
+        await _ensure_flagged_case(session, job, provider_payload.get("subject_player_id"))
         if flagged
-        else (
-            await session.get(ModerationCase, job.case_id) if job.case_id else None
-        )
+        else (await session.get(ModerationCase, job.case_id) if job.case_id else None)
     )
     triage = provider_payload.get("triage") or {}
-    if case is not None and triage.get("severity") == "urgent":
-        case.severity = "urgent"
-        case.due_at = utcnow()
+    deterministic_incident = provider_incident_type(categories) if flagged else None
+    if case is not None and (
+        deterministic_incident is not None or triage.get("severity") == "urgent"
+    ):
+        now = utcnow()
+        if case.severity != "urgent":
+            case.severity = "urgent"
+            case.urgent_since_at = now
+            case.due_at = now + timedelta(hours=4)
+            session.add(
+                ModerationEvent(
+                    case_id=case.id,
+                    event_type="case_elevated",
+                    metadata_json={
+                        "incident_type": deterministic_incident or "other_urgent",
+                        "source": "provider" if deterministic_incident else "triage",
+                    },
+                )
+            )
+        case.incident_type = (
+            getattr(case, "incident_type", None) or deterministic_incident or "other_urgent"
+        )
     if case:
         session.add(
             ModerationEvent(
@@ -352,6 +394,10 @@ async def _complete(
             await publish_approved_league_message(session, target)
     if target is not None and flagged and case is not None:
         await _capture_flagged_evidence(session, case.id, job.target_type, target)
+    if case is not None:
+        from backend.services.moderation_alerts import schedule_case_alerts
+
+        await schedule_case_alerts(session, case)
     job.status = "completed"
     job.last_error = None
     await session.flush()
@@ -429,27 +475,20 @@ def _image_content(url: str) -> dict[str, Any]:
 
 
 def _job_is_superseded(job: ModerationJob, target: Any) -> bool:
-    if (
-        job.target_type != "court_review"
-        or not job.idempotency_key.startswith("content:")
-    ):
+    if job.target_type != "court_review" or not job.idempotency_key.startswith("content:"):
         return False
     expected_revision = job.idempotency_key.rsplit(":", 1)[-1]
     return expected_revision != content_revision(target.review_text)
 
 
-async def _subject_player_id(
-    session: AsyncSession, target_type: str, target: Any
-) -> int | None:
+async def _subject_player_id(session: AsyncSession, target_type: str, target: Any) -> int | None:
     if target_type == "player":
         return target.id
     if target_type == "direct_message":
         return target.sender_player_id
     if target_type == "league_message":
         return (
-            await session.execute(
-                select(Player.id).where(Player.user_id == target.user_id)
-            )
+            await session.execute(select(Player.id).where(Player.user_id == target.user_id))
         ).scalar_one_or_none()
     if target_type == "court_review":
         return target.player_id
@@ -458,17 +497,13 @@ async def _subject_player_id(
     if target_type == "court_review_photo":
         return (
             await session.execute(
-                select(CourtReview.player_id).where(
-                    CourtReview.id == target.review_id
-                )
+                select(CourtReview.player_id).where(CourtReview.id == target.review_id)
             )
         ).scalar_one_or_none()
     return None
 
 
-async def _report_reasons(
-    session: AsyncSession, case_id: int | None
-) -> list[str]:
+async def _report_reasons(session: AsyncSession, case_id: int | None) -> list[str]:
     if case_id is None:
         return []
     result = await session.execute(
@@ -500,9 +535,7 @@ async def _repeat_behavior_context(
         await session.execute(
             select(
                 func.count(ModerationCase.id),
-                func.count(ModerationCase.id).filter(
-                    ModerationCase.severity == "urgent"
-                ),
+                func.count(ModerationCase.id).filter(ModerationCase.severity == "urgent"),
             ).where(*conditions)
         )
     ).first()
@@ -537,9 +570,7 @@ async def _capture_flagged_evidence(
             )
 
     if target_type in {"court_photo", "court_review_photo"}:
-        await capture_or_audit(
-            capture_s3_object(session, case_id, target.s3_key, "image")
-        )
+        await capture_or_audit(capture_s3_object(session, case_id, target.s3_key, "image"))
     text = None
     if target_type in {"direct_message", "league_message"}:
         text = target.message_text
@@ -572,19 +603,26 @@ async def _recalculate_court_rating(session: AsyncSession, court_id: int) -> Non
 
 
 async def run_forever(session_factory) -> None:
-    """Poll jobs until terminated. Mode off intentionally performs no database work."""
+    """Process owner alerts before provider work on each polling cycle."""
     validate_worker_config()
     while True:
-        if moderation_mode() == "off":
-            await asyncio.sleep(10)
-            continue
+        alert_job = None
+        provider_job = None
         async with session_factory() as session:
             from backend.services.moderation_evidence_service import purge_due
+            from backend.services import moderation_alerts
 
-            await recover_stale_jobs(session)
+            await moderation_alerts.recover_stale_claims(session)
+            await moderation_alerts.ensure_alert_schedule(session)
+            await moderation_alerts.purge_terminal_jobs(session)
             await purge_due(session)
-            job = await claim_job(session)
-            if job:
-                await process_job(session, job)
+            alert_job = await moderation_alerts.claim_alert(session)
+            if alert_job:
+                await moderation_alerts.process_alert(session, alert_job)
+            elif moderation_mode() != "off":
+                await recover_stale_jobs(session)
+                provider_job = await claim_job(session)
+                if provider_job:
+                    await process_job(session, provider_job)
             await session.commit()
-        await asyncio.sleep(0.25 if job else 2)
+        await asyncio.sleep(0.25 if alert_job or provider_job else 2)

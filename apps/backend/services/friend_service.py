@@ -45,7 +45,9 @@ async def get_player_id_for_user(session: AsyncSession, user_id: int) -> Optiona
     Returns:
         Player ID or None if not found
     """
-    result = await session.execute(select(Player.id).where(Player.user_id == user_id))
+    result = await session.execute(
+        select(Player.id).where(Player.user_id == user_id, Player.deleted_at.is_(None))
+    )
     return result.scalar_one_or_none()
 
 
@@ -543,7 +545,7 @@ async def get_friends(
             Location.name.label("location_name"),
         )
         .outerjoin(Location, Player.location_id == Location.id)
-        .where(Player.id.in_(friend_ids))
+        .where(Player.id.in_(friend_ids), Player.deleted_at.is_(None))
     )
     player_map = {row.id: row for row in player_result.all()}
 
@@ -644,7 +646,7 @@ async def get_mutual_friends(
             Player.full_name,
             Player.avatar,
             Player.profile_picture_url,
-        ).where(Player.id.in_(list(mutual_ids)))
+        ).where(Player.id.in_(list(mutual_ids)), Player.deleted_at.is_(None))
     )
     return [
         {
@@ -952,6 +954,7 @@ async def discover_players(
             and_(
                 Player.id != caller_player_id,
                 Player.is_placeholder == False,  # noqa: E712
+                Player.deleted_at.is_(None),
             )
         )
     )
@@ -1205,7 +1208,13 @@ async def get_friend_suggestions(
             Location.name.label("location_name"),
         )
         .outerjoin(Location, Player.location_id == Location.id)
-        .where(and_(Player.id.in_(top_ids), Player.user_id.isnot(None)))
+        .where(
+            and_(
+                Player.id.in_(top_ids),
+                Player.user_id.isnot(None),
+                Player.deleted_at.is_(None),
+            )
+        )
     )
     player_map = {row.id: row for row in player_result.all()}
 
@@ -1339,7 +1348,7 @@ async def _format_friend_requests_batch(
             Player.full_name,
             Player.avatar,
             Player.profile_picture_url,
-        ).where(Player.id.in_(list(player_ids)))
+        ).where(Player.id.in_(list(player_ids)), Player.deleted_at.is_(None))
     )
     player_map = {row.id: row for row in result.all()}
 
@@ -1365,6 +1374,8 @@ async def _format_friend_requests_batch(
     for req in requests:
         sender = player_map.get(req.sender_player_id)
         receiver = player_map.get(req.receiver_player_id)
+        if sender is None or receiver is None:
+            continue
         counterpart_id = (
             req.sender_player_id
             if req.sender_player_id != viewer_player_id

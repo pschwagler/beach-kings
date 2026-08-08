@@ -145,7 +145,10 @@ jest.mock('@/contexts/AuthContext', () => ({
 jest.mock('@/lib/oauth', () => ({
   __esModule: true,
   useGoogleSignIn: () => ({ promptGoogle: jest.fn() }),
-  signInWithApple: jest.fn().mockResolvedValue('apple-id-token'),
+  signInWithApple: jest.fn().mockResolvedValue({
+    idToken: 'apple-id-token',
+    authorizationCode: 'apple-authorization-code',
+  }),
   // Route assertions do not exercise provider availability; keep the probe
   // pending so it cannot schedule an unrelated post-render state update.
   isAppleSignInAvailable: jest.fn(() => new Promise(() => {})),

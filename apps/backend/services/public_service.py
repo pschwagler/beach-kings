@@ -25,6 +25,7 @@ from backend.database.models import (
 )
 from backend.services.data_service import generate_player_initials
 from backend.services.relationship_service import resolve_relationship
+from backend.services.player_lifecycle import historical_id, historical_name
 
 
 async def get_sitemap_leagues(session: AsyncSession) -> List[Dict]:
@@ -59,7 +60,7 @@ async def get_sitemap_players(session: AsyncSession) -> List[Dict]:
     result = await session.execute(
         select(Player.id, Player.full_name, Player.updated_at)
         .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
-        .where(PlayerGlobalStats.total_games >= 1)
+        .where(PlayerGlobalStats.total_games >= 1, Player.deleted_at.is_(None))
         .limit(50000)
     )
     return [
@@ -325,7 +326,7 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             Player.profile_picture_url,
         )
         .join(Player, Player.id == LeagueMember.player_id)
-        .where(LeagueMember.league_id == league_id)
+        .where(LeagueMember.league_id == league_id, Player.deleted_at.is_(None))
         .order_by(Player.full_name.asc())
     )
     response["members"] = [
@@ -334,9 +335,7 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             "full_name": r.full_name,
             "level": r.level,
             "avatar": (
-                r.profile_picture_url
-                or r.avatar
-                or generate_player_initials(r.full_name or "")
+                r.profile_picture_url or r.avatar or generate_player_initials(r.full_name or "")
             ),
             "role": r.role,
         }
@@ -373,6 +372,7 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             .join(Player, Player.id == PlayerSeasonStats.player_id)
             .where(
                 PlayerSeasonStats.season_id == latest_season.id,
+                Player.deleted_at.is_(None),
             )
             .order_by(
                 PlayerSeasonStats.points.desc(),
@@ -420,6 +420,10 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             p2.full_name.label("t1p2"),
             p3.full_name.label("t2p1"),
             p4.full_name.label("t2p2"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
         )
         .join(Session, Match.session_id == Session.id)
         .outerjoin(p1, Match.team1_player1_id == p1.id)
@@ -434,14 +438,14 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
         {
             "id": r.id,
             "date": r.date,
-            "team1_player1": r.t1p1,
-            "team1_player2": r.t1p2,
-            "team2_player1": r.t2p1,
-            "team2_player2": r.t2p2,
-            "team1_player1_id": r.team1_player1_id,
-            "team1_player2_id": r.team1_player2_id,
-            "team2_player1_id": r.team2_player1_id,
-            "team2_player2_id": r.team2_player2_id,
+            "team1_player1": historical_name(r.t1p1, r.t1p1_deleted_at),
+            "team1_player2": historical_name(r.t1p2, r.t1p2_deleted_at),
+            "team2_player1": historical_name(r.t2p1, r.t2p1_deleted_at),
+            "team2_player2": historical_name(r.t2p2, r.t2p2_deleted_at),
+            "team1_player1_id": historical_id(r.team1_player1_id, r.t1p1_deleted_at),
+            "team1_player2_id": historical_id(r.team1_player2_id, r.t1p2_deleted_at),
+            "team2_player1_id": historical_id(r.team2_player1_id, r.t2p1_deleted_at),
+            "team2_player2_id": historical_id(r.team2_player2_id, r.t2p2_deleted_at),
             "team1_score": r.team1_score,
             "team2_score": r.team2_score,
             "winner": r.winner,
@@ -491,7 +495,7 @@ async def get_public_player(
         .outerjoin(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
         .outerjoin(Location, Player.location_id == Location.id)
         .outerjoin(User, User.id == Player.user_id)
-        .where(Player.id == player_id)
+        .where(Player.id == player_id, Player.deleted_at.is_(None))
     )
     row = result.first()
     if not row:
@@ -649,6 +653,7 @@ async def get_public_locations(session: AsyncSession) -> List[Dict]:
         .where(
             Player.location_id.in_(location_ids),
             PlayerGlobalStats.total_games >= 1,
+            Player.deleted_at.is_(None),
         )
         .group_by(Player.location_id)
     )
@@ -780,6 +785,7 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
         .where(
             Player.location_id == location.id,
             PlayerGlobalStats.total_games >= 1,
+            Player.deleted_at.is_(None),
         )
         .order_by(PlayerGlobalStats.current_rating.desc())
         .limit(20)
@@ -790,9 +796,7 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
             "full_name": r.full_name,
             "level": r.level,
             "avatar": (
-                r.profile_picture_url
-                or r.avatar
-                or generate_player_initials(r.full_name or "")
+                r.profile_picture_url or r.avatar or generate_player_initials(r.full_name or "")
             ),
             "current_rating": r.current_rating,
             "total_games": r.total_games,
@@ -837,6 +841,7 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
         .where(
             Player.location_id == location.id,
             PlayerGlobalStats.total_games >= 1,
+            Player.deleted_at.is_(None),
         )
         .correlate()
         .scalar_subquery()
@@ -950,7 +955,7 @@ async def search_public_players(
         )
         .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
         .outerjoin(Location, Player.location_id == Location.id)
-        .where(PlayerGlobalStats.total_games >= 1)
+        .where(PlayerGlobalStats.total_games >= 1, Player.deleted_at.is_(None))
     )
 
     if not include_placeholders:
@@ -1007,9 +1012,7 @@ async def search_public_players(
             "id": r.id,
             "full_name": r.full_name,
             "avatar": (
-                r.profile_picture_url
-                or r.avatar
-                or generate_player_initials(r.full_name or "")
+                r.profile_picture_url or r.avatar or generate_player_initials(r.full_name or "")
             ),
             "gender": r.gender,
             "level": r.level,

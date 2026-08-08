@@ -47,6 +47,10 @@ class AccountDeletionService:
         while not self._stop_event.is_set():
             try:
                 await self._process_expired_deletions()
+                if not self._stop_event.is_set():
+                    await self._process_media_deletions()
+                if not self._stop_event.is_set():
+                    await self._process_apple_revocations()
             except Exception as e:
                 logger.error(f"Error in account deletion worker: {e}", exc_info=True)
 
@@ -88,6 +92,30 @@ class AccountDeletionService:
                     await user_service.execute_account_deletion(session, uid)
             except Exception as e:
                 logger.error(f"Error deleting account {uid}: {e}", exc_info=True)
+
+    async def _process_media_deletions(self) -> None:
+        """Retry durable S3 cleanup jobs created by permanent deletion."""
+        from backend.services.media_deletion_worker import process_pending_jobs
+
+        completed, retried = await process_pending_jobs(db.AsyncSessionLocal)
+        if completed or retried:
+            logger.info(
+                "Processed account media cleanup jobs: %s completed, %s retrying",
+                completed,
+                retried,
+            )
+
+    async def _process_apple_revocations(self) -> None:
+        """Retry durable Apple token revocations created by permanent deletion."""
+        from backend.services.apple_revocation_worker import process_pending_jobs
+
+        completed, retried = await process_pending_jobs(db.AsyncSessionLocal)
+        if completed or retried:
+            logger.info(
+                "Processed Apple revocation jobs: %s completed, %s retrying",
+                completed,
+                retried,
+            )
 
 
 # Global singleton

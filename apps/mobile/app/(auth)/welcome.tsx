@@ -26,18 +26,18 @@ interface FeatureRow {
 
 const FEATURES: readonly FeatureRow[] = [
   {
+    title: 'Track your games',
+    description: 'Log your games. See who you play best with or against.',
+    Icon: TrendingUpIcon,
+  },
+  {
     title: 'Join Leagues',
     description: 'Compete in local beach volleyball leagues.',
     Icon: TrophyIcon,
   },
   {
-    title: 'Track Your Rating',
-    description: 'Track your progress. Make games more competitive.',
-    Icon: TrendingUpIcon,
-  },
-  {
     title: 'Find Players',
-    description: 'Connect with new players in any area.',
+    description: 'Connect with new players no matter where you are.',
     Icon: UsersIcon,
   },
   {
@@ -47,7 +47,7 @@ const FEATURES: readonly FeatureRow[] = [
   },
   {
     title: 'Tournaments',
-    description: 'Create tournaments with friends.',
+    description: 'Create and manage tournaments with friends.',
     Icon: AwardIcon,
   },
 ];

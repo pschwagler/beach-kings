@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 Seed local dev database with test users for manual testing.
 

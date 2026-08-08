@@ -17,6 +17,7 @@ from backend.database.models import (
 )
 from backend.services.kob_queries import get_standings
 from backend.services.kob_time import UNSEEDED_SORT_KEY
+from backend.services.player_lifecycle import historical_id, historical_name
 
 
 def _serialize_match(match: KobMatch, player_map: Dict[int, dict]) -> dict:
@@ -30,6 +31,16 @@ def _serialize_match(match: KobMatch, player_map: Dict[int, dict]) -> dict:
     Returns:
         Dict matching KobMatchResponse shape.
     """
+
+    def player_value(player_id: int | None) -> tuple[int | None, str]:
+        info = player_map.get(player_id, {})
+        deleted_at = info.get("deleted_at")
+        return historical_id(player_id, deleted_at), historical_name(info.get("name"), deleted_at)
+
+    t1p1_id, t1p1_name = player_value(match.team1_player1_id)
+    t1p2_id, t1p2_name = player_value(match.team1_player2_id)
+    t2p1_id, t2p1_name = player_value(match.team2_player1_id)
+    t2p2_id, t2p2_name = player_value(match.team2_player2_id)
     return {
         "id": match.id,
         "matchup_id": match.matchup_id,
@@ -37,14 +48,14 @@ def _serialize_match(match: KobMatch, player_map: Dict[int, dict]) -> dict:
         "phase": match.phase,
         "pool_id": match.pool_id,
         "court_num": match.court_num,
-        "team1_player1_id": match.team1_player1_id,
-        "team1_player2_id": match.team1_player2_id,
-        "team2_player1_id": match.team2_player1_id,
-        "team2_player2_id": match.team2_player2_id,
-        "team1_player1_name": player_map.get(match.team1_player1_id, {}).get("name"),
-        "team1_player2_name": player_map.get(match.team1_player2_id, {}).get("name"),
-        "team2_player1_name": player_map.get(match.team2_player1_id, {}).get("name"),
-        "team2_player2_name": player_map.get(match.team2_player2_id, {}).get("name"),
+        "team1_player1_id": t1p1_id,
+        "team1_player2_id": t1p2_id,
+        "team2_player1_id": t2p1_id,
+        "team2_player2_id": t2p2_id,
+        "team1_player1_name": t1p1_name,
+        "team1_player2_name": t1p2_name,
+        "team2_player1_name": t2p1_name,
+        "team2_player2_name": t2p2_name,
         "team1_score": match.team1_score,
         "team2_score": match.team2_score,
         "winner": match.winner,
@@ -83,12 +94,20 @@ async def build_detail_response(
         )
 
     result = await session.execute(
-        select(Player.id, Player.full_name, Player.profile_picture_url).where(
-            Player.id.in_(player_ids)
-        )
+        select(
+            Player.id,
+            Player.full_name,
+            Player.profile_picture_url,
+            Player.deleted_at,
+        ).where(Player.id.in_(player_ids))
     )
     player_map = {
-        row.id: {"name": row.full_name, "avatar": row.profile_picture_url} for row in result
+        row.id: {
+            "name": row.full_name,
+            "avatar": row.profile_picture_url,
+            "deleted_at": row.deleted_at,
+        }
+        for row in result
     }
 
     # Build players list
@@ -174,10 +193,20 @@ async def build_match_response(session: AsyncSession, match: KobMatch) -> dict:
         match.team2_player2_id,
     ]
     result = await session.execute(
-        select(Player.id, Player.full_name, Player.profile_picture_url).where(Player.id.in_(pids))
+        select(
+            Player.id,
+            Player.full_name,
+            Player.profile_picture_url,
+            Player.deleted_at,
+        ).where(Player.id.in_(pids))
     )
     player_map = {
-        row.id: {"name": row.full_name, "avatar": row.profile_picture_url} for row in result
+        row.id: {
+            "name": row.full_name,
+            "avatar": row.profile_picture_url,
+            "deleted_at": row.deleted_at,
+        }
+        for row in result
     }
     return _serialize_match(match, player_map)
 

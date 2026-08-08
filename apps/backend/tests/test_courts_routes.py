@@ -1035,9 +1035,7 @@ class TestResolveCourtEditSuggestion:
         monkeypatch.setattr(court_service, "resolve_edit_suggestion", fake_resolve, raising=True)
         client, headers = _make_verified_player_client(monkeypatch)
         try:
-            response = client.put(
-                "/api/courts/suggestions/1?action=approved", headers=headers
-            )
+            response = client.put("/api/courts/suggestions/1?action=approved", headers=headers)
         finally:
             _restore_verified_player()
             app.dependency_overrides.pop(get_db_session, None)
@@ -1056,9 +1054,7 @@ class TestResolveCourtEditSuggestion:
         monkeypatch.setattr(court_service, "resolve_edit_suggestion", fake_resolve, raising=True)
         client, headers = _make_verified_player_client(monkeypatch)
         try:
-            response = client.put(
-                "/api/courts/suggestions/1?action=approved", headers=headers
-            )
+            response = client.put("/api/courts/suggestions/1?action=approved", headers=headers)
         finally:
             _restore_verified_player()
             app.dependency_overrides.pop(get_db_session, None)

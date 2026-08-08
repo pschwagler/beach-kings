@@ -97,3 +97,13 @@ class TestSessionSubmittedFlag:
         """Everything except ACTIVE counts as submitted for display."""
         entry = _build_entry(_fake_row(status), player_id=1)
         assert entry["session_submitted"] is expected_submitted
+
+
+def test_deleted_opponent_is_a_non_clickable_tombstone():
+    row = _fake_row(SessionStatus.SUBMITTED)
+    row.t2p1_deleted_at = "2026-08-06T00:00:00Z"
+
+    entry = _build_entry(row, player_id=1)
+
+    assert entry["opponent_names"] == ["Deleted Player", "Opp B"]
+    assert entry["opponent_ids"] == [None, 4]

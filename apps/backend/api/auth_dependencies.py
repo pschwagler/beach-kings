@@ -136,7 +136,10 @@ _RESTRICTED_ACCOUNT_ROUTES = {
 def _enforce_account_access(request: Request, user: dict) -> dict:
     account_status = user_service.effective_moderation_status(user)
     resolved = {**user, "moderation_status": account_status}
-    if account_status == "active" or (request.method, request.url.path) in _RESTRICTED_ACCOUNT_ROUTES:
+    if (
+        account_status == "active"
+        or (request.method, request.url.path) in _RESTRICTED_ACCOUNT_ROUTES
+    ):
         return resolved
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -237,7 +240,9 @@ async def require_verified_player_allow_restricted(
     )
     player = result.scalar_one_or_none()
     if not player:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Player profile required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Player profile required"
+        )
     return {
         **user,
         "moderation_status": user_service.effective_moderation_status(user),

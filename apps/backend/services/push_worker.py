@@ -213,10 +213,7 @@ async def process_send_batch(
             job.last_error_detail = None
             counts["canceled"] += 1
             continue
-        if (
-            job.user_id in restricted_user_ids
-            and notification_type != "moderation_update"
-        ):
+        if job.user_id in restricted_user_ids and notification_type != "moderation_update":
             job.status = "canceled"
             job.claimed_at = None
             job.last_error_code = "account_restricted"

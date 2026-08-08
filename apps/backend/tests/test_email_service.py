@@ -1,9 +1,7 @@
 """
 Tests for email_service — is_enabled() checks and send_feedback_email().
 
-Mocks:
-- sendgrid.SendGridAPIClient (via patch on the module-level import)
-- settings_service.get_bool_setting (controls is_enabled)
+Mocks Resend's HTTP submission helper and settings_service.get_bool_setting.
 """
 
 import pytest
@@ -118,8 +116,8 @@ async def test_is_enabled_falls_back_true_on_exception(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_send_feedback_email_disabled_skips_sendgrid():
-    """When email is disabled, SendGrid is never called and True is returned."""
+async def test_send_feedback_email_disabled_skips_resend():
+    """When email is disabled, Resend is never called and True is returned."""
     with (
         patch.object(
             email_service.settings_service,
@@ -127,7 +125,7 @@ async def test_send_feedback_email_disabled_skips_sendgrid():
             new_callable=AsyncMock,
             return_value=False,
         ),
-        patch("backend.services.email_service.SendGridAPIClient") as mock_sg,
+        patch.object(email_service, "send_email_request", new_callable=AsyncMock) as send,
     ):
         result = await email_service.send_feedback_email(
             feedback_text="Awesome app!",
@@ -135,13 +133,13 @@ async def test_send_feedback_email_disabled_skips_sendgrid():
         )
 
     assert result is True
-    mock_sg.assert_not_called()
+    send.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_send_feedback_email_missing_api_key_returns_true(monkeypatch):
-    """No SENDGRID_API_KEY configured → returns True without raising."""
-    monkeypatch.setattr(email_service, "SENDGRID_API_KEY", None)
+    """No RESEND_API_KEY configured returns True without raising."""
+    monkeypatch.setattr(email_service, "RESEND_API_KEY", None)
 
     with (
         patch.object(
@@ -150,7 +148,7 @@ async def test_send_feedback_email_missing_api_key_returns_true(monkeypatch):
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch("backend.services.email_service.SendGridAPIClient") as mock_sg,
+        patch.object(email_service, "send_email_request", new_callable=AsyncMock) as send,
     ):
         result = await email_service.send_feedback_email(
             feedback_text="Great!",
@@ -158,21 +156,19 @@ async def test_send_feedback_email_missing_api_key_returns_true(monkeypatch):
         )
 
     assert result is True
-    mock_sg.assert_not_called()
+    send.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_send_feedback_email_calls_sendgrid_with_correct_fields(monkeypatch):
-    """When enabled and API key present, SendGrid is called; 2xx → returns True."""
-    monkeypatch.setattr(email_service, "SENDGRID_API_KEY", "SG.fake_key")
-    monkeypatch.setattr(email_service, "SENDGRID_FROM_EMAIL", "from@example.com")
+async def test_send_feedback_email_calls_resend_with_correct_fields(monkeypatch):
+    """When enabled and API key present, Resend is called; 2xx returns True."""
+    monkeypatch.setattr(email_service, "RESEND_API_KEY", "re_fake_key")
     monkeypatch.setattr(email_service, "ADMIN_EMAIL", "admin@example.com")
 
     mock_response = MagicMock()
     mock_response.status_code = 202
 
-    mock_sg_instance = MagicMock()
-    mock_sg_instance.send.return_value = mock_response
+    send = AsyncMock(return_value=mock_response)
 
     with (
         patch.object(
@@ -181,7 +177,7 @@ async def test_send_feedback_email_calls_sendgrid_with_correct_fields(monkeypatc
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+        patch.object(email_service, "send_email_request", send),
     ):
         result = await email_service.send_feedback_email(
             feedback_text="This is feedback",
@@ -191,21 +187,20 @@ async def test_send_feedback_email_calls_sendgrid_with_correct_fields(monkeypatc
         )
 
     assert result is True
-    mock_sg_instance.send.assert_called_once()
-    # Verify the message object passed to send contains the right content
-    call_args = mock_sg_instance.send.call_args[0][0]
-    assert call_args is not None
+    send.assert_awaited_once()
+    assert send.await_args.args[0] == "admin@example.com"
+    assert send.await_args.args[1] == "New Feedback Received - Beach League"
+    assert "This is feedback" in send.await_args.args[2]
 
 
 @pytest.mark.asyncio
 async def test_send_feedback_email_includes_user_details(monkeypatch):
     """Email body includes user name, phone, contact email, and timestamp when provided."""
-    monkeypatch.setattr(email_service, "SENDGRID_API_KEY", "SG.fake_key")
+    monkeypatch.setattr(email_service, "RESEND_API_KEY", "re_fake_key")
 
     mock_response = MagicMock()
     mock_response.status_code = 202
-    mock_sg_instance = MagicMock()
-    mock_sg_instance.send.return_value = mock_response
+    send = AsyncMock(return_value=mock_response)
 
     ts = datetime(2025, 3, 22, 12, 0, 0)
 
@@ -216,7 +211,7 @@ async def test_send_feedback_email_includes_user_details(monkeypatch):
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+        patch.object(email_service, "send_email_request", send),
     ):
         result = await email_service.send_feedback_email(
             feedback_text="Loved the tournament bracket!",
@@ -228,18 +223,21 @@ async def test_send_feedback_email_includes_user_details(monkeypatch):
         )
 
     assert result is True
+    body = send.await_args.args[2]
+    assert "User: Bob" in body
+    assert "Phone: +15550001111" in body
+    assert "Contact Email: player@beach.com" in body
+    assert "Submitted: 2025-03-22 12:00:00 UTC" in body
 
 
 @pytest.mark.asyncio
-async def test_send_feedback_email_sendgrid_error_status_returns_false(monkeypatch):
-    """SendGrid 4xx/5xx response → returns False (does not raise)."""
-    monkeypatch.setattr(email_service, "SENDGRID_API_KEY", "SG.fake_key")
+async def test_send_feedback_email_resend_error_status_returns_false(monkeypatch):
+    """Resend 4xx/5xx response returns False without raising."""
+    monkeypatch.setattr(email_service, "RESEND_API_KEY", "re_fake_key")
 
     mock_response = MagicMock()
     mock_response.status_code = 500
-    mock_response.body = b"Internal Error"
-    mock_sg_instance = MagicMock()
-    mock_sg_instance.send.return_value = mock_response
+    send = AsyncMock(return_value=mock_response)
 
     with (
         patch.object(
@@ -248,7 +246,7 @@ async def test_send_feedback_email_sendgrid_error_status_returns_false(monkeypat
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+        patch.object(email_service, "send_email_request", send),
     ):
         result = await email_service.send_feedback_email(
             feedback_text="Testing error handling",
@@ -259,12 +257,9 @@ async def test_send_feedback_email_sendgrid_error_status_returns_false(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_send_feedback_email_sendgrid_raises_returns_false(monkeypatch):
-    """SendGrid client raises an exception → returns False (does not propagate)."""
-    monkeypatch.setattr(email_service, "SENDGRID_API_KEY", "SG.fake_key")
-
-    mock_sg_instance = MagicMock()
-    mock_sg_instance.send.side_effect = Exception("network error")
+async def test_send_feedback_email_resend_raises_returns_false(monkeypatch):
+    """Resend client exceptions return False without propagating."""
+    monkeypatch.setattr(email_service, "RESEND_API_KEY", "re_fake_key")
 
     with (
         patch.object(
@@ -273,7 +268,11 @@ async def test_send_feedback_email_sendgrid_raises_returns_false(monkeypatch):
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+        patch.object(
+            email_service,
+            "send_email_request",
+            new=AsyncMock(side_effect=Exception("network error")),
+        ),
     ):
         result = await email_service.send_feedback_email(
             feedback_text="Exception test",
@@ -286,12 +285,11 @@ async def test_send_feedback_email_sendgrid_raises_returns_false(monkeypatch):
 @pytest.mark.asyncio
 async def test_send_feedback_email_anonymous_user(monkeypatch):
     """Anonymous feedback (no user_name) is handled without error."""
-    monkeypatch.setattr(email_service, "SENDGRID_API_KEY", "SG.fake_key")
+    monkeypatch.setattr(email_service, "RESEND_API_KEY", "re_fake_key")
 
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_sg_instance = MagicMock()
-    mock_sg_instance.send.return_value = mock_response
+    send = AsyncMock(return_value=mock_response)
 
     with (
         patch.object(
@@ -300,7 +298,7 @@ async def test_send_feedback_email_anonymous_user(monkeypatch):
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+        patch.object(email_service, "send_email_request", send),
     ):
         result = await email_service.send_feedback_email(
             feedback_text="Anonymous feedback",
@@ -308,4 +306,38 @@ async def test_send_feedback_email_anonymous_user(monkeypatch):
         )
 
     assert result is True
-    mock_sg_instance.send.assert_called_once()
+    send.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_send_email_request_uses_resend_payload_and_idempotency(monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("RESEND_FROM_EMAIL", "Beach League <alerts@example.com>")
+    response = MagicMock(status_code=200)
+    post = AsyncMock(return_value=response)
+    client = AsyncMock()
+    client.__aenter__.return_value.post = post
+
+    with patch.object(email_service.httpx, "AsyncClient", return_value=client):
+        result = await email_service.send_email_request(
+            "owner@example.com",
+            "Subject",
+            "Safe body",
+            idempotency_key="moderation/42",
+        )
+
+    assert result is response
+    post.assert_awaited_once_with(
+        email_service.RESEND_API_URL,
+        headers={
+            "Authorization": "Bearer re_test",
+            "Content-Type": "application/json",
+            "Idempotency-Key": "moderation/42",
+        },
+        json={
+            "from": "Beach League <alerts@example.com>",
+            "to": ["owner@example.com"],
+            "subject": "Subject",
+            "text": "Safe body",
+        },
+    )

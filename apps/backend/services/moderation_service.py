@@ -3,30 +3,43 @@
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import String, cast, func, or_, select, update
+from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
     CourtPhoto,
-    Court,
     CourtReview,
     CourtReviewPhoto,
     DirectMessage,
     InteractionRestriction,
     LeagueMember,
     LeagueMessage,
+    MediaDeletionJob,
     ModerationCase,
     ModerationAppeal,
     ModerationEvent,
-    ModerationEvidence,
     ModerationJob,
     ModerationReport,
     Player,
     User,
 )
 from backend.services import notification_service, user_service
+from backend.services import moderation_admin_queries as _admin_queries
 from backend.utils.datetime_utils import utcnow
+
+
+# Preserve the established service interface while keeping read-heavy admin
+# queries in their own focused module.
+get_case = _admin_queries.get_case
+list_cases = _admin_queries.list_cases
+overview = _admin_queries.overview
+search_cases = _admin_queries.search_cases
+_appeal_dict = _admin_queries._appeal_dict
+_case_dict = _admin_queries._case_dict
+_case_list_summaries = _admin_queries._case_list_summaries
+_queue_totals = _admin_queries._queue_totals
 
 
 TARGET_MODELS = {
@@ -37,17 +50,41 @@ TARGET_MODELS = {
     "court_review_photo": CourtReviewPhoto,
 }
 
+REPORT_INCIDENT_TYPES = {
+    "threats_violence": "credible_threat",
+    "stalking_doxxing": "stalking_doxxing",
+    "sexual_exploitation": "sexual_exploitation",
+    "minor_safety": "minor_safety",
+    "self_harm": "self_harm",
+}
 
-async def _resolve_target(session: AsyncSession, reporter_id: int, target_type: str, target_id: int):
+DISPOSITION_ACTIONS = {
+    "dismiss",
+    "restore",
+    "remove",
+    "warn",
+    "interaction_lock",
+    "account_suspend",
+    "account_ban",
+    "account_restore",
+}
+
+
+async def _resolve_target(
+    session: AsyncSession, reporter_id: int, target_type: str, target_id: int
+):
     """Return target and subject after proving the reporter could see it."""
     if target_type == "player":
         target = await session.get(Player, target_id)
-        if target is None:
+        if target is None or target.deleted_at is not None:
             raise ValueError("Report target not found")
         subject_id = target.id
     elif target_type == "direct_message":
         target = await session.get(DirectMessage, target_id)
-        if target is None or reporter_id not in (target.sender_player_id, target.receiver_player_id):
+        if target is None or reporter_id not in (
+            target.sender_player_id,
+            target.receiver_player_id,
+        ):
             raise ValueError("Report target not found")
         if target.moderation_visibility != "visible" and not (
             target.moderation_visibility == "pending" and target.sender_player_id == reporter_id
@@ -59,17 +96,23 @@ async def _resolve_target(session: AsyncSession, reporter_id: int, target_type: 
         if target is None:
             raise ValueError("Report target not found")
         membership = await session.execute(
-            select(LeagueMember.id).where(LeagueMember.league_id == target.league_id, LeagueMember.player_id == reporter_id)
+            select(LeagueMember.id).where(
+                LeagueMember.league_id == target.league_id, LeagueMember.player_id == reporter_id
+            )
         )
         if membership.scalar_one_or_none() is None:
             raise ValueError("Report target not found")
         if target.moderation_visibility != "visible" and not (
-            target.moderation_visibility == "pending" and target.user_id == (
+            target.moderation_visibility == "pending"
+            and target.user_id
+            == (
                 await session.execute(select(Player.user_id).where(Player.id == reporter_id))
             ).scalar_one_or_none()
         ):
             raise ValueError("Report target not found")
-        subject_id = (await session.execute(select(Player.id).where(Player.user_id == target.user_id))).scalar_one_or_none()
+        subject_id = (
+            await session.execute(select(Player.id).where(Player.user_id == target.user_id))
+        ).scalar_one_or_none()
     elif target_type == "court_review":
         target = await session.get(CourtReview, target_id)
         if target is None or target.moderation_visibility != "visible":
@@ -105,6 +148,8 @@ async def create_report(
     reason: str,
     details: str | None,
 ) -> dict[str, Any]:
+    now = utcnow()
+    incident_type = REPORT_INCIDENT_TYPES.get(reason)
     target, subject_id = await _resolve_target(session, reporter_id, target_type, target_id)
     existing = await session.execute(
         select(ModerationReport).where(
@@ -119,21 +164,41 @@ async def create_report(
 
     case_result = await session.execute(
         select(ModerationCase)
-        .where(ModerationCase.target_type == target_type, ModerationCase.target_id == target_id, ModerationCase.state.in_(["open", "acknowledged"]))
+        .where(
+            ModerationCase.target_type == target_type,
+            ModerationCase.target_id == target_id,
+            ModerationCase.state.in_(["open", "acknowledged"]),
+        )
         .with_for_update()
     )
     case = case_result.scalar_one_or_none()
     if case is None:
-        severity = "urgent" if reason in {"threats_violence", "minor_safety", "self_harm"} else "ordinary"
+        severity = "urgent" if incident_type else "ordinary"
         case = ModerationCase(
             target_type=target_type,
             target_id=target_id,
             subject_player_id=subject_id,
             severity=severity,
-            due_at=utcnow() + timedelta(hours=4 if severity == "urgent" else 24),
+            incident_type=incident_type,
+            urgent_since_at=now if severity == "urgent" else None,
+            due_at=now + timedelta(hours=4 if severity == "urgent" else 24),
         )
         session.add(case)
         await session.flush()
+    elif incident_type and case.severity != "urgent":
+        case.severity = "urgent"
+        case.incident_type = incident_type
+        case.urgent_since_at = now
+        case.due_at = now + timedelta(hours=4)
+        session.add(
+            ModerationEvent(
+                case_id=case.id,
+                event_type="case_elevated",
+                metadata_json={"incident_type": incident_type, "source": "member_report"},
+            )
+        )
+    elif incident_type and case.incident_type is None:
+        case.incident_type = incident_type
 
     report = ModerationReport(
         case_id=case.id,
@@ -148,7 +213,14 @@ async def create_report(
         await session.flush()
     except IntegrityError as exc:
         raise ValueError("You already reported this content") from exc
-    session.add(ModerationEvent(case_id=case.id, event_type="report_received", metadata_json={"reason": reason}))
+    session.add(
+        ModerationEvent(
+            case_id=case.id, event_type="report_received", metadata_json={"reason": reason}
+        )
+    )
+    from backend.services.moderation_alerts import schedule_case_alerts
+
+    await schedule_case_alerts(session, case)
     from backend.services.moderation_evidence_service import (
         capture_chat_context,
         capture_s3_object,
@@ -175,9 +247,7 @@ async def create_report(
                 )
             )
     if target_type in {"court_photo", "court_review_photo"}:
-        evidence_operations.append(
-            capture_s3_object(session, case.id, target.s3_key, "image")
-        )
+        evidence_operations.append(capture_s3_object(session, case.id, target.s3_key, "image"))
     if target_type in {"direct_message", "league_message"}:
         evidence_operations.append(capture_text(session, case.id, target.message_text))
         evidence_operations.append(capture_chat_context(session, case.id))
@@ -343,244 +413,6 @@ async def list_appeals(session: AsyncSession, player_id: int) -> list[dict[str, 
     return [_appeal_dict(item) for item in result.scalars().all()]
 
 
-async def list_cases(session: AsyncSession, queue: str | None = None) -> list[dict[str, Any]]:
-    return (await search_cases(session, queue=queue))["items"]
-
-
-async def search_cases(
-    session: AsyncSession,
-    *,
-    queue: str | None = None,
-    state: str | None = None,
-    target_type: str | None = None,
-    search: str | None = None,
-    page: int = 1,
-    page_size: int = 30,
-) -> dict[str, Any]:
-    query = select(ModerationCase, func.count(ModerationReport.id).label("report_count")).outerjoin(
-        ModerationReport, ModerationReport.case_id == ModerationCase.id
-    ).group_by(ModerationCase.id)
-    now = utcnow()
-    active = ModerationCase.state.in_(["open", "acknowledged"])
-    if queue == "urgent":
-        query = query.where(ModerationCase.severity == "urgent")
-    elif queue == "due":
-        query = query.where(ModerationCase.due_at <= now + timedelta(hours=24))
-    elif queue == "ordinary":
-        query = query.where(ModerationCase.severity == "ordinary")
-
-    # A queue-only request is the legacy active-queue contract. Explicit states
-    # are independent from attention filters, and ``all`` intentionally removes
-    # the state constraint while retaining any selected attention filter.
-    effective_state = "active" if state is None and queue is not None else state
-    if effective_state == "active":
-        query = query.where(active)
-    elif effective_state == "open":
-        query = query.where(ModerationCase.state == "open")
-    elif effective_state == "acknowledged":
-        query = query.where(ModerationCase.state == "acknowledged")
-    elif effective_state == "closed":
-        query = query.where(ModerationCase.state.in_(["closed", "dismissed"]))
-    if target_type:
-        query = query.where(ModerationCase.target_type == target_type)
-    if search:
-        term = f"%{search.strip()}%"
-        query = query.where(
-            or_(cast(ModerationCase.id, String).ilike(term), cast(ModerationCase.target_id, String).ilike(term))
-        )
-    count_query = select(func.count()).select_from(query.subquery())
-    total = (await session.execute(count_query)).scalar_one()
-    rows = (
-        await session.execute(
-            query.order_by(
-                ModerationCase.due_at.asc().nullslast(),
-                ModerationCase.created_at.asc(),
-                ModerationCase.id.asc(),
-            ).offset((page - 1) * page_size).limit(page_size)
-        )
-    ).all()
-    cases = [case for case, _count in rows]
-    report_counts = {case.id: count for case, count in rows}
-    summaries = await _case_list_summaries(session, cases, report_counts)
-    return {
-        "items": [
-            {
-                **_case_dict(case),
-                "report_count": report_counts[case.id],
-                **summaries[case.id],
-            }
-            for case in cases
-        ],
-        "page": page,
-        "page_size": page_size,
-        "total": total,
-        "total_pages": max(1, (total + page_size - 1) // page_size),
-        "totals": await _queue_totals(session, now),
-    }
-
-
-async def _queue_totals(session: AsyncSession, now) -> dict[str, int]:
-    active = ModerationCase.state.in_(["open", "acknowledged"])
-
-    async def count_where(*conditions) -> int:
-        value = await session.execute(select(func.count(ModerationCase.id)).where(*conditions))
-        return value.scalar_one()
-
-    return {
-        "all": await count_where(),
-        "active": await count_where(active),
-        "urgent": await count_where(active, ModerationCase.severity == "urgent"),
-        "due": await count_where(active, ModerationCase.due_at <= now + timedelta(hours=24)),
-        "ordinary": await count_where(active, ModerationCase.severity == "ordinary"),
-        "open": await count_where(ModerationCase.state == "open"),
-        "acknowledged": await count_where(ModerationCase.state == "acknowledged"),
-        "closed": await count_where(ModerationCase.state.in_(["closed", "dismissed"])),
-    }
-
-
-async def _case_list_summaries(
-    session: AsyncSession,
-    cases: list[ModerationCase],
-    report_counts: dict[int, int],
-) -> dict[int, dict[str, Any]]:
-    """Build triage-safe list metadata in bounded batch queries."""
-    if not cases:
-        return {}
-
-    case_ids = [case.id for case in cases]
-    subject_ids = {
-        case.subject_player_id for case in cases if case.subject_player_id is not None
-    }
-    subject_names: dict[int, str] = {}
-    if subject_ids:
-        subject_rows = await session.execute(
-            select(Player.id, Player.full_name).where(Player.id.in_(subject_ids))
-        )
-        subject_names = {player_id: full_name for player_id, full_name in subject_rows}
-
-    reason_rows = await session.execute(
-        select(ModerationReport.case_id, ModerationReport.reason)
-        .where(ModerationReport.case_id.in_(case_ids))
-        .order_by(
-            ModerationReport.case_id.asc(),
-            ModerationReport.created_at.asc(),
-            ModerationReport.id.asc(),
-        )
-    )
-    primary_reasons: dict[int, str] = {}
-    for case_id, reason in reason_rows:
-        primary_reasons.setdefault(case_id, reason)
-
-    target_rows: dict[tuple[str, int], Any] = {}
-    for target_type in {case.target_type for case in cases}:
-        model = Player if target_type == "player" else TARGET_MODELS.get(target_type)
-        if model is None:
-            continue
-        target_ids = [
-            case.target_id for case in cases if case.target_type == target_type
-        ]
-        rows = await session.execute(select(model).where(model.id.in_(target_ids)))
-        for target in rows.scalars().all():
-            target_rows[(target_type, target.id)] = target
-
-    def compact_text(value: str | None) -> str | None:
-        normalized = " ".join((value or "").split())
-        if not normalized:
-            return None
-        return normalized if len(normalized) <= 160 else f"{normalized[:157]}..."
-
-    summaries: dict[int, dict[str, Any]] = {}
-    for case in cases:
-        target = target_rows.get((case.target_type, case.target_id))
-        target_title = case.target_type.replace("_", " ").title()
-        snippet = None
-        media_type = None
-        if target is None:
-            target_title = "Target unavailable"
-        elif case.target_type == "player":
-            target_title = target.full_name
-            snippet = compact_text(target.nickname)
-        elif case.target_type in {"direct_message", "league_message"}:
-            snippet = compact_text(target.message_text)
-        elif case.target_type == "court_review":
-            snippet = compact_text(target.review_text)
-        elif case.target_type == "court_photo":
-            snippet = compact_text(target.caption)
-            media_type = "image"
-        elif case.target_type == "court_review_photo":
-            media_type = "image"
-
-        summaries[case.id] = {
-            "subject_name": subject_names.get(case.subject_player_id),
-            "target_title": target_title,
-            "target_snippet": snippet,
-            "target_media_type": media_type,
-            "source": (
-                "member_report" if report_counts.get(case.id, 0) else "automated"
-            ),
-            "primary_reason": primary_reasons.get(case.id),
-        }
-    return summaries
-
-
-async def get_case(session: AsyncSession, case_id: int) -> dict[str, Any] | None:
-    case = await session.get(ModerationCase, case_id)
-    if case is None:
-        return None
-    events = (
-        await session.execute(select(ModerationEvent).where(ModerationEvent.case_id == case_id).order_by(ModerationEvent.created_at.asc()))
-    ).scalars().all()
-    reports = (
-        await session.execute(select(ModerationReport).where(ModerationReport.case_id == case_id).order_by(ModerationReport.created_at.asc()))
-    ).scalars().all()
-    evidence = (
-        await session.execute(select(ModerationEvidence).where(ModerationEvidence.case_id == case_id).order_by(ModerationEvidence.captured_at.asc()))
-    ).scalars().all()
-    jobs = (
-        await session.execute(select(ModerationJob).where(ModerationJob.case_id == case_id).order_by(ModerationJob.created_at.desc()))
-    ).scalars().all()
-    appeals = (
-        await session.execute(
-            select(ModerationAppeal)
-            .where(ModerationAppeal.case_id == case_id)
-            .order_by(ModerationAppeal.created_at.asc(), ModerationAppeal.id.asc())
-        )
-    ).scalars().all()
-    actor_ids = {event.actor_user_id for event in events if event.actor_user_id is not None}
-    actor_names: dict[int, str] = {}
-    if actor_ids:
-        rows = await session.execute(
-            select(Player.user_id, Player.full_name).where(Player.user_id.in_(actor_ids)).order_by(Player.id.asc())
-        )
-        for user_id, full_name in rows:
-            actor_names.setdefault(user_id, full_name)
-    provider_reviews = [
-        {
-            "flagged": bool(e.metadata_json.get("flagged")),
-            "categories": e.metadata_json.get("categories") or {},
-            "model": e.metadata_json.get("model"),
-            "policy_version": e.metadata_json.get("policy_version"),
-            "recommendation": e.metadata_json.get("triage"),
-            "error": e.metadata_json.get("triage_error"),
-            "created_at": e.created_at,
-        }
-        for e in events
-        if e.event_type == "provider_classification"
-    ]
-    return {
-        **_case_dict(case),
-        "subject": await _subject_context(session, case.subject_player_id),
-        "target": await _target_context(session, case),
-        "reports": [{"id": r.id, "reason": r.reason, "details": r.details, "created_at": r.created_at} for r in reports],
-        "provider_reviews": provider_reviews,
-        "events": [{"id": e.id, "event_type": e.event_type, "operator_user_id": e.actor_user_id, "operator_name": actor_names.get(e.actor_user_id), "reason": e.reason, "metadata": e.metadata_json, "created_at": e.created_at} for e in events],
-        "evidence": [{"id": item.id, "state": "purged" if item.purged_at else "available", "content_type": item.content_type, "captured_at": item.captured_at, "purge_after": item.purge_after, "purged_at": item.purged_at, "access_expires_in": 300} for item in evidence],
-        "jobs": [{"id": job.id, "status": job.status, "attempts": job.attempts, "available_at": job.available_at, "claimed_at": job.claimed_at, "last_error": job.last_error, "created_at": job.created_at, "updated_at": job.updated_at, "can_retry": job.status == "failed"} for job in jobs],
-        "appeals": [_appeal_dict(appeal) for appeal in appeals],
-        "allowed_actions": await _allowed_actions(session, case),
-    }
-
-
 async def apply_action(
     session: AsyncSession,
     case_id: int,
@@ -591,7 +423,9 @@ async def apply_action(
     legal_hold: bool | None = None,
     appeal_id: int | None = None,
 ) -> dict[str, Any]:
-    result = await session.execute(select(ModerationCase).where(ModerationCase.id == case_id).with_for_update())
+    result = await session.execute(
+        select(ModerationCase).where(ModerationCase.id == case_id).with_for_update()
+    )
     case = result.scalar_one_or_none()
     if case is None:
         raise ValueError("Case not found")
@@ -599,13 +433,17 @@ async def apply_action(
         raise ValueError("A reason is required")
     now = utcnow()
     active = case.state in {"open", "acknowledged"}
-    if action not in {"legal_hold", "grant_appeal", "uphold_appeal", "account_restore"} and not active:
-        raise ValueError("This case is closed; only appeal, restore, or legal-hold changes are allowed")
+    if (
+        action not in {"legal_hold", "grant_appeal", "uphold_appeal", "account_restore"}
+        and not active
+    ):
+        raise ValueError(
+            "This case is closed; only appeal, restore, or legal-hold changes are allowed"
+        )
+    first_acknowledgement = getattr(case, "acknowledged_at", None) is None
     if action == "acknowledge":
-        if case.state != "open":
+        if not first_acknowledgement:
             raise ValueError("Only open cases can be acknowledged")
-        case.state = "acknowledged"
-        case.acknowledged_at = now
     elif action == "dismiss":
         case.state, case.closed_at = "dismissed", now
     elif action in {"quarantine", "restore", "remove"}:
@@ -616,7 +454,11 @@ async def apply_action(
             raise ValueError("Only visible or pending content can be quarantined")
         if action == "remove" and current_visibility in {None, "removed"}:
             raise ValueError("This target cannot be removed or is already removed")
-        await _set_visibility(session, case, {"quarantine": "quarantined", "restore": "visible", "remove": "removed"}[action])
+        await _set_visibility(
+            session,
+            case,
+            {"quarantine": "quarantined", "restore": "visible", "remove": "removed"}[action],
+        )
         case.current_action = action
         if action in {"restore", "remove"}:
             case.state, case.closed_at = "closed", now
@@ -711,24 +553,50 @@ async def apply_action(
         case.legal_hold = legal_hold
     else:
         raise ValueError("Unsupported moderation action")
+    if first_acknowledgement:
+        case.acknowledged_at = now
+        if case.state == "open":
+            case.state = "acknowledged"
+    if action in DISPOSITION_ACTIONS and getattr(case, "dispositioned_at", None) is None:
+        case.dispositioned_at = now
+    if first_acknowledgement and case.severity == "urgent":
+        from backend.services.moderation_alerts import cancel_urgent_repeats
+
+        await cancel_urgent_repeats(session, case.id)
     metadata = {"lock_hours": lock_hours} if lock_hours else {}
     if action == "legal_hold":
         metadata["enabled"] = legal_hold
     if appeal_id is not None:
         metadata["appeal_id"] = appeal_id
-    session.add(ModerationEvent(case_id=case.id, event_type=f"human_{action}", actor_user_id=actor_user_id, reason=reason, metadata_json=metadata))
-    if action in {
-        "warn",
-        "quarantine",
-        "remove",
-        "interaction_lock",
-        "account_suspend",
-        "account_ban",
-        "account_restore",
-        "grant_appeal",
-        "uphold_appeal",
-    } and case.subject_player_id:
-        user_id = (await session.execute(select(Player.user_id).where(Player.id == case.subject_player_id))).scalar_one_or_none()
+    session.add(
+        ModerationEvent(
+            case_id=case.id,
+            event_type=f"human_{action}",
+            actor_user_id=actor_user_id,
+            reason=reason,
+            metadata_json=metadata,
+        )
+    )
+    if (
+        action
+        in {
+            "warn",
+            "quarantine",
+            "remove",
+            "interaction_lock",
+            "account_suspend",
+            "account_ban",
+            "account_restore",
+            "grant_appeal",
+            "uphold_appeal",
+        }
+        and case.subject_player_id
+    ):
+        user_id = (
+            await session.execute(
+                select(Player.user_id).where(Player.id == case.subject_player_id)
+            )
+        ).scalar_one_or_none()
         if user_id:
             await notification_service.create_notification(
                 session,
@@ -764,7 +632,9 @@ async def apply_action(
 async def retry_failed_job(
     session: AsyncSession, job_id: int, actor_user_id: int, reason: str
 ) -> dict[str, Any]:
-    result = await session.execute(select(ModerationJob).where(ModerationJob.id == job_id).with_for_update())
+    result = await session.execute(
+        select(ModerationJob).where(ModerationJob.id == job_id).with_for_update()
+    )
     job = result.scalar_one_or_none()
     if job is None:
         raise ValueError("Job not found")
@@ -788,106 +658,65 @@ async def retry_failed_job(
             )
         )
     await session.flush()
-    return {"id": job.id, "status": job.status, "attempts": job.attempts, "available_at": job.available_at}
-
-
-async def overview(session: AsyncSession) -> dict[str, Any]:
-    now = utcnow()
-    stale_before = now - timedelta(minutes=10)
-
-    async def job_count(*conditions) -> int:
-        return (
-            await session.execute(select(func.count(ModerationJob.id)).where(*conditions))
-        ).scalar_one()
-
-    oldest_pending = (
-        await session.execute(
-            select(ModerationJob.created_at)
-            .where(ModerationJob.status == "pending")
-            .order_by(ModerationJob.created_at.asc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    latest_completion = (
-        await session.execute(
-            select(ModerationJob.updated_at)
-            .where(ModerationJob.status == "completed")
-            .order_by(ModerationJob.updated_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    from backend.services.moderation_worker import moderation_mode
-
     return {
-        "mode": moderation_mode(),
-        "queues": await _queue_totals(session, now),
-        "jobs": {
-            "pending": await job_count(ModerationJob.status == "pending"),
-            "processing": await job_count(ModerationJob.status == "processing"),
-            "failed": await job_count(ModerationJob.status == "failed"),
-            "stale": await job_count(ModerationJob.status == "processing", ModerationJob.claimed_at < stale_before),
-            "oldest_pending_at": oldest_pending,
-            "latest_completion_at": latest_completion,
-        },
-        "generated_at": now,
+        "id": job.id,
+        "status": job.status,
+        "attempts": job.attempts,
+        "available_at": job.available_at,
     }
 
 
-async def _subject_context(session: AsyncSession, player_id: int | None) -> dict[str, Any] | None:
-    if player_id is None:
-        return None
-    player = await session.get(Player, player_id)
-    if player is None:
-        return {"id": player_id, "display_name": "Unavailable"}
-    return {"id": player.id, "display_name": player.full_name}
+async def record_external_escalation(
+    session: AsyncSession,
+    case_id: int,
+    actor_user_id: int,
+    *,
+    channel: str,
+    jurisdiction: str,
+    note: str,
+    external_reference: str | None = None,
+) -> dict[str, Any]:
+    """Record a human-reviewed specialist contact without transmitting evidence."""
+    case = (
+        await session.execute(
+            select(ModerationCase).where(ModerationCase.id == case_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if case is None:
+        raise ValueError("Case not found")
+    if case.severity != "urgent":
+        raise ValueError("External escalation is available only for urgent cases")
+    normalized_note = note.strip()
+    if not normalized_note:
+        raise ValueError("An operational note is required")
+    now = utcnow()
+    if case.acknowledged_at is None:
+        case.acknowledged_at = now
+        if case.state == "open":
+            case.state = "acknowledged"
+        from backend.services.moderation_alerts import cancel_urgent_repeats
 
-
-async def _target_context(session: AsyncSession, case: ModerationCase) -> dict[str, Any]:
-    if case.target_type == "player":
-        player = await session.get(Player, case.target_id)
-        return {
-            "kind": "profile",
-            "available": player is not None,
-            "title": player.full_name if player else "Profile unavailable",
-            "text": player.nickname if player else None,
-            "metadata": {},
-            "visibility": None,
-        }
-    model = TARGET_MODELS.get(case.target_type)
-    target = await session.get(model, case.target_id) if model else None
-    if target is None:
-        return {"kind": case.target_type, "available": False, "title": "Target unavailable", "text": None, "metadata": {}, "visibility": None}
-    metadata: dict[str, Any] = {"created_at": getattr(target, "created_at", None)}
-    text: str | None = None
-    title = case.target_type.replace("_", " ").title()
-    if case.target_type == "direct_message":
-        text = target.message_text
-        metadata["delivery"] = "direct message"
-    elif case.target_type == "league_message":
-        text = target.message_text
-        metadata["league_id"] = target.league_id
-    elif case.target_type == "court_review":
-        text = target.review_text
-        court = await session.get(Court, target.court_id)
-        title = f"Review of {court.name}" if court else "Court review"
-        metadata.update({"court_id": target.court_id, "rating": target.rating})
-    elif case.target_type == "court_photo":
-        text = target.caption
-        court = await session.get(Court, target.court_id)
-        title = f"Photo at {court.name}" if court else "Court photo"
-        metadata.update({"court_id": target.court_id, "media_type": "image"})
-    elif case.target_type == "court_review_photo":
-        review = await session.get(CourtReview, target.review_id)
-        court = await session.get(Court, review.court_id) if review else None
-        title = f"Review photo at {court.name}" if court else "Court review photo"
-        metadata.update({"review_id": target.review_id, "court_id": review.court_id if review else None, "media_type": "image"})
+        await cancel_urgent_repeats(session, case.id)
+    event = ModerationEvent(
+        case_id=case.id,
+        event_type="external_escalation",
+        actor_user_id=actor_user_id,
+        reason=normalized_note,
+        metadata_json={
+            "channel": channel,
+            "jurisdiction": jurisdiction,
+            "external_reference": external_reference.strip() if external_reference else None,
+        },
+    )
+    session.add(event)
+    await session.flush()
     return {
-        "kind": case.target_type,
-        "available": True,
-        "title": title,
-        "text": text,
-        "metadata": metadata,
-        "visibility": target.moderation_visibility,
+        "case_id": case.id,
+        "event_type": event.event_type,
+        "channel": channel,
+        "jurisdiction": jurisdiction,
+        "external_reference": event.metadata_json["external_reference"],
+        "created_at": event.created_at,
     }
 
 
@@ -904,10 +733,12 @@ async def _allowed_actions(session: AsyncSession, case: ModerationCase) -> list[
     if case.state not in {"open", "acknowledged"}:
         open_appeal = (
             await session.execute(
-                select(ModerationAppeal.id).where(
+                select(ModerationAppeal.id)
+                .where(
                     ModerationAppeal.case_id == case.id,
                     ModerationAppeal.status == "open",
-                ).limit(1)
+                )
+                .limit(1)
             )
         ).scalar_one_or_none()
         if open_appeal is not None:
@@ -935,10 +766,12 @@ async def _allowed_actions(session: AsyncSession, case: ModerationCase) -> list[
             actions.append("account_restore")
         open_appeal = (
             await session.execute(
-                select(ModerationAppeal.id).where(
+                select(ModerationAppeal.id)
+                .where(
                     ModerationAppeal.case_id == case.id,
                     ModerationAppeal.status == "open",
-                ).limit(1)
+                )
+                .limit(1)
             )
         ).scalar_one_or_none()
         if open_appeal is not None:
@@ -982,37 +815,10 @@ async def _set_visibility(session: AsyncSession, case: ModerationCase, visibilit
         raise ValueError("Target no longer exists")
     target.moderation_visibility = visibility
     if visibility == "removed" and case.target_type in {"court_photo", "court_review_photo"}:
-        from backend.services import s3_service
-
-        s3_service.delete_file(target.s3_key)
-
-
-def _case_dict(case: ModerationCase) -> dict[str, Any]:
-    return {
-        "id": case.id,
-        "target_type": case.target_type,
-        "target_id": case.target_id,
-        "subject_player_id": case.subject_player_id,
-        "state": case.state,
-        "severity": case.severity,
-        "junior_involved": case.junior_involved,
-        "due_at": case.due_at,
-        "legal_hold": case.legal_hold,
-        "current_action": case.current_action,
-        "acknowledged_at": case.acknowledged_at,
-        "closed_at": case.closed_at,
-        "created_at": case.created_at,
-        "updated_at": case.updated_at,
-    }
-
-
-def _appeal_dict(appeal: ModerationAppeal) -> dict[str, Any]:
-    return {
-        "id": appeal.id,
-        "case_id": appeal.case_id,
-        "status": appeal.status,
-        "statement": appeal.statement,
-        "resolution_reason": appeal.resolution_reason,
-        "created_at": appeal.created_at,
-        "resolved_at": appeal.resolved_at,
-    }
+        # Object storage deletion must survive process exits and transient S3
+        # failures. The worker owns the external side effect after commit.
+        await session.execute(
+            pg_insert(MediaDeletionJob)
+            .values(object_key=target.s3_key)
+            .on_conflict_do_nothing(index_elements=[MediaDeletionJob.object_key])
+        )

@@ -218,9 +218,7 @@ async def test_create_session_without_league_id_is_none(db_session: AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_create_session_session_type_is_derived(
-    db_session: AsyncSession, league_a: League
-):
+async def test_create_session_session_type_is_derived(db_session: AsyncSession, league_a: League):
     """A league-linked session is always persisted as a league session."""
     today = date.today().strftime("%-m/%-d/%Y")
 

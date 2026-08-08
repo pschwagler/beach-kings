@@ -241,7 +241,10 @@ async def list_players_search(
     """
 
     def _apply_common_filters(stmt, *, for_count: bool = False):
-        stmt = stmt.where(or_(Player.status != "system", Player.status.is_(None)))
+        stmt = stmt.where(
+            Player.deleted_at.is_(None),
+            or_(Player.status != "system", Player.status.is_(None)),
+        )
         stmt = _filter_placeholders(stmt, include_placeholders)
         stmt = _filter_search(stmt, q)
         stmt = _filter_location(stmt, location_ids)
@@ -315,7 +318,10 @@ _NETWORK_HARD_CAP = 500
 # Default cap on score-0 strangers appended to a name search.
 _DEFAULT_STRANGER_LIMIT = 50
 
-_NON_SYSTEM = or_(Player.status != "system", Player.status.is_(None))
+_NON_SYSTEM = and_(
+    Player.deleted_at.is_(None),
+    or_(Player.status != "system", Player.status.is_(None)),
+)
 
 
 def _resolved_names(row) -> Dict[str, str]:
@@ -788,7 +794,11 @@ async def get_all_player_names(session: AsyncSession) -> List[str]:
     Returns:
         Sorted list of full name strings.
     """
-    result = await session.execute(select(Player.full_name).order_by(Player.full_name.asc()))
+    result = await session.execute(
+        select(Player.full_name)
+        .where(Player.deleted_at.is_(None))
+        .order_by(Player.full_name.asc())
+    )
     return [row[0] for row in result.all()]
 
 
@@ -809,7 +819,9 @@ async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional
         Player dict or None if not found.  Keys include all profile fields
         plus ``created_at`` / ``updated_at`` as ISO strings.
     """
-    result = await session.execute(select(Player).where(Player.user_id == user_id))
+    result = await session.execute(
+        select(Player).where(Player.user_id == user_id, Player.deleted_at.is_(None))
+    )
     player = result.scalar_one_or_none()
     if not player:
         return None
@@ -853,7 +865,7 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
         select(Player, PlayerGlobalStats, Location.slug.label("location_slug"))
         .outerjoin(PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id)
         .outerjoin(Location, Player.location_id == Location.id)
-        .where(Player.user_id == user_id)
+        .where(Player.user_id == user_id, Player.deleted_at.is_(None))
     )
     row = result.first()
 
@@ -1052,7 +1064,9 @@ async def get_or_create_player(session: AsyncSession, name: str) -> int:
     Returns:
         Player ID (integer).
     """
-    result = await session.execute(select(Player.id).where(Player.full_name == name))
+    result = await session.execute(
+        select(Player.id).where(Player.full_name == name, Player.deleted_at.is_(None))
+    )
     player_id = result.scalars().first()
 
     if player_id:
@@ -1082,7 +1096,9 @@ async def get_player_by_id(session: AsyncSession, player_id: int) -> Optional[Di
         Dict with ``id``, ``full_name``, ``nickname``, ``is_placeholder``,
         ``created_by_player_id``, ``user_id``, or None if not found.
     """
-    result = await session.execute(select(Player).where(Player.id == player_id))
+    result = await session.execute(
+        select(Player).where(Player.id == player_id, Player.deleted_at.is_(None))
+    )
     player = result.scalar_one_or_none()
     if not player:
         return None

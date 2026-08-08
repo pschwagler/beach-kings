@@ -132,9 +132,13 @@ async def geocode_places(
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=502, detail="Place search provider returned an error") from exc
+        raise HTTPException(
+            status_code=502, detail="Place search provider returned an error"
+        ) from exc
     except httpx.RequestError as exc:
-        raise HTTPException(status_code=502, detail="Place search provider is unavailable") from exc
+        raise HTTPException(
+            status_code=502, detail="Place search provider is unavailable"
+        ) from exc
 
 
 @router.put("/api/locations/{location_id}", response_model=LocationResponse)

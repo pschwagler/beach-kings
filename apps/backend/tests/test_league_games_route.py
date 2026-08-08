@@ -257,6 +257,13 @@ class TestBuildEntry:
         assert entry["team1_player_names"] == ["Alice"]
         assert entry["team1_player_ids"] == [10]
 
+    def test_deleted_player_is_a_non_clickable_tombstone(self):
+        entry = league_games_service._build_entry(
+            self._row(t1p2_deleted_at="2026-08-06T00:00:00Z")
+        )
+        assert entry["team1_player_names"] == ["Alice", "Deleted Player"]
+        assert entry["team1_player_ids"] == [10, None]
+
     def test_null_winner_defaults_to_no_result(self):
         entry = league_games_service._build_entry(self._row(winner=None))
         assert entry["winner"] == league_games_service.WINNER_NO_RESULT

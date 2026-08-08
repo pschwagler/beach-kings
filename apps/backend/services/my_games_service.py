@@ -24,6 +24,7 @@ from backend.database.models import (
     Session,
     SessionStatus,
 )
+from backend.services.player_lifecycle import historical_id, historical_name
 
 logger = logging.getLogger(__name__)
 
@@ -64,30 +65,20 @@ def _build_entry(
     """
     on_team1 = row.team1_player1_id == player_id or row.team1_player2_id == player_id
 
+    def deleted_at(field: str):
+        return getattr(row, field, None)
+
     if on_team1:
         my_score = row.team1_score or 0
         opp_score = row.team2_score or 0
-        partner_names = [
-            n
-            for n in [
-                row.team1_player1_name if row.team1_player1_id != player_id else None,
-                row.team1_player2_name if row.team1_player2_id != player_id else None,
-            ]
-            if n is not None
+        partners = [
+            (row.team1_player1_name, row.team1_player1_id, deleted_at("t1p1_deleted_at")),
+            (row.team1_player2_name, row.team1_player2_id, deleted_at("t1p2_deleted_at")),
         ]
-        partner_ids = [
-            pid
-            for pid in [
-                row.team1_player1_id if row.team1_player1_id != player_id else None,
-                row.team1_player2_id if row.team1_player2_id != player_id else None,
-            ]
-            if pid is not None
-        ]
-        opponent_names = [
-            n for n in [row.team2_player1_name, row.team2_player2_name] if n is not None
-        ]
-        opponent_ids = [
-            pid for pid in [row.team2_player1_id, row.team2_player2_id] if pid is not None
+        partners = [item for item in partners if item[1] != player_id]
+        opponents = [
+            (row.team2_player1_name, row.team2_player1_id, deleted_at("t2p1_deleted_at")),
+            (row.team2_player2_name, row.team2_player2_id, deleted_at("t2p2_deleted_at")),
         ]
         if row.winner == 1:
             result = "W"
@@ -98,27 +89,14 @@ def _build_entry(
     else:
         my_score = row.team2_score or 0
         opp_score = row.team1_score or 0
-        partner_names = [
-            n
-            for n in [
-                row.team2_player1_name if row.team2_player1_id != player_id else None,
-                row.team2_player2_name if row.team2_player2_id != player_id else None,
-            ]
-            if n is not None
+        partners = [
+            (row.team2_player1_name, row.team2_player1_id, deleted_at("t2p1_deleted_at")),
+            (row.team2_player2_name, row.team2_player2_id, deleted_at("t2p2_deleted_at")),
         ]
-        partner_ids = [
-            pid
-            for pid in [
-                row.team2_player1_id if row.team2_player1_id != player_id else None,
-                row.team2_player2_id if row.team2_player2_id != player_id else None,
-            ]
-            if pid is not None
-        ]
-        opponent_names = [
-            n for n in [row.team1_player1_name, row.team1_player2_name] if n is not None
-        ]
-        opponent_ids = [
-            pid for pid in [row.team1_player1_id, row.team1_player2_id] if pid is not None
+        partners = [item for item in partners if item[1] != player_id]
+        opponents = [
+            (row.team1_player1_name, row.team1_player1_id, deleted_at("t1p1_deleted_at")),
+            (row.team1_player2_name, row.team1_player2_id, deleted_at("t1p2_deleted_at")),
         ]
         if row.winner == 2:
             result = "W"
@@ -126,6 +104,11 @@ def _build_entry(
             result = "D"
         else:
             result = "L"
+
+    partner_names = [historical_name(name, deleted_at) for name, _, deleted_at in partners]
+    partner_ids = [historical_id(pid, deleted_at) for _, pid, deleted_at in partners]
+    opponent_names = [historical_name(name, deleted_at) for name, _, deleted_at in opponents]
+    opponent_ids = [historical_id(pid, deleted_at) for _, pid, deleted_at in opponents]
 
     # A session is "submitted" for display purposes whenever it is no longer
     # ACTIVE. Both SUBMITTED and EDITED are locked/finalized states (EDITED is a
@@ -186,7 +169,9 @@ async def get_my_games(
         the player is not found.
     """
 
-    player_exists = await session.execute(select(Player.id).where(Player.id == player_id))
+    player_exists = await session.execute(
+        select(Player.id).where(Player.id == player_id, Player.deleted_at.is_(None))
+    )
     if not player_exists.scalar_one_or_none():
         return None
 
@@ -218,6 +203,10 @@ async def get_my_games(
             p2.full_name.label("team1_player2_name"),
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
             eh.elo_change,
             Session.status.label("session_status"),
             Session.date.label("session_date"),

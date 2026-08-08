@@ -21,9 +21,7 @@ from backend.services.session_data import create_match_async, update_match_async
         (21, 21, MATCH_SCORE_TIED_ERROR),
     ],
 )
-def test_validate_match_score_rejects_games_without_a_winner(
-    team1_score, team2_score, message
-):
+def test_validate_match_score_rejects_games_without_a_winner(team1_score, team2_score, message):
     with pytest.raises(ValueError, match=message.replace(".", r"\.")):
         validate_match_score(team1_score, team2_score)
 

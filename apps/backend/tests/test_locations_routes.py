@@ -202,7 +202,16 @@ class TestGeocodePlaces:
     def test_places_success(self, monkeypatch):
         async def fake_search(text, lat, lng):
             assert (text, lat, lng) == ("Brooklyn", 40.7, -74.0)
-            return [{"id": "1", "primary_text": "Brooklyn", "secondary_text": "New York", "latitude": 40.65, "longitude": -73.95, "result_type": "city"}]
+            return [
+                {
+                    "id": "1",
+                    "primary_text": "Brooklyn",
+                    "secondary_text": "New York",
+                    "latitude": 40.65,
+                    "longitude": -73.95,
+                    "result_type": "city",
+                }
+            ]
 
         monkeypatch.setattr(location_service, "search_places", fake_search, raising=True)
         response = TestClient(app).get("/api/geocode/places?text=Brooklyn&lat=40.7&lng=-74")

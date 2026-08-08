@@ -1206,9 +1206,7 @@ async def test_discover_players_includes_zero_game_players(db_session, discover_
 
 
 @pytest.mark.asyncio
-async def test_discover_players_includes_players_without_stats_row(
-    db_session, discover_setup
-):
+async def test_discover_players_includes_players_without_stats_row(db_session, discover_setup):
     """Brand-new players with no PlayerGlobalStats row are discoverable and
     get coalesced defaults (0 games, 1200 rating)."""
     _, gina = await _create_user_and_player(db_session, "+15552000007", "Gina Newcomer")

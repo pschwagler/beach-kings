@@ -975,7 +975,9 @@ async def get_player_public_leagues(session: AsyncSession, player_id: int) -> li
     """
     # Verify player exists.
     player_exists = (
-        await session.execute(select(Player.id).where(Player.id == player_id))
+        await session.execute(
+            select(Player.id).where(Player.id == player_id, Player.deleted_at.is_(None))
+        )
     ).scalar_one_or_none()
     if player_exists is None:
         return None
@@ -2042,7 +2044,7 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
             Player.profile_picture_url.label("player_profile_picture_url"),
         )
         .join(Player, Player.id == LeagueMember.player_id)
-        .where(LeagueMember.league_id == league_id)
+        .where(LeagueMember.league_id == league_id, Player.deleted_at.is_(None))
         .order_by(Player.full_name.asc())
     )
     rows = result.all()
@@ -2078,6 +2080,9 @@ async def add_league_member(
     session: AsyncSession, league_id: int, player_id: int, role: str = "member"
 ) -> Dict:
     """Add a league member."""
+    from backend.services.player_lifecycle import require_active_players
+
+    await require_active_players(session, [player_id])
     member = LeagueMember(league_id=league_id, player_id=player_id, role=role)
     session.add(member)
     await session.commit()
@@ -2131,6 +2136,13 @@ async def add_league_members_batch(
 
     # Pre-fetch all existing member player_ids for this league in one query
     valid_pids = [pid for pid, _ in valid_entries]
+    active_pids = set(
+        (
+            await session.execute(
+                select(Player.id).where(Player.id.in_(valid_pids), Player.deleted_at.is_(None))
+            )
+        ).scalars()
+    )
     result = await session.execute(
         select(LeagueMember.player_id).where(
             and_(
@@ -2145,6 +2157,9 @@ async def add_league_members_batch(
     new_members: List[LeagueMember] = []
     new_entries: List[tuple] = []  # (player_id, role) for successful adds
     for pid, role in valid_entries:
+        if pid not in active_pids:
+            failed.append({"player_id": pid, "error": "Player not found"})
+            continue
         if pid in existing_pids:
             failed.append({"player_id": pid, "error": "Already a member"})
             continue
@@ -2327,6 +2342,9 @@ async def has_pending_league_request(
 
 async def create_league_request(session: AsyncSession, league_id: int, player_id: int) -> Dict:
     """Create a join request for an invite-only league."""
+    from backend.services.player_lifecycle import require_active_players
+
+    await require_active_players(session, [player_id])
     if await has_pending_league_request(session, league_id, player_id):
         raise ValueError("A pending join request already exists for this league")
 
@@ -2374,6 +2392,7 @@ async def list_league_join_requests(session: AsyncSession, league_id: int) -> Li
             and_(
                 LeagueRequest.league_id == league_id,
                 LeagueRequest.status == "pending",
+                Player.deleted_at.is_(None),
             )
         )
         .order_by(LeagueRequest.created_at.asc())
@@ -2397,6 +2416,7 @@ async def list_league_join_requests_rejected(session: AsyncSession, league_id: i
             and_(
                 LeagueRequest.league_id == league_id,
                 LeagueRequest.status == "rejected",
+                Player.deleted_at.is_(None),
             )
         )
         .order_by(LeagueRequest.updated_at.desc())
@@ -2513,7 +2533,10 @@ async def get_league_standings(
         rows_result = await session.execute(
             select(PlayerSeasonStats, Player)
             .join(Player, Player.id == PlayerSeasonStats.player_id)
-            .where(PlayerSeasonStats.season_id == season_id)
+            .where(
+                PlayerSeasonStats.season_id == season_id,
+                Player.deleted_at.is_(None),
+            )
             .order_by(*_SEASON_RANK_ORDER)
         )
         rows = rows_result.all()
@@ -2578,7 +2601,10 @@ async def get_league_standings(
         select(PlayerLeagueStats, Player, PlayerGlobalStats)
         .join(Player, Player.id == PlayerLeagueStats.player_id)
         .outerjoin(PlayerGlobalStats, PlayerGlobalStats.player_id == PlayerLeagueStats.player_id)
-        .where(PlayerLeagueStats.league_id == league_id)
+        .where(
+            PlayerLeagueStats.league_id == league_id,
+            Player.deleted_at.is_(None),
+        )
         .order_by(PlayerLeagueStats.wins.desc(), PlayerLeagueStats.win_rate.desc())
     )
     rows = rows_result.all()
@@ -2716,6 +2742,7 @@ async def get_invitable_players(
             and_(
                 Player.id != admin_player_id,
                 or_(Player.is_placeholder.is_(None), Player.is_placeholder.is_(False)),
+                Player.deleted_at.is_(None),
             )
         )
     )
@@ -2787,6 +2814,10 @@ async def create_league_invites(
     """
     if not player_ids:
         return 0
+
+    from backend.services.player_lifecycle import require_active_players
+
+    await require_active_players(session, player_ids)
 
     if invited_by_player_id is not None:
         from backend.services import interaction_policy
@@ -2911,7 +2942,10 @@ async def list_league_invites(session: AsyncSession, league_id: int) -> List[Dic
         )
         .join(League, League.id == LeagueInvite.league_id)
         .join(Player, Player.id == LeagueInvite.player_id)
-        .where(LeagueInvite.league_id == league_id)
+        .where(
+            LeagueInvite.league_id == league_id,
+            Player.deleted_at.is_(None),
+        )
         .order_by(LeagueInvite.created_at.desc())
     )
     rows = result.all()
@@ -2973,6 +3007,10 @@ async def respond_to_league_invite(
     Raises:
         ValueError: When no pending invite exists for ``(league_id, player_id)``.
     """
+    from backend.services.player_lifecycle import require_active_players
+
+    await require_active_players(session, [player_id])
+
     # Fetch the pending invite for this exact (league, player) pair.
     invite_result = await session.execute(
         select(LeagueInvite).where(
@@ -3044,7 +3082,10 @@ async def list_my_sent_invites(session: AsyncSession, player_id: int) -> List[Di
         )
         .join(League, League.id == LeagueInvite.league_id)
         .join(Player, Player.id == LeagueInvite.player_id)
-        .where(LeagueInvite.invited_by_player_id == player_id)
+        .where(
+            LeagueInvite.invited_by_player_id == player_id,
+            Player.deleted_at.is_(None),
+        )
         .order_by(LeagueInvite.created_at.desc())
     )
     rows = result.all()
@@ -3110,6 +3151,7 @@ async def list_my_received_invites(session: AsyncSession, player_id: int) -> Lis
             and_(
                 LeagueInvite.player_id == player_id,
                 LeagueInvite.status == "pending",
+                Player.deleted_at.is_(None),
             )
         )
         .order_by(LeagueInvite.created_at.desc())

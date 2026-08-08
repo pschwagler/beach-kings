@@ -3,7 +3,7 @@
  *
  * Usage:
  *   const { promptGoogle, isGoogleConfigured } = useGoogleSignIn(onGoogleToken);
- *   const idToken = await signInWithApple();
+ *   const credential = await signInWithApple();
  *
  * Configuration comes from EXPO_PUBLIC_* env vars (see README).
  */
@@ -17,6 +17,11 @@ import * as WebBrowser from 'expo-web-browser';
 WebBrowser.maybeCompleteAuthSession();
 
 type OnTokenHandler = (idToken: string) => Promise<void> | void;
+
+export interface AppleSignInCredential {
+  readonly idToken: string;
+  readonly authorizationCode: string;
+}
 
 const GOOGLE_ANDROID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
 const GOOGLE_IOS = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
@@ -105,9 +110,10 @@ export async function isAppleSignInAvailable(): Promise<boolean> {
 }
 
 /**
- * Trigger the native Apple sign-in sheet and return the identity token.
+ * Trigger Apple sign-in and return both values needed for server-side validation
+ * and eventual account-deletion revocation.
  */
-export async function signInWithApple(): Promise<string> {
+export async function signInWithApple(): Promise<AppleSignInCredential> {
   if (Platform.OS !== 'ios') {
     throw new OAuthNotConfiguredError('apple');
   }
@@ -121,7 +127,13 @@ export async function signInWithApple(): Promise<string> {
     if (!credential.identityToken) {
       throw new Error('Apple did not return an identity token');
     }
-    return credential.identityToken;
+    if (!credential.authorizationCode) {
+      throw new Error('Apple did not return an authorization code');
+    }
+    return {
+      idToken: credential.identityToken,
+      authorizationCode: credential.authorizationCode,
+    };
   } catch (err) {
     const code = (err as { code?: string }).code;
     if (code === 'ERR_REQUEST_CANCELED') {

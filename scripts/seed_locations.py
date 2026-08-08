@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 Seed database with regions and locations from CSV file.
 Reads backend/seed/locations.csv and populates the regions and locations tables.
@@ -127,7 +128,7 @@ async def seed_locations():
         await session.commit()
         print(f"✓ Locations: {locations_created} created, {locations_existing} already existed")
         
-        print(f"\n✅ Seeding complete!")
+        print("\n✅ Seeding complete!")
         print(f"   Total regions: {len(regions_dict)}")
         print(f"   Total locations: {len(locations_data)}")
 

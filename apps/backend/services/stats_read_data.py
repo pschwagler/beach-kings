@@ -45,6 +45,7 @@ from backend.database.models import (
 from backend.utils.constants import INITIAL_ELO
 from backend.services.league_data import is_league_member
 from backend.services.player_data import generate_player_initials
+from backend.services.player_lifecycle import historical_id, historical_name
 
 logger = logging.getLogger(__name__)
 
@@ -203,10 +204,11 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
             .outerjoin(PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id)
             .outerjoin(stats_subq, Player.id == stats_subq.c.player_id)
             .where(
+                Player.deleted_at.is_(None),
                 or_(
                     stats_subq.c.games.isnot(None),
                     PlayerGlobalStats.total_games.isnot(None),
-                )
+                ),
             )
         )
 
@@ -265,7 +267,9 @@ async def get_elo_timeline(session: AsyncSession) -> List[Dict]:
         return []
 
     result = await session.execute(
-        select(Player.id, Player.full_name).order_by(Player.full_name.asc())
+        select(Player.id, Player.full_name)
+        .where(Player.deleted_at.is_(None))
+        .order_by(Player.full_name.asc())
     )
     player_rows = result.all()
     player_id_to_name = {row[0]: row[1] for row in player_rows}
@@ -339,14 +343,14 @@ def _match_row_to_elo_dict(row, elo_by_match: Dict) -> Dict:
         "session_name": row.session_name,
         "session_status": row.session_status.value if row.session_status else None,
         "session_season_id": row.session_season_id,
-        "team1_player1_id": row.team1_player1_id,
-        "team1_player1_name": row.team1_player1_name,
-        "team1_player2_id": row.team1_player2_id,
-        "team1_player2_name": row.team1_player2_name,
-        "team2_player1_id": row.team2_player1_id,
-        "team2_player1_name": row.team2_player1_name,
-        "team2_player2_id": row.team2_player2_id,
-        "team2_player2_name": row.team2_player2_name,
+        "team1_player1_id": historical_id(row.team1_player1_id, row.t1p1_deleted_at),
+        "team1_player1_name": historical_name(row.team1_player1_name, row.t1p1_deleted_at),
+        "team1_player2_id": historical_id(row.team1_player2_id, row.t1p2_deleted_at),
+        "team1_player2_name": historical_name(row.team1_player2_name, row.t1p2_deleted_at),
+        "team2_player1_id": historical_id(row.team2_player1_id, row.t2p1_deleted_at),
+        "team2_player1_name": historical_name(row.team2_player1_name, row.t2p1_deleted_at),
+        "team2_player2_id": historical_id(row.team2_player2_id, row.t2p2_deleted_at),
+        "team2_player2_name": historical_name(row.team2_player2_name, row.t2p2_deleted_at),
         "team1_score": row.team1_score,
         "team2_score": row.team2_score,
         "winner": row.winner,
@@ -379,6 +383,10 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
             p2.full_name.label("team1_player2_name"),
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
             Match.team1_score,
             Match.team2_score,
             Match.winner,
@@ -405,7 +413,12 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
             EloHistory.player_id,
             EloHistory.elo_after,
             EloHistory.elo_change,
-        ).where(EloHistory.match_id.in_(match_ids))
+        )
+        .join(Player, Player.id == EloHistory.player_id)
+        .where(
+            EloHistory.match_id.in_(match_ids),
+            Player.deleted_at.is_(None),
+        )
     )
     elo_by_match = _build_elo_by_match(elo_result.all())
 
@@ -435,6 +448,10 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
             p2.full_name.label("team1_player2_name"),
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
             Match.team1_score,
             Match.team2_score,
             Match.winner,
@@ -461,7 +478,12 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
             EloHistory.player_id,
             EloHistory.elo_after,
             EloHistory.elo_change,
-        ).where(EloHistory.match_id.in_(match_ids))
+        )
+        .join(Player, Player.id == EloHistory.player_id)
+        .where(
+            EloHistory.match_id.in_(match_ids),
+            Player.deleted_at.is_(None),
+        )
     )
     elo_by_match = _build_elo_by_match(elo_result.all())
 
@@ -608,7 +630,9 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
 
     Returns None if the player does not exist.
     """
-    result = await session.execute(select(Player).where(Player.id == player_id))
+    result = await session.execute(
+        select(Player).where(Player.id == player_id, Player.deleted_at.is_(None))
+    )
     player = result.scalar_one_or_none()
     if not player:
         return None
@@ -854,6 +878,11 @@ async def get_player_season_stats(
 
     Returns None if no stats row exists for the player/season combination.
     """
+    player_exists = await session.scalar(
+        select(Player.id).where(Player.id == player_id, Player.deleted_at.is_(None))
+    )
+    if player_exists is None:
+        return None
     result = await session.execute(
         select(PlayerSeasonStats).where(
             and_(
@@ -885,6 +914,11 @@ async def get_player_league_stats(
 
     Returns None if no stats row exists for the player/league combination.
     """
+    player_exists = await session.scalar(
+        select(Player.id).where(Player.id == player_id, Player.deleted_at.is_(None))
+    )
+    if player_exists is None:
+        return None
     result = await session.execute(
         select(PlayerLeagueStats).where(
             and_(
@@ -1103,6 +1137,10 @@ async def _build_league_player_game_history(
             p2.full_name.label("team1_player2_name"),
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
             eh.elo_change,
             Session.status.label("session_status"),
             Session.date.label("session_date"),
@@ -1173,7 +1211,7 @@ async def get_league_player_stats_full(
     player_row = await session.execute(
         select(Player, Location.city, Location.state)
         .outerjoin(Location, Player.location_id == Location.id)
-        .where(Player.id == player_id)
+        .where(Player.id == player_id, Player.deleted_at.is_(None))
     )
     player_record = player_row.first()
     if not player_record:
@@ -1533,7 +1571,9 @@ async def get_player_match_history_by_id(
 
     Returns None if the player is not found, or a (possibly empty) list of match dicts.
     """
-    result = await session.execute(select(Player.id).where(Player.id == player_id))
+    result = await session.execute(
+        select(Player.id).where(Player.id == player_id, Player.deleted_at.is_(None))
+    )
     if not result.scalar_one_or_none():
         return None
 
@@ -1565,6 +1605,10 @@ async def get_player_match_history_by_id(
             p2.is_placeholder.label("t1p2_is_placeholder"),
             p3.is_placeholder.label("t2p1_is_placeholder"),
             p4.is_placeholder.label("t2p2_is_placeholder"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
             eh.elo_after,
             Match.is_ranked,
             Match.ranked_intent,
@@ -1658,6 +1702,28 @@ async def get_player_match_history_by_id(
                 session_status_value = row.session_status.value
             else:
                 session_status_value = str(row.session_status)
+
+        deleted_by_id = {
+            row.team1_player1_id: row.t1p1_deleted_at,
+            row.team1_player2_id: row.t1p2_deleted_at,
+            row.team2_player1_id: row.t2p1_deleted_at,
+            row.team2_player2_id: row.t2p2_deleted_at,
+        }
+        partner_deleted_at = deleted_by_id.get(partner_id)
+        opponent1_deleted_at = deleted_by_id.get(opponent1_id)
+        opponent2_deleted_at = deleted_by_id.get(opponent2_id)
+        partner = historical_name(partner, partner_deleted_at)
+        opponent1 = historical_name(opponent1, opponent1_deleted_at)
+        opponent2 = historical_name(opponent2, opponent2_deleted_at)
+        partner_id = historical_id(partner_id, partner_deleted_at)
+        opponent1_id = historical_id(opponent1_id, opponent1_deleted_at)
+        opponent2_id = historical_id(opponent2_id, opponent2_deleted_at)
+        if partner_deleted_at is not None:
+            partner_is_placeholder = None
+        if opponent1_deleted_at is not None:
+            opponent1_is_placeholder = None
+        if opponent2_deleted_at is not None:
+            opponent2_is_placeholder = None
 
         results.append(
             {

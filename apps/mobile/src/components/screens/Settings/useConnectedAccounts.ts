@@ -95,9 +95,9 @@ export function useConnectedAccounts(): UseConnectedAccountsResult {
   const handleConnectApple = useCallback(async () => {
     setIsLinkingApple(true);
     try {
-      const idToken = await signInWithApple();
+      const credential = await signInWithApple();
       try {
-        await api.linkApple(idToken);
+        await api.linkApple(credential);
         await refreshUser();
       } catch (err) {
         if (is409(err)) {

@@ -345,8 +345,13 @@ def test_list_courts_forwards_bounds(mock_list, client):
     mock_list.return_value = {"items": [], "total_count": 0, "page": 1, "page_size": 20}
     response = client.get("/api/public/courts?north=41&south=40&east=-73&west=-74")
     assert response.status_code == 200
-    assert {key: mock_list.call_args.kwargs[key] for key in ("north", "south", "east", "west")} == {
-        "north": 41.0, "south": 40.0, "east": -73.0, "west": -74.0,
+    assert {
+        key: mock_list.call_args.kwargs[key] for key in ("north", "south", "east", "west")
+    } == {
+        "north": 41.0,
+        "south": 40.0,
+        "east": -73.0,
+        "west": -74.0,
     }
 
 
@@ -357,8 +362,13 @@ def test_list_courts_accepts_and_forwards_date_line_crossing_bounds(mock_list, c
     response = client.get("/api/public/courts?north=10&south=-10&east=-179&west=179")
 
     assert response.status_code == 200
-    assert {key: mock_list.call_args.kwargs[key] for key in ("north", "south", "east", "west")} == {
-        "north": 10.0, "south": -10.0, "east": -179.0, "west": 179.0,
+    assert {
+        key: mock_list.call_args.kwargs[key] for key in ("north", "south", "east", "west")
+    } == {
+        "north": 10.0,
+        "south": -10.0,
+        "east": -179.0,
+        "west": 179.0,
     }
 
 

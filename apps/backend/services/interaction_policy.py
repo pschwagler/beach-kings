@@ -78,6 +78,7 @@ class DenialReason(str, Enum):
     BLOCKED_BY_OTHER = "blocked_by_other"
     VIEWER_RESTRICTED = "viewer_restricted"
     OTHER_RESTRICTED = "other_restricted"
+    PLAYER_UNAVAILABLE = "player_unavailable"
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,8 @@ class _PairState:
     other_blocks_viewer: bool = False
     viewer_restricted: bool = False
     other_restricted: bool = False
+    viewer_unavailable: bool = False
+    other_unavailable: bool = False
 
 
 def decide_interaction(action: InteractionAction, state: _PairState) -> InteractionDecision:
@@ -110,7 +113,9 @@ def decide_interaction(action: InteractionAction, state: _PairState) -> Interact
     rule = ACTION_POLICY[action]
     reason: DenialReason | None = None
     if rule is PolicyRule.BILATERAL:
-        if state.viewer_blocks_other:
+        if state.viewer_unavailable or state.other_unavailable:
+            reason = DenialReason.PLAYER_UNAVAILABLE
+        elif state.viewer_blocks_other:
             reason = DenialReason.BLOCKED_BY_VIEWER
         elif state.other_blocks_viewer:
             reason = DenialReason.BLOCKED_BY_OTHER
@@ -184,12 +189,20 @@ async def _pair_states(
     restricted_ids.update(
         await account_restricted_player_ids(session, (viewer_id, *unique_ids), now=now)
     )
+    active_result = await session.execute(
+        select(Player.id).where(
+            Player.id.in_((viewer_id, *unique_ids)), Player.deleted_at.is_(None)
+        )
+    )
+    active_ids = set(active_result.scalars().all())
     return {
         other_id: _PairState(
             viewer_blocks_other=other_id in viewer_blocks,
             other_blocks_viewer=other_id in other_blocks,
             viewer_restricted=viewer_id in restricted_ids,
             other_restricted=other_id in restricted_ids,
+            viewer_unavailable=viewer_id not in active_ids,
+            other_unavailable=other_id not in active_ids,
         )
         for other_id in unique_ids
     }
@@ -371,7 +384,9 @@ async def create_block(session: AsyncSession, blocker_id: int, blocked_id: int) 
     """Create a directed block and atomically sever pair-specific state."""
     if blocker_id == blocked_id:
         raise ValueError("You cannot block yourself")
-    exists_result = await session.execute(select(Player.id).where(Player.id == blocked_id))
+    exists_result = await session.execute(
+        select(Player.id).where(Player.id == blocked_id, Player.deleted_at.is_(None))
+    )
     if exists_result.scalar_one_or_none() is None:
         raise ValueError("Player not found")
 
@@ -501,7 +516,10 @@ async def list_blocks(session: AsyncSession, blocker_id: int) -> list[dict[str, 
             UserBlock.created_at,
         )
         .join(Player, Player.id == UserBlock.blocked_player_id)
-        .where(UserBlock.blocker_player_id == blocker_id)
+        .where(
+            UserBlock.blocker_player_id == blocker_id,
+            Player.deleted_at.is_(None),
+        )
         .order_by(UserBlock.created_at.desc())
     )
     return [
@@ -539,6 +557,18 @@ async def blocked_by_viewer_player_ids(session: AsyncSession, viewer_id: int) ->
         select(UserBlock.blocked_player_id).where(UserBlock.blocker_player_id == viewer_id)
     )
     return set(result.scalars().all())
+
+
+async def delete_blocks_for_player(session: AsyncSession, player_id: int) -> None:
+    """Remove private block state when either identity is permanently deleted."""
+    await session.execute(
+        delete(UserBlock).where(
+            or_(
+                UserBlock.blocker_player_id == player_id,
+                UserBlock.blocked_player_id == player_id,
+            )
+        )
+    )
 
 
 def exclude_blocked_players(query, viewer_id: int, player_column):

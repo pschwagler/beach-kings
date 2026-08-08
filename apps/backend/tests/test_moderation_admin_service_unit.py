@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -8,7 +9,12 @@ from fastapi.testclient import TestClient
 from backend.api.auth_dependencies import require_system_admin
 from backend.api.routes.moderation import router
 from backend.database.db import get_db_session
-from backend.services import moderation_evidence_service, moderation_service
+from backend.services import (
+    moderation_admin_queries,
+    moderation_evidence_service,
+    moderation_service,
+    moderation_worker,
+)
 
 
 def _result(value):
@@ -21,6 +27,12 @@ def _rows_result(rows):
     result = MagicMock()
     result.all.return_value = rows
     result.__iter__.return_value = iter(rows)
+    return result
+
+
+def _scalars_result(values):
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = values
     return result
 
 
@@ -59,12 +71,11 @@ def test_admin_case_filters_accept_active_and_all_states():
         new=AsyncMock(return_value={"items": [], "total": 0}),
     ) as search:
         client = TestClient(app)
-        assert client.get(
-            "/api/admin-view/moderation/cases?state=active"
-        ).status_code == 200
-        assert client.get(
-            "/api/admin-view/moderation/cases?state=all&queue=urgent"
-        ).status_code == 200
+        assert client.get("/api/admin-view/moderation/cases?state=active").status_code == 200
+        assert (
+            client.get("/api/admin-view/moderation/cases?state=all&queue=urgent").status_code
+            == 200
+        )
 
     assert search.await_args_list[0].kwargs["state"] == "active"
     assert search.await_args_list[1].kwargs == {
@@ -96,9 +107,7 @@ async def test_case_list_summary_is_triage_safe_and_identity_free():
     session = AsyncMock()
     session.execute.side_effect = [subject_rows, reason_rows, target_result]
 
-    summaries = await moderation_service._case_list_summaries(
-        session, [case], {7: 2}
-    )
+    summaries = await moderation_service._case_list_summaries(session, [case], {7: 2})
 
     assert summaries == {
         7: {
@@ -122,13 +131,11 @@ async def test_explicit_state_and_attention_filters_are_independent():
     session.execute.side_effect = [count_result, _rows_result([])]
 
     with patch.object(
-        moderation_service,
+        moderation_admin_queries,
         "_queue_totals",
         new=AsyncMock(return_value={}),
     ):
-        await moderation_service.search_cases(
-            session, state="all", queue="urgent"
-        )
+        await moderation_admin_queries.search_cases(session, state="all", queue="urgent")
 
     compiled = str(session.execute.await_args_list[0].args[0])
     where_clause = compiled.split("WHERE", 1)[1]
@@ -144,11 +151,11 @@ async def test_active_scope_includes_open_and_acknowledged():
     session.execute.side_effect = [count_result, _rows_result([])]
 
     with patch.object(
-        moderation_service,
+        moderation_admin_queries,
         "_queue_totals",
         new=AsyncMock(return_value={}),
     ):
-        await moderation_service.search_cases(session, state="active")
+        await moderation_admin_queries.search_cases(session, state="active")
 
     compiled = str(session.execute.await_args_list[0].args[0])
     assert "moderation_cases.state IN" in compiled
@@ -164,14 +171,14 @@ async def test_report_context_capture_failure_does_not_block_reporting():
     capture_text = AsyncMock(side_effect=TimeoutError("storage unavailable"))
     capture_context = AsyncMock(return_value=SimpleNamespace(id=90))
 
-    with patch.object(
-        moderation_service, "_resolve_target", new=resolve_target
-    ), patch.object(
-        moderation_evidence_service, "capture_text", new=capture_text
-    ), patch.object(
-        moderation_evidence_service,
-        "capture_chat_context",
-        new=capture_context,
+    with (
+        patch.object(moderation_service, "_resolve_target", new=resolve_target),
+        patch.object(moderation_evidence_service, "capture_text", new=capture_text),
+        patch.object(
+            moderation_evidence_service,
+            "capture_chat_context",
+            new=capture_context,
+        ),
     ):
         receipt = await moderation_service.create_report(
             session,
@@ -210,7 +217,9 @@ async def test_restore_requires_quarantined_visibility():
     session = AsyncMock()
     session.execute.return_value = _result(case)
 
-    with patch.object(moderation_service, "_target_visibility", new=AsyncMock(return_value="visible")):
+    with patch.object(
+        moderation_service, "_target_visibility", new=AsyncMock(return_value="visible")
+    ):
         with pytest.raises(ValueError, match="Only quarantined content"):
             await moderation_service.apply_action(session, 7, 4, "restore", "Reviewed", None)
 
@@ -247,8 +256,11 @@ async def test_allowed_actions_make_removed_content_terminal():
     case = SimpleNamespace(id=7, state="acknowledged", subject_player_id=22)
     session = AsyncMock()
     session.execute.return_value = _result(None)
-    with patch.object(moderation_service, "_target_visibility", new=AsyncMock(return_value="removed")), patch.object(
-        moderation_service, "_subject_user", new=AsyncMock(return_value=None)
+    with (
+        patch.object(
+            moderation_service, "_target_visibility", new=AsyncMock(return_value="removed")
+        ),
+        patch.object(moderation_service, "_subject_user", new=AsyncMock(return_value=None)),
     ):
         actions = await moderation_service._allowed_actions(session, case)
 
@@ -261,20 +273,36 @@ async def test_allowed_actions_make_removed_content_terminal():
 @pytest.mark.asyncio
 async def test_account_suspend_sets_a_time_bound_full_account_state():
     case = SimpleNamespace(
-        id=7, state="open", subject_player_id=22, current_action=None, closed_at=None,
-        target_type="player", target_id=22, severity="ordinary", junior_involved=False,
-        due_at=None, legal_hold=False, acknowledged_at=None, created_at=None, updated_at=None,
+        id=7,
+        state="open",
+        subject_player_id=22,
+        current_action=None,
+        closed_at=None,
+        target_type="player",
+        target_id=22,
+        severity="ordinary",
+        junior_involved=False,
+        due_at=None,
+        legal_hold=False,
+        acknowledged_at=None,
+        created_at=None,
+        updated_at=None,
     )
     subject = SimpleNamespace(
-        moderation_status="active", moderation_expires_at=None,
-        moderation_case_id=None, moderation_updated_at=None,
+        moderation_status="active",
+        moderation_expires_at=None,
+        moderation_case_id=None,
+        moderation_updated_at=None,
     )
     session = AsyncMock()
     session.execute.side_effect = [_result(case), _result(None)]
     subject_lookup = AsyncMock(return_value=subject)
 
-    with patch.object(moderation_service, "_subject_user", new=subject_lookup), patch.object(
-        moderation_service.notification_service, "create_notification", new=AsyncMock()
+    with (
+        patch.object(moderation_service, "_subject_user", new=subject_lookup),
+        patch.object(
+            moderation_service.notification_service, "create_notification", new=AsyncMock()
+        ),
     ):
         await moderation_service.apply_action(
             session, 7, 4, "account_suspend", "Repeated safety violations", 72
@@ -333,3 +361,314 @@ async def test_case_allows_only_one_appeal_decision_cycle():
         await moderation_service.create_appeal(
             session, 22, 7, "Please reconsider this decision with the new context."
         )
+
+
+@pytest.mark.asyncio
+async def test_case_search_uses_stable_due_order_and_exact_id_search():
+    count_result = MagicMock()
+    count_result.scalar_one.return_value = 61
+    session = AsyncMock()
+    session.execute.side_effect = [count_result, _rows_result([])]
+
+    with patch.object(
+        moderation_admin_queries,
+        "_queue_totals",
+        new=AsyncMock(return_value={}),
+    ):
+        result = await moderation_admin_queries.search_cases(
+            session, search="#17", page=3, page_size=30
+        )
+
+    count_sql = str(session.execute.await_args_list[0].args[0])
+    page_sql = str(session.execute.await_args_list[1].args[0])
+    assert "CAST" not in count_sql
+    assert "moderation_cases.id =" in count_sql
+    assert "moderation_cases.target_id =" in count_sql
+    assert "moderation_cases.due_at ASC NULLS LAST" in page_sql
+    assert "moderation_cases.created_at ASC" in page_sql
+    assert "moderation_cases.id ASC" in page_sql
+    assert result["page"] == 3
+    assert result["total_pages"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("target_type", "objects", "expected_title", "expected_text"),
+    [
+        (
+            "direct_message",
+            [
+                SimpleNamespace(
+                    message_text="Direct text", created_at=None, moderation_visibility="visible"
+                )
+            ],
+            "Direct Message",
+            "Direct text",
+        ),
+        (
+            "league_message",
+            [
+                SimpleNamespace(
+                    message_text="League text",
+                    league_id=8,
+                    created_at=None,
+                    moderation_visibility="visible",
+                )
+            ],
+            "League Message",
+            "League text",
+        ),
+        (
+            "court_review",
+            [
+                SimpleNamespace(
+                    review_text="Court text",
+                    court_id=3,
+                    rating=4,
+                    created_at=None,
+                    moderation_visibility="visible",
+                ),
+                SimpleNamespace(name="Harbor Courts"),
+            ],
+            "Review of Harbor Courts",
+            "Court text",
+        ),
+        (
+            "court_photo",
+            [
+                SimpleNamespace(
+                    caption="Photo text",
+                    court_id=3,
+                    created_at=None,
+                    moderation_visibility="visible",
+                ),
+                SimpleNamespace(name="Harbor Courts"),
+            ],
+            "Photo at Harbor Courts",
+            "Photo text",
+        ),
+        (
+            "court_review_photo",
+            [
+                SimpleNamespace(review_id=6, created_at=None, moderation_visibility="visible"),
+                SimpleNamespace(court_id=3),
+                SimpleNamespace(name="Harbor Courts"),
+            ],
+            "Review photo at Harbor Courts",
+            None,
+        ),
+    ],
+)
+async def test_target_context_renders_every_content_type(
+    target_type, objects, expected_title, expected_text
+):
+    session = AsyncMock()
+    session.get.side_effect = objects
+    case = SimpleNamespace(target_type=target_type, target_id=19)
+
+    context = await moderation_admin_queries._target_context(session, case)
+
+    assert context["available"] is True
+    assert context["title"] == expected_title
+    assert context["text"] == expected_text
+    assert context["visibility"] == "visible"
+
+
+@pytest.mark.asyncio
+async def test_case_detail_serializes_provider_review_without_reporter_identity():
+    created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    case = SimpleNamespace(
+        id=7,
+        target_type="player",
+        target_id=22,
+        subject_player_id=None,
+        state="open",
+        severity="ordinary",
+        incident_type=None,
+        junior_involved=False,
+        due_at=None,
+        urgent_since_at=None,
+        legal_hold=False,
+        current_action=None,
+        acknowledged_at=None,
+        dispositioned_at=None,
+        closed_at=None,
+        created_at=created_at,
+        updated_at=created_at,
+    )
+    provider_event = SimpleNamespace(
+        id=1,
+        event_type="provider_classification",
+        actor_user_id=None,
+        reason=None,
+        metadata_json={
+            "flagged": True,
+            "categories": {"harassment": True},
+            "model": "provider-model",
+            "triage": {"recommendation": "owner_review", "rationale": "Context"},
+        },
+        created_at=created_at,
+    )
+    report = SimpleNamespace(
+        id=3,
+        reason="harassment",
+        details="Repeated conduct",
+        reporter_player_id=999,
+        created_at=created_at,
+    )
+    session = AsyncMock()
+    session.get.side_effect = [case, SimpleNamespace(id=22, full_name="Subject", nickname=None)]
+    session.execute.side_effect = [
+        _scalars_result([provider_event]),
+        _scalars_result([report]),
+        _scalars_result([]),
+        _scalars_result([]),
+        _scalars_result([]),
+    ]
+
+    detail = await moderation_admin_queries.get_case(session, 7)
+
+    assert detail["provider_reviews"][0]["categories"] == {"harassment": True}
+    assert detail["provider_reviews"][0]["recommendation"]["rationale"] == "Context"
+    assert detail["reports"] == [
+        {
+            "id": 3,
+            "reason": "harassment",
+            "details": "Repeated conduct",
+            "created_at": created_at,
+        }
+    ]
+    assert "reporter" not in repr(detail)
+
+
+@pytest.mark.asyncio
+async def test_legal_hold_transition_requires_a_change_and_records_history():
+    case = SimpleNamespace(
+        id=7,
+        state="open",
+        legal_hold=False,
+        acknowledged_at=None,
+        severity="ordinary",
+        dispositioned_at=None,
+        closed_at=None,
+        target_type="player",
+        target_id=22,
+        subject_player_id=None,
+        current_action=None,
+        junior_involved=False,
+        due_at=None,
+        urgent_since_at=None,
+        created_at=None,
+        updated_at=None,
+    )
+    session = AsyncMock()
+    session.execute.return_value = _result(case)
+
+    await moderation_service.apply_action(
+        session, 7, 4, "legal_hold", "Preserve for legal review", None, True
+    )
+
+    assert case.legal_hold is True
+    event = session.add.call_args.args[0]
+    assert event.event_type == "human_legal_hold"
+    assert event.metadata_json["enabled"] is True
+
+    session.reset_mock()
+    session.execute.return_value = _result(case)
+    with pytest.raises(ValueError, match="already in the requested state"):
+        await moderation_service.apply_action(
+            session, 7, 4, "legal_hold", "Duplicate request", None, True
+        )
+
+
+@pytest.mark.asyncio
+async def test_closing_case_closes_open_reports():
+    case = SimpleNamespace(
+        id=7,
+        state="open",
+        legal_hold=False,
+        acknowledged_at=None,
+        severity="ordinary",
+        dispositioned_at=None,
+        closed_at=None,
+        target_type="player",
+        target_id=22,
+        subject_player_id=None,
+        current_action=None,
+        junior_involved=False,
+        due_at=None,
+        urgent_since_at=None,
+        created_at=None,
+        updated_at=None,
+    )
+    session = AsyncMock()
+    session.execute.side_effect = [_result(case), MagicMock()]
+
+    with patch.object(moderation_evidence_service, "schedule_case_purge", new=AsyncMock()):
+        await moderation_service.apply_action(
+            session, 7, 4, "dismiss", "No policy violation", None
+        )
+
+    update_sql = str(session.execute.await_args_list[1].args[0])
+    assert case.state == "dismissed"
+    assert "UPDATE moderation_reports" in update_sql
+    assert "moderation_reports.status" in update_sql
+
+
+@pytest.mark.asyncio
+async def test_media_removal_enqueues_durable_deletion_job():
+    target = SimpleNamespace(moderation_visibility="visible", s3_key="courts/photo.jpg")
+    case = SimpleNamespace(target_type="court_photo", target_id=19)
+    session = AsyncMock()
+    session.get.return_value = target
+
+    await moderation_service._set_visibility(session, case, "removed")
+
+    assert target.moderation_visibility == "removed"
+    statement = session.execute.await_args.args[0]
+    sql = str(statement)
+    assert "INSERT INTO media_deletion_jobs" in sql
+    assert "ON CONFLICT (object_key) DO NOTHING" in sql
+    assert statement.compile().params["object_key"] == "courts/photo.jpg"
+
+
+@pytest.mark.asyncio
+async def test_overview_uses_aggregate_worker_and_alert_counts():
+    created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    job_result = MagicMock()
+    job_result.one.return_value = SimpleNamespace(
+        pending=4,
+        processing=2,
+        failed=1,
+        stale=1,
+        oldest_pending_at=created_at,
+        latest_completion_at=created_at,
+    )
+    alert_result = MagicMock()
+    alert_result.one.return_value = SimpleNamespace(
+        pending=3, failed=1, latest_delivery_at=created_at
+    )
+    urgent_result = MagicMock()
+    urgent_result.one.return_value = SimpleNamespace(unacknowledged_urgent=2, ordinary_due_soon=4)
+    session = AsyncMock()
+    session.execute.side_effect = [job_result, alert_result, urgent_result]
+    queues = {"due": 5, "overdue": 2}
+
+    with (
+        patch.object(
+            moderation_admin_queries,
+            "_queue_totals",
+            new=AsyncMock(return_value=queues),
+        ),
+        patch.object(moderation_worker, "moderation_mode", return_value="shadow"),
+    ):
+        result = await moderation_admin_queries.overview(session)
+
+    assert session.execute.await_count == 3
+    assert result["jobs"]["pending"] == 4
+    assert result["alerts"]["failed"] == 1
+    assert result["sla"] == {
+        "unacknowledged_urgent": 2,
+        "ordinary_due_soon": 4,
+        "overdue": 2,
+    }

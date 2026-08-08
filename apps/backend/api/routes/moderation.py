@@ -15,6 +15,7 @@ from backend.models.schemas import (
     ModerationReportCreate,
     ModerationReportReceipt,
     ModerationRetryRequest,
+    ModerationEscalationRequest,
     ModerationAppealCreate,
     ModerationAppealReceipt,
     AccountModerationStatusResponse,
@@ -78,7 +79,12 @@ async def report_content(
 ):
     try:
         return await moderation_service.create_report(
-            session, user["player_id"], payload.target_type, payload.target_id, payload.reason, payload.details
+            session,
+            user["player_id"],
+            payload.target_type,
+            payload.target_id,
+            payload.reason,
+            payload.details,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -94,10 +100,8 @@ async def my_reports(
 
 @router.get("/api/admin-view/moderation/cases")
 async def moderation_cases(
-    queue: str | None = Query(default=None, pattern="^(urgent|due|ordinary)$"),
-    state: str | None = Query(
-        default=None, pattern="^(active|open|acknowledged|closed|all)$"
-    ),
+    queue: str | None = Query(default=None, pattern="^(urgent|due|overdue|ordinary)$"),
+    state: str | None = Query(default=None, pattern="^(active|open|acknowledged|closed|all)$"),
     target_type: str | None = Query(
         default=None,
         pattern="^(player|direct_message|league_message|court_review|court_photo|court_review_photo)$",
@@ -148,9 +152,7 @@ async def moderation_case_context(
 ):
     response.headers["Cache-Control"] = "no-store"
     try:
-        return await moderation_evidence_service.read_chat_context(
-            session, case_id, user["id"]
-        )
+        return await moderation_evidence_service.read_chat_context(session, case_id, user["id"])
     except ValueError as exc:
         raise HTTPException(
             status_code=404,
@@ -182,6 +184,31 @@ async def moderation_action(
         raise HTTPException(status_code=status, detail=str(exc))
 
 
+@router.post(
+    "/api/admin-view/moderation/cases/{case_id}/escalations",
+    status_code=201,
+)
+async def moderation_external_escalation(
+    case_id: int,
+    payload: ModerationEscalationRequest,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await moderation_service.record_external_escalation(
+            session,
+            case_id,
+            user["id"],
+            channel=payload.channel,
+            jurisdiction=payload.jurisdiction,
+            note=payload.note,
+            external_reference=payload.external_reference,
+        )
+    except ValueError as exc:
+        status = 404 if str(exc) == "Case not found" else 400
+        raise HTTPException(status_code=status, detail=str(exc))
+
+
 @router.post("/api/admin-view/moderation/jobs/{job_id}/retry")
 async def moderation_job_retry(
     job_id: int,
@@ -206,7 +233,9 @@ async def moderation_evidence_url(
     session: AsyncSession = Depends(get_db_session),
 ):
     try:
-        url = await moderation_evidence_service.signed_url(session, case_id, evidence_id, user["id"])
+        url = await moderation_evidence_service.signed_url(
+            session, case_id, evidence_id, user["id"]
+        )
         return {"url": url, "expires_in": 300}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))

@@ -84,17 +84,13 @@ def test_court_requests_accept_http_websites(website):
     created = CreateCourtRequest(
         name="Court", address="Beach", location_id="test", website=website
     )
-    suggested = CourtEditSuggestionRequest.model_validate(
-        {"changes": {"website": website}}
-    )
+    suggested = CourtEditSuggestionRequest.model_validate({"changes": {"website": website}})
     assert created.website == website
     assert suggested.changes.website == website
 
 
 def test_blank_court_website_normalizes_to_null():
     update = UpdateCourtRequest(website="   ")
-    suggestion = CourtEditSuggestionRequest.model_validate(
-        {"changes": {"website": "  "}}
-    )
+    suggestion = CourtEditSuggestionRequest.model_validate({"changes": {"website": "  "}})
     assert update.website is None
     assert suggestion.changes.model_dump(exclude_unset=True) == {"website": None}

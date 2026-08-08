@@ -26,6 +26,7 @@ from backend.database.db import get_db_session
 from backend.database.models import Season, Session, SessionStatus, PhotoMatchJobStatus
 from backend.services import data_service, photo_match_service
 from backend.services.match_validation import validate_match_score
+from backend.services.player_lifecycle import require_active_players
 from backend.api.auth_dependencies import (
     get_current_user,
     require_user,
@@ -173,6 +174,7 @@ async def create_match(
         ]
         if len(player_ids) != len(set(player_ids)):
             raise HTTPException(status_code=400, detail="All four players must be distinct")
+        await require_active_players(session, player_ids)
 
         session_id = match_request.session_id
         session_obj = None
@@ -343,6 +345,7 @@ async def update_match(
         ]
         if len(player_ids) != len(set(player_ids)):
             raise HTTPException(status_code=400, detail="All four players must be distinct")
+        await require_active_players(session, player_ids)
 
         match = await data_service.get_match_async(session, match_id)
         if not match:

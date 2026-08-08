@@ -29,10 +29,7 @@ def _distance_miles(lat1: float, lng1: float, lat2: float, lng2: float) -> float
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lng2 - lng1)
-    value = (
-        math.sin(dphi / 2) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    )
+    value = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     return 2 * 3958.8 * math.asin(math.sqrt(value))
 
 
@@ -75,14 +72,10 @@ def test_court_seed_catalog_is_consistent():
 def test_canadian_courts_use_country_aware_hubs():
     locations = _rows("locations.csv")
     courts = _rows("courts.csv")
-    canada_hubs = {
-        row["hub_id"] for row in locations if row["country"] == "Canada"
-    }
+    canada_hubs = {row["hub_id"] for row in locations if row["country"] == "Canada"}
 
     assert canada_hubs
     assert all(row["hub_id"].startswith("ca_") for row in locations if row["country"] == "Canada")
     assert all(
-        row["location_id"] in canada_hubs
-        for row in courts
-        if row["location_id"].startswith("ca_")
+        row["location_id"] in canada_hubs for row in courts if row["location_id"].startswith("ca_")
     )

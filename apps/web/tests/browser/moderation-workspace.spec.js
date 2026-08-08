@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const overview = {
   mode: 'shadow',
-  queues: { urgent: 1, due: 1, ordinary: 1, open: 2, acknowledged: 0, closed: 1 },
+  queues: { active: 2, all: 3, urgent: 1, due: 1, overdue: 0, ordinary: 1, open: 2, acknowledged: 0, closed: 1 },
   generated_at: '2026-08-06T12:00:00Z',
   jobs: {
     pending: 0,
@@ -12,6 +12,8 @@ const overview = {
     oldest_pending_at: null,
     latest_completion_at: '2026-08-06T11:59:00Z',
   },
+  alerts: { pending: 1, failed: 0, latest_delivery_at: '2026-08-06T11:58:00Z' },
+  sla: { unacknowledged_urgent: 1, ordinary_due_soon: 1, overdue: 0 },
 };
 
 const summaries = [
@@ -21,6 +23,9 @@ const summaries = [
     target_id: 501,
     state: 'open',
     severity: 'urgent',
+    incident_type: 'credible_threat',
+    urgent_since_at: '2026-08-06T10:00:00Z',
+    dispositioned_at: null,
     due_at: '2099-08-06T13:00:00Z',
     current_action: null,
     report_count: 2,
@@ -37,6 +42,9 @@ const summaries = [
     target_id: 902,
     state: 'open',
     severity: 'ordinary',
+    incident_type: null,
+    urgent_since_at: null,
+    dispositioned_at: null,
     due_at: '2099-08-07T12:00:00Z',
     current_action: null,
     report_count: 1,
@@ -53,6 +61,9 @@ const summaries = [
     target_id: 703,
     state: 'closed',
     severity: 'ordinary',
+    incident_type: null,
+    urgent_since_at: null,
+    dispositioned_at: '2026-08-06T11:00:00Z',
     due_at: null,
     current_action: 'dismiss',
     report_count: 1,

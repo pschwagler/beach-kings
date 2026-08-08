@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 Complete script to set up players: signup, verify phone, and update profile.
 This script handles the full player onboarding process.
@@ -53,7 +54,7 @@ async def get_verification_code(session: AsyncSession, phone_number: str) -> str
         select(VerificationCode.code)
         .where(
             VerificationCode.phone_number == phone_number,
-            VerificationCode.used == False
+            VerificationCode.used.is_(False),
         )
         .order_by(VerificationCode.created_at.desc())
         .limit(1)
@@ -77,10 +78,10 @@ async def signup_player(client: httpx.AsyncClient, player: dict) -> dict:
     )
     
     if response.status_code == 200:
-        print(f"      ✅ Signup successful")
+        print("      ✅ Signup successful")
         return response.json()
     elif response.status_code == 400 and "already registered" in response.text:
-        print(f"      ⚠️  User already exists, will attempt verification")
+        print("      ⚠️  User already exists, will attempt verification")
         return {"status": "exists"}
     else:
         print(f"      ❌ Signup failed: {response.status_code} - {response.text}")
@@ -101,7 +102,7 @@ async def verify_phone(client: httpx.AsyncClient, player: dict, code: str) -> di
     )
     
     if response.status_code == 200:
-        print(f"      ✅ Verification successful!")
+        print("      ✅ Verification successful!")
         return response.json()
     else:
         print(f"      ❌ Verification failed: {response.status_code} - {response.text}")
@@ -127,7 +128,7 @@ async def update_player_profile(client: httpx.AsyncClient, token: str, player: d
     )
     
     if response.status_code == 200:
-        print(f"      ✅ Profile updated successfully")
+        print("      ✅ Profile updated successfully")
         return True
     else:
         print(f"      ❌ Update failed: {response.status_code} - {response.text}")
@@ -145,7 +146,7 @@ async def process_player(player: dict, db_session: AsyncSession):
         # If user already exists, we still need to verify/login
         if signup_result.get("status") == "exists":
             # Try to login instead
-            print(f"      🔑 Attempting login...")
+            print("      🔑 Attempting login...")
             login_response = await client.post(
                 f"{API_BASE_URL}/api/auth/login",
                 json={
@@ -163,7 +164,7 @@ async def process_player(player: dict, db_session: AsyncSession):
                     return await update_player_profile(client, token, player)
             else:
                 # If login fails, continue with verification flow
-                print(f"      ⚠️  Login failed, continuing with verification...")
+                print("      ⚠️  Login failed, continuing with verification...")
         
         # Step 2: Get verification code from database
         # Wait a bit for the code to be stored
@@ -171,7 +172,7 @@ async def process_player(player: dict, db_session: AsyncSession):
         
         code = await get_verification_code(db_session, player["phone"])
         if not code:
-            print(f"      ❌ Could not find verification code in database")
+            print("      ❌ Could not find verification code in database")
             return False
         
         # Step 3: Verify phone (this returns auth tokens)
@@ -182,7 +183,7 @@ async def process_player(player: dict, db_session: AsyncSession):
         # Step 4: Update profile using the access token from verification
         token = verify_result.get("access_token")
         if not token:
-            print(f"      ❌ No access token in verification response")
+            print("      ❌ No access token in verification response")
             return False
         
         profile_success = await update_player_profile(client, token, player)
@@ -227,7 +228,7 @@ async def main():
                 # Wait between players to avoid rate limiting
                 # Rate limit is 10/minute for verify-phone, so wait 7 seconds between players
                 if i < len(PLAYERS):
-                    print(f"   ⏳ Waiting 7 seconds to avoid rate limiting...")
+                    print("   ⏳ Waiting 7 seconds to avoid rate limiting...")
                     await asyncio.sleep(7)
         
         print("\n" + "=" * 60)

@@ -33,6 +33,4 @@ def test_production_uses_canonical_fallback(monkeypatch):
     monkeypatch.delenv("FRONTEND_URL", raising=False)
     monkeypatch.setenv("ENV", "production")
 
-    assert build_invite_url("prod-token") == (
-        "https://beachleaguevb.com/invite/prod-token"
-    )
+    assert build_invite_url("prod-token") == ("https://beachleaguevb.com/invite/prod-token")

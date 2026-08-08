@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 Seed database with court tags and courts for all locations from CSV files.
 

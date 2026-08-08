@@ -52,8 +52,14 @@ export function createAuthMethods(api: AxiosInstance) {
     /**
      * Exchange an Apple ID token for Beach League auth tokens.
      */
-    async appleAuth(idToken: string): Promise<AuthResponse> {
-      const response = await api.post<AuthResponse>('/api/auth/apple', { id_token: idToken });
+    async appleAuth(credential: {
+      idToken: string;
+      authorizationCode: string;
+    }): Promise<AuthResponse> {
+      const response = await api.post<AuthResponse>('/api/auth/apple', {
+        id_token: credential.idToken,
+        authorization_code: credential.authorizationCode,
+      });
       return response.data;
     },
 
@@ -78,8 +84,14 @@ export function createAuthMethods(api: AxiosInstance) {
      *
      * Maps to POST /api/auth/apple/add.
      */
-    async linkApple(idToken: string): Promise<UserMeResponse> {
-      const response = await api.post<UserMeResponse>('/api/auth/apple/add', { id_token: idToken });
+    async linkApple(credential: {
+      idToken: string;
+      authorizationCode: string;
+    }): Promise<UserMeResponse> {
+      const response = await api.post<UserMeResponse>('/api/auth/apple/add', {
+        id_token: credential.idToken,
+        authorization_code: credential.authorizationCode,
+      });
       return response.data;
     },
 

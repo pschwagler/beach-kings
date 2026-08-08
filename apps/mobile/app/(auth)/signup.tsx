@@ -133,8 +133,8 @@ export default function SignupScreen(): React.ReactNode {
 
   const handleAppleSignIn = useCallback(async () => {
     try {
-      const idToken = await signInWithApple();
-      await loginWithApple(idToken);
+      const credential = await signInWithApple();
+      await loginWithApple(credential);
     } catch (err) {
       if (err instanceof OAuthCancelledError) return;
       if (err instanceof OAuthNotConfiguredError) {

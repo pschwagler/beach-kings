@@ -74,6 +74,8 @@ async def get_thread(
             offset=_page_offset(page, page_size),
         )
         return result
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except Exception as e:
         logger.error(f"Error fetching thread: {e}")
         raise HTTPException(status_code=500, detail="Error fetching thread")

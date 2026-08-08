@@ -226,20 +226,24 @@ async def search_places(
         bounds = None
         if isinstance(bbox, dict):
             bounds = {
-                "north": bbox.get("lat2"), "south": bbox.get("lat1"),
-                "east": bbox.get("lon2"), "west": bbox.get("lon1"),
+                "north": bbox.get("lat2"),
+                "south": bbox.get("lat1"),
+                "east": bbox.get("lon2"),
+                "west": bbox.get("lon1"),
             }
         elif isinstance(bbox, (list, tuple)) and len(bbox) == 4:
             bounds = {"west": bbox[0], "south": bbox[1], "east": bbox[2], "north": bbox[3]}
         if bounds and any(value is None for value in bounds.values()):
             bounds = None
-        suggestions.append({
-            "id": str(place.get("place_id") or f"place-{index}-{latitude}-{longitude}"),
-            "primary_text": primary or "Place",
-            "secondary_text": secondary,
-            "latitude": latitude,
-            "longitude": longitude,
-            "result_type": place.get("result_type") or place.get("type") or "place",
-            **({"bounds": bounds} if bounds else {}),
-        })
+        suggestions.append(
+            {
+                "id": str(place.get("place_id") or f"place-{index}-{latitude}-{longitude}"),
+                "primary_text": primary or "Place",
+                "secondary_text": secondary,
+                "latitude": latitude,
+                "longitude": longitude,
+                "result_type": place.get("result_type") or place.get("type") or "place",
+                **({"bounds": bounds} if bounds else {}),
+            }
+        )
     return suggestions

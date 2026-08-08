@@ -17,7 +17,9 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "users",
-        sa.Column("moderation_status", sa.String(length=20), nullable=False, server_default="active"),
+        sa.Column(
+            "moderation_status", sa.String(length=20), nullable=False, server_default="active"
+        ),
     )
     op.add_column("users", sa.Column("moderation_expires_at", sa.DateTime(timezone=True)))
     op.add_column("users", sa.Column("moderation_case_id", sa.Integer()))

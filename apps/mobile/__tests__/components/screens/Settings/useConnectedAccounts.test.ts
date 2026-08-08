@@ -67,7 +67,10 @@ import * as oauthModule from '@/lib/oauth';
 beforeEach(() => {
   jest.clearAllMocks();
   mockPromptGoogle.mockResolvedValue(undefined);
-  (oauthModule.signInWithApple as jest.Mock).mockResolvedValue('apple-id-token');
+  (oauthModule.signInWithApple as jest.Mock).mockResolvedValue({
+    idToken: 'apple-id-token',
+    authorizationCode: 'apple-authorization-code',
+  });
   mockLinkGoogle.mockResolvedValue({ google_connected: true });
   mockLinkApple.mockResolvedValue({ apple_connected: true });
 });
@@ -163,7 +166,10 @@ describe('useConnectedAccounts — Apple', () => {
       await result.current.handleConnectApple();
     });
 
-    expect(mockLinkApple).toHaveBeenCalledWith('apple-id-token');
+    expect(mockLinkApple).toHaveBeenCalledWith({
+      idToken: 'apple-id-token',
+      authorizationCode: 'apple-authorization-code',
+    });
     expect(mockRefreshUser).toHaveBeenCalled();
   });
 

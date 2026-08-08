@@ -569,7 +569,11 @@ async def list_player_home_courts(
 ):
     """List home courts for a player (public)."""
     try:
+        if await data_service.get_player_by_id(session, player_id) is None:
+            raise HTTPException(status_code=404, detail="Player not found")
         return await data_service.get_player_home_courts(session, player_id)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error listing home courts: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")

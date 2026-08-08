@@ -1,9 +1,7 @@
 """Domain validation shared by every generic match write path."""
 
 MATCH_SCORE_EMPTY_ERROR = "Enter a score before saving."
-MATCH_SCORE_TIED_ERROR = (
-    "Choose a winner by changing one score. Games cannot end in a tie."
-)
+MATCH_SCORE_TIED_ERROR = "Choose a winner by changing one score. Games cannot end in a tie."
 MATCH_SCORE_NEGATIVE_ERROR = "Scores cannot be negative."
 
 

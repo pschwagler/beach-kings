@@ -82,6 +82,8 @@ async def _patch_missing_columns(conn):
         ("users", "deletion_scheduled_at", "TIMESTAMPTZ"),
         # Migration 059 — irreversible account deletion marker
         ("users", "deleted_at", "TIMESTAMPTZ"),
+        # Migration 067 — persistent deleted-player tombstone
+        ("players", "deleted_at", "TIMESTAMPTZ"),
         # Migration 040 — track when a password was last changed
         ("users", "password_changed_at", "TIMESTAMPTZ"),
         # Privacy feature — profile visibility toggles
@@ -293,10 +295,7 @@ async def _patch_missing_columns(conn):
     # Migration 062 expands the resolution lifecycle. Existing reusable test
     # databases need the altered constraint because create_all cannot replace it.
     suggestions_exists = await conn.execute(
-        text(
-            "SELECT 1 FROM information_schema.tables "
-            "WHERE table_name = 'court_edit_suggestions'"
-        )
+        text("SELECT 1 FROM information_schema.tables WHERE table_name = 'court_edit_suggestions'")
     )
     if suggestions_exists.scalar() is not None:
         await conn.execute(

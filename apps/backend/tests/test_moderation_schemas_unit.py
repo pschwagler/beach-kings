@@ -5,6 +5,7 @@ from backend.models.schemas import (
     InteractionCapabilityBatchRequest,
     ModerationActionRequest,
     ModerationAppealCreate,
+    ModerationEscalationRequest,
     ModerationReportCreate,
     ModerationRetryRequest,
     UserResponse,
@@ -26,6 +27,21 @@ def test_report_details_are_capped_at_1000_characters():
 def test_report_reason_is_closed_enum():
     with pytest.raises(ValidationError):
         ModerationReportCreate(target_type="player", target_id=2, reason="dislike")
+
+
+@pytest.mark.parametrize("reason", ["stalking_doxxing", "sexual_exploitation"])
+def test_high_risk_report_reasons_use_stable_wire_values(reason):
+    request = ModerationReportCreate(target_type="player", target_id=2, reason=reason)
+    assert request.reason == reason
+
+
+def test_external_escalation_requires_a_nonblank_operational_note():
+    with pytest.raises(ValidationError):
+        ModerationEscalationRequest(
+            channel="specialist_consultation",
+            jurisdiction="unknown",
+            note="   ",
+        )
 
 
 def test_interaction_lock_duration_is_bounded():

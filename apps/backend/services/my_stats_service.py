@@ -552,8 +552,7 @@ async def _relations_from_matches(
         )
     ).all()
     players = {
-        pid: {"name": name, "avatar_url": avatar_url}
-        for pid, name, avatar_url in name_rows
+        pid: {"name": name, "avatar_url": avatar_url} for pid, name, avatar_url in name_rows
     }
 
     out: List[Dict] = []

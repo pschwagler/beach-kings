@@ -1,14 +1,11 @@
-"""
-Email service using SendGrid for sending notifications.
-"""
+"""Email service using Resend for transactional notifications."""
 
 import os
 import logging
 from typing import Optional
 from datetime import datetime
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content
 from dotenv import load_dotenv
 from backend.services import settings_service
 from backend.utils.constants import APP_NAME
@@ -40,11 +37,43 @@ def get_bool_env(key: str, default: bool = True) -> bool:
     return value.lower() in ("true", "1", "yes")
 
 
-# SendGrid Configuration
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL", "noreply@beachleaguevb.com")
+# Resend configuration
+RESEND_API_URL = "https://api.resend.com/emails"
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "Beach League <noreply@beachleaguevb.com>")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@beachleaguevb.com")
 ENABLE_EMAIL = get_bool_env("ENABLE_EMAIL", default=True)
+
+
+async def send_email_request(
+    to_email: str,
+    subject: str,
+    body: str,
+    *,
+    idempotency_key: str | None = None,
+) -> httpx.Response:
+    """Submit a plain-text transactional email to Resend."""
+    api_key = os.getenv("RESEND_API_KEY") or RESEND_API_KEY
+    from_email = os.getenv("RESEND_FROM_EMAIL") or RESEND_FROM_EMAIL
+    if not api_key:
+        raise RuntimeError("RESEND_API_KEY is not configured")
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    if idempotency_key:
+        headers["Idempotency-Key"] = idempotency_key
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        return await client.post(
+            RESEND_API_URL,
+            headers=headers,
+            json={
+                "from": from_email,
+                "to": [to_email],
+                "subject": subject,
+                "text": body,
+            },
+        )
 
 
 async def is_enabled(session: Optional[AsyncSession] = None) -> bool:
@@ -76,7 +105,7 @@ async def send_feedback_email(
     category: str = "feedback",
 ) -> bool:
     """
-    Send feedback notification email to admin via SendGrid.
+    Send feedback notification email to admin via Resend.
 
     Args:
         feedback_text: The feedback message
@@ -96,9 +125,9 @@ async def send_feedback_email(
         logger.info("Email sending is disabled. Email notification skipped.")
         return True  # Return True to not break the flow, but log that email was skipped
 
-    # If SendGrid is not configured, log warning and return True (don't fail the request)
-    if not SENDGRID_API_KEY:
-        logger.warning("SENDGRID_API_KEY not configured. Email notification skipped.")
+    # If Resend is not configured, log warning and return True (don't fail the request)
+    if not RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY not configured. Email notification skipped.")
         return True
 
     try:
@@ -146,23 +175,13 @@ async def send_feedback_email(
 
         email_body = "\n".join(body_lines)
 
-        # Create the email message
-        message = Mail(
-            from_email=Email(SENDGRID_FROM_EMAIL),
-            to_emails=To(ADMIN_EMAIL),
-            subject=subject,
-            plain_text_content=Content("text/plain", email_body),
-        )
-
-        # Send the email
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(message)
+        response = await send_email_request(ADMIN_EMAIL, subject, email_body)
 
         if response.status_code >= 200 and response.status_code < 300:
             logger.info(f"Feedback email sent successfully to {ADMIN_EMAIL}")
             return True
         else:
-            logger.error(f"SendGrid returned status {response.status_code}: {response.body}")
+            logger.error("Resend returned status %s", response.status_code)
             return False
 
     except Exception as e:
@@ -178,9 +197,9 @@ async def _send_code_email(
     session: Optional[AsyncSession] = None,
 ) -> bool:
     """
-    Generic helper to send a plain-text email via SendGrid.
+    Generic helper to send a plain-text email via Resend.
 
-    In dev or when email is disabled / SendGrid is unconfigured, the call is
+    In dev or when email is disabled / Resend is unconfigured, the call is
     logged and the function returns True so signup/reset flows succeed locally.
     """
     enable_email = await is_enabled(session)
@@ -192,32 +211,24 @@ async def _send_code_email(
         )
         return True
 
-    if not SENDGRID_API_KEY:
+    if not RESEND_API_KEY:
         logger.warning(
-            "SENDGRID_API_KEY not configured; stubbed email to %s: %s",
+            "RESEND_API_KEY not configured; stubbed email to %s: %s",
             to_email,
             subject,
         )
         return True
 
     try:
-        message = Mail(
-            from_email=Email(SENDGRID_FROM_EMAIL),
-            to_emails=To(to_email),
-            subject=subject,
-            plain_text_content=Content("text/plain", body),
-        )
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(message)
+        response = await send_email_request(to_email, subject, body)
 
         if 200 <= response.status_code < 300:
             logger.info("Email sent to %s (subject=%r)", to_email, subject)
             return True
         logger.error(
-            "SendGrid returned status %s for %s: %s",
+            "Resend returned status %s for %s",
             response.status_code,
             to_email,
-            response.body,
         )
         return False
     except Exception as e:

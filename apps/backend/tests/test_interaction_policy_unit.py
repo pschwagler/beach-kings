@@ -27,6 +27,7 @@ def test_every_declared_action_has_an_explicit_rule():
         (_PairState(other_blocks_viewer=True), DenialReason.BLOCKED_BY_OTHER),
         (_PairState(viewer_restricted=True), DenialReason.VIEWER_RESTRICTED),
         (_PairState(other_restricted=True), DenialReason.OTHER_RESTRICTED),
+        (_PairState(other_unavailable=True), DenialReason.PLAYER_UNAVAILABLE),
     ],
 )
 def test_bilateral_actions_deny_every_private_direction(state, reason):
@@ -86,8 +87,15 @@ async def test_full_account_enforcement_blocks_incoming_pair_actions():
     interaction_restrictions.scalars.return_value.all.return_value = []
     account_restrictions = MagicMock()
     account_restrictions.scalars.return_value.all.return_value = [2]
+    active_players = MagicMock()
+    active_players.scalars.return_value.all.return_value = [1, 2]
     session = AsyncMock()
-    session.execute.side_effect = [blocks, interaction_restrictions, account_restrictions]
+    session.execute.side_effect = [
+        blocks,
+        interaction_restrictions,
+        account_restrictions,
+        active_players,
+    ]
 
     decision = await interaction_decision(session, 1, 2, InteractionAction.DIRECT_MESSAGE)
 

@@ -561,10 +561,16 @@ describe('AuthProvider — OAuth', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.loginWithApple('apple-id-token');
+      await result.current.loginWithApple({
+        idToken: 'apple-id-token',
+        authorizationCode: 'apple-authorization-code',
+      });
     });
 
-    expect(mockAppleAuth).toHaveBeenCalledWith('apple-id-token');
+    expect(mockAppleAuth).toHaveBeenCalledWith({
+      idToken: 'apple-id-token',
+      authorizationCode: 'apple-authorization-code',
+    });
     expect(result.current.isAuthenticated).toBe(true);
   });
 });

@@ -365,9 +365,7 @@ class TestCreateMatchesFromSessionOptionalSeason:
         )
 
     @pytest.mark.asyncio
-    async def test_rejects_tied_photo_matches_before_creating_any_game(
-        self, monkeypatch
-    ):
+    async def test_rejects_tied_photo_matches_before_creating_any_game(self, monkeypatch):
         async def fake_check_idempotency(session_id):
             return []
 
@@ -393,23 +391,18 @@ class TestCreateMatchesFromSessionOptionalSeason:
         monkeypatch.setattr(
             photo_match_service, "get_session_data", fake_get_session_data, raising=True
         )
-        monkeypatch.setattr(
-            data_service, "create_match_async", create_match, raising=True
-        )
+        monkeypatch.setattr(data_service, "create_match_async", create_match, raising=True)
 
-        success, match_ids, message = (
-            await photo_match_service.create_matches_from_session(
-                db_session=None,
-                session_id="tied-photo-session",
-                season_id=None,
-                match_date="7/25/2026",
-            )
+        success, match_ids, message = await photo_match_service.create_matches_from_session(
+            db_session=None,
+            session_id="tied-photo-session",
+            season_id=None,
+            match_date="7/25/2026",
         )
 
         assert success is False
         assert match_ids == []
         assert message == (
-            "Match 1: Choose a winner by changing one score. "
-            "Games cannot end in a tie."
+            "Match 1: Choose a winner by changing one score. Games cannot end in a tie."
         )
         create_match.assert_not_called()

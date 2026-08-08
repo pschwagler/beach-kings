@@ -82,9 +82,7 @@ async def test_direct_message_context_is_bounded_ordered_and_identity_safe():
         False,
     ]
     assert "reporter" not in capture.await_args.args[2].decode("utf-8")
-    assert capture.await_args.args[3] == (
-        moderation_evidence_service.CHAT_CONTEXT_CONTENT_TYPE
-    )
+    assert capture.await_args.args[3] == (moderation_evidence_service.CHAT_CONTEXT_CONTENT_TYPE)
 
 
 @pytest.mark.asyncio
@@ -114,10 +112,9 @@ async def test_context_read_is_audited_and_returns_stable_shape():
         "Body": BytesIO(json.dumps({"version": 1, "messages": messages}).encode())
     }
 
-    with patch.object(
-        moderation_evidence_service, "_get_s3_client", return_value=client
-    ), patch.object(
-        moderation_evidence_service, "_evidence_bucket", return_value="private"
+    with (
+        patch.object(moderation_evidence_service, "_get_s3_client", return_value=client),
+        patch.object(moderation_evidence_service, "_evidence_bucket", return_value="private"),
     ):
         result = await moderation_evidence_service.read_chat_context(session, 8, 4)
 
@@ -174,9 +171,7 @@ def test_context_endpoint_is_admin_only_and_no_store():
         "read_chat_context",
         new=AsyncMock(return_value=payload),
     ) as read:
-        response = TestClient(app).get(
-            "/api/admin-view/moderation/cases/8/context"
-        )
+        response = TestClient(app).get("/api/admin-view/moderation/cases/8/context")
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"

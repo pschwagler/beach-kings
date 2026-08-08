@@ -22,6 +22,7 @@ from backend.database.models import (
     Player,
     Session,
 )
+from backend.services.player_lifecycle import historical_id, historical_name
 
 if TYPE_CHECKING:
     from sqlalchemy import Row
@@ -51,10 +52,24 @@ def _normalize_session_date(raw: object) -> str | None:
 
 def _build_entry(row: "Row") -> dict:
     """Transform a raw query row into a LeagueGameEntry-shaped dict."""
-    team1_names = [n for n in [row.team1_player1_name, row.team1_player2_name] if n is not None]
-    team1_ids = [pid for pid in [row.team1_player1_id, row.team1_player2_id] if pid is not None]
-    team2_names = [n for n in [row.team2_player1_name, row.team2_player2_name] if n is not None]
-    team2_ids = [pid for pid in [row.team2_player1_id, row.team2_player2_id] if pid is not None]
+
+    def deleted_at(field: str):
+        return getattr(row, field, None)
+
+    team1 = [
+        (row.team1_player1_name, row.team1_player1_id, deleted_at("t1p1_deleted_at")),
+        (row.team1_player2_name, row.team1_player2_id, deleted_at("t1p2_deleted_at")),
+    ]
+    team2 = [
+        (row.team2_player1_name, row.team2_player1_id, deleted_at("t2p1_deleted_at")),
+        (row.team2_player2_name, row.team2_player2_id, deleted_at("t2p2_deleted_at")),
+    ]
+    team1 = [item for item in team1 if item[0] is not None or item[1] is not None]
+    team2 = [item for item in team2 if item[0] is not None or item[1] is not None]
+    team1_names = [historical_name(name, deleted_at) for name, _, deleted_at in team1]
+    team1_ids = [historical_id(pid, deleted_at) for _, pid, deleted_at in team1]
+    team2_names = [historical_name(name, deleted_at) for name, _, deleted_at in team2]
+    team2_ids = [historical_id(pid, deleted_at) for _, pid, deleted_at in team2]
 
     # Normalize session_status to a plain string (enum.value or already-str).
     raw_status = row.session_status
@@ -119,6 +134,10 @@ async def get_league_games(
             p2.full_name.label("team1_player2_name"),
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
             Session.status.label("session_status"),
             Session.date.label("session_date"),
             Court.name.label("court_name"),

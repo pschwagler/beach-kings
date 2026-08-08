@@ -328,7 +328,11 @@ async def get_league_sessions(
                 session_player_rows.c.session_id,
                 func.count(func.distinct(session_player_rows.c.player_id)).label("player_count"),
             )
-            .where(session_player_rows.c.player_id.is_not(None))
+            .join(Player, Player.id == session_player_rows.c.player_id)
+            .where(
+                session_player_rows.c.player_id.is_not(None),
+                Player.deleted_at.is_(None),
+            )
             .group_by(session_player_rows.c.session_id)
             .subquery()
         )

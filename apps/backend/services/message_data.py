@@ -171,9 +171,7 @@ async def create_league_message(
     }
 
 
-async def publish_approved_league_message(
-    session: AsyncSession, msg: LeagueMessage
-) -> None:
+async def publish_approved_league_message(session: AsyncSession, msg: LeagueMessage) -> None:
     """Notify league members only after a message is safe to publish."""
     from backend.services import notification_service
 

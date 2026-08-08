@@ -84,7 +84,10 @@ interface CoreAuthContextValue extends AuthState {
   ) => Promise<void>;
   readonly signup: (params: SignupParams) => Promise<void>;
   readonly loginWithGoogle: (idToken: string) => Promise<void>;
-  readonly loginWithApple: (idToken: string) => Promise<void>;
+  readonly loginWithApple: (credential: {
+    readonly idToken: string;
+    readonly authorizationCode: string;
+  }) => Promise<void>;
   readonly verifyPhone: (phoneNumber: string, code: string) => Promise<void>;
   readonly verifyEmail: (email: string, code: string) => Promise<void>;
   readonly logout: () => Promise<void>;
@@ -589,10 +592,10 @@ export default function AuthProvider({
   );
 
   const loginWithApple = useCallback(
-    async (idToken: string) => {
+    async (credential: { readonly idToken: string; readonly authorizationCode: string }) => {
       const revision = beginAuthOperation();
       if (!(await prepareAuthentication(revision))) return;
-      const data = await api.appleAuth(idToken);
+      const data = await api.appleAuth(credential);
       await completeAuthentication(revision, data);
     },
     [beginAuthOperation, completeAuthentication, prepareAuthentication],

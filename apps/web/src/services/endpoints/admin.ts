@@ -77,7 +77,7 @@ export const submitFeedback = async ({ feedback, email }: { feedback: string; em
   return response.data;
 };
 
-export type ModerationQueue = 'urgent' | 'due' | 'ordinary';
+export type ModerationQueue = 'urgent' | 'due' | 'overdue' | 'ordinary';
 export type ModerationState = 'active' | 'open' | 'acknowledged' | 'closed' | 'all';
 
 export interface ModerationCaseFilters {
@@ -109,6 +109,11 @@ export const applyModerationAction = async (
   caseId: number,
   input: { action: string; reason: string; lock_hours?: number; legal_hold?: boolean; appeal_id?: number },
 ) => (await api.post(`/api/admin-view/moderation/cases/${caseId}/actions`, input)).data;
+
+export const createModerationEscalation = async (
+  caseId: number,
+  input: { channel: string; jurisdiction: string; external_reference?: string; note: string },
+) => (await api.post(`/api/admin-view/moderation/cases/${caseId}/escalations`, input)).data;
 
 export const retryModerationJob = async (jobId: number, reason: string) =>
   (await api.post(`/api/admin-view/moderation/jobs/${jobId}/retry`, { reason })).data;

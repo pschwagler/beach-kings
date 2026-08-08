@@ -227,11 +227,19 @@ async def test_search_places_normalizes_and_biases(monkeypatch):
     """General search returns the public shape and sends US/proximity constraints."""
     response = MagicMock()
     response.raise_for_status = MagicMock()
-    response.json.return_value = {"results": [{
-        "place_id": "abc", "name": "Prospect Park", "formatted": "Brooklyn, NY",
-        "lat": 40.66, "lon": -73.97, "result_type": "amenity",
-        "bbox": {"lat1": 40.64, "lat2": 40.68, "lon1": -74.0, "lon2": -73.94},
-    }]}
+    response.json.return_value = {
+        "results": [
+            {
+                "place_id": "abc",
+                "name": "Prospect Park",
+                "formatted": "Brooklyn, NY",
+                "lat": 40.66,
+                "lon": -73.97,
+                "result_type": "amenity",
+                "bbox": {"lat1": 40.64, "lat2": 40.68, "lon1": -74.0, "lon2": -73.94},
+            }
+        ]
+    }
     client = AsyncMock()
     client.get = AsyncMock(return_value=response)
     client.__aenter__ = AsyncMock(return_value=client)
@@ -241,11 +249,17 @@ async def test_search_places_normalizes_and_biases(monkeypatch):
     with patch("backend.services.location_service.httpx.AsyncClient", return_value=client):
         result = await search_places("Prospect Park", 40.7, -74.0)
 
-    assert result == [{
-        "id": "abc", "primary_text": "Prospect Park", "secondary_text": "Brooklyn, NY",
-        "latitude": 40.66, "longitude": -73.97, "result_type": "amenity",
-        "bounds": {"north": 40.68, "south": 40.64, "east": -73.94, "west": -74.0},
-    }]
+    assert result == [
+        {
+            "id": "abc",
+            "primary_text": "Prospect Park",
+            "secondary_text": "Brooklyn, NY",
+            "latitude": 40.66,
+            "longitude": -73.97,
+            "result_type": "amenity",
+            "bounds": {"north": 40.68, "south": 40.64, "east": -73.94, "west": -74.0},
+        }
+    ]
     params = client.get.await_args.kwargs["params"]
     assert params["filter"] == "countrycode:us"
     assert params["bias"] == "proximity:-74.0,40.7"

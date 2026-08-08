@@ -70,8 +70,8 @@ services:
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
       - ENABLE_SMS=${ENABLE_SMS:-true}
-      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
-      - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL:-noreply@beachleaguevb.com}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-Beach League <noreply@beachleaguevb.com>}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@beachleaguevb.com}
       - ENABLE_EMAIL=${ENABLE_EMAIL:-true}
       - GEOAPIFY_API_KEY=${GEOAPIFY_API_KEY:-}

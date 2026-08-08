@@ -247,7 +247,9 @@ async def add_player(
         raise ValueError("Can only add players during SETUP")
 
     # Validate player exists
-    player_exists = await session.execute(select(Player.id).where(Player.id == player_id))
+    player_exists = await session.execute(
+        select(Player.id).where(Player.id == player_id, Player.deleted_at.is_(None))
+    )
     if not player_exists.scalar_one_or_none():
         raise ValueError(f"Player {player_id} not found")
 

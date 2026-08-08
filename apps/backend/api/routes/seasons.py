@@ -275,10 +275,14 @@ async def get_player_season_partnership_opponent_stats(
 ):
     """Get partnership and opponent stats for a player in a season (public)."""
     try:
+        if await data_service.get_player_by_id(session, player_id) is None:
+            raise HTTPException(status_code=404, detail="Player not found")
         stats = await data_service.get_player_season_partnership_opponent_stats(
             session, player_id, season_id
         )
         return stats
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -394,10 +398,14 @@ async def get_player_league_partnership_opponent_stats(
 ):
     """Get partnership and opponent stats for a player in a league (public)."""
     try:
+        if await data_service.get_player_by_id(session, player_id) is None:
+            raise HTTPException(status_code=404, detail="Player not found")
         stats = await data_service.get_player_league_partnership_opponent_stats(
             session, player_id, league_id
         )
         return stats
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,

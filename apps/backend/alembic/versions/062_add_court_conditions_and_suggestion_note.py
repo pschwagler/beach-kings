@@ -39,9 +39,7 @@ def upgrade() -> None:
         "court_edit_suggestions",
         sa.Column("applied_changes", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     )
-    op.drop_constraint(
-        "ck_court_edit_suggestions_status", "court_edit_suggestions", type_="check"
-    )
+    op.drop_constraint("ck_court_edit_suggestions_status", "court_edit_suggestions", type_="check")
     op.create_check_constraint(
         "ck_court_edit_suggestions_status",
         "court_edit_suggestions",
@@ -50,12 +48,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "ck_court_edit_suggestions_status", "court_edit_suggestions", type_="check"
-    )
+    op.drop_constraint("ck_court_edit_suggestions_status", "court_edit_suggestions", type_="check")
     op.execute(
-        "UPDATE court_edit_suggestions SET status = 'approved' "
-        "WHERE status = 'partially_applied'"
+        "UPDATE court_edit_suggestions SET status = 'approved' WHERE status = 'partially_applied'"
     )
     op.create_check_constraint(
         "ck_court_edit_suggestions_status",

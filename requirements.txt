@@ -23,7 +23,6 @@ alembic>=1.13.0,<2.0.0
 psycopg2-binary>=2.9.9,<3.0.0
 greenlet>=3.0.0,<4.0.0
 pytz>=2023.3
-sendgrid>=6.11.0,<7.0.0
 redis>=5.0.0,<6.0.0
 pillow>=12.1.0,<13.0.0
 google-auth>=2.0.0,<3.0.0

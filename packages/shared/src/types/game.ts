@@ -21,11 +21,11 @@ export interface GameHistoryEntry {
   /** Display names of the current user's partner(s). */
   readonly partner_names: string[];
   /** Player IDs of the current user's partner(s), parallel to partner_names. */
-  readonly partner_ids: readonly number[];
+  readonly partner_ids: readonly (number | null)[];
   /** Display names of the opponent players. */
   readonly opponent_names: string[];
   /** Player IDs of the opponent players, parallel to opponent_names. */
-  readonly opponent_ids: readonly number[];
+  readonly opponent_ids: readonly (number | null)[];
   /** ISO date string of the session (YYYY-MM-DD). Null for legacy data. */
   readonly session_date: string | null;
   /**
@@ -68,9 +68,9 @@ export interface LeagueGameEntry {
   readonly session_status: SessionStatus;
   readonly court_label: string | null;
   readonly team1_player_names: readonly string[];
-  readonly team1_player_ids: readonly number[];
+  readonly team1_player_ids: readonly (number | null)[];
   readonly team2_player_names: readonly string[];
-  readonly team2_player_ids: readonly number[];
+  readonly team2_player_ids: readonly (number | null)[];
   readonly team1_score: number;
   readonly team2_score: number;
   /** 1 = team1 won, 2 = team2 won, -1 = draw, 0 = no result (in progress). */

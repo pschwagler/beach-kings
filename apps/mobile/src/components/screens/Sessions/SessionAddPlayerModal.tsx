@@ -195,6 +195,7 @@ export default function SessionAddPlayerModal({
             data={players}
             keyExtractor={(player) => String(player.id)}
             renderItem={renderPlayer}
+            keyboardShouldPersistTaps="always"
             contentContainerStyle={{
               paddingTop: 12,
               paddingBottom: 32,

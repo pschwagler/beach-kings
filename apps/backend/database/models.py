@@ -251,6 +251,7 @@ class Player(Base):
     created_by_player_id = Column(
         Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
     )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -290,6 +291,7 @@ class Player(Base):
         Index("idx_players_location", "location_id"),
         Index("idx_players_avp_id", "avp_playerProfileId"),
         Index("idx_players_created_by", "created_by_player_id"),
+        Index("idx_players_deleted_at", "deleted_at"),
     )
 
 
@@ -1638,8 +1640,12 @@ class UserBlock(Base):
     __tablename__ = "user_blocks"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    blocker_player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
-    blocked_player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    blocker_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
+    )
+    blocked_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
+    )
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
@@ -1659,8 +1665,12 @@ class InteractionRestriction(Base):
     reason = Column(Text, nullable=False)
     starts_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=False)
-    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="SET NULL"), nullable=True)
+    created_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    case_id = Column(
+        Integer, ForeignKey("moderation_cases.id", ondelete="SET NULL"), nullable=True
+    )
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -1678,20 +1688,35 @@ class ModerationCase(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     target_type = Column(String(40), nullable=False)
     target_id = Column(Integer, nullable=False)
-    subject_player_id = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
+    subject_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
     state = Column(String(30), nullable=False, server_default="open")
     severity = Column(String(20), nullable=False, server_default="ordinary")
+    incident_type = Column(String(40), nullable=True)
     junior_involved = Column(Boolean, nullable=True)
     due_at = Column(DateTime(timezone=True), nullable=True)
+    urgent_since_at = Column(DateTime(timezone=True), nullable=True)
     legal_hold = Column(Boolean, nullable=False, server_default="false")
     current_action = Column(String(30), nullable=True)
     acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    dispositioned_at = Column(DateTime(timezone=True), nullable=True)
     closed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
 
     __table_args__ = (
         Index("idx_moderation_cases_queue", "state", "severity", "due_at"),
+        Index(
+            "idx_moderation_cases_due_order",
+            "state",
+            "dispositioned_at",
+            "due_at",
+            "created_at",
+            "id",
+        ),
         Index("idx_moderation_cases_target", "target_type", "target_id"),
     )
 
@@ -1702,8 +1727,12 @@ class ModerationReport(Base):
     __tablename__ = "moderation_reports"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
-    reporter_player_id = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
+    case_id = Column(
+        Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False
+    )
+    reporter_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
     target_type = Column(String(40), nullable=False)
     target_id = Column(Integer, nullable=False)
     reason = Column(String(40), nullable=False)
@@ -1713,7 +1742,14 @@ class ModerationReport(Base):
 
     __table_args__ = (
         Index("idx_moderation_reports_reporter", "reporter_player_id", "created_at"),
-        Index("uq_moderation_reports_open_target", "reporter_player_id", "target_type", "target_id", unique=True, postgresql_where=text("status = 'open'")),
+        Index(
+            "uq_moderation_reports_open_target",
+            "reporter_player_id",
+            "target_type",
+            "target_id",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+        ),
     )
 
 
@@ -1723,12 +1759,16 @@ class ModerationAppeal(Base):
     __tablename__ = "moderation_appeals"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
+    case_id = Column(
+        Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False
+    )
     player_id = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
     statement = Column(Text, nullable=False)
     status = Column(String(20), nullable=False, server_default="open")
     resolution_reason = Column(Text, nullable=True)
-    resolved_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    resolved_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     resolved_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -1754,7 +1794,9 @@ class ModerationEvent(Base):
     __tablename__ = "moderation_events"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
+    case_id = Column(
+        Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False
+    )
     event_type = Column(String(40), nullable=False)
     actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reason = Column(Text, nullable=True)
@@ -1780,9 +1822,45 @@ class ModerationJob(Base):
     claimed_at = Column(DateTime(timezone=True), nullable=True)
     last_error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
 
     __table_args__ = (Index("idx_moderation_jobs_claim", "status", "available_at"),)
+
+
+class ModerationAlertJob(Base):
+    """Durable, privacy-minimized owner alert delivery job."""
+
+    __tablename__ = "moderation_alert_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    idempotency_key = Column(String(255), nullable=False, unique=True)
+    alert_kind = Column(String(40), nullable=False)
+    case_id = Column(
+        Integer, ForeignKey("moderation_cases.id", ondelete="SET NULL"), nullable=True
+    )
+    payload_json = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    status = Column(String(20), nullable=False, server_default="pending")
+    attempts = Column(Integer, nullable=False, server_default="0")
+    available_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
+    last_error_code = Column(String(100), nullable=True)
+    last_error_detail = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'processing', 'delivered', 'failed', 'cancelled')",
+            name="ck_moderation_alert_jobs_status",
+        ),
+        Index("idx_moderation_alert_jobs_claim", "status", "available_at"),
+        Index("idx_moderation_alert_jobs_terminal", "status", "updated_at"),
+    )
 
 
 class ModerationEvidence(Base):
@@ -1791,7 +1869,9 @@ class ModerationEvidence(Base):
     __tablename__ = "moderation_evidence"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
+    case_id = Column(
+        Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False
+    )
     object_key = Column(String(500), nullable=False, unique=True)
     content_type = Column(String(100), nullable=True)
     captured_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -2138,6 +2218,76 @@ class PushDeliveryJob(Base):
         Index("idx_push_delivery_jobs_claim", "status", "available_at"),
         Index("idx_push_delivery_jobs_ticket", "expo_ticket_id"),
         Index("idx_push_delivery_jobs_terminal", "status", "updated_at"),
+    )
+
+
+class MediaDeletionJob(Base):
+    """Durable S3 cleanup requested by deletion and moderation workflows."""
+
+    __tablename__ = "media_deletion_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    object_key = Column(String(500), nullable=False, unique=True)
+    status = Column(String(20), nullable=False, server_default="pending")
+    attempts = Column(Integer, nullable=False, server_default="0")
+    available_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'processing', 'completed')",
+            name="ck_media_deletion_jobs_status",
+        ),
+        Index("idx_media_deletion_jobs_claim", "status", "available_at"),
+    )
+
+
+class AppleCredential(Base):
+    """Encrypted Apple refresh token retained only until account deletion."""
+
+    __tablename__ = "apple_credentials"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    refresh_token_ciphertext = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AppleRevocationJob(Base):
+    """Durable Apple credential revocation requested by permanent deletion."""
+
+    __tablename__ = "apple_revocation_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    refresh_token_ciphertext = Column(Text, nullable=False)
+    status = Column(String(20), nullable=False, server_default="pending")
+    attempts = Column(Integer, nullable=False, server_default="0")
+    available_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'processing', 'completed')",
+            name="ck_apple_revocation_jobs_status",
+        ),
+        Index("idx_apple_revocation_jobs_claim", "status", "available_at"),
     )
 
 

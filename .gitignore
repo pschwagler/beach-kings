@@ -97,6 +97,10 @@ services/whatsapp/.wwebjs_cache/
 .wwebjs_auth/
 .wwebjs_cache/
 
+# Next.js auto-generated agent rules (managed by `next dev`)
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
+
 # IDE
 .vscode/
 .idea/

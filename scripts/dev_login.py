@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 Generate auth tokens for any local user — instant impersonation for dev testing.
 

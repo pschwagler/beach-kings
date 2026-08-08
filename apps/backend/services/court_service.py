@@ -494,7 +494,13 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
             for rt in r.review_tags
         ]
         photos = [
-            {"id": p.id, "url": p.url, "sort_order": p.sort_order, "target_type": "court_review_photo", "moderation_visibility": p.moderation_visibility}
+            {
+                "id": p.id,
+                "url": p.url,
+                "sort_order": p.sort_order,
+                "target_type": "court_review_photo",
+                "moderation_visibility": p.moderation_visibility,
+            }
             for p in sorted(r.photos, key=lambda x: x.sort_order)
             if p.moderation_visibility == "visible"
         ]
@@ -520,7 +526,13 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
 
     # Standalone court photos
     court_photos = [
-        {"id": p.id, "url": p.url, "sort_order": p.sort_order, "target_type": "court_photo", "moderation_visibility": p.moderation_visibility}
+        {
+            "id": p.id,
+            "url": p.url,
+            "sort_order": p.sort_order,
+            "target_type": "court_photo",
+            "moderation_visibility": p.moderation_visibility,
+        }
         for p in sorted(court.photos, key=lambda x: x.sort_order)
         if p.moderation_visibility == "visible"
     ]
@@ -1541,7 +1553,13 @@ async def list_reviews(
             for rt in r.review_tags
         ]
         photos = [
-            {"id": p.id, "url": p.url, "sort_order": p.sort_order, "target_type": "court_review_photo", "moderation_visibility": p.moderation_visibility}
+            {
+                "id": p.id,
+                "url": p.url,
+                "sort_order": p.sort_order,
+                "target_type": "court_review_photo",
+                "moderation_visibility": p.moderation_visibility,
+            }
             for p in sorted(r.photos, key=lambda x: x.sort_order)
             if p.moderation_visibility == "visible"
         ]

@@ -26,6 +26,7 @@ from backend.services import (
     s3_service,
     email_service,
     moderation_service,
+    apple_token_service,
 )
 from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import (
@@ -393,6 +394,14 @@ async def apple_auth(
 
             user = await user_service.get_user_by_id(session, user_id)
 
+        if payload.authorization_code:
+            await _capture_apple_refresh_token(
+                session,
+                user_id=user["id"],
+                apple_id=apple_id,
+                authorization_code=payload.authorization_code,
+            )
+
         await _maybe_cancel_deletion(session, user)
 
         # Issue tokens
@@ -507,6 +516,30 @@ async def _set_apple_id(session: AsyncSession, user_id: int, apple_id: str) -> N
     await session.commit()
 
 
+async def _capture_apple_refresh_token(
+    session: AsyncSession, *, user_id: int, apple_id: str, authorization_code: str
+) -> None:
+    """Exchange Apple's one-time code and retain an encrypted revocation token."""
+    try:
+        token_response = await apple_token_service.exchange_authorization_code(authorization_code)
+        exchanged_identity = auth_service.verify_apple_id_token(token_response["id_token"])
+        if exchanged_identity["sub"] != apple_id:
+            raise ValueError("Apple authorization code belongs to a different account")
+        ciphertext = apple_token_service.encrypt_refresh_token(token_response["refresh_token"])
+        await user_service.store_apple_refresh_token(session, user_id, ciphertext)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except (
+        apple_token_service.AppleConfigurationError,
+        apple_token_service.AppleProviderError,
+    ) as exc:
+        logger.warning("Unable to capture Apple revocation credential: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Apple sign-in is temporarily unavailable. Please try again.",
+        ) from exc
+
+
 def _build_user_response(user: dict, moderation: dict | None = None) -> UserResponse:
     """
     Construct a ``UserResponse`` from a user dict, populating all optional flags.
@@ -548,9 +581,7 @@ def _build_user_response(user: dict, moderation: dict | None = None) -> UserResp
             else None
         ),
         interaction_restricted_until=(moderation or {}).get("interaction_restricted_until"),
-        interaction_restriction_case_id=(moderation or {}).get(
-            "interaction_restriction_case_id"
-        ),
+        interaction_restriction_case_id=(moderation or {}).get("interaction_restriction_case_id"),
     )
 
 
@@ -1199,9 +1230,7 @@ async def get_current_user_info(
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get current authenticated user information."""
-    moderation = await moderation_service.account_status(
-        session, current_user["id"]
-    )
+    moderation = await moderation_service.account_status(session, current_user["id"])
     return _build_user_response(current_user, moderation)
 
 
@@ -1283,6 +1312,14 @@ async def add_apple_provider(
     # Idempotent: already linked to this user — skip the write.
     if not existing:
         await _set_apple_id(session, current_user["id"], apple_id)
+
+    if payload.authorization_code:
+        await _capture_apple_refresh_token(
+            session,
+            user_id=current_user["id"],
+            apple_id=apple_id,
+            authorization_code=payload.authorization_code,
+        )
 
     updated_user = await user_service.get_user_by_id(session, current_user["id"])
     if not updated_user:

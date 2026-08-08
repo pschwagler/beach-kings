@@ -41,6 +41,12 @@ from backend.database.models import (
     Match,
     RefreshToken,
     SessionParticipant,
+    MediaDeletionJob,
+    Location,
+    Court,
+    CourtReview,
+    CourtReviewPhoto,
+    CourtPhoto,
 )
 from backend.services import user_service
 from backend.services.account_deletion_service import AccountDeletionService
@@ -118,6 +124,29 @@ async def rich_user(db_session):
     u4, p4 = await _create_user_and_player(db_session, name="Fourth Player")
 
     league_id, season_id = await _create_league_and_season(db_session)
+
+    # Reviews and both photo types are UGC that permanent deletion must remove.
+    location = Location(id=f"delete_{uuid.uuid4().hex[:12]}", name="Deletion Test Location")
+    db_session.add(location)
+    await db_session.flush()
+    court = Court(name="Deletion Test Court", location_id=location.id)
+    db_session.add(court)
+    await db_session.flush()
+    review = CourtReview(court_id=court.id, player_id=p1, rating=5, review_text="Delete me")
+    db_session.add(review)
+    await db_session.flush()
+    review_photo = CourtReviewPhoto(
+        review_id=review.id,
+        s3_key=f"court-reviews/{p1}/review.jpg",
+        url="https://example.invalid/review.jpg",
+    )
+    standalone_photo = CourtPhoto(
+        court_id=court.id,
+        uploaded_by=p1,
+        s3_key=f"court-photos/{p1}/standalone.jpg",
+        url="https://example.invalid/standalone.jpg",
+    )
+    db_session.add_all([review_photo, standalone_photo])
 
     # Friend request + friend
     fr = FriendRequest(sender_player_id=p1, receiver_player_id=p2, status="accepted")
@@ -223,6 +252,11 @@ async def rich_user(db_session):
         "season_id": season_id,
         "session_id": sess.id,
         "match_id": match.id,
+        "review_id": review.id,
+        "court_id": court.id,
+        "location_id": location.id,
+        "review_photo_key": review_photo.s3_key,
+        "standalone_photo_key": standalone_photo.s3_key,
     }
 
 
@@ -327,12 +361,25 @@ async def test_execute_deletion_anonymizes_player_pii(db_session, rich_user):
     """Player name becomes 'Deleted Player', other PII fields cleared."""
     player_id = rich_user["player_id"]
 
+    result = await db_session.execute(select(Player).where(Player.id == player_id))
+    player = result.scalar_one()
+    player.first_name = "Delete"
+    player.last_name = "Me"
+    player.height = "6ft"
+    player.preferred_side = "left"
+    player.avp_playerProfileId = 12345
+    player.status = "active"
+    await db_session.commit()
+
     await user_service.execute_account_deletion(db_session, rich_user["user_id"])
 
     result = await db_session.execute(select(Player).where(Player.id == player_id))
     player = result.scalar_one()
 
     assert player.full_name == "Deleted Player"
+    assert player.first_name == ""
+    assert player.last_name == ""
+    assert player.user_id is None
     assert player.nickname is None
     assert player.gender is None
     assert player.level is None
@@ -342,6 +389,15 @@ async def test_execute_deletion_anonymizes_player_pii(db_session, rich_user):
     assert player.date_of_birth is None
     assert player.profile_picture_url is None
     assert player.avatar is None
+    assert player.height is None
+    assert player.preferred_side is None
+    assert player.avp_playerProfileId is None
+    assert player.status is None
+    assert player.created_by_player_id is None
+    assert player.deleted_at is not None
+
+    user = await db_session.scalar(select(User).where(User.id == rich_user["user_id"]))
+    assert user.deleted_at == player.deleted_at
 
 
 @pytest.mark.asyncio
@@ -470,6 +526,31 @@ async def test_execute_deletion_preserves_match_records(db_session, rich_user):
 
 
 @pytest.mark.asyncio
+async def test_execute_deletion_detaches_retained_attribution(db_session, rich_user):
+    """Factual records remain but no longer identify their deleted creator/updater."""
+    player_id = rich_user["player_id"]
+    league = await db_session.get(League, rich_user["league_id"])
+    season = await db_session.get(Season, rich_user["season_id"])
+    sess = await db_session.get(Session, rich_user["session_id"])
+    match = await db_session.get(Match, rich_user["match_id"])
+    court = await db_session.get(Court, rich_user["court_id"])
+    location = await db_session.get(Location, rich_user["location_id"])
+    for record in (league, season, sess, match, court, location):
+        record.created_by = player_id
+        if hasattr(record, "updated_by"):
+            record.updated_by = player_id
+    await db_session.commit()
+
+    await user_service.execute_account_deletion(db_session, rich_user["user_id"])
+
+    for record in (league, season, sess, match, court, location):
+        await db_session.refresh(record)
+        assert record.created_by is None
+        if hasattr(record, "updated_by"):
+            assert record.updated_by is None
+
+
+@pytest.mark.asyncio
 async def test_execute_deletion_preserves_other_users_data(db_session, rich_user):
     """Other users' data is NOT affected by the deletion."""
     other_user_id = rich_user["other_user_id"]
@@ -495,20 +576,49 @@ async def test_execute_deletion_nonexistent_user(db_session):
 
 
 @pytest.mark.asyncio
-@patch("backend.services.s3_service.delete_avatar")
-async def test_execute_deletion_deletes_avatar_from_s3(mock_delete, db_session, user_and_player):
-    """Avatar is deleted from S3 during account deletion."""
+async def test_execute_deletion_enqueues_avatar_for_durable_cleanup(db_session, user_and_player):
+    """Owned avatars are durably queued in the account-deletion transaction."""
     player_id = user_and_player["player_id"]
+    object_key = f"avatars/{player_id}/test.jpg"
 
-    # Set a profile picture URL
     result = await db_session.execute(select(Player).where(Player.id == player_id))
     player = result.scalar_one()
-    player.profile_picture_url = "https://s3.example.com/avatars/test.jpg"
+    player.profile_picture_url = f"https://beach-kings.s3.us-west-2.amazonaws.com/{object_key}"
     await db_session.commit()
 
     await user_service.execute_account_deletion(db_session, user_and_player["user_id"])
 
-    mock_delete.assert_called_once_with("https://s3.example.com/avatars/test.jpg")
+    result = await db_session.execute(
+        select(MediaDeletionJob).where(MediaDeletionJob.object_key == object_key)
+    )
+    job = result.scalar_one()
+    assert job.status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_execute_deletion_removes_reviews_and_durably_queues_photos(db_session, rich_user):
+    """Review/photo rows disappear while each S3 object remains durably tracked."""
+    await user_service.execute_account_deletion(db_session, rich_user["user_id"])
+
+    review_count = await db_session.scalar(
+        select(func.count())
+        .select_from(CourtReview)
+        .where(CourtReview.id == rich_user["review_id"])
+    )
+    assert review_count == 0
+
+    queued_keys = set(
+        (
+            await db_session.execute(
+                select(MediaDeletionJob.object_key).where(
+                    MediaDeletionJob.object_key.in_(
+                        [rich_user["review_photo_key"], rich_user["standalone_photo_key"]]
+                    )
+                )
+            )
+        ).scalars()
+    )
+    assert queued_keys == {rich_user["review_photo_key"], rich_user["standalone_photo_key"]}
 
 
 # ---------------------------------------------------------------------------

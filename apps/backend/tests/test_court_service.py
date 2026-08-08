@@ -273,14 +273,34 @@ class TestCourtCRUD:
             assert item["is_free"] is True
 
     @pytest.mark.asyncio
-    async def test_list_courts_filters_by_bounds_and_coordinates(self, db_session, court, location):
+    async def test_list_courts_filters_by_bounds_and_coordinates(
+        self, db_session, court, location
+    ):
         """Bounds include in-area courts and exclude both outside and coordinate-less courts."""
-        inside = Court(name="Inside", slug="inside", location_id=location.id, status="approved", is_active=True, latitude=40.7, longitude=-74.0)
-        outside = Court(name="Outside", slug="outside", location_id=location.id, status="approved", is_active=True, latitude=34.0, longitude=-118.0)
+        inside = Court(
+            name="Inside",
+            slug="inside",
+            location_id=location.id,
+            status="approved",
+            is_active=True,
+            latitude=40.7,
+            longitude=-74.0,
+        )
+        outside = Court(
+            name="Outside",
+            slug="outside",
+            location_id=location.id,
+            status="approved",
+            is_active=True,
+            latitude=34.0,
+            longitude=-118.0,
+        )
         db_session.add_all([inside, outside])
         await db_session.commit()
 
-        result = await court_service.list_courts_public(db_session, north=41, south=40, east=-73, west=-75)
+        result = await court_service.list_courts_public(
+            db_session, north=41, south=40, east=-73, west=-75
+        )
 
         assert [item["slug"] for item in result["items"]] == ["inside"]
         assert result["total_count"] == 1
@@ -928,9 +948,7 @@ class TestEditSuggestions:
         assert stored.applied_changes is None
 
     @pytest.mark.asyncio
-    async def test_approve_revalidates_legacy_stored_changes(
-        self, db_session, court, test_player
-    ):
+    async def test_approve_revalidates_legacy_stored_changes(self, db_session, court, test_player):
         suggestion = await court_service.create_edit_suggestion(
             session=db_session,
             court_id=court["id"],

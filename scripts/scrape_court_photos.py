@@ -13,7 +13,6 @@ import csv
 import json
 import os
 import re
-import sys
 import time
 from pathlib import Path
 from urllib.parse import quote
@@ -225,7 +224,7 @@ def process_court(page, slug: str, court: dict) -> int:
     # Extract image URLs
     urls = extract_image_urls(page)
     if not urls:
-        print(f"  NO IMAGE URLS found")
+        print("  NO IMAGE URLS found")
         return 0
 
     print(f"  Found {len(urls)} candidate URLs")
@@ -274,7 +273,6 @@ def main():
     all_courts = load_all_courts()
 
     # Build work list: courts needing photos, priority courts first
-    priority_set = set(PRIORITY_COURTS)
     needs_photos = []
     for court in all_courts:
         slug = court["slug"]

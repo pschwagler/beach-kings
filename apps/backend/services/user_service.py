@@ -2,12 +2,15 @@
 User service layer for user and verification code database operations.
 """
 
-from typing import Optional, Dict
 from datetime import datetime, timedelta, timezone
+import logging
+from typing import Optional, Dict
+from urllib.parse import urlparse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select, update, delete, func
+from sqlalchemy.dialects.postgresql import insert
 from backend.database.models import (
     User,
     VerificationCode,
@@ -41,6 +44,25 @@ from backend.database.models import (
     CourtPhoto,
     CourtEditSuggestion,
     PlayerInvite,
+    Court,
+    CourtCheckIn,
+    KobTournament,
+    KobPlayer,
+    League,
+    LeagueConfig,
+    LeagueInvite,
+    Location,
+    Match,
+    PlayerHomeCourt,
+    Season,
+    SeasonAward,
+    Session,
+    Setting,
+    Signup,
+    WeeklySchedule,
+    MediaDeletionJob,
+    AppleCredential,
+    AppleRevocationJob,
 )
 
 
@@ -59,8 +81,7 @@ def effective_moderation_status(user: dict) -> str:
         return "active" if expiry <= utcnow() else account_status
     except (TypeError, ValueError):
         return account_status
-import asyncio
-import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -977,18 +998,47 @@ async def cancel_account_deletion(session: AsyncSession, user_id: int) -> bool:
     return True
 
 
-async def _delete_s3_objects(player: Player, player_id: int, session: AsyncSession) -> None:
-    """Delete all S3 objects (avatar, court photos) belonging to a player."""
-    from backend.services import s3_service
+async def store_apple_refresh_token(
+    session: AsyncSession, user_id: int, refresh_token_ciphertext: str
+) -> None:
+    """Insert or replace the encrypted Apple refresh token for a linked account."""
+    await session.execute(
+        insert(AppleCredential)
+        .values(user_id=user_id, refresh_token_ciphertext=refresh_token_ciphertext)
+        .on_conflict_do_update(
+            index_elements=[AppleCredential.user_id],
+            set_={
+                "refresh_token_ciphertext": refresh_token_ciphertext,
+                "updated_at": func.now(),
+            },
+        )
+    )
+    await session.flush()
 
-    # Avatar
-    if player.profile_picture_url:
-        try:
-            await asyncio.to_thread(s3_service.delete_avatar, player.profile_picture_url)
-        except Exception as e:
-            logger.warning(f"Failed to delete avatar for player {player_id}: {e}")
 
-    # Court photos + court review photos
+async def _enqueue_apple_revocation(session: AsyncSession, user_id: int) -> None:
+    """Move a stored Apple credential into the durable deletion outbox."""
+    credential = (
+        await session.execute(select(AppleCredential).where(AppleCredential.user_id == user_id))
+    ).scalar_one_or_none()
+    if credential is None:
+        return
+    session.add(AppleRevocationJob(refresh_token_ciphertext=credential.refresh_token_ciphertext))
+    await session.delete(credential)
+
+
+def _managed_avatar_key(url: str, player_id: int) -> Optional[str]:
+    """Return the key only for avatars created by this app's S3 upload convention."""
+    parsed = urlparse(url)
+    key = parsed.path.lstrip("/")
+    expected_prefix = f"avatars/{player_id}/"
+    if parsed.scheme != "https" or not (parsed.hostname or "").endswith(".amazonaws.com"):
+        return None
+    return key if key.startswith(expected_prefix) and len(key) > len(expected_prefix) else None
+
+
+async def _enqueue_s3_deletions(player: Player, player_id: int, session: AsyncSession) -> None:
+    """Record owned media for deletion in the same transaction as account cleanup."""
     photo_result = await session.execute(
         select(CourtPhoto.s3_key).where(CourtPhoto.uploaded_by == player_id)
     )
@@ -997,15 +1047,12 @@ async def _delete_s3_objects(player: Player, player_id: int, session: AsyncSessi
         .join(CourtReview, CourtReviewPhoto.review_id == CourtReview.id)
         .where(CourtReview.player_id == player_id)
     )
-    all_s3_keys = [row[0] for row in photo_result.all()] + [
-        row[0] for row in review_photo_result.all()
-    ]
-    if all_s3_keys:
-        try:
-            for key in all_s3_keys:
-                await asyncio.to_thread(s3_service.delete_file, key)
-        except Exception as e:
-            logger.warning(f"Failed to delete S3 objects for player {player_id}: {e}")
+    keys = {row[0] for row in photo_result.all()} | {row[0] for row in review_photo_result.all()}
+    if player.profile_picture_url:
+        avatar_key = _managed_avatar_key(player.profile_picture_url, player_id)
+        if avatar_key:
+            keys.add(avatar_key)
+    session.add_all([MediaDeletionJob(object_key=key) for key in sorted(keys) if key])
 
 
 async def _delete_player_stats(session: AsyncSession, player_id: int) -> None:
@@ -1061,6 +1108,7 @@ async def _delete_player_stats(session: AsyncSession, player_id: int) -> None:
 
 async def _delete_social_data(session: AsyncSession, player_id: int) -> None:
     """Delete friend requests, friendships, and direct messages for a player."""
+    await session.execute(delete(Notification).where(Notification.actor_player_id == player_id))
     await session.execute(
         delete(FriendRequest).where(
             (FriendRequest.sender_player_id == player_id)
@@ -1076,6 +1124,9 @@ async def _delete_social_data(session: AsyncSession, player_id: int) -> None:
             | (DirectMessage.receiver_player_id == player_id)
         )
     )
+    from backend.services import interaction_policy
+
+    await interaction_policy.delete_blocks_for_player(session, player_id)
 
 
 async def _delete_league_participation(session: AsyncSession, player_id: int) -> None:
@@ -1087,6 +1138,11 @@ async def _delete_league_participation(session: AsyncSession, player_id: int) ->
     await session.execute(
         delete(SessionParticipant).where(SessionParticipant.player_id == player_id)
     )
+    await session.execute(delete(LeagueInvite).where(LeagueInvite.player_id == player_id))
+    await session.execute(delete(PlayerHomeCourt).where(PlayerHomeCourt.player_id == player_id))
+    await session.execute(delete(CourtCheckIn).where(CourtCheckIn.player_id == player_id))
+    await session.execute(delete(SeasonAward).where(SeasonAward.player_id == player_id))
+    await session.execute(delete(KobPlayer).where(KobPlayer.player_id == player_id))
 
 
 async def _delete_court_contributions(session: AsyncSession, player_id: int) -> None:
@@ -1103,11 +1159,43 @@ async def _delete_court_contributions(session: AsyncSession, player_id: int) -> 
     )
 
 
-def _anonymize_player(player: Player) -> None:
+async def _detach_retained_attribution(session: AsyncSession, player_id: int) -> None:
+    """Remove ordinary-product attribution while preserving factual rows."""
+    for model, columns in (
+        (Location, ("created_by", "updated_by")),
+        (Court, ("created_by", "updated_by")),
+        (League, ("created_by", "updated_by")),
+        (LeagueConfig, ("created_by", "updated_by")),
+        (LeagueMember, ("created_by",)),
+        (Season, ("created_by", "updated_by")),
+        (Session, ("created_by", "updated_by")),
+        (Match, ("created_by", "updated_by")),
+        (Setting, ("updated_by",)),
+        (WeeklySchedule, ("created_by", "updated_by")),
+        (Signup, ("created_by", "updated_by")),
+        (SignupEvent, ("created_by",)),
+        (SessionParticipant, ("invited_by",)),
+        (PlayerInvite, ("created_by_player_id",)),
+        (LeagueInvite, ("invited_by_player_id",)),
+        (CourtPhoto, ("uploaded_by",)),
+        (CourtEditSuggestion, ("reviewed_by",)),
+        (Friend, ("created_by",)),
+        (KobTournament, ("director_player_id",)),
+        (Player, ("created_by_player_id",)),
+    ):
+        for column_name in columns:
+            column = getattr(model, column_name)
+            await session.execute(
+                update(model).where(column == player_id).values(**{column_name: None})
+            )
+
+
+def _anonymize_player(player: Player, deleted_at: datetime) -> None:
     """Replace player PII with anonymized values. Keeps the row for match FK integrity."""
     player.full_name = "Deleted Player"
-    player.first_name = "Deleted"
-    player.last_name = "Player"
+    player.first_name = ""
+    player.last_name = ""
+    player.user_id = None
     player.nickname = None
     player.gender = None
     player.level = None
@@ -1122,11 +1210,16 @@ def _anonymize_player(player: Player) -> None:
     player.avatar = None
     player.height = None
     player.preferred_side = None
+    player.avp_playerProfileId = None
+    player.status = None
+    player.created_by_player_id = None
+    player.deleted_at = deleted_at
 
 
-async def _delete_user_data(session: AsyncSession, user: User) -> None:
+async def _delete_user_data(session: AsyncSession, user: User, deleted_at: datetime) -> None:
     """Delete user-level rows and anonymize user PII."""
     user_id = user.id
+    await _enqueue_apple_revocation(session, user_id)
     await session.execute(delete(Notification).where(Notification.user_id == user_id))
     await session.execute(delete(LeagueMessage).where(LeagueMessage.user_id == user_id))
     await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
@@ -1144,8 +1237,11 @@ async def _delete_user_data(session: AsyncSession, user: User) -> None:
     user.apple_id = None
     user.password_hash = None
     user.deletion_scheduled_at = None
-    user.deleted_at = utcnow()
+    user.deleted_at = deleted_at
     user.is_verified = False
+    user.failed_verification_attempts = 0
+    user.locked_until = None
+    user.password_changed_at = None
 
 
 async def execute_account_deletion(session: AsyncSession, user_id: int) -> bool:
@@ -1172,17 +1268,19 @@ async def execute_account_deletion(session: AsyncSession, user_id: int) -> bool:
     )
     player = player_result.scalar_one_or_none()
     player_id = player.id if player else None
+    deleted_at = utcnow()
 
     if player_id:
-        await _delete_s3_objects(player, player_id, session)
+        await _enqueue_s3_deletions(player, player_id, session)
         await _delete_player_stats(session, player_id)
         await _delete_social_data(session, player_id)
         await _delete_league_participation(session, player_id)
         await _delete_court_contributions(session, player_id)
         await session.execute(delete(PlayerInvite).where(PlayerInvite.player_id == player_id))
-        _anonymize_player(player)
+        await _detach_retained_attribution(session, player_id)
+        _anonymize_player(player, deleted_at)
 
-    await _delete_user_data(session, user)
+    await _delete_user_data(session, user, deleted_at)
 
     await session.commit()
     logger.info(f"Account deletion executed for user {user_id} (player {player_id})")

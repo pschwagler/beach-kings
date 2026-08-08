@@ -9,15 +9,17 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  applyModerationAction, getModerationCase, getModerationCases,
+  applyModerationAction, createModerationEscalation, getModerationCase, getModerationCases,
   getModerationContext, getModerationEvidenceUrl, getModerationOverview,
   retryModerationJob, type ModerationQueue, type ModerationState,
 } from '../../services/endpoints/admin';
+import './AdminModerationTab.css';
 
-type Totals = Record<'active' | 'all' | 'urgent' | 'due' | 'ordinary' | 'open' | 'acknowledged' | 'closed', number>;
+type Totals = Record<'active' | 'all' | 'urgent' | 'due' | 'overdue' | 'ordinary' | 'open' | 'acknowledged' | 'closed', number>;
 interface CaseSummary {
   id: number; target_type: string; target_id: number; state: string; severity: string;
   due_at: string | null; current_action: string | null; report_count: number;
+  incident_type: string | null; urgent_since_at: string | null; dispositioned_at: string | null;
   subject_name?: string | null; target_title?: string; target_snippet?: string | null;
   target_media_type?: 'image' | null; source?: 'member_report' | 'automated'; primary_reason?: string | null;
 }
@@ -53,6 +55,8 @@ interface CaseDetail extends CaseSummary {
 interface Overview {
   mode: string; queues: Totals; generated_at: string;
   jobs: { pending: number; processing: number; failed: number; stale: number; oldest_pending_at: string | null; latest_completion_at: string | null };
+  alerts: { pending: number; failed: number; latest_delivery_at: string | null };
+  sla: { unacknowledged_urgent: number; ordinary_due_soon: number; overdue: number };
 }
 
 const TARGETS = ['', 'player', 'direct_message', 'league_message', 'court_review', 'court_photo', 'court_review_photo'];
@@ -63,7 +67,8 @@ const STATES: Array<{ value: ModerationState; label: string }> = [
 ];
 const ATTENTION: Array<{ value: ModerationQueue | ''; label: string }> = [
   { value: '', label: 'All' }, { value: 'urgent', label: 'Urgent' },
-  { value: 'due', label: 'Due soon' }, { value: 'ordinary', label: 'Ordinary' },
+  { value: 'due', label: 'Due soon' }, { value: 'overdue', label: 'Overdue' },
+  { value: 'ordinary', label: 'Ordinary' },
 ];
 const ACTION_GROUPS = [
   { label: 'Case workflow', actions: ['acknowledge', 'dismiss'] },
@@ -96,11 +101,11 @@ export default function AdminModerationTab() {
   const queue = (searchParams.get('queue') as ModerationQueue | null) ?? undefined;
   const state = (searchParams.get('state') as ModerationState | null) ?? 'active';
   const target = searchParams.get('target') ?? '';
+  const urlSearch = searchParams.get('search') ?? '';
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
   const selectedId = Number(searchParams.get('case')) || null;
-  const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const [cases, setCases] = useState<CaseSummary[]>([]);
-  const [totals, setTotals] = useState<Totals>({ active: 0, all: 0, urgent: 0, due: 0, ordinary: 0, open: 0, acknowledged: 0, closed: 0 });
+  const [totals, setTotals] = useState<Totals>({ active: 0, all: 0, urgent: 0, due: 0, overdue: 0, ordinary: 0, open: 0, acknowledged: 0, closed: 0 });
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [selected, setSelected] = useState<CaseDetail | null>(null);
@@ -113,61 +118,73 @@ export default function AdminModerationTab() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const backRef = useRef<HTMLButtonElement | null>(null);
+  const loadSequence = useRef(0);
+  const detailSequence = useRef(0);
 
   const updateUrl = useCallback((updates: Record<string, string | number | null | undefined>) => {
-    const params = new URLSearchParams(searchParams.toString());
+    // Read at interaction time so rapid filter/selection changes compose with
+    // the URL Next has already committed instead of a stale render snapshot.
+    const params = new URLSearchParams(window.location.search || searchParams.toString());
     Object.entries(updates).forEach(([key, value]) => value == null || value === '' ? params.delete(key) : params.set(key, String(value)));
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [router, searchParams]);
 
   const changeFilters = useCallback((updates: Record<string, string | number | null | undefined>, resetPage = true) => {
+    detailSequence.current += 1;
     setSelected(null);
     updateUrl({ case: null, ...(resetPage ? { page: 1 } : {}), ...updates });
   }, [updateUrl]);
 
   const load = useCallback(async (quiet = false) => {
+    const requestId = ++loadSequence.current;
+    const detailRequestId = detailSequence.current;
     quiet ? setRefreshing(true) : setInitialLoading(true);
     setError(null);
     try {
-      const [list, health] = await Promise.all([
-        getModerationCases({ queue, state, target_type: target || undefined, search: search.trim() || undefined, page, page_size: 30 }),
+      const [list, health, detailValue] = await Promise.all([
+        getModerationCases({ queue, state, target_type: target || undefined, search: urlSearch.trim() || undefined, page, page_size: 30 }),
         getModerationOverview(),
+        selectedId ? getModerationCase(selectedId) : Promise.resolve(null),
       ]);
+      if (requestId !== loadSequence.current) return;
       setCases(list.items); setTotals(list.totals); setTotal(list.total ?? list.items.length);
       setTotalPages(list.total_pages); setOverview(health);
       setLastRefresh(new Date()); setAccessDenied(false);
-      if (selectedId) setSelected(await getModerationCase(selectedId));
-      else setSelected(null);
+      if (detailRequestId === detailSequence.current) setSelected(detailValue);
     } catch (loadError) {
+      if (requestId !== loadSequence.current) return;
       if (axios.isAxiosError(loadError) && loadError.response?.status === 403) setAccessDenied(true);
       else setError(apiMessage(loadError, 'The moderation desk could not refresh. Existing information may be stale.'));
-    } finally { setInitialLoading(false); setRefreshing(false); }
-  }, [page, queue, search, selectedId, state, target]);
+    } finally {
+      if (requestId === loadSequence.current) { setInitialLoading(false); setRefreshing(false); }
+    }
+  }, [page, queue, selectedId, state, target, urlSearch]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => {
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(true); }, 30_000);
     return () => window.clearInterval(timer);
   }, [load]);
-  useEffect(() => {
-    const normalizedSearch = search.trim();
-    if (normalizedSearch === (searchParams.get('search') ?? '')) return;
-    const timer = window.setTimeout(() => changeFilters({ search: normalizedSearch || null }), 350);
-    return () => window.clearTimeout(timer);
-  // URL callback intentionally omitted to avoid resetting the debounce on navigation.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  const commitSearch = useCallback((value: string) => {
+    changeFilters({ search: value || null });
+  }, [changeFilters]);
 
   const openCase = async (caseId: number) => {
+    const requestId = ++detailSequence.current;
     updateUrl({ case: caseId }); setDetailLoading(true); setError(null);
     try {
-      setSelected(await getModerationCase(caseId));
+      const detailValue = await getModerationCase(caseId);
+      if (requestId !== detailSequence.current) return;
+      setSelected(detailValue);
       if (window.matchMedia?.('(max-width: 720px)').matches) window.requestAnimationFrame(() => backRef.current?.focus());
     }
-    catch (openError) { setError(apiMessage(openError, 'Case details are unavailable.')); }
-    finally { setDetailLoading(false); }
+    catch (openError) {
+      if (requestId === detailSequence.current) setError(apiMessage(openError, 'Case details are unavailable.'));
+    }
+    finally { if (requestId === detailSequence.current) setDetailLoading(false); }
   };
   const closeCase = () => {
+    detailSequence.current += 1;
     const selectedIndex = cases.findIndex((item) => item.id === selectedId);
     setSelected(null); updateUrl({ case: null });
     window.requestAnimationFrame(() => rowRefs.current[selectedIndex]?.focus());
@@ -180,14 +197,14 @@ export default function AdminModerationTab() {
   };
 
   if (accessDenied) return <AccessDenied />;
-  const unhealthy = Boolean(overview && (overview.jobs.failed > 0 || overview.jobs.stale > 0));
+  const unhealthy = Boolean(overview && (overview.jobs.failed > 0 || overview.jobs.stale > 0 || overview.alerts.failed > 0));
   return (
-    <section className="moderation-workspace" aria-busy={refreshing}>
+    <section className="moderation-workspace" aria-busy={initialLoading || detailLoading || refreshing}>
       <header className="moderation-command-header">
         <div><span className="moderation-kicker">Trust &amp; safety operations</span><h2>Moderation control desk</h2><p>Review reported content, apply policy, and record every decision.</p></div>
         <button className="moderation-refresh" disabled={refreshing} onClick={() => void load(true)}><RefreshCw size={16} className={refreshing ? 'spinning' : ''} /> {refreshing ? 'Refreshing' : 'Refresh'}</button>
       </header>
-      {unhealthy && <div className="moderation-health-alert" role="alert"><AlertTriangle size={17} /><span>Moderation processing needs attention: {overview!.jobs.failed} failed and {overview!.jobs.stale} stale job{overview!.jobs.failed + overview!.jobs.stale === 1 ? '' : 's'}.</span></div>}
+      {unhealthy && <div className="moderation-health-alert" role="alert"><AlertTriangle size={17} /><span>Moderation processing needs attention: {overview!.jobs.failed + overview!.alerts.failed} failed and {overview!.jobs.stale} stale job{overview!.jobs.failed + overview!.alerts.failed + overview!.jobs.stale === 1 ? '' : 's'}.</span></div>}
       <HealthStrip overview={overview} refreshed={lastRefresh} refreshing={refreshing} />
       {error && <div className="moderation-alert" role="alert"><AlertTriangle size={17} /><span>{error}</span><button onClick={() => void load(true)}>Try again</button></div>}
       <div className="moderation-scope-controls">
@@ -195,7 +212,7 @@ export default function AdminModerationTab() {
         <div className="moderation-filter-group"><span id="moderation-attention-label">Attention</span><div role="group" aria-labelledby="moderation-attention-label">{ATTENTION.map(({ value, label }) => <button key={value || 'all'} aria-pressed={(queue ?? '') === value} onClick={() => changeFilters({ queue: value || null })}>{label}{value && state === 'active' && <small>{totals[value]}</small>}</button>)}</div></div>
       </div>
       <div className="moderation-toolbar">
-        <label className="moderation-search"><Search size={16} /><span className="sr-only">Search cases</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search case or target ID" /></label>
+        <ModerationSearch key={urlSearch} value={urlSearch} onCommit={commitSearch} />
         <label><span>Target type</span><select value={target} onChange={(event) => changeFilters({ target: event.target.value || null })}>{TARGETS.map((value) => <option value={value} key={value}>{value ? humanize(value) : 'All target types'}</option>)}</select></label>
       </div>
       <div className={`moderation-columns ${selectedId ? 'moderation-columns--detail' : ''}`}>
@@ -221,13 +238,27 @@ export default function AdminModerationTab() {
   );
 }
 
+function ModerationSearch({ value, onCommit }: { value: string; onCommit: (value: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => {
+    const normalized = draft.trim();
+    if (normalized === value) return;
+    const timer = window.setTimeout(() => onCommit(normalized), 350);
+    return () => window.clearTimeout(timer);
+  }, [draft, onCommit, value]);
+  return <label className="moderation-search"><Search size={16} /><span className="sr-only">Search cases</span><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Search case or target ID" inputMode="numeric" /></label>;
+}
+
 function HealthStrip({ overview, refreshed, refreshing }: { overview: Overview | null; refreshed: Date | null; refreshing: boolean }) {
   const items = overview ? [
     ['Mode', overview.mode], ['Processing backlog', overview.jobs.pending + overview.jobs.processing], ['Failures', overview.jobs.failed], ['Stale', overview.jobs.stale],
     ['Last completion', overview.jobs.latest_completion_at ? new Date(overview.jobs.latest_completion_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'None'],
+    ['Pending alerts', overview.alerts.pending], ['Failed alerts', overview.alerts.failed],
+    ['Last alert', overview.alerts.latest_delivery_at ? new Date(overview.alerts.latest_delivery_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'None'],
+    ['Urgent unacknowledged', overview.sla.unacknowledged_urgent], ['Ordinary due soon', overview.sla.ordinary_due_soon], ['Overdue', overview.sla.overdue],
     ['Refresh', refreshing ? 'In progress' : refreshed ? refreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Waiting'],
   ] : [['Health', 'Loading…']];
-  return <details className="moderation-health-disclosure"><summary><span>System health</span><small>{overview ? `${overview.jobs.pending + overview.jobs.processing} processing · ${overview.jobs.failed + overview.jobs.stale} need attention` : 'Loading…'}</small><ChevronDown size={16} /></summary><div className="moderation-health" aria-label="Worker health">{items.map(([label, value]) => <div key={label}><span>{label}</span><strong className={(label === 'Failures' || label === 'Stale') && Number(value) > 0 ? 'is-warning' : ''}>{value}</strong></div>)}</div></details>;
+  return <details className="moderation-health-disclosure"><summary><span>System health</span><small>{overview ? `${overview.alerts.pending} alerts pending · ${overview.sla.overdue} cases overdue` : 'Loading…'}</small><ChevronDown size={16} /></summary><div className="moderation-health" aria-label="Worker and alert health">{items.map(([label, value]) => <div key={label}><span>{label}</span><strong className={(label === 'Failures' || label === 'Failed alerts' || label === 'Stale' || label === 'Overdue') && Number(value) > 0 ? 'is-warning' : ''}>{value}</strong></div>)}</div></details>;
 }
 
 function CasePanel({ value, onChanged, onError }: { value: CaseDetail; onChanged: () => void; onError: (value: string | null) => void }) {
@@ -237,17 +268,25 @@ function CasePanel({ value, onChanged, onError }: { value: CaseDetail; onChanged
   const [contextLoading, setContextLoading] = useState(false); const [revealedEvidence, setRevealedEvidence] = useState<Record<number, string>>({});
   const [evidenceLoading, setEvidenceLoading] = useState<number | null>(null);
   const [retryReasons, setRetryReasons] = useState<Record<number, string>>({});
+  const evidenceTimers = useRef<Record<number, number>>({});
   const appeals = value.appeals ?? [];
   const categories = useMemo(() => value.provider_reviews.flatMap((review) => Object.entries(review.categories).filter(([, flagged]) => flagged).map(([name]) => name)), [value.provider_reviews]);
   const needsConfirmation = HIGH_IMPACT.has(action);
   const needsAppeal = action === 'grant_appeal' || action === 'uphold_appeal';
   const consequence = actionConsequence(action, lockHours, value.legal_hold);
+  useEffect(() => () => {
+    Object.values(evidenceTimers.current).forEach((timer) => window.clearTimeout(timer));
+  }, []);
   const submit = async () => {
     if (!action || !reason.trim() || (needsConfirmation && !confirmed) || (needsAppeal && appealId == null)) return;
+    const submittedAction = action;
+    const submittedReason = reason.trim();
+    const submittedAppealId = appealId;
+    const submittedLockHours = lockHours;
     setMutating(true); onError(null); setSuccess(null);
     try {
-      await applyModerationAction(value.id, { action, reason: reason.trim(), ...((action === 'interaction_lock' || action === 'account_suspend') ? { lock_hours: lockHours } : {}), ...(action === 'legal_hold' ? { legal_hold: !value.legal_hold } : {}), ...(needsAppeal && appealId != null ? { appeal_id: appealId } : {}) });
-      setSuccess(`${LABELS[action]} recorded.`); setReason(''); setConfirmed(false); onChanged();
+      await applyModerationAction(value.id, { action: submittedAction, reason: submittedReason, ...((submittedAction === 'interaction_lock' || submittedAction === 'account_suspend') ? { lock_hours: submittedLockHours } : {}), ...(submittedAction === 'legal_hold' ? { legal_hold: !value.legal_hold } : {}), ...(needsAppeal && submittedAppealId != null ? { appeal_id: submittedAppealId } : {}) });
+      setSuccess(`${LABELS[submittedAction]} recorded.`); setReason(''); setConfirmed(false); onChanged();
     } catch (error) { onError(apiMessage(error, 'The action could not be recorded.')); }
     finally { setMutating(false); }
   };
@@ -268,8 +307,20 @@ function CasePanel({ value, onChanged, onError }: { value: CaseDetail; onChanged
     try {
       setEvidenceLoading(id); onError(null);
       const existing = revealedEvidence[id];
-      const url = (!openInTab && existing) || (await getModerationEvidenceUrl(value.id, id)).url;
-      setRevealedEvidence((current) => ({ ...current, [id]: url }));
+      const response = (!openInTab && existing) ? null : await getModerationEvidenceUrl(value.id, id);
+      const url = response?.url ?? existing!;
+      if (response) {
+        setRevealedEvidence((current) => ({ ...current, [id]: url }));
+        window.clearTimeout(evidenceTimers.current[id]);
+        evidenceTimers.current[id] = window.setTimeout(() => {
+          setRevealedEvidence((current) => {
+            const next = { ...current };
+            delete next[id];
+            return next;
+          });
+          delete evidenceTimers.current[id];
+        }, response.expires_in * 1000);
+      }
       if (openInTab) window.open(url, '_blank', 'noopener,noreferrer');
     } catch (error) { onError(apiMessage(error, 'Evidence is unavailable or has expired.')); }
     finally { setEvidenceLoading(null); }
@@ -278,11 +329,12 @@ function CasePanel({ value, onChanged, onError }: { value: CaseDetail; onChanged
   const evidence = value.evidence ?? [];
   return <article>
     <header className="moderation-case-title"><div><span>Case {value.id}</span><h3>{value.target.title}</h3><p>{value.source === 'automated' || value.reports.length === 0 ? 'Automated detection' : 'Member report'}{value.reports[0]?.reason ? ` · ${humanize(value.reports[0].reason)}` : ''}</p></div><div className="moderation-state"><span>{value.state}</span>{value.legal_hold && <strong><Gavel size={13} /> Legal hold</strong>}</div></header>
+    {value.severity === 'urgent' && <IncidentCard value={value} onChanged={onChanged} onError={onError} />}
     <section className="moderation-detail-section moderation-content-context"><h4>Reported content &amp; context</h4><div className="moderation-facts"><span>Subject <strong>{value.subject?.display_name ?? 'Unknown'}</strong></span><span>Target <strong>{humanize(value.target_type)} #{value.target_id}</strong></span><span>Visibility <strong>{value.target.visibility ?? 'Not applicable'}</strong></span><span>Due <strong>{relativeDue(value.due_at)}</strong></span></div>
       {value.target.text ? <div className="moderation-reported-text"><span>Reported content</span><blockquote>{value.target.text}</blockquote></div> : <p className="moderation-muted">No reviewable text is available. Reveal captured media below when present.</p>}
       {textTarget && context == null && <button className="moderation-context-button" disabled={contextLoading} onClick={() => void showContext()}>{contextLoading ? <LoaderCircle size={16} className="spinning" /> : <ShieldCheck size={16} />} Show conversation context <small>Audited access</small></button>}
       {context && <ConversationPanel value={context} />}
-      {evidence.filter(isImageEvidence).map((item) => <div className="moderation-image-evidence" key={item.id}>{revealedEvidence[item.id] ? <><RestrictedImage src={revealedEvidence[item.id]} caseId={value.id} /><div><span>Restricted image evidence · link expires after five minutes</span><button onClick={() => void revealEvidence(item.id, true)}><ExternalLink size={15} /> Open full resolution</button></div></> : <button disabled={item.state === 'purged' || evidenceLoading === item.id} onClick={() => void revealEvidence(item.id)}><ImageIcon size={18} /><span>{item.state === 'purged' ? 'Image evidence was purged and is unavailable' : 'Reveal image evidence'}<small>{item.state === 'purged' ? 'Retention period ended' : 'Access is audited'}</small></span>{evidenceLoading === item.id && <LoaderCircle size={16} className="spinning" />}</button>}</div>)}
+      {evidence.filter(isImageEvidence).map((item) => <div className="moderation-image-evidence" key={item.id}>{revealedEvidence[item.id] ? <><RestrictedImage src={revealedEvidence[item.id]} caseId={value.id} /><div><span>Restricted image evidence · link expires after five minutes</span><button disabled={evidenceLoading === item.id} onClick={() => void revealEvidence(item.id, true)}><ExternalLink size={15} /> Open full resolution</button></div></> : <button disabled={item.state === 'purged' || evidenceLoading === item.id} onClick={() => void revealEvidence(item.id)}><ImageIcon size={18} /><span>{item.state === 'purged' ? 'Image evidence was purged and is unavailable' : 'Reveal image evidence'}<small>{item.state === 'purged' ? 'Retention period ended' : 'Access is audited'}</small></span>{evidenceLoading === item.id && <LoaderCircle size={16} className="spinning" />}</button>}</div>)}
       {!value.target.text && !evidence.some(isImageEvidence) && <p className="moderation-evidence-unavailable"><FileWarning size={15} /> {evidence.some((item) => item.state === 'purged') ? 'Evidence for this case has been purged.' : 'No captured evidence is available for this case.'}</p>}
       <dl className="moderation-metadata">{Object.entries(value.target.metadata).filter(([, item]) => item != null).map(([key, item]) => <div key={key}><dt>{humanize(key)}</dt><dd>{key === 'created_at' ? new Date(String(item)).toLocaleString() : String(item)}</dd></div>)}</dl>
     </section>
@@ -290,10 +342,61 @@ function CasePanel({ value, onChanged, onError }: { value: CaseDetail; onChanged
     <section className="moderation-detail-section"><h4>Provider review <span>Advisory</span></h4>{value.provider_reviews.length ? <>{categories.length > 0 && <div className="moderation-categories">{[...new Set(categories)].map((item) => <span key={item}>{humanize(item)}</span>)}</div>}{value.provider_reviews.map((review, index) => <div className="moderation-provider" key={`${review.created_at}-${index}`}><strong>{review.flagged ? 'Provider flagged' : 'Provider cleared'} · {review.model ?? 'model not recorded'}</strong>{review.recommendation && <><p><b>{humanize(review.recommendation.recommendation ?? 'owner review')}</b> · {review.recommendation.rationale}</p><small>Recommendation only; no score threshold is used.</small></>}{review.error && <p>{review.error}</p>}</div>)}</> : <p className="moderation-muted">No provider classification has completed.</p>}</section>
     {appeals.length > 0 && <section className="moderation-detail-section"><h4>Appeals <span>{appeals.length}</span></h4>{appeals.map((appeal) => <div className="moderation-report" key={appeal.id}><strong>Appeal {appeal.id} · {appeal.status}</strong><time>{new Date(appeal.created_at).toLocaleString()}</time><p>{appeal.statement}</p>{appeal.resolution_reason && <small>Resolution: {appeal.resolution_reason}</small>}</div>)}</section>}
     {evidence.some((item) => !isImageEvidence(item)) && <section className="moderation-detail-section"><h4>Other restricted evidence</h4><p className="moderation-muted">Access is audited. Links expire after five minutes.</p>{evidence.filter((item) => !isImageEvidence(item)).map((item) => <button className="moderation-evidence" disabled={item.state === 'purged'} key={item.id} onClick={() => void revealEvidence(item.id, true)}><FileWarning size={16} /><span>Evidence {item.id}<small>{item.content_type ?? 'file'} · {item.state}</small></span><strong>{item.state === 'purged' ? 'Unavailable' : 'Open captured file'}</strong></button>)}</section>}
-    <section className="moderation-detail-section"><h4>Actions</h4><div className="moderation-action-groups">{ACTION_GROUPS.map((group) => { const available = group.actions.filter((item) => value.allowed_actions.includes(item)); return available.length ? <fieldset key={group.label}><legend>{group.label}</legend><div className="moderation-action-choices">{available.map((item) => <button className={action === item ? 'active' : ''} aria-pressed={action === item} key={item} onClick={() => { setAction(item); setConfirmed(false); setAppealId((item === 'grant_appeal' || item === 'uphold_appeal') ? (appeals.find((appeal) => appeal.status === 'open')?.id ?? null) : null); }}>{item === 'legal_hold' ? (value.legal_hold ? 'Release legal hold' : 'Place legal hold') : LABELS[item]}</button>)}</div></fieldset> : null; })}</div>{action && <div className="moderation-action-form"><p className="moderation-consequence"><strong>Effect</strong>{consequence}</p><label><span>Required reason</span><textarea maxLength={1000} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Record the policy basis and relevant context…" /></label>{(action === 'interaction_lock' || action === 'account_suspend') && <label><span>Duration</span><select value={lockHours} onChange={(event) => { setLockHours(Number(event.target.value)); setConfirmed(false); }}><option value={24}>24 hours</option><option value={72}>3 days</option><option value={168}>7 days</option><option value={720}>30 days</option></select></label>}{needsAppeal && <label><span>Open appeal</span><select value={appealId ?? ''} onChange={(event) => setAppealId(Number(event.target.value))}>{appeals.filter((appeal) => appeal.status === 'open').map((appeal) => <option value={appeal.id} key={appeal.id}>Appeal {appeal.id}</option>)}</select></label>}{needsConfirmation && <label className="moderation-confirm"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /><span>I understand and confirm this action.</span></label>}<button className="moderation-submit" disabled={mutating || !reason.trim() || (needsConfirmation && !confirmed) || (needsAppeal && appealId == null)} onClick={() => void submit()}>{mutating && <LoaderCircle size={15} className="spinning" />}{action === 'legal_hold' && value.legal_hold ? 'Release legal hold' : LABELS[action] ?? action}</button></div>}{success && <p className="moderation-success" role="status"><Check size={15} />{success}</p>}</section>
+    <section className="moderation-detail-section" aria-busy={mutating}><h4>Actions</h4><div className="moderation-action-groups">{ACTION_GROUPS.map((group) => { const available = group.actions.filter((item) => value.allowed_actions.includes(item)); return available.length ? <fieldset disabled={mutating} key={group.label}><legend>{group.label}</legend><div className="moderation-action-choices">{available.map((item) => <button className={action === item ? 'active' : ''} aria-pressed={action === item} key={item} onClick={() => { setAction(item); setConfirmed(false); setAppealId((item === 'grant_appeal' || item === 'uphold_appeal') ? (appeals.find((appeal) => appeal.status === 'open')?.id ?? null) : null); }}>{item === 'legal_hold' ? (value.legal_hold ? 'Release legal hold' : 'Place legal hold') : LABELS[item]}</button>)}</div></fieldset> : null; })}</div>{action && <fieldset className="moderation-action-form" disabled={mutating}><p className="moderation-consequence"><strong>Effect</strong>{consequence}</p><label><span>Required reason</span><textarea maxLength={1000} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Record the policy basis and relevant context…" /></label>{(action === 'interaction_lock' || action === 'account_suspend') && <label><span>Duration</span><select value={lockHours} onChange={(event) => { setLockHours(Number(event.target.value)); setConfirmed(false); }}><option value={24}>24 hours</option><option value={72}>3 days</option><option value={168}>7 days</option><option value={720}>30 days</option></select></label>}{needsAppeal && <label><span>Open appeal</span><select value={appealId ?? ''} onChange={(event) => setAppealId(Number(event.target.value))}>{appeals.filter((appeal) => appeal.status === 'open').map((appeal) => <option value={appeal.id} key={appeal.id}>Appeal {appeal.id}</option>)}</select></label>}{needsConfirmation && <label className="moderation-confirm"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /><span>I understand and confirm this action.</span></label>}<button className="moderation-submit" disabled={!reason.trim() || (needsConfirmation && !confirmed) || (needsAppeal && appealId == null)} onClick={() => void submit()}>{mutating && <LoaderCircle size={15} className="spinning" />}{action === 'legal_hold' && value.legal_hold ? 'Release legal hold' : LABELS[action] ?? action}</button></fieldset>}{success && <p className="moderation-success" role="status"><Check size={15} />{success}</p>}</section>
     {value.jobs.length > 0 && <section className="moderation-detail-section"><h4>Worker jobs</h4>{value.jobs.map((job) => <div className="moderation-job" key={job.id}><div><strong>Job {job.id} · {job.status}</strong><small>{job.attempts} attempts · updated {new Date(job.updated_at).toLocaleString()}</small>{job.last_error && <p>{job.last_error}</p>}</div>{job.can_retry && <div className="moderation-retry"><input aria-label={`Reason to retry job ${job.id}`} placeholder="Required retry reason" value={retryReasons[job.id] ?? ''} onChange={(event) => setRetryReasons((current) => ({ ...current, [job.id]: event.target.value }))} /><button disabled={mutating || !retryReasons[job.id]?.trim()} onClick={() => void retry(job)}>Retry cycle</button></div>}</div>)}</section>}
     <section className="moderation-detail-section moderation-history-section"><h4>Append-only history</h4>{value.events.length ? <ol className="moderation-history">{[...value.events].reverse().map((event) => <li key={event.id}><span /><div><strong>{humanize(event.event_type)}</strong><small>{event.operator_name ? `${event.operator_name} · user ${event.operator_user_id}` : 'System'} · {new Date(event.created_at).toLocaleString()}</small>{event.reason && <p>{event.reason}</p>}</div></li>)}</ol> : <p className="moderation-muted">No history events recorded.</p>}</section>
   </article>;
+}
+
+const INCIDENT_CHECKLISTS: Record<string, string[]> = {
+  credible_threat: ['Assess whether danger appears immediate and identify jurisdiction.', 'Preserve app-held evidence; do not forward evidence by email.', 'Follow the reviewed immediate-danger runbook before any outside contact.'],
+  sexual_exploitation: ['Do not download, copy, or redistribute suspected exploitative material.', 'Preserve app-held evidence and confirm the legal-hold decision.', 'Use the reviewed child-safety reporting path for the applicable jurisdiction.'],
+  stalking_doxxing: ['Assess ongoing access, location exposure, and immediate safety risk.', 'Preserve identifiers and app-held context without contacting the reported person.', 'Consult the reviewed stalking/doxxing response checklist.'],
+  self_harm: ['Assess whether the content indicates imminent risk.', 'Keep intervention human-reviewed; the application never contacts crisis services.', 'Use the reviewed U.S. or Canadian crisis-resource path only when appropriate.'],
+  minor_safety: ['Assess immediate danger and the child’s jurisdiction.', 'Preserve app-held evidence and confirm the legal-hold decision.', 'Consult the reviewed child-safety reporting path before outside contact.'],
+  other_urgent: ['Assess immediate danger and jurisdiction.', 'Preserve relevant app-held evidence.', 'Consult a safety specialist before selecting an outside channel.'],
+};
+const ESCALATION_CHANNELS = [
+  ['emergency_services', 'Emergency services'], ['ncmec_cybertipline', 'NCMEC CyberTipline'],
+  ['cybertip_ca', 'Cybertip.ca'], ['us_988', 'U.S. 988'], ['canada_988', 'Canadian 9-8-8'],
+  ['local_law_enforcement', 'Local law enforcement'], ['specialist_consultation', 'Specialist consultation'],
+];
+
+function IncidentCard({ value, onChanged, onError }: { value: CaseDetail; onChanged: () => void; onError: (value: string | null) => void }) {
+  const [channel, setChannel] = useState('specialist_consultation');
+  const [jurisdiction, setJurisdiction] = useState('unknown');
+  const [externalReference, setExternalReference] = useState('');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const incident = value.incident_type ?? 'other_urgent';
+  const submit = async () => {
+    if (!note.trim()) return;
+    setSaving(true); setSaved(false); onError(null);
+    try {
+      await createModerationEscalation(value.id, { channel, jurisdiction, note: note.trim(), ...(externalReference.trim() ? { external_reference: externalReference.trim() } : {}) });
+      setNote(''); setExternalReference(''); setSaved(true); onChanged();
+    } catch (error) { onError(apiMessage(error, 'The external escalation record could not be saved.')); }
+    finally { setSaving(false); }
+  };
+  return <section className="moderation-incident" aria-labelledby={`incident-${value.id}`}>
+    <div className="moderation-incident-heading"><ShieldAlert size={19} /><div><span>Urgent incident protocol</span><h4 id={`incident-${value.id}`}>{humanize(incident)}</h4></div><strong>{value.dispositioned_at ? 'Disposition recorded' : 'Disposition required'}</strong></div>
+    <ol>{(INCIDENT_CHECKLISTS[incident] ?? INCIDENT_CHECKLISTS.other_urgent).map((item) => <li key={item}>{item}</li>)}</ol>
+    <p className="moderation-legal-prompt"><Gavel size={15} />{value.legal_hold ? 'Legal hold is active.' : 'Review whether evidence needs a legal hold before normal retention expires.'}</p>
+    <div className="moderation-incident-resources" aria-label="Vetted external resources">
+      <a href="https://www.missingkids.org/gethelpnow/cybertipline" target="_blank" rel="noreferrer">NCMEC <ExternalLink size={12} /></a>
+      <a href="https://www.canada.ca/en/public-safety-canada/campaigns/online-child-sexual-exploitation/key-resources.html" target="_blank" rel="noreferrer">Canada child safety <ExternalLink size={12} /></a>
+      <a href="https://988lifeline.org/get-help/" target="_blank" rel="noreferrer">U.S. 988 <ExternalLink size={12} /></a>
+      <a href="https://988.ca/" target="_blank" rel="noreferrer">Canada 9-8-8 <ExternalLink size={12} /></a>
+    </div>
+    <details className="moderation-escalation-form"><summary>Record a human-reviewed external response <ChevronDown size={15} /></summary><p>No evidence is uploaded or sent through this form. Recording a contact acknowledges the case but does not disposition it.</p><div>
+      <label><span>Channel</span><select value={channel} onChange={(event) => setChannel(event.target.value)}>{ESCALATION_CHANNELS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+      <label><span>Jurisdiction</span><select value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)}><option value="unknown">Unknown</option><option value="united_states">United States</option><option value="canada">Canada</option></select></label>
+      <label><span>External reference (optional)</span><input maxLength={200} value={externalReference} onChange={(event) => setExternalReference(event.target.value)} /></label>
+      <label className="moderation-escalation-note"><span>Required operational note</span><textarea maxLength={2000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Record what was reviewed and what human action was taken. Do not paste evidence or personal contact details." /></label>
+      <button className="moderation-submit" disabled={saving || !note.trim()} onClick={() => void submit()}>{saving && <LoaderCircle size={15} className="spinning" />}Record response</button>
+    </div>{saved && <p className="moderation-success" role="status"><Check size={15} />External response recorded in append-only history.</p>}</details>
+  </section>;
 }
 
 function ConversationPanel({ value }: { value: ConversationContext }) {
@@ -307,7 +410,7 @@ function ConversationPanel({ value }: { value: ConversationContext }) {
 function RestrictedImage({ src, caseId }: { src: string; caseId: number }) {
   // A private, expiring URL must not pass through the Next image optimizer.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={`Restricted evidence for case ${caseId}`} />;
+  return <img src={src} alt={`Restricted evidence for case ${caseId}`} referrerPolicy="no-referrer" />;
 }
 
 function actionConsequence(action: string, hours: number, legalHold: boolean) {

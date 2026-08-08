@@ -152,7 +152,7 @@ export default function AdminSettingsTab() {
             </button>
           </div>
           <p className="setting-description">
-            Control whether email notifications are sent via SendGrid
+            Control whether transactional email notifications are sent via Resend
           </p>
         </div>
 

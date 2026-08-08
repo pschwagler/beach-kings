@@ -39,6 +39,16 @@
   --navbar-bg-dark: #0d2b33;
   --navbar-bg-dark-rgb: 13, 43, 51;
 
+  /* Internal operations workspace */
+  --admin-ops-ink: var(--gray-900);
+  --admin-ops-accent: var(--primary-dark);
+  --admin-ops-heading: var(--primary-darker);
+  --admin-ops-panel: var(--primary-darker);
+  --admin-ops-on-panel: #f3fafb;
+  --admin-ops-muted-on-panel: #bdd6dc;
+  --admin-ops-paper: #f7fbfb;
+  --admin-ops-gold: var(--gold-dark);
+
   /* Warm accents */
   --muted-red: #ff7849;
   --sunset-dark: #e76a41;
@@ -169,6 +179,16 @@
     --primary-darker: #1e6878;
     --primary-rgb: 59, 157, 181;
     --primary-darker-rgb: 30, 104, 120;
+
+    /* Internal operations workspace */
+    --admin-ops-ink: var(--gray-900);
+    --admin-ops-accent: var(--primary-light);
+    --admin-ops-heading: var(--primary-light);
+    --admin-ops-panel: #143f4a;
+    --admin-ops-on-panel: #edf9fb;
+    --admin-ops-muted-on-panel: #a8ccd4;
+    --admin-ops-paper: var(--bg-surface-raised);
+    --admin-ops-gold: var(--sun-gold);
 
     /* Warm accents — darker tints for backgrounds */
     --cream: #1a1d24;

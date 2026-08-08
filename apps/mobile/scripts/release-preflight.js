@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { verifyProductionExport } = require('./verify-production-no-dev-auth');
 
 const EXPECTED = Object.freeze({
@@ -13,6 +14,40 @@ const EXPECTED = Object.freeze({
     'Beach League uses your location to suggest the nearest league location.',
   easImage: 'macos-sequoia-15.6-xcode-26.2',
 });
+
+const EXPECTED_PRIVACY_DATA_TYPES = Object.freeze([
+  'NSPrivacyCollectedDataTypeName',
+  'NSPrivacyCollectedDataTypeEmailAddress',
+  'NSPrivacyCollectedDataTypePhoneNumber',
+  'NSPrivacyCollectedDataTypeCoarseLocation',
+  'NSPrivacyCollectedDataTypeSensitiveInfo',
+  'NSPrivacyCollectedDataTypeEmailsOrTextMessages',
+  'NSPrivacyCollectedDataTypePhotosorVideos',
+  'NSPrivacyCollectedDataTypeGameplayContent',
+  'NSPrivacyCollectedDataTypeCustomerSupport',
+  'NSPrivacyCollectedDataTypeOtherUserContent',
+  'NSPrivacyCollectedDataTypeUserID',
+  'NSPrivacyCollectedDataTypeDeviceID',
+  'NSPrivacyCollectedDataTypeOtherDiagnosticData',
+]);
+
+const EXPECTED_REQUIRED_REASON_CATEGORIES = Object.freeze([
+  'NSPrivacyAccessedAPICategoryFileTimestamp',
+  'NSPrivacyAccessedAPICategoryUserDefaults',
+  'NSPrivacyAccessedAPICategorySystemBootTime',
+  'NSPrivacyAccessedAPICategoryDiskSpace',
+]);
+
+const TRACKING_OR_ADVERTISING_DEPENDENCIES = Object.freeze([
+  '@amplitude/analytics-react-native',
+  '@react-native-firebase/analytics',
+  '@segment/analytics-react-native',
+  'expo-tracking-transparency',
+  'mixpanel-react-native',
+  'posthog-react-native',
+  'react-native-fbsdk-next',
+  'react-native-google-mobile-ads',
+]);
 
 function fail(message) {
   throw new Error(`iOS release preflight failed: ${message}`);
@@ -56,17 +91,116 @@ function assertOccurrences(source, expression, expectedCount, description) {
   }
 }
 
+function countLiteral(source, value) {
+  return source.split(value).length - 1;
+}
+
+function verifyPrivacyManifest(source) {
+  if (!source.includes('<key>NSPrivacyCollectedDataTypes</key>')) {
+    fail('privacy manifest does not declare collected data types.');
+  }
+  if (!/<key>NSPrivacyTracking<\/key>\s*<false\s*\/>/.test(source)) {
+    fail('privacy manifest must declare top-level tracking false.');
+  }
+
+  for (const dataType of EXPECTED_PRIVACY_DATA_TYPES) {
+    if (countLiteral(source, `<string>${dataType}</string>`) !== 1) {
+      fail(`privacy manifest must declare ${dataType} exactly once.`);
+    }
+  }
+  for (const category of EXPECTED_REQUIRED_REASON_CATEGORIES) {
+    if (countLiteral(source, `<string>${category}</string>`) !== 1) {
+      fail(`privacy manifest must declare ${category} exactly once.`);
+    }
+  }
+
+  const linkedTrueCount = [
+    ...source.matchAll(
+      /<key>NSPrivacyCollectedDataTypeLinked<\/key>\s*<true\s*\/>/g,
+    ),
+  ].length;
+  if (linkedTrueCount !== EXPECTED_PRIVACY_DATA_TYPES.length) {
+    fail('every collected data type must use the approved linked-to-user declaration.');
+  }
+
+  const collectionTrackingFalseCount = [
+    ...source.matchAll(
+      /<key>NSPrivacyCollectedDataTypeTracking<\/key>\s*<false\s*\/>/g,
+    ),
+  ].length;
+  if (collectionTrackingFalseCount !== EXPECTED_PRIVACY_DATA_TYPES.length) {
+    fail('every collected data type must declare tracking false.');
+  }
+
+  const appFunctionalityCount = countLiteral(
+    source,
+    '<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>',
+  );
+  if (appFunctionalityCount !== EXPECTED_PRIVACY_DATA_TYPES.length) {
+    fail('every collected data type must use the approved App Functionality purpose.');
+  }
+
+  for (const unapprovedType of [
+    'NSPrivacyCollectedDataTypePreciseLocation',
+    'NSPrivacyCollectedDataTypeProductInteraction',
+    'NSPrivacyCollectedDataTypeAdvertisingData',
+    'NSPrivacyCollectedDataTypeCrashData',
+    'NSPrivacyCollectedDataTypePerformanceData',
+  ]) {
+    if (source.includes(`<string>${unapprovedType}</string>`)) {
+      fail(`privacy manifest contains an unapproved current-build declaration: ${unapprovedType}.`);
+    }
+  }
+
+  return {
+    collectedDataTypeCount: EXPECTED_PRIVACY_DATA_TYPES.length,
+    requiredReasonCategoryCount: EXPECTED_REQUIRED_REASON_CATEGORIES.length,
+    tracking: false,
+  };
+}
+
+function lintPropertyList(file) {
+  try {
+    execFileSync('/usr/bin/plutil', ['-lint', file], { stdio: 'pipe' });
+  } catch {
+    fail(`invalid property list: ${path.relative(process.cwd(), file)}.`);
+  }
+}
+
+function verifyNoTrackingDependencies(packageJson) {
+  const installed = new Set([
+    ...Object.keys(packageJson.dependencies ?? {}),
+    ...Object.keys(packageJson.devDependencies ?? {}),
+  ]);
+  const blocked = TRACKING_OR_ADVERTISING_DEPENDENCIES.filter((dependency) =>
+    installed.has(dependency),
+  );
+  if (blocked.length > 0) {
+    fail(
+      `tracking or advertising dependency requires privacy review: ${blocked.join(', ')}.`,
+    );
+  }
+}
+
 function verifyReleaseConfiguration({
   mobileRoot,
   apiUrl,
   exportDirectory,
 }) {
   const appConfig = JSON.parse(read(path.join(mobileRoot, 'app.json'))).expo;
+  const packageJson = JSON.parse(read(path.join(mobileRoot, 'package.json')));
   const easConfig = JSON.parse(read(path.join(mobileRoot, 'eas.json')));
   const project = read(
     path.join(mobileRoot, 'ios/BeachLeague.xcodeproj/project.pbxproj'),
   );
   const infoPlist = read(path.join(mobileRoot, 'ios/BeachLeague/Info.plist'));
+  const privacyManifestPath = path.join(
+    mobileRoot,
+    'ios/BeachLeague/PrivacyInfo.xcprivacy',
+  );
+  const privacyManifest = read(privacyManifestPath);
+
+  verifyNoTrackingDependencies(packageJson);
 
   if (appConfig.name !== EXPECTED.displayName) fail('unexpected home-screen display name.');
   if (appConfig.version !== EXPECTED.version) fail('Expo and release version differ.');
@@ -112,6 +246,15 @@ function verifyReleaseConfiguration({
   if (!infoPlist.includes(`<string>${EXPECTED.locationPurpose}</string>`)) {
     fail('location purpose declaration is missing or changed.');
   }
+
+  lintPropertyList(privacyManifestPath);
+  const privacy = verifyPrivacyManifest(privacyManifest);
+  assertOccurrences(
+    project,
+    /PrivacyInfo\.xcprivacy in Resources/g,
+    2,
+    'privacy manifest must be included once in the app target resources',
+  );
   for (const forbiddenKey of [
     'NSCameraUsageDescription',
     'NSFaceIDUsageDescription',
@@ -147,6 +290,7 @@ function verifyReleaseConfiguration({
     bundleIdentifier: EXPECTED.bundleIdentifier,
     deviceFamily: 'iPhone',
     exportFileCount: exportResult.scannedFileCount,
+    privacyCollectedDataTypeCount: privacy.collectedDataTypeCount,
     version: `${EXPECTED.version} (${EXPECTED.buildNumber})`,
   };
 }
@@ -175,4 +319,9 @@ if (require.main === module) {
   }
 }
 
-module.exports = { assertSecureProductionOrigin, verifyReleaseConfiguration };
+module.exports = {
+  assertSecureProductionOrigin,
+  verifyNoTrackingDependencies,
+  verifyPrivacyManifest,
+  verifyReleaseConfiguration,
+};

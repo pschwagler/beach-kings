@@ -113,7 +113,7 @@ services:
       # Disable external services in tests
       TWILIO_ACCOUNT_SID: ""
       TWILIO_AUTH_TOKEN: ""
-      SENDGRID_API_KEY: ""
+      RESEND_API_KEY: ""
     depends_on:
       postgres-test:
         condition: service_healthy

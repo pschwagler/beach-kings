@@ -399,12 +399,14 @@ class AppleAuthRequest(BaseModel):
     """Request to authenticate with Apple ID token."""
 
     id_token: str
+    authorization_code: Optional[str] = None
 
 
 class LinkProviderRequest(BaseModel):
     """Request body for linking an OAuth provider to an authenticated account."""
 
     id_token: str
+    authorization_code: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
@@ -2487,7 +2489,9 @@ class ModerationReportCreate(BaseModel):
         "harassment",
         "hate_discrimination",
         "threats_violence",
+        "stalking_doxxing",
         "sexual_content",
+        "sexual_exploitation",
         "minor_safety",
         "self_harm",
         "privacy_impersonation",
@@ -2562,6 +2566,29 @@ class AccountModerationStatusResponse(BaseModel):
 
 class ModerationRetryRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
+
+
+class ModerationEscalationRequest(BaseModel):
+    channel: Literal[
+        "emergency_services",
+        "ncmec_cybertipline",
+        "cybertip_ca",
+        "us_988",
+        "canada_988",
+        "local_law_enforcement",
+        "specialist_consultation",
+    ]
+    jurisdiction: Literal["united_states", "canada", "unknown"]
+    external_reference: Optional[str] = Field(default=None, max_length=200)
+    note: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("note")
+    @classmethod
+    def validate_note(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("note must not be blank")
+        return normalized
 
 
 class ReorderCourtPhotosRequest(BaseModel):
@@ -3224,9 +3251,9 @@ class LeagueGameEntry(BaseModel):
     session_status: str
     court_label: Optional[str] = None
     team1_player_names: List[str]
-    team1_player_ids: List[int]
+    team1_player_ids: List[Optional[int]]
     team2_player_names: List[str]
-    team2_player_ids: List[int]
+    team2_player_ids: List[Optional[int]]
     team1_score: int
     team2_score: int
     winner: int

@@ -316,6 +316,8 @@ async def get_thread(
         other_player_id,
         interaction_policy.InteractionAction.DIRECT_MESSAGE,
     )
+    if direct_message_decision.denial_reason is interaction_policy.DenialReason.PLAYER_UNAVAILABLE:
+        raise interaction_policy.InteractionUnavailable(direct_message_decision)
     if direct_message_decision.denial_reason in {
         interaction_policy.DenialReason.BLOCKED_BY_VIEWER,
         interaction_policy.DenialReason.BLOCKED_BY_OTHER,

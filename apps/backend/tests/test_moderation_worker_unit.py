@@ -91,9 +91,7 @@ def test_report_job_is_not_treated_as_a_stale_edit_job():
         idempotency_key="report:4:v1",
     )
     assert (
-        moderation_worker._job_is_superseded(
-            job, SimpleNamespace(review_text="current text")
-        )
+        moderation_worker._job_is_superseded(job, SimpleNamespace(review_text="current text"))
         is False
     )
 
@@ -130,9 +128,7 @@ async def test_profile_text_uses_same_fail_closed_screen(monkeypatch):
 
     await moderation_worker.screen_text("Public name\nNickname", "profile_7")
 
-    classify.assert_awaited_once_with(
-        {"input": "Public name\nNickname"}, "profile_7"
-    )
+    classify.assert_awaited_once_with({"input": "Public name\nNickname"}, "profile_7")
 
 
 @pytest.mark.asyncio
@@ -240,9 +236,7 @@ async def test_flagged_job_passes_repeat_context_to_triage_and_audit(monkeypatch
         "classify",
         AsyncMock(return_value={"flagged": True, "categories": {"harassment": True}}),
     )
-    monkeypatch.setattr(
-        moderation_worker, "_subject_player_id", AsyncMock(return_value=12)
-    )
+    monkeypatch.setattr(moderation_worker, "_subject_player_id", AsyncMock(return_value=12))
     monkeypatch.setattr(
         moderation_worker,
         "_repeat_behavior_context",
@@ -294,9 +288,7 @@ async def test_urgent_triage_updates_case_queue_priority(monkeypatch):
         return case if model is ModerationCase else target
 
     session = SimpleNamespace(get=get, add=Mock(), flush=AsyncMock())
-    monkeypatch.setattr(
-        moderation_worker, "_capture_flagged_evidence", AsyncMock()
-    )
+    monkeypatch.setattr(moderation_worker, "_capture_flagged_evidence", AsyncMock())
 
     await moderation_worker._complete(
         session,
@@ -399,15 +391,11 @@ async def test_flagged_message_captures_text_and_bounded_context(monkeypatch):
     capture_text = AsyncMock()
     capture_context = AsyncMock()
     monkeypatch.setattr(moderation_evidence_service, "capture_text", capture_text)
-    monkeypatch.setattr(
-        moderation_evidence_service, "capture_chat_context", capture_context
-    )
+    monkeypatch.setattr(moderation_evidence_service, "capture_chat_context", capture_context)
     session = SimpleNamespace(add=Mock())
     target = SimpleNamespace(message_text="reported text")
 
-    await moderation_worker._capture_flagged_evidence(
-        session, 8, "league_message", target
-    )
+    await moderation_worker._capture_flagged_evidence(session, 8, "league_message", target)
 
     capture_text.assert_awaited_once_with(session, 8, "reported text")
     capture_context.assert_awaited_once_with(session, 8)
