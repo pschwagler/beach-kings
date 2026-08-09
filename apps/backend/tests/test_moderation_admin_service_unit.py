@@ -289,6 +289,7 @@ async def test_account_suspend_sets_a_time_bound_full_account_state():
         updated_at=None,
     )
     subject = SimpleNamespace(
+        id=9,
         moderation_status="active",
         moderation_expires_at=None,
         moderation_case_id=None,
@@ -302,6 +303,11 @@ async def test_account_suspend_sets_a_time_bound_full_account_state():
         patch.object(moderation_service, "_subject_user", new=subject_lookup),
         patch.object(
             moderation_service.notification_service, "create_notification", new=AsyncMock()
+        ),
+        patch.object(
+            moderation_service.role_service,
+            "ensure_can_become_inaccessible",
+            new=AsyncMock(),
         ),
     ):
         await moderation_service.apply_action(

@@ -21,7 +21,7 @@ from backend.services import (
     my_games_service,
 )
 from backend.services import push_prefs_service, court_service
-from backend.services import interaction_policy, moderation_worker
+from backend.services import interaction_policy, moderation_worker, role_service
 from backend.api.auth_dependencies import get_current_user, require_verified_player
 from backend.models.schemas import (
     UserResponse,
@@ -527,6 +527,7 @@ async def schedule_account_deletion(
     After 30 days a background worker permanently anonymizes all PII.
     """
     try:
+        await role_service.ensure_can_become_inaccessible(session, current_user["id"])
         success = await user_service.schedule_account_deletion(session, current_user["id"])
         if not success:
             raise HTTPException(status_code=404, detail="User not found")
@@ -536,6 +537,8 @@ async def schedule_account_deletion(
         }
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         logger.error(f"Error scheduling account deletion: {e}")
         raise HTTPException(status_code=500, detail="Error scheduling account deletion")
@@ -548,12 +551,15 @@ async def delete_account_immediately(
 ):
     """Permanently delete and anonymize the authenticated account immediately."""
     try:
+        await role_service.ensure_can_become_inaccessible(session, current_user["id"])
         success = await user_service.execute_account_deletion(session, current_user["id"])
         if not success:
             raise HTTPException(status_code=404, detail="User not found")
         return {"status": "success", "message": "Account permanently deleted."}
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         logger.error(f"Error deleting account immediately: {e}")
         raise HTTPException(status_code=500, detail="Error deleting account")

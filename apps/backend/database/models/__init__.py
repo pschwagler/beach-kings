@@ -8,6 +8,7 @@ from .enums import InviteStatus
 from .geography import Region
 from .geography import Location
 from .identity import User
+from .identity import PlatformRoleAssignment
 from .identity import Player
 from .identity import PlayerInvite
 from .leagues import League
@@ -91,6 +92,7 @@ __all__ = [
     "Region",
     "Location",
     "User",
+    "PlatformRoleAssignment",
     "Player",
     "PlayerInvite",
     "League",

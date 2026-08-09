@@ -13,6 +13,7 @@ export interface User {
   auth_provider?: string;
   created_at?: string;
   deletion_scheduled_at?: string | null;
+  is_system_admin?: boolean;
   player?: Player;
 }
 

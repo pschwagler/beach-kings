@@ -207,7 +207,9 @@ async def test_autocomplete_returns_api_response(monkeypatch):
 
     monkeypatch.setenv("GEOAPIFY_API_KEY", "fake-key")
 
-    with patch("backend.services.courts.location_service.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "backend.services.courts.location_service.httpx.AsyncClient", return_value=mock_client
+    ):
         result = await autocomplete("San Diego")
 
     assert result == fake_response_data
@@ -292,6 +294,8 @@ async def test_autocomplete_http_error_propagates(monkeypatch):
 
     monkeypatch.setenv("GEOAPIFY_API_KEY", "fake-key")
 
-    with patch("backend.services.courts.location_service.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "backend.services.courts.location_service.httpx.AsyncClient", return_value=mock_client
+    ):
         with pytest.raises(httpx.HTTPStatusError):
             await autocomplete("San Diego")

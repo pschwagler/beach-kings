@@ -77,9 +77,8 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 
 ### System Admin
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEFAULT_ADMIN_PHONE` | (empty) | Phone number (E.164) seeded as default system admin on startup. Leave empty to skip |
+System-admin access is stored as auditable user-linked role assignments. No
+environment variable or contact allowlist grants administrator access.
 
 ### External APIs
 

@@ -25,7 +25,7 @@ from backend.database.models import (
     Player,
     User,
 )
-from backend.services import notification_service, user_service
+from backend.services import notification_service, role_service, user_service
 from backend.services import moderation_admin_queries as _admin_queries
 from backend.utils.datetime_utils import utcnow
 
@@ -484,6 +484,8 @@ async def apply_action(
         if subject_user is None:
             raise ValueError("Subject account is unavailable")
         subject_status = _effective_user_status(subject_user)
+        if action in {"account_suspend", "account_ban"}:
+            await role_service.ensure_can_become_inaccessible(session, subject_user.id)
         if action == "account_suspend":
             if not lock_hours:
                 raise ValueError("A suspension duration is required")

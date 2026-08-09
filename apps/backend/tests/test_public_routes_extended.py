@@ -140,7 +140,9 @@ def test_get_player_returns_200(mock_get, client):
 # ===========================================================================
 
 
-@patch("backend.services.public.public_service.get_public_location_by_slug", new_callable=AsyncMock)
+@patch(
+    "backend.services.public.public_service.get_public_location_by_slug", new_callable=AsyncMock
+)
 def test_get_location_returns_200(mock_get, client):
     """Returns 200 with location detail for a found slug."""
     mock_get.return_value = {

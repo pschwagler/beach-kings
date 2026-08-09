@@ -629,8 +629,7 @@ export async function deletePlaceholderPlayer(token, playerId) {
  * Create a test session for a league via API (requires authentication token)
  */
 /**
- * Grant system admin access to a test user by adding their phone number
- * to the system_admin_phone_numbers setting in the DB.
+ * Grant an auditable system-admin role to a test user.
  *
  * @param {string} phoneNumber - E.164 phone number to grant admin access
  */
@@ -642,21 +641,17 @@ export async function grantSystemAdmin(phoneNumber) {
     await client.connect();
     await client.query('BEGIN');
 
-    // Lock the row to prevent parallel grant/revoke races
     const result = await client.query(
-      `SELECT value FROM settings WHERE key = 'system_admin_phone_numbers' FOR UPDATE`,
+      `SELECT id FROM users WHERE phone_number = $1 FOR UPDATE`,
+      [phoneNumber],
     );
-
-    let phones = result.rows.length > 0 ? result.rows[0].value : '';
-    const phoneSet = new Set(phones.split(',').map(p => p.trim()).filter(Boolean));
-    phoneSet.add(phoneNumber);
-    const newPhones = Array.from(phoneSet).join(',');
-
-    // Upsert the setting
+    if (result.rows.length !== 1) throw new Error(`Admin test user not found: ${phoneNumber}`);
     await client.query(
-      `INSERT INTO settings (key, value) VALUES ('system_admin_phone_numbers', $1)
-       ON CONFLICT (key) DO UPDATE SET value = $1`,
-      [newPhones],
+      `INSERT INTO platform_role_assignments
+         (user_id, role, grant_source, grant_reason)
+       VALUES ($1, 'system_admin', 'e2e_fixture', 'E2E admin fixture')
+       ON CONFLICT (user_id, role) WHERE revoked_at IS NULL DO NOTHING`,
+      [result.rows[0].id],
     );
 
     await client.query('COMMIT');
@@ -681,20 +676,17 @@ export async function revokeSystemAdmin(phoneNumber) {
     await client.connect();
     await client.query('BEGIN');
 
-    // Lock the row to prevent parallel grant/revoke races
     const result = await client.query(
-      `SELECT value FROM settings WHERE key = 'system_admin_phone_numbers' FOR UPDATE`,
+      `SELECT id FROM users WHERE phone_number = $1 FOR UPDATE`,
+      [phoneNumber],
     );
-
     if (result.rows.length > 0) {
-      const phones = result.rows[0].value
-        .split(',')
-        .map(p => p.trim())
-        .filter(p => p && p !== phoneNumber)
-        .join(',');
       await client.query(
-        `UPDATE settings SET value = $1 WHERE key = 'system_admin_phone_numbers'`,
-        [phones],
+        `UPDATE platform_role_assignments
+         SET revoked_at = NOW(), revoke_source = 'e2e_fixture',
+             revoke_reason = 'E2E admin fixture teardown'
+         WHERE user_id = $1 AND role = 'system_admin' AND revoked_at IS NULL`,
+        [result.rows[0].id],
       );
     }
 

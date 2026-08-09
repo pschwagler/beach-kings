@@ -56,6 +56,11 @@ class User(Base):
 
     # Relationships
     players = relationship("Player", back_populates="user")
+    platform_roles = relationship(
+        "PlatformRoleAssignment",
+        foreign_keys="PlatformRoleAssignment.user_id",
+        back_populates="user",
+    )
     refresh_tokens = relationship(
         "RefreshToken", back_populates="user", cascade="all, delete-orphan"
     )
@@ -73,6 +78,51 @@ class User(Base):
         CheckConstraint(
             "moderation_status IN ('active', 'suspended', 'banned')",
             name="ck_users_moderation_status",
+        ),
+    )
+
+
+class PlatformRoleAssignment(Base):
+    """Auditable platform-wide role grant, including revoked grants."""
+
+    __tablename__ = "platform_role_assignments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String(40), nullable=False)
+    granted_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    granted_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    grant_source = Column(String(40), nullable=False)
+    grant_reason = Column(String(500), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    revoke_source = Column(String(40), nullable=True)
+    revoke_reason = Column(String(500), nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id], back_populates="platform_roles")
+    granted_by = relationship("User", foreign_keys=[granted_by_user_id])
+    revoked_by = relationship("User", foreign_keys=[revoked_by_user_id])
+
+    __table_args__ = (
+        CheckConstraint("role IN ('system_admin')", name="ck_platform_role_role"),
+        CheckConstraint(
+            "(revoked_at IS NULL AND revoked_by_user_id IS NULL AND revoke_source IS NULL "
+            "AND revoke_reason IS NULL) OR "
+            "(revoked_at IS NOT NULL AND revoke_source IS NOT NULL AND revoke_reason IS NOT NULL)",
+            name="ck_platform_role_revocation_metadata",
+        ),
+        Index("idx_platform_role_user_history", "user_id", "role", "granted_at"),
+        Index("idx_platform_role_active", "role", "user_id", "revoked_at"),
+        Index(
+            "uq_platform_role_active_user_role",
+            "user_id",
+            "role",
+            unique=True,
+            postgresql_where=revoked_at.is_(None),
         ),
     )
 

@@ -84,6 +84,7 @@ async def get_sitemap_locations(session: AsyncSession) -> List[Dict]:
         select(Location.slug, Location.updated_at)
         .where(
             Location.slug.isnot(None),
+            Location.is_active.is_(True),
             exists(select(League.id).where(League.location_id == Location.id)),
         )
         .limit(50000)
@@ -618,7 +619,7 @@ async def get_public_locations(session: AsyncSession) -> List[Dict]:
     result = await session.execute(
         select(Location, Region)
         .outerjoin(Region, Location.region_id == Region.id)
-        .where(Location.slug.isnot(None))
+        .where(Location.slug.isnot(None), Location.is_active.is_(True))
         .order_by(Region.name.asc(), Location.city.asc())
     )
     rows = result.all()
@@ -733,7 +734,7 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
     result = await session.execute(
         select(Location, Region)
         .outerjoin(Region, Location.region_id == Region.id)
-        .where(Location.slug == slug)
+        .where(Location.slug == slug, Location.is_active.is_(True))
     )
     row = result.first()
     if not row:

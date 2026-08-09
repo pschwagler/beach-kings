@@ -60,6 +60,7 @@ _SERVICE_DOMAINS = {
     "email_service": "platform",
     "media_deletion_worker": "platform",
     "redis_service": "platform",
+    "role_service": "platform",
     "s3_service": "platform",
     "settings_service": "platform",
     "websocket_manager": "platform",

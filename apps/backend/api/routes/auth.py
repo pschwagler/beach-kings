@@ -540,7 +540,9 @@ async def _capture_apple_refresh_token(
         ) from exc
 
 
-def _build_user_response(user: dict, moderation: dict | None = None) -> UserResponse:
+def _build_user_response(
+    user: dict, moderation: dict | None = None, *, is_system_admin: bool = False
+) -> UserResponse:
     """
     Construct a ``UserResponse`` from a user dict, populating all optional flags.
 
@@ -582,6 +584,7 @@ def _build_user_response(user: dict, moderation: dict | None = None) -> UserResp
         ),
         interaction_restricted_until=(moderation or {}).get("interaction_restricted_until"),
         interaction_restriction_case_id=(moderation or {}).get("interaction_restriction_case_id"),
+        is_system_admin=is_system_admin,
     )
 
 
@@ -1231,7 +1234,10 @@ async def get_current_user_info(
 ):
     """Get current authenticated user information."""
     moderation = await moderation_service.account_status(session, current_user["id"])
-    return _build_user_response(current_user, moderation)
+    from backend.services import role_service
+
+    is_admin = await role_service.is_system_admin(session, current_user["id"])
+    return _build_user_response(current_user, moderation, is_system_admin=is_admin)
 
 
 @router.post("/api/auth/google/add", response_model=UserResponse)

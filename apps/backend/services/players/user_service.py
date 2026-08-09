@@ -965,6 +965,9 @@ async def schedule_account_deletion(session: AsyncSession, user_id: int) -> bool
     Returns:
         True if scheduled successfully, False if user not found
     """
+    from backend.services.platform import role_service
+
+    await role_service.ensure_can_become_inaccessible(session, user_id)
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -1258,6 +1261,9 @@ async def execute_account_deletion(session: AsyncSession, user_id: int) -> bool:
     Returns:
         True if executed successfully, False if user not found
     """
+    from backend.services.platform import role_service
+
+    await role_service.ensure_can_become_inaccessible(session, user_id)
     user_result = await session.execute(select(User).where(User.id == user_id))
     user = user_result.scalar_one_or_none()
     if not user:

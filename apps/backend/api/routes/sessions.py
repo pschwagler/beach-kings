@@ -23,7 +23,9 @@ from backend.database.models import (
     SessionParticipant,
 )
 from backend.services import data_service, interaction_policy
-from backend.services.notifications.notification_service import notify_players_about_session_submitted
+from backend.services.notifications.notification_service import (
+    notify_players_about_session_submitted,
+)
 from backend.api.auth_dependencies import (
     _has_league_role,
     _is_system_admin,

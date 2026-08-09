@@ -4,7 +4,7 @@ Last reviewed: 2026-08-02
 
 `courts.csv` is limited to real, currently operating beach/sand volleyball courts. A venue may be indoors, but its playing surface must be sand. Court counts describe the normal fixed layout; seasonal or unpublished counts are left blank or explained in the description.
 
-The startup seeder is intentionally additive and preserves user edits. Removing or correcting a CSV row does not delete or overwrite an existing database record. Review database drift separately before deactivating or changing any existing record.
+The committed CSV catalog is synchronized explicitly with `make catalog-diff` and `make catalog-apply`; application startup never changes it. CSV values are authoritative for catalog-managed fields, so a dry-run reports urgent admin edits as drift and apply restores the committed values. Missing catalog records are retired, never deleted. Permanent corrections must be reviewed and committed here first.
 
 ## Removed from the seed catalog
 

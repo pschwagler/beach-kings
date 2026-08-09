@@ -1655,6 +1655,7 @@ async def list_locations(session: AsyncSession) -> List[Dict]:
     result = await session.execute(
         select(Location, Region)
         .outerjoin(Region, Region.id == Location.region_id)
+        .where(Location.is_active.is_(True))
         .order_by(Location.name.asc())
     )
     rows = result.all()
@@ -1679,7 +1680,9 @@ async def list_locations(session: AsyncSession) -> List[Dict]:
 
 async def list_regions(session: AsyncSession) -> List[Dict]:
     """List all regions."""
-    result = await session.execute(select(Region).order_by(Region.name.asc()))
+    result = await session.execute(
+        select(Region).where(Region.is_active.is_(True)).order_by(Region.name.asc())
+    )
     regions = result.scalars().all()
     return [
         {

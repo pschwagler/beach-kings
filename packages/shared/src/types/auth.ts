@@ -45,6 +45,7 @@ export interface UserMeResponse {
   moderation_case_id: number | null;
   interaction_restricted_until: string | null;
   interaction_restriction_case_id: number | null;
+  is_system_admin: boolean;
 }
 
 /** Generic status/message response (e.g. account deletion endpoints). */

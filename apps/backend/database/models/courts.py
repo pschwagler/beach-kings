@@ -55,6 +55,9 @@ class Court(Base):
         String(20), nullable=True, server_default="approved"
     )  # pending/approved/rejected
     is_active = Column(Boolean, nullable=True, server_default="true")
+    catalog_managed = Column(Boolean, nullable=False, server_default="false")
+    catalog_source = Column(String(100), nullable=True)
+    catalog_revision = Column(String(64), nullable=True)
     is_placeholder = Column(Boolean, default=False, server_default="false", nullable=False)
     slug = Column(String(200), nullable=True, unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -99,6 +102,7 @@ class Court(Base):
         Index("idx_courts_status", "status"),
         Index("idx_courts_lat_lng", "latitude", "longitude"),
         Index("idx_courts_is_active", "is_active"),
+        Index("idx_courts_catalog_managed", "catalog_managed"),
     )
 
 
@@ -112,11 +116,18 @@ class CourtTag(Base):
     slug = Column(String(50), nullable=False, unique=True)
     category = Column(String(30), nullable=False)  # 'quality', 'vibe', 'facility'
     sort_order = Column(Integer, nullable=False, server_default="0")
+    is_active = Column(Boolean, nullable=False, server_default="true")
+    catalog_managed = Column(Boolean, nullable=False, server_default="false")
+    catalog_source = Column(String(100), nullable=True)
+    catalog_revision = Column(String(64), nullable=True)
 
     # Relationships
     review_tags = relationship("CourtReviewTag", back_populates="tag")
 
-    __table_args__ = (Index("idx_court_tags_category", "category"),)
+    __table_args__ = (
+        Index("idx_court_tags_category", "category"),
+        Index("idx_court_tags_catalog_managed", "catalog_managed"),
+    )
 
 
 class CourtReview(Base):

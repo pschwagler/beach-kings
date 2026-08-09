@@ -109,7 +109,9 @@ async def _generate_unique_slug(
 
 async def get_all_tags(session: AsyncSession) -> List[Dict]:
     """Return all curated court tags ordered by sort_order."""
-    result = await session.execute(select(CourtTag).order_by(CourtTag.sort_order))
+    result = await session.execute(
+        select(CourtTag).where(CourtTag.is_active.is_(True)).order_by(CourtTag.sort_order)
+    )
     return [
         {
             "id": t.id,

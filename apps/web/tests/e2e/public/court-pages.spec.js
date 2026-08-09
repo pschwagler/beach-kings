@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test';
 /**
  * E2E tests for public court pages (no auth required).
  *
- * These tests rely on court data seeded by the backend on startup
- * (from apps/backend/seed/courts.csv). The test backend auto-seeds
+ * These tests rely on court data applied during fresh-database bootstrap
+ * (from apps/backend/seed/courts.csv). The test bootstrap applies
  * ~226 approved courts including courts at the socal_sd location.
  *
  * Known court slug for testing: "south-mission-beach-volleyball-courts-san-diego"

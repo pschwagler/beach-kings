@@ -32,6 +32,52 @@ export const getAdminRecentPlayers = async (
   return response.data;
 };
 
+export interface PlatformRoleHistory {
+  id: number;
+  role: 'system_admin';
+  granted_at: string;
+  granted_by_user_id: number | null;
+  grant_source: string;
+  grant_reason: string;
+  revoked_at: string | null;
+  revoked_by_user_id: number | null;
+  revoke_source: string | null;
+  revoke_reason: string | null;
+}
+
+export interface AdminUser {
+  id: number;
+  full_name: string | null;
+  email: string | null;
+  phone_number: string | null;
+  auth_provider: string;
+  is_verified: boolean;
+  created_at: string;
+  deletion_scheduled_at: string | null;
+  deleted_at: string | null;
+  moderation_status: 'active' | 'suspended' | 'banned';
+  moderation_expires_at: string | null;
+  is_system_admin: boolean;
+  role_history: PlatformRoleHistory[];
+}
+
+export interface AdminUsersResponse {
+  items: AdminUser[];
+  page: number;
+  page_size: number;
+  total: number;
+  pages: number;
+}
+
+export const getAdminUsers = async (params: Record<string, string | number | undefined>) =>
+  (await api.get<AdminUsersResponse>('/api/admin-view/users', { params })).data;
+
+export const grantSystemAdmin = async (userId: number, reason: string) =>
+  (await api.post(`/api/admin-view/users/${userId}/roles/system_admin`, { reason })).data;
+
+export const revokeSystemAdmin = async (userId: number, reason: string) =>
+  (await api.post(`/api/admin-view/users/${userId}/roles/system_admin/revoke`, { reason })).data;
+
 /**
  * Get admin configuration settings
  */

@@ -1,6 +1,6 @@
 """Geography models."""
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Index
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from backend.database.db import Base
@@ -17,13 +17,20 @@ class Region(Base):
     name = Column(
         String, nullable=False, unique=True
     )  # Display name (e.g., "Hawaii", "California")
+    is_active = Column(Boolean, nullable=False, server_default="true")
+    catalog_managed = Column(Boolean, nullable=False, server_default="false")
+    catalog_source = Column(String(100), nullable=True)
+    catalog_revision = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     locations = relationship("Location", back_populates="region")
 
-    __table_args__ = (Index("idx_regions_name", "name"),)
+    __table_args__ = (
+        Index("idx_regions_name", "name"),
+        Index("idx_regions_catalog_managed", "catalog_managed"),
+    )
 
 
 class Location(Base):
@@ -49,6 +56,10 @@ class Location(Base):
     slug = Column(
         String(100), nullable=True, unique=True
     )  # SEO-friendly URL slug (e.g., "manhattan-beach")
+    is_active = Column(Boolean, nullable=False, server_default="true")
+    catalog_managed = Column(Boolean, nullable=False, server_default="false")
+    catalog_source = Column(String(100), nullable=True)
+    catalog_revision = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_by = Column(
@@ -71,4 +82,5 @@ class Location(Base):
     __table_args__ = (
         Index("idx_locations_name", "name"),
         Index("idx_locations_region_id", "region_id"),
+        Index("idx_locations_catalog_managed", "catalog_managed"),
     )

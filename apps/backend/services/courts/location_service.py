@@ -39,6 +39,7 @@ async def find_closest_location(
         # Query all locations that have coordinates
         result = await session.execute(
             select(Location)
+            .where(Location.is_active.is_(True))
             .where(Location.latitude.isnot(None))
             .where(Location.longitude.isnot(None))
         )
@@ -97,6 +98,7 @@ async def get_all_location_distances(session: AsyncSession, lat: float, lon: flo
         # Query all locations that have coordinates
         result = await session.execute(
             select(Location)
+            .where(Location.is_active.is_(True))
             .where(Location.latitude.isnot(None))
             .where(Location.longitude.isnot(None))
         )

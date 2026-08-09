@@ -81,6 +81,13 @@ set +e  # Temporarily disable exit on error
 set -e  # Re-enable exit on error
 echo ""
 
+if [ "$DB_STATE" = "fresh" ]; then
+    echo "📚 Applying committed catalog to fresh database..."
+    (cd /app && PYTHONPATH=/app python -m backend.scripts.sync_catalog --apply)
+    echo "✅ Fresh database catalog applied!"
+    echo ""
+fi
+
 # Start WhatsApp service if ENABLE_WHATSAPP is true (or True or TRUE). Default to true.
 # Commented out - WhatsApp service is inactive
 # if [ "${ENABLE_WHATSAPP:-true}" = "true" ] || [ "${ENABLE_WHATSAPP:-true}" = "True" ] || [ "${ENABLE_WHATSAPP:-true}" = "TRUE" ]; then

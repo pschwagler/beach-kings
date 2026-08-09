@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-volumes clean-venv test test-local test-clean check lint whatsapp whatsapp-install frontend-install ensure-docker migrate seed-users dev-login dev-otp mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
+.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-volumes clean-venv test test-local test-clean check lint whatsapp whatsapp-install frontend-install ensure-docker migrate catalog-diff catalog-apply seed-users dev-login dev-otp mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
@@ -49,6 +49,8 @@ help:
 	@echo "  make clean-volumes     - Remove ALL Docker volumes (⚠️  destroys DB data)"
 	@echo "  make clean-venv        - Remove Python virtual environment"
 	@echo "  make migrate           - Run database migrations (alembic upgrade head)"
+	@echo "  make catalog-diff      - Validate and preview catalog changes"
+	@echo "  make catalog-apply     - Apply catalog changes atomically"
 	@echo ""
 	@echo "🔧 Dev Tools:"
 	@echo "  make seed-users          - Create 3 test users with easy passwords (test1234)"
@@ -228,6 +230,12 @@ migrate:
 	@docker compose exec backend bash -c "cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head"
 	@echo "✅ Migrations complete!"
 
+catalog-diff:
+	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python -m backend.scripts.sync_catalog"
+
+catalog-apply:
+	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python -m backend.scripts.sync_catalog --apply"
+
 seed-users:
 	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python scripts/seed_test_users.py"
 
@@ -406,5 +414,3 @@ mobile-build-android:
 		exit 1; \
 	fi
 	@cd apps/mobile && eas build --platform android
-
-

@@ -82,6 +82,10 @@ async def _patch_missing_columns(conn):
         ("users", "deletion_scheduled_at", "TIMESTAMPTZ"),
         # Migration 059 — irreversible account deletion marker
         ("users", "deleted_at", "TIMESTAMPTZ"),
+        ("users", "moderation_status", "VARCHAR(20) NOT NULL DEFAULT 'active'"),
+        ("users", "moderation_expires_at", "TIMESTAMPTZ"),
+        ("users", "moderation_case_id", "INTEGER"),
+        ("users", "moderation_updated_at", "TIMESTAMPTZ"),
         # Migration 067 — persistent deleted-player tombstone
         ("players", "deleted_at", "TIMESTAMPTZ"),
         # Migration 040 — track when a password was last changed
@@ -116,6 +120,21 @@ async def _patch_missing_columns(conn):
         ("courts", "slug", "VARCHAR(200)"),
         ("courts", "created_by", "INTEGER"),
         ("courts", "updated_by", "INTEGER"),
+        ("courts", "catalog_managed", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("courts", "catalog_source", "VARCHAR(100)"),
+        ("courts", "catalog_revision", "VARCHAR(64)"),
+        ("regions", "is_active", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        ("regions", "catalog_managed", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("regions", "catalog_source", "VARCHAR(100)"),
+        ("regions", "catalog_revision", "VARCHAR(64)"),
+        ("locations", "is_active", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        ("locations", "catalog_managed", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("locations", "catalog_source", "VARCHAR(100)"),
+        ("locations", "catalog_revision", "VARCHAR(64)"),
+        ("court_tags", "is_active", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        ("court_tags", "catalog_managed", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("court_tags", "catalog_source", "VARCHAR(100)"),
+        ("court_tags", "catalog_revision", "VARCHAR(64)"),
         # Migration 037 — session location metadata
         ("sessions", "location_id", "VARCHAR REFERENCES locations(id)"),
         ("sessions", "latitude", "FLOAT"),

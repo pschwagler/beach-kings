@@ -10,7 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from backend.services import auth_service, user_service, data_service
+from backend.services import auth_service, role_service, user_service
 from backend.database.db import get_db_session
 from backend.database.models import (
     Court,
@@ -251,29 +251,9 @@ async def require_verified_player_allow_restricted(
 
 
 async def _is_system_admin(session: AsyncSession, user: dict) -> bool:
-    """
-    Determine if the user is a system admin.
-
-    Checks two settings:
-    - 'system_admin_phone_numbers': comma-separated E.164 phone numbers
-    - 'system_admin_emails': comma-separated email addresses (for Google SSO admins)
-    """
+    """Resolve the user's current platform role from the database."""
     try:
-        # Check by phone number
-        phone_setting = await data_service.get_setting(session, "system_admin_phone_numbers")
-        if phone_setting and user.get("phone_number"):
-            phones = {p.strip() for p in phone_setting.split(",") if p.strip()}
-            if user["phone_number"] in phones:
-                return True
-
-        # Check by email (for Google SSO users who may not have a phone number)
-        email_setting = await data_service.get_setting(session, "system_admin_emails")
-        if email_setting and user.get("email"):
-            emails = {e.strip().lower() for e in email_setting.split(",") if e.strip()}
-            if user["email"].strip().lower() in emails:
-                return True
-
-        return False
+        return await role_service.is_system_admin(session, user["id"])
     except Exception as exc:
         logger.warning("_is_system_admin check raised unexpectedly: %s", exc, exc_info=True)
         return False

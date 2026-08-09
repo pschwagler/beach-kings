@@ -65,7 +65,7 @@
   .admin-view-container { margin: .75rem auto; padding: .75rem; border-radius: 0; }
   .admin-tab-bar {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 2px;
     width: 100%;
     overflow: visible;
@@ -353,6 +353,88 @@
   border-radius: 6px;
   color: var(--success-dark);
   margin-bottom: 1rem;
+}
+
+/* ── Access boundary ── */
+.admin-access-state {
+  width: min(36rem, calc(100% - 2rem));
+  margin: clamp(4rem, 12vh, 8rem) auto;
+  text-align: center;
+  color: var(--gray-700);
+}
+
+.admin-access-state svg { color: var(--primary); }
+.admin-access-state h1 { margin: .8rem 0 .35rem; color: var(--gray-900); font-size: clamp(1.6rem, 4vw, 2.25rem); }
+.admin-access-state p { margin: 0 auto 1.3rem; }
+.admin-access-state button {
+  border: 0; border-radius: 7px; padding: .7rem 1.15rem; cursor: pointer;
+  background: var(--primary); color: var(--bg-surface); font-weight: 700;
+}
+
+/* ── User access management ── */
+.admin-users-heading p { margin: .3rem 0 0; }
+.admin-users-count { color: var(--gray-600); font-size: .85rem; font-weight: 700; }
+.admin-users-toolbar { display: grid; grid-template-columns: minmax(18rem, 1fr) auto; gap: .8rem; margin-bottom: 1.25rem; }
+.admin-users-search { display: flex; align-items: center; gap: .55rem; border-bottom: 2px solid var(--gray-300); }
+.admin-users-search:focus-within { border-color: var(--primary); }
+.admin-users-search input { flex: 1; min-width: 0; border: 0; outline: 0; padding: .7rem .1rem; background: transparent; color: var(--gray-900); font: inherit; }
+.admin-users-search button, .admin-users-filters select, .admin-history-btn, .admin-role-btn, .admin-users-pagination button {
+  border: 1px solid var(--gray-300); border-radius: 7px; background: var(--bg-surface); color: var(--gray-800); padding: .6rem .75rem; font: inherit; font-size: .84rem; font-weight: 650; cursor: pointer;
+}
+.admin-users-search button { border: 0; background: transparent; color: var(--primary); }
+.admin-users-filters { display: flex; gap: .45rem; }
+.admin-users-list { border-top: 1px solid var(--gray-200); }
+.admin-user-row { border-bottom: 1px solid var(--gray-200); }
+.admin-user-main { display: grid; grid-template-columns: minmax(12rem, 1.15fr) minmax(15rem, 1fr) auto; gap: 1rem; align-items: center; padding: 1rem .25rem; }
+.admin-user-identity { min-width: 0; display: grid; gap: .2rem; }
+.admin-user-identity strong { color: var(--gray-900); }
+.admin-user-identity span { overflow: hidden; text-overflow: ellipsis; color: var(--gray-600); font-size: .82rem; }
+.admin-user-badges, .admin-user-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.admin-user-actions { justify-content: flex-end; }
+.admin-status { display: inline-flex; border-radius: 999px; padding: .22rem .55rem; background: var(--gray-100); color: var(--gray-700); font-size: .72rem; font-weight: 750; text-transform: capitalize; }
+.admin-status--role { background: color-mix(in oklch, var(--primary) 14%, var(--bg-surface)); color: var(--primary); }
+.admin-status--banned, .admin-status--deleted, .admin-status--deletion-scheduled { background: var(--danger-light); color: var(--danger); }
+.admin-status--suspended, .admin-status--unverified { background: var(--warning-light); color: var(--warning-text); }
+.admin-status--verified, .admin-status--active { background: var(--success-light); color: var(--success-dark); }
+.admin-history-btn, .admin-role-btn { display: inline-flex; align-items: center; gap: .35rem; }
+.admin-role-btn { color: var(--primary); border-color: color-mix(in oklch, var(--primary) 40%, var(--gray-300)); }
+.admin-role-btn--revoke { color: var(--danger); border-color: color-mix(in oklch, var(--danger) 40%, var(--gray-300)); }
+.admin-role-history { margin: 0 0 1rem clamp(.25rem, 3vw, 2rem); padding-left: 1rem; border-left: 2px solid var(--gray-200); }
+.admin-role-event { display: grid; grid-template-columns: auto 1fr; column-gap: .65rem; padding: .45rem 0; }
+.admin-role-event strong { color: var(--gray-800); font-size: .82rem; }
+.admin-role-event span { color: var(--gray-500); font-size: .75rem; }
+.admin-role-event p { grid-column: 1 / -1; margin: .2rem 0 0; font-size: .82rem; }
+.admin-users-state { display: grid; gap: .3rem; place-items: center; padding: 4rem 1rem; color: var(--gray-600); }
+.admin-users-pagination { display: flex; justify-content: flex-end; align-items: center; gap: .7rem; margin-top: 1.25rem; color: var(--gray-600); font-size: .82rem; }
+.admin-users-pagination button { display: inline-flex; align-items: center; gap: .25rem; }
+.admin-users-pagination button:disabled { opacity: .45; cursor: not-allowed; }
+.admin-dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: color-mix(in oklch, var(--gray-900) 55%, transparent); }
+.admin-role-dialog { width: min(31rem, 100%); border-radius: 12px; padding: 1.4rem; background: var(--bg-surface); box-shadow: 0 24px 70px color-mix(in oklch, var(--gray-900) 30%, transparent); }
+.admin-role-dialog__mark { color: var(--primary); }
+.admin-role-dialog h3 { color: var(--gray-900); margin: .6rem 0 .35rem; }
+.admin-role-dialog p { margin: 0 0 1rem; }
+.admin-role-dialog label { display: block; color: var(--gray-800); font-size: .82rem; font-weight: 750; margin-bottom: .35rem; }
+.admin-role-dialog textarea { width: 100%; min-height: 7rem; resize: vertical; box-sizing: border-box; padding: .7rem; border: 1px solid var(--gray-300); border-radius: 7px; background: var(--bg-surface); color: var(--gray-900); font: inherit; }
+.admin-role-dialog textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+.admin-role-dialog__actions { display: flex; justify-content: flex-end; gap: .55rem; margin-top: 1rem; }
+.admin-role-dialog__actions button { border: 1px solid var(--gray-300); border-radius: 7px; padding: .65rem .85rem; background: var(--bg-surface); color: var(--gray-800); font-weight: 700; cursor: pointer; }
+.admin-role-dialog__actions .primary { border-color: var(--primary); background: var(--primary); color: var(--bg-surface); }
+.admin-role-dialog__actions .danger { border-color: var(--danger); background: var(--danger); color: var(--bg-surface); }
+.admin-role-dialog__actions button:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 900px) {
+  .admin-users-toolbar { grid-template-columns: 1fr; }
+  .admin-users-filters { overflow-x: auto; }
+  .admin-user-main { grid-template-columns: 1fr auto; }
+  .admin-user-badges { grid-column: 1; }
+  .admin-user-actions { grid-column: 2; grid-row: 1 / span 2; }
+}
+
+@media (max-width: 600px) {
+  .admin-users-filters { display: grid; grid-template-columns: 1fr; }
+  .admin-user-main { grid-template-columns: 1fr; }
+  .admin-user-actions { grid-column: 1; grid-row: auto; justify-content: flex-start; }
+  .admin-users-pagination { justify-content: space-between; }
 }
 
 /* ── Feedback section ── */

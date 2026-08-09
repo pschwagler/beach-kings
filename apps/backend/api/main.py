@@ -16,10 +16,6 @@ from slowapi.errors import RateLimitExceeded  # type: ignore
 
 from backend.api.routes import router, limiter as routes_limiter
 from backend.api.public_routes import public_router
-from backend.database import db
-from backend.database.init_defaults import init_defaults
-from backend.database.seed_locations import seed_locations
-from backend.database.seed_courts import seed_courts
 from backend.services.stats.stats_queue import get_stats_queue
 from backend.services.games.session_cleanup_service import get_session_cleanup_service
 from backend.services.auth.account_deletion_service import get_account_deletion_service
@@ -43,56 +39,24 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up Beach Volleyball ELO API...")
 
-    # Initialize database (create tables if they don't exist)
-    # This is a fallback for tables that might not be in migrations yet
+    # Runtime startup is deliberately read-only with respect to schema and catalog.
+    # Migrations and catalog application are explicit release/bootstrap operations.
     try:
-        await db.init_database()
-        logger.info("Database initialized")
+        from backend.database.db import AsyncSessionLocal
+        from backend.services import data_service
+
+        async with AsyncSessionLocal() as session:
+            log_level_setting = await data_service.get_setting(session, "log_level")
+            if log_level_setting:
+                log_level_name = log_level_setting.upper()
+                numeric_level = getattr(logging, log_level_name, logging.INFO)
+                logging.getLogger().setLevel(numeric_level)
+                logger.info(f"Log level set from database: {log_level_name}")
+            else:
+                logger.info(f"Log level set from environment: {log_level}")
     except Exception as e:
-        logger.error(f"Database initialization failed: {e}", exc_info=True)
-        # Don't raise - allow app to start even if initialization fails
-        # (useful for development, but you might want to raise in production)
-
-    # Initialize default values (settings, etc.)
-    try:
-        await init_defaults()
-        logger.info("✓ Default values initialized")
-
-        # Check for log level setting in database and apply it
-        try:
-            from backend.database.db import AsyncSessionLocal
-            from backend.services import data_service
-
-            async with AsyncSessionLocal() as session:
-                log_level_setting = await data_service.get_setting(session, "log_level")
-                if log_level_setting:
-                    log_level_name = log_level_setting.upper()
-                    numeric_level = getattr(logging, log_level_name, logging.INFO)
-                    root_logger = logging.getLogger()
-                    root_logger.setLevel(numeric_level)
-                    logger.info(f"Log level set from database: {log_level_name}")
-                else:
-                    logger.info(f"Log level set from environment: {log_level}")
-        except Exception as e:
-            logger.warning(f"Could not load log level from database, using environment: {e}")
-            logger.info(f"Log level set from environment: {log_level}")
-    except Exception as e:
-        logger.error(f"Failed to initialize defaults: {e}", exc_info=True)
-        # Don't raise - allow app to start even if defaults fail
-
-    # Seed regions and locations (must run before courts)
-    try:
-        await seed_locations()
-        logger.info("✓ Location seed data initialized")
-    except Exception as e:
-        logger.error(f"Failed to seed location data: {e}", exc_info=True)
-
-    # Seed court tags and default courts
-    try:
-        await seed_courts()
-        logger.info("✓ Court seed data initialized")
-    except Exception as e:
-        logger.error(f"Failed to seed court data: {e}", exc_info=True)
+        logger.warning(f"Could not load log level from database, using environment: {e}")
+        logger.info(f"Log level set from environment: {log_level}")
 
     # Register stats calculation callbacks (must be done before starting worker)
     try:

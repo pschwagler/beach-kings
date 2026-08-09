@@ -51,7 +51,9 @@ async def test_get_redis_client_returns_same_instance_on_second_call():
     mock_client = AsyncMock()
     mock_client.ping = AsyncMock(return_value=True)
 
-    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client) as mock_redis_cls:
+    with patch(
+        "backend.services.platform.redis_service.Redis", return_value=mock_client
+    ) as mock_redis_cls:
         first = await redis_service.get_redis_client()
         second = await redis_service.get_redis_client()
 

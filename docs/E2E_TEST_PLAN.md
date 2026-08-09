@@ -259,7 +259,7 @@ Each epic is self-contained and can be worked on independently. Epics are ordere
 **Why last:** Admin-only, lower traffic, but important for content quality.
 
 **New fixture needed:**
-- `adminUser` — user whose phone is in `system_admin_phone_numbers`
+- `adminUser` — user with an active `system_admin` platform role assignment
 
 ### Spec: `admin/court-moderation.spec.js`
 

@@ -49,6 +49,9 @@ jobs:
       - name: Check format (Python)
         run: ruff format --check apps/backend
 
+      - name: Validate committed catalog (no database)
+        run: PYTHONPATH=apps python -m backend.scripts.sync_catalog --validate-only
+
   test-backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30

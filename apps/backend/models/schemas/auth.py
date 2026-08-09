@@ -184,6 +184,7 @@ class UserResponse(BaseModel):
     moderation_case_id: Optional[int] = None
     interaction_restricted_until: Optional[datetime] = None
     interaction_restriction_case_id: Optional[int] = None
+    is_system_admin: bool = False
 
 
 class UserUpdate(BaseModel):
