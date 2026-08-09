@@ -279,7 +279,7 @@ class TestCreateMatchesFromSessionOptionalSeason:
         get_or_create_active_league_session.
         """
         import inspect
-        from backend.services.photo_match_service import create_matches_from_session
+        from backend.services.games.photo_match_service import create_matches_from_session
 
         sig = inspect.signature(create_matches_from_session)
         param = sig.parameters.get("season_id")
@@ -348,7 +348,7 @@ class TestCreateMatchesFromSessionOptionalSeason:
             photo_match_service, "update_session_data", fake_update_session_data, raising=True
         )
 
-        from backend.services.photo_match_service import create_matches_from_session
+        from backend.services.games.photo_match_service import create_matches_from_session
 
         success, match_ids, msg = await create_matches_from_session(
             db_session=None,

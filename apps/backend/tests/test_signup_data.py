@@ -12,7 +12,7 @@ from datetime import datetime, date, timedelta
 from unittest.mock import MagicMock
 import pytz
 
-from backend.services.signup_data import (
+from backend.services.leagues.signup_data import (
     _get_previous_calendar_week_range,
     _weekly_schedule_to_dict,
 )

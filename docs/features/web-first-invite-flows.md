@@ -168,7 +168,7 @@ Recommendations in **bold**; to be confirmed before spec/implementation.
 
 ## Affected Code (orientation, not a task list)
 
-- Backend: `apps/backend/api/routes/players.py` (`get_invite_details`), `apps/backend/models/schemas.py` (`InviteDetailsResponse`, new `InviteMatchSummary`), `apps/backend/services/placeholder_service.py` (match query), reusing `apps/backend/services/my_games_service.py` mapping helpers.
+- Backend: `apps/backend/api/routes/players.py` (`get_invite_details`), `apps/backend/models/schemas/` (`InviteDetailsResponse`, new `InviteMatchSummary`), `apps/backend/services/players/placeholder_service.py` (match query), reusing `apps/backend/services/games/my_games_service.py` mapping helpers.
 - Web: `apps/web/app/invite/[token]/page.tsx` (review cards + success upsell), web invite styles.
 - Mobile (Feature A): `apps/mobile/src/components/screens/Leagues/LeagueInviteScreen.tsx` + `useLeagueInviteScreen.ts` (share handler + league name), `apps/mobile/src/utils/share.ts` (reuse `shareLink`).
 - Mobile (Feature B3, if included): `apps/mobile/app/(stack)/invite/[token].tsx`, shared invite-details type in `packages/shared`.

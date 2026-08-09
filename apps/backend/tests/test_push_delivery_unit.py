@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from backend.services.push_delivery_service import (
+from backend.services.notifications.push_delivery_service import (
     build_safe_payload,
     safe_domain_data,
     safe_internal_link_url,

@@ -25,8 +25,8 @@ from backend.api import auth_dependencies
 from backend.database.db import get_db_session
 from backend.database.models import Season, Session, SessionStatus, PhotoMatchJobStatus
 from backend.services import data_service, photo_match_service
-from backend.services.match_validation import validate_match_score
-from backend.services.player_lifecycle import require_active_players
+from backend.services.games.match_validation import validate_match_score
+from backend.services.players.player_lifecycle import require_active_players
 from backend.api.auth_dependencies import (
     get_current_user,
     require_user,

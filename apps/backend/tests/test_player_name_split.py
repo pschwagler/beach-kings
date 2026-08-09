@@ -9,7 +9,7 @@ Tests cover:
 
 import pytest
 
-from backend.services.player_data import resolve_name_fields
+from backend.services.players.player_data import resolve_name_fields
 
 
 # ---------------------------------------------------------------------------

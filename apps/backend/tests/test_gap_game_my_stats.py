@@ -29,7 +29,7 @@ from backend.database.models import (
     Session,
     SessionStatus,
 )
-from backend.services.my_stats_service import (
+from backend.services.stats.my_stats_service import (
     _compute_current_streak,
     _elo_timeline_full,
     _overall_from_matches,

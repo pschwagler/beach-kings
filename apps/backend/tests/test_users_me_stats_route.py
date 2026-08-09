@@ -119,7 +119,7 @@ class TestGetMyStatsRoute:
         client = TestClient(app)
 
         with patch(
-            "backend.services.my_stats_service.get_my_stats",
+            "backend.services.stats.my_stats_service.get_my_stats",
             new=AsyncMock(return_value=MINIMAL_STATS_PAYLOAD),
         ):
             response = client.get("/api/users/me/stats", headers={"Authorization": "Bearer dummy"})
@@ -191,7 +191,7 @@ class TestGetMyStatsRoute:
         client = TestClient(app)
 
         with patch(
-            "backend.services.my_stats_service.get_my_stats",
+            "backend.services.stats.my_stats_service.get_my_stats",
             new=AsyncMock(side_effect=RuntimeError("DB exploded")),
         ):
             response = client.get("/api/users/me/stats", headers={"Authorization": "Bearer dummy"})
@@ -205,7 +205,7 @@ class TestGetMyStatsRoute:
         client = TestClient(app)
         mock = AsyncMock(return_value=MINIMAL_STATS_PAYLOAD)
 
-        with patch("backend.services.my_stats_service.get_my_stats", new=mock):
+        with patch("backend.services.stats.my_stats_service.get_my_stats", new=mock):
             response = client.get(
                 "/api/users/me/stats?league_id=42&days=30",
                 headers={"Authorization": "Bearer dummy"},
@@ -222,7 +222,7 @@ class TestGetMyStatsRoute:
         client = TestClient(app)
         mock = AsyncMock(return_value=MINIMAL_STATS_PAYLOAD)
 
-        with patch("backend.services.my_stats_service.get_my_stats", new=mock):
+        with patch("backend.services.stats.my_stats_service.get_my_stats", new=mock):
             response = client.get("/api/users/me/stats", headers={"Authorization": "Bearer dummy"})
 
         assert response.status_code == 200
@@ -235,7 +235,7 @@ class TestGetMyStatsRoute:
         """days outside [1, 3650] must be rejected by Query validators."""
         client = TestClient(app)
         with patch(
-            "backend.services.my_stats_service.get_my_stats",
+            "backend.services.stats.my_stats_service.get_my_stats",
             new=AsyncMock(return_value=MINIMAL_STATS_PAYLOAD),
         ):
             response = client.get(
@@ -247,7 +247,7 @@ class TestGetMyStatsRoute:
         """Non-integer league_id must be rejected."""
         client = TestClient(app)
         with patch(
-            "backend.services.my_stats_service.get_my_stats",
+            "backend.services.stats.my_stats_service.get_my_stats",
             new=AsyncMock(return_value=MINIMAL_STATS_PAYLOAD),
         ):
             response = client.get(

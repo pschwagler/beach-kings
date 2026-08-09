@@ -225,7 +225,7 @@ async def test_delete_submitted_gap_session_enqueues_league_recalc(
     ``session_obj.league_id`` directly from the ORM row before commit.
     """
     from backend.services import stats_queue
-    from backend.services.session_data import delete_session
+    from backend.services.games.session_data import delete_session
 
     fake = _FakeQueue()
     monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: fake)
@@ -255,7 +255,7 @@ async def test_delete_submitted_season_session_enqueues_league_recalc(
     to ensure the new implementation did not regress the season-game path.
     """
     from backend.services import stats_queue
-    from backend.services.session_data import delete_session
+    from backend.services.games.session_data import delete_session
 
     fake = _FakeQueue()
     monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: fake)
@@ -280,7 +280,7 @@ async def test_delete_submitted_pickup_session_skips_league_recalc(
     global recalc but must NOT enqueue any league recalc.
     """
     from backend.services import stats_queue
-    from backend.services.session_data import delete_session
+    from backend.services.games.session_data import delete_session
 
     fake = _FakeQueue()
     monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: fake)
@@ -307,7 +307,7 @@ async def test_delete_active_gap_session_with_no_matches_skips_enqueue(
     ``league_id``, so no enqueue should fire.
     """
     from backend.services import stats_queue
-    from backend.services.session_data import delete_session
+    from backend.services.games.session_data import delete_session
 
     fake = _FakeQueue()
     monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: fake)
@@ -326,7 +326,7 @@ async def test_delete_active_gap_session_with_no_matches_skips_enqueue(
 async def test_delete_nonexistent_session_returns_false(db_session: AsyncSession, monkeypatch):
     """delete_session must return False when the session does not exist."""
     from backend.services import stats_queue
-    from backend.services.session_data import delete_session
+    from backend.services.games.session_data import delete_session
 
     fake = _FakeQueue()
     monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: fake)

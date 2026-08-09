@@ -157,7 +157,7 @@ async def test_clean_direct_message_is_published_only_after_completion(monkeypat
     session = SimpleNamespace(get=AsyncMock(return_value=target), flush=AsyncMock())
     publish = AsyncMock()
     monkeypatch.setattr(
-        "backend.services.direct_message_service.publish_approved_message", publish
+        "backend.services.social.direct_message_service.publish_approved_message", publish
     )
 
     await moderation_worker._complete(session, job, False, {}, {"model": "test"})
@@ -369,7 +369,7 @@ async def test_clean_report_job_does_not_redeliver_existing_message(monkeypatch)
     session = SimpleNamespace(get=get, add=Mock(), flush=AsyncMock())
     publish = AsyncMock()
     monkeypatch.setattr(
-        "backend.services.direct_message_service.publish_approved_message", publish
+        "backend.services.social.direct_message_service.publish_approved_message", publish
     )
 
     await moderation_worker._complete(

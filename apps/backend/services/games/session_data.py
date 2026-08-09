@@ -1,0 +1,1997 @@
+"""
+Session and match CRUD operations.
+
+Extracted from data_service.py.  Provides read/write access to the
+``sessions``, ``session_participants``, and ``matches`` tables, plus
+session-code generation and participant management helpers.
+"""
+
+from typing import Iterable, List, Dict, Optional, TYPE_CHECKING
+import secrets
+import string
+import logging
+
+__all__ = [
+    "get_sessions",
+    "get_session",
+    "get_active_session",
+    "get_session_by_code",
+    "get_open_sessions_for_user",
+    "get_or_create_active_league_session",
+    "create_league_session",
+    "create_session",
+    "lock_in_session",
+    "enqueue_stats_recalculation",
+    "update_session",
+    "delete_session",
+    "get_matches",
+    "get_session_matches",
+    "get_match_async",
+    "create_match_async",
+    "update_match_async",
+    "delete_match_async",
+    "get_session_participants",
+    "get_session_roster_with_game_counts",
+    "remove_session_participant",
+    "add_session_participant",
+    "join_session_by_code",
+    "can_user_add_match_to_session",
+    "get_session_match_player_user_ids",
+]
+
+from backend.services import player_search_cache
+from backend.services.games.match_validation import validate_match_score
+from backend.services.games.session_geo_service import resolve_session_geo
+from backend.services.players.player_lifecycle import (
+    historical_id,
+    historical_name,
+    require_active_players,
+)
+from backend.utils.frontend_url import build_invite_url
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, delete, func, and_, or_, cast, Integer
+from sqlalchemy.orm import aliased
+
+from backend.database.models import (
+    League,
+    LeagueHomeCourt,
+    Season,
+    Court,
+    Player,
+    PlayerInvite,
+    InviteStatus,
+    Session,
+    Match,
+    SessionParticipant,
+    EloHistory,
+    SeasonRatingHistory,
+    SessionStatus,
+    Location,
+)
+from backend.utils.datetime_utils import format_session_date
+
+if TYPE_CHECKING:
+    from backend.models.schemas import CreateMatchRequest, UpdateMatchRequest
+
+logger = logging.getLogger(__name__)
+
+# Session code: alphanumeric (uppercase + digits), default length 8
+SESSION_CODE_ALPHABET = string.ascii_uppercase + string.digits
+SESSION_CODE_LENGTH = 8
+SESSION_CODE_MAX_ATTEMPTS = 10
+
+
+# ============================================================================
+# Session read operations
+# ============================================================================
+
+
+async def get_sessions(session: AsyncSession) -> List[Dict]:
+    """Get all sessions ordered by date."""
+    result = await session.execute(
+        select(Session).order_by(Session.date.desc(), Session.created_at.desc())
+    )
+    sessions = result.scalars().all()
+    return [
+        {
+            "id": s.id,
+            "date": s.date,
+            "name": s.name,
+            "status": s.status.value if s.status else None,
+            "season_id": s.season_id,
+            "court_id": s.court_id,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in sessions
+    ]
+
+
+async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
+    """Get a session by ID.
+
+    Returns a dict with session fields including ``league_id`` read directly
+    from the sessions table (not derived via Season) so that gap sessions
+    (season_id=NULL, league_id set) expose their league correctly.
+    """
+    result = await session.execute(select(Session).where(Session.id == session_id))
+    s = result.scalar_one_or_none()
+    if not s:
+        return None
+    return {
+        "id": s.id,
+        "date": s.date,
+        "name": s.name,
+        "status": s.status.value if s.status else None,
+        "code": s.code,
+        "season_id": s.season_id,
+        "league_id": s.league_id,
+        "court_id": s.court_id,
+        "created_by": s.created_by,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+    }
+
+
+async def get_active_session(session: AsyncSession) -> Optional[Dict]:
+    """Get the active session."""
+    result = await session.execute(
+        select(Session)
+        .where(Session.status == SessionStatus.ACTIVE)
+        .order_by(Session.created_at.desc())
+        .limit(1)
+    )
+    s = result.scalar_one_or_none()
+    if not s:
+        return None
+    return {
+        "id": s.id,
+        "date": s.date,
+        "name": s.name,
+        "status": s.status.value if s.status else None,
+        "season_id": s.season_id,
+        "court_id": s.court_id,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+    }
+
+
+async def get_session_by_code(db_session: AsyncSession, code: str) -> Optional[Dict]:
+    """Return session by code, with league_id, court info, created_by_name, updated_at,
+    updated_by_name; None if not found."""
+    creator = aliased(Player)
+    updater = aliased(Player)
+    # Select Session.league_id directly so gap sessions (season_id=NULL) report
+    # their league correctly.  The Season join was the only derivation of
+    # league_id here — it is no longer needed.
+    q = (
+        select(
+            Session,
+            Session.league_id,
+            creator.full_name,
+            updater.full_name,
+            Court.name.label("court_name"),
+            Court.slug.label("court_slug"),
+        )
+        .outerjoin(creator, Session.created_by == creator.id)
+        .outerjoin(updater, Session.updated_by == updater.id)
+        .outerjoin(Court, Session.court_id == Court.id)
+        .where(Session.code == code)
+    )
+    result = await db_session.execute(q)
+    row = result.one_or_none()
+    if not row:
+        return None
+    s, league_id, created_by_name, updated_by_name, court_name, court_slug = row
+    return {
+        "id": s.id,
+        "code": s.code,
+        "date": s.date,
+        "name": s.name,
+        "status": s.status.value if s.status else None,
+        "season_id": s.season_id,
+        "court_id": s.court_id,
+        "court_name": court_name,
+        "court_slug": court_slug,
+        "league_id": league_id,
+        "created_by": s.created_by,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "created_by_name": created_by_name,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+        "updated_by": s.updated_by,
+        "updated_by_name": updated_by_name,
+    }
+
+
+async def get_open_sessions_for_user(
+    db_session: AsyncSession, player_id: int, *, active_only: bool = True
+) -> List[Dict]:
+    """
+    Return sessions where the player is creator, has a match, or is invited.
+    When active_only=True (default), only ACTIVE sessions are returned.
+    Includes league and non-league sessions. Ordered by session date desc, then updated_at desc.
+    """
+    # Subquery: session IDs where player has at least one match
+    match_sess = (
+        select(Match.session_id)
+        .where(
+            and_(
+                Match.session_id.isnot(None),
+                or_(
+                    Match.team1_player1_id == player_id,
+                    Match.team1_player2_id == player_id,
+                    Match.team2_player1_id == player_id,
+                    Match.team2_player2_id == player_id,
+                ),
+            )
+        )
+        .distinct()
+    )
+
+    # Subquery: session IDs where player is in session_participants
+    part_sess = select(SessionParticipant.session_id).where(
+        SessionParticipant.player_id == player_id
+    )
+
+    creator_alias = aliased(Player)
+    # Derive league info from Session.league_id directly so that gap sessions
+    # (season_id=NULL, league_id set) surface with their correct league_id and
+    # league_name.  The previous Season outerjoin caused NULL for both fields on
+    # gap sessions.
+    q = (
+        select(
+            Session.id,
+            Session.code,
+            Session.date,
+            Session.name,
+            Session.status,
+            Session.season_id,
+            Session.created_by,
+            Session.updated_at,
+            Session.court_id,
+            Session.league_id,
+            League.name.label("league_name"),
+            creator_alias.full_name.label("created_by_name"),
+            Court.name.label("court_name"),
+            Court.slug.label("court_slug"),
+        )
+        .outerjoin(League, Session.league_id == League.id)
+        .outerjoin(creator_alias, Session.created_by == creator_alias.id)
+        .outerjoin(Court, Session.court_id == Court.id)
+        .where(
+            or_(
+                Session.created_by == player_id,
+                Session.id.in_(match_sess.scalar_subquery()),
+                Session.id.in_(part_sess.scalar_subquery()),
+            )
+        )
+        .order_by(Session.date.desc(), Session.updated_at.desc())
+    )
+    if active_only:
+        q = q.where(Session.status == SessionStatus.ACTIVE)
+    result = await db_session.execute(q)
+    rows = result.all()
+
+    session_ids = [r.id for r in rows]
+    if not session_ids:
+        return []
+
+    # Match count per session
+    count_q = (
+        select(Match.session_id, func.count(Match.id).label("match_count"))
+        .where(Match.session_id.in_(session_ids))
+        .group_by(Match.session_id)
+    )
+    count_result = await db_session.execute(count_q)
+    match_counts = {r.session_id: r.match_count for r in count_result.all()}
+
+    # Match count per session for this specific player
+    player_match_filter = or_(
+        Match.team1_player1_id == player_id,
+        Match.team1_player2_id == player_id,
+        Match.team2_player1_id == player_id,
+        Match.team2_player2_id == player_id,
+    )
+    user_count_q = (
+        select(Match.session_id, func.count(Match.id).label("user_match_count"))
+        .where(Match.session_id.in_(session_ids))
+        .where(player_match_filter)
+        .group_by(Match.session_id)
+    )
+    user_count_result = await db_session.execute(user_count_q)
+    user_match_counts = {r.session_id: r.user_match_count for r in user_count_result.all()}
+
+    # Session IDs where this player has at least one match
+    match_sess_ids_q = (
+        select(Match.session_id)
+        .where(
+            and_(
+                Match.session_id.isnot(None),
+                player_match_filter,
+            )
+        )
+        .distinct()
+    )
+    match_sess_ids_result = await db_session.execute(match_sess_ids_q)
+    session_ids_with_match = {row[0] for row in match_sess_ids_result.all()}
+
+    out = []
+    for r in rows:
+        if r.created_by == player_id:
+            participation = "creator"
+        elif r.id in session_ids_with_match:
+            participation = "player"
+        else:
+            participation = "invited"
+        created_by_name = getattr(r, "created_by_name", None)
+        out.append(
+            {
+                "id": r.id,
+                "code": r.code,
+                "date": r.date,
+                "name": r.name,
+                "status": r.status.value if r.status else None,
+                "season_id": r.season_id,
+                "league_id": r.league_id,
+                "league_name": r.league_name,
+                "court_id": r.court_id,
+                "court_name": r.court_name,
+                "court_slug": r.court_slug,
+                "match_count": match_counts.get(r.id, 0),
+                "user_match_count": user_match_counts.get(r.id, 0),
+                "participation": participation,
+                "created_by": r.created_by,
+                "created_by_name": created_by_name,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+        )
+    return out
+
+
+# ============================================================================
+# Session write operations
+# ============================================================================
+
+
+async def _generate_session_code(db_session: AsyncSession) -> str:
+    """
+    Generate a unique short alphanumeric code for a session.
+    Retries on collision up to SESSION_CODE_MAX_ATTEMPTS.
+    """
+    for _ in range(SESSION_CODE_MAX_ATTEMPTS):
+        code = "".join(secrets.choice(SESSION_CODE_ALPHABET) for _ in range(SESSION_CODE_LENGTH))
+        result = await db_session.execute(select(Session.id).where(Session.code == code))
+        if result.scalar_one_or_none() is None:
+            return code
+    raise ValueError("Failed to generate unique session code")
+
+
+async def _get_active_season(
+    session: AsyncSession, league_id: int, season_id: Optional[int] = None
+) -> Season:
+    """Get active season for a league, either by ID or by current date."""
+    if season_id is not None:
+        result = await session.execute(
+            select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
+        )
+        active_season = result.scalar_one_or_none()
+        if not active_season:
+            raise ValueError(
+                f"Season {season_id} not found or does not belong to league {league_id}"
+            )
+        return active_season
+
+    from backend.services.leagues.league_data import resolve_active_season
+
+    s = await resolve_active_season(session, league_id)
+    if s is None:
+        raise ValueError(
+            f"League {league_id} does not have an active season. "
+            "Please create a season with dates that include today's date."
+        )
+    return s
+
+
+async def get_or_create_active_league_session(
+    session: AsyncSession,
+    league_id: int,
+    session_date: str,
+    name: Optional[str] = None,
+    created_by: Optional[int] = None,
+    season_id: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    court_id: Optional[int] = None,
+    start_time: Optional[str] = None,
+    is_ranked: bool | None = None,
+) -> Dict:
+    """
+    Get or create an active session for a league and date atomically.
+    Uses SELECT FOR UPDATE to prevent race conditions.
+
+    When ``season_id`` is explicitly provided, strict validation is applied:
+    the season must exist and belong to the league, or ValueError is raised.
+
+    When ``season_id`` is None, the active season is resolved via
+    ``resolve_active_season``.  If no active season exists the session is
+    created as a *gap game* (``season_id=NULL``) rather than raising.
+
+    Duplicate detection anchors on the gap-game key
+    (``league_id + date + season_id IS NULL``) when there is no resolved
+    season, and on ``season_id`` otherwise — guaranteeing idempotency for
+    both code paths.
+
+    Args:
+        session: Database session.
+        league_id: League ID.
+        session_date: Session date string (e.g. '6/19/2026').
+        name: Optional session name override.
+        created_by: Optional player ID of the creator.
+        season_id: Optional season ID.  When provided, strict validation is
+            applied.  When None, the active season is resolved automatically;
+            if none is found, a gap game is created.
+        latitude: Optional browser geolocation latitude.
+        longitude: Optional browser geolocation longitude.
+        court_id: Optional court ID. Defaults to the league's primary home court.
+        start_time: Optional session start time.
+        is_ranked: Optional ranked intent. Season sessions are always ranked.
+
+    Returns:
+        Dict with session info (``season_id`` may be None for gap games).
+
+    Raises:
+        ValueError: When the league does not exist, or when an explicit
+            ``season_id`` is provided that doesn't exist or belongs to a
+            different league.
+    """
+    from backend.services.leagues.league_data import resolve_active_season
+
+    # Verify league exists
+    result = await session.execute(select(League).where(League.id == league_id))
+    league = result.scalar_one_or_none()
+    if not league:
+        raise ValueError(f"League {league_id} not found")
+
+    # Resolve the season_id to use for this session.
+    # Explicit season_id → strict validation (raises on miss/mismatch).
+    # No season_id → soft resolve; None means gap game.
+    if season_id is not None:
+        resolved_season_id: Optional[int] = (
+            await _get_active_season(session, league_id, season_id)
+        ).id
+    else:
+        active = await resolve_active_season(session, league_id)
+        resolved_season_id = active.id if active is not None else None
+
+    # Build the WHERE clause for duplicate detection.
+    # Gap games anchor on league_id + date + season_id IS NULL.
+    # Season games anchor on season_id (existing behaviour).
+    def _dedup_where(include_status: bool = True):
+        """Return the list of WHERE conditions for the idempotency lookup."""
+        conditions = [Session.date == session_date]
+        if resolved_season_id is None:
+            conditions += [
+                Session.season_id.is_(None),
+                Session.league_id == league_id,
+            ]
+        else:
+            conditions.append(Session.season_id == resolved_season_id)
+        if include_status:
+            conditions.append(Session.status == SessionStatus.ACTIVE)
+        return conditions
+
+    # Try to get existing active session for this date and season (or gap key)
+    try:
+        result = await session.execute(
+            select(Session).where(and_(*_dedup_where())).with_for_update()
+        )
+        existing_session = result.scalar_one_or_none()
+
+        if existing_session:
+            # Backfill code for legacy league sessions created before code support.
+            if existing_session.code is None:
+                existing_session.code = await _generate_session_code(session)
+                await session.flush()
+            return {
+                "id": existing_session.id,
+                "date": existing_session.date,
+                "name": existing_session.name,
+                "status": existing_session.status.value if existing_session.status else None,
+                "season_id": existing_session.season_id,
+                "league_id": existing_session.league_id,
+                "court_id": existing_session.court_id,
+                "start_time": existing_session.start_time,
+                "session_type": existing_session.session_type,
+                "is_ranked": existing_session.is_ranked,
+                "code": existing_session.code,
+            }
+    except Exception as e:
+        logger.warning("SELECT FOR UPDATE failed, falling back to plain SELECT: %s", e)
+        result = await session.execute(select(Session).where(and_(*_dedup_where())))
+        existing_session = result.scalar_one_or_none()
+        if existing_session:
+            if existing_session.code is None:
+                existing_session.code = await _generate_session_code(session)
+                await session.flush()
+            return {
+                "id": existing_session.id,
+                "date": existing_session.date,
+                "name": existing_session.name,
+                "status": existing_session.status.value if existing_session.status else None,
+                "season_id": existing_session.season_id,
+                "league_id": existing_session.league_id,
+                "court_id": existing_session.court_id,
+                "start_time": existing_session.start_time,
+                "session_type": existing_session.session_type,
+                "is_ranked": existing_session.is_ranked,
+                "code": existing_session.code,
+            }
+
+    # No existing session found — count existing rows for the name suffix.
+    count_result = await session.execute(
+        select(func.count(Session.id)).where(and_(*_dedup_where(include_status=False)))
+    )
+    session_count = count_result.scalar() or 0
+
+    formatted_date = format_session_date(session_date)
+    if name:
+        session_name = name
+    elif session_count == 0:
+        session_name = formatted_date
+    else:
+        session_name = f"{formatted_date} Session #{session_count + 1}"
+
+    # Default court_id to league's primary home court (position=0)
+    home_court_result = await session.execute(
+        select(LeagueHomeCourt.court_id)
+        .where(LeagueHomeCourt.league_id == league_id)
+        .order_by(LeagueHomeCourt.position.asc())
+        .limit(1)
+    )
+    default_court_id = home_court_result.scalar_one_or_none()
+    effective_court_id = court_id if court_id is not None else default_court_id
+
+    # Resolve geo from court → league home court → browser → player city
+    geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
+        db_session=session,
+        court_id=effective_court_id,
+        league_id=league_id,
+        browser_lat=latitude,
+        browser_lon=longitude,
+        creator_player_id=created_by,
+    )
+
+    # TODO: inherit this from the future season/league ranking policy.
+    effective_is_ranked = (
+        True if resolved_season_id is not None else (is_ranked if is_ranked is not None else True)
+    )
+
+    code = await _generate_session_code(session)
+    new_session = Session(
+        date=session_date,
+        name=session_name,
+        status=SessionStatus.ACTIVE,
+        season_id=resolved_season_id,
+        league_id=league_id,
+        session_type="league",
+        created_by=created_by,
+        court_id=effective_court_id,
+        location_id=geo_location_id,
+        latitude=geo_lat,
+        longitude=geo_lon,
+        start_time=start_time,
+        is_ranked=effective_is_ranked,
+        code=code,
+    )
+    session.add(new_session)
+    await session.flush()
+    await session.refresh(new_session)
+    return {
+        "id": new_session.id,
+        "date": new_session.date,
+        "name": new_session.name,
+        "status": new_session.status.value if new_session.status else None,
+        "season_id": new_session.season_id,
+        "league_id": new_session.league_id,
+        "court_id": new_session.court_id,
+        "location_id": new_session.location_id,
+        "latitude": new_session.latitude,
+        "longitude": new_session.longitude,
+        "start_time": new_session.start_time,
+        "session_type": new_session.session_type,
+        "is_ranked": new_session.is_ranked,
+        "code": new_session.code,
+    }
+
+
+async def create_league_session(
+    session: AsyncSession,
+    league_id: int,
+    date: str,
+    name: Optional[str],
+    created_by: Optional[int] = None,
+    court_id: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    start_time: Optional[str] = None,
+    is_ranked: bool | None = None,
+) -> Dict:
+    """
+    Create a league session.  Automatically resolves the league's most recent
+    active season.  When no active season exists the session is created as a
+    *gap game* (``season_id=NULL``) rather than raising.
+
+    Defaults ``court_id`` to the league's primary home court (position=0) if
+    not provided.  Includes duplicate prevention: raises ``ValueError`` if an
+    ACTIVE session already exists for the same league + date, anchored on
+    ``season_id IS NULL`` for gap games or ``season_id`` for season games.
+
+    Args:
+        session: Database session.
+        league_id: ID of the league for which to create the session.
+        date: Date string (e.g. '6/19/2026').
+        name: Optional session name override.
+        created_by: Optional player ID of the creator.
+        court_id: Optional court ID; defaults to the league's primary home court.
+        latitude: Optional browser geolocation latitude.
+        longitude: Optional browser geolocation longitude.
+        start_time: Optional session start time.
+        is_ranked: Optional ranked intent. Season sessions are always ranked.
+
+    Returns:
+        Dict with created session info (``season_id`` may be None for gap games).
+
+    Raises:
+        ValueError: When the league does not exist or a duplicate ACTIVE session
+            already exists for the same league + date (gap-game or season key).
+    """
+    from backend.services.leagues.league_data import resolve_active_season
+
+    result = await session.execute(select(League).where(League.id == league_id))
+    league = result.scalar_one_or_none()
+    if not league:
+        raise ValueError(f"League {league_id} not found")
+
+    # Soft resolve: None means no active season → gap game.
+    active = await resolve_active_season(session, league_id)
+    resolved_season_id: Optional[int] = active.id if active is not None else None
+
+    # Duplicate-prevention anchor:
+    #   gap game  → league_id + date + season_id IS NULL
+    #   season game → season_id
+    if resolved_season_id is None:
+        dup_where = and_(
+            Session.date == date,
+            Session.league_id == league_id,
+            Session.season_id.is_(None),
+            Session.status == SessionStatus.ACTIVE,
+        )
+        count_where = and_(
+            Session.date == date,
+            Session.league_id == league_id,
+            Session.season_id.is_(None),
+        )
+    else:
+        dup_where = and_(
+            Session.date == date,
+            Session.season_id == resolved_season_id,
+            Session.status == SessionStatus.ACTIVE,
+        )
+        count_where = and_(
+            Session.date == date,
+            Session.season_id == resolved_season_id,
+        )
+
+    # Check for duplicate active session
+    result = await session.execute(select(Session).where(dup_where))
+    existing_session = result.scalar_one_or_none()
+    if existing_session:
+        raise ValueError(
+            f"An active session '{existing_session.name}' already exists for this date. "
+            "Please submit the current session before creating a new one."
+        )
+
+    count_result = await session.execute(select(func.count(Session.id)).where(count_where))
+    session_count = count_result.scalar() or 0
+
+    formatted_date = format_session_date(date)
+    if name:
+        session_name = name
+    elif session_count == 0:
+        session_name = formatted_date
+    else:
+        session_name = f"{formatted_date} Session #{session_count + 1}"
+
+    if court_id is None:
+        home_court_result = await session.execute(
+            select(LeagueHomeCourt.court_id)
+            .where(LeagueHomeCourt.league_id == league_id)
+            .order_by(LeagueHomeCourt.position.asc())
+            .limit(1)
+        )
+        court_id = home_court_result.scalar_one_or_none()
+
+    # Resolve geo from court → league home court → browser → player city
+    geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
+        db_session=session,
+        court_id=court_id,
+        league_id=league_id,
+        browser_lat=latitude,
+        browser_lon=longitude,
+        creator_player_id=created_by,
+    )
+
+    code = await _generate_session_code(session)
+    # TODO: inherit this from the future season/league ranking policy.
+    effective_is_ranked = (
+        True if resolved_season_id is not None else (is_ranked if is_ranked is not None else True)
+    )
+    new_session = Session(
+        date=date,
+        name=session_name,
+        status=SessionStatus.ACTIVE,
+        season_id=resolved_season_id,
+        league_id=league_id,
+        session_type="league",
+        created_by=created_by,
+        court_id=court_id,
+        location_id=geo_location_id,
+        latitude=geo_lat,
+        longitude=geo_lon,
+        start_time=start_time,
+        is_ranked=effective_is_ranked,
+        code=code,
+    )
+    session.add(new_session)
+    await session.commit()
+    await session.refresh(new_session)
+    return {
+        "id": new_session.id,
+        "date": new_session.date,
+        "name": new_session.name,
+        "status": new_session.status.value if new_session.status else None,
+        "season_id": new_session.season_id,
+        "league_id": new_session.league_id,
+        "court_id": new_session.court_id,
+        "location_id": new_session.location_id,
+        "latitude": new_session.latitude,
+        "longitude": new_session.longitude,
+        "start_time": new_session.start_time,
+        "session_type": new_session.session_type,
+        "is_ranked": new_session.is_ranked,
+        "code": new_session.code,
+    }
+
+
+async def create_session(
+    session: AsyncSession,
+    date: str,
+    name: Optional[str] = None,
+    court_id: Optional[int] = None,
+    created_by: Optional[int] = None,
+    league_id: int | None = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    start_time: Optional[str] = None,
+    is_ranked: bool | None = None,
+) -> Dict:
+    """
+    Create a new session. Generates a unique shareable code and optionally
+    adds the creator to participants.
+
+    ``session_type`` is derived internally: ``'league'`` for league sessions,
+    otherwise ``'pickup'``.
+
+    Args:
+        session: Database session
+        date: Date string (e.g., '11/7/2025')
+        name: Optional session name (defaults to date-based name)
+        court_id: Optional court ID
+        created_by: Optional player ID who created the session
+        league_id: Optional league ID; when set the session is a league session
+        latitude: Optional browser geolocation latitude
+        longitude: Optional browser geolocation longitude
+        start_time: Optional start time string (e.g. '3:00 PM')
+        is_ranked: Session-level ranked intent. Defaults to ``True`` when
+            ``None`` (matches the column server_default). Matches created in
+            this session will inherit this value as their ``ranked_intent``.
+
+    Returns:
+        Dict with session info including code and league_id
+
+    Raises:
+        ValueError: If code generation fails after retries
+    """
+    effective_session_type = "league" if league_id is not None else "pickup"
+    result = await session.execute(
+        select(func.count(Session.id)).where(
+            and_(
+                Session.date == date,
+                Session.season_id.is_(None),
+                Session.league_id.is_(None),  # exclude gap games (league_id SET, season_id NULL)
+            )
+        )
+    )
+    count = result.scalar() or 0
+
+    formatted_date = format_session_date(date)
+    session_name = (
+        name
+        if name
+        else (formatted_date if count == 0 else f"{formatted_date} Session #{count + 1}")
+    )
+
+    code = await _generate_session_code(session)
+
+    # Resolve geo from court → browser → player city
+    geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
+        db_session=session,
+        court_id=court_id,
+        browser_lat=latitude,
+        browser_lon=longitude,
+        creator_player_id=created_by,
+    )
+
+    # Default is_ranked to True when omitted (mirrors column server_default).
+    effective_is_ranked = is_ranked if is_ranked is not None else True
+    new_session = Session(
+        date=date,
+        name=session_name,
+        status=SessionStatus.ACTIVE,
+        code=code,
+        season_id=None,
+        league_id=league_id,
+        court_id=court_id,
+        created_by=created_by,
+        location_id=geo_location_id,
+        latitude=geo_lat,
+        longitude=geo_lon,
+        start_time=start_time,
+        session_type=effective_session_type,
+        is_ranked=effective_is_ranked,
+    )
+    session.add(new_session)
+    await session.flush()
+
+    if created_by is not None:
+        participant = SessionParticipant(
+            session_id=new_session.id, player_id=created_by, invited_by=None
+        )
+        session.add(participant)
+    await session.commit()
+    await session.refresh(new_session)
+
+    return {
+        "id": new_session.id,
+        "date": new_session.date,
+        "name": new_session.name,
+        "status": new_session.status.value if new_session.status else None,
+        "code": new_session.code,
+        "season_id": new_session.season_id,
+        "league_id": new_session.league_id,
+        "court_id": new_session.court_id,
+        "location_id": new_session.location_id,
+        "latitude": new_session.latitude,
+        "longitude": new_session.longitude,
+        "start_time": new_session.start_time,
+        "session_type": new_session.session_type,
+        "is_ranked": new_session.is_ranked,
+        "created_at": new_session.created_at.isoformat() if new_session.created_at else "",
+    }
+
+
+async def lock_in_session(
+    session: AsyncSession, session_id: int, updated_by: Optional[int] = None
+) -> Optional[Dict]:
+    """
+    Lock in a session - sets status to SUBMITTED if ACTIVE, or EDITED if already SUBMITTED/EDITED.
+    Also enqueues stats calculations (both global and season-specific).
+
+    Returns:
+        Dict with success status, season_id, and job IDs, or None if session not found
+    """
+    result = await session.execute(select(Session).where(Session.id == session_id))
+    session_obj = result.scalar_one_or_none()
+
+    if not session_obj:
+        return None
+
+    # Read both before commit — ORM attributes expire afterwards. league_id is
+    # read directly (not derived via Season) so gap games (season_id NULL,
+    # league_id set) still trigger a league recalculation.
+    season_id = session_obj.season_id
+    league_id = session_obj.league_id
+
+    if session_obj.status == SessionStatus.ACTIVE:
+        new_status = SessionStatus.SUBMITTED
+    else:
+        new_status = SessionStatus.EDITED
+
+    result = await session.execute(
+        update(Session)
+        .where(Session.id == session_id)
+        .values(status=new_status, updated_by=updated_by, updated_at=func.now())
+    )
+    await session.commit()
+
+    if result.rowcount == 0:
+        return None
+
+    stats_jobs = await enqueue_stats_recalculation(session, league_id)
+
+    return {
+        "success": True,
+        "season_id": season_id,
+        **stats_jobs,
+    }
+
+
+async def enqueue_stats_recalculation(
+    session: AsyncSession,
+    league_id: Optional[int],
+) -> Dict[str, Optional[int]]:
+    """Queue the global and, when applicable, league derived-stat rebuilds."""
+    # Lazy import avoids the stats queue importing this data-service module
+    # during application startup.
+    from backend.services.stats.stats_queue import get_stats_queue
+
+    queue = get_stats_queue()
+    global_job_id = await queue.enqueue_calculation(session, "global", None)
+    league_job_id = (
+        await queue.enqueue_calculation(session, "league", league_id)
+        if league_id is not None
+        else None
+    )
+    return {
+        "global_job_id": global_job_id,
+        "league_job_id": league_job_id,
+    }
+
+
+async def update_session(
+    session: AsyncSession,
+    session_id: int,
+    name: Optional[str] = None,
+    date: Optional[str] = None,
+    start_time: Optional[str] = None,
+    update_start_time: bool = False,
+    season_id: Optional[int] = None,
+    update_season_id: bool = False,
+    court_id: Optional[int] = None,
+    update_court_id: bool = False,
+    is_ranked: bool | None = None,
+    update_is_ranked: bool = False,
+) -> Optional[Dict]:
+    """
+    Update a session's fields and synchronize match ranking intent when needed.
+
+    Args:
+        session: Database session
+        session_id: ID of session to update
+        name: New session name (optional)
+        date: New session date (optional)
+        start_time: New start time (optional, can be None to clear)
+        update_start_time: If True, update start_time even if it is None
+        season_id: New season_id (optional, can be None to remove season)
+        update_season_id: If True, update season_id even if it's None (to allow removing season)
+        court_id: New court_id (optional, can be None to remove court)
+        update_court_id: If True, update court_id even if it's None (to allow removing court)
+        is_ranked: New ranked intent (season sessions always force this True)
+        update_is_ranked: If True, update is_ranked and every existing match
+
+    Returns:
+        Dict with updated session info, or None if session not found
+
+    Raises:
+        ValueError: If season_id is provided but season doesn't exist
+    """
+    result = await session.execute(select(Session).where(Session.id == session_id))
+    session_obj = result.scalar_one_or_none()
+
+    if not session_obj:
+        return None
+
+    update_values = {}
+    if name is not None:
+        update_values["name"] = name
+    if date is not None:
+        update_values["date"] = date
+    if update_start_time or start_time is not None:
+        update_values["start_time"] = start_time
+    if update_season_id or season_id is not None:
+        if season_id is not None:
+            season_result = await session.execute(select(Season).where(Season.id == season_id))
+            season_obj = season_result.scalar_one_or_none()
+            if not season_obj:
+                raise ValueError(f"Season {season_id} not found")
+            # Cross-field invariant: a session's league_id must always match its
+            # season's league_id. A session may only be moved between seasons of
+            # its OWN league (the gap-game escape hatch); re-homing a session to a
+            # different league's season is nonsensical (its games/participants
+            # belong to the original league) and is rejected. A league-less
+            # session (pickup) adopts the season's league.
+            if session_obj.league_id is not None and season_obj.league_id != session_obj.league_id:
+                raise ValueError(
+                    f"Season {season_id} belongs to league {season_obj.league_id}, "
+                    f"not this session's league {session_obj.league_id}"
+                )
+            update_values["league_id"] = season_obj.league_id
+            # TODO: inherit this from the future season/league ranking policy.
+            update_values["is_ranked"] = True
+        # When season_id is explicitly set to None we leave league_id unchanged —
+        # a league session with no season is a valid gap-game state (Phase 3).
+        update_values["season_id"] = season_id
+
+    if update_court_id or court_id is not None:
+        if court_id is not None:
+            court_result = await session.execute(select(Court).where(Court.id == court_id))
+            court_obj = court_result.scalar_one_or_none()
+            if not court_obj:
+                raise ValueError(f"Court {court_id} not found")
+        update_values["court_id"] = court_id
+
+    ranking_update_requested = update_is_ranked or is_ranked is not None
+    if ranking_update_requested:
+        if is_ranked is None:
+            raise ValueError("is_ranked must be true or false")
+        update_values["is_ranked"] = is_ranked
+
+    if not update_values:
+        return {
+            "id": session_obj.id,
+            "season_id": session_obj.season_id,
+            "league_id": session_obj.league_id,
+            "court_id": session_obj.court_id,
+            "court_name": None,
+            "court_slug": None,
+            "status": session_obj.status.value if session_obj.status else None,
+            "name": session_obj.name,
+            "date": session_obj.date,
+            "start_time": session_obj.start_time,
+            "session_type": session_obj.session_type,
+            "is_ranked": session_obj.is_ranked,
+        }
+
+    effective_season_id = update_values.get("season_id", session_obj.season_id)
+    if effective_season_id is not None:
+        # TODO: inherit this from the future season/league ranking policy.
+        update_values["is_ranked"] = True
+
+    # A session type is never caller-controlled. Its league linkage is the
+    # authoritative source, including pickup-to-league promotion.
+    effective_league_id = update_values.get("league_id", session_obj.league_id)
+    update_values["session_type"] = "league" if effective_league_id is not None else "pickup"
+
+    effective_is_ranked = update_values.get("is_ranked", session_obj.is_ranked)
+    ranking_changed = effective_is_ranked != session_obj.is_ranked
+    ranking_propagation_requested = (
+        ranking_update_requested
+        or (update_season_id and effective_season_id is not None)
+        or (effective_season_id is not None and session_obj.is_ranked is not True)
+    )
+
+    if ranking_propagation_requested:
+        from backend.services import placeholder_service
+
+        matches_result = await session.execute(select(Match).where(Match.session_id == session_id))
+        for match in matches_result.scalars():
+            has_placeholders = await placeholder_service.check_match_has_placeholders(
+                session,
+                [
+                    match.team1_player1_id,
+                    match.team1_player2_id,
+                    match.team2_player1_id,
+                    match.team2_player2_id,
+                ],
+            )
+            match.ranked_intent = effective_is_ranked
+            match.is_ranked = effective_is_ranked and not has_placeholders
+
+    update_values["updated_at"] = func.now()
+    was_submitted = session_obj.status != SessionStatus.ACTIVE
+    await session.execute(update(Session).where(Session.id == session_id).values(**update_values))
+    await session.commit()
+
+    if ranking_changed and was_submitted:
+        from backend.services.stats.stats_queue import get_stats_queue
+
+        queue = get_stats_queue()
+        await queue.enqueue_calculation(session, "global", None)
+        if effective_league_id:
+            await queue.enqueue_calculation(session, "league", effective_league_id)
+
+    result = await session.execute(
+        select(Session, Court.name.label("court_name"), Court.slug.label("court_slug"))
+        .outerjoin(Court, Session.court_id == Court.id)
+        .where(Session.id == session_id)
+    )
+    row = result.one_or_none()
+
+    if not row:
+        return None
+
+    updated_session, court_name, court_slug = row
+
+    return {
+        "id": updated_session.id,
+        "season_id": updated_session.season_id,
+        "league_id": updated_session.league_id,
+        "court_id": updated_session.court_id,
+        "court_name": court_name,
+        "court_slug": court_slug,
+        "status": updated_session.status.value if updated_session.status else None,
+        "name": updated_session.name,
+        "date": updated_session.date,
+        "start_time": updated_session.start_time,
+        "session_type": updated_session.session_type,
+        "is_ranked": updated_session.is_ranked,
+    }
+
+
+async def delete_session(session: AsyncSession, session_id: int) -> bool:
+    """
+    Delete a session and all its matches, regardless of status.
+
+    For submitted/edited sessions, also cleans up rating history and
+    enqueues stats recalculation so totals stay accurate.
+
+    Returns:
+        True if successful, False if session not found
+    """
+    result = await session.execute(select(Session).where(Session.id == session_id))
+    session_obj = result.scalar_one_or_none()
+
+    if not session_obj:
+        return False
+
+    was_submitted = session_obj.status != SessionStatus.ACTIVE
+    # Read league_id directly off the ORM row before commit (objects expire post-commit).
+    # This captures gap-game sessions (league_id set, season_id=None) that the old
+    # Season-subquery approach silently missed.
+    league_id = session_obj.league_id
+
+    match_ids_result = await session.execute(
+        select(Match.id).where(Match.session_id == session_id)
+    )
+    match_ids = [row[0] for row in match_ids_result.fetchall()]
+
+    if match_ids:
+        await session.execute(delete(EloHistory).where(EloHistory.match_id.in_(match_ids)))
+        await session.execute(
+            delete(SeasonRatingHistory).where(SeasonRatingHistory.match_id.in_(match_ids))
+        )
+        await session.execute(delete(Match).where(Match.session_id == session_id))
+
+    await session.execute(delete(Session).where(Session.id == session_id))
+    await session.commit()
+
+    if was_submitted and match_ids:
+        from backend.services.stats.stats_queue import get_stats_queue
+
+        queue = get_stats_queue()
+        await queue.enqueue_calculation(session, "global", None)
+
+        if league_id:
+            await queue.enqueue_calculation(session, "league", league_id)
+
+    return True
+
+
+# ============================================================================
+# Match read operations
+# ============================================================================
+
+
+async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> List[Dict]:
+    """Get all matches, optionally limited."""
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+
+    query = (
+        select(
+            Match.id,
+            Session.date.label("date"),
+            Match.session_id,
+            Session.name.label("session_name"),
+            Session.status.label("session_status"),
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+            Match.is_ranked,
+            cast(0, Integer).label("team1_elo_change"),
+            cast(0, Integer).label("team2_elo_change"),
+        )
+        .select_from(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .order_by(func.coalesce(Session.id, 999999).desc(), Match.id.desc())
+    )
+
+    if limit:
+        query = query.limit(limit)
+
+    result = await session.execute(query)
+    rows = result.all()
+
+    return [
+        {
+            "id": row.id,
+            "date": row.date,
+            "session_id": row.session_id,
+            "session_name": row.session_name,
+            "session_status": row.session_status.value if row.session_status else None,
+            "team1_player1_name": historical_name(row.team1_player1_name, row.t1p1_deleted_at),
+            "team1_player2_name": historical_name(row.team1_player2_name, row.t1p2_deleted_at),
+            "team2_player1_name": historical_name(row.team2_player1_name, row.t2p1_deleted_at),
+            "team2_player2_name": historical_name(row.team2_player2_name, row.t2p2_deleted_at),
+            "team1_score": row.team1_score,
+            "team2_score": row.team2_score,
+            "winner": row.winner,
+            "is_ranked": row.is_ranked,
+            "team1_elo_change": row.team1_elo_change,
+            "team2_elo_change": row.team2_elo_change,
+        }
+        for row in rows
+    ]
+
+
+async def get_session_matches(db_session: AsyncSession, session_id: int) -> List[Dict]:
+    """
+    Get all matches for a session with player names and scores.
+    Returns list of match dicts (id, date, team names, scores, winner, session_name, session_status).
+    """
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    q = (
+        select(
+            Match.id,
+            Session.date.label("date"),
+            Match.session_id,
+            Session.name.label("session_name"),
+            Session.status.label("session_status"),
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            p1.deleted_at.label("t1p1_deleted_at"),
+            p2.deleted_at.label("t1p2_deleted_at"),
+            p3.deleted_at.label("t2p1_deleted_at"),
+            p4.deleted_at.label("t2p2_deleted_at"),
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+            Match.is_ranked,
+            Match.ranked_intent,
+        )
+        .select_from(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .where(Match.session_id == session_id)
+        .order_by(Match.id.desc())
+    )
+    result = await db_session.execute(q)
+    rows = result.all()
+    return [
+        {
+            "id": r.id,
+            "date": r.date,
+            "session_id": r.session_id,
+            "session_name": r.session_name,
+            "session_status": r.session_status.value if r.session_status else None,
+            "team1_player1_id": historical_id(r.team1_player1_id, r.t1p1_deleted_at),
+            "team1_player1_name": historical_name(r.team1_player1_name, r.t1p1_deleted_at),
+            "team1_player2_id": historical_id(r.team1_player2_id, r.t1p2_deleted_at),
+            "team1_player2_name": historical_name(r.team1_player2_name, r.t1p2_deleted_at),
+            "team2_player1_id": historical_id(r.team2_player1_id, r.t2p1_deleted_at),
+            "team2_player1_name": historical_name(r.team2_player1_name, r.t2p1_deleted_at),
+            "team2_player2_id": historical_id(r.team2_player2_id, r.t2p2_deleted_at),
+            "team2_player2_name": historical_name(r.team2_player2_name, r.t2p2_deleted_at),
+            "team1_score": r.team1_score,
+            "team2_score": r.team2_score,
+            "winner": r.winner,
+            "is_ranked": r.is_ranked,
+            "ranked_intent": r.ranked_intent,
+        }
+        for r in rows
+    ]
+
+
+async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict]:
+    """
+    Get a specific match by ID - async version.
+
+    Args:
+        session: Database session
+        match_id: Match ID
+
+    Returns:
+        Match dict or None if not found
+    """
+    result = await session.execute(
+        select(
+            Match,
+            Session.status.label("session_status"),
+            Session.date.label("session_date"),
+        )
+        .outerjoin(Session, Match.session_id == Session.id)
+        .where(Match.id == match_id)
+    )
+    row = result.first()
+
+    if not row:
+        return None
+
+    match, session_status, session_date = row
+
+    team1_p1 = await session.get(Player, match.team1_player1_id)
+    team1_p2 = await session.get(Player, match.team1_player2_id)
+    team2_p1 = await session.get(Player, match.team2_player1_id)
+    team2_p2 = await session.get(Player, match.team2_player2_id)
+
+    return {
+        "id": match.id,
+        "session_id": match.session_id,
+        "date": session_date,
+        "team1_player1": team1_p1.full_name if team1_p1 else None,
+        "team1_player2": team1_p2.full_name if team1_p2 else None,
+        "team2_player1": team2_p1.full_name if team2_p1 else None,
+        "team2_player2": team2_p2.full_name if team2_p2 else None,
+        "team1_score": match.team1_score,
+        "team2_score": match.team2_score,
+        "session_status": session_status.value if session_status else None,
+    }
+
+
+# ============================================================================
+# Player-picker cache invalidation
+# ============================================================================
+
+
+async def _invalidate_picker_caches(
+    db_session: AsyncSession,
+    *,
+    player_ids: Iterable[int],
+    session_id: Optional[int] = None,
+) -> None:
+    """
+    Best-effort: drop the player-picker cache for the affected callers.
+
+    Runs synchronously *after* the write has committed, so a failure here
+    can never roll back or break the write. A missed invalidation only
+    leaves a caller's *ranking* mildly stale until the entry TTLs out;
+    membership/correctness signals (in-session, in-context-league) are
+    computed live and are never cached, so they cannot go stale.
+
+    Args:
+        db_session: Database session (read-only use here).
+        player_ids: Explicitly affected players (e.g. match participants).
+        session_id: If given, every current participant of the session is
+            invalidated too (a roster change shifts their recent-session
+            signal).
+    """
+    try:
+        affected: set[int] = {pid for pid in player_ids if pid is not None}
+        if session_id is not None:
+            result = await db_session.execute(
+                select(SessionParticipant.player_id).where(
+                    SessionParticipant.session_id == session_id
+                )
+            )
+            affected.update(result.scalars().all())
+        if affected:
+            await player_search_cache.invalidate(affected)
+    except Exception:  # noqa: BLE001 - cache invalidation must never break a write
+        logger.warning("Player-picker cache invalidation failed (non-fatal)", exc_info=True)
+
+
+# ============================================================================
+# Match write operations
+# ============================================================================
+
+
+async def create_match_async(
+    session: AsyncSession, match_request: "CreateMatchRequest", session_id: int
+) -> int:
+    """
+    Create a new match in a session - async version.
+
+    Date is a session-level concern and lives on the Session, not the Match.
+
+    Ranked-status precedence (in order of priority):
+      1. ``ranked_intent`` is inherited from the parent ``Session.is_ranked``
+         field (set at session-creation time, defaults to ``True``).  The
+         per-match ``CreateMatchRequest.is_ranked`` field is intentionally
+         ignored for new matches so the session-level intent governs.
+      2. Effective ``is_ranked`` is then computed as::
+
+             is_ranked = ranked_intent AND NOT has_placeholders
+
+         If any player slot contains a placeholder, the effective ranked flag
+         is forced to ``False`` regardless of ``ranked_intent``.  This rule is
+         preserved across edits: ``ranked_intent`` is kept as the user's
+         original intent so it can be promoted back to ``True`` when the
+         placeholder is later claimed by a real player.
+
+    Args:
+        session: Database session
+        match_request: CreateMatchRequest schema with player IDs
+        session_id: Session ID
+
+    Returns:
+        Match ID
+    """
+    validate_match_score(match_request.team1_score, match_request.team2_score)
+    await require_active_players(
+        session,
+        [
+            match_request.team1_player1_id,
+            match_request.team1_player2_id,
+            match_request.team2_player1_id,
+            match_request.team2_player2_id,
+        ],
+    )
+
+    if match_request.team1_score > match_request.team2_score:
+        winner = 1
+    else:
+        winner = 2
+
+    # Lazy import to avoid circular dependency
+    from backend.services import placeholder_service
+
+    # Inherit ranked_intent from the parent session's is_ranked field.
+    # Fall back to True if the session row cannot be read (should not happen).
+    session_row = await session.execute(select(Session.is_ranked).where(Session.id == session_id))
+    session_is_ranked = session_row.scalar_one_or_none()
+    ranked_intent: bool = session_is_ranked if session_is_ranked is not None else True
+
+    has_placeholders = await placeholder_service.check_match_has_placeholders(
+        session,
+        [
+            match_request.team1_player1_id,
+            match_request.team1_player2_id,
+            match_request.team2_player1_id,
+            match_request.team2_player2_id,
+        ],
+    )
+    # Placeholder presence forces effective is_ranked=False; ranked_intent is
+    # preserved so it can be promoted when the placeholder is claimed.
+    is_ranked = ranked_intent and not has_placeholders
+
+    new_match = Match(
+        session_id=session_id,
+        team1_player1_id=match_request.team1_player1_id,
+        team1_player2_id=match_request.team1_player2_id,
+        team2_player1_id=match_request.team2_player1_id,
+        team2_player2_id=match_request.team2_player2_id,
+        team1_score=match_request.team1_score,
+        team2_score=match_request.team2_score,
+        winner=winner,
+        is_public=match_request.is_public if match_request.is_public is not None else True,
+        ranked_intent=ranked_intent,
+        is_ranked=is_ranked,
+    )
+    session.add(new_match)
+    await session.flush()
+
+    # Bump session.updated_at so auto-cleanup tracks last activity
+    if session_id:
+        await session.execute(
+            update(Session).where(Session.id == session_id).values(updated_at=func.now())
+        )
+
+    await session.commit()
+    await session.refresh(new_match)
+
+    await _invalidate_picker_caches(
+        session,
+        player_ids=(
+            match_request.team1_player1_id,
+            match_request.team1_player2_id,
+            match_request.team2_player1_id,
+            match_request.team2_player2_id,
+        ),
+    )
+
+    return new_match.id
+
+
+async def update_match_async(
+    session: AsyncSession,
+    match_id: int,
+    match_request: "UpdateMatchRequest",
+    updated_by: Optional[int] = None,
+) -> bool:
+    """
+    Update an existing match - async version.
+
+    Args:
+        session: Database session
+        match_id: Match ID to update
+        match_request: UpdateMatchRequest schema with player IDs
+        updated_by: Player ID who updated the match (optional)
+
+    Returns:
+        True if successful, False if match not found
+    """
+    validate_match_score(match_request.team1_score, match_request.team2_score)
+    await require_active_players(
+        session,
+        [
+            match_request.team1_player1_id,
+            match_request.team1_player2_id,
+            match_request.team2_player1_id,
+            match_request.team2_player2_id,
+        ],
+    )
+
+    result = await session.execute(select(Match).where(Match.id == match_id))
+    match = result.scalar_one_or_none()
+    if not match:
+        return False
+
+    if match_request.team1_score > match_request.team2_score:
+        winner = 1
+    else:
+        winner = 2
+
+    match.team1_player1_id = match_request.team1_player1_id
+    match.team1_player2_id = match_request.team1_player2_id
+    match.team2_player1_id = match_request.team2_player1_id
+    match.team2_player2_id = match_request.team2_player2_id
+    match.team1_score = match_request.team1_score
+    match.team2_score = match_request.team2_score
+    match.winner = winner
+    if match_request.is_public is not None:
+        match.is_public = match_request.is_public
+
+    if match_request.is_ranked is not None:
+        from backend.services import placeholder_service
+
+        match.ranked_intent = match_request.is_ranked
+        has_placeholders = await placeholder_service.check_match_has_placeholders(
+            session,
+            [
+                match.team1_player1_id,
+                match.team1_player2_id,
+                match.team2_player1_id,
+                match.team2_player2_id,
+            ],
+        )
+        match.is_ranked = match.ranked_intent and not has_placeholders
+
+    if updated_by is not None:
+        match.updated_by = updated_by
+
+    if match.session_id and updated_by is not None:
+        await session.execute(
+            update(Session)
+            .where(Session.id == match.session_id)
+            .values(updated_by=updated_by, updated_at=func.now())
+        )
+
+    await session.commit()
+    return True
+
+
+async def delete_match_async(session: AsyncSession, match_id: int) -> bool:
+    """
+    Delete a match from the database - async version.
+    Also deletes associated elo_history records to avoid foreign key constraint violations.
+
+    Args:
+        session: Database session
+        match_id: ID of the match to delete
+
+    Returns:
+        True if successful, False if match not found
+    """
+    match_result = await session.execute(select(Match.session_id).where(Match.id == match_id))
+    match_session_id = match_result.scalar_one_or_none()
+
+    await session.execute(delete(EloHistory).where(EloHistory.match_id == match_id))
+
+    result = await session.execute(delete(Match).where(Match.id == match_id))
+
+    if match_session_id:
+        await session.execute(
+            update(Session).where(Session.id == match_session_id).values(updated_at=func.now())
+        )
+
+    await session.commit()
+    return result.rowcount > 0
+
+
+# ============================================================================
+# Session participant operations
+# ============================================================================
+
+
+async def get_session_participants(db_session: AsyncSession, session_id: int) -> List[Dict]:
+    """
+    Return list of players in the session: session_participants plus any player
+    who appears in a match in this session (deduped by player_id).
+    Returns list of dicts with player_id, full_name.
+    """
+    part_q = select(SessionParticipant.player_id).where(
+        SessionParticipant.session_id == session_id
+    )
+    part_result = await db_session.execute(part_q)
+    part_player_ids = {row[0] for row in part_result.all()}
+
+    match_q = select(
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+    ).where(Match.session_id == session_id)
+    match_result = await db_session.execute(match_q)
+    for row in match_result.all():
+        for pid in (
+            row.team1_player1_id,
+            row.team1_player2_id,
+            row.team2_player1_id,
+            row.team2_player2_id,
+        ):
+            if pid is not None:
+                part_player_ids.add(pid)
+
+    if not part_player_ids:
+        return []
+
+    players_q = (
+        select(
+            Player.id,
+            Player.full_name,
+            Player.nickname,
+            Player.level,
+            Player.gender,
+            Player.is_placeholder,
+            Location.name.label("location_name"),
+        )
+        .outerjoin(Location, Location.id == Player.location_id)
+        .where(Player.id.in_(part_player_ids), Player.deleted_at.is_(None))
+    )
+    players_result = await db_session.execute(players_q)
+    rows = players_result.all()
+
+    return [
+        {
+            "player_id": r.id,
+            "full_name": r.full_name or r.nickname or f"Player {r.id}",
+            "level": r.level,
+            "gender": r.gender,
+            "location_name": r.location_name,
+            "is_placeholder": bool(r.is_placeholder),
+        }
+        for r in rows
+    ]
+
+
+async def get_session_roster_with_game_counts(
+    db_session: AsyncSession, session_id: int
+) -> List[Dict]:
+    """
+    Return session participants enriched with per-player game counts.
+
+    Each entry contains:
+    - entry_id: the player_id (used as the path param for the remove endpoint)
+    - player_id: same as entry_id
+    - display_name: first_name + " " + last_name (or full_name fallback)
+    - initials: two-letter uppercase initials derived from display_name
+    - game_count: number of matches this player appears in for the session
+    - is_placeholder: whether the player is an unregistered placeholder
+    - invite_url: claim URL for placeholders that have an open PlayerInvite,
+      otherwise None
+
+    Args:
+        db_session: SQLAlchemy async session.
+        session_id: ID of the session to query.
+
+    Returns:
+        List of enriched participant dicts.
+    """
+    # Count appearances per player across all four player slots in matches
+    match_q = select(
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+    ).where(Match.session_id == session_id)
+    match_result = await db_session.execute(match_q)
+    game_counts: Dict[int, int] = {}
+    for row in match_result.all():
+        for pid in (
+            row.team1_player1_id,
+            row.team1_player2_id,
+            row.team2_player1_id,
+            row.team2_player2_id,
+        ):
+            if pid is not None:
+                game_counts[pid] = game_counts.get(pid, 0) + 1
+
+    # Fetch all session participants
+    part_q = select(SessionParticipant.player_id).where(
+        SessionParticipant.session_id == session_id
+    )
+    part_result = await db_session.execute(part_q)
+    participant_ids = {row[0] for row in part_result.all()}
+
+    # Union of participants and players who have matches
+    all_player_ids = participant_ids | set(game_counts.keys())
+    if not all_player_ids:
+        return []
+
+    players_q = (
+        select(
+            Player.id,
+            Player.first_name,
+            Player.last_name,
+            Player.full_name,
+            Player.nickname,
+            Player.profile_picture_url,
+            Player.is_placeholder,
+            PlayerInvite.invite_token,
+        )
+        .select_from(Player)
+        .outerjoin(
+            PlayerInvite,
+            and_(
+                PlayerInvite.player_id == Player.id,
+                # Only join open invites — a claimed invite must not yield a live
+                # claim URL (the placeholder has already been converted).
+                PlayerInvite.status == InviteStatus.PENDING.value,
+            ),
+        )
+        .where(Player.id.in_(all_player_ids), Player.deleted_at.is_(None))
+    )
+    players_result = await db_session.execute(players_q)
+    rows = players_result.all()
+
+    roster = []
+    for r in rows:
+        first = (r.first_name or "").strip()
+        last = (r.last_name or "").strip()
+        if first and last:
+            display_name = f"{first} {last}"
+            initials = (first[0] + last[0]).upper()
+        elif r.full_name:
+            parts = r.full_name.strip().split()
+            display_name = r.full_name.strip()
+            initials = (
+                (parts[0][0] + parts[-1][0]).upper() if len(parts) >= 2 else parts[0][:2].upper()
+            )
+        elif r.nickname:
+            display_name = r.nickname.strip()
+            words = display_name.split()
+            initials = (
+                (words[0][0] + words[-1][0]).upper() if len(words) >= 2 else words[0][:2].upper()
+            )
+        else:
+            display_name = f"Player {r.id}"
+            initials = "??"
+
+        invite_url = build_invite_url(r.invite_token) if r.invite_token is not None else None
+
+        roster.append(
+            {
+                "entry_id": r.id,
+                "player_id": r.id,
+                "display_name": display_name,
+                "initials": initials,
+                "avatar_url": r.profile_picture_url,
+                "game_count": game_counts.get(r.id, 0),
+                "is_placeholder": bool(r.is_placeholder),
+                "invite_url": invite_url,
+            }
+        )
+
+    return roster
+
+
+async def remove_session_participant(
+    db_session: AsyncSession,
+    session_id: int,
+    player_id: int,
+) -> bool:
+    """
+    Remove a player from session participants. Returns True if removed.
+    Returns False if player was not in participants or has matches in this session
+    (cannot remove a player who has played in the session).
+    """
+    match_check = await db_session.execute(
+        select(Match.id)
+        .where(
+            and_(
+                Match.session_id == session_id,
+                or_(
+                    Match.team1_player1_id == player_id,
+                    Match.team1_player2_id == player_id,
+                    Match.team2_player1_id == player_id,
+                    Match.team2_player2_id == player_id,
+                ),
+            )
+        )
+        .limit(1)
+    )
+    if match_check.scalar_one_or_none() is not None:
+        return False
+
+    result = await db_session.execute(
+        delete(SessionParticipant).where(
+            and_(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.player_id == player_id,
+            )
+        )
+    )
+    await db_session.commit()
+    removed = result.rowcount > 0
+    if removed:
+        await _invalidate_picker_caches(db_session, player_ids=(player_id,), session_id=session_id)
+    return removed
+
+
+async def add_session_participant(
+    db_session: AsyncSession,
+    session_id: int,
+    player_id: int,
+    invited_by: Optional[int] = None,
+) -> bool:
+    """Add a player to session participants (idempotent). Returns True if added or already present."""
+    await require_active_players(db_session, [player_id])
+    if invited_by is not None:
+        from backend.services import interaction_policy
+
+        await interaction_policy.enforce_action(
+            db_session,
+            invited_by,
+            player_id,
+            interaction_policy.InteractionAction.SESSION_INVITE,
+        )
+    existing = await db_session.execute(
+        select(SessionParticipant.id).where(
+            and_(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.player_id == player_id,
+            )
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        return True
+    rec = SessionParticipant(session_id=session_id, player_id=player_id, invited_by=invited_by)
+    db_session.add(rec)
+    await db_session.commit()
+    await _invalidate_picker_caches(db_session, player_ids=(player_id,), session_id=session_id)
+    return True
+
+
+async def join_session_by_code(
+    db_session: AsyncSession, code: str, player_id: int
+) -> Optional[Dict]:
+    """
+    Resolve session by code; if ACTIVE, add player to participants and return session summary.
+    Returns None if session not found or not ACTIVE.
+    """
+    sess = await get_session_by_code(db_session, code)
+    if not sess or sess.get("status") != "ACTIVE":
+        return None
+    await add_session_participant(db_session, sess["id"], player_id, invited_by=None)
+    return sess
+
+
+async def can_user_add_match_to_session(
+    db_session: AsyncSession, session_id: int, session_obj: Dict, user_id: int
+) -> bool:
+    """
+    For non-league sessions (league_id is None), return True iff user's player is
+    creator, has a match in the session, or is in session_participants.
+
+    League association is determined by ``league_id``, not ``season_id``.  A gap
+    game (league_id set, season_id NULL) is still a league session and must return
+    True here so the caller applies the league-admin authorization check instead of
+    the pickup participant check.
+    """
+    if session_obj.get("league_id") is not None:
+        return True  # League session (includes gap games): caller uses league-admin check
+    player_result = await db_session.execute(select(Player.id).where(Player.user_id == user_id))
+    player_id = player_result.scalar_one_or_none()
+    if player_id is None:
+        return False
+    if session_obj.get("created_by") == player_id:
+        return True
+    match_q = (
+        select(Match.id)
+        .where(
+            and_(
+                Match.session_id == session_id,
+                or_(
+                    Match.team1_player1_id == player_id,
+                    Match.team1_player2_id == player_id,
+                    Match.team2_player1_id == player_id,
+                    Match.team2_player2_id == player_id,
+                ),
+            )
+        )
+        .limit(1)
+    )
+    match_result = await db_session.execute(match_q)
+    if match_result.scalar_one_or_none() is not None:
+        return True
+    part_result = await db_session.execute(
+        select(SessionParticipant.id).where(
+            and_(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.player_id == player_id,
+            )
+        )
+    )
+    return part_result.scalar_one_or_none() is not None
+
+
+# ============================================================================
+# Notification-related reads (session-scoped)
+# ============================================================================
+
+
+async def get_session_match_player_user_ids(
+    session: AsyncSession, session_id: int, exclude_user_id: Optional[int] = None
+) -> List[int]:
+    """
+    Get distinct user IDs for all players in matches of a session.
+
+    Collects player IDs from all four match positions (team1_player1, team1_player2,
+    team2_player1, team2_player2), resolves to user IDs via Player, and filters out
+    placeholder players (NULL user_id).
+
+    Args:
+        session: Database session
+        session_id: ID of the session
+        exclude_user_id: Optional user ID to exclude (e.g. the submitter)
+
+    Returns:
+        List of distinct user IDs
+    """
+    player_cols = [
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+    ]
+    subqueries = [
+        select(col.label("player_id")).where(Match.session_id == session_id) for col in player_cols
+    ]
+    all_players = subqueries[0].union(*subqueries[1:]).subquery()
+
+    query = (
+        select(Player.user_id)
+        .join(all_players, Player.id == all_players.c.player_id)
+        .where(Player.user_id.isnot(None))
+    )
+
+    if exclude_user_id is not None:
+        query = query.where(Player.user_id != exclude_user_id)
+
+    query = query.distinct()
+    result = await session.execute(query)
+    return [row[0] for row in result.all()]

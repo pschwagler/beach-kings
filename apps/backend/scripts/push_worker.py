@@ -3,7 +3,7 @@
 import asyncio
 
 from backend.database.db import AsyncSessionLocal
-from backend.services.push_worker import run_forever
+from backend.services.notifications.push_worker import run_forever
 
 
 if __name__ == "__main__":

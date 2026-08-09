@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.services.stats_queue import get_stats_queue
+from backend.services.stats.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import get_current_user
 
 logger = logging.getLogger(__name__)

@@ -144,7 +144,7 @@ if database_host not in local_database_hosts:
 
 from backend.database.db import AsyncSessionLocal
 from backend.database.models import Location, Player, User
-from backend.services.auth_service import hash_password
+from backend.services.auth.auth_service import hash_password
 from backend.services import friend_service
 from sqlalchemy import select
 

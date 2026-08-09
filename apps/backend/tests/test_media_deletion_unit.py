@@ -66,7 +66,7 @@ async def test_successful_s3_delete_completes_job():
     session = SimpleNamespace(flush=AsyncMock())
 
     with patch(
-        "backend.services.s3_service.delete_file", MagicMock(return_value=True)
+        "backend.services.platform.s3_service.delete_file", MagicMock(return_value=True)
     ) as delete_file:
         completed = await media_deletion_worker.process_job(session, job)
 
@@ -89,7 +89,7 @@ async def test_failed_s3_delete_remains_pending_for_retry():
     )
     session = SimpleNamespace(flush=AsyncMock())
 
-    with patch("backend.services.s3_service.delete_file", MagicMock(return_value=False)):
+    with patch("backend.services.platform.s3_service.delete_file", MagicMock(return_value=False)):
         completed = await media_deletion_worker.process_job(session, job)
 
     assert completed is False

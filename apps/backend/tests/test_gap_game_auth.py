@@ -25,7 +25,7 @@ from backend.database.models import (
     SessionParticipant,
     User,
 )
-from backend.services.session_data import can_user_add_match_to_session
+from backend.services.games.session_data import can_user_add_match_to_session
 
 
 # ---------------------------------------------------------------------------

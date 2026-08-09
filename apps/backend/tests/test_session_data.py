@@ -10,7 +10,7 @@ Tests cover:
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from backend.services.session_data import (
+from backend.services.games.session_data import (
     SESSION_CODE_ALPHABET,
     SESSION_CODE_LENGTH,
     SESSION_CODE_MAX_ATTEMPTS,

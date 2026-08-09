@@ -11,7 +11,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 
-from backend.services.location_service import (
+from backend.services.courts.location_service import (
     find_closest_location,
     get_all_location_distances,
     autocomplete,
@@ -178,7 +178,7 @@ async def test_get_all_location_distances_includes_name_and_distance():
 @pytest.mark.asyncio
 async def test_autocomplete_short_text_returns_empty():
     """Text shorter than 2 chars returns early with no HTTP call."""
-    with patch("backend.services.location_service.httpx.AsyncClient") as mock_client_cls:
+    with patch("backend.services.courts.location_service.httpx.AsyncClient") as mock_client_cls:
         result_empty = await autocomplete("")
         result_single = await autocomplete("a")
         result_whitespace = await autocomplete("  ")
@@ -207,7 +207,7 @@ async def test_autocomplete_returns_api_response(monkeypatch):
 
     monkeypatch.setenv("GEOAPIFY_API_KEY", "fake-key")
 
-    with patch("backend.services.location_service.httpx.AsyncClient", return_value=mock_client):
+    with patch("backend.services.courts.location_service.httpx.AsyncClient", return_value=mock_client):
         result = await autocomplete("San Diego")
 
     assert result == fake_response_data
@@ -246,7 +246,7 @@ async def test_search_places_normalizes_and_biases(monkeypatch):
     client.__aexit__ = AsyncMock(return_value=False)
     monkeypatch.setenv("GEOAPIFY_API_KEY", "fake-key")
 
-    with patch("backend.services.location_service.httpx.AsyncClient", return_value=client):
+    with patch("backend.services.courts.location_service.httpx.AsyncClient", return_value=client):
         result = await search_places("Prospect Park", 40.7, -74.0)
 
     assert result == [
@@ -267,7 +267,7 @@ async def test_search_places_normalizes_and_biases(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_places_short_query_skips_provider():
-    with patch("backend.services.location_service.httpx.AsyncClient") as client:
+    with patch("backend.services.courts.location_service.httpx.AsyncClient") as client:
         assert await search_places("x") == []
     client.assert_not_called()
 
@@ -292,6 +292,6 @@ async def test_autocomplete_http_error_propagates(monkeypatch):
 
     monkeypatch.setenv("GEOAPIFY_API_KEY", "fake-key")
 
-    with patch("backend.services.location_service.httpx.AsyncClient", return_value=mock_client):
+    with patch("backend.services.courts.location_service.httpx.AsyncClient", return_value=mock_client):
         with pytest.raises(httpx.HTTPStatusError):
             await autocomplete("San Diego")

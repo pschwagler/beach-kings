@@ -108,7 +108,7 @@ class TestGetMyGamesRoute:
         client = TestClient(app)
 
         with patch(
-            "backend.services.my_games_service.get_my_games",
+            "backend.services.games.my_games_service.get_my_games",
             new=AsyncMock(return_value=([MINIMAL_GAMES_RESPONSE["games"][0]], 1)),
         ):
             response = client.get("/api/users/me/games", headers={"Authorization": "Bearer dummy"})
@@ -155,7 +155,7 @@ class TestGetMyGamesRoute:
 
         game_entry = MINIMAL_GAMES_RESPONSE["games"][0]
         with patch(
-            "backend.services.my_games_service.get_my_games",
+            "backend.services.games.my_games_service.get_my_games",
             new=AsyncMock(return_value=([game_entry], 1)),
         ):
             response = client.get("/api/users/me/games", headers={"Authorization": "Bearer dummy"})
@@ -175,7 +175,7 @@ class TestGetMyGamesRoute:
         client = TestClient(app)
 
         with patch(
-            "backend.services.my_games_service.get_my_games",
+            "backend.services.games.my_games_service.get_my_games",
             new=AsyncMock(return_value=([], 0)),
         ):
             response = client.get("/api/users/me/games", headers={"Authorization": "Bearer dummy"})
@@ -192,7 +192,7 @@ class TestGetMyGamesRoute:
         client = TestClient(app)
 
         mock_fn = AsyncMock(return_value=([], 0))
-        with patch("backend.services.my_games_service.get_my_games", new=mock_fn):
+        with patch("backend.services.games.my_games_service.get_my_games", new=mock_fn):
             response = client.get(
                 "/api/users/me/games?league_id=5",
                 headers={"Authorization": "Bearer dummy"},
@@ -208,7 +208,7 @@ class TestGetMyGamesRoute:
         client = TestClient(app)
 
         mock_fn = AsyncMock(return_value=([], 0))
-        with patch("backend.services.my_games_service.get_my_games", new=mock_fn):
+        with patch("backend.services.games.my_games_service.get_my_games", new=mock_fn):
             response = client.get(
                 "/api/users/me/games?result=W",
                 headers={"Authorization": "Bearer dummy"},
@@ -233,7 +233,7 @@ class TestGetMyGamesRoute:
         client = TestClient(app)
 
         mock_fn = AsyncMock(return_value=([], 0))
-        with patch("backend.services.my_games_service.get_my_games", new=mock_fn):
+        with patch("backend.services.games.my_games_service.get_my_games", new=mock_fn):
             response = client.get(
                 "/api/users/me/games?limit=10&offset=20",
                 headers={"Authorization": "Bearer dummy"},
@@ -251,7 +251,7 @@ class TestGetMyGamesRoute:
         client = TestClient(app)
 
         with patch(
-            "backend.services.my_games_service.get_my_games",
+            "backend.services.games.my_games_service.get_my_games",
             new=AsyncMock(return_value=None),
         ):
             response = client.get(
@@ -268,7 +268,7 @@ class TestGetMyGamesRoute:
         client = TestClient(app)
 
         with patch(
-            "backend.services.my_games_service.get_my_games",
+            "backend.services.games.my_games_service.get_my_games",
             new=AsyncMock(side_effect=RuntimeError("DB exploded")),
         ):
             response = client.get(

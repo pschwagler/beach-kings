@@ -26,8 +26,8 @@ sys.path.insert(0, project_root)
 from sqlalchemy import select
 from backend.database.db import AsyncSessionLocal
 from backend.database.models import User, Player
-from backend.services.auth_service import create_access_token, generate_refresh_token
-from backend.services.user_service import create_refresh_token as store_refresh_token
+from backend.services.auth.auth_service import create_access_token, generate_refresh_token
+from backend.services.players.user_service import create_refresh_token as store_refresh_token
 from backend.utils.datetime_utils import utcnow
 
 

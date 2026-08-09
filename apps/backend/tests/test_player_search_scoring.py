@@ -1,5 +1,5 @@
 """
-Unit tests for :mod:`backend.services.player_search_scoring`.
+Unit tests for :mod:`backend.services.players.player_search_scoring`.
 
 This is the pure, DB-free relevance core: additive signal scoring and the
 context-aware tag (pill) rules. Written test-first — see plan in PR.
@@ -7,7 +7,7 @@ context-aware tag (pill) rules. Written test-first — see plan in PR.
 
 import pytest
 
-from backend.services.player_search_scoring import (
+from backend.services.players.player_search_scoring import (
     POINTS,
     RECENT_WINDOW_DAYS,
     PlayerSignalMetrics,

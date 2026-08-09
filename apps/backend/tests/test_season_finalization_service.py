@@ -9,7 +9,7 @@ import pytest
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.services.season_finalization_service import SeasonFinalizationService
+from backend.services.leagues.season_finalization_service import SeasonFinalizationService
 
 
 # ---------------------------------------------------------------------------
@@ -66,11 +66,11 @@ async def test_process_no_unfinalized_seasons():
 
     with (
         patch(
-            "backend.services.season_finalization_service.db.AsyncSessionLocal",
+            "backend.services.leagues.season_finalization_service.db.AsyncSessionLocal",
             return_value=_make_session_context_manager(mock_session),
         ),
         patch(
-            "backend.services.season_awards_service.compute_season_awards",
+            "backend.services.leagues.season_awards_service.compute_season_awards",
             new_callable=AsyncMock,
         ) as mock_compute,
     ):
@@ -90,11 +90,11 @@ async def test_process_single_unfinalized_season():
 
     with (
         patch(
-            "backend.services.season_finalization_service.db.AsyncSessionLocal",
+            "backend.services.leagues.season_finalization_service.db.AsyncSessionLocal",
             return_value=_make_session_context_manager(mock_session),
         ),
         patch(
-            "backend.services.season_awards_service.compute_season_awards",
+            "backend.services.leagues.season_awards_service.compute_season_awards",
             new_callable=AsyncMock,
             return_value=fake_awards,
         ) as mock_compute,
@@ -113,11 +113,11 @@ async def test_process_multiple_unfinalized_seasons():
 
     with (
         patch(
-            "backend.services.season_finalization_service.db.AsyncSessionLocal",
+            "backend.services.leagues.season_finalization_service.db.AsyncSessionLocal",
             return_value=_make_session_context_manager(mock_session),
         ),
         patch(
-            "backend.services.season_awards_service.compute_season_awards",
+            "backend.services.leagues.season_awards_service.compute_season_awards",
             new_callable=AsyncMock,
             return_value=[],
         ) as mock_compute,
@@ -149,11 +149,11 @@ async def test_error_for_one_season_does_not_block_others():
 
     with (
         patch(
-            "backend.services.season_finalization_service.db.AsyncSessionLocal",
+            "backend.services.leagues.season_finalization_service.db.AsyncSessionLocal",
             return_value=_make_session_context_manager(mock_session),
         ),
         patch(
-            "backend.services.season_awards_service.compute_season_awards",
+            "backend.services.leagues.season_awards_service.compute_season_awards",
             side_effect=fake_compute,
         ),
     ):
@@ -174,11 +174,11 @@ async def test_rollback_called_on_error():
 
     with (
         patch(
-            "backend.services.season_finalization_service.db.AsyncSessionLocal",
+            "backend.services.leagues.season_finalization_service.db.AsyncSessionLocal",
             return_value=_make_session_context_manager(mock_session),
         ),
         patch(
-            "backend.services.season_awards_service.compute_season_awards",
+            "backend.services.leagues.season_awards_service.compute_season_awards",
             new_callable=AsyncMock,
             side_effect=Exception("unexpected error"),
         ),
@@ -199,10 +199,10 @@ async def test_db_execute_uses_correct_filter_criteria():
 
     with (
         patch(
-            "backend.services.season_finalization_service.db.AsyncSessionLocal",
+            "backend.services.leagues.season_finalization_service.db.AsyncSessionLocal",
             return_value=_make_session_context_manager(mock_session),
         ),
-        patch("backend.services.season_finalization_service.date") as mock_date,
+        patch("backend.services.leagues.season_finalization_service.date") as mock_date,
     ):
         mock_date.today.return_value = date(2025, 6, 15)
 

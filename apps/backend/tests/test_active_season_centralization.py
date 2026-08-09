@@ -74,7 +74,7 @@ BACKEND_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # date logic.  This is the ONLY whitelist — check (a) targets the active-window
 # direction specifically, so complement queries (ended / not-yet-started
 # seasons) elsewhere need no carve-out.
-_LEAGUE_DATA = BACKEND_ROOT / "services" / "league_data.py"
+_LEAGUE_DATA = BACKEND_ROOT / "services" / "leagues" / "league_data.py"
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +84,7 @@ _LEAGUE_DATA = BACKEND_ROOT / "services" / "league_data.py"
 
 def _scan_files() -> list[pathlib.Path]:
     """Return all *.py files under services/ and api/ (tests/ excluded)."""
-    svc_files = list((BACKEND_ROOT / "services").glob("*.py"))
+    svc_files = list((BACKEND_ROOT / "services").rglob("*.py"))
     api_files = list((BACKEND_ROOT / "api").rglob("*.py"))
     return svc_files + api_files
 

@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from backend.services.geocoding_service import geocode_address, _get_mapbox_token
+from backend.services.courts.geocoding_service import geocode_address, _get_mapbox_token
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ class TestGeocodeAddressSuccess:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -115,7 +115,7 @@ class TestGeocodeAddressSuccess:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -134,7 +134,7 @@ class TestGeocodeAddressSuccess:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -160,7 +160,7 @@ class TestGeocodeAddressSuccess:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -185,7 +185,7 @@ class TestGeocodeAddressEmptyFeatures:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -204,7 +204,7 @@ class TestGeocodeAddressEmptyFeatures:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -236,7 +236,7 @@ class TestGeocodeAddressHttpErrors:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -261,7 +261,7 @@ class TestGeocodeAddressHttpErrors:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -287,7 +287,7 @@ class TestGeocodeAddressNetworkErrors:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -306,7 +306,7 @@ class TestGeocodeAddressNetworkErrors:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -323,7 +323,7 @@ class TestGeocodeAddressNetworkErrors:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -349,7 +349,7 @@ class TestGeocodeAddressNetworkErrors:
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),
-            patch("backend.services.geocoding_service.httpx.AsyncClient") as MockClient,
+            patch("backend.services.courts.geocoding_service.httpx.AsyncClient") as MockClient,
         ):
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock(return_value=False)

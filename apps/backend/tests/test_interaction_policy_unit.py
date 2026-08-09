@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from backend.services.interaction_policy import (
+from backend.services.social.interaction_policy import (
     ACTION_POLICY,
     DenialReason,
     InteractionAction,
@@ -71,7 +71,7 @@ def test_unavailable_exception_has_one_generic_public_message():
 def test_feature_services_do_not_query_user_blocks_directly():
     services = Path(__file__).parents[1] / "services"
     offenders = []
-    for path in services.glob("*.py"):
+    for path in services.rglob("*.py"):
         if path.name == "interaction_policy.py":
             continue
         if "UserBlock" in path.read_text():

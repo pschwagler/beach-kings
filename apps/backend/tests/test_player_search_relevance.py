@@ -2,7 +2,7 @@
 Integration tests for :func:`player_data.search_players_with_relevance`.
 
 The picker search is **additive** (every relationship to the caller adds
-points; see :mod:`backend.services.player_search_scoring`) and returns **one
+points; see :mod:`backend.services.players.player_search_scoring`) and returns **one
 bounded, deduped, score-ranked list** — no pagination cursor. The caller's
 whole network is returned ranked; a name term additionally appends capped
 score-0 strangers.
@@ -49,7 +49,7 @@ async def _isolate_player_search_cache():
     (scored, uncapped) and breaking the stranger / cap / ordering assertions.
     Scoped to the `picker:` prefix so unrelated Redis state is untouched.
     """
-    from backend.services.redis_service import get_redis_client
+    from backend.services.platform.redis_service import get_redis_client
 
     async def _purge() -> None:
         client = await get_redis_client()

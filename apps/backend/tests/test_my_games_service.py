@@ -1,5 +1,5 @@
 """
-Unit tests for backend.services.my_games_service helpers.
+Unit tests for backend.services.games.my_games_service helpers.
 
 Focused on pure functions that can be exercised without a DB.
 """
@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from backend.database.models import SessionStatus
-from backend.services.my_games_service import _build_entry, _normalize_session_date
+from backend.services.games.my_games_service import _build_entry, _normalize_session_date
 
 
 def _fake_row(session_status):

@@ -109,11 +109,11 @@ New table: `direct_messages`
 
 | File | Action |
 |---|---|
-| `apps/backend/services/direct_message_service.py` | **New** — send, get_conversations, get_thread, mark_read, get_unread_count |
+| `apps/backend/services/social/direct_message_service.py` | **New** — send, get_conversations, get_thread, mark_read, get_unread_count |
 | `apps/backend/api/routes/messages.py` | **New** — API route definitions |
 | `apps/backend/api/routes/__init__.py` | Register messages router |
-| `apps/backend/database/models.py` | Add `DirectMessage` model, add `direct_message` to `NotificationType` |
-| `apps/backend/models/schemas.py` | Add `DirectMessageResponse`, `ConversationResponse`, `SendMessageRequest` |
+| `apps/backend/database/models/` | Add `DirectMessage` model, add `direct_message` to `NotificationType` |
+| `apps/backend/models/schemas/` | Add `DirectMessageResponse`, `ConversationResponse`, `SendMessageRequest` |
 | `apps/backend/alembic/versions/025_add_direct_messages.py` | **New** — migration |
 
 ### Frontend Components

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import AsyncSessionLocal, get_db_session
 from backend.services import auth_service, notification_service, user_service
-from backend.services.websocket_manager import get_websocket_manager
+from backend.services.platform.websocket_manager import get_websocket_manager
 from backend.api.auth_dependencies import require_user
 from backend.models.schemas import (
     NotificationResponse,

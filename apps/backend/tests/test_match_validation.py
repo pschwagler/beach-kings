@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.services.match_validation import (
+from backend.services.games.match_validation import (
     MATCH_SCORE_EMPTY_ERROR,
     MATCH_SCORE_TIED_ERROR,
     validate_match_score,
 )
-from backend.services.session_data import create_match_async, update_match_async
+from backend.services.games.session_data import create_match_async, update_match_async
 
 
 @pytest.mark.parametrize(

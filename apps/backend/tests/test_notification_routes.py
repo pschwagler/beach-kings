@@ -352,7 +352,7 @@ class TestWebSocketNotifications:
         def fake_verify_token(token: str):
             return {"user_id": 1}
 
-        from backend.services.websocket_manager import get_websocket_manager
+        from backend.services.platform.websocket_manager import get_websocket_manager
 
         manager = get_websocket_manager()
 

@@ -8,7 +8,7 @@ import pytest_asyncio
 import asyncio
 from unittest.mock import AsyncMock
 from datetime import datetime, timedelta
-from backend.services.websocket_manager import (
+from backend.services.platform.websocket_manager import (
     WebSocketManager,
     get_websocket_manager,
     WEBSOCKET_TIMEOUT_SECONDS,

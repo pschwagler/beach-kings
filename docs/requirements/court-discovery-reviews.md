@@ -355,9 +355,9 @@ Epic 1 (Schema + Seed)
 | # | Task | Size | Description | Key Files |
 |---|------|------|-------------|-----------|
 | 1.1 | Migration 019 | L | Add ~18 cols to `courts` (description, court_count, surface_type, amenity bools, lat/lng, status, slug, average_rating, review_count, is_active, is_free, cost_info, hours, phone, website, parking_info). Create 5 tables: `court_tags`, `court_reviews` (unique: court_id+player_id), `court_review_tags`, `court_review_photos`, `court_edit_suggestions`. Indexes on slug, status, lat/lng. | `apps/backend/alembic/versions/019_add_court_discovery_tables.py` |
-| 1.2 | SQLAlchemy models | M | Add `CourtReview`, `CourtTag`, `CourtReviewTag`, `CourtReviewPhoto`, `CourtEditSuggestion`. Extend `Court` with new cols + relationships. | `apps/backend/database/models.py` |
+| 1.2 | SQLAlchemy models | M | Add `CourtReview`, `CourtTag`, `CourtReviewTag`, `CourtReviewPhoto`, `CourtEditSuggestion`. Extend `Court` with new cols + relationships. | `apps/backend/database/models/` |
 | 1.3 | Seed data | M | `court_tags.csv` (~15 tags: quality/vibe/facility). `nyc_courts.csv` (8 courts with hardcoded lat/lng, status=approved). Seed runner in startup. | `apps/backend/seed/court_tags.csv`, `apps/backend/seed/nyc_courts.csv` |
-| 1.4 | Pydantic schemas | M | ~15 models — `CourtListItem`, `CourtDetailResponse`, `CourtReviewResponse`, `CreateCourtRequest`, `CreateReviewRequest`, `CourtTagResponse`, `CourtEditSuggestionRequest`, `CourtNearbyResponse`, etc. | `apps/backend/models/schemas.py` |
+| 1.4 | Pydantic schemas | M | ~15 models — `CourtListItem`, `CourtDetailResponse`, `CourtReviewResponse`, `CreateCourtRequest`, `CreateReviewRequest`, `CourtTagResponse`, `CourtEditSuggestionRequest`, `CourtNearbyResponse`, etc. | `apps/backend/models/schemas/` |
 
 ---
 
@@ -366,10 +366,10 @@ Epic 1 (Schema + Seed)
 
 | # | Task | Size | Description | Key Files |
 |---|------|------|-------------|-----------|
-| 2.1 | Court service | L | `list_courts_public()` (filters: location, surface, amenities, rating, is_free; pagination; status=approved only), `get_court_by_slug()` (joins reviews/photos/tags), `create_court()` (pending status, generate slug), `update_court()`, `get_nearby_courts()` (haversine via `geo_utils.calculate_distance_miles`, 25mi, max 10). Slug: `slugify(name)-city` with uniqueness check. | `apps/backend/services/court_service.py` (new) |
+| 2.1 | Court service | L | `list_courts_public()` (filters: location, surface, amenities, rating, is_free; pagination; status=approved only), `get_court_by_slug()` (joins reviews/photos/tags), `create_court()` (pending status, generate slug), `update_court()`, `get_nearby_courts()` (haversine via `geo_utils.calculate_distance_miles`, 25mi, max 10). Slug: `slugify(name)-city` with uniqueness check. | `apps/backend/services/courts/court_service.py` (new) |
 | 2.2 | Public court routes | M | `GET /api/public/courts` (list+filter+paginate), `GET /api/public/courts/:slug` (detail), `GET /api/public/courts/tags` (all tags). Rate-limited. Follow existing `@public_router` pattern. | `apps/backend/api/public_routes.py` |
 | 2.3 | Auth court routes | M | `POST /api/courts/submit` (verified player, status=pending). Keep existing admin `POST /api/courts` (auto-approved). `PUT /api/courts/:id` (creator or admin). New `require_verified_player` dependency. | `apps/backend/api/routes.py` |
-| 2.4 | Geocoding service | S | Mapbox Geocoding API client `geocode_address(address) -> (lat, lng)`. Env: `MAPBOX_ACCESS_TOKEN`. Fallback: null coords. Used on court create (not seed). | `apps/backend/services/geocoding_service.py` (new) |
+| 2.4 | Geocoding service | S | Mapbox Geocoding API client `geocode_address(address) -> (lat, lng)`. Env: `MAPBOX_ACCESS_TOKEN`. Fallback: null coords. Used on court create (not seed). | `apps/backend/services/courts/geocoding_service.py` (new) |
 | 2.5 | Unit tests | M | Test list/filter, slug generation, nearby calculation, create with pending status, geocoding mock. | `apps/backend/tests/test_court_service.py` (new) |
 
 **Reuse:** `geo_utils.calculate_distance_miles`, existing court CRUD in `data_service.py`, `s3_service.py` patterns.
@@ -381,8 +381,8 @@ Epic 1 (Schema + Seed)
 
 | # | Task | Size | Description | Key Files |
 |---|------|------|-------------|-----------|
-| 3.1 | Review service | L | `create_review()` (1-per-user unique constraint, attach tags, recalc avg/count), `update_review()` (author only, recalc), `delete_review()` (author only, async S3 cleanup, recalc), `list_reviews()` (paginated, eager-load tags+photos+author). Avg recalc: update `courts.average_rating` and `courts.review_count`. | `apps/backend/services/court_service.py` (extend) |
-| 3.2 | Court photo service | M | Reuse `avatar_service` validation pattern. Max 10MB, resize to 1200px max dim, JPEG 85%. S3 key: `court-photos/{court_id}/{review_id}/{uuid}.jpg`. New `upload_court_photo()` / `delete_court_photos()` in `s3_service.py`. Max 3 per review server-enforced. | `apps/backend/services/s3_service.py`, `apps/backend/services/court_photo_service.py` (new) |
+| 3.1 | Review service | L | `create_review()` (1-per-user unique constraint, attach tags, recalc avg/count), `update_review()` (author only, recalc), `delete_review()` (author only, async S3 cleanup, recalc), `list_reviews()` (paginated, eager-load tags+photos+author). Avg recalc: update `courts.average_rating` and `courts.review_count`. | `apps/backend/services/courts/court_service.py` (extend) |
+| 3.2 | Court photo service | M | Reuse `avatar_service` validation pattern. Max 10MB, resize to 1200px max dim, JPEG 85%. S3 key: `court-photos/{court_id}/{review_id}/{uuid}.jpg`. New `upload_court_photo()` / `delete_court_photos()` in `s3_service.py`. Max 3 per review server-enforced. | `apps/backend/services/platform/s3_service.py`, `apps/backend/services/courts/court_photo_service.py` (new) |
 | 3.3 | Review API routes | M | `POST /api/courts/:id/reviews`, `PUT /api/courts/:id/reviews/:rid`, `DELETE /api/courts/:id/reviews/:rid`, `POST /api/courts/:id/reviews/:rid/photos` (two-step upload). All require verified player. Return updated avg rating. | `apps/backend/api/routes.py` |
 | 3.4 | Unit tests | M | Test create/edit/delete, 1-per-user enforcement, avg recalculation, photo limit, tag attachment, auth checks. | `apps/backend/tests/test_court_reviews.py` (new) |
 

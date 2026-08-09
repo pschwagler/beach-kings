@@ -433,7 +433,7 @@ class TestSubmitPathNoTightening:
         monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
         monkeypatch.setattr(data_service, "lock_in_session", fake_lock_in_session, raising=True)
 
-        import backend.services.notification_service as notif_module
+        import backend.services.notifications.notification_service as notif_module
 
         monkeypatch.setattr(
             notif_module,

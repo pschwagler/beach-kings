@@ -16,7 +16,7 @@ Commissioners need to invite players to their league. Invited players should be 
 
 | Layer | Status |
 |-------|--------|
-| DB model | Exists — `league_invites` table, `LeagueInvite` model (`apps/backend/database/models.py`) |
+| DB model | Exists — `league_invites` table, `LeagueInvite` model (`apps/backend/database/models/`) |
 | Notification enum | `LEAGUE_INVITE` exists in `NotificationType` |
 | `PlayerInvite` model | Exists (`player_invites` table) — for placeholder players only; does NOT capture league context |
 | Backend routes | Implemented (`apps/backend/api/routes/leagues.py`, `apps/backend/api/routes/users.py`) — see endpoint table below |

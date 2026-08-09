@@ -49,7 +49,7 @@ from backend.database.models import (
     CourtPhoto,
 )
 from backend.services import user_service
-from backend.services.account_deletion_service import AccountDeletionService
+from backend.services.auth.account_deletion_service import AccountDeletionService
 from backend.utils.datetime_utils import utcnow
 
 
@@ -955,7 +955,7 @@ async def test_poll_loop_calls_process_expired_deletions():
             side_effect=_fake_process,
         ),
         patch(
-            "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
+            "backend.services.auth.account_deletion_service.POLL_INTERVAL_SECONDS",
             0,
         ),
     ):
@@ -987,7 +987,7 @@ async def test_poll_loop_continues_after_process_raises():
             side_effect=_failing_then_stop,
         ),
         patch(
-            "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
+            "backend.services.auth.account_deletion_service.POLL_INTERVAL_SECONDS",
             0,
         ),
     ):

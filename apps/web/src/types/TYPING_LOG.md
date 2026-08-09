@@ -8,7 +8,7 @@ Issues where types exist but the format, naming, or structure should be improved
 
 The backend uses Pydantic `Field(alias="Team 1 Player 1")` to produce display-friendly JSON keys with spaces. 10+ frontend files consume these via bracket access (`match['Team 1 Player 1']`). This is a code smell — keys with spaces force bracket notation, defeat autocomplete, and prevent destructuring.
 
-**Origin**: `apps/backend/models/schemas.py` lines 69-98 (MatchResponse, PlayerMatchHistoryResponse), `apps/backend/services/stats_read_data.py` lines 194-204 (rankings)
+**Origin**: `apps/backend/models/schemas/` lines 69-98 (MatchResponse, PlayerMatchHistoryResponse), `apps/backend/services/stats/stats_read_data.py` lines 194-204 (rankings)
 
 **Affected keys**:
 - Match: `'Team 1 Player 1'`, `'Team 1 Player 2'`, `'Team 2 Player 1'`, `'Team 2 Player 2'`, `'Team 1 Score'`, `'Team 2 Score'`, `'Is Ranked'`, `'Ranked Intent'`

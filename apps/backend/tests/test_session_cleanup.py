@@ -23,7 +23,7 @@ from backend.database.models import (
     Notification,
     NotificationType,
 )
-from backend.services.session_cleanup_service import SessionCleanupService
+from backend.services.games.session_cleanup_service import SessionCleanupService
 from backend.services import user_service
 from backend.utils.datetime_utils import utcnow
 
@@ -92,7 +92,7 @@ def cleanup_service():
     Also registers mock stats queue callbacks so lock_in_session
     (which enqueues stats recalculation) doesn't raise.
     """
-    from backend.services.stats_queue import get_stats_queue
+    from backend.services.stats.stats_queue import get_stats_queue
 
     queue = get_stats_queue()
 

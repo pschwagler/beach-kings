@@ -33,7 +33,7 @@ import { usePaletteColors } from '@/theme/usePaletteColors';
  *   - wins: number / losses: number
  * remove the match-placeholder cards and the TODO below, and render real data.
  * Backend endpoint: apps/backend/api/routes/players.py → get_invite_details
- * Backend schema: apps/backend/models/schemas.py → InviteDetailsResponse
+ * Backend schema: apps/backend/models/schemas/ → InviteDetailsResponse
  */
 interface InviteDetails {
   readonly inviter_name: string;
@@ -344,7 +344,7 @@ export default function InviteClaimScreen(): React.ReactNode {
                  * TODO: Replace placeholder cards with real match data once the backend
                  * expands InviteDetailsResponse to include a `matches` array.
                  * Backend: apps/backend/api/routes/players.py → get_invite_details
-                 * Schema:  apps/backend/models/schemas.py → InviteDetailsResponse
+                 * Schema:  apps/backend/models/schemas/ → InviteDetailsResponse
                  */}
                 {Array.from({ length: invite.match_count }, (_, i) => (
                   <PlaceholderMatchCard key={i} index={i} />

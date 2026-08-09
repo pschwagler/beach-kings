@@ -433,7 +433,7 @@ async def test_engine():
     # "async-fixture timeout cascade"). Draining here removes the cause.
     # Best-effort: teardown must never fail on a background job error.
     try:
-        from backend.services.stats_queue import get_stats_queue
+        from backend.services.stats.stats_queue import get_stats_queue
 
         await get_stats_queue().drain(cancel=True)
     except Exception:

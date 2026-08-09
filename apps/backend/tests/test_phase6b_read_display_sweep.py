@@ -203,7 +203,7 @@ async def test_league_games_service_includes_gap_match(
     count it in the total.  The season-game match must also appear.  Pickup and
     other-league matches must not appear.
     """
-    from backend.services.league_games_service import get_league_games
+    from backend.services.leagues.league_games_service import get_league_games
 
     league = phase6b_world["league"]
     gap_match = phase6b_world["gap_match"]
@@ -239,7 +239,7 @@ async def test_league_games_service_total_includes_gap_match(
     The total count returned by get_league_games must count the gap match.
     Previously the count query used an INNER Season join so gap games were excluded.
     """
-    from backend.services.league_games_service import get_league_games
+    from backend.services.leagues.league_games_service import get_league_games
 
     league = phase6b_world["league"]
     gap_match = phase6b_world["gap_match"]
@@ -267,7 +267,7 @@ async def test_my_games_service_gap_match_has_league_id(
     get_player_games must return the gap-game match with correct league_id and
     league_name.  Previously Season.league_id was used so gap games returned NULL.
     """
-    from backend.services.my_games_service import get_my_games as get_player_games
+    from backend.services.games.my_games_service import get_my_games as get_player_games
 
     alice = phase6b_world["players"][0]
     league = phase6b_world["league"]
@@ -300,7 +300,7 @@ async def test_my_games_service_league_filter_includes_gap_match(
     exclude pickup/other-league matches.
     Previously the where clause was Season.league_id == league_id which dropped gap games.
     """
-    from backend.services.my_games_service import get_my_games as get_player_games
+    from backend.services.games.my_games_service import get_my_games as get_player_games
 
     alice = phase6b_world["players"][0]
     league = phase6b_world["league"]
@@ -342,7 +342,7 @@ async def test_get_session_by_code_gap_session_returns_league_id(
     Previously it read Season.league_id via an outerjoin so gap sessions (season=NULL)
     returned NULL for league_id.
     """
-    from backend.services.session_data import get_session_by_code
+    from backend.services.games.session_data import get_session_by_code
 
     league = phase6b_world["league"]
     gap_session = phase6b_world["gap_session"]
@@ -368,7 +368,7 @@ async def test_get_session_by_code_season_session_still_works(
     get_session_by_code for a session with a season must still return the correct
     league_id (regression guard — the change must not break season sessions).
     """
-    from backend.services.session_data import get_session_by_code
+    from backend.services.games.session_data import get_session_by_code
 
     league = phase6b_world["league"]
     season = phase6b_world["season"]
@@ -399,7 +399,7 @@ async def test_get_open_sessions_gap_session_has_league_info(
     and league_name populated.  Previously League was joined via Season.league_id
     so a gap session (season_id=NULL) would have NULL for both fields.
     """
-    from backend.services.session_data import get_open_sessions_for_user
+    from backend.services.games.session_data import get_open_sessions_for_user
 
     alice = phase6b_world["players"][0]
     league = phase6b_world["league"]

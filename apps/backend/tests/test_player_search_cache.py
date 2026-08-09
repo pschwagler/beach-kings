@@ -1,5 +1,5 @@
 """
-Unit tests for :mod:`backend.services.player_search_cache`.
+Unit tests for :mod:`backend.services.players.player_search_cache`.
 
 Pure codec + Redis-wrapper behaviour. Redis itself is monkeypatched so these
 run without a server and pin the graceful-degradation contract: a miss,
@@ -9,7 +9,7 @@ garbage, or a down Redis must all look like "no cache" to the caller.
 import pytest
 
 from backend.services import player_search_cache as cache
-from backend.services.player_search_cache import CallerNetworkSignals
+from backend.services.players.player_search_cache import CallerNetworkSignals
 
 
 def test_cache_key_is_per_caller_and_versioned():

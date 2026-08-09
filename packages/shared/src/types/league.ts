@@ -139,7 +139,7 @@ export interface LeagueMatchRow {
 /**
  * A single chat message returned from `GET /api/leagues/:id/messages`.
  *
- * Backend (apps/backend/services/message_data.py) populates everything except
+ * Backend (apps/backend/services/social/message_data.py) populates everything except
  * `initials`, which is derived client-side from `player_name` for presentation.
  */
 export interface LeagueChatMessage {

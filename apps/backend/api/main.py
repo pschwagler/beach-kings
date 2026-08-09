@@ -20,10 +20,10 @@ from backend.database import db
 from backend.database.init_defaults import init_defaults
 from backend.database.seed_locations import seed_locations
 from backend.database.seed_courts import seed_courts
-from backend.services.stats_queue import get_stats_queue
-from backend.services.session_cleanup_service import get_session_cleanup_service
-from backend.services.account_deletion_service import get_account_deletion_service
-from backend.services.season_finalization_service import get_season_finalization_service
+from backend.services.stats.stats_queue import get_stats_queue
+from backend.services.games.session_cleanup_service import get_session_cleanup_service
+from backend.services.auth.account_deletion_service import get_account_deletion_service
+from backend.services.leagues.season_finalization_service import get_season_finalization_service
 from backend.services import settings_service
 
 # Set up logging

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.db import get_db_session
 from backend.database.models import Player, User, Feedback
 from backend.services import data_service, email_service, settings_service
-from backend.services.redis_service import redis_get, redis_set
+from backend.services.platform.redis_service import redis_get, redis_set
 from backend.api.auth_dependencies import (
     get_current_user_optional,
     require_system_admin,

@@ -31,8 +31,8 @@ from backend.database.models import (
     Session,
     SessionStatus,
 )
-from backend.services.stats_calc_data import load_stat_eligible_matches_async
-from backend.services.stats_read_data import (
+from backend.services.stats.stats_calc_data import load_stat_eligible_matches_async
+from backend.services.stats.stats_read_data import (
     get_league_matches_with_elo,
     get_player_match_history_by_id,
     query_matches,
@@ -440,7 +440,7 @@ async def test_lock_in_gap_session_enqueues_league_recalc(
     reads ``Session.league_id`` directly.
     """
     from backend.services import stats_queue
-    from backend.services.session_data import lock_in_session
+    from backend.services.games.session_data import lock_in_session
 
     enqueue_calls: list[tuple[str, int | None]] = []
 
@@ -469,7 +469,7 @@ async def test_lock_in_pickup_session_skips_league_recalc(
 ):
     """A pickup session (league_id=None) must NOT enqueue any league recalc."""
     from backend.services import stats_queue
-    from backend.services.session_data import lock_in_session
+    from backend.services.games.session_data import lock_in_session
 
     enqueue_calls: list[tuple[str, int | None]] = []
 

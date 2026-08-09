@@ -12,7 +12,6 @@ A modern web application for tracking beach volleyball player rankings using an 
 - **🎨 Modern UI** - React-based interface with a shared, token-driven design system
 - **💾 Database-Driven** - PostgreSQL database for reliable data storage
 - **🎮 Live Session Management** - Create sessions and add matches in real-time
-- **📱 WhatsApp Integration** - Send notifications and updates via WhatsApp
 - **🚀 Docker Deployment** - Containerized deployment with Docker Compose
 
 ## 🎯 How It Works
@@ -81,26 +80,23 @@ The default branch is `develop`. Open PRs against `develop`; CI (lint + tests) a
 
 ```
 beach-kings/
-├── backend/                 # FastAPI backend
-│   ├── api/                 # API routes and main app
-│   ├── services/            # Business logic services
-│   ├── database/            # Database models and setup
-│   └── alembic/             # Database migrations
-├── frontend/                # Next.js application
-│   ├── app/                 # Next.js App Router pages
-│   ├── src/
-│   │   ├── components/      # React components
-│   │   ├── contexts/        # React context providers
-│   │   ├── services/        # API client
-│   │   └── utils/           # Utility functions
-│   ├── public/              # Static assets
-│   └── next.config.js       # Next.js configuration
-├── whatsapp-service/        # WhatsApp integration service
-├── Dockerfile               # Main Dockerfile
-├── Dockerfile.backend       # Backend-specific Dockerfile
-├── Dockerfile.frontend      # Frontend-specific Dockerfile
-├── docker-compose.yml       # Docker Compose configuration
-└── requirements.txt         # Python dependencies
+├── apps/
+│   ├── backend/             # FastAPI API, migrations, domain services
+│   │   ├── api/             # Application and route registration
+│   │   ├── database/models/ # SQLAlchemy models grouped by domain
+│   │   ├── models/schemas/  # Pydantic contracts grouped by domain
+│   │   ├── services/        # Business logic grouped by domain
+│   │   └── tests/           # Backend test suite
+│   ├── web/                 # Next.js web application
+│   └── mobile/              # Expo / React Native application
+├── packages/
+│   ├── api-client/          # Shared generated API client
+│   ├── config/              # Shared tool configuration
+│   └── shared/              # Shared types and design tokens
+├── deployment/              # Production and development deployment config
+├── docs/                    # Architecture, feature, and operations docs
+├── scripts/                 # Repository-level maintenance scripts
+└── services/whatsapp/       # Legacy inactive integration
 ```
 
 ## 🚀 Quick Start
@@ -150,20 +146,18 @@ pip install -r requirements.txt
 
 3. **Install frontend dependencies:**
 ```bash
-cd frontend
-npm install --legacy-peer-deps
-cd ..
+npm install
 ```
 
 4. **Run the backend server:**
 ```bash
 source venv/bin/activate
-uvicorn backend.api.main:app --reload
+PYTHONPATH=apps uvicorn backend.api.main:app --reload
 ```
 
 5. **In a separate terminal, run the frontend dev server:**
 ```bash
-cd frontend
+cd apps/web
 npm run dev
 ```
 
@@ -273,7 +267,8 @@ Edit the relevant component that displays the Google Sheets link (if applicable)
 
 ### Docker Deployment
 
-The application uses Docker for containerized deployment. See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed instructions.
+The application uses Docker for containerized deployment. See
+[BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) for the supported workflow.
 
 **Quick deployment:**
 ```bash
@@ -317,11 +312,12 @@ docker exec -it beach-kings-postgres psql -U beachkings -d beachkings
 
 ## 📚 Additional Documentation
 
-- [APPLICATION_SPEC.md] - Design for app
-- [DOCKER_SETUP.md](DOCKER_SETUP.md) - Docker setup and deployment guide
+- [APPLICATION_SPEC.md](APPLICATION_SPEC.md) - Product design reference
+- [Backend architecture](docs/BACKEND_ARCHITECTURE.md) - Backend module boundaries and conventions
+- [BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) - Build and deployment guide
 - [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md) - EC2 deployment instructions
-- [frontend/README.md](frontend/README.md) - Next.js frontend documentation
-- [backend/DATABASE_SCHEMA.md](backend/DATABASE_SCHEMA.md) - Database schema documentation
+- [apps/web/README.md](apps/web/README.md) - Next.js frontend documentation
+- [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) - Database schema map
 
 ## 🛠️ Development
 

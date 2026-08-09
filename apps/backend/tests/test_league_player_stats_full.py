@@ -33,7 +33,7 @@ from backend.database.models import (
     Session,
     SessionStatus,
 )
-from backend.services.stats_read_data import get_league_player_stats_full
+from backend.services.stats.stats_read_data import get_league_player_stats_full
 
 
 async def _player(db_session, full_name: str, level: str | None = None) -> Player:

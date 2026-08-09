@@ -27,7 +27,7 @@ from backend.database.models import (
     Match,
 )
 from backend.services import player_search_cache
-from backend.services.session_data import (
+from backend.services.games.session_data import (
     create_match_async,
     add_session_participant,
     remove_session_participant,

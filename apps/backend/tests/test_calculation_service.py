@@ -563,7 +563,7 @@ def test_get_scoring_config_malformed_json_logs_warning(caplog):
     """get_scoring_config logs a warning when JSON is malformed."""
     import logging
 
-    with caplog.at_level(logging.WARNING, logger="backend.services.calculation_service"):
+    with caplog.at_level(logging.WARNING, logger="backend.services.stats.calculation_service"):
         calculation_service.get_scoring_config("{bad}")
     assert any("Malformed point_system JSON" in record.message for record in caplog.records)
 

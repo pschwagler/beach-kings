@@ -8,13 +8,13 @@ helper functions behave correctly in isolation without needing a live DB.
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from backend.services import stats_data
-from backend.services.stats_read_data import (
+from backend.services.stats.stats_read_data import (
     _sort_rankings_all_seasons,
     _sort_rankings_single_season,
     _match_row_to_elo_dict,
     get_rankings,
 )
-from backend.services.stats_calc_data import _chunks
+from backend.services.stats.stats_calc_data import _chunks
 
 
 # ---------------------------------------------------------------------------

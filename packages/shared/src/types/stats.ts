@@ -1,7 +1,7 @@
 /**
  * Types for the My Stats screen payload (GET /api/users/me/stats).
  *
- * Mirror the Python Pydantic schemas in apps/backend/models/schemas.py.
+ * Mirror the Python Pydantic schemas in apps/backend/models/schemas/.
  * Shape-contract tests in the backend test suite enforce that these two
  * stay in sync.
  */

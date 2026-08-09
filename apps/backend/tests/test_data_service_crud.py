@@ -926,7 +926,7 @@ async def test_update_season_points_per_win_loss(db_session, test_player):
 @pytest.mark.asyncio
 async def test_update_season_scoring_system_triggers_recalc(db_session, test_player, monkeypatch):
     """Test that updating scoring system triggers stats recalculation."""
-    from backend.services.stats_queue import get_stats_queue
+    from backend.services.stats.stats_queue import get_stats_queue
 
     # Track enqueue calls
     enqueue_calls = []

@@ -27,7 +27,7 @@ sys.path.insert(0, project_root)
 from sqlalchemy import select
 from backend.database.db import AsyncSessionLocal
 from backend.database.models import User, Player
-from backend.services.auth_service import hash_password
+from backend.services.auth.auth_service import hash_password
 
 # Test users — easy to remember
 TEST_USERS = [

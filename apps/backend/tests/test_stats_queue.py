@@ -8,7 +8,7 @@ import pytest_asyncio
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select
 from backend.database.models import StatsCalculationJob, StatsCalculationJobStatus
-from backend.services.stats_queue import StatsCalculationQueue, get_stats_queue
+from backend.services.stats.stats_queue import StatsCalculationQueue, get_stats_queue
 
 # db_session fixture is provided by conftest.py
 

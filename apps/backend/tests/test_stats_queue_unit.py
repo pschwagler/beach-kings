@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from backend.database.models import StatsCalculationJobStatus
-from backend.services.stats_queue import StatsCalculationQueue
+from backend.services.stats.stats_queue import StatsCalculationQueue
 
 
 @pytest.mark.asyncio

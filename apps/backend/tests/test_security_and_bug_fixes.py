@@ -312,7 +312,7 @@ async def test_bug2_session_orm_to_dict_includes_league_id(
     classified the session as pickup (league_id=None) and applied participant
     auth instead of the correct league-member/admin check.
     """
-    from backend.services.session_data import can_user_add_match_to_session
+    from backend.services.games.session_data import can_user_add_match_to_session
 
     # Build the session dict the way the fixed code does
     session_dict = {
@@ -348,7 +348,7 @@ async def test_bug2_dict_missing_league_id_misclassified_as_pickup(
     """Documents the pre-fix misclassification: a dict without league_id falls
     through to the pickup participant check, which denies user 9999 (no player).
     """
-    from backend.services.session_data import can_user_add_match_to_session
+    from backend.services.games.session_data import can_user_add_match_to_session
 
     # The OLD dict shape (missing league_id key)
     old_dict = {
@@ -514,7 +514,7 @@ async def test_bug6_get_active_season_accepts_season_id_zero(
     a season with that id (and raise ValueError because none exists), not silently
     fall through to the date-based resolver.
     """
-    from backend.services.session_data import _get_active_season
+    from backend.services.games.session_data import _get_active_season
 
     # season_id=0 should trigger the explicit-id path (is not None → True),
     # which will not find a season and must raise ValueError.
@@ -530,7 +530,7 @@ async def test_bug6_get_active_season_none_falls_through_to_resolver(
     """When season_id is truly None, the resolver path is taken (raises ValueError
     because league_a has no active season).
     """
-    from backend.services.session_data import _get_active_season
+    from backend.services.games.session_data import _get_active_season
 
     with pytest.raises(ValueError, match="does not have an active season"):
         await _get_active_season(db_session, league_a.id, season_id=None)

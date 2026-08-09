@@ -96,7 +96,7 @@ class TestGetLeagueGamesRoute:
         """Returns a well-formed games list with required keys per game."""
         client, headers = _make_admin_client(monkeypatch)
         with patch(
-            "backend.services.league_games_service.get_league_games",
+            "backend.services.leagues.league_games_service.get_league_games",
             new=AsyncMock(return_value=([SAMPLE_LEAGUE_GAME], 1)),
         ):
             response = client.get(f"/api/leagues/{LEAGUE_ID}/games", headers=headers)
@@ -139,7 +139,7 @@ class TestGetLeagueGamesRoute:
         """Valid limit/offset are passed through to the service layer."""
         client, headers = _make_admin_client(monkeypatch)
         mock = AsyncMock(return_value=([], 0))
-        with patch("backend.services.league_games_service.get_league_games", new=mock):
+        with patch("backend.services.leagues.league_games_service.get_league_games", new=mock):
             response = client.get(
                 f"/api/leagues/{LEAGUE_ID}/games?limit=25&offset=50", headers=headers
             )
@@ -151,7 +151,7 @@ class TestGetLeagueGamesRoute:
         """Service-returned values flow through unchanged."""
         client, headers = _make_admin_client(monkeypatch)
         with patch(
-            "backend.services.league_games_service.get_league_games",
+            "backend.services.leagues.league_games_service.get_league_games",
             new=AsyncMock(return_value=([SAMPLE_LEAGUE_GAME], 1)),
         ):
             response = client.get(f"/api/leagues/{LEAGUE_ID}/games", headers=headers)
@@ -170,7 +170,7 @@ class TestGetLeagueGamesRoute:
         """Returns empty list and total 0 when the league has no games."""
         client, headers = _make_admin_client(monkeypatch)
         with patch(
-            "backend.services.league_games_service.get_league_games",
+            "backend.services.leagues.league_games_service.get_league_games",
             new=AsyncMock(return_value=([], 0)),
         ):
             response = client.get(f"/api/leagues/{LEAGUE_ID}/games", headers=headers)
@@ -181,7 +181,7 @@ class TestGetLeagueGamesRoute:
         """Service exceptions surface as 500."""
         client, headers = _make_admin_client(monkeypatch)
         with patch(
-            "backend.services.league_games_service.get_league_games",
+            "backend.services.leagues.league_games_service.get_league_games",
             new=AsyncMock(side_effect=RuntimeError("boom")),
         ):
             response = client.get(f"/api/leagues/{LEAGUE_ID}/games", headers=headers)

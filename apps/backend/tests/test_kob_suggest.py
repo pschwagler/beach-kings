@@ -10,7 +10,7 @@ from typing import Any, Dict
 
 import pytest
 
-from backend.services.kob_suggest import (
+from backend.services.kob.kob_suggest import (
     suggest_defaults,
     suggest_alternatives,
     recommend_format,

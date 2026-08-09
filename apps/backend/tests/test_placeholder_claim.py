@@ -293,7 +293,7 @@ class TestClaimNewUser:
         """Claiming user without player → placeholder becomes their player."""
         ph = placeholder_with_invite
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             result = await placeholder_service.claim_invite(
                 db_session, ph.invite_token, claiming_user
@@ -315,7 +315,7 @@ class TestClaimNewUser:
         """Invite status updated to 'claimed' with user and timestamp."""
         ph = placeholder_with_invite
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -360,7 +360,7 @@ class TestClaimMerge:
         await db_session.commit()
         match_id = match.id
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             result = await placeholder_service.claim_invite(
                 db_session, ph.invite_token, claiming_user
@@ -396,7 +396,7 @@ class TestClaimMerge:
         db_session.add(match)
         await db_session.commit()
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -423,7 +423,7 @@ class TestClaimMerge:
         db_session.add(sp)
         await db_session.commit()
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -471,7 +471,7 @@ class TestClaimConflicts:
         await db_session.commit()
 
         with pytest.raises(placeholder_service.MergeConflictError, match="1 match"):
-            with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+            with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
                 mock_queue.return_value.enqueue_calculation = AsyncMock()
                 await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -500,7 +500,7 @@ class TestClaimConflicts:
         conflict_id = conflict_match.id
 
         with pytest.raises(placeholder_service.MergeConflictError):
-            with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+            with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
                 mock_queue.return_value.enqueue_calculation = AsyncMock()
                 await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -546,7 +546,7 @@ class TestFlipRankedStatus:
         match_id = match.id
 
         # Claim as new user (no existing player → placeholder becomes real)
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -580,7 +580,7 @@ class TestFlipRankedStatus:
         match_id = match.id
 
         # Claim only ph1 (as new user)
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph1.invite_token, claiming_user)
 
@@ -612,12 +612,12 @@ class TestFlipRankedStatus:
         match_id = match.id
 
         # Claim ph1
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph1.invite_token, claiming_user)
 
         # Claim ph2 with different user
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph2.invite_token, third_user)
 
@@ -650,7 +650,7 @@ class TestFlipRankedStatus:
         match_id = match.id
 
         # Claim as new user → placeholder becomes real
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -680,7 +680,7 @@ class TestLeagueMembershipOnClaim:
         """Claiming user NOT in the league → membership transferred with role 'member'."""
         ph = placeholder_in_league
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -716,7 +716,7 @@ class TestLeagueMembershipOnClaim:
         db_session.add(existing_lm)
         await db_session.commit()
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -756,7 +756,7 @@ class TestNotificationOnClaim:
         """Claiming creates a PLACEHOLDER_CLAIMED notification for the invite creator."""
         ph = placeholder_with_invite
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -792,7 +792,7 @@ class TestStatsRecalcOnClaim:
         """Claim enqueues global recalc + one per affected league."""
         ph = placeholder_in_league
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_enqueue = AsyncMock()
             mock_queue.return_value.enqueue_calculation = mock_enqueue
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
@@ -820,7 +820,7 @@ class TestClaimEdgeCases:
         ph = placeholder_with_invite
 
         # First claim
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -832,7 +832,7 @@ class TestClaimEdgeCases:
         )
 
         with pytest.raises(ValueError, match="already been claimed"):
-            with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+            with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
                 mock_queue.return_value.enqueue_calculation = AsyncMock()
                 await placeholder_service.claim_invite(db_session, ph.invite_token, second_user)
 
@@ -849,7 +849,7 @@ class TestClaimEdgeCases:
         """Claim with league membership returns redirect to /leagues."""
         ph = placeholder_in_league
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             result = await placeholder_service.claim_invite(
                 db_session, ph.invite_token, claiming_user
@@ -864,7 +864,7 @@ class TestClaimEdgeCases:
         """Claim without league membership returns redirect to /dashboard."""
         ph = placeholder_with_invite
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             result = await placeholder_service.claim_invite(
                 db_session, ph.invite_token, claiming_user
@@ -899,7 +899,7 @@ class TestClaimEdgeCases:
         await db_session.commit()
         match_id = match.id
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
@@ -933,7 +933,7 @@ class TestClaimEdgeCases:
         db_session.add_all([sp_placeholder, sp_target])
         await db_session.commit()
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+        with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
             mock_queue.return_value.enqueue_calculation = AsyncMock()
             await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 

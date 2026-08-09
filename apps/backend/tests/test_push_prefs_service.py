@@ -17,7 +17,7 @@ Covers:
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.services.push_prefs_service import (
+from backend.services.notifications.push_prefs_service import (
     _DEFAULTS,
     _TYPE_TO_PREF,
     get_prefs,
@@ -256,7 +256,7 @@ class TestUpdatePrefs:
         attributes like 'id' or 'user_id' even though hasattr() would pass them.
         """
         from backend.database.models import PushNotificationPreference
-        from backend.services.push_prefs_service import _WRITABLE_PREF_FIELDS
+        from backend.services.notifications.push_prefs_service import _WRITABLE_PREF_FIELDS
 
         row = PushNotificationPreference(
             user_id=1,
@@ -323,8 +323,8 @@ class TestNotificationServicePushGating:
 
     @pytest.mark.asyncio
     async def test_notification_creation_queues_delivery(self) -> None:
-        import backend.services.websocket_manager as ws_module
-        import backend.services.push_delivery_service as delivery_module
+        import backend.services.platform.websocket_manager as ws_module
+        import backend.services.notifications.push_delivery_service as delivery_module
 
         mock_session = self._make_notify_session(obj_id=1)
 

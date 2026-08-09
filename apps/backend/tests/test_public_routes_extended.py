@@ -43,7 +43,7 @@ def client():
 # ===========================================================================
 
 
-@patch("backend.services.public_service.get_public_league", new_callable=AsyncMock)
+@patch("backend.services.public.public_service.get_public_league", new_callable=AsyncMock)
 def test_get_league_returns_200(mock_get, client):
     """Returns 200 with league detail for a found league."""
     mock_get.return_value = {
@@ -71,7 +71,7 @@ def test_get_league_returns_200(mock_get, client):
     assert data["is_public"] is True
 
 
-@patch("backend.services.public_service.get_public_league", new_callable=AsyncMock)
+@patch("backend.services.public.public_service.get_public_league", new_callable=AsyncMock)
 def test_get_private_league_returns_limited_data(mock_get, client):
     """Private leagues return limited info (no members/standings/recent_matches)."""
     mock_get.return_value = {
@@ -104,7 +104,7 @@ def test_get_private_league_returns_limited_data(mock_get, client):
 # ===========================================================================
 
 
-@patch("backend.services.public_service.get_public_player", new_callable=AsyncMock)
+@patch("backend.services.public.public_service.get_public_player", new_callable=AsyncMock)
 def test_get_player_returns_200(mock_get, client):
     """Returns 200 with player profile for a found player."""
     mock_get.return_value = {
@@ -140,7 +140,7 @@ def test_get_player_returns_200(mock_get, client):
 # ===========================================================================
 
 
-@patch("backend.services.public_service.get_public_location_by_slug", new_callable=AsyncMock)
+@patch("backend.services.public.public_service.get_public_location_by_slug", new_callable=AsyncMock)
 def test_get_location_returns_200(mock_get, client):
     """Returns 200 with location detail for a found slug."""
     mock_get.return_value = {
@@ -175,7 +175,7 @@ def test_get_location_returns_200(mock_get, client):
 # ===========================================================================
 
 
-@patch("backend.services.public_service.get_sitemap_players", new_callable=AsyncMock)
+@patch("backend.services.public.public_service.get_sitemap_players", new_callable=AsyncMock)
 def test_sitemap_players_returns_200(mock_sitemap, client):
     """GET /api/public/sitemap/players returns 200 with list of player items."""
     mock_sitemap.return_value = [
@@ -192,7 +192,7 @@ def test_sitemap_players_returns_200(mock_sitemap, client):
     assert data[0]["full_name"] == "Alice"
 
 
-@patch("backend.services.public_service.get_sitemap_players", new_callable=AsyncMock)
+@patch("backend.services.public.public_service.get_sitemap_players", new_callable=AsyncMock)
 def test_sitemap_players_error_returns_500(mock_sitemap, client):
     """Internal errors in sitemap/players return 500 with generic message."""
     mock_sitemap.side_effect = Exception("connection refused")
@@ -208,7 +208,7 @@ def test_sitemap_players_error_returns_500(mock_sitemap, client):
 # ===========================================================================
 
 
-@patch("backend.services.public_service.get_sitemap_locations", new_callable=AsyncMock)
+@patch("backend.services.public.public_service.get_sitemap_locations", new_callable=AsyncMock)
 def test_sitemap_locations_returns_200(mock_sitemap, client):
     """GET /api/public/sitemap/locations returns 200 with location slugs."""
     mock_sitemap.return_value = [
@@ -223,7 +223,7 @@ def test_sitemap_locations_returns_200(mock_sitemap, client):
     assert data[0]["slug"] == "san-diego"
 
 
-@patch("backend.services.public_service.get_sitemap_locations", new_callable=AsyncMock)
+@patch("backend.services.public.public_service.get_sitemap_locations", new_callable=AsyncMock)
 def test_sitemap_locations_error_returns_500(mock_sitemap, client):
     """Internal errors in sitemap/locations return 500 with generic message."""
     mock_sitemap.side_effect = Exception("timeout")
@@ -238,7 +238,7 @@ def test_sitemap_locations_error_returns_500(mock_sitemap, client):
 # ===========================================================================
 
 
-@patch("backend.services.court_service.get_sitemap_courts", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_sitemap_courts", new_callable=AsyncMock)
 def test_sitemap_courts_returns_200(mock_sitemap, client):
     """GET /api/public/sitemap/courts returns 200 with court slugs."""
     mock_sitemap.return_value = [
@@ -252,7 +252,7 @@ def test_sitemap_courts_returns_200(mock_sitemap, client):
     assert data[0]["slug"] == "mission-beach-courts"
 
 
-@patch("backend.services.court_service.get_sitemap_courts", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_sitemap_courts", new_callable=AsyncMock)
 def test_sitemap_courts_error_returns_500(mock_sitemap, client):
     """Internal errors in sitemap/courts return 500 with generic message."""
     mock_sitemap.side_effect = Exception("db error")
@@ -268,7 +268,7 @@ def test_sitemap_courts_error_returns_500(mock_sitemap, client):
 # ===========================================================================
 
 
-@patch("backend.services.court_service.list_courts_public", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.list_courts_public", new_callable=AsyncMock)
 def test_list_courts_returns_200(mock_list, client):
     """GET /api/public/courts returns 200 with paginated courts."""
     mock_list.return_value = {
@@ -308,7 +308,7 @@ def test_list_courts_returns_200(mock_list, client):
     assert data["items"][0]["name"] == "Mission Beach Courts"
 
 
-@patch("backend.services.court_service.list_courts_public", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.list_courts_public", new_callable=AsyncMock)
 def test_list_courts_with_filters(mock_list, client):
     """Query params are forwarded to court_service.list_courts_public."""
     mock_list.return_value = {"items": [], "total_count": 0, "page": 1, "page_size": 20}
@@ -340,7 +340,7 @@ def test_list_courts_rejects_incomplete_or_invalid_latitude_bounds(client):
     assert client.get("/api/public/courts?north=41&south=40&east=-74&west=-74").status_code == 422
 
 
-@patch("backend.services.court_service.list_courts_public", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.list_courts_public", new_callable=AsyncMock)
 def test_list_courts_forwards_bounds(mock_list, client):
     mock_list.return_value = {"items": [], "total_count": 0, "page": 1, "page_size": 20}
     response = client.get("/api/public/courts?north=41&south=40&east=-73&west=-74")
@@ -355,7 +355,7 @@ def test_list_courts_forwards_bounds(mock_list, client):
     }
 
 
-@patch("backend.services.court_service.list_courts_public", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.list_courts_public", new_callable=AsyncMock)
 def test_list_courts_accepts_and_forwards_date_line_crossing_bounds(mock_list, client):
     mock_list.return_value = {"items": [], "total_count": 0, "page": 1, "page_size": 20}
 
@@ -377,7 +377,7 @@ def test_list_courts_accepts_and_forwards_date_line_crossing_bounds(mock_list, c
 # ===========================================================================
 
 
-@patch("backend.services.court_service.get_all_tags", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_all_tags", new_callable=AsyncMock)
 def test_list_court_tags_returns_200(mock_tags, client):
     """GET /api/public/courts/tags returns 200 with tag list."""
     mock_tags.return_value = [
@@ -400,7 +400,7 @@ def test_list_court_tags_returns_200(mock_tags, client):
     assert data[1]["category"] == "vibe"
 
 
-@patch("backend.services.court_service.get_all_tags", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_all_tags", new_callable=AsyncMock)
 def test_list_court_tags_empty(mock_tags, client):
     """Returns empty list when no tags exist."""
     mock_tags.return_value = []
@@ -415,7 +415,7 @@ def test_list_court_tags_empty(mock_tags, client):
 # ===========================================================================
 
 
-@patch("backend.services.court_service.get_nearby_courts", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_nearby_courts", new_callable=AsyncMock)
 def test_get_nearby_courts_returns_200(mock_nearby, client):
     """GET /api/public/courts/nearby returns 200 with nearby courts."""
     mock_nearby.return_value = [
@@ -447,14 +447,14 @@ def test_get_nearby_courts_missing_lat_lng(client):
     assert response.status_code == 422
 
 
-@patch("backend.services.court_service.get_nearby_courts", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_nearby_courts", new_callable=AsyncMock)
 def test_get_nearby_courts_radius_out_of_range(mock_nearby, client):
     """radius > 100 returns 422."""
     response = client.get("/api/public/courts/nearby?lat=32.77&lng=-117.25&radius=200")
     assert response.status_code == 422
 
 
-@patch("backend.services.court_service.get_nearby_courts", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_nearby_courts", new_callable=AsyncMock)
 def test_get_nearby_courts_with_exclude(mock_nearby, client):
     """exclude param is forwarded to the service."""
     mock_nearby.return_value = []
@@ -471,7 +471,7 @@ def test_get_nearby_courts_with_exclude(mock_nearby, client):
 # ===========================================================================
 
 
-@patch("backend.services.court_service.get_court_by_slug", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_court_by_slug", new_callable=AsyncMock)
 def test_get_court_returns_200(mock_get, client):
     """GET /api/public/courts/{slug} returns 200 for a found court."""
     mock_get.return_value = {
@@ -517,7 +517,7 @@ def test_get_court_returns_200(mock_get, client):
     assert data["average_rating"] == 4.8
 
 
-@patch("backend.services.court_service.get_court_by_slug", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_court_by_slug", new_callable=AsyncMock)
 def test_get_court_not_found(mock_get, client):
     """Returns 404 for an unknown court slug."""
     mock_get.return_value = None
@@ -532,8 +532,8 @@ def test_get_court_not_found(mock_get, client):
 # ===========================================================================
 
 
-@patch("backend.services.court_service.get_court_leaderboard", new_callable=AsyncMock)
-@patch("backend.services.court_service.get_court_id_by_slug", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_court_leaderboard", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_court_id_by_slug", new_callable=AsyncMock)
 def test_get_court_leaderboard_returns_200(mock_id, mock_lb, client):
     """GET /api/public/courts/{slug}/leaderboard returns 200 with ranked players."""
     mock_id.return_value = 7  # court row / id
@@ -568,7 +568,7 @@ def test_get_court_leaderboard_returns_200(mock_id, mock_lb, client):
     assert data[1]["win_rate"] == 0.60
 
 
-@patch("backend.services.court_service.get_court_id_by_slug", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_court_id_by_slug", new_callable=AsyncMock)
 def test_get_court_leaderboard_not_found(mock_id, client):
     """Returns 404 when the court slug does not exist."""
     mock_id.return_value = None
@@ -578,8 +578,8 @@ def test_get_court_leaderboard_not_found(mock_id, client):
     assert response.json()["detail"] == "Court not found"
 
 
-@patch("backend.services.court_service.get_court_leaderboard", new_callable=AsyncMock)
-@patch("backend.services.court_service.get_court_id_by_slug", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_court_leaderboard", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_court_id_by_slug", new_callable=AsyncMock)
 def test_get_court_leaderboard_empty(mock_id, mock_lb, client):
     """Returns 200 with empty list when court has no matches."""
     mock_id.return_value = 99
@@ -595,7 +595,7 @@ def test_get_court_leaderboard_empty(mock_id, mock_lb, client):
 # ===========================================================================
 
 
-@patch("backend.services.court_service.list_court_photos", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.list_court_photos", new_callable=AsyncMock)
 def test_list_court_photos_by_numeric_id_returns_200(mock_list, client):
     """Numeric id is resolved without a slug lookup."""
     mock_list.return_value = [
@@ -627,8 +627,8 @@ def test_list_court_photos_by_numeric_id_returns_200(mock_list, client):
     assert mock_list.await_args.args[1] == 42
 
 
-@patch("backend.services.court_service.list_court_photos", new_callable=AsyncMock)
-@patch("backend.services.court_service.get_court_id_by_slug", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.list_court_photos", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_court_id_by_slug", new_callable=AsyncMock)
 def test_list_court_photos_by_slug_returns_200(mock_slug, mock_list, client):
     """Slug is resolved through get_court_id_by_slug, then photos returned."""
     mock_slug.return_value = 7
@@ -642,7 +642,7 @@ def test_list_court_photos_by_slug_returns_200(mock_slug, mock_list, client):
     assert mock_list.await_args.args[1] == 7
 
 
-@patch("backend.services.court_service.get_court_id_by_slug", new_callable=AsyncMock)
+@patch("backend.services.courts.court_service.get_court_id_by_slug", new_callable=AsyncMock)
 def test_list_court_photos_unknown_slug_returns_404(mock_slug, client):
     """An unknown slug yields 404."""
     mock_slug.return_value = None
@@ -657,7 +657,7 @@ def test_list_court_photos_unknown_slug_returns_404(mock_slug, client):
 # ===========================================================================
 
 
-@patch("backend.services.public_service.get_sitemap_players", new_callable=AsyncMock)
+@patch("backend.services.public.public_service.get_sitemap_players", new_callable=AsyncMock)
 def test_public_endpoints_set_cache_headers(mock_sitemap, client):
     """Public routes include Cache-Control headers for CDN caching."""
     mock_sitemap.return_value = []
