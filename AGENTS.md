@@ -4,9 +4,7 @@ This is a public repo. Do not expose PII, secrets, tokens, credentials, or secur
 
 ## Safety
 
-- Never destroy, drop, delete, recreate, or reset database data, even locally.
-- Do not run `docker compose down -v`, `docker volume rm`, `docker volume prune`, `docker compose rm` on DB containers, or any script/target that recreates the DB.
-- Ask before any database recovery action that could affect data.
+- Never destroy, drop, delete, recreate, or reset remote database data.
 
 ## Project Rules
 
@@ -27,7 +25,7 @@ This is a public repo. Do not expose PII, secrets, tokens, credentials, or secur
 
 ## Local Utilities
 
-- `make dev-login ID=<player_id>` prints local auth tokens; no ID lists players.
+- `make dev-login ID=<player_id>` prints local auth tokens to login when validating app.
 - `make dev-otp EMAIL=<email>` or `make dev-otp PHONE=<e164>` fetches local verification codes.
 - `make seed-users` creates test users with password `test1234`.
 - Prefer headless mode for `agent-browser`, Playwright, and browser automation.

@@ -29,3 +29,5 @@ fetching, caching, or auth transitions. The hard rules:
 
 Query lifecycle plumbing (AppState focus, NetInfo online) lives in
 `src/infrastructure/query/client.ts` — don't re-wire it per screen.
+
+Remember dev-login script when trying to validate work.
