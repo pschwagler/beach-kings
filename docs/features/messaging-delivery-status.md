@@ -10,7 +10,7 @@ completed. This is a living checklist — update it as providers get wired up.
   (see below), but the code path is complete and production-ready.
 - **Email (auth/transactional): implemented, but a silent no-op when
   unconfigured.** Signup verification, email-based password reset, and feedback
-  emails go through SendGrid. When the feature flag is off or the API key is
+  emails go through Resend. When the feature flag is off or the API key is
   missing, the service logs and returns success **without sending** — so an
   environment can look healthy while delivering nothing.
 - **Marketing / campaign email: not built.** No campaign, list-management,
@@ -41,7 +41,7 @@ with `make dev-otp` instead of expecting a text.
 To complete for a new environment: set the Twilio env vars and confirm the DB
 SMS setting is on. No code changes required.
 
-## Email (SendGrid)
+## Email (Resend)
 
 Implemented but delivery is env-gated:
 
@@ -50,7 +50,7 @@ Implemented but delivery is env-gated:
 - Email-based password reset: `ResetPasswordEmailRequest` /
   `ResetPasswordEmailVerifyRequest` routes.
 
-Delivery gating: the `email` feature flag must be on **and** `SENDGRID_API_KEY`
+Delivery gating: the `email` feature flag must be on **and** `RESEND_API_KEY`
 must be set. Otherwise the send functions log `"stubbed email to ..."` and
 return `True` without sending. Because the stub returns success, callers cannot
 distinguish "sent" from "skipped" — do not assume email is being delivered in
@@ -58,9 +58,9 @@ an environment just because auth flows succeed.
 
 To complete for production:
 
-- [ ] Provision a SendGrid API key and set `SENDGRID_API_KEY`.
+- [ ] Verify the sending domain in Resend, provision an API key, and set `RESEND_API_KEY`.
 - [ ] Turn on the `email` feature flag in the target environment.
-- [ ] Verify sender domain / from-address is authenticated in SendGrid.
+- [ ] Set `RESEND_FROM_EMAIL` to an identity on the verified domain.
 - [ ] Consider making the stub path observable (metric/log) so a
       misconfigured prod environment is caught rather than silently swallowing
       mail.

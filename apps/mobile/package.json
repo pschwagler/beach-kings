@@ -8,6 +8,8 @@
     "build": "expo export -p ios -p android && node scripts/verify-production-no-dev-auth.js",
     "release:export:ios": "expo export --platform ios --output-dir dist",
     "release:preflight": "node scripts/release-preflight.js",
+    "release:record:create": "node scripts/release-record.js create",
+    "release:record:validate": "node scripts/release-record.js validate",
     "verify:production-no-dev-auth": "node scripts/verify-production-no-dev-auth.js",
     "start": "expo start",
     "lint": "eslint . --ext .ts,.tsx",

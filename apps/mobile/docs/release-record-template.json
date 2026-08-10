@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "status": "draft",
+  "createdAt": null,
+  "release": {
+    "environment": "production",
+    "bundleIdentifier": "com.beachleague.app",
+    "version": "1.0.0",
+    "buildNumber": null,
+    "apiOrigin": "https://beachleaguevb.com",
+    "easBuildId": null
+  },
+  "source": {
+    "commitSha": null,
+    "clean": false
+  },
+  "toolchain": {
+    "source": "local",
+    "easImage": "macos-sequoia-15.6-xcode-26.2",
+    "xcodeVersion": null,
+    "iosSdkVersion": null
+  },
+  "artifact": {
+    "fileName": null,
+    "sizeBytes": null,
+    "sha256": null
+  },
+  "submitter": null,
+  "checks": {
+    "releasePreflight": "pending",
+    "productionConfiguration": "pending",
+    "signedArchiveInspection": "pending",
+    "privacyReport": "pending",
+    "appStoreProcessing": "pending",
+    "testFlightSmoke": "pending",
+    "demoAccount": "pending"
+  },
+  "approval": {
+    "decision": "pending",
+    "releaseOwner": null,
+    "decidedAt": null,
+    "notes": null
+  }
+}

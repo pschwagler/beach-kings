@@ -65,6 +65,21 @@ Run on all public text/photo submissions and on all reported evidence.
   publishing it unscreened. Direct-message delivery may retry briefly, then hold
   and tell the sender it is pending.
 
+### Publication boundary
+
+Production and staging force enforcement mode in server code. New direct
+messages, league-chat messages, court reviews, court photos, and review photos
+start as `pending`; only the separate worker can make clean content visible.
+Pending chat text is never placed in recipient WebSockets, unread counts, bell
+notifications, or push jobs. Editing review text returns the review to pending
+and creates a content-revision job so an older result cannot approve newer text.
+Court-photo captions are screened with their image, and court ratings count only
+visible reviews. Public profile names and nicknames are screened before update.
+Avatar replacement is screened before its URL replaces the existing avatar;
+provider errors preserve the prior profile/avatar and return a retryable error.
+The worker refuses to start without its provider credential when moderation is
+enabled, while API writes remain held pending.
+
 ### Phase 1 — `gpt-5.6-luna`
 
 Use for inexpensive policy-specific triage of ordinary reports:
@@ -111,6 +126,25 @@ draft. It may trigger or preserve a temporary quarantine but not a permanent ban
 Do not implement silent permanent punishment. Temporary automated restrictions
 must be time-bounded, disclosed to the affected user where safe, and reviewable.
 
+## Enforcement contract
+
+The launch implementation uses three distinct levels so a contact-safety action
+does not unnecessarily remove access to league and gameplay information:
+
+- **Social/UGC restriction:** time-bound. The member stays in the normal app and
+  can view rosters, schedules, standings, scores, and match history. Direct and
+  league messaging, friend requests/acceptance, player invites, public profile
+  edits, reviews, and photo/public-content submissions are unavailable.
+- **Account suspension:** time-bound full-account boundary. Only the account
+  status, appeal, account-deletion, and logout flows remain available. Access
+  returns automatically when the suspension expires.
+- **Account ban:** indefinite full-account boundary with the same status,
+  appeal, deletion, and logout access. A human moderator must restore it.
+
+Every level is case-linked and audited. Only a human system administrator can
+suspend, ban, restore, or decide an appeal. Granting an appeal revokes the
+case-linked restriction without lifting enforcement from a different case.
+
 ## Minimal data model
 
 Use a small database-backed workflow rather than introducing Redis/Celery only
@@ -127,6 +161,15 @@ A small worker process can claim pending rows with database locking, call the
 models, store structured results, and retry safely. Avoid FastAPI in-process
 background tasks for the durable case workflow because deploys or crashes can
 lose unfinished work.
+
+Every user report receives policy triage even when the base safety classifier
+does not flag the target. The recommendation sees provider categories,
+reporter-selected policy reasons, and aggregate prior-case counts from the last
+365 days—not reporter identity or unrelated history. Reported and automatically
+flagged target text/profile content is copied to the restricted evidence bucket;
+app-owned media is copied server-side. Evidence-storage failures are audited but
+do not prevent a report from entering the queue or flagged content from being
+quarantined. Urgent triage changes the case priority and due time immediately.
 
 ## Owner workflow
 

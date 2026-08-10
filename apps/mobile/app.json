@@ -20,7 +20,15 @@
         "keychain-access-groups": ["$(AppIdentifierPrefix)com.beachleague.app"]
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Beach League uses your location to suggest the nearest league location."
+        "NSLocationWhenInUseUsageDescription": "Beach League uses your location to suggest the nearest league location.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "com.beachleague.app.google-signin",
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.817191446075-ddkmr5ml8quamvf5258dp9tbuabfv4rc"
+            ]
+          }
+        ]
       }
     },
     "android": {

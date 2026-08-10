@@ -23,6 +23,13 @@ else
     echo ""
 fi
 
+# Worker containers (docker-compose `command:`) skip migrations and API startup;
+# the API container owns alembic. Exec the passed command directly.
+if [ $# -gt 0 ]; then
+    echo "🔧 Custom command detected → exec: $*"
+    exec "$@"
+fi
+
 # Run database migrations
 echo "🔄 Running database migrations..."
 echo "   Current directory: $(pwd)"

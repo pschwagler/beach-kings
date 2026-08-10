@@ -2,7 +2,7 @@
 
 > Status: active, launch-blocking  
 > Priority: #1 mobile initiative, except active production defect fixes  
-> Last requirements check: 2026-08-03  
+> Last requirements check: 2026-08-06
 > Canonical production domain: `https://beachleaguevb.com`
 
 This is the source of truth for getting Beach League through TestFlight and
@@ -35,7 +35,9 @@ Priority meanings:
 
 ### IOS-001 — User-generated content safety
 
-**Status:** Not started  
+**Status:** Foundation and graduated account enforcement are implemented; not
+submission-complete. Production automated enforcement, incident operations,
+youth review, and abuse-path drills remain required.
 **Decision:** Retain all UGC features. Use AI-assisted triage with accountable
 human review; see D2, D3, and the [moderation plan](moderation-plan.md).
 
@@ -43,39 +45,60 @@ Beach League includes direct messages, league chat, player profiles, court
 reviews, and user-uploaded photos. Apple Guideline 1.2 requires filtering,
 reporting with timely responses, user blocking, and published contact details.
 
-- [ ] Add a server-enforced user block model and API.
-- [ ] Make blocking suppress direct messages, message requests, friend/invite
+- [x] Add a server-enforced user block model and API.
+- [x] Make blocking suppress direct messages, message requests, friend/invite
   actions, mentions/replies, presence/read receipts, and related notifications
   in both directions.
-- [ ] Keep objective shared-league information visible: roster identity,
+- [x] Keep objective shared-league information visible: roster identity,
   schedules, standings, scores, and match history.
-- [ ] Keep shared league chat available for league operations, but collapse
+- [x] Keep shared league chat available for league operations, but collapse
   blocked-user posts for the blocker, prevent direct replies/mentions between
   the pair, and allow the blocker to reveal a collapsed post when context is
   operationally necessary.
-- [ ] Add in-app report actions for profiles, messages, reviews, and photos.
-- [ ] Store report subject, reporter, reason, target type/ID, timestamps, and
+- [x] Add in-app report actions for profiles, messages, reviews, and photos.
+- [x] Store report subject, reporter, reason, target type/ID, timestamps, and
   moderation status without exposing the reporter to the reported user.
-- [ ] Add an objectionable-text filtering layer and define the photo moderation
+- [x] Add an objectionable-text filtering layer and define the photo moderation
   path. Filtering must fail safely and must not silently publish unreviewed
-  content when the moderation service is unavailable.
-- [ ] Establish a moderation queue or equivalent durable workflow; email alone
+  content when the moderation service is unavailable. Production/staging force
+  enforcement mode; chat delivery, notifications, ratings, edited reviews,
+  court photos, captions, review photos, and avatars respect the documented
+  pending-publication boundary.
+- [x] Establish a moderation queue or equivalent durable workflow; email alone
   is not the system of record.
-- [ ] Add server-side AI triage that classifies severity/category, snapshots the
+- [x] Add server-side AI triage that classifies severity/category, snapshots the
   relevant context, detects repeat behavior, and recommends an action.
-- [ ] Automatically acknowledge receipt to the reporter without having AI make
+  Every report receives structured recommendation-only triage; provider
+  categories, reporter-selected policy reasons, and one-year prior-case counts
+  are recorded without sending unrelated identity data. Restricted evidence
+  snapshots preserve reported/flagged text, profile content, and app-owned media.
+- [x] Automatically acknowledge receipt to the reporter without having AI make
   factual promises about the outcome.
 - [ ] Escalate ordinary cases for human disposition within 24 hours. Immediately
   quarantine and alert the human owner for credible threats, sexual exploitation,
   doxxing, stalking, or other high-severity safety signals.
-- [ ] Keep human approval for bans, appeals, and ambiguous cases at launch;
+  Ordinary cases have 24-hour due times; flagged content is quarantined and
+  urgent triage moves the case due time to now. Owner alert delivery, repeated
+  alerting until acknowledgement, and the specialist incident path remain open.
+- [x] Keep human approval for bans, appeals, and ambiguous cases at launch;
   record AI output, human decision, and every enforcement action in an audit log.
+- [x] Add graduated enforcement: time-bound social/UGC restrictions preserve
+  normal gameplay and shared facts; suspensions and bans limit the account to
+  status, human-reviewed appeal, deletion, and logout surfaces.
+- [x] Add affected-user status/appeal UI and owner controls for time-bound
+  restrictions, suspensions, bans, restoration, and appeal disposition.
 - [ ] Contractually/configurationally prevent moderation content from being used
   to train a provider's general models; minimize submitted context and retention.
+  `store: false`, pseudonymous safety identifiers, and context minimization are
+  implemented; deployment-account data controls and contractual verification remain.
 - [ ] Publish Community Guidelines and a moderation/support contact on
-  `beachleaguevb.com`, then link them in the app.
+  `beachleaguevb.com`, then link them in the app. Repository pages and mobile
+  links are implemented, but production returned `404` for both
+  `/community-guidelines` and `/support` on 2026-08-06.
 - [ ] Add backend, mobile, and abuse-path tests, including blocked-user and
-  deleted-content behavior.
+  deleted-content behavior. Focused policy, moderation-worker, admin, schema,
+  mobile enforcement, and notification tests exist; full abuse-path and
+  deleted-target coverage remain open.
 
 **Acceptance:** A reviewer can report each UGC type, block a user, confirm the
 block takes effect, and reach the published support channel. The team can show
@@ -83,29 +106,26 @@ how reports are reviewed and violating content is removed.
 
 ### IOS-002 — Canonical legal and support links
 
-**Status:** Partially implemented — canonical Terms, Privacy, and Support links
-landed in the first readiness wave. Community Guidelines remain blocked on the
-approved moderation policy, and the new Support page still needs a deployed
-production check.
+**Status:** Repository implementation complete; production URL verification remains.
 
 - [x] Replace every mobile Terms URL with
   `https://beachleaguevb.com/terms-of-service`.
 - [x] Replace every mobile Privacy URL with
   `https://beachleaguevb.com/privacy-policy`.
-- [ ] Add Terms, Privacy, Community Guidelines, and Support links to Settings.
-  Terms, Privacy, and Support are present; Community Guidelines are deferred
-  with IOS-001.
+- [x] Add Terms, Privacy, Community Guidelines, and Support links to Settings.
 - [x] Centralize public URLs so screens cannot drift between domains/routes.
 - [x] Add tests asserting the canonical HTTPS URLs.
 - [ ] Verify every URL returns a public `200` response without authentication
   immediately before submission. Terms and Privacy returned `200` on
-  2026-08-04; repeat for all links after the new Support page is deployed.
+  2026-08-06; Community Guidelines and Support returned `404`. Repeat for all
+  links after both new pages are deployed and again during release-candidate week.
 
 ### IOS-003 — Reproducible production build and environment
 
 **Status:** Partially implemented — EAS profiles, strict API-origin handling,
-native release settings, and local preflight are in place. Project linking,
-credentials, signing, and cloud builds still require account access.  
+native release settings, local preflight, and a validated private release-record
+workflow are in place. Project linking, credentials, signing, and cloud builds
+still require account access.
 **Decision:** Use EAS-managed builds; see D4 for the remaining owner setup.
 
 - [x] Choose and document EAS Build or a local Xcode/Fastlane pipeline.
@@ -121,7 +141,7 @@ credentials, signing, and cloud builds still require account access.
   WebSocket origins now share one validated source; OAuth, universal links,
   and the deployed Support page still need release-candidate verification.
 - [x] Add automatic iOS build-number incrementing and document version policy.
-- [ ] Add a release checklist that records commit SHA, environment, version,
+- [x] Add a release checklist that records commit SHA, environment, version,
   build number, toolchain, artifact, and submitter.
 - [x] Correct build documentation that currently describes unconfigured files
   as already present.
@@ -134,16 +154,43 @@ window to cancel deletion; permanent provider revocation and anonymization occur
 when the window expires.
 
 - [x] Clear `apple_id` when permanent account deletion executes.
-- [ ] Revoke Sign in with Apple credentials using Apple's API.
-- [ ] Confirm Google credentials/data access are disconnected where required.
+- [x] Revoke Sign in with Apple credentials using Apple's API. Native sign-in
+  now sends Apple's one-time authorization code to the backend, which exchanges
+  it for a refresh token, verifies the exchanged identity, and encrypts the
+  token at rest. Permanent deletion transactionally moves the credential to a
+  durable revocation outbox; the deletion worker retries Apple's revocation
+  endpoint indefinitely with capped backoff and erases ciphertext after success.
+  Migration 065 and focused provider/failure tests were validated on 2026-08-06;
+  production must supply the documented Apple key/team/client/encryption secrets.
+- [x] Confirm Google credentials/data access are disconnected where required.
+  Beach League uses only the returned OpenID Connect ID token and persists no
+  Google access token, refresh token, or scoped Google API data. Permanent
+  deletion clears `google_id` and removes the imported avatar copy.
 - [x] Document and implement the agreed scheduling behavior: clearly mark the
   account for deletion, allow sign-in/cancellation during the 30-day window, and
   execute permanent cleanup immediately after the window expires. The app also
   offers an immediate permanent-deletion path as Apple requires.
-- [ ] Verify all user-created messages, reviews, and photos are deleted or
-  irreversibly anonymized as promised by the privacy policy.
-- [ ] Document the narrowly retained match-history fields and legal/product
-  rationale; ensure they cannot be used to reidentify the deleted person.
+- [x] Verify all user-created messages, reviews, and photos are deleted or
+  irreversibly anonymized as promised by the privacy policy. Permanent deletion
+  removes direct and league messages, court reviews, and photo database records,
+  while app-owned avatar, standalone-photo, and review-photo S3 keys are written
+  to a transactional cleanup outbox. The account-deletion worker retries failed
+  S3 deletes indefinitely with capped backoff; focused tests cover all media
+  categories plus provider failure/retry, and DB integration coverage verifies
+  review deletion and durable photo enqueueing (2026-08-06). Retained moderation
+  evidence follows the separately disclosed
+  restricted-retention policy.
+- [x] Document and enforce the narrowly retained match-history contract.
+  Permanent deletion preserves only anonymous match position, score, winner,
+  ranked/public flags, and session/league/season/court context needed for other
+  players' history. The player row remains solely for database foreign-key
+  integrity; ordinary APIs return the participant as a non-clickable `Deleted
+  Player` with a null player ID and no avatar or attributes. Search, discovery,
+  suggestions, invitations, rosters, sitemaps, public profiles, and direct
+  interactions exclude the deleted identity. Creator/updater/inviter
+  attribution is removed from retained factual records. Restricted moderation
+  evidence and audit records continue under their disclosed retention rules;
+  suspensions and bans remain unchanged until permanent deletion (2026-08-06).
 - [ ] Add end-to-end tests for password, Google, and Apple-created accounts,
   including signing up again after deletion.
 
@@ -152,23 +199,32 @@ and the public retention/deletion promises.
 
 ### IOS-005 — Privacy inventory, declarations, and permissions
 
-**Status:** Needs reconciliation
+**Status:** Repository inventory and declaration reconciliation complete; App
+Store Connect entry and final signed-archive verification remain. The canonical
+[privacy inventory](privacy-inventory.md), copy-ready
+[App Store worksheet](app-store-privacy-answers.md), public policy, app privacy
+manifest, and release preflight agree on the current shipping baseline. Sentry's
+approved but not-yet-installed launch delta is documented explicitly.
 
-- [ ] Inventory each collected field, purpose, storage location, retention,
+- [x] Inventory each collected field, purpose, storage location, retention,
   sharing/processor, account-deletion behavior, and whether it is linked to the
   user or used for tracking.
-- [ ] Reconcile the inventory with the public Privacy Policy, App Store Connect
+- [x] Reconcile the inventory with the public Privacy Policy, App Store Connect
   App Privacy answers, and `PrivacyInfo.xcprivacy`.
-- [ ] Include first-party and third-party SDK behavior in App Privacy answers.
+- [x] Include first-party and third-party SDK behavior in App Privacy answers.
 - [ ] Verify every required-reason API declaration in the final archive.
 - [x] Remove the full photo-library permission request when the system picker is
   sufficient.
 - [x] Remove unused Camera, Microphone, and Face ID dependencies/capabilities and
   purpose strings, or implement specific user-facing reasons if retained.
-- [ ] Verify location denial has a usable manual alternative and that the app
-  asks only when the location feature is invoked.
-- [ ] Confirm the app does not track users; if this changes, implement App
-  Tracking Transparency before tracking begins.
+- [x] Verify location denial has a usable manual alternative and that the app
+  asks only when the location feature is invoked. City/location selectors remain
+  usable without GPS, denial paths are covered by mobile tests, and non-location
+  dashboard/session consumers explicitly skip the device permission request.
+- [x] Confirm the app does not track users; if this changes, implement App
+  Tracking Transparency before tracking begins. The checked-in privacy manifest
+  declares `NSPrivacyTracking` false, no tracking/advertising/product-analytics
+  SDK is installed, and product analytics remains explicitly deferred.
 
 ### IOS-006 — Signed archive and TestFlight release candidate
 
@@ -181,8 +237,10 @@ and the public retention/deletion promises.
 - [ ] Inspect the exported archive for production APNs, Sign in with Apple,
   associated domains, keychain groups, privacy manifests, and embedded profile.
 - [ ] Upload successfully and resolve all App Store Connect processing warnings.
-- [ ] Verify production push notifications, Apple/Google login, universal links,
-  deep links, API/WebSocket traffic, and account deletion from TestFlight.
+- [ ] Complete the IOS-009 physical-device push matrix from TestFlight, including
+  foreground, background, terminated-app, tap routing, denied permission,
+  logout, and account-switch behavior; also verify Apple/Google login, universal
+  links, API/WebSocket traffic, and account deletion.
 - [ ] Test a clean install, upgrade, logout/login, offline recovery, expired
   token, denied permissions, and backend error states on physical devices.
 - [ ] Provide App Review with a stable demo account and enough seeded data to
@@ -260,6 +318,65 @@ States and 14 in Canada for v1.
 **Acceptance:** The implementation has youth-privacy/legal review for the launch
 territories, prevents under-13 registration, handles Québec explicitly, and
 does not expose juniors to unrestricted adult contact.
+
+### IOS-009 — Complete native push notification delivery
+
+**Status:** Repository implementation complete; EAS project linking, APNs and
+Expo credentials, signed-build inspection, and physical TestFlight delivery
+remain unverified.
+**Decision:** Complete the existing Expo Push Service architecture for v1. Keep
+WebSockets as the foreground cache transport; use Expo/APNs for background and
+terminated-app delivery. Direct APNs and third-party engagement platforms are
+deferred until product or operational requirements justify the added complexity.
+**Execution:** The repository implementation should land as one focused pass.
+Signed-build credentials and physical-device/TestFlight acceptance remain part
+of IOS-006 because they cannot be proven in a simulator or unsigned build.
+
+- [x] Add a native push manager under the authenticated mobile provider tree.
+  Check the current iOS authorization state, request permission in context, get
+  an Expo push token using the linked EAS project ID, and retry registration
+  safely after login and when the app becomes active.
+- [x] Add typed API-client methods for registering and unregistering push tokens;
+  do not access Axios internals from mobile code.
+- [x] Register the current token to the authenticated user and unregister it
+  before logout or account switch. Handle token rotation and make retries and
+  ownership transfer idempotent so a device cannot keep receiving another
+  account's notifications.
+- [x] Connect the in-app master notification setting to the actual iOS permission
+  state. Enabling it should request authorization when possible; denied users
+  should get accurate status and a path to system Settings rather than a false
+  enabled state.
+- [x] Standardize the push payload envelope with notification ID, type, safe
+  internal link URL, and domain data. Keep message previews privacy-conscious.
+- [x] Handle foreground receipt, background taps, and terminated-app cold-start
+  taps. Reuse the allowlisted notification route resolver, mark the related row
+  read when appropriate, and fall back safely for unsupported routes.
+- [x] Define and test foreground deduplication between WebSocket and push events
+  so one server notification cannot produce duplicate banners, sounds, haptics,
+  unread increments, or cache entries.
+- [x] Ensure every intended notification event, including repeated direct
+  messages that update an existing summary row, still emits the expected push.
+- [x] Move external push delivery off latency-sensitive API request paths. Add
+  bounded retries, batching, Expo ticket/receipt processing, invalid-token
+  cleanup, and observable failure reporting without failing creation of the
+  durable in-app notification.
+- [ ] Enable Expo push access-token security and keep its credential in protected
+  deployment secret storage; never commit it or expose it through an
+  `EXPO_PUBLIC_*` variable. The worker fails closed when delivery is enabled
+  without `EXPO_ACCESS_TOKEN`; enabling enhanced security and installing the
+  production secret remain owner/EAS deployment steps.
+- [x] Add mobile and backend tests for permission states, registration retry,
+  token rotation, logout/account switch, payload routing, cold-start handling,
+  duplicate delivery, preference gating, receipt errors, and stale-token cleanup.
+- [x] Document the operational test-send and receipt-diagnosis procedure without
+  recording real device tokens or credentials in this public repository.
+
+**Acceptance:** A clean TestFlight install on a physical iPhone can opt in,
+receive one correctly routed notification while backgrounded and terminated,
+avoid duplicates in the foreground, respect app and iOS preferences, stop
+delivery after logout, transfer safely on account switch, and surface delivery
+failures through the documented operational path. Complete the signed-build
+matrix in IOS-006 before marking this item done.
 
 ## Current and imminent Apple requirements
 
@@ -392,8 +509,10 @@ AI may classify, summarize, prioritize, quarantine temporarily, and draft; it
 does not permanently ban users or decide appeals. Ordinary cases target a
 24-hour review, while urgent material is quarantined and repeatedly alerts the
 owner.  
-**Open:** Define evidence retention, appeals, and the specialist incident path
-for suspected exploitation or credible imminent threats.
+**Open:** Define evidence retention and the specialist incident path for
+suspected exploitation or credible imminent threats. The affected-user appeal
+flow and human grant/uphold workflow are implemented; operational response-time
+and abuse-drill validation remain.
 
 ### D4 — Build and submission owner
 
@@ -435,7 +554,7 @@ are intentionally designed; PostHog is the leading later candidate.
 to the existing shared Gmail inbox, with the ability to add moderators/support
 staff later. At minimum create `support@` and `safety@`; consider `privacy@`.  
 **Verified:** Cloudflare and Google public DNS resolvers both report Mailgun's
-mail exchangers for the domain. Repository email sending uses SendGrid, which is
+mail exchangers for the domain. Repository email sending uses Resend, which is
 separate. The owner does not currently recognize having Mailgun account access.  
 **Implementation:** Search the owner's email/password manager for the Mailgun
 account and recover it if practical. Otherwise replace the inbound MX records at
@@ -492,9 +611,10 @@ payment rules and privacy declarations before introducing any monetization.
   “Beach League,” version `1.0.0 (1)`, device family `1`, portrait-only phone
   orientations, only the location purpose string, and the checked-in privacy
   manifest with tracking disabled.
-- Public HTTPS checks returned `200` for Terms, Privacy, and `/api/health`.
-  Repeat the complete public-link check after `/support` is deployed and again
-  during release-candidate week.
+- Public HTTPS checks on 2026-08-06 returned `200` for Terms and Privacy, while
+  Community Guidelines and Support returned `404`; `/api/health` passed in the
+  earlier readiness run. Deploy both public pages, then repeat the complete
+  public-link check during release-candidate week.
 
 ## Evidence required to close the launch gate
 
@@ -503,6 +623,8 @@ payment rules and privacy declarations before introducing any monetization.
 - Final privacy inventory and App Store Connect response worksheet.
 - Exported entitlements/profile inspection from the signed archive.
 - TestFlight build number and physical-device test matrix.
+- Final validated release record with source commit, production environment,
+  toolchain, artifact SHA-256, submitter, passed checks, and go/no-go decision.
 - Screenshots of completed age rating, App Privacy, DSA, and listing metadata.
 - App Review demo instructions and credentials stored in the approved private
   system, never in this public repository.
