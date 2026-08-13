@@ -45,6 +45,16 @@ ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@beachleaguevb.com")
 ENABLE_EMAIL = get_bool_env("ENABLE_EMAIL", default=True)
 
 
+def configuration_issues() -> list[str]:
+    """Return missing provider settings without exposing their values."""
+    issues: list[str] = []
+    if not (os.getenv("RESEND_API_KEY") or RESEND_API_KEY):
+        issues.append("RESEND_API_KEY")
+    if not (os.getenv("RESEND_FROM_EMAIL") or RESEND_FROM_EMAIL):
+        issues.append("RESEND_FROM_EMAIL")
+    return issues
+
+
 async def send_email_request(
     to_email: str,
     subject: str,

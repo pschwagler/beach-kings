@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
+from backend.services.platform import email_service
+from backend.services.social import message_write_policy
 from backend.services.stats.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import get_current_user
 
@@ -115,3 +117,34 @@ async def health_check(session: AsyncSession = Depends(get_db_session)):
         return {"status": "healthy", "message": "API is running"}
     except Exception as e:
         return {"status": "unhealthy", "data_available": False, "message": f"Error: {str(e)}"}
+
+
+@router.get("/api/ready", response_model=dict)
+async def readiness_check(session: AsyncSession = Depends(get_db_session)):
+    """Report whether production-facing dependencies are configured."""
+    checks = {"database": "ready", "email": "disabled"}
+    missing: list[str] = []
+    if await email_service.is_enabled(session):
+        email_missing = email_service.configuration_issues()
+        if email_missing:
+            checks["email"] = "misconfigured"
+            missing.extend(email_missing)
+        else:
+            checks["email"] = "ready"
+
+    message_statuses = await message_write_policy.readiness_statuses(session)
+    checks.update(message_statuses)
+    for surface, status in message_statuses.items():
+        if status == "misconfigured":
+            config = message_write_policy.SURFACE_CONFIG[
+                message_write_policy.MessageSurface(surface)
+            ]
+            missing.append(f"{config.setting_key} or {config.env_var}")
+
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "not_ready", "checks": checks, "missing": missing},
+        )
+
+    return {"status": "ready", "checks": checks}

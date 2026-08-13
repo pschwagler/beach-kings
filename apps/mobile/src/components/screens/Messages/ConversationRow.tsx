@@ -24,6 +24,15 @@ export default function ConversationRow({
 }: ConversationRowProps): React.ReactNode {
   const isUnread = conversation.unread_count > 0;
   const isSentByMe = conversation.last_message_sender_id === currentPlayerId;
+  const relativeTime = formatRelativeTime(conversation.last_message_at, { style: 'short' });
+  const accessibilityLabel = [
+    `Conversation with ${conversation.full_name}`,
+    isUnread
+      ? `${conversation.unread_count} unread ${conversation.unread_count === 1 ? 'message' : 'messages'}`
+      : 'No unread messages',
+    `${isSentByMe ? 'You said' : 'Latest message'}: ${conversation.last_message_text}`,
+    relativeTime,
+  ].join('. ');
 
   const handlePress = useCallback(() => {
     void hapticLight();
@@ -35,7 +44,7 @@ export default function ConversationRow({
       testID={`convo-row-${conversation.player_id}`}
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={`Conversation with ${conversation.full_name}`}
+      accessibilityLabel={accessibilityLabel}
       className={`flex-row items-center gap-3 px-4 py-[14px] border-b border-divider active:opacity-70 ${
         isUnread ? 'bg-warning-tint' : 'bg-surface'
       }`}
@@ -64,7 +73,7 @@ export default function ConversationRow({
             {conversation.full_name}
           </AppText>
           <AppText className="text-[11px] text-muted flex-shrink-0 ml-2">
-            {formatRelativeTime(conversation.last_message_at, { style: 'short' })}
+            {relativeTime}
           </AppText>
         </View>
         <AppText

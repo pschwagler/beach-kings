@@ -16,7 +16,7 @@ import pytest
 import pytest_asyncio
 import uuid
 from datetime import date, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from sqlalchemy import select, func
 
@@ -48,7 +48,7 @@ from backend.database.models import (
     CourtReviewPhoto,
     CourtPhoto,
 )
-from backend.services import user_service
+from backend.services import auth_service, moderation_service, user_service
 from backend.services.auth.account_deletion_service import AccountDeletionService
 from backend.utils.datetime_utils import utcnow
 
@@ -253,11 +253,143 @@ async def rich_user(db_session):
         "session_id": sess.id,
         "match_id": match.id,
         "review_id": review.id,
+        "review_photo_id": review_photo.id,
+        "standalone_photo_id": standalone_photo.id,
+        "direct_message_id": dm.id,
+        "league_message_id": lm.id,
         "court_id": court.id,
         "location_id": location.id,
         "review_photo_key": review_photo.s3_key,
         "standalone_photo_key": standalone_photo.s3_key,
     }
+
+
+async def _attach_player(db_session, user_id, name):
+    """Attach the ordinary player profile created by each signup flow."""
+    player = Player(full_name=name, user_id=user_id, gender="M", level="intermediate")
+    db_session.add(player)
+    await db_session.commit()
+    await db_session.refresh(player)
+    return player.id
+
+
+# ---------------------------------------------------------------------------
+# Full signup -> deletion -> re-registration lifecycles
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_password_account_can_register_again_after_permanent_deletion(db_session):
+    """Permanent deletion releases both password-account login identifiers."""
+    phone = _unique_phone()
+    email = f"password-{uuid.uuid4().hex}@example.test"
+
+    first_user_id = await user_service.create_user(
+        db_session,
+        phone_number=phone,
+        email=email,
+        password_hash="first-password-hash",
+    )
+    first_player_id = await _attach_player(db_session, first_user_id, "Password User")
+
+    assert await user_service.execute_account_deletion(db_session, first_user_id) is True
+
+    second_user_id = await user_service.create_user(
+        db_session,
+        phone_number=phone,
+        email=email,
+        password_hash="second-password-hash",
+    )
+    second_player_id = await _attach_player(db_session, second_user_id, "Password User Again")
+
+    assert second_user_id != first_user_id
+    assert second_player_id != first_player_id
+    assert (await user_service.get_user_by_phone(db_session, phone))["id"] == second_user_id
+    assert (await user_service.get_user_by_email(db_session, email))["id"] == second_user_id
+    deleted_user = await user_service.get_user_by_id(db_session, first_user_id)
+    assert deleted_user["deleted_at"] is not None
+    assert deleted_user["phone_number"] is None
+    assert deleted_user["email"] is None
+
+
+@pytest.mark.asyncio
+async def test_google_account_can_register_again_after_permanent_deletion(db_session, monkeypatch):
+    """A mocked Google identity can create a fresh account after deletion."""
+    google_id = f"google-{uuid.uuid4().hex}"
+    email = f"google-{uuid.uuid4().hex}@example.test"
+    provider = MagicMock(return_value={"sub": google_id, "email": email, "name": "Google User"})
+    monkeypatch.setattr(auth_service, "verify_google_id_token", provider, raising=True)
+
+    first_identity = auth_service.verify_google_id_token("first-google-id-token")
+    first_user_id = await user_service.create_google_user(
+        db_session,
+        email=first_identity["email"],
+        google_id=first_identity["sub"],
+        full_name=first_identity["name"],
+    )
+    first_player_id = await _attach_player(db_session, first_user_id, first_identity["name"])
+
+    assert await user_service.execute_account_deletion(db_session, first_user_id) is True
+
+    second_identity = auth_service.verify_google_id_token("second-google-id-token")
+    second_user_id = await user_service.create_google_user(
+        db_session,
+        email=second_identity["email"],
+        google_id=second_identity["sub"],
+        full_name=second_identity["name"],
+    )
+    second_player_id = await _attach_player(db_session, second_user_id, second_identity["name"])
+
+    assert second_user_id != first_user_id
+    assert second_player_id != first_player_id
+    assert (await user_service.get_user_by_google_id(db_session, google_id))[
+        "id"
+    ] == second_user_id
+    assert (await user_service.get_user_by_email(db_session, email))["id"] == second_user_id
+    deleted_user = await user_service.get_user_by_id(db_session, first_user_id)
+    assert deleted_user["deleted_at"] is not None
+    assert deleted_user["google_id"] is None
+    assert deleted_user["email"] is None
+    assert provider.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_apple_account_can_register_again_after_permanent_deletion(db_session, monkeypatch):
+    """A mocked Apple identity can create a fresh account after deletion."""
+    apple_id = f"apple-{uuid.uuid4().hex}"
+    email = f"apple-{uuid.uuid4().hex}@privaterelay.appleid.com"
+    provider = MagicMock(return_value={"sub": apple_id, "email": email})
+    monkeypatch.setattr(auth_service, "verify_apple_id_token", provider, raising=True)
+
+    first_identity = auth_service.verify_apple_id_token("first-apple-id-token")
+    first_user_id = await user_service.create_apple_user(
+        db_session,
+        email=first_identity["email"],
+        apple_id=first_identity["sub"],
+        full_name="Apple User",
+    )
+    first_player_id = await _attach_player(db_session, first_user_id, "Apple User")
+
+    assert await user_service.execute_account_deletion(db_session, first_user_id) is True
+
+    second_identity = auth_service.verify_apple_id_token("second-apple-id-token")
+    second_user_id = await user_service.create_apple_user(
+        db_session,
+        email=second_identity["email"],
+        apple_id=second_identity["sub"],
+        full_name="Apple User Again",
+    )
+    second_player_id = await _attach_player(db_session, second_user_id, "Apple User Again")
+
+    assert second_user_id != first_user_id
+    assert second_player_id != first_player_id
+    assert (await user_service.get_user_by_apple_id(db_session, apple_id))["id"] == second_user_id
+    assert (await user_service.get_user_by_email(db_session, email))["id"] == second_user_id
+    deleted_user = await user_service.get_user_by_id(db_session, first_user_id)
+    assert deleted_user["deleted_at"] is not None
+    assert deleted_user["apple_id"] is None
+    assert deleted_user["email"] is None
+    assert provider.call_count == 2
 
 
 # ---------------------------------------------------------------------------
@@ -619,6 +751,28 @@ async def test_execute_deletion_removes_reviews_and_durably_queues_photos(db_ses
         ).scalars()
     )
     assert queued_keys == {rich_user["review_photo_key"], rich_user["standalone_photo_key"]}
+
+
+@pytest.mark.asyncio
+async def test_deleted_profile_and_ugc_cannot_be_reported(db_session, rich_user):
+    """Reporting fails closed after deletion removes content and tombstones its author."""
+    reporter_id = rich_user["other_player_id"]
+    deleted_targets = (
+        ("player", rich_user["player_id"]),
+        ("direct_message", rich_user["direct_message_id"]),
+        ("league_message", rich_user["league_message_id"]),
+        ("court_review", rich_user["review_id"]),
+        ("court_photo", rich_user["standalone_photo_id"]),
+        ("court_review_photo", rich_user["review_photo_id"]),
+    )
+
+    await user_service.execute_account_deletion(db_session, rich_user["user_id"])
+
+    for target_type, target_id in deleted_targets:
+        with pytest.raises(ValueError, match="Report target not found"):
+            await moderation_service._resolve_target(
+                db_session, reporter_id, target_type, target_id
+            )
 
 
 # ---------------------------------------------------------------------------

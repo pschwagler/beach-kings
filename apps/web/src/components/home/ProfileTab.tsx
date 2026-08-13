@@ -52,7 +52,6 @@ interface ProfileFormData {
   nickname: string;
   gender: string;
   level: string;
-  date_of_birth: string;
   height: string;
   preferred_side: string;
   city: string;
@@ -70,7 +69,6 @@ const DEFAULT_FORM_DATA: ProfileFormData = {
   nickname: '',
   gender: 'male',
   level: 'beginner',
-  date_of_birth: '',
   height: '',
   preferred_side: 'none',
   city: '',
@@ -151,7 +149,6 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         nickname: currentUserPlayer.nickname || '',
         gender: currentUserPlayer.gender || 'male',
         level: currentUserPlayer.level || 'beginner',
-        date_of_birth: currentUserPlayer.date_of_birth || '',
         height: currentUserPlayer.height || '',
         preferred_side: currentUserPlayer.preferred_side || 'none',
         city: cityDisplay,
@@ -208,7 +205,6 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       formDataToCheck.nickname !== initialFormDataToCheck.nickname ||
       formDataToCheck.gender !== initialFormDataToCheck.gender ||
       formDataToCheck.level !== initialFormDataToCheck.level ||
-      formDataToCheck.date_of_birth !== initialFormDataToCheck.date_of_birth ||
       formDataToCheck.height !== initialFormDataToCheck.height ||
       formDataToCheck.preferred_side !== initialFormDataToCheck.preferred_side ||
       formDataToCheck.city !== initialFormDataToCheck.city ||
@@ -280,10 +276,6 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
 
       if (formData.nickname && formData.nickname.trim()) {
         playerPayload.nickname = formData.nickname.trim();
-      }
-
-      if (formData.date_of_birth && formData.date_of_birth.trim()) {
-        playerPayload.date_of_birth = formData.date_of_birth.trim();
       }
 
       if (formData.height && formData.height.trim()) {

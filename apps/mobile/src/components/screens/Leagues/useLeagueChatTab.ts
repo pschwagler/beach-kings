@@ -5,6 +5,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/apiError';
 import type { LeagueChatMessage } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,9 +82,11 @@ export function useLeagueChatTab(
       await queryClient.invalidateQueries({
         queryKey: leagueKeys.chat(userId, leagueId),
       });
-    } catch {
+    } catch (error) {
       setMessageText(text);
-      setSendError('Failed to send message. Tap the arrow to retry.');
+      setSendError(
+        getApiErrorMessage(error, 'Failed to send message. Tap the arrow to retry.'),
+      );
     } finally {
       setIsSending(false);
     }

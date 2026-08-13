@@ -6,7 +6,20 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert, KeyboardAvoidingView, Linking } from 'react-native';
+import { Alert, KeyboardAvoidingView } from 'react-native';
+
+jest.mock('@/components/auth/YouthEligibilityGate', () => {
+  const ReactModule = require('react');
+  return function MockYouthEligibilityGate({ onEligible }: { onEligible: (token: string) => void }) {
+    ReactModule.useEffect(() => onEligible('eligible-token'), [onEligible]);
+    return null;
+  };
+});
+
+const mockOpenPublicWebUrl = jest.fn().mockResolvedValue(true);
+jest.mock('@/lib/externalUrls', () => ({
+  openPublicWebUrl: (url: string) => mockOpenPublicWebUrl(url),
+}));
 
 jest.mock('@/utils/haptics', () => ({
   hapticLight: jest.fn(),
@@ -51,6 +64,7 @@ jest.mock('@/lib/oauth', () => ({
 jest.spyOn(Alert, 'alert');
 
 import SignupScreen from '../../../app/(auth)/signup';
+import { PUBLIC_URLS } from '@/lib/publicUrls';
 
 /** The Create Account button (not the TopNav header). */
 function getCreateButton(helpers: ReturnType<typeof render>) {
@@ -60,7 +74,6 @@ function getCreateButton(helpers: ReturnType<typeof render>) {
 describe('SignupScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   });
 
   it('renders Google OAuth button at the top', () => {
@@ -113,12 +126,12 @@ describe('SignupScreen', () => {
   });
 
   it.each([
-    ['Terms of Service', 'https://beachleaguevb.com/terms-of-service'],
-    ['Privacy Policy', 'https://beachleaguevb.com/privacy-policy'],
+    ['Terms of Service', PUBLIC_URLS.terms],
+    ['Privacy Policy', PUBLIC_URLS.privacy],
   ])('opens the canonical %s URL', (label, expectedUrl) => {
     const { getByText } = render(<SignupScreen />);
     fireEvent.press(getByText(label));
-    expect(Linking.openURL).toHaveBeenCalledWith(expectedUrl);
+    expect(mockOpenPublicWebUrl).toHaveBeenCalledWith(expectedUrl);
   });
 
   it('calls signup with correct params and navigates to verify', async () => {
@@ -137,6 +150,7 @@ describe('SignupScreen', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'StrongPass1!',
+        eligibilityToken: 'eligible-token',
       });
     });
     await waitFor(() => {

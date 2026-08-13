@@ -11,11 +11,14 @@ export type AppSwitchProps = Omit<
 
 export default function AppSwitch(props: AppSwitchProps): React.ReactNode {
   const palette = usePaletteColors();
+  const { accessibilityState, disabled, ...switchProps } = props;
 
   return (
     <Switch
-      {...props}
+      {...switchProps}
+      disabled={disabled}
       accessibilityRole="switch"
+      accessibilityState={{ ...accessibilityState, disabled: disabled === true }}
       trackColor={{ false: palette.borderStrong, true: palette.brandTeal }}
       thumbColor={palette.bgSurface}
       ios_backgroundColor={palette.borderStrong}

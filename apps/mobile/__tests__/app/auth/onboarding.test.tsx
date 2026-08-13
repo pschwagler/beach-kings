@@ -2,7 +2,7 @@
  * Tests for the Onboarding screen.
  * Required fields: gender (BottomSheet), skill level (BottomSheet),
  * city (CityAutocomplete — Geoapify proxy), location (searchable BottomSheet,
- * auto-selected from city). Optional: nickname, date of birth (MM/DD/YYYY).
+ * auto-selected from city). Optional: nickname.
  */
 
 import React from 'react';
@@ -341,34 +341,12 @@ describe('OnboardingScreen', () => {
     expect(await findByLabelText('Retry loading this section')).toBeTruthy();
   });
 
-  it('nickname input advertises autofill hints and chains to DOB', () => {
+  it('nickname input advertises autofill hints and completes the keyboard flow', () => {
     const { getByPlaceholderText } = render(<OnboardingScreen />);
     const nickname = getByPlaceholderText('What do people call you?');
-    expect(nickname.props.returnKeyType).toBe('next');
+    expect(nickname.props.returnKeyType).toBe('done');
     expect(nickname.props.textContentType).toBe('nickname');
     expect(nickname.props.autoComplete).toBe('nickname');
-  });
-
-  it('date of birth input uses MM/DD/YYYY mask with number pad', () => {
-    const { getByTestId } = render(<OnboardingScreen />);
-    const dob = getByTestId('onboarding-dob-input');
-    expect(dob.props.placeholder).toBe('MM/DD/YYYY');
-    expect(dob.props.keyboardType).toBe('number-pad');
-    expect(dob.props.maxLength).toBe(10);
-  });
-
-  it('masks typed digits into MM/DD/YYYY as the user types', () => {
-    const { getByTestId } = render(<OnboardingScreen />);
-    const dob = getByTestId('onboarding-dob-input');
-    fireEvent.changeText(dob, '01151990');
-    expect(dob.props.value).toBe('01/15/1990');
-  });
-
-  it('exposes a calendar button that opens the native picker', () => {
-    const { getByTestId } = render(<OnboardingScreen />);
-    expect(
-      getByTestId('onboarding-dob-input-picker-button'),
-    ).toBeTruthy();
   });
 
   it('City field renders before Skill Level field in the required section', () => {

@@ -38,6 +38,10 @@ def _fake_row(session_status):
         team1_player2_name="Partner",
         team2_player1_name="Opp A",
         team2_player2_name="Opp B",
+        t1p1_is_placeholder=False,
+        t1p2_is_placeholder=False,
+        t2p1_is_placeholder=False,
+        t2p2_is_placeholder=False,
     )
 
 
@@ -97,6 +101,38 @@ class TestSessionSubmittedFlag:
         """Everything except ACTIVE counts as submitted for display."""
         entry = _build_entry(_fake_row(status), player_id=1)
         assert entry["session_submitted"] is expected_submitted
+
+
+class TestRatingPendingReason:
+    def test_waits_for_player_account_when_a_placeholder_is_present(self):
+        row = _fake_row(SessionStatus.SUBMITTED)
+        row.elo_change = None
+        row.t2p1_is_placeholder = True
+
+        entry = _build_entry(row, player_id=1)
+
+        assert entry["rating_pending_reason"] == "player_account"
+
+    def test_waits_for_submission_while_session_is_active(self):
+        row = _fake_row(SessionStatus.ACTIVE)
+        row.elo_change = None
+
+        entry = _build_entry(row, player_id=1)
+
+        assert entry["rating_pending_reason"] == "session_submission"
+
+    def test_marks_unexplained_missing_history_as_calculating(self):
+        row = _fake_row(SessionStatus.SUBMITTED)
+        row.elo_change = None
+
+        entry = _build_entry(row, player_id=1)
+
+        assert entry["rating_pending_reason"] == "calculation"
+
+    def test_calculated_rating_has_no_pending_reason(self):
+        entry = _build_entry(_fake_row(SessionStatus.SUBMITTED), player_id=1)
+
+        assert entry["rating_pending_reason"] is None
 
 
 def test_deleted_opponent_is_a_non_clickable_tombstone():

@@ -62,7 +62,6 @@ export interface Player {
   total_games?: number | null;
   total_wins?: number | null;
   signed_up_at?: string | null;
-  date_of_birth?: string | null;
   height?: string | null;
   preferred_side?: string | null;
   distance_to_location?: number | null;

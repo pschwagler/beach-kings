@@ -358,8 +358,7 @@ test.describe('Signup Flow', () => {
       }
     }
 
-    // Wait for phone input to be visible before filling
-    await page.waitForSelector('input.phone-input__input', { state: 'visible', timeout: 10000 });
+    await authPage.completeAdultEligibility();
 
     // Try to signup with existing phone number
     // fillPhoneNumber already includes waits for phone validation

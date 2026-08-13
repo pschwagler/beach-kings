@@ -195,6 +195,7 @@ export default function Page() {
                 width={200}
                 height={50}
                 className="landing-brand-logo"
+                priority
               />
             </h2>
             <p>Log in to get started</p>

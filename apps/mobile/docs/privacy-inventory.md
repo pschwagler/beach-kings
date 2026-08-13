@@ -27,7 +27,7 @@ is linked to the user unless the row says otherwise.
 | Email Address | Account email | Email/password or federated authentication, account notices, and support | PostgreSQL; Apple or Google for federated login; Resend for transactional email | Active account lifetime; deleted on permanent deletion |
 | Phone Number | Account phone number | SMS verification and account authentication | PostgreSQL; Twilio for SMS delivery | Active account lifetime; deleted on permanent deletion; short-lived verification records expire |
 | Coarse Location | Selected city/state, league location, and saved home courts | Nearby league/court defaults and regional features | PostgreSQL | Active account lifetime; profile location and home-court links are deleted on permanent deletion |
-| Sensitive Info | Date of birth/age fact and gender supplied in the profile | Eligibility and player-profile functionality | PostgreSQL | Active account lifetime; deleted on permanent deletion. IOS-008 will replace unnecessary exact birthdate storage with age-range facts before junior accounts launch |
+| Sensitive Info | Junior/adult group, eligibility country and region, assurance/declaration source, guardian-consent fact, assurance time, and profile gender | Eligibility, junior safeguards, and player-profile functionality | PostgreSQL | Active account lifetime; deleted on permanent deletion. New clients do not collect or derive an exact birthdate. Pre-gate accounts are marked adult from the product owner's account-level attestation; clearing remaining live legacy DOB values is an operator task |
 | Emails or Text Messages | Direct messages and league chat | User-to-user and league communication, safety enforcement | PostgreSQL; OpenAI receives minimized content only when moderation is required | Deleted on permanent account deletion; restricted evidence may remain for 180 days after case closure or longer under legal hold |
 | Photos or Videos | Avatar, court photos, and review photos | Profile and court/review features, safety enforcement | Object storage and PostgreSQL metadata; OpenAI may receive restricted safety evidence | Deleted from primary storage on permanent deletion; restricted evidence follows the moderation retention rule |
 | Gameplay Content | Leagues, seasons, sessions, rosters, matches, scores, rankings, statistics, attendance, and invitations | Core league and gameplay operation | PostgreSQL; Redis may hold short-lived caches | Personal memberships/statistics are deleted. Narrow anonymous completed-match facts may remain indefinitely to preserve other players' records |
@@ -59,21 +59,34 @@ is linked to the user unless the row says otherwise.
 | Expo Push Service | Expo push token and privacy-conscious notification payload | Background/terminated-app delivery; enhanced access-token security is required before production enablement |
 | OpenAI | Minimized reported/flagged text or image evidence and pseudonymous safety identifiers | Safety classification and recommendation-only triage; response storage disabled where supported; no training opt-in; deployment-account controls still require owner verification |
 | Geocoding provider | User-entered city/place search text and, when supplied, transient coordinates | Return autocomplete/nearby results; do not build a user location history |
+| Sentry (US region) | Pseudonymous internal user ID, app/release/environment/route tags, device/OS class, error type, and stack trace | Crash/error diagnostics only; disabled unless a DSN is configured |
 
-## Planned launch delta: Sentry
+## Sentry launch configuration
 
-Sentry is approved in IOS-104 but is not installed in the current app. Do not
-claim that the current binary sends crash or performance data to Sentry. Before
-a Sentry-enabled release:
+The official React Native SDK is installed but sends nothing unless a valid
+HTTPS `EXPO_PUBLIC_SENTRY_DSN` is configured. The production EAS environment
+provides the DSN, organization, and project values without committing them to
+the repository. The repository enforces the following boundary:
 
-- Add Crash Data, Performance Data, and Other Diagnostic Data to the inventory,
-  App Store worksheet, app privacy manifest, and public policy.
-- Use only a pseudonymous internal ID and declare the data linked to the user for
-  App Functionality; keep tracking false.
-- Keep replay, screenshots, attachments, console capture, and broad network
-  request/response capture disabled.
-- Verify the allowlist/drop scrubber removes tokens, contact details, content,
-  exact coordinates, photo URLs, and invite codes before upload.
+- Only a pseudonymous internal user ID is attached; names, email addresses,
+  phone numbers, and provider identities are excluded.
+- JavaScript request/response data, breadcrumbs, arbitrary extras, exception
+  messages, stack-frame variables/source context, mechanism data, tokens,
+  cookies, content, exact coordinates, photo URLs, and invite codes are
+  discarded by a strict allowlist scrubber.
+- Performance tracing, replay, screenshots, attachments, console capture, and
+  broad network capture are disabled. Touch breadcrumbs, diagnostic logs,
+  client reports, and product-interaction tracking are also disabled.
+- Automatic release-health sessions record only the release/environment,
+  pseudonymous user identity, start/status, and error/crash outcome needed to
+  calculate crash-free session rates; they do not record screens or actions.
+- Native crash envelopes do not pass through the JavaScript allowlist. The
+  native SDK is separately configured with default PII, breadcrumbs, extra
+  threads, screenshots, view hierarchy, failed-request capture, tracing, and
+  logs disabled. Native crash diagnostics can still contain app/device/OS
+  metadata and the crashing stack required to diagnose the failure.
+- Crash Data and Other Diagnostic Data are used for App Functionality, linked
+  through the pseudonymous ID, and never used for tracking.
 
 ## Maintenance contract
 
@@ -83,3 +96,5 @@ location retention, or new use of existing data must update this inventory,
 `PrivacyInfo.xcprivacy` in the same release. The release owner must regenerate
 Xcode's aggregate privacy report from the signed archive and verify the
 30-day operational-log retention setting before submission.
+Before the first release build, enable Sentry's server-side PII/IP scrubbing
+and verify sanitized JavaScript and native test events in the US-region project.

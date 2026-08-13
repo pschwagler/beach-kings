@@ -78,7 +78,12 @@ export default function ProfileHeader({
           colorSeed={player?.id}
         />
         {photoBusy ? (
-          <View className="absolute inset-0 rounded-full bg-nav/70 items-center justify-center">
+          <View className="absolute inset-0 rounded-full items-center justify-center overflow-hidden">
+            <View
+              className="absolute inset-0"
+              style={{ backgroundColor: palette.bgNav, opacity: 0.7 }}
+              accessible={false}
+            />
             <ActivityIndicator color={palette.textInverse} />
           </View>
         ) : null}

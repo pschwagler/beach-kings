@@ -170,6 +170,13 @@ export default function NotificationItem({
   const palette = usePaletteColors();
   const { bgClass, iconRole } = getIconConfig(notification.type);
   const iconColor = palette[iconRole];
+  const relativeTime = formatRelativeTime(notification.created_at, { style: 'short' });
+  const accessibilityLabel = [
+    notification.is_read ? 'Read notification' : 'Unread notification',
+    notification.title,
+    notification.message,
+    relativeTime,
+  ].filter((part): part is string => typeof part === 'string' && part.length > 0).join('. ');
 
   const handlePress = useCallback(() => {
     void hapticLight();
@@ -193,7 +200,7 @@ export default function NotificationItem({
       testID={`notification-item-${notification.id}`}
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={notification.title}
+      accessibilityLabel={accessibilityLabel}
       className={`flex-row items-start gap-3 px-4 py-[14px] border-b border-divider active:opacity-70 ${
         notification.is_read ? 'bg-surface' : 'bg-warning-tint'
       }`}
@@ -226,7 +233,7 @@ export default function NotificationItem({
           </AppText>
         )}
         <AppText className="text-[11px] text-tertiary mt-[4px]">
-          {formatRelativeTime(notification.created_at, { style: 'short' })}
+          {relativeTime}
         </AppText>
 
         {/* Friend request actions */}

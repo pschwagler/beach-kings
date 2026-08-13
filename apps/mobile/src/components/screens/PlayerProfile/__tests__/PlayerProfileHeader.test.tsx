@@ -40,6 +40,9 @@ describe('PlayerProfileHeader relationship actions', () => {
     fireEvent.press(view.getByTestId('player-decline-friend-btn'));
     expect(baseProps.onAcceptFriend).toHaveBeenCalledTimes(1);
     expect(baseProps.onDeclineFriend).toHaveBeenCalledTimes(1);
+    expect(
+      view.getByTestId('player-relationship-status').props.accessibilityLabel,
+    ).toBe('Relationship status: Request received');
     expect(view.queryByText('Add Friend')).toBeNull();
   });
 
@@ -48,6 +51,8 @@ describe('PlayerProfileHeader relationship actions', () => {
       <PlayerProfileHeader {...baseProps} friendStatus="friend" />,
     );
     expect(view.getByText('Friends')).toBeTruthy();
+    expect(view.getByTestId('player-relationship-status').props.accessibilityRole).toBeUndefined();
+    expect(view.queryByTestId('player-add-friend-btn')).toBeNull();
     expect(view.queryByText('Add Friend')).toBeNull();
   });
 
@@ -56,5 +61,20 @@ describe('PlayerProfileHeader relationship actions', () => {
       <PlayerProfileHeader {...baseProps} friendStatus="pending_outgoing" />,
     );
     expect(view.getByText('Request sent')).toBeTruthy();
+    expect(
+      view.getByTestId('player-relationship-status').props.accessibilityLabel,
+    ).toBe('Relationship status: Request sent');
+    expect(view.queryByTestId('player-add-friend-btn')).toBeNull();
+  });
+
+  it('keeps Add Friend as an enabled action when no relationship exists', () => {
+    const view = render(
+      <PlayerProfileHeader {...baseProps} friendStatus="none" />,
+    );
+
+    expect(view.getByTestId('player-add-friend-btn')).toHaveAccessibilityState({
+      disabled: false,
+    });
+    expect(view.queryByTestId('player-relationship-status')).toBeNull();
   });
 });

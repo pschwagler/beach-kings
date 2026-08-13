@@ -23,23 +23,23 @@
     "ajv": "^8.17.1",
     "baseline-browser-mapping": "^2.10.0",
     "prettier": "^3.2.5",
-    "react-test-renderer": "19.1.0",
+    "react-test-renderer": "19.2.3",
     "turbo": "^2.0.0",
     "typescript": "^5.3.3"
   },
-  "packageManager": "npm@10.0.0",
+  "packageManager": "npm@11.19.0",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.13.0"
   },
   "overrides": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-test-renderer": "19.1.0"
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-test-renderer": "19.2.3"
   },
   "dependencies": {
     "react-native-web": "^0.21.0",
-    "expo": "~54.0.36",
-    "react": "19.1.0",
-    "react-native": "0.81.5"
+    "expo": "^57.0.0",
+    "react": "19.2.3",
+    "react-native": "0.86.2"
   }
 }

@@ -177,9 +177,9 @@ function validateReleaseRecord(record, { final = false } = {}) {
     requireValue(typeof record?.release?.easBuildId === 'string' && record.release.easBuildId.length > 0, 'EAS build ID is required');
     requireValue(record?.source?.clean === true, 'release commit must have a clean worktree');
     requireValue(record?.toolchain?.source === 'eas-build-log', 'toolchain must be verified from the EAS build log');
-    requireValue(record?.toolchain?.easImage === 'macos-sequoia-15.6-xcode-26.2', 'approved EAS image is required');
-    requireValue(versionAtLeast(record?.toolchain?.xcodeVersion, [26, 2]), 'Xcode 26.2 or later is required');
-    requireValue(versionAtLeast(record?.toolchain?.iosSdkVersion, [26, 2]), 'iOS SDK 26.2 or later is required');
+    requireValue(record?.toolchain?.easImage === 'macos-tahoe-26.5-xcode-26.6', 'approved EAS image is required');
+    requireValue(versionAtLeast(record?.toolchain?.xcodeVersion, [26, 4]), 'Xcode 26.4 or later is required');
+    requireValue(versionAtLeast(record?.toolchain?.iosSdkVersion, [26, 4]), 'iOS SDK 26.4 or later is required');
     requireValue(typeof record?.artifact?.fileName === 'string' && record.artifact.fileName.endsWith('.ipa'), 'IPA artifact file name is required');
     requireValue(Number.isInteger(record?.artifact?.sizeBytes) && record.artifact.sizeBytes > 0, 'artifact size is required');
     requireValue(/^[0-9a-f]{64}$/.test(record?.artifact?.sha256 ?? ''), 'artifact SHA-256 is required');

@@ -23,7 +23,7 @@ export default function TermsOfServicePageRoute() {
             Terms of Service
           </h1>
           <p className="legal-page-date">
-            <strong>Last updated:</strong> December 2, 2025
+            <strong>Last updated:</strong> August 11, 2026
           </p>
         </div>
         
@@ -40,7 +40,9 @@ export default function TermsOfServicePageRoute() {
           <h3>
             2. Eligibility
           </h3>
-          <p>You must be at least 18 years of age to use this Service. By using the Service, you represent and warrant that you are at least 18 years old and have the legal capacity to enter into these Terms. The Service is intended for users in the United States.</p>
+          <p>Beach League is available to people who are at least 13 years old in the United States and at least 14 years old in Canada, including Québec. People below the applicable minimum age may not create or use an account.</p>
+          <p>If you are below the age of majority where you live, your parent or legal guardian must review these Terms and our Privacy Policy and consent to your use of the Service. By creating a junior account, you confirm that this consent has been given. A parent or legal guardian who consents is responsible for the minor&apos;s use of the Service.</p>
+          <p>We use an age-range check before registration and may restrict or close an account if we reasonably determine that the account holder is below the applicable minimum age or that required consent was not provided.</p>
 
           <h3>
             3. Description of Service

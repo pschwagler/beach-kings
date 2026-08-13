@@ -125,11 +125,25 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     }
   };
 
+  // The Navbar must render in every state — including while auth initializes
+  // and during the anonymous redirect — per the repo rule that every web page
+  // includes the Navbar, including unauthenticated pages.
+  const signedOutNavBar = (
+    <NavBar
+      isLoggedIn={false}
+      onSignIn={() => openAuthModal("sign-in")}
+      onSignUp={() => openAuthModal("sign-up")}
+    />
+  );
+
   if (isInitializing) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <Loader2 size={32} className="spin" style={{ color: 'var(--primary)' }} />
-      </div>
+      <>
+        {signedOutNavBar}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <Loader2 size={32} className="spin" style={{ color: 'var(--primary)' }} />
+        </div>
+      </>
     );
   }
 
@@ -137,11 +151,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     if (sessionExpired) {
       return (
         <>
-          <NavBar
-            isLoggedIn={false}
-            onSignIn={() => openAuthModal("sign-in")}
-            onSignUp={() => openAuthModal("sign-up")}
-          />
+          {signedOutNavBar}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px', padding: '24px', textAlign: 'center' }}>
             <p style={{ fontSize: '16px', color: 'var(--gray-700)' }}>Your session has expired. Please sign in again.</p>
             <button
@@ -155,7 +165,9 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
         </>
       );
     }
-    return null;
+    // Anonymous users are redirected to "/" by the effect above; render the
+    // Navbar during the interim so the page never appears without it.
+    return signedOutNavBar;
   }
 
   return (

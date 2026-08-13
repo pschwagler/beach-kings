@@ -176,6 +176,10 @@ ENVEOF
               exit 1
             fi
 
+            echo "=== Required public pages ==="
+            bash deployment/verify-public-web-routes.sh http://localhost:3000
+            bash deployment/verify-public-web-routes.sh https://dev.beachleaguevb.com
+
             echo ""
             echo "=== Deploy complete ==="
             echo "🌐 https://dev.beachleaguevb.com"

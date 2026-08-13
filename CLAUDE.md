@@ -85,7 +85,9 @@ agent-device --session bk app-switcher      # show app switcher (fallback when "
 
 **Debugging mobile API calls:**
 - `agent-device network dump` does NOT capture React Native `fetch` calls — iOS Unified Logging doesn't expose them. Diagnose API issues by reading source code instead (check `packages/api-client/src/methods.ts` and `apps/mobile/src/lib/api.ts`).
-- Backend API base URL is set in root `.env` as `EXPO_PUBLIC_API_URL` (e.g. `http://192.168.50.103:8000`).
+- Backend and public-web origins are set in root `.env` as `EXPO_PUBLIC_API_URL`
+  and `EXPO_PUBLIC_WEB_URL` (for example, `http://192.168.50.103:8000` and
+  `http://192.168.50.103:3000`).
 
 **After backend code changes:** the backend runs from a pre-built Docker image with no hot reload. Always rebuild and restart:
 ```bash

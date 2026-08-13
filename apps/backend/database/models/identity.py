@@ -51,6 +51,13 @@ class User(Base):
     show_game_history = Column(
         Boolean, nullable=False, server_default="false"
     )  # Show full match history on public profile
+    age_group = Column(String(20), nullable=True)  # null for legacy accounts; junior or adult
+    eligibility_country = Column(String(2), nullable=True)
+    eligibility_region = Column(String(2), nullable=True)
+    age_assurance_source = Column(String(40), nullable=True)
+    age_declaration_source = Column(String(40), nullable=True)
+    guardian_consent = Column(Boolean, nullable=True)
+    age_assured_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -79,6 +86,11 @@ class User(Base):
             "moderation_status IN ('active', 'suspended', 'banned')",
             name="ck_users_moderation_status",
         ),
+        CheckConstraint(
+            "age_group IS NULL OR age_group IN ('junior', 'adult')",
+            name="ck_users_age_group",
+        ),
+        Index("idx_users_age_group", "age_group"),
     )
 
 

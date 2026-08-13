@@ -414,12 +414,18 @@ describe('LeagueDetailScreen — navigation', () => {
 // ---------------------------------------------------------------------------
 
 describe('LeagueDetailScreen — error', () => {
-  it('renders error state when detail query fails', async () => {
-    mockGetLeague.mockRejectedValue(new Error('not found'));
+  it('renders a terminal unavailable state without a manual retry action', async () => {
+    mockGetLeague.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404 },
+    });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('league-detail-error')).toBeTruthy();
     });
+    expect(screen.getByText('League unavailable')).toBeTruthy();
+    expect(screen.queryByText('Try Again')).toBeNull();
+    expect(mockGetLeague).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -83,13 +83,10 @@ export function useTournamentCreateScreen(): UseTournamentCreateScreenResult {
   }, [
     name,
     scheduledDate,
-    maxPlayers,
     numCourts,
     gameTo,
-    scoreCap,
     gender,
     format,
-    registrationType,
     router,
   ]);
 

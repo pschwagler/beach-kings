@@ -7,7 +7,6 @@ import React from 'react';
 import AppText from '@/components/ui/AppText';
 import { Pressable, View } from 'react-native';
 import { formatLocation, type Player } from '@beach-kings/shared';
-import { parseCalendarDate } from '@/lib/calendarDate';
 import type { ProfileEditorKey } from './profileEditorModel';
 
 interface InfoRowProps {
@@ -82,17 +81,6 @@ function formatEnumLabel(value: string | null | undefined): string | null {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
-function formatDateOfBirth(dob: string | null | undefined): string | null {
-  if (dob == null) return null;
-  const d = parseCalendarDate(dob);
-  if (d == null) return null;
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
 export default function ProfileInfoSection({ player, onEdit }: ProfileInfoSectionProps): React.ReactNode {
   const firstName = player.first_name ?? player.name?.split(' ')[0] ?? null;
   const lastName =
@@ -125,13 +113,6 @@ export default function ProfileInfoSection({ player, onEdit }: ProfileInfoSectio
           emptyLabel="Add gender"
           required
           onPress={() => onEdit('gender')}
-        />
-
-        <InfoRow
-          label="Date of Birth"
-          value={formatDateOfBirth(player.date_of_birth)}
-          emptyLabel="Add birthday"
-          onPress={() => onEdit('birthday')}
         />
 
         <InfoRow

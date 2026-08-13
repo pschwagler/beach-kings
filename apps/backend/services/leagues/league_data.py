@@ -1857,15 +1857,20 @@ async def delete_court(session: AsyncSession, court_id: int) -> bool:
 async def get_league_home_courts(session: AsyncSession, league_id: int) -> List[Dict]:
     """Get all home courts for a league, ordered by position."""
     result = await session.execute(
-        select(LeagueHomeCourt, Court)
+        select(
+            LeagueHomeCourt.position,
+            Court.id,
+            Court.name,
+            Court.address,
+        )
         .join(Court, Court.id == LeagueHomeCourt.court_id)
         .where(LeagueHomeCourt.league_id == league_id)
         .order_by(LeagueHomeCourt.position.asc(), Court.name.asc())
     )
     rows = result.all()
     return [
-        {"id": court.id, "name": court.name, "address": court.address, "position": lhc.position}
-        for lhc, court in rows
+        {"id": court_id, "name": name, "address": address, "position": position}
+        for position, court_id, name, address in rows
     ]
 
 

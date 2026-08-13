@@ -124,6 +124,24 @@ def _build_entry(
     if row.elo_change is not None:
         rating_change = int(round(row.elo_change))
 
+    has_placeholder = any(
+        bool(getattr(row, field, False))
+        for field in (
+            "t1p1_is_placeholder",
+            "t1p2_is_placeholder",
+            "t2p1_is_placeholder",
+            "t2p2_is_placeholder",
+        )
+    )
+    rating_pending_reason: Optional[str] = None
+    if rating_change is None:
+        if not session_submitted:
+            rating_pending_reason = "session_submission"
+        elif has_placeholder:
+            rating_pending_reason = "player_account"
+        else:
+            rating_pending_reason = "calculation"
+
     session_date = _normalize_session_date(getattr(row, "session_date", None))
 
     return {
@@ -142,6 +160,7 @@ def _build_entry(
         "opponent_ids": opponent_ids,
         "rating_change": rating_change,
         "session_submitted": session_submitted,
+        "rating_pending_reason": rating_pending_reason,
     }
 
 
@@ -207,6 +226,10 @@ async def get_my_games(
             p2.deleted_at.label("t1p2_deleted_at"),
             p3.deleted_at.label("t2p1_deleted_at"),
             p4.deleted_at.label("t2p2_deleted_at"),
+            p1.is_placeholder.label("t1p1_is_placeholder"),
+            p2.is_placeholder.label("t1p2_is_placeholder"),
+            p3.is_placeholder.label("t2p1_is_placeholder"),
+            p4.is_placeholder.label("t2p2_is_placeholder"),
             eh.elo_change,
             Session.status.label("session_status"),
             Session.date.label("session_date"),

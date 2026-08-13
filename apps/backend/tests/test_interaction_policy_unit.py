@@ -27,6 +27,7 @@ def test_every_declared_action_has_an_explicit_rule():
         (_PairState(other_blocks_viewer=True), DenialReason.BLOCKED_BY_OTHER),
         (_PairState(viewer_restricted=True), DenialReason.VIEWER_RESTRICTED),
         (_PairState(other_restricted=True), DenialReason.OTHER_RESTRICTED),
+        (_PairState(viewer_unavailable=True), DenialReason.PLAYER_UNAVAILABLE),
         (_PairState(other_unavailable=True), DenialReason.PLAYER_UNAVAILABLE),
     ],
 )

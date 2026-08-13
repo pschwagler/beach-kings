@@ -964,6 +964,13 @@ async def discover_players(
     base_query = interaction_policy.exclude_blocked_players(
         base_query, caller_player_id, Player.id
     )
+    from backend.services import youth_interaction_policy
+
+    base_query = base_query.where(
+        youth_interaction_policy.discovery_visibility(
+            Player.id, Player.user_id, caller_player_id
+        )
+    )
 
     # Apply filters
     if search:
@@ -1199,6 +1206,8 @@ async def get_friend_suggestions(
         return []
 
     # --- 7. Hydrate player details ---
+    from backend.services import youth_interaction_policy
+
     top_ids = [t[0] for t in top]
     player_result = await session.execute(
         select(
@@ -1216,6 +1225,9 @@ async def get_friend_suggestions(
                 Player.id.in_(top_ids),
                 Player.user_id.isnot(None),
                 Player.deleted_at.is_(None),
+                youth_interaction_policy.discovery_visibility(
+                    Player.id, Player.user_id, player_id
+                ),
             )
         )
     )

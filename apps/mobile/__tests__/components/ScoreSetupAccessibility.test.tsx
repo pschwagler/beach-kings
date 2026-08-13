@@ -44,12 +44,12 @@ describe('score setup accessibility', () => {
     );
 
     expect(screen.getByTestId('active-slot-label')).toHaveTextContent(
-      'Choose Team 1 player 1',
+      'Pick the first player for Team 1',
     );
-    expect(screen.getByLabelText('Add Team 1 player 1')).toBeTruthy();
-    expect(screen.getByLabelText('Add Team 1 player 2')).toBeTruthy();
-    expect(screen.getByLabelText('Add Team 2 player 1')).toBeTruthy();
-    expect(screen.getByLabelText('Add Team 2 player 2')).toBeTruthy();
+    expect(screen.getByLabelText('Pick the first player for Team 1')).toBeTruthy();
+    expect(screen.getByLabelText('Pick the second player for Team 1')).toBeTruthy();
+    expect(screen.getByLabelText('Pick the first player for Team 2')).toBeTruthy();
+    expect(screen.getByLabelText('Pick the second player for Team 2')).toBeTruthy();
   });
 
   it('announces slot changes without claiming a player was added', () => {
@@ -78,7 +78,7 @@ describe('score setup accessibility', () => {
       />,
     );
 
-    expect(announceSpy).toHaveBeenCalledWith('Choose Team 2 player 1');
+    expect(announceSpy).toHaveBeenCalledWith('Pick the first player for Team 2');
     expect(announceSpy).not.toHaveBeenCalledWith(
       expect.stringContaining('Player added'),
     );

@@ -5,7 +5,6 @@ import {
   Alert,
   ScrollView,
   Platform,
-  Linking,
   TextInput,
   KeyboardAvoidingView,
 } from 'react-native';
@@ -31,10 +30,13 @@ import {
 } from '@/lib/oauth';
 import { routes } from '@/lib/navigation';
 import { PUBLIC_URLS } from '@/lib/publicUrls';
+import { openPublicWebUrl } from '@/lib/externalUrls';
 import { hapticError, hapticLight } from '@/utils/haptics';
 import { signupSchema, type SignupFormValues } from '@/lib/validators';
+import YouthEligibilityGate from '@/components/auth/YouthEligibilityGate';
 
 export default function SignupScreen(): React.ReactNode {
+  const [eligibilityToken, setEligibilityToken] = useState<string | null>(null);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const { signup, loginWithGoogle, loginWithApple } = useAuth();
   const palette = usePaletteColors();
@@ -73,7 +75,7 @@ export default function SignupScreen(): React.ReactNode {
   const handleGoogleToken = useCallback(
     async (idToken: string) => {
       try {
-        await loginWithGoogle(idToken);
+        await loginWithGoogle(idToken, eligibilityToken ?? undefined);
       } catch {
         void hapticError();
         Alert.alert(
@@ -82,7 +84,7 @@ export default function SignupScreen(): React.ReactNode {
         );
       }
     },
-    [loginWithGoogle],
+    [eligibilityToken, loginWithGoogle],
   );
 
   const { promptGoogle } = useGoogleSignIn(handleGoogleToken);
@@ -96,6 +98,7 @@ export default function SignupScreen(): React.ReactNode {
           password: values.password,
           firstName: values.firstName.trim(),
           lastName: values.lastName.trim(),
+          eligibilityToken: eligibilityToken!,
         });
         router.push({ pathname: routes.verify(), params: { email } });
       } catch {
@@ -106,7 +109,7 @@ export default function SignupScreen(): React.ReactNode {
         );
       }
     },
-    [signup, router],
+    [eligibilityToken, signup, router],
   );
 
   const handleGoogleSignIn = useCallback(async () => {
@@ -124,17 +127,17 @@ export default function SignupScreen(): React.ReactNode {
   }, [promptGoogle]);
 
   const handleTos = useCallback(() => {
-    void Linking.openURL(PUBLIC_URLS.terms);
+    void openPublicWebUrl(PUBLIC_URLS.terms);
   }, []);
 
   const handlePrivacy = useCallback(() => {
-    void Linking.openURL(PUBLIC_URLS.privacy);
+    void openPublicWebUrl(PUBLIC_URLS.privacy);
   }, []);
 
   const handleAppleSignIn = useCallback(async () => {
     try {
       const credential = await signInWithApple();
-      await loginWithApple(credential);
+      await loginWithApple({ ...credential, eligibilityToken: eligibilityToken ?? undefined });
     } catch (err) {
       if (err instanceof OAuthCancelledError) return;
       if (err instanceof OAuthNotConfiguredError) {
@@ -144,9 +147,20 @@ export default function SignupScreen(): React.ReactNode {
       void hapticError();
       Alert.alert('Sign Up Failed', 'Apple sign-in failed. Please try again.');
     }
-  }, [loginWithApple]);
+  }, [eligibilityToken, loginWithApple]);
 
   const showApple = Platform.OS === 'ios' && appleAvailable;
+
+  if (!eligibilityToken) {
+    return (
+      <SafeAreaView className="flex-1 bg-page">
+        <TopNav title="Age & Location" showBack />
+        <ScrollView className="flex-1 px-lg" contentContainerClassName="py-lg">
+          <YouthEligibilityGate onEligible={setEligibilityToken} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-page">

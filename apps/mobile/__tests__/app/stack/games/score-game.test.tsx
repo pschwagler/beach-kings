@@ -1478,7 +1478,7 @@ describe('ScoreGameScreen — Add New Player flow', () => {
 
     // Guest player should now occupy team1-slot0 with its team/position context.
     await waitFor(() => {
-      expect(screen.getByLabelText('Team 1 player 1, Brad K, guest')).toBeTruthy();
+      expect(screen.getByLabelText('first player for Team 1, Brad K, guest')).toBeTruthy();
     });
   });
 

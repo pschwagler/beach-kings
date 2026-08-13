@@ -214,6 +214,7 @@ const mockAlert = jest
 // ---------------------------------------------------------------------------
 
 import SettingsRoute from '../../../../app/(stack)/settings';
+import { PUBLIC_URLS } from '@/lib/publicUrls';
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -392,25 +393,24 @@ describe('SettingsScreen — connected accounts', () => {
 // ---------------------------------------------------------------------------
 
 describe('SettingsScreen — contact support', () => {
-  it('opens the canonical public support page', async () => {
+  it('opens the in-app support screen', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-contact'));
-    await waitFor(() => {
-      expect(mockOpenURL).toHaveBeenCalledTimes(1);
-    });
-    const calledUrl = mockOpenURL.mock.calls[0][0] as string;
-    expect(calledUrl).toBe('https://beachleaguevb.com/support');
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/settings/support');
+    expect(mockOpenURL).not.toHaveBeenCalled();
   });
 });
 
 describe('SettingsScreen — legal links', () => {
   it.each([
-    ['settings-row-terms', 'https://beachleaguevb.com/terms-of-service'],
-    ['settings-row-privacy-policy', 'https://beachleaguevb.com/privacy-policy'],
-  ])('opens the canonical URL from %s', (testID, expectedUrl) => {
+    ['settings-row-terms', PUBLIC_URLS.terms],
+    ['settings-row-privacy-policy', PUBLIC_URLS.privacy],
+  ])('opens the canonical URL from %s', async (testID, expectedUrl) => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId(testID));
-    expect(mockOpenURL).toHaveBeenCalledWith(expectedUrl);
+    await waitFor(() => {
+      expect(mockOpenURL).toHaveBeenCalledWith(expectedUrl);
+    });
   });
 });
 

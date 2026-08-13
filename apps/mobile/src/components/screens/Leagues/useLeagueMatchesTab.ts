@@ -203,22 +203,25 @@ export function useLeagueMatchesTab(
   const allGamesQuery = useInfiniteQuery(
     leagueQueries.allGames(userId, leagueId, allModeEnabled),
   );
+  const hasNextAllGamesPage = allGamesQuery.hasNextPage;
+  const isFetchingNextAllGamesPage = allGamesQuery.isFetchingNextPage;
+  const fetchNextAllGamesPage = allGamesQuery.fetchNextPage;
 
   // The UI promises a complete session history. Continue through the
   // league-games pages before revealing the cards so no session is truncated.
   useEffect(() => {
     if (
       allModeEnabled &&
-      allGamesQuery.hasNextPage &&
-      !allGamesQuery.isFetchingNextPage
+      hasNextAllGamesPage &&
+      !isFetchingNextAllGamesPage
     ) {
-      void allGamesQuery.fetchNextPage();
+      void fetchNextAllGamesPage();
     }
   }, [
     allModeEnabled,
-    allGamesQuery.fetchNextPage,
-    allGamesQuery.hasNextPage,
-    allGamesQuery.isFetchingNextPage,
+    fetchNextAllGamesPage,
+    hasNextAllGamesPage,
+    isFetchingNextAllGamesPage,
   ]);
 
   const mineGroups = useMemo(

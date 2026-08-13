@@ -244,6 +244,16 @@ describe('MessagesTab — conversations list', () => {
     });
   });
 
+  it('exposes preview and unread context in the conversation row label', async () => {
+    render(<MessagesTab />);
+    await waitFor(() => {
+      const label = screen.getByTestId('convo-row-10').props.accessibilityLabel as string;
+      expect(label).toContain('Conversation with Alex Torres');
+      expect(label).toContain('2 unread messages');
+      expect(label).toContain('Latest message: Are you in for Sunday?');
+    });
+  });
+
   it('seeds each row avatar color from the peer player id (S2)', async () => {
     render(<MessagesTab />);
     await waitFor(() => {

@@ -64,6 +64,11 @@ async def list_players(
     include_placeholders (bool, requires auth), session_id (int, for placeholder scoping).
     """
     try:
+        viewer_player = (
+            await data_service.get_player_by_user_id(session, current_user["id"])
+            if current_user
+            else None
+        )
         items, total = await data_service.list_players_search(
             session,
             q=q,
@@ -75,6 +80,7 @@ async def list_players(
             offset=offset,
             include_placeholders=include_placeholders,
             session_id=session_id,
+            viewer_player_id=viewer_player["id"] if viewer_player else None,
         )
         return {"items": items, "total_count": total}
     except Exception as e:

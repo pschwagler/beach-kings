@@ -33,6 +33,8 @@ from .auth import CheckPhoneRequest
 from .auth import PhoneAddRequest
 from .auth import PhoneAddVerify
 from .auth import GoogleAuthRequest
+from .auth import YouthEligibilityRequest
+from .auth import YouthEligibilityResponse
 from .auth import AppleAuthRequest
 from .auth import LinkProviderRequest
 from .auth import AuthResponse
@@ -298,6 +300,8 @@ __all__ = [
     "PhoneAddRequest",
     "PhoneAddVerify",
     "GoogleAuthRequest",
+    "YouthEligibilityRequest",
+    "YouthEligibilityResponse",
     "AppleAuthRequest",
     "LinkProviderRequest",
     "AuthResponse",

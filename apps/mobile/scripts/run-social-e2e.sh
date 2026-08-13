@@ -42,19 +42,32 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-if [ -f "${REPO_ROOT}/.env" ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${REPO_ROOT}/.env"
-  set +a
-fi
+load_env_file() {
+  local env_file="$1"
+  local key
+  local value
 
-if [ -f "${MOBILE_DIR}/.env" ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${MOBILE_DIR}/.env"
-  set +a
-fi
+  [ -f "$env_file" ] || return 0
+
+  # Treat .env files as data rather than shell scripts. Values such as
+  # `Beach League <noreply@example.com>` are valid dotenv but invalid Bash,
+  # and sourcing the file would also execute command substitutions.
+  while IFS='=' read -r key value || [ -n "$key" ]; do
+    key="${key#export }"
+    key="${key%$'\r'}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+
+    value="${value%$'\r'}"
+    if [[ "$value" =~ ^\".*\"$ ]] || [[ "$value" =~ ^\'.*\'$ ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+    printf -v "$key" '%s' "$value"
+    export "$key"
+  done <"$env_file"
+}
+
+load_env_file "${REPO_ROOT}/.env"
+load_env_file "${MOBILE_DIR}/.env"
 
 BACKEND_URL="${BACKEND_URL:-${EXPO_PUBLIC_API_URL:-http://localhost:8000}}"
 METRO_URL="${METRO_URL:-http://localhost:8081}"
@@ -99,6 +112,18 @@ maestro_cmd() {
 open_sim_url() {
   local url="$1"
   xcrun simctl openurl "$SIMULATOR_UDID" "$url"
+}
+
+configure_dev_menu_for_e2e() {
+  # Expo's Tools button is useful interactively but sits above application UI
+  # and can intercept top-right taps. Keep it enabled for normal development;
+  # disable it only in this simulator's app preferences for the E2E run.
+  xcrun simctl spawn "$SIMULATOR_UDID" defaults write "$APP_ID" \
+    EXDevMenuShowFloatingActionButton -bool false
+  xcrun simctl spawn "$SIMULATOR_UDID" defaults write "$APP_ID" \
+    EXDevMenuShowsAtLaunch -bool false
+  xcrun simctl spawn "$SIMULATOR_UDID" defaults write "$APP_ID" \
+    EXDevMenuIsOnboardingFinished -bool true
 }
 
 prepare_social_fixture() {
@@ -260,7 +285,7 @@ prepare_social_fixture
 
 encoded_metro_url="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$METRO_URL")"
 xcrun simctl terminate "$SIMULATOR_UDID" "$APP_ID" >/dev/null 2>&1 || true
-open_sim_url "${APP_ID}://expo-development-client/?url=${encoded_metro_url}"
+configure_dev_menu_for_e2e
 
 tmp_flow="$(mktemp /tmp/beach-kings-dev-login.XXXXXX)"
 trap 'rm -f "$tmp_flow"' EXIT
@@ -268,8 +293,17 @@ trap 'rm -f "$tmp_flow"' EXIT
   printf 'appId: %s\n' "$APP_ID"
   printf '%s\n' '---'
   printf '%s\n' '- launchApp:'
-  printf '%s\n' '    clearState: true'
   printf '%s\n' '    stopApp: true'
+  # launchApp(clearState) returns an Expo development build to its launcher.
+  # Open Metro after clearing state so the flow tests Beach League itself.
+  printf '%s\n' '- openLink:'
+  printf '%s\n' "    link: \"${APP_ID}://expo-development-client/?url=${encoded_metro_url}\""
+  printf '%s\n' '- runFlow:'
+  printf '%s\n' '    when:'
+  printf '%s\n' '      visible: "Open in .*Beach League.*"'
+  printf '%s\n' '    commands:'
+  printf '%s\n' '      - tapOn:'
+  printf '%s\n' '          point: "70%,56%"'
   # clearState does not clear the iOS Keychain, where expo-secure-store keeps
   # the session token — a simulator with a live session opens straight to
   # Home instead of the landing screen. When that happens (tab bar visible),
@@ -288,8 +322,10 @@ trap 'rm -f "$tmp_flow"' EXIT
   printf '%s\n' '          id: "settings-logout-btn"'
   printf '%s\n' '      - tapOn:'
   printf '%s\n' '          id: "logout-confirm-btn"'
-  printf '%s\n' '- assertVisible: "BEACH LEAGUE"'
-  printf '%s\n' '- tapOn: "I already have an account"'
+  printf '%s\n' '- assertVisible:'
+  printf '%s\n' '    id: "welcome-sign-in-link"'
+  printf '%s\n' '- tapOn:'
+  printf '%s\n' '    id: "welcome-sign-in-link"'
   printf '%s\n' '- assertVisible: "Welcome back"'
   printf '%s\n' '- tapOn:'
   printf '%s\n' '    text: "Email"'

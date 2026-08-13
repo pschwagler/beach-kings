@@ -36,6 +36,10 @@ TARGET_MODELS = {
     "court_photo": CourtPhoto,
     "court_review_photo": CourtReviewPhoto,
 }
+AUTOMATIC_BAN_CATEGORIES = frozenset({"sexual/minors", "sexual/minors/explicit"})
+AUTOMATIC_SUSPEND_CATEGORIES = frozenset(
+    {"harassment/threatening", "hate/threatening", "illicit/violent"}
+)
 
 
 def moderation_mode() -> str:
@@ -57,6 +61,12 @@ def content_revision(value: str | None) -> str:
 def validate_worker_config() -> None:
     if moderation_mode() != "off" and not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY is required when moderation is enabled")
+    try:
+        threshold = float(os.getenv("MODERATION_AUTO_ENFORCE_SCORE", "0.95"))
+    except ValueError as exc:
+        raise RuntimeError("MODERATION_AUTO_ENFORCE_SCORE must be a number") from exc
+    if not 0 < threshold <= 1:
+        raise RuntimeError("MODERATION_AUTO_ENFORCE_SCORE must be greater than 0 and at most 1")
     from backend.services.moderation.moderation_alerts import validate_alert_config
 
     validate_alert_config()
@@ -74,6 +84,37 @@ def provider_incident_type(categories: dict[str, Any]) -> str | None:
     if flagged & {"illicit/violent", "violence/graphic", "violence"}:
         return "other_urgent"
     return None
+
+
+def automatic_enforcement_decision(
+    categories: dict[str, Any], category_scores: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Return a bounded account action only for deterministic severe flags.
+
+    A moderation category score is a policy signal, not a calibrated
+    probability. A separate conservative threshold limits automatic account
+    actions; every other flag remains quarantined for owner review.
+    """
+    threshold = float(os.getenv("MODERATION_AUTO_ENFORCE_SCORE", "0.95"))
+    matched = sorted(
+        category
+        for category in AUTOMATIC_BAN_CATEGORIES | AUTOMATIC_SUSPEND_CATEGORIES
+        if categories.get(category) is True
+        and float(category_scores.get(category, 0) or 0) >= threshold
+    )
+    if not matched:
+        return None
+    action = (
+        "account_ban"
+        if any(category in AUTOMATIC_BAN_CATEGORIES for category in matched)
+        else "account_suspend"
+    )
+    return {
+        "action": action,
+        "lock_hours": None if action == "account_ban" else 168,
+        "categories": matched,
+        "threshold": threshold,
+    }
 
 
 async def enqueue_target(
@@ -203,6 +244,7 @@ async def classify(content: dict[str, Any], safety_identifier: str) -> dict[str,
         "safety_identifier": safety_identifier,
         "flagged": bool(result.get("flagged")),
         "categories": result.get("categories", {}),
+        "category_scores": result.get("category_scores", {}),
     }
 
 
@@ -363,6 +405,7 @@ async def _complete(
                 metadata_json={
                     "flagged": flagged,
                     "categories": categories,
+                    "category_scores": provider_payload.get("category_scores", {}),
                     "model": provider_payload.get("model"),
                     "policy_version": "ugc-v1",
                     "triage": provider_payload.get("triage"),
@@ -395,7 +438,40 @@ async def _complete(
     if target is not None and flagged and case is not None:
         await _capture_flagged_evidence(session, case.id, job.target_type, target)
     if case is not None:
-        from backend.services.moderation.moderation_alerts import schedule_case_alerts
+        from backend.services.moderation.moderation_alerts import (
+            schedule_automatic_enforcement_alert,
+            schedule_case_alerts,
+        )
+
+        decision = automatic_enforcement_decision(
+            categories, provider_payload.get("category_scores") or {}
+        )
+        if decision is not None and case.subject_player_id is not None:
+            from backend.services import moderation_service
+
+            reason = (
+                "Automatic safety enforcement for severe provider categories: "
+                + ", ".join(decision["categories"])
+            )
+            try:
+                await moderation_service.apply_action(
+                    session,
+                    case.id,
+                    None,
+                    decision["action"],
+                    reason,
+                    decision["lock_hours"],
+                )
+                await schedule_automatic_enforcement_alert(session, case, decision)
+            except ValueError as exc:
+                session.add(
+                    ModerationEvent(
+                        case_id=case.id,
+                        event_type="automatic_enforcement_skipped",
+                        reason=str(exc)[:500],
+                        metadata_json=decision,
+                    )
+                )
 
         await schedule_case_alerts(session, case)
     job.status = "completed"

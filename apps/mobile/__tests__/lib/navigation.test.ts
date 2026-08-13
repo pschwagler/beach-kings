@@ -112,6 +112,7 @@ describe('resolveUp', () => {
     ['(stack)/settings/privacy', routes.settings()],
     ['(stack)/settings/phone', routes.settings()],
     ['(stack)/settings/feedback', routes.settings()],
+    ['(stack)/settings/support', routes.settings()],
     ['(stack)/find-leagues', routes.leagues()],
     ['(stack)/received-invites', routes.leagues()],
     ['(stack)/pending-invites', routes.leagues()],

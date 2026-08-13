@@ -16,13 +16,22 @@
  */
 
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
+import { renderWithTheme as render } from '../../../test-utils/renderWithTheme';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
 const mockPush = jest.fn();
+
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+  }),
+  vars: (values: object) => values,
+}));
 
 // Mutable search-params so each test can drive the initial `?tab=`.
 let mockParams: { tab?: string } = {};

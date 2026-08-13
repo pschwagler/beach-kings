@@ -98,6 +98,7 @@ async def create_user(
     phone_number: Optional[str] = None,
     password_hash: str = "",
     email: Optional[str] = None,
+    youth_facts: Optional[Dict] = None,
 ) -> int:
     """
     Create a new user account.
@@ -139,6 +140,7 @@ async def create_user(
         password_hash=password_hash,
         email=normalized_email,
         is_verified=True,
+        **(youth_facts or {}),
     )
     session.add(new_user)
     await session.flush()
@@ -204,15 +206,18 @@ async def update_user(
         True if exactly one row was updated, False otherwise.
     """
     update_values: dict = {"updated_at": func.now()}
+    age_group = (
+        await session.execute(select(User.age_group).where(User.id == user_id))
+    ).scalar_one_or_none()
 
     if email is not None:
         update_values["email"] = email.strip().lower() if email else None
 
     if profile_is_private is not None:
-        update_values["profile_is_private"] = profile_is_private
+        update_values["profile_is_private"] = True if age_group == "junior" else profile_is_private
 
     if show_game_history is not None:
-        update_values["show_game_history"] = show_game_history
+        update_values["show_game_history"] = False if age_group == "junior" else show_game_history
 
     if len(update_values) == 1:  # only updated_at — nothing substantive to update
         return False
@@ -326,7 +331,11 @@ async def get_user_by_google_id(session: AsyncSession, google_id: str) -> Option
 
 
 async def create_google_user(
-    session: AsyncSession, email: str, google_id: str, full_name: str
+    session: AsyncSession,
+    email: str,
+    google_id: str,
+    full_name: str,
+    youth_facts: Optional[Dict] = None,
 ) -> int:
     """
     Create a new user account via Google SSO.
@@ -357,6 +366,7 @@ async def create_google_user(
         auth_provider="google",
         google_id=google_id,
         is_verified=True,
+        **(youth_facts or {}),
     )
     session.add(new_user)
     try:
@@ -384,7 +394,11 @@ async def get_user_by_apple_id(session: AsyncSession, apple_id: str) -> Optional
 
 
 async def create_apple_user(
-    session: AsyncSession, email: str, apple_id: str, full_name: str
+    session: AsyncSession,
+    email: str,
+    apple_id: str,
+    full_name: str,
+    youth_facts: Optional[Dict] = None,
 ) -> int:
     """
     Create a new user account via Apple Sign In.
@@ -415,6 +429,7 @@ async def create_apple_user(
         auth_provider="apple",
         apple_id=apple_id,
         is_verified=True,
+        **(youth_facts or {}),
     )
     session.add(new_user)
     try:
@@ -493,6 +508,13 @@ def _user_to_dict(user: User) -> Dict:
         # Privacy toggles (PRIVACY feature)
         "profile_is_private": bool(user.profile_is_private),
         "show_game_history": bool(user.show_game_history),
+        "age_group": user.age_group,
+        "eligibility_country": user.eligibility_country,
+        "eligibility_region": user.eligibility_region,
+        "age_assurance_source": user.age_assurance_source,
+        "age_declaration_source": user.age_declaration_source,
+        "guardian_consent": user.guardian_consent,
+        "age_assured_at": user.age_assured_at.isoformat() if user.age_assured_at else None,
     }
 
 
@@ -534,6 +556,7 @@ async def create_verification_code(
     password_hash: Optional[str] = None,
     name: Optional[str] = None,
     email: Optional[str] = None,
+    youth_facts: Optional[Dict] = None,
 ) -> bool:
     """
     Create a verification code record with optional signup data.
@@ -581,6 +604,18 @@ async def create_verification_code(
                 )
             )
 
+        # youth_facts comes from youth_safety_service.account_values(), which
+        # also includes User-only privacy defaults (profile_is_private,
+        # show_game_history). Those are re-derived from age_group in
+        # verify_and_mark_*_code_used, so only persist keys that are actual
+        # VerificationCode columns.
+        verification_code_columns = {column.name for column in VerificationCode.__table__.columns}
+        filtered_youth_facts = {
+            key: value
+            for key, value in (youth_facts or {}).items()
+            if key in verification_code_columns
+        }
+
         new_code = VerificationCode(
             phone_number=phone_number,
             code=code,
@@ -589,6 +624,7 @@ async def create_verification_code(
             password_hash=password_hash,
             name=name,
             email=normalized_email,
+            **filtered_youth_facts,
         )
         session.add(new_code)
         await session.commit()
@@ -624,6 +660,17 @@ async def verify_and_mark_code_used(
         "password_hash": verification_code.password_hash,
         "name": verification_code.name,
         "email": verification_code.email,
+        "youth_facts": {
+            "age_group": verification_code.age_group,
+            "eligibility_country": verification_code.eligibility_country,
+            "eligibility_region": verification_code.eligibility_region,
+            "age_assurance_source": verification_code.age_assurance_source,
+            "age_declaration_source": verification_code.age_declaration_source,
+            "guardian_consent": verification_code.guardian_consent,
+            "age_assured_at": verification_code.age_assured_at,
+            "profile_is_private": verification_code.age_group == "junior",
+            "show_game_history": verification_code.age_group != "junior",
+        },
     }
 
     verification_code.used = True
@@ -667,6 +714,17 @@ async def verify_and_mark_email_code_used(
         "password_hash": verification_code.password_hash,
         "name": verification_code.name,
         "email": verification_code.email,
+        "youth_facts": {
+            "age_group": verification_code.age_group,
+            "eligibility_country": verification_code.eligibility_country,
+            "eligibility_region": verification_code.eligibility_region,
+            "age_assurance_source": verification_code.age_assurance_source,
+            "age_declaration_source": verification_code.age_declaration_source,
+            "guardian_consent": verification_code.guardian_consent,
+            "age_assured_at": verification_code.age_assured_at,
+            "profile_is_private": verification_code.age_group == "junior",
+            "show_game_history": verification_code.age_group != "junior",
+        },
     }
 
     verification_code.used = True

@@ -13,7 +13,6 @@ class PlayerBase(BaseModel):
     nickname: Optional[str] = None
     gender: Optional[str] = None
     level: Optional[str] = None  # 'juniors', 'beginner', 'intermediate', 'advanced', 'AA', 'Open'
-    date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
     height: Optional[str] = None
     preferred_side: Optional[str] = None  # 'left', 'right', 'none', etc.
     location_id: Optional[str] = None
@@ -36,7 +35,7 @@ class PlayerUpdate(BaseModel):
     nickname: Optional[str] = None
     gender: Optional[str] = None
     level: Optional[str] = None
-    date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
+    date_of_birth: Optional[str] = None
     height: Optional[str] = None
     preferred_side: Optional[str] = None
     city: Optional[str] = None
@@ -71,6 +70,12 @@ class PlayerUpdate(BaseModel):
             self.first_name = result["first_name"]
             self.last_name = result["last_name"]
             self.full_name = result["full_name"]
+        return self
+
+    @model_validator(mode="after")
+    def reject_exact_birthdate(self) -> "PlayerUpdate":
+        if self.date_of_birth is not None:
+            raise ValueError("Date of birth is not collected; use the age-assurance flow")
         return self
 
 

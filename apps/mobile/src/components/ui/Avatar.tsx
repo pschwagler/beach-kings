@@ -142,6 +142,11 @@ export function getInitials(name: string): string {
   return (first + last).toUpperCase();
 }
 
+export function isImageUri(value: string | null | undefined): value is string {
+  if (value == null) return false;
+  return /^(?:https?:|file:|data:|content:|blob:)/i.test(value.trim());
+}
+
 export default function Avatar({
   imageUrl,
   name,
@@ -162,7 +167,7 @@ export default function Avatar({
     setImgError(false);
   }, [imageUrl]);
 
-  if (imageUrl != null && imageUrl.length > 0 && !imgError) {
+  if (isImageUri(imageUrl) && !imgError) {
     return (
       <Image
         testID={testID}

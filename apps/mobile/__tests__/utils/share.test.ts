@@ -6,13 +6,7 @@
 import { Share } from 'react-native';
 import { shareLink } from '@/utils/share';
 
-jest.mock('react-native', () => ({
-  Share: {
-    share: jest.fn(),
-  },
-}));
-
-const mockShare = Share.share as jest.MockedFunction<typeof Share.share>;
+const mockShare = jest.spyOn(Share, 'share');
 
 beforeEach(() => {
   jest.clearAllMocks();

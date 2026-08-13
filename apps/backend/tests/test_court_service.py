@@ -713,6 +713,7 @@ class TestReviewPhotos:
 
         photo = await court_service.add_review_photo(
             session=db_session,
+            court_id=court["id"],
             review_id=review_id,
             player_id=test_player.id,
             url="https://s3.example.com/photo1.jpg",
@@ -720,6 +721,27 @@ class TestReviewPhotos:
         )
         assert photo is not None
         assert photo["url"] == "https://s3.example.com/photo1.jpg"
+
+    @pytest.mark.asyncio
+    async def test_cross_court_review_photo_upload_is_rejected(
+        self, db_session, court, test_player
+    ):
+        """The court path must identify the court that owns the review."""
+        create_result = await court_service.create_review(
+            session=db_session,
+            court_id=court["id"],
+            player_id=test_player.id,
+            rating=5,
+        )
+
+        authorized = await court_service.authorize_review_photo_upload(
+            db_session,
+            court_id=court["id"] + 1,
+            review_id=create_result["review_id"],
+            player_id=test_player.id,
+        )
+
+        assert authorized is False
 
     @pytest.mark.asyncio
     async def test_max_photos_enforced(self, db_session, court, test_player):
@@ -736,6 +758,7 @@ class TestReviewPhotos:
         for i in range(3):
             await court_service.add_review_photo(
                 session=db_session,
+                court_id=court["id"],
                 review_id=review_id,
                 player_id=test_player.id,
                 url=f"https://s3.example.com/photo{i}.jpg",
@@ -746,6 +769,7 @@ class TestReviewPhotos:
         with pytest.raises(ValueError, match="(?i)maximum"):
             await court_service.add_review_photo(
                 session=db_session,
+                court_id=court["id"],
                 review_id=review_id,
                 player_id=test_player.id,
                 url="https://s3.example.com/photo4.jpg",

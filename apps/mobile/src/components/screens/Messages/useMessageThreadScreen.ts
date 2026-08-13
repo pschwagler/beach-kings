@@ -14,6 +14,7 @@ import {
   useMessageMutations,
 } from '@/features/messages';
 import { hapticMedium, hapticError } from '@/utils/haptics';
+import { getApiErrorMessage } from '@/lib/apiError';
 import type {
   ConversationListResponse,
   DirectMessage,
@@ -113,9 +114,9 @@ export function useMessageThreadScreen(
     try {
       await sendMessage.mutateAsync({ playerId, text });
       setMessageText('');
-    } catch {
+    } catch (error) {
       void hapticError();
-      setSendError('Failed to send message. Please try again.');
+      setSendError(getApiErrorMessage(error, 'Failed to send message. Please try again.'));
     } finally {
       setIsSending(false);
     }

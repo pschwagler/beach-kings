@@ -37,12 +37,57 @@ def _make_authed_client(monkeypatch, phone="+10000000000", user_id=1):
 
 
 # ============================================================================
+# POST /api/auth/reset-password
+# ============================================================================
+
+
+class TestResetPassword:
+    """Tests for reset-password endpoint."""
+
+    def test_invalid_phone_returns_client_error(self, monkeypatch):
+        """Invalid user input must not escape normalization as a server error."""
+        client = TestClient(app)
+
+        def reject_phone(_phone):
+            raise ValueError("Invalid phone number")
+
+        monkeypatch.setattr(
+            auth_service, "normalize_phone_number", reject_phone, raising=True
+        )
+
+        response = client.post(
+            "/api/auth/reset-password", json={"phone_number": "+11234567890"}
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid phone number"
+
+
+# ============================================================================
 # POST /api/auth/reset-password-verify
 # ============================================================================
 
 
 class TestResetPasswordVerify:
     """Tests for reset-password-verify endpoint."""
+
+    def test_invalid_phone_returns_client_error(self, monkeypatch):
+        client = TestClient(app)
+
+        def reject_phone(_phone):
+            raise ValueError("Invalid phone number")
+
+        monkeypatch.setattr(
+            auth_service, "normalize_phone_number", reject_phone, raising=True
+        )
+
+        response = client.post(
+            "/api/auth/reset-password-verify",
+            json={"phone_number": "+11234567890", "code": "123456"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid phone number"
 
     def test_verify_success(self, monkeypatch):
         """Valid code returns reset_token."""

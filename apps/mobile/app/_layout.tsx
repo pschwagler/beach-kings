@@ -1,7 +1,7 @@
 import '../global.css';
 
 import React, { useEffect, useCallback, useMemo } from 'react';
-import { Stack, SplashScreen } from 'expo-router';
+import { Stack, SplashScreen, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -17,6 +17,7 @@ import {
 } from '@/infrastructure/query';
 import ToastProvider from '@/contexts/ToastContext';
 import ErrorBoundary from '@/lib/ErrorBoundary';
+import { setTelemetryRoute } from '@/telemetry/sentry';
 
 // Fonts are embedded at build time by the expo-font config plugin. Keep the
 // splash visible only until the provider tree and navigation are mounted.
@@ -28,10 +29,15 @@ SplashScreen.preventAutoHideAsync();
  */
 function RootLayoutInner({ onReady }: { readonly onReady: () => void }): React.ReactNode {
   const { isDark } = useTheme();
+  const pathname = usePathname();
 
   useEffect(() => {
     onReady();
   }, [onReady]);
+
+  useEffect(() => {
+    setTelemetryRoute(pathname);
+  }, [pathname]);
 
   return (
     <>
@@ -67,7 +73,7 @@ function RootLayoutInner({ onReady }: { readonly onReady: () => void }): React.R
   );
 }
 
-export default function RootLayout(): React.ReactNode {
+function RootLayout(): React.ReactNode {
   const queryClient = useMemo(() => createQueryClient(), []);
 
   useEffect(() => subscribeQueryLifecycle(), []);
@@ -99,3 +105,5 @@ export default function RootLayout(): React.ReactNode {
     </GestureHandlerRootView>
   );
 }
+
+export default RootLayout;

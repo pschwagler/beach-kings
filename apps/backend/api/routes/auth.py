@@ -27,6 +27,7 @@ from backend.services import (
     email_service,
     moderation_service,
     apple_token_service,
+    youth_safety_service,
 )
 from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import (
@@ -53,11 +54,28 @@ from backend.models.schemas import (
     LinkProviderRequest,
     ChangePasswordRequest,
     ChangePasswordResponse,
+    YouthEligibilityRequest,
+    YouthEligibilityResponse,
 )
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.post("/api/auth/youth-eligibility", response_model=YouthEligibilityResponse)
+@limiter.limit("20/minute")
+async def check_youth_eligibility(request: Request, payload: YouthEligibilityRequest):
+    """Run the PII-free age/territory gate and issue a short-lived proof."""
+    try:
+        facts = youth_safety_service.evaluate_gate(**payload.model_dump())
+    except youth_safety_service.YouthEligibilityError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return YouthEligibilityResponse(
+        eligibility_token=youth_safety_service.create_eligibility_token(facts),
+        age_group=facts.age_group,
+        minimum_age=13 if facts.country_code == "US" else 14,
+    )
 
 
 async def _maybe_cancel_deletion(session: AsyncSession, user: dict) -> None:
@@ -114,6 +132,13 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
     The request schema enforces that at least one is provided.
     """
     try:
+        try:
+            eligibility = youth_safety_service.decode_eligibility_token(
+                request.eligibility_token
+            )
+        except youth_safety_service.YouthEligibilityError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        youth_facts = youth_safety_service.account_values(eligibility)
         auth_service.validate_password_length(request.password)
         if not any(char.isdigit() for char in request.password):
             raise HTTPException(
@@ -138,6 +163,7 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
                 password_hash=password_hash,
                 name=request.full_name,
                 email=email,
+                youth_facts=youth_facts,
             )
             if not success:
                 raise HTTPException(status_code=500, detail="Failed to create verification code")
@@ -168,6 +194,7 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
             password_hash=password_hash,
             name=request.full_name,
             email=email,
+            youth_facts=youth_facts,
         )
         if not success:
             raise HTTPException(status_code=500, detail="Failed to create verification code")
@@ -281,9 +308,19 @@ async def google_auth(
 
         if not user:
             # 3. Create new user + player profile in a single transaction
+            try:
+                eligibility = youth_safety_service.decode_eligibility_token(
+                    payload.eligibility_token
+                )
+            except youth_safety_service.YouthEligibilityError as exc:
+                raise HTTPException(status_code=403, detail=str(exc)) from exc
             display_name = name or email.split("@")[0]
             user_id = await user_service.create_google_user(
-                session, email=email, google_id=google_id, full_name=display_name
+                session,
+                email=email,
+                google_id=google_id,
+                full_name=display_name,
+                youth_facts=youth_safety_service.account_values(eligibility),
             )
 
             # Always create player profile for new users
@@ -375,9 +412,19 @@ async def apple_auth(
 
         if not user:
             # 3. Create new user + player profile in a single transaction
+            try:
+                eligibility = youth_safety_service.decode_eligibility_token(
+                    payload.eligibility_token
+                )
+            except youth_safety_service.YouthEligibilityError as exc:
+                raise HTTPException(status_code=403, detail=str(exc)) from exc
             display_name = email.split("@")[0]
             user_id = await user_service.create_apple_user(
-                session, email=email, apple_id=apple_id, full_name=display_name
+                session,
+                email=email,
+                apple_id=apple_id,
+                full_name=display_name,
+                youth_facts=youth_safety_service.account_values(eligibility),
             )
 
             # Always create player profile for new users
@@ -585,6 +632,10 @@ def _build_user_response(
         interaction_restricted_until=(moderation or {}).get("interaction_restricted_until"),
         interaction_restriction_case_id=(moderation or {}).get("interaction_restriction_case_id"),
         is_system_admin=is_system_admin,
+        age_group=user.get("age_group"),
+        eligibility_country=user.get("eligibility_country"),
+        eligibility_region=user.get("eligibility_region"),
+        guardian_consent=user.get("guardian_consent"),
     )
 
 
@@ -652,6 +703,7 @@ async def verify_phone(
                     phone_number=phone_number,
                     password_hash=signup_data["password_hash"],
                     email=signup_data.get("email"),
+                    youth_facts=signup_data.get("youth_facts"),
                 )
 
                 full_name = signup_data.get("name")
@@ -834,6 +886,7 @@ async def verify_email(
                 phone_number=None,
                 password_hash=signup_data["password_hash"],
                 email=email,
+                youth_facts=signup_data.get("youth_facts"),
             )
 
             full_name = signup_data.get("name")
@@ -909,6 +962,8 @@ async def reset_password(
             "status": "success",
             "message": "If an account exists with this phone number, a verification code has been sent.",
         }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception:
@@ -962,6 +1017,8 @@ async def reset_password_verify(
             "reset_token": reset_token,
             "message": "Verification code verified. You can now set your new password.",
         }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception:

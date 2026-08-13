@@ -8,7 +8,7 @@ Extracted from data_service.py.  Covers:
 """
 
 from typing import List, Dict, Optional, Set, Tuple
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 __all__ = [
     "resolve_name_fields",
@@ -212,6 +212,7 @@ async def list_players_search(
     offset: int = 0,
     include_placeholders: bool = False,
     session_id: Optional[int] = None,
+    viewer_player_id: Optional[int] = None,
 ) -> Tuple[List[Dict], int]:
     """
     Search players with optional multi-dimensional filters.
@@ -250,6 +251,13 @@ async def list_players_search(
         stmt = _filter_location(stmt, location_ids)
         stmt = _filter_league_membership(stmt, league_ids)
         stmt = _filter_demographics(stmt, genders, levels)
+        from backend.services import youth_interaction_policy
+
+        stmt = stmt.where(
+            youth_interaction_policy.discovery_visibility(
+                Player.id, Player.user_id, viewer_player_id
+            )
+        )
         return stmt
 
     # Count
@@ -627,6 +635,7 @@ async def search_players_with_relevance(
         Network (ranked) first, then strangers (alphabetical, score 0).
     """
     term = (q or "").strip().lower()
+    from backend.services import youth_interaction_policy
     stranger_cap = max(1, min(limit, 100))
     ctx = ScoreContext(is_league_match=league_id is not None)
 
@@ -678,6 +687,9 @@ async def search_players_with_relevance(
         network_where = [
             Player.id.in_(candidate),
             _NON_SYSTEM,
+            youth_interaction_policy.discovery_visibility(
+                Player.id, Player.user_id, caller_player_id
+            ),
         ]
         if name_match is not None:
             network_where.append(name_match)
@@ -770,6 +782,9 @@ async def search_players_with_relevance(
             name_match,
             _NON_SYSTEM,
             stranger_placeholder_ok,
+            youth_interaction_policy.discovery_visibility(
+                Player.id, Player.user_id, caller_player_id
+            ),
         )
         if seen:
             s_stmt = s_stmt.where(Player.id.notin_(seen))
@@ -832,7 +847,6 @@ async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional
         "nickname": player.nickname,
         "gender": player.gender,
         "level": player.level,
-        "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
         "height": player.height,
         "preferred_side": player.preferred_side,
         "location_id": player.location_id,
@@ -882,7 +896,6 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
         "gender": player.gender,
         "level": player.level,
         "nickname": player.nickname,
-        "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
         "height": player.height,
         "preferred_side": player.preferred_side,
         "location_id": player.location_id,
@@ -911,7 +924,6 @@ async def upsert_user_player(
     nickname: Optional[str] = None,
     gender: Optional[str] = None,
     level: Optional[str] = None,
-    date_of_birth: Optional[str] = None,
     height: Optional[str] = None,
     preferred_side: Optional[str] = None,
     location_id: Optional[str] = None,
@@ -940,7 +952,6 @@ async def upsert_user_player(
         nickname: Optional short display name.
         gender: Gender string (optional).
         level: Skill level string (optional).
-        date_of_birth: ISO date string ``YYYY-MM-DD`` (optional).
         height: Height string (optional).
         preferred_side: Preferred court side (optional).
         location_id: Location ID (optional).
@@ -958,14 +969,6 @@ async def upsert_user_player(
         first_name=first_name, last_name=last_name, full_name=full_name
     )
 
-    # Parse date_of_birth if provided
-    date_of_birth_obj = None
-    if date_of_birth:
-        try:
-            date_of_birth_obj = date.fromisoformat(date_of_birth)
-        except ValueError:
-            pass
-
     result = await session.execute(select(Player).where(Player.user_id == user_id))
     player = result.scalar_one_or_none()
 
@@ -980,7 +983,6 @@ async def upsert_user_player(
             nickname=nickname,
             gender=gender,
             level=level,
-            date_of_birth=date_of_birth_obj,
             height=height,
             preferred_side=preferred_side,
             location_id=location_id,
@@ -1000,7 +1002,6 @@ async def upsert_user_player(
                 "nickname": nickname,
                 "gender": gender,
                 "level": level,
-                "date_of_birth": date_of_birth_obj,
                 "height": height,
                 "preferred_side": preferred_side,
                 "location_id": location_id,
@@ -1034,7 +1035,6 @@ async def upsert_user_player(
         "nickname": player.nickname,
         "gender": player.gender,
         "level": player.level,
-        "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
         "height": player.height,
         "preferred_side": player.preferred_side,
         "location_id": player.location_id,

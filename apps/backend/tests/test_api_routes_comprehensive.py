@@ -12,7 +12,13 @@ from backend.utils.datetime_utils import utcnow
 from backend.api.main import app
 from backend.api import auth_dependencies
 from backend.database.db import get_db_session
-from backend.services import auth_service, user_service, data_service, photo_match_service
+from backend.services import (
+    auth_service,
+    user_service,
+    data_service,
+    photo_match_service,
+    youth_safety_service,
+)
 
 
 # ============================================================================
@@ -36,6 +42,18 @@ def _mock_db_session():
 async def _async(value):
     """Wrap a plain value in an awaitable for use in monkeypatched async functions."""
     return value
+
+
+def _eligibility_token() -> str:
+    facts = youth_safety_service.evaluate_gate(
+        country_code="US",
+        region_code="NY",
+        declared_band="adult",
+        assurance_source="self_declared",
+        declaration_source="self_declared",
+        guardian_consent=False,
+    )
+    return youth_safety_service.create_eligibility_token(facts)
 
 
 def make_client_with_auth(monkeypatch, phone="+10000000000", user_id=1):
@@ -106,6 +124,7 @@ class TestAuthEndpoints:
             "password": "testpass123",  # Has 11 chars and includes numbers
             "full_name": "Test User",
             "email": "test@example.com",
+            "eligibility_token": _eligibility_token(),
         }
         response = client.post("/api/auth/signup", json=payload)
         if response.status_code != 200:
@@ -134,6 +153,7 @@ class TestAuthEndpoints:
             "phone_number": "+15551234567",
             "password": "testpass123",
             "full_name": "Test User",
+            "eligibility_token": _eligibility_token(),
         }
         response = client.post("/api/auth/signup", json=payload)
         assert response.status_code == 400
@@ -540,7 +560,10 @@ class TestGoogleAuthEndpoint:
         }
         client = self._setup_google_mocks(monkeypatch, google_info=google_info)
 
-        response = client.post("/api/auth/google", json={"id_token": "valid_token"})
+        response = client.post(
+            "/api/auth/google",
+            json={"id_token": "valid_token", "eligibility_token": _eligibility_token()},
+        )
         assert response.status_code == 200
         data = response.json()
         assert "access_token" in data
@@ -718,7 +741,10 @@ class TestAppleAuthEndpoint:
         }
         client = self._setup_apple_mocks(monkeypatch, apple_info=apple_info)
 
-        response = client.post("/api/auth/apple", json={"id_token": "valid_token"})
+        response = client.post(
+            "/api/auth/apple",
+            json={"id_token": "valid_token", "eligibility_token": _eligibility_token()},
+        )
         assert response.status_code == 200
         data = response.json()
         assert "access_token" in data
@@ -1038,6 +1064,9 @@ class TestPlayerEndpoints:
         """Test updating user's player profile."""
         client, headers = make_client_with_auth(monkeypatch)
 
+        async def fake_get_current_player(session, user_id):
+            return None
+
         async def fake_upsert_user_player(session, user_id, **kwargs):
             return {
                 "id": 1,
@@ -1048,6 +1077,12 @@ class TestPlayerEndpoints:
                 "updated_at": datetime.now().isoformat(),
             }
 
+        monkeypatch.setattr(
+            data_service,
+            "get_player_by_user_id_with_stats",
+            fake_get_current_player,
+            raising=True,
+        )
         monkeypatch.setattr(
             data_service, "upsert_user_player", fake_upsert_user_player, raising=True
         )

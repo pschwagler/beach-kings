@@ -16,6 +16,23 @@ import { Alert } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+let mockWindowWidth = 390;
+
+jest.mock('react-native', () => {
+  const reactNative = jest.requireActual('react-native');
+  const mockedReactNative = Object.create(reactNative);
+  Object.defineProperty(mockedReactNative, 'useWindowDimensions', {
+    configurable: true,
+    value: () => ({
+      width: mockWindowWidth,
+      height: 844,
+      scale: 3,
+      fontScale: 1,
+    }),
+  });
+  return mockedReactNative;
+});
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -137,15 +154,22 @@ jest.mock('@/components/ui/icons', () => {
 
 import CourtPhotosRoute from '../../../../app/(stack)/court/[id]/photos';
 
-function renderScreen() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
-  });
-  return render(
+function ScreenUnderTest(): React.ReactNode {
+  const [client] = React.useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+      }),
+  );
+  return (
     <QueryClientProvider client={client}>
       <CourtPhotosRoute />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+}
+
+function renderScreen() {
+  return render(<ScreenUnderTest />);
 }
 
 // ---------------------------------------------------------------------------
@@ -179,6 +203,7 @@ const MOCK_PHOTOS = [
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockWindowWidth = 390;
   mockHapticMedium.mockResolvedValue(undefined);
   mockGetCourtPhotos.mockResolvedValue([]);
   mockGetCourtById.mockResolvedValue(null);
@@ -263,6 +288,28 @@ describe('CourtPhotosScreen — empty state', () => {
 // ---------------------------------------------------------------------------
 
 describe('CourtPhotosScreen — photos grid', () => {
+  it('resizes photo cells when the window width changes', async () => {
+    mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
+    const view = renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Morning light')).toHaveStyle({
+        width: 129,
+        height: 129,
+      });
+    });
+
+    mockWindowWidth = 768;
+    view.rerender(<ScreenUnderTest />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Morning light')).toHaveStyle({
+        width: 255,
+        height: 255,
+      });
+    });
+  });
+
   it('renders the screen container', async () => {
     mockGetCourtPhotos.mockResolvedValue(MOCK_PHOTOS);
     renderScreen();

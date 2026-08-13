@@ -53,7 +53,9 @@ async def get_my_blocks(
 
 
 @router.post("/api/users/me/blocks", status_code=201)
+@limiter.limit("30/minute")
 async def block_player(
+    request: Request,
     payload: BlockCreate,
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
@@ -72,7 +74,9 @@ async def block_player(
 
 
 @router.delete("/api/users/me/blocks/{player_id}")
+@limiter.limit("30/minute")
 async def unblock_player(
+    request: Request,
     player_id: int,
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
@@ -265,6 +269,18 @@ async def update_current_user_player(
         user = await user_service.get_user_by_id(session, current_user["id"])
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+        if payload.date_of_birth is not None:
+            raise HTTPException(
+                status_code=422,
+                detail="Date of birth is not collected; use the age-assurance flow",
+            )
+        if user.get("age_group") == "junior" and (
+            payload.city_latitude is not None or payload.city_longitude is not None
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Exact location is not stored for junior accounts",
+            )
 
         public_profile_text = "\n".join(
             value.strip()
@@ -296,7 +312,6 @@ async def update_current_user_player(
             nickname=payload.nickname,
             gender=payload.gender,
             level=payload.level,
-            date_of_birth=payload.date_of_birth,
             height=payload.height,
             preferred_side=payload.preferred_side,
             location_id=payload.location_id,
@@ -322,7 +337,6 @@ async def update_current_user_player(
             "gender": player.get("gender"),
             "level": player.get("level"),
             "nickname": player.get("nickname"),
-            "date_of_birth": player.get("date_of_birth"),
             "height": player.get("height"),
             "preferred_side": player.get("preferred_side"),
             "location_id": player.get("location_id"),

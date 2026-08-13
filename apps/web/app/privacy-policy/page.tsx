@@ -23,7 +23,7 @@ export default function PrivacyPolicyPageRoute() {
             Privacy Policy
           </h1>
           <p className="legal-page-date">
-            <strong>Last updated:</strong> August 7, 2026
+            <strong>Last updated:</strong> August 11, 2026
           </p>
         </div>
         
@@ -42,7 +42,8 @@ export default function PrivacyPolicyPageRoute() {
           <p>We collect information you provide when you create an account, update your profile, or use the Service, including:</p>
           <ul>
             <li><strong>Account Information:</strong> Name, email address, phone number, and password</li>
-            <li><strong>Profile Information:</strong> Nickname, gender, skill level, age, height, playing position, preferred side, location, and optional profile picture</li>
+            <li><strong>Profile Information:</strong> Nickname, gender, skill level, height, playing position, preferred side, general location, and optional profile picture</li>
+            <li><strong>Age and Consent Information:</strong> Whether the account is junior or adult, the country and state or province used for eligibility, how the age range was provided, whether guardian consent was confirmed, and when the check occurred. We do not ask for or derive an exact birthdate from an age-range response.</li>
             <li><strong>Game Data:</strong> Match results, team compositions, scores, and game statistics you enter or participate in</li>
             <li><strong>Communications:</strong> Messages, feedback, or support requests you send to us</li>
           </ul>
@@ -53,6 +54,7 @@ export default function PrivacyPolicyPageRoute() {
             <li><strong>Operational Log Data:</strong> IP address, access time, requested route, response status, and sanitized error category</li>
             <li><strong>Authentication Data:</strong> Session tokens, refresh tokens, and login timestamps</li>
             <li><strong>Notification Data:</strong> A random app-installation identifier, Expo push token, and your notification preferences when you enable mobile notifications</li>
+            <li><strong>Crash Diagnostics:</strong> When mobile crash reporting is enabled, an internal account identifier, app version, route, device and operating-system class, error type, and stack trace. We exclude contact information, message and review content, precise location, photo URLs, request and response bodies, tokens, cookies, screenshots, and session replay.</li>
           </ul>
           <p>Beach League does not currently use an advertising identifier, advertising SDK, or product-analytics SDK, and does not build a behavioral profile from app taps or page views.</p>
 
@@ -105,6 +107,7 @@ export default function PrivacyPolicyPageRoute() {
             <li><strong>Object Storage:</strong> To store profile, court, and review photos and access-controlled moderation evidence</li>
             <li><strong>Geocoding Provider:</strong> To return city, place, and nearby-location results from search text or coordinates you submit for that request</li>
             <li><strong>OpenAI:</strong> To provide automated text and image safety classification and recommendation-only case triage. We limit submissions to the content and pseudonymous identifiers needed for safety review, disable response storage where supported, and do not opt this data into model training. Provider abuse-monitoring and legally required safety retention may still apply.</li>
+            <li><strong>Sentry:</strong> To receive privacy-scrubbed mobile crash diagnostics when crash reporting is enabled. Beach League uses Sentry&apos;s United States hosted region and does not enable session replay, screenshots, attachments, product analytics, or advertising tracking.</li>
           </ul>
           <p>These service providers are contractually obligated to use your information only for the purposes we specify and to maintain appropriate security measures.</p>
 
@@ -177,8 +180,11 @@ export default function PrivacyPolicyPageRoute() {
           <h4>7.3 Data Portability Process</h4>
           <p>If you request a copy of your personal information, we will provide it to you via email in a commonly used format (such as CSV or JSON) within 45 days of verifying your identity. The data export will include your account information, profile data, game statistics, and other personal information we maintain about you.</p>
 
-          <h3>8. Children&apos;s Privacy</h3>
-          <p>The Service is not intended for individuals under the age of 18. We do not knowingly collect personal information from children under 18. If you are under 18, do not use the Service or provide any personal information. If we learn that we have collected personal information from a person under 18, we will promptly delete that information. If you believe we may have information from a child under 18, please contact us immediately at beachleaguevb@gmail.com.</p>
+          <h3>8. Teen and Children&apos;s Privacy</h3>
+          <p>You must be at least 13 in the United States and at least 14 in Canada, including Québec, to create an account. We ask for a broad age range before we ask for registration details. If the age range is below the applicable minimum, we do not allow registration and do not ask for account information.</p>
+          <p>Junior accounts are private by default. We do not use junior data for behavioral advertising or profiling. Juniors are excluded from public and unrestricted player discovery. Only authenticated players who are already accepted friends or share an active league may discover a junior. Direct messages involving a junior require both an accepted friendship and an active shared league; organizers communicate with juniors through shared league channels.</p>
+          <p>We do not publish a junior&apos;s precise location. Device location is optional, is used only while the nearby feature is active, and can be replaced with manual city, league-location, or court selection. Profile photos and other uploads follow our moderation and audience controls.</p>
+          <p>If we learn that an account belongs to someone below the applicable minimum age, we restrict the account while a trained reviewer handles deletion, preservation required by law, and any safety escalation. A parent, guardian, or other person can report an underage account or ask questions at beachleaguevb@gmail.com.</p>
 
 
           <h3>9. Changes to This Privacy Policy</h3>

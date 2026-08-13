@@ -32,8 +32,8 @@ function commandResult(command: string, args: string[]): string {
   if (command === "git" && args.join(" ") === "rev-parse HEAD")
     return commitSha;
   if (command === "git" && args.join(" ") === "status --porcelain") return "";
-  if (command === "xcodebuild") return "Xcode 26.2\nBuild version 17C52";
-  if (command === "xcrun") return "26.2";
+  if (command === "xcodebuild") return "Xcode 26.6\nBuild version 17F113";
+  if (command === "xcrun") return "26.6";
   throw new Error(`Unexpected command: ${command} ${args.join(" ")}`);
 }
 
@@ -45,8 +45,8 @@ function approvedRecord(): Record<string, any> {
     easBuildId: "eas-build-42",
     artifact: __filename,
     submitter: "Release Submitter",
-    xcodeVersion: "26.2",
-    iosSdkVersion: "26.2",
+    xcodeVersion: "26.6",
+    iosSdkVersion: "26.6",
     toolchainSource: "eas-build-log",
     now: () => new Date("2026-08-09T12:00:00.000Z"),
     runCommand: commandResult,
@@ -80,9 +80,9 @@ describe("iOS release record", () => {
         source: { commitSha, clean: true },
         toolchain: expect.objectContaining({
           source: "eas-build-log",
-          easImage: "macos-sequoia-15.6-xcode-26.2",
-          xcodeVersion: "26.2",
-          iosSdkVersion: "26.2",
+          easImage: "macos-tahoe-26.5-xcode-26.6",
+          xcodeVersion: "26.6",
+          iosSdkVersion: "26.6",
         }),
         artifact: expect.objectContaining({
           fileName: "BeachLeague.ipa",
@@ -158,7 +158,7 @@ describe("iOS release record", () => {
       (record: Record<string, any>) => {
         record.toolchain.xcodeVersion = "26.1";
       },
-      /Xcode 26.2/,
+      /Xcode 26.4/,
     ],
     [
       "wrong production origin",

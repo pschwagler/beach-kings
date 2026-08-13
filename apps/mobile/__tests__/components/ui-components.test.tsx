@@ -520,12 +520,11 @@ describe('Avatar', () => {
 describe('BottomSheet', () => {
   it('renders children when visible', () => {
     render(
-      <BottomSheet visible onClose={jest.fn()}>
+      <BottomSheet visible onClose={jest.fn()} testID="bottom-sheet">
         <></>
       </BottomSheet>,
     );
-    // The backdrop close button is always rendered inside the Modal
-    expect(screen.getByLabelText('Close')).toBeTruthy();
+    expect(screen.getByTestId('bottom-sheet')).toHaveProp('role', 'dialog');
   });
 
   it('does not show backdrop label when not visible', () => {

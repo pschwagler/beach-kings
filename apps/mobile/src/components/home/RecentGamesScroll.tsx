@@ -26,10 +26,18 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
         ? 'loss'
         : 'pending';
   const isWin = outcome === 'win';
-  const isPending =
-    outcome === 'pending' ||
+  const sessionIsOpen =
     match.session_status?.toLowerCase() === 'pending' ||
     match.session_status?.toLowerCase() === 'active';
+  const ratingWaitsForAccount =
+    match.partner_is_placeholder === true ||
+    match.opponent_1_is_placeholder === true ||
+    match.opponent_2_is_placeholder === true;
+  const secondaryStatus = sessionIsOpen
+    ? 'SESSION OPEN'
+    : ratingWaitsForAccount
+      ? 'RATING PENDING'
+      : null;
   const sessionId = match.session_id;
   const hasDestination =
     (typeof sessionId === 'number' &&
@@ -48,7 +56,12 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
       (name): name is string => typeof name === 'string' && name.length > 0,
     )
     .join(', ');
-  const accessibilityLabel = [outcomeLabel, match.score, playersLabel, meta]
+  const statusLabel = secondaryStatus === 'SESSION OPEN'
+    ? 'Session awaiting submission'
+    : secondaryStatus === 'RATING PENDING'
+      ? 'Rating pending until every player has an account'
+      : null;
+  const accessibilityLabel = [outcomeLabel, match.score, playersLabel, statusLabel, meta]
     .filter(Boolean)
     .join(', ');
 
@@ -64,10 +77,10 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
             {outcome === 'pending' ? 'PENDING' : isWin ? 'WIN' : 'LOSS'}
           </AppText>
         </View>
-        {isPending && outcome !== 'pending' && (
+        {secondaryStatus != null && outcome !== 'pending' && (
           <View className="bg-warning-tint border border-warning px-[6px] py-[1px] rounded-lg">
             <AppText className="text-[10px] font-bold text-warning">
-              Pending
+              {secondaryStatus}
             </AppText>
           </View>
         )}

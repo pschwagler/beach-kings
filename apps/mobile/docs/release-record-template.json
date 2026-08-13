@@ -16,7 +16,7 @@
   },
   "toolchain": {
     "source": "local",
-    "easImage": "macos-sequoia-15.6-xcode-26.2",
+    "easImage": "macos-tahoe-26.5-xcode-26.6",
     "xcodeVersion": null,
     "iosSdkVersion": null
   },

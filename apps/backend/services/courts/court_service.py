@@ -1614,9 +1614,44 @@ async def _recalc_court_rating(
 MAX_PHOTOS_PER_REVIEW = 3
 
 
+async def authorize_review_photo_upload(
+    session: AsyncSession,
+    *,
+    court_id: int,
+    review_id: int,
+    player_id: int,
+) -> bool:
+    """Authorize a review-photo upload before its bytes are processed or stored.
+
+    This preflight prevents unauthorized, cross-court, restricted-account, and
+    over-limit requests from consuming image-processing or object-storage
+    resources. ``add_review_photo`` repeats the checks at persistence time so
+    callers cannot bypass them and concurrent uploads still fail closed.
+    """
+    await interaction_policy.enforce_ugc_creation(session, player_id)
+
+    result = await session.execute(
+        select(CourtReview).where(
+            CourtReview.id == review_id,
+            CourtReview.court_id == court_id,
+            CourtReview.player_id == player_id,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        return False
+
+    count_result = await session.execute(
+        select(func.count()).where(CourtReviewPhoto.review_id == review_id)
+    )
+    if (count_result.scalar() or 0) >= MAX_PHOTOS_PER_REVIEW:
+        raise ValueError(f"Maximum {MAX_PHOTOS_PER_REVIEW} photos per review")
+    return True
+
+
 async def add_review_photo(
     session: AsyncSession,
     *,
+    court_id: int,
     review_id: int,
     player_id: int,
     s3_key: str,
@@ -1628,15 +1663,16 @@ async def add_review_photo(
     Returns the new photo dict, or None if not authorized.
     Raises ValueError if photo limit exceeded.
     """
-    await interaction_policy.enforce_ugc_creation(session, player_id)
-
-    # Verify authorship
-    result = await session.execute(select(CourtReview).where(CourtReview.id == review_id))
-    review = result.scalar_one_or_none()
-    if not review or review.player_id != player_id:
+    authorized = await authorize_review_photo_upload(
+        session,
+        court_id=court_id,
+        review_id=review_id,
+        player_id=player_id,
+    )
+    if not authorized:
         return None
 
-    # Check limit
+    # Re-count immediately before insert to narrow the concurrent-upload window.
     count_result = await session.execute(
         select(func.count()).where(CourtReviewPhoto.review_id == review_id)
     )

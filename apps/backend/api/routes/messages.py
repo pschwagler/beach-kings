@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.services import direct_message_service, interaction_policy
+from backend.services import direct_message_service, interaction_policy, message_write_policy
 from backend.api.auth_dependencies import require_verified_player
 from backend.api.routes import limiter
 from backend.models.schemas import (
@@ -100,6 +100,8 @@ async def send_message(
         return result
     except interaction_policy.InteractionUnavailable:
         raise HTTPException(status_code=409, detail="Interaction unavailable")
+    except message_write_policy.MessageWritesUnavailable:
+        raise HTTPException(status_code=503, detail="Messaging is temporarily unavailable")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

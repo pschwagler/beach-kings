@@ -4,7 +4,8 @@
 Seed local dev database with test users for manual testing.
 
 Creates 3 users with easy-to-remember credentials and complete player profiles.
-Idempotent — skips users that already exist.
+Idempotent — creates missing fixtures and normalizes existing fixtures back to
+the documented local credentials and complete player profiles.
 
 Usage (via Makefile):
     make seed-users
@@ -68,7 +69,7 @@ TEST_USERS = [
 
 
 async def main():
-    """Create test users with complete player profiles."""
+    """Create or normalize test users with complete player profiles."""
     print("\n🏖️  Seeding test users...\n")
 
     async with AsyncSessionLocal() as session:
@@ -79,36 +80,56 @@ async def main():
             )
             existing_user = result.scalar_one_or_none()
 
-            if existing_user:
-                print(f"  ⏭️  {user_data['name']} already exists (user #{existing_user.id})")
-                continue
+            if existing_user is None:
+                existing_user = User(phone_number=user_data["phone"])
+                session.add(existing_user)
+                await session.flush()
+                user_action = "Created"
+            else:
+                user_action = "Normalized"
 
-            # Create user
-            password_hash = hash_password(user_data["password"])
-            new_user = User(
-                phone_number=user_data["phone"],
-                password_hash=password_hash,
-                email=user_data["email"],
-                is_verified=True,
+            # These accounts exist solely as local fixtures. Reapply the
+            # documented contract on every run so stale passwords or partial
+            # signup state cannot make manual/E2E results order-dependent.
+            existing_user.password_hash = hash_password(user_data["password"])
+            existing_user.email = user_data["email"]
+            existing_user.auth_provider = "phone"
+            existing_user.is_verified = True
+            existing_user.deleted_at = None
+            existing_user.deletion_scheduled_at = None
+            existing_user.moderation_status = "active"
+            existing_user.age_group = "adult"
+            existing_user.eligibility_country = "US"
+            existing_user.eligibility_region = user_data["state"]
+            existing_user.age_assurance_source = "self_declared"
+            existing_user.age_declaration_source = "self_declared"
+            existing_user.guardian_consent = False
+
+            player_result = await session.execute(
+                select(Player).where(Player.user_id == existing_user.id)
             )
-            session.add(new_user)
-            await session.flush()
+            player = player_result.scalars().first()
+            if player is None:
+                player = Player(user_id=existing_user.id, full_name=user_data["name"])
+                session.add(player)
+                await session.flush()
 
-            # Create player profile
-            new_player = Player(
-                full_name=user_data["name"],
-                user_id=new_user.id,
-                gender=user_data["gender"],
-                level=user_data["level"],
-                location_id=user_data["location_id"],
-                city=user_data["city"],
-                state=user_data["state"],
-                is_placeholder=False,
+            first_name, last_name = user_data["name"].split(" ", 1)
+            player.full_name = user_data["name"]
+            player.first_name = first_name
+            player.last_name = last_name
+            player.gender = user_data["gender"]
+            player.level = user_data["level"]
+            player.location_id = user_data["location_id"]
+            player.city = user_data["city"]
+            player.state = user_data["state"]
+            player.is_placeholder = False
+            player.deleted_at = None
+
+            print(
+                f"  ✅ {user_action} {user_data['name']} "
+                f"(user #{existing_user.id}, player #{player.id})"
             )
-            session.add(new_player)
-            await session.flush()
-
-            print(f"  ✅ Created {user_data['name']} (user #{new_user.id}, player #{new_player.id})")
 
         await session.commit()
 

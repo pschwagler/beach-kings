@@ -145,6 +145,7 @@ export const routes = {
   settingsPhone: () => '/(stack)/settings/phone' as const,
   changePassword: () => '/(stack)/settings/change-password' as const,
   settingsFeedback: () => '/(stack)/settings/feedback' as const,
+  settingsSupport: () => '/(stack)/settings/support' as const,
   settingsPrivacy: () => '/(stack)/settings/privacy' as const,
   settingsBlocked: () => '/(stack)/settings/blocked' as const,
   settingsAccountStatus: () => '/(stack)/settings/account-status' as const,
@@ -225,6 +226,7 @@ export const routeUp: Record<string, UpTarget> = {
   '(stack)/settings/account-status': routes.settings(),
   '(stack)/settings/phone': routes.settings(),
   '(stack)/settings/feedback': routes.settings(),
+  '(stack)/settings/support': routes.settings(),
 
   // Leagues
   '(stack)/find-leagues': routes.leagues(),

@@ -6,8 +6,12 @@ const {
   verifyNoTrackingDependencies,
   verifyPrivacyManifest,
   verifyReleaseConfiguration,
+  verifyV1OtaPolicy,
 } = require('../../scripts/release-preflight') as {
-  assertSecureProductionOrigin: (value: string | undefined) => string;
+  assertSecureProductionOrigin: (
+    value: string | undefined,
+    environmentVariable?: string,
+  ) => string;
   verifyNoTrackingDependencies: (packageJson: {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
@@ -17,9 +21,17 @@ const {
     requiredReasonCategoryCount: number;
     tracking: false;
   };
+  verifyV1OtaPolicy: (
+    packageJson: {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    },
+    appConfig: { updates?: { enabled?: boolean }; runtimeVersion?: unknown },
+  ) => void;
   verifyReleaseConfiguration: (options: {
     mobileRoot: string;
     apiUrl: string | undefined;
+    webUrl: string | undefined;
     exportDirectory: string;
   }) => {
     apiOrigin: string;
@@ -27,6 +39,7 @@ const {
     deviceFamily: string;
     privacyCollectedDataTypeCount: number;
     version: string;
+    webOrigin: string;
   };
 };
 
@@ -38,6 +51,7 @@ describe('iOS release preflight', () => {
       verifyReleaseConfiguration({
         mobileRoot,
         apiUrl: 'https://beachleaguevb.com',
+        webUrl: 'https://beachleaguevb.com',
         exportDirectory: path.join(mobileRoot, 'dist'),
       }),
     ).toEqual(
@@ -47,14 +61,21 @@ describe('iOS release preflight', () => {
         deviceFamily: 'iPhone',
         privacyCollectedDataTypeCount: 13,
         version: '1.0.0 (1)',
+        webOrigin: 'https://beachleaguevb.com',
       }),
     );
   });
 
-  it.each([undefined, '', 'not-a-url', 'http://beachleaguevb.com']) (
+  it.each([undefined, '', 'not-a-url', 'http://beachleaguevb.com'])(
     'rejects a missing, malformed, or insecure release origin: %s',
     (value) => expect(() => assertSecureProductionOrigin(value)).toThrow(),
   );
+
+  it('identifies missing public-web configuration separately', () => {
+    expect(() =>
+      assertSecureProductionOrigin(undefined, 'EXPO_PUBLIC_WEB_URL'),
+    ).toThrow(/EXPO_PUBLIC_WEB_URL is required/);
+  });
 
   it.each([
     'http://localhost:8000',
@@ -108,5 +129,35 @@ describe('iOS release preflight', () => {
         dependencies: { 'posthog-react-native': 'latest' },
       }),
     ).toThrow(/privacy review/);
+  });
+
+  describe('v1 OTA policy', () => {
+    it('accepts an app with updates explicitly disabled', () => {
+      expect(() =>
+        verifyV1OtaPolicy(
+          { dependencies: { expo: '^57.0.0' } },
+          { updates: { enabled: false } },
+        ),
+      ).not.toThrow();
+    });
+
+    it('rejects installing expo-updates for v1', () => {
+      expect(() =>
+        verifyV1OtaPolicy(
+          { dependencies: { 'expo-updates': 'latest' } },
+          { updates: { enabled: false } },
+        ),
+      ).toThrow(/must not be installed/);
+    });
+
+    it('rejects an implicit or runtime-version OTA configuration', () => {
+      expect(() => verifyV1OtaPolicy({}, {})).toThrow(/explicitly disabled/);
+      expect(() =>
+        verifyV1OtaPolicy(
+          {},
+          { updates: { enabled: false }, runtimeVersion: '1.0.0' },
+        ),
+      ).toThrow(/deferred OTA rollout policy/);
+    });
   });
 });

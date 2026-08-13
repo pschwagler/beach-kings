@@ -37,6 +37,7 @@ const mockQueryClient = {
 };
 const mockUnsubscribeAuthInvalidated = jest.fn();
 let mockAuthInvalidatedListener: (() => void) | null = null;
+const mockSetTelemetryUser = jest.fn();
 
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
@@ -76,6 +77,10 @@ jest.mock('@/lib/api', () => ({
 
 jest.mock('@/features/notifications/pushInstallationStore', () => ({
   retirePushInstallation: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('@/telemetry/sentry', () => ({
+  setTelemetryUser: (...args: unknown[]) => mockSetTelemetryUser(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -374,6 +379,7 @@ describe('AuthProvider — login', () => {
     expect(result.current.isAuthenticated).toBe(true);
     expect(result.current.profileComplete).toBe(true);
     expect(result.current.user?.id).toBe(1);
+    expect(mockSetTelemetryUser).toHaveBeenLastCalledWith(1);
   });
 
   it('logs in with phone number', async () => {
@@ -477,6 +483,7 @@ describe('AuthProvider — signup', () => {
         password: 'password123',
         firstName: 'New',
         lastName: 'User',
+        eligibilityToken: 'eligible-token',
       });
     });
 
@@ -486,6 +493,7 @@ describe('AuthProvider — signup', () => {
       password: 'password123',
       first_name: 'New',
       last_name: 'User',
+      eligibility_token: 'eligible-token',
     });
     expect(mockSetAuthTokens).not.toHaveBeenCalled();
     expect(result.current.isAuthenticated).toBe(false);
@@ -507,6 +515,7 @@ describe('AuthProvider — signup', () => {
         password: 'password123',
         firstName: 'New',
         lastName: 'User',
+        eligibilityToken: 'eligible-token',
       });
     });
 
@@ -516,6 +525,7 @@ describe('AuthProvider — signup', () => {
       password: 'password123',
       first_name: 'New',
       last_name: 'User',
+      eligibility_token: 'eligible-token',
     });
   });
 
@@ -532,6 +542,7 @@ describe('AuthProvider — signup', () => {
           password: 'pass1234',
           firstName: 'A',
           lastName: 'B',
+          eligibilityToken: 'eligible-token',
         });
       }),
     ).rejects.toThrow('Email taken');
@@ -627,6 +638,7 @@ describe('AuthProvider — logout', () => {
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
+    expect(mockSetTelemetryUser).toHaveBeenLastCalledWith(null);
 
     const credentialClearOrder =
       mockClearAuthTokens.mock.invocationCallOrder.at(-1)!;

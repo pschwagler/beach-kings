@@ -23,7 +23,13 @@ from backend.services import email_service
 from backend.utils.datetime_utils import utcnow
 
 
-ALERT_KINDS = {"urgent_initial", "urgent_repeat", "ordinary_due_soon", "daily_digest"}
+ALERT_KINDS = {
+    "automatic_enforcement",
+    "urgent_initial",
+    "urgent_repeat",
+    "ordinary_due_soon",
+    "daily_digest",
+}
 TERMINAL_STATUSES = {"delivered", "failed", "cancelled"}
 EASTERN = ZoneInfo("America/New_York")
 TARGET_MODELS = {
@@ -130,6 +136,27 @@ async def schedule_case_alerts(session: AsyncSession, case: ModerationCase) -> N
             case_id=case.id,
             available_at=max(utcnow(), case.due_at - timedelta(hours=4)),
         )
+
+
+async def schedule_automatic_enforcement_alert(
+    session: AsyncSession, case: ModerationCase, decision: dict[str, Any]
+) -> None:
+    """Immediately notify the owner of a completed automatic account action."""
+    if not alerts_enabled():
+        return
+    await _enqueue(
+        session,
+        key=f"automatic_enforcement:{case.id}:{decision['action']}",
+        kind="automatic_enforcement",
+        case_id=case.id,
+        available_at=utcnow(),
+        payload={
+            "case_id": case.id,
+            "action": decision["action"],
+            "categories": decision["categories"],
+            "lock_hours": decision["lock_hours"],
+        },
+    )
 
 
 async def schedule_daily_digest(session: AsyncSession, now: datetime | None = None) -> None:
@@ -267,6 +294,8 @@ async def _eligible_cases(session: AsyncSession, job: ModerationAlertJob) -> lis
     if job.case_id is None:
         return []
     case = await session.get(ModerationCase, job.case_id)
+    if job.alert_kind == "automatic_enforcement":
+        return [case] if case is not None else []
     if (
         case is None
         or case.dispositioned_at is not None
@@ -304,12 +333,25 @@ async def _render_email(
     session: AsyncSession, job: ModerationAlertJob, cases: list[ModerationCase]
 ) -> tuple[str, str]:
     label = {
+        "automatic_enforcement": "Automatic safety enforcement",
         "urgent_initial": "Urgent moderation case",
         "urgent_repeat": "Unacknowledged urgent moderation case",
         "ordinary_due_soon": "Moderation case due soon",
         "daily_digest": "Daily moderation digest",
     }[job.alert_kind]
     lines = [label, "", f"Cases: {len(cases)}", ""]
+    if job.alert_kind == "automatic_enforcement":
+        payload = job.payload_json or {}
+        categories = ", ".join(payload.get("categories") or []) or "not recorded"
+        duration = payload.get("lock_hours")
+        duration_label = f"{duration} hours" if duration else "permanent"
+        lines.extend(
+            [
+                f"Action: {payload.get('action', 'unknown')} | Duration: {duration_label}",
+                f"Provider categories: {categories}",
+                "",
+            ]
+        )
     for case in cases:
         lines.extend(await _safe_case_lines(session, case))
     lines.extend(

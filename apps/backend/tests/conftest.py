@@ -160,6 +160,8 @@ async def _patch_missing_columns(conn):
         ("notifications", "dedup_key", "VARCHAR(255)"),
         # Migration 060 — UGC safety foundation
         ("notifications", "actor_player_id", "INTEGER REFERENCES players(id) ON DELETE SET NULL"),
+        # Interaction restriction revocation support
+        ("interaction_restrictions", "revoked_at", "TIMESTAMPTZ"),
         # Migration 061 — installation-scoped push registration
         ("device_tokens", "installation_id", "VARCHAR(128)"),
         ("device_tokens", "unregister_secret_hash", "VARCHAR(64)"),

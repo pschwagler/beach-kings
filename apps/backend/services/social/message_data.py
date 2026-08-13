@@ -18,7 +18,7 @@ from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import LeagueMessage, Player
-from backend.services import interaction_policy, moderation_worker
+from backend.services import interaction_policy, message_write_policy, moderation_worker
 
 
 async def get_league_messages(
@@ -121,6 +121,10 @@ async def create_league_message(
         ``id``, ``league_id``, ``user_id``, ``player_id``,
         ``player_name``, ``message``, ``created_at``.
     """
+    await message_write_policy.enforce_write_enabled(
+        session, message_write_policy.MessageSurface.LEAGUE_CHAT
+    )
+
     player_id_result = await session.execute(select(Player.id).where(Player.user_id == user_id))
     author_player_id = player_id_result.scalar_one_or_none()
     if author_player_id is None:

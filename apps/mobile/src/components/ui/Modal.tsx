@@ -8,6 +8,10 @@ import { Modal as RNModal, View, Pressable } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import {
+  type AccessibilityFocusRef,
+  useModalAccessibility,
+} from './useModalAccessibility';
 
 interface ModalProps {
   readonly visible: boolean;
@@ -15,6 +19,9 @@ interface ModalProps {
   readonly title?: string;
   readonly children: React.ReactNode;
   readonly className?: string;
+  readonly initialFocusRef?: AccessibilityFocusRef;
+  readonly returnFocusRef?: AccessibilityFocusRef;
+  readonly testID?: string;
 }
 
 export default function Modal({
@@ -23,14 +30,24 @@ export default function Modal({
   title,
   children,
   className = '',
+  initialFocusRef,
+  returnFocusRef,
+  testID,
 }: ModalProps): React.ReactNode {
   const reduceMotion = useReducedMotion();
+  const { modalRef, focusInitialElement } = useModalAccessibility({
+    visible,
+    initialFocusRef,
+    returnFocusRef,
+  });
   return (
     <RNModal
       visible={visible}
       animationType={reduceMotion ? 'none' : 'slide'}
       presentationStyle="pageSheet"
       onRequestClose={onClose}
+      onShow={focusInitialElement}
+      accessibilityViewIsModal
     >
       {/*
         Explicit flex:1 (not just the `flex-1` class) on the SafeAreaView and the
@@ -40,7 +57,16 @@ export default function Modal({
         safe-area-context's SafeAreaView (interop'd, as elsewhere in the app) plus
         explicit styles guarantees the flex chain regardless of interop.
       */}
-      <SafeAreaView style={{ flex: 1 }} className={`bg-page ${className}`}>
+      <SafeAreaView
+        ref={modalRef}
+        testID={testID}
+        style={{ flex: 1 }}
+        className={`bg-page ${className}`}
+        role="dialog"
+        accessibilityLabel={title ?? 'Dialog'}
+        accessibilityViewIsModal
+        onAccessibilityEscape={onClose}
+      >
         {/* Handle bar */}
         <View className="items-center pt-sm pb-xs">
           <View className="w-10 h-1 rounded-full bg-divider" />

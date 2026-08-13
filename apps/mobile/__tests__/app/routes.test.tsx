@@ -13,6 +13,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Mocks — declared before any route imports so Jest hoisting works correctly
 // ---------------------------------------------------------------------------
 
+jest.mock('@/components/auth/YouthEligibilityGate', () => {
+  const ReactModule = require('react');
+  return function MockYouthEligibilityGate({ onEligible }: { onEligible: (token: string) => void }) {
+    ReactModule.useEffect(() => onEligible('eligible-token'), [onEligible]);
+    return null;
+  };
+});
+
 // expo-router
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -56,6 +64,7 @@ jest.mock('expo-router', () => {
 
   const useRouter = () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn() });
   const useSegments = () => [];
+  const usePathname = () => '/';
   const useLocalSearchParams = () => ({});
   const useFocusEffect = jest.fn();
 
@@ -68,6 +77,7 @@ jest.mock('expo-router', () => {
     SplashScreen,
     useRouter,
     useSegments,
+    usePathname,
     useLocalSearchParams,
     useFocusEffect,
   };
@@ -569,10 +579,10 @@ describe('app/_layout — RootLayout', () => {
     expect(getByTestId('stack')).toBeTruthy();
   });
 
-  it('registers the four top-level route groups on the root Stack', () => {
+  it('registers the five top-level route groups on the root Stack', () => {
     const { getAllByTestId } = render(<RootLayout />);
-    // index, (auth), (tabs), (stack)
-    expect(getAllByTestId('stack-screen')).toHaveLength(4);
+    // index, (auth), (account), (tabs), (stack)
+    expect(getAllByTestId('stack-screen')).toHaveLength(5);
   });
 
   it('calls SplashScreen.hideAsync after navigation mounts', async () => {
@@ -730,6 +740,7 @@ describe('app/(auth)/signup — SignupScreen', () => {
         lastName: 'Smith',
         email: 'alice@example.com',
         password: 'pass1234',
+        eligibilityToken: 'eligible-token',
       });
     });
   });

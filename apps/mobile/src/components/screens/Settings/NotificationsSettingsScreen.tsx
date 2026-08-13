@@ -73,9 +73,8 @@ function ToggleRow({
 }: ToggleRowProps): React.ReactNode {
   return (
     <View
-      className={`flex-row items-center justify-between px-lg bg-surface border-b border-divider min-h-[48px] ${
-        disabled ? 'opacity-40' : ''
-      }`}
+      testID={testID == null ? undefined : `${testID}-row`}
+      className="flex-row items-center justify-between px-lg bg-surface border-b border-divider min-h-[48px]"
     >
       <AppText className="text-[15px] text-default">{label}</AppText>
       <AppSwitch
@@ -223,10 +222,7 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
         </View>
 
         <SectionHeader title="Notification Types" />
-        <View
-          testID="notifications-types-section"
-          className={!allEnabled && prefs != null ? 'opacity-40' : ''}
-        >
+        <View testID="notifications-types-section">
           {TOGGLE_ROWS.map(({ key, label }) => (
             <ToggleRow
               key={key}

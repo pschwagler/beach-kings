@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { X, CheckCircle, AlertCircle, Check, X as XIcon } from 'lucide-react';
-import { GoogleLogin } from '@react-oauth/google';
+import GoogleAuthButton from './GoogleAuthButton';
 import { useAuth } from '../../contexts/AuthContext';
 import type { AuthMode } from '../../contexts/AuthModalContext';
 import PhoneInput from '../ui/PhoneInput';
 import VerificationCodeInput from './VerificationCodeInput';
+import api from '../../services/api';
 
 const MODE_TITLES: Record<AuthMode, string> = {
   'sign-in': 'Log In',
@@ -64,6 +65,11 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
   });
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [isSignupFlow, setIsSignupFlow] = useState(false);
+  const [eligibilityToken, setEligibilityToken] = useState('');
+  const [ageCountry, setAgeCountry] = useState<'US' | 'CA' | ''>('');
+  const [ageRegion, setAgeRegion] = useState('');
+  const [ageBand, setAgeBand] = useState<'under_minimum' | 'junior' | 'adult' | ''>('');
+  const [guardianConsent, setGuardianConsent] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -111,6 +117,11 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setPasswordRequirements({ minLength: false, hasNumber: false });
     setResetToken(null);
     setIsSignupFlow(false);
+    setEligibilityToken('');
+    setAgeCountry('');
+    setAgeRegion('');
+    setAgeBand('');
+    setGuardianConsent(false);
     onClose?.();
   };
 
@@ -142,6 +153,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setIsPhoneValid(false);
     setPasswordRequirements({ minLength: false, hasNumber: false });
     setResetToken(null);
+    setEligibilityToken('');
   };
 
   const handleSendVerification = async () => {
@@ -207,6 +219,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
           email: formData.email,
+          eligibilityToken,
         });
         setStatusMessage('Account created! Enter the verification code we just sent you.');
         setFormData((prev) => ({
@@ -305,6 +318,35 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     }
   };
 
+  const handleEligibility = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage('');
+    if (!ageCountry || !/^[A-Za-z]{2}$/.test(ageRegion.trim()) || !ageBand) {
+      setErrorMessage('Select your country, enter a two-letter state or province code, and select an age range.');
+      return;
+    }
+    if (ageBand === 'junior' && !guardianConsent) {
+      setErrorMessage('A parent or legal guardian must review and agree before you continue.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await api.post('/api/auth/youth-eligibility', {
+        country_code: ageCountry,
+        region_code: ageRegion.trim().toUpperCase(),
+        declared_band: ageBand,
+        assurance_source: 'self_declared',
+        declaration_source: 'self_declared',
+        guardian_consent: guardianConsent,
+      });
+      setEligibilityToken(response.data.eligibility_token);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="auth-modal-overlay">
       <div className="auth-modal">
@@ -320,15 +362,15 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
         <p className="auth-modal__description">{renderDescription()}</p>
 
-        {(activeMode === 'sign-in' || activeMode === 'sign-up') && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+        {(activeMode === 'sign-in' || (activeMode === 'sign-up' && eligibilityToken)) && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
           <>
             <div className="auth-modal__google-wrapper">
-              <GoogleLogin
+              <GoogleAuthButton
                 onSuccess={async (credentialResponse) => {
                   setIsSubmitting(true);
                   setErrorMessage('');
                   try {
-                    const result = await loginWithGoogle(credentialResponse);
+                    const result = await loginWithGoogle(credentialResponse, eligibilityToken || undefined);
                     if (!result.profile_complete && onVerifySuccess) {
                       handleClose();
                       setTimeout(() => onVerifySuccess(false), 300);
@@ -344,10 +386,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
                 onError={() => {
                   setErrorMessage('Google sign-in failed. Please try again.');
                 }}
-                width="100%"
                 text={activeMode === 'sign-up' ? 'signup_with' : 'signin_with'}
-                shape="rectangular"
-                size="large"
               />
             </div>
             <div className="auth-modal__divider">
@@ -363,6 +402,38 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           </div>
         )}
 
+        {activeMode === 'sign-up' && !eligibilityToken ? (
+          <form className="auth-modal__form" onSubmit={handleEligibility} noValidate>
+            <label className="auth-modal__label">
+              Country
+              <select className="auth-modal__input" value={ageCountry} onChange={(event) => { setAgeCountry(event.target.value as 'US' | 'CA' | ''); setAgeRegion(''); }}>
+                <option value="">Select country</option>
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+              </select>
+            </label>
+            <label className="auth-modal__label">
+              {ageCountry === 'CA' ? 'Province or territory code' : 'State code'}
+              <input className="auth-modal__input" value={ageRegion} maxLength={2} autoCapitalize="characters" placeholder={ageCountry === 'CA' ? 'ON' : 'NY'} onChange={(event) => setAgeRegion(event.target.value)} />
+            </label>
+            <label className="auth-modal__label">
+              Age range
+              <select className="auth-modal__input" value={ageBand} onChange={(event) => { setAgeBand(event.target.value as typeof ageBand); setGuardianConsent(false); }}>
+                <option value="">Select age range</option>
+                <option value="under_minimum">Under {ageCountry === 'CA' ? 14 : 13}</option>
+                <option value="junior">{ageCountry === 'CA' ? '14' : '13'}–17</option>
+                <option value="adult">18 or older</option>
+              </select>
+            </label>
+            {ageBand === 'junior' && (
+              <label className="auth-modal__label">
+                <span><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} /> My parent or legal guardian reviewed this and agrees to my account.</span>
+              </label>
+            )}
+            <p className="auth-modal__legal-text">We use your age range to apply junior safety settings. We do not ask for your birthdate.</p>
+            <button type="submit" className="auth-modal__submit" disabled={isSubmitting}>{isSubmitting ? 'Checking age range…' : 'Continue to account details'}</button>
+          </form>
+        ) : (
         <form className="auth-modal__form" onSubmit={handleSubmit} noValidate>
           {activeMode === 'sign-up' && (
             <div className="auth-modal__name-row">
@@ -496,6 +567,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
             </p>
           )}
         </form>
+        )}
 
           {activeMode === 'sign-in' && (
             <div className="auth-modal__footer">

@@ -229,16 +229,38 @@ describe('FindLeaguesScreen — request to join', () => {
     });
   });
 
-  it('opens an invite-only league without attempting a direct join', async () => {
+  it('uses the invite-only card as the only route to league details', async () => {
     render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
-    await waitFor(() =>
-      expect(screen.getByTestId('request-join-btn-2')).toBeTruthy(),
+    await waitFor(() => expect(screen.getByTestId('league-result-card-2')).toBeTruthy());
+
+    expect(screen.queryByTestId('request-join-btn-2')).toBeNull();
+    expect(screen.queryByText('View League')).toBeNull();
+    expect(
+      screen.getByTestId('league-result-card-2').props.accessibilityLabel,
+    ).toBe('View Brooklyn AA League');
+    expect(screen.getByTestId('league-result-card-2').props.accessibilityHint).toBe(
+      'Opens league details',
     );
 
-    fireEvent.press(screen.getByTestId('request-join-btn-2'));
+    fireEvent.press(screen.getByTestId('league-result-card-2'));
 
     expect(mockJoinLeague).not.toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalled();
+  });
+
+  it('keeps open-league details and join as distinct accessible actions', async () => {
+    render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('request-join-btn-1')).toBeTruthy());
+
+    expect(
+      screen.getByTestId('league-result-card-1').props.accessibilityLabel,
+    ).toBe('View Manhattan Open');
+    expect(
+      screen.getByTestId('request-join-btn-1').props.accessibilityLabel,
+    ).toBe('Join Manhattan Open');
+    expect(screen.getByTestId('request-join-btn-1').props.accessibilityHint).toBe(
+      'Joins this open league',
+    );
   });
 
   it.each([

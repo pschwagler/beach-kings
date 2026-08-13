@@ -10,8 +10,9 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { renderWithTheme as render } from '../../../../test-utils/renderWithTheme';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -19,6 +20,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetLeagueSeasons = jest.fn();
 const mockGetLeaguePlayerStats = jest.fn();
+
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+  }),
+  vars: (values: object) => values,
+}));
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),

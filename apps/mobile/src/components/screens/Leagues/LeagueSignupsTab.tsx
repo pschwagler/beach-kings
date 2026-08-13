@@ -270,9 +270,9 @@ export default function LeagueSignupsTab({ leagueId }: LeagueSignupsTabProps): R
         <>
           <SectionLabel title="Weekly Schedule" />
           <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
-            {schedule.map((row, idx) => (
+            {schedule.map((row) => (
               <ScheduleRow
-                key={`${row.day_of_week}-${idx}`}
+                key={`${row.day_of_week}-${row.time_label}-${row.court_name ?? 'no-court'}`}
                 day={row.day_of_week}
                 time={row.time_label}
                 court={row.court_name}

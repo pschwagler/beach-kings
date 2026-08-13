@@ -21,10 +21,10 @@ import {
   FlatList,
   Image,
   Pressable,
-  Dimensions,
   RefreshControl,
   Alert,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -37,20 +37,22 @@ import { usePaletteColors } from '@/theme/usePaletteColors';
 import ReportSheet from '@/components/moderation/ReportSheet';
 
 const NUM_COLUMNS = 3;
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const PHOTO_SIZE = Math.floor(SCREEN_WIDTH / NUM_COLUMNS) - 1;
+
+export function getCourtPhotoSize(windowWidth: number): number {
+  return Math.max(1, Math.floor(windowWidth / NUM_COLUMNS) - 1);
+}
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function PhotoSkeleton(): React.ReactNode {
+function PhotoSkeleton({ photoSize }: { readonly photoSize: number }): React.ReactNode {
   return (
     <View testID="court-photos-loading" className="flex-row flex-wrap">
       {Array.from({ length: 9 }).map((_, i) => (
         // eslint-disable-next-line react/no-array-index-key
         <View key={i} style={{ margin: 0.5 }}>
-          <LoadingSkeleton width={PHOTO_SIZE} height={PHOTO_SIZE} borderRadius={0} />
+          <LoadingSkeleton width={photoSize} height={photoSize} borderRadius={0} />
         </View>
       ))}
     </View>
@@ -59,6 +61,7 @@ function PhotoSkeleton(): React.ReactNode {
 
 interface PhotoGridProps {
   readonly photos: readonly CourtPhoto[];
+  readonly photoSize: number;
   readonly onAddPhoto: () => void;
   readonly refreshing: boolean;
   readonly onRefresh: () => void;
@@ -67,6 +70,7 @@ interface PhotoGridProps {
 
 function PhotoGrid({
   photos,
+  photoSize,
   onAddPhoto,
   refreshing,
   onRefresh,
@@ -110,15 +114,15 @@ function PhotoGrid({
           onLongPress={() => onReport(item.id)}
           accessibilityHint="Long press to report this photo"
           style={{
-            width: PHOTO_SIZE,
-            height: PHOTO_SIZE,
+            width: photoSize,
+            height: photoSize,
             margin: 0.5,
             backgroundColor: palette.bgElevated,
           }}
         >
           <Image
             source={{ uri: item.url }}
-            style={{ width: PHOTO_SIZE, height: PHOTO_SIZE }}
+            style={{ width: photoSize, height: photoSize }}
             accessibilityIgnoresInvertColors
             accessibilityLabel={item.caption ?? 'Court photo'}
           />
@@ -144,6 +148,8 @@ export default function CourtPhotosScreen({
   idOrSlug,
 }: CourtPhotosScreenProps): React.ReactNode {
   const palette = usePaletteColors();
+  const { width: windowWidth } = useWindowDimensions();
+  const photoSize = getCourtPhotoSize(windowWidth);
   const [reportPhotoId, setReportPhotoId] = useState<number | null>(null);
   const {
     photos,
@@ -211,7 +217,7 @@ export default function CourtPhotosScreen({
         testID="court-photos-screen"
       >
         <TopNav title="Photos" showBack rightAction={addButton} />
-        <PhotoSkeleton />
+        <PhotoSkeleton photoSize={photoSize} />
       </SafeAreaView>
     );
   }
@@ -288,6 +294,7 @@ export default function CourtPhotosScreen({
 
       <PhotoGrid
         photos={photos}
+        photoSize={photoSize}
         onAddPhoto={handleAddPhoto}
         refreshing={isRefreshing}
         onRefresh={onRefresh}

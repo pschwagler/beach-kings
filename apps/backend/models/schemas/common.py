@@ -267,6 +267,7 @@ class SignupRequest(BaseModel):
     full_name: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    eligibility_token: Optional[str] = None
 
     @model_validator(mode="after")
     def validate_phone_or_email(self) -> "SignupRequest":

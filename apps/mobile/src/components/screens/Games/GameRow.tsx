@@ -45,17 +45,22 @@ function ResultBadge({ result }: { result: 'W' | 'L' | 'D' }): React.ReactNode {
 
 function RatingChange({
   change,
-  submitted,
+  pendingReason,
 }: {
   change: number | null;
-  submitted: boolean;
+  pendingReason: GameHistoryEntry['rating_pending_reason'];
 }): React.ReactNode {
-  if (!submitted || change == null) {
+  if (change == null) {
+    const label = pendingReason === 'session_submission'
+      ? 'AWAITING SUBMISSION'
+      : pendingReason === 'player_account'
+        ? 'RATING PENDING'
+        : 'CALCULATING RATING';
     return (
       <View className="flex-row items-center gap-[3px]">
         <View className="px-2 py-[2px] rounded-[8px] bg-warning-tint border border-warning-tint">
           <AppText className="text-[10px] font-bold text-warning">
-            PENDING
+            {label}
           </AppText>
         </View>
       </View>
@@ -97,6 +102,26 @@ function TeamLine({ game }: { game: GameHistoryEntry }): React.ReactNode {
 
 export default function GameRow({ game, onPress }: GameRowProps): React.ReactNode {
   const score = formatGameScore(game.my_score, game.opponent_score);
+  const resultLabel = game.result === 'W' ? 'Win' : game.result === 'L' ? 'Loss' : 'Draw';
+  const teammates = game.partner_names.length > 0
+    ? `You with ${game.partner_names.join(' and ')}`
+    : 'You';
+  const opponents = game.opponent_names.join(' and ');
+  const contextLabel = game.league_name ?? 'Pickup game';
+  const ratingLabel = game.rating_change != null
+    ? `Rating change ${game.rating_change >= 0 ? 'plus ' : 'minus '}${Math.abs(game.rating_change)}`
+    : game.rating_pending_reason === 'player_account'
+      ? 'Rating pending until every player has an account'
+      : game.rating_pending_reason === 'session_submission'
+        ? 'Awaiting session submission'
+        : 'Calculating rating';
+  const accessibilityLabel = [
+    resultLabel,
+    `score ${score}`,
+    `${teammates} versus ${opponents}`,
+    contextLabel,
+    ratingLabel,
+  ].join('. ');
   const handlePress = useCallback(() => {
     void hapticMedium();
     onPress?.(game);
@@ -107,7 +132,7 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
       testID={`game-row-${game.id}`}
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={`Game result: ${game.result}, score: ${score}`}
+      accessibilityLabel={accessibilityLabel}
       className="bg-surface rounded-[12px] px-[14px] py-[14px] border border-divider mb-[10px] active:opacity-80"
     >
       {/* Top row: result badge */}
@@ -129,6 +154,11 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
           Awaiting session submission
         </AppText>
       )}
+      {game.rating_pending_reason === 'player_account' && (
+        <AppText className="text-[11px] text-warning mt-[3px]">
+          Waiting for every player to create an account
+        </AppText>
+      )}
 
       {/* Meta row */}
       <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-divider">
@@ -141,7 +171,10 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
             Pickup
           </AppText>
         )}
-        <RatingChange change={game.rating_change} submitted={game.session_submitted} />
+        <RatingChange
+          change={game.rating_change}
+          pendingReason={game.rating_pending_reason}
+        />
       </View>
     </Pressable>
   );

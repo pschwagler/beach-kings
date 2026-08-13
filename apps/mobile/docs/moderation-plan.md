@@ -5,10 +5,10 @@
 > Operating model: centralized automation with one human owner
 
 This plan minimizes ongoing cost and administrative complexity while keeping a
-human accountable for high-impact decisions. AI performs routine screening,
-triage, evidence summarization, temporary safety actions, and response drafting.
-It does not permanently ban users, decide appeals, or make legally sensitive
-judgments without human approval.
+human accountable for oversight and appeals. AI performs routine screening,
+triage, evidence summarization, and policy-bounded safety actions. Deterministic
+severe flags can suspend or ban under the automatic action matrix; ambiguous
+cases, appeals, and legally sensitive external escalation remain human-owned.
 
 ## Launch principles
 
@@ -20,8 +20,9 @@ judgments without human approval.
   queue.
 - Junior involvement raises severity and skips low-cost-only adjudication.
 - Models recommend; policy code decides allowed automatic actions.
-- Permanent bans, appeals, and legally sensitive incidents require the human
-  owner at launch.
+- Appeals and legally sensitive external escalation require the human owner at
+  launch. Automatic permanent bans are limited to clear sexual-minor flags above
+  the configured severe-category threshold.
 - League organizers can report and block but do not receive moderation powers in
   v1. This keeps permissions and operations centralized.
 
@@ -42,7 +43,7 @@ Flagship review for ambiguity, severity, juniors, or model disagreement
     ↓
 Automatic receipt + owner alert where required
     ↓
-Human decision for permanent action, appeal, or sensitive incident
+Human decision for ambiguity, appeal, or sensitive external escalation
     ↓
 Audited enforcement and user notification
 ```
@@ -117,14 +118,14 @@ draft. It may trigger or preserve a temporary quarantine but not a permanent ban
 | Clean submission | Publish/deliver | None |
 | Mild profanity without targeted abuse | Allow or warn according to policy | Sample during QA |
 | Obvious spam/scam | Hide and temporarily rate-limit | Review repeat offenders |
-| Targeted harassment | Quarantine reported content; temporary contact lock | Decide warning/suspension |
-| Credible threat, stalking, or doxxing | Quarantine; temporary account interaction lock; urgent alert | Review as soon as possible |
-| Sexual content involving a possible minor | Quarantine; preserve restricted evidence; urgent alert | Follow specialist/legal protocol |
+| Targeted harassment below the automatic threshold | Quarantine reported content | Decide warning/suspension |
+| Threatening harassment/hate or violent wrongdoing instructions at or above `MODERATION_AUTO_ENFORCE_SCORE` | Quarantine; seven-day account suspension; immediate owner email | Review email/case; decide any external escalation |
+| Sexual-minor flag at or above `MODERATION_AUTO_ENFORCE_SCORE` | Quarantine; account ban; preserve restricted evidence; immediate owner email | Follow specialist/legal protocol and decide appeals |
 | Ambiguous or model disagreement | Keep pending and escalate to flagship | Required for material action |
 | Appeal | Preserve current safe state | Human decision required |
 
-Do not implement silent permanent punishment. Temporary automated restrictions
-must be time-bounded, disclosed to the affected user where safe, and reviewable.
+Do not implement silent punishment. Automatic restrictions are disclosed to the
+affected user, case-linked, appealable, and emailed immediately to the owner.
 
 ## Enforcement contract
 
@@ -139,11 +140,12 @@ does not unnecessarily remove access to league and gameplay information:
   status, appeal, account-deletion, and logout flows remain available. Access
   returns automatically when the suspension expires.
 - **Account ban:** indefinite full-account boundary with the same status,
-  appeal, deletion, and logout access. A human moderator must restore it.
+  appeal, deletion, and logout access. A human moderator decides restoration.
 
-Every level is case-linked and audited. Only a human system administrator can
-suspend, ban, restore, or decide an appeal. Granting an appeal revokes the
-case-linked restriction without lifting enforcement from a different case.
+Every level is case-linked and audited. Policy code may issue the automatic
+suspension or ban defined above; only a human system administrator can restore
+an account or decide an appeal. Granting an appeal revokes the case-linked
+restriction without lifting enforcement from a different case.
 
 ## Minimal data model
 
@@ -201,12 +203,22 @@ is acknowledged, without putting sensitive evidence in email.
   application-state retention and is eligible for Zero Data Retention.
 - Image inputs submitted to OpenAI are scanned for possible child sexual abuse
   material and may be retained for manual safety review even under stronger data
-  controls. Document this processor behavior and obtain legal/safety guidance
-  before enabling junior photo uploads.
+  controls. The approved junior-photo flow uses provider screening before
+  publication and fails closed when screening is unavailable. Deterministic,
+  severe categories above the automatic-enforcement threshold trigger the
+  bounded account action and an immediate owner email; all other flagged or
+  ambiguous material stays quarantined for owner review.
 - Do not include report evidence in alert email. Link the authenticated owner to
   the admin case instead.
 - Set explicit evidence retention and deletion windows, with stricter access
   logging for junior-related cases.
+- Derive junior involvement from the server-held account age group when either
+  the reporter or subject is a junior. Give those cases a four-hour human-review
+  deadline even when the selected category is otherwise ordinary.
+- Organizers receive only the minimum operational direction needed to protect a
+  league. Guardian contact uses the approved support workflow and never exposes
+  the reporter, report details, or unrelated messages. Emergency and suspected
+  exploitation cases follow the specialist incident runbook.
 
 ## Evaluation before automation
 

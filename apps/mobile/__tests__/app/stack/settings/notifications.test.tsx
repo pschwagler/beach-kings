@@ -254,6 +254,33 @@ describe('NotificationsSettingsScreen — toggles', () => {
     });
   });
 
+  it('exposes notification type toggles as disabled when the master toggle is off', async () => {
+    mockGetPushNotificationPrefs.mockResolvedValue(MIXED_PREFS);
+    render(<NotificationsRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('toggle-direct_messages')).toHaveAccessibilityState({
+        disabled: true,
+      });
+    });
+  });
+
+  it('keeps category labels fully readable when only their switches are disabled', async () => {
+    mockGetPushNotificationPrefs.mockResolvedValue(MIXED_PREFS);
+    render(<NotificationsRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('toggle-direct_messages')).toHaveAccessibilityState({
+        disabled: true,
+      });
+    });
+
+    expect(screen.getByTestId('notifications-types-section').props.className).toBeUndefined();
+    expect(screen.getByTestId('toggle-direct_messages-row').props.className).not.toContain(
+      'opacity',
+    );
+    expect(screen.getByText('Chat Messages').props.className).toContain('text-default');
+  });
+
   it('calls updatePushNotificationPrefs when individual toggle changes', async () => {
     render(<NotificationsRoute />);
     await waitFor(() => expect(screen.getByTestId('toggle-direct_messages')).toBeTruthy());

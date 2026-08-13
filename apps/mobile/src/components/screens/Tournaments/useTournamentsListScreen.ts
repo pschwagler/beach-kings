@@ -49,7 +49,7 @@ export function useTournamentsListScreen(): UseTournamentsListScreenResult {
     [],
   );
 
-  const allTournaments = data ?? [];
+  const allTournaments = useMemo(() => data ?? [], [data]);
 
   const activeTournament = useMemo(
     () => allTournaments.find((t) => t.status === "ACTIVE") ?? null,

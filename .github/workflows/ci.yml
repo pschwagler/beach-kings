@@ -20,11 +20,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.13"
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Report production dependency audit
+        continue-on-error: true
+        run: npm audit --omit=dev
 
       - name: Lint (JavaScript/TypeScript)
         run: npm run lint
@@ -97,7 +101,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.13"
           cache: "npm"
 
       - name: Install dependencies
@@ -105,6 +109,55 @@ jobs:
 
       - name: Run frontend unit tests
         run: cd apps/web && npm run test:unit:coverage
+
+  mobile-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint mobile app
+        run: npm run lint --workspace @beach-kings/mobile
+
+      - name: Typecheck mobile app
+        run: npx tsc --noEmit -p apps/mobile/tsconfig.json
+
+      - name: Test mobile app
+        run: npm test --workspace @beach-kings/mobile -- --runInBand
+
+      - name: Verify Expo dependency health
+        run: npx expo-doctor apps/mobile
+
+      - name: Export production iOS bundle
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_URL: https://beachleaguevb.com
+          EXPO_PUBLIC_WEB_URL: https://beachleaguevb.com
+        run: npm run release:export:ios
+
+      - name: Record exported bundle baseline
+        working-directory: apps/mobile
+        run: |
+          bundle_kib=$(du -sk dist | cut -f1)
+          echo "### Mobile export baseline" >> "$GITHUB_STEP_SUMMARY"
+          echo "iOS export: ${bundle_kib} KiB" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run release preflight
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_URL: https://beachleaguevb.com
+          EXPO_PUBLIC_WEB_URL: https://beachleaguevb.com
+        run: npm run release:preflight
 
   build-frontend:
     runs-on: ubuntu-latest
@@ -115,7 +168,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.13"
           cache: "npm"
 
       - name: Install dependencies

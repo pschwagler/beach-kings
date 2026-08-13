@@ -1,6 +1,7 @@
 import { shareLink } from '@/utils/share';
+import { PUBLIC_WEB_ORIGIN } from '@/lib/publicUrls';
 
-const SESSION_WEB_URL = 'https://beachleaguevb.com/session';
+const SESSION_WEB_URL = `${PUBLIC_WEB_ORIGIN}/session`;
 
 export class SessionInvitationUnavailableError extends Error {
   constructor() {

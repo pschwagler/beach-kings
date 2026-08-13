@@ -1,6 +1,5 @@
 import { routes, type LeagueTab, type SocialTab } from '@/lib/navigation';
-
-const PRODUCTION_ORIGIN = 'https://beachleaguevb.com';
+import { PUBLIC_WEB_ORIGIN } from '@/lib/publicUrls';
 
 const HOME_SOCIAL_TABS: Readonly<Record<string, SocialTab>> = {
   messages: 'messages',
@@ -18,8 +17,8 @@ const LEAGUE_TABS: Readonly<Record<string, LeagueTab>> = {
 
 function parseInternalUrl(linkUrl: string): URL | null {
   try {
-    const url = new URL(linkUrl, PRODUCTION_ORIGIN);
-    return url.origin === PRODUCTION_ORIGIN ? url : null;
+    const url = new URL(linkUrl, PUBLIC_WEB_ORIGIN);
+    return url.origin === PUBLIC_WEB_ORIGIN ? url : null;
   } catch {
     return null;
   }

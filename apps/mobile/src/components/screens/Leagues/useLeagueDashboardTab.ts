@@ -90,10 +90,12 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
   // stats-calc job has run, so the refetch reads freshly-computed rows.
   // Cooldown 0: always refresh on focus (the default 30s would suppress the
   // post-submit refetch, since standings were just viewed seconds earlier).
+  const refetchStandings = standingsQuery.refetch;
+  const refetchSeasons = seasonsQuery.refetch;
   const refetchOnFocus = useCallback(() => {
-    void standingsQuery.refetch();
-    void seasonsQuery.refetch();
-  }, [standingsQuery.refetch, seasonsQuery.refetch]);
+    void refetchStandings();
+    void refetchSeasons();
+  }, [refetchSeasons, refetchStandings]);
   useRefreshOnFocus(refetchOnFocus, 0);
 
   // True while the auto-init effect hasn't yet resolved selectedSeasonId.

@@ -12,6 +12,7 @@ jest.mock('@/theme/usePaletteColors', () => ({
 import SegmentControl from '@/components/ui/SegmentControl';
 import TabView from '@/components/ui/TabView';
 import FilterChipBar from '@/components/ui/FilterChipBar';
+import { centeredHorizontalOffset } from '@/components/ui/useHorizontalOverflow';
 
 const VIEW_ITEMS = [
   { value: 'list', label: 'List', testID: 'view-list' },
@@ -19,6 +20,12 @@ const VIEW_ITEMS = [
 ] as const;
 
 describe('keyed navigation controls', () => {
+  it('centers selected items while clamping to both scroll edges', () => {
+    expect(centeredHorizontalOffset(600, 200, 250, 100)).toBe(200);
+    expect(centeredHorizontalOffset(600, 200, 10, 80)).toBe(0);
+    expect(centeredHorizontalOffset(600, 200, 550, 50)).toBe(400);
+  });
+
   it('selects a SegmentControl item by stable value and exposes position', () => {
     const onValueChange = jest.fn();
     render(
@@ -83,6 +90,7 @@ describe('keyed navigation controls', () => {
     expect(screen.getByTestId('court-filters')).toHaveProp('accessibilityRole', 'toolbar');
     expect(screen.getByTestId('court-filters')).toHaveProp('accessibilityLabel', 'Filters');
     expect(screen.getByTestId('view-map')).toHaveAccessibilityState({ selected: true });
+    expect(screen.getByTestId('view-map')).toHaveAccessibilityValue({ text: '2 of 2' });
     expect(screen.getByTestId('view-map')).toHaveProp(
       'className',
       expect.stringContaining('min-h-touch'),
@@ -90,5 +98,39 @@ describe('keyed navigation controls', () => {
 
     fireEvent.press(screen.getByTestId('view-list'));
     expect(onValueChange).toHaveBeenCalledWith('list');
+  });
+
+  it('shows directional, focus-safe cues when filters overflow', () => {
+    render(
+      <FilterChipBar
+        items={VIEW_ITEMS}
+        value="list"
+        onValueChange={jest.fn()}
+        testID="overflow-filters"
+      />,
+    );
+
+    const filters = screen.getByTestId('overflow-filters');
+    fireEvent(filters, 'layout', {
+      nativeEvent: { layout: { height: 44, width: 160, x: 0, y: 0 } },
+    });
+    fireEvent(filters, 'contentSizeChange', 320, 44);
+
+    expect(screen.getByTestId('horizontal-overflow-forward', { includeHiddenElements: true })).toHaveProp(
+      'importantForAccessibility',
+      'no-hide-descendants',
+    );
+    expect(filters).toHaveProp('accessibilityHint', 'Swipe left or right to see more filters');
+
+    fireEvent.scroll(filters, {
+      nativeEvent: { contentOffset: { x: 160, y: 0 } },
+    });
+
+    expect(screen.getByTestId('horizontal-overflow-backward', {
+      includeHiddenElements: true,
+    })).toBeTruthy();
+    expect(screen.queryByTestId('horizontal-overflow-forward', {
+      includeHiddenElements: true,
+    })).toBeNull();
   });
 });

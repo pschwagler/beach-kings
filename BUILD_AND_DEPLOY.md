@@ -18,17 +18,15 @@ npm install -g eas-cli
 eas login
 ```
 
-3. Link the existing configuration to an EAS project when Expo account access
-   is available:
+3. Verify the existing EAS project linkage:
 ```bash
 cd apps/mobile
-eas init
+eas project:info
 ```
 
 The checked-in `eas.json` already defines development-simulator, preview, and
-production profiles. Expo project linking and signing credentials remain
-external setup steps; do not replace the reviewed profiles with
-`eas build:configure`.
+production profiles. Signing credentials remain an external setup step; do not
+replace the reviewed profiles with `eas build:configure`.
 
 #### Building for Development
 
@@ -74,9 +72,11 @@ Create `.env` files for different environments:
 ```bash
 # apps/mobile/.env.production
 EXPO_PUBLIC_API_URL=https://beachleaguevb.com
+EXPO_PUBLIC_WEB_URL=https://beachleaguevb.com
 
 # apps/mobile/.env.development
 EXPO_PUBLIC_API_URL=http://localhost:8000
+EXPO_PUBLIC_WEB_URL=http://localhost:3000
 ```
 
 ### App Store Preparation

@@ -12,7 +12,7 @@ const EXPECTED = Object.freeze({
   buildNumber: '1',
   locationPurpose:
     'Beach League uses your location to suggest the nearest league location.',
-  easImage: 'macos-sequoia-15.6-xcode-26.2',
+  easImage: 'macos-tahoe-26.5-xcode-26.6',
 });
 
 const EXPECTED_PRIVACY_DATA_TYPES = Object.freeze([
@@ -57,21 +57,25 @@ function read(file) {
   return fs.readFileSync(file, 'utf8');
 }
 
-function assertSecureProductionOrigin(value) {
-  if (!value || value.trim() === '') fail('EXPO_PUBLIC_API_URL is required.');
+function assertSecureProductionOrigin(
+  value,
+  environmentVariable = 'EXPO_PUBLIC_API_URL',
+) {
+  if (!value || value.trim() === '')
+    fail(`${environmentVariable} is required.`);
 
   let url;
   try {
     url = new URL(value);
   } catch {
-    fail('EXPO_PUBLIC_API_URL must be a valid absolute URL.');
+    fail(`${environmentVariable} must be a valid absolute URL.`);
   }
 
   const hostname = url.hostname.toLowerCase();
   if (['localhost', '127.0.0.1', '[::1]'].includes(hostname)) {
-    fail('EXPO_PUBLIC_API_URL cannot use localhost.');
+    fail(`${environmentVariable} cannot use localhost.`);
   }
-  if (url.protocol !== 'https:') fail('EXPO_PUBLIC_API_URL must use HTTPS.');
+  if (url.protocol !== 'https:') fail(`${environmentVariable} must use HTTPS.`);
   if (
     url.username ||
     url.password ||
@@ -79,7 +83,7 @@ function assertSecureProductionOrigin(value) {
     url.search ||
     url.hash
   ) {
-    fail('EXPO_PUBLIC_API_URL must be an HTTPS origin without a path.');
+    fail(`${environmentVariable} must be an HTTPS origin without a path.`);
   }
   return url.origin;
 }
@@ -87,7 +91,9 @@ function assertSecureProductionOrigin(value) {
 function assertOccurrences(source, expression, expectedCount, description) {
   const count = [...source.matchAll(expression)].length;
   if (count !== expectedCount) {
-    fail(`${description}; expected ${expectedCount} matching build configurations, found ${count}.`);
+    fail(
+      `${description}; expected ${expectedCount} matching build configurations, found ${count}.`,
+    );
   }
 }
 
@@ -120,7 +126,9 @@ function verifyPrivacyManifest(source) {
     ),
   ].length;
   if (linkedTrueCount !== EXPECTED_PRIVACY_DATA_TYPES.length) {
-    fail('every collected data type must use the approved linked-to-user declaration.');
+    fail(
+      'every collected data type must use the approved linked-to-user declaration.',
+    );
   }
 
   const collectionTrackingFalseCount = [
@@ -137,7 +145,9 @@ function verifyPrivacyManifest(source) {
     '<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>',
   );
   if (appFunctionalityCount !== EXPECTED_PRIVACY_DATA_TYPES.length) {
-    fail('every collected data type must use the approved App Functionality purpose.');
+    fail(
+      'every collected data type must use the approved App Functionality purpose.',
+    );
   }
 
   for (const unapprovedType of [
@@ -148,7 +158,9 @@ function verifyPrivacyManifest(source) {
     'NSPrivacyCollectedDataTypePerformanceData',
   ]) {
     if (source.includes(`<string>${unapprovedType}</string>`)) {
-      fail(`privacy manifest contains an unapproved current-build declaration: ${unapprovedType}.`);
+      fail(
+        `privacy manifest contains an unapproved current-build declaration: ${unapprovedType}.`,
+      );
     }
   }
 
@@ -182,9 +194,26 @@ function verifyNoTrackingDependencies(packageJson) {
   }
 }
 
+function verifyV1OtaPolicy(packageJson, appConfig) {
+  const directDependencies = {
+    ...(packageJson.dependencies ?? {}),
+    ...(packageJson.devDependencies ?? {}),
+  };
+  if (directDependencies['expo-updates'] != null) {
+    fail('expo-updates must not be installed while the v1 no-OTA policy is active.');
+  }
+  if (appConfig.updates?.enabled !== false) {
+    fail('Expo updates must be explicitly disabled for v1.');
+  }
+  if (appConfig.runtimeVersion != null) {
+    fail('runtimeVersion belongs to the deferred OTA rollout policy, not v1.');
+  }
+}
+
 function verifyReleaseConfiguration({
   mobileRoot,
   apiUrl,
+  webUrl,
   exportDirectory,
 }) {
   const appConfig = JSON.parse(read(path.join(mobileRoot, 'app.json'))).expo;
@@ -194,20 +223,44 @@ function verifyReleaseConfiguration({
     path.join(mobileRoot, 'ios/BeachLeague.xcodeproj/project.pbxproj'),
   );
   const infoPlist = read(path.join(mobileRoot, 'ios/BeachLeague/Info.plist'));
+  const entitlementsPath = path.join(
+    mobileRoot,
+    'ios/BeachLeague/BeachLeague.entitlements',
+  );
+  const entitlements = read(entitlementsPath);
   const privacyManifestPath = path.join(
     mobileRoot,
     'ios/BeachLeague/PrivacyInfo.xcprivacy',
   );
   const privacyManifest = read(privacyManifestPath);
 
-  verifyNoTrackingDependencies(packageJson);
+  lintPropertyList(entitlementsPath);
+  if (
+    appConfig.ios?.entitlements?.['com.apple.developer.declared-age-range'] !==
+    true
+  ) {
+    fail('Expo must enable the Declared Age Range entitlement.');
+  }
+  if (
+    !/<key>com\.apple\.developer\.declared-age-range<\/key>\s*<true\s*\/>/.test(
+      entitlements,
+    )
+  ) {
+    fail('native Declared Age Range entitlement is missing.');
+  }
 
-  if (appConfig.name !== EXPECTED.displayName) fail('unexpected home-screen display name.');
-  if (appConfig.version !== EXPECTED.version) fail('Expo and release version differ.');
+  verifyNoTrackingDependencies(packageJson);
+  verifyV1OtaPolicy(packageJson, appConfig);
+
+  if (appConfig.name !== EXPECTED.displayName)
+    fail('unexpected home-screen display name.');
+  if (appConfig.version !== EXPECTED.version)
+    fail('Expo and release version differ.');
   if (appConfig.ios?.bundleIdentifier !== EXPECTED.bundleIdentifier) {
     fail('unexpected Expo iOS bundle identifier.');
   }
-  if (appConfig.ios?.supportsTablet !== false) fail('Expo must be iPhone-only.');
+  if (appConfig.ios?.supportsTablet !== false)
+    fail('Expo must be iPhone-only.');
 
   assertOccurrences(
     project,
@@ -263,7 +316,9 @@ function verifyReleaseConfiguration({
     'UISupportedInterfaceOrientations~ipad',
   ]) {
     if (infoPlist.includes(`<key>${forbiddenKey}</key>`)) {
-      fail(`unused or iPad-only Info.plist declaration remains: ${forbiddenKey}.`);
+      fail(
+        `unused or iPad-only Info.plist declaration remains: ${forbiddenKey}.`,
+      );
     }
   }
 
@@ -272,26 +327,53 @@ function verifyReleaseConfiguration({
       fail(`${profile} is not pinned to ${EXPECTED.easImage}.`);
     }
   }
-  if (easConfig.cli?.appVersionSource !== 'remote') fail('EAS must use remote build numbers.');
+  if (easConfig.cli?.appVersionSource !== 'remote')
+    fail('EAS must use remote build numbers.');
   if (easConfig.build?.production?.autoIncrement !== true) {
     fail('the EAS production profile must auto-increment builds.');
   }
-  if (easConfig.build?.preview?.env?.EXPO_PUBLIC_API_URL !== 'https://dev.beachleaguevb.com') {
+  if (
+    easConfig.build?.preview?.env?.EXPO_PUBLIC_API_URL !==
+    'https://dev.beachleaguevb.com'
+  ) {
     fail('the preview API origin is unexpected.');
   }
-  if (easConfig.build?.production?.env?.EXPO_PUBLIC_API_URL !== 'https://beachleaguevb.com') {
+  if (
+    easConfig.build?.production?.env?.EXPO_PUBLIC_API_URL !==
+    'https://beachleaguevb.com'
+  ) {
     fail('the production API origin is unexpected.');
   }
+  if (
+    easConfig.build?.['development-simulator']?.env?.EXPO_PUBLIC_WEB_URL !==
+    'http://localhost:3000'
+  ) {
+    fail('the development web origin is unexpected.');
+  }
+  if (
+    easConfig.build?.preview?.env?.EXPO_PUBLIC_WEB_URL !==
+    'https://dev.beachleaguevb.com'
+  ) {
+    fail('the preview web origin is unexpected.');
+  }
+  if (
+    easConfig.build?.production?.env?.EXPO_PUBLIC_WEB_URL !==
+    'https://beachleaguevb.com'
+  ) {
+    fail('the production web origin is unexpected.');
+  }
 
-  const origin = assertSecureProductionOrigin(apiUrl);
+  const apiOrigin = assertSecureProductionOrigin(apiUrl);
+  const webOrigin = assertSecureProductionOrigin(webUrl, 'EXPO_PUBLIC_WEB_URL');
   const exportResult = verifyProductionExport(exportDirectory, ['ios']);
   return {
-    apiOrigin: origin,
+    apiOrigin,
     bundleIdentifier: EXPECTED.bundleIdentifier,
     deviceFamily: 'iPhone',
     exportFileCount: exportResult.scannedFileCount,
     privacyCollectedDataTypeCount: privacy.collectedDataTypeCount,
     version: `${EXPECTED.version} (${EXPECTED.buildNumber})`,
+    webOrigin,
   };
 }
 
@@ -308,10 +390,11 @@ if (require.main === module) {
     const result = verifyReleaseConfiguration({
       mobileRoot,
       apiUrl: process.env.EXPO_PUBLIC_API_URL,
+      webUrl: process.env.EXPO_PUBLIC_WEB_URL,
       exportDirectory: parseExportDirectory(process.argv.slice(2), mobileRoot),
     });
     console.log(
-      `iOS release preflight passed: ${result.bundleIdentifier}, ${result.version}, ${result.deviceFamily}, ${result.apiOrigin}; scanned ${result.exportFileCount} export files.`,
+      `iOS release preflight passed: ${result.bundleIdentifier}, ${result.version}, ${result.deviceFamily}, API ${result.apiOrigin}, web ${result.webOrigin}; scanned ${result.exportFileCount} export files.`,
     );
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
@@ -324,4 +407,5 @@ module.exports = {
   verifyNoTrackingDependencies,
   verifyPrivacyManifest,
   verifyReleaseConfiguration,
+  verifyV1OtaPolicy,
 };

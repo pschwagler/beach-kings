@@ -304,6 +304,62 @@ async def test_urgent_triage_updates_case_queue_priority(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_clear_severe_flag_applies_account_action_and_schedules_email(monkeypatch):
+    from backend.database.models import ModerationCase
+    from backend.services import moderation_alerts, moderation_service
+
+    monkeypatch.setenv("MODERATION_MODE", "enforce")
+    monkeypatch.setenv("ENV", "development")
+    monkeypatch.setenv("MODERATION_AUTO_ENFORCE_SCORE", "0.95")
+    case = SimpleNamespace(
+        id=14,
+        subject_player_id=12,
+        severity="ordinary",
+        due_at=None,
+    )
+    target = SimpleNamespace(moderation_visibility="pending")
+    job = SimpleNamespace(
+        target_type="direct_message",
+        target_id=9,
+        case_id=14,
+        idempotency_key="content:direct_message:9:v1",
+        status="processing",
+        last_error=None,
+    )
+
+    async def get(model, _target_id):
+        return case if model is ModerationCase else target
+
+    session = SimpleNamespace(get=get, add=Mock(), flush=AsyncMock())
+    apply_action = AsyncMock()
+    auto_alert = AsyncMock()
+    case_alert = AsyncMock()
+    monkeypatch.setattr(moderation_worker, "_capture_flagged_evidence", AsyncMock())
+    monkeypatch.setattr(moderation_service, "apply_action", apply_action)
+    monkeypatch.setattr(
+        moderation_alerts, "schedule_automatic_enforcement_alert", auto_alert
+    )
+    monkeypatch.setattr(moderation_alerts, "schedule_case_alerts", case_alert)
+
+    await moderation_worker._complete(
+        session,
+        job,
+        True,
+        {"sexual/minors": True},
+        {
+            "model": "test",
+            "category_scores": {"sexual/minors": 0.99},
+        },
+    )
+
+    apply_action.assert_awaited_once()
+    assert apply_action.await_args.args[2] is None
+    assert apply_action.await_args.args[3] == "account_ban"
+    auto_alert.assert_awaited_once()
+    case_alert.assert_awaited_once_with(session, case)
+
+
+@pytest.mark.asyncio
 async def test_reported_clean_content_still_receives_policy_triage(monkeypatch):
     target = SimpleNamespace(message_text="reported text", sender_player_id=12)
     job = SimpleNamespace(

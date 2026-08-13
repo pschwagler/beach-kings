@@ -11,7 +11,6 @@ const defaultFormState: {
   nickname: string;
   gender: string;
   level: string;
-  date_of_birth: string;
   city: string;
   state: string;
   city_latitude: number | null;
@@ -22,7 +21,6 @@ const defaultFormState: {
   nickname: '',
   gender: '',
   level: '',
-  date_of_birth: '',
   city: '',
   state: '',
   city_latitude: null,
@@ -86,7 +84,6 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
           nickname: currentUserPlayer.nickname || '',
           gender: currentUserPlayer.gender || '',
           level: currentUserPlayer.level || '',
-          date_of_birth: currentUserPlayer.date_of_birth || '',
           city: currentUserPlayer.city || '',
           state: currentUserPlayer.state || '',
           city_latitude: currentUserPlayer.city_latitude || null,
@@ -166,10 +163,6 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
 
       if (formData.nickname && formData.nickname.trim()) {
         payload.nickname = formData.nickname.trim();
-      }
-
-      if (formData.date_of_birth) {
-        payload.date_of_birth = formData.date_of_birth;
       }
 
       if (formData.city) {

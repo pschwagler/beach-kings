@@ -33,6 +33,13 @@ class VerificationCode(Base):
     password_hash = Column(String, nullable=True)
     name = Column(String, nullable=True)
     email = Column(String, nullable=True)
+    age_group = Column(String(20), nullable=True)
+    eligibility_country = Column(String(2), nullable=True)
+    eligibility_region = Column(String(2), nullable=True)
+    age_assurance_source = Column(String(40), nullable=True)
+    age_declaration_source = Column(String(40), nullable=True)
+    guardian_consent = Column(Boolean, nullable=True)
+    age_assured_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (

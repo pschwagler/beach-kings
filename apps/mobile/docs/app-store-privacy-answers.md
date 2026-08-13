@@ -27,7 +27,7 @@ the purpose, **Yes** for linked to the user's identity, and **No** for tracking.
 | Contact Info | Email Address | Authentication and account/support communication |
 | Contact Info | Phone Number | SMS verification and authentication |
 | Location | Coarse Location | Stored city/state, league location, and home courts |
-| Sensitive Info | Sensitive Info | Profile date-of-birth/age facts and gender; use the conservative declaration pending IOS-008 minimization |
+| Sensitive Info | Sensitive Info | Junior/adult group, eligibility territory, assurance/declaration source, guardian-consent fact, assurance time, and profile gender; no exact birthdate is collected by the release candidate |
 | User Content | Emails or Text Messages | Direct messages and league chat, including non-SMS in-app messages |
 | User Content | Photos or Videos | Avatars, court photos, and review photos |
 | User Content | Gameplay Content | Leagues, sessions, rosters, matches, scores, rankings, and statistics |
@@ -48,15 +48,15 @@ the purpose, **Yes** for linked to the user's identity, and **No** for tracking.
 - Product Interaction, Advertising Data, or Other Usage Data: no product
   analytics or advertising SDK is installed and Beach League does not retain a
   behavioral event stream.
-- Crash Data or Performance Data: Sentry is approved but not installed. Add the
-  Sentry launch delta below before submitting any Sentry-enabled binary.
+- Performance Data: performance tracing is disabled. Revisit this answer if
+  tracing or profiling is enabled later.
 
-## Required Sentry launch delta
+## Sentry diagnostics
 
-If IOS-104 is present in the release candidate, additionally select **Crash
-Data**, **Performance Data**, and **Other Diagnostic Data**. For each choose App
-Functionality, linked to the user, and not used for tracking. Confirm the public
-policy and app privacy manifest were updated in the same release.
+Select **Crash Data** and **Other Diagnostic Data** when Sentry is enabled. For
+each choose App Functionality, linked to the user through a pseudonymous internal
+ID, and not used for tracking. Do not select Performance Data while tracing and
+profiling remain disabled.
 
 ## Submission verification
 

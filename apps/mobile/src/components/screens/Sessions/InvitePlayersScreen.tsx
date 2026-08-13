@@ -211,9 +211,10 @@ export default function InvitePlayersScreen({
   const sentRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    const timers = timersRef.current;
     return () => {
-      timersRef.current.forEach((t) => clearTimeout(t));
-      timersRef.current.clear();
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
     };
   }, []);
 

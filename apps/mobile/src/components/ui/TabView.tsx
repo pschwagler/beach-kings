@@ -12,6 +12,8 @@ import {
   type SelectionControlItem,
 } from './selectionControlTypes';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import HorizontalOverflowAffordance from './HorizontalOverflowAffordance';
+import { useHorizontalOverflow } from './useHorizontalOverflow';
 
 interface TabViewBaseProps {
   readonly className?: string;
@@ -40,17 +42,27 @@ export default function TabView<Value extends string = string>(
     onValueChange,
   } = props;
   const palette = usePaletteColors();
+  const overflow = useHorizontalOverflow(value);
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      testID={testID}
-      accessibilityRole="tablist"
-      className={`grow-0 shrink-0 border-b border-divider ${className}`}
-      contentContainerClassName="flex-row"
-    >
-      {items.map((item, index) => {
+    <View className={`relative grow-0 shrink-0 border-b border-divider ${className}`}>
+      <ScrollView
+        ref={overflow.scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        testID={testID}
+        accessibilityRole="tablist"
+        accessibilityHint={overflow.canScrollForward || overflow.canScrollBackward
+          ? 'Swipe left or right to see more tabs'
+          : undefined}
+        style={{ flexGrow: 0 }}
+        contentContainerClassName="flex-row pr-7"
+        onLayout={overflow.onLayout}
+        onContentSizeChange={overflow.onContentSizeChange}
+        onScroll={overflow.onScroll}
+        scrollEventThrottle={16}
+      >
+        {items.map((item, index) => {
         const isActive = item.value === value;
         return (
           <Pressable
@@ -60,7 +72,11 @@ export default function TabView<Value extends string = string>(
               (tabTestIDPrefix != null ? `${tabTestIDPrefix}-${item.value}` : undefined)
             }
             disabled={item.disabled}
-            onPress={() => onValueChange(item.value)}
+            onLayout={(event) => overflow.onItemLayout(item.value, event)}
+            onPress={() => {
+              overflow.centerItem(item.value);
+              onValueChange(item.value);
+            }}
             className={`min-h-touch min-w-[88px] px-4 py-2 justify-center items-center ${
               item.disabled === true ? 'opacity-disabled' : ''
             }`}
@@ -94,7 +110,12 @@ export default function TabView<Value extends string = string>(
             )}
           </Pressable>
         );
-      })}
-    </ScrollView>
+        })}
+      </ScrollView>
+      <HorizontalOverflowAffordance
+        backward={overflow.canScrollBackward}
+        forward={overflow.canScrollForward}
+      />
+    </View>
   );
 }

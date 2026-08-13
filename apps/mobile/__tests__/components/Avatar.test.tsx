@@ -14,7 +14,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import Avatar, { getInitials } from '@/components/ui/Avatar';
+import Avatar, { getInitials, isImageUri } from '@/components/ui/Avatar';
 
 describe('getInitials', () => {
   it('returns first + last initials', () => {
@@ -52,6 +52,15 @@ describe('Avatar', () => {
   it('renders the initials fallback when no image is provided', () => {
     const { getByText } = render(<Avatar name="Morgan Davis" />);
     expect(getByText('MD')).toBeTruthy();
+  });
+
+  it('treats legacy initials as fallback text instead of an image URI', () => {
+    expect(isImageUri('AT')).toBe(false);
+    expect(isImageUri('AT.png')).toBe(false);
+    const { getByText } = render(
+      <Avatar name="Alice Test" imageUrl="AT.png" />,
+    );
+    expect(getByText('AT')).toBeTruthy();
   });
 
   it('applies the flat teal variant color by default', () => {

@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Pressable, Linking } from 'react-native';
+import { View, Pressable } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui';
 import CourtLineMotif from '@/components/brand/CourtLineMotif';
 import { routes } from '@/lib/navigation';
 import { PUBLIC_URLS } from '@/lib/publicUrls';
+import { openPublicWebUrl } from '@/lib/externalUrls';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 
 interface FeatureRow {
@@ -65,11 +66,11 @@ export default function WelcomeScreen(): React.ReactNode {
   }, [router]);
 
   const handleTos = useCallback(() => {
-    void Linking.openURL(PUBLIC_URLS.terms);
+    void openPublicWebUrl(PUBLIC_URLS.terms);
   }, []);
 
   const handlePrivacy = useCallback(() => {
-    void Linking.openURL(PUBLIC_URLS.privacy);
+    void openPublicWebUrl(PUBLIC_URLS.privacy);
   }, []);
 
   return (

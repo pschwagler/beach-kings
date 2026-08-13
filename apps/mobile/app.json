@@ -7,17 +7,18 @@
     "icon": "./assets/icon.png",
     "scheme": "beach-league",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#1a3a4a"
+    "updates": {
+      "enabled": false
     },
     "ios": {
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "com.beachleague.app",
       "entitlements": {
-        "keychain-access-groups": ["$(AppIdentifierPrefix)com.beachleague.app"]
+        "com.apple.developer.declared-age-range": true,
+        "keychain-access-groups": [
+          "$(AppIdentifierPrefix)com.beachleague.app"
+        ]
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Beach League uses your location to suggest the nearest league location.",
@@ -37,10 +38,14 @@
         "backgroundColor": "#1a3a4a"
       },
       "package": "com.beachleague.app",
-      "permissions": ["android.permission.ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       "expo-secure-store",
       [
         "expo-font",
@@ -103,7 +108,28 @@
         {
           "locationWhenInUsePermission": "Beach League uses your location to suggest the nearest league location."
         }
+      ],
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#1a3a4a"
+        }
+      ],
+      "expo-status-bar",
+      [
+        "@sentry/react-native",
+        {}
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "38da36ff-0084-43f4-9bbc-ee09f9961b1a"
+      }
+    },
+    "owner": "pschwagler"
   }
 }

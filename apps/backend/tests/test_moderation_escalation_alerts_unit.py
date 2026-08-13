@@ -38,6 +38,58 @@ def test_severe_provider_categories_map_deterministically(categories, incident):
     assert moderation_worker.provider_incident_type(categories) == incident
 
 
+@pytest.mark.parametrize(
+    ("categories", "scores", "expected_action"),
+    [
+        ({"sexual/minors": True}, {"sexual/minors": 0.99}, "account_ban"),
+        (
+            {"harassment/threatening": True},
+            {"harassment/threatening": 0.98},
+            "account_suspend",
+        ),
+        ({"self-harm/intent": True}, {"self-harm/intent": 1.0}, None),
+        ({"hate/threatening": True}, {"hate/threatening": 0.80}, None),
+    ],
+)
+def test_automatic_enforcement_is_limited_to_clear_severe_flags(
+    monkeypatch, categories, scores, expected_action
+):
+    monkeypatch.setenv("MODERATION_AUTO_ENFORCE_SCORE", "0.95")
+    decision = moderation_worker.automatic_enforcement_decision(categories, scores)
+    assert (decision or {}).get("action") == expected_action
+    if expected_action == "account_suspend":
+        assert decision["lock_hours"] == 168
+
+
+@pytest.mark.asyncio
+async def test_automatic_enforcement_email_includes_action_and_categories_only():
+    now = datetime.now(timezone.utc)
+    case = SimpleNamespace(
+        id=22,
+        target_type="player",
+        target_id=77,
+        incident_type="credible_threat",
+        created_at=now,
+        due_at=now + timedelta(hours=4),
+    )
+    job = SimpleNamespace(
+        alert_kind="automatic_enforcement",
+        payload_json={
+            "action": "account_suspend",
+            "lock_hours": 168,
+            "categories": ["harassment/threatening"],
+        },
+    )
+
+    subject, body = await moderation_alerts._render_email(AsyncMock(), job, [case])
+
+    assert "Automatic safety enforcement" in subject
+    assert "account_suspend" in body
+    assert "168 hours" in body
+    assert "harassment/threatening" in body
+    assert "admin-view?tab=moderation&case=22" in body
+
+
 @pytest.mark.asyncio
 async def test_urgent_jobs_are_scheduled_transactionally_and_idempotently(monkeypatch):
     monkeypatch.setenv("MODERATION_ALERTS_ENABLED", "true")

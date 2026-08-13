@@ -22,6 +22,7 @@ import { playerQueries } from '@/features/player/queries';
 import { useDevelopmentAuthExtension } from '@/components/dev/authExtension';
 import type { DevelopmentAuthExtension } from '@/components/dev/authExtension.types';
 import { retirePushInstallation } from '@/features/notifications/pushInstallationStore';
+import { setTelemetryUser } from '@/telemetry/sentry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,6 +77,7 @@ interface SignupParams {
   readonly firstName: string;
   readonly lastName: string;
   readonly phoneNumber?: string;
+  readonly eligibilityToken: string;
 }
 
 interface CoreAuthContextValue extends AuthState {
@@ -83,10 +85,11 @@ interface CoreAuthContextValue extends AuthState {
     params: LoginWithEmailParams | LoginWithPhoneParams,
   ) => Promise<void>;
   readonly signup: (params: SignupParams) => Promise<void>;
-  readonly loginWithGoogle: (idToken: string) => Promise<void>;
+  readonly loginWithGoogle: (idToken: string, eligibilityToken?: string) => Promise<void>;
   readonly loginWithApple: (credential: {
     readonly idToken: string;
     readonly authorizationCode: string;
+    readonly eligibilityToken?: string;
   }) => Promise<void>;
   readonly verifyPhone: (phoneNumber: string, code: string) => Promise<void>;
   readonly verifyEmail: (email: string, code: string) => Promise<void>;
@@ -253,6 +256,9 @@ export default function AuthProvider({
   const transitionQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const publishState = useCallback((nextState: AuthState) => {
+    // Synchronize the pseudonymous diagnostic identity before publishing the
+    // new app identity so no error can be attributed to the previous account.
+    setTelemetryUser(nextState.user?.id ?? null);
     stateRef.current = nextState;
     setState(nextState);
   }, []);
@@ -578,14 +584,17 @@ export default function AuthProvider({
       password: params.password,
       first_name: params.firstName,
       last_name: params.lastName,
+      eligibility_token: params.eligibilityToken,
     });
   }, []);
 
   const loginWithGoogle = useCallback(
-    async (idToken: string) => {
+    async (idToken: string, eligibilityToken?: string) => {
       const revision = beginAuthOperation();
       if (!(await prepareAuthentication(revision))) return;
-      const data = await api.googleAuth(idToken);
+      const data = eligibilityToken
+        ? await api.googleAuth(idToken, eligibilityToken)
+        : await api.googleAuth(idToken);
       await completeAuthentication(revision, data);
     },
     [beginAuthOperation, completeAuthentication, prepareAuthentication],

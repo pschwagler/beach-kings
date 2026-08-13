@@ -6,7 +6,8 @@
  * add-phone OTP flow used when no phone is set yet.
  */
 
-import { Alert, Linking } from 'react-native';
+import { Alert } from 'react-native';
+import { tryOpenExternalUrl } from './externalUrls';
 
 export const SUPPORT_EMAIL = 'beachleaguevb+support@gmail.com';
 
@@ -35,17 +36,10 @@ export function supportMailtoGeneral(): string {
  * when no email app is installed or configured.
  */
 export async function openSupportMailto(url: string): Promise<boolean> {
-  try {
-    const isSupported = await Linking.canOpenURL(url);
-    if (!isSupported) {
-      Alert.alert(SUPPORT_EMAIL_FALLBACK_TITLE, SUPPORT_EMAIL_FALLBACK_MESSAGE);
-      return false;
-    }
-
-    await Linking.openURL(url);
-    return true;
-  } catch {
+  if (!(await tryOpenExternalUrl(url, ['mailto:']))) {
     Alert.alert(SUPPORT_EMAIL_FALLBACK_TITLE, SUPPORT_EMAIL_FALLBACK_MESSAGE);
     return false;
   }
+
+  return true;
 }

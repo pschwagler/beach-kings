@@ -247,7 +247,10 @@ describe('FindPlayersBody — add friend', () => {
     render(
       <FindPlayersBody {...makeProps({ pendingSendIds: new Set([30]) })} />,
     );
-    expect(screen.getByTestId('relationship-status-30')).toBeTruthy();
+    expect(screen.getByTestId('relationship-status-30').props.accessibilityRole).toBeUndefined();
+    expect(
+      screen.getByTestId('relationship-status-30').props.accessibilityLabel,
+    ).toBe('Relationship status: Request sent');
     expect(screen.getByText('Request sent')).toBeTruthy();
     expect(screen.queryByTestId('add-friend-btn-30')).toBeNull();
   });

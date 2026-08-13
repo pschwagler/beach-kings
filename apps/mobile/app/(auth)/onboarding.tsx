@@ -22,7 +22,6 @@ import {
   FormLabel,
   FormError,
   BottomSheetSelect,
-  DateOfBirthField,
   CityAutocomplete,
   type SelectOption,
   type CitySuggestion,
@@ -32,7 +31,6 @@ import { routes } from '@/lib/navigation';
 import { hapticSuccess } from '@/utils/haptics';
 import {
   onboardingSchema,
-  birthdayDisplayToIso,
   type OnboardingFormValues,
 } from '@/lib/validators';
 import { useLocationAutoSelect } from '@/lib/useLocationAutoSelect';
@@ -59,7 +57,6 @@ export default function OnboardingScreen(): React.ReactNode {
   const isLoadingLocations = locationsQuery.isPending;
 
   const nicknameRef = useRef<TextInput>(null);
-  const dobRef = useRef<TextInput>(null);
 
   const {
     control,
@@ -75,7 +72,6 @@ export default function OnboardingScreen(): React.ReactNode {
       city: '',
       locationId: '',
       nickname: '',
-      dateOfBirth: '',
     },
   });
 
@@ -143,9 +139,6 @@ export default function OnboardingScreen(): React.ReactNode {
           state: location?.state ?? '',
           ...(values.nickname?.trim()
             ? { nickname: values.nickname.trim() }
-            : {}),
-          ...(values.dateOfBirth?.trim()
-            ? { date_of_birth: birthdayDisplayToIso(values.dateOfBirth.trim()) }
             : {}),
         });
         void hapticSuccess();
@@ -358,28 +351,10 @@ export default function OnboardingScreen(): React.ReactNode {
                   autoCapitalize="words"
                   autoComplete="nickname"
                   textContentType="nickname"
-                  returnKeyType="next"
-                  onSubmitEditing={() => dobRef.current?.focus()}
-                  blurOnSubmit={false}
+                  returnKeyType="done"
                 />
               )}
             />
-
-            <FormLabel className="mt-md">Date of Birth</FormLabel>
-            <Controller
-              control={control}
-              name="dateOfBirth"
-              render={({ field: { value, onChange } }) => (
-                <DateOfBirthField
-                  ref={dobRef}
-                  value={value ?? ''}
-                  onChange={onChange}
-                  error={!!errors.dateOfBirth}
-                  testID="onboarding-dob-input"
-                />
-              )}
-            />
-            <FormError message={errors.dateOfBirth?.message} />
 
             <View className="mt-xl">
               <Button

@@ -53,7 +53,12 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-    <View className="absolute inset-0 bg-nav/80 justify-end" accessibilityViewIsModal>
+    <View className="absolute inset-0 justify-end" accessibilityViewIsModal>
+      <View
+        className="absolute inset-0"
+        style={{ backgroundColor: palette.bgNav, opacity: 0.8 }}
+        accessible={false}
+      />
       <Pressable className="flex-1" onPress={onClose} accessibilityLabel="Close report" />
       <View className="bg-elevated rounded-t-3xl px-lg pt-lg pb-2xl">
         <AppText accessibilityRole="header" className="text-xl font-bold text-default">Report</AppText>

@@ -9,6 +9,7 @@ import React from 'react';
 import AppText from '@/components/ui/AppText';
 import { View, Pressable, ActivityIndicator } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
+import Badge from '@/components/ui/Badge';
 import { presentRelationship } from '@/features/social';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import type { FriendshipStatus, Player } from '@beach-kings/shared';
@@ -125,7 +126,7 @@ export default function PlayerProfileHeader({
       )}
 
       {/* Action buttons */}
-      <View className="flex-row gap-sm mt-md">
+      <View className="flex-row flex-wrap items-center justify-center gap-sm mt-md">
         {isGuest ? (
           <Pressable
             testID="player-send-invite-btn"
@@ -160,6 +161,7 @@ export default function PlayerProfileHeader({
           <>
             {relationship.canRespond ? (
               <>
+                <RelationshipStatusBadge label="Request received" />
                 <RelationshipResponseButton
                   label="Accept"
                   testID="player-accept-friend-btn"
@@ -176,14 +178,15 @@ export default function PlayerProfileHeader({
                   spinnerColor={palette.textDefault}
                 />
               </>
-            ) : relationship.profileLabel != null ? (
+            ) : relationship.canAdd && relationship.profileLabel != null ? (
               <FriendButton
                 label={relationship.profileLabel}
-                canAdd={relationship.canAdd}
                 isLoading={isFriendActionLoading}
                 onPress={onAddFriend}
                 spinnerColor={palette.onBrandTeal}
               />
+            ) : relationship.profileLabel != null ? (
+              <RelationshipStatusBadge label={relationship.profileLabel} />
             ) : null}
             {relationship.showMessage && (
               <Pressable
@@ -211,7 +214,6 @@ export default function PlayerProfileHeader({
 
 interface FriendButtonProps {
   readonly label: string;
-  readonly canAdd: boolean;
   readonly isLoading: boolean;
   readonly onPress: () => void;
   readonly spinnerColor: string;
@@ -219,40 +221,44 @@ interface FriendButtonProps {
 
 function FriendButton({
   label,
-  canAdd,
   isLoading,
   onPress,
   spinnerColor,
 }: FriendButtonProps): React.ReactNode {
-  const isDisabled = !canAdd || isLoading;
-
   return (
     <Pressable
       testID="player-add-friend-btn"
-      onPress={isDisabled ? undefined : onPress}
+      onPress={isLoading ? undefined : onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      disabled={isDisabled}
-      className={`px-xl py-sm rounded-xl min-h-touch items-center justify-center active:opacity-70 ${
-        isDisabled
-          ? 'bg-elevated'
-          : 'bg-brand-teal'
-      }`}
+      accessibilityState={{ disabled: isLoading, busy: isLoading }}
+      disabled={isLoading}
+      className="px-xl py-sm rounded-xl min-h-touch items-center justify-center active:opacity-70 bg-brand-teal"
     >
       {isLoading ? (
         <ActivityIndicator size="small" color={spinnerColor} />
       ) : (
-        <AppText
-          className={`text-sm font-semibold ${
-            isDisabled
-              ? 'text-default'
-              : 'text-on-brand-teal'
-          }`}
-        >
+        <AppText className="text-sm font-semibold text-on-brand-teal">
           {label}
         </AppText>
       )}
     </Pressable>
+  );
+}
+
+function RelationshipStatusBadge({
+  label,
+}: {
+  readonly label: string;
+}): React.ReactNode {
+  return (
+    <View
+      testID="player-relationship-status"
+      accessible
+      accessibilityLabel={`Relationship status: ${label}`}
+    >
+      <Badge label={label} variant="info" />
+    </View>
   );
 }
 

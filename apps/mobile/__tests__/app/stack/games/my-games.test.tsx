@@ -322,9 +322,11 @@ describe('MyGamesScreen — games list', () => {
     await waitFor(() => {
       expect(screen.getByText('21-18')).toBeTruthy();
     });
-    expect(
-      screen.getByLabelText('Game result: W, score: 21-18'),
-    ).toBeTruthy();
+    const label = screen.getByTestId('game-row-101').props.accessibilityLabel as string;
+    expect(label).toContain('Win. score 21-18');
+    expect(label).toContain('You with K. Fawwar versus A. Marthey and J. Zwyczca');
+    expect(label).toContain('QBK Open Men');
+    expect(label).toContain('Rating change plus 4');
   });
 
   it('renders positive rating change', async () => {
@@ -343,13 +345,38 @@ describe('MyGamesScreen — games list', () => {
     });
   });
 
-  it('renders PENDING badge when session not submitted', async () => {
-    const pendingGame = { ...MOCK_WIN_GAME, id: 200, session_submitted: false, rating_change: null };
+  it('names an unsubmitted session instead of showing a generic pending badge', async () => {
+    const pendingGame = {
+      ...MOCK_WIN_GAME,
+      id: 200,
+      session_submitted: false,
+      rating_change: null,
+      rating_pending_reason: 'session_submission' as const,
+    };
     mockGetMyGames.mockResolvedValue({ games: [pendingGame], total: 1 });
     render(<MyGamesScreen />);
     await waitFor(() => {
-      expect(screen.getByText('PENDING')).toBeTruthy();
+      expect(screen.getByText('AWAITING SUBMISSION')).toBeTruthy();
     });
+  });
+
+  it('explains that a rating waits for a placeholder player to claim an account', async () => {
+    const pendingGame = {
+      ...MOCK_WIN_GAME,
+      id: 202,
+      rating_change: null,
+      rating_pending_reason: 'player_account' as const,
+    };
+    mockGetMyGames.mockResolvedValue({ games: [pendingGame], total: 1 });
+    render(<MyGamesScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('RATING PENDING')).toBeTruthy();
+      expect(screen.getByText('Waiting for every player to create an account')).toBeTruthy();
+    });
+    expect(screen.getByTestId('game-row-202').props.accessibilityLabel).toContain(
+      'Rating pending until every player has an account',
+    );
   });
 
   it('renders "Awaiting session submission" note when session not submitted', async () => {

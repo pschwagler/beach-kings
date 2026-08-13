@@ -13,7 +13,6 @@ import AppText from '@/components/ui/AppText';
 import {
   BottomSheetSelect,
   CityAutocomplete,
-  DateOfBirthField,
   FormError,
   FormLabel,
   type CitySuggestion,
@@ -226,8 +225,6 @@ function EditorFields({
       return <Input value={draft.nickname} onChangeText={(v) => setField('nickname', v)} placeholder="Nickname" autoCapitalize="words" testID="profile-editor-nickname" />;
     case 'gender':
       return <BottomSheetSelect title="Select gender" placeholder="Select gender" options={GENDER_SELECT_OPTIONS} value={draft.gender} onChange={(v) => setField('gender', v)} testID="profile-editor-gender" />;
-    case 'birthday':
-      return <DateOfBirthField value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} testID="profile-editor-birthday" />;
     case 'height':
       return <Input value={draft.height} onChangeText={(v) => setField('height', v)} placeholder="Height (for example, 5 ft 10 in)" testID="profile-editor-height" />;
     case 'level':

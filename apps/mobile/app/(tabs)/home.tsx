@@ -36,7 +36,6 @@ function computeProfilePercent(player: Player | null): number {
     player.location_id,
     player.profile_picture_url,
     player.nickname,
-    player.date_of_birth,
   ];
   const completed = fields.filter((v) => v != null && v !== '').length;
   return Math.round((completed / fields.length) * 100);

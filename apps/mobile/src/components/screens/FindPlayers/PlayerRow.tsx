@@ -8,6 +8,7 @@ import React, { useCallback } from 'react';
 import AppText from '@/components/ui/AppText';
 import { View, Pressable } from 'react-native';
 import Avatar from '@/components/ui/Avatar';
+import Badge from '@/components/ui/Badge';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { pluralize } from '@/lib/formatters';
 import { presentRelationship } from '@/features/social';
@@ -125,11 +126,10 @@ export default function PlayerRow({
       {!relationship.canAdd && relationship.discoveryLabel != null && (
         <View
           testID={`relationship-status-${player.player_id}`}
-          className="px-[14px] py-[10px] rounded-[8px] bg-info-tint min-h-[44px] justify-center"
+          accessible
+          accessibilityLabel={`Relationship status: ${relationship.discoveryLabel}`}
         >
-          <AppText className="text-[12px] font-bold text-info">
-            {relationship.discoveryLabel}
-          </AppText>
+          <Badge label={relationship.discoveryLabel} variant="info" />
         </View>
       )}
     </Pressable>

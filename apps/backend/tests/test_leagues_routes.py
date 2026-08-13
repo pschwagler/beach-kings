@@ -26,7 +26,14 @@ Covered endpoints:
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.services import auth_service, data_service, notification_service, user_service
+from backend.services import (
+    auth_service,
+    data_service,
+    message_write_policy,
+    notification_service,
+    role_service,
+    user_service,
+)
 
 LEAGUE_ID = 42
 MEMBER_ID = 7
@@ -983,6 +990,27 @@ class TestLeagueMessages:
         )
         assert response.status_code == 400
         assert "empty" in response.json()["detail"].lower()
+
+    def test_disabled_league_chat_writes_return_service_unavailable(self, monkeypatch):
+        async def is_admin(*_args, **_kwargs):
+            return True
+
+        monkeypatch.setattr(role_service, "is_system_admin", is_admin, raising=True)
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_create(*_args, **_kwargs):
+            raise message_write_policy.MessageWritesUnavailable()
+
+        monkeypatch.setattr(data_service, "create_league_message", fake_create, raising=True)
+
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/messages",
+            json={"message": "Hello"},
+            headers=headers,
+        )
+
+        assert response.status_code == 503
+        assert response.json()["detail"] == "Messaging is temporarily unavailable"
 
     def test_get_messages_unauthenticated(self, monkeypatch):
         """Unauthenticated request is rejected."""

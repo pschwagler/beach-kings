@@ -285,6 +285,16 @@ describe('NotificationsTab — notifications list', () => {
     });
   });
 
+  it('exposes the message, relative time, and unread state in the row label', async () => {
+    renderNotificationsTab();
+    await waitFor(() => {
+      const label = screen.getByTestId('notification-item-1').props.accessibilityLabel as string;
+      expect(label).toContain('Unread notification');
+      expect(label).toContain('Riley Chen sent you a friend request');
+      expect(label).toContain('Riley wants to connect with you.');
+    });
+  });
+
   it('translates a backend notification link before navigating', async () => {
     renderNotificationsTab();
     await waitFor(() => {
@@ -460,7 +470,7 @@ describe('NotificationsTab — empty state', () => {
 // ---------------------------------------------------------------------------
 
 describe('NotificationsTab — mark-all header action', () => {
-  it('publishes a truthy "Mark all" node when unread notifications exist', async () => {
+  it('publishes a visible "Mark all read" action when unread notifications exist', async () => {
     const mockSetHeaderAction = jest.fn();
     renderNotificationsTab(mockSetHeaderAction);
 
@@ -470,6 +480,10 @@ describe('NotificationsTab — mark-all header action', () => {
 
     const truthyCall = mockSetHeaderAction.mock.calls.find(([node]) => node != null);
     expect(truthyCall).toBeDefined();
+
+    const [publishedNode] = truthyCall as [React.ReactElement];
+    render(<View>{publishedNode}</View>);
+    expect(screen.getByText('Mark all read')).toBeTruthy();
   });
 
   it('pressing the published "Mark all" node calls markAllNotificationsRead', async () => {

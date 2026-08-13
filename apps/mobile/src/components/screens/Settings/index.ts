@@ -7,6 +7,7 @@ export { default as ChangePasswordScreen } from './ChangePasswordScreen';
 export { default as AddPhoneScreen } from './AddPhoneScreen';
 export { default as AppearanceSettingsScreen } from './AppearanceSettingsScreen';
 export { default as FeedbackScreen } from './FeedbackScreen';
+export { default as SupportScreen } from './SupportScreen';
 export { default as PrivacySettingsScreen } from './PrivacySettingsScreen';
 export { default as BlockedAccountsScreen } from './BlockedAccountsScreen';
 export { useNotificationsScreen } from './useNotificationsScreen';

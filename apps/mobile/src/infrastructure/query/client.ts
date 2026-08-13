@@ -5,6 +5,7 @@ import {
   QueryClient,
 } from '@tanstack/react-query';
 import { AppState } from 'react-native';
+import { queryRetryDelay, shouldRetryQuery } from './retryPolicy';
 
 const QUERY_GC_TIME = process.env.NODE_ENV === 'test' ? Infinity : 5 * 60_000;
 
@@ -14,7 +15,8 @@ export function createQueryClient(): QueryClient {
       queries: {
         staleTime: 30_000,
         gcTime: QUERY_GC_TIME,
-        retry: 1,
+        retry: shouldRetryQuery,
+        retryDelay: queryRetryDelay,
         refetchOnWindowFocus: false,
         refetchOnReconnect: true,
       },

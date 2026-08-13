@@ -120,6 +120,7 @@ function LeagueResultCard({
         }}
         accessibilityRole="button"
         accessibilityLabel={`View ${league.name}`}
+        accessibilityHint="Opens league details"
         className="active:opacity-80"
       >
         {/* Top row */}
@@ -229,27 +230,22 @@ function LeagueResultCard({
             Request Pending
           </AppText>
         </View>
-      ) : (
+      ) : league.access_type === 'open' ? (
         <>
           <Pressable
             testID={`request-join-btn-${league.id}`}
             onPress={() => {
               void hapticMedium();
-              if (league.access_type === 'open') {
-                void onJoinLeague(league.id);
-              } else {
-                onPress(league.id);
-              }
+              void onJoinLeague(league.id);
             }}
             disabled={isRequesting}
             accessibilityRole="button"
             accessibilityLabel={
-              league.access_type === 'open'
-                ? joinError != null
-                  ? `Try joining ${league.name} again`
-                  : `Join ${league.name}`
-                : `View ${league.name}`
+              joinError != null
+                ? `Try joining ${league.name} again`
+                : `Join ${league.name}`
             }
+            accessibilityHint="Joins this open league"
             accessibilityState={{
               disabled: isRequesting,
               busy: isRequesting,
@@ -260,11 +256,7 @@ function LeagueResultCard({
               <ActivityIndicator size="small" color={palette.onBrandTeal} />
             ) : (
               <AppText className="text-[13px] font-bold text-on-brand-teal">
-                {league.access_type === 'open'
-                  ? joinError != null
-                    ? 'Try Again'
-                    : 'Join League'
-                  : 'View League'}
+                {joinError != null ? 'Try Again' : 'Join League'}
               </AppText>
             )}
           </Pressable>
@@ -278,7 +270,7 @@ function LeagueResultCard({
             </AppText>
           )}
         </>
-      )}
+      ) : null}
     </View>
   );
 }

@@ -26,6 +26,7 @@ from backend.database.models import (
 from backend.services.data_service import generate_player_initials
 from backend.services.social.relationship_service import resolve_relationship
 from backend.services.players.player_lifecycle import historical_id, historical_name
+from backend.services.social import youth_interaction_policy
 
 
 async def get_sitemap_leagues(session: AsyncSession) -> List[Dict]:
@@ -60,7 +61,11 @@ async def get_sitemap_players(session: AsyncSession) -> List[Dict]:
     result = await session.execute(
         select(Player.id, Player.full_name, Player.updated_at)
         .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
-        .where(PlayerGlobalStats.total_games >= 1, Player.deleted_at.is_(None))
+        .where(
+            PlayerGlobalStats.total_games >= 1,
+            Player.deleted_at.is_(None),
+            youth_interaction_policy.discovery_visibility(Player.id, Player.user_id, None),
+        )
         .limit(50000)
     )
     return [
@@ -327,7 +332,11 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             Player.profile_picture_url,
         )
         .join(Player, Player.id == LeagueMember.player_id)
-        .where(LeagueMember.league_id == league_id, Player.deleted_at.is_(None))
+        .where(
+            LeagueMember.league_id == league_id,
+            Player.deleted_at.is_(None),
+            youth_interaction_policy.discovery_visibility(Player.id, Player.user_id, None),
+        )
         .order_by(Player.full_name.asc())
     )
     response["members"] = [
@@ -374,6 +383,7 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             .where(
                 PlayerSeasonStats.season_id == latest_season.id,
                 Player.deleted_at.is_(None),
+                youth_interaction_policy.discovery_visibility(Player.id, Player.user_id, None),
             )
             .order_by(
                 PlayerSeasonStats.points.desc(),
@@ -404,6 +414,10 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
     p2 = aliased(Player)
     p3 = aliased(Player)
     p4 = aliased(Player)
+    u1 = aliased(User)
+    u2 = aliased(User)
+    u3 = aliased(User)
+    u4 = aliased(User)
     # Use Session.league_id to match gap sessions (season_id=NULL).
     # The previous INNER join on Season silently excluded all gap games.
     matches_result = await session.execute(
@@ -425,12 +439,20 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             p2.deleted_at.label("t1p2_deleted_at"),
             p3.deleted_at.label("t2p1_deleted_at"),
             p4.deleted_at.label("t2p2_deleted_at"),
+            u1.age_group.label("t1p1_age_group"),
+            u2.age_group.label("t1p2_age_group"),
+            u3.age_group.label("t2p1_age_group"),
+            u4.age_group.label("t2p2_age_group"),
         )
         .join(Session, Match.session_id == Session.id)
         .outerjoin(p1, Match.team1_player1_id == p1.id)
         .outerjoin(p2, Match.team1_player2_id == p2.id)
         .outerjoin(p3, Match.team2_player1_id == p3.id)
         .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .outerjoin(u1, p1.user_id == u1.id)
+        .outerjoin(u2, p2.user_id == u2.id)
+        .outerjoin(u3, p3.user_id == u3.id)
+        .outerjoin(u4, p4.user_id == u4.id)
         .where(Session.league_id == league_id)
         .order_by(Match.id.desc())
         .limit(20)
@@ -439,14 +461,14 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
         {
             "id": r.id,
             "date": r.date,
-            "team1_player1": historical_name(r.t1p1, r.t1p1_deleted_at),
-            "team1_player2": historical_name(r.t1p2, r.t1p2_deleted_at),
-            "team2_player1": historical_name(r.t2p1, r.t2p1_deleted_at),
-            "team2_player2": historical_name(r.t2p2, r.t2p2_deleted_at),
-            "team1_player1_id": historical_id(r.team1_player1_id, r.t1p1_deleted_at),
-            "team1_player2_id": historical_id(r.team1_player2_id, r.t1p2_deleted_at),
-            "team2_player1_id": historical_id(r.team2_player1_id, r.t2p1_deleted_at),
-            "team2_player2_id": historical_id(r.team2_player2_id, r.t2p2_deleted_at),
+            "team1_player1": "Junior Player" if r.t1p1_age_group == "junior" else historical_name(r.t1p1, r.t1p1_deleted_at),
+            "team1_player2": "Junior Player" if r.t1p2_age_group == "junior" else historical_name(r.t1p2, r.t1p2_deleted_at),
+            "team2_player1": "Junior Player" if r.t2p1_age_group == "junior" else historical_name(r.t2p1, r.t2p1_deleted_at),
+            "team2_player2": "Junior Player" if r.t2p2_age_group == "junior" else historical_name(r.t2p2, r.t2p2_deleted_at),
+            "team1_player1_id": None if r.t1p1_age_group == "junior" else historical_id(r.team1_player1_id, r.t1p1_deleted_at),
+            "team1_player2_id": None if r.t1p2_age_group == "junior" else historical_id(r.team1_player2_id, r.t1p2_deleted_at),
+            "team2_player1_id": None if r.t2p1_age_group == "junior" else historical_id(r.team2_player1_id, r.t2p1_deleted_at),
+            "team2_player2_id": None if r.t2p2_age_group == "junior" else historical_id(r.team2_player2_id, r.t2p2_deleted_at),
             "team1_score": r.team1_score,
             "team2_score": r.team2_score,
             "winner": r.winner,
@@ -491,7 +513,12 @@ async def get_public_player(
     # 1. Fetch player + global stats + location + owning user's privacy flags
     result = await session.execute(
         select(
-            Player, PlayerGlobalStats, Location, User.profile_is_private, User.show_game_history
+            Player,
+            PlayerGlobalStats,
+            Location,
+            User.profile_is_private,
+            User.show_game_history,
+            User.age_group,
         )
         .outerjoin(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
         .outerjoin(Location, Player.location_id == Location.id)
@@ -502,7 +529,7 @@ async def get_public_player(
     if not row:
         return None
 
-    player, stats, location, profile_is_private, show_game_history = row
+    player, stats, location, profile_is_private, show_game_history, age_group = row
     total_games = int(stats.total_games) if stats and stats.total_games is not None else 0
 
     # Normalise NULL values coming from players that have no linked user
@@ -519,6 +546,16 @@ async def get_public_player(
             select(Player.id).where(Player.user_id == viewer_user_id).limit(1)
         )
         viewer_player_id = viewer_player_result.scalar_one_or_none()
+    if age_group == "junior" and not is_self:
+        allowed = await session.scalar(
+            select(
+                youth_interaction_policy.discovery_visibility(
+                    player.id, player.user_id, viewer_player_id
+                )
+            )
+        )
+        if not allowed:
+            return None
 
     relationship = {"status": "none", "request_id": None}
     if viewer_player_id is not None:
@@ -787,6 +824,7 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
             Player.location_id == location.id,
             PlayerGlobalStats.total_games >= 1,
             Player.deleted_at.is_(None),
+            youth_interaction_policy.discovery_visibility(Player.id, Player.user_id, None),
         )
         .order_by(PlayerGlobalStats.current_rating.desc())
         .limit(20)
@@ -843,6 +881,7 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
             Player.location_id == location.id,
             PlayerGlobalStats.total_games >= 1,
             Player.deleted_at.is_(None),
+            youth_interaction_policy.discovery_visibility(Player.id, Player.user_id, None),
         )
         .correlate()
         .scalar_subquery()
@@ -957,6 +996,7 @@ async def search_public_players(
         .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
         .outerjoin(Location, Player.location_id == Location.id)
         .where(PlayerGlobalStats.total_games >= 1, Player.deleted_at.is_(None))
+        .where(youth_interaction_policy.discovery_visibility(Player.id, Player.user_id, None))
     )
 
     if not include_placeholders:

@@ -61,12 +61,29 @@ describe('RecentGamesScroll', () => {
     expect(queryByText('LOSS')).toBeNull();
   });
 
-  it('shows a Pending chip when session is pending or active', () => {
+  it('names an open session instead of showing a generic pending chip', () => {
     const match = { id: 3, result: 'W', session_status: 'pending' };
     const { getByText } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
-    expect(getByText('Pending')).toBeTruthy();
+    expect(getByText('SESSION OPEN')).toBeTruthy();
+  });
+
+  it('explains when ratings wait for a placeholder player account', () => {
+    const match = {
+      id: 4,
+      session_id: 44,
+      result: 'W',
+      partner: 'Guest Player',
+      partner_is_placeholder: true,
+    };
+    const { getByText, getByLabelText } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    expect(getByText('RATING PENDING')).toBeTruthy();
+    expect(
+      getByLabelText(/Rating pending until every player has an account/),
+    ).toBeTruthy();
   });
 
   it('caps the number of visible cards at maxItems', () => {

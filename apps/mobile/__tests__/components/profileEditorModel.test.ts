@@ -16,7 +16,6 @@ const player = {
   city: 'Brooklyn',
   state: 'NY',
   location_id: '9',
-  date_of_birth: '1992-03-04',
   height: '5 ft 10 in',
   preferred_side: 'left',
 } satisfies Player;
@@ -28,7 +27,6 @@ describe('profileEditorModel', () => {
       lastName: 'Vega',
       nickname: 'Ace',
       gender: 'female',
-      dateOfBirth: '03/04/1992',
       height: '5 ft 10 in',
       level: 'Open',
       city: 'Brooklyn, NY',
@@ -52,7 +50,6 @@ describe('profileEditorModel', () => {
   it.each([
     ['nickname', 'nickname', { nickname: null }],
     ['height', 'height', { height: null }],
-    ['birthday', 'dateOfBirth', { date_of_birth: null }],
     ['preferredSide', 'preferredSide', { preferred_side: null }],
   ] as const)('serializes a cleared optional %s value as null', (editor, field, payload) => {
     const draft = { ...profileDraftFromPlayer(player), [field]: '' };

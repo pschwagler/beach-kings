@@ -6,7 +6,11 @@
 
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+
+const mockOpenPublicWebUrl = jest.fn().mockResolvedValue(true);
+jest.mock('@/lib/externalUrls', () => ({
+  openPublicWebUrl: (url: string) => mockOpenPublicWebUrl(url),
+}));
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -18,11 +22,12 @@ jest.mock('@/contexts/ThemeContext', () => ({
 }));
 
 import WelcomeScreen from '../../../app/(auth)/welcome';
+import { PUBLIC_URLS } from '@/lib/publicUrls';
 
 describe('WelcomeScreen', () => {
   beforeEach(() => {
     mockPush.mockClear();
-    jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    mockOpenPublicWebUrl.mockClear();
   });
 
   it('renders the app title', () => {
@@ -82,11 +87,11 @@ describe('WelcomeScreen', () => {
   });
 
   it.each([
-    ['Terms of Service', 'https://beachleaguevb.com/terms-of-service'],
-    ['Privacy Policy', 'https://beachleaguevb.com/privacy-policy'],
+    ['Terms of Service', PUBLIC_URLS.terms],
+    ['Privacy Policy', PUBLIC_URLS.privacy],
   ])('opens the canonical %s URL', (label, expectedUrl) => {
     const { getByText } = render(<WelcomeScreen />);
     fireEvent.press(getByText(label));
-    expect(Linking.openURL).toHaveBeenCalledWith(expectedUrl);
+    expect(mockOpenPublicWebUrl).toHaveBeenCalledWith(expectedUrl);
   });
 });

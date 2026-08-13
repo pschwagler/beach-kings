@@ -13,6 +13,10 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import {
+  type AccessibilityFocusRef,
+  useModalAccessibility,
+} from './useModalAccessibility';
 
 interface BottomSheetProps {
   readonly visible: boolean;
@@ -21,6 +25,9 @@ interface BottomSheetProps {
   readonly snapPoints?: number[];
   readonly className?: string;
   readonly testID?: string;
+  readonly accessibilityLabel?: string;
+  readonly initialFocusRef?: AccessibilityFocusRef;
+  readonly returnFocusRef?: AccessibilityFocusRef;
 }
 
 const SLIDE_DURATION = 280;
@@ -31,9 +38,17 @@ export default function BottomSheet({
   children,
   className = '',
   testID,
+  accessibilityLabel = 'Bottom sheet',
+  initialFocusRef,
+  returnFocusRef,
 }: BottomSheetProps): React.ReactNode {
   const reduceMotion = useReducedMotion();
   const translateY = useSharedValue(600);
+  const { modalRef, focusInitialElement } = useModalAccessibility({
+    visible,
+    initialFocusRef,
+    returnFocusRef,
+  });
 
   useEffect(() => {
     if (visible) {
@@ -59,20 +74,28 @@ export default function BottomSheet({
       transparent
       animationType="none"
       onRequestClose={onClose}
+      onShow={focusInitialElement}
+      accessibilityViewIsModal
     >
       {/* Backdrop */}
       <Pressable
+        testID={testID != null ? `${testID}-backdrop` : 'bottom-sheet-backdrop'}
         className="flex-1 bg-black/50"
         onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close"
+        accessible={false}
+        importantForAccessibility="no"
       />
 
       {/* Sheet content */}
       <Animated.View
+        ref={modalRef}
         testID={testID}
         style={animatedStyle}
         className={`absolute bottom-0 left-0 right-0 bg-surface rounded-t-2xl ${className}`}
+        role="dialog"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityViewIsModal
+        onAccessibilityEscape={onClose}
       >
         {/* Handle bar */}
         <View className="items-center pt-sm pb-xs">

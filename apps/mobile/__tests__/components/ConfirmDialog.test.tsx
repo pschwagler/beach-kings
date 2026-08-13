@@ -11,11 +11,20 @@
  */
 
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
+import { renderWithTheme as render } from '../../test-utils/renderWithTheme';
 
 // ---------------------------------------------------------------------------
 // Mocks — declared before importing the component
 // ---------------------------------------------------------------------------
+
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+  }),
+  vars: (values: object) => values,
+}));
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -64,11 +73,10 @@ describe('ConfirmDialog', () => {
     });
 
     it('renders nothing when not visible', () => {
-      const { toJSON } = render(
+      render(
         <ConfirmDialog {...baseProps({ visible: false })} />,
       );
-      // RN Modal with visible=false collapses to null in the test renderer.
-      expect(toJSON()).toBeNull();
+      expect(screen.queryByTestId('dlg')).toBeNull();
     });
   });
 

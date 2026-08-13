@@ -329,8 +329,36 @@ describe('MyStatsScreen — trophies', () => {
   it('renders trophy row when trophies are present', async () => {
     render(<MyStatsScreen />);
     await waitFor(() => {
-      expect(screen.getByTestId('trophy-row')).toBeTruthy();
+      expect(screen.getByTestId('trophy-row')).toHaveProp('role', 'list');
+      expect(screen.getByRole('listitem')).toHaveProp(
+        'accessibilityLabel',
+        '2nd place, QBK Open Men, Season 3',
+      );
+      expect(screen.getByRole('listitem')).toHaveAccessibilityValue({ text: '1 of 1' });
     });
+  });
+
+  it('keeps free scrolling and exposes a trailing cue when trophies overflow', async () => {
+    mockGetMyStats.mockResolvedValue({
+      ...MOCK_STATS,
+      trophies: [
+        ...MOCK_STATS.trophies,
+        { league_id: 2, league_name: 'Brooklyn Beach', season_name: 'Summer', place: 1 },
+      ],
+    });
+    render(<MyStatsScreen />);
+
+    const row = await screen.findByTestId('trophy-row');
+    fireEvent(row, 'layout', {
+      nativeEvent: { layout: { height: 80, width: 160, x: 0, y: 0 } },
+    });
+    fireEvent(row, 'contentSizeChange', 260, 80);
+
+    expect(row).toHaveProp('horizontal', true);
+    expect(row).toHaveProp('accessibilityHint', 'Swipe left or right to see more trophies');
+    expect(screen.getByTestId('horizontal-overflow-forward', {
+      includeHiddenElements: true,
+    })).toBeTruthy();
   });
 
   it('does not render trophy row when no trophies', async () => {

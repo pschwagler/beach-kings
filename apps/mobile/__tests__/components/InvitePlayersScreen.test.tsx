@@ -435,6 +435,28 @@ describe('InvitePlayersScreen — Sent indicator', () => {
     // Alex's row still shows Send
     expect(screen.getByTestId('invite-send-btn-102')).toBeTruthy();
   });
+
+  it('clears outstanding revert timers when the screen unmounts', async () => {
+    const { unmount } = render(<InvitePlayersScreen {...BASE_PARAMS} />);
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('invite-row-101'));
+    });
+
+    const revertTimerIndex = setTimeoutSpy.mock.calls.findIndex(
+      ([, delay]) => delay === 3_000,
+    );
+    expect(revertTimerIndex).toBeGreaterThanOrEqual(0);
+    const revertTimer = setTimeoutSpy.mock.results[revertTimerIndex].value;
+
+    unmount();
+
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(revertTimer);
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+  });
 });
 
 // ===========================================================================

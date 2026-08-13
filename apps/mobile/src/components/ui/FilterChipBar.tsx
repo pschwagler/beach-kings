@@ -5,8 +5,11 @@ import { Pressable, ScrollView, View } from 'react-native';
 import AppText from './AppText';
 import {
   selectionAccessibilityLabel,
+  selectionAccessibilityValue,
   type SelectionControlItem,
 } from './selectionControlTypes';
+import HorizontalOverflowAffordance from './HorizontalOverflowAffordance';
+import { useHorizontalOverflow } from './useHorizontalOverflow';
 
 export interface FilterChipBarProps<Value extends string> {
   readonly items: readonly SelectionControlItem<Value>[];
@@ -29,18 +32,29 @@ export default function FilterChipBar<Value extends string>({
   chipTestIDPrefix,
   accessibilityLabel = 'Filters',
 }: FilterChipBarProps<Value>): React.ReactNode {
+  const overflow = useHorizontalOverflow(value);
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      testID={testID}
-      accessibilityRole="toolbar"
-      accessibilityLabel={accessibilityLabel}
-      style={{ flexGrow: 0 }}
-      className={className}
-      contentContainerClassName={`flex-row gap-2 px-4 ${contentClassName}`}
-    >
-      {items.map((item) => {
+    <View className={`relative ${className}`}>
+      <ScrollView
+        ref={overflow.scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        testID={testID}
+        accessibilityRole="toolbar"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={overflow.canScrollForward || overflow.canScrollBackward
+          ? 'Swipe left or right to see more filters'
+          : undefined}
+        style={{ flexGrow: 0 }}
+        contentContainerClassName={`flex-row gap-2 px-4 ${contentClassName}`}
+        contentContainerStyle={{ paddingRight: 28 }}
+        onLayout={overflow.onLayout}
+        onContentSizeChange={overflow.onContentSizeChange}
+        onScroll={overflow.onScroll}
+        scrollEventThrottle={16}
+      >
+        {items.map((item, index) => {
         const isSelected = item.value === value;
         return (
           <Pressable
@@ -50,10 +64,15 @@ export default function FilterChipBar<Value extends string>({
               (chipTestIDPrefix != null ? `${chipTestIDPrefix}-${item.value}` : undefined)
             }
             disabled={item.disabled}
-            onPress={() => onValueChange(item.value)}
+            onLayout={(event) => overflow.onItemLayout(item.value, event)}
+            onPress={() => {
+              overflow.centerItem(item.value);
+              onValueChange(item.value);
+            }}
             accessibilityRole="button"
             accessibilityLabel={selectionAccessibilityLabel(item)}
             accessibilityState={{ selected: isSelected, disabled: item.disabled }}
+            accessibilityValue={selectionAccessibilityValue(index, items.length)}
             className={`min-h-touch min-w-touch flex-row items-center justify-center gap-1 rounded-full border px-4 py-2 ${
               isSelected
                 ? 'bg-brand-teal border-brand-teal'
@@ -76,7 +95,12 @@ export default function FilterChipBar<Value extends string>({
             )}
           </Pressable>
         );
-      })}
-    </ScrollView>
+        })}
+      </ScrollView>
+      <HorizontalOverflowAffordance
+        backward={overflow.canScrollBackward}
+        forward={overflow.canScrollForward}
+      />
+    </View>
   );
 }

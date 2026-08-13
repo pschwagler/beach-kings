@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional, Literal
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -66,6 +66,7 @@ class GoogleAuthRequest(BaseModel):
     """Request to authenticate with Google ID token."""
 
     id_token: str
+    eligibility_token: Optional[str] = None
 
 
 class AppleAuthRequest(BaseModel):
@@ -73,6 +74,28 @@ class AppleAuthRequest(BaseModel):
 
     id_token: str
     authorization_code: Optional[str] = None
+    eligibility_token: Optional[str] = None
+
+
+class YouthEligibilityRequest(BaseModel):
+    """PII-free input to the neutral pre-registration age gate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    country_code: Literal["US", "CA"]
+    region_code: str
+    declared_band: Literal["under_minimum", "junior", "adult"]
+    assurance_source: Literal["apple_declared_age_range", "self_declared"]
+    declaration_source: Literal[
+        "self_declared", "guardian_declared", "verified", "guardian_verified", "not_shared"
+    ]
+    guardian_consent: bool = False
+
+
+class YouthEligibilityResponse(BaseModel):
+    eligibility_token: str
+    age_group: Literal["junior", "adult"]
+    minimum_age: int
 
 
 class LinkProviderRequest(BaseModel):
@@ -185,6 +208,10 @@ class UserResponse(BaseModel):
     interaction_restricted_until: Optional[datetime] = None
     interaction_restriction_case_id: Optional[int] = None
     is_system_admin: bool = False
+    age_group: Optional[Literal["junior", "adult"]] = None
+    eligibility_country: Optional[Literal["US", "CA"]] = None
+    eligibility_region: Optional[str] = None
+    guardian_consent: Optional[bool] = None
 
 
 class UserUpdate(BaseModel):

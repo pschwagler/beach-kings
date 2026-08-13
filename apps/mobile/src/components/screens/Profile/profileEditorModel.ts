@@ -2,8 +2,6 @@ import type { Player, PlayerGender, SkillLevel } from '@beach-kings/shared';
 import { formatLocation } from '@beach-kings/shared';
 import type { LocationWithDistance } from '@/lib/useLocationAutoSelect';
 import {
-  birthdayDisplayToIso,
-  profileBirthdaySchema,
   profileGenderSchema,
   profileHeightSchema,
   profileLevelSchema,
@@ -12,13 +10,11 @@ import {
   profileNicknameSchema,
   profilePreferredSideSchema,
 } from '@/lib/validators';
-import { isoBirthdayToDisplay } from './profileFormOptions';
 
 export type ProfileEditorKey =
   | 'name'
   | 'nickname'
   | 'gender'
-  | 'birthday'
   | 'height'
   | 'level'
   | 'location'
@@ -29,7 +25,6 @@ export interface ProfileEditorDraft {
   readonly lastName: string;
   readonly nickname: string;
   readonly gender: string;
-  readonly dateOfBirth: string;
   readonly height: string;
   readonly level: string;
   readonly city: string;
@@ -41,7 +36,6 @@ export const PROFILE_EDITOR_TITLES: Record<ProfileEditorKey, string> = {
   name: 'Name',
   nickname: 'Nickname',
   gender: 'Gender',
-  birthday: 'Birthday',
   height: 'Height',
   level: 'Skill Level',
   location: 'Location',
@@ -55,7 +49,6 @@ export function profileDraftFromPlayer(player: Player): ProfileEditorDraft {
     lastName: player.last_name ?? nameParts.slice(1).join(' '),
     nickname: player.nickname ?? '',
     gender: player.gender ?? '',
-    dateOfBirth: isoBirthdayToDisplay(player.date_of_birth),
     height: player.height ?? '',
     level: player.level ?? '',
     city: formatLocation(player.city, player.state) ?? '',
@@ -76,8 +69,6 @@ export function validateProfileEditor(
         return profileNicknameSchema.safeParse(draft);
       case 'gender':
         return profileGenderSchema.safeParse(draft);
-      case 'birthday':
-        return profileBirthdaySchema.safeParse(draft);
       case 'height':
         return profileHeightSchema.safeParse(draft);
       case 'level':
@@ -110,12 +101,6 @@ export function buildProfileEditorPayload(
       return { nickname: draft.nickname.trim() || null };
     case 'gender':
       return { gender: draft.gender as PlayerGender };
-    case 'birthday':
-      return {
-        date_of_birth: draft.dateOfBirth.trim()
-          ? birthdayDisplayToIso(draft.dateOfBirth.trim())
-          : null,
-      };
     case 'height':
       return { height: draft.height.trim() || null };
     case 'level':

@@ -1,4 +1,5 @@
 import { resolveNotificationRoute } from '@/features/notifications/navigation';
+import { PUBLIC_WEB_ORIGIN } from '@/lib/publicUrls';
 
 describe('resolveNotificationRoute', () => {
   it('routes account safety updates to the account status screen', () => {
@@ -20,7 +21,7 @@ describe('resolveNotificationRoute', () => {
     ['/league/7?tab=awards', '/(stack)/league/7?tab=standings'],
     ['/player/12/pat-player', '/(stack)/player/12'],
     [
-      'https://beachleaguevb.com/home?tab=friends',
+      `${PUBLIC_WEB_ORIGIN}/home?tab=friends`,
       '/(tabs)/social?tab=friends',
     ],
   ])('maps %s to %s', (linkUrl, expected) => {

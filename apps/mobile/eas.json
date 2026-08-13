@@ -7,29 +7,35 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:8000"
+        "EXPO_PUBLIC_API_URL": "http://localhost:8000",
+        "EXPO_PUBLIC_WEB_URL": "http://localhost:3000",
+        "EXPO_PUBLIC_APP_ENV": "development"
       },
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.2",
+        "image": "macos-tahoe-26.5-xcode-26.6",
         "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://dev.beachleaguevb.com"
+        "EXPO_PUBLIC_API_URL": "https://dev.beachleaguevb.com",
+        "EXPO_PUBLIC_WEB_URL": "https://dev.beachleaguevb.com",
+        "EXPO_PUBLIC_APP_ENV": "preview"
       },
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.2"
+        "image": "macos-tahoe-26.5-xcode-26.6"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://beachleaguevb.com"
+        "EXPO_PUBLIC_API_URL": "https://beachleaguevb.com",
+        "EXPO_PUBLIC_WEB_URL": "https://beachleaguevb.com",
+        "EXPO_PUBLIC_APP_ENV": "production"
       },
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.2"
+        "image": "macos-tahoe-26.5-xcode-26.6"
       }
     }
   }

@@ -6,7 +6,7 @@
  * chrome-free {@link NotificationsBody}. Mounting only while the Notifications
  * tab is active keeps its fetch lazy.
  *
- * Publishes a "Mark all" action into the shared hub TopNav when there are unread
+ * Publishes a "Mark all read" action into the shared hub TopNav when there are unread
  * notifications — the consolidated-hub home for what used to live in the
  * standalone NotificationsScreen's TopNav.
  */
@@ -41,7 +41,7 @@ export default function NotificationsTab({
           className="min-h-touch items-center justify-center active:opacity-70"
           hitSlop={8}
         >
-          <AppText className="text-[12px] font-semibold text-inverse">Mark all</AppText>
+          <AppText className="text-[12px] font-semibold text-inverse">Mark all read</AppText>
         </Pressable>
       ) : null,
     [unreadCount, isLoading, onMarkAllRead],

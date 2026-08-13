@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangleIcon } from '@/components/ui/icons';
 import Button from '@/components/ui/Button';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { captureOperationalError } from '@/telemetry/sentry';
 
 function DefaultErrorFallback({
   error,
@@ -62,6 +63,7 @@ export default class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    captureOperationalError(error);
     // Log error details without leaking sensitive context to the user.
     if (__DEV__) {
       console.error('[ErrorBoundary] Caught error:', error, info);

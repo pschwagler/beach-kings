@@ -9,6 +9,7 @@ import {
   SessionInvitationUnavailableError,
   shareSessionInvitation,
 } from '@/features/sessions/share';
+import { PUBLIC_WEB_ORIGIN } from '@/lib/publicUrls';
 
 describe('session sharing', () => {
   beforeEach(() => {
@@ -16,12 +17,12 @@ describe('session sharing', () => {
     mockShareLink.mockResolvedValue(undefined);
   });
 
-  it('normalizes the code and builds a stable production invitation', () => {
+  it('normalizes the code and builds an invitation for this deployment', () => {
     expect(buildSessionInvitation(' bkshare1 ')).toEqual({
       code: 'BKSHARE1',
-      url: 'https://beachleaguevb.com/session/BKSHARE1',
+      url: `${PUBLIC_WEB_ORIGIN}/session/BKSHARE1`,
       message:
-        'Join my Beach League session with code BKSHARE1: https://beachleaguevb.com/session/BKSHARE1',
+        `Join my Beach League session with code BKSHARE1: ${PUBLIC_WEB_ORIGIN}/session/BKSHARE1`,
     });
   });
 
@@ -29,9 +30,9 @@ describe('session sharing', () => {
     await shareSessionInvitation('bkshare1');
 
     expect(mockShareLink).toHaveBeenCalledWith(
-      'https://beachleaguevb.com/session/BKSHARE1',
+      `${PUBLIC_WEB_ORIGIN}/session/BKSHARE1`,
       'Share Session',
-      'Join my Beach League session with code BKSHARE1: https://beachleaguevb.com/session/BKSHARE1',
+      `Join my Beach League session with code BKSHARE1: ${PUBLIC_WEB_ORIGIN}/session/BKSHARE1`,
     );
   });
 

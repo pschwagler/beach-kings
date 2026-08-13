@@ -5,11 +5,21 @@
 
 import React from 'react';
 import { Alert, Share } from 'react-native';
-import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
+import { renderWithTheme as render } from '../../test-utils/renderWithTheme';
+import { PUBLIC_WEB_ORIGIN } from '@/lib/publicUrls';
 
 const mockReplace = jest.fn();
 const mockDeleteSession = jest.fn();
 const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+  }),
+  vars: (values: object) => values,
+}));
 
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
@@ -73,9 +83,9 @@ describe('SessionBottomSheet — Share Session', () => {
         {
           title: 'Share Session',
           message: expect.stringContaining(
-            'https://beachleaguevb.com/session/BK42TEST',
+            `${PUBLIC_WEB_ORIGIN}/session/BK42TEST`,
           ),
-          url: 'https://beachleaguevb.com/session/BK42TEST',
+          url: `${PUBLIC_WEB_ORIGIN}/session/BK42TEST`,
         },
         { dialogTitle: 'Share Session' },
       ),

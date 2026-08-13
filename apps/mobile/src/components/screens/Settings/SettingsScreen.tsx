@@ -38,6 +38,7 @@ import {
   supportMailtoPhoneChange,
 } from '@/lib/support';
 import { PUBLIC_URLS } from '@/lib/publicUrls';
+import { openPublicWebUrl } from '@/lib/externalUrls';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -239,22 +240,22 @@ export default function SettingsScreen(): React.ReactNode {
 
   const handleContactSupport = useCallback(() => {
     void hapticLight();
-    void Linking.openURL(PUBLIC_URLS.support);
-  }, []);
+    router.push(routes.settingsSupport());
+  }, [router]);
 
   const handleTerms = useCallback(() => {
     void hapticLight();
-    void Linking.openURL(PUBLIC_URLS.terms);
+    void openPublicWebUrl(PUBLIC_URLS.terms);
   }, []);
 
   const handlePrivacyPolicy = useCallback(() => {
     void hapticLight();
-    void Linking.openURL(PUBLIC_URLS.privacy);
+    void openPublicWebUrl(PUBLIC_URLS.privacy);
   }, []);
 
   const handleCommunityGuidelines = useCallback(() => {
     void hapticLight();
-    void Linking.openURL(PUBLIC_URLS.communityGuidelines);
+    void openPublicWebUrl(PUBLIC_URLS.communityGuidelines);
   }, []);
 
   const handleRateApp = useCallback(() => {

@@ -29,10 +29,10 @@ interface AuthContextValue {
   sessionExpired: boolean;
   deletionScheduledAt: string | null | undefined;
   fetchCurrentUser: () => Promise<void>;
-  loginWithGoogle: (credentialResponse: { credential?: string }) => Promise<{ profile_complete: boolean }>;
+  loginWithGoogle: (credentialResponse: { credential?: string }, eligibilityToken?: string) => Promise<{ profile_complete: boolean }>;
   loginWithPassword: (phoneNumber: string, password: string) => Promise<void>;
   loginWithSms: (phoneNumber: string, code: string) => Promise<void>;
-  signup: (params: { phoneNumber: string; password: string; firstName: string; lastName: string; email?: string }) => Promise<SignupResponse>;
+  signup: (params: { phoneNumber: string; password: string; firstName: string; lastName: string; email?: string; eligibilityToken: string }) => Promise<SignupResponse>;
   sendVerificationCode: (phoneNumber: string) => Promise<void>;
   verifyPhone: (phoneNumber: string, code: string) => Promise<{ profile_complete: boolean }>;
   resetPassword: (phoneNumber: string) => Promise<unknown>;
@@ -140,9 +140,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const loginWithGoogle = useCallback(
-    async (credentialResponse: { credential?: string }) => {
+    async (credentialResponse: { credential?: string }, eligibilityToken?: string) => {
       const response = await api.post('/api/auth/google', {
         id_token: credentialResponse.credential,
+        eligibility_token: eligibilityToken,
       });
       const profileComplete = await handleAuthSuccess(response.data);
       return { profile_complete: profileComplete };
@@ -172,13 +173,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [handleAuthSuccess]
   );
 
-  const signup = useCallback(async ({ phoneNumber, password, firstName, lastName, email }: { phoneNumber: string; password: string; firstName: string; lastName: string; email?: string }) => {
+  const signup = useCallback(async ({ phoneNumber, password, firstName, lastName, email, eligibilityToken }: { phoneNumber: string; password: string; firstName: string; lastName: string; email?: string; eligibilityToken: string }) => {
     const response = await api.post('/api/auth/signup', {
       phone_number: normalizePhone(phoneNumber),
       password: password.trim(),
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       email: email?.trim() || undefined,
+      eligibility_token: eligibilityToken,
     });
     return response.data;
   }, []);

@@ -15,6 +15,7 @@ from backend.services import (
     data_service,
     interaction_policy,
     league_games_service,
+    message_write_policy,
     notification_service,
 )
 from backend.api.auth_dependencies import (
@@ -164,6 +165,7 @@ async def get_league(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception("Failed to load league detail", extra={"league_id": league_id})
         raise HTTPException(status_code=500, detail=f"Error getting league: {str(e)}")
 
 
@@ -879,6 +881,8 @@ async def create_league_message(
 
         user_id = user.get("id")
         return await data_service.create_league_message(session, league_id, user_id, message_text)
+    except message_write_policy.MessageWritesUnavailable:
+        raise HTTPException(status_code=503, detail="Messaging is temporarily unavailable")
     except interaction_policy.InteractionUnavailable:
         raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:

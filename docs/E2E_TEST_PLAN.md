@@ -1,4 +1,11 @@
-# E2E Test Plan
+# E2E Test Plan (historical)
+
+> This plan captured the original web coverage expansion and its proposed
+> epics. Most of those specs now exist, so its counts and “current coverage”
+> estimate are no longer current. Use
+> [`E2E_APP_FLOW_MAP.md`](E2E_APP_FLOW_MAP.md) for the application-wide route,
+> click, happy-path, unhappy-path, and execution map. Keep this file as the
+> historical specification for the first web E2E expansion.
 
 Current coverage: ~30% of user flows. This plan adds 8 epics to bring coverage to ~90%.
 

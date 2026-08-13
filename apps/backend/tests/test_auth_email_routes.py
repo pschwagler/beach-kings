@@ -17,11 +17,24 @@ from backend.services import (
     user_service,
     email_service,
     rate_limiting_service,
+    youth_safety_service,
 )
 
 
 EMAIL = "user@example.com"
 PHONE = "+15551234567"
+
+
+def _eligibility_token() -> str:
+    facts = youth_safety_service.evaluate_gate(
+        country_code="US",
+        region_code="NY",
+        declared_band="adult",
+        assurance_source="self_declared",
+        declaration_source="self_declared",
+        guardian_consent=False,
+    )
+    return youth_safety_service.create_eligibility_token(facts)
 
 
 # ============================================================================
@@ -65,6 +78,7 @@ class TestSignupEmailBranch:
                 "password": "password1",
                 "first_name": "Alice",
                 "last_name": "Smith",
+                "eligibility_token": _eligibility_token(),
             },
         )
         assert response.status_code == 200, response.text
@@ -90,6 +104,7 @@ class TestSignupEmailBranch:
                 "password": "password1",
                 "first_name": "A",
                 "last_name": "B",
+                "eligibility_token": _eligibility_token(),
             },
         )
         assert response.status_code == 400

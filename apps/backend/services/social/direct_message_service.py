@@ -18,7 +18,9 @@ from backend.services import (
     friend_service,
     notification_service,
     interaction_policy,
+    message_write_policy,
     moderation_worker,
+    youth_interaction_policy,
 )
 from backend.services.notifications.notification_service import notification_to_dict
 from backend.services.platform.websocket_manager import get_websocket_manager
@@ -51,6 +53,10 @@ async def send_message(
     Raises:
         ValueError: If validation fails (not friends, self-message, empty text)
     """
+    await message_write_policy.enforce_write_enabled(
+        session, message_write_policy.MessageSurface.DIRECT_MESSAGES
+    )
+
     if sender_player_id == receiver_player_id:
         raise ValueError("Cannot send a message to yourself")
 
@@ -65,6 +71,9 @@ async def send_message(
     friends = await friend_service.are_friends(session, sender_player_id, receiver_player_id)
     if not friends:
         raise ValueError("You must be friends to send messages")
+    await youth_interaction_policy.enforce_direct_message_pair(
+        session, sender_player_id, receiver_player_id
+    )
 
     # Trim and validate
     message_text = message_text.strip()

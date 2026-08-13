@@ -9,9 +9,17 @@
  */
 
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
+import { renderWithTheme as render } from '../../test-utils/renderWithTheme';
 
 const mockHapticLight = jest.fn();
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+  }),
+  vars: (values: object) => values,
+}));
 jest.mock('@/utils/haptics', () => ({
   hapticLight: (...args: unknown[]) => mockHapticLight(...args),
 }));

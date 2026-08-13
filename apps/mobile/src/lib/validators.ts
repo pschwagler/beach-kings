@@ -211,15 +211,6 @@ export const onboardingSchema = z.object({
   city: z.string().min(1, 'City is required.'),
   locationId: z.string().min(1, 'Please select a location.'),
   nickname: z.string().optional(),
-  dateOfBirth: z
-    .string()
-    .optional()
-    .superRefine((val, ctx) => {
-      const message = validateBirthdayDisplay((val ?? '').trim());
-      if (message !== null) {
-        ctx.addIssue({ code: 'custom', message });
-      }
-    }),
 });
 
 export type OnboardingFormValues = z.infer<typeof onboardingSchema>;
@@ -252,12 +243,6 @@ export const profileEditSchema = z.object({
   }),
   city: z.string().trim().min(1, 'City is required.'),
   locationId: z.string().min(1, 'Please select a location.'),
-  dateOfBirth: z
-    .string()
-    .superRefine((value, ctx) => {
-      const message = validateBirthdayDisplay(value.trim());
-      if (message !== null) ctx.addIssue({ code: 'custom', message });
-    }),
   height: z.string(),
   preferredSide: z.enum(['left', 'right', 'none']).or(z.literal('')),
 });
@@ -271,7 +256,6 @@ export const profileNameSchema = profileEditSchema.pick({
 });
 export const profileNicknameSchema = profileEditSchema.pick({ nickname: true });
 export const profileGenderSchema = profileEditSchema.pick({ gender: true });
-export const profileBirthdaySchema = profileEditSchema.pick({ dateOfBirth: true });
 export const profileHeightSchema = profileEditSchema.pick({ height: true });
 export const profileLevelSchema = profileEditSchema.pick({ level: true });
 export const profileLocationSchema = profileEditSchema.pick({

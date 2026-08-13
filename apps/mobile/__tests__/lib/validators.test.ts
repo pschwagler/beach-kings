@@ -330,7 +330,6 @@ describe('onboardingSchema', () => {
     const result = onboardingSchema.safeParse({
       ...valid,
       nickname: 'Johnny',
-      dateOfBirth: '05/15/1990',
     });
     expect(result.success).toBe(true);
   });
@@ -380,72 +379,6 @@ describe('onboardingSchema', () => {
     expect(onboardingSchema.safeParse(rest).success).toBe(false);
   });
 
-  it('passes with a valid MM/DD/YYYY dateOfBirth', () => {
-    const result = onboardingSchema.safeParse({
-      ...valid,
-      dateOfBirth: '05/15/1990',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('passes when dateOfBirth is omitted or empty', () => {
-    expect(onboardingSchema.safeParse(valid).success).toBe(true);
-    expect(
-      onboardingSchema.safeParse({ ...valid, dateOfBirth: '' }).success,
-    ).toBe(true);
-  });
-
-  it('fails when dateOfBirth has impossible month/day', () => {
-    expect(
-      onboardingSchema.safeParse({ ...valid, dateOfBirth: '99/99/9999' })
-        .success,
-    ).toBe(false);
-    expect(
-      onboardingSchema.safeParse({ ...valid, dateOfBirth: '13/01/1990' })
-        .success,
-    ).toBe(false);
-    expect(
-      onboardingSchema.safeParse({ ...valid, dateOfBirth: '02/30/1990' })
-        .success,
-    ).toBe(false);
-  });
-
-  it('fails when dateOfBirth is malformed or partial', () => {
-    expect(
-      onboardingSchema.safeParse({ ...valid, dateOfBirth: '05/15' }).success,
-    ).toBe(false);
-    expect(
-      onboardingSchema.safeParse({ ...valid, dateOfBirth: '1990-05-15' })
-        .success,
-    ).toBe(false);
-  });
-
-  it('fails when dateOfBirth is in the future', () => {
-    const future = new Date();
-    future.setFullYear(future.getFullYear() + 1);
-    const mm = String(future.getMonth() + 1).padStart(2, '0');
-    const dd = String(future.getDate()).padStart(2, '0');
-    const yyyy = future.getFullYear();
-    expect(
-      onboardingSchema.safeParse({
-        ...valid,
-        dateOfBirth: `${mm}/${dd}/${yyyy}`,
-      }).success,
-    ).toBe(false);
-  });
-
-  it('fails when user is younger than the minimum age', () => {
-    const now = new Date();
-    const yyyy = now.getFullYear() - 5;
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    expect(
-      onboardingSchema.safeParse({
-        ...valid,
-        dateOfBirth: `${mm}/${dd}/${yyyy}`,
-      }).success,
-    ).toBe(false);
-  });
 });
 
 // ---------------------------------------------------------------------------

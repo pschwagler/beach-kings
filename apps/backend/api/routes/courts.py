@@ -417,6 +417,15 @@ async def upload_review_photo(
     Two-step: create review first, then upload photos separately.
     """
     try:
+        authorized = await court_service.authorize_review_photo_upload(
+            session,
+            court_id=court_id,
+            review_id=review_id,
+            player_id=user["player_id"],
+        )
+        if not authorized:
+            raise HTTPException(status_code=404, detail="Review not found or not authorized")
+
         # Process and upload
         processed = await court_photo_service.process_court_photo(file)
         s3_key = f"court-photos/{court_id}/{review_id}/{uuid.uuid4()}.jpg"
@@ -425,6 +434,7 @@ async def upload_review_photo(
         try:
             result = await court_service.add_review_photo(
                 session,
+                court_id=court_id,
                 review_id=review_id,
                 player_id=user["player_id"],
                 s3_key=s3_key,
@@ -476,6 +486,7 @@ async def upload_court_photo(
         court = await session.get(Court, court_id)
         if not court:
             raise HTTPException(status_code=404, detail="Court not found")
+        await interaction_policy.enforce_ugc_creation(session, user["player_id"])
 
         processed = await court_photo_service.process_court_photo(file)
         s3_key = f"court-photos/{court_id}/{uuid.uuid4()}.jpg"

@@ -159,7 +159,7 @@ function FilledChip({
           testID={`team${team}-slot${index}`}
           onPress={onPress}
           accessibilityRole="button"
-          accessibilityLabel={`Team ${team} player ${index + 1}, ${slot.display_name}${slot.is_guest === true ? ', guest' : ''}`}
+          accessibilityLabel={`${slotOrdinal(index)} player for Team ${team}, ${slot.display_name}${slot.is_guest === true ? ', guest' : ''}`}
           accessibilityState={{ selected: isActive }}
           className="flex-1 flex-row items-center gap-1 px-2 py-2"
           style={isDragging ? { opacity: 0.35 } : undefined}
@@ -210,7 +210,7 @@ function PlayerChip(props: PlayerChipProps): React.ReactNode {
         testID={`team${team}-slot${index}`}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`Add Team ${team} player ${index + 1}`}
+        accessibilityLabel={`Pick the ${slotOrdinal(index)} player for Team ${team}`}
         accessibilityState={{ selected: isActive }}
         className={`relative flex-row items-center justify-center px-3 py-2 rounded-[10px] min-h-[44px] w-full ${
           isActive
@@ -462,7 +462,7 @@ function CompactBoardHalf({
               testID={`compact-slot-team${team}-${idx}`}
               onPress={handlePress}
               accessibilityRole="button"
-              accessibilityLabel={`Add Team ${team} player ${idx + 1}`}
+              accessibilityLabel={`Pick the ${slotOrdinal(idx)} player for Team ${team}`}
               accessibilityState={{ selected: isActive }}
               className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-touch border ${
                 isActive
@@ -487,7 +487,7 @@ function CompactBoardHalf({
             testID={`compact-slot-team${team}-${idx}`}
             onPress={handlePress}
             accessibilityRole="button"
-            accessibilityLabel={`Team ${team} player ${idx + 1}, ${slot.display_name}`}
+            accessibilityLabel={`${slotOrdinal(idx)} player for Team ${team}, ${slot.display_name}`}
             accessibilityState={{ selected: isActive }}
             className={`flex-1 px-2 py-[4px] rounded-[8px] items-center justify-center min-h-touch ${
               isTeal ? 'bg-brand-teal' : 'bg-brand-gold'
@@ -631,7 +631,7 @@ export default function ScoreBoard({
     : null;
   const ghostLabel = ghostSlot != null ? formatPlayerShort(ghostSlot.display_name) : '';
   const activeSlotLabel = activeSlot != null
-    ? `Choose Team ${activeSlot.team} player ${activeSlot.slot + 1}`
+    ? `Pick the ${slotOrdinal(activeSlot.slot)} player for Team ${activeSlot.team}`
     : null;
 
   useEffect(() => {
@@ -729,4 +729,7 @@ export default function ScoreBoard({
       </View>
     </View>
   );
+}
+function slotOrdinal(index: number): 'first' | 'second' {
+  return index === 0 ? 'first' : 'second';
 }

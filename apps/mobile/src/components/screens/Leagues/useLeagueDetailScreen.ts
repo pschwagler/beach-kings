@@ -21,6 +21,7 @@ import { leagueKeys } from "./leagueKeys";
 import { leagueQueries } from "@/features/leagues";
 import { routes, type LeagueTab } from "@/lib/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { getQueryErrorPresentation } from "@/infrastructure/query/retryPolicy";
 
 export type LeagueDetailTab = LeagueTab;
 
@@ -64,6 +65,8 @@ export interface UseLeagueDetailScreenResult {
   readonly detail: LeagueDetail | null;
   readonly isLoading: boolean;
   readonly isError: boolean;
+  readonly errorTitle: string;
+  readonly errorDescription: string;
   readonly activeTab: LeagueDetailTab;
   readonly onSetTab: (tab: LeagueDetailTab) => void;
   readonly onPressPlayer: (playerId: number | string) => void;
@@ -107,6 +110,7 @@ export function useLeagueDetailScreen(
   const detailQuery = useQuery(leagueQueries.detail(userId, leagueId));
 
   const detail = detailQuery.data ?? null;
+  const detailError = getQueryErrorPresentation(detailQuery.error, "League");
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -214,6 +218,8 @@ export function useLeagueDetailScreen(
     detail,
     isLoading: detailQuery.isLoading,
     isError: detailQuery.isError,
+    errorTitle: detailError.title,
+    errorDescription: detailError.description,
     activeTab,
     onSetTab,
     onPressPlayer,

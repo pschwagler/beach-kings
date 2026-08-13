@@ -151,6 +151,13 @@ async def create_report(
     now = utcnow()
     incident_type = REPORT_INCIDENT_TYPES.get(reason)
     target, subject_id = await _resolve_target(session, reporter_id, target_type, target_id)
+    junior_user_id = await session.scalar(
+        select(User.id)
+        .join(Player, Player.user_id == User.id)
+        .where(Player.id.in_([reporter_id, subject_id]), User.age_group == "junior")
+        .limit(1)
+    )
+    junior_involved = isinstance(junior_user_id, int)
     existing = await session.execute(
         select(ModerationReport).where(
             ModerationReport.reporter_player_id == reporter_id,
@@ -174,6 +181,7 @@ async def create_report(
     case = case_result.scalar_one_or_none()
     if case is None:
         severity = "urgent" if incident_type else "ordinary"
+        due_hours = 4 if severity == "urgent" or junior_involved else 24
         case = ModerationCase(
             target_type=target_type,
             target_id=target_id,
@@ -181,7 +189,8 @@ async def create_report(
             severity=severity,
             incident_type=incident_type,
             urgent_since_at=now if severity == "urgent" else None,
-            due_at=now + timedelta(hours=4 if severity == "urgent" else 24),
+            due_at=now + timedelta(hours=due_hours),
+            junior_involved=junior_involved,
         )
         session.add(case)
         await session.flush()
@@ -199,6 +208,17 @@ async def create_report(
         )
     elif incident_type and case.incident_type is None:
         case.incident_type = incident_type
+    if junior_involved and getattr(case, "junior_involved", None) is not True:
+        case.junior_involved = True
+        if case.due_at is None or case.due_at > now + timedelta(hours=4):
+            case.due_at = now + timedelta(hours=4)
+        session.add(
+            ModerationEvent(
+                case_id=case.id,
+                event_type="junior_case_elevated",
+                metadata_json={"source": "account_age_facts"},
+            )
+        )
 
     report = ModerationReport(
         case_id=case.id,
@@ -416,7 +436,7 @@ async def list_appeals(session: AsyncSession, player_id: int) -> list[dict[str, 
 async def apply_action(
     session: AsyncSession,
     case_id: int,
-    actor_user_id: int,
+    actor_user_id: int | None,
     action: str,
     reason: str,
     lock_hours: int | None,
@@ -573,7 +593,7 @@ async def apply_action(
     session.add(
         ModerationEvent(
             case_id=case.id,
-            event_type=f"human_{action}",
+            event_type=("human_" if actor_user_id is not None else "automatic_") + action,
             actor_user_id=actor_user_id,
             reason=reason,
             metadata_json=metadata,

@@ -22,6 +22,7 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `ENV` | `development` | `development`, `production`, or `test` |
 | `JWT_EXPIRATION_HOURS` | `1` | JWT access token TTL (hours) |
 | `REFRESH_TOKEN_EXPIRATION_DAYS` | `30` | Refresh token TTL (days). Tokens rotate on each use — old token is deleted and a new one issued |
+| `YOUTH_SAFETY_SIGNING_SECRET` | `JWT_SECRET_KEY` | Dedicated signing key for 30-minute, pre-registration youth eligibility proofs. Use an independently generated secret in production. |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins |
 | `DEBUG_BACKEND` | `0` | Enable debug mode |
 | `PUSH_DELIVERY_ENABLED` | `false` | Enables the separate durable Expo push worker. Requires `EXPO_ACCESS_TOKEN` to be configured securely |
@@ -94,6 +95,9 @@ for as long as pending Apple revocation jobs exist.
 | `AWS_MODERATION_EVIDENCE_BUCKET` | (empty) | Separate private S3 bucket for restricted moderation evidence; enable Block Public Access and encryption |
 | `MODERATION_MODE` | `off` | Local durable moderation behavior: `off`, `shadow`, or `enforce`. Server code forces `enforce` in production and staging so unreviewed UGC fails closed |
 | `MODERATION_MODEL` | `omni-moderation-latest` | Configurable text/image classification model |
+| `MODERATION_AUTO_ENFORCE_SCORE` | `0.95` | Conservative severe-category score threshold for automatic bans or seven-day suspensions; all other flags remain quarantined |
+| `DIRECT_MESSAGE_WRITES_ENABLED` | unset locally | Emergency control for new direct messages. Production/staging require an explicit valid value or the surface fails closed; the `direct_message_writes_enabled` database setting takes precedence |
+| `LEAGUE_CHAT_WRITES_ENABLED` | unset locally | Emergency control for new league-chat messages. Production/staging require an explicit valid value or the surface fails closed; the `league_chat_writes_enabled` database setting takes precedence |
 | `MODERATION_TRIAGE_MODEL` | `gpt-5.6-luna` | Configurable recommendation-only structured triage model |
 | `MODERATION_PROVIDER_TIMEOUT` | `20` | Provider request timeout in seconds |
 | `MODERATION_MAX_ATTEMPTS` | `5` | Bounded durable-job retry count |

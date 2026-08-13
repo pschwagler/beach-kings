@@ -8,6 +8,22 @@ import type {
 
 export function createAuthMethods(api: AxiosInstance) {
   return {
+    async checkYouthEligibility(data: {
+      country_code: 'US' | 'CA';
+      region_code: string;
+      declared_band: 'under_minimum' | 'junior' | 'adult';
+      assurance_source: 'apple_declared_age_range' | 'self_declared';
+      declaration_source:
+        | 'self_declared'
+        | 'guardian_declared'
+        | 'verified'
+        | 'guardian_verified'
+        | 'not_shared';
+      guardian_consent: boolean;
+    }): Promise<{ eligibility_token: string; age_group: 'junior' | 'adult'; minimum_age: number }> {
+      const response = await api.post('/api/auth/youth-eligibility', data);
+      return response.data;
+    },
     /**
      * Password login — accepts phone_number OR email (not both).
      */
@@ -31,6 +47,7 @@ export function createAuthMethods(api: AxiosInstance) {
       first_name?: string;
       last_name?: string;
       full_name?: string;
+      eligibility_token?: string;
     }): Promise<AuthResponse> {
       const response = await api.post<AuthResponse>('/api/auth/signup', data);
       return response.data;
@@ -44,8 +61,11 @@ export function createAuthMethods(api: AxiosInstance) {
     /**
      * Exchange a Google ID token for Beach League auth tokens.
      */
-    async googleAuth(idToken: string): Promise<AuthResponse> {
-      const response = await api.post<AuthResponse>('/api/auth/google', { id_token: idToken });
+    async googleAuth(idToken: string, eligibilityToken?: string): Promise<AuthResponse> {
+      const response = await api.post<AuthResponse>('/api/auth/google', {
+        id_token: idToken,
+        eligibility_token: eligibilityToken,
+      });
       return response.data;
     },
 
@@ -55,10 +75,12 @@ export function createAuthMethods(api: AxiosInstance) {
     async appleAuth(credential: {
       idToken: string;
       authorizationCode: string;
+      eligibilityToken?: string;
     }): Promise<AuthResponse> {
       const response = await api.post<AuthResponse>('/api/auth/apple', {
         id_token: credential.idToken,
         authorization_code: credential.authorizationCode,
+        eligibility_token: credential.eligibilityToken,
       });
       return response.data;
     },

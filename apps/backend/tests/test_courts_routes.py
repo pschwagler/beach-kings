@@ -21,6 +21,7 @@ from backend.services import (
     court_photo_service,
     s3_service,
     geocoding_service,
+    interaction_policy,
     user_service,
 )
 
@@ -703,15 +704,24 @@ class TestUploadReviewPhoto:
     def test_upload_review_photo_success(self, monkeypatch):
         """Author can upload a photo to their review."""
 
+        async def fake_authorize(session, court_id, review_id, player_id):
+            return True
+
         async def fake_process(file):
             return b"processed_image_data"
 
         def fake_upload(data, key, content_type):
             return "https://s3.example.com/photo.jpg"
 
-        async def fake_add_photo(session, review_id, player_id, s3_key, url):
+        async def fake_add_photo(session, court_id, review_id, player_id, s3_key, url):
             return {"id": 1, "url": url, "s3_key": s3_key}
 
+        monkeypatch.setattr(
+            court_service,
+            "authorize_review_photo_upload",
+            fake_authorize,
+            raising=True,
+        )
         monkeypatch.setattr(court_photo_service, "process_court_photo", fake_process, raising=True)
         monkeypatch.setattr(s3_service, "upload_file", fake_upload, raising=True)
         monkeypatch.setattr(court_service, "add_review_photo", fake_add_photo, raising=True)
@@ -729,25 +739,29 @@ class TestUploadReviewPhoto:
         assert "url" in response.json()
 
     def test_upload_review_photo_review_not_found_returns_404(self, monkeypatch):
-        """Service returning None triggers 404; S3 object is cleaned up."""
-        cleanup_called = []
+        """Authorization failure returns 404 before processing or storage."""
+        processed = []
+        uploaded = []
+
+        async def fake_authorize(session, court_id, review_id, player_id):
+            return False
 
         async def fake_process(file):
+            processed.append(True)
             return b"data"
 
         def fake_upload(data, key, content_type):
+            uploaded.append(True)
             return "https://s3.example.com/photo.jpg"
 
-        async def fake_add_photo(session, review_id, player_id, s3_key, url):
-            return None
-
-        def fake_delete(key):
-            cleanup_called.append(key)
-
+        monkeypatch.setattr(
+            court_service,
+            "authorize_review_photo_upload",
+            fake_authorize,
+            raising=True,
+        )
         monkeypatch.setattr(court_photo_service, "process_court_photo", fake_process, raising=True)
         monkeypatch.setattr(s3_service, "upload_file", fake_upload, raising=True)
-        monkeypatch.setattr(court_service, "add_review_photo", fake_add_photo, raising=True)
-        monkeypatch.setattr(s3_service, "delete_file", fake_delete, raising=True)
 
         client, headers = _make_verified_player_client(monkeypatch)
         fake_file = io.BytesIO(b"data")
@@ -759,8 +773,8 @@ class TestUploadReviewPhoto:
         _restore_verified_player()
 
         assert response.status_code == 404
-        # S3 cleanup should be triggered
-        assert len(cleanup_called) == 1
+        assert processed == []
+        assert uploaded == []
 
     def test_upload_review_photo_no_auth_returns_403(self):
         """Unauthenticated request returns 401/403."""
@@ -789,6 +803,9 @@ class TestUploadCourtPhoto:
         async def fake_get(_self, _model, court_id):
             return MagicMock(id=court_id)
 
+        async def fake_enforce(_session, _player_id):
+            return None
+
         async def fake_process(_file):
             return b"processed_image_data"
 
@@ -806,6 +823,7 @@ class TestUploadCourtPhoto:
             }
 
         monkeypatch.setattr("backend.api.routes.courts.AsyncSession.get", fake_get, raising=False)
+        monkeypatch.setattr(interaction_policy, "enforce_ugc_creation", fake_enforce, raising=True)
         monkeypatch.setattr(court_photo_service, "process_court_photo", fake_process, raising=True)
         monkeypatch.setattr(s3_service, "upload_file", fake_upload, raising=True)
         monkeypatch.setattr(court_service, "add_court_photo", fake_add_photo, raising=True)
@@ -834,6 +852,9 @@ class TestUploadCourtPhoto:
         async def fake_get(_self, _model, court_id):
             return MagicMock(id=court_id)
 
+        async def fake_enforce(_session, _player_id):
+            return None
+
         async def fake_process(_file):
             return b"processed_image_data"
 
@@ -851,6 +872,7 @@ class TestUploadCourtPhoto:
             }
 
         monkeypatch.setattr("backend.api.routes.courts.AsyncSession.get", fake_get, raising=False)
+        monkeypatch.setattr(interaction_policy, "enforce_ugc_creation", fake_enforce, raising=True)
         monkeypatch.setattr(court_photo_service, "process_court_photo", fake_process, raising=True)
         monkeypatch.setattr(s3_service, "upload_file", fake_upload, raising=True)
         monkeypatch.setattr(court_service, "add_court_photo", fake_add_photo, raising=True)
@@ -867,6 +889,35 @@ class TestUploadCourtPhoto:
 
         assert response.status_code == 200
         assert captured_kwargs.get("caption") is None
+
+    def test_restricted_uploader_is_rejected_before_image_processing(self, monkeypatch):
+        """UGC restrictions fail before untrusted image bytes consume resources."""
+        processed = []
+
+        async def fake_get(_self, _model, court_id):
+            return MagicMock(id=court_id)
+
+        async def fake_enforce(_session, _player_id):
+            raise interaction_policy.InteractionUnavailable("restricted")
+
+        async def fake_process(_file):
+            processed.append(True)
+            return b"processed_image_data"
+
+        monkeypatch.setattr("backend.api.routes.courts.AsyncSession.get", fake_get, raising=False)
+        monkeypatch.setattr(interaction_policy, "enforce_ugc_creation", fake_enforce, raising=True)
+        monkeypatch.setattr(court_photo_service, "process_court_photo", fake_process, raising=True)
+
+        client, headers = _make_verified_player_client(monkeypatch)
+        response = client.post(
+            "/api/courts/1/photos",
+            files={"file": ("photo.jpg", io.BytesIO(b"data"), "image/jpeg")},
+            headers=headers,
+        )
+        _restore_verified_player()
+
+        assert response.status_code == 409
+        assert processed == []
 
     def test_upload_court_photo_no_auth_returns_403(self):
         """Unauthenticated request returns 401/403."""

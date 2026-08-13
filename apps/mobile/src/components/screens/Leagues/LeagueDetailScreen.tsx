@@ -305,6 +305,8 @@ export default function LeagueDetailScreen({
     detail,
     isLoading,
     isError,
+    errorTitle,
+    errorDescription,
     activeTab,
     onSetTab,
     onPressPlayer,
@@ -415,7 +417,10 @@ export default function LeagueDetailScreen({
           className="flex-1 items-center justify-center px-8"
         >
           <AppText className="text-[16px] font-bold text-default text-center">
-            Failed to load league
+            {errorTitle}
+          </AppText>
+          <AppText className="text-[13px] text-muted text-center mt-2">
+            {errorDescription}
           </AppText>
         </View>
       </SafeAreaView>

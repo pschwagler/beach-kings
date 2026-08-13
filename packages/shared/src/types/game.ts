@@ -35,6 +35,12 @@ export interface GameHistoryEntry {
   readonly rating_change: number | null;
   /** True when the session has been submitted and ELO has been computed. */
   readonly session_submitted: boolean;
+  /** Why a rating is not available yet. Null once the rating is calculated. */
+  readonly rating_pending_reason:
+    | 'session_submission'
+    | 'player_account'
+    | 'calculation'
+    | null;
 }
 
 /** Query params accepted by GET /api/users/me/games. */

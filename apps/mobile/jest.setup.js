@@ -3,6 +3,11 @@ import '@testing-library/jest-native/extend-expect';
 import { act } from '@testing-library/react-native';
 import { notifyManager, timeoutManager } from '@tanstack/react-query';
 
+// Expo 57 installs `fetch` lazily. Resolve it while Jest's native-module mocks
+// are still active so late async cleanup cannot trigger ExpoModulesCore after
+// the test environment has already been torn down.
+void globalThis.fetch;
+
 // TanStack Query batches observer notifications on a timer. Route those
 // notifications through React's test boundary so async cache updates do not
 // escape the assertions that triggered them.
