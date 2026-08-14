@@ -49,7 +49,8 @@ docker run -d --rm \
 
 ready=false
 for _ in $(seq 1 30); do
-    if docker exec "$container_name" pg_isready -U drill -d restore_drill >/dev/null 2>&1; then
+    if docker exec "$container_name" \
+        psql -U drill -d restore_drill -tAc "SELECT 1" >/dev/null 2>&1; then
         ready=true
         break
     fi
