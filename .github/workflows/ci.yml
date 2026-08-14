@@ -67,7 +67,9 @@ jobs:
           python-version: "3.11"
 
       - name: Install Ruff
-        run: pip install ruff
+        # Keep lint behavior reproducible instead of inheriting new rules from
+        # whatever Ruff release happens to be latest on the runner.
+        run: pip install ruff==0.15.4
 
       - name: Lint (Python)
         run: ruff check apps/backend

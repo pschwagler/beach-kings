@@ -37,7 +37,11 @@ docker run -d --rm \
 
 ready=false
 for _ in $(seq 1 30); do
-    if docker exec "$SOURCE_CONTAINER" pg_isready -U beachkings -d beachkings >/dev/null 2>&1; then
+    # pg_isready can report that the server accepts connections just before
+    # the entrypoint finishes creating POSTGRES_DB. Query the requested
+    # database so the test does not race fresh CI runners.
+    if docker exec "$SOURCE_CONTAINER" \
+        psql -U beachkings -d beachkings -tAc "SELECT 1" >/dev/null 2>&1; then
         ready=true
         break
     fi
