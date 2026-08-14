@@ -2,7 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const plist = require('@expo/plist').default;
 const { verifyProductionExport } = require('./verify-production-no-dev-auth');
 
 const EXPECTED = Object.freeze({
@@ -173,7 +173,7 @@ function verifyPrivacyManifest(source) {
 
 function lintPropertyList(file) {
   try {
-    execFileSync('/usr/bin/plutil', ['-lint', file], { stdio: 'pipe' });
+    plist.parse(read(file));
   } catch {
     fail(`invalid property list: ${path.relative(process.cwd(), file)}.`);
   }

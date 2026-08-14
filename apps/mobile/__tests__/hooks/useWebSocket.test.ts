@@ -69,7 +69,12 @@ class FakeWebSocket implements FakeWebSocketInstance {
 
   simulateClose(): void {
     this.readyState = WS_CLOSED;
-    this.onclose?.(new CloseEvent('close'));
+    this.onclose?.({
+      type: 'close',
+      code: 1000,
+      reason: '',
+      wasClean: true,
+    } as CloseEvent);
   }
 
   simulateError(): void {
