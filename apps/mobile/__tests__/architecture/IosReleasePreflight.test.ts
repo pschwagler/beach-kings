@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const {
@@ -47,23 +48,38 @@ const mobileRoot = path.resolve(__dirname, '../..');
 
 describe('iOS release preflight', () => {
   it('accepts the checked-in native release configuration', () => {
-    expect(
-      verifyReleaseConfiguration({
-        mobileRoot,
-        apiUrl: 'https://beachleaguevb.com',
-        webUrl: 'https://beachleaguevb.com',
-        exportDirectory: path.join(mobileRoot, 'dist'),
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        apiOrigin: 'https://beachleaguevb.com',
-        bundleIdentifier: 'com.beachleague.app',
-        deviceFamily: 'iPhone',
-        privacyCollectedDataTypeCount: 13,
-        version: '1.0.0 (1)',
-        webOrigin: 'https://beachleaguevb.com',
-      }),
+    const exportDirectory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'bk-ios-release-preflight-'),
     );
+    const bundleDirectory = path.join(
+      exportDirectory,
+      '_expo/static/js/ios',
+    );
+    fs.mkdirSync(bundleDirectory, { recursive: true });
+    fs.writeFileSync(path.join(bundleDirectory, 'entry-ios.hbc'), 'clean bundle');
+    fs.writeFileSync(path.join(exportDirectory, 'metadata.json'), '{}');
+
+    try {
+      expect(
+        verifyReleaseConfiguration({
+          mobileRoot,
+          apiUrl: 'https://beachleaguevb.com',
+          webUrl: 'https://beachleaguevb.com',
+          exportDirectory,
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          apiOrigin: 'https://beachleaguevb.com',
+          bundleIdentifier: 'com.beachleague.app',
+          deviceFamily: 'iPhone',
+          privacyCollectedDataTypeCount: 13,
+          version: '1.0.0 (1)',
+          webOrigin: 'https://beachleaguevb.com',
+        }),
+      );
+    } finally {
+      fs.rmSync(exportDirectory, { recursive: true, force: true });
+    }
   });
 
   it.each([undefined, '', 'not-a-url', 'http://beachleaguevb.com'])(
