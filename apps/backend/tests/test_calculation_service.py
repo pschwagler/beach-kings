@@ -441,6 +441,29 @@ def test_build_elo_history():
         assert eh.date == "2024-01-01"
 
 
+def test_build_elo_history_sessionless_match_uses_empty_date_sentinel():
+    """Sessionless matches persist with date="" — they still shape the rating line.
+
+    The elo_history.date column is non-nullable; a sessionless match has no
+    date, so "" is the documented "no date" sentinel. Rows must NOT be dropped
+    (see test_matches_without_session_included) — consumers rendering dates
+    guard for the empty string instead (the mobile RatingChart does).
+    """
+    tracker = calculation_service.StatsTracker()
+    dated = create_mock_match([1, 2], [3, 4], 21, 19, match_id=1)
+    sessionless = create_mock_match([1, 2], [3, 4], 21, 15, match_id=2)
+    sessionless.session = None
+    tracker.process_match(dated)
+    tracker.process_match(sessionless)
+
+    history = calculation_service._build_elo_history(tracker)
+
+    by_match = {eh.match_id: eh for eh in history}
+    assert set(by_match) == {1, 2}
+    assert by_match[1].date == "2024-01-01"
+    assert by_match[2].date == ""
+
+
 def test_calculate_elo_deltas():
     """Test _calculate_elo_deltas helper on StatsTracker."""
     tracker = calculation_service.StatsTracker()
@@ -540,7 +563,7 @@ def test_get_scoring_config_malformed_json_logs_warning(caplog):
     """get_scoring_config logs a warning when JSON is malformed."""
     import logging
 
-    with caplog.at_level(logging.WARNING, logger="backend.services.calculation_service"):
+    with caplog.at_level(logging.WARNING, logger="backend.services.stats.calculation_service"):
         calculation_service.get_scoring_config("{bad}")
     assert any("Malformed point_system JSON" in record.message for record in caplog.records)
 

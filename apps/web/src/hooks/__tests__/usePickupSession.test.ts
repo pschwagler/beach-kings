@@ -5,7 +5,6 @@ vi.mock('../../services/api', () => ({
   getSessionByCode: vi.fn(),
   getSessionMatches: vi.fn(),
   getSessionParticipants: vi.fn(),
-  getUserLeagues: vi.fn(),
 }));
 
 vi.mock('../../components/league/utils/matchUtils', () => ({
@@ -17,21 +16,25 @@ vi.mock('../../contexts/AuthContext', () => ({
   useAuth: vi.fn(() => ({ currentUserPlayer: { id: 1 }, isAuthenticated: true })),
 }));
 
+vi.mock('../../contexts/AppContext', () => ({
+  useApp: vi.fn(() => ({ userLeagues: [] })),
+}));
+
 import { usePickupSession } from '../usePickupSession';
 import {
   getSessionByCode,
   getSessionMatches,
   getSessionParticipants,
-  getUserLeagues,
 } from '../../services/api';
 import { sessionMatchToDisplayFormat } from '../../components/league/utils/matchUtils';
 import { useAuth } from '../../contexts/AuthContext';
+import { useApp } from '../../contexts/AppContext';
 
 describe('usePickupSession', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useAuth.mockReturnValue({ currentUserPlayer: { id: 1 }, isAuthenticated: true });
-    getUserLeagues.mockResolvedValue([]);
+    useApp.mockReturnValue({ userLeagues: [] });
   });
 
   describe('no code provided', () => {
@@ -228,10 +231,9 @@ describe('usePickupSession', () => {
     });
   });
 
-  describe('getUserLeagues', () => {
-    it('is called when the user is authenticated', async () => {
-      useAuth.mockReturnValue({ currentUserPlayer: { id: 1 }, isAuthenticated: true });
-      getUserLeagues.mockResolvedValue([{ id: 1, name: 'Beach Kings' }]);
+  describe('userLeagues from AppContext', () => {
+    it('exposes userLeagues from AppContext', async () => {
+      useApp.mockReturnValue({ userLeagues: [{ id: 1, name: 'Beach League' }] });
 
       const session = { id: 10, code: 'ABC', league_id: null, season_id: null, created_by: 1 };
       getSessionByCode.mockResolvedValue(session);
@@ -241,12 +243,11 @@ describe('usePickupSession', () => {
       const { result } = renderHook(() => usePickupSession('ABC'));
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      expect(getUserLeagues).toHaveBeenCalled();
-      expect(result.current.userLeagues).toEqual([{ id: 1, name: 'Beach Kings' }]);
+      expect(result.current.userLeagues).toEqual([{ id: 1, name: 'Beach League' }]);
     });
 
-    it('does not call getUserLeagues when not authenticated', async () => {
-      useAuth.mockReturnValue({ currentUserPlayer: null, isAuthenticated: false });
+    it('exposes empty userLeagues when context has none', async () => {
+      useApp.mockReturnValue({ userLeagues: [] });
 
       const session = { id: 10, code: 'ABC', league_id: null, season_id: null, created_by: null };
       getSessionByCode.mockResolvedValue(session);
@@ -256,7 +257,7 @@ describe('usePickupSession', () => {
       const { result } = renderHook(() => usePickupSession('ABC'));
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      expect(getUserLeagues).not.toHaveBeenCalled();
+      expect(result.current.userLeagues).toEqual([]);
     });
   });
 });

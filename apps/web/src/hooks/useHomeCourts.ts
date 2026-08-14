@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import type { Court } from '../types';
 
@@ -34,7 +34,10 @@ export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeC
   const [localCourts, setLocalCourts] = useState<Court[] | null>(null);
 
   // Derive the effective list: local optimistic state takes precedence, then the prop, then empty.
-  const homeCourts: Court[] = localCourts ?? initialCourts ?? [];
+  const homeCourts = useMemo<Court[]>(
+    () => localCourts ?? initialCourts ?? [],
+    [initialCourts, localCourts],
+  );
 
   // Keep api in a ref so callbacks don't depend on its object identity
   const apiRef = useRef(api);

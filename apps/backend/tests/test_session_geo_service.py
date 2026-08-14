@@ -14,7 +14,7 @@ Also tests: exception suppression, 50-mile cap passthrough.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.services.session_geo_service import resolve_session_geo
+from backend.services.games.session_geo_service import resolve_session_geo
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ async def test_court_with_coords():
     db = _make_db_session_returning([court_row])
 
     with patch(
-        "backend.services.session_geo_service.find_closest_location",
+        "backend.services.games.session_geo_service.find_closest_location",
         new_callable=AsyncMock,
         return_value={"location_id": "ny_nyc", "distance_miles": 2.5},
     ):
@@ -77,7 +77,7 @@ async def test_court_without_coords_falls_through_to_browser():
     db = _make_db_session_returning([court_row])
 
     with patch(
-        "backend.services.session_geo_service.find_closest_location",
+        "backend.services.games.session_geo_service.find_closest_location",
         new_callable=AsyncMock,
         return_value={"location_id": "socal_sd", "distance_miles": 3.0},
     ):
@@ -102,7 +102,7 @@ async def test_league_home_court():
     db = _make_db_session_returning([home_court_row])
 
     with patch(
-        "backend.services.session_geo_service.find_closest_location",
+        "backend.services.games.session_geo_service.find_closest_location",
         new_callable=AsyncMock,
         return_value={"location_id": "ny_nyc", "distance_miles": 2.5},
     ):
@@ -119,7 +119,7 @@ async def test_league_no_home_court_falls_through():
     db = _make_db_session_returning([None])  # no home court row
 
     with patch(
-        "backend.services.session_geo_service.find_closest_location",
+        "backend.services.games.session_geo_service.find_closest_location",
         new_callable=AsyncMock,
         return_value={"location_id": "socal_la", "distance_miles": 5.0},
     ):
@@ -144,7 +144,7 @@ async def test_browser_geolocation():
     db.execute = AsyncMock()  # should not be called
 
     with patch(
-        "backend.services.session_geo_service.find_closest_location",
+        "backend.services.games.session_geo_service.find_closest_location",
         new_callable=AsyncMock,
         return_value={"location_id": "socal_sd", "distance_miles": 1.0},
     ):
@@ -168,7 +168,7 @@ async def test_player_city_coords():
     db = _make_db_session_returning([player_row])
 
     with patch(
-        "backend.services.session_geo_service.find_closest_location",
+        "backend.services.games.session_geo_service.find_closest_location",
         new_callable=AsyncMock,
         return_value={"location_id": "socal_la", "distance_miles": 4.0},
     ):
@@ -220,7 +220,7 @@ async def test_location_beyond_cap_returns_null_location_id():
     db = AsyncMock()
 
     with patch(
-        "backend.services.session_geo_service.find_closest_location",
+        "backend.services.games.session_geo_service.find_closest_location",
         new_callable=AsyncMock,
         return_value=None,
     ):
@@ -261,7 +261,7 @@ async def test_court_wins_over_league():
     db = _make_db_session_returning([court_row])
 
     with patch(
-        "backend.services.session_geo_service.find_closest_location",
+        "backend.services.games.session_geo_service.find_closest_location",
         new_callable=AsyncMock,
         return_value={"location_id": "socal_sd", "distance_miles": 1.0},
     ):
@@ -281,7 +281,7 @@ async def test_no_location_hub_within_cap():
     db.execute = AsyncMock()
 
     with patch(
-        "backend.services.session_geo_service.find_closest_location",
+        "backend.services.games.session_geo_service.find_closest_location",
         new_callable=AsyncMock,
         return_value=None,
     ):

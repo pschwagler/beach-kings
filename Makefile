@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-volumes clean-venv test test-local test-clean check lint whatsapp whatsapp-install frontend-install ensure-docker migrate seed-users dev-login mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
+.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-volumes clean-venv test test-local test-clean check lint whatsapp whatsapp-install frontend-install ensure-docker migrate catalog-diff catalog-apply seed-users dev-login dev-otp mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
@@ -49,11 +49,16 @@ help:
 	@echo "  make clean-volumes     - Remove ALL Docker volumes (⚠️  destroys DB data)"
 	@echo "  make clean-venv        - Remove Python virtual environment"
 	@echo "  make migrate           - Run database migrations (alembic upgrade head)"
+	@echo "  make catalog-diff      - Validate and preview catalog changes"
+	@echo "  make catalog-apply     - Apply catalog changes atomically"
 	@echo ""
 	@echo "🔧 Dev Tools:"
 	@echo "  make seed-users          - Create 3 test users with easy passwords (test1234)"
 	@echo "  make dev-login ID=1      - Get auth tokens for a player (by player ID)"
 	@echo "  make dev-login           - List all available players"
+	@echo "  make dev-otp EMAIL=...   - Fetch latest unused signup/reset code for an email"
+	@echo "  make dev-otp PHONE=+1... - Fetch latest unused signup/reset code for a phone"
+	@echo "  make dev-otp             - Fetch latest unused code (any identifier)"
 	@echo ""
 	@echo "🧪 Testing:"
 	@echo "  make check             - Run ALL checks: lint, format, build, tests"
@@ -225,11 +230,35 @@ migrate:
 	@docker compose exec backend bash -c "cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head"
 	@echo "✅ Migrations complete!"
 
+catalog-diff:
+	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python -m backend.scripts.sync_catalog"
+
+catalog-apply:
+	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python -m backend.scripts.sync_catalog --apply"
+
 seed-users:
 	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python scripts/seed_test_users.py"
 
 dev-login:
 	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python scripts/dev_login.py '$(ID)'"
+
+# Fetch the latest unused, unexpired verification code from the local DB.
+# Useful for UI / E2E testing of signup and password-reset OTP flows when
+# ENABLE_EMAIL=false (email is stubbed; codes are still persisted).
+# Usage:
+#   make dev-otp EMAIL=foo@example.com
+#   make dev-otp PHONE=+15551234567
+#   make dev-otp                         (latest regardless of identifier)
+dev-otp:
+	@if [ -n "$(EMAIL)" ]; then \
+		FILTER="email = '$(EMAIL)'"; \
+	elif [ -n "$(PHONE)" ]; then \
+		FILTER="phone_number = '$(PHONE)'"; \
+	else \
+		FILTER="true"; \
+	fi; \
+	docker compose exec -T postgres psql -U beachkings -d beachkings -x -c \
+		"SELECT code, email, phone_number, used, expires_at, created_at FROM verification_codes WHERE $$FILTER AND used = false AND expires_at > now()::text ORDER BY created_at DESC LIMIT 1;"
 
 check: lint test
 	@echo ""
@@ -258,7 +287,7 @@ test-local:
 		echo "❌ Virtual environment not found. Run 'make install' first."; \
 		exit 1; \
 	fi
-	@./venv/bin/pytest apps/backend/tests/ -v
+	@ENV=test ./venv/bin/pytest apps/backend/tests/ -v
 
 test-clean:
 	@echo "Cleaning up test containers and volumes..."
@@ -385,5 +414,3 @@ mobile-build-android:
 		exit 1; \
 	fi
 	@cd apps/mobile && eas build --platform android
-
-

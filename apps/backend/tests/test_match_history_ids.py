@@ -192,6 +192,22 @@ async def test_team2_player2_sees_correct_partner(db_session, match_scenario):
 
 
 @pytest.mark.asyncio
+async def test_deleted_opponent_is_non_clickable_tombstone(db_session, match_scenario):
+    """Other players keep the match but receive no linkable deleted identity."""
+    p1 = match_scenario["p1"]
+    p3 = match_scenario["p3"]
+
+    await user_service.execute_account_deletion(db_session, p3.user_id)
+
+    history = await data_service.get_player_match_history_by_id(db_session, p1.id)
+    assert history is not None
+    assert history[0]["opponent_1"] == "Deleted Player"
+    assert history[0]["opponent_1_id"] is None
+    assert history[0]["opponent_1_is_placeholder"] is None
+    assert await data_service.get_player_match_history_by_id(db_session, p3.id) is None
+
+
+@pytest.mark.asyncio
 async def test_same_named_players_have_distinct_ids(db_session):
     """
     Two players named "John Smith" should return different IDs

@@ -23,7 +23,7 @@ from backend.database.models import (
     Notification,
     NotificationType,
 )
-from backend.services.session_cleanup_service import SessionCleanupService
+from backend.services.games.session_cleanup_service import SessionCleanupService
 from backend.services import user_service
 from backend.utils.datetime_utils import utcnow
 
@@ -92,7 +92,7 @@ def cleanup_service():
     Also registers mock stats queue callbacks so lock_in_session
     (which enqueues stats recalculation) doesn't raise.
     """
-    from backend.services.stats_queue import get_stats_queue
+    from backend.services.stats.stats_queue import get_stats_queue
 
     queue = get_stats_queue()
 
@@ -150,6 +150,7 @@ async def test_stale_session_with_matches_auto_submitted(
         name="Stale w/ matches",
         status=SessionStatus.ACTIVE,
         season_id=season.id,
+        league_id=league.id,
         created_by=test_players[0].id,
     )
     db_session.add(sess)
@@ -194,6 +195,7 @@ async def test_stale_empty_session_deleted(
         name="Stale empty",
         status=SessionStatus.ACTIVE,
         season_id=season.id,
+        league_id=league.id,
         created_by=test_players[0].id,
     )
     db_session.add(sess)
@@ -231,6 +233,7 @@ async def test_fresh_session_not_touched(
         name="Fresh session",
         status=SessionStatus.ACTIVE,
         season_id=season.id,
+        league_id=league.id,
         created_by=test_players[0].id,
     )
     db_session.add(sess)
@@ -269,6 +272,7 @@ async def test_submitted_session_ignored(
         name="Already submitted",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=test_players[0].id,
     )
     db_session.add(sess)
@@ -307,6 +311,7 @@ async def test_creator_notified_on_auto_submit(
         name="Notify test",
         status=SessionStatus.ACTIVE,
         season_id=season.id,
+        league_id=league.id,
         created_by=test_players[0].id,
     )
     db_session.add(sess)
@@ -354,6 +359,7 @@ async def test_creator_notified_on_auto_delete(
         name="Delete notify test",
         status=SessionStatus.ACTIVE,
         season_id=season.id,
+        league_id=league.id,
         created_by=test_players[0].id,
     )
     db_session.add(sess)
@@ -396,6 +402,7 @@ async def test_no_creator_skips_notification(db_session, league_and_season, clea
         name="No creator",
         status=SessionStatus.ACTIVE,
         season_id=season.id,
+        league_id=league.id,
         created_by=None,
     )
     db_session.add(sess)
@@ -484,6 +491,7 @@ async def test_match_create_bumps_session_updated_at(db_session, test_players, l
         name="Bump test create",
         status=SessionStatus.ACTIVE,
         season_id=season.id,
+        league_id=league.id,
         created_by=test_players[0].id,
     )
     db_session.add(sess)
@@ -537,6 +545,7 @@ async def test_match_delete_bumps_session_updated_at(db_session, test_players, l
         name="Bump test delete",
         status=SessionStatus.ACTIVE,
         season_id=season.id,
+        league_id=league.id,
         created_by=test_players[0].id,
     )
     db_session.add(sess)

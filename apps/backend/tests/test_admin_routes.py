@@ -6,12 +6,26 @@ Settings GET/PUT already tested in test_api_routes_comprehensive.py.
 
 from fastapi.testclient import TestClient
 from backend.api.main import app
-from backend.services import auth_service, user_service, data_service, settings_service
+from backend.services import (
+    auth_service,
+    user_service,
+    data_service,
+    role_service,
+    settings_service,
+)
 
 
 # ---------------------------------------------------------------------------
 # Auth helpers
 # ---------------------------------------------------------------------------
+
+
+async def _async_true():
+    return True
+
+
+async def _async_false():
+    return False
 
 
 def _make_admin_client(monkeypatch, phone="+10000000000", user_id=1):
@@ -40,6 +54,7 @@ def _make_admin_client(monkeypatch, phone="+10000000000", user_id=1):
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+    monkeypatch.setattr(role_service, "is_system_admin", lambda session, uid: _async_true())
 
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
@@ -70,6 +85,7 @@ def _make_non_admin_client(monkeypatch, phone="+19999999999", user_id=99):
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+    monkeypatch.setattr(role_service, "is_system_admin", lambda session, uid: _async_false())
 
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
@@ -453,7 +469,7 @@ class TestWhatsAppEndpoints:
         """Admin can list WhatsApp groups via proxy."""
 
         async def fake_proxy(method, path, body=None, timeout=30.0):
-            return {"groups": [{"id": "g1", "name": "Beach Kings"}]}
+            return {"groups": [{"id": "g1", "name": "Beach League"}]}
 
         monkeypatch.setattr(
             "backend.api.routes.admin.proxy_whatsapp_request", fake_proxy, raising=True

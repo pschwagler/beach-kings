@@ -110,7 +110,7 @@ export default function PublicLocationPage({ location, isAuthenticated }: Public
           </div>
           <div className="public-location__stat">
             <span className="public-location__stat-value">{stats.total_matches || 0}</span>
-            <span className="public-location__stat-label">Matches</span>
+            <span className="public-location__stat-label">Games</span>
           </div>
           {(stats.total_courts ?? 0) > 0 && (
             <div className="public-location__stat">

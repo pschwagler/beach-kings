@@ -19,8 +19,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* The suite shares deterministic database fixtures, so serialize by default.
+   * Explicit opt-in remains available for isolated specs via E2E_WORKERS. */
+  workers: Number(process.env.E2E_WORKERS || 1),
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Global setup and teardown */
@@ -48,6 +49,14 @@ export default defineConfig({
     ...(process.env.CI || process.env.MOBILE ? [{
       name: 'mobile-chrome',
       use: { ...devices['Pixel 5'] },
+    }, {
+      name: 'mobile-small-chrome',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 375, height: 667 },
+        isMobile: true,
+        hasTouch: true,
+      },
     }] : []),
     ...(process.env.CI || process.env.ALL_BROWSERS ? [
       {

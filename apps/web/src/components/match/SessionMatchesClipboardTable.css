@@ -8,7 +8,7 @@
 }
 
 .clipboard-session-card {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   overflow: hidden;
@@ -40,8 +40,8 @@
 }
 
 .editing-session .clipboard-header {
-  background: #fffbeb; /* Amber 50 */
-  border-bottom-color: #fcd34d; /* Amber 300 */
+  background: var(--warning-bg);
+  border-bottom-color: var(--warning-border);
 }
 
 .clipboard-header-left {
@@ -81,7 +81,7 @@
 
 .clipboard-table-wrapper {
   overflow-x: auto;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .clipboard-table {
@@ -148,7 +148,7 @@
 }
 
 .clipboard-table th {
-  background: white;
+  background: var(--bg-surface);
   font-weight: 600;
   color: var(--gray-700);
   font-size: 0.85rem;
@@ -189,7 +189,7 @@
 
 /* Ensure winner background works with table hover/stripe if any */
 .clipboard-table tr:hover .winner-cell-bg {
-  background-color: #beece5; /* Slightly darker on hover */
+  background-color: var(--seafoam-light);
 }
 
 /* Clipboard view: winner = primary-dark, loser = gray-800 */

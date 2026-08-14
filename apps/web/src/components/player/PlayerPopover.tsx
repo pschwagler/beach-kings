@@ -53,7 +53,7 @@ export default function PlayerPopover({
 
         // If pending_incoming, fetch the request ID so we can accept it
         if (status === 'pending_incoming') {
-          const requests = await getFriendRequests('received');
+          const requests = await getFriendRequests('incoming');
           if (cancelled) return;
           const match = requests.find((r: any) => r.sender_player_id === playerId && r.status === 'pending');
           if (match) setIncomingRequestId(match.id);

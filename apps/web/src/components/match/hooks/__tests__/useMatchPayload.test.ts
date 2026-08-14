@@ -138,6 +138,26 @@ describe('useMatchPayload', () => {
       expect(payload.season_id).toBeUndefined();
     });
 
+    it('includes league_id but omits season_id for a zero-season league (gap game)', () => {
+      const props = makeDefaultProps({
+        matchType: 'league',
+        selectedLeagueId: 10,
+        selectedSeasonId: null,
+        allSeasons: [], // zero seasons
+      });
+      const { result } = renderHook(() => useMatchPayload(props));
+
+      let payload;
+      act(() => {
+        payload = result.current.buildMatchPayload(validScoresValidation);
+      });
+
+      // league_id must be present so backend knows which league the gap game belongs to
+      expect(payload.league_id).toBe(10);
+      // season_id must NOT be present — this is what makes it a gap game
+      expect(payload.season_id).toBeUndefined();
+    });
+
     it('does not include league_id when selectedLeagueId is null even for league matchType', () => {
       const props = makeDefaultProps({
         matchType: 'league',

@@ -46,11 +46,13 @@ def upgrade() -> None:
             "session with a NULL date. Fix session data before running this migration."
         )
 
-    # Drop the index on date first (if it exists)
-    try:
-        op.drop_index("idx_matches_date", table_name="matches")
-    except Exception:
-        pass  # Index may not exist
+    # Drop the index on date first, if it exists. Use IF EXISTS rather than
+    # try/except: a failed DROP INDEX aborts the surrounding migration
+    # transaction, so every following statement errors with
+    # "current transaction is aborted". On prod the index exists (drop
+    # succeeds); on a fresh build it never existed, and the swallowed failure
+    # would otherwise poison the transaction and break the whole upgrade.
+    op.drop_index("idx_matches_date", table_name="matches", if_exists=True)
 
     if _column_exists("matches", "date"):
         op.drop_column("matches", "date")

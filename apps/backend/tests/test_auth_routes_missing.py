@@ -37,12 +37,51 @@ def _make_authed_client(monkeypatch, phone="+10000000000", user_id=1):
 
 
 # ============================================================================
+# POST /api/auth/reset-password
+# ============================================================================
+
+
+class TestResetPassword:
+    """Tests for reset-password endpoint."""
+
+    def test_invalid_phone_returns_client_error(self, monkeypatch):
+        """Invalid user input must not escape normalization as a server error."""
+        client = TestClient(app)
+
+        def reject_phone(_phone):
+            raise ValueError("Invalid phone number")
+
+        monkeypatch.setattr(auth_service, "normalize_phone_number", reject_phone, raising=True)
+
+        response = client.post("/api/auth/reset-password", json={"phone_number": "+11234567890"})
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid phone number"
+
+
+# ============================================================================
 # POST /api/auth/reset-password-verify
 # ============================================================================
 
 
 class TestResetPasswordVerify:
     """Tests for reset-password-verify endpoint."""
+
+    def test_invalid_phone_returns_client_error(self, monkeypatch):
+        client = TestClient(app)
+
+        def reject_phone(_phone):
+            raise ValueError("Invalid phone number")
+
+        monkeypatch.setattr(auth_service, "normalize_phone_number", reject_phone, raising=True)
+
+        response = client.post(
+            "/api/auth/reset-password-verify",
+            json={"phone_number": "+11234567890", "code": "123456"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid phone number"
 
     def test_verify_success(self, monkeypatch):
         """Valid code returns reset_token."""
@@ -155,8 +194,8 @@ class TestResetPasswordVerify:
         )
         assert response.status_code == 401
 
-    def test_verify_account_locked(self, monkeypatch):
-        """Locked account returns 423."""
+    def test_verify_does_not_use_persistent_account_lock(self, monkeypatch):
+        """A legacy account lock never reveals account state during code verification."""
         client = TestClient(app)
 
         def fake_normalize(phone):
@@ -190,7 +229,7 @@ class TestResetPasswordVerify:
             "/api/auth/reset-password-verify",
             json={"phone_number": "+15551234567", "code": "123456"},
         )
-        assert response.status_code == 423
+        assert response.status_code == 401
 
     def test_verify_user_not_found(self, monkeypatch):
         """Non-existent user returns 401."""
@@ -229,8 +268,9 @@ class TestResetPasswordConfirm:
     """Tests for reset-password-confirm endpoint."""
 
     def test_confirm_success(self, monkeypatch):
-        """Valid token + valid password resets and returns tokens."""
+        """A reset revokes prior sessions before returning replacement tokens."""
         client = TestClient(app)
+        events = []
 
         async def fake_verify_reset_token(session, token):
             return 1  # user_id
@@ -248,7 +288,12 @@ class TestResetPasswordConfirm:
             return "hashed_new_pw"
 
         async def fake_update_password(session, user_id, pw_hash):
+            events.append("password_updated")
             return True
+
+        async def fake_delete_refresh_tokens(session, user_id):
+            events.append("sessions_revoked")
+            return 2
 
         def fake_create_access_token(data):
             return "new_access_token"
@@ -256,8 +301,11 @@ class TestResetPasswordConfirm:
         def fake_generate_refresh():
             return "new_refresh_token"
 
-        async def fake_create_refresh_token(session, user_id, token, expires):
-            pass
+        async def fake_create_refresh_token(
+            session, user_id, token, expires, *, session_version=0
+        ):
+            events.append("replacement_session_created")
+            return True
 
         monkeypatch.setattr(
             user_service,
@@ -269,6 +317,12 @@ class TestResetPasswordConfirm:
         monkeypatch.setattr(auth_service, "hash_password", fake_hash_password, raising=True)
         monkeypatch.setattr(
             user_service, "update_user_password", fake_update_password, raising=True
+        )
+        monkeypatch.setattr(
+            user_service,
+            "delete_user_refresh_tokens",
+            fake_delete_refresh_tokens,
+            raising=True,
         )
         monkeypatch.setattr(
             auth_service, "create_access_token", fake_create_access_token, raising=True
@@ -289,6 +343,11 @@ class TestResetPasswordConfirm:
         assert data["access_token"] == "new_access_token"
         assert data["refresh_token"] == "new_refresh_token"
         assert data["user_id"] == 1
+        assert events == [
+            "password_updated",
+            "sessions_revoked",
+            "replacement_session_created",
+        ]
 
     def test_confirm_short_password(self, monkeypatch):
         """Password < 8 chars returns 400."""
@@ -300,15 +359,15 @@ class TestResetPasswordConfirm:
         assert response.status_code == 400
         assert "8 characters" in response.json()["detail"]
 
-    def test_confirm_password_no_number(self, monkeypatch):
-        """Password without number returns 400."""
+    def test_confirm_password_exactly_7_chars(self, monkeypatch):
+        """Password exactly 7 chars (below 8-char minimum) returns 400."""
         client = TestClient(app)
         response = client.post(
             "/api/auth/reset-password-confirm",
-            json={"reset_token": "token", "new_password": "longpasswordnone"},
+            json={"reset_token": "token", "new_password": "1234567"},
         )
         assert response.status_code == 400
-        assert "number" in response.json()["detail"]
+        assert "8 characters" in response.json()["detail"]
 
     def test_confirm_invalid_token(self, monkeypatch):
         """Invalid reset token returns 401."""
@@ -375,8 +434,10 @@ class TestSMSLogin:
         def fake_generate_refresh():
             return "sms_refresh_token"
 
-        async def fake_create_refresh_token(session, user_id, token, expires):
-            pass
+        async def fake_create_refresh_token(
+            session, user_id, token, expires, *, session_version=0
+        ):
+            return True
 
         monkeypatch.setattr(auth_service, "normalize_phone_number", fake_normalize, raising=True)
         monkeypatch.setattr(
@@ -430,8 +491,8 @@ class TestSMSLogin:
         )
         assert response.status_code == 401
 
-    def test_sms_login_locked(self, monkeypatch):
-        """Locked account returns 423."""
+    def test_sms_login_does_not_use_persistent_account_lock(self, monkeypatch):
+        """A legacy account lock never reveals account state during SMS login."""
         client = TestClient(app)
 
         def fake_normalize(phone):
@@ -458,10 +519,10 @@ class TestSMSLogin:
             "/api/auth/sms-login",
             json={"phone_number": "+15551234567", "code": "123456"},
         )
-        assert response.status_code == 423
+        assert response.status_code == 401
 
     def test_sms_login_invalid_code(self, monkeypatch):
-        """Invalid code returns 401 and increments failures."""
+        """Invalid code returns 401 and records an identifier-scoped failure."""
         client = TestClient(app)
         incremented = {"called": False}
 
@@ -483,8 +544,9 @@ class TestSMSLogin:
         async def fake_verify_code(session, phone, code):
             return None
 
-        async def fake_increment_failed(session, phone):
+        async def fake_record_failure(identifier):
             incremented["called"] = True
+            return False
 
         monkeypatch.setattr(auth_service, "normalize_phone_number", fake_normalize, raising=True)
         monkeypatch.setattr(
@@ -495,7 +557,10 @@ class TestSMSLogin:
             user_service, "verify_and_mark_code_used", fake_verify_code, raising=True
         )
         monkeypatch.setattr(
-            user_service, "increment_failed_attempts", fake_increment_failed, raising=True
+            rate_limiting_service,
+            "record_verification_failure",
+            fake_record_failure,
+            raising=True,
         )
 
         response = client.post(
@@ -504,6 +569,52 @@ class TestSMSLogin:
         )
         assert response.status_code == 401
         assert incremented["called"]
+
+    def test_fifth_sms_login_failure_invalidates_active_codes(self, monkeypatch):
+        """The fifth bad code invalidates the code and asks the user to resend."""
+        client = TestClient(app)
+        invalidated = {}
+
+        monkeypatch.setattr(
+            auth_service,
+            "normalize_phone_number",
+            lambda phone: "+15551234567",
+            raising=True,
+        )
+
+        async def fake_verify_code(session, phone, code):
+            return None
+
+        async def fake_record_failure(identifier):
+            return True
+
+        async def fake_invalidate(session, *, phone_number=None, email=None):
+            invalidated.update(phone_number=phone_number, email=email)
+
+        monkeypatch.setattr(
+            user_service, "verify_and_mark_code_used", fake_verify_code, raising=True
+        )
+        monkeypatch.setattr(
+            rate_limiting_service,
+            "record_verification_failure",
+            fake_record_failure,
+            raising=True,
+        )
+        monkeypatch.setattr(
+            user_service,
+            "invalidate_verification_codes",
+            fake_invalidate,
+            raising=True,
+        )
+
+        response = client.post(
+            "/api/auth/sms-login",
+            json={"phone_number": "+15551234567", "code": "000000"},
+        )
+
+        assert response.status_code == 429
+        assert response.json()["detail"] == ("Too many verification attempts. Request a new code.")
+        assert invalidated == {"phone_number": "+15551234567", "email": None}
 
 
 # ============================================================================

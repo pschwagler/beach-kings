@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Invite Players to the App (Session) - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+  .state { display: none; }
+  .state.active { display: block; }
+
+  /* ── Chrome ── */
+  .top-nav .spacer { min-width: 44px; }
+
+  /* ── Context strip (which session, count) ── */
+  .context-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #f8f5ec;
+    border-bottom: 1px solid #f0e0b0;
+  }
+  .context-strip-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: #fef3c7;
+    border: 1px solid var(--color-warning);
+    display: flex; align-items: center; justify-content: center;
+    color: #92400e;
+    flex-shrink: 0;
+  }
+  .context-strip-text { flex: 1; }
+  .context-strip-title { font-size: 13px; font-weight: 700; color: var(--color-text-primary); line-height: 1.3; }
+  .context-strip-sub { font-size: 11px; color: #5a4a1f; line-height: 1.4; margin-top: 2px; }
+
+  /* ── Intro / explainer ── */
+  .intro { padding: 14px 16px 8px; }
+  .intro-headline {
+    font-size: var(--font-size-headline);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    line-height: 1.3;
+  }
+  .intro-sub {
+    font-size: var(--font-size-footnote);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin-top: 6px;
+  }
+
+  /* ── Section label ── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--color-text-tertiary);
+    padding: 16px 16px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .section-label-count {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* ── Player invite cards ── */
+  .invite-list { padding: 0 16px 24px; }
+  .invite-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--color-bg-surface);
+    border: 1px solid #eee;
+    border-radius: var(--card-radius);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+  }
+  .invite-card:active { background: #fafafa; }
+  .invite-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: #fde68a;
+    color: #92400e;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .invite-avatar-dot {
+    position: absolute;
+    bottom: -2px; right: -2px;
+    width: 12px; height: 12px;
+    background: var(--color-warning);
+    border: 2px solid var(--color-bg-surface);
+    border-radius: 50%;
+  }
+  .invite-info { flex: 1; min-width: 0; }
+  .invite-name {
+    font-size: var(--font-size-subhead);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1.3;
+  }
+  .invite-meta {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+    margin-top: 2px;
+  }
+
+  .invite-action {
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    min-height: 36px;
+    min-width: 78px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .invite-action:hover { background: var(--color-primary-light); }
+  .invite-action.is-sent {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+  }
+
+  /* ── Empty state ── */
+  .empty-area {
+    padding: 80px 32px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+  }
+  .empty-icon-circle {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: #dcfce7;
+    border: 2px solid #86efac;
+    color: #15803d;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .empty-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--color-text-primary);
+  }
+  .empty-desc {
+    font-size: var(--font-size-footnote);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    max-width: 280px;
+  }
+  .empty-back {
+    margin-top: 12px;
+    padding: 12px 22px;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--color-primary);
+    font-size: var(--font-size-footnote);
+    font-weight: 700;
+    border: 1.5px solid var(--color-border);
+    cursor: pointer;
+    min-height: 44px;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher ── -->
+<div class="state-switcher">
+  <div class="sw-label">Session Invite Flow</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('list', this)">1. List</button>
+    <button class="sw-pill" onclick="setState('empty', this)">2. Empty</button>
+  </div>
+</div>
+
+<!-- ══ STATE 1: List ══ -->
+<div class="state active" id="state-list">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="session-detail.html" class="back">&larr;</a>
+    <div class="title">Invite Players to the App</div>
+    <div class="spacer"></div>
+  </div>
+
+  <!-- Context: which session, how many unclaimed -->
+  <div class="context-strip">
+    <div class="context-strip-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div class="context-strip-text">
+      <div class="context-strip-title">Sunday Pickup &middot; Apr 6 &middot; 3 unclaimed</div>
+      <div class="context-strip-sub">Players who haven't joined Beach League yet</div>
+    </div>
+  </div>
+
+  <!-- Intro -->
+  <div class="intro">
+    <div class="intro-headline">Invite players to the app</div>
+    <div class="intro-sub">Send each player a link to join Beach League and claim their games. Then those games count toward both of your stats and rankings.</div>
+  </div>
+
+  <div class="section-label">
+    <span>Unclaimed players</span>
+    <span class="section-label-count">3</span>
+  </div>
+
+  <div class="invite-list">
+
+    <div class="invite-card" onclick="sendInvite(this)">
+      <div class="invite-avatar">
+        BK
+        <span class="invite-avatar-dot" title="Unclaimed"></span>
+      </div>
+      <div class="invite-info">
+        <div class="invite-name">Brad Kessler</div>
+        <div class="invite-meta">3 games</div>
+      </div>
+      <button class="invite-action" onclick="event.stopPropagation(); sendInvite(this.parentElement)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send
+      </button>
+    </div>
+
+    <div class="invite-card" onclick="sendInvite(this)">
+      <div class="invite-avatar" style="background: #fed7aa; color: #9a3412;">
+        AT
+        <span class="invite-avatar-dot" title="Unclaimed"></span>
+      </div>
+      <div class="invite-info">
+        <div class="invite-name">Alex Thompson</div>
+        <div class="invite-meta">2 games</div>
+      </div>
+      <button class="invite-action" onclick="event.stopPropagation(); sendInvite(this.parentElement)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send
+      </button>
+    </div>
+
+    <div class="invite-card" onclick="sendInvite(this)">
+      <div class="invite-avatar" style="background: #ddd6fe; color: #5b21b6;">
+        DP
+        <span class="invite-avatar-dot" title="Unclaimed"></span>
+      </div>
+      <div class="invite-info">
+        <div class="invite-name">Dan Peterson</div>
+        <div class="invite-meta">1 game</div>
+      </div>
+      <button class="invite-action" onclick="event.stopPropagation(); sendInvite(this.parentElement)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send
+      </button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ══ STATE 2: Empty (no unclaimed players) ══ -->
+<div class="state" id="state-empty">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="session-detail.html" class="back">&larr;</a>
+    <div class="title">Invite Players to the App</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="empty-area">
+    <div class="empty-icon-circle">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+    </div>
+    <div class="empty-title">All players on Beach League</div>
+    <div class="empty-desc">Everyone in this session already has an account, so all games count automatically.</div>
+    <button class="empty-back" onclick="window.location.href='session-detail.html'">Back</button>
+  </div>
+
+</div>
+
+
+<script>
+function setState(state, pill) {
+  document.querySelectorAll('.state').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('state-' + state).classList.add('active');
+  if (pill) {
+    document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+    pill.classList.add('active');
+  }
+  window.scrollTo(0, 0);
+}
+
+// Simulate the OS share sheet: fire it (no-op in the wireframe), then on
+// dismissal swap the row's Send button to a transient "Sent ✓" indicator
+// for ~3s, then revert. No row reordering, no API call.
+function sendInvite(card) {
+  var btn = card.querySelector('.invite-action');
+  if (!btn || btn.classList.contains('is-sent')) return;
+  // Mark sent and replace button content.
+  btn.classList.add('is-sent');
+  btn.dataset.original = btn.innerHTML;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Sent';
+  setTimeout(function() {
+    btn.classList.remove('is-sent');
+    if (btn.dataset.original) {
+      btn.innerHTML = btn.dataset.original;
+      delete btn.dataset.original;
+    }
+  }, 3000);
+}
+</script>
+
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

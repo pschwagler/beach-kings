@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from backend.services import kob_service
-from backend.services.kob_advancement import (
+from backend.services.kob.kob_advancement import (
     check_round_complete,
     advance_round,
     complete_tournament,

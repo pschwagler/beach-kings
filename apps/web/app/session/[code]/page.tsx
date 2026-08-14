@@ -115,12 +115,9 @@ export default function SessionByCodePage() {
 
   const isActive = session?.status === 'ACTIVE';
 
-  const submittedTimestampText = useMemo(() => {
-    if (isActive || !session?.updated_at) return null;
-    const ts = formatRelativeTime(session.updated_at);
-    const by = session.updated_by_name || session.created_by_name || 'Unknown';
-    return `Submitted ${ts} by ${by}`;
-  }, [isActive, session?.updated_at, session?.updated_by_name, session?.created_by_name]);
+  const submittedTimestampText = isActive || !session?.updated_at
+    ? null
+    : `Submitted ${formatRelativeTime(session.updated_at)} by ${session.updated_by_name || session.created_by_name || 'Unknown'}`;
 
   // Build lookup: player_id → full_name (for merge display)
   const participantLookup = useMemo(() => {
@@ -217,7 +214,7 @@ export default function SessionByCodePage() {
   const sessionHomeCourts = useMemo(() => {
     if (!session?.court_id || !session?.court_name) return [];
     return [{ id: session.court_id, name: session.court_name }];
-  }, [session?.court_id, session?.court_name]);
+  }, [session]);
 
   const handleEditMatch = (match: Match) => {
     if (!session) return;
@@ -818,6 +815,7 @@ export default function SessionByCodePage() {
           playerName={popover.playerName}
           anchorRect={popover.anchorRect}
           onClose={() => setPopover(null)}
+          // eslint-disable-next-line react-hooks/refs -- stable mutable cache object passed by reference; its point-in-time contents don't affect this render's output, only future cache lookups
           friendStatusCache={friendStatusCacheRef.current}
           onCacheUpdate={(id: number, status: string) => { (friendStatusCacheRef.current as Record<number, string>)[id] = status; }}
         />

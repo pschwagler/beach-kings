@@ -11,7 +11,7 @@ from typing import Dict, List, Set, Tuple
 
 import pytest
 
-from backend.services.kob_scheduler import (
+from backend.services.kob.kob_scheduler import (
     generate_full_round_robin,
     generate_partial_round_robin,
     generate_pools_schedule,
@@ -21,7 +21,7 @@ from backend.services.kob_scheduler import (
     _snake_draft,
     _full_rr_round_count,
 )
-from backend.services.kob_service import _validate_score
+from backend.services.kob.kob_service import _validate_score
 
 
 # ---------------------------------------------------------------------------

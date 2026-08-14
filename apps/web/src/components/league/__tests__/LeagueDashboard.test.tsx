@@ -125,6 +125,10 @@ vi.mock('../../../services/api', () => ({
   requestToJoinLeague: vi.fn(),
 }));
 
+vi.mock('../../../contexts/AppContext', () => ({
+  useApp: vi.fn(() => ({ userLeagues: [], leaguesLoading: false, refreshLeagues: vi.fn() })),
+}));
+
 // Mock next/navigation
 const mockRouterPush = vi.fn();
 const mockSearchParamsGet = vi.fn(() => null);

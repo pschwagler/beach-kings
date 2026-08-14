@@ -8,13 +8,13 @@ helper functions behave correctly in isolation without needing a live DB.
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from backend.services import stats_data
-from backend.services.stats_read_data import (
+from backend.services.stats.stats_read_data import (
     _sort_rankings_all_seasons,
     _sort_rankings_single_season,
     _match_row_to_elo_dict,
     get_rankings,
 )
-from backend.services.stats_calc_data import _chunks
+from backend.services.stats.stats_calc_data import _chunks
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +59,7 @@ def test_stats_data_exports_read_functions():
         "get_all_player_league_stats",
         "export_matches_to_csv",
         "get_player_match_history_by_id",
+        "get_league_player_stats_full",
     ]:
         assert hasattr(stats_data, name), f"stats_data missing: {name}"
 
@@ -215,6 +216,10 @@ def _make_match_row(
     row.team1_player2_name = team1_player2_name
     row.team2_player1_name = team2_player1_name
     row.team2_player2_name = team2_player2_name
+    row.t1p1_deleted_at = None
+    row.t1p2_deleted_at = None
+    row.t2p1_deleted_at = None
+    row.t2p2_deleted_at = None
     row.team1_score = team1_score
     row.team2_score = team2_score
     row.winner = winner

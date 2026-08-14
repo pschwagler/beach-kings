@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import FindPlayersPage from '../../src/components/player/FindPlayersPage';
+import RouteLoadingShell from '../../src/components/ui/RouteLoadingShell';
 
 /**
  * SEO metadata for the Find Players page.
@@ -21,7 +22,7 @@ export const metadata = {
  */
 export default function FindPlayersPageRoute() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<RouteLoadingShell />}>
       <FindPlayersPage />
     </Suspense>
   );

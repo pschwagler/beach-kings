@@ -1,0 +1,506 @@
+"""
+Authentication service for password hashing, JWT tokens, and SMS verification.
+"""
+
+import bcrypt
+import os
+import logging
+import re
+import secrets
+from datetime import timedelta
+from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from backend.utils.constants import APP_NAME
+from backend.utils.datetime_utils import utcnow
+from jose import JWTError, jwt
+from jose.exceptions import ExpiredSignatureError
+from twilio.rest import Client
+from dotenv import load_dotenv
+import phonenumbers
+from phonenumbers import NumberParseException, PhoneNumberFormat
+from backend.services import settings_service
+
+# Load environment variables
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+
+def get_bool_env(key: str, default: bool = True) -> bool:
+    """
+    Parse a boolean environment variable from a string value.
+
+    .env files store all values as strings, so this function converts string
+    values like "true", "True", "TRUE", "1", "yes" to True, and everything
+    else (including "false", "False", "0", "no", empty string) to False.
+
+    Args:
+        key: Environment variable name
+        default: Default value if the variable is not set
+
+    Returns:
+        bool: Parsed boolean value
+    """
+    value = os.getenv(key)
+    if value is None:
+        return default
+    return value.lower() in ("true", "1", "yes")
+
+
+# JWT Configuration
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY:
+    raise ValueError(
+        "JWT_SECRET_KEY environment variable must be set. "
+        "Generate a secure random key with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+    )
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_EXPIRATION_MINUTES = int(
+    float(os.getenv("JWT_EXPIRATION_HOURS", "1")) * 60
+)  # Access token: read hours from env, convert to minutes (default 1 hour)
+REFRESH_TOKEN_EXPIRATION_DAYS = int(
+    os.getenv("REFRESH_TOKEN_EXPIRATION_DAYS", "30")
+)  # Refresh token: 30 days
+
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
+ENABLE_SMS = get_bool_env("ENABLE_SMS", default=True)
+
+# Verification code configuration
+VERIFICATION_CODE_LENGTH = 6
+VERIFICATION_CODE_EXPIRATION_MINUTES = 10
+
+
+MIN_PASSWORD_LENGTH = 8
+
+
+def validate_password_length(password: str) -> None:
+    """
+    Enforce the minimum password length policy.
+
+    Raises:
+        HTTPException(400): if the password is shorter than ``MIN_PASSWORD_LENGTH``.
+    """
+    from fastapi import HTTPException
+
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters long",
+        )
+
+
+def hash_password(password: str) -> str:
+    """
+    Hash a password using bcrypt.
+
+    Args:
+        password: Plain text password
+
+    Returns:
+        Hashed password string
+    """
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+    return hashed.decode("utf-8")
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """
+    Verify a password against a hash.
+
+    Args:
+        password: Plain text password
+        password_hash: Hashed password from database
+
+    Returns:
+        True if password matches, False otherwise
+    """
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except Exception as e:
+        logger.error(f"Error verifying password: {str(e)}")
+        return False
+
+
+async def is_sms_enabled(session: Optional[AsyncSession] = None) -> bool:
+    """
+    Check if SMS is enabled, checking database first.
+
+    Args:
+        session: Optional database session for checking database settings
+
+    Returns:
+        True if SMS is enabled, False otherwise
+    """
+    try:
+        return await settings_service.get_bool_setting(
+            session, "enable_sms", env_var="ENABLE_SMS", default=True, fallback_to_cache=True
+        )
+    except Exception as e:
+        logger.warning(f"Error getting ENABLE_SMS from settings, using default: {e}")
+        return ENABLE_SMS
+
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Create a JWT access token.
+
+    Args:
+        data: Dictionary containing user data (e.g., user_id, phone_number)
+        expires_delta: Optional expiration time delta. Defaults to JWT_EXPIRATION_MINUTES
+
+    Returns:
+        Encoded JWT token string
+    """
+    to_encode = data.copy()
+
+    if expires_delta:
+        expire = utcnow() + expires_delta
+    else:
+        expire = utcnow() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+
+def generate_refresh_token() -> str:
+    """
+    Generate a secure random refresh token.
+
+    Returns:
+        Random token string suitable for use as refresh token
+    """
+    return secrets.token_urlsafe(32)
+
+
+def verify_token(token: str) -> Optional[dict]:
+    """
+    Verify and decode a JWT token.
+
+    Args:
+        token: JWT token string
+
+    Returns:
+        Decoded token payload if valid, None otherwise
+    """
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except ExpiredSignatureError:
+        # Expired tokens are expected behavior - log at DEBUG level
+        logger.debug("JWT token has expired")
+        return None
+    except JWTError as e:
+        # Other JWT errors (invalid signature, malformed token, etc.) are unexpected
+        logger.warning(f"JWT verification failed: {str(e)}")
+        return None
+
+
+def generate_verification_code() -> str:
+    """
+    Generate a cryptographically secure 6-digit verification code.
+
+    Uses ``secrets`` instead of ``random`` to prevent predictability.
+
+    Returns:
+        6-digit code as string
+    """
+    return f"{secrets.randbelow(900000) + 100000}"
+
+
+def normalize_phone_number(phone: str, default_region: str = "US") -> str:
+    """
+    Normalize phone number to E.164 format using phonenumbers library.
+
+    Args:
+        phone: Phone number in various formats
+        default_region: Default region code if number doesn't have country code (default: "US")
+
+    Returns:
+        Phone number in E.164 format (e.g., +15551234567)
+
+    Raises:
+        ValueError: If phone number cannot be parsed or is invalid
+    """
+    try:
+        # Parse the phone number
+        parsed_number = phonenumbers.parse(phone, default_region)
+
+        # Validate the number
+        if not phonenumbers.is_valid_number(parsed_number):
+            raise ValueError(f"Invalid phone number: {phone}")
+
+        # Format to E.164
+        return phonenumbers.format_number(parsed_number, PhoneNumberFormat.E164)
+
+    except NumberParseException as e:
+        raise ValueError(f"Could not parse phone number '{phone}': {str(e)}")
+
+
+def validate_phone_number(phone: str, default_region: str = "US") -> bool:
+    """
+    Validate if a phone number is valid.
+
+    Args:
+        phone: Phone number to validate
+        default_region: Default region code if number doesn't have country code (default: "US")
+
+    Returns:
+        True if phone number is valid, False otherwise
+    """
+    try:
+        parsed_number = phonenumbers.parse(phone, default_region)
+        return phonenumbers.is_valid_number(parsed_number)
+    except (NumberParseException, ValueError):
+        return False
+
+
+def validate_email(email: str) -> bool:
+    """
+    Validate if an email address is valid.
+
+    Args:
+        email: Email address to validate
+
+    Returns:
+        True if email is valid, False otherwise
+    """
+    if not email:
+        return False
+
+    # Basic email regex pattern
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    return bool(re.match(pattern, email))
+
+
+def normalize_email(email: str) -> str:
+    """
+    Normalize email address (lowercase and strip whitespace).
+
+    Args:
+        email: Email address to normalize
+
+    Returns:
+        Normalized email address in lowercase
+
+    Raises:
+        ValueError: If email is invalid
+    """
+    if not email:
+        raise ValueError("Email cannot be empty")
+
+    email = email.strip().lower()
+
+    if not validate_email(email):
+        raise ValueError(f"Invalid email address: {email}")
+
+    return email
+
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+
+def verify_google_id_token(token: str) -> dict:
+    """
+    Verify a Google ID token and extract user info.
+
+    Uses google.oauth2.id_token to verify the token against Google's
+    public keys and validate the audience claim.
+
+    Args:
+        token: The ID token string from the Google Sign-In flow
+
+    Returns:
+        Dictionary with 'email', 'sub' (Google user ID), 'name', 'picture', 'email_verified'
+
+    Raises:
+        ValueError: If token is invalid, expired, or audience doesn't match
+    """
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+
+    if not GOOGLE_CLIENT_ID:
+        raise ValueError("GOOGLE_CLIENT_ID environment variable is not set")
+
+    try:
+        id_info = google_id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID,
+        )
+
+        if not id_info.get("email_verified"):
+            raise ValueError("Google email is not verified")
+
+        return {
+            "email": id_info["email"],
+            "sub": id_info["sub"],
+            "name": id_info.get("name"),
+            "given_name": id_info.get("given_name"),
+            "family_name": id_info.get("family_name"),
+            "picture": id_info.get("picture"),
+            "email_verified": id_info.get("email_verified", False),
+        }
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Google ID token verification failed: {e}")
+        raise ValueError(f"Invalid Google ID token: {e}")
+
+
+# Apple Sign In Configuration
+APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID")  # e.g. "com.beachleague.mobile"
+APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
+
+# Cache Apple's public keys to avoid fetching on every request
+_apple_jwks_cache: Optional[dict] = None
+
+
+def _fetch_apple_public_keys() -> dict:
+    """
+    Fetch Apple's public keys (JWKS) for verifying Sign in with Apple tokens.
+
+    Caches the result in module-level variable to avoid repeated HTTP requests.
+
+    Returns:
+        JWKS dictionary with Apple's public keys
+
+    Raises:
+        ValueError: If the keys cannot be fetched
+    """
+    global _apple_jwks_cache
+    if _apple_jwks_cache is not None:
+        return _apple_jwks_cache
+
+    import httpx
+
+    try:
+        response = httpx.get(APPLE_KEYS_URL, timeout=10)
+        response.raise_for_status()
+        _apple_jwks_cache = response.json()
+        return _apple_jwks_cache
+    except Exception as e:
+        logger.error(f"Failed to fetch Apple public keys: {e}")
+        raise ValueError(f"Could not fetch Apple public keys: {e}")
+
+
+def verify_apple_id_token(token: str) -> dict:
+    """
+    Verify an Apple ID token and extract user info.
+
+    Uses python-jose to decode the RS256 JWT against Apple's public JWKS,
+    validating issuer and audience claims.
+
+    Args:
+        token: The ID token string from the Sign in with Apple flow
+
+    Returns:
+        Dictionary with 'email', 'sub' (Apple user ID), 'email_verified'
+
+    Raises:
+        ValueError: If token is invalid, expired, or audience doesn't match
+    """
+
+    if not APPLE_CLIENT_ID:
+        raise ValueError("APPLE_CLIENT_ID environment variable is not set")
+
+    try:
+        # Get the key ID from the token header
+        header = jwt.get_unverified_header(token)
+        kid = header.get("kid")
+        if not kid:
+            raise ValueError("Token header missing 'kid'")
+
+        # Fetch Apple's public keys and find the matching key
+        jwks = _fetch_apple_public_keys()
+        matching_key = None
+        for key in jwks.get("keys", []):
+            if key["kid"] == kid:
+                matching_key = key
+                break
+
+        if matching_key is None:
+            # Invalidate cache and retry once — Apple may have rotated keys
+            global _apple_jwks_cache
+            _apple_jwks_cache = None
+            jwks = _fetch_apple_public_keys()
+            for key in jwks.get("keys", []):
+                if key["kid"] == kid:
+                    matching_key = key
+                    break
+
+        if matching_key is None:
+            raise ValueError("No matching Apple public key found for token")
+
+        # Verify and decode the token
+        payload = jwt.decode(
+            token,
+            matching_key,
+            algorithms=["RS256"],
+            audience=APPLE_CLIENT_ID,
+            issuer="https://appleid.apple.com",
+        )
+
+        email = payload.get("email")
+        if not email:
+            raise ValueError("Apple token missing email claim")
+
+        return {
+            "email": email,
+            "sub": payload["sub"],
+            "email_verified": payload.get("email_verified", False),
+        }
+    except JWTError as e:
+        raise ValueError(f"Invalid Apple ID token: {e}")
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Apple ID token verification failed: {e}")
+        raise ValueError(f"Invalid Apple ID token: {e}")
+
+
+async def send_sms_verification(session: AsyncSession, phone_number: str, code: str) -> bool:
+    """
+    Send SMS verification code via Twilio.
+
+    Args:
+        session: Database session for checking database settings
+        phone_number: Phone number in E.164 format
+        code: Verification code to send
+
+    Returns:
+        True if SMS sent successfully, False otherwise
+    """
+    # Check if SMS is disabled (database setting first, then env var)
+    enable_sms = await is_sms_enabled(session)
+    if not enable_sms:
+        logger.info("SMS delivery disabled; verification delivery skipped")
+        return True  # Return True to not break the flow, but log that SMS was skipped
+
+    if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER]):
+        logger.error("Verification SMS provider is not configured")
+        return False
+
+    try:
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
+        client.messages.create(
+            body=f"{APP_NAME}: Your verification code is: {code}",
+            from_=TWILIO_PHONE_NUMBER,
+            to=phone_number,
+        )
+
+        logger.info("Verification SMS accepted by provider")
+        return True
+
+    except Exception as exc:
+        logger.error(
+            "Verification SMS provider request failed error_code=%s",
+            type(exc).__name__,
+        )
+        return False

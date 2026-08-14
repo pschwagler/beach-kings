@@ -10,7 +10,7 @@
 }
 
 .court-browser {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 16px 16px 0 0;
   width: 100%;
   max-width: 720px;
@@ -93,7 +93,7 @@
   border-radius: 8px;
   font-size: 14px;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
 }
 
 .court-browser__search-input:focus {
@@ -108,7 +108,7 @@
   padding: 8px 14px;
   border: 1px solid var(--gray-300);
   border-radius: 8px;
-  background: white;
+  background: var(--bg-surface);
   font-size: 14px;
   color: var(--gray-700);
   cursor: pointer;
@@ -167,7 +167,7 @@
   border-radius: 6px;
   font-size: 14px;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   min-width: 120px;
 }
 

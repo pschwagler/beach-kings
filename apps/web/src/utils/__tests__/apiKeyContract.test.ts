@@ -6,8 +6,8 @@
  * instead of "team_1_player_1"), these tests will catch it.
  *
  * The canonical key lists below mirror the Pydantic schemas in
- * apps/backend/models/schemas.py and the dict shapes in
- * apps/backend/services/stats_read_data.py.
+ * apps/backend/models/schemas/ and the dict shapes in
+ * apps/backend/services/stats/stats_read_data.py.
  */
 
 import { describe, it, expect } from 'vitest';

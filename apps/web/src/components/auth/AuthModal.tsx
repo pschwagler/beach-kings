@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { X, CheckCircle, AlertCircle, Check, X as XIcon } from 'lucide-react';
-import { GoogleLogin } from '@react-oauth/google';
+import GoogleAuthButton from './GoogleAuthButton';
 import { useAuth } from '../../contexts/AuthContext';
 import type { AuthMode } from '../../contexts/AuthModalContext';
 import PhoneInput from '../ui/PhoneInput';
 import VerificationCodeInput from './VerificationCodeInput';
+import api from '../../services/api';
 
 const MODE_TITLES: Record<AuthMode, string> = {
   'sign-in': 'Log In',
@@ -22,7 +23,8 @@ const MODE_TITLES: Record<AuthMode, string> = {
 const defaultFormState = {
   phoneNumber: '',
   password: '',
-  fullName: '',
+  firstName: '',
+  lastName: '',
   email: '',
   code: '',
 };
@@ -63,6 +65,11 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
   });
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [isSignupFlow, setIsSignupFlow] = useState(false);
+  const [eligibilityToken, setEligibilityToken] = useState('');
+  const [ageCountry, setAgeCountry] = useState<'US' | 'CA' | ''>('');
+  const [ageRegion, setAgeRegion] = useState('');
+  const [ageBand, setAgeBand] = useState<'under_minimum' | 'junior' | 'adult' | ''>('');
+  const [guardianConsent, setGuardianConsent] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -110,6 +117,11 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setPasswordRequirements({ minLength: false, hasNumber: false });
     setResetToken(null);
     setIsSignupFlow(false);
+    setEligibilityToken('');
+    setAgeCountry('');
+    setAgeRegion('');
+    setAgeBand('');
+    setGuardianConsent(false);
     onClose?.();
   };
 
@@ -141,6 +153,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setIsPhoneValid(false);
     setPasswordRequirements({ minLength: false, hasNumber: false });
     setResetToken(null);
+    setEligibilityToken('');
   };
 
   const handleSendVerification = async () => {
@@ -154,7 +167,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setStatusMessage('');
     try {
       await sendVerificationCode(formData.phoneNumber);
-      setStatusMessage('Verification code sent! Please check your SMS messages.');
+      setStatusMessage('If this phone number can be used, a code will arrive shortly. Only the newest code works.');
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -175,8 +188,12 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
     // Validate password strength and full name for sign-up
     if (activeMode === 'sign-up') {
-      if (!formData.fullName || !formData.fullName.trim()) {
-        setErrorMessage('Full name is required');
+      if (!formData.firstName || !formData.firstName.trim()) {
+        setErrorMessage('First name is required');
+        return;
+      }
+      if (!formData.lastName || !formData.lastName.trim()) {
+        setErrorMessage('Last name is required');
         return;
       }
       const passwordValid = validatePassword(formData.password);
@@ -199,10 +216,12 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
         const result = await signup({
           phoneNumber: formData.phoneNumber,
           password: formData.password,
-          fullName: formData.fullName.trim(),
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
           email: formData.email,
+          eligibilityToken,
         });
-        setStatusMessage('Account created! Enter the verification code we just sent you.');
+        setStatusMessage(result.message || 'If this phone number can be used, a code will arrive shortly. Only the newest code works.');
         setFormData((prev) => ({
           ...prev,
           phoneNumber: result.phone_number || prev.phoneNumber,
@@ -238,15 +257,15 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
       if (activeMode === 'reset-password') {
         await resetPassword(formData.phoneNumber);
-        setStatusMessage('Verification code sent! Please check your SMS messages.');
+        setStatusMessage('If an account exists for this phone number, a code will arrive shortly. Only the newest code works.');
         setActiveMode('reset-password-code');
         return;
       }
 
       if (activeMode === 'reset-password-code') {
         // Verify code and get reset token
-        if (!formData.code || formData.code.length !== 4) {
-          setErrorMessage('Please enter a valid 4-digit verification code');
+        if (!formData.code || formData.code.length !== 6) {
+          setErrorMessage('Please enter a valid 6-digit verification code');
           return;
         }
         const result = await verifyPasswordReset(formData.phoneNumber, formData.code);
@@ -287,15 +306,44 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       case 'sms-login':
         return 'Enter your phone number and the code we send via SMS.';
       case 'verify':
-        return 'Enter the verification code we sent to your phone to complete signup.';
+        return 'If this phone number can be used, enter the code that arrives. Only the newest code works.';
       case 'reset-password':
         return 'Enter your phone number to receive a verification code for password reset.';
       case 'reset-password-code':
-        return 'Enter the verification code we sent to your phone.';
+        return 'If an account exists for this phone number, enter the code that arrives. Only the newest code works.';
       case 'reset-password-new':
         return 'Enter your new password.';
       default:
         return 'Log in to access leagues, record games, and more.';
+    }
+  };
+
+  const handleEligibility = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage('');
+    if (!ageCountry || !/^[A-Za-z]{2}$/.test(ageRegion.trim()) || !ageBand) {
+      setErrorMessage('Select your country, enter a two-letter state or province code, and select an age range.');
+      return;
+    }
+    if (ageBand === 'junior' && !guardianConsent) {
+      setErrorMessage('A parent or legal guardian must review and agree before you continue.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await api.post('/api/auth/youth-eligibility', {
+        country_code: ageCountry,
+        region_code: ageRegion.trim().toUpperCase(),
+        declared_band: ageBand,
+        assurance_source: 'self_declared',
+        declaration_source: 'self_declared',
+        guardian_consent: guardianConsent,
+      });
+      setEligibilityToken(response.data.eligibility_token);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -314,15 +362,15 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
         <p className="auth-modal__description">{renderDescription()}</p>
 
-        {(activeMode === 'sign-in' || activeMode === 'sign-up') && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+        {(activeMode === 'sign-in' || (activeMode === 'sign-up' && eligibilityToken)) && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
           <>
             <div className="auth-modal__google-wrapper">
-              <GoogleLogin
+              <GoogleAuthButton
                 onSuccess={async (credentialResponse) => {
                   setIsSubmitting(true);
                   setErrorMessage('');
                   try {
-                    const result = await loginWithGoogle(credentialResponse);
+                    const result = await loginWithGoogle(credentialResponse, eligibilityToken || undefined);
                     if (!result.profile_complete && onVerifySuccess) {
                       handleClose();
                       setTimeout(() => onVerifySuccess(false), 300);
@@ -338,10 +386,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
                 onError={() => {
                   setErrorMessage('Google sign-in failed. Please try again.');
                 }}
-                width="100%"
                 text={activeMode === 'sign-up' ? 'signup_with' : 'signin_with'}
-                shape="rectangular"
-                size="large"
               />
             </div>
             <div className="auth-modal__divider">
@@ -357,19 +402,64 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           </div>
         )}
 
+        {activeMode === 'sign-up' && !eligibilityToken ? (
+          <form className="auth-modal__form" onSubmit={handleEligibility} noValidate>
+            <label className="auth-modal__label">
+              Country
+              <select className="auth-modal__input" value={ageCountry} onChange={(event) => { setAgeCountry(event.target.value as 'US' | 'CA' | ''); setAgeRegion(''); }}>
+                <option value="">Select country</option>
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+              </select>
+            </label>
+            <label className="auth-modal__label">
+              {ageCountry === 'CA' ? 'Province or territory code' : 'State code'}
+              <input className="auth-modal__input" value={ageRegion} maxLength={2} autoCapitalize="characters" placeholder={ageCountry === 'CA' ? 'ON' : 'NY'} onChange={(event) => setAgeRegion(event.target.value)} />
+            </label>
+            <label className="auth-modal__label">
+              Age range
+              <select className="auth-modal__input" value={ageBand} onChange={(event) => { setAgeBand(event.target.value as typeof ageBand); setGuardianConsent(false); }}>
+                <option value="">Select age range</option>
+                <option value="under_minimum">Under {ageCountry === 'CA' ? 14 : 13}</option>
+                <option value="junior">{ageCountry === 'CA' ? '14' : '13'}–17</option>
+                <option value="adult">18 or older</option>
+              </select>
+            </label>
+            {ageBand === 'junior' && (
+              <label className="auth-modal__label">
+                <span><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} /> My parent or legal guardian reviewed this and agrees to my account.</span>
+              </label>
+            )}
+            <p className="auth-modal__legal-text">We use your age range to apply junior safety settings. We do not ask for your birthdate.</p>
+            <button type="submit" className="auth-modal__submit" disabled={isSubmitting}>{isSubmitting ? 'Checking age range…' : 'Continue to account details'}</button>
+          </form>
+        ) : (
         <form className="auth-modal__form" onSubmit={handleSubmit} noValidate>
           {activeMode === 'sign-up' && (
-            <label className="auth-modal__label">
-              <span>Full Name <span className="required-asterisk">*</span></span>
-              <input
-                type="text"
-                name="fullName"
-                className="auth-modal__input"
-                placeholder="John Doe"
-                value={formData.fullName}
-                onChange={handleInputChange}
-              />
-            </label>
+            <div className="auth-modal__name-row">
+              <label className="auth-modal__label">
+                <span>First Name <span className="required-asterisk">*</span></span>
+                <input
+                  type="text"
+                  name="firstName"
+                  className="auth-modal__input"
+                  placeholder="John"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                />
+              </label>
+              <label className="auth-modal__label">
+                <span>Last Name <span className="required-asterisk">*</span></span>
+                <input
+                  type="text"
+                  name="lastName"
+                  className="auth-modal__input"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                />
+              </label>
+            </div>
           )}
 
           {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
@@ -477,6 +567,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
             </p>
           )}
         </form>
+        )}
 
           {activeMode === 'sign-in' && (
             <div className="auth-modal__footer">
@@ -508,6 +599,27 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
                 onClick={() => handleSwitchMode('sign-in')}
               >
                 Log in
+              </button>
+            </div>
+          )}
+
+          {activeMode === 'verify' && (
+            <div className="auth-modal__footer">
+              <span className="auth-modal__footer-text">Already have an account? </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('sign-in')}
+              >
+                Log in
+              </button>
+              <span className="auth-modal__footer-text footer-bullet">• </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('reset-password')}
+              >
+                Forgot password?
               </button>
             </div>
           )}

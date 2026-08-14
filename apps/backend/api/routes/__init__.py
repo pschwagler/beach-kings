@@ -34,7 +34,7 @@ else:
 # Shared constants
 # ---------------------------------------------------------------------------
 INVALID_CREDENTIALS_RESPONSE = HTTPException(
-    status_code=401, detail="Username or password is incorrect"
+    status_code=401, detail="Email, phone number, or password is incorrect"
 )
 INVALID_VERIFICATION_CODE_RESPONSE = HTTPException(
     status_code=401, detail="Invalid or expired verification code"
@@ -59,6 +59,8 @@ from backend.api.routes.signups import router as signups_router
 from backend.api.routes.admin import router as admin_router
 from backend.api.routes.calc import router as calc_router
 from backend.api.routes.kob import router as kob_router
+from backend.api.routes.push_tokens import router as push_tokens_router
+from backend.api.routes.moderation import router as moderation_router
 
 router = APIRouter()
 router.include_router(leagues_router)
@@ -73,6 +75,8 @@ router.include_router(users_router)
 router.include_router(friends_router)
 router.include_router(messages_router)
 router.include_router(notifications_router)
+router.include_router(push_tokens_router)
+router.include_router(moderation_router)
 router.include_router(signups_router)
 router.include_router(admin_router)
 router.include_router(calc_router)

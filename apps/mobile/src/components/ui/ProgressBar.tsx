@@ -1,0 +1,38 @@
+/**
+ * ProgressBar — horizontal fill bar with teal default color.
+ * Track: gray-200 / dark:gray-700. Fill: teal or custom color.
+ * Height 6px, rounded-full.
+ */
+
+import React from 'react';
+import { View } from 'react-native';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+
+interface ProgressBarProps {
+  readonly progress: number;
+  readonly color?: string;
+  readonly className?: string;
+}
+
+export default function ProgressBar({
+  progress,
+  color,
+  className = '',
+}: ProgressBarProps): React.ReactNode {
+  const palette = usePaletteColors();
+  const clampedProgress = Math.min(1, Math.max(0, progress));
+
+  return (
+    <View
+      className={`h-1.5 rounded-full bg-elevated overflow-hidden ${className}`}
+    >
+      <View
+        className="h-full rounded-full"
+        style={{
+          width: `${clampedProgress * 100}%`,
+          backgroundColor: color ?? palette.brandTeal,
+        }}
+      />
+    </View>
+  );
+}

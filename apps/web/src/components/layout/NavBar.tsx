@@ -83,7 +83,7 @@ export default function NavBar({
   };
 
   return (
-    <nav className="navbar" data-nextjs-scroll-focus-boundary>
+    <nav className="navbar" aria-label="Site navigation" data-nextjs-scroll-focus-boundary>
       <div className="navbar-container">
         <div className="navbar-left">
           <button

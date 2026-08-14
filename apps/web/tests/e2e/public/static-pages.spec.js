@@ -10,7 +10,7 @@ test.describe('Static Pages', () => {
     await page.goto('/privacy-policy');
 
     // Navbar should be present (required on all pages)
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Page title and content
     await expect(page.locator('.legal-page-title')).toHaveText('Privacy Policy');
@@ -25,7 +25,7 @@ test.describe('Static Pages', () => {
     await page.goto('/terms-of-service');
 
     // Navbar should be present
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Page title and content
     await expect(page.locator('.legal-page-title')).toHaveText('Terms of Service');
@@ -36,11 +36,29 @@ test.describe('Static Pages', () => {
     await expect(page.locator('text=Acceptance of Terms')).toBeVisible();
   });
 
+  test('support page renders with navbar and contact method', async ({ page }) => {
+    await page.goto('/support');
+
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.legal-page-title')).toHaveText('Beach League Support');
+    await expect(
+      page.locator('a[href^="mailto:beachleaguevb+support@gmail.com"]'),
+    ).toBeVisible();
+  });
+
+  test('community guidelines render with navbar and support link', async ({ page }) => {
+    await page.goto('/community-guidelines');
+
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.legal-page-title')).toHaveText('Community Guidelines');
+    await expect(page.locator('a[href="/support"]')).toBeVisible();
+  });
+
   test('contribute page renders with navbar', async ({ page }) => {
     await page.goto('/contribute');
 
     // Navbar should be present
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Page title and content
     await expect(page.locator('.legal-page-title')).toHaveText('Contribute');
@@ -51,7 +69,7 @@ test.describe('Static Pages', () => {
     await page.goto('/beach-volleyball');
 
     // Navbar should be present
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Page title
     const title = page.locator('.location-directory__title');

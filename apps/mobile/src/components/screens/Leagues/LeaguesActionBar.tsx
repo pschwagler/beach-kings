@@ -1,0 +1,51 @@
+/**
+ * Action bar with "Find Leagues" and "Create League" buttons.
+ * Mirrors the `.action-bar` row in leagues-tab.html wireframe.
+ */
+
+import React from 'react';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
+import { SearchIcon, PlusIcon } from '@/components/ui/icons';
+import { usePaletteColors } from '@/theme/usePaletteColors';
+
+interface LeaguesActionBarProps {
+  readonly onFindLeagues: () => void;
+  readonly onCreateLeague: () => void;
+}
+
+export default function LeaguesActionBar({
+  onFindLeagues,
+  onCreateLeague,
+}: LeaguesActionBarProps): React.ReactNode {
+  const palette = usePaletteColors();
+  return (
+    <View className="flex-row gap-sm px-lg py-sm bg-surface border-b border-divider">
+      <Pressable
+        testID="find-leagues-btn"
+        onPress={onFindLeagues}
+        accessibilityRole="button"
+        accessibilityLabel="Find Leagues"
+        className="flex-1 flex-row items-center justify-center gap-xs bg-info-tint rounded-[10px] py-sm min-h-touch active:opacity-80"
+      >
+        <SearchIcon size={14} color={palette.brandTeal} />
+        <AppText className="text-footnote font-semibold text-info">
+          Find Leagues
+        </AppText>
+      </Pressable>
+
+      <Pressable
+        testID="create-league-btn"
+        onPress={onCreateLeague}
+        accessibilityRole="button"
+        accessibilityLabel="Create League"
+        className="flex-1 flex-row items-center justify-center gap-xs bg-brand-teal rounded-[10px] py-sm min-h-touch active:opacity-80"
+      >
+        <PlusIcon size={14} color={palette.onBrandTeal} />
+        <AppText className="text-footnote font-semibold text-on-brand-teal">
+          Create League
+        </AppText>
+      </Pressable>
+    </View>
+  );
+}

@@ -6,6 +6,22 @@
 export * from './client';
 export * from './storage';
 export * from './methods';
+export * from './socialMethods';
+export * from './notificationMethods';
+export * from './statsMethods';
+export * from './adminMethods';
+export * from './authMethods';
+export * from './courtMethods';
+export * from './leagueMethods';
+export * from './leagueInviteMethods';
+export * from './matchMethods';
+export * from './messageMethods';
+export * from './playerMethods';
+export * from './rankingMethods';
+export * from './sessionMethods';
+export * from './signupMethods';
+export * from './userMethods';
+export * from './moderationMethods';
 export { createApiMethods } from './methods';
 
 import { ApiClient } from './client';
@@ -26,6 +42,7 @@ export function createApiClient(baseURL: string, storageAdapter?: any) {
       client.setAuthTokens(accessToken, refreshToken),
     clearAuthTokens: () => client.clearAuthTokens(),
     getStoredTokens: () => client.getStoredTokens(),
+    onAuthInvalidated: (listener: () => void) => client.onAuthInvalidated(listener),
   };
 }
 
@@ -39,4 +56,3 @@ export default function createDefaultApiClient() {
     : '';
   return createApiClient(baseURL, new WebStorageAdapter());
 }
-

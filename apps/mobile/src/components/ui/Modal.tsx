@@ -1,62 +1,95 @@
-import React, { ReactNode } from 'react';
-import { Sheet, YStack, XStack, Text, Button as TamaguiButton } from 'tamagui';
-import { X } from 'lucide-react-native';
+/**
+ * Modal component — full-screen modal with slide-up animation.
+ * Handle bar at top, optional title row, X close button.
+ */
+
+import React from 'react';
+import { Modal as RNModal, View, Pressable } from 'react-native';
+import AppText from '@/components/ui/AppText';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import {
+  type AccessibilityFocusRef,
+  useModalAccessibility,
+} from './useModalAccessibility';
 
 interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title?: string;
-  children: ReactNode;
-  snapPoints?: number[];
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly title?: string;
+  readonly children: React.ReactNode;
+  readonly className?: string;
+  readonly initialFocusRef?: AccessibilityFocusRef;
+  readonly returnFocusRef?: AccessibilityFocusRef;
+  readonly testID?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children, snapPoints = [85] }: ModalProps) {
+export default function Modal({
+  visible,
+  onClose,
+  title,
+  children,
+  className = '',
+  initialFocusRef,
+  returnFocusRef,
+  testID,
+}: ModalProps): React.ReactNode {
+  const reduceMotion = useReducedMotion();
+  const { modalRef, focusInitialElement } = useModalAccessibility({
+    visible,
+    initialFocusRef,
+    returnFocusRef,
+  });
   return (
-    <Sheet
-      modal
-      open={isOpen}
-      onOpenChange={(open) => !open && onClose()}
-      snapPoints={snapPoints}
-      dismissOnSnapToBottom
-      zIndex={100_000}
-      animation="medium"
+    <RNModal
+      visible={visible}
+      animationType={reduceMotion ? 'none' : 'slide'}
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+      onShow={focusInitialElement}
+      accessibilityViewIsModal
     >
-      <Sheet.Overlay
-        animation="lazy"
-        enterStyle={{ opacity: 0 }}
-        exitStyle={{ opacity: 0 }}
-      />
-      <Sheet.Handle />
-      <Sheet.Frame
-        padding="$4"
-        backgroundColor="$background"
-        borderTopLeftRadius="$6"
-        borderTopRightRadius="$6"
+      {/*
+        Explicit flex:1 (not just the `flex-1` class) on the SafeAreaView and the
+        content wrapper: react-native's built-in SafeAreaView is not registered
+        with NativeWind's className interop, so `flex-1` was silently dropped and
+        the ScrollView body collapsed to zero height inside the pageSheet. Using
+        safe-area-context's SafeAreaView (interop'd, as elsewhere in the app) plus
+        explicit styles guarantees the flex chain regardless of interop.
+      */}
+      <SafeAreaView
+        ref={modalRef}
+        testID={testID}
+        style={{ flex: 1 }}
+        className={`bg-page ${className}`}
+        role="dialog"
+        accessibilityLabel={title ?? 'Dialog'}
+        accessibilityViewIsModal
+        onAccessibilityEscape={onClose}
       >
-        {title && (
-          <XStack
-            alignItems="center"
-            justifyContent="space-between"
-            marginBottom="$4"
+        {/* Handle bar */}
+        <View className="items-center pt-sm pb-xs">
+          <View className="w-10 h-1 rounded-full bg-divider" />
+        </View>
+
+        {/* Title row — always rendered so the X close button is always accessible */}
+        <View className="flex-row items-center justify-between px-lg py-md border-b border-divider">
+          <AppText className="text-lg font-bold text-default flex-1">
+            {title ?? ''}
+          </AppText>
+          <Pressable
+            onPress={onClose}
+            className="min-h-touch min-w-touch items-center justify-center"
+            accessibilityRole="button"
+            accessibilityLabel="Close"
           >
-            <Text fontSize="$7" fontWeight="700" color="$textPrimary">
-              {title}
-            </Text>
-            <TamaguiButton
-              size="$3"
-              circular
-              icon={X}
-              onPress={onClose}
-              backgroundColor="transparent"
-              color="$textSecondary"
-            />
-          </XStack>
-        )}
-        <YStack flex={1}>
-          {children}
-        </YStack>
-      </Sheet.Frame>
-    </Sheet>
+            <AppText className="text-2xl text-muted leading-none">x</AppText>
+          </Pressable>
+        </View>
+
+        {/* Content */}
+        <View style={{ flex: 1 }}>{children}</View>
+      </SafeAreaView>
+    </RNModal>
   );
 }
-

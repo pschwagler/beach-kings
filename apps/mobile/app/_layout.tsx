@@ -1,41 +1,109 @@
-import { Stack } from 'expo-router';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { TamaguiProvider } from 'tamagui';
-import config from '../tamagui.config';
-import { AuthProvider } from '../src/contexts/AuthContext';
-import { AppProvider } from '../src/contexts/AppContext';
-import { ModalProvider } from '../src/contexts/ModalContext';
-import { DrawerProvider } from '../src/contexts/DrawerContext';
-import { AuthModalProvider } from '../src/contexts/AuthModalContext';
+import '../global.css';
 
-export default function RootLayout() {
+import React, { useEffect, useCallback, useMemo } from 'react';
+import { Stack, SplashScreen, usePathname } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
+import AuthProvider from '@/contexts/AuthContext';
+import ThemeProvider, { useTheme } from '@/contexts/ThemeContext';
+import { NotificationTransport } from '@/features/notifications';
+import NativePushProvider from '@/features/notifications/NativePushProvider';
+import {
+  createQueryClient,
+  PrivateQueryCacheGuard,
+  subscribeQueryLifecycle,
+} from '@/infrastructure/query';
+import ToastProvider from '@/contexts/ToastContext';
+import ErrorBoundary from '@/lib/ErrorBoundary';
+import { setTelemetryRoute } from '@/telemetry/sentry';
+
+// Fonts are embedded at build time by the expo-font config plugin. Keep the
+// splash visible only until the provider tree and navigation are mounted.
+SplashScreen.preventAutoHideAsync();
+
+/**
+ * Inner layout that consumes ThemeContext for dynamic StatusBar.
+ * Must be a child of ThemeProvider to call useTheme().
+ */
+function RootLayoutInner({ onReady }: { readonly onReady: () => void }): React.ReactNode {
+  const { isDark } = useTheme();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    onReady();
+  }, [onReady]);
+
+  useEffect(() => {
+    setTelemetryRoute(pathname);
+  }, [pathname]);
+
   return (
-    <TamaguiProvider config={config} defaultTheme="light">
-      <SafeAreaProvider>
-        <AuthProvider>
-          <AppProvider>
-            <AuthModalProvider>
-              <ModalProvider>
-                <DrawerProvider>
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                    }}
-                  >
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="login" />
-                    <Stack.Screen name="signup" />
-                    <Stack.Screen name="reset-password" />
-                    <Stack.Screen name="league/[id]" />
-                    <Stack.Screen name="admin-view" />
-                  </Stack>
-                </DrawerProvider>
-              </ModalProvider>
-            </AuthModalProvider>
-          </AppProvider>
-        </AuthProvider>
-      </SafeAreaProvider>
-    </TamaguiProvider>
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      {/*
+        Root stack. Making the root a real <Stack> (not a bare <Slot />) is what
+        gives the app a single, shared back-history: pushing a `(stack)` detail
+        screen stacks it OVER the still-mounted `(tabs)`, so `router.back()`
+        pops back to whichever tab the user came from. See docs/navigation.md.
+
+          - (tabs)/(auth): lateral swaps driven by the auth guard (router.replace)
+            — no back-swipe out of them (gestureEnabled: false), fade transition.
+          - (stack): detail screens pushed over the tabs — iOS swipe-to-dismiss
+            and slide-from-right feel.
+      */}
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen
+          name="(auth)"
+          options={{ gestureEnabled: false, animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="(account)"
+          options={{ gestureEnabled: false, animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="(tabs)"
+          options={{ gestureEnabled: false, animation: 'fade' }}
+        />
+        <Stack.Screen name="(stack)" options={{ animation: 'slide_from_right' }} />
+      </Stack>
+    </>
   );
 }
+
+function RootLayout(): React.ReactNode {
+  const queryClient = useMemo(() => createQueryClient(), []);
+
+  useEffect(() => subscribeQueryLifecycle(), []);
+
+  const handleReady = useCallback(() => {
+    void SplashScreen.hideAsync();
+  }, []);
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <KeyboardProvider>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <AuthProvider>
+              <PrivateQueryCacheGuard>
+                <ToastProvider>
+                  <NativePushProvider>
+                    <NotificationTransport />
+                    <ErrorBoundary>
+                      <RootLayoutInner onReady={handleReady} />
+                    </ErrorBoundary>
+                  </NativePushProvider>
+                </ToastProvider>
+              </PrivateQueryCacheGuard>
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </KeyboardProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+export default RootLayout;

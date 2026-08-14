@@ -15,7 +15,6 @@ interface ProfileFormData {
   location_id: string;
   level: string;
   nickname: string;
-  date_of_birth: string;
   distance_to_location?: number | null;
 }
 
@@ -161,16 +160,6 @@ export default function PlayerProfileFields({
         />
       </label>
 
-      <label className="auth-modal__label">
-        Date of Birth
-        <input
-          type="date"
-          name="date_of_birth"
-          className="auth-modal__input"
-          value={formData.date_of_birth}
-          onChange={onInputChange}
-        />
-      </label>
     </>
   );
 }

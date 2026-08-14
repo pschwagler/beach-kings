@@ -1,59 +1,80 @@
-hub_id,display_name,region,region_id,tier,center_city,state,lat,lng,seasonality,radius_miles
-al_gulf,AL - Gulf Shores / Panhandle,Southeast,southeast,1,Gulf Shores,AL,30.2460,-87.7008,Year-Round,60
-az_phoenix,AZ - Phoenix / Tempe,Mountain West,mountain_west,2,Phoenix,AZ,33.4484,-112.0740,Year-Round,40
-az_tucson,AZ - Tucson,Mountain West,mountain_west,3,Tucson,AZ,32.2226,-110.9747,Year-Round,30
-socal_la,CA - Los Angeles / South Bay,California,california,1,Manhattan Beach,CA,33.8847,-118.4109,Year-Round,25
-socal_oc,CA - Orange County,California,california,1,Huntington Beach,CA,33.6595,-117.9988,Year-Round,25
-norcal_sac,CA - Sacramento Area,California,california,4,Sacramento,CA,38.5816,-121.4944,Year-Round,30
-socal_sd,CA - San Diego,California,california,1,Mission Beach,CA,32.7698,-117.2514,Year-Round,30
-norcal_sf,CA - San Francisco / Bay Area,California,california,2,San Francisco,CA,37.7749,-122.4194,Year-Round,40
-central_sb,CA - Santa Barbara,California,california,1,Santa Barbara,CA,34.4208,-119.6982,Year-Round,20
-norcal_sc,CA - Santa Cruz,California,california,2,Santa Cruz,CA,36.9741,-122.0308,Year-Round,20
-central_slo,CA - SLO / Pismo Beach,California,california,3,Pismo Beach,CA,35.1428,-120.6413,Year-Round,20
-co_denver,CO - Denver / Boulder,Mountain West,mountain_west,2,Denver,CO,39.7392,-104.9903,May-Sep,40
-dc_metro,DC - Washington DC Area,Mid-Atlantic,mid_atlantic,4,Washington,DC,38.9072,-77.0369,May-Sep,40
-fl_jax,FL - Jacksonville,Southeast,southeast,3,Jacksonville Beach,FL,30.2947,-81.3931,Year-Round,30
-fl_orlando,FL - Orlando / Central FL,Southeast,southeast,4,Orlando,FL,28.5383,-81.3792,Year-Round,30
-fl_east,FL - South Florida (Miami/FtL),Southeast,southeast,1,Fort Lauderdale,FL,26.1224,-80.1373,Year-Round,50
-fl_west,FL - Tampa / St. Pete,Southeast,southeast,2,Clearwater,FL,27.9659,-82.8319,Year-Round,40
-ga_atl,GA - Atlanta,Southeast,southeast,3,Atlanta,GA,33.7490,-84.3880,Apr-Oct,40
-hi_maui,HI - Maui,Hawaii,hawaii,3,Kihei,HI,20.7984,-156.4729,Year-Round,30
-hi_oahu,HI - Oahu,Hawaii,hawaii,1,Honolulu,HI,21.3099,-157.8581,Year-Round,30
-id_boise,ID - Boise,Pacific Northwest,pacific_northwest,4,Boise,ID,43.6150,-116.2023,Jun-Sep,30
-il_chicago,IL - Chicago,Midwest,midwest,2,Chicago,IL,41.9148,-87.6251,Jun-Aug,50
-in_indy,IN - Indianapolis,Midwest,midwest,4,Indianapolis,IN,39.7684,-86.1581,May-Sep,30
-ks_kc,KS - Kansas City,Midwest,midwest,4,Kansas City,MO,39.0997,-94.5786,Year-Round,30
-la_nola,LA - New Orleans,Southeast,southeast,2,New Orleans,LA,29.9511,-90.0715,Year-Round,30
-ne_bos,MA - Boston / New England North,Northeast,northeast,3,Boston,MA,42.3601,-71.0589,Jun-Sep,60
-mi_detroit,MI - Detroit Area,Midwest,midwest,4,Detroit,MI,42.3314,-83.0458,May-Sep,40
-mi_gr,MI - Grand Rapids / West MI,Midwest,midwest,3,Grand Rapids,MI,42.9634,-85.6681,Jun-Aug,40
-mn_minn,MN - Minneapolis / St. Paul,Midwest,midwest,3,Minneapolis,MN,44.9778,-93.2650,Jun-Aug,30
-mo_stlouis,MO - St. Louis,Midwest,midwest,3,St. Louis,MO,38.6270,-90.1994,May-Oct,30
-nc_clt,NC - Charlotte,Southeast,southeast,4,Charlotte,NC,35.2271,-80.8431,Apr-Oct,30
-nc_wilm,NC - Wilmington,Southeast,southeast,2,Wilmington,NC,34.2104,-77.9155,Apr-Oct,40
-ne_omaha,NE - Omaha,Midwest,midwest,4,Omaha,NE,41.2565,-95.9345,May-Oct,30
-nj_shore,NJ - Coastal / Shore,Northeast,northeast,2,Point Pleasant,NJ,40.0903,-74.0560,May-Sep,40
-nm_abq,NM - Albuquerque,Mountain West,mountain_west,4,Albuquerque,NM,35.0844,-106.6504,May-Oct,30
-nv_vegas,NV - Las Vegas,Mountain West,mountain_west,3,Las Vegas,NV,36.1699,-115.1398,Year-Round,20
-ny_capital,NY - Capital Region (Albany),Northeast,northeast,3,Albany,NY,42.6526,-73.7562,May-Sep,40
-ny_li,NY - Long Island,Northeast,northeast,3,Wantagh,NY,40.6729,-73.5074,May-Sep,30
-ny_nyc,NY - New York City Metro,Northeast,northeast,2,New York,NY,40.7128,-74.0060,May-Oct,30
-ny_western,NY - Western NY (Buf/Roch),Northeast,northeast,3,Rochester,NY,43.1566,-77.6088,Jun-Aug,80
-oh_cincy,OH - Cincinnati,Midwest,midwest,3,Loveland,OH,39.2680,-84.2576,Year-Round,50
-oh_cle,OH - Cleveland,Midwest,midwest,4,Cleveland,OH,41.4993,-81.6944,Jun-Aug,30
-oh_cbus,OH - Columbus,Midwest,midwest,4,Columbus,OH,39.9612,-82.9988,May-Sep,30
-ok_okc,OK - Oklahoma City,South Central,south_central,4,Oklahoma City,OK,35.4676,-97.5164,May-Oct,30
-pnw_pdx,OR - Portland / Oregon Coast,Pacific Northwest,pacific_northwest,3,Portland,OR,45.5152,-122.6784,Jun-Aug,80
-pa_philly,PA - Philadelphia,Northeast,northeast,4,Philadelphia,PA,39.9526,-75.1652,May-Sep,30
-pa_pitt,PA - Pittsburgh,Northeast,northeast,4,Pittsburgh,PA,40.4406,-79.9959,May-Sep,30
-ne_ri,RI - Rhode Island / New England South,Northeast,northeast,3,Newport,RI,41.4901,-71.3128,Jun-Sep,50
-sc_charleston,SC - Charleston,Southeast,southeast,3,Charleston,SC,32.7765,-79.9311,Apr-Oct,30
-tn_nash,TN - Nashville,Southeast,southeast,3,Nashville,TN,36.1627,-86.7816,Apr-Oct,30
-tx_austin,TX - Austin,South Central,south_central,2,Austin,TX,30.2672,-97.7431,Year-Round,40
-tx_dallas,TX - Dallas (DFW),South Central,south_central,2,Dallas,TX,32.7767,-96.7970,Year-Round,40
-tx_houston,TX - Houston / Galveston,South Central,south_central,2,Galveston,TX,29.3013,-94.7977,Year-Round,50
-tx_sat,TX - San Antonio,South Central,south_central,3,San Antonio,TX,29.4241,-98.4936,Year-Round,30
-ut_slc,UT - Salt Lake City,Mountain West,mountain_west,3,Salt Lake City,UT,40.7608,-111.8910,May-Sep,30
-va_beach,VA - Virginia Beach,Mid-Atlantic,mid_atlantic,2,Virginia Beach,VA,36.8529,-75.9780,May-Sep,30
-pnw_seattle,WA - Seattle / Puget Sound,Pacific Northwest,pacific_northwest,2,Seattle,WA,47.6062,-122.3321,Jun-Aug,60
-wi_mke,WI - Milwaukee,Midwest,midwest,3,Milwaukee,WI,43.0389,-87.9065,Jun-Aug,40
+hub_id,display_name,region,region_id,tier,center_city,state,lat,lng,seasonality,radius_miles,country,slug
+al_gulf,AL - Gulf Shores / Panhandle,Southeast,southeast,1,Gulf Shores,AL,30.2460,-87.7008,Year-Round,60,USA,gulf-shores
+az_phoenix,AZ - Phoenix / Tempe,Mountain West,mountain_west,2,Phoenix,AZ,33.4484,-112.0740,Year-Round,40,USA,phoenix
+az_tucson,AZ - Tucson,Mountain West,mountain_west,3,Tucson,AZ,32.2226,-110.9747,Year-Round,30,USA,tucson
+socal_la,CA - Los Angeles / South Bay,California,california,1,Manhattan Beach,CA,33.8847,-118.4109,Year-Round,25,USA,manhattan-beach
+socal_oc,CA - Orange County,California,california,1,Huntington Beach,CA,33.6595,-117.9988,Year-Round,25,USA,huntington-beach
+norcal_sac,CA - Sacramento Area,California,california,4,Sacramento,CA,38.5816,-121.4944,Year-Round,30,USA,sacramento
+socal_sd,CA - San Diego,California,california,1,Mission Beach,CA,32.7698,-117.2514,Year-Round,30,USA,mission-beach
+norcal_sf,CA - San Francisco / Bay Area,California,california,2,San Francisco,CA,37.7749,-122.4194,Year-Round,40,USA,san-francisco
+central_sb,CA - Santa Barbara,California,california,1,Santa Barbara,CA,34.4208,-119.6982,Year-Round,20,USA,santa-barbara
+norcal_sc,CA - Santa Cruz,California,california,2,Santa Cruz,CA,36.9741,-122.0308,Year-Round,20,USA,santa-cruz
+central_slo,CA - SLO / Pismo Beach,California,california,3,Pismo Beach,CA,35.1428,-120.6413,Year-Round,20,USA,pismo-beach
+co_denver,CO - Denver / Boulder,Mountain West,mountain_west,2,Denver,CO,39.7392,-104.9903,May-Sep,40,USA,denver
+co_springs,CO - Colorado Springs,Mountain West,mountain_west,3,Colorado Springs,CO,38.8339,-104.8214,May-Sep,40,USA,colorado-springs
+dc_metro,DC - Washington DC Area,Mid-Atlantic,mid_atlantic,4,Washington,DC,38.9072,-77.0369,May-Sep,40,USA,washington
+fl_jax,FL - Jacksonville,Southeast,southeast,3,Jacksonville Beach,FL,30.2947,-81.3931,Year-Round,30,USA,jacksonville-beach
+fl_orlando,FL - Orlando / Central FL,Southeast,southeast,4,Orlando,FL,28.5383,-81.3792,Year-Round,30,USA,orlando
+fl_east,FL - South Florida (Miami/FtL),Southeast,southeast,1,Fort Lauderdale,FL,26.1224,-80.1373,Year-Round,50,USA,fort-lauderdale
+fl_west,FL - Tampa / St. Pete,Southeast,southeast,2,Clearwater,FL,27.9659,-82.8319,Year-Round,40,USA,clearwater
+ga_atl,GA - Atlanta,Southeast,southeast,3,Atlanta,GA,33.7490,-84.3880,Apr-Oct,40,USA,atlanta
+hi_maui,HI - Maui,Hawaii,hawaii,3,Kihei,HI,20.7984,-156.4729,Year-Round,30,USA,kihei
+hi_oahu,HI - Oahu,Hawaii,hawaii,1,Honolulu,HI,21.3099,-157.8581,Year-Round,30,USA,honolulu
+id_boise,ID - Boise,Pacific Northwest,pacific_northwest,4,Boise,ID,43.6150,-116.2023,Jun-Sep,30,USA,boise
+il_chicago,IL - Chicago,Midwest,midwest,2,Chicago,IL,41.9148,-87.6251,Jun-Aug,50,USA,chicago
+in_indy,IN - Indianapolis,Midwest,midwest,4,Indianapolis,IN,39.7684,-86.1581,May-Sep,30,USA,indianapolis
+ks_kc,KS - Kansas City,Midwest,midwest,4,Kansas City,MO,39.0997,-94.5786,Year-Round,30,USA,kansas-city
+la_nola,LA - New Orleans,Southeast,southeast,2,New Orleans,LA,29.9511,-90.0715,Year-Round,30,USA,new-orleans
+ne_bos,MA - Boston / New England North,Northeast,northeast,3,Boston,MA,42.3601,-71.0589,Jun-Sep,60,USA,boston
+mi_detroit,MI - Detroit Area,Midwest,midwest,4,Detroit,MI,42.3314,-83.0458,May-Sep,40,USA,detroit
+mi_gr,MI - Grand Rapids / West MI,Midwest,midwest,3,Grand Rapids,MI,42.9634,-85.6681,Jun-Aug,40,USA,grand-rapids
+mn_minn,MN - Minneapolis / St. Paul,Midwest,midwest,3,Minneapolis,MN,44.9778,-93.2650,Jun-Aug,30,USA,minneapolis
+mo_stlouis,MO - St. Louis,Midwest,midwest,3,St. Louis,MO,38.6270,-90.1994,May-Oct,30,USA,st-louis
+nc_clt,NC - Charlotte,Southeast,southeast,4,Charlotte,NC,35.2271,-80.8431,Apr-Oct,30,USA,charlotte
+nc_wilm,NC - Wilmington,Southeast,southeast,2,Wilmington,NC,34.2104,-77.9155,Apr-Oct,40,USA,wilmington
+ne_omaha,NE - Omaha,Midwest,midwest,4,Omaha,NE,41.2565,-95.9345,May-Oct,30,USA,omaha
+nj_shore,NJ - Coastal / Shore,Northeast,northeast,2,Point Pleasant,NJ,40.0903,-74.0560,May-Sep,40,USA,point-pleasant
+nm_abq,NM - Albuquerque,Mountain West,mountain_west,4,Albuquerque,NM,35.0844,-106.6504,May-Oct,30,USA,albuquerque
+nv_vegas,NV - Las Vegas,Mountain West,mountain_west,3,Las Vegas,NV,36.1699,-115.1398,Year-Round,20,USA,las-vegas
+ny_capital,NY - Capital Region (Albany),Northeast,northeast,3,Albany,NY,42.6526,-73.7562,May-Sep,40,USA,albany
+ny_li,NY - Long Island,Northeast,northeast,3,Wantagh,NY,40.6729,-73.5074,May-Sep,30,USA,wantagh
+ny_li_east,NY - Eastern Long Island,Northeast,northeast,3,Riverhead,NY,40.9170,-72.6620,May-Sep,35,USA,riverhead
+ny_nyc,NY - New York City Metro,Northeast,northeast,2,New York,NY,40.7128,-74.0060,May-Oct,30,USA,new-york
+ny_western,NY - Western NY (Buf/Roch),Northeast,northeast,3,Rochester,NY,43.1566,-77.6088,Jun-Aug,80,USA,rochester
+oh_cincy,OH - Cincinnati,Midwest,midwest,3,Loveland,OH,39.2680,-84.2576,Year-Round,50,USA,loveland
+oh_cle,OH - Cleveland,Midwest,midwest,4,Cleveland,OH,41.4993,-81.6944,Jun-Aug,30,USA,cleveland
+oh_cbus,OH - Columbus,Midwest,midwest,4,Columbus,OH,39.9612,-82.9988,May-Sep,30,USA,columbus
+ok_okc,OK - Oklahoma City,South Central,south_central,4,Oklahoma City,OK,35.4676,-97.5164,May-Oct,30,USA,oklahoma-city
+pnw_pdx,OR - Portland / Oregon Coast,Pacific Northwest,pacific_northwest,3,Portland,OR,45.5152,-122.6784,Jun-Aug,80,USA,portland
+pa_philly,PA - Philadelphia,Northeast,northeast,4,Philadelphia,PA,39.9526,-75.1652,May-Sep,30,USA,philadelphia
+pa_pitt,PA - Pittsburgh,Northeast,northeast,4,Pittsburgh,PA,40.4406,-79.9959,May-Sep,30,USA,pittsburgh
+ne_ri,RI - Rhode Island / New England South,Northeast,northeast,3,Newport,RI,41.4901,-71.3128,Jun-Sep,50,USA,newport
+ct_nw,CT - Northwest Connecticut,Northeast,northeast,4,Torrington,CT,41.8007,-73.1212,Jun-Sep,40,USA,torrington
+sc_charleston,SC - Charleston,Southeast,southeast,3,Charleston,SC,32.7765,-79.9311,Apr-Oct,30,USA,charleston
+tn_nash,TN - Nashville,Southeast,southeast,3,Nashville,TN,36.1627,-86.7816,Apr-Oct,30,USA,nashville
+tx_austin,TX - Austin,South Central,south_central,2,Austin,TX,30.2672,-97.7431,Year-Round,40,USA,austin
+tx_dallas,TX - Dallas (DFW),South Central,south_central,2,Dallas,TX,32.7767,-96.7970,Year-Round,40,USA,dallas
+tx_houston,TX - Houston / Galveston,South Central,south_central,2,Galveston,TX,29.3013,-94.7977,Year-Round,50,USA,galveston
+tx_sat,TX - San Antonio,South Central,south_central,3,San Antonio,TX,29.4241,-98.4936,Year-Round,30,USA,san-antonio
+ut_slc,UT - Salt Lake City,Mountain West,mountain_west,3,Salt Lake City,UT,40.7608,-111.8910,May-Sep,30,USA,salt-lake-city
+va_beach,VA - Virginia Beach,Mid-Atlantic,mid_atlantic,2,Virginia Beach,VA,36.8529,-75.9780,May-Sep,30,USA,virginia-beach
+pnw_seattle,WA - Seattle / Puget Sound,Pacific Northwest,pacific_northwest,2,Seattle,WA,47.6062,-122.3321,Jun-Aug,60,USA,seattle
+wi_mke,WI - Milwaukee,Midwest,midwest,3,Milwaukee,WI,43.0389,-87.9065,Jun-Aug,40,USA,milwaukee
+ca_bc_vancouver,BC - Vancouver / Lower Mainland,Canada West,canada_west,1,Vancouver,BC,49.2827,-123.1207,May-Sep,60,Canada,vancouver
+ca_ab_calgary,AB - Calgary,Canada West,canada_west,2,Calgary,AB,51.0447,-114.0719,May-Sep,50,Canada,calgary
+ca_ab_edmonton,AB - Edmonton,Canada West,canada_west,2,Edmonton,AB,53.5461,-113.4938,May-Sep,50,Canada,edmonton
+ca_on_toronto,ON - Greater Toronto,Canada Central,canada_central,1,Toronto,ON,43.6532,-79.3832,May-Sep,60,Canada,toronto
+ca_on_ottawa,ON - Ottawa / Gatineau,Canada Central,canada_central,2,Ottawa,ON,45.4215,-75.6972,May-Sep,50,Canada,ottawa
+ca_qc_montreal,QC - Greater Montréal,Canada Central,canada_central,1,Montréal,QC,45.5019,-73.5674,May-Sep,60,Canada,montr-al
+ca_ns_halifax,NS - Halifax,Canada East,canada_east,2,Halifax,NS,44.6488,-63.5752,Jun-Sep,50,Canada,halifax
+ca_bc_victoria,BC - Vancouver Island,Canada West,canada_west,2,Victoria,BC,48.4284,-123.3656,May-Sep,100,Canada,victoria
+ca_mb_winnipeg,MB - Winnipeg / Southern Manitoba,Canada Central,canada_central,2,Winnipeg,MB,49.8951,-97.1384,May-Sep,100,Canada,winnipeg
+ca_sk_saskatoon,SK - Saskatoon / Central Saskatchewan,Canada Central,canada_central,2,Saskatoon,SK,52.1332,-106.6700,May-Sep,100,Canada,saskatoon
+ca_sk_regina,SK - Regina,Canada Central,canada_central,2,Regina,SK,50.4452,-104.6189,May-Sep,60,Canada,regina
+ca_ab_sylvan,AB - Central Alberta,Canada West,canada_west,3,Sylvan Lake,AB,52.3088,-114.0960,May-Sep,50,Canada,sylvan-lake
+ca_ab_grande_prairie,AB - Grande Prairie,Canada West,canada_west,3,Grande Prairie,AB,55.1707,-118.7884,May-Sep,50,Canada,grande-prairie
+ca_qc_quebec,QC - Québec City,Canada Central,canada_central,2,Québec,QC,46.8139,-71.2080,Jun-Sep,50,Canada,qu-bec
+ca_pe_charlottetown,PE - Charlottetown / Stratford,Canada East,canada_east,3,Charlottetown,PE,46.2382,-63.1311,Jun-Sep,40,Canada,charlottetown
+ca_nb_fredericton,NB - Fredericton,Canada East,canada_east,3,Fredericton,NB,45.9636,-66.6431,Jun-Sep,50,Canada,fredericton
+ca_nb_saint_john,NB - Saint John,Canada East,canada_east,3,Saint John,NB,45.2733,-66.0633,Jun-Sep,50,Canada,saint-john
+ca_nl_st_johns,NL - St. John's / Avalon,Canada East,canada_east,3,St. John's,NL,47.5615,-52.7126,Jun-Sep,50,Canada,st-john-s

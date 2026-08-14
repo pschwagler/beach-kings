@@ -433,7 +433,7 @@ def main():
 
         time.sleep(REQUEST_DELAY_SECONDS)
 
-    print(f"\nDone!")
+    print("\nDone!")
     print(f"  Saved: {total_saved} photos")
     print(f"  Skipped (already exist): {total_skipped} courts")
     print(f"  No photos found: {total_no_photos} courts")

@@ -23,10 +23,21 @@ else
     echo ""
 fi
 
+# Worker containers (docker-compose `command:`) skip migrations and API startup;
+# the API container owns alembic. Exec the passed command directly.
+if [ $# -gt 0 ]; then
+    echo "🔧 Custom command detected → exec: $*"
+    exec "$@"
+fi
+
 # Run database migrations
 echo "🔄 Running database migrations..."
 echo "   Current directory: $(pwd)"
-echo "   DATABASE_URL: ${DATABASE_URL:-not set}"
+if [ -n "${DATABASE_URL:-}" ]; then
+    echo "   DATABASE_URL: configured"
+else
+    echo "   DATABASE_URL: not set"
+fi
 echo "   Environment: ${ENV:-development}"
 echo "   ENV variable value: '${ENV}'"
 
@@ -35,9 +46,34 @@ set +e  # Temporarily disable exit on error
 (cd /app/backend && PYTHONPATH=/app python -m alembic current 2>&1) || echo "   ⚠️  Could not check current version (this is OK if database is new)"
 set -e  # Re-enable exit on error
 echo ""
-echo "   Running migrations..."
+
+# Determine whether this is a fresh (empty) database or an existing one.
+# A fresh database must NOT replay migrations: migration 001 builds the current
+# schema via create_all(), so replaying 002..head collides (e.g. device_tokens
+# already exists at migration 040). bootstrap_db.py creates the schema from the
+# models for an empty DB and prints "fresh"; otherwise it prints "existing".
+echo "   Determining database state..."
 set +e
-MIGRATION_OUTPUT=$(cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head 2>&1)
+DB_STATE=$(cd /app/backend && PYTHONPATH=/app python scripts/bootstrap_db.py 2>/tmp/bootstrap_db.err | tail -n1)
+BOOTSTRAP_EXIT=$?
+set -e
+cat /tmp/bootstrap_db.err 2>/dev/null
+if [ $BOOTSTRAP_EXIT -ne 0 ]; then
+    echo ""
+    echo "❌ ERROR: Database bootstrap failed!"
+    exit 1
+fi
+
+if [ "$DB_STATE" = "fresh" ]; then
+    echo "   Fresh database → stamping Alembic at head (schema created from models)..."
+    ALEMBIC_ACTION="stamp head"
+else
+    echo "   Existing database → running incremental migrations..."
+    ALEMBIC_ACTION="upgrade head"
+fi
+
+set +e
+MIGRATION_OUTPUT=$(cd /app/backend && PYTHONPATH=/app python -m alembic $ALEMBIC_ACTION 2>&1)
 MIGRATION_EXIT=$?
 set -e
 
@@ -55,6 +91,13 @@ set +e  # Temporarily disable exit on error
 (cd /app/backend && PYTHONPATH=/app python -m alembic current 2>&1) || echo "   ⚠️  Could not verify version"
 set -e  # Re-enable exit on error
 echo ""
+
+if [ "$DB_STATE" = "fresh" ]; then
+    echo "📚 Applying committed catalog to fresh database..."
+    (cd /app && PYTHONPATH=/app python -m backend.scripts.sync_catalog --apply)
+    echo "✅ Fresh database catalog applied!"
+    echo ""
+fi
 
 # Start WhatsApp service if ENABLE_WHATSAPP is true (or True or TRUE). Default to true.
 # Commented out - WhatsApp service is inactive

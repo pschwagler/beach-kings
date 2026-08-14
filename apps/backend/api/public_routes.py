@@ -17,7 +17,9 @@ from backend.database.db import get_db_session
 from backend.models.schemas import (
     CourtDetailResponse,
     CourtLeaderboardEntry,
+    CourtLeagueItem,
     CourtNearbyItem,
+    CourtPhotoResponse,
     CourtTagResponse,
     PaginatedCourtsResponse,
     PaginatedPublicLeaguesResponse,
@@ -32,6 +34,7 @@ from backend.models.schemas import (
     SitemapPlayerItem,
 )
 from backend.services import court_service, public_service
+from backend.api.auth_dependencies import get_current_user_optional
 
 logger = logging.getLogger(__name__)
 
@@ -193,16 +196,25 @@ async def list_public_players(
 @public_router.get("/players/{player_id}", response_model=PublicPlayerResponse)
 @limiter.limit("60/minute")
 async def get_public_player(
-    request: Request, player_id: int, session: AsyncSession = Depends(get_db_session)
+    request: Request,
+    player_id: int,
+    session: AsyncSession = Depends(get_db_session),
+    viewer: Optional[dict] = Depends(get_current_user_optional),
 ):
     """
-    Get public-facing player profile.
+    Get public-facing player profile with privacy gating.
 
-    Returns player info, stats, location, and public league memberships.
-    Only players with at least 1 game are publicly visible.
-    Returns 404 if player not found or has no games.
+    Returns the floor (name, avatar, level, city/state, total games) for all
+    viewers.  Full detail (W-L, rank, win%, league memberships) is only
+    returned when the profile is public (``profile_is_private=False``) or the
+    request is authenticated as the player's own user.  Game history visibility
+    is signalled by the ``game_history_visible`` flag in the response.
+
+    Anonymous/unrelated viewers only see players with at least 1 game.
+    The owner and accepted friends may open the direct profile before the
+    player has games. Returns 404 if player not found or hidden from viewer.
     """
-    result = await public_service.get_public_player(session, player_id)
+    result = await public_service.get_public_player(session, player_id, viewer_user=viewer)
     if result is None:
         raise HTTPException(status_code=404, detail="Player not found")
     return result
@@ -274,6 +286,33 @@ async def get_nearby_courts(
     )
 
 
+async def _resolve_court_id(session: AsyncSession, id_or_slug: str) -> Optional[int]:
+    """Resolve a court reference (numeric id or url slug) to a primary key."""
+    if id_or_slug.isdigit():
+        return int(id_or_slug)
+    return await court_service.get_court_id_by_slug(session, id_or_slug)
+
+
+@public_router.get("/courts/{id_or_slug}/photos", response_model=List[CourtPhotoResponse])
+@limiter.limit("60/minute")
+async def list_court_photos(
+    request: Request,
+    id_or_slug: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    List standalone photos uploaded for a court (no auth).
+
+    Accepts either the numeric court id or its url slug. Returns photos
+    ordered by sort_order ascending. Returns 404 when the court does not
+    exist.
+    """
+    court_id = await _resolve_court_id(session, id_or_slug)
+    if court_id is None:
+        raise HTTPException(status_code=404, detail="Court not found")
+    return await court_service.list_court_photos(session, court_id)
+
+
 @public_router.get("/courts/{slug}/leaderboard", response_model=List[CourtLeaderboardEntry])
 @limiter.limit("60/minute")
 async def get_court_leaderboard(
@@ -289,6 +328,42 @@ async def get_court_leaderboard(
     if not court_row:
         raise HTTPException(status_code=404, detail="Court not found")
     return await court_service.get_court_leaderboard(session, court_row)
+
+
+@public_router.get("/courts/{slug}/check-ins", response_model=dict)
+@limiter.limit("60/minute")
+async def get_court_check_ins(
+    request: Request, slug: str, session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get aggregated active check-ins at a court.
+
+    Returns a total count and a breakdown by player level and gender.
+    No individual player identities are exposed.
+
+    Response shape::
+
+        {
+            "total": int,
+            "breakdown": [{"level": str|null, "gender": str|null, "count": int}, ...]
+        }
+    """
+    court_id = await court_service.get_court_id_by_slug(session, slug)
+    if not court_id:
+        raise HTTPException(status_code=404, detail="Court not found")
+    return await court_service.get_active_check_ins(session, court_id)
+
+
+@public_router.get("/courts/{slug}/leagues", response_model=List[CourtLeagueItem])
+@limiter.limit("60/minute")
+async def get_court_leagues(
+    request: Request, slug: str, session: AsyncSession = Depends(get_db_session)
+):
+    """Get public leagues that play at this court."""
+    court_id = await court_service.get_court_id_by_slug(session, slug)
+    if not court_id:
+        raise HTTPException(status_code=404, detail="Court not found")
+    return await court_service.get_leagues_at_court(session, court_id)
 
 
 @public_router.get("/courts/{slug}", response_model=CourtDetailResponse)
@@ -328,9 +403,14 @@ async def list_public_courts(
     user_lng: Optional[float] = Query(
         None, ge=-180.0, le=180.0, description="User longitude for distance sort"
     ),
+    north: Optional[float] = Query(None, ge=-90.0, le=90.0),
+    south: Optional[float] = Query(None, ge=-90.0, le=90.0),
+    east: Optional[float] = Query(None, ge=-180.0, le=180.0),
+    west: Optional[float] = Query(None, ge=-180.0, le=180.0),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=500, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
+    caller: Optional[dict] = Depends(get_current_user_optional),
 ):
     """
     List approved courts with optional filters and pagination.
@@ -338,8 +418,26 @@ async def list_public_courts(
     Supports filtering by location, surface type, amenities, rating, and free/paid.
     When user_lat/user_lng are provided, results are sorted by distance and include
     distance_miles in each item.
-    Returns court cards with average rating, top tags, and thumbnail photo.
+    Returns court cards with average rating, top tags, and thumbnail photo. When the
+    request is authenticated, each card includes ``is_saved`` (the caller's "My
+    Courts" state).
     """
+    bounds = (north, south, east, west)
+    if any(value is not None for value in bounds):
+        if not all(value is not None for value in bounds):
+            raise HTTPException(
+                status_code=422,
+                detail="north, south, east, and west must be provided together",
+            )
+        if north <= south or east == west:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Bounds must have north > south and distinct east/west; "
+                    "west > east represents a date-line crossing"
+                ),
+            )
+    player_id = await court_service.get_player_id_for_user(session, caller)
     return await court_service.list_courts_public(
         session,
         region_id=region_id,
@@ -354,6 +452,11 @@ async def list_public_courts(
         search=search,
         user_lat=user_lat,
         user_lng=user_lng,
+        north=north,
+        south=south,
+        east=east,
+        west=west,
+        player_id=player_id,
         page=page,
         page_size=page_size,
     )

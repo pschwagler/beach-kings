@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Add Player to Session — Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+  /* ── State visibility ── */
+  .state-empty   { display: block; }
+  .state-results { display: none; }
+  .state-added   { display: none; }
+  .state-notfound { display: none; }
+  body.s-results  .state-empty    { display: none; }
+  body.s-results  .state-results  { display: block; }
+  body.s-added    .state-empty    { display: none; }
+  body.s-added    .state-added    { display: block; }
+  body.s-notfound .state-empty    { display: none; }
+  body.s-notfound .state-notfound { display: block; }
+
+  /* ── Background (underlying screen dimmed) ── */
+  .screen-backdrop {
+    position: relative;
+    background: rgba(0,0,0,0.08);
+    min-height: 844px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Roster screen peeking above (context) ── */
+  .roster-peek {
+    padding: 20px 16px 12px;
+    opacity: 0.45;
+  }
+  .roster-peek-title { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+  .roster-peek-sub { font-size: 12px; color: #999; }
+  .roster-peek-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .rp-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+  .rp-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+
+  /* ── Bottom Sheet ── */
+  .bottom-sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 390px;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 36px;
+  }
+  .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: #e0e0e0; margin: 12px auto 0; }
+  .sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 8px; }
+  .sheet-title { font-size: 17px; font-weight: 700; color: #1a1a1a; }
+  .sheet-close { width: 32px; height: 32px; border-radius: 50%; background: #f0f0f0; border: none; display: flex; align-items: center; justify-content: center; color: #666; font-size: 18px; cursor: pointer; }
+
+  /* ── Search ── */
+  .sheet-search-wrap { padding: 0 16px 12px; }
+  .search-field { display: flex; align-items: center; gap: 8px; background: #f5f5f5; border-radius: 12px; padding: 10px 14px; min-height: 44px; }
+  .search-field svg { color: #bbb; flex-shrink: 0; }
+  .search-field input { flex: 1; border: none; background: transparent; font-size: 15px; color: #1a1a1a; outline: none; }
+  .search-field input::placeholder { color: #bbb; }
+  .search-cancel { color: #2a7d9c; font-size: 14px; font-weight: 600; background: none; border: none; cursor: pointer; min-height: 44px; padding-left: 8px; white-space: nowrap; }
+
+  /* ── Sheet content ── */
+  .sheet-content { padding: 0 16px; overflow-y: auto; max-height: 480px; }
+  .section-label { font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 0 8px; display: flex; align-items: center; gap: 8px; }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: #f0f0f0; }
+
+  /* ── Player row ── */
+  .player-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f5f5f5; min-height: 56px; }
+  .player-row:last-child { border-bottom: none; }
+  .player-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .player-info { flex: 1; min-width: 0; }
+  .player-name { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+  .player-meta { font-size: 12px; color: #999; margin-top: 2px; }
+  .btn-add { padding: 8px 18px; border-radius: 20px; border: 1.5px solid #d4a843; background: transparent; color: #d4a843; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; min-height: 36px; }
+  .btn-add:active { background: #fffbeb; }
+  .btn-add.added { background: #d4a843; color: #fff; border-color: #d4a843; }
+  .btn-add.added-check { background: #22c55e; color: #fff; border-color: #22c55e; }
+
+  /* ── Guest CTA ── */
+  .guest-divider { display: flex; align-items: center; gap: 8px; padding: 14px 0 10px; }
+  .guest-divider::before, .guest-divider::after { content: ''; flex: 1; height: 1px; background: #eee; }
+  .guest-divider span { font-size: 12px; color: #bbb; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .add-guest-cta { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border: 1.5px dashed #f59e0b; border-radius: 12px; background: #fffbeb; cursor: pointer; }
+  .add-guest-icon { width: 36px; height: 36px; border-radius: 50%; background: #f59e0b; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; flex-shrink: 0; }
+  .add-guest-info .add-guest-title { font-size: 14px; font-weight: 700; color: #92400e; }
+  .add-guest-info .add-guest-desc { font-size: 12px; color: #b45309; margin-top: 2px; line-height: 1.4; }
+
+  /* ── No match hint ── */
+  .no-match { text-align: center; padding: 20px 0 14px; }
+  .no-match-icon { font-size: 32px; margin-bottom: 8px; }
+  .no-match-text { font-size: 14px; color: #999; }
+
+  /* ── Added confirmation banner ── */
+  .added-banner { margin: 0 16px 12px; padding: 12px 16px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; display: flex; align-items: center; gap: 10px; }
+  .added-banner-icon { width: 28px; height: 28px; border-radius: 50%; background: #22c55e; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .added-banner-text { font-size: 13px; font-weight: 600; color: #15803d; }
+
+  /* ── Dark theme ── */
+  body.dark-theme .screen-backdrop { background: rgba(0,0,0,0.4); }
+  body.dark-theme .roster-peek-title { color: #ccc; }
+  body.dark-theme .rp-name { color: #ccc; }
+  body.dark-theme .roster-peek-row { border-color: #2a2a2a; }
+  body.dark-theme .bottom-sheet { background: #1e1e1e; box-shadow: 0 -4px 24px rgba(0,0,0,0.5); }
+  body.dark-theme .sheet-handle { background: #444; }
+  body.dark-theme .sheet-title { color: #fff; }
+  body.dark-theme .sheet-close { background: #333; color: #aaa; }
+  body.dark-theme .search-field { background: #2a2a2a; }
+  body.dark-theme .search-field input { color: #fff; }
+  body.dark-theme .search-field input::placeholder { color: #555; }
+  body.dark-theme .search-field svg { color: #666; }
+  body.dark-theme .search-cancel { color: #4daacc; }
+  body.dark-theme .section-label { color: #555; }
+  body.dark-theme .section-label::after { background: #2a2a2a; }
+  body.dark-theme .player-row { border-color: #2a2a2a; }
+  body.dark-theme .player-name { color: #fff; }
+  body.dark-theme .player-meta { color: #666; }
+  body.dark-theme .btn-add { border-color: #d4a843; color: #d4a843; }
+  body.dark-theme .btn-add:active { background: rgba(212,168,67,0.1); }
+  body.dark-theme .guest-divider::before, body.dark-theme .guest-divider::after { background: #2a2a2a; }
+  body.dark-theme .guest-divider span { color: #555; }
+  body.dark-theme .add-guest-cta { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.4); }
+  body.dark-theme .add-guest-title { color: #fcd34d; }
+  body.dark-theme .add-guest-desc { color: rgba(245,158,11,0.8); }
+  body.dark-theme .no-match-text { color: #555; }
+  body.dark-theme .added-banner { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.3); }
+  body.dark-theme .added-banner-text { color: #4ade80; }
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher ── -->
+<div class="state-switcher">
+  <div class="sw-label">Sheet State</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('')">Empty (no search)</button>
+    <button class="sw-pill" onclick="setState('s-results')">Search Results</button>
+    <button class="sw-pill" onclick="setState('s-added')">Player Added</button>
+    <button class="sw-pill" onclick="setState('s-notfound')">Not Found</button>
+  </div>
+</div>
+<div class="state-switcher" style="padding-top:0; border-bottom: 2px solid #d4a843;">
+  <div class="sw-label">Theme</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setTheme('light')">Light</button>
+    <button class="sw-pill" onclick="setTheme('dark')">Dark</button>
+  </div>
+</div>
+
+<div class="screen-backdrop">
+
+  <!-- Underlying roster screen (peeking through) -->
+  <div class="roster-peek">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+      <div class="roster-peek-title">Manage Players</div>
+      <div class="roster-peek-sub">Sunday at QBK &middot; 5 players</div>
+    </div>
+    <div class="roster-peek-row">
+      <div class="rp-avatar" style="background:#1a3a4a;">PS</div>
+      <div class="rp-name">Pat S <span style="font-size:10px; background:#fef3c7; color:#d4a843; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px;">YOU</span></div>
+    </div>
+    <div class="roster-peek-row">
+      <div class="rp-avatar" style="background:#2a7d9c;">KF</div>
+      <div class="rp-name">Karim F</div>
+    </div>
+    <div class="roster-peek-row">
+      <div class="rp-avatar" style="background:#15803d;">MB</div>
+      <div class="rp-name">Mike B</div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       BOTTOM SHEET
+       ════════════════════════════════════════ -->
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title">Add Player</div>
+      <button class="sheet-close">&times;</button>
+    </div>
+
+    <!-- Search field -->
+    <div class="sheet-search-wrap">
+      <div class="search-field" style="flex:1;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text"
+          placeholder="Search by name..."
+          id="search-input"
+          class="state-empty"
+          style="display:block;"
+        >
+        <!-- Results state shows typed value -->
+        <input type="text" value="Sam" id="search-input-results" style="display:none;" class="state-results">
+        <input type="text" value="Sam Henderson" id="search-input-added" style="display:none;" class="state-added">
+        <input type="text" value="Brad K" id="search-input-notfound" style="display:none;" class="state-notfound">
+      </div>
+    </div>
+
+    <!-- ── STATE: Empty search ── -->
+    <div class="sheet-content state-empty">
+      <div class="section-label">Friends</div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#b91c1c;">JR</div>
+        <div class="player-info">
+          <div class="player-name">Jake R</div>
+          <div class="player-meta">Friend &middot; Level B+</div>
+        </div>
+        <button class="btn-add">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#7c3aed;">AT</div>
+        <div class="player-info">
+          <div class="player-name">Alex T</div>
+          <div class="player-meta">Friend &middot; Level A</div>
+        </div>
+        <button class="btn-add">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#0891b2;">DM</div>
+        <div class="player-info">
+          <div class="player-name">Devon M</div>
+          <div class="player-meta">Friend &middot; Level B</div>
+        </div>
+        <button class="btn-add">Add</button>
+      </div>
+
+      <div class="section-label">Recent Opponents</div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#0d6b8c;">SH</div>
+        <div class="player-info">
+          <div class="player-name">Sam Henderson</div>
+          <div class="player-meta">Played last Sunday</div>
+        </div>
+        <button class="btn-add">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#db2777;">CL</div>
+        <div class="player-info">
+          <div class="player-name">Chris L</div>
+          <div class="player-meta">Played last Sunday</div>
+        </div>
+        <button class="btn-add">Add</button>
+      </div>
+
+      <div class="guest-divider"><span>Or</span></div>
+      <div class="add-guest-cta">
+        <div class="add-guest-icon">+</div>
+        <div class="add-guest-info">
+          <div class="add-guest-title">Add a New Player</div>
+          <div class="add-guest-desc">Enter their name — invite them to the app later</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STATE: Search results ("Sam") ── -->
+    <div class="sheet-content state-results">
+      <div class="section-label">Beach League Players</div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#0d6b8c;">SH</div>
+        <div class="player-info">
+          <div class="player-name">Sam Henderson</div>
+          <div class="player-meta">Level B+ &middot; San Diego</div>
+        </div>
+        <button class="btn-add">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#7c3aed;">SR</div>
+        <div class="player-info">
+          <div class="player-name">Sam Rodriguez</div>
+          <div class="player-meta">Level A &middot; Orange County</div>
+        </div>
+        <button class="btn-add">Add</button>
+      </div>
+
+      <div class="player-row">
+        <div class="player-avatar" style="background:#b45309;">SM</div>
+        <div class="player-info">
+          <div class="player-name">Sam Martinez</div>
+          <div class="player-meta">Level B &middot; Los Angeles</div>
+        </div>
+        <button class="btn-add">Add</button>
+      </div>
+
+      <div class="guest-divider"><span>Not seeing them?</span></div>
+      <div class="add-guest-cta">
+        <div class="add-guest-icon">+</div>
+        <div class="add-guest-info">
+          <div class="add-guest-title">Add "Sam" as a Guest</div>
+          <div class="add-guest-desc">Invite them to the app later to claim their games</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STATE: Player added (Sam H added) ── -->
+    <div class="state-added">
+      <div class="added-banner">
+        <div class="added-banner-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div class="added-banner-text">Sam Henderson added to session</div>
+      </div>
+      <div class="sheet-content">
+        <div class="section-label">Beach League Players</div>
+
+        <!-- Sam H now shown as added -->
+        <div class="player-row">
+          <div class="player-avatar" style="background:#0d6b8c;">SH</div>
+          <div class="player-info">
+            <div class="player-name">Sam Henderson</div>
+            <div class="player-meta">Level B+ &middot; San Diego</div>
+          </div>
+          <button class="btn-add added-check" style="display:flex; align-items:center; gap:4px; border-color:#22c55e;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            Added
+          </button>
+        </div>
+
+        <div class="player-row">
+          <div class="player-avatar" style="background:#7c3aed;">SR</div>
+          <div class="player-info">
+            <div class="player-name">Sam Rodriguez</div>
+            <div class="player-meta">Level A &middot; Orange County</div>
+          </div>
+          <button class="btn-add">Add</button>
+        </div>
+
+        <div class="player-row">
+          <div class="player-avatar" style="background:#b45309;">SM</div>
+          <div class="player-info">
+            <div class="player-name">Sam Martinez</div>
+            <div class="player-meta">Level B &middot; Los Angeles</div>
+          </div>
+          <button class="btn-add">Add</button>
+        </div>
+
+        <div class="guest-divider"><span>Not seeing them?</span></div>
+        <div class="add-guest-cta">
+          <div class="add-guest-icon">+</div>
+          <div class="add-guest-info">
+            <div class="add-guest-title">Add "Sam" as a Guest</div>
+            <div class="add-guest-desc">Invite them to the app later to claim their games</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STATE: Not found ("Brad K") ── -->
+    <div class="sheet-content state-notfound">
+      <div class="no-match">
+        <div class="no-match-icon">&#128270;</div>
+        <div class="no-match-text">No Beach League players found for "Brad K"</div>
+      </div>
+      <div class="add-guest-cta">
+        <div class="add-guest-icon">+</div>
+        <div class="add-guest-info">
+          <div class="add-guest-title">Add "Brad K" as a Guest</div>
+          <div class="add-guest-desc">Invite them to the app later to claim their games</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /bottom-sheet -->
+
+</div><!-- /screen-backdrop -->
+
+<script>
+function setState(cls) {
+  document.body.className = document.body.className
+    .split(' ')
+    .filter(c => !c.startsWith('s-'))
+    .join(' ');
+  if (cls) document.body.classList.add(cls);
+  document.querySelectorAll('.sw-pill').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+function setTheme(t) {
+  document.body.classList.toggle('dark-theme', t === 'dark');
+  document.querySelectorAll('.sw-pill').forEach(p => {
+    const label = p.textContent.trim().toLowerCase();
+    if (label === t) p.classList.add('active');
+    else if (label === (t === 'dark' ? 'light' : 'dark')) p.classList.remove('active');
+  });
+}
+</script>
+</body>
+</html>

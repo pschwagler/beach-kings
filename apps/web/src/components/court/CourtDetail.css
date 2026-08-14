@@ -109,7 +109,7 @@
   height: 36px;
   border: 1px solid var(--gray-300);
   border-radius: 50%;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-600);
   cursor: pointer;
 }
@@ -305,9 +305,16 @@
 /* Info Section */
 
 .court-detail__info-section,
-.court-detail__description {
+.court-detail__description,
+.court-detail__conditions {
   margin-bottom: 24px;
 }
+
+.court-detail__conditions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.court-detail__condition { padding: 14px 16px; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); }
+.court-detail__condition-label { display: block; margin-bottom: 3px; color: var(--gray-500); font-size: 11px; font-weight: 700; letter-spacing: .045em; text-transform: uppercase; }
+.court-detail__condition strong { color: var(--gray-900); font-size: 15px; }
+.court-detail__condition p { margin: 5px 0 0; color: var(--gray-700); font-size: 13px; line-height: 1.45; }
 
 .court-detail__info-row {
   font-size: 14px;
@@ -329,6 +336,10 @@
   color: var(--gray-700);
   line-height: 1.6;
   margin: 0;
+}
+
+@media (max-width: 560px) {
+  .court-detail__conditions-grid { grid-template-columns: 1fr; }
 }
 
 /* Reviews */
@@ -368,7 +379,7 @@
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   padding: 16px;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .court-review-card__header {
@@ -565,7 +576,7 @@
 .court-review-form__tag-chip {
   font-size: 12px;
   color: var(--gray-700);
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   padding: 4px 10px;
   border-radius: 12px;
@@ -640,7 +651,7 @@
   gap: 4px;
   border: 2px dashed var(--gray-300);
   border-radius: 6px;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-500);
   cursor: pointer;
   font-size: 11px;
@@ -655,6 +666,122 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+/* Action Row (Check In + My Courts) */
+
+.court-detail__action-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.court-detail__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.court-detail__action-btn--primary {
+  background: var(--primary);
+  color: white;
+}
+
+.court-detail__action-btn--primary:hover {
+  background: var(--primary-dark);
+}
+
+.court-detail__action-btn--primary.court-detail__action-btn--active {
+  background: var(--success);
+}
+
+.court-detail__action-btn--outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+
+.court-detail__action-btn--outline:hover {
+  background: var(--primary-lighter);
+}
+
+.court-detail__action-btn--outline.court-detail__action-btn--active {
+  background: var(--primary);
+  color: white;
+}
+
+.court-detail__action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.court-detail__checkin-count {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin-bottom: 16px;
+}
+
+.court-detail__checkin-count strong {
+  color: var(--primary);
+}
+
+/* Leagues at Court */
+
+.court-detail__leagues {
+  margin-bottom: 24px;
+}
+
+.court-detail__leagues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.court-detail__league-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--bg-surface);
+  transition: box-shadow 0.15s ease;
+}
+
+.court-detail__league-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.court-detail__league-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.court-detail__league-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.court-detail__league-meta {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.court-detail__league-chevron {
+  font-size: 20px;
+  color: var(--gray-400);
 }
 
 /* Nearby Courts */
@@ -679,7 +806,7 @@
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
-  background: white;
+  background: var(--bg-surface);
   transition: box-shadow 0.15s ease;
 }
 

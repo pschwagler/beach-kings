@@ -3,7 +3,7 @@
  */
 
 import api from '../api-client';
-import type { Friend, FriendListResponse, FriendRequest } from '../../types';
+import type { Friend, FriendListResponse, FriendRequest, FriendRequestDirection } from '../../types';
 
 /**
  * Send a friend request to another player.
@@ -66,9 +66,11 @@ export const getFriends = async (page: number = 1, pageSize: number = 50): Promi
 
 /**
  * Get pending friend requests.
- * @param {string} direction - "incoming", "outgoing", or "both"
+ * @param {FriendRequestDirection} direction - "incoming", "outgoing", or "both"
  */
-export const getFriendRequests = async (direction: string = 'both'): Promise<FriendRequest[]> => {
+export const getFriendRequests = async (
+  direction: FriendRequestDirection = 'both',
+): Promise<FriendRequest[]> => {
   const response = await api.get('/api/friends/requests', {
     params: { direction },
   });

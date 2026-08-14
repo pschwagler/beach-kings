@@ -10,6 +10,7 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     Request,
@@ -26,8 +27,10 @@ from backend.services import (
     court_photo_service,
     s3_service,
     geocoding_service,
+    interaction_policy,
 )
 from backend.api.auth_dependencies import (
+    get_current_user_optional,
     require_system_admin,
     require_verified_player,
     require_court_owner_or_admin,
@@ -40,6 +43,7 @@ from backend.models.schemas import (
     UpdateReviewRequest,
     ReviewActionResponse,
     CourtEditSuggestionRequest,
+    CourtEditSuggestionResolutionRequest,
     CourtEditSuggestionResponse,
     CourtPhotoUploadResponse,
     ReorderCourtPhotosRequest,
@@ -53,6 +57,7 @@ class SuggestionAction(str, Enum):
     """Allowed actions for resolving a court edit suggestion."""
 
     APPROVED = "approved"
+    PARTIALLY_APPLIED = "partially_applied"
     REJECTED = "rejected"
 
 
@@ -111,6 +116,45 @@ async def get_placeholder_court(
     if not result:
         raise HTTPException(status_code=404, detail="No placeholder court for this location")
     return result
+
+
+@router.get("/api/courts/{id_or_slug}")
+async def get_court_detail(
+    id_or_slug: str,
+    session: AsyncSession = Depends(get_db_session),
+    caller: Optional[dict] = Depends(get_current_user_optional),
+) -> dict:
+    """
+    Fetch full detail for a single court by numeric id or slug (optional auth).
+
+    Returns all fields consumed by CourtDetailScreen including photo_count and
+    top_tags.  When the request is authenticated, ``is_saved`` reflects the
+    caller's "My Courts" state.  Returns 404 if the court is not found or is
+    inactive.
+    """
+    try:
+        court = await court_service.get_court_by_slug(session, id_or_slug)
+        if court is None:
+            raise HTTPException(status_code=404, detail="Court not found")
+
+        tags_map = await court_service._batch_get_top_tags(session, [court["id"]], limit=3)
+        player_id = await court_service.get_player_id_for_user(session, caller)
+        is_saved = (
+            await court_service.is_court_saved(session, player_id, court["id"])
+            if player_id is not None
+            else False
+        )
+        return {
+            **court,
+            "photo_count": len(court.get("all_photos", [])),
+            "top_tags": tags_map.get(court["id"], []),
+            "is_saved": is_saved,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching court detail: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error fetching court detail")
 
 
 @router.put("/api/courts/{court_id}")
@@ -179,7 +223,10 @@ async def submit_court(
     try:
         lat, lng = payload.latitude, payload.longitude
         if lat is None or lng is None:
-            lat, lng = await geocoding_service.geocode_address(payload.address)
+            country_code = "CA" if payload.location_id.startswith("ca_") else "US"
+            lat, lng = await geocoding_service.geocode_address(
+                payload.address, country_code=country_code
+            )
 
         result = await court_service.create_court(
             session,
@@ -201,6 +248,10 @@ async def submit_court(
             hours=payload.hours,
             phone=payload.phone,
             website=payload.website,
+            wind_exposure=payload.wind_exposure,
+            wind_notes=payload.wind_notes,
+            sand_depth=payload.sand_depth,
+            sand_notes=payload.sand_notes,
             latitude=lat,
             longitude=lng,
         )
@@ -270,6 +321,8 @@ async def create_court_review(
             tag_ids=payload.tag_ids or [],
         )
         return result
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except HTTPException:
@@ -300,6 +353,8 @@ async def update_court_review(
         if not result:
             raise HTTPException(status_code=404, detail="Review not found or not authorized")
         return result
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:
@@ -362,6 +417,15 @@ async def upload_review_photo(
     Two-step: create review first, then upload photos separately.
     """
     try:
+        authorized = await court_service.authorize_review_photo_upload(
+            session,
+            court_id=court_id,
+            review_id=review_id,
+            player_id=user["player_id"],
+        )
+        if not authorized:
+            raise HTTPException(status_code=404, detail="Review not found or not authorized")
+
         # Process and upload
         processed = await court_photo_service.process_court_photo(file)
         s3_key = f"court-photos/{court_id}/{review_id}/{uuid.uuid4()}.jpg"
@@ -370,6 +434,7 @@ async def upload_review_photo(
         try:
             result = await court_service.add_review_photo(
                 session,
+                court_id=court_id,
                 review_id=review_id,
                 player_id=user["player_id"],
                 s3_key=s3_key,
@@ -385,6 +450,8 @@ async def upload_review_photo(
             except Exception as cleanup_err:
                 logger.warning("Failed to clean up S3 object %s: %s", s3_key, cleanup_err)
             raise
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -403,6 +470,7 @@ async def upload_court_photo(
     request: Request,
     court_id: int,
     file: UploadFile = File(...),
+    caption: Optional[str] = Form(default=None, max_length=280),
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -410,6 +478,7 @@ async def upload_court_photo(
     Upload a standalone photo to a court.
 
     Photos are resized to max 1200px and converted to JPEG 85%.
+    Optionally accepts a `caption` form field (max 280 chars).
     Requires a verified player account.
     """
     try:
@@ -417,10 +486,13 @@ async def upload_court_photo(
         court = await session.get(Court, court_id)
         if not court:
             raise HTTPException(status_code=404, detail="Court not found")
+        await interaction_policy.enforce_ugc_creation(session, user["player_id"])
 
         processed = await court_photo_service.process_court_photo(file)
         s3_key = f"court-photos/{court_id}/{uuid.uuid4()}.jpg"
         url = await asyncio.to_thread(s3_service.upload_file, processed, s3_key, "image/jpeg")
+
+        normalized_caption = caption.strip() if caption and caption.strip() else None
 
         try:
             result = await court_service.add_court_photo(
@@ -429,6 +501,7 @@ async def upload_court_photo(
                 player_id=user["player_id"],
                 s3_key=s3_key,
                 url=url,
+                caption=normalized_caption,
             )
             return result
         except Exception:
@@ -438,6 +511,8 @@ async def upload_court_photo(
             except Exception as cleanup_err:
                 logger.warning("Failed to clean up S3 object %s: %s", s3_key, cleanup_err)
             raise
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -445,6 +520,52 @@ async def upload_court_photo(
     except Exception as e:
         logger.error("Error uploading court photo: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Error uploading photo")
+
+
+# --- Edit suggestions ---
+
+
+# --- Check-ins ---
+
+
+@router.post("/api/courts/{court_id}/check-in", response_model=dict)
+@limiter.limit("30/minute")
+async def check_in_to_court(
+    request: Request,
+    court_id: int,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Check in to a court (verified player). Auto-expires after 4 hours."""
+    try:
+        court = await session.get(Court, court_id)
+        if not court:
+            raise HTTPException(status_code=404, detail="Court not found")
+        return await court_service.check_in(session, court_id, user["player_id"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error checking in: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error checking in")
+
+
+@router.delete("/api/courts/{court_id}/check-in", response_model=dict)
+async def check_out_of_court(
+    court_id: int,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Check out of a court (verified player)."""
+    try:
+        removed = await court_service.check_out(session, court_id, user["player_id"])
+        if not removed:
+            raise HTTPException(status_code=404, detail="No active check-in found")
+        return {"court_id": court_id, "checked_out": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error checking out: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error checking out")
 
 
 # --- Edit suggestions ---
@@ -465,9 +586,12 @@ async def suggest_court_edit(
             session,
             court_id=court_id,
             suggested_by_player_id=user["player_id"],
-            changes=payload.changes,
+            changes=payload.changes.model_dump(exclude_unset=True),
+            note=payload.note,
         )
         return result
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:
@@ -496,6 +620,7 @@ async def list_court_edit_suggestions(
 async def resolve_court_edit_suggestion(
     suggestion_id: int,
     action: SuggestionAction = Query(...),
+    payload: Optional[CourtEditSuggestionResolutionRequest] = None,
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -511,15 +636,25 @@ async def resolve_court_edit_suggestion(
 
         await require_court_owner_or_admin(session, court_id, user)
 
-        result = await court_service.resolve_edit_suggestion(
-            session,
-            suggestion_id=suggestion_id,
-            action=action.value,
-            reviewer_player_id=user["player_id"],
-        )
+        resolve_kwargs = {
+            "suggestion_id": suggestion_id,
+            "action": action.value,
+            "reviewer_player_id": user["player_id"],
+        }
+        if action == SuggestionAction.PARTIALLY_APPLIED:
+            resolve_kwargs["applied_changes"] = (
+                payload.applied_changes.model_dump(exclude_unset=True)
+                if payload and payload.applied_changes
+                else None
+            )
+        result = await court_service.resolve_edit_suggestion(session, **resolve_kwargs)
         if not result:
             raise HTTPException(status_code=404, detail="Suggestion not found")
         return result
+    except court_service.SuggestionResolutionConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except court_service.SuggestionResolutionValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -658,6 +793,9 @@ async def list_all_courts_admin(
     search: Optional[str] = Query(None),
     region_id: Optional[str] = Query(None),
     location_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    surface_type: Optional[str] = Query(None),
+    has_photos: Optional[bool] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_dir: Optional[str] = Query("desc"),
     page: int = Query(1, ge=1),
@@ -671,6 +809,9 @@ async def list_all_courts_admin(
         search=search,
         region_id=region_id,
         location_id=location_id,
+        status=status,
+        surface_type=surface_type,
+        has_photos=has_photos,
         sort_by=sort_by,
         sort_dir=sort_dir,
         page=page,

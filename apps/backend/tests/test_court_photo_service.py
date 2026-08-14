@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from PIL import Image
 
-from backend.services.court_photo_service import (
+from backend.services.courts.court_photo_service import (
     _process_image_bytes,
     process_court_photo,
     MAX_DIMENSION,
@@ -167,7 +167,7 @@ class TestProcessImageBytes:
 
     def test_decompression_bomb_raises_value_error(self):
         """PIL.Image.DecompressionBombError should be re-raised as ValueError."""
-        with patch("backend.services.court_photo_service.Image.open") as mock_open:
+        with patch("backend.services.courts.court_photo_service.Image.open") as mock_open:
             mock_img = MagicMock()
             mock_img.load.side_effect = Image.DecompressionBombError("Too large")
             mock_open.return_value = mock_img

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Beach Kings production database backup daily
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+RandomizedDelaySec=30m
+Persistent=true
+Unit=beach-kings-db-backup.service
+
+[Install]
+WantedBy=timers.target

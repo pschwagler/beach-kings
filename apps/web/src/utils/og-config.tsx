@@ -106,7 +106,7 @@ export function FallbackImage({ logoSrc }: FallbackImageProps): React.JSX.Elemen
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={logoSrc}
-        alt="Beach Kings logo"
+        alt="Beach League logo"
         width={OG_STYLES.logoFallback.width}
         height={OG_STYLES.logoFallback.height}
       />

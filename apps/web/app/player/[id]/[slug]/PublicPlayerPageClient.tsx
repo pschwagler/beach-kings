@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useAuthModal } from '../../../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../../../src/contexts/ModalContext';
-import { getUserLeagues, createLeague } from '../../../../src/services/api';
+import { createLeague } from '../../../../src/services/api';
+import { useApp } from '../../../../src/contexts/AppContext';
 import NavBar from '../../../../src/components/layout/NavBar';
 import HomeMenuBar from '../../../../src/components/home/HomeMenuBar';
 import PublicPlayerPage from '../../../../src/components/player/PublicPlayerPage';
@@ -26,14 +26,7 @@ export default function PublicPlayerPageClient({ player, canonicalSlug, currentS
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const [userLeagues, setUserLeagues] = useState([]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    getUserLeagues()
-      .then(setUserLeagues)
-      .catch((err) => console.error('Error loading user leagues:', err));
-  }, [isAuthenticated]);
+  const { userLeagues, refreshLeagues } = useApp();
 
   const handleSignOut = async () => {
     try { await logout(); } catch (e) { console.error('Logout error:', e); }
@@ -47,7 +40,7 @@ export default function PublicPlayerPageClient({ player, canonicalSlug, currentS
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
         onSubmit: async (leagueData: Record<string, unknown>) => {
           const newLeague = await createLeague(leagueData);
-          setUserLeagues(await getUserLeagues());
+          await refreshLeagues();
           router.push(`/league/${newLeague.id}?tab=details`);
         },
       });

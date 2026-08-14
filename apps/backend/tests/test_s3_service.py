@@ -71,7 +71,7 @@ class TestUploadAvatar:
             "AWS_S3_REGION": "us-west-2",
         },
     )
-    @patch("backend.services.s3_service._get_s3_client")
+    @patch("backend.services.platform.s3_service._get_s3_client")
     def test_upload_returns_url(self, mock_get_client):
         """upload_avatar returns a valid S3 URL."""
         mock_client = MagicMock()
@@ -93,7 +93,7 @@ class TestUploadAvatar:
             "AWS_S3_REGION": "us-west-2",
         },
     )
-    @patch("backend.services.s3_service._get_s3_client")
+    @patch("backend.services.platform.s3_service._get_s3_client")
     def test_upload_puts_correct_content_type(self, mock_get_client):
         """Upload sends image/jpeg content type."""
         mock_client = MagicMock()
@@ -125,7 +125,7 @@ class TestDeleteAvatar:
             "AWS_S3_REGION": "us-west-2",
         },
     )
-    @patch("backend.services.s3_service._get_s3_client")
+    @patch("backend.services.platform.s3_service._get_s3_client")
     def test_delete_success(self, mock_get_client):
         """Successful delete returns True."""
         mock_client = MagicMock()
@@ -147,7 +147,7 @@ class TestDeleteAvatar:
             "AWS_S3_REGION": "us-west-2",
         },
     )
-    @patch("backend.services.s3_service._get_s3_client")
+    @patch("backend.services.platform.s3_service._get_s3_client")
     def test_delete_wrong_bucket_returns_false(self, mock_get_client):
         """Delete with wrong bucket hostname returns False."""
         mock_client = MagicMock()
@@ -169,7 +169,7 @@ class TestDeleteAvatar:
             "AWS_S3_REGION": "us-west-2",
         },
     )
-    @patch("backend.services.s3_service._get_s3_client")
+    @patch("backend.services.platform.s3_service._get_s3_client")
     def test_delete_s3_error_returns_false(self, mock_get_client):
         """S3 errors during delete return False (best-effort)."""
         mock_client = MagicMock()

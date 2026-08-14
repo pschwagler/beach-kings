@@ -3,6 +3,19 @@
 coverage.xml
 htmlcov/
 *.lcov
+coverage/
+apps/*/coverage/
+
+# Local screenshots / dev artifacts (root only — keeps app assets tracked)
+screenshots/
+/*.png
+
+# Stray Expo config auto-generated at the repo root by tooling/plugins. The
+# canonical app config (with the real bundle id) lives in apps/mobile/app.json.
+/app.json
+
+# Local-only working notes (bug logs, exploration notes) — not for the repo
+docs/local/
 
 # Python
 __pycache__/
@@ -16,8 +29,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -55,6 +68,10 @@ credentials.json
 # Node / Frontend
 .next/
 node_modules/
+.expo/
+
+# Local validation artifact containing non-synthetic profile data
+docs/artifacts/e2e-web-2026-08-13/offline-tab-navigation-chrome-error.png
 apps/web/dist/
 apps/web/node_modules/
 apps/web/.next/
@@ -62,6 +79,9 @@ apps/web/out/
 apps/mobile/.expo/
 apps/mobile/dist/
 apps/mobile/node_modules/
+apps/mobile/.tamagui/
+apps/mobile/.qa/
+.release-records/
 packages/*/node_modules/
 packages/*/dist/
 services/*/node_modules/
@@ -73,11 +93,18 @@ pnpm-debug.log*
 lerna-debug.log*
 .turbo/
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # WhatsApp Service
 services/whatsapp/.wwebjs_auth/
 services/whatsapp/.wwebjs_cache/
 .wwebjs_auth/
 .wwebjs_cache/
+
+# Next.js auto-generated agent rules (managed by `next dev`)
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
 
 # IDE
 .vscode/
@@ -97,6 +124,8 @@ Thumbs.db
 .env
 .env.local
 .env*.local
+# Track the symlink at apps/mobile/.env -> ../../.env (target itself is still ignored)
+!apps/mobile/.env
 
 # local data
 thirdparty
@@ -108,6 +137,8 @@ db_dump.sql
 
 # Backups
 backups/
+!deployment/backups/
+!deployment/backups/**
 
 out/
 apps/web/playwright-report/

@@ -1,0 +1,181 @@
+/**
+ * GameRow — a single game card in the My Games list.
+ *
+ * Layout (matches my-games.html .game-item):
+ *   top row:  result badge (WIN/LOSS/DRAW)
+ *   score:    "21-18" large text
+ *   teams:    "You / Partner vs Opp1 / Opp2" (You is bolded)
+ *   meta row: league name | rating change (+/-)
+ *   pending note: shown when session not yet submitted
+ */
+
+import React, { useCallback } from 'react';
+import AppText from '@/components/ui/AppText';
+import { View, Pressable } from 'react-native';
+import { hapticMedium } from '@/utils/haptics';
+import { formatGameScore } from '@/lib/formatters';
+import type { GameHistoryEntry } from '@beach-kings/shared';
+
+interface GameRowProps {
+  readonly game: GameHistoryEntry;
+  readonly onPress?: (game: GameHistoryEntry) => void;
+}
+
+function ResultBadge({ result }: { result: 'W' | 'L' | 'D' }): React.ReactNode {
+  const isWin = result === 'W';
+  const isDraw = result === 'D';
+  const bgClass = isWin
+    ? 'bg-success-tint'
+    : isDraw
+      ? 'bg-elevated'
+      : 'bg-danger-tint';
+  const textClass = isWin
+    ? 'text-success'
+    : isDraw
+      ? 'text-muted'
+      : 'text-danger';
+  const label = isWin ? 'WIN' : isDraw ? 'DRAW' : 'LOSS';
+
+  return (
+    <View className={`px-2 py-[3px] rounded-[10px] ${bgClass}`}>
+      <AppText className={`text-[11px] font-bold ${textClass}`}>{label}</AppText>
+    </View>
+  );
+}
+
+function RatingChange({
+  change,
+  pendingReason,
+}: {
+  change: number | null;
+  pendingReason: GameHistoryEntry['rating_pending_reason'];
+}): React.ReactNode {
+  if (change == null) {
+    const label = pendingReason === 'session_submission'
+      ? 'AWAITING SUBMISSION'
+      : pendingReason === 'player_account'
+        ? 'RATING PENDING'
+        : 'CALCULATING RATING';
+    return (
+      <View className="flex-row items-center gap-[3px]">
+        <View className="px-2 py-[2px] rounded-[8px] bg-warning-tint border border-warning-tint">
+          <AppText className="text-[10px] font-bold text-warning">
+            {label}
+          </AppText>
+        </View>
+      </View>
+    );
+  }
+  const isUp = change >= 0;
+  return (
+    <AppText className="text-[11px] text-muted">
+      Rating:{' '}
+      <AppText
+        className={`font-bold ${
+          isUp
+            ? 'text-success'
+            : 'text-danger'
+        }`}
+      >
+        {isUp ? '+' : ''}
+        {change}
+      </AppText>
+    </AppText>
+  );
+}
+
+function TeamLine({ game }: { game: GameHistoryEntry }): React.ReactNode {
+  const partners = game.partner_names.join(' / ');
+  const opponents = game.opponent_names.join(' / ');
+  const mySide = partners.length > 0 ? `You / ${partners}` : 'You';
+
+  return (
+    <AppText className="text-[12px] text-muted leading-[1.5]">
+      <AppText className="font-bold text-default">
+        You
+      </AppText>
+      {partners.length > 0 ? ` / ${partners}` : ''}
+      {` vs ${opponents}`}
+    </AppText>
+  );
+}
+
+export default function GameRow({ game, onPress }: GameRowProps): React.ReactNode {
+  const score = formatGameScore(game.my_score, game.opponent_score);
+  const resultLabel = game.result === 'W' ? 'Win' : game.result === 'L' ? 'Loss' : 'Draw';
+  const teammates = game.partner_names.length > 0
+    ? `You with ${game.partner_names.join(' and ')}`
+    : 'You';
+  const opponents = game.opponent_names.join(' and ');
+  const contextLabel = game.league_name ?? 'Pickup game';
+  const ratingLabel = game.rating_change != null
+    ? `Rating change ${game.rating_change >= 0 ? 'plus ' : 'minus '}${Math.abs(game.rating_change)}`
+    : game.rating_pending_reason === 'player_account'
+      ? 'Rating pending until every player has an account'
+      : game.rating_pending_reason === 'session_submission'
+        ? 'Awaiting session submission'
+        : 'Calculating rating';
+  const accessibilityLabel = [
+    resultLabel,
+    `score ${score}`,
+    `${teammates} versus ${opponents}`,
+    contextLabel,
+    ratingLabel,
+  ].join('. ');
+  const handlePress = useCallback(() => {
+    void hapticMedium();
+    onPress?.(game);
+  }, [game, onPress]);
+
+  return (
+    <Pressable
+      testID={`game-row-${game.id}`}
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      className="bg-surface rounded-[12px] px-[14px] py-[14px] border border-divider mb-[10px] active:opacity-80"
+    >
+      {/* Top row: result badge */}
+      <View className="flex-row justify-between items-center mb-2">
+        <ResultBadge result={game.result} />
+      </View>
+
+      {/* Score */}
+      <AppText className="text-[20px] font-bold text-default mb-1">
+        {score}
+      </AppText>
+
+      {/* Teams */}
+      <TeamLine game={game} />
+
+      {/* Pending note — session not yet submitted */}
+      {!game.session_submitted && (
+        <AppText className="text-[11px] text-warning mt-[3px]">
+          Awaiting session submission
+        </AppText>
+      )}
+      {game.rating_pending_reason === 'player_account' && (
+        <AppText className="text-[11px] text-warning mt-[3px]">
+          Waiting for every player to create an account
+        </AppText>
+      )}
+
+      {/* Meta row */}
+      <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-divider">
+        {game.league_name != null ? (
+          <AppText className="text-[11px] font-bold text-brand-teal">
+            {game.league_name}
+          </AppText>
+        ) : (
+          <AppText className="text-[11px] text-muted">
+            Pickup
+          </AppText>
+        )}
+        <RatingChange
+          change={game.rating_change}
+          pendingReason={game.rating_pending_reason}
+        />
+      </View>
+    </Pressable>
+  );
+}

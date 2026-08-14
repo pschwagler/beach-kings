@@ -8,9 +8,9 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.db import get_db_session
-from backend.services import auth_service, notification_service
-from backend.services.websocket_manager import get_websocket_manager
+from backend.database.db import AsyncSessionLocal, get_db_session
+from backend.services import auth_service, notification_service, user_service
+from backend.services.platform.websocket_manager import get_websocket_manager
 from backend.api.auth_dependencies import require_user
 from backend.models.schemas import (
     NotificationResponse,
@@ -134,6 +134,12 @@ async def websocket_notifications(websocket: WebSocket):
     user_id = payload.get("user_id")
     if user_id is None:
         await websocket.close(code=1008, reason="Invalid token payload")
+        return
+
+    async with AsyncSessionLocal() as session:
+        user = await user_service.get_user_by_id(session, user_id)
+    if user is None or user_service.effective_moderation_status(user) != "active":
+        await websocket.close(code=1008, reason="Account unavailable")
         return
 
     # Register connection

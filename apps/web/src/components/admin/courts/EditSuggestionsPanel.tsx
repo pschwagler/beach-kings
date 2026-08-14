@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Loader, RefreshCw } from 'lucide-react';
 import { getAdminAllSuggestions } from '../../../services/api';
 import { formatDate } from '../adminUtils';
 import SuggestionDiffRow from './SuggestionDiffRow';
@@ -14,6 +14,7 @@ interface CourtSuggestion {
   changes?: Record<string, unknown>;
   current?: Record<string, unknown>;
   created_at?: string;
+  note?: string | null;
 }
 
 /**
@@ -29,18 +30,21 @@ export default function EditSuggestionsPanel({ onCountChange }: EditSuggestionsP
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const pageSize = 25;
 
   const load = useCallback(async (p = page) => {
     try {
       setLoading(true);
+      setError(null);
       const data = await getAdminAllSuggestions({ status: 'pending', page: p, page_size: pageSize });
       setSuggestions(data.items);
       setTotal(data.total);
       onCountChange?.(data.total);
     } catch (err) {
       console.error('Error loading suggestions:', err);
+      setError('Could not load edit requests. Try refreshing.');
     } finally {
       setLoading(false);
     }
@@ -64,9 +68,12 @@ export default function EditSuggestionsPanel({ onCountChange }: EditSuggestionsP
   const renderChanges = (changes: Record<string, unknown> | null | undefined) => {
     if (!changes || typeof changes !== 'object') return 'N/A';
     const keys = Object.keys(changes);
+    const displayKeys = keys.includes('latitude') && keys.includes('longitude')
+      ? [...keys.filter((key) => key !== 'latitude' && key !== 'longitude'), 'map pin']
+      : keys;
     return (
       <div className="admin-suggestion-changes">
-        {keys.map((k) => (
+        {displayKeys.map((k) => (
           <span key={k} className="admin-suggestion-changes__chip">{k.replace(/_/g, ' ')}</span>
         ))}
       </div>
@@ -77,23 +84,28 @@ export default function EditSuggestionsPanel({ onCountChange }: EditSuggestionsP
 
   return (
     <>
-      <div className="admin-section-header">
-        <h2>Edit Suggestions</h2>
+      <div className="admin-section-header admin-section-header--court">
+        <div>
+          <span className="admin-section-eyebrow">Community input</span>
+          <h3>Suggested edits to live courts</h3>
+          <p>Applying selected changes updates the live court immediately. There is no separate publish step.</p>
+        </div>
         <button
           onClick={() => load()}
           disabled={loading}
           className="admin-refresh-btn"
-          aria-label="Refresh suggestions"
-          title="Refresh"
+          aria-label="Refresh edit requests"
         >
-          <RefreshCw size={18} className={loading ? 'spinning' : ''} />
+          <RefreshCw size={16} className={loading ? 'spinning' : ''} /> Refresh
         </button>
       </div>
 
-      {loading ? (
-        <p>Loading suggestions...</p>
+      {error ? (
+        <div className="admin-courts-alert admin-courts-alert--error" role="alert">{error} <button type="button" onClick={() => load()}>Try again</button></div>
+      ) : loading && suggestions.length === 0 ? (
+        <div className="admin-courts-loading"><Loader size={20} className="spinning" /> Loading edit requests…</div>
       ) : suggestions.length === 0 ? (
-        <p>No pending edit suggestions.</p>
+        <div className="admin-courts-empty"><CheckCircle2 size={30} /><strong>All suggested edits are reviewed</strong><span>New suggestions for live courts will appear here.</span></div>
       ) : (
         <>
           <div className="admin-feedback-table-container">
@@ -154,7 +166,10 @@ function SuggestionRows({ suggestion, isExpanded, onRowClick, onResolved, render
         onClick={onRowClick}
       >
         <td className="feedback-text-cell">
-          <div className="feedback-text">{suggestion.court_name}</div>
+          <button type="button" className="admin-court-row-trigger" onClick={(event) => { event.stopPropagation(); onRowClick(); }} aria-expanded={isExpanded}>
+            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            <span>{suggestion.court_name}</span>
+          </button>
         </td>
         <td>{suggestion.suggester_name || 'Unknown'}</td>
         <td>{renderChanges(suggestion.changes)}</td>

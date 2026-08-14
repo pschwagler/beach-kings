@@ -35,7 +35,7 @@
 
 /* -- Widget cards -- */
 .near-you-section__widget {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   border: 1px solid var(--gray-200);
   overflow: hidden;
@@ -80,7 +80,7 @@
   font-weight: 500;
   border: 1px solid var(--gray-300);
   border-radius: 12px;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-700);
   cursor: pointer;
   transition: all 0.15s ease;

@@ -266,29 +266,18 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ---
 
-## 8. Setup Backups (Recommended)
+## 8. Setup S3 Backups (Required)
 
-```bash
-# Create backup directory
-mkdir -p ~/backups
+Production backups use the checked-in systemd service to create a validated
+custom-format PostgreSQL dump and archive it in a private, versioned S3 bucket.
+Follow [deployment/backups/README.md](deployment/backups/README.md) to configure
+the bucket, least-privilege EC2 instance role, timer, alerts, and restore drill.
 
-# Create backup script
-cat > ~/backup.sh << 'EOF'
-#!/bin/bash
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-docker exec beach-kings-postgres pg_dump -U beachkings -d beachkings | gzip > ~/backups/db_$TIMESTAMP.sql.gz
-find ~/backups -name "*.sql.gz" -mtime +7 -delete
-echo "Backup complete: db_$TIMESTAMP.sql.gz"
-EOF
-
-chmod +x ~/backup.sh
-
-# Schedule daily backup at 2am
-(crontab -l 2>/dev/null; echo "0 2 * * * ~/backup.sh") | crontab -
-```
-
-- [ ] Backup script created
-- [ ] Cron job scheduled
+- [ ] Private S3 bucket has Block Public Access, versioning, encryption, and lifecycle rules
+- [ ] EC2 uses an instance role rather than static AWS keys
+- [ ] Initial backup is visible in S3 with its `.sha256` object
+- [ ] Failure notifications are delivered
+- [ ] A restore drill has passed and its duration is recorded
 
 ---
 
@@ -308,11 +297,9 @@ docker-compose down
 git pull
 docker-compose up -d --build
 
-# Manual backup
-~/backup.sh
-
-# Restore from backup
-gunzip -c ~/backups/db_TIMESTAMP.sql.gz | docker exec -i beach-kings-postgres psql -U beachkings -d beachkings
+# Run and inspect a manual backup
+sudo systemctl start beach-kings-db-backup.service
+sudo journalctl -u beach-kings-db-backup.service --since today
 ```
 
 ---

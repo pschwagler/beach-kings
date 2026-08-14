@@ -12,6 +12,7 @@ import ConfirmLeaveModal from '../ui/ConfirmLeaveModal';
 import AvatarUpload from '../profile/AvatarUpload';
 import CourtSelector from '../court/CourtSelector';
 import { Button } from '../ui/UI';
+import { cleanCityName } from '@beach-kings/shared';
 import type { User, Player } from '../../types';
 
 const PREFERRED_SIDE_OPTIONS = [
@@ -46,11 +47,11 @@ interface ProfileTabProps {
 
 interface ProfileFormData {
   email: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   nickname: string;
   gender: string;
   level: string;
-  date_of_birth: string;
   height: string;
   preferred_side: string;
   city: string;
@@ -63,11 +64,11 @@ interface ProfileFormData {
 
 const DEFAULT_FORM_DATA: ProfileFormData = {
   email: '',
-  full_name: '',
+  first_name: '',
+  last_name: '',
   nickname: '',
   gender: 'male',
   level: 'beginner',
-  date_of_birth: '',
   height: '',
   preferred_side: 'none',
   city: '',
@@ -132,17 +133,22 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
 
   useEffect(() => {
     if (currentUserPlayer) {
-      // Format city display value
-      const cityDisplay = currentUserPlayer.city 
-        ? (currentUserPlayer.state ? `${currentUserPlayer.city}, ${currentUserPlayer.state}` : currentUserPlayer.city)
-        : '';
-      
+      // Pre-fill the BARE city name (state lives in its own field). Using the
+      // formatted "City, State" label here is what corrupted the players table:
+      // it was re-submitted verbatim on save, appending the state again each
+      // time. cleanCityName also strips any state already baked in, so dirty
+      // rows self-heal on the next save. Mirrors the mobile onboarding fix.
+      const cityDisplay = cleanCityName(
+        currentUserPlayer.city,
+        currentUserPlayer.state,
+      );
+
       const newFormData = {
-        full_name: currentUserPlayer.full_name || '',
+        first_name: currentUserPlayer.first_name || (currentUserPlayer.full_name?.split(' ')[0] ?? ''),
+        last_name: currentUserPlayer.last_name || (currentUserPlayer.full_name?.split(' ').slice(1).join(' ') ?? ''),
         nickname: currentUserPlayer.nickname || '',
         gender: currentUserPlayer.gender || 'male',
         level: currentUserPlayer.level || 'beginner',
-        date_of_birth: currentUserPlayer.date_of_birth || '',
         height: currentUserPlayer.height || '',
         preferred_side: currentUserPlayer.preferred_side || 'none',
         city: cityDisplay,
@@ -194,11 +200,11 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   const checkHasChanges = (formDataToCheck: typeof formData, initialFormDataToCheck: typeof formData) => {
     return (
       formDataToCheck.email !== initialFormDataToCheck.email ||
-      formDataToCheck.full_name !== initialFormDataToCheck.full_name ||
+      formDataToCheck.first_name !== initialFormDataToCheck.first_name ||
+      formDataToCheck.last_name !== initialFormDataToCheck.last_name ||
       formDataToCheck.nickname !== initialFormDataToCheck.nickname ||
       formDataToCheck.gender !== initialFormDataToCheck.gender ||
       formDataToCheck.level !== initialFormDataToCheck.level ||
-      formDataToCheck.date_of_birth !== initialFormDataToCheck.date_of_birth ||
       formDataToCheck.height !== initialFormDataToCheck.height ||
       formDataToCheck.preferred_side !== initialFormDataToCheck.preferred_side ||
       formDataToCheck.city !== initialFormDataToCheck.city ||
@@ -242,9 +248,13 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     event.preventDefault();
     setErrorMessage('');
 
-    // Validate full_name
-    if (!formData.full_name || !formData.full_name.trim()) {
-      setErrorMessage('Full name is required');
+    // Validate names
+    if (!formData.first_name || !formData.first_name.trim()) {
+      setErrorMessage('First name is required');
+      return;
+    }
+    if (!formData.last_name || !formData.last_name.trim()) {
+      setErrorMessage('Last name is required');
       return;
     }
 
@@ -258,17 +268,14 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
 
       // 2. Update Player Profile
       const playerPayload: Record<string, unknown> = {
-        full_name: formData.full_name.trim(),
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
         gender: formData.gender,
         level: formData.level,
       };
 
       if (formData.nickname && formData.nickname.trim()) {
         playerPayload.nickname = formData.nickname.trim();
-      }
-
-      if (formData.date_of_birth && formData.date_of_birth.trim()) {
-        playerPayload.date_of_birth = formData.date_of_birth.trim();
       }
 
       if (formData.height && formData.height.trim()) {
@@ -281,8 +288,12 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         playerPayload.preferred_side = preferredSide;
       }
 
-      if (formData.city) {
-        playerPayload.city = formData.city;
+      // Persist the bare city only — never the state (it has its own field).
+      // Defensive: also cleans a manually-typed "City, State" so it can't
+      // re-corrupt the column.
+      const cityToSave = cleanCityName(formData.city, formData.state);
+      if (cityToSave) {
+        playerPayload.city = cityToSave;
       }
 
       if (formData.state) {
@@ -431,18 +442,32 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         {/* Player Info */}
         <h3 className="profile-page__section-title section-title-spaced">Player Profile</h3>
 
-        <label className="auth-modal__label">
-          <span>Full Name <span className="required-asterisk">*</span></span>
-          <input
-            type="text"
-            name="full_name"
-            className="auth-modal__input"
-            placeholder="Enter your full name"
-            value={formData.full_name}
-            onChange={handleInputChange}
-            required
-          />
-        </label>
+        <div className="auth-modal__name-row">
+          <label className="auth-modal__label">
+            <span>First Name <span className="required-asterisk">*</span></span>
+            <input
+              type="text"
+              name="first_name"
+              className="auth-modal__input"
+              placeholder="First name"
+              value={formData.first_name}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+          <label className="auth-modal__label">
+            <span>Last Name <span className="required-asterisk">*</span></span>
+            <input
+              type="text"
+              name="last_name"
+              className="auth-modal__input"
+              placeholder="Last name"
+              value={formData.last_name}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+        </div>
 
         <PlayerProfileFields
           formData={formData}

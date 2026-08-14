@@ -13,9 +13,9 @@
  *
  * Consumers (all call shareInvite({ name, url })):
  *   - PendingInvitesTab     — share button per placeholder card
- *   - PlaceholderCreateModal — "Share Invite" after creation
+ *   - PlaceholderCreateModal — "Invite to App" after creation
  *   - AddMatchModal          — auto-fires for first placeholder after submit
- *   - PlayerDetails          — "Invite to claim profile" (pre-fetches URL)
+ *   - PlayerDetails          — "Invite to App" (pre-fetches URL)
  *
  * Important: shareInvite must be called synchronously from a click handler
  * (or very soon after) to preserve the browser's transient user activation
@@ -29,7 +29,8 @@ import { useModal, MODAL_TYPES } from '../contexts/ModalContext';
 export const SHARE_TITLE = 'Beach League Invite';
 
 /** Build the share text for a given player name. */
-export const getShareText = (name: string): string => `${name} — claim your matches on Beach League`;
+export const getShareText = (name: string): string =>
+  `${name} — join me on the Beach League app to claim your games`;
 
 /**
  * Detect if the device is mobile/touch-based.

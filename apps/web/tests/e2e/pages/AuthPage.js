@@ -22,9 +22,13 @@ export class AuthPage extends BasePage {
       // Form fields
       phoneInput: 'input.phone-input__input, input[type="tel"], input[name="phoneNumber"]',
       passwordInput: 'input[type="password"]',
-      fullNameInput: 'input[name="fullName"]',
+      firstNameInput: 'input[name="firstName"]',
+      lastNameInput: 'input[name="lastName"]',
       emailInput: 'input[name="email"]',
       codeInput: 'input[name="code"]',
+      eligibilityCountry: 'label:has-text("Country") select',
+      eligibilityRegion: 'label:has-text("State code") input',
+      eligibilityAge: 'label:has-text("Age range") select',
       
       // Buttons
       submitButton: '.auth-modal__submit',
@@ -96,6 +100,11 @@ export class AuthPage extends BasePage {
    * PhoneInput component formats the number, so we need to handle that
    */
   async fillPhoneNumber(phoneNumber) {
+    // Signup now begins with the age/location gate. Keeping this guard here
+    // also updates older specs that fill fields step-by-step instead of using
+    // the higher-level signup helper.
+    await this.completeAdultEligibility();
+
     // PhoneInput component uses class "phone-input__input" for the actual input
     // The component expects formatted input like (555) 123-4567
     const phoneInput = this.page.locator('input.phone-input__input').first();
@@ -144,7 +153,11 @@ export class AuthPage extends BasePage {
    * Fill full name
    */
   async fillFullName(fullName) {
-    await this.fill(this.selectors.fullNameInput, fullName);
+    const parts = fullName.trim().split(/\s+/);
+    const firstName = parts.shift() || '';
+    const lastName = parts.join(' ') || 'Test';
+    await this.fill(this.selectors.firstNameInput, firstName);
+    await this.fill(this.selectors.lastNameInput, lastName);
   }
 
   /**
@@ -262,6 +275,21 @@ export class AuthPage extends BasePage {
     await this.submit();
   }
 
+  /** Complete the default adult eligibility gate when signup starts there. */
+  async completeAdultEligibility() {
+    const country = this.page.locator(this.selectors.eligibilityCountry);
+    if (!(await country.isVisible().catch(() => false))) return;
+
+    await country.selectOption('US');
+    await this.page.locator(this.selectors.eligibilityRegion).fill('CA');
+    await this.page.locator(this.selectors.eligibilityAge).selectOption('adult');
+    await this.submit();
+    await this.page.locator('input.phone-input__input').first().waitFor({
+      state: 'visible',
+      timeout: 10000,
+    });
+  }
+
   /**
    * Perform signup
    * @param {string} phoneNumber - Phone number in E.164 format or formatted
@@ -270,6 +298,7 @@ export class AuthPage extends BasePage {
    * @param {string} email - Optional email address
    */
   async signup(phoneNumber, password, fullName, email = '') {
+    await this.completeAdultEligibility();
     await this.fillPhoneNumber(phoneNumber);
     await this.fillPassword(password);
     await this.fillFullName(fullName);

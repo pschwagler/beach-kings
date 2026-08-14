@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useAuthModal } from '../../../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../../../src/contexts/ModalContext';
-import { getUserLeagues, createLeague, uploadCourtPhoto } from '../../../../src/services/api';
+import { createLeague, uploadCourtPhoto } from '../../../../src/services/api';
+import { useApp } from '../../../../src/contexts/AppContext';
 import NavBar from '../../../../src/components/layout/NavBar';
 import { Button } from '../../../../src/components/ui/UI';
 import ImageLightbox from '../../../../src/components/ui/ImageLightbox';
@@ -29,7 +30,7 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const [userLeagues, setUserLeagues] = useState([]);
+  const { userLeagues, refreshLeagues } = useApp();
   const [photos, setPhotos] = useState(court?.all_photos || []);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -37,13 +38,6 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    getUserLeagues()
-      .then(setUserLeagues)
-      .catch((err) => console.error('Error loading user leagues:', err));
-  }, [isAuthenticated]);
 
   const handleSignOut = async () => {
     try { await logout(); } catch (e) { console.error('Logout error:', e); }
@@ -57,7 +51,7 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
         onSubmit: async (leagueData: Record<string, unknown>) => {
           const newLeague = await createLeague(leagueData);
-          setUserLeagues(await getUserLeagues());
+          await refreshLeagues();
           router.push(`/league/${newLeague.id}?tab=details`);
         },
       });

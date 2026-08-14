@@ -11,6 +11,7 @@ Tests Epic 2 deliverables:
 
 import pytest
 import pytest_asyncio
+from unittest.mock import AsyncMock, patch
 from sqlalchemy import select
 
 from backend.database.models import (
@@ -21,10 +22,17 @@ from backend.database.models import (
     LeagueMember,
     Match,
     Session,
+    SessionParticipant,
     SessionStatus,
 )
 from backend.models.schemas import CreateMatchRequest
-from backend.services import placeholder_service, data_service, user_service
+from backend.services import (
+    placeholder_service,
+    data_service,
+    session_data,
+    user_service,
+)
+from backend.utils.frontend_url import build_invite_url
 
 
 # ============================================================================
@@ -715,3 +723,116 @@ class TestGetPlayerById:
         result = await data_service.get_player_by_id(db_session, 999999)
 
         assert result is None
+
+
+# ============================================================================
+# 9. Gender inference integration tests
+# ============================================================================
+
+
+class TestCreatePlaceholderGenderInference:
+    """Tests for gender inference integration in create_placeholder."""
+
+    @pytest.mark.asyncio
+    async def test_gender_none_inferred_via_service(self, db_session, creator_player):
+        """When gender=None, inference is called and its result is stored on the player."""
+        with patch.object(
+            placeholder_service,
+            "infer_gender_from_name",
+            new=AsyncMock(return_value="male"),
+        ):
+            result = await placeholder_service.create_placeholder(
+                db_session,
+                name="James",
+                created_by_player_id=creator_player.id,
+                gender=None,
+            )
+
+        player = await db_session.get(Player, result.player_id)
+        assert player.gender == "male"
+
+    @pytest.mark.asyncio
+    async def test_gender_explicitly_provided_skips_inference(self, db_session, creator_player):
+        """When gender is explicitly provided, inference is NOT called."""
+        mock_infer = AsyncMock(return_value="male")
+        with patch.object(
+            placeholder_service,
+            "infer_gender_from_name",
+            new=mock_infer,
+        ):
+            result = await placeholder_service.create_placeholder(
+                db_session,
+                name="Maria",
+                created_by_player_id=creator_player.id,
+                gender="female",
+            )
+
+        mock_infer.assert_not_awaited()
+        player = await db_session.get(Player, result.player_id)
+        assert player.gender == "female"
+
+
+# ============================================================================
+# Session roster invite_url (get_session_roster_with_game_counts)
+# ============================================================================
+
+
+class TestSessionRosterInviteUrl:
+    """invite_url is surfaced only for placeholders with an OPEN invite."""
+
+    async def _add_participant(self, db_session, session_id, player_id):
+        db_session.add(SessionParticipant(session_id=session_id, player_id=player_id))
+        await db_session.commit()
+
+    @pytest.mark.asyncio
+    async def test_pending_invite_yields_claim_url(self, db_session, test_session, creator_player):
+        placeholder = Player(full_name="Ghost One", is_placeholder=True)
+        db_session.add(placeholder)
+        await db_session.commit()
+        await db_session.refresh(placeholder)
+        db_session.add(
+            PlayerInvite(
+                player_id=placeholder.id,
+                invite_token="tok_pending",
+                status=InviteStatus.PENDING.value,
+            )
+        )
+        await db_session.commit()
+        await self._add_participant(db_session, test_session.id, placeholder.id)
+
+        roster = await session_data.get_session_roster_with_game_counts(
+            db_session, test_session.id
+        )
+        entry = next(r for r in roster if r["entry_id"] == placeholder.id)
+        assert entry["invite_url"] == build_invite_url("tok_pending")
+
+    @pytest.mark.asyncio
+    async def test_claimed_invite_yields_no_url(self, db_session, test_session, creator_player):
+        placeholder = Player(full_name="Ghost Two", is_placeholder=True)
+        db_session.add(placeholder)
+        await db_session.commit()
+        await db_session.refresh(placeholder)
+        db_session.add(
+            PlayerInvite(
+                player_id=placeholder.id,
+                invite_token="tok_claimed",
+                status=InviteStatus.CLAIMED.value,
+            )
+        )
+        await db_session.commit()
+        await self._add_participant(db_session, test_session.id, placeholder.id)
+
+        roster = await session_data.get_session_roster_with_game_counts(
+            db_session, test_session.id
+        )
+        entry = next(r for r in roster if r["entry_id"] == placeholder.id)
+        assert entry["invite_url"] is None
+
+    @pytest.mark.asyncio
+    async def test_real_player_has_no_url(self, db_session, test_session, creator_player):
+        await self._add_participant(db_session, test_session.id, creator_player.id)
+        roster = await session_data.get_session_roster_with_game_counts(
+            db_session, test_session.id
+        )
+        entry = next(r for r in roster if r["entry_id"] == creator_player.id)
+        assert entry["invite_url"] is None

@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from backend.api.main import app
 from backend.api.auth_dependencies import require_verified_player
-from backend.services import direct_message_service
+from backend.services import direct_message_service, message_write_policy
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +198,23 @@ class TestSendMessage:
             headers=headers,
         )
         assert response.status_code == 400
+
+    def test_disabled_message_writes_return_service_unavailable(
+        self, client, headers, monkeypatch
+    ):
+        async def fake_send(*_args, **_kwargs):
+            raise message_write_policy.MessageWritesUnavailable()
+
+        monkeypatch.setattr(direct_message_service, "send_message", fake_send, raising=True)
+
+        response = client.post(
+            "/api/messages/send",
+            json={"receiver_player_id": 20, "message_text": "Hello"},
+            headers=headers,
+        )
+
+        assert response.status_code == 503
+        assert response.json()["detail"] == "Messaging is temporarily unavailable"
 
     def test_send_missing_fields(self, client, headers):
         """Missing required fields returns 422."""

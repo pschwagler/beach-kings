@@ -20,14 +20,16 @@ vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
 }));
 
-const mockGetUserLeagues = vi.fn();
 const mockCreateSession = vi.fn();
 const mockGetOpenSessions = vi.fn();
 
 vi.mock('../../../services/api', () => ({
-  getUserLeagues: (...args: unknown[]) => mockGetUserLeagues(...args),
   createSession: (...args: unknown[]) => mockCreateSession(...args),
   getOpenSessions: (...args: unknown[]) => mockGetOpenSessions(...args),
+}));
+
+vi.mock('../../../contexts/AppContext', () => ({
+  useApp: vi.fn(() => ({ userLeagues: [], leaguesLoading: false })),
 }));
 
 import CreateGameModal from '../CreateGameModal';
@@ -39,7 +41,6 @@ const renderModal = (isOpen = true) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGetUserLeagues.mockResolvedValue([]);
   mockGetOpenSessions.mockResolvedValue([]);
 });
 

@@ -51,6 +51,7 @@ describe('NavBar — menu coordination', () => {
 
   it('renders the Leagues and User menu buttons', () => {
     render(<NavBar {...defaultProps} />);
+    expect(screen.getByRole('navigation', { name: 'Site navigation' })).toBeTruthy();
     expect(screen.getByLabelText('Leagues menu')).toBeTruthy();
     expect(screen.getByLabelText('User menu')).toBeTruthy();
   });
@@ -127,5 +128,18 @@ describe('NavBar — menu coordination', () => {
 
     expect(screen.queryByText('Find Leagues')).toBeNull();
     expect(screen.queryByText('Log In')).toBeNull();
+  });
+
+  it('shows the Admin link only for system admins', () => {
+    const { rerender } = render(
+      <NavBar {...defaultProps} isLoggedIn user={{ id: 1, phone: '', is_system_admin: false }} />,
+    );
+    fireEvent.click(screen.getByLabelText('User menu'));
+    expect(screen.queryByText('Admin')).toBeNull();
+
+    rerender(
+      <NavBar {...defaultProps} isLoggedIn user={{ id: 1, phone: '', is_system_admin: true }} />,
+    );
+    expect(screen.getByText('Admin')).toBeTruthy();
   });
 });

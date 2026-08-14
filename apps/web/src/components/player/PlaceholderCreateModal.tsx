@@ -29,7 +29,7 @@ interface PlaceholderCreateModalProps {
  * Two-step modal for creating a placeholder (unregistered) player.
  *
  * Step 1 (pre-creation): Editable player name, optional gender/level selects, and a Create button.
- * Step 2 (post-creation): Shows a success state with a Share Invite button.
+ * Step 2 (post-creation): Shows a success state with an Invite to App button.
  */
 export default function PlaceholderCreateModal({
   isOpen,
@@ -144,7 +144,7 @@ export default function PlaceholderCreateModal({
               </div>
               {createdPlayer.inviteUrl && (
                 <p className="placeholder-create-modal__share-text">
-                  Share their invite link so they can claim their profile.
+                  Invite them to the app so they can claim their games.
                 </p>
               )}
             </div>
@@ -155,7 +155,7 @@ export default function PlaceholderCreateModal({
                   className="placeholder-create-modal__share-btn"
                   onClick={handleShare}
                 >
-                  Share Invite
+                  Invite to App
                 </button>
               )}
               <button
@@ -213,7 +213,7 @@ export default function PlaceholderCreateModal({
                 </select>
               </div>
               <p className="placeholder-create-modal__hint">
-                You&apos;ll get a link to share so they can claim their matches.
+                You&apos;ll get a link to invite them to the app, where they can claim their games.
               </p>
               {error && (
                 <div className="placeholder-create-modal__error" role="alert">

@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { fetchBackend } from '../../src/utils/server-fetch';
 import CourtDirectoryClient from './CourtDirectoryClient';
+import type { Court } from '../../src/types';
 
 /**
  * Static SEO metadata for the court directory page.
@@ -22,7 +23,7 @@ export const metadata = {
  * Fetches initial court list and passes to client component.
  */
 export default async function CourtsPage() {
-  let initialCourts: { items: unknown[]; total_count: number } = { items: [], total_count: 0 };
+  let initialCourts: { items: Court[]; total_count: number } = { items: [], total_count: 0 };
   try {
     initialCourts = await fetchBackend('/api/public/courts?page=1&page_size=20');
   } catch (error) {

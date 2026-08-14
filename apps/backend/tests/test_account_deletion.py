@@ -16,7 +16,7 @@ import pytest
 import pytest_asyncio
 import uuid
 from datetime import date, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from sqlalchemy import select, func
 
@@ -41,9 +41,15 @@ from backend.database.models import (
     Match,
     RefreshToken,
     SessionParticipant,
+    MediaDeletionJob,
+    Location,
+    Court,
+    CourtReview,
+    CourtReviewPhoto,
+    CourtPhoto,
 )
-from backend.services import user_service
-from backend.services.account_deletion_service import AccountDeletionService
+from backend.services import auth_service, moderation_service, user_service
+from backend.services.auth.account_deletion_service import AccountDeletionService
 from backend.utils.datetime_utils import utcnow
 
 
@@ -118,6 +124,29 @@ async def rich_user(db_session):
     u4, p4 = await _create_user_and_player(db_session, name="Fourth Player")
 
     league_id, season_id = await _create_league_and_season(db_session)
+
+    # Reviews and both photo types are UGC that permanent deletion must remove.
+    location = Location(id=f"delete_{uuid.uuid4().hex[:12]}", name="Deletion Test Location")
+    db_session.add(location)
+    await db_session.flush()
+    court = Court(name="Deletion Test Court", location_id=location.id)
+    db_session.add(court)
+    await db_session.flush()
+    review = CourtReview(court_id=court.id, player_id=p1, rating=5, review_text="Delete me")
+    db_session.add(review)
+    await db_session.flush()
+    review_photo = CourtReviewPhoto(
+        review_id=review.id,
+        s3_key=f"court-reviews/{p1}/review.jpg",
+        url="https://example.invalid/review.jpg",
+    )
+    standalone_photo = CourtPhoto(
+        court_id=court.id,
+        uploaded_by=p1,
+        s3_key=f"court-photos/{p1}/standalone.jpg",
+        url="https://example.invalid/standalone.jpg",
+    )
+    db_session.add_all([review_photo, standalone_photo])
 
     # Friend request + friend
     fr = FriendRequest(sender_player_id=p1, receiver_player_id=p2, status="accepted")
@@ -223,7 +252,144 @@ async def rich_user(db_session):
         "season_id": season_id,
         "session_id": sess.id,
         "match_id": match.id,
+        "review_id": review.id,
+        "review_photo_id": review_photo.id,
+        "standalone_photo_id": standalone_photo.id,
+        "direct_message_id": dm.id,
+        "league_message_id": lm.id,
+        "court_id": court.id,
+        "location_id": location.id,
+        "review_photo_key": review_photo.s3_key,
+        "standalone_photo_key": standalone_photo.s3_key,
     }
+
+
+async def _attach_player(db_session, user_id, name):
+    """Attach the ordinary player profile created by each signup flow."""
+    player = Player(full_name=name, user_id=user_id, gender="M", level="intermediate")
+    db_session.add(player)
+    await db_session.commit()
+    await db_session.refresh(player)
+    return player.id
+
+
+# ---------------------------------------------------------------------------
+# Full signup -> deletion -> re-registration lifecycles
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_password_account_can_register_again_after_permanent_deletion(db_session):
+    """Permanent deletion releases both password-account login identifiers."""
+    phone = _unique_phone()
+    email = f"password-{uuid.uuid4().hex}@example.test"
+
+    first_user_id = await user_service.create_user(
+        db_session,
+        phone_number=phone,
+        email=email,
+        password_hash="first-password-hash",
+    )
+    first_player_id = await _attach_player(db_session, first_user_id, "Password User")
+
+    assert await user_service.execute_account_deletion(db_session, first_user_id) is True
+
+    second_user_id = await user_service.create_user(
+        db_session,
+        phone_number=phone,
+        email=email,
+        password_hash="second-password-hash",
+    )
+    second_player_id = await _attach_player(db_session, second_user_id, "Password User Again")
+
+    assert second_user_id != first_user_id
+    assert second_player_id != first_player_id
+    assert (await user_service.get_user_by_phone(db_session, phone))["id"] == second_user_id
+    assert (await user_service.get_user_by_email(db_session, email))["id"] == second_user_id
+    deleted_user = await user_service.get_user_by_id(db_session, first_user_id)
+    assert deleted_user["deleted_at"] is not None
+    assert deleted_user["phone_number"] is None
+    assert deleted_user["email"] is None
+
+
+@pytest.mark.asyncio
+async def test_google_account_can_register_again_after_permanent_deletion(db_session, monkeypatch):
+    """A mocked Google identity can create a fresh account after deletion."""
+    google_id = f"google-{uuid.uuid4().hex}"
+    email = f"google-{uuid.uuid4().hex}@example.test"
+    provider = MagicMock(return_value={"sub": google_id, "email": email, "name": "Google User"})
+    monkeypatch.setattr(auth_service, "verify_google_id_token", provider, raising=True)
+
+    first_identity = auth_service.verify_google_id_token("first-google-id-token")
+    first_user_id = await user_service.create_google_user(
+        db_session,
+        email=first_identity["email"],
+        google_id=first_identity["sub"],
+        full_name=first_identity["name"],
+    )
+    first_player_id = await _attach_player(db_session, first_user_id, first_identity["name"])
+
+    assert await user_service.execute_account_deletion(db_session, first_user_id) is True
+
+    second_identity = auth_service.verify_google_id_token("second-google-id-token")
+    second_user_id = await user_service.create_google_user(
+        db_session,
+        email=second_identity["email"],
+        google_id=second_identity["sub"],
+        full_name=second_identity["name"],
+    )
+    second_player_id = await _attach_player(db_session, second_user_id, second_identity["name"])
+
+    assert second_user_id != first_user_id
+    assert second_player_id != first_player_id
+    assert (await user_service.get_user_by_google_id(db_session, google_id))[
+        "id"
+    ] == second_user_id
+    assert (await user_service.get_user_by_email(db_session, email))["id"] == second_user_id
+    deleted_user = await user_service.get_user_by_id(db_session, first_user_id)
+    assert deleted_user["deleted_at"] is not None
+    assert deleted_user["google_id"] is None
+    assert deleted_user["email"] is None
+    assert provider.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_apple_account_can_register_again_after_permanent_deletion(db_session, monkeypatch):
+    """A mocked Apple identity can create a fresh account after deletion."""
+    apple_id = f"apple-{uuid.uuid4().hex}"
+    email = f"apple-{uuid.uuid4().hex}@privaterelay.appleid.com"
+    provider = MagicMock(return_value={"sub": apple_id, "email": email})
+    monkeypatch.setattr(auth_service, "verify_apple_id_token", provider, raising=True)
+
+    first_identity = auth_service.verify_apple_id_token("first-apple-id-token")
+    first_user_id = await user_service.create_apple_user(
+        db_session,
+        email=first_identity["email"],
+        apple_id=first_identity["sub"],
+        full_name="Apple User",
+    )
+    first_player_id = await _attach_player(db_session, first_user_id, "Apple User")
+
+    assert await user_service.execute_account_deletion(db_session, first_user_id) is True
+
+    second_identity = auth_service.verify_apple_id_token("second-apple-id-token")
+    second_user_id = await user_service.create_apple_user(
+        db_session,
+        email=second_identity["email"],
+        apple_id=second_identity["sub"],
+        full_name="Apple User Again",
+    )
+    second_player_id = await _attach_player(db_session, second_user_id, "Apple User Again")
+
+    assert second_user_id != first_user_id
+    assert second_player_id != first_player_id
+    assert (await user_service.get_user_by_apple_id(db_session, apple_id))["id"] == second_user_id
+    assert (await user_service.get_user_by_email(db_session, email))["id"] == second_user_id
+    deleted_user = await user_service.get_user_by_id(db_session, first_user_id)
+    assert deleted_user["deleted_at"] is not None
+    assert deleted_user["apple_id"] is None
+    assert deleted_user["email"] is None
+    assert provider.call_count == 2
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +465,12 @@ async def test_execute_deletion_anonymizes_user_pii(db_session, rich_user):
     """User PII fields are cleared after execution."""
     user_id = rich_user["user_id"]
 
+    result = await db_session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one()
+    user.google_id = f"google-{uuid.uuid4().hex}"
+    user.apple_id = f"apple-{uuid.uuid4().hex}"
+    await db_session.commit()
+
     success = await user_service.execute_account_deletion(db_session, user_id)
     assert success is True
 
@@ -309,8 +481,10 @@ async def test_execute_deletion_anonymizes_user_pii(db_session, rich_user):
     assert user.phone_number is None
     assert user.email is None
     assert user.google_id is None
+    assert user.apple_id is None
     assert user.password_hash is None
     assert user.deletion_scheduled_at is None
+    assert user.deleted_at is not None
     assert user.is_verified is False
 
 
@@ -319,12 +493,25 @@ async def test_execute_deletion_anonymizes_player_pii(db_session, rich_user):
     """Player name becomes 'Deleted Player', other PII fields cleared."""
     player_id = rich_user["player_id"]
 
+    result = await db_session.execute(select(Player).where(Player.id == player_id))
+    player = result.scalar_one()
+    player.first_name = "Delete"
+    player.last_name = "Me"
+    player.height = "6ft"
+    player.preferred_side = "left"
+    player.avp_playerProfileId = 12345
+    player.status = "active"
+    await db_session.commit()
+
     await user_service.execute_account_deletion(db_session, rich_user["user_id"])
 
     result = await db_session.execute(select(Player).where(Player.id == player_id))
     player = result.scalar_one()
 
     assert player.full_name == "Deleted Player"
+    assert player.first_name == ""
+    assert player.last_name == ""
+    assert player.user_id is None
     assert player.nickname is None
     assert player.gender is None
     assert player.level is None
@@ -334,6 +521,15 @@ async def test_execute_deletion_anonymizes_player_pii(db_session, rich_user):
     assert player.date_of_birth is None
     assert player.profile_picture_url is None
     assert player.avatar is None
+    assert player.height is None
+    assert player.preferred_side is None
+    assert player.avp_playerProfileId is None
+    assert player.status is None
+    assert player.created_by_player_id is None
+    assert player.deleted_at is not None
+
+    user = await db_session.scalar(select(User).where(User.id == rich_user["user_id"]))
+    assert user.deleted_at == player.deleted_at
 
 
 @pytest.mark.asyncio
@@ -462,6 +658,31 @@ async def test_execute_deletion_preserves_match_records(db_session, rich_user):
 
 
 @pytest.mark.asyncio
+async def test_execute_deletion_detaches_retained_attribution(db_session, rich_user):
+    """Factual records remain but no longer identify their deleted creator/updater."""
+    player_id = rich_user["player_id"]
+    league = await db_session.get(League, rich_user["league_id"])
+    season = await db_session.get(Season, rich_user["season_id"])
+    sess = await db_session.get(Session, rich_user["session_id"])
+    match = await db_session.get(Match, rich_user["match_id"])
+    court = await db_session.get(Court, rich_user["court_id"])
+    location = await db_session.get(Location, rich_user["location_id"])
+    for record in (league, season, sess, match, court, location):
+        record.created_by = player_id
+        if hasattr(record, "updated_by"):
+            record.updated_by = player_id
+    await db_session.commit()
+
+    await user_service.execute_account_deletion(db_session, rich_user["user_id"])
+
+    for record in (league, season, sess, match, court, location):
+        await db_session.refresh(record)
+        assert record.created_by is None
+        if hasattr(record, "updated_by"):
+            assert record.updated_by is None
+
+
+@pytest.mark.asyncio
 async def test_execute_deletion_preserves_other_users_data(db_session, rich_user):
     """Other users' data is NOT affected by the deletion."""
     other_user_id = rich_user["other_user_id"]
@@ -487,20 +708,71 @@ async def test_execute_deletion_nonexistent_user(db_session):
 
 
 @pytest.mark.asyncio
-@patch("backend.services.s3_service.delete_avatar")
-async def test_execute_deletion_deletes_avatar_from_s3(mock_delete, db_session, user_and_player):
-    """Avatar is deleted from S3 during account deletion."""
+async def test_execute_deletion_enqueues_avatar_for_durable_cleanup(db_session, user_and_player):
+    """Owned avatars are durably queued in the account-deletion transaction."""
     player_id = user_and_player["player_id"]
+    object_key = f"avatars/{player_id}/test.jpg"
 
-    # Set a profile picture URL
     result = await db_session.execute(select(Player).where(Player.id == player_id))
     player = result.scalar_one()
-    player.profile_picture_url = "https://s3.example.com/avatars/test.jpg"
+    player.profile_picture_url = f"https://beach-kings.s3.us-west-2.amazonaws.com/{object_key}"
     await db_session.commit()
 
     await user_service.execute_account_deletion(db_session, user_and_player["user_id"])
 
-    mock_delete.assert_called_once_with("https://s3.example.com/avatars/test.jpg")
+    result = await db_session.execute(
+        select(MediaDeletionJob).where(MediaDeletionJob.object_key == object_key)
+    )
+    job = result.scalar_one()
+    assert job.status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_execute_deletion_removes_reviews_and_durably_queues_photos(db_session, rich_user):
+    """Review/photo rows disappear while each S3 object remains durably tracked."""
+    await user_service.execute_account_deletion(db_session, rich_user["user_id"])
+
+    review_count = await db_session.scalar(
+        select(func.count())
+        .select_from(CourtReview)
+        .where(CourtReview.id == rich_user["review_id"])
+    )
+    assert review_count == 0
+
+    queued_keys = set(
+        (
+            await db_session.execute(
+                select(MediaDeletionJob.object_key).where(
+                    MediaDeletionJob.object_key.in_(
+                        [rich_user["review_photo_key"], rich_user["standalone_photo_key"]]
+                    )
+                )
+            )
+        ).scalars()
+    )
+    assert queued_keys == {rich_user["review_photo_key"], rich_user["standalone_photo_key"]}
+
+
+@pytest.mark.asyncio
+async def test_deleted_profile_and_ugc_cannot_be_reported(db_session, rich_user):
+    """Reporting fails closed after deletion removes content and tombstones its author."""
+    reporter_id = rich_user["other_player_id"]
+    deleted_targets = (
+        ("player", rich_user["player_id"]),
+        ("direct_message", rich_user["direct_message_id"]),
+        ("league_message", rich_user["league_message_id"]),
+        ("court_review", rich_user["review_id"]),
+        ("court_photo", rich_user["standalone_photo_id"]),
+        ("court_review_photo", rich_user["review_photo_id"]),
+    )
+
+    await user_service.execute_account_deletion(db_session, rich_user["user_id"])
+
+    for target_type, target_id in deleted_targets:
+        with pytest.raises(ValueError, match="Report target not found"):
+            await moderation_service._resolve_target(
+                db_session, reporter_id, target_type, target_id
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -521,6 +793,17 @@ async def test_user_dict_includes_deletion_scheduled_at(db_session, user_and_pla
     await user_service.schedule_account_deletion(db_session, user_id)
     user = await user_service.get_user_by_id(db_session, user_id)
     assert user["deletion_scheduled_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_user_dict_includes_permanent_deletion_marker(db_session, user_and_player):
+    """Deleted accounts retain a timestamp that invalidates old access tokens."""
+    user_id = user_and_player["user_id"]
+
+    await user_service.execute_account_deletion(db_session, user_id)
+
+    user = await user_service.get_user_by_id(db_session, user_id)
+    assert user["deleted_at"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -826,7 +1109,7 @@ async def test_poll_loop_calls_process_expired_deletions():
             side_effect=_fake_process,
         ),
         patch(
-            "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
+            "backend.services.auth.account_deletion_service.POLL_INTERVAL_SECONDS",
             0,
         ),
     ):
@@ -858,7 +1141,7 @@ async def test_poll_loop_continues_after_process_raises():
             side_effect=_failing_then_stop,
         ),
         patch(
-            "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
+            "backend.services.auth.account_deletion_service.POLL_INTERVAL_SECONDS",
             0,
         ),
     ):

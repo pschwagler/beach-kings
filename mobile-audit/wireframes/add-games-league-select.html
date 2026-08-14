@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Select League - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+
+
+  /* Content */
+  .content { padding: 16px; padding-bottom: 100px; }
+
+  .section-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .section-desc { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.4; }
+
+  /* League Card */
+  .league-card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; text-decoration: none; color: inherit; border: 1.5px solid transparent; }
+  .league-card:active { border-color: #2a7d9c; background: #f8fcfd; }
+
+  /* League Card Header */
+  .league-card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .league-icon { width: 44px; height: 44px; border-radius: 10px; background: #e8f4f8; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .league-info { flex: 1; }
+  .league-name { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
+  .league-location { font-size: 12px; color: #666; }
+  .league-season { font-size: 11px; color: #2a7d9c; font-weight: 600; margin-top: 3px; }
+
+  /* Action Buttons */
+  .league-action-btn { display: block; width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 700; text-align: center; cursor: pointer; }
+  .btn-continue { background: #d4a843; color: #fff; }
+  .btn-new-session { background: var(--color-primary); color: var(--color-text-inverse); }
+
+  /* Active Session Badge */
+  .active-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; color: #15803d; text-transform: uppercase; margin-bottom: 10px; }
+  .active-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="add-games.html" class="back">&#8592; Back</a>
+  <div class="title">Select League</div>
+  <div class="spacer"></div>
+</div>
+
+<div class="content">
+
+  <div class="section-desc">Choose a league to record a game in.</div>
+
+  <div class="section-label">Your Leagues</div>
+
+  <div class="league-card">
+    <div class="league-card-header">
+      <div class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+      <div class="league-info">
+        <div class="league-name">QBK Open Men - Mornings</div>
+        <div class="league-location">Queen's Beach, Waikiki</div>
+        <div class="league-season">Season 4 - Active</div>
+      </div>
+    </div>
+    <div class="active-badge"><span class="dot"></span> Active Session</div>
+    <a href="score-league.html" class="league-action-btn btn-continue">Continue (7 games)</a>
+  </div>
+
+  <div class="league-card">
+    <div class="league-card-header">
+      <div class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+      <div class="league-info">
+        <div class="league-name">South Bay Doubles</div>
+        <div class="league-location">Manhattan Beach</div>
+        <div class="league-season">Season 2 - Active</div>
+      </div>
+    </div>
+    <a href="score-league.html" class="league-action-btn btn-new-session">Start New Session</a>
+  </div>
+
+  <div class="league-card">
+    <div class="league-card-header">
+      <div class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+      <div class="league-info">
+        <div class="league-name">OB Sunset League</div>
+        <div class="league-location">Ocean Beach, San Diego</div>
+        <div class="league-season">Season 1 - Active</div>
+      </div>
+    </div>
+    <a href="score-league.html" class="league-action-btn btn-new-session">Start New Session</a>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
+    <div class="tab-label active">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

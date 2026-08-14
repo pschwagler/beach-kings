@@ -1,0 +1,260 @@
+/**
+ * Tests for the Home recent-games, leagues, and courts collections.
+ */
+import React from 'react';
+import { render, fireEvent } from '@testing-library/react-native';
+
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+}));
+
+import RecentGamesScroll from '@/components/home/RecentGamesScroll';
+import LeaguesScroll from '@/components/home/LeaguesScroll';
+import CourtsScroll from '@/components/home/CourtsScroll';
+
+beforeEach(() => {
+  mockPush.mockClear();
+});
+
+// ---------------------------------------------------------------------------
+// RecentGamesScroll
+// ---------------------------------------------------------------------------
+describe('RecentGamesScroll', () => {
+  it('renders the empty-state card when there are no matches', () => {
+    const { getByText } = render(<RecentGamesScroll matches={[]} />);
+    expect(getByText('No games yet')).toBeTruthy();
+  });
+
+  it('renders a WIN card for result "W"', () => {
+    const match = {
+      id: 1,
+      result: 'W',
+      score: '21-18',
+      partner: 'Ben',
+      opponent_1: 'Chris',
+      opponent_2: 'Dee',
+      date: '2026-04-01',
+      league_name: 'South Bay',
+    };
+    const { getByText } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    expect(getByText('WIN')).toBeTruthy();
+    expect(getByText('21-18')).toBeTruthy();
+  });
+
+  it('renders a LOSS card when result is not a win', () => {
+    const match = { id: 2, result: 'L', score: '15-21' };
+    const { getByText } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    expect(getByText('LOSS')).toBeTruthy();
+  });
+
+  it('renders an unknown result as pending instead of a loss', () => {
+    const match = { id: 2, result: null, score: null };
+    const { getByText, queryByText } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    expect(getByText('PENDING')).toBeTruthy();
+    expect(queryByText('LOSS')).toBeNull();
+  });
+
+  it('names an open session instead of showing a generic pending chip', () => {
+    const match = { id: 3, result: 'W', session_status: 'pending' };
+    const { getByText } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    expect(getByText('SESSION OPEN')).toBeTruthy();
+  });
+
+  it('explains when ratings wait for a placeholder player account', () => {
+    const match = {
+      id: 4,
+      session_id: 44,
+      result: 'W',
+      partner: 'Guest Player',
+      partner_is_placeholder: true,
+    };
+    const { getByText, getByLabelText } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    expect(getByText('RATING PENDING')).toBeTruthy();
+    expect(
+      getByLabelText(/Rating pending until every player has an account/),
+    ).toBeTruthy();
+  });
+
+  it('caps the number of visible cards at maxItems', () => {
+    const matches = Array.from({ length: 12 }, (_, i) => ({
+      id: i + 1,
+      session_id: i + 1,
+      result: 'W',
+      score: `21-${i}`,
+    }));
+    const { getAllByLabelText } = render(
+      <RecentGamesScroll matches={matches as any} maxItems={3} />,
+    );
+    expect(getAllByLabelText(/^Win/).length).toBe(3);
+  });
+
+  it('defaults to two recent games', () => {
+    const matches = Array.from({ length: 3 }, (_, i) => ({
+      id: i + 1,
+      session_id: i + 1,
+      result: 'W',
+      score: `21-${i}`,
+    }));
+    const { getAllByRole } = render(<RecentGamesScroll matches={matches as any} />);
+    expect(getAllByRole('link')).toHaveLength(2);
+  });
+
+  it('navigates to session when a game card with a session_id is pressed', () => {
+    const match = { id: 1, result: 'W', score: '21-18', session_id: 42 };
+    const { getByLabelText } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    fireEvent.press(getByLabelText('Win, 21-18'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/session/42');
+  });
+
+  it('does not navigate when a game card has no session_id', () => {
+    const match = { id: 1, result: 'W', score: '21-18' };
+    const { queryByRole } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    expect(queryByRole('link')).toBeNull();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LeaguesScroll
+// ---------------------------------------------------------------------------
+describe('LeaguesScroll', () => {
+  it('renders "+ Join a League" when there are no leagues', () => {
+    const { getByText } = render(<LeaguesScroll leagues={[]} />);
+    expect(getByText('+ Join a League')).toBeTruthy();
+  });
+
+  it('does not render Join a League when memberships exist', () => {
+    const { queryByText } = render(
+      <LeaguesScroll leagues={[{ id: 1, name: 'Open' }] as any} />,
+    );
+    expect(queryByText('+ Join a League')).toBeNull();
+  });
+
+  it('defaults to two league rows', () => {
+    const leagues = Array.from({ length: 3 }, (_, index) => ({
+      id: index + 1,
+      name: `League ${index + 1}`,
+    }));
+    const { getAllByRole } = render(<LeaguesScroll leagues={leagues as any} />);
+    expect(getAllByRole('link')).toHaveLength(2);
+  });
+
+  it('pluralises member counts', () => {
+    const leagues = [
+      { id: 1, name: 'Solo', member_count: 1 },
+      { id: 2, name: 'Crew', member_count: 7 },
+    ];
+    const { getByText } = render(<LeaguesScroll leagues={leagues as any} />);
+    expect(getByText('1 player')).toBeTruthy();
+    expect(getByText('7 players')).toBeTruthy();
+  });
+
+  it('shows the rank pill for the current user when a matching standings row exists', () => {
+    const leagues = [
+      {
+        id: 1,
+        name: 'Pro',
+        member_count: 20,
+        standings: [
+          { player_id: 42, season_rank: 3 },
+          { player_id: 77, season_rank: 1 },
+        ],
+      },
+    ];
+    const { getByText } = render(
+      <LeaguesScroll leagues={leagues as any} currentUserPlayerId={42} />,
+    );
+    expect(getByText('3rd Ranked')).toBeTruthy();
+  });
+
+  it('hides the rank pill when no standings row matches the user', () => {
+    const leagues = [
+      {
+        id: 1,
+        name: 'Pro',
+        member_count: 20,
+        standings: [{ player_id: 77, season_rank: 1 }],
+      },
+    ];
+    const { queryByText } = render(
+      <LeaguesScroll leagues={leagues as any} currentUserPlayerId={42} />,
+    );
+    expect(queryByText(/Ranked$/)).toBeNull();
+  });
+
+  it('navigates to the league route when a card is pressed', () => {
+    const leagues = [{ id: 9, name: 'Coastal', member_count: 4 }];
+    const { getByLabelText } = render(
+      <LeaguesScroll leagues={leagues as any} />,
+    );
+    fireEvent.press(getByLabelText('League Coastal'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/league/9');
+  });
+
+  it('navigates to find-leagues when the Join card is pressed', () => {
+    const { getByLabelText } = render(<LeaguesScroll leagues={[]} />);
+    fireEvent.press(getByLabelText('Join a league'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/find-leagues');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CourtsScroll
+// ---------------------------------------------------------------------------
+describe('CourtsScroll', () => {
+  it('renders the empty-state card when there are no courts', () => {
+    const { getByText } = render(<CourtsScroll courts={[]} />);
+    expect(getByText('No courts found nearby')).toBeTruthy();
+  });
+
+  it('renders name + formatted location with distance', () => {
+    const courts = [
+      {
+        id: 1,
+        name: 'Ocean Park',
+        city: 'Santa Monica',
+        distance_miles: 2.35,
+      },
+    ];
+    const { getByText } = render(<CourtsScroll courts={courts as any} />);
+    expect(getByText('Ocean Park')).toBeTruthy();
+    expect(getByText('Santa Monica · 2.4 mi')).toBeTruthy();
+  });
+
+  it('omits distance when not provided', () => {
+    const courts = [{ id: 2, name: 'Dog Beach', city: 'Del Mar' }];
+    const { getByText } = render(<CourtsScroll courts={courts as any} />);
+    expect(getByText('Del Mar')).toBeTruthy();
+  });
+
+  it('navigates to the court route when a card is pressed', () => {
+    const courts = [{ id: 5, name: 'Main St', city: 'SM' }];
+    const { getByLabelText } = render(<CourtsScroll courts={courts as any} />);
+    fireEvent.press(getByLabelText('Court Main St'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/court/5');
+  });
+
+  it('limits the discovery sample to three courts by default', () => {
+    const courts = Array.from({ length: 5 }, (_, index) => ({
+      id: index + 1,
+      name: `Court ${index + 1}`,
+    }));
+    const { getAllByRole } = render(<CourtsScroll courts={courts as any} />);
+    expect(getAllByRole('link')).toHaveLength(3);
+  });
+});

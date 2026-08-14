@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Minimal filesystem-backed AWS CLI fake for backup integration tests.
+
+set -euo pipefail
+
+FAKE_S3_ROOT="${FAKE_S3_ROOT:?FAKE_S3_ROOT is required}"
+
+s3_path() {
+    local uri="$1"
+    printf '%s/%s' "$FAKE_S3_ROOT" "${uri#s3://}"
+}
+
+if [[ "$1 $2" == "s3 cp" ]]; then
+    source_path="$3"
+    destination_path="$4"
+    if [[ "$source_path" == s3://* ]]; then
+        cp "$(s3_path "$source_path")" "$destination_path"
+    elif [[ "$destination_path" == s3://* ]]; then
+        if [[ "${FAKE_AWS_FAIL_UPLOAD:-false}" == true ]]; then
+            exit 42
+        fi
+        resolved_destination="$(s3_path "$destination_path")"
+        mkdir -p "$(dirname "$resolved_destination")"
+        cp "$source_path" "$resolved_destination"
+    else
+        echo "unsupported fake aws copy" >&2
+        exit 2
+    fi
+    exit 0
+fi
+
+if [[ "$1 $2" == "s3api head-object" ]]; then
+    bucket=""
+    key=""
+    shift 2
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --bucket)
+                bucket="$2"
+                shift 2
+                ;;
+            --key)
+                key="$2"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+    test -f "$FAKE_S3_ROOT/$bucket/$key"
+    exit
+fi
+
+if [[ "$1 $2" == "sns publish" ]]; then
+    exit 0
+fi
+
+echo "unsupported fake aws command: $*" >&2
+exit 2

@@ -10,7 +10,7 @@ Tests cover:
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from backend.services.session_data import (
+from backend.services.games.session_data import (
     SESSION_CODE_ALPHABET,
     SESSION_CODE_LENGTH,
     SESSION_CODE_MAX_ATTEMPTS,
@@ -104,9 +104,14 @@ async def test_generate_session_code_raises_after_max_attempts():
 
 @pytest.mark.asyncio
 async def test_can_user_add_match_league_session_returns_true():
-    """League sessions (season_id is not None) always return True."""
+    """League sessions (league_id is not None) always return True.
+
+    The discriminant is ``league_id``, not ``season_id`` — a gap game
+    (league_id set, season_id NULL) is still a league session and must defer to
+    the league-admin check.
+    """
     mock_db = AsyncMock()
-    session_obj = {"season_id": 5, "created_by": 10}
+    session_obj = {"league_id": 5, "season_id": None, "created_by": 10}
 
     result = await can_user_add_match_to_session(
         mock_db, session_id=1, session_obj=session_obj, user_id=99

@@ -87,7 +87,7 @@
   height: 40px;
   border-radius: 50%;
   border: 1.5px solid var(--gray-300);
-  background: #fff;
+  background: var(--bg-surface);
   color: var(--gray-700);
   display: flex;
   align-items: center;
@@ -111,7 +111,7 @@
 .public-player__friend-icon--active:hover {
   border-color: var(--danger);
   color: var(--danger);
-  background: #fff;
+  background: var(--bg-surface);
 }
 
 .public-player__friend-icon--pending {

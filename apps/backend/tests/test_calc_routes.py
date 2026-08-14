@@ -1,13 +1,13 @@
 """Route-layer tests for calc.py endpoints.
 
-Covers: loadsheets 501, calculate-stats status, job status.
+Covers: calculate-stats status, job status.
 POST /api/calculate and GET /api/health already tested in test_api_routes_comprehensive.py.
 """
 
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from backend.api.main import app
-from backend.services import auth_service, user_service
+from backend.services import auth_service, role_service, user_service
 
 
 # ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ from backend.services import auth_service, user_service
 # ---------------------------------------------------------------------------
 
 
-def _make_authed_client(monkeypatch, phone="+10000000000", user_id=1):
+def _make_authed_client(monkeypatch, phone="+10000000000", user_id=1, *, is_system_admin=True):
     """Return (client, headers) with basic auth mocked."""
 
     def fake_verify_token(token):
@@ -34,29 +34,38 @@ def _make_authed_client(monkeypatch, phone="+10000000000", user_id=1):
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
 
+    async def fake_is_system_admin(session, uid):
+        return is_system_admin
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
 
-# ============================================================================
-# POST /api/loadsheets
-# ============================================================================
+class TestCalculateStats:
+    """Tests for the privileged stats rebuild endpoint."""
 
+    def test_system_admin_can_queue_rebuild(self, monkeypatch):
+        mock_queue = MagicMock()
+        mock_queue.enqueue_calculation = AsyncMock(return_value=42)
+        monkeypatch.setattr("backend.api.routes.calc.get_stats_queue", lambda: mock_queue)
+        client, headers = _make_authed_client(monkeypatch, is_system_admin=True)
 
-class TestLoadSheets:
-    """Tests for the disabled loadsheets endpoint."""
+        response = client.post("/api/calculate-stats", json={"league_id": 7}, headers=headers)
 
-    def test_loadsheets_returns_501(self, monkeypatch):
-        """Loadsheets endpoint is disabled and returns 501."""
-        client, headers = _make_authed_client(monkeypatch)
-        response = client.post("/api/loadsheets", headers=headers)
-        assert response.status_code == 501
-        assert "disabled" in response.json()["detail"].lower()
+        assert response.status_code == 200
+        assert response.json()["job_id"] == 42
 
-    def test_loadsheets_requires_auth(self):
-        """Unauthenticated request returns 401/403."""
-        client = TestClient(app)
-        response = client.post("/api/loadsheets")
-        assert response.status_code in (401, 403)
+    def test_non_admin_cannot_queue_rebuild(self, monkeypatch):
+        mock_queue = MagicMock()
+        mock_queue.enqueue_calculation = AsyncMock(return_value=42)
+        monkeypatch.setattr("backend.api.routes.calc.get_stats_queue", lambda: mock_queue)
+        client, headers = _make_authed_client(monkeypatch, is_system_admin=False)
+
+        response = client.post("/api/calculate-stats", json={}, headers=headers)
+
+        assert response.status_code == 403
+        mock_queue.enqueue_calculation.assert_not_awaited()
 
 
 # ============================================================================

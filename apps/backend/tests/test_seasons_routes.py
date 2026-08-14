@@ -9,7 +9,7 @@ Covered here:
 - POST /api/leagues/{league_id}/seasons       (make_require_league_admin)
 - GET  /api/leagues/{league_id}/seasons       (require_user)
 - GET  /api/seasons/{season_id}               (public)
-- PUT  /api/seasons/{season_id}               (get_current_user)
+- PUT  /api/seasons/{season_id}               (league admin/system admin)
 - POST /api/matches/elo                       (public)
 - GET  /api/seasons/{season_id}/matches       (public)
 - POST /api/player-stats                      (public)
@@ -32,7 +32,14 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.services import auth_service, data_service, season_awards_service, user_service
+from backend.services import (
+    auth_service,
+    data_service,
+    friend_service,
+    role_service,
+    season_awards_service,
+    user_service,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -94,6 +101,11 @@ def _make_admin_client(monkeypatch, phone: str = PHONE, user_id: int = USER_ID):
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+
+    async def fake_is_system_admin(session, uid: int) -> bool:
+        return True
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
 
@@ -262,12 +274,20 @@ class TestUpdateSeason:
     """Tests for PUT /api/seasons/{season_id}."""
 
     def test_update_season_success(self, monkeypatch):
-        """Authenticated user can update a season."""
+        """A system admin can update a season."""
         client, headers = _make_user_client(monkeypatch)
+
+        async def fake_get_season(session, season_id):
+            return _SEASON
+
+        async def fake_is_system_admin(session, user):
+            return True
 
         async def fake_update_season(session, season_id, **kwargs):
             return {**_SEASON, **kwargs}
 
+        monkeypatch.setattr(data_service, "get_season", fake_get_season, raising=True)
+        monkeypatch.setattr("backend.api.routes.seasons._is_system_admin", fake_is_system_admin)
         monkeypatch.setattr(data_service, "update_season", fake_update_season, raising=True)
 
         response = client.put(
@@ -282,10 +302,10 @@ class TestUpdateSeason:
         """Returns 404 when season does not exist."""
         client, headers = _make_user_client(monkeypatch)
 
-        async def fake_update_season(session, season_id, **kwargs):
+        async def fake_get_season(session, season_id):
             return None
 
-        monkeypatch.setattr(data_service, "update_season", fake_update_season, raising=True)
+        monkeypatch.setattr(data_service, "get_season", fake_get_season, raising=True)
 
         response = client.put(
             f"/api/seasons/{SEASON_ID}",
@@ -293,6 +313,41 @@ class TestUpdateSeason:
             headers=headers,
         )
         assert response.status_code == 404
+
+    def test_update_season_rejects_non_admin(self, monkeypatch):
+        """An authenticated non-admin cannot update another league's season."""
+        client, headers = _make_user_client(monkeypatch)
+        update_called = False
+
+        async def fake_get_season(session, season_id):
+            return _SEASON
+
+        async def fake_is_system_admin(session, user):
+            return False
+
+        async def fake_has_league_role(session, user_id, league_id, required_role):
+            assert league_id == LEAGUE_ID
+            assert required_role == "admin"
+            return False
+
+        async def fake_update_season(session, season_id, **kwargs):
+            nonlocal update_called
+            update_called = True
+            return {**_SEASON, **kwargs}
+
+        monkeypatch.setattr(data_service, "get_season", fake_get_season, raising=True)
+        monkeypatch.setattr(data_service, "update_season", fake_update_season, raising=True)
+        monkeypatch.setattr("backend.api.routes.seasons._is_system_admin", fake_is_system_admin)
+        monkeypatch.setattr("backend.api.routes.seasons._has_league_role", fake_has_league_role)
+
+        response = client.put(
+            f"/api/seasons/{SEASON_ID}",
+            json={"name": "Unauthorized Rename"},
+            headers=headers,
+        )
+
+        assert response.status_code == 403
+        assert update_called is False
 
     def test_update_season_unauthenticated(self):
         """Unauthenticated request is rejected."""
@@ -527,9 +582,13 @@ class TestPublicStatsEndpoints:
         """GET /api/players/{player_id}/season/{season_id}/partnership-opponent-stats."""
         client = TestClient(app)
 
+        async def fake_get_player(session, player_id):
+            return {"id": player_id}
+
         async def fake_get_stats(session, player_id, season_id):
             return _PARTNERSHIP_STATS_RESPONSE
 
+        monkeypatch.setattr(data_service, "get_player_by_id", fake_get_player, raising=True)
         monkeypatch.setattr(
             data_service,
             "get_player_season_partnership_opponent_stats",
@@ -606,9 +665,13 @@ class TestPublicStatsEndpoints:
         """GET /api/players/{player_id}/league/{league_id}/partnership-opponent-stats."""
         client = TestClient(app)
 
+        async def fake_get_player(session, player_id):
+            return {"id": player_id}
+
         async def fake_get_stats(session, player_id, league_id):
             return _PARTNERSHIP_STATS_RESPONSE
 
+        monkeypatch.setattr(data_service, "get_player_by_id", fake_get_player, raising=True)
         monkeypatch.setattr(
             data_service,
             "get_player_league_partnership_opponent_stats",
@@ -623,6 +686,112 @@ class TestPublicStatsEndpoints:
         body = response.json()
         assert "partnerships" in body
         assert "opponents" in body
+
+    def test_league_player_stats_full_success(self, monkeypatch):
+        """GET /api/leagues/{league_id}/players/{player_id}/stats returns full shape."""
+        client = TestClient(app)
+
+        captured: dict = {}
+
+        async def fake_full(session, **kwargs):
+            captured.update(kwargs)
+            return {
+                "player_id": kwargs["player_id"],
+                "display_name": "Pat S.",
+                "initials": "PS",
+                "level": "Open",
+                "location_name": "San Diego, CA",
+                "league_id": kwargs["league_id"],
+                "league_name": "QBK Open Men",
+                "season_id": kwargs["season_id"],
+                "season_name": None,
+                "rank": None,
+                "rating": 0,
+                "rating_delta": None,
+                "points": None,
+                "overall": {
+                    "wins": 5,
+                    "losses": 2,
+                    "win_rate": 71.4,
+                    "games_played": 7,
+                    "point_diff": 1.2,
+                },
+                "partners": [],
+                "opponents": [],
+                "game_history": [],
+                "is_self": False,
+            }
+
+        monkeypatch.setattr(data_service, "get_league_player_stats_full", fake_full, raising=True)
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}/players/{PLAYER_ID}/stats")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["player_id"] == PLAYER_ID
+        assert body["league_id"] == LEAGUE_ID
+        assert body["overall"]["wins"] == 5
+        assert body["overall"]["losses"] == 2
+        assert body["partners"] == []
+        assert body["is_self"] is False
+        # Anonymous request should not pass a viewer player id.
+        assert captured["current_user_player_id"] is None
+        assert captured["season_id"] is None
+
+    def test_league_player_stats_full_with_season_id(self, monkeypatch):
+        """Optional season_id query param is forwarded to the service."""
+        client = TestClient(app)
+
+        captured: dict = {}
+
+        async def fake_full(session, **kwargs):
+            captured.update(kwargs)
+            return {
+                "player_id": kwargs["player_id"],
+                "display_name": "Pat S.",
+                "initials": "PS",
+                "level": None,
+                "location_name": None,
+                "league_id": kwargs["league_id"],
+                "league_name": "L",
+                "season_id": kwargs["season_id"],
+                "season_name": "Spring 2024",
+                "rank": None,
+                "rating": 0,
+                "rating_delta": None,
+                "points": None,
+                "overall": {
+                    "wins": 0,
+                    "losses": 0,
+                    "win_rate": 0.0,
+                    "games_played": 0,
+                    "point_diff": 0.0,
+                },
+                "partners": [],
+                "opponents": [],
+                "game_history": [],
+                "is_self": False,
+            }
+
+        monkeypatch.setattr(data_service, "get_league_player_stats_full", fake_full, raising=True)
+
+        response = client.get(
+            f"/api/leagues/{LEAGUE_ID}/players/{PLAYER_ID}/stats?season_id={SEASON_ID}"
+        )
+        assert response.status_code == 200
+        assert captured["season_id"] == SEASON_ID
+        assert response.json()["season_name"] == "Spring 2024"
+
+    def test_league_player_stats_full_not_found(self, monkeypatch):
+        """Missing player/league/season returns 404."""
+        client = TestClient(app)
+
+        async def fake_full(session, **kwargs):
+            return None
+
+        monkeypatch.setattr(data_service, "get_league_player_stats_full", fake_full, raising=True)
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}/players/{PLAYER_ID}/stats")
+        assert response.status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -793,3 +962,66 @@ class TestFinalizeSeasonAwards:
         client = TestClient(app)
         response = client.post(f"/api/seasons/{SEASON_ID}/finalize-awards")
         assert response.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/leagues/{league_id}/players/{player_id}/stats — caller resolution
+# ---------------------------------------------------------------------------
+
+
+class TestLeaguePlayerStatsCallerResolution:
+    """
+    Regression tests for the league-player-stats endpoint's caller resolution.
+
+    The optional-auth user dict does NOT contain ``player_id`` (only
+    ``require_verified_player`` adds it). The route must resolve the caller's
+    player_id from ``user["id"]`` via friend_service.get_player_id_for_user;
+    otherwise the private-league gate would 403 legitimate members and
+    ``is_self`` would always be False.
+    """
+
+    VIEWED_PLAYER_ID = 2
+    CALLER_PLAYER_ID = 777
+
+    def _capture_stats_call(self, monkeypatch):
+        """Patch the service to capture kwargs; return the captured dict."""
+        captured: dict = {}
+
+        async def fake_stats(session, **kwargs):
+            captured.update(kwargs)
+            return {"player_id": kwargs.get("player_id"), "is_self": False}
+
+        monkeypatch.setattr(data_service, "get_league_player_stats_full", fake_stats, raising=True)
+        return captured
+
+    def test_authenticated_caller_player_id_resolved_from_user_id(self, monkeypatch):
+        """An authed caller's player_id is resolved and passed to the service."""
+        client, headers = _make_user_client(monkeypatch)
+        captured = self._capture_stats_call(monkeypatch)
+
+        async def fake_resolve(session, user_id):
+            assert user_id == USER_ID
+            return self.CALLER_PLAYER_ID
+
+        monkeypatch.setattr(friend_service, "get_player_id_for_user", fake_resolve, raising=True)
+
+        response = client.get(
+            f"/api/leagues/{LEAGUE_ID}/players/{self.VIEWED_PLAYER_ID}/stats",
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        # The resolved player_id (not None) must reach BOTH gate + is_self params.
+        assert captured["caller_player_id"] == self.CALLER_PLAYER_ID
+        assert captured["current_user_player_id"] == self.CALLER_PLAYER_ID
+
+    def test_unauthenticated_caller_passes_none(self, monkeypatch):
+        """An anonymous request passes caller_player_id=None (public read)."""
+        client = TestClient(app)
+        captured = self._capture_stats_call(monkeypatch)
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}/players/{self.VIEWED_PLAYER_ID}/stats")
+
+        assert response.status_code == 200
+        assert captured["caller_player_id"] is None
+        assert captured["current_user_player_id"] is None

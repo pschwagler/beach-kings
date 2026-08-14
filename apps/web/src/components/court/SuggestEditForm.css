@@ -1,0 +1,29 @@
+.suggest-edit__intro { margin: 0 0 16px; color: var(--gray-600); font-size: 13px; line-height: 1.5; }
+
+.suggest-edit__section {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--gray-50);
+}
+
+.suggest-edit__section legend { padding: 0 6px; color: var(--gray-900); font-size: 14px; font-weight: 750; }
+.suggest-edit__section > p { margin: 0 0 12px; color: var(--gray-600); font-size: 12px; }
+.suggest-edit__pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.suggest-edit__pair .court-review-form__field { min-width: 0; }
+.suggest-edit__section select,
+.suggest-edit__section textarea { width: 100%; padding: 8px 10px; color: var(--gray-900); border: 1px solid var(--gray-300); border-radius: 6px; background: var(--bg-surface); font: inherit; resize: vertical; }
+.suggest-edit__section label span { float: right; color: var(--gray-500); font-size: 11px; font-weight: 500; }
+
+.suggest-edit__pin-toggle { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.suggest-edit__pin-toggle input { margin-top: 3px; }
+.suggest-edit__pin-toggle span { display: flex; float: none !important; flex-direction: column; color: var(--gray-800) !important; font-size: 13px !important; }
+.suggest-edit__pin-toggle small { margin-top: 2px; color: var(--gray-600); font-weight: 400; }
+.suggest-edit__pin-panel { margin-top: 14px; }
+.suggest-edit__pin-panel > p { margin: 0 0 8px; color: var(--gray-600); font-size: 12px; }
+
+@media (max-width: 640px) {
+  .suggest-edit__pair { grid-template-columns: 1fr; gap: 0; }
+  .suggest-edit__section { padding: 13px; }
+}

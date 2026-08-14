@@ -10,6 +10,11 @@ or misconfigured.
 """
 
 import os
+
+# This must be set before importing backend.database.db so its shared engine is
+# configured for pytest's multiple event loops rather than with a QueuePool.
+os.environ.setdefault("ENV", "test")
+
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
@@ -76,8 +81,26 @@ async def _patch_missing_columns(conn):
         # Migration 024 — Google SSO
         ("users", "auth_provider", "VARCHAR NOT NULL DEFAULT 'phone'"),
         ("users", "google_id", "VARCHAR"),
+        # Apple SSO
+        ("users", "apple_id", "VARCHAR"),
         # Migration 026 — Account deletion
         ("users", "deletion_scheduled_at", "TIMESTAMPTZ"),
+        # Migration 059 — irreversible account deletion marker
+        ("users", "deleted_at", "TIMESTAMPTZ"),
+        ("users", "moderation_status", "VARCHAR(20) NOT NULL DEFAULT 'active'"),
+        ("users", "moderation_expires_at", "TIMESTAMPTZ"),
+        ("users", "moderation_case_id", "INTEGER"),
+        ("users", "moderation_updated_at", "TIMESTAMPTZ"),
+        # Migration 067 — persistent deleted-player tombstone
+        ("players", "deleted_at", "TIMESTAMPTZ"),
+        # Migration 040 — track when a password was last changed
+        ("users", "password_changed_at", "TIMESTAMPTZ"),
+        # Migration 074 — revoke credentials after password replacement
+        ("users", "session_version", "INTEGER NOT NULL DEFAULT 0"),
+        ("refresh_tokens", "session_version", "INTEGER NOT NULL DEFAULT 0"),
+        # Privacy feature — profile visibility toggles
+        ("users", "profile_is_private", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("users", "show_game_history", "BOOLEAN NOT NULL DEFAULT FALSE"),
         # Migration 020 — court discovery columns on the courts table
         ("courts", "description", "TEXT"),
         ("courts", "court_count", "INTEGER"),
@@ -92,6 +115,10 @@ async def _patch_missing_columns(conn):
         ("courts", "hours", "TEXT"),
         ("courts", "phone", "VARCHAR(30)"),
         ("courts", "website", "VARCHAR(500)"),
+        ("courts", "wind_exposure", "VARCHAR(20)"),
+        ("courts", "wind_notes", "VARCHAR(140)"),
+        ("courts", "sand_depth", "VARCHAR(20)"),
+        ("courts", "sand_notes", "VARCHAR(140)"),
         ("courts", "latitude", "FLOAT"),
         ("courts", "longitude", "FLOAT"),
         ("courts", "average_rating", "FLOAT"),
@@ -101,15 +128,68 @@ async def _patch_missing_columns(conn):
         ("courts", "slug", "VARCHAR(200)"),
         ("courts", "created_by", "INTEGER"),
         ("courts", "updated_by", "INTEGER"),
+        ("courts", "catalog_managed", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("courts", "catalog_source", "VARCHAR(100)"),
+        ("courts", "catalog_revision", "VARCHAR(64)"),
+        ("regions", "is_active", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        ("regions", "catalog_managed", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("regions", "catalog_source", "VARCHAR(100)"),
+        ("regions", "catalog_revision", "VARCHAR(64)"),
+        ("locations", "is_active", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        ("locations", "catalog_managed", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("locations", "catalog_source", "VARCHAR(100)"),
+        ("locations", "catalog_revision", "VARCHAR(64)"),
+        ("court_tags", "is_active", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        ("court_tags", "catalog_managed", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("court_tags", "catalog_source", "VARCHAR(100)"),
+        ("court_tags", "catalog_revision", "VARCHAR(64)"),
         # Migration 037 — session location metadata
         ("sessions", "location_id", "VARCHAR REFERENCES locations(id)"),
         ("sessions", "latitude", "FLOAT"),
         ("sessions", "longitude", "FLOAT"),
+        # Migration 046 — expanded create-session form fields
+        ("sessions", "start_time", "VARCHAR"),
+        ("sessions", "session_type", "VARCHAR"),
+        ("sessions", "max_players", "INTEGER"),
+        ("sessions", "notes", "TEXT"),
+        # Player name split columns
+        ("players", "first_name", "VARCHAR NOT NULL DEFAULT ''"),
+        ("players", "last_name", "VARCHAR NOT NULL DEFAULT ''"),
+        # Feedback category column
+        ("feedback", "category", "VARCHAR(50) NOT NULL DEFAULT 'feedback'"),
+        # Migration 048 — lifetime average point differential
+        ("player_global_stats", "avg_point_diff", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+        # Migration 052 — direct league ownership on sessions
+        ("sessions", "league_id", "INTEGER REFERENCES leagues(id) ON DELETE SET NULL"),
+        # Migration 055 — per-session ranked intent
+        ("sessions", "is_ranked", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        # Migrations 057-058 — notification lifecycle and deduplication
+        ("notifications", "dismissed_at", "TIMESTAMPTZ"),
+        ("notifications", "dedup_key", "VARCHAR(255)"),
+        # Migration 060 — UGC safety foundation
+        ("notifications", "actor_player_id", "INTEGER REFERENCES players(id) ON DELETE SET NULL"),
+        # Interaction restriction revocation support
+        ("interaction_restrictions", "revoked_at", "TIMESTAMPTZ"),
+        # Migration 061 — installation-scoped push registration
+        ("device_tokens", "installation_id", "VARCHAR(128)"),
+        ("device_tokens", "unregister_secret_hash", "VARCHAR(64)"),
+        ("device_tokens", "last_registered_at", "TIMESTAMPTZ DEFAULT NOW()"),
+        ("direct_messages", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("league_messages", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("court_reviews", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("court_review_photos", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("court_photos", "moderation_visibility", "VARCHAR(20) NOT NULL DEFAULT 'visible'"),
+        ("court_edit_suggestions", "note", "VARCHAR(280)"),
+        ("court_edit_suggestions", "applied_changes", "JSONB"),
     ]
     # Migration 024 — make phone_number and password_hash nullable for Google SSO
+    # Migration 045 — make verification_codes.phone_number nullable for email flows
     nullable_patches = [
         ("users", "phone_number"),
         ("users", "password_hash"),
+        ("verification_codes", "phone_number"),
+        # Migration 050 — open-ended (rolling) seasons have no end_date
+        ("seasons", "end_date"),
     ]
     for table, column in nullable_patches:
         tbl_exists = await conn.execute(
@@ -146,6 +226,59 @@ async def _patch_missing_columns(conn):
                 await conn.execute(
                     text(f'CREATE UNIQUE INDEX "{idx_name}" ON {table} ("{column}")')
                 )
+
+    # Migration 051 — partial unique index: at most one open-ended season per
+    # league. create_all won't add it to a pre-existing seasons table.
+    partial_index_patches = [
+        (
+            "seasons",
+            "uq_seasons_open_per_league",
+            "CREATE UNIQUE INDEX uq_seasons_open_per_league "
+            "ON seasons (league_id) WHERE end_date IS NULL",
+        ),
+    ]
+    # Plain column-level index patches — run after the column patches block below
+    # so the column is guaranteed to exist before the index is created.
+    column_index_patches = [
+        # Migration 052 — index on sessions.league_id (column added in patches list above)
+        (
+            "sessions",
+            "league_id",
+            "idx_sessions_league",
+            "CREATE INDEX IF NOT EXISTS idx_sessions_league ON sessions (league_id)",
+        ),
+        (
+            "notifications",
+            "dedup_key",
+            "idx_notifications_dedup_key",
+            "CREATE INDEX IF NOT EXISTS idx_notifications_dedup_key ON notifications (dedup_key)",
+        ),
+        (
+            "notifications",
+            "dedup_key",
+            "uq_notifications_user_active_dedup",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_notifications_user_active_dedup "
+            "ON notifications (user_id, dedup_key) "
+            "WHERE dedup_key IS NOT NULL AND dismissed_at IS NULL",
+        ),
+        (
+            "device_tokens",
+            "installation_id",
+            "uq_device_tokens_installation_id",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_device_tokens_installation_id "
+            "ON device_tokens (installation_id)",
+        ),
+    ]
+    for table, idx_name, ddl in partial_index_patches:
+        idx_exists = await conn.execute(
+            text("SELECT 1 FROM pg_indexes WHERE indexname = :idx"), {"idx": idx_name}
+        )
+        if idx_exists.scalar() is None:
+            tbl_exists = await conn.execute(
+                text("SELECT 1 FROM information_schema.tables WHERE table_name = :t"), {"t": table}
+            )
+            if tbl_exists.scalar() is not None:
+                await conn.execute(text(ddl))
 
     # Migration 021 — change court_edit_suggestions.changes from Text to JSONB
     type_patches = [
@@ -188,6 +321,85 @@ async def _patch_missing_columns(conn):
         if col_exists.scalar() is None:
             await conn.execute(text(f'ALTER TABLE {table} ADD COLUMN "{column}" {ddl}'))
 
+    # Migration 062 expands the resolution lifecycle. Existing reusable test
+    # databases need the altered constraint because create_all cannot replace it.
+    suggestions_exists = await conn.execute(
+        text("SELECT 1 FROM information_schema.tables WHERE table_name = 'court_edit_suggestions'")
+    )
+    if suggestions_exists.scalar() is not None:
+        await conn.execute(
+            text(
+                "ALTER TABLE court_edit_suggestions "
+                "DROP CONSTRAINT IF EXISTS ck_court_edit_suggestions_status"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE court_edit_suggestions ADD CONSTRAINT "
+                "ck_court_edit_suggestions_status CHECK "
+                "(status IN ('pending', 'approved', 'partially_applied', 'rejected'))"
+            )
+        )
+
+    # Column-level index patches — run after the patches loop so their columns exist.
+    for table, column, idx_name, ddl in column_index_patches:
+        col_exists = await conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = :t AND column_name = :c"
+            ),
+            {"t": table, "c": column},
+        )
+        if col_exists.scalar() is not None:
+            # Column exists; create the index only if it doesn't exist yet
+            idx_exists = await conn.execute(
+                text("SELECT 1 FROM pg_indexes WHERE indexname = :idx"), {"idx": idx_name}
+            )
+            if idx_exists.scalar() is None:
+                await conn.execute(text(ddl))
+
+    # Migration 058 replaces the directional all-history constraint with an
+    # unordered pending-only index. Existing rows are audited, never rewritten.
+    friend_requests_exists = await conn.execute(
+        text("SELECT 1 FROM information_schema.tables WHERE table_name = 'friend_requests'")
+    )
+    if friend_requests_exists.scalar() is not None:
+        pending_duplicates = await conn.execute(
+            text(
+                "SELECT 1 FROM friend_requests WHERE status = 'pending' "
+                "GROUP BY LEAST(sender_player_id, receiver_player_id), "
+                "GREATEST(sender_player_id, receiver_player_id) "
+                "HAVING COUNT(*) > 1 LIMIT 1"
+            )
+        )
+        if pending_duplicates.scalar() is not None:
+            raise RuntimeError(
+                "Test database has duplicate pending friend requests; refusing "
+                "to rewrite them. Use a fresh test database."
+            )
+        old_constraint = await conn.execute(
+            text("SELECT 1 FROM pg_constraint WHERE conname = 'uq_friend_request_sender_receiver'")
+        )
+        if old_constraint.scalar() is not None:
+            await conn.execute(
+                text(
+                    "ALTER TABLE friend_requests DROP CONSTRAINT uq_friend_request_sender_receiver"
+                )
+            )
+        pending_index = await conn.execute(
+            text("SELECT 1 FROM pg_indexes WHERE indexname = 'uq_friend_requests_pending_pair'")
+        )
+        if pending_index.scalar() is None:
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_friend_requests_pending_pair "
+                    "ON friend_requests ("
+                    "LEAST(sender_player_id, receiver_player_id), "
+                    "GREATEST(sender_player_id, receiver_player_id)"
+                    ") WHERE status = 'pending'"
+                )
+            )
+
 
 @pytest_asyncio.fixture(scope="function")
 async def test_engine():
@@ -199,6 +411,17 @@ async def test_engine():
         echo=False,
         poolclass=NullPool,  # No connection pooling - each operation gets a new connection
         pool_pre_ping=True,
+        # Defense in depth: bound how long any statement / lock-wait can block.
+        # If a background task leaks and holds a lock, the next test's TRUNCATE
+        # fails fast (lock_timeout) instead of hanging the whole suite forever —
+        # so one DB issue can no longer poison every later test.
+        connect_args={
+            "timeout": 10,  # connection-acquisition timeout (seconds)
+            "server_settings": {
+                "lock_timeout": "5000",  # ms: abort if a lock isn't granted in 5s
+                "statement_timeout": "30000",  # ms: no single query runs past 30s
+            },
+        },
     )
 
     # Create all tables
@@ -231,6 +454,30 @@ async def test_engine():
     db.AsyncSessionLocal = test_session_maker
 
     yield engine
+
+    # Drain in-flight stats-calc background tasks BEFORE disposing the engine.
+    # enqueue_calculation() spawns detached tasks that open their own session via
+    # the monkeypatched AsyncSessionLocal; if one outlives its test it keeps a
+    # connection/lock open and deadlocks the next test's TRUNCATE (the historical
+    # "async-fixture timeout cascade"). Draining here removes the cause.
+    # Best-effort: teardown must never fail on a background job error.
+    try:
+        from backend.services.stats.stats_queue import get_stats_queue
+
+        await get_stats_queue().drain(cancel=True)
+    except Exception:
+        pass
+
+    # Dispose the app's shared runtime engine (a QueuePool created once at import).
+    # Route tests reach it through the app lifespan (init_database / background
+    # worker), and its pooled connections would otherwise be reused across the
+    # per-function event loops — the "Future attached to a different loop" errors
+    # that then hold locks and make the next test's TRUNCATE fail on dirty state.
+    # Disposing here forces each test to open fresh connections on its own loop.
+    try:
+        await db.engine.dispose()
+    except Exception:
+        pass
 
     # Restore original AsyncSessionLocal
     db.AsyncSessionLocal = original_async_session_local

@@ -44,7 +44,9 @@ test.describe('Weekly Schedules', () => {
     // Set duration
     await page.fill('#duration-hours', '2.5');
 
-    // Start and end dates should be pre-filled
+    // Start date is pre-filled; end date is required and must be set
+    const endDate = new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0];
+    await page.fill('#end-date', endDate);
 
     // Submit
     await page.locator('button.league-text-button.primary', {

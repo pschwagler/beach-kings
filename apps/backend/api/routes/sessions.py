@@ -1,26 +1,34 @@
 """Session management route handlers (league and non-league)."""
 
 import logging
+import re
 from datetime import datetime
 from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
 from backend.database.models import (
     Court,
+    EloHistory,
     Season,
     Player,
     Session,
     SessionStatus,
     LeagueMember,
     League,
+    Match,
+    SessionParticipant,
 )
-from backend.services import data_service
-from backend.services.notification_service import notify_players_about_session_submitted
+from backend.services import data_service, interaction_policy
+from backend.services.notifications.notification_service import (
+    notify_players_about_session_submitted,
+)
 from backend.api.auth_dependencies import (
+    _has_league_role,
+    _is_system_admin,
     get_current_user,
     make_require_league_member,
 )
@@ -38,6 +46,7 @@ from backend.models.schemas import (
     SessionListItemResponse,
     SessionMatchItemResponse,
     SessionParticipantItemResponse,
+    SessionRosterDetailResponse,
     SessionWithStatusResponse,
     StatusResponse,
     SubmitSessionResponse,
@@ -45,6 +54,108 @@ from backend.models.schemas import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _parse_session_number(session_name: str) -> int:
+    """
+    Extract the session number from a session name.
+
+    Session names follow the convention:
+      - "M/D/YYYY"            → session #1 (first session of the day)
+      - "M/D/YYYY Session #N" → session #N
+
+    Returns 1 if no number suffix is found.
+    """
+    match = re.search(r"Session #(\d+)", session_name)
+    return int(match.group(1)) if match else 1
+
+
+def _build_games_and_user_stats(
+    raw_games: list[dict],
+    player_id: int | None,
+    rating_by_match: dict[int, float] | None = None,
+) -> tuple[list[dict], int, int, float | None]:
+    """
+    Build the ordered games list and compute user wins/losses/rating change.
+
+    Games are numbered sequentially starting at 1 in insertion order
+    (oldest first — raw_games comes in reverse-id order from
+    get_session_matches, so we reverse it here).
+
+    Args:
+        raw_games: Raw match dicts from data_service.get_session_matches.
+        player_id: The calling user's player id (for win/loss counting).
+        rating_by_match: Map of match_id -> the calling player's global ELO
+            change for that match (from EloHistory). When None, no rating
+            data is available and per-game/session rating changes stay null.
+
+    Returns:
+        (games, user_wins, user_losses, user_rating_change)
+        user_rating_change is the sum of the player's per-game ELO changes
+        across the session, or None when no ELO history exists yet (e.g. an
+        active/unranked session whose stats have not been calculated).
+    """
+    # rating_by_match is built solely from EloHistory rows (elo_change is
+    # NOT NULL), so a non-empty map always contains at least one real rating
+    # for a game in this session — no need to track a separate "saw a rating"
+    # flag while iterating.
+    ratings = rating_by_match or {}
+    has_ratings = bool(ratings)
+    ordered = list(reversed(raw_games))
+    games: list[dict] = []
+    user_wins = 0
+    user_losses = 0
+    rating_total = 0.0
+
+    for idx, g in enumerate(ordered, start=1):
+        game_rating = ratings.get(g["id"])
+        if game_rating is not None:
+            rating_total += game_rating
+        games.append(
+            {
+                "id": g["id"],
+                "game_number": idx,
+                "team1_player1_id": g.get("team1_player1_id"),
+                "team1_player2_id": g.get("team1_player2_id"),
+                "team2_player1_id": g.get("team2_player1_id"),
+                "team2_player2_id": g.get("team2_player2_id"),
+                "team1_player1_name": g.get("team1_player1_name") or "",
+                "team1_player2_name": g.get("team1_player2_name") or "",
+                "team2_player1_name": g.get("team2_player1_name") or "",
+                "team2_player2_name": g.get("team2_player2_name") or "",
+                "team1_score": g.get("team1_score"),
+                "team2_score": g.get("team2_score"),
+                "winner": g.get("winner"),
+                "rating_change": game_rating,
+                "is_ranked": g.get("is_ranked"),
+            }
+        )
+
+        if player_id is None or g.get("winner") is None:
+            continue
+
+        on_team1 = player_id in (
+            g.get("team1_player1_id"),
+            g.get("team1_player2_id"),
+        )
+        on_team2 = player_id in (
+            g.get("team2_player1_id"),
+            g.get("team2_player2_id"),
+        )
+        winner = g["winner"]
+        if on_team1:
+            if winner == 1:
+                user_wins += 1
+            else:
+                user_losses += 1
+        elif on_team2:
+            if winner == 2:
+                user_wins += 1
+            else:
+                user_losses += 1
+
+    user_rating_change = round(rating_total, 1) if has_ratings else None
+    return games, user_wins, user_losses, user_rating_change
 
 
 async def _resolve_session_context(
@@ -67,20 +178,26 @@ async def _resolve_session_context(
         Tuple of (session_name, league_id, league_name)
     """
     sess_result = await db_session.execute(
-        select(Session.name, Session.season_id).where(Session.id == session_id)
+        select(Session.name, Session.season_id, Session.league_id).where(Session.id == session_id)
     )
     row = sess_result.first()
     session_name = (row[0] if row else None) or "a session"
     season_id = row[1] if row else None
+    session_league_id = row[2] if row else None
 
     league_name = None
 
-    # If league_id not provided, resolve from session's season
-    if league_id is None and season_id:
-        season_result = await db_session.execute(
-            select(Season.league_id).where(Season.id == season_id)
-        )
-        league_id = season_result.scalar_one_or_none()
+    # Prefer Session.league_id directly (set for both season sessions and gap
+    # sessions).  Only fall back to the Season join for pre-migration rows where
+    # Session.league_id may be NULL but a season link exists.
+    if league_id is None:
+        if session_league_id is not None:
+            league_id = session_league_id
+        elif season_id:
+            season_result = await db_session.execute(
+                select(Season.league_id).where(Season.id == season_id)
+            )
+            league_id = season_result.scalar_one_or_none()
 
     # Look up league name
     if league_id:
@@ -134,12 +251,17 @@ async def is_user_admin_of_session_league(
 ) -> bool:
     """Check if user is admin of the league that the session belongs to.
 
-    Uses a single joined query: Session -> Season -> LeagueMember -> Player.
+    Uses a single joined query: LeagueMember -> Session (via Session.league_id)
+    -> Player.  Derives the league directly from Session.league_id so that
+    gap-game sessions (league_id set, season_id NULL) resolve correctly.
+
+    Returns False for pickup sessions (league_id NULL) because the join on
+    Session.league_id == LeagueMember.league_id matches nothing when league_id
+    is NULL.  Returns False for nonexistent session_id without raising.
     """
     result = await session.execute(
         select(LeagueMember.role)
-        .join(Season, Season.league_id == LeagueMember.league_id)
-        .join(Session, Session.season_id == Season.id)
+        .join(Session, Session.league_id == LeagueMember.league_id)
         .join(Player, Player.id == LeagueMember.player_id)
         .where(
             Session.id == session_id,
@@ -149,6 +271,90 @@ async def is_user_admin_of_session_league(
         .limit(1)
     )
     return result.scalar_one_or_none() is not None
+
+
+def _session_not_found(session_id: int) -> HTTPException:
+    """Hide whether a private session ID exists from unauthorized callers."""
+    return HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+
+async def require_session_collaborator(
+    db_session: AsyncSession,
+    session_obj: dict,
+    user: dict,
+) -> None:
+    """Require access to collaborate in a session.
+
+    League sessions are private to league members. Pickup sessions are
+    collaborative for their creator, invited participants, and players already
+    recorded in a match. System administrators can access either kind.
+    """
+    if await _is_system_admin(db_session, user):
+        return
+
+    session_id = session_obj["id"]
+    league_id = session_obj.get("league_id")
+    if league_id is not None:
+        allowed = await _has_league_role(
+            db_session,
+            user_id=user["id"],
+            league_id=league_id,
+            required_role=None,
+        )
+    else:
+        allowed = await data_service.can_user_add_match_to_session(
+            db_session,
+            session_id,
+            session_obj,
+            user["id"],
+        )
+
+    if not allowed:
+        raise _session_not_found(session_id)
+
+
+async def require_session_metadata_editor(
+    db_session: AsyncSession,
+    session_obj: dict,
+    user: dict,
+) -> None:
+    """Require league-admin access or pickup-session collaboration."""
+    if session_obj.get("league_id") is None:
+        await require_session_collaborator(db_session, session_obj, user)
+        return
+
+    if await _is_system_admin(db_session, user):
+        return
+    if not await is_user_admin_of_session_league(
+        db_session,
+        user["id"],
+        session_obj["id"],
+    ):
+        raise _session_not_found(session_obj["id"])
+
+
+async def require_session_manager(
+    db_session: AsyncSession,
+    session_obj: dict,
+    user: dict,
+) -> None:
+    """Require a league admin or the creator of a pickup session."""
+    if await _is_system_admin(db_session, user):
+        return
+
+    if session_obj.get("league_id") is not None:
+        if await is_user_admin_of_session_league(
+            db_session,
+            user["id"],
+            session_obj["id"],
+        ):
+            return
+    else:
+        player = await data_service.get_player_by_user_id(db_session, user["id"])
+        if player and session_obj.get("created_by") == player["id"]:
+            return
+
+    raise _session_not_found(session_obj["id"])
 
 
 # ---------------------------------------------------------------------------
@@ -175,15 +381,63 @@ async def get_league_sessions(
         List of session objects for the league
     """
     try:
+        league_session_ids = select(Session.id).where(Session.league_id == league_id)
+        game_counts = (
+            select(
+                Match.session_id.label("session_id"),
+                func.count(Match.id).label("game_count"),
+            )
+            .where(Match.session_id.in_(league_session_ids))
+            .group_by(Match.session_id)
+            .subquery()
+        )
+        session_player_rows = union_all(
+            select(
+                Match.session_id.label("session_id"),
+                Match.team1_player1_id.label("player_id"),
+            ).where(Match.session_id.in_(league_session_ids)),
+            select(Match.session_id, Match.team1_player2_id).where(
+                Match.session_id.in_(league_session_ids)
+            ),
+            select(Match.session_id, Match.team2_player1_id).where(
+                Match.session_id.in_(league_session_ids)
+            ),
+            select(Match.session_id, Match.team2_player2_id).where(
+                Match.session_id.in_(league_session_ids)
+            ),
+            select(SessionParticipant.session_id, SessionParticipant.player_id).where(
+                SessionParticipant.session_id.in_(league_session_ids)
+            ),
+        ).subquery()
+        player_counts = (
+            select(
+                session_player_rows.c.session_id,
+                func.count(func.distinct(session_player_rows.c.player_id)).label("player_count"),
+            )
+            .join(Player, Player.id == session_player_rows.c.player_id)
+            .where(
+                session_player_rows.c.player_id.is_not(None),
+                Player.deleted_at.is_(None),
+            )
+            .group_by(session_player_rows.c.session_id)
+            .subquery()
+        )
+
+        # Filter by Session.league_id directly so gap sessions (season_id=NULL,
+        # league_id set) appear in the league's session list.  The previous
+        # INNER join on Season silently excluded all gap sessions.
         query = (
             select(
                 Session,
                 Court.name.label("court_name"),
                 Court.slug.label("court_slug"),
+                func.coalesce(game_counts.c.game_count, 0).label("game_count"),
+                func.coalesce(player_counts.c.player_count, 0).label("player_count"),
             )
-            .join(Season, Session.season_id == Season.id)
             .outerjoin(Court, Session.court_id == Court.id)
-            .where(Season.league_id == league_id)
+            .outerjoin(game_counts, game_counts.c.session_id == Session.id)
+            .outerjoin(player_counts, player_counts.c.session_id == Session.id)
+            .where(Session.league_id == league_id)
         )
 
         if active is True:
@@ -195,7 +449,7 @@ async def get_league_sessions(
         rows = result.all()
 
         session_list = []
-        for sess, court_name, court_slug in rows:
+        for sess, court_name, court_slug, game_count, player_count in rows:
             session_dict = {
                 "id": sess.id,
                 "date": sess.date,
@@ -209,6 +463,8 @@ async def get_league_sessions(
                 "updated_at": sess.updated_at.isoformat() if sess.updated_at else None,
                 "created_by": sess.created_by,
                 "updated_by": sess.updated_by,
+                "game_count": game_count,
+                "player_count": player_count,
             }
             session_list.append(session_dict)
 
@@ -227,7 +483,7 @@ async def end_league_session(
     league_id: int,
     session_id: int,
     body: EndLeagueSessionRequest,
-    user: dict = Depends(make_require_league_member()),
+    user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -253,6 +509,13 @@ async def end_league_session(
             player = await data_service.get_player_by_user_id(session, user["id"])
             if player:
                 player_id = player["id"]
+
+        # Resolve before authorization so a wrong league path, missing session,
+        # and unauthorized access all share the same non-disclosing response.
+        session_obj = await data_service.get_session(session, session_id)
+        if not session_obj or session_obj.get("league_id") != league_id:
+            raise _session_not_found(session_id)
+        await require_session_collaborator(session, session_obj, user)
 
         # Resolve context before lock_in_session commits the transaction
         session_name, resolved_league_id, league_name = await _resolve_session_context(
@@ -326,7 +589,122 @@ async def get_session_by_code(
     sess = await data_service.get_session_by_code(session, code)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    # A pickup code is a bearer capability used to preview and join the
+    # session. League sessions remain private even if their code is known.
+    if sess.get("league_id") is not None:
+        await require_session_collaborator(session, sess, current_user)
     return sess
+
+
+@router.get("/api/sessions/{session_id}", response_model=SessionRosterDetailResponse)
+async def get_session_detail(
+    session_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get full session detail including roster, games, and user stats.
+
+    Returns session metadata, all participants enriched with game counts,
+    the list of games played with scores, and aggregate stats for the
+    calling user. Only accessible to session participants and creators.
+    """
+    sess = await data_service.get_session(session, session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await require_session_collaborator(session, sess, current_user)
+
+    # Fetch session-type, court, and ranking metadata in one query.
+    sess_row = await session.execute(
+        select(
+            Session.session_type,
+            Session.court_id,
+            Session.date,
+            Session.start_time,
+            Session.is_ranked,
+            Court.name.label("court_name"),
+        )
+        .outerjoin(Court, Session.court_id == Court.id)
+        .where(Session.id == session_id)
+    )
+    sess_extra = sess_row.one_or_none()
+    session_type: str | None = sess_extra.session_type if sess_extra else None
+    court_id: int | None = sess_extra.court_id if sess_extra else None
+    court_name: str | None = sess_extra.court_name if sess_extra else None
+    session_date: str | None = sess_extra.date if sess_extra else None
+    start_time: str | None = sess_extra.start_time if sess_extra else None
+    is_ranked: bool = sess_extra.is_ranked if sess_extra is not None else True
+
+    # Resolve league_id directly from the session (available for both season
+    # sessions and gap sessions — season_id=NULL but league_id set).
+    # Only fall back to a Season-based lookup if Session.league_id is absent,
+    # which should not occur for sessions created after migration 052.
+    league_id: int | None = sess.get("league_id")
+    league_name: str | None = None
+    if league_id is None:
+        # Legacy fallback: derive from season (pre-migration sessions)
+        season_id = sess.get("season_id")
+        if season_id is not None:
+            league_result = await session.execute(
+                select(Season.league_id).where(Season.id == season_id)
+            )
+            league_id = league_result.scalar_one_or_none()
+    if league_id is not None:
+        league_name_result = await session.execute(
+            select(League.name).where(League.id == league_id)
+        )
+        league_name = league_name_result.scalar_one_or_none()
+
+    # Parse session number from the session name (e.g. "3/19/2026 Session #3" → 3)
+    session_number = _parse_session_number(sess.get("name") or "")
+
+    # Fetch participants enriched with game counts
+    players = await data_service.get_session_roster_with_game_counts(session, session_id)
+
+    # Fetch matches and compute per-game numbers + user stats
+    raw_games = await data_service.get_session_matches(session, session_id)
+    player = await data_service.get_player_by_user_id(session, current_user["id"])
+    player_id: int | None = player.get("id") if player else None
+
+    # Load the calling player's global ELO change per match in this session so
+    # the response can surface per-game and session-total rating deltas. Only
+    # ranked, already-calculated matches have EloHistory rows; anything missing
+    # stays null. Mirrors the source used by the "My Games" screen.
+    rating_by_match: dict[int, float] = {}
+    if player_id is not None and raw_games:
+        match_ids = [g["id"] for g in raw_games]
+        elo_rows = await session.execute(
+            select(EloHistory.match_id, EloHistory.elo_change).where(
+                EloHistory.player_id == player_id,
+                EloHistory.match_id.in_(match_ids),
+            )
+        )
+        rating_by_match = {row.match_id: row.elo_change for row in elo_rows.all()}
+
+    games, user_wins, user_losses, user_rating_change = _build_games_and_user_stats(
+        raw_games, player_id, rating_by_match
+    )
+
+    return {
+        "id": sess["id"],
+        "code": sess.get("code"),
+        "court_name": court_name,
+        "court_id": court_id,
+        "session_type": session_type,
+        "status": sess.get("status") or "ACTIVE",
+        "season_id": sess.get("season_id"),
+        "league_id": league_id,
+        "league_name": league_name,
+        "date": session_date,
+        "start_time": start_time,
+        "session_number": session_number,
+        "is_ranked": is_ranked,
+        "players": players,
+        "games": games,
+        "user_wins": user_wins,
+        "user_losses": user_losses,
+        "user_rating_change": user_rating_change,
+    }
 
 
 @router.get("/api/sessions/{session_id}/matches", response_model=list[SessionMatchItemResponse])
@@ -339,6 +717,7 @@ async def get_session_matches(
     sess = await data_service.get_session(session, session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    await require_session_collaborator(session, sess, current_user)
     matches = await data_service.get_session_matches(session, session_id)
     return matches
 
@@ -355,12 +734,7 @@ async def get_session_participants(
     sess = await data_service.get_session(session, session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
-    if not await data_service.can_user_add_match_to_session(
-        session, session_id, sess, current_user["id"]
-    ):
-        raise HTTPException(
-            status_code=403, detail="Only session participants can view the roster"
-        )
+    await require_session_collaborator(session, sess, current_user)
     participants = await data_service.get_session_participants(session, session_id)
     return participants
 
@@ -378,16 +752,13 @@ async def remove_session_participant(
     sess = await data_service.get_session(session, session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    await require_session_collaborator(session, sess, current_user)
     if sess.get("status") != "ACTIVE":
         raise HTTPException(status_code=400, detail="Can only modify roster of an active session")
     if sess.get("created_by") == player_id:
         raise HTTPException(
             status_code=403, detail="Session creator cannot remove themselves from the session"
         )
-    if not await data_service.can_user_add_match_to_session(
-        session, session_id, sess, current_user["id"]
-    ):
-        raise HTTPException(status_code=403, detail="Only session participants can remove players")
     removed = await data_service.remove_session_participant(session, session_id, player_id)
     if not removed:
         raise HTTPException(
@@ -411,9 +782,18 @@ async def join_session_by_code(
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         if not player:
             raise HTTPException(status_code=400, detail="Player profile not found")
-        sess = await data_service.join_session_by_code(session, code.strip().upper(), player["id"])
-        if not sess:
+        normalized_code = code.strip().upper()
+        sess = await data_service.get_session_by_code(session, normalized_code)
+        if not sess or sess.get("status") != "ACTIVE":
             raise HTTPException(status_code=404, detail="Session not found or not active")
+        if sess.get("league_id") is not None:
+            await require_session_collaborator(session, sess, current_user)
+        await data_service.add_session_participant(
+            session,
+            sess["id"],
+            player["id"],
+            invited_by=None,
+        )
         return {"status": "success", "message": "Joined session", "session": sess}
     except HTTPException:
         raise
@@ -434,17 +814,12 @@ async def invite_to_session(
         sess = await data_service.get_session(session, session_id)
         if not sess:
             raise HTTPException(status_code=404, detail="Session not found")
+        await require_session_collaborator(session, sess, current_user)
         if sess.get("status") != "ACTIVE":
             raise HTTPException(status_code=400, detail="Can only invite to an active session")
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         if not player:
             raise HTTPException(status_code=400, detail="Player profile not found")
-        if not await data_service.can_user_add_match_to_session(
-            session, session_id, sess, current_user["id"]
-        ):
-            raise HTTPException(
-                status_code=403, detail="Only session participants can invite others"
-            )
         invited_player_id = body.player_id
         if invited_player_id is None:
             raise HTTPException(status_code=400, detail="player_id is required")
@@ -454,6 +829,8 @@ async def invite_to_session(
         return {"status": "success", "message": "Player invited to session"}
     except HTTPException:
         raise
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -475,20 +852,21 @@ async def invite_to_session_batch(
         sess = await data_service.get_session(session, session_id)
         if not sess:
             raise HTTPException(status_code=404, detail="Session not found")
+        await require_session_collaborator(session, sess, current_user)
         if sess.get("status") != "ACTIVE":
             raise HTTPException(status_code=400, detail="Can only invite to an active session")
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         if not player:
             raise HTTPException(status_code=400, detail="Player profile not found")
-        if not await data_service.can_user_add_match_to_session(
-            session, session_id, sess, current_user["id"]
-        ):
-            raise HTTPException(
-                status_code=403, detail="Only session participants can invite others"
-            )
         player_ids = body.player_ids
         if not isinstance(player_ids, list):
             raise HTTPException(status_code=400, detail="player_ids must be an array")
+        await interaction_policy.enforce_actions(
+            session,
+            player["id"],
+            [int(pid) for pid in player_ids],
+            interaction_policy.InteractionAction.SESSION_INVITE,
+        )
         added = []
         failed = []
         for pid in player_ids:
@@ -508,6 +886,8 @@ async def invite_to_session_batch(
                     err_msg = "Player not found"
                 failed.append({"player_id": pid, "error": err_msg})
         return {"added": added, "failed": failed}
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except HTTPException:
         raise
     except Exception as e:
@@ -522,30 +902,69 @@ async def create_session(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Create a new non-league session (with shareable code).
-    Request body: { "date": "...", "name": "...", "court_id": ... } (all optional except date defaults to today).
-    Returns created session info including code.
+    Create (or get-or-create for league context) a session.
+
+    Pickup path (default): body without ``league_id`` creates a non-league
+    session via ``data_service.create_session``.
+    League path: body with ``league_id`` (and optional ``season_id``) routes
+    through ``get_or_create_active_league_session`` so the score-screen
+    "Manage Session" flow is idempotent — if an active session for the
+    league/date/season already exists, it is returned instead of erroring.
+
+    Request body: { "date": "...", "name": "...", "court_id": ...,
+    "league_id": ..., "season_id": ... } (all optional except date defaults
+    to today). Returns the session payload including its ``id`` and ``code``.
     """
     try:
         date = body.date or datetime.now().strftime("%-m/%-d/%Y")
         name = body.name
         court_id = body.court_id
         player = await data_service.get_player_by_user_id(session, current_user["id"])
-        created_by = player["id"] if player else None
-        new_session = await data_service.create_session(
-            session,
-            date,
-            name=name,
-            court_id=court_id,
-            created_by=created_by,
-            latitude=body.latitude,
-            longitude=body.longitude,
-        )
+        if not player:
+            raise HTTPException(status_code=400, detail="Player profile required")
+        created_by = player["id"]
+
+        if body.league_id is not None:
+            # SECURITY 2 FIX: require league membership before creating or
+            # fetching a league session.  Any authenticated user could otherwise
+            # bootstrap sessions for leagues they do not belong to.
+            if not await _has_league_role(session, current_user["id"], body.league_id, None):
+                raise HTTPException(
+                    status_code=403,
+                    detail="League membership required to create a league session",
+                )
+            new_session = await data_service.get_or_create_active_league_session(
+                session,
+                league_id=body.league_id,
+                session_date=date,
+                name=name,
+                created_by=created_by,
+                season_id=body.season_id,
+                latitude=body.latitude,
+                longitude=body.longitude,
+                court_id=court_id,
+                start_time=body.start_time,
+                is_ranked=body.is_ranked,
+            )
+        else:
+            new_session = await data_service.create_session(
+                session,
+                date,
+                name=name,
+                court_id=court_id,
+                created_by=created_by,
+                latitude=body.latitude,
+                longitude=body.longitude,
+                start_time=body.start_time,
+                is_ranked=body.is_ranked,
+            )
         return {
             "status": "success",
             "message": "Session created successfully",
             "session": new_session,
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -564,13 +983,16 @@ async def update_session(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Update a session (e.g., submit by setting submit to true, or update name/date/season_id).
+    Update a session (e.g., submit by setting submit to true, or edit its metadata).
 
     Body options:
     - { "submit": true } to submit/lock in a session
     - { "name": <str> } to update the session's name
     - { "date": <str> } to update the session's date
+    - { "start_time": <str|null> } to set or clear the start time
     - { "season_id": <int> } to update the session's season (can be null to remove season)
+    - { "court_id": <int|null> } to set or clear the court
+    - { "is_ranked": <bool> } to set ranked intent for the session and its games
 
     Multiple fields can be updated in a single request.
 
@@ -582,8 +1004,14 @@ async def update_session(
     try:
         submit = body.submit
 
-        # Handle submit (original behavior) - this takes precedence
+        # Handle submit first. League members and pickup collaborators can
+        # submit; knowledge of a numeric session ID alone is never sufficient.
         if submit is True:
+            current_session = await data_service.get_session(session, session_id)
+            if not current_session:
+                raise _session_not_found(session_id)
+            await require_session_collaborator(session, current_session, current_user)
+
             player_id = None
             if current_user:
                 player = await data_service.get_player_by_user_id(session, current_user["id"])
@@ -618,7 +1046,6 @@ async def update_session(
                 "season_id": result["season_id"],
             }
 
-        # Handle other field updates (name, date, season_id, court_id).
         # Use model_fields_set to distinguish "field sent as null" from "field omitted".
         name = body.name
         date = body.date
@@ -626,24 +1053,89 @@ async def update_session(
         processed_season_id = None if body.season_id is None else int(body.season_id)
         update_court_id = "court_id" in body.model_fields_set
         processed_court_id = None if body.court_id is None else int(body.court_id)
+        update_start_time = "start_time" in body.model_fields_set
+        update_is_ranked = "is_ranked" in body.model_fields_set
 
-        has_updates = name is not None or date is not None or update_season_id or update_court_id
+        has_updates = (
+            name is not None
+            or date is not None
+            or update_start_time
+            or update_season_id
+            or update_court_id
+            or update_is_ranked
+        )
 
         if not has_updates:
             raise HTTPException(
                 status_code=400,
-                detail="At least one field must be provided: submit, name, date, season_id, or court_id",
+                detail=(
+                    "At least one field must be provided: submit, name, date, start_time, "
+                    "season_id, court_id, or is_ranked"
+                ),
             )
+
+        # Authorization check for field updates.
+        #
+        # Case 1 — PROMOTION: pickup→league (update_season_id=True with a non-NULL
+        #   season_id value and the session has no current league_id).
+        #   Require admin of the TARGET league (derived from the new season).
+        #
+        # Case 2 — EXISTING LEAGUE SESSION EDIT: session already has a league_id
+        #   and no promotion is happening.
+        #   Require admin of the session's CURRENT league.
+        #
+        # Case 3 — PICKUP EDIT (no promotion): league_id is NULL and no new
+        #   season_id is being set. Any pickup collaborator may edit metadata.
+        current_session = await data_service.get_session(session, session_id)
+        if not current_session:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+        is_promoting = (
+            update_season_id
+            and processed_season_id is not None
+            and (current_session.get("league_id") is None)
+        )
+
+        # System admins bypass the per-league admin checks, matching every other
+        # league-admin-protected route (see make_require_league_admin).
+        is_sys_admin = await _is_system_admin(session, current_user)
+
+        if is_promoting:
+            # Target-league authority does not confer access to a private
+            # pickup session. The caller must also already collaborate in it.
+            await require_session_collaborator(session, current_session, current_user)
+
+            # Resolve the target league from the new season_id.  If the season
+            # is not found we still call _has_league_role with None — the check
+            # will return False (deny by default) which is the safe outcome.
+            season_row = await session.execute(
+                select(Season.league_id).where(Season.id == processed_season_id)
+            )
+            target_league_id = season_row.scalar_one_or_none()
+
+            if not is_sys_admin and not await _has_league_role(
+                session, current_user["id"], target_league_id, "admin"
+            ):
+                raise _session_not_found(session_id)
+
+        elif current_session.get("league_id") is not None:
+            await require_session_metadata_editor(session, current_session, current_user)
+        else:
+            await require_session_collaborator(session, current_session, current_user)
 
         result = await data_service.update_session(
             session,
             session_id,
             name=name,
             date=date,
+            start_time=body.start_time,
+            update_start_time=update_start_time,
             season_id=processed_season_id,
             update_season_id=update_season_id,
             court_id=processed_court_id,
             update_court_id=update_court_id,
+            is_ranked=body.is_ranked,
+            update_is_ranked=update_is_ranked,
         )
 
         if not result:
@@ -677,30 +1169,30 @@ async def delete_session(
         if not session_obj:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
-        # Authorization: must be session creator or league admin
-        player = await data_service.get_player_by_user_id(session, current_user["id"])
-        is_creator = player and session_obj.get("created_by") == player["id"]
-
-        if not is_creator:
-            # Check if user is a league admin for this session's league
-            is_admin = await is_user_admin_of_session_league(
-                session, current_user["id"], session_id
-            )
-            if not is_admin:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Only the session creator or a league admin can delete this session",
-                )
+        await require_session_manager(session, session_obj, current_user)
 
         success = await data_service.delete_session(session, session_id)
 
         if not success:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
+        # delete_session already enqueues these jobs for submitted sessions.
+        # Enqueueing again is idempotent and gives the client the canonical job
+        # IDs it needs to wait before refreshing derived totals.
+        stats_jobs = (
+            await data_service.enqueue_stats_recalculation(
+                session,
+                session_obj.get("league_id"),
+            )
+            if session_obj.get("status") != "ACTIVE"
+            else {"global_job_id": None, "league_job_id": None}
+        )
+
         return {
             "status": "success",
             "message": "Session deleted successfully",
             "session_id": session_id,
+            **stats_jobs,
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

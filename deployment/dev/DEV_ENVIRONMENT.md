@@ -96,7 +96,7 @@ The workflow handles: git checkout, `.env` creation, optional DB snapshot/restor
 1. Trigger workflow with `refresh_db: false` — site loads at `https://dev.beachleaguevb.com` behind basic auth
 2. Trigger with `refresh_db: true` — prod data appears, sanitized (no real phone/email/DOB/photos)
 3. `curl https://dev.beachleaguevb.com/robots.txt` — returns `Disallow: /`
-4. Check Twilio/SendGrid dashboards — no sends from dev
+4. Check Twilio/Resend dashboards — no sends from dev
 
 ## What the DB sanitization does
 

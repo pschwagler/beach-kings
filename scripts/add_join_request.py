@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 One-off script to add a pending league join request for testing the join-request UI.
 

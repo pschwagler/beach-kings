@@ -327,8 +327,7 @@ export const test = base.extend({
 
   /**
    * Creates a test user with system admin privileges.
-   * Grants admin access by adding the user's phone to the
-   * system_admin_phone_numbers DB setting. Revokes on teardown.
+   * Grants an auditable system-admin role and revokes it on teardown.
    * Provides { phone, password, token, refreshToken, fullName }.
    */
   adminUser: [async ({}, use) => {

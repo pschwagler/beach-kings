@@ -4,6 +4,7 @@
 
 import api from '../api-client';
 import type { Court, CourtReview, CourtPhoto, ReviewActionResponse } from '../../types';
+import { normalizeMapBounds } from '../../utils/mapBounds';
 
 /**
  * Court API methods (legacy — admin CRUD)
@@ -19,8 +20,47 @@ export const getCourts = async (locationId: number | null = null) => {
  */
 
 /** List approved courts with optional filters and pagination. */
-export const getPublicCourts = async (filters: Record<string, any> = {}) => {
-  const response = await api.get('/api/public/courts', { params: filters });
+export const getPublicCourts = async (filters: Record<string, any> = {}, signal?: AbortSignal) => {
+  const requestFilters = { ...filters };
+  if (
+    typeof filters.north === 'number' &&
+    typeof filters.south === 'number' &&
+    typeof filters.east === 'number' &&
+    typeof filters.west === 'number'
+  ) {
+    Object.assign(requestFilters, normalizeMapBounds({
+      north: filters.north,
+      south: filters.south,
+      east: filters.east,
+      west: filters.west,
+    }));
+  }
+  const response = await api.get('/api/public/courts', { params: requestFilters, signal });
+  return response.data;
+};
+
+export interface PlaceSuggestion {
+  id: string;
+  primary_text: string;
+  secondary_text: string;
+  latitude: number;
+  longitude: number;
+  result_type: string;
+  bounds?: { north: number; south: number; east: number; west: number };
+}
+
+/** Search normalized US places without exposing the provider key. */
+export const getPlaceSuggestions = async (
+  text: string,
+  proximity?: { latitude: number; longitude: number },
+  signal?: AbortSignal,
+): Promise<PlaceSuggestion[]> => {
+  const params: Record<string, string | number> = { text };
+  if (proximity) {
+    params.lat = proximity.latitude;
+    params.lng = proximity.longitude;
+  }
+  const response = await api.get('/api/geocode/places', { params, signal });
   return response.data;
 };
 
@@ -93,8 +133,8 @@ export const uploadReviewPhoto = async (courtId: number, reviewId: number, file:
 };
 
 /** Submit an edit suggestion for a court. */
-export const suggestCourtEdit = async (courtId: number, changes: Record<string, any>) => {
-  const response = await api.post(`/api/courts/${courtId}/suggest-edit`, { changes });
+export const suggestCourtEdit = async (courtId: number, changes: Record<string, any>, note?: string) => {
+  const response = await api.post(`/api/courts/${courtId}/suggest-edit`, { changes, note: note || undefined });
   return response.data;
 };
 
@@ -105,8 +145,12 @@ export const getCourtEditSuggestions = async (courtId: number) => {
 };
 
 /** Approve or reject an edit suggestion. */
-export const resolveCourtEditSuggestion = async (suggestionId: number, action: string) => {
-  const response = await api.put(`/api/courts/suggestions/${suggestionId}?action=${action}`);
+export const resolveCourtEditSuggestion = async (
+  suggestionId: number,
+  action: string,
+  body?: { applied_changes: Record<string, unknown> },
+) => {
+  const response = await api.put(`/api/courts/suggestions/${suggestionId}?action=${action}`, body);
   return response.data;
 };
 
@@ -180,5 +224,29 @@ export const uploadCourtPhoto = async (courtId: number, file: File) => {
 /** Get court leaderboard (top players by match count). */
 export const getCourtLeaderboard = async (slug: string) => {
   const response = await api.get(`/api/public/courts/${slug}/leaderboard`);
+  return response.data;
+};
+
+/** Get active check-ins at a court. */
+export const getCourtCheckIns = async (slug: string) => {
+  const response = await api.get(`/api/public/courts/${slug}/check-ins`);
+  return response.data;
+};
+
+/** Check in to a court (authenticated). */
+export const checkInToCourt = async (courtId: number) => {
+  const response = await api.post(`/api/courts/${courtId}/check-in`);
+  return response.data;
+};
+
+/** Check out of a court (authenticated). */
+export const checkOutOfCourt = async (courtId: number) => {
+  const response = await api.delete(`/api/courts/${courtId}/check-in`);
+  return response.data;
+};
+
+/** Get public leagues that play at this court. */
+export const getCourtLeagues = async (slug: string) => {
+  const response = await api.get(`/api/public/courts/${slug}/leagues`);
   return response.data;
 };

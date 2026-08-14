@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 Run league calculations for all leagues in the database.
 
@@ -13,7 +14,6 @@ This script:
 import asyncio
 import os
 import sys
-from pathlib import Path
 
 # Add apps to path (so backend.* imports work)
 # This mirrors the Docker setup where PYTHONPATH=/app and backend is at /app/backend
@@ -135,4 +135,3 @@ async def calculate_all_leagues():
 
 if __name__ == "__main__":
     asyncio.run(calculate_all_leagues())
-

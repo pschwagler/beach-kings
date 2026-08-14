@@ -11,7 +11,6 @@ import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
 import { transformMatchData, buildPlaceholderIdSet, type RawMatch } from './utils/matchUtils';
 import { lockInLeagueSession, deleteSession, updateSession } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
-import CreateSeasonModal from './CreateSeasonModal';
 import AddPlayersModal from './AddPlayersModal';
 
 // Import custom hooks
@@ -55,7 +54,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     playerSeasonStats,
     playerMatchHistory,
     setSelectedPlayer,
-    refreshSeasons,
     refreshMembers,
   } = useLeague();
   const { showToast } = useToast();
@@ -64,7 +62,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   const MATCHES_VIEW_STORAGE_KEY = 'beach-kings:league-matches-view';
 
   // State for modals
-  const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
 
   const [viewMode, setViewMode] = usePersistedViewMode(MATCHES_VIEW_STORAGE_KEY, 'cards');
@@ -78,9 +75,9 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   // Use custom hooks
   const activeSessionHook = useActiveSession({
     leagueId,
-    seasons,
     selectedSeasonId,
-    refreshMatchData
+    refreshMatchData,
+    refreshAllSeasonsMatches,
   });
   const { activeSession, allSessions, loadActiveSession, loadAllSessions, refreshSession } = activeSessionHook;
 
@@ -98,11 +95,16 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   // re-trigger it. The ref guard (autoOpenFiredRef) ensures the body runs once,
   // but unstable deps can still cause excessive effect invocations during init.
   const membersRef = useRef(members);
-  membersRef.current = members;
   const leagueRef = useRef(league);
-  leagueRef.current = league;
   const selectedSeasonIdRef = useRef(selectedSeasonId);
-  selectedSeasonIdRef.current = selectedSeasonId;
+  // Assignment happens in an effect (not render) per react-hooks/refs. These refs are
+  // only read inside the autoOpenAddMatch effect below, which is registered later, so
+  // they always hold fresh values by the time that effect runs.
+  useEffect(() => {
+    membersRef.current = members;
+    leagueRef.current = league;
+    selectedSeasonIdRef.current = selectedSeasonId;
+  });
 
   // Build player objects and name mappings from members
   const { allPlayers, allPlayerNames, playerNameToId, playerIdToName } = useMemo(() => {
@@ -127,7 +129,11 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   }, [members]);
 
   const allPlayerNamesRef = useRef(allPlayerNames);
-  allPlayerNamesRef.current = allPlayerNames;
+  // Assignment happens in an effect (not render) per react-hooks/refs; only read
+  // inside the autoOpenAddMatch effect below, registered afterward.
+  useEffect(() => {
+    allPlayerNamesRef.current = allPlayerNames;
+  });
 
   const matchOperations = useMatchOperations({
     playerNameToId,
@@ -164,43 +170,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   }, [seasonIdFromUrl, setSelectedSeasonId, router]);
 
   // Season data loading is now handled automatically by LeagueContext when selectedSeasonId changes
-
-  // Auto-open AddMatchModal when navigated from CreateGameModal with autoAddMatch param.
-  // Uses refs for values that change during init but are only read inside the effect body.
-  // Only `autoOpenAddMatch`, `seasons`, and stable callbacks remain in the dep array.
-  useEffect(() => {
-    if (!autoOpenAddMatch || autoOpenFiredRef.current) return;
-    const currentMembers = membersRef.current;
-    if (!currentMembers || currentMembers.length < MIN_PLAYERS_FOR_MATCH || !seasons || seasons.length === 0) return;
-
-    autoOpenFiredRef.current = true;
-
-    openModal(MODAL_TYPES.ADD_MATCH, {
-      allPlayerNames: allPlayerNamesRef.current,
-      leagueMatchOnly: true,
-      defaultLeagueId: leagueId,
-      members: currentMembers,
-      league: leagueRef.current,
-      defaultSeasonId: selectedSeasonIdRef.current,
-      onSeasonChange: setSelectedSeasonId,
-      onSubmit: async (matchData: Record<string, unknown>) => {
-        const payload = { ...matchData, league_id: leagueId };
-        await handleCreateMatch(payload);
-      },
-      onDelete: handleDeleteMatch,
-      leagueHomeCourts,
-      isFirstMatch: true,
-    });
-
-    // Clean URL param to prevent re-open on refresh
-    const url = new URL(window.location.href);
-    url.searchParams.delete('autoAddMatch');
-    router.replace(url.pathname + url.search, { scroll: false });
-    // handleCreateMatch/handleDeleteMatch are defined later in the function body;
-    // safe because autoOpenFiredRef gates this to a single fire per mount and
-    // the closures are only invoked after the full render completes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenAddMatch, seasons, leagueId, setSelectedSeasonId, openModal, router]);
 
   // Transform matches from context for display
   const matches = useMemo(() => {
@@ -337,6 +306,38 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     }
   };
 
+  // Auto-open AddMatchModal when navigated from CreateGameModal with autoAddMatch param.
+  // Uses refs for values that change during init but are only read inside the effect body.
+  useEffect(() => {
+    if (!autoOpenAddMatch || autoOpenFiredRef.current) return;
+    const currentMembers = membersRef.current;
+    if (!currentMembers || currentMembers.length < MIN_PLAYERS_FOR_MATCH) return;
+
+    autoOpenFiredRef.current = true;
+    openModal(MODAL_TYPES.ADD_MATCH, {
+      allPlayerNames: allPlayerNamesRef.current,
+      leagueMatchOnly: true,
+      defaultLeagueId: leagueId,
+      members: currentMembers,
+      league: leagueRef.current,
+      defaultSeasonId: selectedSeasonIdRef.current,
+      onSeasonChange: setSelectedSeasonId,
+      onSubmit: async (matchData: Record<string, unknown>) => {
+        await handleCreateMatch({ ...matchData, league_id: leagueId });
+      },
+      onDelete: handleDeleteMatch,
+      leagueHomeCourts,
+      isFirstMatch: true,
+    });
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('autoAddMatch');
+    router.replace(url.pathname + url.search, { scroll: false });
+    // The ref guard intentionally makes this a one-shot effect. The handlers
+    // are current for the render where readiness is first satisfied.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenAddMatch, leagueId, setSelectedSeasonId, openModal, router]);
+
   // Session editing handlers
   const handleEnterEditMode = (sessionId: number) => {
     enterEditMode(sessionId, matches);
@@ -427,11 +428,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     return transformMatchData(matchesData as RawMatch[], placeholderPlayerIds);
   }, [activeSession, selectedSeasonId, seasonData, seasons, seasonDataLoadingMap, placeholderPlayerIds]);
 
-  const handleCreateSeasonSuccess = async () => {
-    await refreshSeasons();
-    setShowCreateSeasonModal(false);
-  };
-
   const handleAddPlayersSuccess = async () => {
     await refreshMembers();
     setShowAddPlayerModal(false);
@@ -440,33 +436,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   // Check if there are less than 4 players
   const hasLessThanFourPlayers = !members || members.length < MIN_PLAYERS_FOR_MATCH;
 
-  // Show empty state if no seasons
-  if (!seasons || seasons.length === 0) {
-    return (
-      <>
-        <div className="league-section">
-          <div className="empty-state">
-            <Swords size={48} className="large-empty-state-icon" />
-            <p>No seasons found. Please create a season to log league matches.</p>
-            <button 
-              className="league-text-button primary" 
-              onClick={() => setShowCreateSeasonModal(true)}
-              style={{ marginTop: '16px' }}
-            >
-              <Plus size={16} />
-              Create Season
-            </button>
-          </div>
-        </div>
-        <CreateSeasonModal
-          isOpen={showCreateSeasonModal}
-          onClose={() => setShowCreateSeasonModal(false)}
-          onSuccess={handleCreateSeasonSuccess}
-        />
-      </>
-    );
-  }
-
   // Show message if less than 4 players
   if (hasLessThanFourPlayers) {
     return (
@@ -474,7 +443,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         <div className="league-section">
           <div className="empty-state">
             <Swords size={48} className="large-empty-state-icon" />
-            <p>This league has less than 4 registered players. Invite more players to begin logging league matches.</p>
+            <p>This league has less than 4 registered players. Invite more players to begin logging league games.</p>
             <button 
               className="league-text-button primary" 
               onClick={() => setShowAddPlayerModal(true)}
@@ -579,11 +548,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         onSeasonChange={setSelectedSeasonId}
         onRefreshData={refreshData}
         contentVariant={viewMode === 'clipboard' ? 'clipboard' : 'cards'}
-      />
-      <CreateSeasonModal
-        isOpen={showCreateSeasonModal}
-        onClose={() => setShowCreateSeasonModal(false)}
-        onSuccess={handleCreateSeasonSuccess}
       />
       <AddPlayersModal
         isOpen={showAddPlayerModal}

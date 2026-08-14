@@ -2,7 +2,16 @@
  * Utility functions for working with player objects
  */
 
-import type { Player, PlayerOption } from '../types';
+import type { PlayerOption } from '../types';
+
+/** Shape used by ranking/standings sort functions — uses display-friendly key names. */
+interface RankingRow {
+  readonly Points?: number;
+  readonly 'Avg Pt Diff'?: number;
+  readonly 'Win Rate'?: number;
+  readonly ELO?: number;
+  readonly [key: string]: unknown;
+}
 
 /**
  * Get the value (ID) from a player object or string
@@ -59,42 +68,43 @@ export function nameToPlayerOption(name: string | null | undefined, nameToIdMap:
 }
 
 /**
- * Default player sorting with tie-breakers: Points → Avg Pt Diff → Win Rate → ELO
+ * Default player sorting with tie-breakers: Points → Avg Pt Diff → Win Rate → ELO.
+ * Accepts ranking rows with display-friendly key names (e.g. from rankings API).
  */
-export const sortPlayersDefault = (a: Player, b: Player): number => {
+export const sortPlayersDefault = (a: RankingRow, b: RankingRow): number => {
   const aPoints = a.Points ?? 0;
   const bPoints = b.Points ?? 0;
   if (aPoints !== bPoints) return bPoints - aPoints;
-  
-  const aAvgDiff = a.avg_pt_diff ?? 0;
-  const bAvgDiff = b.avg_pt_diff ?? 0;
+
+  const aAvgDiff = a['Avg Pt Diff'] ?? 0;
+  const bAvgDiff = b['Avg Pt Diff'] ?? 0;
   if (aAvgDiff !== bAvgDiff) return bAvgDiff - aAvgDiff;
-  
-  const aWinRate = a.win_rate ?? 0;
-  const bWinRate = b.win_rate ?? 0;
+
+  const aWinRate = a['Win Rate'] ?? 0;
+  const bWinRate = b['Win Rate'] ?? 0;
   if (aWinRate !== bWinRate) return bWinRate - aWinRate;
-  
+
   const aELO = a.ELO ?? 0;
   const bELO = b.ELO ?? 0;
   return bELO - aELO;
 };
 
 /**
- * Get the first place player from rankings array
+ * Get the first place player from rankings array.
  */
-export const getFirstPlacePlayer = (rankings: Player[]): Player | null => {
+export const getFirstPlacePlayer = (rankings: RankingRow[]): RankingRow | null => {
   if (!rankings || rankings.length === 0) return null;
   return [...rankings].sort(sortPlayersDefault)[0];
 };
 
 /**
- * Check if a player profile is incomplete
+ * Check if a player profile is incomplete.
  */
-export function isProfileIncomplete(player: Player | null | undefined): boolean {
+export function isProfileIncomplete(player: { gender?: string | null; level?: string | null; city?: string | null } | null | undefined): boolean {
   if (!player) {
     return true;
   }
-  
+
   return !player.gender || !player.level || !player.city;
 }
 

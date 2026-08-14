@@ -7,6 +7,7 @@ import type { User, Player } from '../types';
 
 interface SignupResponse {
   phone_number?: string;
+  message?: string;
   [key: string]: unknown;
 }
 
@@ -29,10 +30,10 @@ interface AuthContextValue {
   sessionExpired: boolean;
   deletionScheduledAt: string | null | undefined;
   fetchCurrentUser: () => Promise<void>;
-  loginWithGoogle: (credentialResponse: { credential?: string }) => Promise<{ profile_complete: boolean }>;
+  loginWithGoogle: (credentialResponse: { credential?: string }, eligibilityToken?: string) => Promise<{ profile_complete: boolean }>;
   loginWithPassword: (phoneNumber: string, password: string) => Promise<void>;
   loginWithSms: (phoneNumber: string, code: string) => Promise<void>;
-  signup: (params: { phoneNumber: string; password: string; fullName: string; email?: string }) => Promise<SignupResponse>;
+  signup: (params: { phoneNumber: string; password: string; firstName: string; lastName: string; email?: string; eligibilityToken: string }) => Promise<SignupResponse>;
   sendVerificationCode: (phoneNumber: string) => Promise<void>;
   verifyPhone: (phoneNumber: string, code: string) => Promise<{ profile_complete: boolean }>;
   resetPassword: (phoneNumber: string) => Promise<unknown>;
@@ -62,7 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const player = await getCurrentUserPlayer();
         setCurrentUserPlayer({
           ...player,
-          first_name: player.nickname ? player.nickname : (player.full_name?.split(' ')[0] ?? ''),
+          first_name: player.nickname || player.first_name || (player.full_name?.split(' ')[0] ?? ''),
         });
       } catch (playerError: unknown) {
         // Player might not exist yet, that's okay
@@ -140,9 +141,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const loginWithGoogle = useCallback(
-    async (credentialResponse: { credential?: string }) => {
+    async (credentialResponse: { credential?: string }, eligibilityToken?: string) => {
       const response = await api.post('/api/auth/google', {
         id_token: credentialResponse.credential,
+        eligibility_token: eligibilityToken,
       });
       const profileComplete = await handleAuthSuccess(response.data);
       return { profile_complete: profileComplete };
@@ -172,12 +174,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [handleAuthSuccess]
   );
 
-  const signup = useCallback(async ({ phoneNumber, password, fullName, email }: { phoneNumber: string; password: string; fullName: string; email?: string }) => {
+  const signup = useCallback(async ({ phoneNumber, password, firstName, lastName, email, eligibilityToken }: { phoneNumber: string; password: string; firstName: string; lastName: string; email?: string; eligibilityToken: string }) => {
     const response = await api.post('/api/auth/signup', {
       phone_number: normalizePhone(phoneNumber),
       password: password.trim(),
-      full_name: fullName.trim(),
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
       email: email?.trim() || undefined,
+      eligibility_token: eligibilityToken,
     });
     return response.data;
   }, []);

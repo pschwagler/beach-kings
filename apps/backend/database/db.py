@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
 )
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,15 +24,28 @@ DATABASE_URL = os.getenv(
     f"postgresql+asyncpg://{os.getenv('POSTGRES_USER', 'beachkings')}:{os.getenv('POSTGRES_PASSWORD', 'beachkings')}@{os.getenv('POSTGRES_HOST', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'beachkings')}",
 )
 
+
+def engine_options(environment: str | None = None) -> dict:
+    """Return engine options for the requested runtime environment.
+
+    Tests frequently create a fresh event loop per case. NullPool prevents an
+    asyncpg connection created by one loop from being reused by another, while
+    normal runtime environments retain the production-sized queue pool.
+    """
+    options = {
+        "echo": os.getenv("SQL_ECHO", "false").lower() == "true",
+        "future": True,
+        "pool_pre_ping": True,
+    }
+    if (environment or os.getenv("ENV", "development")).strip().lower() == "test":
+        options["poolclass"] = NullPool
+    else:
+        options.update(pool_size=10, max_overflow=20)
+    return options
+
+
 # Create async engine
-engine: AsyncEngine = create_async_engine(
-    DATABASE_URL,
-    echo=os.getenv("SQL_ECHO", "false").lower() == "true",  # Log SQL queries in debug mode
-    future=True,
-    pool_pre_ping=True,  # Verify connections before using them
-    pool_size=10,
-    max_overflow=20,
-)
+engine: AsyncEngine = create_async_engine(DATABASE_URL, **engine_options())
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
@@ -81,18 +95,3 @@ async def init_database():
             Base.metadata.create_all(bind=sync_conn, checkfirst=True)
 
         await conn.run_sync(create_tables)
-
-
-async def flush_all_tables():
-    """
-    DISABLED: This function has been disabled.
-
-    TODO: Re-implement to be season-specific and add proper validations.
-    This function should only delete sessions & matches for a specific season,
-    not all data across all tables.
-    """
-    raise NotImplementedError(
-        "flush_all_tables has been disabled. "
-        "This function needs to be re-implemented to be season-specific with proper validations. "
-        "It should only delete sessions and matches for a specific season, not all data."
-    )

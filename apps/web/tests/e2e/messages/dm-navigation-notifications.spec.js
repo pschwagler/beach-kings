@@ -103,7 +103,7 @@ test.describe('DM Navigation & Summary Notifications', () => {
 
       // Check testUser's notifications via API
       const notifs = await getNotificationsApi(testUser.token, { unread_only: true });
-      const dmNotifs = notifs.notifications.filter(n => n.type === 'direct_message');
+      const dmNotifs = notifs.items.filter(n => n.type === 'direct_message');
 
       expect(dmNotifs).toHaveLength(1);
       expect(dmNotifs[0].title).toContain('1 unread message');
@@ -126,7 +126,7 @@ test.describe('DM Navigation & Summary Notifications', () => {
 
       // Check: should be exactly ONE unread DM notification, with count 2
       const notifs = await getNotificationsApi(testUser.token, { unread_only: true });
-      const dmNotifs = notifs.notifications.filter(n => n.type === 'direct_message');
+      const dmNotifs = notifs.items.filter(n => n.type === 'direct_message');
 
       expect(dmNotifs).toHaveLength(1);
       expect(dmNotifs[0].title).toContain('2 unread messages');
@@ -147,7 +147,7 @@ test.describe('DM Navigation & Summary Notifications', () => {
 
       // Verify notification exists
       let notifs = await getNotificationsApi(testUser.token, { unread_only: true });
-      let dmNotifs = notifs.notifications.filter(n => n.type === 'direct_message');
+      let dmNotifs = notifs.items.filter(n => n.type === 'direct_message');
       expect(dmNotifs).toHaveLength(1);
 
       // Mark thread as read
@@ -155,7 +155,7 @@ test.describe('DM Navigation & Summary Notifications', () => {
 
       // Notification should now be dismissed (is_read = true)
       notifs = await getNotificationsApi(testUser.token, { unread_only: true });
-      dmNotifs = notifs.notifications.filter(n => n.type === 'direct_message');
+      dmNotifs = notifs.items.filter(n => n.type === 'direct_message');
       expect(dmNotifs).toHaveLength(0);
     });
 
@@ -178,7 +178,7 @@ test.describe('DM Navigation & Summary Notifications', () => {
 
       // Should have 1 notification with count 2
       let notifs = await getNotificationsApi(testUser.token, { unread_only: true });
-      let dmNotifs = notifs.notifications.filter(n => n.type === 'direct_message');
+      let dmNotifs = notifs.items.filter(n => n.type === 'direct_message');
       expect(dmNotifs).toHaveLength(1);
       expect(dmNotifs[0].title).toContain('2 unread messages');
 
@@ -187,7 +187,7 @@ test.describe('DM Navigation & Summary Notifications', () => {
 
       // Notification should update to count 1 (still unread from thirdTestUser)
       notifs = await getNotificationsApi(testUser.token, { unread_only: true });
-      dmNotifs = notifs.notifications.filter(n => n.type === 'direct_message');
+      dmNotifs = notifs.items.filter(n => n.type === 'direct_message');
       expect(dmNotifs).toHaveLength(1);
       expect(dmNotifs[0].title).toContain('1 unread message');
     });

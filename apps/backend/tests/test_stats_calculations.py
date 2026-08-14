@@ -83,13 +83,18 @@ async def test_league_and_season(db_session: AsyncSession, test_players):
 
 @pytest_asyncio.fixture
 async def test_session(db_session: AsyncSession, test_league_and_season):
-    """Create a test session."""
+    """Create a test session.
+
+    Phase 5: league_id is set directly on the session so league stats routing
+    uses Session.league_id rather than deriving it via the Season join.
+    """
     league, season = test_league_and_season
     session = Session(
         date="2024-01-15",
         name="Test Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session)
@@ -673,6 +678,57 @@ async def test_placeholder_only_player_gets_global_stats(db_session, test_player
 
 
 @pytest.mark.asyncio
+async def test_global_stats_avg_point_diff(db_session, test_players, test_session):
+    """upsert_player_global_stats_async populates avg_point_diff as the mean
+    signed differential (per-player team score minus opponent team score).
+
+    Alice & Bob play two ranked matches vs Charlie & Dave:
+      - Match 1: 21-15 → +6 for Alice/Bob, -6 for Charlie/Dave
+      - Match 2: 18-21 → -3 for Alice/Bob, +3 for Charlie/Dave
+    Lifetime per-player avg = (+6 + -3) / 2 = 1.5 for Alice/Bob,
+    and (-6 + +3) / 2 = -1.5 for Charlie/Dave.
+    """
+    alice, bob, charlie, dave = test_players
+
+    await create_match(db_session, test_session, alice, bob, charlie, dave, 21, 15, is_ranked=True)
+    await create_match(db_session, test_session, alice, bob, charlie, dave, 18, 21, is_ranked=True)
+
+    await data_service.calculate_global_stats_async(db_session)
+
+    rows = await db_session.execute(select(PlayerGlobalStats))
+    by_pid = {row.player_id: row for row in rows.scalars().all()}
+
+    assert by_pid[alice.id].avg_point_diff == pytest.approx(1.5)
+    assert by_pid[bob.id].avg_point_diff == pytest.approx(1.5)
+    assert by_pid[charlie.id].avg_point_diff == pytest.approx(-1.5)
+    assert by_pid[dave.id].avg_point_diff == pytest.approx(-1.5)
+
+
+def test_match_signed_diff_for_player():
+    """Match.signed_diff_for_player returns +(team1_score - team2_score) for
+    team1 players and the negation for team2 players. Unknown players follow
+    the team2 branch (negation) — this matches the existing point-diff
+    convention which treats non-team1 ids as the opponent perspective.
+    """
+    from backend.database.models import Match
+
+    m = Match(
+        team1_player1_id=1,
+        team1_player2_id=2,
+        team2_player1_id=3,
+        team2_player2_id=4,
+        team1_score=21,
+        team2_score=15,
+        winner=1,
+    )
+    assert m.team1_diff == 6
+    assert m.signed_diff_for_player(1) == 6
+    assert m.signed_diff_for_player(2) == 6
+    assert m.signed_diff_for_player(3) == -6
+    assert m.signed_diff_for_player(4) == -6
+
+
+@pytest.mark.asyncio
 async def test_elo_calculation_accuracy(db_session, test_players, test_session):
     """Test that ELO calculations are mathematically correct."""
     alice, bob, charlie, dave = test_players
@@ -792,12 +848,13 @@ async def test_multiple_seasons_separate_stats(
     await db_session.commit()
     await db_session.refresh(season2)
 
-    # Create session 2 in season 2
+    # Create session 2 in season 2 (league_id required by Phase 5 routing)
     session2 = Session(
         date="2025-01-15",
         name="Session 2",
         status=SessionStatus.SUBMITTED,
         season_id=season2.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session2)
@@ -996,12 +1053,13 @@ async def test_season_calculation_only_includes_season_matches(
     alice, bob, charlie, dave = test_players
     league, season1 = test_league_and_season
 
-    # Create session in season 1
+    # Create session in season 1 (league_id required by Phase 5 routing)
     session1 = Session(
         date="2024-01-15",
         name="Session 1",
         status=SessionStatus.SUBMITTED,
         season_id=season1.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session1)
@@ -1020,12 +1078,13 @@ async def test_season_calculation_only_includes_season_matches(
     await db_session.commit()
     await db_session.refresh(season2)
 
-    # Create session in season 2
+    # Create session in season 2 (league_id required by Phase 5 routing)
     session2 = Session(
         date="2025-01-15",
         name="Session 2",
         status=SessionStatus.SUBMITTED,
         season_id=season2.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session2)
@@ -1268,6 +1327,7 @@ async def test_season_stats_custom_points_per_win(db_session, test_players, cust
         name="Custom Scoring Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session_obj)
@@ -1325,6 +1385,7 @@ async def test_league_stats_use_league_scoring_config(
         name="League Config Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session_obj)
@@ -1384,6 +1445,7 @@ async def test_season_rating_mode_points_are_ratings(
         name="Rating Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session_obj)
@@ -1446,6 +1508,7 @@ async def test_season_rating_non_member_gets_same_initial_rating(
         name="Guest Session",
         status=SessionStatus.SUBMITTED,
         season_id=season.id,
+        league_id=league.id,
         created_by=1,
     )
     db_session.add(session_obj)

@@ -1,22 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ClipboardCheck, FilePenLine, MapPinned } from 'lucide-react';
 import { getAdminPendingCourts, getAdminAllSuggestions } from '../../services/api';
 import PendingCourtsPanel from './courts/PendingCourtsPanel';
 import EditSuggestionsPanel from './courts/EditSuggestionsPanel';
 import AllCourtsPanel from './courts/AllCourtsPanel';
 
 const SUB_TABS = [
-  { key: 'all', label: 'All Courts' },
-  { key: 'pending', label: 'Pending Submissions' },
-  { key: 'suggestions', label: 'Edit Suggestions' },
-];
+  { key: 'pending', label: 'New courts', description: 'Unpublished drafts', icon: ClipboardCheck },
+  { key: 'suggestions', label: 'Suggested edits', description: 'Changes to live courts', icon: FilePenLine },
+  { key: 'all', label: 'Court directory', description: 'Find and update any court', icon: MapPinned },
+] as const;
+
+type CourtsSubTab = (typeof SUB_TABS)[number]['key'];
 
 /**
  * Courts management tab with 3 pill sub-tabs and badge counts.
  */
 export default function AdminCourtsTab() {
-  const [activeSubTab, setActiveSubTab] = useState('all');
+  const [activeSubTab, setActiveSubTab] = useState<CourtsSubTab>('pending');
   const [pendingCount, setPendingCount] = useState(0);
   const [suggestionsCount, setSuggestionsCount] = useState(0);
 
@@ -50,22 +53,42 @@ export default function AdminCourtsTab() {
   };
 
   return (
-    <>
-      <div className="admin-courts-pills">
-        {SUB_TABS.map(({ key, label }) => (
+    <section className="admin-courts-workspace">
+      <div className="admin-courts-command-header">
+        <div>
+          <span className="admin-courts-kicker">Venue operations</span>
+          <h2>Court review desk</h2>
+          <p>Publish new court drafts, review suggested changes, and maintain the live directory.</p>
+        </div>
+        <div className="admin-courts-queue-summary" aria-label="Open court work">
+          <span><strong>{pendingCount}</strong> {pendingCount === 1 ? 'draft' : 'drafts'}</span>
+          <span><strong>{suggestionsCount}</strong> {suggestionsCount === 1 ? 'suggestion' : 'suggestions'}</span>
+        </div>
+      </div>
+
+      <div className="admin-courts-pills" role="tablist" aria-label="Court management views">
+        {SUB_TABS.map(({ key, label, description, icon: Icon }) => (
           <button
             key={key}
+            type="button"
+            role="tab"
+            aria-selected={activeSubTab === key}
+            aria-controls={`admin-courts-panel-${key}`}
             className={`admin-courts-pill ${activeSubTab === key ? 'admin-courts-pill--active' : ''}`}
             onClick={() => setActiveSubTab(key)}
           >
-            <span>{label}</span>
-            {badgeCounts[key] != null && (
-              <span className="admin-courts-pill__badge">{badgeCounts[key]}</span>
-            )}
+            <Icon size={18} aria-hidden="true" />
+            <span className="admin-courts-pill__copy">
+              <strong>{label}</strong>
+              <small>{description}</small>
+            </span>
+            {badgeCounts[key] != null && <span className="admin-courts-pill__badge">{badgeCounts[key]}</span>}
           </button>
         ))}
       </div>
-      {renderSubTab()}
-    </>
+      <div id={`admin-courts-panel-${activeSubTab}`} role="tabpanel">
+        {renderSubTab()}
+      </div>
+    </section>
   );
 }

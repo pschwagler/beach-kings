@@ -1,47 +1,29 @@
-"""Calculation, loadsheet, and health check route handlers."""
+"""Calculation and health check route handlers."""
 
 import logging
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.database.models import Season
-from backend.services.stats_queue import get_stats_queue
-from backend.api.auth_dependencies import get_current_user
+from backend.services.platform import email_service
+from backend.services import auth_service, auth_delivery_service
+from backend.services.social import message_write_policy
+from backend.services.stats.stats_queue import get_stats_queue
+from backend.api.auth_dependencies import get_current_user, require_system_admin
+from backend.api.routes import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/api/loadsheets", response_model=dict)
-async def load_sheets(current_user: dict = Depends(get_current_user)):
-    """
-    DISABLED: This endpoint has been disabled.
-
-    TODO: Re-implement to be season-specific and add proper validations.
-    This endpoint should:
-    - Accept a season_id parameter
-    - Only load/import matches for the specified season
-    - Add proper data validation
-    - Handle errors gracefully
-    """
-    raise HTTPException(
-        status_code=501,
-        detail=(
-            "This endpoint has been disabled. "
-            "It needs to be re-implemented to be season-specific with proper validations. "
-            "The function should only load matches for a specific season, not all data."
-        ),
-    )
-
-
 @router.post("/api/calculate", response_model=dict)
 @router.post("/api/calculate-stats", response_model=dict)
+@limiter.limit("5/minute")
 async def calculate_stats(
     request: Request,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -49,8 +31,9 @@ async def calculate_stats(
 
     Request body (optional):
         {
-            "league_id": 123  // If provided, calculates league-specific stats (includes all seasons). If omitted, calculates global stats.
-            "season_id": 456  // Deprecated: if provided, will get league_id from season and calculate league stats
+            "league_id": 123  // If provided, calculates league-specific stats
+                              // (all seasons in the league). If omitted,
+                              // calculates global stats.
         }
 
     Returns:
@@ -63,14 +46,6 @@ async def calculate_stats(
             body = {}
 
         league_id = body.get("league_id") if body else None
-        season_id = body.get("season_id") if body else None  # Backward compatibility
-
-        if season_id and not league_id:
-            season_result = await session.execute(select(Season).where(Season.id == season_id))
-            season = season_result.scalar_one_or_none()
-            if season:
-                league_id = season.league_id
-
         calc_type = "league" if league_id else "global"
 
         queue = get_stats_queue()
@@ -81,7 +56,6 @@ async def calculate_stats(
             "status": "queued",
             "calc_type": calc_type,
             "league_id": league_id,
-            "season_id": season_id,  # Deprecated, kept for backward compatibility
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error queueing stats calculation: {str(e)}")
@@ -147,3 +121,52 @@ async def health_check(session: AsyncSession = Depends(get_db_session)):
         return {"status": "healthy", "message": "API is running"}
     except Exception as e:
         return {"status": "unhealthy", "data_available": False, "message": f"Error: {str(e)}"}
+
+
+@router.get("/api/ready", response_model=dict)
+async def readiness_check(session: AsyncSession = Depends(get_db_session)):
+    """Report whether production-facing dependencies are configured."""
+    checks = {"database": "ready", "email": "disabled"}
+    missing: list[str] = []
+    if await email_service.is_enabled(session):
+        email_missing = email_service.configuration_issues()
+        if email_missing:
+            checks["email"] = "misconfigured"
+            missing.extend(email_missing)
+        else:
+            checks["email"] = "ready"
+
+    if os.getenv("ENV", "development").lower() == "production":
+        if not auth_delivery_service.delivery_enabled():
+            checks["auth_delivery"] = "disabled"
+            missing.append("AUTH_DELIVERY_ENABLED=true")
+        elif not await auth_delivery_service.heartbeat_is_fresh():
+            checks["auth_delivery"] = "unavailable"
+            missing.append("auth delivery worker heartbeat")
+        else:
+            checks["auth_delivery"] = "ready"
+
+        if await auth_service.is_sms_enabled(session):
+            sms_vars = ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER")
+            sms_missing = [name for name in sms_vars if not os.getenv(name)]
+            checks["sms"] = "misconfigured" if sms_missing else "ready"
+            missing.extend(sms_missing)
+        else:
+            checks["sms"] = "disabled"
+
+    message_statuses = await message_write_policy.readiness_statuses(session)
+    checks.update(message_statuses)
+    for surface, status in message_statuses.items():
+        if status == "misconfigured":
+            config = message_write_policy.SURFACE_CONFIG[
+                message_write_policy.MessageSurface(surface)
+            ]
+            missing.append(f"{config.setting_key} or {config.env_var}")
+
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "not_ready", "checks": checks, "missing": missing},
+        )
+
+    return {"status": "ready", "checks": checks}

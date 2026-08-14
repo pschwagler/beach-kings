@@ -1,0 +1,32 @@
+appId: com.beachleague.app
+name: social-friend-request-accept
+tags:
+  - social
+  - friends
+---
+# Expects a pending incoming request from the run-scoped fixture named by
+# E2E_REQUESTER_NAME and the simulator to already be opened to the social tab.
+- runFlow:
+    when:
+      visible: "Open in .*Beach League.*"
+    commands:
+      - tapOn:
+          point: "70%,56%"
+
+- assertVisible: "Social"
+- tapOn:
+    id: "social-subnav-tab-friends"
+- assertVisible: "Search friends"
+- swipe:
+    direction: DOWN
+# The pull-to-refresh refetch can lag right after a fresh login; wait
+# explicitly instead of asserting immediately. The requester name is grouped
+# under the sender pressable's accessibility label ("View profile of ..."),
+# so match that full label — Maestro does not substring-match bare text.
+- extendedWaitUntil:
+    visible: "View profile of ${E2E_REQUESTER_NAME}"
+    timeout: 10000
+- assertVisible: "Pending Requests (2)"
+- tapOn: "Accept friend request from ${E2E_REQUESTER_NAME}"
+- assertVisible: "Search friends"
+- assertVisible: "Pending Requests (1)"

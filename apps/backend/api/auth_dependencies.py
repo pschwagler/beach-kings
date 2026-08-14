@@ -5,18 +5,30 @@ Authentication dependencies for FastAPI routes.
 import logging
 from datetime import datetime, timezone
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from backend.services import auth_service, user_service, data_service
+from backend.services import auth_service, role_service, user_service
 from backend.database.db import get_db_session
-from backend.database.models import Court, LeagueMember, Player, Season, WeeklySchedule, Signup
+from backend.database.models import (
+    Court,
+    League,
+    LeagueMember,
+    Player,
+    Season,
+    WeeklySchedule,
+    Signup,
+)
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
-security = HTTPBearer()
+# auto_error=False so we can raise 401 (not 403) for missing credentials.
+# HTTPBearer with auto_error=True returns 403, which is semantically wrong for
+# absent credentials; RFC 9110 says the server SHOULD send 401 when the resource
+# requires authentication and the request carries no credentials.
+security = HTTPBearer(auto_error=False)
 
 
 def _is_deletion_expired(user: dict) -> bool:
@@ -40,23 +52,29 @@ def _is_deletion_expired(user: dict) -> bool:
         return False
 
 
-async def get_current_user(
+async def get_authenticated_user(
     session: AsyncSession = Depends(get_db_session),
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> dict:
     """
     Dependency to get the current authenticated user from JWT token.
 
     Args:
         session: Database session
-        credentials: HTTP Bearer token credentials
+        credentials: HTTP Bearer token credentials (None when absent)
 
     Returns:
         User dictionary
 
     Raises:
-        HTTPException: If token is invalid or user not found
+        HTTPException: 401 if credentials are missing or invalid; user not found
     """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     token = credentials.credentials
 
     # Verify token
@@ -86,6 +104,29 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    current_version = int(user.get("session_version", 0))
+    token_version = payload.get("sv")
+    version_matches = (
+        current_version == 0
+        if token_version is None
+        else isinstance(token_version, int)
+        and not isinstance(token_version, bool)
+        and token_version == current_version
+    )
+    if not version_matches:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if user.get("deleted_at"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account has been deleted",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if _is_deletion_expired(user):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -96,7 +137,46 @@ async def get_current_user(
     return user
 
 
+_RESTRICTED_ACCOUNT_ROUTES = {
+    ("GET", "/api/auth/me"),
+    ("POST", "/api/auth/logout"),
+    ("GET", "/api/moderation/account-status"),
+    ("GET", "/api/moderation/appeals/me"),
+    ("POST", "/api/moderation/appeals"),
+    ("POST", "/api/users/me/delete"),
+    ("DELETE", "/api/users/me"),
+    ("POST", "/api/users/me/cancel-deletion"),
+}
+
+
+def _enforce_account_access(request: Request, user: dict) -> dict:
+    account_status = user_service.effective_moderation_status(user)
+    resolved = {**user, "moderation_status": account_status}
+    if (
+        account_status == "active"
+        or (request.method, request.url.path) in _RESTRICTED_ACCOUNT_ROUTES
+    ):
+        return resolved
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": f"account_{account_status}",
+            "expires_at": user.get("moderation_expires_at"),
+            "case_id": user.get("moderation_case_id"),
+        },
+    )
+
+
+async def get_current_user(
+    request: Request,
+    user: dict = Depends(get_authenticated_user),
+) -> dict:
+    """Authenticate and enforce full account suspension/ban boundaries."""
+    return _enforce_account_access(request, user)
+
+
 async def get_current_user_optional(
+    request: Request,
     session: AsyncSession = Depends(get_db_session),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
 ) -> Optional[dict]:
@@ -115,7 +195,8 @@ async def get_current_user_optional(
         return None
 
     try:
-        return await get_current_user(session, credentials)
+        user = await get_authenticated_user(session, credentials)
+        return _enforce_account_access(request, user)
     except HTTPException:
         return None
 
@@ -157,31 +238,40 @@ async def require_verified_player(
     return {**user, "player_id": player.id}
 
 
+async def require_verified_player_allow_restricted(
+    user: dict = Depends(get_authenticated_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Verified-player identity for status, appeal, deletion, and logout surfaces only."""
+    if not user.get("is_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Phone verification required",
+        )
+    result = await session.execute(
+        select(Player).where(
+            Player.user_id == user["id"],
+            Player.is_placeholder == False,  # noqa: E712
+        )
+    )
+    player = result.scalar_one_or_none()
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Player profile required"
+        )
+    return {
+        **user,
+        "moderation_status": user_service.effective_moderation_status(user),
+        "player_id": player.id,
+    }
+
+
 async def _is_system_admin(session: AsyncSession, user: dict) -> bool:
-    """
-    Determine if the user is a system admin.
-
-    Checks two settings:
-    - 'system_admin_phone_numbers': comma-separated E.164 phone numbers
-    - 'system_admin_emails': comma-separated email addresses (for Google SSO admins)
-    """
+    """Resolve the user's current platform role from the database."""
     try:
-        # Check by phone number
-        phone_setting = await data_service.get_setting(session, "system_admin_phone_numbers")
-        if phone_setting and user.get("phone_number"):
-            phones = {p.strip() for p in phone_setting.split(",") if p.strip()}
-            if user["phone_number"] in phones:
-                return True
-
-        # Check by email (for Google SSO users who may not have a phone number)
-        email_setting = await data_service.get_setting(session, "system_admin_emails")
-        if email_setting and user.get("email"):
-            emails = {e.strip().lower() for e in email_setting.split(",") if e.strip()}
-            if user["email"].strip().lower() in emails:
-                return True
-
-        return False
-    except Exception:
+        return await role_service.is_system_admin(session, user["id"])
+    except Exception as exc:
+        logger.warning("_is_system_admin check raised unexpectedly: %s", exc, exc_info=True)
         return False
 
 
@@ -214,12 +304,19 @@ async def require_court_owner_or_admin(session: AsyncSession, court_id: int, use
 
 
 async def _has_league_role(
-    session: AsyncSession, user_id: int, league_id: int, required_role: Optional[str]
+    session: AsyncSession, user_id: int, league_id: Optional[int], required_role: Optional[str]
 ) -> bool:
     """
     Check if a user (by user_id) has a role within a league via players -> league_members.
     required_role: 'admin' for admin; None for any membership.
+
+    Returns False immediately when ``league_id`` is None (e.g. an unresolved
+    target league), making the deny-by-default contract explicit and avoiding a
+    pointless ``WHERE league_id IS NULL`` round-trip.
     """
+    if league_id is None:
+        return False
+
     query = (
         select(1)
         .select_from(
@@ -280,6 +377,38 @@ def make_require_league_member():
                 status_code=status.HTTP_403_FORBIDDEN, detail="League membership required"
             )
         return user
+
+    return _dep
+
+
+def make_require_league_member_or_public():
+    """Allow any authenticated user to read a PUBLIC league; private leagues
+    still require membership.
+
+    Used for read-only league surfaces that non-members are allowed to view
+    for public leagues (e.g. the standings tab, which is the public "shop
+    window" shown to visitors who reach a league via discovery). Private,
+    invite-only leagues remain members-only.
+    """
+
+    async def _dep(
+        league_id: int,
+        user: dict = Depends(get_current_user),
+        session: AsyncSession = Depends(get_db_session),
+    ) -> dict:
+        if await _is_system_admin(session, user):
+            return user
+        if await _has_league_role(
+            session, user_id=user["id"], league_id=league_id, required_role=None
+        ):
+            return user
+        # Non-member: permitted only when the league is public.
+        result = await session.execute(select(League.is_public).where(League.id == league_id))
+        if result.scalar_one_or_none():
+            return user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="League membership required"
+        )
 
     return _dep
 

@@ -36,3 +36,30 @@
   vertical-align: middle;
   margin-right: 8px;
 }
+
+/* Page-level skeleton for Suspense fallbacks */
+.page-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 32px 24px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.page-skeleton__bar {
+  height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--gray-300) 0%, var(--gray-100) 50%, var(--gray-300) 100%);
+  background-size: 1000px 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  width: 100%;
+}
+
+.page-skeleton__bar--short {
+  width: 40%;
+}
+
+.page-skeleton__bar--medium {
+  width: 70%;
+}

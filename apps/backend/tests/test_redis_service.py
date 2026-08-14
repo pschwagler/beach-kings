@@ -9,7 +9,7 @@ to provide clean state.
 import pytest
 from unittest.mock import AsyncMock, patch
 
-import backend.services.redis_service as redis_service
+import backend.services.platform.redis_service as redis_service
 
 
 # ============================================================================
@@ -36,7 +36,7 @@ async def test_get_redis_client_returns_client_on_success():
     mock_client = AsyncMock()
     mock_client.ping = AsyncMock(return_value=True)
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         client = await redis_service.get_redis_client()
 
     assert client is mock_client
@@ -51,7 +51,9 @@ async def test_get_redis_client_returns_same_instance_on_second_call():
     mock_client = AsyncMock()
     mock_client.ping = AsyncMock(return_value=True)
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client) as mock_redis_cls:
+    with patch(
+        "backend.services.platform.redis_service.Redis", return_value=mock_client
+    ) as mock_redis_cls:
         first = await redis_service.get_redis_client()
         second = await redis_service.get_redis_client()
 
@@ -68,7 +70,7 @@ async def test_get_redis_client_returns_none_on_connection_failure():
     mock_client = AsyncMock()
     mock_client.ping = AsyncMock(side_effect=ConnectionRefusedError("refused"))
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         client = await redis_service.get_redis_client()
 
     assert client is None
@@ -81,7 +83,7 @@ async def test_get_redis_client_returns_none_when_redis_unavailable():
     """get_redis_client() returns None when Redis library is not installed."""
     _reset_singleton()
 
-    with patch("backend.services.redis_service.Redis", None):
+    with patch("backend.services.platform.redis_service.Redis", None):
         client = await redis_service.get_redis_client()
 
     assert client is None
@@ -104,7 +106,7 @@ async def test_get_redis_client_recreates_after_lost_connection():
     fresh_client = AsyncMock()
     fresh_client.ping = AsyncMock(return_value=True)
 
-    with patch("backend.services.redis_service.Redis", return_value=fresh_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=fresh_client):
         client = await redis_service.get_redis_client()
 
     assert client is fresh_client
@@ -124,7 +126,7 @@ async def test_redis_get_returns_value():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.get = AsyncMock(return_value="cached_value")
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_get("some:key")
 
     assert result == "cached_value"
@@ -140,7 +142,7 @@ async def test_redis_get_returns_none_when_key_missing():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.get = AsyncMock(return_value=None)
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_get("nonexistent:key")
 
     assert result is None
@@ -151,7 +153,7 @@ async def test_redis_get_returns_none_when_client_is_none():
     """redis_get() returns None gracefully when no Redis client is available."""
     _reset_singleton()
 
-    with patch("backend.services.redis_service.Redis", None):
+    with patch("backend.services.platform.redis_service.Redis", None):
         result = await redis_service.redis_get("any:key")
 
     assert result is None
@@ -166,7 +168,7 @@ async def test_redis_get_returns_none_on_exception():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.get = AsyncMock(side_effect=Exception("timeout"))
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_get("bad:key")
 
     assert result is None
@@ -186,7 +188,7 @@ async def test_redis_set_without_expiry():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.set = AsyncMock()
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_set("my:key", "my_value")
 
     assert result is True
@@ -202,7 +204,7 @@ async def test_redis_set_with_expiry():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.setex = AsyncMock()
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_set("ttl:key", "value", expiry_seconds=300)
 
     assert result is True
@@ -218,7 +220,7 @@ async def test_redis_set_returns_false_on_exception():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.set = AsyncMock(side_effect=Exception("write error"))
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_set("fail:key", "value")
 
     assert result is False
@@ -229,7 +231,7 @@ async def test_redis_set_returns_false_when_no_client():
     """redis_set() returns False when Redis is unavailable."""
     _reset_singleton()
 
-    with patch("backend.services.redis_service.Redis", None):
+    with patch("backend.services.platform.redis_service.Redis", None):
         result = await redis_service.redis_set("key", "value")
 
     assert result is False
@@ -249,7 +251,7 @@ async def test_redis_delete_success():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.delete = AsyncMock(return_value=1)
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_delete("del:key")
 
     assert result is True
@@ -265,7 +267,7 @@ async def test_redis_delete_returns_false_on_exception():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.delete = AsyncMock(side_effect=Exception("delete error"))
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_delete("err:key")
 
     assert result is False
@@ -276,7 +278,7 @@ async def test_redis_delete_returns_false_when_no_client():
     """redis_delete() returns False when Redis is unavailable."""
     _reset_singleton()
 
-    with patch("backend.services.redis_service.Redis", None):
+    with patch("backend.services.platform.redis_service.Redis", None):
         result = await redis_service.redis_delete("key")
 
     assert result is False
@@ -296,7 +298,7 @@ async def test_redis_exists_returns_true_when_key_present():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.exists = AsyncMock(return_value=1)
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_exists("present:key")
 
     assert result is True
@@ -311,7 +313,7 @@ async def test_redis_exists_returns_false_when_key_absent():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.exists = AsyncMock(return_value=0)
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_exists("absent:key")
 
     assert result is False
@@ -326,7 +328,7 @@ async def test_redis_exists_returns_false_on_exception():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.exists = AsyncMock(side_effect=Exception("exists error"))
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.redis_exists("err:key")
 
     assert result is False
@@ -345,7 +347,7 @@ async def test_is_redis_available_true():
     mock_client = AsyncMock()
     mock_client.ping = AsyncMock(return_value=True)
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         result = await redis_service.is_redis_available()
 
     assert result is True
@@ -356,7 +358,7 @@ async def test_is_redis_available_false_when_unavailable():
     """is_redis_available() returns False when Redis library is absent."""
     _reset_singleton()
 
-    with patch("backend.services.redis_service.Redis", None):
+    with patch("backend.services.platform.redis_service.Redis", None):
         result = await redis_service.is_redis_available()
 
     assert result is False
@@ -376,7 +378,7 @@ async def test_close_redis_connection_resets_singleton():
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.close = AsyncMock()
 
-    with patch("backend.services.redis_service.Redis", return_value=mock_client):
+    with patch("backend.services.platform.redis_service.Redis", return_value=mock_client):
         await redis_service.get_redis_client()
 
     assert redis_service._redis_client is not None

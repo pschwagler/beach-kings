@@ -19,7 +19,7 @@ test.describe('Public League Page', () => {
     await page.goto(`/league/${leagueId}`);
 
     // Navbar should be present
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // League name should be visible in the public view
     const leagueName = page.locator('.public-league__name');
@@ -45,7 +45,7 @@ test.describe('Find Leagues Page', () => {
     await page.goto('/find-leagues');
 
     // Navbar should be present
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Page title
     await expect(page.locator('h1', { hasText: 'Find New Leagues' }))
@@ -76,7 +76,7 @@ test.describe('Find Players Page', () => {
     await page.goto('/find-players');
 
     // Navbar should be present
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Page title
     await expect(page.locator('h1', { hasText: 'Find Players' }))
@@ -95,8 +95,8 @@ test.describe('Find Players Page', () => {
       .toBeVisible({ timeout: 15000 });
 
     // Player cards should be visible (players from sessionWithMatches have games)
-    const playerCards = page.locator('.find-players__card');
-    await expect(playerCards.first()).toBeVisible({ timeout: 15000 });
+    const playerRows = page.locator('.find-players__table-row');
+    await expect(playerRows.first()).toBeVisible({ timeout: 15000 });
 
     // Count should show results
     await expect(page.locator('.find-players__count')).toContainText('player');

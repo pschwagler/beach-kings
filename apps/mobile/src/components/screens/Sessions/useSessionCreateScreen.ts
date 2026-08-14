@@ -1,0 +1,152 @@
+/** Data and submission state for creating a session. */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import type { LeagueDetail, Season } from '@beach-kings/shared';
+
+import useApi from '@/hooks/useApi';
+import { api } from '@/lib/api';
+import { routes } from '@/lib/navigation';
+import { hapticMedium } from '@/utils/haptics';
+import { useAuth } from '@/contexts/AuthContext';
+import { reconcileGameMutation } from '@/features/matches';
+import { formatLocalCalendarDate } from '@/lib/calendarDate';
+
+interface UseSessionCreateScreenParams {
+  readonly leagueId?: number | null;
+  readonly seasonId?: number | null;
+  readonly playerIds?: readonly number[];
+}
+
+export interface UseSessionCreateScreenResult {
+  readonly date: string;
+  readonly startTime: string;
+  readonly courtId: number | null;
+  readonly leagueName: string | null;
+  readonly leagueSeasons: readonly Season[];
+  readonly selectedSeasonId: number | null;
+  readonly showsSeasonAssignment: boolean;
+  readonly isRanked: boolean;
+  readonly isRankedLocked: boolean;
+  readonly isSubmitting: boolean;
+  readonly submitError: string | null;
+  readonly setDate: (value: string) => void;
+  readonly setStartTime: (value: string) => void;
+  readonly setCourtId: (value: number | null) => void;
+  readonly setSelectedSeasonId: (value: number | null) => void;
+  readonly setIsRanked: (value: boolean) => void;
+  readonly onSubmit: () => Promise<void>;
+}
+
+/** Returns form state and submit handler for creating a new session. */
+export function useSessionCreateScreen(
+  params: UseSessionCreateScreenParams = {},
+): UseSessionCreateScreenResult {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
+  const leagueId = params.leagueId ?? null;
+  const playerIds = useMemo(
+    () =>
+      [...new Set(params.playerIds ?? [])]
+        .filter((id) => Number.isInteger(id) && id > 0)
+        .slice(0, 4),
+    [params.playerIds],
+  );
+  const createdSessionIdRef = useRef<number | null>(null);
+  const today = formatLocalCalendarDate();
+  const { data: league } = useApi<LeagueDetail>(
+    () => api.getLeague(Number(leagueId)),
+    [leagueId],
+    { enabled: leagueId != null },
+  );
+  const { data: leagueSeasons } = useApi<Season[]>(
+    () => api.getLeagueSeasons(Number(leagueId)),
+    [leagueId],
+    { enabled: leagueId != null },
+  );
+
+  const [date, setDate] = useState(today);
+  const [startTime, setStartTime] = useState('');
+  const [courtId, setCourtId] = useState<number | null>(null);
+  const [selectedSeasonId, setSelectedSeasonIdState] = useState<number | null>(
+    params.seasonId ?? null,
+  );
+  const [isRanked, setIsRanked] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const isRankedLocked = selectedSeasonId != null;
+
+  // TODO: derive ranked status from the selected season or league policy.
+  useEffect(() => {
+    if (selectedSeasonId != null) setIsRanked(true);
+  }, [selectedSeasonId]);
+
+  const setSelectedSeasonId = useCallback((seasonId: number | null) => {
+    setSelectedSeasonIdState(seasonId);
+    if (seasonId != null) setIsRanked(true);
+  }, []);
+
+  const setRanked = useCallback((value: boolean) => {
+    if (selectedSeasonId == null) setIsRanked(value);
+  }, [selectedSeasonId]);
+
+  const onSubmit = useCallback(async () => {
+    setSubmitError(null);
+    setIsSubmitting(true);
+    await hapticMedium();
+    try {
+      let sessionId = createdSessionIdRef.current;
+      if (sessionId == null) {
+        const session = await api.createSession({
+          date,
+          start_time: startTime || null,
+          court_id: courtId,
+          is_ranked: isRankedLocked ? true : isRanked,
+          ...(leagueId != null
+            ? { league_id: leagueId, season_id: selectedSeasonId }
+            : {}),
+        });
+        if (session == null) throw new Error('Failed to create session.');
+        sessionId = session.id;
+        createdSessionIdRef.current = sessionId;
+      }
+      if (playerIds.length > 0) {
+        const inviteResult = await api.inviteSessionPlayers(sessionId, playerIds);
+        if (inviteResult.failed.length > 0) {
+          throw new Error(
+            "The session started, but some selected players couldn't be added. Try again.",
+          );
+        }
+      }
+      void reconcileGameMutation(queryClient, { userId, leagueId });
+      router.replace(routes.session(sessionId));
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to create session.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [courtId, date, isRanked, isRankedLocked, leagueId, playerIds, queryClient, router, selectedSeasonId, startTime, userId]);
+
+  return {
+    date,
+    startTime,
+    courtId,
+    leagueName: league?.name ?? null,
+    leagueSeasons: leagueSeasons ?? [],
+    selectedSeasonId,
+    showsSeasonAssignment: leagueId != null,
+    isRanked,
+    isRankedLocked,
+    isSubmitting,
+    submitError,
+    setDate,
+    setStartTime,
+    setCourtId,
+    setSelectedSeasonId,
+    setIsRanked: setRanked,
+    onSubmit,
+  };
+}

@@ -53,6 +53,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-beachkings}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
       POSTGRES_DB: ${TEST_POSTGRES_DB:-beachkings_test}
+      ENV: test
       # Redis connection
       REDIS_HOST: redis-test
       REDIS_PORT: 6379
@@ -76,6 +77,11 @@ services:
       - "backend/tests/"
       - "-v"
       - "--tb=short"
+      # Backstop: this container does not mount the repo-root pytest.ini, so the
+      # per-test timeout must be passed explicitly here. signal method (SIGALRM)
+      # kills a hung test but keeps the run alive so the summary still prints.
+      - "--timeout=90"
+      - "--timeout-method=signal"
       - "--cov=backend"
       - "--cov-report=xml:backend/coverage.xml"
       - "--cov-report=term"
@@ -100,6 +106,7 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 0
       ENV: test
+      FRONTEND_URL: http://localhost:3002
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-test-secret-key-for-testing-only-change-in-production}
       ENABLE_SMS: "false"
       ENABLE_EMAIL: "false"
@@ -107,7 +114,7 @@ services:
       # Disable external services in tests
       TWILIO_ACCOUNT_SID: ""
       TWILIO_AUTH_TOKEN: ""
-      SENDGRID_API_KEY: ""
+      RESEND_API_KEY: ""
     depends_on:
       postgres-test:
         condition: service_healthy

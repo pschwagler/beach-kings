@@ -22,8 +22,12 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `ENV` | `development` | `development`, `production`, or `test` |
 | `JWT_EXPIRATION_HOURS` | `1` | JWT access token TTL (hours) |
 | `REFRESH_TOKEN_EXPIRATION_DAYS` | `30` | Refresh token TTL (days). Tokens rotate on each use — old token is deleted and a new one issued |
+| `YOUTH_SAFETY_SIGNING_SECRET` | `JWT_SECRET_KEY` | Dedicated signing key for 30-minute, pre-registration youth eligibility proofs. Use an independently generated secret in production. |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins |
 | `DEBUG_BACKEND` | `0` | Enable debug mode |
+| `PUSH_DELIVERY_ENABLED` | `false` | Enables the separate durable Expo push worker. Requires `EXPO_ACCESS_TOKEN` to be configured securely |
+| `PUSH_MAX_ATTEMPTS` | `5` | Maximum durable delivery attempts for transient Expo failures |
+| `EXPO_ACCESS_TOKEN` | (empty) | Protected server-only Expo enhanced-security access token; required when push delivery is enabled |
 
 ### Ports
 
@@ -48,6 +52,20 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `GOOGLE_CLIENT_ID` | (empty) | Google OAuth 2.0 Client ID (backend token verification) |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | (empty) | Google OAuth 2.0 Client ID (frontend, exposed to browser) |
 
+### Sign in with Apple
+
+These values are server-only secrets/configuration. Store them in the deployment
+secret manager, never in source control. The encryption key must remain stable
+for as long as pending Apple revocation jobs exist.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APPLE_CLIENT_ID` | (empty) | App ID used as the Apple token audience and OAuth client ID |
+| `APPLE_TEAM_ID` | (empty) | Apple Developer team identifier used to sign client-secret JWTs |
+| `APPLE_KEY_ID` | (empty) | Sign in with Apple private-key identifier |
+| `APPLE_PRIVATE_KEY` | (empty) | Server-only ES256 private key; literal `\\n` separators are supported |
+| `APPLE_TOKEN_ENCRYPTION_KEY` | (empty) | Stable Fernet key used to encrypt Apple refresh tokens at rest |
+
 ### Twilio SMS
 
 | Variable | Default | Description |
@@ -57,12 +75,12 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `TWILIO_PHONE_NUMBER` | (empty) | Twilio sending phone number |
 | `ENABLE_SMS` | `true` | Set `false` to disable SMS |
 
-### SendGrid Email
+### Resend Email
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SENDGRID_API_KEY` | (empty) | SendGrid API key |
-| `SENDGRID_FROM_EMAIL` | `noreply@beachleaguevb.com` | Sender email |
+| `RESEND_API_KEY` | (empty) | Resend API key |
+| `RESEND_FROM_EMAIL` | `Beach League <noreply@beachleaguevb.com>` | Sender identity on a verified Resend domain |
 | `ADMIN_EMAIL` | `admin@beachleaguevb.com` | Admin notification email |
 | `ENABLE_EMAIL` | `true` | Set `false` to disable email |
 
@@ -74,12 +92,24 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `AWS_SECRET_ACCESS_KEY` | (empty) | AWS secret key |
 | `AWS_S3_BUCKET` | (empty) | S3 bucket name |
 | `AWS_S3_REGION` | `us-west-2` | AWS region |
+| `AWS_MODERATION_EVIDENCE_BUCKET` | (empty) | Separate private S3 bucket for restricted moderation evidence; enable Block Public Access and encryption |
+| `MODERATION_MODE` | `off` | Local durable moderation behavior: `off`, `shadow`, or `enforce`. Server code forces `enforce` in production and staging so unreviewed UGC fails closed |
+| `MODERATION_MODEL` | `omni-moderation-latest` | Configurable text/image classification model |
+| `MODERATION_AUTO_ENFORCE_SCORE` | `0.95` | Conservative severe-category score threshold for automatic bans or seven-day suspensions; all other flags remain quarantined |
+| `DIRECT_MESSAGE_WRITES_ENABLED` | unset locally | Emergency control for new direct messages. Production/staging require an explicit valid value or the surface fails closed; the `direct_message_writes_enabled` database setting takes precedence |
+| `LEAGUE_CHAT_WRITES_ENABLED` | unset locally | Emergency control for new league-chat messages. Production/staging require an explicit valid value or the surface fails closed; the `league_chat_writes_enabled` database setting takes precedence |
+| `MODERATION_TRIAGE_MODEL` | `gpt-5.6-luna` | Configurable recommendation-only structured triage model |
+| `MODERATION_PROVIDER_TIMEOUT` | `20` | Provider request timeout in seconds |
+| `MODERATION_MAX_ATTEMPTS` | `5` | Bounded durable-job retry count |
+| `OPENAI_API_KEY` | (empty) | Server-only provider credential used by the separate moderation worker; the worker refuses to start without it whenever moderation is enabled |
+| `MODERATION_ALERTS_ENABLED` | `false` | Enables durable moderation owner alerts; required in production |
+| `MODERATION_ALERT_EMAIL` | (empty) | Protected controlled-inbox recipient for privacy-minimized moderation alerts; required in production |
+| `MODERATION_ALERT_MAX_ATTEMPTS` | `5` | Maximum bounded Resend attempts per alert job |
 
 ### System Admin
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEFAULT_ADMIN_PHONE` | (empty) | Phone number (E.164) seeded as default system admin on startup. Leave empty to skip |
+System-admin access is stored as auditable user-linked role assignments. No
+environment variable or contact allowlist grants administrator access.
 
 ### External APIs
 

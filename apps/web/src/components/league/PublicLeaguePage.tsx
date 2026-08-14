@@ -148,7 +148,7 @@ export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpe
 
       {(league.recent_matches?.length ?? 0) > 0 && (
         <section className="public-league__section">
-          <h2 className="public-league__section-title">Recent Matches</h2>
+          <h2 className="public-league__section-title">Recent Games</h2>
           <MatchList matches={league.recent_matches as PublicMatch[]} />
         </section>
       )}
@@ -340,7 +340,7 @@ function MatchList({ matches }: { matches: PublicMatch[] }) {
           className="public-league__show-more"
           onClick={() => setExpanded(!expanded)}
         >
-          {expanded ? 'Show fewer' : `Show all ${matches.length} matches`}
+          {expanded ? 'Show fewer' : `Show all ${matches.length} games`}
         </button>
       )}
     </div>

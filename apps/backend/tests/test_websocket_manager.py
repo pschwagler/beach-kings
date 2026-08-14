@@ -8,7 +8,7 @@ import pytest_asyncio
 import asyncio
 from unittest.mock import AsyncMock
 from datetime import datetime, timedelta
-from backend.services.websocket_manager import (
+from backend.services.platform.websocket_manager import (
     WebSocketManager,
     get_websocket_manager,
     WEBSOCKET_TIMEOUT_SECONDS,
@@ -96,6 +96,21 @@ async def test_disconnect_multiple_connections(ws_manager):
     # Only one should remain
     count = await ws_manager.get_connection_count(user_id)
     assert count == 1
+
+
+@pytest.mark.asyncio
+async def test_close_user_removes_and_closes_every_connection(ws_manager):
+    ws1 = AsyncMock()
+    ws2 = AsyncMock()
+    await ws_manager.connect(7, ws1)
+    await ws_manager.connect(7, ws2)
+
+    closed = await ws_manager.close_user(7, reason="Account status changed")
+
+    assert closed == 2
+    assert await ws_manager.get_connection_count(7) == 0
+    ws1.close.assert_awaited_once_with(code=1008, reason="Account status changed")
+    ws2.close.assert_awaited_once_with(code=1008, reason="Account status changed")
 
 
 @pytest.mark.asyncio

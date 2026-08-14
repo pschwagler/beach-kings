@@ -132,7 +132,7 @@
   padding: 12px 16px;
   border-radius: 8px;
   border: 1px solid var(--gray-200);
-  background: white;
+  background: var(--bg-surface);
   cursor: pointer;
   transition: background 0.15s;
   text-align: left;

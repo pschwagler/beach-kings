@@ -115,7 +115,7 @@ test.describe('Profile Completion Modal', () => {
     await expect(modal).toBeHidden({ timeout: 15000 });
 
     // Home tab content should now be visible (user is no longer blocked)
-    await expect(page.locator('nav')).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible();
   });
 
   test('profile data persists after completion', async ({
@@ -176,7 +176,7 @@ test.describe('Profile Completion Modal', () => {
     await authMePromise;
 
     // Modal should NOT reappear — profile is complete
-    await expect(page.locator('nav')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 15000 });
     await page.waitForTimeout(2000); // wait past the 500ms modal delay
     await expect(modal).toBeHidden();
 

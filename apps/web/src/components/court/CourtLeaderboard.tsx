@@ -44,7 +44,7 @@ export default function CourtLeaderboard({ slug }: CourtLeaderboardProps) {
           <tr>
             <th className="court-leaderboard__th court-leaderboard__th--rank">#</th>
             <th className="court-leaderboard__th">Player</th>
-            <th className="court-leaderboard__th court-leaderboard__th--num">Matches</th>
+            <th className="court-leaderboard__th court-leaderboard__th--num">Games</th>
             <th className="court-leaderboard__th court-leaderboard__th--num">Win Rate</th>
           </tr>
         </thead>

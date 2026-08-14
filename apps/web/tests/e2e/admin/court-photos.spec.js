@@ -82,8 +82,8 @@ async function getTestCourtId() {
  */
 async function expandTestCourtRow(page) {
   // Courts main tab is already active via ?tab=courts in the URL.
-  // Switch to "All Courts" sub-tab.
-  const allPill = page.locator('.admin-courts-pill', { hasText: 'All Courts' });
+  // Switch to the directory sub-tab.
+  const allPill = page.getByRole('tab', { name: /Court directory/ });
   await expect(allPill).toBeVisible({ timeout: 10000 });
   await allPill.click();
 
@@ -92,7 +92,7 @@ async function expandTestCourtRow(page) {
   await expect(searchInput).toBeVisible({ timeout: 10000 });
 
   // Wait for initial load to finish (table or "No courts" text)
-  await page.locator('.admin-feedback-table, :text("No courts found.")').first()
+  await page.locator('.admin-feedback-table, :text("No courts match these filters")').first()
     .waitFor({ timeout: 15000 });
 
   // Type search and wait for the debounced API response

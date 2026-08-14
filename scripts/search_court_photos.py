@@ -99,7 +99,7 @@ def search_images(query: str, num: int = 10) -> list[str]:
     if not SEARCH_CX:
         # Fallback: use direct image search URL scraping won't work.
         # Without a CX, we can't use Custom Search API.
-        print(f"    WARNING: GOOGLE_SEARCH_CX not set, cannot search images")
+        print("    WARNING: GOOGLE_SEARCH_CX not set, cannot search images")
         return []
 
     params = {

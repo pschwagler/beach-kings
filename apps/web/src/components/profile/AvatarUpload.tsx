@@ -113,6 +113,14 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: Av
     setCroppedAreaPixels(croppedAreaPx);
   }, []);
 
+  /** Revoke the object URL to prevent memory leaks. */
+  const cleanupImageSrc = useCallback(() => {
+    if (imageSrc) {
+      URL.revokeObjectURL(imageSrc);
+      setImageSrc(null);
+    }
+  }, [imageSrc]);
+
   /** Crop the image, upload, and refresh user data. */
   const handleSave = async () => {
     if (!imageSrc || !croppedAreaPixels) return;
@@ -163,14 +171,6 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: Av
   };
 
   const cropDialogRef = useDialog(handleCloseCropModal, showCropModal && !!imageSrc);
-
-  /** Revoke the object URL to prevent memory leaks. */
-  const cleanupImageSrc = () => {
-    if (imageSrc) {
-      URL.revokeObjectURL(imageSrc);
-      setImageSrc(null);
-    }
-  };
 
   return (
     <div className="avatar-upload">

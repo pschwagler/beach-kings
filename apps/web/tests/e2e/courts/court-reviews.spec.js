@@ -3,7 +3,7 @@ import { test, expect, navigateWithAuth } from '../fixtures/test-fixtures.js';
 /**
  * E2E tests for court reviews (submit, edit, delete).
  *
- * Uses the auto-seeded court "South Mission Beach Volleyball Courts"
+ * Uses the bootstrap catalog court "South Mission Beach Volleyball Courts"
  * (slug: south-mission-beach-volleyball-courts-san-diego).
  * Requires `testUser` + `authedPage` for authenticated actions.
  *

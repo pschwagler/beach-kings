@@ -7,17 +7,11 @@ import SessionPlayersInSessionPanel from './SessionPlayersInSessionPanel';
 import SessionPlayersAddPanel from './SessionPlayersAddPanel';
 import CourtSelector from '../court/CourtSelector';
 import { getPlayerHomeCourts, getNearbyCourts } from '../../services/api';
+import { batchFriendStatus, sendFriendRequest } from '../../services/endpoints/friends';
 import { useUserPosition } from '../../hooks/useUserPosition';
+import { useToast } from '../../contexts/ToastContext';
 import type { Player } from '../../types';
-
-interface Participant {
-  player_id: number;
-  full_name?: string | null;
-  player_name?: string | null;
-  gender?: string | null;
-  level?: string | null;
-  location_name?: string | null;
-}
+import type { SessionParticipant } from './types';
 
 interface HomeCourt {
   id: number;
@@ -27,7 +21,7 @@ interface HomeCourt {
 interface SessionPlayersModalProps {
   isOpen: boolean;
   sessionId: number | null;
-  participants?: Participant[];
+  participants?: SessionParticipant[];
   sessionCreatedByPlayerId?: number | null;
   currentUserPlayerId?: number | null;
   currentUserPlayer?: Player | null;
@@ -74,6 +68,14 @@ export default function SessionPlayersModal({
     ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }
     : null;
   const { position } = useUserPosition(profileCoords);
+  const { showToast } = useToast();
+
+  // Friend status tracking for session participants
+  const [friendStatuses, setFriendStatuses] = useState<Record<string, string>>({});
+  const [friendActionLoading, setFriendActionLoading] = useState<Record<string, boolean>>({});
+  const [friendStatusesLoaded, setFriendStatusesLoaded] = useState(false);
+  const friendStatusesRef = useRef(friendStatuses);
+  useEffect(() => { friendStatusesRef.current = friendStatuses; }, [friendStatuses]);
 
   // Sync props → local state when modal opens or props change
   useEffect(() => {
@@ -140,6 +142,31 @@ export default function SessionPlayersModal({
     applyDefault();
   }, [isOpen, onUpdateSession, sessionCourtId, playerHomeCourts, position]);
 
+  // Reset friend statuses when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setFriendStatuses({});
+      setFriendStatusesLoaded(false);
+      setFriendActionLoading({});
+    }
+  }, [isOpen]);
+
+  const handleAddFriend = useCallback(async (playerId: number) => {
+    const originalStatus = friendStatuses[String(playerId)];
+    setFriendActionLoading((prev) => ({ ...prev, [String(playerId)]: true }));
+    // Optimistic update
+    setFriendStatuses((prev) => ({ ...prev, [String(playerId)]: 'pending_outgoing' }));
+    try {
+      await sendFriendRequest(playerId);
+    } catch {
+      // Revert to original status on failure
+      setFriendStatuses((prev) => ({ ...prev, [String(playerId)]: originalStatus ?? 'none' }));
+      showToast('Failed to send friend request', 'error');
+    } finally {
+      setFriendActionLoading((prev) => ({ ...prev, [String(playerId)]: false }));
+    }
+  }, [showToast, friendStatuses]);
+
   const handleNameBlur = useCallback(() => {
     const trimmed = draftName.trim();
     if (trimmed && trimmed !== sessionName && onUpdateSession) {
@@ -202,6 +229,33 @@ export default function SessionPlayersModal({
     onSuccess: onSuccess ?? undefined,
     onClose,
   });
+
+  // Fetch friend statuses for participants, including newly added ones.
+  // Watches localParticipants so players added via "Add players" tab get status fetched.
+  // Uses friendStatusesRef to read current statuses without triggering re-runs.
+  useEffect(() => {
+    if (!isOpen || !currentUserPlayerId) return;
+    const newIds = localParticipants
+      .filter((p) => p.player_id !== currentUserPlayerId && !p.is_placeholder && !(String(p.player_id) in friendStatusesRef.current))
+      .map((p) => p.player_id);
+    if (newIds.length === 0) {
+      setFriendStatusesLoaded(true);
+      return;
+    }
+    setFriendStatusesLoaded(false);
+    let cancelled = false;
+    batchFriendStatus(newIds)
+      .then((data: { statuses: Record<string, string> }) => {
+        if (!cancelled) {
+          setFriendStatuses((prev) => ({ ...prev, ...data.statuses }));
+          setFriendStatusesLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFriendStatusesLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, currentUserPlayerId, localParticipants]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -324,6 +378,10 @@ export default function SessionPlayersModal({
               currentUserPlayerId={currentUserPlayerId}
               onRemove={handleRemove}
               removingId={removingId}
+              friendStatuses={friendStatuses}
+              friendStatusesLoaded={friendStatusesLoaded}
+              friendActionLoading={friendActionLoading}
+              onAddFriend={handleAddFriend}
             />
           )}
 

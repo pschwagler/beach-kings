@@ -2,8 +2,7 @@
 import pytest
 import pytz
 from datetime import datetime, timedelta, date
-from sqlalchemy import select
-from backend.database.models import Season, League, WeeklySchedule, Signup, OpenSignupsMode
+from backend.database.models import Season, League, Signup
 from backend.services.data_service import (
     create_weekly_schedule,
     update_weekly_schedule,

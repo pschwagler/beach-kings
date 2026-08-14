@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { User, LogIn, UserPlus, Home, UserCircle, MessageSquare, LogOut } from 'lucide-react';
+import { User, LogIn, UserPlus, Home, UserCircle, MessageSquare, LogOut, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
@@ -94,6 +94,9 @@ export default function UserMenu({
       case 'profile':
         router.push('/home?tab=profile');
         break;
+      case 'admin':
+        router.push('/admin-view');
+        break;
       default:
         onMenuClick?.(action);
     }
@@ -154,6 +157,11 @@ export default function UserMenu({
               <NavDropdownItem icon={MessageSquare} onClick={() => handleItemClick('feedback')}>
                 Leave Feedback
               </NavDropdownItem>
+              {user?.is_system_admin && (
+                <NavDropdownItem icon={ShieldCheck} onClick={() => handleItemClick('admin')}>
+                  Admin
+                </NavDropdownItem>
+              )}
               <NavDropdownItem
                 icon={LogOut}
                 variant="danger"

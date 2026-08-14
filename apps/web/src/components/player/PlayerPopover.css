@@ -9,7 +9,7 @@
   z-index: 1001;
   min-width: 200px;
   max-width: 260px;
-  background: #fff;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   box-shadow: var(--shadow-lg);

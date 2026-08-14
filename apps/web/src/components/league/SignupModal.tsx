@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
-import { getCourts } from '../../services/api';
 import { useDialog } from '../../hooks/useDialog';
 import { useToast } from '../../contexts/ToastContext';
+import { useLeague } from '../../contexts/LeagueContext';
+import CourtSelector from '../court/CourtSelector';
 
 // Helper to convert local datetime to UTC ISO string
 function localToUTCISOString(dateStr: string, timeStr: string): string | null {
@@ -56,6 +57,7 @@ interface ExistingSignup {
   scheduled_datetime?: string | null;
   duration_hours?: number | null;
   court_id?: number | null;
+  court_name?: string | null;
 }
 
 interface SignupModalProps {
@@ -68,9 +70,9 @@ interface SignupModalProps {
 export default function SignupModal({ signup, seasonId, onClose, onSubmit }: SignupModalProps) {
   const dialogRef = useDialog(onClose);
   const { showToast } = useToast();
+  const { league, isLeagueAdmin } = useLeague();
   const isEditMode = !!signup;
-  const [courts, setCourts] = useState<Array<{ id: number; name: string }>>([]);
-  const [loading, setLoading] = useState(true);
+  const homeCourts = league?.home_courts || [];
   
   // Initialize form data
   const scheduled = signup ? utcToLocalDateTime(signup.scheduled_datetime ?? '') : { date: getTodayDate(), time: getNextHour() };
@@ -79,22 +81,8 @@ export default function SignupModal({ signup, seasonId, onClose, onSubmit }: Sig
     scheduled_date: scheduled.date,
     scheduled_time: scheduled.time,
     duration_hours: signup?.duration_hours?.toString() || '2.0',
-    court_id: signup?.court_id?.toString() || ''
+    court_id: signup?.court_id ?? (!isEditMode && homeCourts.length > 0 ? homeCourts[0].id : null)
   });
-  
-  useEffect(() => {
-    const loadCourts = async () => {
-      try {
-        const courtsData = await getCourts();
-        setCourts(courtsData || []);
-      } catch (err) {
-        console.error('Error loading courts:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadCourts();
-  }, []);
   
   const handleSubmit = async () => {
     if (!formData.scheduled_date || !formData.scheduled_time) {
@@ -115,7 +103,7 @@ export default function SignupModal({ signup, seasonId, onClose, onSubmit }: Sig
       await onSubmit({
         scheduled_datetime,
         duration_hours: parseFloat(formData.duration_hours) || 2.0,
-        court_id: formData.court_id ? parseInt(formData.court_id) : null
+        court_id: formData.court_id || null
       });
     } catch (_err) {
       // Error handling is done in parent
@@ -173,24 +161,23 @@ export default function SignupModal({ signup, seasonId, onClose, onSubmit }: Sig
             />
           </div>
           <div className="form-group">
-            <label htmlFor="court">Court</label>
-            <select
-              id="court"
+            <CourtSelector
               value={formData.court_id}
-              onChange={(e) => setFormData({ ...formData, court_id: e.target.value })}
-              className="form-input"
-            >
-              <option value="">No court selected</option>
-              {loading ? (
-                <option disabled>Loading courts...</option>
-              ) : (
-                courts.map(court => (
-                  <option key={court.id} value={court.id}>
-                    {court.name}
-                  </option>
-                ))
-              )}
-            </select>
+              valueName={signup?.court_name}
+              onChange={(courtId) => setFormData({ ...formData, court_id: courtId })}
+              homeCourts={homeCourts.map(court => ({ ...court, address: court.address ?? undefined }))}
+              preFilterLocationId={league?.location_id ?? undefined}
+              label="Court"
+            />
+            {isLeagueAdmin && (
+              <a
+                href={`/league/${league?.id}?tab=details`}
+                className="court-selector__manage-link"
+                onClick={onClose}
+              >
+                Manage home courts &rarr;
+              </a>
+            )}
           </div>
         </div>
         <div className="modal-actions">

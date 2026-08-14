@@ -44,10 +44,11 @@ test.describe('Signup Flow', () => {
     // Verify form fields are filled (this also serves as a wait for inputs to be ready)
     const phoneValue = await page.locator('input[type="tel"]').first().inputValue();
     const passwordValue = await page.locator('input[type="password"]').first().inputValue();
-    const fullNameValue = await page.locator('input[name="fullName"]').first().inputValue();
+    const firstNameValue = await page.locator('input[name="firstName"]').inputValue();
+    const lastNameValue = await page.locator('input[name="lastName"]').inputValue();
     
-    if (!phoneValue || !passwordValue || !fullNameValue) {
-      throw new Error(`Form fields not filled: phone=${!!phoneValue}, password=${!!passwordValue}, fullName=${!!fullNameValue}`);
+    if (!phoneValue || !passwordValue || !firstNameValue || !lastNameValue) {
+      throw new Error(`Form fields not filled: phone=${!!phoneValue}, password=${!!passwordValue}, firstName=${!!firstNameValue}, lastName=${!!lastNameValue}`);
     }
 
     // Check for any validation errors before submitting
@@ -262,9 +263,10 @@ test.describe('Signup Flow', () => {
       const { verifyPhone } = await import('../fixtures/api.js');
       await verifyPhone(testPhoneNumber, code);
     } catch (error) {
-      // If user already exists (400 error), that's fine - we'll test with existing user
-      // If it's a different error, rethrow it
-      if (error.response?.status === 400 || error.message?.includes('already registered')) {
+      // A prior registration is the only expected/retryable setup outcome.
+      // Other 400 responses indicate a real fixture or validation failure.
+      const duplicateDetail = error.response?.data?.detail || error.message || '';
+      if (/already (registered|exists)|phone.*registered/i.test(String(duplicateDetail))) {
         // User already exists, continue with test
       } else {
         throw error;
@@ -358,8 +360,7 @@ test.describe('Signup Flow', () => {
       }
     }
 
-    // Wait for phone input to be visible before filling
-    await page.waitForSelector('input.phone-input__input', { state: 'visible', timeout: 10000 });
+    await authPage.completeAdultEligibility();
 
     // Try to signup with existing phone number
     // fillPhoneNumber already includes waits for phone validation

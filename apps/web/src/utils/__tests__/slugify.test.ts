@@ -126,7 +126,7 @@ describe('slugify', () => {
   });
 
   it('slugifies a title with mixed casing and punctuation', () => {
-    expect(slugify('Beach Kings Pro Tour!')).toBe('beach-kings-pro-tour');
+    expect(slugify('Beach League Pro Tour!')).toBe('beach-league-pro-tour');
   });
 
   // ─── Unicode / non-ASCII ────────────────────────────────────────────────────

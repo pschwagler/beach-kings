@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>League Dashboard - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  /* League Header */
+  .league-header { background: #fff; padding: 20px 16px; border-bottom: 1px solid #eee; }
+  .league-header .league-name { font-size: 20px; font-weight: 700; }
+  .league-header .league-meta { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: #666; }
+  .league-header .league-badges { display: flex; gap: 8px; margin-top: 10px; }
+  .league-header .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  .league-header .badge.active { background: #dcfce7; color: #15803d; }
+  .league-header .badge.rank { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 14px 4px; min-height: 44px; font-size: 12px; font-weight: 600; border-radius: 8px; color: #666; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Season Picker */
+  .season-picker { display: flex; gap: 8px; padding: 12px 16px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .season-picker::-webkit-scrollbar { display: none; }
+  .season-pill { flex-shrink: 0; padding: 7px 14px; font-size: 12px; font-weight: 600; border-radius: 16px; background: #f0f0f0; color: #666; border: none; white-space: nowrap; min-height: 44px; display: flex; align-items: center; }
+  .season-pill.active { background: #1a3a4a; color: #fff; }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+
+  .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
+
+  /* Standings Table */
+  .standings { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .standings .header-row { display: flex; padding: 10px 14px; background: #f8f9fa; font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .standings .header-row .col-rank { width: 30px; }
+  .standings .header-row .col-player { flex: 1; }
+  .standings .header-row .col-stat { width: 50px; text-align: center; }
+
+  .standings .player-row { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+  .standings .player-row:last-child { border-bottom: none; }
+  .standings .player-row.you { background: #fdf8ed; }
+  .standings .col-rank { width: 30px; font-size: 14px; font-weight: 700; color: #1a3a4a; }
+  .standings .col-player { flex: 1; display: flex; align-items: center; gap: 8px; }
+  .standings .col-player .avatar-xs { width: 28px; height: 28px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
+  .standings .col-player .player-name { font-size: 13px; font-weight: 600; }
+  .standings .col-player .you-badge { font-size: 11px; color: #d4a843; font-weight: 600; }
+  .standings .col-stat { width: 50px; text-align: center; font-size: 13px; color: #555; }
+
+  /* Season Info */
+  .season-info { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-top: 12px; }
+  .season-info .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+  .season-info .row .label { color: #666; }
+  .season-info .row .value { font-weight: 600; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="leagues-tab.html" class="back">&larr; Leagues</a>
+  <div class="title">League</div>
+  <a href="score-league.html" class="action" style="text-decoration:none; color:#d4a843; font-size: 12px; font-weight: 700; background: #d4a843; color: #fff; padding: 8px 14px; border-radius: 8px;">+ Add Game</a>
+</div>
+
+<div class="league-header">
+  <div class="league-name" style="display: flex; align-items: center; gap: 6px;">QBK Open Men - Mornings <span style="font-size: 14px; color: #999; cursor: pointer;">&#9662;</span></div>
+  <div class="league-meta">
+    <span>Queens, NY</span>
+    <span>27 members</span>
+  </div>
+  <div class="league-badges">
+    <span class="badge active">Season Active</span>
+    <span class="badge rank">#1 Ranked</span>
+  </div>
+  <a href="session-create.html" class="start-session-btn" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px; margin-top:12px; padding:10px 16px; border-radius:10px; background:#e8f4f8; color:#2a7d9c; font-size:13px; font-weight:600; min-height:44px; border: 1.5px solid #d0e8f0;"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Session</a>
+</div>
+
+<div class="segment-control">
+  <a href="league-matches.html" class="segment" style="text-decoration:none; color:#666;">Games</a>
+  <div class="segment active">Standings</div>
+  <a href="league-chat.html" class="segment" style="text-decoration:none; color:#666;">Chat</a>
+  <a href="league-signups.html" class="segment" style="text-decoration:none; color:#666;">Sign Ups</a>
+  <a href="league-info.html" class="segment" style="text-decoration:none; color:#666;">Info<span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#ef4444; margin-left:3px; vertical-align:top; margin-top:1px;"></span></a>
+</div>
+
+<div class="season-picker">
+  <button class="season-pill active">Spring 2026</button>
+  <button class="season-pill">Fall 2025</button>
+  <button class="season-pill">Spring 2025</button>
+  <button class="season-pill">All Time</button>
+</div>
+
+<div class="content">
+
+  <div class="section-title">Standings</div>
+
+  <div class="standings">
+    <div class="header-row">
+      <div class="col-rank">#</div>
+      <div class="col-player">Player</div>
+      <div class="col-stat">W-L</div>
+      <div class="col-stat">Win%</div>
+      <div class="col-stat">Rtg</div>
+    </div>
+    <a href="league-player-stats.html" class="player-row you" style="text-decoration:none; color:inherit; display:flex;">
+      <div class="col-rank">1</div>
+      <div class="col-player">
+        <div class="avatar-xs" style="background: #7fb3c7;"></div>
+        <div>
+          <div class="player-name">P. Schwagler</div>
+          <div class="you-badge">You</div>
+        </div>
+      </div>
+      <div class="col-stat">34-13</div>
+      <div class="col-stat">72%</div>
+      <div class="col-stat">1438</div>
+      <div style="color: #ccc; font-size: 16px; margin-left: 4px;">&rsaquo;</div>
+    </a>
+    <a href="league-player-stats.html" class="player-row" style="text-decoration:none; color:inherit; display:flex;">
+      <div class="col-rank">2</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">K. Fawwar</div></div>
+      </div>
+      <div class="col-stat">30-17</div>
+      <div class="col-stat">64%</div>
+      <div class="col-stat">1405</div>
+      <div style="color: #ccc; font-size: 16px; margin-left: 4px;">&rsaquo;</div>
+    </a>
+    <a href="league-player-stats.html" class="player-row" style="text-decoration:none; color:inherit; display:flex;">
+      <div class="col-rank">3</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">A. Marthey</div></div>
+      </div>
+      <div class="col-stat">28-19</div>
+      <div class="col-stat">60%</div>
+      <div class="col-stat">1380</div>
+      <div style="color: #ccc; font-size: 16px; margin-left: 4px;">&rsaquo;</div>
+    </a>
+    <a href="league-player-stats.html" class="player-row" style="text-decoration:none; color:inherit; display:flex;">
+      <div class="col-rank">4</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">S. Jindash</div></div>
+      </div>
+      <div class="col-stat">25-22</div>
+      <div class="col-stat">53%</div>
+      <div class="col-stat">1355</div>
+      <div style="color: #ccc; font-size: 16px; margin-left: 4px;">&rsaquo;</div>
+    </a>
+    <a href="league-player-stats.html" class="player-row" style="text-decoration:none; color:inherit; display:flex;">
+      <div class="col-rank">5</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">J. Drabos</div></div>
+      </div>
+      <div class="col-stat">22-25</div>
+      <div class="col-stat">47%</div>
+      <div class="col-stat">1320</div>
+      <div style="color: #ccc; font-size: 16px; margin-left: 4px;">&rsaquo;</div>
+    </a>
+    <a href="league-player-stats.html" class="player-row" style="text-decoration:none; color:inherit; display:flex;">
+      <div class="col-rank">6</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">M. Salizar</div></div>
+      </div>
+      <div class="col-stat">20-27</div>
+      <div class="col-stat">43%</div>
+      <div class="col-stat">1295</div>
+      <div style="color: #ccc; font-size: 16px; margin-left: 4px;">&rsaquo;</div>
+    </a>
+  </div>
+
+  <div class="section-title">Season Info</div>
+  <div class="season-info">
+    <div class="row"><span class="label">Season</span><span class="value">Spring 2026</span></div>
+    <div class="row"><span class="label">Started</span><span class="value">Jan 15, 2026</span></div>
+    <div class="row"><span class="label">Sessions</span><span class="value">12 completed</span></div>
+    <div class="row"><span class="label">Total Games</span><span class="value">187</span></div>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+    <div class="tab-label active">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

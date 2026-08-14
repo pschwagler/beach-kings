@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Claim Your Profile - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  .state { display: none; }
+  .state.active { display: block; }
+
+  /* ── Chrome ── */
+
+  .top-nav .spacer { min-width: 44px; }
+
+  /* ── Inviter strip (trust signal) ── */
+  .inviter-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #f8f5ec;
+    border-bottom: 1px solid #f0e0b0;
+  }
+  .inviter-strip-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .inviter-strip-text { font-size: 13px; color: #5a4a1f; line-height: 1.35; }
+  .inviter-strip-text strong { color: #1a1a1a; font-weight: 700; }
+
+  /* ── Content ── */
+  .content { padding: 16px 16px 20px; }
+
+  .claim-summary { display: flex; align-items: center; gap: 12px; padding: 16px; margin: 16px 0; background: #fdf8ed; border-radius: 12px; border: 1px solid #f0e0b0; }
+  .claim-count { font-size: 32px; font-weight: 900; color: #d4a843; line-height: 1; }
+  .claim-text { font-size: 14px; color: #666; line-height: 1.4; }
+  .claim-text strong { color: #1a1a1a; }
+
+  /* ── Profile Claim Summary ── */
+  .profile-summary { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 18px 16px; margin: 0 0 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .profile-summary-hero { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .profile-summary-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .profile-summary-headline { font-size: 17px; font-weight: 800; color: #1a1a1a; line-height: 1.25; margin-bottom: 3px; }
+  .profile-summary-headline strong { color: #d4a843; }
+  .profile-summary-sub { font-size: 13px; color: #666; line-height: 1.45; }
+
+  /* ── People row (played-with / connected-to) ── */
+  .people-row { margin-top: 14px; }
+  .people-row-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #999; margin-bottom: 8px; }
+  .people-row-list { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+  .person-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 20px; background: #f6f6f6; border: 1px solid #ececec; }
+  .person-chip-avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .person-chip-name { font-size: 12px; font-weight: 600; color: #333; line-height: 1; }
+  .person-chip.is-hidden { display: none; }
+  .person-more {
+    font-size: 12px;
+    color: #2a7d9c;
+    font-weight: 600;
+    padding: 4px 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    font-family: inherit;
+  }
+  .person-more:hover { color: #1a3a4a; }
+
+  /* ── Section Title ── */
+  .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
+
+  /* ── Match Cards ── */
+  .claim-card { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .claim-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .claim-session { font-size: 12px; font-weight: 600; color: #666; }
+  .claim-date { font-size: 11px; color: #999; }
+  .claim-teams { display: flex; align-items: center; gap: 8px; }
+  .claim-team { flex: 1; }
+  .claim-team-names { font-size: 13px; font-weight: 500; line-height: 1.4; }
+  .claim-team-names .you { color: #d4a843; font-weight: 700; }
+  .claim-team.right { text-align: right; }
+  .claim-score { text-align: center; min-width: 56px; flex-shrink: 0; }
+  .claim-score .score { font-size: 18px; font-weight: 800; color: #1a3a4a; }
+  .claim-score .sep { color: #8a8a8a; font-weight: 700; margin: 0 4px; }
+
+  /* ── Claim Actions ──
+     Default: in-flow at the end of content.
+     `.is-floating` is toggled by JS once the user scrolls past the first
+     match card, lifting the bar to a sticky bottom position. */
+  .claim-actions {
+    margin: 20px -16px 0;
+    padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, #fff 18%);
+    z-index: 10;
+  }
+  .claim-actions.is-floating {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+  /* Padding so last card isn't hidden behind sticky bar */
+  #state-review .content { padding-bottom: 8px; }
+  .btn-primary { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; min-height: 54px; }
+  .btn-secondary { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: transparent; color: #666; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; min-height: 44px; }
+  .btn-dark { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; min-height: 54px; }
+  .btn-outline { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #ddd; background: transparent; color: #555; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; min-height: 44px; }
+
+  /* ── Processing State ── */
+  .processing-area { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; min-height: 600px; gap: 24px; }
+  .spinner { width: 64px; height: 64px; border: 4px solid #e8f4f8; border-top-color: #2a7d9c; border-radius: 50%; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing-title { font-size: 20px; font-weight: 800; text-align: center; color: #1a3a4a; }
+  .processing-steps { width: 100%; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+  .processing-step { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .step-dot { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+  .step-dot.done { background: #22c55e; }
+  .step-dot.active { background: #2a7d9c; animation: pulse 1.2s ease-in-out infinite; }
+  .step-dot.pending { background: #ddd; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .step-label { font-size: 13px; font-weight: 600; color: #444; }
+  .step-label.active { color: #2a7d9c; }
+  .step-label.pending { color: #aaa; }
+  .processing-note { font-size: 12px; color: #666; text-align: center; line-height: 1.5; }
+
+  /* ── Success State ── */
+  .success-area { display: flex; flex-direction: column; align-items: center; padding: 40px 24px 36px; gap: 20px; }
+  .success-icon-wrap { width: 80px; height: 80px; border-radius: 50%; background: #dcfce7; border: 3px solid #22c55e; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #15803d; }
+  .success-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; background: #dcfce7; border: 1px solid #22c55e; }
+  .success-badge-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+  .success-badge-text { font-size: 11px; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 0.6px; }
+  .success-title { font-size: 24px; font-weight: 900; text-align: center; color: #1a1a1a; }
+  .success-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.55; max-width: 300px; }
+  .success-card { background: #fff; border-radius: 14px; padding: 20px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .success-card-title { font-size: 12px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
+  .success-claim-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #f0f0f0; }
+  .success-claim-from { font-size: 13px; font-weight: 600; color: #888; }
+  .success-claim-arrow { color: #ccc; font-size: 14px; flex-shrink: 0; }
+  .success-claim-to { font-size: 14px; font-weight: 800; color: #1a1a1a; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; gap: 10px; }
+  .stat-row:not(:last-child) { border-bottom: 1px solid #f5f5f5; }
+  .stat-label { font-size: 13px; color: #666; }
+  .stat-value { font-size: 13px; font-weight: 700; }
+  /* ── Info State (was Error) ──
+     Used when the invite has already been claimed. Treated as
+     informational, not as a user error. */
+  .error-area { display: flex; flex-direction: column; align-items: center; padding: 60px 24px 36px; gap: 20px; }
+  .error-icon-wrap { width: 80px; height: 80px; border-radius: 50%; background: #e8f4f8; border: 2px solid #2a7d9c; display: flex; align-items: center; justify-content: center; color: #2a7d9c; }
+  .error-title { font-size: 22px; font-weight: 800; text-align: center; color: #1a1a1a; }
+  .error-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.55; max-width: 300px; }
+  .error-detail-card { background: #fff; border-radius: 12px; padding: 16px; width: 100%; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 4px solid #2a7d9c; }
+  .error-detail-title { font-size: 12px; font-weight: 700; color: #2a7d9c; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+  .error-detail-body { font-size: 13px; color: #555; line-height: 1.5; }
+  .error-tip { font-size: 12px; color: #999; text-align: center; line-height: 1.5; padding: 0 8px; }
+
+  /* ── Decline confirmation sheet ── */
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+  .sheet-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 20px max(20px, env(safe-area-inset-bottom));
+    z-index: 101;
+    transform: translateY(100%);
+    transition: transform 0.22s ease;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+  }
+  .sheet.is-open { transform: translateY(0); }
+  .sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    margin: 0 auto 14px;
+  }
+  .sheet-title { font-size: 18px; font-weight: 800; color: #1a1a1a; margin-bottom: 8px; }
+  .sheet-body { font-size: 14px; color: #555; line-height: 1.5; margin-bottom: 18px; }
+
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher ── -->
+<div class="state-switcher">
+  <div class="sw-label">Invite Claim Flow</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('review', this)">Review</button>
+    <button class="sw-pill" onclick="setState('processing', this)">Processing</button>
+    <button class="sw-pill" onclick="setState('success', this)">Success</button>
+    <button class="sw-pill" onclick="setState('error', this)">Already Claimed</button>
+  </div>
+</div>
+
+<!-- ══ STATE: Review Games ══ -->
+<div class="state active" id="state-review">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="welcome.html" class="back">&larr;</a>
+    <div class="title">Claim Your Profile</div>
+    <div class="spacer"></div>
+  </div>
+
+  <!-- Inviter trust signal -->
+  <div class="inviter-strip">
+    <span class="inviter-strip-avatar" style="background:#2a7d9c;">KF</span>
+    <span class="inviter-strip-text"><strong>Karim Fadel</strong> invited you to claim your profile</span>
+  </div>
+
+  <div class="content">
+
+    <!-- Profile claim summary -->
+    <div class="profile-summary">
+      <div class="profile-summary-hero">
+        <span class="profile-summary-avatar" style="background:#1a3a4a;">BK</span>
+        <div>
+          <div class="profile-summary-headline">Claim <strong>Brad Kessler&rsquo;s</strong> profile</div>
+          <div class="profile-summary-sub"><span data-game-count>5 games</span> recorded &middot; Showing 3 most recent</div>
+        </div>
+      </div>
+
+      <div class="people-row" data-people-row>
+        <div class="people-row-label">You played with</div>
+        <div class="people-row-list">
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#2a7d9c;" aria-hidden="true">KF</span><span class="person-chip-name">Karim Fadel</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#15803d;" aria-hidden="true">MB</span><span class="person-chip-name">Mike Bennett</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#b45309;" aria-hidden="true">DP</span><span class="person-chip-name">Davis Park</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#7c3aed;" aria-hidden="true">ER</span><span class="person-chip-name">Eli Rosen</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#be185d;" aria-hidden="true">KT</span><span class="person-chip-name">Ken Tanaka</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#0ea5e9;" aria-hidden="true">JR</span><span class="person-chip-name">Jake Rivera</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#65a30d;" aria-hidden="true">DM</span><span class="person-chip-name">Devon Morris</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#ea580c;" aria-hidden="true">AT</span><span class="person-chip-name">Alex Tomlinson</span></span>
+          <button type="button" class="person-more" onclick="expandPeopleRow(this)" aria-expanded="false">+3 more</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="section-title">Recent games on this profile</div>
+
+    <div class="claim-card" data-first-card>
+      <div class="claim-card-header">
+        <span class="claim-session">Sunday morning</span>
+        <span class="claim-date">Apr 6</span>
+      </div>
+      <div class="claim-teams">
+        <div class="claim-team">
+          <div class="claim-team-names"><span class="you">You</span><br/>Karim Fadel</div>
+        </div>
+        <div class="claim-score">
+          <span class="score">21<span class="sep" aria-hidden="true">&ndash;</span>18</span>
+        </div>
+        <div class="claim-team right">
+          <div class="claim-team-names">Mike Bennett<br/>Jake Rivera</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="claim-card">
+      <div class="claim-card-header">
+        <span class="claim-session">Sunday morning</span>
+        <span class="claim-date">Apr 6</span>
+      </div>
+      <div class="claim-teams">
+        <div class="claim-team">
+          <div class="claim-team-names"><span class="you">You</span><br/>Mike Bennett</div>
+        </div>
+        <div class="claim-score">
+          <span class="score">21<span class="sep" aria-hidden="true">&ndash;</span>15</span>
+        </div>
+        <div class="claim-team right">
+          <div class="claim-team-names">Karim Fadel<br/>Alex Tomlinson</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="claim-card">
+      <div class="claim-card-header">
+        <span class="claim-session">Saturday morning</span>
+        <span class="claim-date">Apr 5</span>
+      </div>
+      <div class="claim-teams">
+        <div class="claim-team">
+          <div class="claim-team-names">Devon Morris<br/>Jake Rivera</div>
+        </div>
+        <div class="claim-score">
+          <span class="score">21<span class="sep" aria-hidden="true">&ndash;</span>19</span>
+        </div>
+        <div class="claim-team right">
+          <div class="claim-team-names"><span class="you">You</span><br/>Dan Park</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="claim-actions">
+      <button class="btn-primary" onclick="setState('processing', null); setTimeout(function(){ setState('success', null); }, 1800)">Claim My Profile</button>
+      <button class="btn-secondary" onclick="openDeclineSheet()">This isn&rsquo;t me</button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ══ STATE: Processing ══ -->
+<div class="state" id="state-processing">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <div class="spacer"></div>
+    <div class="title">Claiming Your Profile</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="processing-area">
+    <div class="spinner" role="status" aria-label="Claiming your profile"></div>
+    <div class="processing-title">Claiming your profile&hellip;</div>
+
+    <ol class="processing-steps" aria-live="polite">
+      <li class="processing-step">
+        <div class="step-dot done" aria-hidden="true"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <span class="step-label">Invite verified</span>
+      </li>
+      <li class="processing-step" aria-current="step">
+        <div class="step-dot active" aria-hidden="true">&#8226;</div>
+        <span class="step-label active">Adding <span data-game-count>5 games</span> to your account&hellip;</span>
+      </li>
+    </ol>
+
+    <p class="processing-note">This usually takes just a second.<br/>Please don&rsquo;t close this screen.</p>
+  </div>
+
+</div>
+
+<!-- ══ STATE: Success ══ -->
+<div class="state" id="state-success">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <div class="spacer"></div>
+    <div class="title">Profile Claimed</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="success-area">
+
+    <div class="success-icon-wrap" role="img" aria-label="Success"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+
+    <div class="success-badge">
+      <div class="success-badge-dot" aria-hidden="true"></div>
+      <span class="success-badge-text">Profile claimed</span>
+    </div>
+
+    <div class="success-title">You&rsquo;re all set!</div>
+
+    <div class="success-desc">Brad Kessler&rsquo;s profile is now part of your account. Welcome to the league.</div>
+
+    <div class="success-card">
+      <div class="success-card-title">Profile merged</div>
+
+      <div class="success-claim-row">
+        <span class="success-claim-from">Brad Kessler</span>
+        <span class="success-claim-arrow" aria-hidden="true">&rarr;</span>
+        <span class="success-claim-to">Patrick Schwagler</span>
+      </div>
+
+      <div class="people-row" style="margin-top: 0;" data-people-row>
+        <div class="people-row-label">Now connected to</div>
+        <div class="people-row-list">
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#2a7d9c;" aria-hidden="true">KF</span><span class="person-chip-name">Karim Fadel</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#15803d;" aria-hidden="true">MB</span><span class="person-chip-name">Mike Bennett</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#b45309;" aria-hidden="true">DP</span><span class="person-chip-name">Davis Park</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#7c3aed;" aria-hidden="true">ER</span><span class="person-chip-name">Eli Rosen</span></span>
+          <span class="person-chip"><span class="person-chip-avatar" style="background:#be185d;" aria-hidden="true">KT</span><span class="person-chip-name">Ken Tanaka</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#0ea5e9;" aria-hidden="true">JR</span><span class="person-chip-name">Jake Rivera</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#65a30d;" aria-hidden="true">DM</span><span class="person-chip-name">Devon Morris</span></span>
+          <span class="person-chip is-hidden"><span class="person-chip-avatar" style="background:#ea580c;" aria-hidden="true">AT</span><span class="person-chip-name">Alex Tomlinson</span></span>
+          <button type="button" class="person-more" onclick="expandPeopleRow(this)" aria-expanded="false">+3 more</button>
+        </div>
+      </div>
+
+      <div class="stat-row" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f0f0;">
+        <span class="stat-label">Record added</span>
+        <span class="stat-value"><span data-game-count>5 games</span> &middot; <span style="color:#15803d;">3W &ndash; 2L</span></span>
+      </div>
+    </div>
+
+    <button class="btn-dark" style="width: 100%;" onclick="window.location.href='my-stats.html'">View My Stats</button>
+    <button class="btn-outline" style="width: 100%;" onclick="window.location.href='home.html'">Go to Dashboard</button>
+
+  </div>
+
+</div>
+
+<!-- ══ STATE: Error / Already Claimed ══ -->
+<div class="state" id="state-error">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="welcome.html" class="back">&larr;</a>
+    <div class="title">Claim Your Profile</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="error-area">
+
+    <div class="error-icon-wrap" role="img" aria-label="Information">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+
+    <div class="error-title">This invite has been used</div>
+
+    <div class="error-desc">Invite links can only be claimed once. Your games may already be on another account.</div>
+
+    <div class="error-detail-card">
+      <div class="error-detail-title">What to try</div>
+      <div class="error-detail-body">If you already have a Beach League account, sign in to find your games there. If you think this was a mistake, ask your league admin to send a fresh invite.</div>
+    </div>
+
+    <button class="btn-dark" style="width: 100%;" onclick="window.location.href='login.html'">Sign In</button>
+    <button class="btn-outline" style="width: 100%;" onclick="window.location.href='home.html'">Go Home</button>
+
+  </div>
+
+</div>
+
+
+<!-- ══ Decline confirmation sheet ══ -->
+<div class="sheet-backdrop" id="decline-backdrop" onclick="closeDeclineSheet()" aria-hidden="true"></div>
+<div class="sheet" id="decline-sheet" role="dialog" aria-modal="true" aria-labelledby="decline-sheet-title" aria-hidden="true">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-title" id="decline-sheet-title">Not your games?</div>
+  <div class="sheet-body">We&rsquo;ll let <strong>Karim Fadel</strong> know so they can re-send to the right person. This invite link will be deactivated.</div>
+  <button class="btn-dark" onclick="confirmDecline()">Yes, this isn&rsquo;t me</button>
+  <button class="btn-secondary" onclick="closeDeclineSheet()">Cancel</button>
+</div>
+
+<script>
+function setState(state, pill) {
+  document.querySelectorAll('.state').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('state-' + state).classList.add('active');
+  if (pill) {
+    document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+    pill.classList.add('active');
+  }
+  window.scrollTo(0, 0);
+}
+
+// Sticky CTA: only float once user has scrolled past the first match card,
+// so first-time viewers always read at least one game before the commit prompt.
+(function setupDeferredStickyCta() {
+  var firstCard = document.querySelector('[data-first-card]');
+  var actions = document.querySelector('#state-review .claim-actions');
+  if (!firstCard || !actions || typeof IntersectionObserver === 'undefined') {
+    actions && actions.classList.add('is-floating');
+    return;
+  }
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (!entry.isIntersecting && entry.boundingClientRect.top < 0) {
+        actions.classList.add('is-floating');
+      } else if (entry.isIntersecting) {
+        actions.classList.remove('is-floating');
+      }
+    });
+  }, { threshold: 0 });
+  observer.observe(firstCard);
+})();
+
+// Expand the "+N more" people chip list inline.
+function expandPeopleRow(button) {
+  var row = button.closest('[data-people-row]');
+  if (!row) return;
+  row.querySelectorAll('.person-chip.is-hidden').forEach(function(chip) {
+    chip.classList.remove('is-hidden');
+  });
+  button.setAttribute('aria-expanded', 'true');
+  button.remove();
+}
+
+// Decline confirmation sheet — modal with Esc-to-close + focus trap.
+var declineSheetReturnFocus = null;
+
+function getSheetFocusables() {
+  var sheet = document.getElementById('decline-sheet');
+  return Array.prototype.slice.call(sheet.querySelectorAll(
+    'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  ));
+}
+
+function openDeclineSheet() {
+  declineSheetReturnFocus = document.activeElement;
+  document.getElementById('decline-backdrop').classList.add('is-open');
+  var sheet = document.getElementById('decline-sheet');
+  sheet.classList.add('is-open');
+  sheet.setAttribute('aria-hidden', 'false');
+  var focusables = getSheetFocusables();
+  if (focusables.length) focusables[0].focus();
+  document.addEventListener('keydown', onSheetKeydown);
+}
+
+function closeDeclineSheet() {
+  document.getElementById('decline-backdrop').classList.remove('is-open');
+  var sheet = document.getElementById('decline-sheet');
+  sheet.classList.remove('is-open');
+  sheet.setAttribute('aria-hidden', 'true');
+  document.removeEventListener('keydown', onSheetKeydown);
+  if (declineSheetReturnFocus && typeof declineSheetReturnFocus.focus === 'function') {
+    declineSheetReturnFocus.focus();
+  }
+  declineSheetReturnFocus = null;
+}
+
+function onSheetKeydown(e) {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeDeclineSheet();
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  var focusables = getSheetFocusables();
+  if (!focusables.length) return;
+  var first = focusables[0];
+  var last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+function confirmDecline() {
+  closeDeclineSheet();
+  // In production: POST to API to deactivate invite + notify inviter.
+  window.location.href = 'welcome.html';
+}
+
+// Pluralization helper. Single source-of-truth for game counts so a copy
+// change to "1 game" vs "5 games" only needs to edit GAME_COUNT.
+// In production the count comes from API; this just keeps the wireframe
+// internally consistent when designers tweak the demo number.
+var GAME_COUNT = 5;
+function pluralize(n, singular, plural) {
+  return n + ' ' + (n === 1 ? singular : (plural || singular + 's'));
+}
+(function applyGameCounts() {
+  document.querySelectorAll('[data-game-count]').forEach(function(el) {
+    el.textContent = pluralize(GAME_COUNT, 'game');
+  });
+})();
+</script>
+
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

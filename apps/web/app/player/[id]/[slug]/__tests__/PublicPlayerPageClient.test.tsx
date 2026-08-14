@@ -43,8 +43,11 @@ vi.mock('../../../../../src/contexts/ModalContext', () => ({
 }));
 
 vi.mock('../../../../../src/services/api', () => ({
-  getUserLeagues: vi.fn().mockResolvedValue([]),
   createLeague: vi.fn(),
+}));
+
+vi.mock('../../../../../src/contexts/AppContext', () => ({
+  useApp: vi.fn(() => ({ userLeagues: [], refreshLeagues: vi.fn() })),
 }));
 
 vi.mock('../../../../../src/components/layout/NavBar', () => ({

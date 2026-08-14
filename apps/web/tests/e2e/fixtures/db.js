@@ -1,6 +1,8 @@
 import pg from 'pg';
 const { Client } = pg;
 
+export const E2E_PHONE_LIKE_PATTERN = '+12025%';
+
 /**
  * Validate that a connection string targets a test database.
  * Throws if the database name does not contain "test".
@@ -59,8 +61,8 @@ export async function seedPlayerGlobalStats(playerId) {
   try {
     await client.connect();
     await client.query(`
-      INSERT INTO player_global_stats (player_id, current_rating, total_games, total_wins)
-      VALUES ($1, 1200.0, 1, 0)
+      INSERT INTO player_global_stats (player_id, current_rating, total_games, total_wins, avg_point_diff)
+      VALUES ($1, 1200.0, 1, 0, 0.0)
       ON CONFLICT (player_id) DO NOTHING
     `, [playerId]);
   } finally {
@@ -75,9 +77,9 @@ export async function seedPlayerGlobalStats(playerId) {
  * foreign-key-safe order covering all ~30 tables that can reference
  * test-created entities.
  *
- * @param {string} phonePattern - Phone number or LIKE pattern (default matches +1555 test numbers)
+ * @param {string} phonePattern - Phone number or LIKE pattern (default matches the E2E namespace)
  */
-export async function cleanupTestUsers(phonePattern = '%+1555%') {
+export async function cleanupTestUsers(phonePattern = E2E_PHONE_LIKE_PATTERN) {
   const client = getDbClient();
   try {
     await client.connect();
@@ -130,7 +132,24 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
       matchIds = matchRows.rows.map(r => r.id);
     }
 
+    // KOB tournaments are owned directly by the director rather than by a
+    // league/session, so collect them explicitly for namespaced teardown.
+    let kobTournamentIds = [];
+    if (playerIds.length > 0) {
+      const kobRows = await client.query(
+        `SELECT id FROM kob_tournaments WHERE director_player_id = ANY($1)`, [playerIds]
+      );
+      kobTournamentIds = kobRows.rows.map(r => r.id);
+    }
+
     // ── Delete in FK-safe order ──────────────────────────────────────────
+
+    // 0. KOB child rows and tournaments.
+    if (kobTournamentIds.length > 0) {
+      await client.query(`DELETE FROM kob_matches WHERE tournament_id = ANY($1)`, [kobTournamentIds]);
+      await client.query(`DELETE FROM kob_players WHERE tournament_id = ANY($1)`, [kobTournamentIds]);
+      await client.query(`DELETE FROM kob_tournaments WHERE id = ANY($1)`, [kobTournamentIds]);
+    }
 
     // 1. Rating history / elo history (leaf tables referencing matches, players, seasons)
     if (matchIds.length > 0) {
@@ -188,6 +207,11 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
     // 7. Weekly schedules (reference seasons)
     if (seasonIds.length > 0) {
       await client.query(`DELETE FROM weekly_schedules WHERE season_id = ANY($1)`, [seasonIds]);
+    }
+    // Also remove weekly schedules created/updated by test players — the creator
+    // FK blocks player deletion even when the season isn't in seasonIds.
+    if (playerIds.length > 0) {
+      await client.query(`DELETE FROM weekly_schedules WHERE created_by = ANY($1) OR updated_by = ANY($1)`, [playerIds]);
     }
 
     // 8. League data
@@ -274,6 +298,19 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
         }
         await client.query('DELETE FROM league_members WHERE player_id = ANY($1)', [phIds]);
         await client.query('DELETE FROM session_participants WHERE player_id = ANY($1)', [phIds]);
+        // Confirmed matches also create stats rows for placeholder players;
+        // those FKs (e.g. player_league_stats_player_id_fkey) block deletion.
+        await client.query('DELETE FROM elo_history WHERE player_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM season_rating_history WHERE player_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM player_global_stats WHERE player_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM player_season_stats WHERE player_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM player_league_stats WHERE player_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM partnership_stats WHERE player_id = ANY($1) OR partner_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM partnership_stats_season WHERE player_id = ANY($1) OR partner_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM partnership_stats_league WHERE player_id = ANY($1) OR partner_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM opponent_stats WHERE player_id = ANY($1) OR opponent_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM opponent_stats_season WHERE player_id = ANY($1) OR opponent_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM opponent_stats_league WHERE player_id = ANY($1) OR opponent_id = ANY($1)', [phIds]);
         await client.query('DELETE FROM players WHERE id = ANY($1)', [phIds]);
       }
       // Also clean invites referencing the test user's own player_ids

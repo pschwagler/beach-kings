@@ -18,6 +18,33 @@ export function createApiClient(token = null) {
 }
 
 /**
+ * Eligibility tokens are JWTs valid for 30 minutes and are not single-use, so
+ * one token can be cached per worker process and reused across test users.
+ * This also keeps us well under the 20/minute rate limit on the gate.
+ */
+let cachedEligibilityToken = null;
+
+/**
+ * Traverse the pre-registration age/territory gate as an adult and return a
+ * short-lived eligibility token, which signup now requires.
+ */
+async function getEligibilityToken(api, { refresh = false } = {}) {
+  if (cachedEligibilityToken && !refresh) {
+    return cachedEligibilityToken;
+  }
+  const response = await api.post('/api/auth/youth-eligibility', {
+    country_code: 'US',
+    region_code: 'CA',
+    declared_band: 'adult',
+    assurance_source: 'self_declared',
+    declaration_source: 'self_declared',
+    guardian_consent: false,
+  });
+  cachedEligibilityToken = response.data.eligibility_token;
+  return cachedEligibilityToken;
+}
+
+/**
  * Create a test user via API
  * This function is idempotent - if the user already exists, it will return successfully
  * without throwing an error. This makes tests more resilient to parallel execution and
@@ -26,14 +53,30 @@ export function createApiClient(token = null) {
 export async function createTestUser({ phoneNumber, password, fullName, email }) {
   const api = createApiClient();
   try {
+    const eligibilityToken = await getEligibilityToken(api);
     const response = await api.post('/api/auth/signup', {
       phone_number: phoneNumber,
       password,
       full_name: fullName,
       email,
+      eligibility_token: eligibilityToken,
     });
     return response.data;
   } catch (error) {
+    // The cached token may have expired (30-minute lifetime) — refresh once
+    // and retry before giving up.
+    if (error.response?.status === 403) {
+      const api = createApiClient();
+      const eligibilityToken = await getEligibilityToken(api, { refresh: true });
+      const response = await api.post('/api/auth/signup', {
+        phone_number: phoneNumber,
+        password,
+        full_name: fullName,
+        email,
+        eligibility_token: eligibilityToken,
+      });
+      return response.data;
+    }
     // If user already exists (400 error), that's okay - return a success-like response
     // This makes the function idempotent and prevents flaky tests
     if (error.response?.status === 400) {

@@ -7,14 +7,15 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select, text
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+from sqlalchemy import exists, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.database.models import Player, User, Feedback
-from backend.services import data_service, email_service, settings_service
-from backend.services.redis_service import redis_get, redis_set
+from backend.database.models import Feedback, PlatformRoleAssignment, Player, User
+from backend.services import data_service, email_service, role_service, settings_service
+from backend.services.platform.redis_service import redis_get, redis_set
 from backend.api.auth_dependencies import (
     get_current_user_optional,
     require_system_admin,
@@ -147,6 +148,7 @@ async def submit_feedback(
         feedback = Feedback(
             user_id=current_user["id"] if current_user else None,
             feedback_text=payload.feedback_text,
+            category=payload.category,
             email=payload.email,
             is_resolved=False,
         )
@@ -176,6 +178,7 @@ async def submit_feedback(
                 user_phone=user_phone,
                 timestamp=feedback.created_at,
                 session=session,
+                category=payload.category,
             )
         except Exception as email_error:
             logger.error(f"Failed to send feedback email: {str(email_error)}")
@@ -184,6 +187,7 @@ async def submit_feedback(
             "id": feedback.id,
             "user_id": feedback.user_id,
             "feedback_text": feedback.feedback_text,
+            "category": feedback.category,
             "email": feedback.email,
             "is_resolved": feedback.is_resolved,
             "created_at": feedback.created_at.isoformat(),
@@ -223,6 +227,7 @@ async def get_all_feedback(
                 "id": fb.id,
                 "user_id": fb.user_id,
                 "feedback_text": fb.feedback_text,
+                "category": fb.category,
                 "email": fb.email,
                 "is_resolved": fb.is_resolved,
                 "created_at": fb.created_at.isoformat(),
@@ -273,6 +278,7 @@ async def update_feedback_resolution(
             "id": feedback.id,
             "user_id": feedback.user_id,
             "feedback_text": feedback.feedback_text,
+            "category": feedback.category,
             "email": feedback.email,
             "is_resolved": feedback.is_resolved,
             "created_at": feedback.created_at.isoformat(),
@@ -289,6 +295,165 @@ async def update_feedback_resolution(
 # ---------------------------------------------------------------------------
 # Admin view endpoints
 # ---------------------------------------------------------------------------
+
+
+class RoleChangeRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+def _role_history_item(assignment: PlatformRoleAssignment) -> dict:
+    return role_service.assignment_dict(assignment)
+
+
+@router.get("/api/admin-view/users")
+async def get_admin_users(
+    search: str | None = Query(default=None, max_length=100),
+    account_status: str | None = Query(
+        default=None, pattern="^(active|unverified|deletion_scheduled|deleted)$"
+    ),
+    moderation_status: str | None = Query(default=None, pattern="^(active|suspended|banned)$"),
+    role_status: str | None = Query(default=None, pattern="^(admin|not_admin)$"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
+    actor: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Search user accounts with current role state and complete role history."""
+    active_role = exists(
+        select(PlatformRoleAssignment.id).where(
+            PlatformRoleAssignment.user_id == User.id,
+            PlatformRoleAssignment.role == role_service.SYSTEM_ADMIN,
+            PlatformRoleAssignment.revoked_at.is_(None),
+        )
+    )
+    player_name = (
+        select(Player.full_name)
+        .where(Player.user_id == User.id, Player.is_placeholder.is_(False))
+        .order_by(Player.id)
+        .limit(1)
+        .scalar_subquery()
+    )
+    filters = []
+    if search and (term := search.strip()):
+        pattern = f"%{term.lower()}%"
+        filters.append(
+            or_(
+                func.lower(func.coalesce(User.email, "")).like(pattern),
+                func.lower(func.coalesce(User.phone_number, "")).like(pattern),
+                func.lower(func.coalesce(player_name, "")).like(pattern),
+                func.cast(User.id, type_=User.phone_number.type).like(f"%{term}%"),
+            )
+        )
+    if account_status == "active":
+        filters.extend(
+            [
+                User.is_verified.is_(True),
+                User.deleted_at.is_(None),
+                User.deletion_scheduled_at.is_(None),
+            ]
+        )
+    elif account_status == "unverified":
+        filters.append(User.is_verified.is_(False))
+    elif account_status == "deletion_scheduled":
+        filters.append(User.deletion_scheduled_at.isnot(None))
+    elif account_status == "deleted":
+        filters.append(User.deleted_at.isnot(None))
+    if moderation_status:
+        filters.append(User.moderation_status == moderation_status)
+    if role_status == "admin":
+        filters.append(active_role)
+    elif role_status == "not_admin":
+        filters.append(~active_role)
+
+    count_stmt = select(func.count()).select_from(User).where(*filters)
+    total = int((await session.execute(count_stmt)).scalar_one())
+    rows = (
+        await session.execute(
+            select(User, player_name.label("full_name"), active_role.label("is_system_admin"))
+            .where(*filters)
+            .order_by(User.created_at.desc(), User.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).all()
+    user_ids = [row.User.id for row in rows]
+    histories: dict[int, list[dict]] = {user_id: [] for user_id in user_ids}
+    if user_ids:
+        assignments = (
+            await session.execute(
+                select(PlatformRoleAssignment)
+                .where(PlatformRoleAssignment.user_id.in_(user_ids))
+                .order_by(
+                    PlatformRoleAssignment.granted_at.desc(),
+                    PlatformRoleAssignment.id.desc(),
+                )
+            )
+        ).scalars()
+        for assignment in assignments:
+            histories[assignment.user_id].append(_role_history_item(assignment))
+
+    return {
+        "items": [
+            {
+                "id": row.User.id,
+                "full_name": row.full_name,
+                "email": row.User.email,
+                "phone_number": row.User.phone_number,
+                "auth_provider": row.User.auth_provider,
+                "is_verified": row.User.is_verified,
+                "created_at": row.User.created_at,
+                "deletion_scheduled_at": row.User.deletion_scheduled_at,
+                "deleted_at": row.User.deleted_at,
+                "moderation_status": row.User.moderation_status,
+                "moderation_expires_at": row.User.moderation_expires_at,
+                "is_system_admin": row.is_system_admin,
+                "role_history": histories[row.User.id],
+            }
+            for row in rows
+        ],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "pages": (total + page_size - 1) // page_size,
+    }
+
+
+@router.post("/api/admin-view/users/{user_id}/roles/system_admin", status_code=201)
+async def grant_admin_role(
+    user_id: int,
+    payload: RoleChangeRequest,
+    actor: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        assignment = await role_service.grant_system_admin(
+            session, user_id, actor["id"], payload.reason
+        )
+        return _role_history_item(assignment)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.post("/api/admin-view/users/{user_id}/roles/system_admin/revoke")
+async def revoke_admin_role(
+    user_id: int,
+    payload: RoleChangeRequest,
+    actor: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        assignment = await role_service.revoke_system_admin(
+            session, user_id, actor["id"], payload.reason
+        )
+        return _role_history_item(assignment)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 @router.get("/api/admin-view/config", response_model=dict)
@@ -437,7 +602,11 @@ async def get_platform_stats(
             ("Users", "users", f"created_at >= {thirty_days_ago}"),
             ("Leagues", "leagues", f"created_at >= {thirty_days_ago}"),
             ("Seasons", "seasons", f"created_at >= {thirty_days_ago}"),
-            ("Matches", "matches", "date::date >= (NOW() - INTERVAL '30 days')::date"),
+            (
+                "Games",
+                "matches",
+                f"session_id IN (SELECT id FROM sessions WHERE created_at >= {thirty_days_ago})",
+            ),
             ("Sessions", "sessions", f"created_at >= {thirty_days_ago}"),
         ]
 

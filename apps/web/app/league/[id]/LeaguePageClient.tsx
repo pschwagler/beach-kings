@@ -7,6 +7,7 @@ import { LeagueProvider } from '../../../src/contexts/LeagueContext';
 import LeagueDashboard from '../../../src/components/league/LeagueDashboard';
 import NavBar from '../../../src/components/layout/NavBar';
 import PublicLeaguePage from '../../../src/components/league/PublicLeaguePage';
+import PageSkeleton from '../../../src/components/ui/PageSkeleton';
 
 /**
  * Client wrapper for the league page.
@@ -26,7 +27,7 @@ export default function LeaguePageClient({ leagueId, publicLeagueData, initialTa
   if (isAuthenticated) {
     return (
       <LeagueProvider leagueId={leagueId} initialTab={initialTab}>
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<PageSkeleton />}>
           <LeagueDashboard leagueId={leagueId} publicLeagueData={publicLeagueData} />
         </Suspense>
       </LeagueProvider>

@@ -10,9 +10,13 @@ import pytz
 import json
 from sqlalchemy import select
 from backend.database.models import (
+    Friend,
     League,
     LeagueMember,
     LeagueRequest,
+    Match,
+    PlayerSeasonStats,
+    Season,
     Session,
     Player,
     SessionStatus,
@@ -335,6 +339,306 @@ async def test_query_leagues_has_pending_request(db_session, test_player, test_u
         assert item["has_pending_request"] is False
 
 
+@pytest.mark.asyncio
+async def test_query_leagues_friends_in_league(db_session, test_player, test_user):
+    """Test that query_leagues returns friend_count and friends_preview for authenticated users."""
+    # Create a league
+    league = await data_service.create_league(
+        session=db_session,
+        name="Friends Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    # Create a second user + player who will be the "querying" user
+    pw2 = bcrypt.hashpw("pw2".encode(), bcrypt.gensalt()).decode()
+    user2_id = await user_service.create_user(
+        session=db_session,
+        phone_number="+15550002222",
+        password_hash=pw2,
+        email="user2@example.com",
+    )
+    player2 = Player(full_name="Querying User", first_name="Query", user_id=user2_id)
+    db_session.add(player2)
+    await db_session.commit()
+    await db_session.refresh(player2)
+
+    # Create friend players (no user_id needed — Player.user_id is nullable)
+    friend_player1 = Player(full_name="Alice Smith", first_name="Alice")
+    friend_player2 = Player(full_name="Bob Jones", first_name="Bob")
+    db_session.add_all([friend_player1, friend_player2])
+    await db_session.commit()
+    await db_session.refresh(friend_player1)
+    await db_session.refresh(friend_player2)
+
+    # Create friendships (player1_id < player2_id constraint)
+    ids_pair1 = sorted([player2.id, friend_player1.id])
+    ids_pair2 = sorted([player2.id, friend_player2.id])
+    db_session.add(Friend(player1_id=ids_pair1[0], player2_id=ids_pair1[1]))
+    db_session.add(Friend(player1_id=ids_pair2[0], player2_id=ids_pair2[1]))
+    await db_session.commit()
+
+    # Add friend players as league members
+    db_session.add(
+        LeagueMember(league_id=league["id"], player_id=friend_player1.id, role="member")
+    )
+    db_session.add(
+        LeagueMember(league_id=league["id"], player_id=friend_player2.id, role="member")
+    )
+    await db_session.commit()
+
+    # Query as player2 (authenticated) — should see 2 friends
+    result = await data_service.query_leagues(session=db_session, user_id=user2_id)
+    items_by_id = {item["id"]: item for item in result["items"]}
+    league_item = items_by_id[league["id"]]
+
+    assert league_item["friend_count"] == 2
+    assert len(league_item["friends_preview"]) == 2
+    preview_names = [f["first_name"] for f in league_item["friends_preview"]]
+    # Ordered alphabetically by first_name
+    assert preview_names == ["Alice", "Bob"]
+    # Each preview entry has the expected keys
+    for friend in league_item["friends_preview"]:
+        assert "player_id" in friend
+        assert "first_name" in friend
+        assert "avatar" in friend
+
+    # Query without user_id — friend_count should be 0
+    result_anon = await data_service.query_leagues(session=db_session)
+    anon_items_by_id = {item["id"]: item for item in result_anon["items"]}
+    assert anon_items_by_id[league["id"]]["friend_count"] == 0
+    assert anon_items_by_id[league["id"]]["friends_preview"] == []
+
+
+@pytest.mark.asyncio
+async def test_query_leagues_friends_preview_capped_at_three(db_session, test_player, test_user):
+    """Test that friends_preview returns at most 3 entries even if more friends exist."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Many Friends League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    # Create the querying user
+    pw = bcrypt.hashpw("pw".encode(), bcrypt.gensalt()).decode()
+    querier_user_id = await user_service.create_user(
+        session=db_session,
+        phone_number="+15550009999",
+        password_hash=pw,
+        email="querier@example.com",
+    )
+    querier = Player(full_name="Querier", first_name="Querier", user_id=querier_user_id)
+    db_session.add(querier)
+    await db_session.commit()
+    await db_session.refresh(querier)
+
+    # Create 4 friend players (no user_id needed — Player.user_id is nullable)
+    friend_players = []
+    for name in ["Amy", "Beth", "Cara", "Dana"]:
+        fp = Player(full_name=f"{name} Test", first_name=name)
+        db_session.add(fp)
+        friend_players.append(fp)
+    await db_session.commit()
+    for fp in friend_players:
+        await db_session.refresh(fp)
+
+    # Create friendships and league memberships
+    for fp in friend_players:
+        ids = sorted([querier.id, fp.id])
+        db_session.add(Friend(player1_id=ids[0], player2_id=ids[1]))
+        db_session.add(LeagueMember(league_id=league["id"], player_id=fp.id, role="member"))
+    await db_session.commit()
+
+    result = await data_service.query_leagues(session=db_session, user_id=querier_user_id)
+    items_by_id = {item["id"]: item for item in result["items"]}
+    league_item = items_by_id[league["id"]]
+
+    assert league_item["friend_count"] == 4
+    assert len(league_item["friends_preview"]) == 3
+    # Preview should be the first 3 alphabetically
+    preview_names = [f["first_name"] for f in league_item["friends_preview"]]
+    assert preview_names == ["Amy", "Beth", "Cara"]
+
+
+# ============================================================================
+# get_user_leagues — payload shape (current_season, standings, games_played)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_user_leagues_includes_current_season_and_user_standing(
+    db_session, test_player, test_user
+):
+    """get_user_leagues returns current_season + the user's standings row."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    today = date.today()
+    season = Season(
+        league_id=league["id"],
+        name="Spring Season",
+        start_date=today - timedelta(days=10),
+        end_date=today + timedelta(days=10),
+    )
+    db_session.add(season)
+    await db_session.commit()
+    await db_session.refresh(season)
+
+    # Add a second player so the user's rank isn't trivially 1.
+    other_player = Player(full_name="Other Player", user_id=test_user["id"])
+    third_player = Player(full_name="Third Player")
+    fourth_player = Player(full_name="Fourth Player")
+    db_session.add(other_player)
+    db_session.add(third_player)
+    db_session.add(fourth_player)
+    await db_session.commit()
+    await db_session.refresh(other_player)
+    await db_session.refresh(third_player)
+    await db_session.refresh(fourth_player)
+
+    db_session.add_all(
+        [
+            PlayerSeasonStats(
+                player_id=test_player.id,
+                season_id=season.id,
+                games=10,
+                wins=7,
+                points=30.0,
+                win_rate=0.7,
+                avg_point_diff=2.5,
+            ),
+            PlayerSeasonStats(
+                player_id=other_player.id,
+                season_id=season.id,
+                games=10,
+                wins=9,
+                points=40.0,
+                win_rate=0.9,
+                avg_point_diff=4.0,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    league_session = Session(
+        date=today.isoformat(),
+        name="Spring Games",
+        league_id=league["id"],
+        season_id=season.id,
+    )
+    db_session.add(league_session)
+    await db_session.flush()
+    db_session.add(
+        Match(
+            session_id=league_session.id,
+            team1_player1_id=test_player.id,
+            team1_player2_id=other_player.id,
+            team2_player1_id=third_player.id,
+            team2_player2_id=fourth_player.id,
+            team1_score=21,
+            team2_score=15,
+            winner=1,
+        )
+    )
+    await db_session.commit()
+
+    leagues = await data_service.get_user_leagues(db_session, test_user["id"])
+
+    assert len(leagues) == 1
+    entry = leagues[0]
+
+    # Current season is populated and flagged active.
+    assert entry["current_season"] is not None
+    assert entry["current_season"]["id"] == season.id
+    assert entry["current_season"]["name"] == "Spring Season"
+    assert entry["current_season"]["is_active"] is True
+
+    # The user's games are surfaced at the top level.
+    assert entry["games_played"] == 10
+    assert entry["league_games_played"] == 1
+
+    # Standings contains exactly the user's row with rank derived from points.
+    assert len(entry["standings"]) == 1
+    user_row = entry["standings"][0]
+    assert user_row["player_id"] == test_player.id
+    assert user_row["wins"] == 7
+    assert user_row["losses"] == 3
+    assert user_row["season_rank"] == 2  # other_player has more points
+
+
+@pytest.mark.asyncio
+async def test_get_user_leagues_inactive_when_season_dates_outside_today(
+    db_session, test_player, test_user
+):
+    """current_season.is_active is False when today is outside the season window."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Past League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    today = date.today()
+    db_session.add(
+        Season(
+            league_id=league["id"],
+            name="Old Season",
+            start_date=today - timedelta(days=400),
+            end_date=today - timedelta(days=30),
+        )
+    )
+    await db_session.commit()
+
+    leagues = await data_service.get_user_leagues(db_session, test_user["id"])
+
+    assert len(leagues) == 1
+    assert leagues[0]["current_season"] is not None
+    assert leagues[0]["current_season"]["is_active"] is False
+    # No PlayerSeasonStats → empty standings, zero games.
+    assert leagues[0]["games_played"] == 0
+    assert leagues[0]["standings"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_user_leagues_no_seasons_returns_null_current_season(
+    db_session, test_player, test_user
+):
+    """A league with no seasons returns current_season=None and empty standings."""
+    await data_service.create_league(
+        session=db_session,
+        name="Brand New League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    leagues = await data_service.get_user_leagues(db_session, test_user["id"])
+
+    assert len(leagues) == 1
+    assert leagues[0]["current_season"] is None
+    assert leagues[0]["games_played"] == 0
+    assert leagues[0]["standings"] == []
+
+
 # ============================================================================
 # Season CRUD Tests
 # ============================================================================
@@ -622,7 +926,7 @@ async def test_update_season_points_per_win_loss(db_session, test_player):
 @pytest.mark.asyncio
 async def test_update_season_scoring_system_triggers_recalc(db_session, test_player, monkeypatch):
     """Test that updating scoring system triggers stats recalculation."""
-    from backend.services.stats_queue import get_stats_queue
+    from backend.services.stats.stats_queue import get_stats_queue
 
     # Track enqueue calls
     enqueue_calls = []
@@ -836,6 +1140,8 @@ async def test_league_session_numbering_for_same_date(db_session, test_player):
         created_by=test_player.id,
     )
     assert session1["name"] == session_date
+    assert session1.get("code") is not None
+    assert len(session1["code"]) > 0
 
     # Submit first session so we can create another
     from backend.database.models import Session as SessionModel, SessionStatus
@@ -942,6 +1248,9 @@ async def test_get_or_create_active_league_session_numbering(db_session, test_pl
         created_by=test_player.id,
     )
     assert session1["name"] == the_session_date
+    # League sessions get a join code so the mobile "Share Session" flow works.
+    assert session1.get("code") is not None
+    assert len(session1["code"]) > 0
 
     # Second call with same date should return the same session
     session1_again = await data_service.get_or_create_active_league_session(
@@ -952,6 +1261,8 @@ async def test_get_or_create_active_league_session_numbering(db_session, test_pl
     )
     assert session1_again["id"] == session1["id"]
     assert session1_again["name"] == the_session_date
+    # Existing code preserved across get-or-create.
+    assert session1_again["code"] == session1["code"]
 
     # Submit the session
     from backend.database.models import Session as SessionModel, SessionStatus
@@ -1215,6 +1526,51 @@ async def test_delete_match_async(db_session, test_player):
 
 
 @pytest.mark.asyncio
+async def test_weekly_schedule_can_span_more_than_180_days(db_session, test_player):
+    """Schedules may cover the selected season without an arbitrary six-month cap."""
+    today = date.today()
+    season_end = today + timedelta(days=365)
+    schedule_end = today + timedelta(days=210)
+
+    league = await data_service.create_league(
+        session=db_session,
+        name="Long Season League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+        gender="coed",
+        level="Open",
+    )
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Long Season",
+        start_date=today.isoformat(),
+        end_date=season_end.isoformat(),
+        point_system=None,
+    )
+
+    schedule = await data_service.create_weekly_schedule(
+        session=db_session,
+        season_id=season["id"],
+        day_of_week=0,
+        start_time="18:00",
+        duration_hours=2.0,
+        court_id=None,
+        open_signups_mode="auto_after_last_session",
+        open_signups_day_of_week=None,
+        open_signups_time=None,
+        start_date=today.isoformat(),
+        end_date=schedule_end.isoformat(),
+        creator_player_id=test_player.id,
+    )
+
+    assert schedule["end_date"] == schedule_end.isoformat()
+
+
+@pytest.mark.asyncio
 async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, test_player):
     """Test that deleting a weekly schedule only deletes future signups, not past ones."""
 
@@ -1223,7 +1579,6 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
     today = date.today()
     season_start = date(today.year, 1, 1).isoformat()
     season_end = date(today.year, 12, 31).isoformat()
-    # Weekly schedule end_date must be within 6 months
     schedule_end = (today + timedelta(days=90)).isoformat()
 
     # Create league and season
@@ -1248,7 +1603,6 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
         point_system=None,
     )
 
-    # Create a weekly schedule (end_date must be within 6 months)
     schedule = await data_service.create_weekly_schedule(
         session=db_session,
         season_id=season["id"],
@@ -1317,7 +1671,7 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
         open_signups_day_of_week=None,
         open_signups_time=None,
         start_date=today,  # Required start_date
-        end_date=today + timedelta(days=90),  # Use dynamic date within 6 months
+        end_date=today + timedelta(days=90),
         created_by=test_player.id,
     )
     db_session.add(other_schedule)
@@ -1386,7 +1740,6 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(
     today = date.today()
     season_start = date(today.year, 1, 1).isoformat()
     season_end = date(today.year, 12, 31).isoformat()
-    # Weekly schedule end_date must be within 6 months
     schedule_end = (today + timedelta(days=90)).isoformat()
 
     # Store original function
@@ -1422,8 +1775,7 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(
         point_system=None,
     )
 
-    # Create a weekly schedule (before patching, so it uses the real function)
-    # end_date must be within 6 months
+    # Create a weekly schedule before patching, so it uses the real function.
     schedule = await data_service.create_weekly_schedule(
         session=db_session,
         season_id=season["id"],

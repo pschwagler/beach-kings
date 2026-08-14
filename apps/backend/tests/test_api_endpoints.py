@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.services import auth_service, user_service, data_service
+from backend.services import auth_service, user_service, data_service, role_service
 
 
 @pytest.fixture(autouse=True)
@@ -33,26 +33,20 @@ def make_client_with_auth(monkeypatch, phone="+10000000000", user_id=1):
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
 
-    # Make caller a system admin
-    async def fake_get_setting(session, key: str):
-        if key == "system_admin_phone_numbers":
-            return phone
-        return None
+    async def fake_is_system_admin(session, uid):
+        return uid == user_id
 
-    monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
 
 def test_create_league_as_user(monkeypatch):
     client, headers = make_client_with_auth(monkeypatch, phone="+10000000001", user_id=2)
 
-    # Mock get_setting for system admin check (not admin in this test)
-    async def fake_get_setting_for_league(session, key):
-        if key == "system_admin_phone_numbers":
-            return "+10000000000"  # Different phone, so user is not admin
-        return None
+    async def fake_is_not_system_admin(session, uid):
+        return False
 
-    monkeypatch.setattr(data_service, "get_setting", fake_get_setting_for_league, raising=True)
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_not_system_admin, raising=True)
 
     # Mock get_player_by_user_id to return a player
     async def fake_get_player_by_user_id(session, user_id):

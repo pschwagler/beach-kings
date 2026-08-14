@@ -13,7 +13,7 @@ Re-export smoke tests verify the module exposes all expected symbols.
 
 from unittest.mock import MagicMock
 
-from backend.services.player_data import (
+from backend.services.players.player_data import (
     generate_player_initials,
     _normalize_list_str,
     _filter_placeholders,

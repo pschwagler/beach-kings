@@ -170,26 +170,27 @@ describe('validateScores', () => {
   it('returns invalid for tied scores', () => {
     const result = validateScores({ team1Score: '15', team2Score: '15' });
     expect(result.isValid).toBe(false);
-    expect(result.errorMessage).toBe('Scores cannot be tied. There must be a winner.');
+    expect(result.errorMessage).toBe(
+      'Choose a winner by changing one score. Games cannot end in a tie.',
+    );
   });
 
   it('returns invalid when both scores are zero', () => {
     const result = validateScores({ team1Score: '0', team2Score: '0' });
     expect(result.isValid).toBe(false);
-    // 0 === 0 is caught by the tie check first
-    expect(result.errorMessage).toBe('Scores cannot be tied. There must be a winner.');
+    expect(result.errorMessage).toBe('Enter a score before saving.');
   });
 
   it('returns invalid for negative scores', () => {
     const result = validateScores({ team1Score: '-1', team2Score: '15' });
     expect(result.isValid).toBe(false);
-    expect(result.errorMessage).toBe('Please enter valid scores');
+    expect(result.errorMessage).toBe('Please enter valid scores.');
   });
 
   it('returns invalid when scores are non-numeric', () => {
     const result = validateScores({ team1Score: 'abc', team2Score: '15' });
     expect(result.isValid).toBe(false);
-    expect(result.errorMessage).toBe('Please enter valid scores');
+    expect(result.errorMessage).toBe('Please enter valid scores.');
   });
 
   it('returns invalid when scores are empty strings', () => {

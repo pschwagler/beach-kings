@@ -55,6 +55,30 @@ async def test_create_notification(db_session, test_user):
 
 
 @pytest.mark.asyncio
+async def test_create_notification_reuses_active_dedup_key(db_session, test_user):
+    """A retry cannot create a second active notification for the same key."""
+    first = await notification_service.create_notification(
+        session=db_session,
+        user_id=test_user,
+        type=NotificationType.FRIEND_REQUEST.value,
+        title="Friend Request",
+        message="A sent you a friend request",
+        dedup_key="friend_request:123",
+    )
+    retry = await notification_service.create_notification(
+        session=db_session,
+        user_id=test_user,
+        type=NotificationType.FRIEND_REQUEST.value,
+        title="Friend Request",
+        message="A sent you a friend request",
+        dedup_key="friend_request:123",
+    )
+
+    assert retry["id"] == first["id"]
+    assert retry["dedup_key"] == "friend_request:123"
+
+
+@pytest.mark.asyncio
 async def test_create_notification_validation(db_session, test_user):
     """Test notification creation validation."""
     # Missing user_id

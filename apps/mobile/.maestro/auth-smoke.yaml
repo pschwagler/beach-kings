@@ -1,0 +1,49 @@
+appId: com.beachleague.app
+name: auth-smoke
+tags:
+  - smoke
+  - auth
+---
+# Auth → Home smoke flow
+# Verifies the welcome → login → home happy path on a dev build.
+# Expects a seeded test user whose credentials are passed via env vars:
+#   E2E_TEST_EMAIL=smoke@beachleague.app
+#   E2E_TEST_PASSWORD=********
+#
+# Run:
+#   maestro test --env E2E_TEST_EMAIL=... --env E2E_TEST_PASSWORD=... \
+#     .maestro/auth-smoke.yaml
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    stopApp: true
+
+# -- Welcome screen --
+- assertVisible: "BEACH LEAGUE"
+- tapOn:
+    id: "welcome-sign-in-link"
+
+# -- Login screen --
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 10000
+- assertVisible: "Log In"
+- tapOn:
+    text: "Email"
+    index: 0
+- inputText: ${E2E_TEST_EMAIL}
+- tapOn:
+    text: "Password"
+- inputText: ${E2E_TEST_PASSWORD}
+- tapOn: "Welcome back"
+- tapOn:
+    text: "Log In"
+    index: 1
+
+# -- Home screen --
+# The Home tab landmark is the stable signal for a successful sign-in. New
+# seeded users may see onboarding-style home content instead of a greeting row.
+- extendedWaitUntil:
+    visible: "Home tab"
+    timeout: 20000
+- assertVisible: "BEACH LEAGUE"

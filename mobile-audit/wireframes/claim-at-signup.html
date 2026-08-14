@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Claim at Signup - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+  .state { display: none; }
+  .state.active { display: block; }
+
+  /* ── Top Nav spacer ── */
+  .top-nav .spacer { min-width: 44px; }
+
+  /* ── Auth hero header ── */
+  .auth-header {
+    background: var(--color-primary, #1a3a4a);
+    padding: 20px 20px 24px;
+    text-align: center;
+  }
+  .auth-header-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 6px;
+  }
+  .auth-header-name {
+    font-size: 26px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.15;
+  }
+
+  /* ── Page content wrapper ── */
+  .page-content {
+    padding: 20px 16px 40px;
+  }
+
+  /* ── Subheading ── */
+  .match-subheading {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  /* ── Match Card ── */
+  .match-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1.5px solid #e8e8e8;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+
+  .match-card-league {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 10px;
+    line-height: 1.35;
+  }
+
+  .match-card-stats-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .match-stats-text {
+    font-size: 13px;
+    color: #666;
+  }
+
+  .match-stats-record {
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  .elo-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #1a3a4a;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  .strong-match-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #dcfce7;
+    border: 1px solid #22c55e;
+    color: #15803d;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .strong-match-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    flex-shrink: 0;
+  }
+
+  .match-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Per-card claim/not-me controls (multi-match state) */
+  .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+  }
+  .btn-card-claim {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1.5px solid #d4a843;
+    background: transparent;
+    color: #d4a843;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .btn-card-claim.selected {
+    background: #d4a843;
+    color: #fff;
+  }
+  .btn-card-notme {
+    padding: 10px 0;
+    border: none;
+    background: transparent;
+    color: #999;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-card-notme.selected {
+    color: #ef4444;
+    text-decoration: line-through;
+  }
+
+  /* ── Global CTA area ── */
+  .cta-area {
+    margin-top: 24px;
+  }
+
+  .bottom-note {
+    text-align: center;
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Success state ── */
+  .success-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px 40px;
+    gap: 18px;
+    text-align: center;
+  }
+
+  .success-icon-wrap {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: #dcfce7;
+    border: 3px solid #22c55e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #15803d;
+    font-size: 36px;
+  }
+
+  .success-title {
+    font-size: 26px;
+    font-weight: 900;
+    color: #1a1a1a;
+  }
+
+  .success-desc {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.6;
+    max-width: 300px;
+  }
+
+  .elo-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: #fdf8ed;
+    border: 1.5px solid #f0e0b0;
+    border-radius: 14px;
+    padding: 16px 32px;
+    width: 100%;
+  }
+  .elo-display-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #999;
+  }
+  .elo-display-value {
+    font-size: 36px;
+    font-weight: 900;
+    color: #d4a843;
+    line-height: 1.1;
+  }
+
+  /* ── No-match / empty state ── */
+  .no-match-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 64px 24px 40px;
+    gap: 14px;
+    text-align: center;
+  }
+
+  .no-match-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+    font-size: 30px;
+  }
+
+  .no-match-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #444;
+  }
+
+  .no-match-desc {
+    font-size: 13px;
+    color: #999;
+    line-height: 1.55;
+    max-width: 280px;
+  }
+
+  .dev-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #f0f0f0;
+    color: #888;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+  }
+
+  /* ── Dark theme overrides for new components ── */
+
+  body.dark-theme .auth-header {
+    background: #010409;
+  }
+
+  body.dark-theme .match-card {
+    background: #161b22;
+    border-color: #30363d;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  body.dark-theme .match-card-league {
+    color: #e6edf3;
+  }
+
+  body.dark-theme .match-stats-text {
+    color: #8b949e;
+  }
+
+  body.dark-theme .match-stats-record {
+    color: #e6edf3;
+  }
+
+  body.dark-theme .elo-badge {
+    background: #0d2a35;
+    color: #4daacc;
+  }
+
+  body.dark-theme .strong-match-pill {
+    background: #0d2818;
+    border-color: #22c55e;
+    color: #3fb950;
+  }
+
+  body.dark-theme .match-subheading {
+    color: #8b949e;
+  }
+
+  body.dark-theme .card-actions {
+    border-top-color: #21262d;
+  }
+
+  body.dark-theme .btn-card-claim {
+    border-color: #e0b44c;
+    color: #e0b44c;
+  }
+  body.dark-theme .btn-card-claim.selected {
+    background: #e0b44c;
+    color: #0d1117;
+  }
+  body.dark-theme .btn-card-notme {
+    color: #656d76;
+  }
+
+  body.dark-theme .success-title {
+    color: #e6edf3;
+  }
+  body.dark-theme .success-desc {
+    color: #8b949e;
+  }
+  body.dark-theme .elo-display {
+    background: #1c1a10;
+    border-color: #3d3520;
+  }
+  body.dark-theme .elo-display-label {
+    color: #656d76;
+  }
+  body.dark-theme .elo-display-value {
+    color: #e0b44c;
+  }
+
+  body.dark-theme .no-match-icon {
+    background: #161b22;
+    color: #30363d;
+  }
+  body.dark-theme .no-match-title {
+    color: #8b949e;
+  }
+  body.dark-theme .no-match-desc {
+    color: #656d76;
+  }
+  body.dark-theme .dev-badge {
+    background: #21262d;
+    color: #656d76;
+  }
+
+  body.dark-theme .bottom-note {
+    color: #656d76;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher (dev-only) ── -->
+<div class="state-switcher">
+  <div class="sw-label">Claim at Signup</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('single-match', this)">Single Match</button>
+    <button class="sw-pill" onclick="setState('multi-match', this)">Multi Match</button>
+    <button class="sw-pill" onclick="setState('claimed', this)">Claimed</button>
+    <button class="sw-pill" onclick="setState('no-match', this)">No Match</button>
+  </div>
+</div>
+
+
+<!-- ══ STATE: Single Match ══ -->
+<div class="state active" id="state-single-match">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="signup.html" class="back">&larr;</a>
+    <div class="title">Welcome to Beach League</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="auth-header">
+    <div class="auth-header-eyebrow">Signed up as</div>
+    <div class="auth-header-name">Patrick Schwagler</div>
+  </div>
+
+  <div class="page-content">
+
+    <p class="match-subheading">We found games logged under your name. Do any of these look familiar?</p>
+
+    <!-- Single match card -->
+    <div class="match-card">
+      <div class="match-card-league">Tuesday B+ Co-Ed (Spring 2025)</div>
+      <div class="match-card-stats-row">
+        <span class="match-stats-text">12 games &middot; <span class="match-stats-record">8W &ndash; 4L</span></span>
+        <span class="elo-badge">1,247 ELO</span>
+      </div>
+      <div class="match-card-footer">
+        <span class="strong-match-pill">
+          <span class="strong-match-dot"></span>
+          Strong match
+        </span>
+        <span style="font-size: 11px; color: #aaa;">Name + phone matched</span>
+      </div>
+    </div>
+
+    <div class="cta-area">
+      <button class="btn-primary" onclick="setState('claimed', null); document.querySelectorAll('.sw-pill')[2].classList.add('active'); document.querySelectorAll('.sw-pill')[0].classList.remove('active');">
+        Yes, that&rsquo;s me &mdash; Claim my games
+      </button>
+      <button class="btn-secondary" onclick="window.location.href='onboarding.html'" style="border: none; color: #888; font-size: 14px;">
+        No, that&rsquo;s not me
+      </button>
+    </div>
+
+    <p class="bottom-note">Claiming adds these games to your new profile.</p>
+
+  </div>
+
+</div>
+
+
+<!-- ══ STATE: Multi Match ══ -->
+<div class="state" id="state-multi-match">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="signup.html" class="back">&larr;</a>
+    <div class="title">Welcome to Beach League</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="auth-header">
+    <div class="auth-header-eyebrow">Signed up as</div>
+    <div class="auth-header-name">Patrick Schwagler</div>
+  </div>
+
+  <div class="page-content">
+
+    <p class="match-subheading">We found games logged under your name in multiple leagues. Select any that are yours.</p>
+
+    <!-- Card 1 -->
+    <div class="match-card" id="multi-card-1">
+      <div class="match-card-league">Tuesday B+ Co-Ed (Spring 2025)</div>
+      <div class="match-card-stats-row">
+        <span class="match-stats-text">12 games &middot; <span class="match-stats-record">8W &ndash; 4L</span></span>
+        <span class="elo-badge">1,247 ELO</span>
+      </div>
+      <div class="match-card-footer">
+        <span class="strong-match-pill">
+          <span class="strong-match-dot"></span>
+          Strong match
+        </span>
+        <span style="font-size: 11px; color: #aaa;">Name + phone</span>
+      </div>
+      <div class="card-actions">
+        <button class="btn-card-claim" id="claim-btn-1" onclick="toggleCardDecision(1, 'claim')">Claim</button>
+        <button class="btn-card-notme" id="notme-btn-1" onclick="toggleCardDecision(1, 'notme')">Not me</button>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="match-card" id="multi-card-2">
+      <div class="match-card-league">Saturday Open League (Fall 2024)</div>
+      <div class="match-card-stats-row">
+        <span class="match-stats-text">7 games &middot; <span class="match-stats-record">3W &ndash; 4L</span></span>
+        <span class="elo-badge">1,180 ELO</span>
+      </div>
+      <div class="match-card-footer">
+        <span class="strong-match-pill">
+          <span class="strong-match-dot"></span>
+          Strong match
+        </span>
+        <span style="font-size: 11px; color: #aaa;">Name matched</span>
+      </div>
+      <div class="card-actions">
+        <button class="btn-card-claim" id="claim-btn-2" onclick="toggleCardDecision(2, 'claim')">Claim</button>
+        <button class="btn-card-notme" id="notme-btn-2" onclick="toggleCardDecision(2, 'notme')">Not me</button>
+      </div>
+    </div>
+
+    <div class="cta-area">
+      <button class="btn-primary disabled" id="multi-confirm-btn" disabled onclick="setState('claimed', null); document.querySelectorAll('.sw-pill')[2].classList.add('active'); document.querySelectorAll('.sw-pill')[1].classList.remove('active');">
+        Confirm Selections
+      </button>
+      <button class="btn-secondary" onclick="window.location.href='onboarding.html'" style="border: none; color: #888; font-size: 14px;">
+        Skip &mdash; none of these are me
+      </button>
+    </div>
+
+    <p class="bottom-note">Only claim profiles that are actually yours. Each profile can only be claimed once.</p>
+
+  </div>
+
+</div>
+
+
+<!-- ══ STATE: Claimed ══ -->
+<div class="state" id="state-claimed">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <!-- No top-nav back arrow on success -->
+  <div class="top-nav">
+    <div class="spacer"></div>
+    <div class="title">Games Claimed</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="success-area">
+
+    <div class="success-icon-wrap">
+      <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6L9 17l-5-5"/>
+      </svg>
+    </div>
+
+    <div class="success-title">Games claimed!</div>
+
+    <div class="success-desc">
+      12 games from Tuesday B+ Co-Ed have been added to your profile.
+    </div>
+
+    <div class="elo-display">
+      <div class="elo-display-label">Your starting ELO</div>
+      <div class="elo-display-value">1,247</div>
+    </div>
+
+    <button class="btn-primary" style="width: 100%;" onclick="window.location.href='onboarding.html'">
+      Continue to Setup
+    </button>
+
+  </div>
+
+</div>
+
+
+<!-- ══ STATE: No Match (dev/testing only — screen wouldn't mount in production) ══ -->
+<div class="state" id="state-no-match">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="signup.html" class="back" style="visibility: hidden;">&larr;</a>
+    <div class="title">Welcome to Beach League</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="no-match-area">
+
+    <div class="no-match-icon">
+      <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        <line x1="8" y1="11" x2="14" y2="11"/>
+      </svg>
+    </div>
+
+    <div class="dev-badge">Dev / Testing Only</div>
+
+    <div class="no-match-title">No unclaimed profiles found under your name</div>
+
+    <div class="no-match-desc">
+      In production, this screen would not mount. The backend only routes here when at least one name match exists.
+    </div>
+
+    <button class="btn-primary" style="width: 80%; margin-top: 8px;" onclick="window.location.href='onboarding.html'">
+      Continue to Setup
+    </button>
+
+  </div>
+
+</div>
+
+
+<script>
+function setState(state, pill) {
+  document.querySelectorAll('.state').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('state-' + state).classList.add('active');
+  if (pill) {
+    document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+    pill.classList.add('active');
+  }
+  window.scrollTo(0, 0);
+}
+
+/* Multi-match card decision toggling */
+var cardDecisions = {};
+
+function toggleCardDecision(cardNum, decision) {
+  var claimBtn = document.getElementById('claim-btn-' + cardNum);
+  var notmeBtn = document.getElementById('notme-btn-' + cardNum);
+
+  if (cardDecisions[cardNum] === decision) {
+    /* Deselect */
+    delete cardDecisions[cardNum];
+    claimBtn.classList.remove('selected');
+    notmeBtn.classList.remove('selected');
+    claimBtn.textContent = 'Claim';
+    notmeBtn.textContent = 'Not me';
+  } else {
+    cardDecisions[cardNum] = decision;
+    if (decision === 'claim') {
+      claimBtn.classList.add('selected');
+      claimBtn.textContent = 'Claimed';
+      notmeBtn.classList.remove('selected');
+      notmeBtn.textContent = 'Not me';
+    } else {
+      notmeBtn.classList.add('selected');
+      notmeBtn.textContent = 'Not me';
+      claimBtn.classList.remove('selected');
+      claimBtn.textContent = 'Claim';
+    }
+  }
+
+  /* Enable confirm button once at least one decision is made */
+  var confirmBtn = document.getElementById('multi-confirm-btn');
+  var hasDecision = Object.keys(cardDecisions).length > 0;
+  confirmBtn.disabled = !hasDecision;
+  if (hasDecision) {
+    confirmBtn.classList.remove('disabled');
+  } else {
+    confirmBtn.classList.add('disabled');
+  }
+}
+</script>
+
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

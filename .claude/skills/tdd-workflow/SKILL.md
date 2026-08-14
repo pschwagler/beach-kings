@@ -1,6 +1,6 @@
 ---
 name: tdd-workflow
-description: Use this skill when writing new features, fixing bugs, or refactoring code. Enforces test-driven development with 80%+ coverage including unit, integration, and E2E tests.
+description: Use this skill when writing new features, fixing bugs, or refactoring code — including React Native / Expo mobile code. Enforces test-driven development with 80%+ coverage including unit, integration, and E2E tests.
 origin: ECC
 ---
 
@@ -15,6 +15,8 @@ This skill ensures all code development follows TDD principles with comprehensiv
 - Refactoring existing code
 - Adding API endpoints
 - Creating new components
+- Creating or modifying React Native / Expo / NativeWind code in `apps/mobile/`
+- Adding hooks, contexts, or screens for the mobile app
 
 ## Core Principles
 
@@ -404,6 +406,26 @@ npm test && npm run lint
 - Fast test execution (< 30s for unit tests)
 - E2E tests cover critical user flows
 - Tests catch bugs before production
+
+## React Native / Expo Testing (apps/mobile/)
+
+Use `@testing-library/react-native` (not `@testing-library/react`). Co-locate tests next to source files.
+
+### Mocking Cheatsheet
+
+| Dependency | Mock Pattern |
+|---|---|
+| `@/lib/api` | `jest.mock('@/lib/api')` — mock `axiosInstance.get/post` |
+| `expo-secure-store` | Handled by jest-expo preset |
+| `expo-router` | `jest.mock('expo-router')` — mock `useRouter`, `useSegments` |
+| `react-native-reanimated` | Handled by jest-expo preset |
+| `@/contexts/AuthContext` | `jest.mock('@/contexts/AuthContext')` — mock `useAuth` return |
+
+### Gotchas
+
+- **`toBeOnTheScreen()`** not `toBeInTheDocument()` — RNTL has different matchers
+- **Use `Pressable`** over `TouchableOpacity` — works with `getByRole('button')`
+- **Reanimated**: jest-expo mocks it, but add explicit `jest.mock('react-native-reanimated')` if worklet errors appear
 
 ---
 

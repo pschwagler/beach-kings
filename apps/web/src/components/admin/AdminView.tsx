@@ -1,25 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { BarChart3, Settings, MapPin, MessageSquare } from 'lucide-react';
+import { BarChart3, Settings, MapPin, MessageSquare, ShieldCheck, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
-import { getUserLeagues } from '../../services/api';
+import { useApp } from '../../contexts/AppContext';
 import NavBar from '../layout/NavBar';
 import AdminDashboardTab from './AdminDashboardTab';
 import AdminSettingsTab from './AdminSettingsTab';
 import AdminCourtsTab from './AdminCourtsTab';
 import AdminFeedbackTab from './AdminFeedbackTab';
-import { League } from '../../types';
+import AdminModerationTab from './AdminModerationTab';
+import AdminUsersTab from './AdminUsersTab';
 import './AdminView.css';
 
 const TABS = [
   { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+  { key: 'users', label: 'Users', icon: Users },
   { key: 'settings', label: 'Settings', icon: Settings },
   { key: 'courts', label: 'Courts', icon: MapPin },
   { key: 'feedback', label: 'Feedback', icon: MessageSquare },
-];
+  { key: 'moderation', label: 'Moderation', icon: ShieldCheck },
+] as const;
+
+type AdminTab = (typeof TABS)[number]['key'];
+
+function isAdminTab(value: string | null): value is AdminTab {
+  return TABS.some(({ key }) => key === value);
+}
 
 /**
  * Admin view shell — horizontal tab bar + lazy-rendered tab content.
@@ -27,25 +35,18 @@ const TABS = [
 export default function AdminView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
+  const { user, currentUserPlayer, isAuthenticated, isInitializing, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const [userLeagues, setUserLeagues] = useState<League[]>([]);
+  const { userLeagues } = useApp();
 
-  const activeTab = searchParams.get('tab') || 'dashboard';
+  const requestedTab = searchParams.get('tab');
+  const activeTab: AdminTab = isAdminTab(requestedTab) ? requestedTab : 'dashboard';
 
-  const setActiveTab = (key: string) => {
+  const setActiveTab = (key: AdminTab) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', key);
     router.replace(`?${params.toString()}`, { scroll: false });
   };
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      getUserLeagues()
-        .then(setUserLeagues)
-        .catch(() => setUserLeagues([]));
-    }
-  }, [isAuthenticated]);
 
   const handleSignOut = async () => {
     try { await logout(); } catch { /* noop */ }
@@ -59,16 +60,17 @@ export default function AdminView() {
   const renderTab = () => {
     switch (activeTab) {
       case 'dashboard': return <AdminDashboardTab />;
+      case 'users': return <AdminUsersTab />;
       case 'settings': return <AdminSettingsTab />;
       case 'courts': return <AdminCourtsTab />;
       case 'feedback': return <AdminFeedbackTab />;
+      case 'moderation': return <AdminModerationTab />;
       default: return <AdminDashboardTab />;
     }
   };
 
-  return (
-    <>
-      <NavBar
+  const navbar = (
+    <NavBar
         isLoggedIn={isAuthenticated}
         user={user}
         currentUserPlayer={currentUserPlayer}
@@ -77,23 +79,42 @@ export default function AdminView() {
         onSignIn={() => openAuthModal('sign-in')}
         onSignUp={() => openAuthModal('sign-up')}
         onLeaguesMenuClick={handleLeaguesMenuClick}
-      />
+    />
+  );
+
+  if (isInitializing) {
+    return <>{navbar}<main className="admin-access-state" aria-live="polite">Checking access…</main></>;
+  }
+
+  if (!isAuthenticated) {
+    return <>{navbar}<main className="admin-access-state"><ShieldCheck size={28} /><h1>Sign in to continue</h1><p>Admin tools require an authenticated system-admin account.</p><button type="button" onClick={() => openAuthModal('sign-in')}>Sign in</button></main></>;
+  }
+
+  if (!user?.is_system_admin) {
+    return <>{navbar}<main className="admin-access-state"><ShieldCheck size={28} /><h1>Access denied</h1><p>Your account does not have system-admin access.</p><button type="button" onClick={() => router.push('/home')}>Return home</button></main></>;
+  }
+
+  return (
+    <>
+      {navbar}
       <div className="container">
         <div className="admin-view-container">
           <h1 className="admin-view-title">Admin Panel</h1>
 
-          <div className="admin-tab-bar">
+          <nav className="admin-tab-bar" aria-label="Admin navigation">
             {TABS.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
+                type="button"
+                aria-current={activeTab === key ? 'page' : undefined}
                 className={`admin-tab-btn ${activeTab === key ? 'admin-tab-btn--active' : ''}`}
                 onClick={() => setActiveTab(key)}
               >
-                <Icon size={16} />
+                <Icon size={16} aria-hidden="true" />
                 <span>{label}</span>
               </button>
             ))}
-          </div>
+          </nav>
 
           <div className="admin-tab-content">
             {renderTab()}

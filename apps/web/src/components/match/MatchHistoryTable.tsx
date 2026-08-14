@@ -24,9 +24,18 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }: Matc
     );
   };
 
+  const renderPlayerName = (name: string, playerId: number | null | undefined) => (
+    <span
+      className={playerId == null ? undefined : 'player-name-modern'}
+      onClick={playerId == null ? undefined : () => onPlayerChange(playerId)}
+    >
+      {name}
+    </span>
+  );
+
   return (
     <>
-      <h3><History size={22} />Match History</h3>
+      <h3><History size={22} />Game History</h3>
 
       {/* Desktop: standard table */}
       <div className="match-history-desktop">
@@ -63,18 +72,12 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }: Matc
                     )}
                   </td>
                   <td>
-                    <span className="player-name-modern" onClick={() => onPlayerChange(match.partner_id ?? match.partner)}>
-                      {match.partner}
-                    </span>
+                    {renderPlayerName(match.partner, match.partner_id)}
                   </td>
                   <td>
-                    <span className="player-name-modern" onClick={() => onPlayerChange(match.opponent_1_id ?? match.opponent_1)}>
-                      {match.opponent_1}
-                    </span>
+                    {renderPlayerName(match.opponent_1, match.opponent_1_id)}
                     {' / '}
-                    <span className="player-name-modern" onClick={() => onPlayerChange(match.opponent_2_id ?? match.opponent_2)}>
-                      {match.opponent_2}
-                    </span>
+                    {renderPlayerName(match.opponent_2, match.opponent_2_id)}
                   </td>
                   <td>
                     <strong className={match.result === 'W' ? 'result-win' : 'result-loss'}>
@@ -111,29 +114,14 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }: Matc
               <div className="mh-card__body">
                 <div className="mh-card__row">
                   <span className="mh-card__label">Partner</span>
-                  <span
-                    className="player-name-modern"
-                    onClick={() => onPlayerChange(match.partner_id ?? match.partner)}
-                  >
-                    {match.partner}
-                  </span>
+                  {renderPlayerName(match.partner, match.partner_id)}
                 </div>
                 <div className="mh-card__row">
                   <span className="mh-card__label">vs.</span>
                   <span>
-                    <span
-                      className="player-name-modern"
-                      onClick={() => onPlayerChange(match.opponent_1_id ?? match.opponent_1)}
-                    >
-                      {match.opponent_1}
-                    </span>
+                    {renderPlayerName(match.opponent_1, match.opponent_1_id)}
                     {' / '}
-                    <span
-                      className="player-name-modern"
-                      onClick={() => onPlayerChange(match.opponent_2_id ?? match.opponent_2)}
-                    >
-                      {match.opponent_2}
-                    </span>
+                    {renderPlayerName(match.opponent_2, match.opponent_2_id)}
                   </span>
                 </div>
               </div>

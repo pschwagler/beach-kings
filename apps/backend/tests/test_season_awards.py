@@ -28,7 +28,7 @@ from backend.database.models import (
     NotificationType,
 )
 from backend.services import data_service
-from backend.services.season_awards_service import (
+from backend.services.leagues.season_awards_service import (
     compute_season_awards,
     get_season_awards,
     get_player_awards,

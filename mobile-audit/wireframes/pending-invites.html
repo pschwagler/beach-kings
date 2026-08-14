@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Pending Invites - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  /* Content */
+  .content { padding: 12px 0 100px; }
+
+  .section-label { font-size: 15px; font-weight: 700; color: #1a1a1a; padding: 8px 16px; }
+
+  /* Invite Item */
+  .invite-item { display: flex; gap: 12px; padding: 14px 16px; background: #fff; border-bottom: 1px solid #f0f0f0; align-items: center; }
+  .invite-avatar { width: 44px; height: 44px; border-radius: 50%; background: #e8f4f8; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #2a7d9c; flex-shrink: 0; }
+  .invite-body { flex: 1; min-width: 0; }
+  .invite-name { font-size: 15px; font-weight: 600; }
+  .invite-meta { font-size: 12px; color: #666; margin-top: 3px; }
+  .invite-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .share-btn { padding: 12px 16px; border-radius: 8px; border: 1.5px solid #e0e0e0; background: #fff; font-size: 12px; font-weight: 600; color: #555; }
+  .share-btn:active { background: #f0f0f0; }
+
+  /* Status badges */
+  .invite-status { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px; }
+  .invite-status.pending { background: #fef3c7; color: #92400e; }
+  .invite-status.accepted { background: #dcfce7; color: #15803d; }
+
+  /* Empty State */
+  .empty-state { text-align: center; padding: 60px 32px; }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state .empty-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .empty-state .empty-desc { font-size: 13px; color: #666; line-height: 1.5; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="league-dashboard.html" class="back">&larr; League</a>
+  <div class="title">Pending Invites</div>
+  <div class="spacer"></div>
+</div>
+
+<div class="content">
+
+  <div class="section-label">Invited to your league (14)</div>
+
+  <div class="invite-item">
+    <div class="invite-avatar">SD</div>
+    <div class="invite-body">
+      <div class="invite-name">Sarah Dashfosch</div>
+      <div class="invite-meta">0 matches · Invited 3/25</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar" style="background: #fdf8ed; color: #b8860b;">FM</div>
+    <div class="invite-body">
+      <div class="invite-name">Fors McFons</div>
+      <div class="invite-meta">0 matches · Invited 3/20</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar" style="background: #dcfce7; color: #15803d;">LR</div>
+    <div class="invite-body">
+      <div class="invite-name">Lance Rohick</div>
+      <div class="invite-meta">0 matches · Invited 3/18</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar">JA</div>
+    <div class="invite-body">
+      <div class="invite-name">Jimmy Alfonso</div>
+      <div class="invite-meta">0 matches · Invited 3/15</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar" style="background: #fee2e2; color: #b91c1c;">JB</div>
+    <div class="invite-body">
+      <div class="invite-name">James Brooklyn</div>
+      <div class="invite-meta">0 matches · Invited 3/12</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar" style="background: #f0f0f0; color: #555;">JM</div>
+    <div class="invite-body">
+      <div class="invite-name">James McCues</div>
+      <div class="invite-meta">0 matches · Invited 3/10</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar">AL</div>
+    <div class="invite-body">
+      <div class="invite-name">Alfonso Lopez</div>
+      <div class="invite-meta">0 matches · Invited 3/8</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar" style="background: #fdf8ed; color: #b8860b;">JD</div>
+    <div class="invite-body">
+      <div class="invite-name">James Dean</div>
+      <div class="invite-meta">0 matches · Invited 3/5</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar" style="background: #dcfce7; color: #15803d;">DB</div>
+    <div class="invite-body">
+      <div class="invite-name">Danny Boomas</div>
+      <div class="invite-meta">0 matches · Invited 3/3</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar" style="background: #e8d5b7; color: #8b6914;">DH</div>
+    <div class="invite-body">
+      <div class="invite-name">Dan Harrington</div>
+      <div class="invite-meta">0 matches · Invited 2/28</div>
+    </div>
+    <button class="share-btn" onclick="alert('Share sheet')">Share</button>
+  </div>
+
+  <div class="invite-item">
+    <div class="invite-avatar">KF</div>
+    <div class="invite-body">
+      <div class="invite-name">Ken Fawwar</div>
+      <div class="invite-meta">14 matches · Member since Jan</div>
+    </div>
+    <span class="invite-status accepted">Joined</span>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+    <div class="tab-label active">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { getAdminConfig, updateAdminConfig } from '../../services/api';
 
 interface AdminConfig {
@@ -44,11 +44,7 @@ export default function AdminSettingsTab() {
     );
   }, [enableSms, enableEmail, logLevel, originalValues, config]);
 
-  useEffect(() => {
-    loadConfig();
-  }, []);
-
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -74,7 +70,11 @@ export default function AdminSettingsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void loadConfig();
+  }, [loadConfig]);
 
   const handleSave = async () => {
     try {
@@ -152,7 +152,7 @@ export default function AdminSettingsTab() {
             </button>
           </div>
           <p className="setting-description">
-            Control whether email notifications are sent via SendGrid
+            Control whether transactional email notifications are sent via Resend
           </p>
         </div>
 

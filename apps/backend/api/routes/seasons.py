@@ -10,9 +10,17 @@ from sqlalchemy import select as sa_select
 
 from backend.database.db import get_db_session
 from backend.database.models import Season as SeasonModel
-from backend.services import data_service, notification_service, season_awards_service
+from backend.services import (
+    data_service,
+    notification_service,
+    season_awards_service,
+    friend_service,
+)
 from backend.api.auth_dependencies import (
+    _has_league_role,
+    _is_system_admin,
     get_current_user,
+    get_current_user_optional,
     require_user,
     make_require_league_admin,
     make_require_league_admin_from_season,
@@ -126,6 +134,18 @@ async def update_season(
     When changing scoring system, stats will be recalculated.
     """
     try:
+        existing = await data_service.get_season(session, season_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Season not found")
+
+        if not await _is_system_admin(session, user) and not await _has_league_role(
+            session,
+            user_id=user["id"],
+            league_id=existing["league_id"],
+            required_role="admin",
+        ):
+            raise HTTPException(status_code=403, detail="League admin access required")
+
         body = await request.json()
         season = await data_service.update_season(session, season_id=season_id, **body)
         if not season:
@@ -238,7 +258,8 @@ async def get_partnership_opponent_stats(
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Error loading partnership/opponent stats: {str(e)}"
+            status_code=500,
+            detail=f"Error loading partnership/opponent stats: {str(e)}",
         )
 
 
@@ -254,7 +275,8 @@ async def get_season_partnership_opponent_stats(
         return stats
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Error loading partnership/opponent stats: {str(e)}"
+            status_code=500,
+            detail=f"Error loading partnership/opponent stats: {str(e)}",
         )
 
 
@@ -267,13 +289,18 @@ async def get_player_season_partnership_opponent_stats(
 ):
     """Get partnership and opponent stats for a player in a season (public)."""
     try:
+        if await data_service.get_player_by_id(session, player_id) is None:
+            raise HTTPException(status_code=404, detail="Player not found")
         stats = await data_service.get_player_season_partnership_opponent_stats(
             session, player_id, season_id
         )
         return stats
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Error loading partnership/opponent stats: {str(e)}"
+            status_code=500,
+            detail=f"Error loading partnership/opponent stats: {str(e)}",
         )
 
 
@@ -299,7 +326,8 @@ async def get_league_partnership_opponent_stats(
         return stats
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Error loading partnership/opponent stats: {str(e)}"
+            status_code=500,
+            detail=f"Error loading partnership/opponent stats: {str(e)}",
         )
 
 
@@ -308,14 +336,10 @@ async def get_player_league_stats(
     player_id: int, league_id: int, session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Get player statistics for a specific league.
-
-    Args:
-        player_id: ID of the player
-        league_id: ID of the league
-
-    Returns:
-        dict: Player league stats including ELO, games, wins, etc.
+    Legacy slim endpoint kept for the web app. Returns only counts/rates from
+    ``PlayerLeagueStats``. New clients should call
+    ``GET /api/leagues/{league_id}/players/{player_id}/stats`` which returns the
+    full aggregated shape (player profile, partners, opponents, etc.).
     """
     try:
         league_stats = await data_service.get_player_league_stats(session, player_id, league_id)
@@ -330,6 +354,55 @@ async def get_player_league_stats(
         raise HTTPException(status_code=500, detail=f"Error loading player league stats: {str(e)}")
 
 
+@router.get("/api/leagues/{league_id}/players/{player_id}/stats", response_model=dict)
+async def get_league_player_stats_full(
+    league_id: int,
+    player_id: int,
+    season_id: int | None = None,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: dict | None = Depends(get_current_user_optional),
+):
+    """
+    Aggregated player stats in the context of a league (and optional season).
+
+    Returns the full shape consumed by the mobile League Player Stats view:
+    player profile (name/initials/level/location), league/season context,
+    overall record, partner/opponent breakdowns, and ``is_self`` when the
+    request is authenticated.
+
+    Members-only for every league, public or private: the caller must be an
+    authenticated member of the league or a 403 is raised. Non-members (and
+    unauthenticated callers) are routed to the player's public profile instead
+    of this league-scoped view.
+    ``rank`` and ``game_history`` are populated; ``rating_delta`` is always None.
+    """
+    try:
+        # Resolve the caller's player_id from their user_id. The optional-auth
+        # user dict does NOT carry player_id (only require_verified_player adds
+        # it), so we look it up explicitly — needed for both the members-only
+        # access gate and the ``is_self`` flag.
+        viewer_player_id = (
+            await friend_service.get_player_id_for_user(session, current_user["id"])
+            if current_user
+            else None
+        )
+        stats = await data_service.get_league_player_stats_full(
+            session,
+            league_id=league_id,
+            player_id=player_id,
+            season_id=season_id,
+            current_user_player_id=viewer_player_id,
+            caller_player_id=viewer_player_id,
+        )
+        if stats is None:
+            raise HTTPException(status_code=404, detail="Player, league, or season not found.")
+        return stats
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading league player stats: {str(e)}")
+
+
 @router.get(
     "/api/players/{player_id}/league/{league_id}/partnership-opponent-stats",
     response_model=PartnershipOpponentStatsResponse,
@@ -339,13 +412,18 @@ async def get_player_league_partnership_opponent_stats(
 ):
     """Get partnership and opponent stats for a player in a league (public)."""
     try:
+        if await data_service.get_player_by_id(session, player_id) is None:
+            raise HTTPException(status_code=404, detail="Player not found")
         stats = await data_service.get_player_league_partnership_opponent_stats(
             session, player_id, league_id
         )
         return stats
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Error loading partnership/opponent stats: {str(e)}"
+            status_code=500,
+            detail=f"Error loading partnership/opponent stats: {str(e)}",
         )
 
 

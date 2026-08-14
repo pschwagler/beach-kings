@@ -14,25 +14,37 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
+    "postinstall": "patch-package",
     "clean": "turbo run clean && rm -rf node_modules",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
     "baseline-browser-mapping": "^2.10.0",
+    "patch-package": "^8.0.1",
     "prettier": "^3.2.5",
+    "react-test-renderer": "19.2.3",
     "turbo": "^2.0.0",
     "typescript": "^5.3.3"
   },
-  "packageManager": "npm@10.0.0",
+  "packageManager": "npm@11.19.0",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.13.0"
   },
   "overrides": {
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "image-size": "npm:probe-image-size@7.3.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-test-renderer": "19.2.3",
+    "uuid": "11.1.1"
   },
   "dependencies": {
+    "expo": "~57.0.13",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.2",
     "react-native-web": "^0.21.0"
   }
 }

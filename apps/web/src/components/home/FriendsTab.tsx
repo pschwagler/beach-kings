@@ -49,6 +49,9 @@ interface FriendSuggestion {
   avatar?: string | null;
   location_name?: string | null;
   shared_league_count?: number;
+  mutual_friend_count?: number;
+  shared_session_count?: number;
+  reason?: string;
 }
 
 /**
@@ -570,7 +573,7 @@ export default function FriendsTab() {
                     {suggestion.full_name}
                   </Link>
                   <div className="friends-tab__suggestion-detail">
-                    {suggestion.shared_league_count} shared league{suggestion.shared_league_count !== 1 ? 's' : ''}
+                    {suggestion.reason || `${suggestion.shared_league_count ?? 0} shared league${(suggestion.shared_league_count ?? 0) !== 1 ? 's' : ''}`}
                     {suggestion.location_name && ` · ${suggestion.location_name}`}
                   </div>
                 </div>

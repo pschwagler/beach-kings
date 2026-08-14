@@ -222,7 +222,7 @@ export default function ActiveSessionPanel({
           <div className="session-empty-state">
             <Trophy size={40} className="session-empty-icon" />
             <div className="session-empty-text">
-              No matches recorded. Start by adding your first match!
+              No games recorded. Start by adding your first game!
             </div>
           </div>
         ) : contentVariant === 'clipboard' ? (

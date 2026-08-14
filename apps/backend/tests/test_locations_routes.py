@@ -6,7 +6,13 @@ GET /api/locations and PUT/DELETE already tested in test_api_endpoints.py.
 
 from fastapi.testclient import TestClient
 from backend.api.main import app
-from backend.services import auth_service, user_service, data_service, location_service
+from backend.services import (
+    auth_service,
+    user_service,
+    data_service,
+    location_service,
+    role_service,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +46,11 @@ def _make_admin_client(monkeypatch, phone="+10000000000", user_id=1):
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+
+    async def fake_is_system_admin(session, uid):
+        return True
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
 
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
@@ -196,3 +207,36 @@ class TestGeocodeAutocomplete:
         response = client.get("/api/geocode/autocomplete?text=S")
         assert response.status_code == 200
         assert response.json()["features"] == []
+
+
+class TestGeocodePlaces:
+    def test_places_success(self, monkeypatch):
+        async def fake_search(text, lat, lng):
+            assert (text, lat, lng) == ("Brooklyn", 40.7, -74.0)
+            return [
+                {
+                    "id": "1",
+                    "primary_text": "Brooklyn",
+                    "secondary_text": "New York",
+                    "latitude": 40.65,
+                    "longitude": -73.95,
+                    "result_type": "city",
+                }
+            ]
+
+        monkeypatch.setattr(location_service, "search_places", fake_search, raising=True)
+        response = TestClient(app).get("/api/geocode/places?text=Brooklyn&lat=40.7&lng=-74")
+        assert response.status_code == 200
+        assert response.json()[0]["primary_text"] == "Brooklyn"
+
+    def test_places_requires_complete_proximity(self):
+        response = TestClient(app).get("/api/geocode/places?text=Brooklyn&lat=40.7")
+        assert response.status_code == 422
+
+    def test_places_reports_missing_provider_key(self, monkeypatch):
+        async def fake_search(text, lat, lng):
+            raise ValueError("Geoapify API key not configured")
+
+        monkeypatch.setattr(location_service, "search_places", fake_search, raising=True)
+        response = TestClient(app).get("/api/geocode/places?text=Brooklyn")
+        assert response.status_code == 503

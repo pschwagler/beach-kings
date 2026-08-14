@@ -16,9 +16,9 @@ All symbols are now defined in focused domain modules:
 Import from this module to keep existing call sites unchanged.
 """
 
-from backend.services.league_data import *  # noqa: F401,F403
-from backend.services.session_data import *  # noqa: F401,F403
-from backend.services.player_data import *  # noqa: F401,F403
-from backend.services.signup_data import *  # noqa: F401,F403
-from backend.services.message_data import *  # noqa: F401,F403
-from backend.services.stats_data import *  # noqa: F401,F403
+from backend.services.leagues.league_data import *  # noqa: F401,F403
+from backend.services.games.session_data import *  # noqa: F401,F403
+from backend.services.players.player_data import *  # noqa: F401,F403
+from backend.services.leagues.signup_data import *  # noqa: F401,F403
+from backend.services.social.message_data import *  # noqa: F401,F403
+from backend.services.stats.stats_data import *  # noqa: F401,F403

@@ -83,6 +83,17 @@ jobs:
             git checkout "$DEPLOY_BRANCH"
             git pull origin "$DEPLOY_BRANCH"
 
+            echo "=== Pre-deployment database backup ==="
+            if sudo systemctl cat beach-kings-db-backup.service > /dev/null 2>&1; then
+              # A failed backup stops the deployment before images or migrations change.
+              sudo systemctl start beach-kings-db-backup.service
+              echo "Pre-deployment database backup completed"
+            else
+              echo "S3 backup service is not installed; refusing to deploy"
+              echo "Complete deployment/backups/README.md before this release"
+              exit 1
+            fi
+
             echo "=== Pulling pre-built images ==="
             docker-compose pull frontend backend
 
@@ -109,6 +120,13 @@ jobs:
               exit 1
             fi
 
+            echo "=== Production readiness ==="
+            if ! curl -sf http://localhost:8000/api/ready > /dev/null; then
+              echo "Backend is running but production dependencies are not ready"
+              curl -s http://localhost:8000/api/ready || true
+              exit 1
+            fi
+
             # Frontend health check
             frontend_healthy=false
             for i in $(seq 1 12); do
@@ -124,6 +142,10 @@ jobs:
               echo "Frontend failed to become healthy"
               exit 1
             fi
+
+            echo "=== Required public pages ==="
+            bash deployment/verify-public-web-routes.sh http://localhost:3000
+            bash deployment/verify-public-web-routes.sh https://beachleaguevb.com
 
             echo "=== Cleaning up old images ==="
             docker system prune -af || true

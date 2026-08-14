@@ -14,7 +14,7 @@ export default function VerificationCodeInput({
   onChange,
   onSendCode = null,
   isSubmitting = false,
-  placeholder = '1234'
+  placeholder = '123456'
 }: VerificationCodeInputProps) {
   return (
     <label className="auth-modal__label">
@@ -27,7 +27,7 @@ export default function VerificationCodeInput({
           placeholder={placeholder}
           value={value}
           onChange={onChange}
-          maxLength={4}
+          maxLength={6}
           required
         />
         {onSendCode && (

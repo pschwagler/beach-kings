@@ -1,0 +1,1074 @@
+/**
+ * Coverage tests for all app/ route files.
+ * Targets 0%-coverage routes: index, (auth)/_layout, (auth)/login,
+ * (auth)/signup, (stack)/_layout, (tabs)/_layout, and all five tab screens.
+ */
+
+import React from 'react';
+import { render as testingRender, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// ---------------------------------------------------------------------------
+// Mocks — declared before any route imports so Jest hoisting works correctly
+// ---------------------------------------------------------------------------
+
+jest.mock('@/components/auth/YouthEligibilityGate', () => {
+  const ReactModule = require('react');
+  return function MockYouthEligibilityGate({ onEligible }: { onEligible: (token: string) => void }) {
+    ReactModule.useEffect(() => onEligible('eligible-token'), [onEligible]);
+    return null;
+  };
+});
+
+// expo-router
+jest.mock('expo-router', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+
+  const Redirect = ({ href }: { href: string }) => (
+    <View testID="redirect">
+      <Text>{href}</Text>
+    </View>
+  );
+
+  // Slot renders children in tests
+  const Slot = ({ children }: { children?: React.ReactNode }) => (
+    <View testID="slot">{children}</View>
+  );
+
+  // Stack and Stack.Screen are pass-throughs
+  const Stack = ({ children }: { children?: React.ReactNode }) => (
+    <View testID="stack">{children}</View>
+  );
+  Stack.Screen = ({ children }: { children?: React.ReactNode }) => (
+    <View testID="stack-screen">{children}</View>
+  );
+
+  // Tabs and Tabs.Screen
+  const Tabs = ({ children }: { children?: React.ReactNode }) => (
+    <View testID="tabs">{children}</View>
+  );
+  Tabs.Screen = ({ children }: { children?: React.ReactNode }) => (
+    <View testID="tabs-screen">{children}</View>
+  );
+
+  const Link = ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <View testID={`link-${href}`}>{children}</View>
+  );
+
+  const SplashScreen = {
+    preventAutoHideAsync: jest.fn().mockResolvedValue(undefined),
+    hideAsync: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const useRouter = () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn() });
+  const useSegments = () => [];
+  const usePathname = () => '/';
+  const useLocalSearchParams = () => ({});
+  const useFocusEffect = jest.fn();
+
+  return {
+    Redirect,
+    Slot,
+    Stack,
+    Tabs,
+    Link,
+    SplashScreen,
+    useRouter,
+    useSegments,
+    usePathname,
+    useLocalSearchParams,
+    useFocusEffect,
+  };
+});
+
+jest.mock('@/theme/usePaletteColors', () => ({
+  usePaletteColors: () => ({
+    brandTeal: '#1a3a4a',
+    brandGold: '#d4a843',
+    textDefault: '#182326',
+    textMuted: '#596568',
+    textTertiary: '#697577',
+    textInverse: '#fffdf8',
+    onBrandTeal: '#fffdf8',
+    onBrandGold: '#182326',
+    onDanger: '#fffdf8',
+  }),
+}));
+
+function render(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return testingRender(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
+
+// expo-status-bar
+jest.mock('expo-status-bar', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    StatusBar: ({ style }: { style?: string }) => (
+      <View testID={`status-bar-${style ?? 'default'}`} />
+    ),
+  };
+});
+
+// ThemeContext
+const mockUseTheme = jest.fn(() => ({
+  isDark: false,
+  colorScheme: 'light',
+  themeMode: 'light',
+  setThemeMode: jest.fn(),
+}));
+jest.mock('@/contexts/ThemeContext', () => ({
+  __esModule: true,
+  useTheme: () => mockUseTheme(),
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+// AuthContext
+const mockLogin = jest.fn();
+const mockSignup = jest.fn();
+const mockLoginWithGoogle = jest.fn();
+const mockLoginWithApple = jest.fn();
+jest.mock('@/contexts/AuthContext', () => ({
+  __esModule: true,
+  useAuth: () => ({
+    login: mockLogin,
+    signup: mockSignup,
+    loginWithGoogle: mockLoginWithGoogle,
+    loginWithApple: mockLoginWithApple,
+    logout: jest.fn(),
+    isAuthenticated: false,
+    isLoading: false,
+    user: null,
+    profileComplete: true,
+  }),
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+// OAuth lib
+jest.mock('@/lib/oauth', () => ({
+  __esModule: true,
+  useGoogleSignIn: () => ({ promptGoogle: jest.fn() }),
+  signInWithApple: jest.fn().mockResolvedValue({
+    idToken: 'apple-id-token',
+    authorizationCode: 'apple-authorization-code',
+  }),
+  // Route assertions do not exercise provider availability; keep the probe
+  // pending so it cannot schedule an unrelated post-render state update.
+  isAppleSignInAvailable: jest.fn(() => new Promise(() => {})),
+  OAuthCancelledError: class OAuthCancelledError extends Error {},
+  OAuthNotConfiguredError: class OAuthNotConfiguredError extends Error {},
+}));
+
+// Query-backed notification feature
+const mockUseNotifications = jest.fn();
+jest.mock('@/features/notifications', () => ({
+  __esModule: true,
+  useNotifications: () => mockUseNotifications(),
+  NotificationTransport: () => null,
+}));
+
+jest.mock('@/features/notifications/NativePushProvider', () => ({
+  __esModule: true,
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+// ToastContext
+jest.mock('@/contexts/ToastContext', () => ({
+  __esModule: true,
+  useToast: () => ({ showToast: jest.fn() }),
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+// Shared design tokens
+jest.mock('@beach-kings/shared/tokens', () => ({
+  colors: {
+    primary: '#1a3a4a',
+    accent: '#e6ac00',
+    bgPrimary: '#f9f9f9',
+    bgSurface: '#ffffff',
+    gray200: '#e5e7eb',
+    textTertiary: '#999999',
+    textPrimary: '#1a1a1a',
+    brandTeal: '#0D9488',
+  },
+  darkColors: {
+    bgBase: '#0d0d1a',
+    bgTabbar: '#1a1a2e',
+    brandTeal: '#14b8a6',
+    brandGold: '#f59e0b',
+    textTertiary: '#737373',
+    border: '#2a2a3e',
+  },
+  lightPalette: {
+    bgPage: '#f5f5f5', bgSurface: '#ffffff', bgElevated: '#ffffff', bgInset: '#f5f5f5',
+    bgNav: '#ffffff', bgTabbar: '#ffffff', textDefault: '#1a1a1a', textMuted: '#666666',
+    textTertiary: '#999999', textInverse: '#ffffff', borderStrong: '#d1d5db',
+    borderDivider: '#e5e7eb', brandTeal: '#1a3a4a', brandGold: '#c8a84b',
+    onBrandTeal: '#ffffff', onBrandGold: '#1a1a1a', onDanger: '#ffffff',
+    success: '#16a34a', danger: '#dc2626', warning: '#d97706', info: '#2563eb',
+    successTint: '#dcfce7', dangerTint: '#fee2e2', warningTint: '#fef3c7', infoTint: '#dbeafe',
+  },
+  darkPalette: {
+    bgPage: '#161b22', bgSurface: '#1c2333', bgElevated: '#21262d', bgInset: '#0d1117',
+    bgNav: '#161b22', bgTabbar: '#161b22', textDefault: '#e6edf3', textMuted: '#8b949e',
+    textTertiary: '#6e7681', textInverse: '#1a1a1a', borderStrong: '#30363d',
+    borderDivider: '#21262d', brandTeal: '#14b8a6', brandGold: '#d4a843',
+    onBrandTeal: '#0d1117', onBrandGold: '#0d1117', onDanger: '#0d1117',
+    success: '#4ade80', danger: '#f87171', warning: '#fbbf24', info: '#60a5fa',
+    successTint: '#14532d', dangerTint: '#7f1d1d', warningTint: '#78350f', infoTint: '#1e3a5f',
+  },
+}));
+
+// react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children }: { children?: React.ReactNode }) => (
+      <View testID="safe-area-view">{children}</View>
+    ),
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
+});
+
+// ErrorBoundary
+jest.mock('@/lib/ErrorBoundary', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  };
+});
+
+// Native Query focus/online wiring is covered separately; route tests only
+// need a deterministic no-op subscription.
+jest.mock('@/infrastructure/query', () => {
+  const actual = jest.requireActual('@/infrastructure/query');
+  return {
+    ...actual,
+    subscribeQueryLifecycle: jest.fn(() => jest.fn()),
+  };
+});
+
+// TopNav
+jest.mock('@/components/ui/TopNav', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ title }: { title: string }) => <Text testID="top-nav">{title}</Text>,
+  };
+});
+
+// @/lib/api — stub all methods the HomeScreen dashboard calls
+jest.mock('@/lib/api', () => ({
+  __esModule: true,
+  api: {
+    getCurrentUserPlayer: jest.fn().mockResolvedValue(null),
+    getUserLeagues: jest.fn().mockResolvedValue([]),
+    getActiveSession: jest.fn().mockResolvedValue(null),
+    getFriendRequests: jest.fn().mockResolvedValue([]),
+    getCourts: jest.fn().mockResolvedValue([]),
+    getPlayerMatchHistory: jest.fn().mockResolvedValue([]),
+    // The Social tab's default Messages body fetches conversations on mount.
+    getConversations: jest.fn().mockResolvedValue({ items: [], total_count: 0 }),
+  },
+}));
+
+// useDashboard — stubbed so HomeScreen does not need a QueryClientProvider
+jest.mock('@/hooks/useDashboard', () => {
+  const makeQuery = <T,>(data: T) => ({
+    data,
+    isPending: false,
+    isFetching: false,
+    isSuccess: true,
+    isError: false,
+    error: null,
+    refetch: jest.fn().mockResolvedValue(undefined),
+  });
+  return {
+    __esModule: true,
+    dashboardKeys: {
+      player: ['dashboard', 'player'],
+      leagues: ['dashboard', 'leagues'],
+      activeSession: ['dashboard', 'activeSession'],
+      friendRequests: ['dashboard', 'friendRequests'],
+      courts: ['dashboard', 'courts'],
+      matches: ['dashboard', 'matches'],
+    },
+    useDashboard: () => ({
+      player: makeQuery(null),
+      leagues: makeQuery([]),
+      activeSession: makeQuery(null),
+      friendRequests: makeQuery([]),
+      courts: makeQuery([]),
+      matches: makeQuery([]),
+      isInitialLoading: true,
+      isRefreshing: false,
+      refetchAll: jest.fn().mockResolvedValue(undefined),
+    }),
+  };
+});
+
+// Home components — stubbed so HomeScreen can render without deep dep chain
+jest.mock('@/components/home/HomeHeader', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: () => <Text testID="home-header">Beach League</Text>,
+  };
+});
+jest.mock('@/components/home/QuickStatsRow', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { __esModule: true, default: () => <View testID="quick-stats" /> };
+});
+jest.mock('@/components/home/SectionHeader', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ title }: { title?: string }) => <Text>{title}</Text>,
+  };
+});
+jest.mock('@/components/home/RecentGamesScroll', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/LeaguesScroll', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/CourtsScroll', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/DashboardSkeleton', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { __esModule: true, default: () => <View testID="dashboard-skeleton" /> };
+});
+
+// UI components — full set used by auth screens and tab screens
+jest.mock('@/components/ui', () => {
+  const React = require('react');
+  const { Pressable, Text, TextInput, View } = require('react-native');
+  return {
+    AppText: ({ children, ...props }: { children?: React.ReactNode }) => (
+      <Text {...props}>{children}</Text>
+    ),
+    Button: ({ title, onPress, disabled }: { title: string; onPress: () => void; disabled?: boolean }) => (
+      <Pressable testID={`button-${title}`} onPress={onPress} disabled={disabled ?? false}>
+        <Text>{title}</Text>
+      </Pressable>
+    ),
+    Input: ({ placeholder, onChangeText, value, ...rest }: {
+      placeholder?: string;
+      onChangeText?: (text: string) => void;
+      value?: string;
+      [key: string]: unknown;
+    }) => (
+      <TextInput
+        testID={`input-${placeholder}`}
+        placeholder={placeholder}
+        onChangeText={onChangeText}
+        value={value}
+        {...rest}
+      />
+    ),
+    TopNav: ({ title }: { title: string }) => <Text testID="top-nav">{title}</Text>,
+    Divider: () => <View testID="divider" />,
+    Card: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    Badge: ({ children }: { children?: React.ReactNode }) => <Text>{children}</Text>,
+    Chip: ({ children }: { children?: React.ReactNode }) => <Text>{children}</Text>,
+    EmptyState: ({ title }: { title?: string }) => <Text>{title}</Text>,
+    LoadingSkeleton: () => <View testID="loading-skeleton" />,
+    Modal: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    SegmentControl: () => <View />,
+    Avatar: () => <View testID="avatar" />,
+    BottomSheet: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    StatCard: ({ label, value }: { label?: string; value?: string }) => (
+      <View><Text>{label}</Text><Text>{value}</Text></View>
+    ),
+    OtpInput: () => <View testID="otp-input" />,
+    PasswordStrength: () => <View />,
+    PullToRefresh: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    TabView: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    SearchBar: () => <View />,
+    Toast: () => <View />,
+    ListItem: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    ProgressBar: () => <View />,
+    FAB: () => <View />,
+  };
+});
+
+// Components that import AppText from its leaf module need the same lightweight
+// host-text behavior as the UI barrel above.
+jest.mock('@/components/ui/AppText', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ children, ...props }: { children?: React.ReactNode }) => (
+      <Text {...props}>{children}</Text>
+    ),
+  };
+});
+
+// useLeaguesScreen — stubbed so LeaguesScreen doesn't require a QueryClientProvider
+jest.mock('@/components/screens/Leagues/useLeaguesScreen', () => ({
+  __esModule: true,
+  useLeaguesScreen: () => ({
+    leagues: [],
+    isLoading: false,
+    isError: false,
+    isRefreshing: false,
+    refetch: jest.fn().mockResolvedValue(undefined),
+  }),
+}));
+
+// Icons — each exported as a simple View with a testID
+jest.mock('@/components/ui/icons', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  const makeIcon = (name: string) =>
+    ({ size, color }: { size?: number; color?: string }) => (
+      <View testID={`icon-${name}`} accessibilityLabel={name} />
+    );
+
+  return {
+    HomeIcon: makeIcon('HomeIcon'),
+    TrophyIcon: makeIcon('TrophyIcon'),
+    VolleyballIcon: makeIcon('VolleyballIcon'),
+    PlusIcon: makeIcon('PlusIcon'),
+    ChatIcon: makeIcon('ChatIcon'),
+    UserIcon: makeIcon('UserIcon'),
+    AlertTriangleIcon: makeIcon('AlertTriangleIcon'),
+    ChevronLeftIcon: makeIcon('ChevronLeftIcon'),
+    ChevronRightIcon: makeIcon('ChevronRightIcon'),
+    SearchIcon: makeIcon('SearchIcon'),
+    SettingsIcon: makeIcon('SettingsIcon'),
+    BellIcon: makeIcon('BellIcon'),
+    CheckIcon: makeIcon('CheckIcon'),
+    XIcon: makeIcon('XIcon'),
+    CrownIcon: makeIcon('CrownIcon'),
+  };
+});
+
+// react-native-svg
+jest.mock('react-native-svg', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const Svg = ({ children }: { children?: React.ReactNode }) => <View>{children}</View>;
+  const Path = () => null;
+  const Line = () => null;
+  const Circle = () => null;
+  const Polygon = () => null;
+  const G = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
+  return { __esModule: true, default: Svg, Svg, Path, Line, Circle, Polygon, G };
+});
+
+// ---------------------------------------------------------------------------
+// Default theme/notification stubs (overridden per-suite where needed)
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  mockUseTheme.mockReturnValue({
+    isDark: false,
+    colorScheme: 'light',
+    themeMode: 'light',
+    setThemeMode: jest.fn(),
+  });
+  mockUseNotifications.mockReturnValue({
+    notifications: [],
+    unreadCount: 0,
+    dmUnreadCount: 0,
+    markAsRead: jest.fn(),
+    markAllAsRead: jest.fn(),
+  });
+  mockLogin.mockReset();
+  mockSignup.mockReset();
+});
+
+// ---------------------------------------------------------------------------
+// app/index.tsx
+// ---------------------------------------------------------------------------
+
+describe('app/index — redirect', () => {
+  // Import inside describe so it picks up mocks
+  let Index: React.ComponentType;
+
+  beforeAll(() => {
+    Index = require('../../app/index').default;
+  });
+
+  it('renders a Redirect to /(tabs)/home', () => {
+    const { getByTestId, getByText } = render(<Index />);
+    expect(getByTestId('redirect')).toBeTruthy();
+    expect(getByText('/(tabs)/home')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// app/(auth)/_layout.tsx
+// ---------------------------------------------------------------------------
+
+describe('app/(auth)/_layout — AuthLayout', () => {
+  let AuthLayout: React.ComponentType;
+
+  beforeAll(() => {
+    AuthLayout = require('../../app/(auth)/_layout').default;
+  });
+
+  it('renders a Stack navigator in light mode', () => {
+    const { getByTestId } = render(<AuthLayout />);
+    expect(getByTestId('stack')).toBeTruthy();
+  });
+
+  it('renders a Stack navigator in dark mode', () => {
+    mockUseTheme.mockReturnValue({ isDark: true, colorScheme: 'dark', themeMode: 'dark', setThemeMode: jest.fn() });
+    const { getByTestId } = render(<AuthLayout />);
+    expect(getByTestId('stack')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// app/(stack)/_layout.tsx
+// ---------------------------------------------------------------------------
+
+describe('app/(stack)/_layout — StackLayout', () => {
+  let StackLayout: React.ComponentType;
+
+  beforeAll(() => {
+    StackLayout = require('../../app/(stack)/_layout').default;
+  });
+
+  it('renders a Stack navigator in light mode', () => {
+    const { getByTestId } = render(<StackLayout />);
+    expect(getByTestId('stack')).toBeTruthy();
+  });
+
+  it('renders a Stack navigator in dark mode', () => {
+    mockUseTheme.mockReturnValue({ isDark: true, colorScheme: 'dark', themeMode: 'dark', setThemeMode: jest.fn() });
+    const { getByTestId } = render(<StackLayout />);
+    expect(getByTestId('stack')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// app/_layout.tsx — RootLayout + RootLayoutInner
+// ---------------------------------------------------------------------------
+
+describe('app/_layout — RootLayout', () => {
+  let RootLayout: React.ComponentType;
+  let SplashScreen: { preventAutoHideAsync: jest.Mock; hideAsync: jest.Mock };
+
+  beforeAll(() => {
+    SplashScreen = require('expo-router').SplashScreen;
+    // Import AFTER mocks are in place
+    RootLayout = require('../../app/_layout').default;
+  });
+
+  it('calls SplashScreen.preventAutoHideAsync at module load', () => {
+    // preventAutoHideAsync is called at module evaluation time
+    expect(SplashScreen.preventAutoHideAsync).toHaveBeenCalled();
+  });
+
+  it('renders the root Stack immediately because fonts are embedded', () => {
+    const { getByTestId } = render(<RootLayout />);
+    expect(getByTestId('stack')).toBeTruthy();
+  });
+
+  it('registers the five top-level route groups on the root Stack', () => {
+    const { getAllByTestId } = render(<RootLayout />);
+    // index, (auth), (account), (tabs), (stack)
+    expect(getAllByTestId('stack-screen')).toHaveLength(5);
+  });
+
+  it('calls SplashScreen.hideAsync after navigation mounts', async () => {
+    SplashScreen.hideAsync.mockClear();
+    render(<RootLayout />);
+    await waitFor(() => {
+      expect(SplashScreen.hideAsync).toHaveBeenCalled();
+    });
+  });
+
+  it('renders StatusBar with style="dark" in light mode', () => {
+    mockUseTheme.mockReturnValue({ isDark: false, colorScheme: 'light', themeMode: 'light', setThemeMode: jest.fn() });
+    const { getByTestId } = render(<RootLayout />);
+    expect(getByTestId('status-bar-dark')).toBeTruthy();
+  });
+
+  it('renders StatusBar with style="light" in dark mode', () => {
+    mockUseTheme.mockReturnValue({ isDark: true, colorScheme: 'dark', themeMode: 'dark', setThemeMode: jest.fn() });
+    const { getByTestId } = render(<RootLayout />);
+    expect(getByTestId('status-bar-light')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// app/(auth)/login.tsx
+// ---------------------------------------------------------------------------
+
+describe('app/(auth)/login — LoginScreen', () => {
+  let LoginScreen: React.ComponentType;
+
+  beforeAll(() => {
+    LoginScreen = require('../../app/(auth)/login').default;
+  });
+
+  it('renders email and password inputs', () => {
+    const { getByTestId } = render(<LoginScreen />);
+    expect(getByTestId('input-Email')).toBeTruthy();
+    expect(getByTestId('input-Password')).toBeTruthy();
+  });
+
+  it('renders the Log In button (not "Sign In")', () => {
+    const { getByTestId, queryByTestId } = render(<LoginScreen />);
+    expect(getByTestId('button-Log In')).toBeTruthy();
+    expect(queryByTestId('button-Sign In')).toBeNull();
+  });
+
+  it('does not call login when fields are empty', async () => {
+    const { getByTestId } = render(<LoginScreen />);
+    fireEvent.press(getByTestId('button-Log In'));
+    await waitFor(() => {
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+  });
+
+  it('does not call login when only email is provided', async () => {
+    const { getByTestId } = render(<LoginScreen />);
+    fireEvent.changeText(getByTestId('input-Email'), 'user@example.com');
+    fireEvent.press(getByTestId('button-Log In'));
+    await waitFor(() => {
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+  });
+
+  it('calls login with trimmed email and password on valid input', async () => {
+    mockLogin.mockResolvedValue(undefined);
+    const { getByTestId } = render(<LoginScreen />);
+    fireEvent.changeText(getByTestId('input-Email'), '  user@example.com  ');
+    fireEvent.changeText(getByTestId('input-Password'), 'secret123');
+    fireEvent.press(getByTestId('button-Log In'));
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith({
+        email: 'user@example.com',
+        password: 'secret123',
+      });
+    });
+  });
+
+  it('shows an alert when login throws', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockLogin.mockRejectedValue(new Error('invalid credentials'));
+    const { getByTestId } = render(<LoginScreen />);
+    fireEvent.changeText(getByTestId('input-Email'), 'bad@example.com');
+    fireEvent.changeText(getByTestId('input-Password'), 'wrongpass1');
+    fireEvent.press(getByTestId('button-Log In'));
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Login Failed',
+        'Invalid email or password. Please try again.',
+      );
+    });
+    alertSpy.mockRestore();
+  });
+
+  it('renders the sign up link', () => {
+    render(<LoginScreen />);
+    expect(screen.getByText("Don't have an account?")).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// app/(auth)/signup.tsx
+// ---------------------------------------------------------------------------
+
+describe('app/(auth)/signup — SignupScreen', () => {
+  let SignupScreen: React.ComponentType;
+
+  beforeAll(() => {
+    SignupScreen = require('../../app/(auth)/signup').default;
+  });
+
+  it('renders all input fields (email-first, no phone)', () => {
+    const { getByTestId, queryByTestId } = render(<SignupScreen />);
+    expect(getByTestId('input-First Name')).toBeTruthy();
+    expect(getByTestId('input-Last Name')).toBeTruthy();
+    expect(getByTestId('input-Email')).toBeTruthy();
+    expect(queryByTestId('input-Phone Number')).toBeNull();
+    expect(getByTestId('input-Password')).toBeTruthy();
+  });
+
+  it('renders the Create Account button', () => {
+    const { getByTestId } = render(<SignupScreen />);
+    expect(getByTestId('button-Create Account')).toBeTruthy();
+  });
+
+  it('does not call signup when fields are empty', async () => {
+    const { getByTestId } = render(<SignupScreen />);
+    fireEvent.press(getByTestId('button-Create Account'));
+    await waitFor(() => {
+      expect(mockSignup).not.toHaveBeenCalled();
+    });
+  });
+
+  it('does not call signup when some required fields are missing', async () => {
+    const { getByTestId } = render(<SignupScreen />);
+    fireEvent.changeText(getByTestId('input-First Name'), 'Alice');
+    fireEvent.changeText(getByTestId('input-Last Name'), 'Smith');
+    // Email and Password still empty (required)
+    fireEvent.press(getByTestId('button-Create Account'));
+    await waitFor(() => {
+      expect(mockSignup).not.toHaveBeenCalled();
+    });
+  });
+
+  it('calls signup with correct trimmed args when all fields provided', async () => {
+    mockSignup.mockResolvedValue(undefined);
+    const { getByTestId } = render(<SignupScreen />);
+    fireEvent.changeText(getByTestId('input-First Name'), ' Alice ');
+    fireEvent.changeText(getByTestId('input-Last Name'), ' Smith ');
+    fireEvent.changeText(getByTestId('input-Email'), ' alice@example.com ');
+    fireEvent.changeText(getByTestId('input-Password'), 'pass1234');
+    fireEvent.press(getByTestId('button-Create Account'));
+    await waitFor(() => {
+      expect(mockSignup).toHaveBeenCalledWith({
+        firstName: 'Alice',
+        lastName: 'Smith',
+        email: 'alice@example.com',
+        password: 'pass1234',
+        eligibilityToken: 'eligible-token',
+      });
+    });
+  });
+
+  it('shows an alert when signup throws', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockSignup.mockRejectedValue(new Error('server error'));
+    const { getByTestId } = render(<SignupScreen />);
+    fireEvent.changeText(getByTestId('input-First Name'), 'Bob');
+    fireEvent.changeText(getByTestId('input-Last Name'), 'Jones');
+    fireEvent.changeText(getByTestId('input-Email'), 'bob@example.com');
+    fireEvent.changeText(getByTestId('input-Password'), 'password123');
+    fireEvent.press(getByTestId('button-Create Account'));
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Signup Failed',
+        'Could not start signup. Please try again.',
+      );
+    });
+    alertSpy.mockRestore();
+  });
+
+  it('renders the sign in link', () => {
+    render(<SignupScreen />);
+    expect(screen.getByText('Already have an account?')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tab screens — home, leagues, add-games, social, profile
+// Placed BEFORE the TabLayout describe so jest.resetModules() does not create
+// a React instance mismatch (renderer imported at top of file vs. the reset
+// instance used by the requested screen module).
+// ---------------------------------------------------------------------------
+
+describe('Tab screens', () => {
+  it('HomeScreen renders the HomeHeader', () => {
+    const HomeScreen = require('../../app/(tabs)/home').default;
+    const { getByTestId } = render(<HomeScreen />);
+    expect(getByTestId('home-header')).toBeTruthy();
+  });
+
+  it('HomeScreen renders the loading skeleton on first paint', () => {
+    const HomeScreen = require('../../app/(tabs)/home').default;
+    const { getByTestId } = render(<HomeScreen />);
+    expect(getByTestId('dashboard-skeleton')).toBeTruthy();
+  });
+
+  it('LeaguesScreen renders title text', () => {
+    const LeaguesScreen = require('../../app/(tabs)/leagues').default;
+    const { getAllByText } = render(<LeaguesScreen />);
+    // TopNav mock also renders the title, so expect at least one match
+    expect(getAllByText('Leagues').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('AddGamesScreen renders title text', () => {
+    const AddGamesScreen = require('../../app/(tabs)/add-games').default;
+    const { getAllByText } = render(<AddGamesScreen />);
+    expect(getAllByText('Add Games').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('SocialScreen renders title text', () => {
+    const SocialScreen = require('../../app/(tabs)/social').default;
+    const { getAllByText } = render(<SocialScreen />);
+    expect(getAllByText('Social').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('ProfileScreen renders title text', () => {
+    const ProfileScreen = require('../../app/(tabs)/profile').default;
+    const { getAllByText } = render(<ProfileScreen />);
+    expect(getAllByText('Profile').length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// app/(tabs)/_layout.tsx — TabLayout + TabIcon
+//
+// Strategy: Tabs.Screen is mocked at module scope to capture the options
+// (including the tabBarIcon render function) passed by TabLayout. The captured
+// options are stored in mockCapturedScreens (prefixed "mock" so Jest's factory
+// hoisting restriction allows the reference).
+// ---------------------------------------------------------------------------
+
+// Module-level store for captured Tabs.Screen options — prefix "mock" is
+// required so jest.mock factories can reference this out-of-scope variable.
+const mockCapturedScreens: Array<{ name: string; options: Record<string, unknown> }> = [];
+
+// Captures the props passed to the <Tabs> container (e.g. backBehavior) so the
+// tab back-behavior policy can be asserted.
+const mockCapturedTabsProps: Record<string, unknown> = {};
+
+// A second mock factory for expo-router that captures Tabs.Screen options.
+// We use jest.doMock (not hoisted) inside a describe-scoped beforeEach so that
+// jest.resetModules() takes effect before each test.
+
+describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
+  beforeEach(() => {
+    mockCapturedScreens.length = 0;
+    Object.keys(mockCapturedTabsProps).forEach((k) => delete mockCapturedTabsProps[k]);
+    jest.resetModules();
+
+    // Re-apply all required mocks after resetModules
+    jest.doMock('expo-router', () => {
+      const React = require('react');
+      const { View } = require('react-native');
+
+      const Tabs = ({
+        children,
+        ...rest
+      }: {
+        children?: React.ReactNode;
+        [key: string]: unknown;
+      }) => {
+        Object.assign(mockCapturedTabsProps, rest);
+        return <View testID="tabs">{children}</View>;
+      };
+      Tabs.Screen = ({
+        name,
+        options,
+        children,
+      }: {
+        name: string;
+        options?: Record<string, unknown>;
+        children?: React.ReactNode;
+      }) => {
+        mockCapturedScreens.push({ name, options: options ?? {} });
+        return <View testID={`tabs-screen-${name}`}>{children}</View>;
+      };
+
+      const Stack = ({ children }: { children?: React.ReactNode }) => (
+        <View testID="stack">{children}</View>
+      );
+      Stack.Screen = ({ children }: { children?: React.ReactNode }) => (
+        <View testID="stack-screen">{children}</View>
+      );
+
+      const Redirect = ({ href }: { href: string }) => (
+        <View testID="redirect"><View /></View>
+      );
+      const Slot = ({ children }: { children?: React.ReactNode }) => (
+        <View testID="slot">{children}</View>
+      );
+      const Link = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
+      const SplashScreen = {
+        preventAutoHideAsync: jest.fn().mockResolvedValue(undefined),
+        hideAsync: jest.fn().mockResolvedValue(undefined),
+      };
+      const useRouter = () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn() });
+      const useSegments = () => [];
+      return { Redirect, Slot, Stack, Tabs, Link, SplashScreen, useRouter, useSegments };
+    });
+
+    jest.doMock('@/contexts/ThemeContext', () => ({
+      __esModule: true,
+      useTheme: () => ({
+        isDark: false,
+        colorScheme: 'light',
+        themeMode: 'light',
+        setThemeMode: jest.fn(),
+      }),
+      default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    }));
+
+    jest.doMock('@/features/notifications', () => ({
+      __esModule: true,
+      useNotifications: () => ({
+        notifications: [],
+        unreadCount: 0,
+        dmUnreadCount: 0,
+        markAsRead: jest.fn(),
+        markAllAsRead: jest.fn(),
+      }),
+      default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    }));
+
+    jest.doMock('@beach-kings/shared/tokens', () => ({
+      colors: {
+        primary: '#1a3a4a',
+        accent: '#e6ac00',
+        bgPrimary: '#f9f9f9',
+        bgSurface: '#ffffff',
+        gray200: '#e5e7eb',
+        textTertiary: '#999999',
+      },
+      darkColors: {
+        bgBase: '#0d0d1a',
+        bgTabbar: '#1a1a2e',
+        brandTeal: '#14b8a6',
+        brandGold: '#f59e0b',
+        textTertiary: '#737373',
+        border: '#2a2a3e',
+      },
+    }));
+
+    jest.doMock('@/components/ui/icons', () => {
+      const React = require('react');
+      const { View } = require('react-native');
+      const makeIcon =
+        (name: string) =>
+        ({ size, color }: { size?: number; color?: string }) =>
+          <View testID={`icon-${name}`} />;
+      return {
+        HomeIcon: makeIcon('HomeIcon'),
+        TrophyIcon: makeIcon('TrophyIcon'),
+        VolleyballIcon: makeIcon('VolleyballIcon'),
+        PlusIcon: makeIcon('PlusIcon'),
+        ChatIcon: makeIcon('ChatIcon'),
+        UserIcon: makeIcon('UserIcon'),
+        AlertTriangleIcon: makeIcon('AlertTriangleIcon'),
+        ChevronLeftIcon: makeIcon('ChevronLeftIcon'),
+      };
+    });
+  });
+
+  function getTabIconRenderer(
+    name: string,
+  ): ((params: { focused: boolean }) => React.ReactNode) | null {
+    const entry = mockCapturedScreens.find((s) => s.name === name);
+    if (!entry) return null;
+    const tabBarIcon = entry.options?.tabBarIcon;
+    if (typeof tabBarIcon !== 'function') return null;
+    return tabBarIcon as (params: { focused: boolean }) => React.ReactNode;
+  }
+
+  it('renders TabLayout with all five Tabs.Screen entries', () => {
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    const names = mockCapturedScreens.map((s) => s.name);
+    expect(names).toEqual(
+      expect.arrayContaining(['home', 'leagues', 'add-games', 'social', 'profile']),
+    );
+  });
+
+  it('sets backBehavior="firstRoute" on the Tabs navigator (Android back policy)', () => {
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    expect(mockCapturedTabsProps.backBehavior).toBe('firstRoute');
+  });
+
+  it('renders TabLayout in dark mode without crashing', () => {
+    jest.doMock('@/contexts/ThemeContext', () => ({
+      __esModule: true,
+      useTheme: () => ({
+        isDark: true,
+        colorScheme: 'dark',
+        themeMode: 'dark',
+        setThemeMode: jest.fn(),
+      }),
+      default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    }));
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    const { getByTestId } = render(<TabLayout />);
+    expect(getByTestId('tabs')).toBeTruthy();
+  });
+
+  it('TabIcon — regular icon focused renders icon', () => {
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    const renderer = getTabIconRenderer('home');
+    expect(renderer).not.toBeNull();
+    const { getByTestId } = render(renderer!({ focused: true }) as React.ReactElement);
+    expect(getByTestId('icon-HomeIcon')).toBeTruthy();
+  });
+
+  it('TabIcon — regular icon unfocused renders icon', () => {
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    const renderer = getTabIconRenderer('home');
+    expect(renderer).not.toBeNull();
+    const { getByTestId } = render(renderer!({ focused: false }) as React.ReactElement);
+    expect(getByTestId('icon-HomeIcon')).toBeTruthy();
+  });
+
+  it('TabIcon — add-games renders FAB-style (isAddGames) icon', () => {
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    const renderer = getTabIconRenderer('add-games');
+    expect(renderer).not.toBeNull();
+    const { getByTestId } = render(renderer!({ focused: false }) as React.ReactElement);
+    expect(getByTestId('icon-PlusIcon')).toBeTruthy();
+  });
+
+  it('TabIcon — badge count > 0 is rendered', () => {
+    jest.doMock('@/features/notifications', () => ({
+      __esModule: true,
+      useNotifications: () => ({
+        notifications: [],
+        unreadCount: 5,
+        dmUnreadCount: 0,
+        markAsRead: jest.fn(),
+        markAllAsRead: jest.fn(),
+      }),
+      default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    }));
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    const renderer = getTabIconRenderer('social');
+    expect(renderer).not.toBeNull();
+    const { getByTestId } = render(renderer!({ focused: false }) as React.ReactElement);
+    expect(getByTestId('social-unread-badge').props.children.props.children).toBe(5);
+  });
+
+  it('TabIcon — badge count > 99 shows "99+"', () => {
+    jest.doMock('@/features/notifications', () => ({
+      __esModule: true,
+      useNotifications: () => ({
+        notifications: [],
+        unreadCount: 150,
+        dmUnreadCount: 0,
+        markAsRead: jest.fn(),
+        markAllAsRead: jest.fn(),
+      }),
+      default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    }));
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    const renderer = getTabIconRenderer('social');
+    expect(renderer).not.toBeNull();
+    const { getByTestId } = render(renderer!({ focused: false }) as React.ReactElement);
+    expect(getByTestId('social-unread-badge').props.children.props.children).toBe('99+');
+  });
+
+  it('TabIcon — badge with count 0 does not render badge text', () => {
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    const renderer = getTabIconRenderer('social');
+    expect(renderer).not.toBeNull();
+    const { queryByTestId } = render(renderer!({ focused: false }) as React.ReactElement);
+    expect(queryByTestId('social-unread-badge')).toBeNull();
+  });
+});

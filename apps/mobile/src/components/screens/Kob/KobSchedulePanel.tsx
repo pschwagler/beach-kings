@@ -1,0 +1,238 @@
+/**
+ * KobSchedulePanel — "Schedule" tab content for a KoB tournament.
+ *
+ * Renders collapsible round cards, each showing:
+ *   - Round header with status badge (Complete/In Progress/Upcoming)
+ *   - Match rows: court label, team names, score or "vs"
+ *   - Winner bolded when a match is complete
+ *   - "Pairings TBD" for upcoming rounds with no matches
+ *
+ * Wireframe ref: kob-schedule.html
+ */
+
+import React, { useState, useCallback } from 'react';
+import AppText from '@/components/ui/AppText';
+import { View, ScrollView, Pressable } from 'react-native';
+import { formatGameScore } from '@/lib/formatters';
+import type { KobTournamentDetail, KobMatch } from '@beach-kings/shared';
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function StatusBadge({
+  status,
+}: {
+  status: 'complete' | 'in_progress' | 'upcoming';
+}): React.ReactNode {
+  const config = {
+    complete: {
+      label: 'Complete',
+      className: 'bg-success-tint',
+      textClassName: 'text-success',
+    },
+    in_progress: {
+      label: 'In Progress',
+      className: 'bg-info-tint',
+      textClassName: 'text-brand-teal',
+    },
+    upcoming: {
+      label: 'Upcoming',
+      className: 'bg-elevated',
+      textClassName: 'text-muted',
+    },
+  }[status];
+
+  return (
+    <View className={`px-2 py-0.5 rounded-full ${config.className}`}>
+      <AppText className={`text-[11px] font-semibold ${config.textClassName}`}>
+        {config.label}
+      </AppText>
+    </View>
+  );
+}
+
+function MatchRow({ match }: { match: KobMatch }): React.ReactNode {
+  const completedScore =
+    match.team1_score != null && match.team2_score != null
+      ? formatGameScore(match.team1_score, match.team2_score)
+      : null;
+  const isCompleted = completedScore != null;
+  const team1Won = isCompleted && match.winner === 1;
+  const team2Won = isCompleted && match.winner === 2;
+
+  return (
+    <View
+      testID={`kob-schedule-match-${match.id}`}
+      className="flex-row items-center py-2 px-4 border-b border-strong last:border-0"
+    >
+      {/* Court */}
+      <AppText className="text-[12px] text-muted w-14">
+        Ct {match.court_num}
+      </AppText>
+
+      {/* Teams + score */}
+      <View className="flex-1 flex-row items-center justify-between">
+        <AppText
+          className={`text-[13px] flex-1 ${
+            team1Won
+              ? 'font-bold text-default'
+              : 'text-default'
+          }`}
+          numberOfLines={1}
+        >
+          {match.team1_player1_name} / {match.team1_player2_name}
+        </AppText>
+
+        <AppText className="text-[13px] font-bold text-muted mx-2 min-w-[40px] text-center">
+          {completedScore ?? 'vs'}
+        </AppText>
+
+        <AppText
+          className={`text-[13px] flex-1 text-right ${
+            team2Won
+              ? 'font-bold text-default'
+              : 'text-default'
+          }`}
+          numberOfLines={1}
+        >
+          {match.team2_player1_name} / {match.team2_player2_name}
+        </AppText>
+      </View>
+    </View>
+  );
+}
+
+interface RoundCardProps {
+  readonly roundNum: number;
+  readonly status: 'complete' | 'in_progress' | 'upcoming';
+  readonly matches: readonly KobMatch[];
+  readonly isPlayoff?: boolean;
+}
+
+function RoundCard({
+  roundNum,
+  status,
+  matches,
+  isPlayoff = false,
+}: RoundCardProps): React.ReactNode {
+  const [expanded, setExpanded] = useState(
+    status === 'in_progress' || status === 'upcoming',
+  );
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded((prev) => !prev);
+  }, []);
+
+  const title = isPlayoff ? 'Playoffs' : `Round ${roundNum}`;
+
+  return (
+    <View
+      testID={`kob-round-card-${roundNum}`}
+      className="mx-4 mb-3 bg-surface rounded-xl border border-divider overflow-hidden"
+    >
+      {/* Header */}
+      <Pressable
+        onPress={toggleExpanded}
+        accessibilityRole="button"
+        accessibilityLabel={`${title} — ${status.replace('_', ' ')}`}
+        className="flex-row items-center justify-between px-4 py-3 active:bg-page"
+      >
+        <AppText className="text-[15px] font-semibold text-default">
+          {title}
+        </AppText>
+        <View className="flex-row items-center gap-2">
+          <StatusBadge status={status} />
+          <AppText className="text-[16px] text-muted">
+            {expanded ? '▲' : '▼'}
+          </AppText>
+        </View>
+      </Pressable>
+
+      {/* Matches */}
+      {expanded && (
+        <View className="border-t border-strong">
+          {matches.length === 0 || status === 'upcoming' ? (
+            <AppText className="px-4 py-3 text-[13px] text-muted italic">
+              Pairings TBD
+            </AppText>
+          ) : (
+            matches.map((match) => (
+              <MatchRow key={match.id} match={match} />
+            ))
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Panel
+// ---------------------------------------------------------------------------
+
+interface KobSchedulePanelProps {
+  readonly tournament: KobTournamentDetail;
+}
+
+export default function KobSchedulePanel({
+  tournament,
+}: KobSchedulePanelProps): React.ReactNode {
+  // Group matches by round
+  const roundMap = new Map<
+    number,
+    { status: 'complete' | 'in_progress' | 'upcoming'; matches: KobMatch[] }
+  >();
+
+  const currentRound = tournament.current_round ?? 1;
+  const maxRounds = tournament.max_rounds ?? 8;
+
+  for (let r = 1; r <= maxRounds; r++) {
+    const roundMatches = tournament.matches.filter((m) => m.round_num === r);
+    let status: 'complete' | 'in_progress' | 'upcoming';
+
+    if (r < currentRound) {
+      status = 'complete';
+    } else if (r === currentRound) {
+      status = 'in_progress';
+    } else {
+      status = 'upcoming';
+    }
+
+    roundMap.set(r, { status, matches: roundMatches });
+  }
+
+  const rounds = Array.from(roundMap.entries());
+
+  if (rounds.length === 0) {
+    return (
+      <View
+        testID="kob-schedule-empty"
+        className="flex-1 items-center justify-center py-16 px-8"
+      >
+        <AppText className="text-[16px] font-semibold text-default mb-2 text-center">
+          Schedule Not Available
+        </AppText>
+        <AppText className="text-[14px] text-muted text-center">
+          The tournament schedule will appear here once it begins.
+        </AppText>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      testID="kob-schedule-panel"
+      contentContainerStyle={{ paddingTop: 12, paddingBottom: 120 }}
+    >
+      {rounds.map(([roundNum, { status, matches }]) => (
+        <RoundCard
+          key={roundNum}
+          roundNum={roundNum}
+          status={status}
+          matches={matches}
+        />
+      ))}
+    </ScrollView>
+  );
+}

@@ -1,0 +1,52 @@
+.court-pin-map {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  overflow: hidden;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  background: var(--gray-100);
+}
+
+.court-pin-map--compact { height: 220px; }
+
+.court-pin-map--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 96px;
+  padding: 16px;
+  color: var(--gray-600);
+  font-size: 13px;
+}
+
+.court-pin-map__marker { display: block; filter: drop-shadow(0 2px 2px rgb(0 0 0 / 24%)); }
+.court-pin-map__marker--current { color: var(--gray-700); }
+.court-pin-map__marker--proposed { color: var(--primary); }
+
+.court-pin-map__legend {
+  position: absolute;
+  z-index: 1;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 12px;
+  padding: 6px 9px;
+  color: var(--gray-800);
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  border: 1px solid var(--gray-200);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.court-pin-map__legend span { display: flex; align-items: center; gap: 5px; }
+.court-pin-map__key { width: 8px; height: 8px; border-radius: 50%; }
+.court-pin-map__key--current { background: var(--gray-700); }
+.court-pin-map__key--proposed { background: var(--primary); }
+
+@media (max-width: 640px) {
+  .court-pin-map { height: 240px; }
+  .court-pin-map--compact { height: 190px; }
+}

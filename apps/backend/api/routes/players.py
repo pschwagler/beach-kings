@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
-from backend.services import data_service, placeholder_service
+from backend.services import data_service, placeholder_service, league_data
 from backend.api.auth_dependencies import (
     get_current_user,
     get_current_user_optional,
@@ -28,6 +28,7 @@ from backend.models.schemas import (
     PaginatedPlayersResponse,
     PlaceholderListResponse,
     PlaceholderPlayerResponse,
+    PlayerSearchResponse,
     PlayerHomeCourtResponse,
     SetPlayerHomeCourts,
     ReorderPlayerHomeCourts,
@@ -63,6 +64,11 @@ async def list_players(
     include_placeholders (bool, requires auth), session_id (int, for placeholder scoping).
     """
     try:
+        viewer_player = (
+            await data_service.get_player_by_user_id(session, current_user["id"])
+            if current_user
+            else None
+        )
         items, total = await data_service.list_players_search(
             session,
             q=q,
@@ -74,10 +80,51 @@ async def list_players(
             offset=offset,
             include_placeholders=include_placeholders,
             session_id=session_id,
+            viewer_player_id=viewer_player["id"] if viewer_player else None,
         )
         return {"items": items, "total_count": total}
     except Exception as e:
         logger.error("Error loading players: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/api/players/search", response_model=PlayerSearchResponse)
+@limiter.limit("60/minute")
+async def search_players(
+    request: Request,
+    q: str = Query("", max_length=100),
+    session_id: Optional[int] = None,
+    league_id: Optional[int] = None,
+    limit: int = Query(50, ge=1, le=100),
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Relevance-ranked player search for pickers — one bounded list.
+
+    Players are scored additively by their relationship to the caller (in
+    session, in the context league, recent partner/opponent, friend, etc.)
+    and returned as a single ranked list annotated with up to three pills.
+    The caller's whole network is returned ranked (the client scrolls it
+    locally); a name ``q`` additionally appends up to ``limit`` score-0
+    strangers. Empty ``q`` returns just the network. Guests (placeholders)
+    the caller has played with or created are included and flagged
+    ``is_guest``; the caller themselves and system rows are excluded.
+    """
+    try:
+        caller = await data_service.get_player_by_user_id(session, current_user["id"])
+        caller_player_id = caller["id"] if caller else None
+        items = await data_service.search_players_with_relevance(
+            session,
+            q=q,
+            caller_player_id=caller_player_id,
+            session_id=session_id,
+            league_id=league_id,
+            limit=limit,
+        )
+        return {"items": items}
+    except Exception as e:
+        logger.error("Error searching players: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -375,6 +422,26 @@ async def get_player_match_history(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/api/players/{player_id}/leagues", response_model=List[Any])
+async def get_player_leagues(player_id: int, session: AsyncSession = Depends(get_db_session)):
+    """
+    Get public leagues for a specific player.
+
+    Returns only leagues where is_public=True.
+    Returns 404 if the player does not exist.
+    """
+    try:
+        result = await league_data.get_player_public_leagues(session, player_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"Player with ID {player_id} not found.")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error loading player leagues: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.get(
     "/api/players/{player_id}/season/{season_id}/stats",
     response_model=dict,
@@ -508,7 +575,11 @@ async def list_player_home_courts(
 ):
     """List home courts for a player (public)."""
     try:
+        if await data_service.get_player_by_id(session, player_id) is None:
+            raise HTTPException(status_code=404, detail="Player not found")
         return await data_service.get_player_home_courts(session, player_id)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error listing home courts: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")

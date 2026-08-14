@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.services import direct_message_service
+from backend.services import direct_message_service, interaction_policy, message_write_policy
 from backend.api.auth_dependencies import require_verified_player
 from backend.api.routes import limiter
 from backend.models.schemas import (
@@ -74,6 +74,8 @@ async def get_thread(
             offset=_page_offset(page, page_size),
         )
         return result
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except Exception as e:
         logger.error(f"Error fetching thread: {e}")
         raise HTTPException(status_code=500, detail="Error fetching thread")
@@ -96,6 +98,10 @@ async def send_message(
             payload.message_text,
         )
         return result
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
+    except message_write_policy.MessageWritesUnavailable:
+        raise HTTPException(status_code=503, detail="Messaging is temporarily unavailable")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -117,6 +123,8 @@ async def mark_thread_read(
             session, user["player_id"], player_id
         )
         return MarkReadResponse(status="ok", marked_count=count)
+    except interaction_policy.InteractionUnavailable:
+        raise HTTPException(status_code=409, detail="Interaction unavailable")
     except Exception as e:
         logger.error(f"Error marking thread as read: {e}")
         raise HTTPException(status_code=500, detail="Error marking thread as read")

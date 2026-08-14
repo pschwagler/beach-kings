@@ -4,18 +4,44 @@ Tests enqueueing, deduplication, and job status tracking.
 """
 
 import pytest
+import pytest_asyncio
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select
 from backend.database.models import StatsCalculationJob, StatsCalculationJobStatus
-from backend.services.stats_queue import StatsCalculationQueue, get_stats_queue
+from backend.services.stats.stats_queue import StatsCalculationQueue, get_stats_queue
 
 # db_session fixture is provided by conftest.py
 
 
-@pytest.fixture
-def queue():
-    """Create a fresh queue instance for each test."""
-    q = StatsCalculationQueue()
+@pytest_asyncio.fixture
+async def make_queue():
+    """Factory yielding StatsCalculationQueue instances that are all drained on teardown.
+
+    enqueue_calculation() spawns detached _run_calculation tasks via asyncio.create_task.
+    A task that outlives its test keeps a DB connection open (holding a lock), which
+    makes the next test's TRUNCATE time out — and conftest.py silently swallows that
+    failure, so the following tests run against dirty state and fail. conftest only
+    drains the global singleton, not the fresh queues these tests create, so we drain
+    every queue this factory hands out here to guarantee no background task crosses a
+    test boundary.
+    """
+    created: list[StatsCalculationQueue] = []
+
+    def _factory() -> StatsCalculationQueue:
+        q = StatsCalculationQueue()
+        created.append(q)
+        return q
+
+    yield _factory
+
+    for q in created:
+        await q.drain(cancel=True)
+
+
+@pytest_asyncio.fixture
+async def queue(make_queue):
+    """Create a fresh, auto-drained queue instance for each test."""
+    q = make_queue()
 
     # Register mock callbacks to avoid RuntimeError when calculations are triggered
     # Tests that actually need to run calculations can override these
@@ -45,7 +71,6 @@ async def test_enqueue_global_calculation(db_session, queue):
     job = result.fetchone()
     assert job is not None
     assert job.calc_type == "global"
-    assert job.season_id is None
 
 
 @pytest.mark.asyncio
@@ -176,20 +201,20 @@ async def test_get_queue_status_with_jobs(db_session, queue):
     # Create some jobs manually
     job1 = StatsCalculationJob(
         calc_type="global",
-        season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
     db_session.add(job1)
 
     job2 = StatsCalculationJob(
-        calc_type="league", league_id=league.id, status=StatsCalculationJobStatus.PENDING
+        calc_type="league",
+        league_id=league.id,
+        status=StatsCalculationJobStatus.PENDING,
     )
     db_session.add(job2)
 
     job3 = StatsCalculationJob(
         calc_type="global",
-        season_id=None,
         status=StatsCalculationJobStatus.COMPLETED,
         completed_at=utcnow(),
     )
@@ -215,7 +240,6 @@ async def test_get_job_status(db_session, queue):
     assert status is not None
     assert status["id"] == job_id
     assert status["calc_type"] == "global"
-    assert status["season_id"] is None
     assert "status" in status
 
 
@@ -230,9 +254,7 @@ async def test_get_job_status_nonexistent(db_session, queue):
 async def test_deduplication_pending_job(db_session, queue):
     """Test that enqueueing when a pending job exists returns that job."""
     # Create a pending job manually
-    job = StatsCalculationJob(
-        calc_type="global", season_id=None, status=StatsCalculationJobStatus.PENDING
-    )
+    job = StatsCalculationJob(calc_type="global", status=StatsCalculationJobStatus.PENDING)
     db_session.add(job)
     await db_session.commit()
     await db_session.refresh(job)
@@ -249,7 +271,6 @@ async def test_deduplication_running_job(db_session, queue):
     # Create a running job manually
     job = StatsCalculationJob(
         calc_type="global",
-        season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
@@ -355,7 +376,6 @@ async def test_run_calculation_without_callbacks_registered(db_session):
     # Create a job manually
     job = StatsCalculationJob(
         calc_type="global",
-        season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
@@ -392,7 +412,6 @@ async def test_run_calculation_global_callback_executed(db_session):
     # Create and run a global calculation job
     job = StatsCalculationJob(
         calc_type="global",
-        season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
@@ -556,7 +575,6 @@ async def test_run_calculation_callback_exception_marks_job_failed(db_session):
     # Create and run a global calculation job
     job = StatsCalculationJob(
         calc_type="global",
-        season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
@@ -601,7 +619,6 @@ async def test_run_calculation_unknown_calc_type_raises_error(db_session):
     # Create a job with unknown calc_type
     job = StatsCalculationJob(
         calc_type="unknown_type",
-        season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
@@ -670,7 +687,6 @@ async def test_integration_with_real_calculation_functions(db_session):
     # Create a global calculation job
     job = StatsCalculationJob(
         calc_type="global",
-        season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )
@@ -697,14 +713,16 @@ async def test_integration_with_real_calculation_functions(db_session):
 
 
 @pytest.mark.asyncio
-async def test_integration_enqueue_and_execute_global_calculation(db_session):
+async def test_integration_enqueue_and_execute_global_calculation(db_session, make_queue):
     """Test full integration: enqueue a job and verify it can be executed."""
     from backend.services.data_service import (
         calculate_global_stats_async,
         calculate_league_stats_async,
     )
 
-    queue = StatsCalculationQueue()
+    # enqueue_calculation spawns a detached _run_calculation task; use the
+    # draining factory so that task cannot leak a DB lock into the next test.
+    queue = make_queue()
     queue.register_calculation_callbacks(
         global_calc_callback=calculate_global_stats_async,
         league_calc_callback=calculate_league_stats_async,
@@ -751,7 +769,6 @@ async def test_register_stats_queue_callbacks_function(db_session):
     # We'll create a minimal test job to verify
     job = StatsCalculationJob(
         calc_type="global",
-        season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow(),
     )

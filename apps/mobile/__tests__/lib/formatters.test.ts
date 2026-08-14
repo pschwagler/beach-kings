@@ -1,0 +1,341 @@
+/**
+ * Tests for pure formatting utilities in @/lib/formatters.
+ */
+import {
+  formatGameScore,
+  formatRecord,
+  formatWinRate,
+  formatElo,
+  pluralize,
+  formatPlayerName,
+  formatPlayerShort,
+  formatSessionSubtitle,
+  formatOrdinal,
+  formatDate,
+  formatDistance,
+  parseSessionDate,
+  formatActivityLabel,
+} from '@/lib/formatters';
+
+// ---------------------------------------------------------------------------
+// formatGameScore
+// ---------------------------------------------------------------------------
+describe('formatGameScore', () => {
+  it('formats a score as "team1-team2"', () => {
+    expect(formatGameScore(21, 19)).toBe('21-19');
+  });
+
+  it('handles zero scores', () => {
+    expect(formatGameScore(0, 0)).toBe('0-0');
+  });
+
+  it('keeps shutouts and deuce scores compact', () => {
+    expect(formatGameScore(21, 0)).toBe('21-0');
+    expect(formatGameScore(28, 26)).toBe('28-26');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatRecord
+// ---------------------------------------------------------------------------
+describe('formatRecord', () => {
+  it('formats wins and losses', () => {
+    expect(formatRecord(12, 3)).toBe('12-3');
+  });
+
+  it('handles all-zero record', () => {
+    expect(formatRecord(0, 0)).toBe('0-0');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatWinRate
+// ---------------------------------------------------------------------------
+describe('formatWinRate', () => {
+  it('calculates win rate percentage', () => {
+    expect(formatWinRate(8, 2)).toBe('80%');
+  });
+
+  it('returns an unavailable value when no games have been played', () => {
+    expect(formatWinRate(0, 0)).toBe('--');
+  });
+
+  it('returns 100% for undefeated record', () => {
+    expect(formatWinRate(5, 0)).toBe('100%');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatElo
+// ---------------------------------------------------------------------------
+describe('formatElo', () => {
+  it('formats a whole rating with no thousands separator', () => {
+    expect(formatElo(1450)).toBe('1450');
+  });
+
+  it('rounds a fractional rating to the nearest integer', () => {
+    expect(formatElo(1446.9)).toBe('1447');
+    expect(formatElo(1446.4)).toBe('1446');
+  });
+
+  it('formats sub-1000 ratings', () => {
+    expect(formatElo(900)).toBe('900');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pluralize
+// ---------------------------------------------------------------------------
+describe('pluralize', () => {
+  it('uses the singular form for a count of 1', () => {
+    expect(pluralize(1, 'game')).toBe('1 game');
+  });
+
+  it('uses the plural form for counts other than 1', () => {
+    expect(pluralize(0, 'game')).toBe('0 games');
+    expect(pluralize(3, 'game')).toBe('3 games');
+  });
+
+  it('honors an explicit irregular plural', () => {
+    expect(pluralize(2, 'child', 'children')).toBe('2 children');
+    expect(pluralize(1, 'child', 'children')).toBe('1 child');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatPlayerName
+// ---------------------------------------------------------------------------
+describe('formatPlayerName', () => {
+  it('returns full name when no nickname', () => {
+    expect(formatPlayerName({ first_name: 'John', last_name: 'Doe' })).toBe('John Doe');
+  });
+
+  it('prefers nickname over full name', () => {
+    expect(formatPlayerName({ nickname: 'JD' })).toBe('JD');
+  });
+
+  it('returns nickname even when full name is present', () => {
+    expect(formatPlayerName({ first_name: 'John', last_name: 'Doe', nickname: 'JD' })).toBe('JD');
+  });
+
+  it('returns empty string for empty object', () => {
+    expect(formatPlayerName({})).toBe('');
+  });
+
+  it('returns first name only when last name is absent', () => {
+    expect(formatPlayerName({ first_name: 'Jane' })).toBe('Jane');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatPlayerShort
+// ---------------------------------------------------------------------------
+describe('formatPlayerShort', () => {
+  it('returns "First L." for two-part name', () => {
+    expect(formatPlayerShort('Patrick Schwagler')).toBe('Patrick S.');
+  });
+
+  it('returns single-part name unchanged (no dot)', () => {
+    expect(formatPlayerShort('Cher')).toBe('Cher');
+  });
+
+  it('returns empty string for empty input', () => {
+    expect(formatPlayerShort('')).toBe('');
+  });
+
+  it('trims and collapses whitespace', () => {
+    expect(formatPlayerShort('  Jane   Doe  ')).toBe('Jane D.');
+  });
+
+  it('uses last-name initial across multi-word names', () => {
+    expect(formatPlayerShort('Mary Anne Smith')).toBe('Mary S.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatSessionSubtitle
+// ---------------------------------------------------------------------------
+describe('formatSessionSubtitle', () => {
+  // Use local-time Date constructors so day-of-week is timezone-stable in tests.
+  const SUNDAY = new Date(2026, 4, 10); // 2026-05-10 local-time
+  const WEDNESDAY = new Date(2026, 4, 13); // 2026-05-13 local-time
+
+  it('returns "{Day} at {court}" when date and court provided', () => {
+    expect(formatSessionSubtitle(SUNDAY, 'QBK', null)).toBe('Sunday at QBK');
+    expect(formatSessionSubtitle(WEDNESDAY, 'QBK', null)).toBe('Wednesday at QBK');
+  });
+
+  it('returns league name when court missing', () => {
+    expect(formatSessionSubtitle(SUNDAY, null, 'Sunday League')).toBe('Sunday League');
+  });
+
+  it('returns league name when date is missing', () => {
+    expect(formatSessionSubtitle(null, null, 'Sunday League')).toBe('Sunday League');
+  });
+
+  it('prefers "Day at court" over league name when both court and date exist', () => {
+    expect(formatSessionSubtitle(SUNDAY, 'QBK', 'Sunday League')).toBe('Sunday at QBK');
+  });
+
+  it('returns null when nothing usable', () => {
+    expect(formatSessionSubtitle(null, null, null)).toBeNull();
+    expect(formatSessionSubtitle(undefined, undefined, undefined)).toBeNull();
+    expect(formatSessionSubtitle('', '', '')).toBeNull();
+  });
+
+  it('falls back to league name on invalid date when court present', () => {
+    expect(formatSessionSubtitle('not-a-date', 'QBK', 'Sunday League')).toBe('Sunday League');
+  });
+
+  it('parses YYYY-MM-DD strings as local time (timezone-stable day name)', () => {
+    // 2026-03-19 is a Thursday. UTC parsing would shift this to Wednesday for
+    // viewers west of UTC. Local-time parsing keeps it Thursday everywhere.
+    expect(formatSessionSubtitle('2026-03-19', 'QBK Sports', null)).toBe('Thursday at QBK Sports');
+    // 2026-04-01 is a Wednesday in local time.
+    expect(formatSessionSubtitle('2026-04-01', 'Court 1', null)).toBe('Wednesday at Court 1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatOrdinal
+// ---------------------------------------------------------------------------
+describe('formatOrdinal', () => {
+  it('formats 1 as 1st', () => expect(formatOrdinal(1)).toBe('1st'));
+  it('formats 2 as 2nd', () => expect(formatOrdinal(2)).toBe('2nd'));
+  it('formats 3 as 3rd', () => expect(formatOrdinal(3)).toBe('3rd'));
+  it('formats 4 as 4th', () => expect(formatOrdinal(4)).toBe('4th'));
+  it('formats 11 as 11th (teen exception)', () => expect(formatOrdinal(11)).toBe('11th'));
+  it('formats 12 as 12th (teen exception)', () => expect(formatOrdinal(12)).toBe('12th'));
+  it('formats 13 as 13th (teen exception)', () => expect(formatOrdinal(13)).toBe('13th'));
+  it('formats 21 as 21st', () => expect(formatOrdinal(21)).toBe('21st'));
+});
+
+// ---------------------------------------------------------------------------
+// formatDate
+// ---------------------------------------------------------------------------
+describe('formatDate', () => {
+  it('returns "just now" for a very recent date in relative mode', () => {
+    const now = new Date();
+    expect(formatDate(now, 'relative')).toBe('just now');
+  });
+
+  it('short format contains a month abbreviation', () => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const result = formatDate(new Date(), 'short');
+    const hasMonth = months.some((m) => result.includes(m));
+    expect(hasMonth).toBe(true);
+  });
+
+  it('long format includes year', () => {
+    const date = new Date('2025-03-15T12:00:00Z');
+    expect(formatDate(date, 'long')).toContain('2025');
+  });
+
+  it('relative format shows minutes ago', () => {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    expect(formatDate(fiveMinutesAgo, 'relative')).toBe('5m ago');
+  });
+
+  it('accepts ISO string input', () => {
+    const result = formatDate('2025-03-15T12:00:00Z', 'short');
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseSessionDate — handles both backend session-date formats
+// ---------------------------------------------------------------------------
+describe('parseSessionDate', () => {
+  it('parses ISO YYYY-MM-DD as a local-time date', () => {
+    const d = parseSessionDate('2026-05-11');
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(4); // May (0-indexed)
+    expect(d.getDate()).toBe(11);
+    expect(isNaN(d.getTime())).toBe(false);
+  });
+
+  it('parses US M/D/YYYY as a local-time date', () => {
+    const d = parseSessionDate('5/11/2026');
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(4);
+    expect(d.getDate()).toBe(11);
+    expect(isNaN(d.getTime())).toBe(false);
+  });
+
+  it('parses US MM/DD/YYYY with leading zeros', () => {
+    const d = parseSessionDate('05/11/2026');
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(4);
+    expect(d.getDate()).toBe(11);
+  });
+
+  it('passes Date instances through unchanged', () => {
+    const input = new Date(2026, 4, 11);
+    expect(parseSessionDate(input)).toBe(input);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatDistance
+// ---------------------------------------------------------------------------
+describe('formatDistance', () => {
+  it('formats miles with one decimal by default', () => {
+    expect(formatDistance(2.14)).toBe('2.1 mi');
+  });
+
+  it('honors a custom decimal count', () => {
+    expect(formatDistance(2.14, 0)).toBe('2 mi');
+  });
+
+  it('returns empty string for null/undefined', () => {
+    expect(formatDistance(null)).toBe('');
+    expect(formatDistance(undefined)).toBe('');
+  });
+
+  it('returns empty string for negative or NaN values', () => {
+    expect(formatDistance(-1)).toBe('');
+    expect(formatDistance(NaN)).toBe('');
+  });
+
+  it('formats zero distance', () => {
+    expect(formatDistance(0)).toBe('0.0 mi');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatActivityLabel
+// ---------------------------------------------------------------------------
+
+describe('formatActivityLabel', () => {
+  const HOUR = 60 * 60 * 1000;
+  const DAY = 24 * HOUR;
+
+  it('returns null for null/undefined/invalid input', () => {
+    expect(formatActivityLabel(null)).toBeNull();
+    expect(formatActivityLabel(undefined)).toBeNull();
+    expect(formatActivityLabel('not-a-date')).toBeNull();
+  });
+
+  it('labels activity within 24h as "Active today" and recent', () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * HOUR).toISOString();
+    expect(formatActivityLabel(twoHoursAgo)).toEqual({
+      label: 'Active today',
+      isRecent: true,
+    });
+  });
+
+  it('labels older activity in days, not recent', () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * DAY).toISOString();
+    expect(formatActivityLabel(threeDaysAgo)).toEqual({
+      label: '3d ago',
+      isRecent: false,
+    });
+  });
+
+  it('hides stale activity (30+ days)', () => {
+    const longAgo = new Date(Date.now() - 45 * DAY).toISOString();
+    expect(formatActivityLabel(longAgo)).toBeNull();
+  });
+});

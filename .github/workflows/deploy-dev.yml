@@ -110,8 +110,8 @@ FRONTEND_URL=https://dev.beachleaguevb.com
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_PHONE_NUMBER=
-SENDGRID_API_KEY=
-SENDGRID_FROM_EMAIL=noreply@beachleaguevb.com
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=Beach League <noreply@beachleaguevb.com>
 ADMIN_EMAIL=admin@beachleaguevb.com
 GEOAPIFY_API_KEY=
 GOOGLE_PLACES_API_KEY=
@@ -175,6 +175,10 @@ ENVEOF
               echo "❌ Frontend failed to become healthy"
               exit 1
             fi
+
+            echo "=== Required public pages ==="
+            bash deployment/verify-public-web-routes.sh http://localhost:3000
+            bash deployment/verify-public-web-routes.sh https://dev.beachleaguevb.com
 
             echo ""
             echo "=== Deploy complete ==="

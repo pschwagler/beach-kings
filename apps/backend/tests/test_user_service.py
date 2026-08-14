@@ -176,6 +176,7 @@ async def test_update_user_password(test_session):
     # Verify password was updated
     user = await user_service.get_user_by_id(test_session, user_id)
     assert user["password_hash"] == "new_hash"
+    assert user["session_version"] == 1
 
 
 @pytest.mark.asyncio

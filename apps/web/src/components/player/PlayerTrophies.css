@@ -16,7 +16,7 @@
   padding: 10px 14px;
   border-radius: 8px;
   border: 1px solid var(--gray-200);
-  background: white;
+  background: var(--bg-surface);
   cursor: pointer;
   transition: background 0.15s;
   text-align: left;
@@ -110,7 +110,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-700);
 }
 

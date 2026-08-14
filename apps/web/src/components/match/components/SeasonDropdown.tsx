@@ -53,9 +53,9 @@ export default function SeasonDropdown({
   const seasonsToShow = allSeasons;
   const selectedSeason = seasonsToShow.find(s => s.id === selectedSeasonId);
 
-  // If no seasons at all
+  // If no seasons at all — the match will be logged as a gap game (league_id only, no season_id)
   if (allSeasons.length === 0) {
-    return <span className="active-season-inline-text">No seasons available</span>;
+    return <span className="active-season-inline-text">No active season — logging as a league game</span>;
   }
 
   // If exactly one season, show it

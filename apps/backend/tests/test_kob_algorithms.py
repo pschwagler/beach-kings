@@ -12,7 +12,7 @@ from typing import Dict, List, Set, Tuple
 
 import pytest
 
-from backend.services.kob_algorithms import (
+from backend.services.kob.kob_algorithms import (
     _full_rr_round_count,
     _rotate_circle,
     generate_full_round_robin,

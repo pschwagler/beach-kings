@@ -5,18 +5,10 @@ import { getPlayers, inviteToSessionBatch, removeSessionParticipant, getLocation
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import type { Location, League } from '../../../types';
+import type { SessionParticipant } from '../types';
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
-
-/** A session participant as returned by the API. */
-interface Participant {
-  player_id: number;
-  full_name?: string | null;
-  level?: string | null;
-  gender?: string | null;
-  location_name?: string | null;
-}
 
 /** A player item returned from the players search API. */
 interface PlayerItem {
@@ -26,6 +18,7 @@ interface PlayerItem {
   level?: string | null;
   gender?: string | null;
   location_name?: string | null;
+  is_placeholder?: boolean;
   [key: string]: unknown;
 }
 
@@ -59,7 +52,7 @@ interface PlaceholderExtras {
 interface UseSessionPlayersModalParams {
   isOpen: boolean;
   sessionId: number | null;
-  participants?: Participant[];
+  participants?: SessionParticipant[];
   onSuccess?: () => void;
   onClose?: () => void;
 }
@@ -78,7 +71,7 @@ export function useSessionPlayersModal({
     [currentUserPlayer]
   );
 
-  const [localParticipants, setLocalParticipants] = useState<Participant[]>([]);
+  const [localParticipants, setLocalParticipants] = useState<SessionParticipant[]>([]);
   const [items, setItems] = useState<PlayerItem[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -296,6 +289,7 @@ export function useSessionPlayersModal({
         level: player.level,
         gender: player.gender,
         location_name: player.location_name,
+        is_placeholder: player.is_placeholder,
       },
     ]);
   }, [sessionId, pendingAddIds]);
@@ -327,6 +321,7 @@ export function useSessionPlayersModal({
         id: response.player_id,
         name: response.name,
         full_name: response.name,
+        is_placeholder: true,
       };
       handleAdd(newPlayer);
       showToast(`${response.name} created and added to session`, 'success');

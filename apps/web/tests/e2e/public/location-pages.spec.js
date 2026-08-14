@@ -21,7 +21,7 @@ test.describe('Public Location Pages', () => {
     await page.goto(LOCATION_URL);
 
     // Navbar should be present (required on every page)
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Title should contain the city name
     const title = page.locator('.public-location__title');
@@ -69,6 +69,6 @@ test.describe('Public Location Pages', () => {
     await page.goto('/beach-volleyball/nonexistent-location-xyz');
 
     // Next.js 404 page
-    await expect(page.locator('text=This page could not be found')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 15000 });
   });
 });
