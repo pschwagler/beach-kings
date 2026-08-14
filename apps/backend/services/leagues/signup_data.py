@@ -71,7 +71,7 @@ async def create_weekly_schedule(
 
     Validates that ``start_date`` is within the season bounds, that
     ``start_date <= end_date``, and that ``end_date`` does not exceed
-    either the season end or six months from today.
+    the season end.
 
     Args:
         session: Async database session.
@@ -113,9 +113,10 @@ async def create_weekly_schedule(
             f"start_date cannot be before season start_date ({season.start_date.isoformat()})"
         )
 
-    max_end_date = min(date.today() + timedelta(days=180), season.end_date)
-    if end_date_obj > max_end_date:
-        raise ValueError(f"end_date cannot exceed {max_end_date.isoformat()}")
+    if end_date_obj > season.end_date:
+        raise ValueError(
+            f"end_date cannot be after season end_date ({season.end_date.isoformat()})"
+        )
 
     schedule = WeeklySchedule(
         season_id=season_id,
@@ -263,9 +264,10 @@ async def update_weekly_schedule(
         end_date_obj = (
             datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date
         )
-        max_end_date = min(date.today() + timedelta(days=180), season.end_date)
-        if end_date_obj > max_end_date:
-            raise ValueError(f"end_date cannot exceed {max_end_date.isoformat()}")
+        if end_date_obj > season.end_date:
+            raise ValueError(
+                f"end_date cannot be after season end_date ({season.end_date.isoformat()})"
+            )
         if schedule.start_date and end_date_obj < schedule.start_date:
             raise ValueError("end_date cannot be before start_date")
         schedule.end_date = end_date_obj

@@ -331,7 +331,7 @@ describe('ForgotPasswordScreen', () => {
     fireEvent.press(getByLabelText('Send Code'));
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.any(String));
+      expect(Alert.alert).toHaveBeenCalledWith('Could Not Send Code', expect.any(String));
     });
   });
 
@@ -349,7 +349,7 @@ describe('ForgotPasswordScreen', () => {
     fireEvent.press(getByLabelText('Send Code'));
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.any(String));
+      expect(Alert.alert).toHaveBeenCalledWith('Could Not Send Code', expect.any(String));
     });
     expect(hapticError).toHaveBeenCalledTimes(1);
   });
@@ -475,7 +475,7 @@ describe('ForgotPasswordScreen', () => {
     });
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.any(String));
+      expect(Alert.alert).toHaveBeenCalledWith('Could Not Resend Code', expect.any(String));
     });
     expect(hapticError).toHaveBeenCalled();
   });

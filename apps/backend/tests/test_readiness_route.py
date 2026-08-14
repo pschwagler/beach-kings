@@ -1,11 +1,14 @@
 """Readiness checks for production-facing provider configuration."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
 from backend.services.platform import email_service
 from backend.services.social import message_write_policy
+from backend.services import auth_delivery_service, auth_service
 
 
 @pytest.fixture(autouse=True)
@@ -101,9 +104,7 @@ def test_readiness_rejects_unverifiable_message_control(monkeypatch):
             "direct_messages": "misconfigured",
             "league_chat": "disabled",
         },
-        "missing": [
-            "direct_message_writes_enabled or DIRECT_MESSAGE_WRITES_ENABLED"
-        ],
+        "missing": ["direct_message_writes_enabled or DIRECT_MESSAGE_WRITES_ENABLED"],
     }
 
 
@@ -126,3 +127,23 @@ def test_readiness_accepts_intentionally_disabled_message_surfaces(monkeypatch):
         "direct_messages": "disabled",
         "league_chat": "disabled",
     }
+
+
+def test_production_readiness_requires_auth_delivery_heartbeat(monkeypatch):
+    async def disabled_email(_session):
+        return False
+
+    monkeypatch.setenv("ENV", "production")
+    monkeypatch.setattr(email_service, "is_enabled", disabled_email)
+    monkeypatch.setattr(auth_service, "is_sms_enabled", disabled_email)
+    monkeypatch.setattr(auth_delivery_service, "delivery_enabled", lambda: True)
+    monkeypatch.setattr(
+        auth_delivery_service,
+        "heartbeat_is_fresh",
+        AsyncMock(return_value=False),
+    )
+
+    response = TestClient(app).get("/api/ready")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["checks"]["auth_delivery"] == "unavailable"

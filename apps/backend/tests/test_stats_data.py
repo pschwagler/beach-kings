@@ -216,6 +216,10 @@ def _make_match_row(
     row.team1_player2_name = team1_player2_name
     row.team2_player1_name = team2_player1_name
     row.team2_player2_name = team2_player2_name
+    row.t1p1_deleted_at = None
+    row.t1p2_deleted_at = None
+    row.t2p1_deleted_at = None
+    row.t2p2_deleted_at = None
     row.team1_score = team1_score
     row.team2_score = team2_score
     row.winner = winner

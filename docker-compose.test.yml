@@ -53,6 +53,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-beachkings}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
       POSTGRES_DB: ${TEST_POSTGRES_DB:-beachkings_test}
+      ENV: test
       # Redis connection
       REDIS_HOST: redis-test
       REDIS_PORT: 6379

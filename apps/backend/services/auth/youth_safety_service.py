@@ -26,11 +26,57 @@ CANADIAN_PROVINCES = frozenset(
 )
 US_REGIONS = frozenset(
     {
-        "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI",
-        "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN",
-        "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH",
-        "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA",
-        "WV", "WI", "WY",
+        "AL",
+        "AK",
+        "AZ",
+        "AR",
+        "CA",
+        "CO",
+        "CT",
+        "DE",
+        "DC",
+        "FL",
+        "GA",
+        "HI",
+        "ID",
+        "IL",
+        "IN",
+        "IA",
+        "KS",
+        "KY",
+        "LA",
+        "ME",
+        "MD",
+        "MA",
+        "MI",
+        "MN",
+        "MS",
+        "MO",
+        "MT",
+        "NE",
+        "NV",
+        "NH",
+        "NJ",
+        "NM",
+        "NY",
+        "NC",
+        "ND",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VT",
+        "VA",
+        "WA",
+        "WV",
+        "WI",
+        "WY",
     }
 )
 TOKEN_TYPE = "youth_eligibility"
@@ -63,7 +109,9 @@ def normalize_territory(country_code: str, region_code: str) -> tuple[CountryCod
     country = country_code.strip().upper()
     region = region_code.strip().upper()
     if country not in {"US", "CA"}:
-        raise YouthEligibilityError("Beach League is available only in the United States and Canada")
+        raise YouthEligibilityError(
+            "Beach League is available only in the United States and Canada"
+        )
     allowed_regions = US_REGIONS if country == "US" else CANADIAN_PROVINCES
     if region not in allowed_regions:
         label = "state" if country == "US" else "province or territory"
@@ -128,7 +176,9 @@ def create_eligibility_token(facts: EligibilityFacts) -> str:
 
 def decode_eligibility_token(token: str | None) -> EligibilityFacts:
     if not token:
-        raise YouthEligibilityError("Complete the age and location check before creating an account")
+        raise YouthEligibilityError(
+            "Complete the age and location check before creating an account"
+        )
     try:
         payload = jwt.decode(token, _signing_secret(), algorithms=[auth_service.JWT_ALGORITHM])
     except JWTError as exc:

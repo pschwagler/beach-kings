@@ -98,7 +98,7 @@ export default function CourtDirectoryClient({ initialCourts }: Props) {
     };
     void fetchCourts();
     return () => controller.abort();
-  }, [committedBounds, filters, userPosition?.latitude, userPosition?.longitude]);
+  }, [committedBounds, filters, userPosition]);
 
   useEffect(() => {
     if (!sheetExpanded) return;
@@ -110,7 +110,7 @@ export default function CourtDirectoryClient({ initialCourts }: Props) {
   useEffect(() => {
     if (!selectedCourt) return;
     document.getElementById(`court-${selectedCourt.id}`)?.scrollIntoView({ block: 'center' });
-  }, [selectedCourt?.id, courts]);
+  }, [selectedCourt, courts]);
 
   const changeView = (value: 'list' | 'map') => { setViewMode(value); try { localStorage.setItem(VIEW_STORAGE_KEY, value); } catch {} };
   const commitArea = (bounds: MapBounds) => { interactedRef.current = true; setCommittedBounds(bounds); setPendingBounds(null); };

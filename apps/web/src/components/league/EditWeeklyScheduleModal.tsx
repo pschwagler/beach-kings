@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
-import { useLeague } from '../../contexts/LeagueContext';
 import { useDialog } from '../../hooks/useDialog';
+import type { League, Season } from '../../types';
+import { formatDateInputValue, getDefaultWeeklyScheduleEndDate } from '../../utils/weeklyScheduleDates';
 import CourtSelector from '../court/CourtSelector';
 
 const DAYS_OF_WEEK = [
@@ -56,14 +57,17 @@ interface WeeklySchedule {
 
 interface EditWeeklyScheduleModalProps {
   schedule?: WeeklySchedule;
+  seasonId?: number;
+  seasons?: Season[];
   onClose: () => void;
-  onSubmit: (data: Record<string, unknown>) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>, seasonId?: number) => Promise<void>;
+  league?: League | null;
+  isLeagueAdmin?: boolean;
 }
 
-export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubmit }: EditWeeklyScheduleModalProps) {
+export default function EditWeeklyScheduleModal({ schedule = {}, seasonId, seasons = [], onClose, onSubmit, league, isLeagueAdmin = false }: EditWeeklyScheduleModalProps) {
   const dialogRef = useDialog(onClose);
   const { showToast } = useToast();
-  const { league, isLeagueAdmin } = useLeague();
 
   const homeCourts = league?.home_courts || [];
 
@@ -74,14 +78,13 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
   const localStartTime = schedule?.start_time ? utcTimeToLocal(schedule.start_time) : '18:00';
   const localOpenSignupsTime = schedule?.open_signups_time ? utcTimeToLocal(schedule.open_signups_time) : '';
 
-  // Get today's date in YYYY-MM-DD format for default start_date
-  const getTodayDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  const todayDate = formatDateInputValue(new Date());
+  const [selectedSeasonId, setSelectedSeasonId] = useState(seasonId?.toString() || '');
+  const selectedSeason = seasons.find((season) => season.id === Number(selectedSeasonId));
+  const maximumEndDate = selectedSeason?.end_date || undefined;
+  const defaultStartDate = selectedSeason?.start_date && selectedSeason.start_date > todayDate
+    ? selectedSeason.start_date
+    : todayDate;
 
   const [formData, setFormData] = useState({
     day_of_week: schedule?.day_of_week?.toString() || '0',
@@ -91,13 +94,37 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
     open_signups_mode: schedule?.open_signups_mode || 'auto_after_last_session',
     open_signups_day_of_week: schedule?.open_signups_day_of_week?.toString() || '',
     open_signups_time: localOpenSignupsTime,
-    start_date: schedule?.start_date || getTodayDate(),
-    end_date: schedule?.end_date || ''
+    start_date: schedule?.start_date || defaultStartDate,
+    end_date: schedule?.end_date || getDefaultWeeklyScheduleEndDate(
+      new Date(`${defaultStartDate}T00:00:00`),
+      maximumEndDate,
+    )
   });
 
   const [showConfirmation, setShowConfirmation] = useState(false);
 
+  const handleSeasonChange = (nextSeasonId: string) => {
+    const nextSeason = seasons.find((season) => season.id === Number(nextSeasonId));
+    const nextStartDate = nextSeason?.start_date && nextSeason.start_date > todayDate
+      ? nextSeason.start_date
+      : todayDate;
+    setSelectedSeasonId(nextSeasonId);
+    setFormData((current) => ({
+      ...current,
+      start_date: nextStartDate,
+      end_date: getDefaultWeeklyScheduleEndDate(
+        new Date(`${nextStartDate}T00:00:00`),
+        nextSeason?.end_date,
+      ),
+    }));
+  };
+
   const handleSubmit = async () => {
+    if (!isEditMode && !selectedSeasonId) {
+      showToast('Season is required', 'error');
+      return;
+    }
+
     if (!formData.day_of_week || !formData.start_time || !formData.start_date || !formData.end_date) {
       showToast('Day of week, start time, start date, and end date are required', 'error');
       return;
@@ -108,6 +135,11 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
     const selectedEndDate = new Date(formData.end_date);
     if (selectedStartDate > selectedEndDate) {
       showToast('Start date cannot be after end date', 'error');
+      return;
+    }
+
+    if (maximumEndDate && formData.end_date > maximumEndDate) {
+      showToast(`End date must be on or before ${maximumEndDate}`, 'error');
       return;
     }
 
@@ -139,7 +171,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
         open_signups_time: utcOpenSignupsTime,
         start_date: formData.start_date,
         end_date: formData.end_date
-      });
+      }, selectedSeasonId ? Number(selectedSeasonId) : undefined);
       setShowConfirmation(false);
       onClose();
     } catch (_err) {
@@ -158,6 +190,27 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
           </button>
         </div>
         <div className="modal-body">
+          {!isEditMode && (
+            <div className="form-group">
+              <label htmlFor="schedule-season">
+                Season <span className="required">*</span>
+              </label>
+              <select
+                id="schedule-season"
+                value={selectedSeasonId}
+                onChange={(event) => handleSeasonChange(event.target.value)}
+                className="form-input"
+                required
+              >
+                <option value="">Select season</option>
+                {seasons.map((season) => (
+                  <option key={season.id} value={season.id}>
+                    {season.name || `Season ${season.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {isEditMode && showConfirmation && (
             <div className="form-group" style={{
               backgroundColor: '#fff3cd',
@@ -240,7 +293,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
             )}
           </div>
           <div className="form-group">
-            <label htmlFor="open-signups-mode">Open Signups Mode</label>
+            <label htmlFor="open-signups-mode">When does Session Open for Signup?</label>
             <select
               id="open-signups-mode"
               value={formData.open_signups_mode}
@@ -291,7 +344,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
                 value={formData.start_date}
                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                 className="form-input"
-                min={getTodayDate()}
+                min={todayDate}
                 required
               />
             </div>
@@ -306,6 +359,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
                 onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                 className="form-input"
                 min={formData.start_date}
+                max={maximumEndDate}
                 required
               />
             </div>
@@ -340,7 +394,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
             <button
               className="league-text-button primary"
               onClick={handleSubmit}
-              disabled={!formData.day_of_week || !formData.start_time || !formData.start_date || !formData.end_date}
+              disabled={(!isEditMode && !selectedSeasonId) || !formData.day_of_week || !formData.start_time || !formData.start_date || !formData.end_date}
             >
               {isEditMode ? 'Update Schedule' : 'Create Schedule'}
             </button>

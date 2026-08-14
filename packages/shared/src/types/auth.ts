@@ -75,4 +75,7 @@ export interface ChangePasswordRequest {
 export interface ChangePasswordResponse {
   status: string;
   password_changed_at: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
 }

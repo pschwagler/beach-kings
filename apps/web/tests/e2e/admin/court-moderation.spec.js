@@ -44,7 +44,7 @@ async function submitPendingCourt(token, name) {
 }
 
 /**
- * Navigate to admin courts tab and switch to the Pending Submissions sub-tab.
+ * Navigate to admin courts tab and switch to the New courts sub-tab.
  */
 async function gotoPendingSubmissions(page, user) {
   await authenticateAndGoto(page, user, '/admin-view?tab=courts');
@@ -52,13 +52,12 @@ async function gotoPendingSubmissions(page, user) {
   // Admin panel should load
   await expect(page.locator('h1')).toContainText('Admin Panel', { timeout: 15000 });
 
-  // Click "Pending Submissions" pill
-  const pendingPill = page.locator('.admin-courts-pill', { hasText: 'Pending Submissions' });
+  const pendingPill = page.getByRole('tab', { name: /New courts/ });
   await expect(pendingPill).toBeVisible({ timeout: 10000 });
   await pendingPill.click();
 
   // Wait for pending submissions panel to load
-  await expect(page.locator('h2', { hasText: 'Pending Submissions' }))
+  await expect(page.getByRole('heading', { name: 'Unpublished court drafts' }))
     .toBeVisible({ timeout: 10000 });
 }
 

@@ -449,9 +449,8 @@ async def _complete(
         if decision is not None and case.subject_player_id is not None:
             from backend.services import moderation_service
 
-            reason = (
-                "Automatic safety enforcement for severe provider categories: "
-                + ", ".join(decision["categories"])
+            reason = "Automatic safety enforcement for severe provider categories: " + ", ".join(
+                decision["categories"]
             )
             try:
                 await moderation_service.apply_action(

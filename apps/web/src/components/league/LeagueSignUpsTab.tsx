@@ -18,11 +18,12 @@ import {
 } from '../../services/api';
 import SignupList, { type Signup } from './components/SignupList';
 import ScheduleList, { type WeeklySchedule } from './components/ScheduleList';
+import { formatDateInputValue } from '../../utils/weeklyScheduleDates';
 
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 
 export default function LeagueSignUpsTab() {
-  const { seasons, members, leagueId, isLeagueAdmin, isLeagueMember, selectedSeasonId } = useLeague();
+  const { seasons, members, league, leagueId, isLeagueAdmin, isLeagueMember, selectedSeasonId } = useLeague();
   const { currentUserPlayer } = useAuth();
   const { openModal, closeModal } = useModal();
   const { showToast } = useToast();
@@ -190,9 +191,9 @@ export default function LeagueSignUpsTab() {
     }
   };
 
-  const handleCreateSchedule = async (scheduleData: Record<string, unknown>) => {
+  const handleCreateSchedule = async (scheduleData: Record<string, unknown>, targetSeasonId?: number) => {
     // Use selectedSeasonId or first season if none selected
-    const seasonId = selectedSeasonId || (seasons && seasons.length > 0 ? seasons[0].id : null);
+    const seasonId = targetSeasonId || selectedSeasonId || (seasons && seasons.length > 0 ? seasons[0].id : null);
     if (!seasonId) {
       showToast('Please select a season to create a schedule', 'error');
       return;
@@ -249,6 +250,11 @@ export default function LeagueSignUpsTab() {
   const seasonForCreation = selectedSeasonId 
     ? seasons.find(s => s.id === selectedSeasonId)
     : (seasons && seasons.length > 0 ? seasons[0] : null);
+  const todayDate = formatDateInputValue(new Date());
+  const schedulableSeasons = seasons.filter((season) => !season.end_date || season.end_date >= todayDate);
+  const seasonForScheduleCreation = schedulableSeasons.find((season) => season.id === selectedSeasonId)
+    || schedulableSeasons[0]
+    || null;
   
   return (
     <>
@@ -341,16 +347,19 @@ export default function LeagueSignUpsTab() {
             <button 
               className="league-text-button" 
               onClick={() => {
-                if (!seasonForCreation) {
-                  showToast('Please select a season to create a schedule', 'error');
+                if (!seasonForScheduleCreation) {
+                  showToast('Create an active or upcoming season before adding a weekly schedule', 'error');
                   return;
                 }
                 openModal(MODAL_TYPES.EDIT_SCHEDULE, {
-                  seasonId: seasonForCreation.id,
+                  seasonId: seasonForScheduleCreation.id,
+                  seasons: schedulableSeasons,
+                  league,
+                  isLeagueAdmin,
                   onSubmit: handleCreateSchedule
                 });
               }}
-              disabled={!isLeagueAdmin || !seasonForCreation}
+              disabled={!isLeagueAdmin || !seasonForScheduleCreation}
             >
               <Plus size={16} />
               Create Weekly Scheduled Session
@@ -362,6 +371,8 @@ export default function LeagueSignUpsTab() {
             onEdit={(schedule) => {
               openModal(MODAL_TYPES.EDIT_SCHEDULE, {
                 schedule,
+                league,
+                isLeagueAdmin,
                 onSubmit: (data: Record<string, unknown>) => handleUpdateSchedule(schedule.id, data)
               });
             }}

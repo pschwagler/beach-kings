@@ -13,6 +13,8 @@ Tests:
 - Edge cases: already-claimed, invalid token, double-claim
 """
 
+import re
+
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, patch
@@ -470,7 +472,13 @@ class TestClaimConflicts:
         db_session.add(conflict_match)
         await db_session.commit()
 
-        with pytest.raises(placeholder_service.MergeConflictError, match="1 match"):
+        expected_message = (
+            "Your player profile already appears in 1 match with or against this player, "
+            "so you can’t claim their profile."
+        )
+        with pytest.raises(
+            placeholder_service.MergeConflictError, match=re.escape(expected_message)
+        ):
             with patch("backend.services.stats.stats_queue.get_stats_queue") as mock_queue:
                 mock_queue.return_value.enqueue_calculation = AsyncMock()
                 await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)

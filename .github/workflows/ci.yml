@@ -11,6 +11,28 @@ defaults:
     shell: bash
 
 jobs:
+  lint-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate backup scripts and configuration
+        run: |
+          shellcheck deployment/backups/*.sh deployment/backups/tests/*.sh deployment/backups/tests/bin/*
+          bash -n deployment/backups/*.sh deployment/backups/tests/*.sh deployment/backups/tests/bin/*
+          python -m json.tool deployment/backups/s3-lifecycle.json > /dev/null
+
+  test-database-backups:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run backup and restore integration test
+        run: deployment/backups/tests/integration-test.sh
+
   lint-js:
     runs-on: ubuntu-latest
     steps:

@@ -253,6 +253,10 @@ class TestListPlayerHomeCourts:
         async def fake_get(session, pid):
             return fake_courts
 
+        async def fake_get_player(session, pid):
+            return {"id": pid}
+
+        monkeypatch.setattr(data_service, "get_player_by_id", fake_get_player, raising=True)
         monkeypatch.setattr(data_service, "get_player_home_courts", fake_get, raising=True)
 
         client = TestClient(app)
@@ -277,6 +281,10 @@ class TestListPlayerHomeCourts:
         async def fake_get(session, pid):
             return fake_courts
 
+        async def fake_get_player(session, pid):
+            return {"id": pid}
+
+        monkeypatch.setattr(data_service, "get_player_by_id", fake_get_player, raising=True)
         monkeypatch.setattr(data_service, "get_player_home_courts", fake_get, raising=True)
 
         client = TestClient(app)
@@ -293,6 +301,10 @@ class TestListPlayerHomeCourts:
         async def fake_get(session, pid):
             raise RuntimeError("oops")
 
+        async def fake_get_player(session, pid):
+            return {"id": pid}
+
+        monkeypatch.setattr(data_service, "get_player_by_id", fake_get_player, raising=True)
         monkeypatch.setattr(data_service, "get_player_home_courts", fake_get, raising=True)
 
         client = TestClient(app)

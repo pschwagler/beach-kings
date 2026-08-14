@@ -20,6 +20,7 @@ import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
 import { hapticSuccess, hapticError } from '@/utils/haptics';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { getApiResponseErrorMessage } from '@/lib/apiError';
 import {
   otpSchema,
   resetPasswordRequestSchema,
@@ -80,9 +81,12 @@ export default function ForgotPasswordScreen(): React.ReactNode {
         await api.resetPasswordEmail(trimmed);
         setEmail(trimmed);
         setStep('otp');
-      } catch {
+      } catch (error) {
         void hapticError();
-        Alert.alert('Error', 'Failed to send reset code. Please try again.');
+        Alert.alert(
+          'Could Not Send Code',
+          getApiResponseErrorMessage(error, 'Failed to send reset code. Please try again.'),
+        );
       }
     },
     [],
@@ -94,9 +98,12 @@ export default function ForgotPasswordScreen(): React.ReactNode {
         await api.resetPassword(values.phoneNumber);
         setPhone(values.phoneNumber);
         setStep('otp');
-      } catch {
+      } catch (error) {
         void hapticError();
-        Alert.alert('Error', 'Failed to send reset code. Please try again.');
+        Alert.alert(
+          'Could Not Send Code',
+          getApiResponseErrorMessage(error, 'Failed to send reset code. Please try again.'),
+        );
       }
     },
     [],
@@ -136,9 +143,12 @@ export default function ForgotPasswordScreen(): React.ReactNode {
         await api.resetPassword(phone);
       }
       setResendCountdown(RESEND_COOLDOWN_SECONDS);
-    } catch {
+    } catch (error) {
       void hapticError();
-      Alert.alert('Error', 'Failed to resend code. Please try again.');
+      Alert.alert(
+        'Could Not Resend Code',
+        getApiResponseErrorMessage(error, 'Failed to resend code. Please try again.'),
+      );
     }
   }, [resendCountdown, method, email, phone]);
 
@@ -151,11 +161,14 @@ export default function ForgotPasswordScreen(): React.ReactNode {
             : await api.resetPasswordVerify(phone, values.code);
         setResetToken(data.reset_token);
         setStep('newPassword');
-      } catch {
+      } catch (error) {
         void hapticError();
         Alert.alert(
           'Verification Failed',
-          'Invalid or expired code. Please try again.',
+          getApiResponseErrorMessage(
+            error,
+            'Invalid or expired code. Please try again.',
+          ),
         );
         setOtpShakeKey((k) => k + 1);
       }
@@ -181,10 +194,7 @@ export default function ForgotPasswordScreen(): React.ReactNode {
     router.replace(routes.login());
   }, [router]);
 
-  const otpSubtitle =
-    method === 'email'
-      ? 'We sent a 6-digit code to your email.'
-      : 'We sent a 6-digit code to your phone.';
+  const otpSubtitle = `If an account exists for this ${method}, a code will arrive shortly. Only the newest code works.`;
 
   return (
     <SafeAreaView className="flex-1 bg-page">

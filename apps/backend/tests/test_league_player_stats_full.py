@@ -185,6 +185,7 @@ async def test_league_scoped_aggregates_player_partners_and_opponents(db_session
         "player_id": partner.id,
         "display_name": "Kara F",
         "initials": "KF",
+        "avatar_url": None,
         "games_played": 10,
         "wins": 8,
         "losses": 2,

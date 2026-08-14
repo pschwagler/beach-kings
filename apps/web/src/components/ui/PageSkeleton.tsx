@@ -6,10 +6,10 @@ import './Skeletons.css';
  */
 export default function PageSkeleton(): React.ReactNode {
   return (
-    <div className="page-skeleton">
-      <div className="page-skeleton__bar" />
-      <div className="page-skeleton__bar page-skeleton__bar--short" />
-      <div className="page-skeleton__bar page-skeleton__bar--medium" />
+    <div className="page-skeleton" role="status" aria-label="Loading page">
+      <div className="page-skeleton__bar" aria-hidden="true" />
+      <div className="page-skeleton__bar page-skeleton__bar--short" aria-hidden="true" />
+      <div className="page-skeleton__bar page-skeleton__bar--medium" aria-hidden="true" />
     </div>
   );
 }

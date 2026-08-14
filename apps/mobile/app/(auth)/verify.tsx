@@ -18,6 +18,7 @@ import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
 import { hapticSuccess, hapticError } from '@/utils/haptics';
 import { otpSchema, type OtpFormValues } from '@/lib/validators';
+import { getApiResponseErrorMessage } from '@/lib/apiError';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -92,11 +93,14 @@ export default function VerifyScreen(): React.ReactNode {
           await verifyPhone(phone, values.code);
         }
         void hapticSuccess();
-      } catch {
+      } catch (error) {
         void hapticError();
         Alert.alert(
           'Verification Failed',
-          'Invalid or expired code. Please try again.',
+          getApiResponseErrorMessage(
+            error,
+            'Invalid or expired code. Please try again.',
+          ),
         );
         setShakeKey((k) => k + 1);
       }
@@ -111,9 +115,12 @@ export default function VerifyScreen(): React.ReactNode {
       try {
         await api.sendVerification(phone);
         setCountdown(RESEND_COOLDOWN_SECONDS);
-      } catch {
+      } catch (error) {
         void hapticError();
-        Alert.alert('Error', 'Failed to resend code. Please try again.');
+        Alert.alert(
+          'Could Not Resend Code',
+          getApiResponseErrorMessage(error, 'Failed to resend code. Please try again.'),
+        );
       }
       return;
     }
@@ -122,14 +129,25 @@ export default function VerifyScreen(): React.ReactNode {
     try {
       await api.sendEmailVerification(email);
       setCountdown(RESEND_COOLDOWN_SECONDS);
-    } catch {
+    } catch (error) {
       void hapticError();
-      Alert.alert('Error', 'Failed to resend code. Please try again.');
+      Alert.alert(
+        'Could Not Resend Code',
+        getApiResponseErrorMessage(error, 'Failed to resend code. Please try again.'),
+      );
     }
   }, [countdown, mode, phone, email]);
 
   const handleUseDifferent = useCallback(() => {
     router.replace(routes.signup());
+  }, [router]);
+
+  const handleSignIn = useCallback(() => {
+    router.replace(routes.login());
+  }, [router]);
+
+  const handleForgotPassword = useCallback(() => {
+    router.replace(routes.forgotPassword());
   }, [router]);
 
   const masked =
@@ -157,7 +175,8 @@ export default function VerifyScreen(): React.ReactNode {
               Enter Verification Code
             </AppText>
             <AppText className="text-body text-muted text-center">
-              We sent a 6-digit code to {masked}
+              If {masked} can be used, a 6-digit code will arrive shortly.
+              {'\n'}Only the newest code works.
             </AppText>
           </View>
 
@@ -222,6 +241,29 @@ export default function VerifyScreen(): React.ReactNode {
                 {useDifferentLabel}
               </AppText>
             </Pressable>
+
+            <View className="flex-row justify-center items-center gap-md">
+              <Pressable
+                className="min-h-touch justify-center"
+                onPress={handleSignIn}
+                accessibilityLabel="Sign in instead"
+                accessibilityRole="link"
+              >
+                <AppText className="text-footnote font-medium text-brand-teal">
+                  Sign In
+                </AppText>
+              </Pressable>
+              <Pressable
+                className="min-h-touch justify-center"
+                onPress={handleForgotPassword}
+                accessibilityLabel="Forgot password"
+                accessibilityRole="link"
+              >
+                <AppText className="text-footnote font-medium text-brand-teal">
+                  Forgot Password?
+                </AppText>
+              </Pressable>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>

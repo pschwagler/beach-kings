@@ -2,11 +2,11 @@
 
 import { Suspense } from 'react';
 import AdminView from '../../src/components/admin/AdminView';
-import PageSkeleton from '../../src/components/ui/PageSkeleton';
+import RouteLoadingShell from '../../src/components/ui/RouteLoadingShell';
 
 export default function AdminViewPage() {
   return (
-    <Suspense fallback={<PageSkeleton />}>
+    <Suspense fallback={<RouteLoadingShell />}>
       <AdminView />
     </Suspense>
   );

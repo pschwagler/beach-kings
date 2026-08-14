@@ -273,6 +273,90 @@ async def is_user_admin_of_session_league(
     return result.scalar_one_or_none() is not None
 
 
+def _session_not_found(session_id: int) -> HTTPException:
+    """Hide whether a private session ID exists from unauthorized callers."""
+    return HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+
+async def require_session_collaborator(
+    db_session: AsyncSession,
+    session_obj: dict,
+    user: dict,
+) -> None:
+    """Require access to collaborate in a session.
+
+    League sessions are private to league members. Pickup sessions are
+    collaborative for their creator, invited participants, and players already
+    recorded in a match. System administrators can access either kind.
+    """
+    if await _is_system_admin(db_session, user):
+        return
+
+    session_id = session_obj["id"]
+    league_id = session_obj.get("league_id")
+    if league_id is not None:
+        allowed = await _has_league_role(
+            db_session,
+            user_id=user["id"],
+            league_id=league_id,
+            required_role=None,
+        )
+    else:
+        allowed = await data_service.can_user_add_match_to_session(
+            db_session,
+            session_id,
+            session_obj,
+            user["id"],
+        )
+
+    if not allowed:
+        raise _session_not_found(session_id)
+
+
+async def require_session_metadata_editor(
+    db_session: AsyncSession,
+    session_obj: dict,
+    user: dict,
+) -> None:
+    """Require league-admin access or pickup-session collaboration."""
+    if session_obj.get("league_id") is None:
+        await require_session_collaborator(db_session, session_obj, user)
+        return
+
+    if await _is_system_admin(db_session, user):
+        return
+    if not await is_user_admin_of_session_league(
+        db_session,
+        user["id"],
+        session_obj["id"],
+    ):
+        raise _session_not_found(session_obj["id"])
+
+
+async def require_session_manager(
+    db_session: AsyncSession,
+    session_obj: dict,
+    user: dict,
+) -> None:
+    """Require a league admin or the creator of a pickup session."""
+    if await _is_system_admin(db_session, user):
+        return
+
+    if session_obj.get("league_id") is not None:
+        if await is_user_admin_of_session_league(
+            db_session,
+            user["id"],
+            session_obj["id"],
+        ):
+            return
+    else:
+        player = await data_service.get_player_by_user_id(db_session, user["id"])
+        if player and session_obj.get("created_by") == player["id"]:
+            return
+
+    raise _session_not_found(session_obj["id"])
+
+
 # ---------------------------------------------------------------------------
 # League sessions
 # ---------------------------------------------------------------------------
@@ -399,7 +483,7 @@ async def end_league_session(
     league_id: int,
     session_id: int,
     body: EndLeagueSessionRequest,
-    user: dict = Depends(make_require_league_member()),
+    user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -426,17 +510,12 @@ async def end_league_session(
             if player:
                 player_id = player["id"]
 
-        # SECURITY 1 FIX: verify the target session actually belongs to the
-        # league in the URL path before doing anything destructive.  Respond
-        # with 404 (not 403) to avoid leaking cross-league session existence.
-        sess_check = await session.execute(
-            select(Session.league_id).where(Session.id == session_id)
-        )
-        sess_row = sess_check.scalar_one_or_none()
-        if sess_row is None:
-            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-        if sess_row != league_id:
-            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        # Resolve before authorization so a wrong league path, missing session,
+        # and unauthorized access all share the same non-disclosing response.
+        session_obj = await data_service.get_session(session, session_id)
+        if not session_obj or session_obj.get("league_id") != league_id:
+            raise _session_not_found(session_id)
+        await require_session_collaborator(session, session_obj, user)
 
         # Resolve context before lock_in_session commits the transaction
         session_name, resolved_league_id, league_name = await _resolve_session_context(
@@ -510,6 +589,10 @@ async def get_session_by_code(
     sess = await data_service.get_session_by_code(session, code)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    # A pickup code is a bearer capability used to preview and join the
+    # session. League sessions remain private even if their code is known.
+    if sess.get("league_id") is not None:
+        await require_session_collaborator(session, sess, current_user)
     return sess
 
 
@@ -529,12 +612,7 @@ async def get_session_detail(
     sess = await data_service.get_session(session, session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
-    if not await data_service.can_user_add_match_to_session(
-        session, session_id, sess, current_user["id"]
-    ):
-        raise HTTPException(
-            status_code=403, detail="Only session participants can view session detail"
-        )
+    await require_session_collaborator(session, sess, current_user)
 
     # Fetch session-type, court, and ranking metadata in one query.
     sess_row = await session.execute(
@@ -639,6 +717,7 @@ async def get_session_matches(
     sess = await data_service.get_session(session, session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    await require_session_collaborator(session, sess, current_user)
     matches = await data_service.get_session_matches(session, session_id)
     return matches
 
@@ -655,12 +734,7 @@ async def get_session_participants(
     sess = await data_service.get_session(session, session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
-    if not await data_service.can_user_add_match_to_session(
-        session, session_id, sess, current_user["id"]
-    ):
-        raise HTTPException(
-            status_code=403, detail="Only session participants can view the roster"
-        )
+    await require_session_collaborator(session, sess, current_user)
     participants = await data_service.get_session_participants(session, session_id)
     return participants
 
@@ -678,26 +752,13 @@ async def remove_session_participant(
     sess = await data_service.get_session(session, session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    await require_session_collaborator(session, sess, current_user)
     if sess.get("status") != "ACTIVE":
         raise HTTPException(status_code=400, detail="Can only modify roster of an active session")
     if sess.get("created_by") == player_id:
         raise HTTPException(
             status_code=403, detail="Session creator cannot remove themselves from the session"
         )
-    # SECURITY 4 FIX: for league sessions, require league membership rather than
-    # relying on can_user_add_match_to_session (which short-circuits to True for
-    # any league session, granting roster removal to every authenticated user).
-    session_league_id = sess.get("league_id")
-    if session_league_id is not None:
-        if not await _has_league_role(session, current_user["id"], session_league_id, None):
-            raise HTTPException(
-                status_code=403,
-                detail="League membership required to modify this session's roster",
-            )
-    elif not await data_service.can_user_add_match_to_session(
-        session, session_id, sess, current_user["id"]
-    ):
-        raise HTTPException(status_code=403, detail="Only session participants can remove players")
     removed = await data_service.remove_session_participant(session, session_id, player_id)
     if not removed:
         raise HTTPException(
@@ -721,9 +782,18 @@ async def join_session_by_code(
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         if not player:
             raise HTTPException(status_code=400, detail="Player profile not found")
-        sess = await data_service.join_session_by_code(session, code.strip().upper(), player["id"])
-        if not sess:
+        normalized_code = code.strip().upper()
+        sess = await data_service.get_session_by_code(session, normalized_code)
+        if not sess or sess.get("status") != "ACTIVE":
             raise HTTPException(status_code=404, detail="Session not found or not active")
+        if sess.get("league_id") is not None:
+            await require_session_collaborator(session, sess, current_user)
+        await data_service.add_session_participant(
+            session,
+            sess["id"],
+            player["id"],
+            invited_by=None,
+        )
         return {"status": "success", "message": "Joined session", "session": sess}
     except HTTPException:
         raise
@@ -744,17 +814,12 @@ async def invite_to_session(
         sess = await data_service.get_session(session, session_id)
         if not sess:
             raise HTTPException(status_code=404, detail="Session not found")
+        await require_session_collaborator(session, sess, current_user)
         if sess.get("status") != "ACTIVE":
             raise HTTPException(status_code=400, detail="Can only invite to an active session")
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         if not player:
             raise HTTPException(status_code=400, detail="Player profile not found")
-        if not await data_service.can_user_add_match_to_session(
-            session, session_id, sess, current_user["id"]
-        ):
-            raise HTTPException(
-                status_code=403, detail="Only session participants can invite others"
-            )
         invited_player_id = body.player_id
         if invited_player_id is None:
             raise HTTPException(status_code=400, detail="player_id is required")
@@ -787,17 +852,12 @@ async def invite_to_session_batch(
         sess = await data_service.get_session(session, session_id)
         if not sess:
             raise HTTPException(status_code=404, detail="Session not found")
+        await require_session_collaborator(session, sess, current_user)
         if sess.get("status") != "ACTIVE":
             raise HTTPException(status_code=400, detail="Can only invite to an active session")
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         if not player:
             raise HTTPException(status_code=400, detail="Player profile not found")
-        if not await data_service.can_user_add_match_to_session(
-            session, session_id, sess, current_user["id"]
-        ):
-            raise HTTPException(
-                status_code=403, detail="Only session participants can invite others"
-            )
         player_ids = body.player_ids
         if not isinstance(player_ids, list):
             raise HTTPException(status_code=400, detail="player_ids must be an array")
@@ -860,7 +920,9 @@ async def create_session(
         name = body.name
         court_id = body.court_id
         player = await data_service.get_player_by_user_id(session, current_user["id"])
-        created_by = player["id"] if player else None
+        if not player:
+            raise HTTPException(status_code=400, detail="Player profile required")
+        created_by = player["id"]
 
         if body.league_id is not None:
             # SECURITY 2 FIX: require league membership before creating or
@@ -942,8 +1004,14 @@ async def update_session(
     try:
         submit = body.submit
 
-        # Handle submit (original behavior) - this takes precedence
+        # Handle submit first. League members and pickup collaborators can
+        # submit; knowledge of a numeric session ID alone is never sufficient.
         if submit is True:
+            current_session = await data_service.get_session(session, session_id)
+            if not current_session:
+                raise _session_not_found(session_id)
+            await require_session_collaborator(session, current_session, current_user)
+
             player_id = None
             if current_user:
                 player = await data_service.get_player_by_user_id(session, current_user["id"])
@@ -1017,7 +1085,7 @@ async def update_session(
         #   Require admin of the session's CURRENT league.
         #
         # Case 3 — PICKUP EDIT (no promotion): league_id is NULL and no new
-        #   season_id is being set.  No tightening; preserve existing behavior.
+        #   season_id is being set. Any pickup collaborator may edit metadata.
         current_session = await data_service.get_session(session, session_id)
         if not current_session:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
@@ -1033,6 +1101,10 @@ async def update_session(
         is_sys_admin = await _is_system_admin(session, current_user)
 
         if is_promoting:
+            # Target-league authority does not confer access to a private
+            # pickup session. The caller must also already collaborate in it.
+            await require_session_collaborator(session, current_session, current_user)
+
             # Resolve the target league from the new season_id.  If the season
             # is not found we still call _has_league_role with None — the check
             # will return False (deny by default) which is the safe outcome.
@@ -1044,22 +1116,12 @@ async def update_session(
             if not is_sys_admin and not await _has_league_role(
                 session, current_user["id"], target_league_id, "admin"
             ):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Only league admins can promote a session to a league session",
-                )
+                raise _session_not_found(session_id)
 
         elif current_session.get("league_id") is not None:
-            # Case 2: editing an existing league session (including a gap game,
-            # league_id set + season_id NULL) requires league-admin role.
-            if not is_sys_admin and not await is_user_admin_of_session_league(
-                session, current_user["id"], session_id
-            ):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Only league admins can edit a league session",
-                )
-        # else: pickup edit with no promotion — no authz required (Case 3)
+            await require_session_metadata_editor(session, current_session, current_user)
+        else:
+            await require_session_collaborator(session, current_session, current_user)
 
         result = await data_service.update_session(
             session,
@@ -1107,20 +1169,7 @@ async def delete_session(
         if not session_obj:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
-        # Authorization: must be session creator or league admin
-        player = await data_service.get_player_by_user_id(session, current_user["id"])
-        is_creator = player and session_obj.get("created_by") == player["id"]
-
-        if not is_creator:
-            # Check if user is a league admin for this session's league
-            is_admin = await is_user_admin_of_session_league(
-                session, current_user["id"], session_id
-            )
-            if not is_admin:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Only the session creator or a league admin can delete this session",
-                )
+        await require_session_manager(session, session_obj, current_user)
 
         success = await data_service.delete_session(session, session_id)
 

@@ -51,6 +51,7 @@ describe('NavBar — menu coordination', () => {
 
   it('renders the Leagues and User menu buttons', () => {
     render(<NavBar {...defaultProps} />);
+    expect(screen.getByRole('navigation', { name: 'Site navigation' })).toBeTruthy();
     expect(screen.getByLabelText('Leagues menu')).toBeTruthy();
     expect(screen.getByLabelText('User menu')).toBeTruthy();
   });

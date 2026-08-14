@@ -57,6 +57,7 @@ class RefreshToken(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     token = Column(String, nullable=False, unique=True)
+    session_version = Column(Integer, nullable=False, server_default="0")
     expires_at = Column(String, nullable=False)  # ISO timestamp
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -89,6 +90,46 @@ class PasswordResetToken(Base):
         Index("idx_password_reset_tokens_user", "user_id"),
         Index("idx_password_reset_tokens_token", "token"),
         Index("idx_password_reset_tokens_expires", "expires_at"),
+    )
+
+
+class AuthDeliveryJob(Base):
+    """Durable email/SMS verification-code delivery without duplicated PII."""
+
+    __tablename__ = "auth_delivery_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    verification_code_id = Column(
+        Integer,
+        ForeignKey("verification_codes.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    channel = Column(String(10), nullable=False)
+    purpose = Column(String(30), nullable=False)
+    idempotency_key = Column(String(255), nullable=False, unique=True)
+    status = Column(String(20), nullable=False, server_default="pending")
+    attempts = Column(Integer, nullable=False, server_default="0")
+    available_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    last_error_code = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("channel IN ('sms', 'email')", name="ck_auth_delivery_channel"),
+        CheckConstraint(
+            "purpose IN ('signup', 'login', 'password_reset', 'phone_add')",
+            name="ck_auth_delivery_purpose",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'processing', 'delivered', 'failed', 'canceled')",
+            name="ck_auth_delivery_status",
+        ),
+        Index("idx_auth_delivery_claim", "status", "available_at"),
+        Index("idx_auth_delivery_terminal", "status", "updated_at"),
     )
 
 

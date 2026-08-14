@@ -68,7 +68,7 @@ describe('VerifyScreen', () => {
 
   it('renders instruction text with masked phone number', () => {
     const { getByText } = render(<VerifyScreen />);
-    expect(getByText(/code.*1234/i)).toBeTruthy();
+    expect(getByText(/if.*1234.*can be used/i)).toBeTruthy();
   });
 
   it('renders 6 OTP input cells', () => {
@@ -85,6 +85,16 @@ describe('VerifyScreen', () => {
   it('renders resend code link', () => {
     const { getByText } = render(<VerifyScreen />);
     expect(getByText(/resend/i)).toBeTruthy();
+  });
+
+  it('offers sign-in and password recovery from the uniform signup result', () => {
+    const { getByLabelText } = render(<VerifyScreen />);
+
+    fireEvent.press(getByLabelText('Sign in instead'));
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+
+    fireEvent.press(getByLabelText('Forgot password'));
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/forgot-password');
   });
 
   it('calls verifyPhone with phone and code on submit', async () => {
@@ -298,7 +308,7 @@ describe('VerifyScreen (email mode)', () => {
     });
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.any(String));
+      expect(Alert.alert).toHaveBeenCalledWith('Could Not Resend Code', expect.any(String));
     });
     expect(hapticError).toHaveBeenCalled();
   });

@@ -167,7 +167,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setStatusMessage('');
     try {
       await sendVerificationCode(formData.phoneNumber);
-      setStatusMessage('Verification code sent! Please check your SMS messages.');
+      setStatusMessage('If this phone number can be used, a code will arrive shortly. Only the newest code works.');
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -221,7 +221,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           email: formData.email,
           eligibilityToken,
         });
-        setStatusMessage('Account created! Enter the verification code we just sent you.');
+        setStatusMessage(result.message || 'If this phone number can be used, a code will arrive shortly. Only the newest code works.');
         setFormData((prev) => ({
           ...prev,
           phoneNumber: result.phone_number || prev.phoneNumber,
@@ -257,15 +257,15 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
       if (activeMode === 'reset-password') {
         await resetPassword(formData.phoneNumber);
-        setStatusMessage('Verification code sent! Please check your SMS messages.');
+        setStatusMessage('If an account exists for this phone number, a code will arrive shortly. Only the newest code works.');
         setActiveMode('reset-password-code');
         return;
       }
 
       if (activeMode === 'reset-password-code') {
         // Verify code and get reset token
-        if (!formData.code || formData.code.length !== 4) {
-          setErrorMessage('Please enter a valid 4-digit verification code');
+        if (!formData.code || formData.code.length !== 6) {
+          setErrorMessage('Please enter a valid 6-digit verification code');
           return;
         }
         const result = await verifyPasswordReset(formData.phoneNumber, formData.code);
@@ -306,11 +306,11 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       case 'sms-login':
         return 'Enter your phone number and the code we send via SMS.';
       case 'verify':
-        return 'Enter the verification code we sent to your phone to complete signup.';
+        return 'If this phone number can be used, enter the code that arrives. Only the newest code works.';
       case 'reset-password':
         return 'Enter your phone number to receive a verification code for password reset.';
       case 'reset-password-code':
-        return 'Enter the verification code we sent to your phone.';
+        return 'If an account exists for this phone number, enter the code that arrives. Only the newest code works.';
       case 'reset-password-new':
         return 'Enter your new password.';
       default:
@@ -599,6 +599,27 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
                 onClick={() => handleSwitchMode('sign-in')}
               >
                 Log in
+              </button>
+            </div>
+          )}
+
+          {activeMode === 'verify' && (
+            <div className="auth-modal__footer">
+              <span className="auth-modal__footer-text">Already have an account? </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('sign-in')}
+              >
+                Log in
+              </button>
+              <span className="auth-modal__footer-text footer-bullet">• </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('reset-password')}
+              >
+                Forgot password?
               </button>
             </div>
           )}

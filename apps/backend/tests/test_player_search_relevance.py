@@ -338,6 +338,7 @@ async def test_result_item_shape(db_session, universe):
         "full_name",
         "nickname",
         "initials",
+        "profile_picture_url",
         "tags",
         "score",
         "in_session",

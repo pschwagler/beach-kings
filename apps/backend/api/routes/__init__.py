@@ -34,7 +34,7 @@ else:
 # Shared constants
 # ---------------------------------------------------------------------------
 INVALID_CREDENTIALS_RESPONSE = HTTPException(
-    status_code=401, detail="Username or password is incorrect"
+    status_code=401, detail="Email, phone number, or password is incorrect"
 )
 INVALID_VERIFICATION_CODE_RESPONSE = HTTPException(
     status_code=401, detail="Invalid or expired verification code"

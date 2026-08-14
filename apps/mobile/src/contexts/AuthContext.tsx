@@ -94,6 +94,10 @@ interface CoreAuthContextValue extends AuthState {
   readonly verifyPhone: (phoneNumber: string, code: string) => Promise<void>;
   readonly verifyEmail: (email: string, code: string) => Promise<void>;
   readonly logout: () => Promise<void>;
+  readonly rotateSessionTokens: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<boolean>;
   readonly setProfileComplete: (complete: boolean) => void;
   readonly refreshUser: () => Promise<void>;
 }
@@ -645,6 +649,33 @@ export default function AuthProvider({
     }
   }, [beginAuthOperation, commitUnauthenticated, isCurrentOperation]);
 
+  const rotateSessionTokens = useCallback(
+    async (accessToken: string, refreshToken: string): Promise<boolean> => {
+      const revision = beginAuthOperation();
+      try {
+        const installed = await enqueueTransition(async () => {
+          if (!isCurrentOperation(revision) || !stateRef.current.isAuthenticated) {
+            return false;
+          }
+          await api.setAuthTokens(accessToken, refreshToken);
+          return isCurrentOperation(revision);
+        });
+        if (installed) return true;
+      } catch {
+        // A partial credential write is unsafe; retire both tokens and all
+        // private cached data through the normal auth transition below.
+      }
+      await commitUnauthenticated(revision, true);
+      return false;
+    },
+    [
+      beginAuthOperation,
+      commitUnauthenticated,
+      enqueueTransition,
+      isCurrentOperation,
+    ],
+  );
+
   const setProfileComplete = useCallback(
     (complete: boolean) => {
       const nextState = { ...stateRef.current, profileComplete: complete };
@@ -721,6 +752,7 @@ export default function AuthProvider({
     verifyPhone,
     verifyEmail,
     logout,
+    rotateSessionTokens,
     setProfileComplete,
     refreshUser,
   };

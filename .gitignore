@@ -68,6 +68,10 @@ credentials.json
 # Node / Frontend
 .next/
 node_modules/
+.expo/
+
+# Local validation artifact containing non-synthetic profile data
+docs/artifacts/e2e-web-2026-08-13/offline-tab-navigation-chrome-error.png
 apps/web/dist/
 apps/web/node_modules/
 apps/web/.next/
@@ -133,6 +137,8 @@ db_dump.sql
 
 # Backups
 backups/
+!deployment/backups/
+!deployment/backups/**
 
 out/
 apps/web/playwright-report/

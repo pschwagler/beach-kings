@@ -34,7 +34,7 @@ export default function InviteLandingPage() {
   const [errorMessage, setErrorMessage] = useState('');
 
   // --- Claim state ---
-  const [claimState, setClaimState] = useState('idle'); // idle | claiming | success | error
+  const [claimState, setClaimState] = useState('idle'); // idle | claiming | success | conflict | error
   const [claimResult, setClaimResult] = useState<{ message?: string; warnings?: string[] } | null>(null);
   const [claimError, setClaimError] = useState('');
 
@@ -96,7 +96,8 @@ export default function InviteLandingPage() {
       setClaimResult(result);
       setClaimState('success');
     } catch (err: any) {
-      setClaimState('error');
+      const isConflict = err.response?.status === 409;
+      setClaimState(isConflict ? 'conflict' : 'error');
       const detail = err.response?.data?.detail;
       setClaimError(detail || 'Failed to claim matches. Please try again.');
     }
@@ -274,6 +275,20 @@ export default function InviteLandingPage() {
     </div>
   );
 
+  /** Claim conflict: the signed-in player already appears in these matches */
+  const renderClaimConflict = () => (
+    <div className="invite-page__card">
+      <div className="invite-page__icon-wrapper invite-page__icon-wrapper--error">
+        <AlertCircle size={40} />
+      </div>
+      <h1 className="invite-page__heading">You Can&rsquo;t Claim This Profile</h1>
+      <p className="invite-page__description">{claimError}</p>
+      <Button variant="outline" onClick={() => router.push('/home')} className="invite-page__cta">
+        Go to Home
+      </Button>
+    </div>
+  );
+
   // --- Determine which body to render ---
   const renderBody = () => {
     // Still initializing auth or loading invite
@@ -284,6 +299,7 @@ export default function InviteLandingPage() {
     if (invite?.status === 'claimed') return renderAlreadyClaimed();
     // Claim states
     if (claimState === 'success') return renderSuccess();
+    if (claimState === 'conflict') return renderClaimConflict();
     if (claimState === 'error') return renderClaimError();
     if (claimState === 'claiming') return renderClaiming();
     // Not authenticated — show sign-up/log-in CTAs

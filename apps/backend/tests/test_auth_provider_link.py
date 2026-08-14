@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.main import app
 from backend.api.auth_dependencies import get_current_user
-from backend.services import auth_service, user_service
+from backend.services import auth_service, moderation_service, role_service, user_service
 import backend.api.routes.auth as auth_module
 
 
@@ -60,8 +60,17 @@ def _install_auth(user: dict | None) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _cleanup_overrides():
+def _cleanup_overrides(monkeypatch):
     """Always clean up dependency overrides after each test."""
+
+    async def active_status(session, user_id):
+        return {"account_status": "active"}
+
+    async def not_admin(session, user_id):
+        return False
+
+    monkeypatch.setattr(moderation_service, "account_status", active_status)
+    monkeypatch.setattr(role_service, "is_system_admin", not_admin)
     yield
     app.dependency_overrides.pop(get_current_user, None)
 

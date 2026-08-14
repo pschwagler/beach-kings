@@ -33,7 +33,7 @@ from backend.database.models import (
     SessionStatus,
     User,
 )
-from backend.services import auth_service, data_service, user_service
+from backend.services import auth_service, data_service, role_service, user_service
 from backend.services import notification_service
 
 
@@ -87,6 +87,11 @@ def _patch_system_admin(monkeypatch):
 
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
 
+    async def fake_is_system_admin(session, user_id):
+        return True
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+
 
 def _make_admin_client(monkeypatch):
     """(client, headers) for a system-admin user."""
@@ -98,6 +103,11 @@ def _make_admin_client(monkeypatch):
 def _make_user_client(monkeypatch):
     """(client, headers) for a plain authenticated non-admin user."""
     _patch_base_auth(monkeypatch)
+
+    async def fake_is_system_admin(session, user_id):
+        return False
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
     return TestClient(app), _AUTH
 
 
@@ -106,6 +116,14 @@ def _patch_player(monkeypatch):
         return _FAKE_PLAYER
 
     monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
+
+    async def fake_require_active_players(session, player_ids):
+        return None
+
+    monkeypatch.setattr(
+        "backend.api.routes.matches.require_active_players",
+        fake_require_active_players,
+    )
 
 
 def _patch_notifications(monkeypatch):
@@ -560,6 +578,11 @@ class TestSec1EndLeagueSessionIDOR:
         _LEAGUE_B = 20
         _SESSION_OF_B = 500
 
+        async def fake_get_session(session, session_id):
+            return {"id": _SESSION_OF_B, "league_id": _LEAGUE_B, "status": "ACTIVE"}
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+
         call_order = [0]
 
         async def fake_execute(self_session, query, *a, **kw):
@@ -595,6 +618,11 @@ class TestSec1EndLeagueSessionIDOR:
         client, headers = _make_admin_client(monkeypatch)
         _patch_player(monkeypatch)
 
+        async def fake_get_session(session, session_id):
+            return None
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+
         async def fake_execute(self_session, query, *a, **kw):
             class R:
                 def scalar_one_or_none(self_r):
@@ -621,6 +649,11 @@ class TestSec1EndLeagueSessionIDOR:
         client, headers = _make_admin_client(monkeypatch)
         _patch_player(monkeypatch)
         _patch_notifications(monkeypatch)
+
+        async def fake_get_session(session, session_id):
+            return {"id": _SESSION_ID, "league_id": _LEAGUE_ID, "status": "ACTIVE"}
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
 
         call_order = [0]
 
@@ -900,7 +933,7 @@ class TestSec4RemoveParticipantMembershipCheck:
     }
 
     def test_non_member_cannot_remove_participant_from_league_session(self, monkeypatch):
-        """A user who is not a league member receives 403 when trying to remove
+        """A user who is not a league member receives 404 when trying to remove
         a participant from a league session.
         """
         import backend.api.routes.sessions as sessions_module
@@ -922,8 +955,8 @@ class TestSec4RemoveParticipantMembershipCheck:
             f"/api/sessions/{_SESSION_ID}/participants/{self._OTHER_PLAYER}",
             headers=headers,
         )
-        assert response.status_code == 403, (
-            f"Non-member must be denied (403); got {response.status_code}: {response.text}"
+        assert response.status_code == 404, (
+            f"Non-member must be denied without disclosure; got {response.status_code}: {response.text}"
         )
 
     def test_member_can_remove_participant_from_league_session(self, monkeypatch):
@@ -1020,4 +1053,4 @@ class TestSec4RemoveParticipantMembershipCheck:
             f"/api/sessions/{_SESSION_ID}/participants/{self._OTHER_PLAYER}",
             headers=headers,
         )
-        assert response.status_code == 403
+        assert response.status_code == 404

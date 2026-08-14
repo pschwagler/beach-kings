@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import KobLive from "../../../src/components/kob/KobLive";
-import PageSkeleton from "../../../src/components/ui/PageSkeleton";
+import RouteLoadingShell from "../../../src/components/ui/RouteLoadingShell";
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
 export default async function KobLivePage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   return (
-    <Suspense fallback={<PageSkeleton />}>
+    <Suspense fallback={<RouteLoadingShell />}>
       <KobLive code={code} />
     </Suspense>
   );

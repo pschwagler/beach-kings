@@ -13,6 +13,8 @@ _SERVICE_DOMAINS = {
     "apple_revocation_worker": "auth",
     "apple_token_service": "auth",
     "auth_service": "auth",
+    "auth_delivery_service": "auth",
+    "auth_delivery_worker": "auth",
     "rate_limiting_service": "auth",
     "youth_safety_service": "auth",
     "court_photo_service": "courts",

@@ -57,7 +57,10 @@ vi.mock('../../../services/api', () => ({
 }));
 
 // Avatar utility
-vi.mock('../../../utils/avatar', () => ({ isImageUrl: () => false }));
+vi.mock('../../../utils/avatar', () => ({
+  isImageUrl: (avatar: string | null | undefined) => Boolean(avatar?.startsWith('https://')),
+  getPlayerImageUrl: ({ avatar }: { avatar?: string | null }) => avatar?.startsWith('https://') ? avatar : null,
+}));
 vi.mock('../../../utils/dateUtils', () => ({ formatRelativeTime: () => 'just now' }));
 
 // ---------------------------------------------------------------------------
@@ -161,5 +164,37 @@ describe('MessagesTab — batchFriendStatus error path', () => {
     await waitFor(() => {
       expect(screen.queryByText(/you must be friends to send messages/i)).not.toBeInTheDocument();
     });
+  });
+
+  it('shows the other player avatar beside their incoming messages', async () => {
+    mockThreadParam = '99';
+    mockGetConversations.mockResolvedValue({
+      items: [{
+        player_id: 99,
+        full_name: 'Other Player',
+        avatar: 'https://example.com/other.jpg',
+        is_friend: true,
+        unread_count: 0,
+      }],
+    });
+    mockGetThread.mockResolvedValue({
+      items: [{
+        id: 3,
+        sender_player_id: 99,
+        message_text: 'Incoming message',
+        created_at: new Date().toISOString(),
+      }],
+      has_more: false,
+    });
+
+    await act(async () => {
+      await renderMessagesTab();
+    });
+
+    expect(await screen.findByText('Incoming message')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Other Player avatar' })).toHaveAttribute(
+      'src',
+      'https://example.com/other.jpg',
+    );
   });
 });

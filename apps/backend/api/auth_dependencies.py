@@ -104,6 +104,22 @@ async def get_authenticated_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    current_version = int(user.get("session_version", 0))
+    token_version = payload.get("sv")
+    version_matches = (
+        current_version == 0
+        if token_version is None
+        else isinstance(token_version, int)
+        and not isinstance(token_version, bool)
+        and token_version == current_version
+    )
+    if not version_matches:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if user.get("deleted_at"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

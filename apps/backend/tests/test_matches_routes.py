@@ -17,8 +17,13 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.api import auth_dependencies
-from backend.services import auth_service, data_service, photo_match_service, user_service
+from backend.services import (
+    auth_service,
+    data_service,
+    photo_match_service,
+    role_service,
+    user_service,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +66,31 @@ def _make_admin_client(monkeypatch, phone: str = _PHONE, user_id: int = _USER_ID
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
 
+    async def fake_is_system_admin(session, uid):
+        return True
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+
+    async def fake_require_active_players(session, player_ids):
+        return None
+
+    monkeypatch.setattr(
+        "backend.api.routes.matches.require_active_players",
+        fake_require_active_players,
+    )
+
     return TestClient(app), {"Authorization": "Bearer dummy"}
+
+
+def _make_user_client(monkeypatch, phone: str = _PHONE, user_id: int = _USER_ID):
+    """Return a non-system-admin client for negative authorization tests."""
+    client, headers = _make_admin_client(monkeypatch, phone=phone, user_id=user_id)
+
+    async def fake_is_system_admin(session, uid):
+        return False
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+    return client, headers
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +127,7 @@ class TestCreateMatchScoreValidation:
     """Score validation runs before session lookup or creation."""
 
     def test_create_match_rejects_tied_score_with_actionable_message(self, monkeypatch):
-        client, headers = _make_admin_client(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
 
         response = client.post(
             "/api/matches",
@@ -116,7 +145,7 @@ class TestCreateMatchAuthorizationAndStats:
     """Authorization and finalized-session reconciliation for match creation."""
 
     def test_active_league_session_rejects_non_member(self, monkeypatch):
-        client, headers = _make_admin_client(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
         create_called = False
 
         async def fake_get_session(session, session_id):
@@ -134,13 +163,14 @@ class TestCreateMatchAuthorizationAndStats:
 
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(
-            auth_dependencies, "_has_league_role", fake_has_league_role, raising=True
+            "backend.api.routes.sessions._has_league_role",
+            fake_has_league_role,
         )
         monkeypatch.setattr(data_service, "create_match_async", fake_create_match, raising=True)
 
         response = client.post("/api/matches", json=_VALID_CREATE_BODY, headers=headers)
 
-        assert response.status_code == 403
+        assert response.status_code == 404
         assert create_called is False
 
     def test_submitted_session_create_returns_stats_jobs(self, monkeypatch):
@@ -229,7 +259,7 @@ class TestUpdateMatch:
         assert body["match_id"] == 10
 
     def test_active_pickup_match_rejects_non_participant(self, monkeypatch):
-        client, headers = _make_admin_client(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
         update_called = False
 
         async def fake_get_match(session, match_id):
@@ -255,12 +285,12 @@ class TestUpdateMatch:
 
         response = client.put("/api/matches/10", json=_VALID_UPDATE_BODY, headers=headers)
 
-        assert response.status_code == 403
+        assert response.status_code == 404
         assert update_called is False
 
     def test_update_match_not_found(self, monkeypatch):
         """Returns 404 when the match does not exist."""
-        client, headers = _make_admin_client(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_match(session, match_id):
             return None
@@ -377,7 +407,7 @@ class TestDeleteMatch:
         assert body["match_id"] == 10
 
     def test_active_league_match_rejects_non_member(self, monkeypatch):
-        client, headers = _make_admin_client(monkeypatch)
+        client, headers = _make_user_client(monkeypatch)
         delete_called = False
 
         async def fake_get_match(session, match_id):
@@ -397,13 +427,14 @@ class TestDeleteMatch:
         monkeypatch.setattr(data_service, "get_match_async", fake_get_match, raising=True)
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(
-            auth_dependencies, "_has_league_role", fake_has_league_role, raising=True
+            "backend.api.routes.sessions._has_league_role",
+            fake_has_league_role,
         )
         monkeypatch.setattr(data_service, "delete_match_async", fake_delete, raising=True)
 
         response = client.delete("/api/matches/10", headers=headers)
 
-        assert response.status_code == 403
+        assert response.status_code == 404
         assert delete_called is False
 
     def test_delete_match_not_found(self, monkeypatch):

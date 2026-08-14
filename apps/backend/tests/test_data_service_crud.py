@@ -1526,6 +1526,51 @@ async def test_delete_match_async(db_session, test_player):
 
 
 @pytest.mark.asyncio
+async def test_weekly_schedule_can_span_more_than_180_days(db_session, test_player):
+    """Schedules may cover the selected season without an arbitrary six-month cap."""
+    today = date.today()
+    season_end = today + timedelta(days=365)
+    schedule_end = today + timedelta(days=210)
+
+    league = await data_service.create_league(
+        session=db_session,
+        name="Long Season League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+        gender="coed",
+        level="Open",
+    )
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Long Season",
+        start_date=today.isoformat(),
+        end_date=season_end.isoformat(),
+        point_system=None,
+    )
+
+    schedule = await data_service.create_weekly_schedule(
+        session=db_session,
+        season_id=season["id"],
+        day_of_week=0,
+        start_time="18:00",
+        duration_hours=2.0,
+        court_id=None,
+        open_signups_mode="auto_after_last_session",
+        open_signups_day_of_week=None,
+        open_signups_time=None,
+        start_date=today.isoformat(),
+        end_date=schedule_end.isoformat(),
+        creator_player_id=test_player.id,
+    )
+
+    assert schedule["end_date"] == schedule_end.isoformat()
+
+
+@pytest.mark.asyncio
 async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, test_player):
     """Test that deleting a weekly schedule only deletes future signups, not past ones."""
 
@@ -1534,7 +1579,6 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
     today = date.today()
     season_start = date(today.year, 1, 1).isoformat()
     season_end = date(today.year, 12, 31).isoformat()
-    # Weekly schedule end_date must be within 6 months
     schedule_end = (today + timedelta(days=90)).isoformat()
 
     # Create league and season
@@ -1559,7 +1603,6 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
         point_system=None,
     )
 
-    # Create a weekly schedule (end_date must be within 6 months)
     schedule = await data_service.create_weekly_schedule(
         session=db_session,
         season_id=season["id"],
@@ -1628,7 +1671,7 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
         open_signups_day_of_week=None,
         open_signups_time=None,
         start_date=today,  # Required start_date
-        end_date=today + timedelta(days=90),  # Use dynamic date within 6 months
+        end_date=today + timedelta(days=90),
         created_by=test_player.id,
     )
     db_session.add(other_schedule)
@@ -1697,7 +1740,6 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(
     today = date.today()
     season_start = date(today.year, 1, 1).isoformat()
     season_end = date(today.year, 12, 31).isoformat()
-    # Weekly schedule end_date must be within 6 months
     schedule_end = (today + timedelta(days=90)).isoformat()
 
     # Store original function
@@ -1733,8 +1775,7 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(
         point_system=None,
     )
 
-    # Create a weekly schedule (before patching, so it uses the real function)
-    # end_date must be within 6 months
+    # Create a weekly schedule before patching, so it uses the real function.
     schedule = await data_service.create_weekly_schedule(
         session=db_session,
         season_id=season["id"],

@@ -461,14 +461,30 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
         {
             "id": r.id,
             "date": r.date,
-            "team1_player1": "Junior Player" if r.t1p1_age_group == "junior" else historical_name(r.t1p1, r.t1p1_deleted_at),
-            "team1_player2": "Junior Player" if r.t1p2_age_group == "junior" else historical_name(r.t1p2, r.t1p2_deleted_at),
-            "team2_player1": "Junior Player" if r.t2p1_age_group == "junior" else historical_name(r.t2p1, r.t2p1_deleted_at),
-            "team2_player2": "Junior Player" if r.t2p2_age_group == "junior" else historical_name(r.t2p2, r.t2p2_deleted_at),
-            "team1_player1_id": None if r.t1p1_age_group == "junior" else historical_id(r.team1_player1_id, r.t1p1_deleted_at),
-            "team1_player2_id": None if r.t1p2_age_group == "junior" else historical_id(r.team1_player2_id, r.t1p2_deleted_at),
-            "team2_player1_id": None if r.t2p1_age_group == "junior" else historical_id(r.team2_player1_id, r.t2p1_deleted_at),
-            "team2_player2_id": None if r.t2p2_age_group == "junior" else historical_id(r.team2_player2_id, r.t2p2_deleted_at),
+            "team1_player1": "Junior Player"
+            if r.t1p1_age_group == "junior"
+            else historical_name(r.t1p1, r.t1p1_deleted_at),
+            "team1_player2": "Junior Player"
+            if r.t1p2_age_group == "junior"
+            else historical_name(r.t1p2, r.t1p2_deleted_at),
+            "team2_player1": "Junior Player"
+            if r.t2p1_age_group == "junior"
+            else historical_name(r.t2p1, r.t2p1_deleted_at),
+            "team2_player2": "Junior Player"
+            if r.t2p2_age_group == "junior"
+            else historical_name(r.t2p2, r.t2p2_deleted_at),
+            "team1_player1_id": None
+            if r.t1p1_age_group == "junior"
+            else historical_id(r.team1_player1_id, r.t1p1_deleted_at),
+            "team1_player2_id": None
+            if r.t1p2_age_group == "junior"
+            else historical_id(r.team1_player2_id, r.t1p2_deleted_at),
+            "team2_player1_id": None
+            if r.t2p1_age_group == "junior"
+            else historical_id(r.team2_player1_id, r.t2p1_deleted_at),
+            "team2_player2_id": None
+            if r.t2p2_age_group == "junior"
+            else historical_id(r.team2_player2_id, r.t2p2_deleted_at),
             "team1_score": r.team1_score,
             "team2_score": r.team2_score,
             "winner": r.winner,

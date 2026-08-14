@@ -88,6 +88,13 @@ describe('LoginScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(auth)/forgot-password');
   });
 
+  it('gives the forgot-password link a 44-point touch target', () => {
+    const { getByRole } = render(<LoginScreen />);
+    expect(
+      getByRole('link', { name: 'Forgot password' }).props.className,
+    ).toContain('min-h-touch');
+  });
+
   it('renders OR divider text', () => {
     const { getByText } = render(<LoginScreen />);
     expect(getByText('OR')).toBeTruthy();
@@ -167,6 +174,28 @@ describe('LoginScreen', () => {
       expect(Alert.alert).toHaveBeenCalledWith(
         'Login Failed',
         expect.stringContaining('Invalid'),
+      );
+    });
+  });
+
+  it('shows readable server cooldown guidance', async () => {
+    mockLogin.mockRejectedValueOnce({
+      response: {
+        data: {
+          detail: 'Too many sign-in attempts. Try again in 15 minutes.',
+        },
+      },
+    });
+    const result = render(<LoginScreen />);
+
+    fireEvent.changeText(result.getByPlaceholderText('Email'), 'test@example.com');
+    fireEvent.changeText(result.getByPlaceholderText('Password'), 'wrongpass');
+    fireEvent.press(getLogInButton(result));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Login Failed',
+        'Too many sign-in attempts. Try again in 15 minutes.',
       );
     });
   });

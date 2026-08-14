@@ -10,6 +10,11 @@ or misconfigured.
 """
 
 import os
+
+# This must be set before importing backend.database.db so its shared engine is
+# configured for pytest's multiple event loops rather than with a QueuePool.
+os.environ.setdefault("ENV", "test")
+
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
@@ -90,6 +95,9 @@ async def _patch_missing_columns(conn):
         ("players", "deleted_at", "TIMESTAMPTZ"),
         # Migration 040 — track when a password was last changed
         ("users", "password_changed_at", "TIMESTAMPTZ"),
+        # Migration 074 — revoke credentials after password replacement
+        ("users", "session_version", "INTEGER NOT NULL DEFAULT 0"),
+        ("refresh_tokens", "session_version", "INTEGER NOT NULL DEFAULT 0"),
         # Privacy feature — profile visibility toggles
         ("users", "profile_is_private", "BOOLEAN NOT NULL DEFAULT FALSE"),
         ("users", "show_game_history", "BOOLEAN NOT NULL DEFAULT FALSE"),

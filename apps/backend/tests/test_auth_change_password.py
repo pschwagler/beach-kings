@@ -88,6 +88,11 @@ class TestChangePassword:
         async def fake_delete_refresh_tokens(session, user_id):
             return 1
 
+        async def fake_create_refresh_token(
+            session, user_id, token, expires_at, *, session_version=0
+        ):
+            return True
+
         async def fake_get_user_after_update(session, uid):
             return {
                 "id": 1,
@@ -109,6 +114,9 @@ class TestChangePassword:
         )
         monkeypatch.setattr(
             user_service, "delete_user_refresh_tokens", fake_delete_refresh_tokens, raising=True
+        )
+        monkeypatch.setattr(
+            user_service, "create_refresh_token", fake_create_refresh_token, raising=True
         )
 
         # Override get_user_by_id called a second time (post-update) to return updated user.
@@ -156,6 +164,8 @@ class TestChangePassword:
         assert data["status"] == "success"
         assert "password_changed_at" in data
         assert data["password_changed_at"] == "2026-04-25T12:00:00+00:00"
+        assert data["access_token"]
+        assert data["refresh_token"]
 
     def test_wrong_current_password(self, monkeypatch):
         """Wrong current password → 401 with detail message."""
@@ -230,6 +240,11 @@ class TestChangePassword:
             revoked["user_id"] = user_id
             return 2
 
+        async def fake_create_refresh_token(
+            session, user_id, token, expires_at, *, session_version=0
+        ):
+            return True
+
         call_count = {"n": 0}
 
         def fake_verify_token(token):
@@ -259,6 +274,9 @@ class TestChangePassword:
         )
         monkeypatch.setattr(
             user_service, "delete_user_refresh_tokens", fake_delete_refresh_tokens, raising=True
+        )
+        monkeypatch.setattr(
+            user_service, "create_refresh_token", fake_create_refresh_token, raising=True
         )
 
         client = TestClient(app)

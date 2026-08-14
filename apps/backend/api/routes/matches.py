@@ -20,7 +20,10 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import limiter
-from backend.api.routes.sessions import is_user_admin_of_session_league
+from backend.api.routes.sessions import (
+    require_session_collaborator,
+    require_session_manager,
+)
 from backend.api import auth_dependencies
 from backend.database.db import get_db_session
 from backend.database.models import Season, Session, SessionStatus, PhotoMatchJobStatus
@@ -69,7 +72,7 @@ router = APIRouter()
 async def _authorize_session_match_mutation(
     db_session: AsyncSession,
     session_obj: dict,
-    user_id: int,
+    user: dict,
     action: Literal["add", "edit", "delete"],
 ) -> None:
     """Authorize a match mutation against its owning session.
@@ -84,6 +87,10 @@ async def _authorize_session_match_mutation(
     if not session_id:
         raise HTTPException(status_code=400, detail="Game does not belong to a session")
 
+    # Establish that the caller may know this session exists before disclosing
+    # its lifecycle state or mutation rules.
+    await require_session_collaborator(db_session, session_obj, user)
+
     session_status = session_obj.get("status")
     if session_status not in ("ACTIVE", "SUBMITTED", "EDITED"):
         verb = {"add": "add games to", "edit": "edit games in", "delete": "delete games in"}[
@@ -96,35 +103,14 @@ async def _authorize_session_match_mutation(
 
     league_id = session_obj.get("league_id")
     if league_id is not None:
-        if session_status == "ACTIVE":
-            if not await auth_dependencies._has_league_role(db_session, user_id, league_id, None):
-                raise HTTPException(
-                    status_code=403,
-                    detail="League membership required to modify games in this session",
-                )
-        elif not await is_user_admin_of_session_league(db_session, user_id, session_id):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Only league admins can {action} games in finalized sessions",
-            )
+        if session_status != "ACTIVE":
+            await require_session_manager(db_session, session_obj, user)
         return
 
     if session_status == "ACTIVE" or action == "add":
-        if not await data_service.can_user_add_match_to_session(
-            db_session, session_id, session_obj, user_id
-        ):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Only session participants can {action} games in this session",
-            )
         return
 
-    player = await data_service.get_player_by_user_id(db_session, user_id)
-    if not player or session_obj.get("created_by") != player["id"]:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Only the session creator can {action} games in this session",
-        )
+    await require_session_manager(db_session, session_obj, user)
 
 
 def _format_sse(event: str, data: dict) -> str:
@@ -184,9 +170,7 @@ async def create_match(
             session_obj = await data_service.get_session(session, session_id)
             if not session_obj:
                 raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-            await _authorize_session_match_mutation(
-                session, session_obj, current_user["id"], "add"
-            )
+            await _authorize_session_match_mutation(session, session_obj, current_user, "add")
         else:
             league_id = match_request.league_id
             match_date = match_request.date
@@ -196,8 +180,9 @@ async def create_match(
 
             player_id = None
             player = await data_service.get_player_by_user_id(session, current_user["id"])
-            if player:
-                player_id = player["id"]
+            if not player:
+                raise HTTPException(status_code=400, detail="Player profile required")
+            player_id = player["id"]
 
             if league_id is None:
                 new_session = await data_service.create_session(
@@ -357,7 +342,7 @@ async def update_match(
         session_obj = await data_service.get_session(session, session_id)
         if not session_obj:
             raise HTTPException(status_code=404, detail="Session not found")
-        await _authorize_session_match_mutation(session, session_obj, current_user["id"], "edit")
+        await _authorize_session_match_mutation(session, session_obj, current_user, "edit")
         session_status = session_obj.get("status")
         stats_league_id = session_obj.get("league_id")
 
@@ -419,7 +404,7 @@ async def delete_match(
         session_obj = await data_service.get_session(session, session_id)
         if not session_obj:
             raise HTTPException(status_code=404, detail="Session not found")
-        await _authorize_session_match_mutation(session, session_obj, current_user["id"], "delete")
+        await _authorize_session_match_mutation(session, session_obj, current_user, "delete")
         session_status = session_obj.get("status")
         stats_league_id = session_obj.get("league_id")
 

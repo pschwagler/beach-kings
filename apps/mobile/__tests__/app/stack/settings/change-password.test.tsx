@@ -24,12 +24,14 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-
 // ---------------------------------------------------------------------------
 
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
+const mockRotateSessionTokens = jest.fn().mockResolvedValue(true);
 
 jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
-    useRouter: () => ({ push: jest.fn(), back: mockBack }),
+    useRouter: () => ({ push: jest.fn(), back: mockBack, replace: mockReplace }),
     useLocalSearchParams: () => ({}),
     Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,
     useSegments: () => [],
@@ -43,6 +45,10 @@ jest.mock('@/lib/api', () => ({
   api: {
     changePassword: (...args: unknown[]) => mockChangePassword(...args),
   },
+}));
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ rotateSessionTokens: mockRotateSessionTokens }),
 }));
 
 jest.mock('react-native-safe-area-context', () => {
@@ -223,6 +229,9 @@ describe('ChangePasswordScreen — API success', () => {
     mockChangePassword.mockResolvedValue({
       status: 'success',
       password_changed_at: '2026-04-25T12:00:00+00:00',
+      access_token: 'new-access',
+      refresh_token: 'new-refresh',
+      token_type: 'bearer',
     });
 
     render(<ChangePasswordRoute />);
@@ -234,6 +243,7 @@ describe('ChangePasswordScreen — API success', () => {
       expect(screen.getByTestId('change-password-success')).toBeTruthy();
     });
     expect(screen.getByText('Password updated successfully.')).toBeTruthy();
+    expect(mockRotateSessionTokens).toHaveBeenCalledWith('new-access', 'new-refresh');
   });
 
   it('calls api.changePassword with correct arguments', async () => {
@@ -295,6 +305,30 @@ describe('ChangePasswordScreen — API success', () => {
 // ---------------------------------------------------------------------------
 
 describe('ChangePasswordScreen — API errors', () => {
+  it('routes to sign in with a readable message when replacement tokens cannot be saved', async () => {
+    mockChangePassword.mockResolvedValue({
+      status: 'success',
+      password_changed_at: '2026-04-25T12:00:00+00:00',
+      access_token: 'new-access',
+      refresh_token: 'new-refresh',
+      token_type: 'bearer',
+    });
+    mockRotateSessionTokens.mockResolvedValueOnce(false);
+
+    render(<ChangePasswordRoute />);
+    fillForm('currentpass', 'newpassword1', 'newpassword1');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('change-password-submit-btn'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(
+        'Your password was changed, but this device couldn’t save the new sign-in. Please sign in again.',
+      )).toBeTruthy();
+    });
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+  });
+
   it('shows "Current password is incorrect" on 401 response', async () => {
     const err = { response: { status: 401 } };
     mockChangePassword.mockRejectedValue(err);

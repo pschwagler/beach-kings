@@ -66,6 +66,7 @@ services:
       - FRONTEND_PORT=${FRONTEND_PORT:-3000}
       # - ENABLE_WHATSAPP=${ENABLE_WHATSAPP:-true}  # WhatsApp service is inactive
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      - AUTH_DELIVERY_ENABLED=${AUTH_DELIVERY_ENABLED:-true}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
@@ -96,6 +97,40 @@ services:
       - ./apps/backend:/app/backend
       - ./scripts:/app/scripts
       # - ./services/whatsapp:/app/services/whatsapp  # WhatsApp service is inactive
+    networks:
+      - beach-kings-network
+    restart: unless-stopped
+
+  auth-delivery-worker:
+    image: ghcr.io/pschwagler/beach-kings/backend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "-m", "backend.scripts.auth_delivery_worker"]
+    env_file:
+      - .env
+    environment:
+      - ENV=${ENV:-development}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-beachkings}:${POSTGRES_PASSWORD:-beachkings}@postgres:5432/${POSTGRES_DB:-beachkings}
+      - AUTH_DELIVERY_ENABLED=${AUTH_DELIVERY_ENABLED:-true}
+      - AUTH_DELIVERY_MAX_ATTEMPTS=${AUTH_DELIVERY_MAX_ATTEMPTS:-5}
+      - ENABLE_SMS=${ENABLE_SMS:-true}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
+      - ENABLE_EMAIL=${ENABLE_EMAIL:-true}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-Beach League <noreply@beachleaguevb.com>}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=${REDIS_DB:-0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/backend:/app/backend
     networks:
       - beach-kings-network
     restart: unless-stopped

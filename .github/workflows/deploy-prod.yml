@@ -83,6 +83,17 @@ jobs:
             git checkout "$DEPLOY_BRANCH"
             git pull origin "$DEPLOY_BRANCH"
 
+            echo "=== Pre-deployment database backup ==="
+            if sudo systemctl cat beach-kings-db-backup.service > /dev/null 2>&1; then
+              # A failed backup stops the deployment before images or migrations change.
+              sudo systemctl start beach-kings-db-backup.service
+              echo "Pre-deployment database backup completed"
+            else
+              echo "S3 backup service is not installed; refusing to deploy"
+              echo "Complete deployment/backups/README.md before this release"
+              exit 1
+            fi
+
             echo "=== Pulling pre-built images ==="
             docker-compose pull frontend backend
 

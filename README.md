@@ -270,17 +270,9 @@ Edit the relevant component that displays the Google Sheets link (if applicable)
 The application uses Docker for containerized deployment. See
 [BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) for the supported workflow.
 
-**Quick deployment:**
-```bash
-# Build all Docker images
-make docker-build
-
-# Start all services
-make docker-up
-
-# Or build and start in one command
-make start
-```
+Production releases use the manual GitHub Actions **Deploy Prod** workflow.
+Local `make` and Docker Compose commands are development tools, not a production
+release path.
 
 ### EC2 Deployment
 
@@ -314,7 +306,7 @@ docker exec -it beach-kings-postgres psql -U beachkings -d beachkings
 
 - [APPLICATION_SPEC.md](APPLICATION_SPEC.md) - Product design reference
 - [Backend architecture](docs/BACKEND_ARCHITECTURE.md) - Backend module boundaries and conventions
-- [BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) - Build and deployment guide
+- [BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) - Production release entry point
 - [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md) - EC2 deployment instructions
 - [apps/web/README.md](apps/web/README.md) - Next.js frontend documentation
 - [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) - Database schema map

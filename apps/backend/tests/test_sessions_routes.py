@@ -25,7 +25,13 @@ Auth strategy:
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.services import auth_service, user_service, data_service
+from backend.services import (
+    auth_service,
+    data_service,
+    interaction_policy,
+    role_service,
+    user_service,
+)
 from backend.services import notification_service
 
 
@@ -88,6 +94,11 @@ def _patch_system_admin(monkeypatch):
 
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
 
+    async def fake_is_system_admin(session, user_id):
+        return True
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+
 
 def _patch_base_auth(monkeypatch):
     """Patch token verification and user lookup (shared by all helpers)."""
@@ -110,8 +121,26 @@ def _make_admin_client(monkeypatch):
 
 
 def _make_user_client(monkeypatch):
-    """Return (client, headers) with basic auth (no system-admin)."""
+    """Return a non-admin league-member client."""
     _patch_base_auth(monkeypatch)
+
+    async def fake_is_system_admin(session, user_id):
+        return False
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+
+    async def fake_has_league_role(session, user_id, league_id, required_role):
+        return required_role is None
+
+    monkeypatch.setattr(
+        "backend.api.routes.sessions._has_league_role",
+        fake_has_league_role,
+    )
+
+    async def fake_enforce_actions(session, actor_id, target_ids, action):
+        return None
+
+    monkeypatch.setattr(interaction_policy, "enforce_actions", fake_enforce_actions, raising=True)
     return TestClient(app), _AUTH_HEADER
 
 
@@ -235,12 +264,10 @@ class TestEndLeagueSession:
     def test_submit_true_locks_session(self, monkeypatch):
         """Happy path: { submit: true } locks the session and returns job ids.
 
-        execute() is called in order:
-          1. IDOR check — SELECT league_id FROM sessions WHERE id = ?
-             scalar_one_or_none() → _LEAGUE_ID (session belongs to this league)
-          2. _resolve_session_context — SELECT name, season_id, league_id FROM sessions WHERE id = ?
+        execute() is called in order after the session lookup:
+          1. _resolve_session_context — SELECT name, season_id, league_id FROM sessions WHERE id = ?
              first() → ("Test Session", _SEASON_ID, _LEAGUE_ID)
-          3. League name lookup — SELECT name FROM leagues WHERE id = ?
+          2. League name lookup — SELECT name FROM leagues WHERE id = ?
              scalar_one_or_none() → None (no name needed for test assertion)
         """
         from sqlalchemy.ext.asyncio import AsyncSession
@@ -248,6 +275,11 @@ class TestEndLeagueSession:
         client, headers = _make_admin_client(monkeypatch)
         _patch_player(monkeypatch)
         _patch_notifications(monkeypatch)
+
+        async def fake_get_session(session, session_id):
+            return _ACTIVE_SESSION
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
 
         _call_count = [0]
 
@@ -257,14 +289,11 @@ class TestEndLeagueSession:
 
             class FakeResult:
                 def first(self_r):
-                    # Call 2: _resolve_session_context row
+                    # Call 1: _resolve_session_context row
                     return ("Test Session", _SEASON_ID, _LEAGUE_ID)
 
                 def scalar_one_or_none(self_r):
-                    if call == 1:
-                        # IDOR check: return the league_id so the session is accepted
-                        return _LEAGUE_ID
-                    # Call 3+: league name lookup → None is fine
+                    # Call 2+: league name lookup → None is fine
                     return None
 
             return FakeResult()
@@ -403,6 +432,27 @@ class TestGetSessionByCode:
         response = client.get("/api/sessions/by-code/NOPE9999", headers=headers)
         assert response.status_code == 404
 
+    def test_league_code_does_not_bypass_private_membership(self, monkeypatch):
+        """A valid code cannot disclose a private league session to a non-member."""
+        client, headers = _make_user_client(monkeypatch)
+
+        async def fake_get_session_by_code(session, code):
+            return {**_ACTIVE_SESSION, "code": code}
+
+        async def fake_has_league_role(session, user_id, league_id, required_role):
+            return False
+
+        monkeypatch.setattr(
+            data_service, "get_session_by_code", fake_get_session_by_code, raising=True
+        )
+        monkeypatch.setattr(
+            "backend.api.routes.sessions._has_league_role",
+            fake_has_league_role,
+        )
+
+        response = client.get("/api/sessions/by-code/ABCD1234", headers=headers)
+        assert response.status_code == 404
+
     def test_requires_auth(self):
         """Returns 401 when no token is provided."""
         client = TestClient(app)
@@ -449,6 +499,27 @@ class TestGetSessionMatches:
         response = client.get(f"/api/sessions/{_SESSION_ID}/matches", headers=headers)
         assert response.status_code == 404
 
+    def test_unrelated_user_cannot_read_pickup_matches(self, monkeypatch):
+        """Numeric pickup IDs do not expose match results to unrelated users."""
+        client, headers = _make_user_client(monkeypatch)
+
+        async def fake_get_session(session, session_id):
+            return {**_ACTIVE_SESSION, "league_id": None, "season_id": None}
+
+        async def fake_can_collaborate(session, session_id, session_obj, user_id):
+            return False
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            data_service,
+            "can_user_add_match_to_session",
+            fake_can_collaborate,
+            raising=True,
+        )
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}/matches", headers=headers)
+        assert response.status_code == 404
+
     def test_requires_auth(self):
         """Returns 401 when no token is provided."""
         client = TestClient(app)
@@ -486,12 +557,12 @@ class TestGetSessionParticipants:
         assert isinstance(data, list)
         assert data[0]["player_id"] == _PLAYER_ID
 
-    def test_non_participant_returns_403(self, monkeypatch):
-        """Returns 403 when caller is not a session participant."""
+    def test_non_participant_returns_404(self, monkeypatch):
+        """A pickup roster is hidden from unrelated authenticated users."""
         client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_session(session, session_id):
-            return _ACTIVE_SESSION
+            return {**_ACTIVE_SESSION, "league_id": None, "season_id": None}
 
         async def fake_can_add(session, session_id, sess, user_id):
             return False
@@ -502,7 +573,7 @@ class TestGetSessionParticipants:
         )
 
         response = client.get(f"/api/sessions/{_SESSION_ID}/participants", headers=headers)
-        assert response.status_code == 403
+        assert response.status_code == 404
 
 
 class TestRemoveSessionParticipant:
@@ -591,10 +662,16 @@ class TestJoinSession:
         client, headers = _make_user_client(monkeypatch)
         _patch_player(monkeypatch)
 
-        async def fake_join(session, code, player_id):
-            return _ACTIVE_SESSION
+        pickup_session = {**_ACTIVE_SESSION, "league_id": None, "season_id": None}
 
-        monkeypatch.setattr(data_service, "join_session_by_code", fake_join, raising=True)
+        async def fake_get_by_code(session, code):
+            return pickup_session
+
+        async def fake_add(session, session_id, player_id, invited_by=None):
+            return True
+
+        monkeypatch.setattr(data_service, "get_session_by_code", fake_get_by_code, raising=True)
+        monkeypatch.setattr(data_service, "add_session_participant", fake_add, raising=True)
 
         response = client.post("/api/sessions/join", json={"code": "ABCD1234"}, headers=headers)
         assert response.status_code == 200
@@ -613,6 +690,30 @@ class TestJoinSession:
         monkeypatch.setattr(data_service, "join_session_by_code", fake_join, raising=True)
 
         response = client.post("/api/sessions/join", json={"code": "NOPE9999"}, headers=headers)
+        assert response.status_code == 404
+
+    def test_non_member_cannot_join_league_session_by_code(self, monkeypatch):
+        """League membership cannot be bypassed with a leaked session code."""
+        client, headers = _make_user_client(monkeypatch)
+        _patch_player(monkeypatch)
+
+        async def fake_get_by_code(session, code):
+            return _ACTIVE_SESSION
+
+        async def fake_has_league_role(session, user_id, league_id, required_role):
+            return False
+
+        monkeypatch.setattr(data_service, "get_session_by_code", fake_get_by_code, raising=True)
+        monkeypatch.setattr(
+            "backend.api.routes.sessions._has_league_role",
+            fake_has_league_role,
+        )
+
+        response = client.post(
+            "/api/sessions/join",
+            json={"code": "ABCD1234"},
+            headers=headers,
+        )
         assert response.status_code == 404
 
     def test_requires_auth(self):
@@ -661,11 +762,11 @@ class TestInviteToSession:
         assert response.json()["status"] == "success"
 
     def test_non_participant_cannot_invite(self, monkeypatch):
-        """Returns 403 when the caller is not a session participant."""
+        """Returns 404 when the caller is not a pickup participant."""
         client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_session(session, session_id):
-            return _ACTIVE_SESSION
+            return {**_ACTIVE_SESSION, "league_id": None, "season_id": None}
 
         async def fake_get_player(session, user_id):
             return _FAKE_PLAYER
@@ -684,7 +785,7 @@ class TestInviteToSession:
             json={"player_id": self._INVITED_PLAYER_ID},
             headers=headers,
         )
-        assert response.status_code == 403
+        assert response.status_code == 404
 
 
 class TestInviteBatchToSession:
@@ -1053,8 +1154,17 @@ class TestUpdateSession:
             captured.update(kwargs)
             return {**_ACTIVE_SESSION, "league_id": None, "start_time": None, "is_ranked": False}
 
+        async def fake_can_collaborate(session, session_id, session_obj, user_id):
+            return True
+
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(data_service, "update_session", fake_update_session, raising=True)
+        monkeypatch.setattr(
+            data_service,
+            "can_user_add_match_to_session",
+            fake_can_collaborate,
+            raising=True,
+        )
 
         response = client.patch(
             f"/api/sessions/{_SESSION_ID}",
@@ -1094,6 +1204,14 @@ class TestUpdateSession:
         _patch_player(monkeypatch)
         _patch_notifications(monkeypatch)
 
+        pickup_session = {**_ACTIVE_SESSION, "league_id": None, "season_id": None}
+
+        async def fake_get_session(session, session_id):
+            return pickup_session
+
+        async def fake_can_collaborate(session, session_id, session_obj, user_id):
+            return True
+
         # Row now has 3 columns: (name, season_id, league_id)
         async def fake_execute(self_session, query, *args, **kwargs):
             class FakeScalar:
@@ -1106,6 +1224,13 @@ class TestUpdateSession:
             return FakeScalar()
 
         monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            data_service,
+            "can_user_add_match_to_session",
+            fake_can_collaborate,
+            raising=True,
+        )
 
         async def fake_lock_in_session(session, session_id, updated_by=None):
             return {
@@ -1152,7 +1277,7 @@ class TestDeleteSession:
         client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_session(session, session_id):
-            return _ACTIVE_SESSION  # created_by == _PLAYER_ID
+            return {**_ACTIVE_SESSION, "league_id": None, "season_id": None}
 
         async def fake_get_player(session, user_id):
             return _FAKE_PLAYER  # player["id"] == _PLAYER_ID matches created_by
@@ -1175,7 +1300,12 @@ class TestDeleteSession:
         client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_session(session, session_id):
-            return {**_ACTIVE_SESSION, "status": "SUBMITTED"}
+            return {
+                **_ACTIVE_SESSION,
+                "status": "SUBMITTED",
+                "league_id": None,
+                "season_id": None,
+            }
 
         async def fake_get_player(session, user_id):
             return _FAKE_PLAYER
@@ -1184,7 +1314,7 @@ class TestDeleteSession:
             return True
 
         async def fake_enqueue(session, league_id):
-            assert league_id == _LEAGUE_ID
+            assert league_id is None
             return {"global_job_id": 88, "league_job_id": 89}
 
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
@@ -1203,8 +1333,8 @@ class TestDeleteSession:
         assert response.json()["global_job_id"] == 88
         assert response.json()["league_job_id"] == 89
 
-    def test_non_creator_non_admin_returns_403(self, monkeypatch):
-        """Returns 403 when user is neither the creator nor a league admin."""
+    def test_non_creator_non_admin_returns_404(self, monkeypatch):
+        """Hides the session when user is neither creator nor league admin."""
         from sqlalchemy.ext.asyncio import AsyncSession
 
         client, headers = _make_user_client(monkeypatch)
@@ -1234,7 +1364,7 @@ class TestDeleteSession:
         monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
 
         response = client.delete(f"/api/sessions/{_SESSION_ID}", headers=headers)
-        assert response.status_code == 403
+        assert response.status_code == 404
 
     def test_session_not_found_returns_404(self, monkeypatch):
         """Returns 404 when session does not exist."""
@@ -1772,12 +1902,12 @@ class TestGetSessionDetail:
         assert data["user_wins"] == 0
         assert data["user_losses"] == 0
 
-    def test_non_participant_returns_403(self, monkeypatch):
-        """Returns 403 when caller is not a session participant."""
+    def test_non_participant_returns_404(self, monkeypatch):
+        """Hides pickup detail from callers who are not participants."""
         client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_session(session, session_id):
-            return _ACTIVE_SESSION
+            return {**_ACTIVE_SESSION, "league_id": None, "season_id": None}
 
         async def fake_can_add(session, session_id, sess, user_id):
             return False
@@ -1788,7 +1918,7 @@ class TestGetSessionDetail:
         )
 
         response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
-        assert response.status_code == 403
+        assert response.status_code == 404
 
     def test_session_not_found_returns_404(self, monkeypatch):
         """Returns 404 when session does not exist."""
@@ -1807,3 +1937,10 @@ class TestGetSessionDetail:
         client = TestClient(app)
         response = client.get(f"/api/sessions/{_SESSION_ID}")
         assert response.status_code in (401, 403)
+        pickup_session = {**_ACTIVE_SESSION, "league_id": None, "season_id": None}
+
+        async def fake_get_session(session, session_id):
+            return pickup_session
+
+        async def fake_can_collaborate(session, session_id, session_obj, user_id):
+            return True

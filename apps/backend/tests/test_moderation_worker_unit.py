@@ -336,9 +336,7 @@ async def test_clear_severe_flag_applies_account_action_and_schedules_email(monk
     case_alert = AsyncMock()
     monkeypatch.setattr(moderation_worker, "_capture_flagged_evidence", AsyncMock())
     monkeypatch.setattr(moderation_service, "apply_action", apply_action)
-    monkeypatch.setattr(
-        moderation_alerts, "schedule_automatic_enforcement_alert", auto_alert
-    )
+    monkeypatch.setattr(moderation_alerts, "schedule_automatic_enforcement_alert", auto_alert)
     monkeypatch.setattr(moderation_alerts, "schedule_case_alerts", case_alert)
 
     await moderation_worker._complete(

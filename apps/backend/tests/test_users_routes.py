@@ -26,6 +26,8 @@ from backend.services import (
     user_service,
     data_service,
     avatar_service,
+    interaction_policy,
+    moderation_worker,
     s3_service,
     court_service,
 )
@@ -67,6 +69,16 @@ def _make_authed_client(monkeypatch, phone: str = PHONE, user_id: int = USER_ID)
 
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
+
+    async def fake_enforce_ugc_creation(session, player_id):
+        return None
+
+    monkeypatch.setattr(
+        interaction_policy,
+        "enforce_ugc_creation",
+        fake_enforce_ugc_creation,
+        raising=True,
+    )
 
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
@@ -272,6 +284,16 @@ class TestUploadAvatar:
             raising=True,
         )
         monkeypatch.setattr(s3_service, "delete_avatar", lambda url: True, raising=True)
+
+        async def fake_screen_image_url(url, safety_identifier):
+            return None
+
+        monkeypatch.setattr(
+            moderation_worker,
+            "screen_image_url",
+            fake_screen_image_url,
+            raising=True,
+        )
 
     def test_upload_avatar_success(self, monkeypatch):
         """Returns profile_picture_url on successful upload."""

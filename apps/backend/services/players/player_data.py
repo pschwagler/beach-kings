@@ -636,6 +636,7 @@ async def search_players_with_relevance(
     """
     term = (q or "").strip().lower()
     from backend.services import youth_interaction_policy
+
     stranger_cap = max(1, min(limit, 100))
     ctx = ScoreContext(is_league_match=league_id is not None)
 

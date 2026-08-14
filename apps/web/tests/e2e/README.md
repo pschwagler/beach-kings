@@ -7,6 +7,27 @@
 npm run test:e2e
 ```
 
+All runs are fail-closed to the isolated local stack: web `:3002`, backend
+`:8001` with `ENV=test`, PostgreSQL `beachkings_test` on `:5433`, and Redis
+on `:6380`. The safety gate runs before setup and teardown mutations.
+
+### Generated inventory and tagged runs
+
+```bash
+npm run test:e2e:inventory
+npm run test:e2e:smoke
+npm run test:e2e:p0
+npm run test:e2e:p1
+npm run test:e2e:p2
+npm run test:e2e:admin
+npm run test:e2e:policy
+npm run test:e2e:matrix
+```
+
+`test:e2e:matrix` runs Chromium, Firefox, WebKit, 390×844 phone emulation,
+and 375×667 phone emulation. Test/spec totals must come from discovery via
+`test:e2e:inventory`; do not copy a hand-maintained count into documentation.
+
 ### Run Specific Test File
 ```bash
 # Run all tests in a specific file

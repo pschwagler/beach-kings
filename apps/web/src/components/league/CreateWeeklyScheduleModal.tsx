@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useDialog } from '../../hooks/useDialog';
+import { formatDateInputValue, getDefaultWeeklyScheduleEndDate } from '../../utils/weeklyScheduleDates';
 import CourtSelector from '../court/CourtSelector';
 
 const DAYS_OF_WEEK = [
@@ -28,14 +29,7 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
 
   const homeCourts = league?.home_courts || [];
 
-  // Get today's date in YYYY-MM-DD format for default start_date
-  const getTodayDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  const todayDate = formatDateInputValue(new Date());
 
   const [formData, setFormData] = useState({
     day_of_week: '0',
@@ -45,8 +39,8 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
     open_signups_mode: 'auto_after_last_session',
     open_signups_day_of_week: '',
     open_signups_time: '',
-    start_date: getTodayDate(),
-    end_date: ''
+    start_date: todayDate,
+    end_date: getDefaultWeeklyScheduleEndDate()
   });
 
   const handleSubmit = async () => {
@@ -178,7 +172,7 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
             )}
           </div>
           <div className="form-group">
-            <label htmlFor="open-signups-mode">Open Signups Mode</label>
+            <label htmlFor="open-signups-mode">When does Session Open for Signup?</label>
             <select
               id="open-signups-mode"
               value={formData.open_signups_mode}
@@ -229,7 +223,7 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
                 value={formData.start_date}
                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                 className="form-input"
-                min={getTodayDate()}
+                min={todayDate}
                 required
               />
             </div>

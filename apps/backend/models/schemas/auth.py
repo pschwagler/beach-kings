@@ -185,6 +185,9 @@ class ChangePasswordResponse(BaseModel):
 
     status: str
     password_changed_at: str
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
 
 
 class UserResponse(BaseModel):

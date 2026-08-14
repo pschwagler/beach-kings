@@ -1,4 +1,4 @@
-# iOS release configuration
+# iOS production release and verification
 
 The checked-in project under `ios/` is authoritative for the first App Store
 release. Do not use `expo prebuild --clean` as a release preparation step; it
@@ -63,6 +63,170 @@ metadata, TestFlight distribution, routine signing assets, release preflight,
 and submission—can generally be performed through EAS, Xcode command-line
 tools, or the App Store Connect API after the manual setup above.
 
+## First-release operational checklist
+
+This is the single checklist for production deployment, signing, App Store
+Connect, TestFlight, physical-device verification, and submission evidence. The
+[product readiness backlog](app-store-backlog.md) separately tracks open product
+and safety work. Do not submit until both documents are complete and the release
+owner records an explicit go decision.
+
+### IOS-003 — Reproducible signed production build
+
+- [ ] Establish protected account access, and keep signing credentials and
+  provider secrets out of the repository.
+- [ ] Configure production public values and protected secrets in EAS/GitHub;
+  verify API, WebSocket, OAuth callback, universal-link, and support hosts use
+  the intended `beachleaguevb.com` endpoints.
+- [ ] With Xcode 26.4+ and the iOS 26.4+ SDK, create an Apple Distribution
+  archive using the correct App Store profile and upload it without unresolved
+  App Store Connect processing warnings.
+
+### IOS-005 — Final privacy declarations
+
+- [ ] Inspect the signed archive's privacy manifests and required-reason APIs,
+  then enter App Privacy answers from the approved
+  [privacy inventory](privacy-inventory.md) and
+  [App Store worksheet](app-store-privacy-answers.md).
+
+### IOS-006 — TestFlight release candidate
+
+- [ ] Inspect the exported archive for production APNs, Sign in with Apple,
+  associated domains, keychain groups, privacy manifests, and its embedded
+  provisioning profile.
+- [ ] On a physical iPhone, test Apple/Google login, universal links,
+  API/WebSocket traffic, account deletion, clean install, upgrade, logout/login,
+  offline recovery, expired credentials, denied permissions, and backend errors.
+- [ ] Complete the physical-device notification matrix: foreground, background,
+  terminated app, tap routing, denied permission, logout, and account switch.
+- [ ] Prepare a stable App Review demo account with seeded leagues, messages,
+  reviews, reporting, blocking, and deletion, stored only in the approved
+  private system.
+
+### IOS-007 — App Store Connect and listing
+
+- [ ] Confirm paid Apple Developer enrollment, seller/legal identity,
+  agreements, banking/tax state if applicable, Bundle ID
+  `com.beachleague.app`, app-record ownership, and final submission authority.
+- [ ] Complete Apple's current age-rating questionnaire and align the result
+  with the Terms and enforced signup minimums.
+- [ ] Declare the required DSA trader status, confirm the United States/Canada
+  territory configuration, and keep EU storefronts disabled.
+- [ ] Complete export-compliance, encryption, content-rights, availability, and
+  other required compliance declarations.
+- [ ] Approve and enter the proposed store name, subtitle, description, keywords,
+  categories, promotional text, and copyright from the
+  [v1 metadata draft](app-store-metadata.md), replacing the seller-name
+  placeholder with the exact App Store Connect rights owner.
+- [ ] Capture release-candidate screenshots for each required device class.
+
+### IOS-008 — Declared Age Range release verification
+
+The repository implementation and Apple capability setup are complete. On a
+signed physical iPhone, verify Apple sharing, declined sharing, and the
+self-declared fallback without collecting an exact birthdate.
+
+- [ ] Complete the signed-device Declared Age Range matrix.
+
+### IOS-009 — Production push credential
+
+- [ ] Enable Expo push access-token security, store `EXPO_ACCESS_TOKEN` only in
+  protected deployment configuration, and prove delivery using IOS-006's
+  physical-device matrix.
+
+### IOS-010 — Minimal crash reporting
+
+The SDK, repository scrubber, US-region project, production project values, and
+server-side PII/IP scrubbing are configured.
+
+- [ ] Verify source-map and native-symbol upload in a release build.
+- [ ] From TestFlight, verify one controlled JavaScript error and one controlled
+  native crash are symbolicated and privacy-scrubbed, then remove the triggers.
+
+### IOS-011 — Transactional email activation
+
+- [ ] When launch deployment begins, verify `beachleaguevb.com` in Resend,
+  provision `RESEND_API_KEY`, configure a verified `RESEND_FROM_EMAIL`, enable
+  production email, and confirm `/api/ready` and a real non-sensitive delivery.
+
+### IOS-012 — Production database backup and service release
+
+- [ ] Complete the production service prerequisite below, including the S3
+  backup rollout, isolated restore drill, protected production deployment,
+  migrations, readiness checks, and public-route checks.
+
+### IOS-013 — Security release and infrastructure verification
+
+A repository-wide security audit was completed on 2026-08-13. Product-code
+remediation is tracked by `IOS-002` in the
+[product readiness backlog](app-store-backlog.md). Close these deployment and
+release controls against the exact production candidate:
+
+- [ ] Replace the dev database refresh flow with a production-side sanitized
+  export or synthetic dataset. Never transfer or retain an unencrypted raw
+  production dump on a hosted CI runner or dev host; verify SSH host keys,
+  delete transient artifacts, and sanitize every sensitive table, including
+  direct messages, moderation evidence, provider credentials, and device tokens.
+- [ ] Verify retained startup and deployment logs contain no credential-bearing
+  configuration. Rotate any credential whose value may have reached shared or
+  retained logs and record the rotation only in the approved private evidence
+  system.
+- [ ] Add and verify production HSTS, a nonce-based Content Security Policy,
+  Permissions Policy, and the baseline security headers without breaking OAuth,
+  maps, media, public pages, or App Review flows.
+- [ ] Keep root environment and credential files out of Docker build contexts;
+  remove runtime-image credential copies and use BuildKit secrets or workload
+  identity instead. Inspect the built image and build provenance for unintended
+  secret material before promotion.
+- [ ] Remediate or explicitly risk-accept the reported Python and JavaScript
+  dependency advisories, make both dependency audits execute successfully, and
+  make high-severity audit failures block CI instead of using
+  `continue-on-error`. Keep test-only Python packages out of the production
+  backend image.
+- [ ] Re-run static analysis, secret scanning, dependency audits, targeted
+  authorization/authentication tests, and a production-like API security pass.
+  Confirm the shared Redis authentication controls are reachable, enforce the
+  documented delivery and verification limits, return uniform discovery
+  responses, and fail closed for new authentication when Redis is unavailable.
+  Enable the durable auth-delivery worker, verify its Redis heartbeat is fresh,
+  and prove queued signup and password-reset delivery through both enabled
+  providers without provider latency or failures changing the public response.
+  Provision an independent `AUTH_RATE_LIMIT_SECRET` and verify
+  `AUTH_TRUSTED_PROXY_IPS` matches the actual Nginx-to-backend network so shared
+  venue traffic is counted by client IP rather than as one proxy address.
+  Review cloud IAM, S3 bucket policy, signed mobile binaries, and production
+  configuration, which were outside the repository-only audit scope.
+
+**Acceptance:** No unresolved critical or high release/infrastructure finding
+remains; every check has linked evidence for the exact deployed commit and
+signed candidate; and the release owner explicitly accepts any remaining medium
+or low residual risk.
+
+### IOS-102 — Physical accessibility acceptance
+
+- [ ] Test every launch-critical flow with VoiceOver, Reduce Motion, Increase
+  Contrast, Bold Text, and accessibility text sizes.
+- [ ] Verify 44-point targets, logical reading order, error announcements, and
+  non-color status indicators on a physical device.
+
+### IOS-105 — Focused release regression
+
+- [ ] Run the critical signup/login, league, game, message, report/block,
+  notification, and deletion flows against an isolated production-like stack.
+- [ ] On at least one older supported iPhone, validate cold start, scrolling,
+  image upload, memory behavior, and poor-network recovery.
+
+### Evidence required
+
+- Signed archive and successful App Store Connect processing record.
+- TestFlight build number and completed physical-device matrix.
+- Public-link verification output.
+- Approved privacy inventory and App Store responses.
+- Screenshots of age rating, App Privacy, DSA, and listing metadata.
+- Private App Review credentials and review instructions.
+- Source commit, production configuration record, artifact checksum, submitter,
+  passed checks, and explicit owner go/no-go decision.
+
 ## v1 update policy
 
 Version 1 does not use Expo over-the-air updates. `expo-updates` is not a direct
@@ -79,6 +243,41 @@ require a new store binary. The transitive `expo-updates-interface` package is
 an Expo module contract and does not provide OTA delivery by itself.
 
 ## Release verification
+
+### Production service prerequisite
+
+The App Store candidate depends on the production API, authentication,
+notifications, public web routes, and the database schema expected by its exact
+commit. Before the final signed build is submitted, close `IOS-012` in the
+operational checklist above.
+
+For the first release containing the backup work, follow the one-time setup in
+the [production backup runbook](../../../deployment/backups/README.md). This
+requires human-controlled AWS and EC2 configuration: create or select the
+private S3 bucket, attach the least-privilege instance role, install
+`/etc/beach-kings/backup.env` and the systemd units, run a real backup, verify
+its checksum object, enable the timer, and pass the isolated restore drill.
+Never put AWS access keys in the repository or server environment file.
+
+After that one-time setup, release the production service before submitting the
+mobile binary:
+
+1. Merge the exact reviewed service/mobile commit to `main` after CI succeeds.
+2. Confirm the newest scheduled S3 archive is no more than 26 hours old.
+3. Run **Deploy Prod** manually for `main` with `skip_build: false`.
+4. Confirm the workflow's pre-deployment S3 backup succeeds before images are
+   pulled and before the backend can apply Alembic migrations.
+5. Confirm `/api/health`, `/api/ready`, frontend health, and both local and
+   public required-route checks pass.
+6. Record the production workflow run and commit in the private release
+   evidence, then exercise the production-dependent TestFlight matrix using
+   non-sensitive test data.
+
+Do not submit the App Store build if the backup service is missing, the backup
+or deployment fails, production readiness is degraded, or the deployed commit
+does not match the release candidate. Do not use a database restore as an
+automatic deployment rollback; restores require a separate incident decision
+and should first target an isolated replacement database.
 
 Create a production export and run the preflight from `apps/mobile`:
 

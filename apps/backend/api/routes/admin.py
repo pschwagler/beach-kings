@@ -602,7 +602,11 @@ async def get_platform_stats(
             ("Users", "users", f"created_at >= {thirty_days_ago}"),
             ("Leagues", "leagues", f"created_at >= {thirty_days_ago}"),
             ("Seasons", "seasons", f"created_at >= {thirty_days_ago}"),
-            ("Games", "matches", "date::date >= (NOW() - INTERVAL '30 days')::date"),
+            (
+                "Games",
+                "matches",
+                f"session_id IN (SELECT id FROM sessions WHERE created_at >= {thirty_days_ago})",
+            ),
             ("Sessions", "sessions", f"created_at >= {thirty_days_ago}"),
         ]
 

@@ -1,14 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Send, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { MessageCircle, RefreshCw } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLeagueMessages, createLeagueMessage } from '../../services/api';
+import MessageBubble from '../messages/MessageBubble';
+import MessageComposer from '../messages/MessageComposer';
+import './LeagueMessagesTab.css';
 
 interface LeagueMessage {
   id: number;
   player_id: number;
-  player_name: string;
+  player_name: string | null;
+  avatar_url?: string | null;
+  is_mine?: boolean;
   created_at: string;
   message: string;
 }
@@ -33,7 +38,7 @@ interface LeagueMessagesTabProps {
 }
 
 export default function LeagueMessagesTab({ leagueId }: LeagueMessagesTabProps) {
-  const { isLeagueMember } = useLeague();
+  const { isLeagueMember, league } = useLeague();
   const { showToast } = useToast();
   const { currentUserPlayer } = useAuth();
   
@@ -56,17 +61,17 @@ export default function LeagueMessagesTab({ leagueId }: LeagueMessagesTabProps) 
   }, [leagueId, showToast]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load remote messages on mount
     loadMessages();
   }, [loadMessages]);
 
-  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || sending) return;
 
     try {
       setSending(true);
       const message = await createLeagueMessage(leagueId, newMessage.trim());
-      setMessages([message, ...messages]);
+      setMessages((currentMessages) => [...currentMessages, message]);
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -79,58 +84,65 @@ export default function LeagueMessagesTab({ leagueId }: LeagueMessagesTabProps) 
   return (
     <div className="league-messages-tab">
       <div className="league-messages-header">
-        <h2>Messages</h2>
-        <button 
+        <div className="league-messages-heading">
+          <span className="league-messages-eyebrow">League messages</span>
+          <h1>{league?.name ?? 'League'}</h1>
+          <p>Share updates, coordinate play, and keep everyone in the loop.</p>
+        </div>
+        <button
+          type="button"
           className="league-messages-refresh-btn"
           onClick={loadMessages}
           disabled={loading}
+          aria-label="Refresh league messages"
           title="Refresh messages"
         >
           <RefreshCw size={18} className={loading ? 'spinning' : ''} />
         </button>
       </div>
 
-      {isLeagueMember && (
-        <form className="league-messages-form" onSubmit={handleSendMessage}>
-          <textarea
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="league-messages-input"
-            disabled={sending}
-            rows={3}
-          />
-          <button 
-            type="submit" 
-            className="league-messages-send-btn"
-            disabled={!newMessage.trim() || sending}
-          >
-            <Send size={18} />
-            <span>Send</span>
-          </button>
-        </form>
-      )}
-
       <div className="league-messages-list">
         {loading && messages.length === 0 ? (
-          <div className="league-messages-loading">Loading messages...</div>
+          <div className="league-messages-loading" role="status">
+            <RefreshCw size={22} className="spinning" aria-hidden="true" />
+            <span>Loading messages…</span>
+          </div>
         ) : messages.length === 0 ? (
-          <div className="league-messages-empty">No messages yet. Be the first to post!</div>
+          <div className="league-messages-empty">
+            <MessageCircle size={28} aria-hidden="true" />
+            <strong>No messages yet</strong>
+            <span>{isLeagueMember ? 'Start the conversation with your league.' : 'Check back for league updates.'}</span>
+          </div>
         ) : (
-          messages.map((msg) => (
-            <div 
-              key={msg.id} 
-              className={`league-message-item ${msg.player_id === currentUserPlayer?.id ? 'own-message' : ''}`}
-            >
-              <div className="league-message-header">
-                <span className="league-message-player">{msg.player_name}</span>
-                <span className="league-message-time">{formatRelativeTime(msg.created_at)}</span>
-              </div>
-              <div className="league-message-content">{msg.message}</div>
-            </div>
-          ))
+          messages.map((msg) => {
+            const isOwnMessage = msg.is_mine ?? msg.player_id === currentUserPlayer?.id;
+            const playerName = msg.player_name || 'League member';
+
+            return (
+              <MessageBubble
+                key={msg.id}
+                message={msg.message}
+                timestamp={msg.created_at}
+                timeLabel={formatRelativeTime(msg.created_at)}
+                isMine={isOwnMessage}
+                authorName={playerName}
+                authorAvatar={msg.avatar_url}
+                showAuthorName
+              />
+            );
+          })
         )}
       </div>
+
+      {isLeagueMember && (
+        <MessageComposer
+          value={newMessage}
+          onChange={setNewMessage}
+          onSend={handleSendMessage}
+          sending={sending}
+          inputLabel="Message the league"
+        />
+      )}
     </div>
   );
 }

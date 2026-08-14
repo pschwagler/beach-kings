@@ -54,7 +54,7 @@ test.describe('Public Player Pages', () => {
     await page.goto(playerUrl(playerId, playerName));
 
     // Navbar should be present
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Player name should be visible
     const nameLocator = page.locator('[data-testid="player-name"]');
@@ -89,7 +89,7 @@ test.describe('Public Player Pages', () => {
     await page.goto('/player/99999/nobody');
 
     // Next.js should show a 404 page
-    await expect(page.locator('text=This page could not be found')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 15000 });
   });
 });
 

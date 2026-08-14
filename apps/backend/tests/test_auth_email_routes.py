@@ -51,9 +51,7 @@ class TestSignupEmailBranch:
             return False
 
         async def fake_create_vc(**kwargs):
-            sent["code"] = kwargs.get("code")
-            sent["email"] = kwargs.get("email")
-            sent["phone_number"] = kwargs.get("phone_number")
+            sent.update(kwargs)
             return True
 
         async def fake_send_email(email, code, session=None):
@@ -86,16 +84,26 @@ class TestSignupEmailBranch:
         assert data["status"] == "success"
         assert data["email"] == EMAIL
         assert sent["phone_number"] is None
-        assert sent["sent_to"] == EMAIL
+        assert sent["delivery_channel"] == "email"
+        assert sent["delivery_purpose"] == "signup"
+        assert "sent_to" not in sent
 
-    def test_signup_email_already_registered_returns_400(self, monkeypatch):
+    def test_signup_email_already_registered_returns_uniform_success(self, monkeypatch):
         client = TestClient(app)
+        sent = {"called": False}
 
         async def fake_check_email(session, email):
             return True
 
+        async def fake_send_email(email, code, session=None):
+            sent["called"] = True
+            return True
+
         monkeypatch.setattr(auth_service, "normalize_email", lambda e: e.lower(), raising=True)
         monkeypatch.setattr(user_service, "check_email_exists", fake_check_email, raising=True)
+        monkeypatch.setattr(
+            email_service, "send_verification_code_email", fake_send_email, raising=True
+        )
 
         response = client.post(
             "/api/auth/signup",
@@ -107,7 +115,9 @@ class TestSignupEmailBranch:
                 "eligibility_token": _eligibility_token(),
             },
         )
-        assert response.status_code == 400
+        assert response.status_code == 200
+        assert "If this email or phone number can be used" in response.json()["message"]
+        assert sent["called"] is False
 
     def test_signup_no_phone_no_email_returns_422(self):
         client = TestClient(app)
@@ -121,6 +131,54 @@ class TestSignupEmailBranch:
         )
         # Pydantic model_validator raises 422 for missing identifier
         assert response.status_code == 422
+
+
+class TestResendSignupEmail:
+    def test_resend_preserves_pending_signup_data(self, monkeypatch):
+        client = TestClient(app)
+        captured = {}
+        pending = {
+            "password_hash": "stored-hash",
+            "name": "Alice Smith",
+            "email": EMAIL,
+            "youth_facts": {"age_group": "adult"},
+        }
+
+        monkeypatch.setattr(auth_service, "normalize_email", lambda value: value.lower())
+        monkeypatch.setattr(auth_service, "generate_verification_code", lambda: "654321")
+
+        async def fake_pending(session, **kwargs):
+            return pending
+
+        async def fake_exists(session, email):
+            return False
+
+        async def fake_create(**kwargs):
+            captured.update(kwargs)
+            return True
+
+        async def fake_send(email, code, session=None):
+            captured.update(sent_email=email, sent_code=code)
+            return True
+
+        monkeypatch.setattr(user_service, "get_pending_verification_data", fake_pending)
+        monkeypatch.setattr(user_service, "check_email_exists", fake_exists)
+        monkeypatch.setattr(user_service, "create_verification_code", fake_create)
+        monkeypatch.setattr(email_service, "send_verification_code_email", fake_send)
+
+        response = client.post(
+            "/api/auth/send-email-verification",
+            json={"email": EMAIL},
+        )
+
+        assert response.status_code == 200
+        assert captured["password_hash"] == "stored-hash"
+        assert captured["name"] == "Alice Smith"
+        assert captured["youth_facts"] == {"age_group": "adult"}
+        assert captured["code"] == "654321"
+        assert captured["delivery_channel"] == "email"
+        assert captured["delivery_purpose"] == "signup"
+        assert "sent_code" not in captured
 
 
 # ============================================================================
@@ -155,7 +213,7 @@ class TestVerifyEmail:
         async def fake_upsert_player(session, user_id, full_name):
             return {"id": 1}
 
-        async def fake_issue_refresh(session, user_id, token, expires):
+        async def fake_issue_refresh(session, user_id, token, expires, *, session_version=0):
             return True
 
         async def fake_check_profile(session, uid):
@@ -242,8 +300,7 @@ class TestResetPasswordEmail:
             return {"id": 1, "email": email}
 
         async def fake_create_vc(**kwargs):
-            sent["code"] = kwargs.get("code")
-            sent["email"] = kwargs.get("email")
+            sent.update(kwargs)
             return True
 
         async def fake_send_email(email, code, session=None):
@@ -271,7 +328,9 @@ class TestResetPasswordEmail:
         )
         assert response.status_code == 200, response.text
         assert response.json()["status"] == "success"
-        assert sent["sent_to"] == EMAIL
+        assert sent["delivery_channel"] == "email"
+        assert sent["delivery_purpose"] == "password_reset"
+        assert "sent_to" not in sent
 
     def test_reset_email_unknown_user_still_200(self, monkeypatch):
         client = TestClient(app)

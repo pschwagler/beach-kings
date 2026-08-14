@@ -31,6 +31,7 @@ import { hapticError, hapticLight } from '@/utils/haptics';
 import { loginSchema, type LoginFormValues } from '@/lib/validators';
 import DevLoginPanel from '@/components/dev/DevLoginPanel';
 import { thirdPartyColors } from '@/theme/thirdPartyColors';
+import { getApiResponseErrorMessage } from '@/lib/apiError';
 
 export default function LoginScreen(): React.ReactNode {
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -82,11 +83,14 @@ export default function LoginScreen(): React.ReactNode {
     async (values: LoginFormValues) => {
       try {
         await login({ email: values.email.trim(), password: values.password });
-      } catch {
+      } catch (error) {
         void hapticError();
         Alert.alert(
           'Login Failed',
-          'Invalid email or password. Please try again.',
+          getApiResponseErrorMessage(
+            error,
+            'Invalid email or password. Please try again.',
+          ),
         );
       }
     },
@@ -205,7 +209,7 @@ export default function LoginScreen(): React.ReactNode {
             </View>
 
             <Pressable
-              className="self-end"
+              className="self-end min-h-touch justify-center px-sm"
               onPress={handleForgotPassword}
               accessibilityLabel="Forgot password"
               accessibilityRole="link"

@@ -184,16 +184,6 @@ export function createAuthMethods(api: AxiosInstance) {
     },
 
     /**
-     * Check whether a phone number is already registered.
-     */
-    async checkPhone(phoneNumber: string) {
-      const response = await api.get('/api/auth/check-phone', {
-        params: { phone_number: phoneNumber },
-      });
-      return response.data;
-    },
-
-    /**
      * Step 1/3: Request a password-reset OTP via SMS.
      */
     async resetPassword(phoneNumber: string) {
@@ -246,14 +236,7 @@ export function createAuthMethods(api: AxiosInstance) {
       return response.data;
     },
 
-    /**
-     * Resend email verification code for signup.
-     *
-     * TODO: A dedicated /api/auth/resend-email-verification endpoint should be
-     * added to the backend. Currently this re-calls signup which regenerates
-     * the verification code row — it only works while the user account has not
-     * yet been created (i.e., before the OTP is verified).
-     */
+    /** Resend the newest email verification code for a pending signup. */
     async sendEmailVerification(email: string) {
       const response = await api.post('/api/auth/send-email-verification', {
         email,

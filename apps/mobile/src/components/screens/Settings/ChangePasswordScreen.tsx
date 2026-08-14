@@ -27,6 +27,8 @@ import TopNav from '@/components/ui/TopNav';
 import Input from '@/components/ui/Input';
 import { hapticMedium, hapticError } from '@/utils/haptics';
 import { api } from '@/lib/api';
+import { routes } from '@/lib/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,6 +51,7 @@ type BannerState =
 
 export default function ChangePasswordScreen(): React.ReactNode {
   const router = useRouter();
+  const { rotateSessionTokens } = useAuth();
   const [form, setForm] = useState<FormState>({
     currentPassword: '',
     newPassword: '',
@@ -87,7 +90,20 @@ export default function ChangePasswordScreen(): React.ReactNode {
     setBanner(null);
 
     try {
-      await api.changePassword(form.currentPassword, form.newPassword);
+      const response = await api.changePassword(form.currentPassword, form.newPassword);
+      const retained = await rotateSessionTokens(
+        response.access_token,
+        response.refresh_token,
+      );
+      if (!retained) {
+        void hapticError();
+        setBanner({
+          type: 'error',
+          message: 'Your password was changed, but this device couldn’t save the new sign-in. Please sign in again.',
+        });
+        router.replace(routes.login());
+        return;
+      }
       setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setBanner({ type: 'success', message: 'Password updated successfully.' });
       // Navigate back to Settings after a brief success banner
@@ -108,7 +124,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
     } finally {
       setIsSubmitting(false);
     }
-  }, [form, router, validate]);
+  }, [form, rotateSessionTokens, router, validate]);
 
   return (
     <SafeAreaView

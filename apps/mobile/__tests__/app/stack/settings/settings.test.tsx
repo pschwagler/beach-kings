@@ -451,30 +451,22 @@ describe('SettingsScreen — delete account', () => {
     expect(screen.getByTestId('settings-row-delete')).toBeTruthy();
   });
 
-  it('offers cancel, scheduled deletion, and immediate deletion', () => {
+  it('offers isolated cancel, scheduled deletion, and immediate deletion actions', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-delete'));
 
-    expect(mockAlert).toHaveBeenCalledWith(
-      'Delete Account?',
-      expect.any(String),
-      expect.arrayContaining([
-        expect.objectContaining({ text: 'Cancel' }),
-        expect.objectContaining({ text: 'Delete in 30 Days' }),
-        expect.objectContaining({ text: 'Delete Now' }),
-      ]),
-    );
+    expect(screen.getByTestId('delete-account-dialog')).toBeTruthy();
+    expect(screen.getByTestId('delete-account-cancel')).toBeTruthy();
+    expect(screen.getByTestId('delete-account-schedule')).toBeTruthy();
+    expect(screen.getByTestId('delete-account-now')).toBeTruthy();
+    expect(mockAlert).not.toHaveBeenCalled();
   });
 
   it('calls the scheduled deletion endpoint for the recovery option', async () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-delete'));
-    const buttons = mockAlert.mock.calls[0][2] as Array<{
-      text: string;
-      onPress?: () => void;
-    }>;
     await act(async () => {
-      buttons.find(({ text }) => text === 'Delete in 30 Days')?.onPress?.();
+      fireEvent.press(screen.getByTestId('delete-account-schedule'));
       await Promise.resolve();
     });
 
@@ -485,12 +477,10 @@ describe('SettingsScreen — delete account', () => {
   it('calls immediate deletion for Delete Now', async () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-delete'));
-    const buttons = mockAlert.mock.calls[0][2] as Array<{
-      text: string;
-      onPress?: () => void;
-    }>;
+    fireEvent.press(screen.getByTestId('delete-account-now'));
+    expect(mockDeleteAccountNow).not.toHaveBeenCalled();
     await act(async () => {
-      buttons.find(({ text }) => text === 'Delete Now')?.onPress?.();
+      fireEvent.press(screen.getByTestId('delete-account-confirm-now'));
       await Promise.resolve();
     });
 

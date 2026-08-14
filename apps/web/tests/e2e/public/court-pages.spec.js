@@ -16,15 +16,18 @@ const KNOWN_COURT_NAME = 'South Mission Beach Volleyball Courts';
 
 test.describe('Court Directory', () => {
   test('court directory loads and shows courts', async ({ page }) => {
-    await page.goto('/courts');
+    const courtsResponse = page.waitForResponse(response =>
+      response.url().includes('/api/public/courts') && response.status() === 200,
+    );
+    await page.goto('/courts?location=socal_sd');
+    await courtsResponse;
 
     // Navbar should be present
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Page title
-    const title = page.locator('.court-directory__title');
-    await expect(title).toBeVisible({ timeout: 15000 });
-    await expect(title).toContainText('Beach Volleyball Courts');
+    await expect(page.getByRole('heading', { name: 'Find your next court' }))
+      .toBeVisible({ timeout: 15000 });
 
     // Court cards should be visible (seeded data)
     const courtCards = page.locator('.court-card');
@@ -36,7 +39,11 @@ test.describe('Court Directory', () => {
   });
 
   test('court directory filter works', async ({ page }) => {
-    await page.goto('/courts');
+    const initialResponse = page.waitForResponse(response =>
+      response.url().includes('/api/public/courts') && response.status() === 200,
+    );
+    await page.goto('/courts?location=socal_sd');
+    await initialResponse;
 
     // Wait for courts to load
     await expect(page.locator('.court-card').first()).toBeVisible({ timeout: 15000 });
@@ -51,22 +58,18 @@ test.describe('Court Directory', () => {
       await filterToggle.click();
     }
 
-    // Use the search input to filter
-    const searchInput = page.locator('.court-list__search-input');
-    await expect(searchInput).toBeVisible({ timeout: 10000 });
-    await searchInput.fill('Mission Beach');
-
-    // Wait for filtered results
-    await page.waitForTimeout(500); // debounce delay
+    const filteredResponse = page.waitForResponse(response =>
+      response.url().includes('/api/public/courts') && response.url().includes('surface_type=sand'),
+    );
+    await page.getByRole('combobox', { name: 'Surface' }).selectOption('sand');
+    await filteredResponse;
 
     // Count should update and results should be narrowed
     await expect(countLocator).toBeVisible();
     const courtCards = page.locator('.court-card');
     await expect(courtCards.first()).toBeVisible({ timeout: 10000 });
 
-    // At least one result should contain "Mission Beach"
-    await expect(courtCards.first().locator('.court-card__name'))
-      .toContainText('Mission Beach');
+    await expect(courtCards.first().locator('.court-card__name')).toBeVisible();
   });
 });
 
@@ -75,7 +78,7 @@ test.describe('Court Detail', () => {
     await page.goto(`/courts/${KNOWN_COURT_SLUG}`);
 
     // Navbar should be present
-    await expect(page.locator('nav')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible({ timeout: 10000 });
 
     // Court name should be visible
     const courtName = page.locator('.court-detail__name');

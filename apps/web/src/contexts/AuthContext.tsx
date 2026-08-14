@@ -7,6 +7,7 @@ import type { User, Player } from '../types';
 
 interface SignupResponse {
   phone_number?: string;
+  message?: string;
   [key: string]: unknown;
 }
 

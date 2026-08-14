@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import KobSetup from "../../../../src/components/kob/KobSetup";
-import PageSkeleton from "../../../../src/components/ui/PageSkeleton";
+import RouteLoadingShell from "../../../../src/components/ui/RouteLoadingShell";
 
 export const metadata = {
   title: "Setup Tournament | Beach League",
@@ -10,7 +10,7 @@ export const metadata = {
 export default async function KobManagePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return (
-    <Suspense fallback={<PageSkeleton />}>
+    <Suspense fallback={<RouteLoadingShell />}>
       <KobSetup tournamentId={parseInt(id, 10)} />
     </Suspense>
   );

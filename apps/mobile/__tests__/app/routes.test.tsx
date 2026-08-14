@@ -757,7 +757,7 @@ describe('app/(auth)/signup — SignupScreen', () => {
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith(
         'Signup Failed',
-        'Could not create account. Please try again.',
+        'Could not start signup. Please try again.',
       );
     });
     alertSpy.mockRestore();

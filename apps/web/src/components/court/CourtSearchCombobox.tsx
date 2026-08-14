@@ -56,7 +56,7 @@ export default function CourtSearchCombobox(props: Props) {
       }
     }, 300);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [value, proximity?.latitude, proximity?.longitude]);
+  }, [value, proximity]);
 
   const choose = (option: Option) => {
     setOpen(false);

@@ -199,7 +199,9 @@ class TestSendMessage:
         )
         assert response.status_code == 400
 
-    def test_disabled_message_writes_return_service_unavailable(self, client, headers, monkeypatch):
+    def test_disabled_message_writes_return_service_unavailable(
+        self, client, headers, monkeypatch
+    ):
         async def fake_send(*_args, **_kwargs):
             raise message_write_policy.MessageWritesUnavailable()
 

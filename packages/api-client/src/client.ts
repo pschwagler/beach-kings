@@ -16,12 +16,18 @@ const PUBLIC_AUTH_ENDPOINTS = [
   '/api/auth/signup',
   '/api/auth/refresh',
   '/api/auth/send-verification',
+  '/api/auth/send-email-verification',
   '/api/auth/verify-phone',
+  '/api/auth/verify-email',
   '/api/auth/reset-password',
   '/api/auth/reset-password-verify',
+  '/api/auth/reset-password-email',
+  '/api/auth/reset-password-email-verify',
   '/api/auth/reset-password-confirm',
   '/api/auth/sms-login',
-  '/api/auth/check-phone'
+  '/api/auth/youth-eligibility',
+  '/api/auth/google',
+  '/api/auth/apple',
 ];
 
 function isPublicAuthEndpoint(url: string | undefined): boolean {

@@ -33,7 +33,11 @@ fi
 # Run database migrations
 echo "🔄 Running database migrations..."
 echo "   Current directory: $(pwd)"
-echo "   DATABASE_URL: ${DATABASE_URL:-not set}"
+if [ -n "${DATABASE_URL:-}" ]; then
+    echo "   DATABASE_URL: configured"
+else
+    echo "   DATABASE_URL: not set"
+fi
 echo "   Environment: ${ENV:-development}"
 echo "   ENV variable value: '${ENV}'"
 

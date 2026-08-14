@@ -77,6 +77,7 @@ from .push import PushDeliveryJob
 from .jobs import MediaDeletionJob
 from .auth import AppleCredential
 from .auth import AppleRevocationJob
+from .auth import AuthDeliveryJob
 from .courts import PlayerHomeCourt
 from .courts import CourtCheckIn
 from .push import PushNotificationPreference
@@ -161,6 +162,7 @@ __all__ = [
     "MediaDeletionJob",
     "AppleCredential",
     "AppleRevocationJob",
+    "AuthDeliveryJob",
     "PlayerHomeCourt",
     "CourtCheckIn",
     "PushNotificationPreference",

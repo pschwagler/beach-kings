@@ -171,44 +171,6 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
 
   // Season data loading is now handled automatically by LeagueContext when selectedSeasonId changes
 
-  // Auto-open AddMatchModal when navigated from CreateGameModal with autoAddMatch param.
-  // Uses refs for values that change during init but are only read inside the effect body.
-  // `seasons` is intentionally excluded: a zero-season league can still log gap games,
-  // so member count is the only meaningful readiness gate here.
-  useEffect(() => {
-    if (!autoOpenAddMatch || autoOpenFiredRef.current) return;
-    const currentMembers = membersRef.current;
-    if (!currentMembers || currentMembers.length < MIN_PLAYERS_FOR_MATCH) return;
-
-    autoOpenFiredRef.current = true;
-
-    openModal(MODAL_TYPES.ADD_MATCH, {
-      allPlayerNames: allPlayerNamesRef.current,
-      leagueMatchOnly: true,
-      defaultLeagueId: leagueId,
-      members: currentMembers,
-      league: leagueRef.current,
-      defaultSeasonId: selectedSeasonIdRef.current,
-      onSeasonChange: setSelectedSeasonId,
-      onSubmit: async (matchData: Record<string, unknown>) => {
-        const payload = { ...matchData, league_id: leagueId };
-        await handleCreateMatch(payload);
-      },
-      onDelete: handleDeleteMatch,
-      leagueHomeCourts,
-      isFirstMatch: true,
-    });
-
-    // Clean URL param to prevent re-open on refresh
-    const url = new URL(window.location.href);
-    url.searchParams.delete('autoAddMatch');
-    router.replace(url.pathname + url.search, { scroll: false });
-    // handleCreateMatch/handleDeleteMatch are defined later in the function body;
-    // safe because autoOpenFiredRef gates this to a single fire per mount and
-    // the closures are only invoked after the full render completes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenAddMatch, leagueId, setSelectedSeasonId, openModal, router]);
-
   // Transform matches from context for display
   const matches = useMemo(() => {
     // If selectedSeasonData doesn't exist yet, return null (data not loaded)
@@ -343,6 +305,38 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       throw err;
     }
   };
+
+  // Auto-open AddMatchModal when navigated from CreateGameModal with autoAddMatch param.
+  // Uses refs for values that change during init but are only read inside the effect body.
+  useEffect(() => {
+    if (!autoOpenAddMatch || autoOpenFiredRef.current) return;
+    const currentMembers = membersRef.current;
+    if (!currentMembers || currentMembers.length < MIN_PLAYERS_FOR_MATCH) return;
+
+    autoOpenFiredRef.current = true;
+    openModal(MODAL_TYPES.ADD_MATCH, {
+      allPlayerNames: allPlayerNamesRef.current,
+      leagueMatchOnly: true,
+      defaultLeagueId: leagueId,
+      members: currentMembers,
+      league: leagueRef.current,
+      defaultSeasonId: selectedSeasonIdRef.current,
+      onSeasonChange: setSelectedSeasonId,
+      onSubmit: async (matchData: Record<string, unknown>) => {
+        await handleCreateMatch({ ...matchData, league_id: leagueId });
+      },
+      onDelete: handleDeleteMatch,
+      leagueHomeCourts,
+      isFirstMatch: true,
+    });
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('autoAddMatch');
+    router.replace(url.pathname + url.search, { scroll: false });
+    // The ref guard intentionally makes this a one-shot effect. The handlers
+    // are current for the render where readiness is first satisfied.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenAddMatch, leagueId, setSelectedSeasonId, openModal, router]);
 
   // Session editing handlers
   const handleEnterEditMode = (sessionId: number) => {

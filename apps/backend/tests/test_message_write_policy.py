@@ -155,14 +155,10 @@ async def test_blocking_remains_available_while_message_writes_are_disabled(
     db_session.add(Friend(player1_id=low, player2_id=high))
     await db_session.flush()
 
-    result = await interaction_policy.create_block(
-        db_session, players[0].id, players[1].id
-    )
+    result = await interaction_policy.create_block(db_session, players[0].id, players[1].id)
 
     assert result == {"player_id": players[1].id, "created": True}
-    assert await interaction_policy.blocked_by_viewer(
-        db_session, players[0].id, players[1].id
-    )
+    assert await interaction_policy.blocked_by_viewer(db_session, players[0].id, players[1].id)
 
 
 @pytest.mark.asyncio
@@ -201,9 +197,7 @@ async def test_league_chat_read_survives_containment_and_send_works_after_restor
         await message_data.create_league_message(
             db_session, league.id, user.id, "must be rejected"
         )
-    during = await message_data.get_league_messages(
-        db_session, league.id, current_user_id=user.id
-    )
+    during = await message_data.get_league_messages(db_session, league.id, current_user_id=user.id)
 
     assert [message["id"] for message in during] == [before["id"]]
 
@@ -260,9 +254,7 @@ async def test_direct_message_read_survives_containment_and_send_works_after_res
         await direct_message_service.send_message(
             db_session, players[0].id, players[1].id, "must be rejected"
         )
-    during = await direct_message_service.get_thread(
-        db_session, players[0].id, players[1].id
-    )
+    during = await direct_message_service.get_thread(db_session, players[0].id, players[1].id)
 
     assert [message["id"] for message in during["items"]] == [before["id"]]
 
@@ -270,9 +262,7 @@ async def test_direct_message_read_survives_containment_and_send_works_after_res
     after = await direct_message_service.send_message(
         db_session, players[0].id, players[1].id, "after restoration"
     )
-    restored = await direct_message_service.get_thread(
-        db_session, players[0].id, players[1].id
-    )
+    restored = await direct_message_service.get_thread(db_session, players[0].id, players[1].id)
 
     assert [message["id"] for message in restored["items"]] == [
         before["id"],
@@ -287,14 +277,20 @@ async def test_configuration_lookup_failure_is_fail_closed_only_when_protected(m
 
     monkeypatch.setattr(settings_service, "get_setting_with_fallback", failed_lookup)
     monkeypatch.setenv("ENV", "production")
-    assert await message_write_policy.surface_status(
-        AsyncMock(), message_write_policy.MessageSurface.DIRECT_MESSAGES
-    ) == "misconfigured"
+    assert (
+        await message_write_policy.surface_status(
+            AsyncMock(), message_write_policy.MessageSurface.DIRECT_MESSAGES
+        )
+        == "misconfigured"
+    )
 
     monkeypatch.setenv("ENV", "test")
-    assert await message_write_policy.surface_status(
-        AsyncMock(), message_write_policy.MessageSurface.DIRECT_MESSAGES
-    ) == "enabled"
+    assert (
+        await message_write_policy.surface_status(
+            AsyncMock(), message_write_policy.MessageSurface.DIRECT_MESSAGES
+        )
+        == "enabled"
+    )
 
 
 @pytest.mark.asyncio

@@ -60,7 +60,7 @@ def _cleanup_overrides():
 
 
 class TestAddPhoneRequest:
-    def test_happy_path_sends_sms_and_returns_success(self, monkeypatch):
+    def test_happy_path_queues_sms_and_returns_success(self, monkeypatch):
         _install_auth(_user_without_phone())
         calls: dict = {}
 
@@ -90,7 +90,9 @@ class TestAddPhoneRequest:
         assert resp.json() == {"status": "success"}
         assert calls["vc"]["phone_number"] == PHONE
         assert calls["vc"]["code"] == "123456"
-        assert calls["sms"] == (PHONE, "123456")
+        assert calls["vc"]["delivery_channel"] == "sms"
+        assert calls["vc"]["delivery_purpose"] == "phone_add"
+        assert "sms" not in calls
 
     def test_unauthenticated_returns_401(self):
         _install_auth(None)
@@ -130,7 +132,7 @@ class TestAddPhoneRequest:
         resp = client.post("/api/auth/phone/add/request", json={"phone_number": "not-a-phone"})
         assert resp.status_code == 422
 
-    def test_sms_send_failure_returns_502(self, monkeypatch):
+    def test_provider_failure_cannot_change_request_response(self, monkeypatch):
         _install_auth(_user_without_phone())
 
         async def fake_check_phone(session, phone):
@@ -152,7 +154,8 @@ class TestAddPhoneRequest:
 
         client = TestClient(app)
         resp = client.post("/api/auth/phone/add/request", json={"phone_number": PHONE})
-        assert resp.status_code == 502
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "success"}
 
 
 # ============================================================================

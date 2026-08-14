@@ -1,0 +1,31 @@
+{
+  "Rules": [
+    {
+      "ID": "archive-production-database-backups",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "database/production/"
+      },
+      "Transitions": [
+        {
+          "Days": 30,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 90,
+          "StorageClass": "GLACIER_IR"
+        }
+      ],
+      "Expiration": {
+        "Days": 365
+      },
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 30,
+        "NewerNoncurrentVersions": 3
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    }
+  ]
+}

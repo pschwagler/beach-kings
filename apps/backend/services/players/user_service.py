@@ -4,12 +4,13 @@ User service layer for user and verification code database operations.
 
 from datetime import datetime, timedelta, timezone
 import logging
+import secrets
 from typing import Optional, Dict
 from urllib.parse import urlparse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from backend.utils.datetime_utils import utcnow
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import and_, select, update, delete, func
 from sqlalchemy.dialects.postgresql import insert
 from backend.database.models import (
     User,
@@ -63,6 +64,7 @@ from backend.database.models import (
     MediaDeletionJob,
     AppleCredential,
     AppleRevocationJob,
+    AuthDeliveryJob,
 )
 
 
@@ -172,6 +174,7 @@ async def update_user_password(session: AsyncSession, user_id: int, password_has
         .values(
             password_hash=password_hash,
             password_changed_at=func.now(),
+            session_version=User.session_version + 1,
             updated_at=func.now(),
         )
     )
@@ -503,6 +506,7 @@ def _user_to_dict(user: User) -> Dict:
         "password_changed_at": (
             user.password_changed_at.isoformat() if user.password_changed_at else None
         ),
+        "session_version": user.session_version or 0,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
         # Privacy toggles (PRIVACY feature)
@@ -557,6 +561,8 @@ async def create_verification_code(
     name: Optional[str] = None,
     email: Optional[str] = None,
     youth_facts: Optional[Dict] = None,
+    delivery_channel: Optional[str] = None,
+    delivery_purpose: Optional[str] = None,
 ) -> bool:
     """
     Create a verification code record with optional signup data.
@@ -580,7 +586,6 @@ async def create_verification_code(
     if not phone_number and not email:
         logger.error("create_verification_code requires phone_number or email")
         return False
-
     normalized_email = email.strip().lower() if email else None
 
     try:
@@ -627,12 +632,71 @@ async def create_verification_code(
             **filtered_youth_facts,
         )
         session.add(new_code)
+        await session.flush()
+        if delivery_channel and delivery_purpose:
+            session.add(
+                AuthDeliveryJob(
+                    verification_code_id=new_code.id,
+                    channel=delivery_channel,
+                    purpose=delivery_purpose,
+                    idempotency_key=f"auth-code-{secrets.token_urlsafe(24)}",
+                )
+            )
         await session.commit()
         return True
-    except Exception as e:
-        logger.error(f"Error creating verification code: {str(e)}")
+    except Exception as exc:
+        logger.error(
+            "Error creating verification code error_code=%s",
+            type(exc).__name__,
+        )
         await session.rollback()
         return False
+
+
+async def get_pending_verification_data(
+    session: AsyncSession,
+    *,
+    phone_number: Optional[str] = None,
+    email: Optional[str] = None,
+) -> Optional[Dict]:
+    """Return signup data for the latest active code without exposing the code."""
+    if bool(phone_number) == bool(email):
+        raise ValueError("Provide exactly one verification identifier")
+
+    if phone_number:
+        condition = VerificationCode.phone_number == phone_number
+    else:
+        condition = and_(
+            VerificationCode.email == email.strip().lower(),
+            VerificationCode.phone_number.is_(None),
+        )
+    result = await session.execute(
+        select(VerificationCode)
+        .where(
+            condition,
+            VerificationCode.used.is_(False),
+            VerificationCode.expires_at > utcnow().isoformat(),
+        )
+        .order_by(VerificationCode.created_at.desc(), VerificationCode.id.desc())
+        .limit(1)
+    )
+    pending = result.scalar_one_or_none()
+    if not pending:
+        return None
+    return {
+        "password_hash": pending.password_hash,
+        "name": pending.name,
+        "email": pending.email,
+        "youth_facts": {
+            "age_group": pending.age_group,
+            "eligibility_country": pending.eligibility_country,
+            "eligibility_region": pending.eligibility_region,
+            "age_assurance_source": pending.age_assurance_source,
+            "age_declaration_source": pending.age_declaration_source,
+            "guardian_consent": pending.guardian_consent,
+            "age_assured_at": pending.age_assured_at,
+        },
+    }
 
 
 async def verify_and_mark_code_used(
@@ -645,12 +709,15 @@ async def verify_and_mark_code_used(
     is valid, not expired, and has not been used; ``None`` otherwise.
     """
     result = await session.execute(
-        select(VerificationCode).where(
+        update(VerificationCode)
+        .where(
             VerificationCode.phone_number == phone_number,
             VerificationCode.code == code,
             VerificationCode.used.is_(False),
             VerificationCode.expires_at > utcnow().isoformat(),
         )
+        .values(used=True)
+        .returning(VerificationCode)
     )
     verification_code = result.scalar_one_or_none()
     if not verification_code:
@@ -673,7 +740,6 @@ async def verify_and_mark_code_used(
         },
     }
 
-    verification_code.used = True
     await session.commit()
 
     return signup_data
@@ -698,13 +764,16 @@ async def verify_and_mark_email_code_used(
         return None
 
     result = await session.execute(
-        select(VerificationCode).where(
+        update(VerificationCode)
+        .where(
             VerificationCode.email == normalized,
             VerificationCode.phone_number.is_(None),
             VerificationCode.code == code,
             VerificationCode.used.is_(False),
             VerificationCode.expires_at > utcnow().isoformat(),
         )
+        .values(used=True)
+        .returning(VerificationCode)
     )
     verification_code = result.scalar_one_or_none()
     if not verification_code:
@@ -727,10 +796,34 @@ async def verify_and_mark_email_code_used(
         },
     }
 
-    verification_code.used = True
     await session.commit()
 
     return signup_data
+
+
+async def invalidate_verification_codes(
+    session: AsyncSession,
+    *,
+    phone_number: Optional[str] = None,
+    email: Optional[str] = None,
+) -> None:
+    """Invalidate every unused verification code for one normalized identifier."""
+    if bool(phone_number) == bool(email):
+        raise ValueError("Provide exactly one verification identifier")
+
+    if phone_number:
+        condition = VerificationCode.phone_number == phone_number
+    else:
+        condition = and_(
+            VerificationCode.email == email.strip().lower(),
+            VerificationCode.phone_number.is_(None),
+        )
+    await session.execute(
+        update(VerificationCode)
+        .where(condition, VerificationCode.used.is_(False))
+        .values(used=True)
+    )
+    await session.commit()
 
 
 def is_account_locked(user: Dict) -> bool:
@@ -836,7 +929,12 @@ async def clear_account_lock(session: AsyncSession, user_id: int):
 
 
 async def create_refresh_token(
-    session: AsyncSession, user_id: int, token: str, expires_at: datetime
+    session: AsyncSession,
+    user_id: int,
+    token: str,
+    expires_at: datetime,
+    *,
+    session_version: int = 0,
 ) -> bool:
     """
     Create a refresh token record.
@@ -863,12 +961,17 @@ async def create_refresh_token(
         )
 
         # Create new refresh token
-        new_token = RefreshToken(user_id=user_id, token=token, expires_at=expires_at_str)
+        new_token = RefreshToken(
+            user_id=user_id,
+            token=token,
+            expires_at=expires_at_str,
+            session_version=session_version,
+        )
         session.add(new_token)
         await session.commit()
         return True
-    except Exception as e:
-        logger.error(f"Error creating refresh token: {str(e)}")
+    except Exception as exc:
+        logger.error("Error creating refresh token error_code=%s", type(exc).__name__)
         await session.rollback()
         return False
 
@@ -892,6 +995,7 @@ async def get_refresh_token(session: AsyncSession, token: str) -> Optional[Dict]
             "user_id": refresh_token.user_id,
             "token": refresh_token.token,
             "expires_at": refresh_token.expires_at,
+            "session_version": refresh_token.session_version or 0,
             "created_at": refresh_token.created_at.isoformat()
             if refresh_token.created_at
             else None,
@@ -1001,9 +1105,10 @@ async def verify_and_use_password_reset_token(session: AsyncSession, token: str)
 
     user_id = reset_token.user_id
 
-    # Atomically mark as used
+    # Flush without committing so password replacement, session revocation,
+    # and replacement-token creation can share this transaction.
     reset_token.used = True
-    await session.commit()
+    await session.flush()
 
     return user_id
 

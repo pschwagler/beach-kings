@@ -11,12 +11,16 @@ from datetime import datetime, timedelta
 from backend.utils.datetime_utils import utcnow
 from backend.api.main import app
 from backend.api import auth_dependencies
+from backend.api.routes import matches as matches_routes
 from backend.database.db import get_db_session
 from backend.services import (
     auth_service,
     user_service,
     data_service,
+    interaction_policy,
+    moderation_service,
     photo_match_service,
+    role_service,
     youth_safety_service,
 )
 
@@ -82,6 +86,21 @@ def make_client_with_auth(monkeypatch, phone="+10000000000", user_id=1):
 
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
 
+    async def fake_is_system_admin(session, uid):
+        return True
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+
+    async def fake_enforce_user_ugc_creation(session, uid):
+        return None
+
+    monkeypatch.setattr(
+        interaction_policy,
+        "enforce_user_ugc_creation",
+        fake_enforce_user_ugc_creation,
+        raising=True,
+    )
+
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
 
@@ -132,8 +151,8 @@ class TestAuthEndpoints:
         assert response.status_code == 200, f"Response: {response.status_code} - {response.text}"
         assert response.json()["status"] == "success"
 
-    def test_signup_duplicate_phone(self, monkeypatch):
-        """Test signup with duplicate phone number."""
+    def test_signup_duplicate_phone_returns_uniform_success(self, monkeypatch):
+        """Signup does not disclose whether the phone number is registered."""
         client = TestClient(app)
 
         def fake_normalize_phone_number(phone):
@@ -156,8 +175,8 @@ class TestAuthEndpoints:
             "eligibility_token": _eligibility_token(),
         }
         response = client.post("/api/auth/signup", json=payload)
-        assert response.status_code == 400
-        assert "already registered" in response.json()["detail"].lower()
+        assert response.status_code == 200
+        assert "If this email or phone number can be used" in response.json()["message"]
 
     def test_signup_missing_full_name(self, monkeypatch):
         """Test signup without required full_name."""
@@ -204,7 +223,9 @@ class TestAuthEndpoints:
                 "is_verified": True,
             }
 
-        async def fake_create_refresh_token(session, user_id, token, expires_at):
+        async def fake_create_refresh_token(
+            session, user_id, token, expires_at, *, session_version=0
+        ):
             return True
 
         monkeypatch.setattr(
@@ -247,6 +268,15 @@ class TestAuthEndpoints:
         payload = {"phone_number": "+15551234567", "password": "testpass123"}
         response = client.post("/api/auth/login", json=payload)
         assert response.status_code == 401
+        wrong_password_detail = response.json()["detail"]
+
+        async def fake_missing_user(session, phone):
+            return None
+
+        monkeypatch.setattr(user_service, "get_user_by_phone", fake_missing_user, raising=True)
+        missing_response = client.post("/api/auth/login", json=payload)
+        assert missing_response.status_code == 401
+        assert missing_response.json()["detail"] == wrong_password_detail
 
     def test_send_verification(self, monkeypatch):
         """Test sending verification code."""
@@ -304,7 +334,9 @@ class TestAuthEndpoints:
         async def fake_reset_failed_attempts(session, user_id):
             pass
 
-        async def fake_create_refresh_token(session, user_id, token, expires_at):
+        async def fake_create_refresh_token(
+            session, user_id, token, expires_at, *, session_version=0
+        ):
             return True
 
         monkeypatch.setattr(
@@ -390,7 +422,9 @@ class TestAuthEndpoints:
         async def fake_delete_refresh_token(session, token):
             return True
 
-        async def fake_create_refresh_token(session, user_id, token, expires_at):
+        async def fake_create_refresh_token(
+            session, user_id, token, expires_at, *, session_version=0
+        ):
             return True
 
         monkeypatch.setattr(
@@ -433,8 +467,8 @@ class TestAuthEndpoints:
         response = client.post("/api/auth/refresh", json=payload)
         assert response.status_code == 401
 
-    def test_check_phone(self, monkeypatch):
-        """Test check phone endpoint."""
+    def test_check_phone_is_retired(self, monkeypatch):
+        """Account discovery endpoint no longer reveals registration state."""
         client = TestClient(app)
 
         def fake_normalize_phone_number(phone):
@@ -451,10 +485,8 @@ class TestAuthEndpoints:
         )
 
         response = client.get("/api/auth/check-phone?phone_number=+15551234567")
-        if response.status_code != 200:
-            print(f"Error: {response.status_code}, {response.text}")
-        assert response.status_code == 200, f"Response: {response.status_code} - {response.text}"
-        assert response.json()["exists"] is True
+        assert response.status_code == 410
+        assert response.json()["detail"] == "This endpoint is no longer available."
 
     def test_get_me(self, monkeypatch):
         """Test get current user endpoint."""
@@ -471,6 +503,13 @@ class TestAuthEndpoints:
             }
 
         monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
+
+        async def fake_account_status(session, user_id):
+            return {"account_status": "active"}
+
+        monkeypatch.setattr(
+            moderation_service, "account_status", fake_account_status, raising=True
+        )
 
         response = client.get("/api/auth/me", headers=headers)
         assert response.status_code == 200
@@ -537,7 +576,7 @@ class TestGoogleAuthEndpoint:
         monkeypatch.setattr(
             user_service,
             "create_refresh_token",
-            lambda session, uid, tok, exp: _async(True),
+            lambda session, uid, tok, exp, **kwargs: _async(True),
             raising=True,
         )
         monkeypatch.setattr(
@@ -720,7 +759,7 @@ class TestAppleAuthEndpoint:
         monkeypatch.setattr(
             user_service,
             "create_refresh_token",
-            lambda session, uid, tok, exp: _async(True),
+            lambda session, uid, tok, exp, **kwargs: _async(True),
             raising=True,
         )
         monkeypatch.setattr(
@@ -1128,12 +1167,21 @@ class TestMatchEndpoints:
         async def fake_create_match_async(session, match_request, session_id):
             return 1001
 
+        async def fake_require_active_players(session, player_ids):
+            return None
+
         monkeypatch.setattr(data_service, "create_session", fake_create_session, raising=True)
         monkeypatch.setattr(
             data_service, "get_player_by_user_id", fake_get_player_by_user_id, raising=True
         )
         monkeypatch.setattr(
             data_service, "create_match_async", fake_create_match_async, raising=True
+        )
+        monkeypatch.setattr(
+            matches_routes,
+            "require_active_players",
+            fake_require_active_players,
+            raising=True,
         )
 
         payload = {

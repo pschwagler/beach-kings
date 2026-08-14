@@ -967,9 +967,7 @@ async def discover_players(
     from backend.services import youth_interaction_policy
 
     base_query = base_query.where(
-        youth_interaction_policy.discovery_visibility(
-            Player.id, Player.user_id, caller_player_id
-        )
+        youth_interaction_policy.discovery_visibility(Player.id, Player.user_id, caller_player_id)
     )
 
     # Apply filters

@@ -45,6 +45,7 @@ class User(Base):
     )
     moderation_updated_at = Column(DateTime(timezone=True), nullable=True)
     password_changed_at = Column(DateTime(timezone=True), nullable=True)
+    session_version = Column(Integer, nullable=False, server_default="0")
     profile_is_private = Column(
         Boolean, nullable=False, server_default="false"
     )  # Hide profile from non-friends

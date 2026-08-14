@@ -146,7 +146,7 @@ tested once as a full matrix and smoke-checked on every route.
 | `/beach-volleyball/:slug` | Directory back; courts; leagues; players | Cross-page graph works | Invalid slug, empty sections, API failure | `W-E2E` happy/404 |
 | `/invite/:token` | Sign up/login; claim; dismiss/back/home | Anonymous authenticates then claims; authenticated direct claim | Invalid, expired, already claimed, self/merge conflict, claim failure, retry | `W-E2E` |
 | `/session/:code` | Back; join/auto-join; court; share; participant/player; view modes | Valid public/shared session opens | Invalid code, unauthenticated gate where applicable, closed/deleted session, join failure | Happy partial `W-E2E`; invalid/error `GAP` |
-| `/kob/:code` | Now Playing/Schedule/Standings; score entry when authorized | Spectator live view and director scoring | Invalid code, stale concurrent score, unauthorized director action, offline/retry | `GAP` |
+| `/kob/:code` | Now Playing/Schedule/Standings; public score entry | Spectator live view and public scoring | Invalid code, stale concurrent score, director-only management action, offline/retry | `GAP` |
 | `/privacy-policy`, `/terms-of-service`, `/community-guidelines`, `/support`, `/contribute` | Navbar; support mail link; repository/external links; cross-policy link | Correct content and safe external target | Link-handler unavailable, Navbar missing, external link attributes | Most `W-E2E`; community guidelines/external behaviors `GAP` |
 | Unknown route / `not-found` | Return Home | Navbar and recovery link render | Anonymous/authenticated destinations correct | `GAP` |
 
@@ -207,7 +207,7 @@ Dashboard-level unhappy paths:
 | --- | --- | --- | --- | --- |
 | `/kob/create` | Format pills/recommendation; player add/remove/order; settings; preview; create | Tournament created and share code opens | Invalid count/name/settings, unauthenticated, create failure | `GAP` |
 | `/kob/manage/:id` | Edit tournament; add/remove/reorder players; generate/start; director controls; delete | Director can manage lifecycle | Unauthorized, already started, invalid roster, stale concurrent update, delete cancel/failure | `GAP` |
-| `/kob/:code` | Now Playing/Schedule/Standings; select match; enter/edit score | Public state updates and standings recalculate | Invalid code, invalid score, completed tournament, realtime disconnect | `GAP` |
+| `/kob/:code` | Now Playing/Schedule/Standings; select match; enter/edit score | Public score entry updates state and standings recalculate | Invalid code, invalid score, completed tournament, realtime disconnect | `GAP` |
 
 ### System admin web app
 
@@ -220,6 +220,28 @@ Dashboard-level unhappy paths:
 | Users | Search; status/role filters; paginate; expand history; grant/revoke system admin with reason | Role change reflected | Empty reason, self/last-admin safety, target changed concurrently, request failure | `GAP` |
 | Feedback | Refresh; mark resolved/unresolved | State toggles | Empty/load/mutation failure | Component only, `GAP` E2E |
 | Settings / WhatsApp | Edit config; initialize/logout; QR/status/groups/send where exposed | Valid config and state transition | Secret redaction, invalid destination/config, disconnected service, send failure | `GAP`; never expose credentials in artifacts |
+
+### Manual agent-browser web annotation — 2026-08-14
+
+Fresh Chromium validation against this map is recorded in
+`docs/E2E_WEB_VALIDATION_2026-08-13.md` (the filename retains the requested
+report key). This annotation describes manual evidence and does not replace the
+historical executable-suite labels above.
+
+| Web area | Manual status | Evidence annotation |
+| --- | --- | --- |
+| Navbar, public/static routes, not-found | Partial pass | Navbar present on every sampled desktop/phone route; static and unknown-route recovery passed. Overlay keyboard behavior failed (`WEB-005`). |
+| Authentication and account gates | Failed | Local seeded phone login blocked by `ENV-001`; suspended account bypassed restricted entry (`WEB-002`). |
+| Dashboard and social | Failed / partial | Core tabs, friendship, DM, notifications, and logout persistence exercised; invalid tab and offline navigation failed (`WEB-003`, `WEB-004`). |
+| Leagues | Failed / partial | Six tabs, admin/member visibility, and persistent league message exercised; missing season end date rendered as 1969 (`WEB-007`). |
+| Pickup sessions | Partial pass | Created roster/game, validated invalid input, canceled/confirmed submission, and reloaded persistence; invite/error/concurrency branches remain open. |
+| Courts and locations | Partial pass | List/map/detail/gallery/location graph, review validation, court-save persistence, and two phone sizes exercised; full mutation/failure matrix remains open. |
+| KOB | Partial pass | Create/manage/start and public live score persistence worked as intended; invalid-score, realtime, concurrency, and completed-tournament branches remain open. |
+| System admin | Partial pass | Anonymous/non-admin/admin gates and all six admin tabs rendered; destructive, role, moderation, and failure mutations remain open. |
+| Responsive/accessibility/failure state | Failed / partial | No sampled horizontal overflow at `390×844` or `375×667`; auth focus/dialog, Escape, suspended gate, invalid-tab, and offline recovery defects recorded. |
+
+Manual sign-off: **failed**. Every row's exact PASS/PARTIAL/FAIL/BLOCKED or NOT
+EXERCISED result is in the linked report.
 
 ## Mobile click network
 

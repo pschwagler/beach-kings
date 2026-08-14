@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, TrendingUp, Target, Award, Swords } from 'lucide-react';
 import MyLeaguesBar from '../dashboard/MyLeaguesBar';
@@ -90,7 +90,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   const fullName = currentUserPlayer?.full_name || 'Player';
 
   // Calculate stats from match history (memoized)
-  const calculateStatsFromMatches = () => {
+  const calculateStatsFromMatches = useCallback(() => {
     if (!userMatches || userMatches.length === 0) {
       // Fall back to global stats if available, otherwise use defaults
       return {
@@ -142,11 +142,11 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     const winRate30Days = games30Days > 0 ? Math.round((wins / games30Days) * 100) : 0;
 
     return { totalGames, currentRating, games30Days, winRate30Days };
-  };
+  }, [currentUserPlayer, userMatches]);
 
   const { totalGames, currentRating, games30Days, winRate30Days } = useMemo(
     () => calculateStatsFromMatches(),
-    [userMatches, currentUserPlayer]
+    [calculateStatsFromMatches]
   );
 
   return (

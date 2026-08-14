@@ -134,6 +134,16 @@ describe('SignupScreen', () => {
     expect(mockOpenPublicWebUrl).toHaveBeenCalledWith(expectedUrl);
   });
 
+  it.each(['Terms of Service', 'Privacy Policy'])(
+    'gives the %s link a 44-point touch target',
+    (label) => {
+      const { getByRole } = render(<SignupScreen />);
+      expect(getByRole('link', { name: label }).props.className).toContain(
+        'min-h-touch',
+      );
+    },
+  );
+
   it('calls signup with correct params and navigates to verify', async () => {
     mockSignup.mockResolvedValueOnce(undefined);
     const result = render(<SignupScreen />);

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MessageCircle, ArrowLeft, Send, Loader2, PenSquare, Search } from 'lucide-react';
+import { MessageCircle, ArrowLeft, Loader2, PenSquare, Search } from 'lucide-react';
 import { Button } from '../ui/UI';
 import api, {
   getConversations,
@@ -16,6 +16,8 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { isImageUrl } from '../../utils/avatar';
 import { formatRelativeTime } from '../../utils/dateUtils';
+import MessageBubble from '../messages/MessageBubble';
+import MessageComposer from '../messages/MessageComposer';
 import './MessagesTab.css';
 
 const MAX_CHARS = 500;
@@ -430,13 +432,6 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
     }
   }, [text, sending, otherPlayerId]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
   if (loading) {
     return (
       <div className="messages-tab__loading">
@@ -444,9 +439,6 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
       </div>
     );
   }
-
-  // Group messages with date separators
-  let lastDateLabel: string | null = null;
 
   return (
     <div className="messages-tab__thread">
@@ -473,25 +465,24 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
         {messages.map((msg, idx) => {
           const isMine = msg.sender_player_id === myPlayerId;
           const dateLabel = getDateLabel(msg.created_at);
-          let showDateSeparator = false;
-          if (dateLabel !== lastDateLabel) {
-            showDateSeparator = true;
-            lastDateLabel = dateLabel;
-          }
+          const previousDateLabel = idx > 0
+            ? getDateLabel(messages[idx - 1].created_at)
+            : null;
+          const showDateSeparator = dateLabel !== previousDateLabel;
 
           return (
             <div key={msg.id ?? `msg-${idx}`}>
               {showDateSeparator && (
                 <div className="messages-tab__date-separator">{dateLabel}</div>
               )}
-              <div className={`messages-tab__message-row messages-tab__message-row--${isMine ? 'mine' : 'theirs'}`}>
-                <div className={`messages-tab__bubble messages-tab__bubble--${isMine ? 'mine' : 'theirs'}`}>
-                  {msg.message_text}
-                  <div className="messages-tab__bubble-time">
-                    {formatMessageTime(msg.created_at)}
-                  </div>
-                </div>
-              </div>
+              <MessageBubble
+                message={msg.message_text}
+                timestamp={msg.created_at}
+                timeLabel={formatMessageTime(msg.created_at)}
+                isMine={isMine}
+                authorName={otherPlayerName}
+                authorAvatar={otherPlayerAvatar}
+              />
             </div>
           );
         })}
@@ -501,34 +492,16 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
         <p className="messages-tab__send-error">{sendError}</p>
       )}
       {isFriend ? (
-        <div className="messages-tab__input-area">
-          <div className="messages-tab__input-wrapper">
-            <textarea
-              className="messages-tab__input"
-              placeholder="Type a message..."
-              value={text}
-              onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              data-testid="message-input"
-            />
-            {text.length > MAX_CHARS - 50 && (
-              <span className={`messages-tab__char-count${text.length >= MAX_CHARS ? ' messages-tab__char-count--warn' : ''}`}>
-                {text.length}/{MAX_CHARS}
-              </span>
-            )}
-          </div>
-          <button
-            className="messages-tab__send-btn"
-            onClick={handleSend}
-            disabled={!text.trim() || sending}
-            title="Send"
-            type="button"
-            data-testid="send-message-btn"
-          >
-            <Send size={18} />
-          </button>
-        </div>
+        <MessageComposer
+          value={text}
+          onChange={setText}
+          onSend={handleSend}
+          sending={sending}
+          maxLength={MAX_CHARS}
+          inputLabel={`Message ${otherPlayerName}`}
+          inputTestId="message-input"
+          sendTestId="send-message-btn"
+        />
       ) : (
         <div className="messages-tab__readonly-notice">
           You must be friends to send messages.

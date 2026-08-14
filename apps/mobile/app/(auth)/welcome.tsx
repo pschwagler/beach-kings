@@ -137,13 +137,21 @@ export default function WelcomeScreen(): React.ReactNode {
                 By continuing, you agree to our
               </AppText>
               <View className="flex-row gap-xs mt-xxs">
-                <Pressable onPress={handleTos} accessibilityRole="link">
+                <Pressable
+                  onPress={handleTos}
+                  accessibilityRole="link"
+                  className="min-h-touch justify-center px-xs"
+                >
                   <AppText className="text-caption text-inverse underline">
                     Terms of Service
                   </AppText>
                 </Pressable>
                 <AppText className="text-caption text-inverse">and</AppText>
-                <Pressable onPress={handlePrivacy} accessibilityRole="link">
+                <Pressable
+                  onPress={handlePrivacy}
+                  accessibilityRole="link"
+                  className="min-h-touch justify-center px-xs"
+                >
                   <AppText className="text-caption text-inverse underline">
                     Privacy Policy
                   </AppText>

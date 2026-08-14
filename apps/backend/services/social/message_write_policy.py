@@ -94,7 +94,4 @@ async def enforce_write_enabled(session: AsyncSession, surface: MessageSurface) 
 
 async def readiness_statuses(session: AsyncSession) -> dict[str, str]:
     """Return privacy-safe readiness values for both message surfaces."""
-    return {
-        surface.value: await surface_status(session, surface)
-        for surface in MessageSurface
-    }
+    return {surface.value: await surface_status(session, surface) for surface in MessageSurface}

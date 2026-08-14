@@ -1,4 +1,5 @@
-import { cleanupTestUsers } from '../fixtures/db.js';
+import { cleanupTestUsers, E2E_PHONE_LIKE_PATTERN } from '../fixtures/db.js';
+import { LOCAL_E2E, verifyLocalE2ESafety } from './safety-gate.js';
 
 /**
  * Global setup for Playwright tests
@@ -8,9 +9,13 @@ import { cleanupTestUsers } from '../fixtures/db.js';
 async function globalSetup(config) {
   console.log('Running global setup...');
 
+  // This must run before cleanup or seeding. Any endpoint, container,
+  // environment, or database mismatch aborts the run before a mutation.
+  const safety = await verifyLocalE2ESafety();
+  console.log(`✓ Local-only safety gate passed (${safety.database}, ENV=${safety.environment})`);
+
   // Check if test database is available
-  const testDbUrl = process.env.TEST_DATABASE_URL ||
-    `postgresql://${process.env.POSTGRES_USER || 'beachkings'}:${process.env.POSTGRES_PASSWORD || 'beachkings'}@${process.env.POSTGRES_HOST || 'localhost'}:${process.env.POSTGRES_PORT || '5433'}/${process.env.TEST_POSTGRES_DB || 'beachkings_test'}`;
+  const testDbUrl = process.env.TEST_DATABASE_URL || LOCAL_E2E.databaseUrl;
 
   console.log(`Test database URL: ${testDbUrl.replace(/:[^:@]+@/, ':****@')}`);
 
@@ -26,31 +31,26 @@ async function globalSetup(config) {
     // Clean up orphaned test users from prior crashed runs.
     // This prevents AxiosError 400 on signup when phone numbers are already taken.
     try {
-      await cleanupTestUsers('%+1555%');
+      await cleanupTestUsers(E2E_PHONE_LIKE_PATTERN);
       console.log('✓ Orphaned test users cleaned up');
     } catch (cleanupErr) {
-      console.warn('⚠ Test user cleanup failed:', cleanupErr.message);
+      throw new Error(`Namespaced test-user cleanup failed: ${cleanupErr.message}`);
     }
 
-    // Seed test location if it doesn't exist (required for profile completion)
-    const locationResult = await client.query(
-      "SELECT id FROM locations WHERE id = 'socal_sd'"
-    );
-    if (locationResult.rows.length === 0) {
-      // First ensure the region exists
-      await client.query(`
-        INSERT INTO regions (id, name)
-        VALUES ('california', 'California')
-        ON CONFLICT (id) DO NOTHING
-      `);
-      // Then insert the location
-      await client.query(`
-        INSERT INTO locations (id, name, city, state, region_id, tier, latitude, longitude, seasonality, radius_miles, slug)
-        VALUES ('socal_sd', 'CA - San Diego', 'Mission Beach', 'CA', 'california', 1, 32.7698, -117.2514, 'Year-Round', 30, 'mission-beach-ca')
-        ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug
-      `);
-      console.log('✓ Test location seeded');
-    }
+    // Seed (or normalize) the test location required for profile completion.
+    // The upsert runs unconditionally so an existing bootstrap row with a
+    // stale slug (e.g. 'mission-beach') is corrected to 'mission-beach-ca'.
+    await client.query(`
+      INSERT INTO regions (id, name)
+      VALUES ('california', 'California')
+      ON CONFLICT (id) DO NOTHING
+    `);
+    await client.query(`
+      INSERT INTO locations (id, name, city, state, region_id, tier, latitude, longitude, seasonality, radius_miles, slug)
+      VALUES ('socal_sd', 'CA - San Diego', 'Mission Beach', 'CA', 'california', 1, 32.7698, -117.2514, 'Year-Round', 30, 'mission-beach-ca')
+      ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug
+    `);
+    console.log('✓ Test location seeded');
 
     // Seed test courts if they don't exist (required for court-pages + court-reviews tests)
     const courtResult = await client.query(
@@ -77,10 +77,7 @@ async function globalSetup(config) {
     await client.end();
   } catch (error) {
     console.error('✗ Test database connection failed:', error.message);
-    console.error('Make sure the test database is running. You can start it with:');
-    console.error('  docker-compose -f docker-compose.test.yml up -d postgres-test');
-    // Don't throw - allow tests to run even if DB check fails (tests will fail if DB is actually down)
-    console.warn('⚠ Continuing anyway - tests will fail if database is unavailable');
+    throw error;
   }
   
   // Wait for API to be ready (retry loop so cold-start backends don't cause all tests to fail)

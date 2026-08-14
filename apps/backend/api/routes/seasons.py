@@ -17,6 +17,8 @@ from backend.services import (
     friend_service,
 )
 from backend.api.auth_dependencies import (
+    _has_league_role,
+    _is_system_admin,
     get_current_user,
     get_current_user_optional,
     require_user,
@@ -132,6 +134,18 @@ async def update_season(
     When changing scoring system, stats will be recalculated.
     """
     try:
+        existing = await data_service.get_season(session, season_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Season not found")
+
+        if not await _is_system_admin(session, user) and not await _has_league_role(
+            session,
+            user_id=user["id"],
+            league_id=existing["league_id"],
+            required_role="admin",
+        ):
+            raise HTTPException(status_code=403, detail="League admin access required")
+
         body = await request.json()
         season = await data_service.update_season(session, season_id=season_id, **body)
         if not season:

@@ -1,0 +1,62 @@
+diff --git a/node_modules/metro/src/Assets.js b/node_modules/metro/src/Assets.js
+index b34df88..e874eca 100644
+--- a/node_modules/metro/src/Assets.js
++++ b/node_modules/metro/src/Assets.js
+@@ -14,7 +14,7 @@ var AssetPaths = _interopRequireWildcard(
+ );
+ var _crypto = _interopRequireDefault(require("crypto"));
+ var _fs = _interopRequireDefault(require("fs"));
+-var _imageSize = _interopRequireDefault(require("image-size"));
++var _probeImageSize = require("image-size/sync");
+ var _path = _interopRequireDefault(require("path"));
+ function _interopRequireDefault(e) {
+   return e && e.__esModule ? e : { default: e };
+@@ -62,6 +62,30 @@ function isAssetTypeAnImage(type) {
+     ].indexOf(type) !== -1
+   );
+ }
++function getImageDimensions(input, filePath) {
++  const content =
++    typeof input === "string" ? _fs.default.readFileSync(input) : input;
++  const dimensions =
++    _probeImageSize(content) ?? getKtxImageDimensions(content);
++  if (dimensions != null) {
++    return dimensions;
++  }
++  throw new Error(`Unsupported or invalid image asset: \`${filePath}\`.`);
++}
++function getKtxImageDimensions(content) {
++  const signature = content.subarray(1, 7).toString("utf8");
++  if (signature !== "KTX 11" && signature !== "KTX 20") {
++    return null;
++  }
++  const offset = signature === "KTX 11" ? 36 : 20;
++  if (content.length < offset + 8) {
++    return null;
++  }
++  return {
++    width: content.readUInt32LE(offset),
++    height: content.readUInt32LE(offset + 4),
++  };
++}
+ function getAssetSize(type, content, filePath) {
+   if (!isAssetTypeAnImage(type)) {
+     return null;
+@@ -69,7 +93,7 @@ function getAssetSize(type, content, filePath) {
+   if (content.length === 0) {
+     throw new Error(`Image asset \`${filePath}\` cannot be an empty file.`);
+   }
+-  const { width, height } = (0, _imageSize.default)(content);
++  const { width, height } = getImageDimensions(content, filePath);
+   return {
+     width,
+     height,
+@@ -174,7 +198,7 @@ async function getAssetData(
+   const isImageInput = assetInfo.files[0].includes(".zip/")
+     ? _fs.default.readFileSync(assetInfo.files[0])
+     : assetInfo.files[0];
+-  const dimensions = isImage ? (0, _imageSize.default)(isImageInput) : null;
++  const dimensions = isImage ? getImageDimensions(isImageInput, assetPath) : null;
+   const scale = assetInfo.scales[0];
+   const assetData = {
+     __packager_asset: true,

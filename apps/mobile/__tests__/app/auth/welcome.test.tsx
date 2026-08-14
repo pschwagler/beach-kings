@@ -94,4 +94,14 @@ describe('WelcomeScreen', () => {
     fireEvent.press(getByText(label));
     expect(mockOpenPublicWebUrl).toHaveBeenCalledWith(expectedUrl);
   });
+
+  it.each(['Terms of Service', 'Privacy Policy'])(
+    'gives the %s link a 44-point touch target',
+    (label) => {
+      const { getByRole } = render(<WelcomeScreen />);
+      expect(getByRole('link', { name: label }).props.className).toContain(
+        'min-h-touch',
+      );
+    },
+  );
 });

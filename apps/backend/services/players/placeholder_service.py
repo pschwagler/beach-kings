@@ -561,9 +561,11 @@ async def merge_placeholder_into_player(
     conflicting_match_ids = [row[0] for row in conflict_result.all()]
 
     if conflicting_match_ids:
+        match_count = len(conflicting_match_ids)
+        match_label = "match" if match_count == 1 else "matches"
         raise MergeConflictError(
-            f"{len(conflicting_match_ids)} match(es) contain both the placeholder "
-            f"and your player profile. This placeholder cannot be claimed by you."
+            f"Your player profile already appears in {match_count} {match_label} with or "
+            "against this player, so you can’t claim their profile."
         )
 
     # 2. Transfer match FKs from placeholder to target

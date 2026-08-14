@@ -46,6 +46,7 @@ import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import type { Player } from '@beach-kings/shared';
 import { useConnectedAccounts } from './useConnectedAccounts';
+import DeleteAccountDialog from './DeleteAccountDialog';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -160,7 +161,9 @@ export default function SettingsScreen(): React.ReactNode {
   const { themeMode } = useTheme();
   const hasPassword = user?.has_password !== false;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const {
     appleAvailable,
@@ -284,60 +287,34 @@ export default function SettingsScreen(): React.ReactNode {
 
   const handleDeleteAccount = useCallback(() => {
     void hapticMedium();
-    Alert.alert(
-      'Delete Account?',
-      'Delete now to permanently remove your account immediately, or schedule deletion with 30 days to recover your account.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete in 30 Days',
-          style: 'destructive',
-          onPress: () => {
-            setIsDeletingAccount(true);
-            void api.scheduleAccountDeletion()
-              .then(() => {
-                Alert.alert(
-                  'Account Scheduled for Deletion',
-                  'Your account will be deleted in 30 days. Logging back in before then will automatically cancel the deletion.',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => { void logout(); },
-                    },
-                  ],
-                );
-              })
-              .catch(() => {
-                Alert.alert('Error', 'Could not schedule account deletion. Please try again.');
-              })
-              .finally(() => {
-                setIsDeletingAccount(false);
-              });
-          },
-        },
-        {
-          text: 'Delete Now',
-          style: 'destructive',
-          onPress: () => {
-            setIsDeletingAccount(true);
-            void api.deleteAccountNow()
-              .then(() => {
-                Alert.alert(
-                  'Account Deleted',
-                  'Your account and associated personal data have been permanently deleted.',
-                  [{ text: 'OK', onPress: () => { void logout(); } }],
-                );
-              })
-              .catch(() => {
-                Alert.alert('Error', 'Could not delete your account. Please try again.');
-              })
-              .finally(() => {
-                setIsDeletingAccount(false);
-              });
-          },
-        },
-      ],
-    );
+    setDeleteError(null);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const scheduleAccountDeletion = useCallback(() => {
+    setDeleteError(null);
+    setIsDeletingAccount(true);
+    void api.scheduleAccountDeletion()
+      .then(() => { void logout(); })
+      .catch(() => {
+        setDeleteError('Could not schedule account deletion. Please try again.');
+      })
+      .finally(() => {
+        setIsDeletingAccount(false);
+      });
+  }, [logout]);
+
+  const deleteAccountNow = useCallback(() => {
+    setDeleteError(null);
+    setIsDeletingAccount(true);
+    void api.deleteAccountNow()
+      .then(() => { void logout(); })
+      .catch(() => {
+        setDeleteError('Could not delete your account. Please try again.');
+      })
+      .finally(() => {
+        setIsDeletingAccount(false);
+      });
   }, [logout]);
 
   const handleLogout = useCallback(() => {
@@ -545,6 +522,14 @@ export default function SettingsScreen(): React.ReactNode {
         onConfirm={confirmLogout}
         onCancel={() => setShowLogoutConfirm(false)}
         testID="logout-dialog"
+      />
+      <DeleteAccountDialog
+        visible={showDeleteConfirm}
+        isPending={isDeletingAccount}
+        errorMessage={deleteError}
+        onCancel={() => setShowDeleteConfirm(false)}
+        onSchedule={scheduleAccountDeletion}
+        onDeleteNow={deleteAccountNow}
       />
     </SafeAreaView>
   );

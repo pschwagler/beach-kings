@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from backend.database.models import Friend, LeagueMember, Player, Season, User
+from backend.services.leagues.league_data import _active_season_conditions
 
 
 def _friend_pair(viewer_id: int, candidate_id):
@@ -33,8 +34,8 @@ def _active_shared_league(viewer_id: int, candidate_id):
         .where(
             viewer_membership.player_id == viewer_id,
             candidate_membership.player_id == candidate_id,
-            Season.start_date <= today,
-            or_(Season.end_date.is_(None), Season.end_date >= today),
+            # Canonical active-season predicate — do not inline date logic here.
+            *_active_season_conditions(today),
         )
     )
 
@@ -66,9 +67,7 @@ async def share_active_league(
     session: AsyncSession, first_player_id: int, second_player_id: int
 ) -> bool:
     return bool(
-        await session.scalar(
-            select(_active_shared_league(first_player_id, second_player_id))
-        )
+        await session.scalar(select(_active_shared_league(first_player_id, second_player_id)))
     )
 
 

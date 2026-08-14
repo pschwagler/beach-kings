@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { moderationKeys, moderationQueries } from '@/features/moderation';
 import { api } from '@/lib/api';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import DeleteAccountDialog from './DeleteAccountDialog';
 
 interface AccountModerationScreenProps {
   readonly fullAccount?: boolean;
@@ -43,6 +44,9 @@ export default function AccountModerationScreen({
   const userId = user?.id ?? 0;
   const statusQuery = useQuery(moderationQueries.accountStatus(userId));
   const [statement, setStatement] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletionPending, setDeletionPending] = useState(false);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
   const status = statusQuery.data;
   const accountState = status?.account_status ?? user?.moderation_status ?? 'active';
   const restrictedUntil = status?.interaction_restricted_until ??
@@ -112,22 +116,12 @@ export default function AccountModerationScreen({
   const statementValid = statement.trim().length >= 10;
 
   const scheduleDeletion = () => {
-    Alert.alert(
-      'Delete account?',
-      'Your account will be scheduled for deletion in 30 days. You can cancel by signing in again before then.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Schedule deletion',
-          style: 'destructive',
-          onPress: () => {
-            void api.scheduleAccountDeletion()
-              .then(() => logout())
-              .catch(() => Alert.alert('Could not schedule deletion', 'Please try again later.'));
-          },
-        },
-      ],
-    );
+    setDeletionError(null);
+    setDeletionPending(true);
+    void api.scheduleAccountDeletion()
+      .then(() => logout())
+      .catch(() => setDeletionError('Could not schedule deletion. Please try again later.'))
+      .finally(() => setDeletionPending(false));
   };
 
   return (
@@ -235,7 +229,7 @@ export default function AccountModerationScreen({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={scheduleDeletion}
+              onPress={() => setShowDeleteConfirm(true)}
               className="min-h-touch items-center justify-center rounded-xl px-lg active:opacity-70"
             >
               <AppText className="text-[14px] font-semibold text-danger">Delete account</AppText>
@@ -243,6 +237,14 @@ export default function AccountModerationScreen({
           </>
         )}
       </ScrollView>
+      <DeleteAccountDialog
+        visible={showDeleteConfirm}
+        isPending={deletionPending}
+        errorMessage={deletionError}
+        allowImmediateDeletion={false}
+        onCancel={() => setShowDeleteConfirm(false)}
+        onSchedule={scheduleDeletion}
+      />
     </SafeAreaView>
   );
 }

@@ -8,7 +8,7 @@
  *   number = specific season
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Season, LeagueStanding, LeagueSeasonInfo } from '@beach-kings/shared';
 import { api } from '@/lib/api';
@@ -92,9 +92,19 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
   // post-submit refetch, since standings were just viewed seconds earlier).
   const refetchStandings = standingsQuery.refetch;
   const refetchSeasons = seasonsQuery.refetch;
+  const canRefetchStandings = useRef(false);
+  const canRefetchSeasons = useRef(false);
+  canRefetchStandings.current =
+    selectedSeasonId !== null && standingsQuery.dataUpdatedAt > 0;
+  canRefetchSeasons.current = seasonsQuery.dataUpdatedAt > 0;
   const refetchOnFocus = useCallback(() => {
-    void refetchStandings();
-    void refetchSeasons();
+    // useFocusEffect also fires on the initial mount. Let each enabled query
+    // perform its normal first fetch, then reserve explicit refetches for an
+    // actual return to the screen. Refs keep this callback stable as the first
+    // responses arrive, avoiding a second focus-effect invocation while the
+    // screen is still continuously focused.
+    if (canRefetchStandings.current) void refetchStandings();
+    if (canRefetchSeasons.current) void refetchSeasons();
   }, [refetchSeasons, refetchStandings]);
   useRefreshOnFocus(refetchOnFocus, 0);
 

@@ -1,15 +1,18 @@
 """Calculation and health check route handlers."""
 
 import logging
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
 from backend.services.platform import email_service
+from backend.services import auth_service, auth_delivery_service
 from backend.services.social import message_write_policy
 from backend.services.stats.stats_queue import get_stats_queue
-from backend.api.auth_dependencies import get_current_user
+from backend.api.auth_dependencies import get_current_user, require_system_admin
+from backend.api.routes import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -17,9 +20,10 @@ router = APIRouter()
 
 @router.post("/api/calculate", response_model=dict)
 @router.post("/api/calculate-stats", response_model=dict)
+@limiter.limit("5/minute")
 async def calculate_stats(
     request: Request,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -131,6 +135,24 @@ async def readiness_check(session: AsyncSession = Depends(get_db_session)):
             missing.extend(email_missing)
         else:
             checks["email"] = "ready"
+
+    if os.getenv("ENV", "development").lower() == "production":
+        if not auth_delivery_service.delivery_enabled():
+            checks["auth_delivery"] = "disabled"
+            missing.append("AUTH_DELIVERY_ENABLED=true")
+        elif not await auth_delivery_service.heartbeat_is_fresh():
+            checks["auth_delivery"] = "unavailable"
+            missing.append("auth delivery worker heartbeat")
+        else:
+            checks["auth_delivery"] = "ready"
+
+        if await auth_service.is_sms_enabled(session):
+            sms_vars = ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER")
+            sms_missing = [name for name in sms_vars if not os.getenv(name)]
+            checks["sms"] = "misconfigured" if sms_missing else "ready"
+            missing.extend(sms_missing)
+        else:
+            checks["sms"] = "disabled"
 
     message_statuses = await message_write_policy.readiness_statuses(session)
     checks.update(message_statuses)

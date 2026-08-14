@@ -33,7 +33,12 @@ def downgrade() -> None:
     op.drop_constraint("ck_users_age_group", "users", type_="check")
     for table in ("verification_codes", "users"):
         for column in (
-            "age_assured_at", "guardian_consent", "age_declaration_source",
-            "age_assurance_source", "eligibility_region", "eligibility_country", "age_group",
+            "age_assured_at",
+            "guardian_consent",
+            "age_declaration_source",
+            "age_assurance_source",
+            "eligibility_region",
+            "eligibility_country",
+            "age_group",
         ):
             op.drop_column(table, column)

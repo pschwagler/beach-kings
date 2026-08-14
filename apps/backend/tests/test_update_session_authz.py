@@ -17,11 +17,11 @@ Authorization decision for the four cases:
 
   Case 3 — PICKUP EDIT with no promotion (session.league_id is NULL and no
             season_id is being set):
-            No tightening; preserve existing behavior (any authed user can
-            edit a pickup session they own / that is ACTIVE).
+            Creator, invited participant, or player in a recorded match may
+            edit the pickup session.
 
   Case 4 — SUBMIT (body.submit is True):
-            No tightening; the creator/participant submits without needing
+            A pickup collaborator or league member submits without needing
             league-admin role.
 
 Three-state model:
@@ -35,7 +35,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.services import auth_service, data_service, user_service
+from backend.services import auth_service, data_service, role_service, user_service
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +75,11 @@ def _patch_not_admin(monkeypatch):
 
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
 
+    async def fake_is_system_admin(session, user_id):
+        return False
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+
 
 def _patch_is_admin(monkeypatch):
     """Simulate user IS a system admin (bypasses all league-admin checks)."""
@@ -85,6 +90,11 @@ def _patch_is_admin(monkeypatch):
         return None
 
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+
+    async def fake_is_system_admin(session, user_id):
+        return True
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
 
 
 def _make_non_admin_client(monkeypatch):
@@ -152,7 +162,7 @@ class TestLeagueSessionEditRequiresAdmin:
 
     def test_non_admin_cannot_rename_league_session(self, monkeypatch):
         """REGRESSION (Bug #4, Case 2): a non-admin editing an existing league
-        session's name must receive 403.
+        session's name must receive a non-disclosing 404.
 
         Before the fix the route has no authorization check in the field-update
         path, so any authenticated user receives 200.  After the fix, only
@@ -187,8 +197,8 @@ class TestLeagueSessionEditRequiresAdmin:
             json={"name": "Hacked Name"},
             headers=headers,
         )
-        assert response.status_code == 403, (
-            f"Non-admin editing a league session name must be rejected with 403.  "
+        assert response.status_code == 404, (
+            f"Non-admin editing a league session name must be hidden with 404.  "
             f"Got {response.status_code}: {response.text}.  "
             "Bug #4 (Case 2) not fixed: missing league-admin authorization check."
         )
@@ -242,7 +252,7 @@ class TestPromotionRequiresTargetLeagueAdmin:
     """
 
     def test_non_admin_cannot_promote_pickup_to_league(self, monkeypatch):
-        """REGRESSION (Bug #4, Case 1): a non-admin must receive 403 when
+        """REGRESSION (Bug #4, Case 1): a non-admin must receive 404 when
         attempting to promote a pickup session to a league session.
 
         Before the fix the route performs no authorization check, so the
@@ -288,8 +298,8 @@ class TestPromotionRequiresTargetLeagueAdmin:
             json={"season_id": _SEASON_ID},
             headers=headers,
         )
-        assert response.status_code == 403, (
-            f"Non-admin promoting a pickup session to a league session must be rejected (403).  "
+        assert response.status_code == 404, (
+            f"Non-admin promoting a pickup session to a league session must be hidden (404).  "
             f"Got {response.status_code}: {response.text}.  "
             "Bug #4 (Case 1) not fixed: missing promotion authorization check."
         )
@@ -345,20 +355,15 @@ class TestPromotionRequiresTargetLeagueAdmin:
 
 
 # ---------------------------------------------------------------------------
-# Case 3: Pickup session edit (no promotion) — no tightening
+# Case 3: Pickup session edit (no promotion) — collaborators only
 # ---------------------------------------------------------------------------
 
 
-class TestPickupSessionEditNoTightening:
-    """Case 3: editing a pickup session's name/date without promotion must not
-    require league-admin authorization (behavior preserved from before the fix).
-    """
+class TestPickupSessionCollaborativeEdit:
+    """Pickup collaborators may edit metadata; unrelated users may not."""
 
-    def test_any_user_can_rename_pickup_session(self, monkeypatch):
-        """Any authenticated user can rename a pickup session (Case 3).
-
-        Non-regression: the fix must not block pickup-session edits.
-        """
+    def test_participant_can_rename_pickup_session(self, monkeypatch):
+        """An existing pickup participant can rename the session."""
         client, headers = _make_non_admin_client(monkeypatch)
 
         async def fake_get_session(session, session_id):
@@ -369,8 +374,17 @@ class TestPickupSessionEditNoTightening:
         async def fake_update_session(session, session_id, **kwargs):
             return updated
 
+        async def fake_can_collaborate(session, session_id, session_obj, user_id):
+            return True
+
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(data_service, "update_session", fake_update_session, raising=True)
+        monkeypatch.setattr(
+            data_service,
+            "can_user_add_match_to_session",
+            fake_can_collaborate,
+            raising=True,
+        )
 
         response = client.patch(
             f"/api/sessions/{_SESSION_ID}",
@@ -378,35 +392,59 @@ class TestPickupSessionEditNoTightening:
             headers=headers,
         )
         assert response.status_code == 200, (
-            f"Any authenticated user must be able to rename a pickup session.  "
+            f"A pickup participant must be able to rename the session.  "
             f"Got {response.status_code}: {response.text}.  "
-            "Bug #4 fix incorrectly tightened the pickup-session edit path."
+            "The collaborative pickup policy was not applied."
         )
 
+    def test_unrelated_user_cannot_rename_pickup_session(self, monkeypatch):
+        """Knowing a pickup session ID does not grant edit access."""
+        client, headers = _make_non_admin_client(monkeypatch)
+
+        async def fake_get_session(session, session_id):
+            return _PICKUP_SESSION
+
+        async def fake_can_collaborate(session, session_id, session_obj, user_id):
+            return False
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            data_service,
+            "can_user_add_match_to_session",
+            fake_can_collaborate,
+            raising=True,
+        )
+
+        response = client.patch(
+            f"/api/sessions/{_SESSION_ID}",
+            json={"name": "Unauthorized Rename"},
+            headers=headers,
+        )
+        assert response.status_code == 404
+
 
 # ---------------------------------------------------------------------------
-# Case 4: Submit path — no tightening (non-regression)
+# Case 4: Submit path — collaborators only
 # ---------------------------------------------------------------------------
 
 
-class TestSubmitPathNoTightening:
-    """Case 4: { submit: true } must not require league-admin authorization.
+class TestCollaborativeSubmitPath:
+    """A pickup collaborator may submit without league-admin authorization."""
 
-    This mirrors ``test_submit_true_locks_session`` in test_sessions_routes.py
-    and is included here explicitly as a non-regression guard.
-    """
-
-    def test_non_admin_can_submit_session(self, monkeypatch):
-        """Non-admin authenticated user can submit (lock) any session (Case 4).
-
-        The fix must NOT add any authorization check to the submit branch.
-        """
+    def test_participant_can_submit_session(self, monkeypatch):
+        """A pickup participant can submit the session."""
         from sqlalchemy.ext.asyncio import AsyncSession
 
         client, headers = _make_non_admin_client(monkeypatch)
 
         async def fake_get_player(session, user_id):
             return {"id": _PLAYER_ID, "full_name": "Test Player", "user_id": _USER_ID}
+
+        async def fake_get_session(session, session_id):
+            return _PICKUP_SESSION
+
+        async def fake_can_collaborate(session, session_id, session_obj, user_id):
+            return True
 
         async def fake_lock_in_session(session, session_id, updated_by=None):
             return {
@@ -430,8 +468,15 @@ class TestSubmitPathNoTightening:
             return FakeScalar()
 
         monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
         monkeypatch.setattr(data_service, "lock_in_session", fake_lock_in_session, raising=True)
+        monkeypatch.setattr(
+            data_service,
+            "can_user_add_match_to_session",
+            fake_can_collaborate,
+            raising=True,
+        )
 
         import backend.services.notifications.notification_service as notif_module
 
@@ -448,9 +493,9 @@ class TestSubmitPathNoTightening:
             headers=headers,
         )
         assert response.status_code == 200, (
-            f"Non-admin must be able to submit a session (Case 4).  "
+            f"A pickup participant must be able to submit the session.  "
             f"Got {response.status_code}: {response.text}.  "
-            "Bug #4 fix incorrectly tightened the submit path."
+            "The collaborative pickup policy was not applied."
         )
         data = response.json()
         assert data["global_job_id"] == 55
@@ -469,7 +514,7 @@ class TestGapGameEditRequiresAdmin:
     """
 
     def test_non_admin_cannot_rename_gap_game(self, monkeypatch):
-        """Non-admin editing a gap game's name must receive 403."""
+        """Non-admin editing a gap game's name must receive 404."""
         client, headers = _make_non_admin_client(monkeypatch)
 
         async def fake_get_session(session, session_id):
@@ -498,8 +543,8 @@ class TestGapGameEditRequiresAdmin:
             json={"name": "Hacked Name"},
             headers=headers,
         )
-        assert response.status_code == 403, (
-            f"Non-admin editing a gap game must be rejected with 403.  "
+        assert response.status_code == 404, (
+            f"Non-admin editing a gap game must be hidden with 404.  "
             f"Got {response.status_code}: {response.text}.  "
             "Bug #4 regression: gap games must follow the league-admin rule "
             "(discriminant is league_id, not season_id)."
@@ -554,7 +599,7 @@ class TestDemotionToGapGameRequiresAdmin:
     """
 
     def test_non_admin_cannot_demote_league_session_to_gap_game(self, monkeypatch):
-        """Non-admin sending {season_id: null} on a league session must get 403."""
+        """Non-admin sending {season_id: null} on a league session gets 404."""
         client, headers = _make_non_admin_client(monkeypatch)
 
         async def fake_get_session(session, session_id):
@@ -583,8 +628,8 @@ class TestDemotionToGapGameRequiresAdmin:
             json={"season_id": None},
             headers=headers,
         )
-        assert response.status_code == 403, (
-            f"Non-admin demoting a league session to a gap game must be rejected (403).  "
+        assert response.status_code == 404, (
+            f"Non-admin demoting a league session to a gap game must be hidden (404).  "
             f"Got {response.status_code}: {response.text}.  "
             "Demotion (season_id→null) keeps league_id set, so it must route "
             "through the Case 2 league-admin check."

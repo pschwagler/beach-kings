@@ -479,27 +479,28 @@ async def send_sms_verification(session: AsyncSession, phone_number: str, code: 
     # Check if SMS is disabled (database setting first, then env var)
     enable_sms = await is_sms_enabled(session)
     if not enable_sms:
-        logger.warning(f"SMS sending is disabled. Skipping SMS to {phone_number}.")
+        logger.info("SMS delivery disabled; verification delivery skipped")
         return True  # Return True to not break the flow, but log that SMS was skipped
 
     if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER]):
-        logger.error(
-            "Twilio credentials not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables."
-        )
+        logger.error("Verification SMS provider is not configured")
         return False
 
     try:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
-        message = client.messages.create(
+        client.messages.create(
             body=f"{APP_NAME}: Your verification code is: {code}",
             from_=TWILIO_PHONE_NUMBER,
             to=phone_number,
         )
 
-        logger.info(f"SMS sent to {phone_number}, SID: {message.sid}")
+        logger.info("Verification SMS accepted by provider")
         return True
 
-    except Exception as e:
-        logger.error(f"Failed to send SMS to {phone_number}: {str(e)}")
+    except Exception as exc:
+        logger.error(
+            "Verification SMS provider request failed error_code=%s",
+            type(exc).__name__,
+        )
         return False

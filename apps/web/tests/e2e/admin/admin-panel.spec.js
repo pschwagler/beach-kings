@@ -25,7 +25,7 @@ async function authenticateAndGoto(page, user, path) {
   await authMePromise;
 }
 
-test.describe('Admin Panel', () => {
+test.describe('Admin Panel @admin @p1', () => {
   test('admin panel loads for system admin', async ({
     browser,
     adminUser,
@@ -60,7 +60,7 @@ test.describe('Admin Panel', () => {
       await expect(page.locator('.admin-view-container')).toBeVisible({ timeout: 15000 });
 
       const adminNavigation = page.getByRole('navigation', { name: 'Admin navigation' });
-      const destinations = ['Dashboard', 'Settings', 'Courts', 'Feedback', 'Moderation'];
+      const destinations = ['Dashboard', 'Users', 'Settings', 'Courts', 'Feedback', 'Moderation'];
 
       await expect(adminNavigation).toBeVisible();
       for (const destination of destinations) {
@@ -109,6 +109,7 @@ test.describe('Admin Panel', () => {
     const page = await context.newPage();
     const destinations = [
       { name: 'Dashboard', tab: 'dashboard', content: page.getByRole('heading', { name: 'Platform Stats' }) },
+      { name: 'Users', tab: 'users', content: page.getByRole('heading', { name: 'Users', exact: true }) },
       { name: 'Settings', tab: 'settings', content: page.getByText('SMS Enabled') },
       { name: 'Courts', tab: 'courts', content: page.getByRole('heading', { name: 'Court review desk' }) },
       { name: 'Feedback', tab: 'feedback', content: page.getByRole('heading', { name: 'Feedback', exact: true }) },

@@ -34,6 +34,7 @@ import { openPublicWebUrl } from '@/lib/externalUrls';
 import { hapticError, hapticLight } from '@/utils/haptics';
 import { signupSchema, type SignupFormValues } from '@/lib/validators';
 import YouthEligibilityGate from '@/components/auth/YouthEligibilityGate';
+import { getApiResponseErrorMessage } from '@/lib/apiError';
 
 export default function SignupScreen(): React.ReactNode {
   const [eligibilityToken, setEligibilityToken] = useState<string | null>(null);
@@ -101,11 +102,14 @@ export default function SignupScreen(): React.ReactNode {
           eligibilityToken: eligibilityToken!,
         });
         router.push({ pathname: routes.verify(), params: { email } });
-      } catch {
+      } catch (error) {
         void hapticError();
         Alert.alert(
           'Signup Failed',
-          'Could not create account. Please try again.',
+          getApiResponseErrorMessage(
+            error,
+            'Could not start signup. Please try again.',
+          ),
         );
       }
     },
@@ -368,13 +372,21 @@ export default function SignupScreen(): React.ReactNode {
               By creating an account, you agree to our
             </AppText>
             <View className="flex-row gap-xs mt-xxs">
-              <Pressable onPress={handleTos} accessibilityRole="link">
+              <Pressable
+                onPress={handleTos}
+                accessibilityRole="link"
+                className="min-h-touch justify-center px-xs"
+              >
                 <AppText className="text-caption text-brand-teal underline">
                   Terms of Service
                 </AppText>
               </Pressable>
               <AppText className="text-caption text-muted">and</AppText>
-              <Pressable onPress={handlePrivacy} accessibilityRole="link">
+              <Pressable
+                onPress={handlePrivacy}
+                accessibilityRole="link"
+                className="min-h-touch justify-center px-xs"
+              >
                 <AppText className="text-caption text-brand-teal underline">
                   Privacy Policy
                 </AppText>

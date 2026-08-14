@@ -205,6 +205,7 @@ async def _send_code_email(
     subject: str,
     body: str,
     session: Optional[AsyncSession] = None,
+    idempotency_key: str | None = None,
 ) -> bool:
     """
     Generic helper to send a plain-text email via Resend.
@@ -214,35 +215,31 @@ async def _send_code_email(
     """
     enable_email = await is_enabled(session)
     if not enable_email:
-        logger.info(
-            "Email disabled; would have sent to %s with subject %r",
-            to_email,
-            subject,
-        )
+        logger.info("Email disabled; verification delivery skipped")
         return True
 
     if not RESEND_API_KEY:
-        logger.warning(
-            "RESEND_API_KEY not configured; stubbed email to %s: %s",
-            to_email,
-            subject,
-        )
+        logger.warning("Verification email provider is not configured; delivery stubbed")
         return True
 
     try:
-        response = await send_email_request(to_email, subject, body)
+        response = await send_email_request(
+            to_email, subject, body, idempotency_key=idempotency_key
+        )
 
         if 200 <= response.status_code < 300:
-            logger.info("Email sent to %s (subject=%r)", to_email, subject)
+            logger.info("Verification email accepted by provider")
             return True
         logger.error(
-            "Resend returned status %s for %s",
+            "Verification email provider returned status %s",
             response.status_code,
-            to_email,
         )
         return False
-    except Exception as e:
-        logger.error("Failed to send email to %s: %s", to_email, str(e))
+    except Exception as exc:
+        logger.error(
+            "Verification email provider request failed error_code=%s",
+            type(exc).__name__,
+        )
         return False
 
 
@@ -250,6 +247,7 @@ async def send_verification_code_email(
     email: str,
     code: str,
     session: Optional[AsyncSession] = None,
+    idempotency_key: str | None = None,
 ) -> bool:
     """
     Send a signup verification code to the given email address.
@@ -269,13 +267,16 @@ async def send_verification_code_email(
         "This code will expire in 10 minutes.\n"
         "If you did not request this code, you can safely ignore this email.\n"
     )
-    return await _send_code_email(email, subject, body, session=session)
+    return await _send_code_email(
+        email, subject, body, session=session, idempotency_key=idempotency_key
+    )
 
 
 async def send_password_reset_code_email(
     email: str,
     code: str,
     session: Optional[AsyncSession] = None,
+    idempotency_key: str | None = None,
 ) -> bool:
     """
     Send a password reset verification code to the given email address.
@@ -295,4 +296,6 @@ async def send_password_reset_code_email(
         "This code will expire in 10 minutes.\n"
         "If you did not request a password reset, you can safely ignore this email.\n"
     )
-    return await _send_code_email(email, subject, body, session=session)
+    return await _send_code_email(
+        email, subject, body, session=session, idempotency_key=idempotency_key
+    )
