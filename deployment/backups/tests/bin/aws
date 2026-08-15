@@ -16,6 +16,14 @@ if [[ "$1 $2" == "s3 cp" ]]; then
     if [[ "$source_path" == s3://* ]]; then
         cp "$(s3_path "$source_path")" "$destination_path"
     elif [[ "$destination_path" == s3://* ]]; then
+        if [[ " $* " == *" --server-side-encryption "* ]]; then
+            echo "unsupported s3 cp encryption option" >&2
+            exit 2
+        fi
+        if [[ " $* " != *" --sse AES256 "* ]]; then
+            echo "encrypted upload option is missing" >&2
+            exit 2
+        fi
         if [[ "${FAKE_AWS_FAIL_UPLOAD:-false}" == true ]]; then
             exit 42
         fi
