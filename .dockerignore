@@ -10,6 +10,15 @@ env/
 *.db-shm
 *.db-wal
 node_modules/
+.turbo/
+**/.turbo/
+**/.next/
+**/coverage/
+.claude/
+.agents/
+data/
+thirdparty/
+out/
 .git
 .gitignore
 *.md
@@ -25,6 +34,6 @@ build/
 # Mobile app - exclude from Docker builds (not needed for web/backend)
 # turbo prune will handle dependency analysis without needing mobile source
 apps/mobile/
-
-
-
+# Prevent a removed legacy config from shadowing next.config.ts in stale
+# Docker build contexts/caches.
+apps/web/next.config.js
