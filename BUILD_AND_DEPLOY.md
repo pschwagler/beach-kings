@@ -25,9 +25,12 @@ Normal service release:
 3. Manually run **Actions → Deploy Prod** with branch `main` and
    `skip_build: false`.
 4. Confirm the pre-deployment backup step succeeds.
-5. Confirm `/api/health`, `/api/ready`, the frontend, and required public-route
+5. Confirm the committed location, court-tag, and court catalog applies
+   successfully. Catalog records missing from the new commit are retired, never
+   deleted.
+6. Confirm `/api/health`, `/api/ready`, the frontend, and required public-route
    checks succeed in the workflow.
-6. Record the deployed commit and workflow run. If verification fails, stop and
+7. Record the deployed commit and workflow run. If verification fails, stop and
    diagnose; do not restore over the live database or rerun destructive
    migrations as an ad hoc rollback.
 

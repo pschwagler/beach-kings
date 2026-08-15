@@ -12,6 +12,8 @@ const EXPECTED = Object.freeze({
   buildNumber: '1',
   locationPurpose:
     'Beach League uses your location to suggest the nearest league location.',
+  motionPurpose:
+    'Beach League uses motion activity to support location features when helping you find nearby courts.',
   easImage: 'macos-tahoe-26.5-xcode-26.6',
 });
 
@@ -298,6 +300,9 @@ function verifyReleaseConfiguration({
   }
   if (!infoPlist.includes(`<string>${EXPECTED.locationPurpose}</string>`)) {
     fail('location purpose declaration is missing or changed.');
+  }
+  if (!infoPlist.includes(`<string>${EXPECTED.motionPurpose}</string>`)) {
+    fail('motion purpose declaration is missing or changed.');
   }
 
   lintPropertyList(privacyManifestPath);

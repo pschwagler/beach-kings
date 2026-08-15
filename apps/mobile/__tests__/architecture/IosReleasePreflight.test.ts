@@ -147,6 +147,40 @@ describe('iOS release preflight', () => {
     ).toThrow(/privacy review/);
   });
 
+  it('rejects a missing native motion purpose declaration', () => {
+    const infoPlistPath = path.join(
+      mobileRoot,
+      'ios/BeachLeague/Info.plist',
+    );
+    const original = fs.readFileSync(infoPlistPath, 'utf8');
+    const changed = original.replace(
+      /\s*<key>NSMotionUsageDescription<\/key>\s*<string>[^<]+<\/string>/,
+      '',
+    );
+    const temporaryRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'bk-ios-motion-purpose-'),
+    );
+
+    try {
+      fs.cpSync(mobileRoot, temporaryRoot, { recursive: true });
+      fs.writeFileSync(
+        path.join(temporaryRoot, 'ios/BeachLeague/Info.plist'),
+        changed,
+      );
+      const exportDirectory = path.join(temporaryRoot, 'dist');
+      expect(() =>
+        verifyReleaseConfiguration({
+          mobileRoot: temporaryRoot,
+          apiUrl: 'https://beachleaguevb.com',
+          webUrl: 'https://beachleaguevb.com',
+          exportDirectory,
+        }),
+      ).toThrow(/motion purpose declaration/);
+    } finally {
+      fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+  });
+
   describe('v1 OTA policy', () => {
     it('accepts an app with updates explicitly disabled', () => {
       expect(() =>

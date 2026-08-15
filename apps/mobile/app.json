@@ -106,7 +106,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Beach League uses your location to suggest the nearest league location."
+          "locationWhenInUsePermission": "Beach League uses your location to suggest the nearest league location.",
+          "motionUsagePermission": "Beach League uses motion activity to support location features when helping you find nearby courts."
         }
       ],
       "expo-image",

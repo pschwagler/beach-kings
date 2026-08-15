@@ -49,6 +49,8 @@
     </dict>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Beach League uses your location to suggest the nearest league location.</string>
+    <key>NSMotionUsageDescription</key>
+    <string>Beach League uses motion activity to support location features when helping you find nearby courts.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
