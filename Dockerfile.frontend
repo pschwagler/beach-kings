@@ -2,7 +2,7 @@
 # Uses turbo prune to create a minimal monorepo subset for Docker builds
 
 # Stage 1: Prune the monorepo
-FROM node:20-slim AS pruner
+FROM node:22.13-slim AS pruner
 WORKDIR /app
 
 # Copy the entire monorepo so turbo prune can analyze the full graph
@@ -13,7 +13,7 @@ COPY . .
 RUN npx turbo prune --scope=@beach-kings/web --docker
 
 # Stage 2: Install dependencies and build
-FROM node:20-slim AS builder
+FROM node:22.13-slim AS builder
 WORKDIR /app
 
 # Accept build arguments for NEXT_PUBLIC_* env vars (inlined at build time by Next.js)
@@ -37,12 +37,13 @@ RUN touch apps/web/.env || true
 # Cap Node heap to avoid OOM during build (leave room for OS + other processes)
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Build Next.js application
+# Build the standalone Next.js application. Webpack is intentional here:
+# Next.js 16 Turbopack currently has standalone output tracing regressions.
 # This will generate the standalone output in apps/web/.next/standalone
-RUN npx turbo run build --filter=@beach-kings/web...
+RUN npm run build:docker --workspace @beach-kings/web
 
 # Stage 3: Production runtime
-FROM node:20-slim AS runner
+FROM node:22.13-slim AS runner
 WORKDIR /app
 
 # Set production environment
@@ -65,5 +66,3 @@ EXPOSE 3000
 
 # Start Next.js standalone server
 CMD ["node", "apps/web/server.js"]
-
-

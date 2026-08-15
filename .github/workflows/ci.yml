@@ -198,3 +198,12 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+      - name: Build frontend production image
+        run: |
+          docker build \
+            --file Dockerfile.frontend \
+            --build-arg NEXT_PUBLIC_API_URL=https://beachleaguevb.com \
+            --build-arg NEXT_PUBLIC_MAPBOX_TOKEN= \
+            --tag beach-kings/frontend:ci \
+            .
