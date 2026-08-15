@@ -61,7 +61,16 @@ if ! flock -n 9; then
 fi
 
 if [[ -z "$POSTGRES_CONTAINER" ]]; then
-    POSTGRES_CONTAINER="$(docker compose \
+    if docker compose version >/dev/null 2>&1; then
+        compose_command=(docker compose)
+    elif command -v docker-compose >/dev/null 2>&1; then
+        compose_command=(docker-compose)
+    else
+        echo "ERROR: Docker Compose is unavailable" >&2
+        exit 1
+    fi
+
+    POSTGRES_CONTAINER="$("${compose_command[@]}" \
         --project-directory "$COMPOSE_PROJECT_DIR" \
         ps -q postgres)"
     if [[ -z "$POSTGRES_CONTAINER" ]]; then
@@ -99,13 +108,13 @@ docker exec -i "$POSTGRES_CONTAINER" pg_restore --list <"$backup_path" >/dev/nul
     sha256sum "$backup_name" >"${backup_name}.sha256"
 )
 
-sse_args=(--server-side-encryption "$SSE_MODE")
+sse_args=(--sse "$SSE_MODE")
 if [[ "$SSE_MODE" == "aws:kms" ]]; then
     if [[ -z "$KMS_KEY_ID" ]]; then
         echo "ERROR: BACKUP_S3_KMS_KEY_ID is required when BACKUP_S3_SSE=aws:kms" >&2
         exit 1
     fi
-    sse_args+=(--ssekms-key-id "$KMS_KEY_ID")
+    sse_args+=(--sse-kms-key-id "$KMS_KEY_ID")
 elif [[ "$SSE_MODE" != "AES256" ]]; then
     echo "ERROR: BACKUP_S3_SSE must be AES256 or aws:kms" >&2
     exit 1
