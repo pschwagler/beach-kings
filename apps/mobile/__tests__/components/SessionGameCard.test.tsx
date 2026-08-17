@@ -58,12 +58,11 @@ const baseGame: SessionGame = {
 };
 
 describe('SessionGameCard — "You" substitution', () => {
-  it('shows full names when currentPlayerName is null', () => {
+  it('shows full names when currentPlayerId is null', () => {
     render(
       <SessionGameCard
         game={baseGame}
-        userTeam={1}
-        currentPlayerName={null}
+        currentPlayerId={null}
       />,
     );
     expect(screen.getByText('Patrick Schwagler / Alex Chen')).toBeTruthy();
@@ -73,8 +72,7 @@ describe('SessionGameCard — "You" substitution', () => {
     render(
       <SessionGameCard
         game={baseGame}
-        userTeam={1}
-        currentPlayerName="Patrick Schwagler"
+        currentPlayerId={10}
       />,
     );
     expect(screen.getByText('You / Alex Chen')).toBeTruthy();
@@ -85,8 +83,7 @@ describe('SessionGameCard — "You" substitution', () => {
     render(
       <SessionGameCard
         game={baseGame}
-        userTeam={1}
-        currentPlayerName="Alex Chen"
+        currentPlayerId={20}
       />,
     );
     expect(screen.getByText('Patrick Schwagler / You')).toBeTruthy();
@@ -96,8 +93,7 @@ describe('SessionGameCard — "You" substitution', () => {
     render(
       <SessionGameCard
         game={baseGame}
-        userTeam={2}
-        currentPlayerName="Sam Torres"
+        currentPlayerId={30}
       />,
     );
     expect(screen.getByText('You / Jordan Lee')).toBeTruthy();
@@ -107,30 +103,27 @@ describe('SessionGameCard — "You" substitution', () => {
     render(
       <SessionGameCard
         game={baseGame}
-        userTeam={2}
-        currentPlayerName="Jordan Lee"
+        currentPlayerId={40}
       />,
     );
     expect(screen.getByText('Sam Torres / You')).toBeTruthy();
   });
 
-  it('matches case-insensitively', () => {
+  it('does not use case-identical names as identity', () => {
     render(
       <SessionGameCard
-        game={baseGame}
-        userTeam={1}
-        currentPlayerName="patrick schwagler"
+        game={{ ...baseGame, team1_player2_name: 'patrick schwagler' }}
+        currentPlayerId={10}
       />,
     );
-    expect(screen.getByText('You / Alex Chen')).toBeTruthy();
+    expect(screen.getByText('You / patrick schwagler')).toBeTruthy();
   });
 
-  it('does not replace when name does not match any player', () => {
+  it('does not replace when player ID does not match any slot', () => {
     render(
       <SessionGameCard
         game={baseGame}
-        userTeam={null}
-        currentPlayerName="Someone Else"
+        currentPlayerId={999}
       />,
     );
     expect(screen.getByText('Patrick Schwagler / Alex Chen')).toBeTruthy();
@@ -139,22 +132,35 @@ describe('SessionGameCard — "You" substitution', () => {
 
   it('shows WIN badge when userTeam wins', () => {
     render(
-      <SessionGameCard game={baseGame} userTeam={1} currentPlayerName={null} />,
+      <SessionGameCard game={baseGame} currentPlayerId={10} />,
     );
     expect(screen.getByText('WIN')).toBeTruthy();
   });
 
   it('shows LOSS badge when userTeam loses', () => {
     render(
-      <SessionGameCard game={baseGame} userTeam={2} currentPlayerName={null} />,
+      <SessionGameCard game={baseGame} currentPlayerId={30} />,
     );
     expect(screen.getByText('LOSS')).toBeTruthy();
   });
 
-  it('shows no WIN/LOSS badge when userTeam is null', () => {
+  it('shows no WIN/LOSS badge when the viewer is absent', () => {
     render(
-      <SessionGameCard game={baseGame} userTeam={null} currentPlayerName={null} />,
+      <SessionGameCard game={baseGame} currentPlayerId={999} />,
     );
+    expect(screen.queryByText('WIN')).toBeNull();
+    expect(screen.queryByText('LOSS')).toBeNull();
+  });
+
+  it('stays neutral when a malformed game repeats the viewer ID', () => {
+    render(
+      <SessionGameCard
+        game={{ ...baseGame, team1_player2_id: 10 }}
+        currentPlayerId={10}
+      />,
+    );
+
+    expect(screen.getByText('Patrick Schwagler / Alex Chen')).toBeTruthy();
     expect(screen.queryByText('WIN')).toBeNull();
     expect(screen.queryByText('LOSS')).toBeNull();
   });

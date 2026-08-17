@@ -10,13 +10,17 @@ import React from 'react';
 import AppText from '@/components/ui/AppText';
 import { View, TouchableOpacity } from 'react-native';
 import type { SessionGame } from '@beach-kings/shared';
+import {
+  getViewerSlotForGame,
+  getViewerTeamForGame,
+  type SessionGamePlayerSlot,
+} from './sessionGameIdentity';
 
 interface Props {
   readonly game: SessionGame;
-  readonly userTeam?: 1 | 2 | null;
   readonly onEdit?: () => void;
-  /** When provided, replaces the matching player's name with "You". Case-insensitive. */
-  readonly currentPlayerName?: string | null;
+  /** Canonical player ID used for viewer-relative labels and result state. */
+  readonly currentPlayerId?: number | null;
 }
 
 type GameResult = 'win' | 'loss' | 'pending' | 'not-participant';
@@ -39,9 +43,12 @@ interface TeamRowProps {
   readonly isLoser: boolean;
 }
 
-function substituteYou(name: string, currentPlayerName: string | null): string {
-  if (currentPlayerName == null) return name;
-  return name.trim().toLowerCase() === currentPlayerName.trim().toLowerCase() ? 'You' : name;
+function substituteYou(
+  name: string,
+  slot: SessionGamePlayerSlot,
+  viewerSlot: SessionGamePlayerSlot | null,
+): string {
+  return slot === viewerSlot ? 'You' : name;
 }
 
 function TeamRow({ name, score, isWinner, isLoser }: TeamRowProps): React.ReactNode {
@@ -72,10 +79,11 @@ function TeamRow({ name, score, isWinner, isLoser }: TeamRowProps): React.ReactN
 
 export default function SessionGameCard({
   game,
-  userTeam = null,
   onEdit,
-  currentPlayerName = null,
+  currentPlayerId = null,
 }: Props): React.ReactNode {
+  const viewerSlot = getViewerSlotForGame(game, currentPlayerId);
+  const userTeam = getViewerTeamForGame(game, currentPlayerId);
   const result = getResult(game, userTeam);
   const badgeStyles = result === 'win' || result === 'loss' ? RESULT_BADGE[result] : null;
 
@@ -117,13 +125,13 @@ export default function SessionGameCard({
       {/* Boxscore rows */}
       <View className="gap-[3px]">
         <TeamRow
-          name={`${substituteYou(game.team1_player1_name, currentPlayerName)} / ${substituteYou(game.team1_player2_name, currentPlayerName)}`}
+          name={`${substituteYou(game.team1_player1_name, 'team1_player1', viewerSlot)} / ${substituteYou(game.team1_player2_name, 'team1_player2', viewerSlot)}`}
           score={game.team1_score}
           isWinner={game.winner === 1}
           isLoser={game.winner === 2}
         />
         <TeamRow
-          name={`${substituteYou(game.team2_player1_name, currentPlayerName)} / ${substituteYou(game.team2_player2_name, currentPlayerName)}`}
+          name={`${substituteYou(game.team2_player1_name, 'team2_player1', viewerSlot)} / ${substituteYou(game.team2_player2_name, 'team2_player2', viewerSlot)}`}
           score={game.team2_score}
           isWinner={game.winner === 2}
           isLoser={game.winner === 1}

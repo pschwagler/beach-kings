@@ -112,29 +112,19 @@ describe('useSessionDetailScreen', () => {
     expect(mockGetSessionById).toHaveBeenCalledWith(7);
   });
 
-  it('exposes currentPlayerName fetched via getCurrentUserPlayer', async () => {
+  it('exposes currentPlayerId fetched via getCurrentUserPlayer', async () => {
     const { result } = renderScreen(7);
 
-    await waitFor(() => expect(result.current.currentPlayerName).toBe('Test User'));
+    await waitFor(() => expect(result.current.currentPlayerId).toBe(1));
   });
 
-  it('falls back to player.name when full_name is missing', async () => {
-    mockGetCurrentUserPlayer.mockResolvedValue({ id: 1, name: 'Just Name' });
-
-    const { result } = renderScreen(7);
-
-    await waitFor(() =>
-      expect(result.current.currentPlayerName).toBe('Just Name'),
-    );
-  });
-
-  it('keeps currentPlayerName null when getCurrentUserPlayer fails', async () => {
+  it('keeps currentPlayerId null when getCurrentUserPlayer fails', async () => {
     mockGetCurrentUserPlayer.mockRejectedValue(new Error('Auth required'));
 
     const { result } = renderScreen(7);
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.currentPlayerName).toBeNull();
+    expect(result.current.currentPlayerId).toBeNull();
   });
 
   it('error state surfaces when getSessionById rejects', async () => {

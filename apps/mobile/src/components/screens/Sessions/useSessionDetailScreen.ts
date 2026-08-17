@@ -31,8 +31,8 @@ export interface UseSessionDetailScreenResult {
   readonly submitError: string | null;
   readonly isUpdatingCourt: boolean;
   readonly courtUpdateError: string | null;
-  /** Display name of the authenticated user, used to derive per-game team membership. */
-  readonly currentPlayerName: string | null;
+  /** Canonical player ID of the authenticated user. */
+  readonly currentPlayerId: number | null;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly openMenu: () => void;
@@ -65,8 +65,7 @@ export function useSessionDetailScreen(
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [courtUpdateError, setCourtUpdateError] = useState<string | null>(null);
-  const currentPlayerName =
-    currentPlayer.data?.full_name ?? currentPlayer.data?.name ?? null;
+  const currentPlayerId = currentPlayer.data?.id ?? null;
 
   const { data, isLoading, error, refetch } = useQuery(
     sessionQueries.detail(userId, sessionId),
@@ -223,7 +222,7 @@ export function useSessionDetailScreen(
     submitError,
     isUpdatingCourt: updateCourt.isPending,
     courtUpdateError,
-    currentPlayerName,
+    currentPlayerId,
     onRefresh,
     onRetry,
     openMenu,

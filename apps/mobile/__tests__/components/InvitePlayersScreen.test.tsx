@@ -549,7 +549,7 @@ const defaultHookResult = {
   isMenuOpen: false,
   isSubmitting: false,
   submitError: null,
-  currentPlayerName: 'Patrick Schwagler',
+  currentPlayerId: 1,
   onRefresh: jest.fn(),
   onRetry: jest.fn(),
   openMenu: jest.fn(),
