@@ -9,6 +9,24 @@ import type {
   UserUpdateRequest,
 } from '@beach-kings/shared';
 
+export interface AvatarUploadResponse {
+  readonly profile_picture_url: string;
+}
+
+export function normalizeAvatarUploadResponse(value: unknown): AvatarUploadResponse {
+  const profilePictureUrl =
+    typeof value === 'object' &&
+    value != null &&
+    'profile_picture_url' in value &&
+    typeof value.profile_picture_url === 'string'
+      ? value.profile_picture_url.trim()
+      : '';
+  if (!/^https?:\/\//i.test(profilePictureUrl)) {
+    throw new Error('Avatar upload response did not include a valid photo URL.');
+  }
+  return { profile_picture_url: profilePictureUrl };
+}
+
 /** API methods for the User domain. */
 export function createUserMethods(api: AxiosInstance) {
   return {
@@ -61,7 +79,7 @@ export function createUserMethods(api: AxiosInstance) {
      */
     async uploadAvatar(
       file: File | Blob | { uri: string; name: string; type: string },
-    ): Promise<{ profile_picture_url: string }> {
+    ): Promise<AvatarUploadResponse> {
       const form = new FormData();
       form.append('file', file as unknown as Blob);
       const response = await api.post<{ profile_picture_url: string }>(
@@ -69,7 +87,7 @@ export function createUserMethods(api: AxiosInstance) {
         form,
         { headers: { 'Content-Type': undefined } },
       );
-      return response.data;
+      return normalizeAvatarUploadResponse(response.data);
     },
 
     async deleteAvatar(): Promise<{ message: string }> {

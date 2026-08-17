@@ -107,6 +107,32 @@ class TestUploadAvatar:
             or call_kwargs[1].get("ContentType") == "image/jpeg"
         )
 
+    @patch.dict(
+        "os.environ",
+        {
+            "AWS_ACCESS_KEY_ID": "test-key",
+            "AWS_SECRET_ACCESS_KEY": "test-secret",
+            "AWS_S3_BUCKET": "test-bucket",
+            "AWS_S3_REGION": "us-west-2",
+        },
+    )
+    @patch("backend.services.platform.s3_service.uuid4")
+    @patch("backend.services.platform.s3_service._get_s3_client")
+    def test_rapid_replacements_get_distinct_urls(self, mock_get_client, mock_uuid4):
+        """Two successful uploads in one second cannot share cached object bytes."""
+        mock_get_client.return_value = MagicMock()
+        mock_uuid4.side_effect = [
+            MagicMock(hex="first-revision"),
+            MagicMock(hex="second-revision"),
+        ]
+
+        first = s3_service.upload_avatar(42, b"first-image")
+        second = s3_service.upload_avatar(42, b"second-image")
+
+        assert first != second
+        assert first.endswith("/first-revision.jpg")
+        assert second.endswith("/second-revision.jpg")
+
 
 # ============================================================================
 # delete_avatar (mocked)

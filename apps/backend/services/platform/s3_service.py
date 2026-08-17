@@ -7,9 +7,9 @@ uploading player avatars and court photos to S3.
 
 import logging
 import os
-import time
 from typing import Optional
 from urllib.parse import urlparse
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def upload_avatar(player_id: int, image_bytes: bytes) -> str:
     """
     Upload avatar image to S3.
 
-    Stores at key: avatars/{player_id}/{timestamp}.jpg
+    Stores at key: avatars/{player_id}/{unique_revision}.jpg
     Returns the public URL of the uploaded image.
 
     Args:
@@ -66,8 +66,12 @@ def upload_avatar(player_id: int, image_bytes: bytes) -> str:
     cfg = _get_config()
     bucket = cfg["bucket"]
     region = cfg["region"]
-    timestamp = int(time.time())
-    key = f"avatars/{player_id}/{timestamp}.jpg"
+    # A URL is also the native image cache identity. Whole-second timestamps
+    # collide during rapid replacement and can leave cached old bytes visible
+    # even though S3 now contains the new object. UUID revisions make every
+    # successful upload an immutable URL without changing the public contract.
+    revision = uuid4().hex
+    key = f"avatars/{player_id}/{revision}.jpg"
 
     client.put_object(
         Bucket=bucket,

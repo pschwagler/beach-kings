@@ -47,4 +47,25 @@ describe('profile photo API methods', () => {
     });
     expect(deleteMethod).toHaveBeenCalledWith('/api/users/me/avatar');
   });
+
+  it.each([
+    {},
+    { profile_picture_url: null },
+    { profile_picture_url: '   ' },
+    { profile_picture_url: 'not-a-url' },
+  ])(
+    'rejects an invalid upload response without publishing an avatar: %p',
+    async (data) => {
+      const post = jest.fn().mockResolvedValue({ data });
+      const methods = createApiMethods(makeClient({ post }));
+
+      await expect(
+        methods.uploadAvatar({
+          uri: 'file:///tmp/avatar.jpg',
+          name: 'avatar.jpg',
+          type: 'image/jpeg',
+        }),
+      ).rejects.toThrow('valid photo URL');
+    },
+  );
 });

@@ -54,6 +54,25 @@ describe('Avatar', () => {
     expect(getByText('MD')).toBeTruthy();
   });
 
+  it('replaces initials immediately and uses the second replacement URI', async () => {
+    const screen = render(<Avatar name="Morgan Davis" imageUrl={null} />);
+    expect(screen.getByText('MD')).toBeTruthy();
+
+    screen.rerender(<Avatar name="Morgan Davis" imageUrl="https://example.com/first.jpg" />);
+    await waitFor(() =>
+      expect(screen.getByLabelText('Morgan Davis').props.source).toEqual({
+        uri: 'https://example.com/first.jpg',
+      }),
+    );
+
+    screen.rerender(<Avatar name="Morgan Davis" imageUrl="https://example.com/second.jpg" />);
+    await waitFor(() =>
+      expect(screen.getByLabelText('Morgan Davis').props.source).toEqual({
+        uri: 'https://example.com/second.jpg',
+      }),
+    );
+  });
+
   it('treats legacy initials as fallback text instead of an image URI', () => {
     expect(isImageUri('AT')).toBe(false);
     expect(isImageUri('AT.png')).toBe(false);

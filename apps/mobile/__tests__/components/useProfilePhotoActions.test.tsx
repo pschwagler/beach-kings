@@ -66,4 +66,38 @@ describe('useProfilePhotoActions', () => {
     );
     expect(ImagePicker.launchImageLibraryAsync).not.toHaveBeenCalled();
   });
+
+  it('reports a failed replacement without claiming success', async () => {
+    const withPhoto = {
+      ...player,
+      profile_picture_url: 'https://example.com/old.jpg',
+    };
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///replacement.jpg',
+          fileName: 'replacement.jpg',
+          mimeType: 'image/jpeg',
+          fileSize: 1024,
+        },
+      ],
+    });
+    mockUpload.mockRejectedValueOnce(new Error('network unavailable'));
+    const { result } = renderHook(() => useProfilePhotoActions(withPhoto));
+
+    act(() => {
+      result.current.onPhotoPress();
+    });
+    const actions = (Alert.alert as jest.Mock).mock.calls[0]?.[2];
+    const chooseReplacement = actions?.find(
+      (action: { text?: string }) => action.text === 'Choose New Photo',
+    );
+    await act(async () => {
+      await chooseReplacement?.onPress?.();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith('network unavailable', 'error');
+    expect(mockShowToast).not.toHaveBeenCalledWith('Profile photo updated.', 'success');
+  });
 });
