@@ -85,16 +85,16 @@ stateDiagram-v2
 
 ## Roles and handoffs
 
-| Role | Responsibilities | Write access |
-| --- | --- | --- |
-| Coordinator | Own state, assign work, merge plans, enforce gates, summarize evidence | Integration branch and private workspace |
-| Intake agent | Fetch feedback, preserve comments and screenshots, and find duplicates | Private intake artifacts only |
-| Diagnosis agent | Reproduce symptoms, inspect code and tests, identify likely cause | Read-only |
-| Planning agent | Draft scope, options, acceptance criteria, risks, and test strategy | Private plan only |
-| Implementation agent | Make one approved change and its focused tests | One issue at a time |
-| Review agent | Independently inspect requirements, diff, tests, and regressions | Review artifact only |
-| Verification agent | Run tests and simulator or device checks against acceptance criteria | Evidence artifacts only |
-| Product owner | Resolve product choices and approve batches and release candidates | Approval decisions |
+| Role                 | Responsibilities                                                       | Write access                             |
+| -------------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
+| Coordinator          | Own state, assign work, merge plans, enforce gates, summarize evidence | Integration branch and private workspace |
+| Intake agent         | Fetch feedback, preserve comments and screenshots, and find duplicates | Private intake artifacts only            |
+| Diagnosis agent      | Reproduce symptoms, inspect code and tests, identify likely cause      | Read-only                                |
+| Planning agent       | Draft scope, options, acceptance criteria, risks, and test strategy    | Private plan only                        |
+| Implementation agent | Make one approved change and its focused tests                         | One issue at a time                      |
+| Review agent         | Independently inspect requirements, diff, tests, and regressions       | Review artifact only                     |
+| Verification agent   | Run tests and simulator or device checks against acceptance criteria   | Evidence artifacts only                  |
+| Product owner        | Resolve product choices and approve batches and release candidates     | Approval decisions                       |
 
 The reviewer receives the original feedback, frozen acceptance criteria, diff,
 and test results. Do not provide the implementer's self-review or predicted

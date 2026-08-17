@@ -1,16 +1,16 @@
-import type { SessionGame } from '@beach-kings/shared';
+import type { SessionGame } from "@beach-kings/shared";
 
 export type SessionGamePlayerSlot =
-  | 'team1_player1'
-  | 'team1_player2'
-  | 'team2_player1'
-  | 'team2_player2';
+  | "team1_player1"
+  | "team1_player2"
+  | "team2_player1"
+  | "team2_player2";
 
 const PLAYER_SLOTS = [
-  { slot: 'team1_player1', team: 1, idKey: 'team1_player1_id' },
-  { slot: 'team1_player2', team: 1, idKey: 'team1_player2_id' },
-  { slot: 'team2_player1', team: 2, idKey: 'team2_player1_id' },
-  { slot: 'team2_player2', team: 2, idKey: 'team2_player2_id' },
+  { slot: "team1_player1", team: 1, idKey: "team1_player1_id" },
+  { slot: "team1_player2", team: 1, idKey: "team1_player2_id" },
+  { slot: "team2_player1", team: 2, idKey: "team2_player1_id" },
+  { slot: "team2_player2", team: 2, idKey: "team2_player2_id" },
 ] as const satisfies readonly {
   slot: SessionGamePlayerSlot;
   team: 1 | 2;

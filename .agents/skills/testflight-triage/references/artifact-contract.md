@@ -17,9 +17,11 @@ Create one file per canonical issue at both `issues/TF-NNN.md` and `plans/TF-NNN
 - Dependencies: TF IDs or none
 
 ## User-visible problem
+
 Describe the behavior without identifying the tester.
 
 ## Evidence and reproduction
+
 - Evidence: private screenshot paths, code/tests/logs
 - Setup and conditions:
 - Steps:
@@ -29,27 +31,33 @@ Describe the behavior without identifying the tester.
 - Confidence: high | medium | low
 
 ## Diagnosis
+
 - Likely cause:
 - Root-cause confidence:
 - Unresolved questions:
 
 ## Product choices
+
 - Decision: exact choice, recommended option, rationale, and owner answer required; or none
 
 ## Scope
+
 - In scope:
 - Out of scope:
 - Compatibility or migration:
 
 ## Acceptance criteria
+
 1. Observable, testable criterion.
 
 ## Verification strategy
+
 - Automated:
 - Simulator/device:
 - Regression:
 
 ## Risk and rollback
+
 - Risk:
 - Rollback:
 ```

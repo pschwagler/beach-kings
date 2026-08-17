@@ -1,7 +1,7 @@
-import * as StoreReview from 'expo-store-review';
-import { Alert, Linking } from 'react-native';
+import * as StoreReview from "expo-store-review";
+import { Alert, Linking } from "react-native";
 
-const ALERT_TITLE = 'Rate Beach League';
+const ALERT_TITLE = "Rate Beach League";
 const OPEN_FAILURE_MESSAGE =
   "We couldn't open the store listing. Please try again, or contact Support from Settings if the problem continues.";
 const UNAVAILABLE_MESSAGE =
@@ -21,8 +21,7 @@ export async function requestAppRating(): Promise<void> {
 
   try {
     nativeReviewAvailable =
-      (await StoreReview.hasAction()) &&
-      (await StoreReview.isAvailableAsync());
+      (await StoreReview.hasAction()) && (await StoreReview.isAvailableAsync());
   } catch {
     // A configured product URL can still recover from a capability-check error.
   }

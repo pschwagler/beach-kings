@@ -1,8 +1,8 @@
 /** Bounded loading placeholder for one progressively rendered Home section. */
 
-import React from 'react';
-import { View } from 'react-native';
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
+import React from "react";
+import { View } from "react-native";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 
 interface HomeSectionSkeletonProps {
   readonly label: string;
@@ -15,11 +15,11 @@ export default function HomeSectionSkeleton({
 }: HomeSectionSkeletonProps): React.ReactNode {
   return (
     <View
-      className={wide ? 'mb-lg' : 'flex-row gap-sm'}
+      className={wide ? "mb-lg" : "flex-row gap-sm"}
       accessibilityLabel={`Loading ${label}`}
     >
       <LoadingSkeleton
-        width={wide ? '100%' : 200}
+        width={wide ? "100%" : 200}
         height={wide ? 148 : 120}
         borderRadius={12}
       />
