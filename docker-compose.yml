@@ -29,6 +29,7 @@ services:
         # - For local dev without nginx: use http://localhost:8000
         # Note: Frontend API calls already include /api prefix, so don't add it here
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
+        - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
         - NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN:-}
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"

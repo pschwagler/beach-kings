@@ -9,7 +9,10 @@ on:
         description: "Branch to deploy"
         required: true
         default: "main"
-        type: string
+        type: choice
+        options:
+          - "main"
+          - "testflight/2026-08-16-batch-1"
       refresh_db:
         description: "Restore fresh prod DB snapshot (sanitized)"
         required: false
@@ -70,7 +73,17 @@ jobs:
     # Run even when snapshot was skipped (refresh_db=false)
     if: ${{ always() && (needs.snapshot.result == 'success' || needs.snapshot.result == 'skipped') }}
     runs-on: ubuntu-latest
+    environment: dev-provider-validation
     steps:
+      - name: Validate approved deploy ref
+        env:
+          DEPLOY_BRANCH: ${{ inputs.branch }}
+        run: |
+          case "$DEPLOY_BRANCH" in
+            main|testflight/2026-08-16-batch-1) ;;
+            *) echo "Unapproved deploy ref" >&2; exit 1 ;;
+          esac
+
       - name: Deploy to dev EC2
         uses: appleboy/ssh-action@v1
         env:
@@ -93,40 +106,53 @@ jobs:
 
             echo "=== Writing .env ==="
             cat > .env <<'ENVEOF'
-ENV=staging
-ENABLE_SMS=false
-ENABLE_EMAIL=false
-POSTGRES_USER=beachkings
-POSTGRES_PASSWORD=${{ secrets.DEV_POSTGRES_PASSWORD }}
-POSTGRES_DB=beachkings
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
-JWT_SECRET_KEY=${{ secrets.DEV_JWT_SECRET_KEY }}
-JWT_EXPIRATION_HOURS=72
-NEXT_PUBLIC_BASE_URL=https://dev.beachleaguevb.com
-NEXT_PUBLIC_API_URL=
-BACKEND_INTERNAL_URL=http://backend:8000
-FRONTEND_URL=https://dev.beachleaguevb.com
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_PHONE_NUMBER=
-RESEND_API_KEY=
-RESEND_FROM_EMAIL=Beach League <noreply@beachleaguevb.com>
-ADMIN_EMAIL=admin@beachleaguevb.com
-GEOAPIFY_API_KEY=
-GOOGLE_PLACES_API_KEY=
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=
-NEXT_PUBLIC_MAPBOX_TOKEN=
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_S3_BUCKET=
-AWS_S3_REGION=us-west-2
-CREDENTIALS_JSON=
-GEMINI_API_KEY=
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_DB=0
-ENVEOF
+            ENV=staging
+            ENABLE_SMS=false
+            ENABLE_EMAIL=false
+            POSTGRES_USER=beachkings
+            POSTGRES_PASSWORD=${{ secrets.DEV_POSTGRES_PASSWORD }}
+            POSTGRES_DB=beachkings
+            POSTGRES_HOST=postgres
+            POSTGRES_PORT=5432
+            JWT_SECRET_KEY=${{ secrets.DEV_JWT_SECRET_KEY }}
+            JWT_EXPIRATION_HOURS=72
+            NEXT_PUBLIC_BASE_URL=https://dev.beachleaguevb.com
+            NEXT_PUBLIC_API_URL=
+            BACKEND_INTERNAL_URL=http://backend:8000
+            FRONTEND_URL=https://dev.beachleaguevb.com
+            TWILIO_ACCOUNT_SID=
+            TWILIO_AUTH_TOKEN=
+            TWILIO_PHONE_NUMBER=
+            RESEND_API_KEY=
+            RESEND_FROM_EMAIL=Beach League <noreply@beachleaguevb.com>
+            ADMIN_EMAIL=admin@beachleaguevb.com
+            GEOAPIFY_API_KEY=
+            GOOGLE_PLACES_API_KEY=
+            GOOGLE_CLIENT_ID=${{ secrets.DEV_GOOGLE_CLIENT_ID }}
+            GOOGLE_CLIENT_IDS=${{ secrets.DEV_GOOGLE_CLIENT_IDS }}
+            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.DEV_GOOGLE_CLIENT_ID }}
+            APPLE_CLIENT_ID=${{ secrets.DEV_APPLE_CLIENT_ID }}
+            APPLE_CLIENT_IDS=${{ secrets.DEV_APPLE_CLIENT_IDS }}
+            APPLE_TEAM_ID=${{ secrets.DEV_APPLE_TEAM_ID }}
+            APPLE_KEY_ID=${{ secrets.DEV_APPLE_KEY_ID }}
+            APPLE_PRIVATE_KEY=${{ secrets.DEV_APPLE_PRIVATE_KEY }}
+            APPLE_TOKEN_ENCRYPTION_KEY=${{ secrets.DEV_APPLE_TOKEN_ENCRYPTION_KEY }}
+            NEXT_PUBLIC_MAPBOX_TOKEN=
+            AWS_ACCESS_KEY_ID=
+            AWS_SECRET_ACCESS_KEY=
+            AWS_S3_BUCKET=
+            AWS_S3_REGION=us-west-2
+            CREDENTIALS_JSON=
+            GEMINI_API_KEY=
+            REDIS_HOST=redis
+            REDIS_PORT=6379
+            REDIS_DB=0
+            ENVEOF
+
+            echo "=== Checking provider configuration ==="
+            python3 deployment/provider_config_preflight.py \
+              --env-file .env \
+              --app-config apps/mobile/app.json
 
             echo "=== Pruning old Docker resources ==="
             docker system prune -f --filter "until=48h" || true

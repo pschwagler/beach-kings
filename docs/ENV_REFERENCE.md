@@ -65,7 +65,7 @@ for as long as pending Apple revocation jobs exist.
 | `APPLE_CLIENT_IDS` | (empty) | Optional comma-separated additional first-party App ID / Services ID token audiences; the singular variable remains supported |
 | `APPLE_TEAM_ID` | (empty) | Apple Developer team identifier used to sign client-secret JWTs |
 | `APPLE_KEY_ID` | (empty) | Sign in with Apple private-key identifier |
-| `APPLE_PRIVATE_KEY` | (empty) | Server-only ES256 private key; literal `\\n` separators are supported |
+| `APPLE_PRIVATE_KEY` | (empty) | Server-only Sign in with Apple ES256 `.p8` key; deployment secrets must encode the complete key on one line with literal `\n` separators |
 | `APPLE_TOKEN_ENCRYPTION_KEY` | (empty) | Stable Fernet key used to encrypt Apple refresh tokens at rest |
 
 ### Twilio SMS

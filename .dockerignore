@@ -21,6 +21,9 @@ thirdparty/
 out/
 .git
 .gitignore
+.env
+.env.*
+!.env.example
 *.md
 .DS_Store
 *.log

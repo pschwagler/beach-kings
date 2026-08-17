@@ -32,7 +32,9 @@ Add the iOS reversed client ID to `apps/mobile/app.json` so the OAuth redirect c
       "infoPlist": {
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["com.googleusercontent.apps.YOUR_REVERSED_IOS_CLIENT_ID"]
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.YOUR_REVERSED_IOS_CLIENT_ID"
+            ]
           }
         ]
       }
@@ -56,3 +58,24 @@ If the alert still says "not configured": confirm `EXPO_PUBLIC_GOOGLE_*` values 
 ## Backend
 
 Backend verification is wired up at `POST /api/auth/google` (`apps/backend/api/routes/auth.py`). Keep the existing primary/web value in `GOOGLE_CLIENT_ID` and list any additional iOS/Android client IDs in comma-separated `GOOGLE_CLIENT_IDS`. Only explicitly configured audiences are accepted.
+
+Before a provider-validation deployment or signed iOS build, run the redacted
+configuration check with the same protected environment that will back the
+client and server:
+
+```bash
+python3 deployment/provider_config_preflight.py \
+  --env-file /path/to/protected.env \
+  --app-config apps/mobile/app.json
+```
+
+The check prints only presence and matching status. It verifies that the web
+client equals the backend primary audience and that the iOS client encoded by
+the checked-in redirect scheme is included in the backend audience set. It also
+requires the matching Apple audience and server credentials; a failure must be
+resolved before proceeding with provider validation.
+
+For the dev web image, Docker Compose forwards
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID` as a frontend build argument; setting it only as
+a container runtime variable is insufficient because Next.js inlines public
+variables during compilation.
