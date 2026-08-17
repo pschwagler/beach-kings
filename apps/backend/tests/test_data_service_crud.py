@@ -1054,7 +1054,8 @@ async def test_delete_session(db_session):
     session = await data_service.create_session(db_session, date="2024-01-15")
 
     result = await data_service.delete_session(db_session, session["id"])
-    assert result is True
+    assert result is not None
+    assert result["success"] is True
 
     # Verify session was deleted
     result_query = await db_session.execute(select(Session).where(Session.id == session["id"]))
@@ -1069,7 +1070,8 @@ async def test_delete_submitted_session(db_session):
     await data_service.lock_in_session(db_session, session["id"])
 
     result = await data_service.delete_session(db_session, session["id"])
-    assert result is True
+    assert result is not None
+    assert result["success"] is True
 
     # Verify session was deleted
     result_query = await db_session.execute(select(Session).where(Session.id == session["id"]))

@@ -39,6 +39,10 @@ class StatsCalculationJob(Base):
     )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)
+    available_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    lease_expires_at = Column(DateTime(timezone=True), nullable=True)
+    claim_token = Column(String(36), nullable=True)
+    attempts = Column(Integer, nullable=False, server_default="0")
     completed_at = Column(DateTime(timezone=True), nullable=True)
     error_message = Column(Text, nullable=True)
 
@@ -47,6 +51,7 @@ class StatsCalculationJob(Base):
 
     __table_args__ = (
         Index("idx_stats_calculation_jobs_status", "status"),
+        Index("idx_stats_calculation_jobs_claim", "status", "available_at", "lease_expires_at"),
         Index("idx_stats_calculation_jobs_type_league", "calc_type", "league_id"),
         Index("idx_stats_calculation_jobs_created_at", "created_at"),
     )

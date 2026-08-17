@@ -22,6 +22,7 @@ Auth strategy:
 - Non-league endpoints: monkeypatch verify_token + get_user_by_id only.
 """
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
@@ -1272,28 +1273,47 @@ class TestUpdateSession:
 class TestDeleteSession:
     """DELETE /api/sessions/{session_id}"""
 
-    def test_creator_can_delete(self, monkeypatch):
-        """Happy path: session creator can delete the session."""
+    @pytest.mark.parametrize("status", ["ACTIVE", "SUBMITTED", "EDITED"])
+    @pytest.mark.parametrize("role", ["creator", "league_admin"])
+    def test_authorized_roles_can_delete_every_supported_status(self, monkeypatch, status, role):
+        """Creators and league admins can delete every supported status."""
         client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_session(session, session_id):
-            return {**_ACTIVE_SESSION, "league_id": None, "season_id": None}
+            return {
+                **_ACTIVE_SESSION,
+                "status": status,
+                "created_by": _PLAYER_ID if role == "creator" else 999,
+            }
 
         async def fake_get_player(session, user_id):
-            return _FAKE_PLAYER  # player["id"] == _PLAYER_ID matches created_by
+            return _FAKE_PLAYER
+
+        async def fake_is_league_admin(session, user_id, session_id):
+            return role == "league_admin"
 
         async def fake_delete_session(session, session_id):
-            return True
+            return {
+                "success": True,
+                "global_job_id": 88 if status != "ACTIVE" else None,
+                "league_job_id": 89 if status != "ACTIVE" else None,
+            }
 
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
         monkeypatch.setattr(data_service, "delete_session", fake_delete_session, raising=True)
+        monkeypatch.setattr(
+            "backend.api.routes.sessions.is_user_admin_of_session_league",
+            fake_is_league_admin,
+        )
 
         response = client.delete(f"/api/sessions/{_SESSION_ID}", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
         assert data["session_id"] == _SESSION_ID
+        assert data["global_job_id"] == (88 if status != "ACTIVE" else None)
+        assert data["league_job_id"] == (89 if status != "ACTIVE" else None)
 
     def test_submitted_delete_returns_stats_jobs(self, monkeypatch):
         """Deleting a submitted session exposes the queued rebuild IDs."""
@@ -1311,11 +1331,14 @@ class TestDeleteSession:
             return _FAKE_PLAYER
 
         async def fake_delete_session(session, session_id):
-            return True
+            return {
+                "success": True,
+                "global_job_id": 88,
+                "league_job_id": 89,
+            }
 
-        async def fake_enqueue(session, league_id):
-            assert league_id is None
-            return {"global_job_id": 88, "league_job_id": 89}
+        async def obsolete_enqueue(*args, **kwargs):
+            raise AssertionError("route must not enqueue recalculation")
 
         monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
         monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
@@ -1323,7 +1346,7 @@ class TestDeleteSession:
         monkeypatch.setattr(
             data_service,
             "enqueue_stats_recalculation",
-            fake_enqueue,
+            obsolete_enqueue,
             raising=True,
         )
 

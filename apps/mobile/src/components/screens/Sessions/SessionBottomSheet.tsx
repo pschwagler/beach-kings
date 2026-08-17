@@ -59,6 +59,50 @@ interface MenuItemProps {
   readonly accessibilityHint?: string;
 }
 
+interface HttpErrorShape {
+  readonly response?: { readonly status?: number };
+  readonly request?: unknown;
+  readonly message?: string;
+}
+
+function deleteFailureCopy(error: unknown): {
+  readonly title: string;
+  readonly message: string;
+} {
+  const shaped = error as HttpErrorShape;
+  const status = shaped?.response?.status;
+
+  if (status === 401) {
+    return {
+      title: "Sign in to delete session",
+      message: "Your session has expired. Sign in again, then retry the deletion.",
+    };
+  }
+  if (status === 403) {
+    return {
+      title: "Not allowed to delete session",
+      message: "You no longer have permission to delete this session.",
+    };
+  }
+  if (status === 404) {
+    return {
+      title: "Session not found",
+      message:
+        "This session no longer exists or you no longer have access to it. Refresh and try again.",
+    };
+  }
+  if (shaped?.request != null || /network|connection|offline/i.test(shaped?.message ?? "")) {
+    return {
+      title: "Connection problem",
+      message: "Check your connection, then retry deleting this session.",
+    };
+  }
+  return {
+    title: "Could not delete session",
+    message: "Something went wrong deleting this session. Please try again.",
+  };
+}
+
 function MenuItem({
   label,
   testID,
@@ -166,17 +210,18 @@ export default function SessionBottomSheet({
             setIsDeleting(true);
             try {
               const response = await api.deleteSession(sessionId);
-              void reconcileGameMutation(queryClient, {
+              await reconcileGameMutation(queryClient, {
                 userId,
                 leagueId,
                 statsJobs: response,
               });
               onClose();
               router.replace(routes.addGames());
-            } catch {
+            } catch (error) {
+              const copy = deleteFailureCopy(error);
               Alert.alert(
-                "Could not delete session",
-                "Something went wrong deleting this session. Please try again.",
+                copy.title,
+                copy.message,
                 [{ text: "OK" }],
               );
             } finally {
