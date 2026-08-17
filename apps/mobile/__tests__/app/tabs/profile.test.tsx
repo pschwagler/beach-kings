@@ -339,6 +339,24 @@ describe('ProfileScreen', () => {
     expect(await findByText(/feet and inches.*meters/i)).toBeTruthy();
   });
 
+  it('uses one keyboard-aware scroll owner for focused profile fields', async () => {
+    const { findByTestId } = render(<ProfileScreen />);
+    fireEvent.press(await findByTestId('profile-info-height'));
+
+    expect(await findByTestId('bottom-sheet-keyboard-avoider')).toHaveProp(
+      'enabled',
+      false,
+    );
+    expect(await findByTestId('profile-editor-scroll')).toHaveProp(
+      'bottomOffset',
+      16,
+    );
+    expect(await findByTestId('profile-editor-scroll')).toHaveProp(
+      'mode',
+      'insets',
+    );
+  });
+
   it('pressing Friends opens the Friends subsection deterministically', async () => {
     const { findAllByLabelText } = render(<ProfileScreen />);
     const friendsButtons = await findAllByLabelText('Friends');

@@ -6,12 +6,12 @@
 
 import React, { useEffect } from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -34,6 +34,7 @@ interface BottomSheetProps {
   readonly accessibilityLabel?: string;
   readonly initialFocusRef?: AccessibilityFocusRef;
   readonly returnFocusRef?: AccessibilityFocusRef;
+  readonly keyboardAvoidanceEnabled?: boolean;
 }
 
 const SLIDE_DURATION = 280;
@@ -47,6 +48,7 @@ export default function BottomSheet({
   accessibilityLabel = 'Bottom sheet',
   initialFocusRef,
   returnFocusRef,
+  keyboardAvoidanceEnabled = true,
 }: BottomSheetProps): React.ReactNode {
   const reduceMotion = useReducedMotion();
   const translateY = useSharedValue(600);
@@ -84,8 +86,11 @@ export default function BottomSheet({
       accessibilityViewIsModal
     >
       <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        testID="bottom-sheet-keyboard-avoider"
+        style={{ flex: 1 }}
+        behavior="padding"
+        automaticOffset
+        enabled={keyboardAvoidanceEnabled && Platform.OS === 'ios'}
       >
         {/* Backdrop */}
         <Pressable
