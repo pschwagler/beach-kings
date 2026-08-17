@@ -11,6 +11,41 @@ import { render, fireEvent } from '@testing-library/react-native';
 // ---------------------------------------------------------------------------
 
 const mockPush = jest.fn();
+const mockRefetchAll = jest.fn().mockResolvedValue(undefined);
+const mockMakeQuery = <T,>(data: T, overrides: Record<string, unknown> = {}) => ({
+  data,
+  isPending: false,
+  isFetching: false,
+  isSuccess: true,
+  isError: false,
+  error: null,
+  refetch: jest.fn().mockResolvedValue(undefined),
+  ...overrides,
+});
+let mockDashboardState: Record<string, unknown>;
+
+function resetDashboardState(): void {
+  mockDashboardState = {
+    player: mockMakeQuery({ id: 42, name: 'Ready Player', profile_picture_url: null }),
+    leagues: mockMakeQuery([]),
+    activeSession: mockMakeQuery(null),
+    friendRequests: mockMakeQuery([]),
+    courts: mockMakeQuery([]),
+    matches: mockMakeQuery([
+      {
+        id: 1,
+        partner_is_placeholder: false,
+        opponent_1_is_placeholder: false,
+        opponent_2_is_placeholder: false,
+      },
+    ]),
+    isInitialLoading: false,
+    isRefreshing: false,
+    refetchAll: mockRefetchAll,
+  };
+}
+
+resetDashboardState();
 
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -37,36 +72,9 @@ jest.mock('@/features/notifications', () => ({
 
 // useDashboard — non-loading state with one match so "View All" section renders
 jest.mock('@/hooks/useDashboard', () => {
-  const makeQuery = <T,>(data: T) => ({
-    data,
-    isPending: false,
-    isFetching: false,
-    isSuccess: true,
-    isError: false,
-    error: null,
-    refetch: jest.fn().mockResolvedValue(undefined),
-  });
   return {
     __esModule: true,
-    useDashboard: () => ({
-      player: makeQuery(null),
-      leagues: makeQuery([]),
-      activeSession: makeQuery(null),
-      friendRequests: makeQuery([]),
-      courts: makeQuery([]),
-      // At least one match so isBrandNewUser === false and the section renders
-      matches: makeQuery([
-        {
-          id: 1,
-          partner_is_placeholder: false,
-          opponent_1_is_placeholder: false,
-          opponent_2_is_placeholder: false,
-        },
-      ]),
-      isInitialLoading: false,
-      isRefreshing: false,
-      refetchAll: jest.fn().mockResolvedValue(undefined),
-    }),
+    useDashboard: () => mockDashboardState,
   };
 });
 
@@ -115,7 +123,32 @@ jest.mock('@/components/home/DashboardSkeleton', () => {
   const { View } = require('react-native');
   return { __esModule: true, default: () => <View testID="dashboard-skeleton" /> };
 });
-jest.mock('@/components/home/SectionError', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/HomeSectionSkeleton', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ label }: { label: string }) => (
+      <View testID={`section-skeleton-${label}`} />
+    ),
+  };
+});
+jest.mock('@/components/home/SectionError', () => {
+  const React = require('react');
+  const { Pressable, Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ message, onRetry }: { message: string; onRetry: () => void }) => (
+      <Pressable
+        testID={`retry-${message}`}
+        accessibilityRole="button"
+        onPress={onRetry}
+      >
+        <Text>{message}</Text>
+      </Pressable>
+    ),
+  };
+});
 
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
@@ -187,11 +220,140 @@ describe('resolveHomeLeadState', () => {
 describe('HomeScreen navigation', () => {
   beforeEach(() => {
     mockPush.mockReset();
+    mockRefetchAll.mockClear();
+    resetDashboardState();
   });
 
   it('Recent Games "View All" navigates to /(stack)/my-games', () => {
     const { getByTestId } = render(<HomeScreen />);
     fireEvent.press(getByTestId('view-all-Recent Games'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/my-games');
+  });
+
+  it('keeps cached header content visible while independent sections load', () => {
+    mockDashboardState = {
+      ...mockDashboardState,
+      leagues: mockMakeQuery(undefined, {
+        isPending: true,
+        isFetching: true,
+        isSuccess: false,
+      }),
+      matches: mockMakeQuery(undefined, {
+        isPending: true,
+        isFetching: true,
+        isSuccess: false,
+      }),
+      courts: mockMakeQuery(undefined, {
+        isPending: true,
+        isFetching: true,
+        isSuccess: false,
+      }),
+    };
+
+    const screen = render(<HomeScreen />);
+
+    expect(screen.getByTestId('home-header')).toBeTruthy();
+    expect(screen.queryByTestId('dashboard-skeleton')).toBeNull();
+    expect(screen.getByTestId('section-skeleton-recent games')).toBeTruthy();
+    expect(screen.getByTestId('section-skeleton-leagues')).toBeTruthy();
+    expect(screen.getByTestId('section-skeleton-nearby courts')).toBeTruthy();
+  });
+
+  it.each([
+    ['matches', 'Could not load your recent games.'],
+    ['leagues', 'Could not load your leagues.'],
+    ['courts', 'Could not load nearby courts.'],
+  ])('shows a retryable section error for %s without blanking Home', (section, message) => {
+    mockDashboardState = {
+      ...mockDashboardState,
+      [section]: mockMakeQuery(undefined, {
+        isError: true,
+        isSuccess: false,
+        error: new Error(`${section} failed`),
+      }),
+    };
+
+    const screen = render(<HomeScreen />);
+
+    expect(screen.getByText(message)).toBeTruthy();
+    expect(screen.queryByTestId('dashboard-skeleton')).toBeNull();
+  });
+
+  it('shows a bounded lead placeholder while friend requests load', () => {
+    mockDashboardState = {
+      ...mockDashboardState,
+      friendRequests: mockMakeQuery(undefined, {
+        isPending: true,
+        isFetching: true,
+        isSuccess: false,
+      }),
+    };
+
+    const screen = render(<HomeScreen />);
+
+    expect(screen.getByTestId('section-skeleton-next action')).toBeTruthy();
+    expect(screen.queryByTestId('dashboard-skeleton')).toBeNull();
+  });
+
+  it('shows a retryable lead error when friend requests fail', () => {
+    mockDashboardState = {
+      ...mockDashboardState,
+      friendRequests: mockMakeQuery(undefined, {
+        isError: true,
+        isSuccess: false,
+        error: new Error('friend requests failed'),
+      }),
+    };
+
+    const screen = render(<HomeScreen />);
+
+    expect(screen.getByText('Could not load friend requests.')).toBeTruthy();
+    expect(screen.queryByTestId('dashboard-skeleton')).toBeNull();
+  });
+
+  it('shows retryable dependency errors when an uncached player request fails', () => {
+    const retryPlayer = jest.fn().mockResolvedValue(undefined);
+    mockDashboardState = {
+      ...mockDashboardState,
+      player: mockMakeQuery(undefined, {
+        isError: true,
+        isSuccess: false,
+        error: new Error('player unavailable'),
+        refetch: retryPlayer,
+      }),
+      matches: mockMakeQuery(undefined, {
+        isPending: true,
+        isSuccess: false,
+      }),
+      courts: mockMakeQuery(undefined, {
+        isPending: true,
+        isSuccess: false,
+      }),
+    };
+
+    const screen = render(<HomeScreen />);
+    const gamesMessage =
+      'Could not load recent games because your profile is unavailable.';
+    const courtsMessage =
+      'Could not load nearby courts because your profile is unavailable.';
+
+    expect(screen.getByText(gamesMessage)).toBeTruthy();
+    expect(screen.getByText(courtsMessage)).toBeTruthy();
+    expect(screen.queryByTestId('dashboard-skeleton')).toBeNull();
+    fireEvent.press(screen.getByTestId(`retry-${gamesMessage}`));
+    expect(retryPlayer).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps content mounted during refresh', () => {
+    mockDashboardState = {
+      ...mockDashboardState,
+      isRefreshing: true,
+      isInitialLoading: false,
+    };
+
+    const screen = render(<HomeScreen />);
+
+    expect(screen.queryByTestId('dashboard-skeleton')).toBeNull();
+    expect(screen.getByTestId('home-scroll').props.refreshControl.props.refreshing).toBe(true);
   });
 });

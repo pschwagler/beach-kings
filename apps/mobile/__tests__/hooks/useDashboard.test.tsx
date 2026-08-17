@@ -59,6 +59,17 @@ function makeClient(): QueryClient {
 
 const PLAYER = { id: 42, location_id: 'socal_sd' };
 
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   mockApi.getCurrentUserPlayer.mockReset();
   mockApi.getUserLeagues.mockReset();
@@ -116,7 +127,34 @@ describe('dashboardKeys', () => {
 });
 
 describe('useDashboard', () => {
-  it('is initial-loading until all primary queries settle', async () => {
+  it.each([
+    ['leagues', 'getUserLeagues'],
+    ['friendRequests', 'getFriendRequests'],
+    ['courts', 'getCourts'],
+    ['matches', 'getPlayerMatchHistory'],
+  ] as const)(
+    'does not globally gate ready content on never-resolving %s',
+    async (section, method) => {
+      const pending = deferred<never>();
+      mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
+      mockApi.getUserLeagues.mockResolvedValue([]);
+      mockApi.getSessions.mockResolvedValue([]);
+      mockApi.getFriendRequests.mockResolvedValue([]);
+      mockApi.getCourts.mockResolvedValue([]);
+      mockApi.getPlayerMatchHistory.mockResolvedValue([]);
+      mockApi[method].mockReturnValue(pending.promise);
+
+      const { result } = renderHook(() => useDashboard(), {
+        wrapper: makeWrapper(makeClient()),
+      });
+
+      await waitFor(() => expect(result.current.player.isSuccess).toBe(true));
+      expect(result.current[section].isPending).toBe(true);
+      expect(result.current.isInitialLoading).toBe(false);
+    },
+  );
+
+  it('is initial-loading only until the uncached player query settles', async () => {
     mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
     mockApi.getUserLeagues.mockResolvedValue([]);
     mockApi.getSessions.mockResolvedValue([]);
@@ -208,9 +246,28 @@ describe('useDashboard', () => {
     );
     // Matches is gated on a non-null player id and should not fire.
     expect(mockApi.getPlayerMatchHistory).not.toHaveBeenCalled();
+    expect(result.current.matches.fetchStatus).toBe('idle');
+    expect(result.current.isInitialLoading).toBe(false);
     // Courts still fires with a null location id (not player-id gated).
     await waitFor(() => expect(mockApi.getCourts).toHaveBeenCalled());
     expect(mockApi.getCourts).toHaveBeenCalledWith({ location_id: null });
+  });
+
+  it('keeps player-dependent queries idle after an uncached player failure', async () => {
+    mockApi.getCurrentUserPlayer.mockRejectedValue(new Error('player unavailable'));
+    mockApi.getUserLeagues.mockResolvedValue([]);
+    mockApi.getSessions.mockResolvedValue([]);
+    mockApi.getFriendRequests.mockResolvedValue([]);
+
+    const { result } = renderHook(() => useDashboard(), {
+      wrapper: makeWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.player.isError).toBe(true));
+    expect(result.current.player.data).toBeUndefined();
+    expect(result.current.matches.fetchStatus).toBe('idle');
+    expect(result.current.courts.fetchStatus).toBe('idle');
+    expect(result.current.isInitialLoading).toBe(false);
   });
 
   it('surfaces query errors on each section independently', async () => {
