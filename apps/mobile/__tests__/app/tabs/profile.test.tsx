@@ -328,6 +328,17 @@ describe('ProfileScreen', () => {
     );
   });
 
+  it('keeps height units and examples visible while the value is edited', async () => {
+    const { findByTestId, findByText } = render(<ProfileScreen />);
+    fireEvent.press(await findByTestId('profile-info-height'));
+
+    const guidance = await findByText(/feet and inches.*meters/i);
+    fireEvent.changeText(await findByTestId('profile-editor-height'), '1.78 m');
+
+    expect(guidance).toBeTruthy();
+    expect(await findByText(/feet and inches.*meters/i)).toBeTruthy();
+  });
+
   it('pressing Friends opens the Friends subsection deterministically', async () => {
     const { findAllByLabelText } = render(<ProfileScreen />);
     const friendsButtons = await findAllByLabelText('Friends');

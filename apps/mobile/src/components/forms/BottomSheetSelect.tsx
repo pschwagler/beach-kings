@@ -1,4 +1,5 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import { Pressable } from 'react-native';
 import { BottomSheet } from '@/components/ui';
 import SelectField from './SelectField';
 import SheetOptionList, { type SelectOption } from './SheetOptionList';
@@ -39,6 +40,7 @@ export default function BottomSheetSelect({
   searchPlaceholder,
 }: BottomSheetSelectProps): React.ReactNode {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<React.ElementRef<typeof Pressable>>(null);
 
   const selectedOption = options.find((o) => o.value === value);
   const resolvedDisplay =
@@ -60,6 +62,7 @@ export default function BottomSheetSelect({
   return (
     <>
       <SelectField
+        ref={triggerRef}
         placeholder={placeholder}
         value={resolvedDisplay}
         error={error}
@@ -67,7 +70,11 @@ export default function BottomSheetSelect({
         onPress={() => setOpen(true)}
         testID={testID}
       />
-      <BottomSheet visible={open} onClose={() => setOpen(false)}>
+      <BottomSheet
+        visible={open}
+        onClose={() => setOpen(false)}
+        returnFocusRef={triggerRef}
+      >
         <SheetOptionList
           title={title}
           options={options}

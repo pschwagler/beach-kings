@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
+import { KeyboardAvoidingView, Platform } from 'react-native';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before any component imports
@@ -535,6 +536,40 @@ describe('BottomSheet', () => {
     );
     // Modal is not visible, tree should still be non-null (RN Modal renders null or empty)
     expect(toJSON()).toBeNull();
+  });
+
+  it('owns iOS keyboard avoidance at the shared sheet boundary', () => {
+    const originalOS = Platform.OS;
+    Platform.OS = 'ios';
+
+    const { UNSAFE_getByType } = render(
+      <BottomSheet visible onClose={jest.fn()}>
+        <></>
+      </BottomSheet>,
+    );
+
+    expect(UNSAFE_getByType(KeyboardAvoidingView)).toHaveProp(
+      'behavior',
+      'padding',
+    );
+    Platform.OS = originalOS;
+  });
+
+  it('keeps Android sheet positioning unchanged', () => {
+    const originalOS = Platform.OS;
+    Platform.OS = 'android';
+
+    const { UNSAFE_getByType } = render(
+      <BottomSheet visible onClose={jest.fn()}>
+        <></>
+      </BottomSheet>,
+    );
+
+    expect(UNSAFE_getByType(KeyboardAvoidingView)).toHaveProp(
+      'behavior',
+      undefined,
+    );
+    Platform.OS = originalOS;
   });
 });
 

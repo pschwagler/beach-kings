@@ -113,4 +113,32 @@ describe('shared modal accessibility', () => {
 
     expect(setFocus.mock.calls.length).toBeGreaterThan(callsBeforeDismissal);
   });
+
+  it('restores screen-reader focus after dismissing a bottom sheet', () => {
+    const setFocus = jest
+      .spyOn(AccessibilityInfo, 'setAccessibilityFocus')
+      .mockImplementation(() => undefined);
+
+    function Harness(): React.ReactNode {
+      const [visible, setVisible] = React.useState(true);
+      const triggerRef = React.useRef<View>(42 as unknown as View);
+      return (
+        <BottomSheet
+          visible={visible}
+          onClose={() => setVisible(false)}
+          returnFocusRef={triggerRef}
+          testID="select-sheet"
+        >
+          <View />
+        </BottomSheet>
+      );
+    }
+
+    render(<Harness />);
+    const callsBeforeDismissal = setFocus.mock.calls.length;
+
+    fireEvent(screen.getByTestId('select-sheet'), 'accessibilityEscape');
+
+    expect(setFocus.mock.calls.length).toBeGreaterThan(callsBeforeDismissal);
+  });
 });
