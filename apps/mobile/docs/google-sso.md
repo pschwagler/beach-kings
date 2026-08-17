@@ -1,6 +1,6 @@
 # Google Sign-In setup (mobile)
 
-The mobile app uses `expo-auth-session/providers/google` for Google Sign-In and posts the resulting ID token to `POST /api/auth/google`. The backend verifies it against `GOOGLE_CLIENT_ID`. Until the env vars below are populated, the buttons render but the flow throws `OAuthNotConfiguredError` ("Google sign-in is not configured" alert).
+The mobile app uses `expo-auth-session/providers/google` for Google Sign-In and posts the resulting ID token to `POST /api/auth/google`. The backend verifies it against the explicit first-party audience set from `GOOGLE_CLIENT_ID` plus the optional comma-separated `GOOGLE_CLIENT_IDS`. Until the env vars below are populated, the buttons render but the flow throws `OAuthNotConfiguredError` ("Google sign-in is not configured" alert).
 
 ## One-time setup in Google Cloud Console
 
@@ -55,4 +55,4 @@ If the alert still says "not configured": confirm `EXPO_PUBLIC_GOOGLE_*` values 
 
 ## Backend
 
-Backend verification is already wired up at `POST /api/auth/google` (`apps/backend/api/routes/auth.py`) using `GOOGLE_CLIENT_ID` from the root `.env`. No backend changes needed unless you create the iOS/Android clients in a different Google Cloud project than the existing web client — in that case, update `GOOGLE_CLIENT_ID` to a list/multiple audiences (the current verifier accepts a single audience).
+Backend verification is wired up at `POST /api/auth/google` (`apps/backend/api/routes/auth.py`). Keep the existing primary/web value in `GOOGLE_CLIENT_ID` and list any additional iOS/Android client IDs in comma-separated `GOOGLE_CLIENT_IDS`. Only explicitly configured audiences are accepted.

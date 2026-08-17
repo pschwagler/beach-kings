@@ -10,7 +10,8 @@ from typing import Dict, Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select, update, func
+from sqlalchemy import func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import (
@@ -546,6 +547,7 @@ async def apple_auth(
                 user_id=user["id"],
                 apple_id=apple_id,
                 authorization_code=payload.authorization_code,
+                client_id=apple_info.get("aud"),
             )
 
         await _maybe_cancel_deletion(session, user)
@@ -626,7 +628,7 @@ async def _import_google_avatar(session: AsyncSession, player_id: int, picture_u
 # ---------------------------------------------------------------------------
 
 
-async def _set_google_id(session: AsyncSession, user_id: int, google_id: str) -> None:
+async def _set_google_id(session: AsyncSession, user_id: int, google_id: str) -> bool:
     """
     Write google_id onto a user row without changing auth_provider.
 
@@ -638,13 +640,19 @@ async def _set_google_id(session: AsyncSession, user_id: int, google_id: str) ->
         user_id: ID of the user receiving the link.
         google_id: Google's ``sub`` claim to store.
     """
-    await session.execute(
-        update(User).where(User.id == user_id).values(google_id=google_id, updated_at=func.now())
+    result = await session.execute(
+        update(User)
+        .where(
+            User.id == user_id,
+            or_(User.google_id.is_(None), User.google_id == google_id),
+        )
+        .values(google_id=google_id, updated_at=func.now())
     )
-    await session.commit()
+    await session.flush()
+    return result.rowcount == 1
 
 
-async def _set_apple_id(session: AsyncSession, user_id: int, apple_id: str) -> None:
+async def _set_apple_id(session: AsyncSession, user_id: int, apple_id: str) -> bool:
     """
     Write apple_id onto a user row without changing auth_provider.
 
@@ -656,22 +664,42 @@ async def _set_apple_id(session: AsyncSession, user_id: int, apple_id: str) -> N
         user_id: ID of the user receiving the link.
         apple_id: Apple's ``sub`` claim to store.
     """
-    await session.execute(
-        update(User).where(User.id == user_id).values(apple_id=apple_id, updated_at=func.now())
+    result = await session.execute(
+        update(User)
+        .where(
+            User.id == user_id,
+            or_(User.apple_id.is_(None), User.apple_id == apple_id),
+        )
+        .values(apple_id=apple_id, updated_at=func.now())
     )
-    await session.commit()
+    await session.flush()
+    return result.rowcount == 1
 
 
 async def _capture_apple_refresh_token(
-    session: AsyncSession, *, user_id: int, apple_id: str, authorization_code: str
+    session: AsyncSession,
+    *,
+    user_id: int,
+    apple_id: str,
+    authorization_code: str,
+    client_id: str | None = None,
 ) -> None:
     """Exchange Apple's one-time code and retain an encrypted revocation token."""
     try:
-        token_response = await apple_token_service.exchange_authorization_code(authorization_code)
+        token_response = await apple_token_service.exchange_authorization_code(
+            authorization_code, client_id
+        )
         exchanged_identity = auth_service.verify_apple_id_token(token_response["id_token"])
         if exchanged_identity["sub"] != apple_id:
             raise ValueError("Apple authorization code belongs to a different account")
-        ciphertext = apple_token_service.encrypt_refresh_token(token_response["refresh_token"])
+        exchanged_client_id = exchanged_identity.get("aud") or client_id
+        if client_id is not None and exchanged_client_id != client_id:
+            raise ValueError("Apple authorization code audience does not match")
+        if not exchanged_client_id:
+            raise ValueError("Apple authorization code audience is missing")
+        ciphertext = apple_token_service.encrypt_refresh_credential(
+            token_response["refresh_token"], exchanged_client_id
+        )
         await user_service.store_apple_refresh_token(session, user_id, ciphertext)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
@@ -684,6 +712,45 @@ async def _capture_apple_refresh_token(
             status_code=503,
             detail="Apple sign-in is temporarily unavailable. Please try again.",
         ) from exc
+
+
+def _provider_link_error(status_code: int, code: str, message: str) -> HTTPException:
+    """Build the public, non-secret provider-link error contract."""
+    return HTTPException(status_code=status_code, detail={"code": code, "message": message})
+
+
+class _ProviderAlreadyConnectedError(RuntimeError):
+    """A concurrent request attached a different identity to this account."""
+
+
+def _provider_already_connected_error(provider: str) -> HTTPException:
+    return _provider_link_error(
+        409,
+        "PROVIDER_ALREADY_CONNECTED",
+        f"This Beach League account already has a different {provider} account connected.",
+    )
+
+
+def _raise_provider_verification_error(provider: str, exc: ValueError) -> None:
+    """Map internal token failures to stable diagnostics without token details."""
+    if isinstance(exc, auth_service.ProviderConfigurationError):
+        status_code = 503
+        code = "PROVIDER_LINK_CONFIG"
+        message = "Account linking is not configured for this provider."
+    elif isinstance(exc, auth_service.ProviderAudienceError):
+        status_code = 401
+        code = "PROVIDER_LINK_AUDIENCE"
+        message = "The provider token was issued for an unsupported application."
+    elif isinstance(exc, auth_service.ProviderVerificationUnavailableError):
+        status_code = 503
+        code = "PROVIDER_LINK_VERIFICATION_UNAVAILABLE"
+        message = "The provider token could not be verified right now."
+    else:
+        status_code = 401
+        code = "PROVIDER_LINK_TOKEN_INVALID"
+        message = "The provider token could not be verified."
+    logger.warning("Provider link rejected provider=%s code=%s", provider, code)
+    raise _provider_link_error(status_code, code, message) from exc
 
 
 def _build_user_response(
@@ -1504,21 +1571,51 @@ async def add_google_provider(
     try:
         google_info = auth_service.verify_google_id_token(payload.id_token)
     except ValueError as exc:
-        raise HTTPException(status_code=401, detail=str(exc))
+        _raise_provider_verification_error("google", exc)
 
     google_id = google_info["sub"]
+
+    attached_google_id = current_user.get("google_id")
+    if attached_google_id is not None and attached_google_id != google_id:
+        raise _provider_already_connected_error("Google")
 
     # Check whether this Google ID already belongs to another account.
     existing = await user_service.get_user_by_google_id(session, google_id)
     if existing and existing["id"] != current_user["id"]:
-        raise HTTPException(
-            status_code=409,
-            detail="This Google account is already linked to a different user.",
+        raise _provider_link_error(
+            409,
+            "PROVIDER_LINK_CONFLICT",
+            "This Google account is already linked to a different Beach League account.",
         )
 
     # Idempotent: already linked to this user — skip the write.
     if not existing:
-        await _set_google_id(session, current_user["id"], google_id)
+        try:
+            if not await _set_google_id(session, current_user["id"], google_id):
+                raise _ProviderAlreadyConnectedError
+            await session.commit()
+        except _ProviderAlreadyConnectedError as exc:
+            await session.rollback()
+            logger.warning(
+                "Provider replacement rejected provider=google code=PROVIDER_ALREADY_CONNECTED"
+            )
+            raise _provider_already_connected_error("Google") from exc
+        except IntegrityError as exc:
+            await session.rollback()
+            logger.warning("Provider link conflict provider=google code=PROVIDER_LINK_CONFLICT")
+            raise _provider_link_error(
+                409,
+                "PROVIDER_LINK_CONFLICT",
+                "This Google account is already linked to a different Beach League account.",
+            ) from exc
+        except Exception as exc:
+            await session.rollback()
+            logger.exception("Provider link persistence failed provider=google")
+            raise _provider_link_error(
+                500,
+                "PROVIDER_LINK_PERSISTENCE",
+                "The Google account could not be linked.",
+            ) from exc
 
     updated_user = await user_service.get_user_by_id(session, current_user["id"])
     if not updated_user:
@@ -1547,29 +1644,70 @@ async def add_apple_provider(
     try:
         apple_info = auth_service.verify_apple_id_token(payload.id_token)
     except ValueError as exc:
-        raise HTTPException(status_code=401, detail=str(exc))
+        _raise_provider_verification_error("apple", exc)
 
     apple_id = apple_info["sub"]
+
+    attached_apple_id = current_user.get("apple_id")
+    if attached_apple_id is not None and attached_apple_id != apple_id:
+        raise _provider_already_connected_error("Apple")
 
     # Check whether this Apple ID already belongs to another account.
     existing = await user_service.get_user_by_apple_id(session, apple_id)
     if existing and existing["id"] != current_user["id"]:
-        raise HTTPException(
-            status_code=409,
-            detail="This Apple account is already linked to a different user.",
+        raise _provider_link_error(
+            409,
+            "PROVIDER_LINK_CONFLICT",
+            "This Apple account is already linked to a different Beach League account.",
         )
 
-    # Idempotent: already linked to this user — skip the write.
+    # Idempotent: a repeat link for the same user succeeds without consuming
+    # another one-time Apple authorization code or changing stored state.
     if not existing:
-        await _set_apple_id(session, current_user["id"], apple_id)
-
-    if payload.authorization_code:
-        await _capture_apple_refresh_token(
-            session,
-            user_id=current_user["id"],
-            apple_id=apple_id,
-            authorization_code=payload.authorization_code,
-        )
+        try:
+            # Exchange and stage the revocation credential before the provider
+            # ID. Both writes are flushed and then committed together below.
+            if payload.authorization_code:
+                await _capture_apple_refresh_token(
+                    session,
+                    user_id=current_user["id"],
+                    apple_id=apple_id,
+                    authorization_code=payload.authorization_code,
+                    client_id=apple_info.get("aud"),
+                )
+            if not await _set_apple_id(session, current_user["id"], apple_id):
+                raise _ProviderAlreadyConnectedError
+            await session.commit()
+        except _ProviderAlreadyConnectedError as exc:
+            await session.rollback()
+            logger.warning(
+                "Provider replacement rejected provider=apple code=PROVIDER_ALREADY_CONNECTED"
+            )
+            raise _provider_already_connected_error("Apple") from exc
+        except HTTPException as exc:
+            await session.rollback()
+            logger.warning("Provider link rejected provider=apple code=APPLE_LINK_CODE_EXCHANGE")
+            raise _provider_link_error(
+                503,
+                "APPLE_LINK_CODE_EXCHANGE",
+                "Apple authorization could not be completed securely.",
+            ) from exc
+        except IntegrityError as exc:
+            await session.rollback()
+            logger.warning("Provider link conflict provider=apple code=PROVIDER_LINK_CONFLICT")
+            raise _provider_link_error(
+                409,
+                "PROVIDER_LINK_CONFLICT",
+                "This Apple account is already linked to a different Beach League account.",
+            ) from exc
+        except Exception as exc:
+            await session.rollback()
+            logger.exception("Provider link persistence failed provider=apple")
+            raise _provider_link_error(
+                500,
+                "PROVIDER_LINK_PERSISTENCE",
+                "The Apple account could not be linked.",
+            ) from exc
 
     updated_user = await user_service.get_user_by_id(session, current_user["id"])
     if not updated_user:

@@ -50,6 +50,7 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GOOGLE_CLIENT_ID` | (empty) | Google OAuth 2.0 Client ID (backend token verification) |
+| `GOOGLE_CLIENT_IDS` | (empty) | Optional comma-separated additional first-party token audiences; the singular variable remains supported |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | (empty) | Google OAuth 2.0 Client ID (frontend, exposed to browser) |
 
 ### Sign in with Apple
@@ -61,6 +62,7 @@ for as long as pending Apple revocation jobs exist.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `APPLE_CLIENT_ID` | (empty) | App ID used as the Apple token audience and OAuth client ID |
+| `APPLE_CLIENT_IDS` | (empty) | Optional comma-separated additional first-party App ID / Services ID token audiences; the singular variable remains supported |
 | `APPLE_TEAM_ID` | (empty) | Apple Developer team identifier used to sign client-secret JWTs |
 | `APPLE_KEY_ID` | (empty) | Sign in with Apple private-key identifier |
 | `APPLE_PRIVATE_KEY` | (empty) | Server-only ES256 private key; literal `\\n` separators are supported |
