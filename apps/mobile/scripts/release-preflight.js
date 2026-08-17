@@ -7,6 +7,7 @@ const { verifyProductionExport } = require('./verify-production-no-dev-auth');
 
 const EXPECTED = Object.freeze({
   bundleIdentifier: 'com.beachleague.app',
+  appStoreUrl: 'https://apps.apple.com/app/id6801891670',
   displayName: 'Beach League',
   version: '1.0.0',
   buildNumber: '1',
@@ -212,6 +213,19 @@ function verifyV1OtaPolicy(packageJson, appConfig) {
   }
 }
 
+function verifyStoreUrls(appConfig) {
+  if (appConfig.ios?.appStoreUrl !== EXPECTED.appStoreUrl) {
+    fail('Expo iOS App Store URL is missing or unexpected.');
+  }
+  if (
+    appConfig.android != null &&
+    Object.prototype.hasOwnProperty.call(appConfig.android, 'playStoreUrl')
+  ) {
+    fail('Android store URL must remain deferred until its listing is approved.');
+  }
+  return { appStoreUrl: EXPECTED.appStoreUrl };
+}
+
 function verifyReleaseConfiguration({
   mobileRoot,
   apiUrl,
@@ -253,6 +267,7 @@ function verifyReleaseConfiguration({
 
   verifyNoTrackingDependencies(packageJson);
   verifyV1OtaPolicy(packageJson, appConfig);
+  const storeUrls = verifyStoreUrls(appConfig);
 
   if (appConfig.name !== EXPECTED.displayName)
     fail('unexpected home-screen display name.');
@@ -373,6 +388,7 @@ function verifyReleaseConfiguration({
   const exportResult = verifyProductionExport(exportDirectory, ['ios']);
   return {
     apiOrigin,
+    appStoreUrl: storeUrls.appStoreUrl,
     bundleIdentifier: EXPECTED.bundleIdentifier,
     deviceFamily: 'iPhone',
     exportFileCount: exportResult.scannedFileCount,
@@ -412,5 +428,6 @@ module.exports = {
   verifyNoTrackingDependencies,
   verifyPrivacyManifest,
   verifyReleaseConfiguration,
+  verifyStoreUrls,
   verifyV1OtaPolicy,
 };
