@@ -7,6 +7,7 @@ const {
   verifyNoTrackingDependencies,
   verifyPrivacyManifest,
   verifyReleaseConfiguration,
+  verifyStoreUrls,
   verifyV1OtaPolicy,
 } = require('../../scripts/release-preflight') as {
   assertSecureProductionOrigin: (
@@ -36,12 +37,17 @@ const {
     exportDirectory: string;
   }) => {
     apiOrigin: string;
+    appStoreUrl: string;
     bundleIdentifier: string;
     deviceFamily: string;
     privacyCollectedDataTypeCount: number;
     version: string;
     webOrigin: string;
   };
+  verifyStoreUrls: (appConfig: {
+    ios?: { appStoreUrl?: string };
+    android?: { playStoreUrl?: string };
+  }) => { appStoreUrl: string };
 };
 
 const mobileRoot = path.resolve(__dirname, '../..');
@@ -70,6 +76,7 @@ describe('iOS release preflight', () => {
       ).toEqual(
         expect.objectContaining({
           apiOrigin: 'https://beachleaguevb.com',
+          appStoreUrl: 'https://apps.apple.com/app/id6801891670',
           bundleIdentifier: 'com.beachleague.app',
           deviceFamily: 'iPhone',
           privacyCollectedDataTypeCount: 13,
@@ -80,6 +87,36 @@ describe('iOS release preflight', () => {
     } finally {
       fs.rmSync(exportDirectory, { recursive: true, force: true });
     }
+  });
+
+  describe('store rating configuration', () => {
+    it('accepts only the approved iOS product URL with Android deferred', () => {
+      expect(
+        verifyStoreUrls({
+          ios: { appStoreUrl: 'https://apps.apple.com/app/id6801891670' },
+          android: {},
+        }),
+      ).toEqual({
+        appStoreUrl: 'https://apps.apple.com/app/id6801891670',
+      });
+    });
+
+    it.each([undefined, 'https://apps.apple.com/app/id123'])(
+      'rejects a missing or incorrect iOS store URL: %s',
+      (appStoreUrl) =>
+        expect(() => verifyStoreUrls({ ios: { appStoreUrl } })).toThrow(
+          /App Store URL/,
+        ),
+    );
+
+    it('keeps the unconfirmed Android listing unconfigured', () => {
+      expect(() =>
+        verifyStoreUrls({
+          ios: { appStoreUrl: 'https://apps.apple.com/app/id6801891670' },
+          android: { playStoreUrl: 'https://play.google.com/store/apps/test' },
+        }),
+      ).toThrow(/Android.*deferred/);
+    });
   });
 
   it.each([undefined, '', 'not-a-url', 'http://beachleaguevb.com'])(

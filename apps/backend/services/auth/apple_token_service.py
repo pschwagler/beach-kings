@@ -1,5 +1,6 @@
 """Apple authorization-code exchange and durable token revocation boundaries."""
 
+import json
 import os
 from datetime import timedelta
 
@@ -33,7 +34,14 @@ def _private_key() -> str:
     return _required_env("APPLE_PRIVATE_KEY").replace("\\n", "\n")
 
 
-def create_client_secret() -> str:
+def _client_id(client_id: str | None = None) -> str:
+    return (
+        client_id.strip() if client_id and client_id.strip() else _required_env("APPLE_CLIENT_ID")
+    )
+
+
+def create_client_secret(client_id: str | None = None) -> str:
+    resolved_client_id = _client_id(client_id)
     now = utcnow()
     return jwt.encode(
         {
@@ -41,7 +49,7 @@ def create_client_secret() -> str:
             "iat": now,
             "exp": now + timedelta(minutes=10),
             "aud": "https://appleid.apple.com",
-            "sub": _required_env("APPLE_CLIENT_ID"),
+            "sub": resolved_client_id,
         },
         _private_key(),
         algorithm="ES256",
@@ -59,24 +67,54 @@ def _fernet() -> Fernet:
 
 
 def encrypt_refresh_token(refresh_token: str) -> str:
+    """Encrypt a legacy token-only credential payload."""
     return _fernet().encrypt(refresh_token.encode()).decode()
 
 
 def decrypt_refresh_token(ciphertext: str) -> str:
+    """Decrypt a legacy token-only credential payload."""
     try:
         return _fernet().decrypt(ciphertext.encode()).decode()
     except InvalidToken as exc:
         raise AppleConfigurationError("Unable to decrypt stored Apple credential") from exc
 
 
-async def exchange_authorization_code(code: str) -> dict:
+def encrypt_refresh_credential(refresh_token: str, client_id: str) -> str:
+    """Encrypt the refresh token together with its exact Apple OAuth client."""
+    payload = json.dumps(
+        {"refresh_token": refresh_token, "client_id": _client_id(client_id)},
+        separators=(",", ":"),
+    )
+    return _fernet().encrypt(payload.encode()).decode()
+
+
+def decrypt_refresh_credential(ciphertext: str) -> tuple[str, str | None]:
+    """Decode current credentials while retaining legacy token-only support."""
+    plaintext = decrypt_refresh_token(ciphertext)
+    try:
+        payload = json.loads(plaintext)
+    except json.JSONDecodeError:
+        return plaintext, None
+    if not isinstance(payload, dict):
+        raise AppleConfigurationError("Stored Apple credential has an invalid format")
+    refresh_token = payload.get("refresh_token")
+    client_id = payload.get("client_id")
+    if not isinstance(refresh_token, str) or not refresh_token:
+        raise AppleConfigurationError("Stored Apple credential has an invalid format")
+    if not isinstance(client_id, str) or not client_id:
+        raise AppleConfigurationError("Stored Apple credential has an invalid format")
+    return refresh_token, client_id
+
+
+async def exchange_authorization_code(code: str, client_id: str | None = None) -> dict:
+    resolved_client_id = _client_id(client_id)
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             response = await client.post(
                 APPLE_TOKEN_URL,
                 data={
-                    "client_id": _required_env("APPLE_CLIENT_ID"),
-                    "client_secret": create_client_secret(),
+                    "client_id": resolved_client_id,
+                    "client_secret": create_client_secret(resolved_client_id),
                     "code": code,
                     "grant_type": "authorization_code",
                 },
@@ -92,14 +130,15 @@ async def exchange_authorization_code(code: str) -> dict:
     return payload
 
 
-async def revoke_refresh_token(refresh_token: str) -> None:
+async def revoke_refresh_token(refresh_token: str, client_id: str | None = None) -> None:
+    resolved_client_id = _client_id(client_id)
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             response = await client.post(
                 APPLE_REVOKE_URL,
                 data={
-                    "client_id": _required_env("APPLE_CLIENT_ID"),
-                    "client_secret": create_client_secret(),
+                    "client_id": resolved_client_id,
+                    "client_secret": create_client_secret(resolved_client_id),
                     "token": refresh_token,
                     "token_type_hint": "refresh_token",
                 },

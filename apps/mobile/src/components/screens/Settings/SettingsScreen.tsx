@@ -20,14 +20,11 @@ import {
   View,
   Pressable,
   ScrollView,
-  Alert,
-  Linking,
   ActivityIndicator,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as StoreReview from 'expo-store-review';
 
 import TopNav from '@/components/ui/TopNav';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -39,6 +36,7 @@ import {
 } from '@/lib/support';
 import { PUBLIC_URLS } from '@/lib/publicUrls';
 import { openPublicWebUrl } from '@/lib/externalUrls';
+import { requestAppRating } from './rateApp';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -263,26 +261,7 @@ export default function SettingsScreen(): React.ReactNode {
 
   const handleRateApp = useCallback(() => {
     void hapticLight();
-    void (async () => {
-      try {
-        const canReview = await StoreReview.hasAction();
-        if (canReview) {
-          await StoreReview.requestReview();
-        } else {
-          const url = StoreReview.storeUrl();
-          if (url != null) {
-            await Linking.openURL(url);
-          } else {
-            Alert.alert(
-              'Rate Beach League',
-              'Find us in the App Store or Google Play to leave a rating.',
-            );
-          }
-        }
-      } catch {
-        Alert.alert('Rate Beach League', 'Unable to open the store. Please try again later.');
-      }
-    })();
+    void requestAppRating();
   }, []);
 
   const handleDeleteAccount = useCallback(() => {

@@ -61,7 +61,7 @@ export default function SheetOptionList({
   }, [options, query, searchable]);
 
   return (
-    <View className="px-lg pb-xl pt-sm">
+    <View className="px-lg pb-xl pt-sm flex-shrink">
       <AppText className="text-footnote font-semibold text-muted uppercase tracking-wider mb-md">
         {title}
       </AppText>
@@ -103,8 +103,8 @@ export default function SheetOptionList({
         </View>
       ) : (
         <ScrollView
-          style={{ maxHeight: 420 }}
-          keyboardShouldPersistTaps="handled"
+          style={{ maxHeight: 420, flexShrink: 1 }}
+          keyboardShouldPersistTaps="always"
         >
           {filtered.map((opt) => {
             const selected = opt.value === selectedValue;

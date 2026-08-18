@@ -29,6 +29,19 @@ def test_refresh_token_encryption_round_trip(monkeypatch):
     assert apple_token_service.decrypt_refresh_token(ciphertext) == "apple-refresh-token"
 
 
+def test_refresh_credential_preserves_issuing_client(monkeypatch):
+    monkeypatch.setenv("APPLE_TOKEN_ENCRYPTION_KEY", Fernet.generate_key().decode())
+
+    ciphertext = apple_token_service.encrypt_refresh_credential(
+        "apple-refresh-token", "com.beachleague.ios"
+    )
+
+    assert apple_token_service.decrypt_refresh_credential(ciphertext) == (
+        "apple-refresh-token",
+        "com.beachleague.ios",
+    )
+
+
 def test_client_secret_uses_short_lived_apple_claims(monkeypatch):
     monkeypatch.setenv("APPLE_TEAM_ID", "TEAM123")
     monkeypatch.setenv("APPLE_CLIENT_ID", "com.beachleague.app")
@@ -74,6 +87,26 @@ async def test_revocation_posts_refresh_token_to_apple(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_revocation_uses_credential_bound_client_id(monkeypatch):
+    response = SimpleNamespace(status_code=200)
+    client = SimpleNamespace(post=AsyncMock(return_value=response))
+
+    with (
+        patch.object(apple_token_service, "create_client_secret", return_value="client-secret"),
+        patch.object(
+            apple_token_service.httpx,
+            "AsyncClient",
+            return_value=_AsyncClientContext(client),
+        ),
+    ):
+        await apple_token_service.revoke_refresh_token(
+            "apple-refresh-token", "com.beachleague.ios"
+        )
+
+    assert client.post.await_args.kwargs["data"]["client_id"] == "com.beachleague.ios"
+
+
+@pytest.mark.asyncio
 async def test_successful_revocation_clears_ciphertext(monkeypatch):
     monkeypatch.setenv("APPLE_TOKEN_ENCRYPTION_KEY", Fernet.generate_key().decode())
     ciphertext = apple_token_service.encrypt_refresh_token("apple-refresh-token")
@@ -94,7 +127,7 @@ async def test_successful_revocation_clears_ciphertext(monkeypatch):
         completed = await apple_revocation_worker.process_job(session, job)
 
     assert completed is True
-    revoke.assert_awaited_once_with("apple-refresh-token")
+    revoke.assert_awaited_once_with("apple-refresh-token", None)
     assert job.status == "completed"
     assert job.refresh_token_ciphertext == "revoked"
     assert job.completed_at is not None

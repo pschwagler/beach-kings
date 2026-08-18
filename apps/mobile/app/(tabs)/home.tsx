@@ -24,7 +24,15 @@ import RecentGamesScroll from '@/components/home/RecentGamesScroll';
 import LeaguesScroll from '@/components/home/LeaguesScroll';
 import CourtsScroll from '@/components/home/CourtsScroll';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
+import HomeSectionSkeleton from '@/components/home/HomeSectionSkeleton';
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
+
+function isActivelyPending(query: {
+  readonly isPending: boolean;
+  readonly isFetching: boolean;
+}): boolean {
+  return query.isPending && query.isFetching;
+}
 
 function computeProfilePercent(player: Player | null): number {
   if (!player) return 0;
@@ -117,6 +125,17 @@ export default function HomeScreen(): React.ReactNode {
   const courtsData = courts.data ?? [];
   const friendRequestsData = friendRequests.data ?? [];
   const activeSessionData = activeSession.data ?? null;
+  const playerDependencyError =
+    player.data === undefined && player.isError;
+  const leadPending =
+    isActivelyPending(activeSession) ||
+    (activeSession.isSuccess &&
+      activeSessionData == null &&
+      isActivelyPending(friendRequests));
+  const friendRequestError =
+    activeSession.isSuccess &&
+    activeSessionData == null &&
+    friendRequests.isError;
 
   const firstName =
     playerData?.first_name ?? playerData?.name?.split(' ')[0] ?? 'Player';
@@ -161,6 +180,7 @@ export default function HomeScreen(): React.ReactNode {
 
       <ScrollView
         ref={scrollRef}
+        testID="home-scroll"
         className="flex-1"
         refreshControl={
           <RefreshControl
@@ -174,10 +194,21 @@ export default function HomeScreen(): React.ReactNode {
           <DashboardSkeleton />
         ) : (
           <View className="px-lg pt-md pb-xxxl">
-            <HomeLeadAction
-              state={leadState}
-              onRetryActiveSession={() => void activeSession.refetch()}
-            />
+            {leadPending ? (
+              <HomeSectionSkeleton label="next action" wide />
+            ) : friendRequestError ? (
+              <View className="mb-lg">
+                <SectionError
+                  message="Could not load friend requests."
+                  onRetry={() => void friendRequests.refetch()}
+                />
+              </View>
+            ) : (
+              <HomeLeadAction
+                state={leadState}
+                onRetryActiveSession={() => void activeSession.refetch()}
+              />
+            )}
 
             <View className="mb-lg">
               <SectionHeader
@@ -185,7 +216,14 @@ export default function HomeScreen(): React.ReactNode {
                 linkLabel="View All"
                 onLinkPress={() => router.push(routes.myGames())}
               />
-              {matches.isError ? (
+              {playerDependencyError ? (
+                <SectionError
+                  message="Could not load recent games because your profile is unavailable."
+                  onRetry={() => void player.refetch()}
+                />
+              ) : isActivelyPending(matches) ? (
+                <HomeSectionSkeleton label="recent games" />
+              ) : matches.isError ? (
                 <SectionError
                   message="Could not load your recent games."
                   onRetry={() => void matches.refetch()}
@@ -201,7 +239,9 @@ export default function HomeScreen(): React.ReactNode {
                 linkLabel="View All"
                 onLinkPress={() => router.push(routes.leagues())}
               />
-              {leagues.isError ? (
+              {isActivelyPending(leagues) ? (
+                <HomeSectionSkeleton label="leagues" />
+              ) : leagues.isError ? (
                 <SectionError
                   message="Could not load your leagues."
                   onRetry={() => void leagues.refetch()}
@@ -221,7 +261,14 @@ export default function HomeScreen(): React.ReactNode {
                 linkLabel="See Map"
                 onLinkPress={() => router.push(routes.courts())}
               />
-              {courts.isError ? (
+              {playerDependencyError ? (
+                <SectionError
+                  message="Could not load nearby courts because your profile is unavailable."
+                  onRetry={() => void player.refetch()}
+                />
+              ) : isActivelyPending(courts) ? (
+                <HomeSectionSkeleton label="nearby courts" />
+              ) : courts.isError ? (
                 <SectionError
                   message="Could not load nearby courts."
                   onRetry={() => void courts.refetch()}

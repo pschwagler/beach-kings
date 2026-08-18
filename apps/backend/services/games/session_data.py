@@ -1126,21 +1126,23 @@ async def update_session(
     }
 
 
-async def delete_session(session: AsyncSession, session_id: int) -> bool:
+async def delete_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
     """
     Delete a session and all its matches, regardless of status.
 
     For submitted/edited sessions, also cleans up rating history and
     enqueues stats recalculation so totals stay accurate.
 
-    Returns:
-        True if successful, False if session not found
+    Returns a success payload with durable stats job IDs, or ``None`` when the
+    session does not exist.
     """
-    result = await session.execute(select(Session).where(Session.id == session_id))
+    result = await session.execute(
+        select(Session).where(Session.id == session_id).with_for_update()
+    )
     session_obj = result.scalar_one_or_none()
 
     if not session_obj:
-        return False
+        return None
 
     was_submitted = session_obj.status != SessionStatus.ACTIVE
     # Read league_id directly off the ORM row before commit (objects expire post-commit).
@@ -1153,26 +1155,37 @@ async def delete_session(session: AsyncSession, session_id: int) -> bool:
     )
     match_ids = [row[0] for row in match_ids_result.fetchall()]
 
-    if match_ids:
-        await session.execute(delete(EloHistory).where(EloHistory.match_id.in_(match_ids)))
-        await session.execute(
-            delete(SeasonRatingHistory).where(SeasonRatingHistory.match_id.in_(match_ids))
-        )
-        await session.execute(delete(Match).where(Match.session_id == session_id))
+    stats_jobs: Dict[str, Optional[int]] = {
+        "global_job_id": None,
+        "league_job_id": None,
+    }
 
-    await session.execute(delete(Session).where(Session.id == session_id))
-    await session.commit()
+    try:
+        if match_ids:
+            await session.execute(delete(EloHistory).where(EloHistory.match_id.in_(match_ids)))
+            await session.execute(
+                delete(SeasonRatingHistory).where(SeasonRatingHistory.match_id.in_(match_ids))
+            )
+            await session.execute(delete(Match).where(Match.session_id == session_id))
 
-    if was_submitted and match_ids:
-        from backend.services.stats.stats_queue import get_stats_queue
+        await session.execute(delete(Session).where(Session.id == session_id))
 
-        queue = get_stats_queue()
-        await queue.enqueue_calculation(session, "global", None)
+        if was_submitted and match_ids:
+            from backend.services.stats.stats_queue import get_stats_queue
 
-        if league_id:
-            await queue.enqueue_calculation(session, "league", league_id)
+            queue = get_stats_queue()
+            stats_jobs["global_job_id"] = await queue.stage_calculation(session, "global", None)
+            if league_id:
+                stats_jobs["league_job_id"] = await queue.stage_calculation(
+                    session, "league", league_id
+                )
 
-    return True
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+
+    return {"success": True, **stats_jobs}
 
 
 # ============================================================================

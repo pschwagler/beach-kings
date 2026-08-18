@@ -25,6 +25,7 @@ import pytest
 import pytest_asyncio
 from datetime import date
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
@@ -34,7 +35,9 @@ from backend.database.models import (
     Season,
     Session,
     SessionStatus,
+    StatsCalculationJob,
 )
+from backend.services.stats.stats_queue import StatsCalculationQueue
 
 
 # ---------------------------------------------------------------------------
@@ -195,12 +198,12 @@ async def delete_world(db_session: AsyncSession):
 
 
 class _FakeQueue:
-    """Captures enqueue_calculation calls without touching the real queue."""
+    """Captures durable staging calls without touching the real queue."""
 
     def __init__(self):
         self.calls: list[tuple[str, int | None]] = []
 
-    async def enqueue_calculation(
+    async def stage_calculation(
         self, session: AsyncSession, calc_type: str, league_id: int | None = None
     ) -> int:
         self.calls.append((calc_type, league_id))
@@ -235,13 +238,9 @@ async def test_delete_submitted_gap_session_enqueues_league_recalc(
 
     result = await delete_session(db_session, gap_session.id)
 
-    assert result is True, "delete_session must return True for an existing session"
-    assert ("global", None) in fake.calls, (
-        f"Expected ('global', None) in enqueue calls; got: {fake.calls}"
-    )
-    assert ("league", league.id) in fake.calls, (
-        f"Expected ('league', {league.id}) in enqueue calls for gap game; got: {fake.calls}"
-    )
+    assert result is not None
+    assert result["success"] is True
+    assert fake.calls == [("global", None), ("league", league.id)]
 
 
 @pytest.mark.asyncio
@@ -265,11 +264,9 @@ async def test_delete_submitted_season_session_enqueues_league_recalc(
 
     result = await delete_session(db_session, season_session.id)
 
-    assert result is True
-    assert ("global", None) in fake.calls
-    assert ("league", league.id) in fake.calls, (
-        f"Expected ('league', {league.id}) in enqueue calls for season game; got: {fake.calls}"
-    )
+    assert result is not None
+    assert result["success"] is True
+    assert fake.calls == [("global", None), ("league", league.id)]
 
 
 @pytest.mark.asyncio
@@ -289,11 +286,9 @@ async def test_delete_submitted_pickup_session_skips_league_recalc(
 
     result = await delete_session(db_session, pickup_session.id)
 
-    assert result is True
-    assert ("global", None) in fake.calls
-    assert all(calc_type != "league" for calc_type, _ in fake.calls), (
-        f"Pickup session delete must not enqueue any league recalc; got: {fake.calls}"
-    )
+    assert result is not None
+    assert result["success"] is True
+    assert fake.calls == [("global", None)]
 
 
 @pytest.mark.asyncio
@@ -316,15 +311,16 @@ async def test_delete_active_gap_session_with_no_matches_skips_enqueue(
 
     result = await delete_session(db_session, active_gap_session.id)
 
-    assert result is True
+    assert result is not None
+    assert result["success"] is True
     assert fake.calls == [], (
         f"Deleting an ACTIVE session with no matches must not enqueue anything; got: {fake.calls}"
     )
 
 
 @pytest.mark.asyncio
-async def test_delete_nonexistent_session_returns_false(db_session: AsyncSession, monkeypatch):
-    """delete_session must return False when the session does not exist."""
+async def test_delete_nonexistent_session_returns_none(db_session: AsyncSession, monkeypatch):
+    """delete_session must return None when the session does not exist."""
     from backend.services import stats_queue
     from backend.services.games.session_data import delete_session
 
@@ -333,5 +329,89 @@ async def test_delete_nonexistent_session_returns_false(db_session: AsyncSession
 
     result = await delete_session(db_session, 999_999_999)
 
-    assert result is False
+    assert result is None
     assert fake.calls == [], "No enqueue calls expected for a missing session"
+
+
+@pytest.mark.asyncio
+async def test_post_commit_enqueue_failure_cannot_override_durable_delete(
+    db_session: AsyncSession, delete_world: dict, monkeypatch
+):
+    """The obsolete post-commit enqueue path is never part of delete success."""
+    from backend.services import stats_queue
+    from backend.services.games.session_data import delete_session
+
+    queue = StatsCalculationQueue()
+
+    async def failing_enqueue(session, calc_type, league_id=None):
+        raise RuntimeError("injected post-commit enqueue failure")
+
+    monkeypatch.setattr(queue, "enqueue_calculation", failing_enqueue)
+    monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: queue)
+    session_id = delete_world["gap_session"].id
+
+    result = await delete_session(db_session, session_id)
+
+    assert result is not None
+    assert result["success"] is True
+    assert await db_session.get(Session, session_id) is None
+    jobs = (
+        (
+            await db_session.execute(
+                select(StatsCalculationJob).where(
+                    StatsCalculationJob.id.in_([result["global_job_id"], result["league_job_id"]])
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(jobs) == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_commit_failure_rolls_back_delete_and_jobs(
+    db_session: AsyncSession, delete_world: dict, monkeypatch
+):
+    """A true pre-commit failure leaves both the session and queue unchanged."""
+    from backend.services import stats_queue
+    from backend.services.games.session_data import delete_session
+
+    queue = StatsCalculationQueue()
+    monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: queue)
+    session_id = delete_world["gap_session"].id
+
+    async def failing_commit():
+        raise RuntimeError("injected commit failure")
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+
+    with pytest.raises(RuntimeError, match="injected commit failure"):
+        await delete_session(db_session, session_id)
+
+    assert await db_session.get(Session, session_id) is not None
+    jobs = (await db_session.execute(select(StatsCalculationJob))).scalars().all()
+    assert jobs == []
+
+
+@pytest.mark.asyncio
+async def test_delete_staging_failure_rolls_back_before_commit(
+    db_session: AsyncSession, delete_world: dict, monkeypatch
+):
+    """A queue staging failure is a true failed delete with no partial state."""
+    from backend.services import stats_queue
+    from backend.services.games.session_data import delete_session
+
+    class FailingStageQueue:
+        async def stage_calculation(self, session, calc_type, league_id=None):
+            raise RuntimeError("injected staging failure")
+
+    monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: FailingStageQueue())
+    session_id = delete_world["gap_session"].id
+
+    with pytest.raises(RuntimeError, match="injected staging failure"):
+        await delete_session(db_session, session_id)
+
+    assert await db_session.get(Session, session_id) is not None
+    jobs = (await db_session.execute(select(StatsCalculationJob))).scalars().all()
+    assert jobs == []

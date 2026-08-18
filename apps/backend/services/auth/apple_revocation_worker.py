@@ -65,8 +65,10 @@ def mark_retry(job: AppleRevocationJob, error: str) -> None:
 
 async def process_job(session: AsyncSession, job: AppleRevocationJob) -> bool:
     try:
-        refresh_token = apple_token_service.decrypt_refresh_token(job.refresh_token_ciphertext)
-        await apple_token_service.revoke_refresh_token(refresh_token)
+        refresh_token, client_id = apple_token_service.decrypt_refresh_credential(
+            job.refresh_token_ciphertext
+        )
+        await apple_token_service.revoke_refresh_token(refresh_token, client_id)
     except Exception as exc:
         mark_retry(job, str(exc))
         await session.flush()

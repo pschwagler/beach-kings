@@ -33,6 +33,7 @@ import SessionDetailSkeleton from './SessionDetailSkeleton';
 import SessionDetailErrorState from './SessionDetailErrorState';
 import SessionPlayerChip from './SessionPlayerChip';
 import SessionGameCard from './SessionGameCard';
+import { getViewerTeamForGame } from './sessionGameIdentity';
 import SessionBottomSheet from './SessionBottomSheet';
 import SessionCourtPicker from './SessionCourtPicker';
 import { useSessionDetailScreen } from './useSessionDetailScreen';
@@ -40,33 +41,7 @@ import { parseSessionDate } from '@/lib/formatters';
 import { routes } from '@/lib/navigation';
 import { useInvitePlayers } from '@/contexts/InvitePlayersContext';
 import { usePaletteColors } from '@/theme/usePaletteColors';
-import type { SessionDetail, SessionGame, SessionPlayer } from '@beach-kings/shared';
-
-/**
- * Determine which team the calling user is on for a given game by matching
- * their canonical display name against the four team-player names. Returns
- * `null` if no name match is found, which maps to a "PENDING"-styled badge.
- */
-function getUserTeamForGame(
-  game: SessionGame,
-  currentPlayerName: string | null,
-): 1 | 2 | null {
-  if (!currentPlayerName) return null;
-  const norm = currentPlayerName.trim().toLowerCase();
-  if (
-    game.team1_player1_name.trim().toLowerCase() === norm ||
-    game.team1_player2_name.trim().toLowerCase() === norm
-  ) {
-    return 1;
-  }
-  if (
-    game.team2_player1_name.trim().toLowerCase() === norm ||
-    game.team2_player2_name.trim().toLowerCase() === norm
-  ) {
-    return 2;
-  }
-  return null;
-}
+import type { SessionDetail, SessionPlayer } from '@beach-kings/shared';
 
 /**
  * Build the "Sunday Pickup · Apr 6" context strip label for the invite screen.
@@ -296,7 +271,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     submitError,
     isUpdatingCourt,
     courtUpdateError,
-    currentPlayerName,
+    currentPlayerId,
     onRefresh,
     onRetry,
     openMenu,
@@ -315,9 +290,9 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     session?.players.some((p) => p.is_placeholder) ?? false;
 
   const myGames = (session?.games ?? []).filter(
-    (g) => getUserTeamForGame(g, currentPlayerName) !== null,
+    (g) => getViewerTeamForGame(g, currentPlayerId) !== null,
   );
-  const showToggle = currentPlayerName != null && myGames.length > 0;
+  const showToggle = currentPlayerId != null && myGames.length > 0;
   const showMyGamesOnly =
     showMyGamesOverride ?? (session?.status !== 'active' && myGames.length > 0);
   const displayedGames = showMyGamesOnly && showToggle ? myGames : (session?.games ?? []);
@@ -469,8 +444,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
                     <SessionGameCard
                       key={game.id}
                       game={game}
-                      userTeam={getUserTeamForGame(game, currentPlayerName)}
-                      currentPlayerName={currentPlayerName}
+                      currentPlayerId={currentPlayerId}
                       onEdit={
                         session.status === 'active'
                           ? () => onEditGame(game)

@@ -128,12 +128,11 @@ export function useDashboard(): UseDashboardResult {
     refreshPlayer,
   ]);
 
+  // Only an uncached player fetch is identity-critical. Independent Home
+  // sections own their pending/error UI, and disabled dependent queries remain
+  // `pending` + `idle` in TanStack Query, so they must never gate the screen.
   const isInitialLoading =
-    player.isPending ||
-    leagues.isPending ||
-    activeSession.isPending ||
-    friendRequests.isPending ||
-    (player.isSuccess && (courts.isPending || matches.isPending));
+    player.data === undefined && player.isPending && player.isFetching;
 
   const isRefreshing =
     player.isFetching ||

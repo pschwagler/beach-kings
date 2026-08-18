@@ -159,7 +159,11 @@ export default function SignupScreen(): React.ReactNode {
     return (
       <SafeAreaView className="flex-1 bg-page">
         <TopNav title="Age & Location" showBack />
-        <ScrollView className="flex-1 px-lg" contentContainerClassName="py-lg">
+        <ScrollView
+          className="flex-1 px-lg"
+          contentContainerClassName="py-lg"
+          keyboardShouldPersistTaps="always"
+        >
           <YouthEligibilityGate onEligible={setEligibilityToken} />
         </ScrollView>
       </SafeAreaView>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "TestFlight Triage"
+  short_description: "Safely triage private TestFlight feedback"
+  default_prompt: "Use $testflight-triage to sync and plan the current TestFlight feedback batch."

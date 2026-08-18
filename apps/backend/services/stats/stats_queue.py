@@ -9,20 +9,31 @@ Handles async stats calculation jobs with a database-backed queue that:
 
 import asyncio
 import logging
+from dataclasses import dataclass
+from datetime import timedelta
 from typing import Optional, Dict, Callable, Awaitable, Coroutine, Set
+from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.utils.datetime_utils import utcnow
-from sqlalchemy import select, update, and_
+from sqlalchemy import select, update, and_, or_, func
 from backend.database.models import StatsCalculationJob, StatsCalculationJobStatus
 from backend.database import db
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class ClaimedStatsJob:
+    id: int
+    claim_token: str
+    calc_type: str
+    league_id: Optional[int]
+
+
 class StatsCalculationQueue:
     """Database-backed queue for stats calculation jobs."""
 
-    def __init__(self):
+    def __init__(self, *, lease_seconds: float = 300, retry_seconds: float = 5):
         self._worker_task: Optional[asyncio.Task] = None
         self._running = False
         self._stop_event = asyncio.Event()
@@ -34,6 +45,8 @@ class StatsCalculationQueue:
         self._background_tasks: Set[asyncio.Task] = set()
         self._global_calc_callback: Optional[Callable[[AsyncSession], Awaitable[Dict]]] = None
         self._league_calc_callback: Optional[Callable[[AsyncSession, int], Awaitable[Dict]]] = None
+        self._lease_seconds = lease_seconds
+        self._retry_seconds = retry_seconds
 
     def _spawn(self, coro: Coroutine) -> asyncio.Task:
         """Spawn a tracked background task.
@@ -90,20 +103,70 @@ class StatsCalculationQueue:
             # order, while repeated requests for this target deduplicate above.
             return await self._create_pending_job(session, calc_type, league_id)
         else:
-            # No calculation running, start immediately
+            # No calculation running, claim and start immediately.
+            now = utcnow()
+            claim_token = str(uuid4())
             job = StatsCalculationJob(
                 calc_type=calc_type,
                 league_id=league_id,
                 status=StatsCalculationJobStatus.RUNNING,
-                started_at=utcnow(),
+                started_at=now,
+                available_at=now,
+                lease_expires_at=now + timedelta(seconds=self._lease_seconds),
+                claim_token=claim_token,
+                attempts=1,
             )
             session.add(job)
             await session.commit()
             await session.refresh(job)
 
             # Start async task to run calculation (tracked so it can be drained)
-            self._spawn(self._run_calculation(job.id))
+            self._spawn(self._run_calculation(job.id, claim_token))
             return job.id
+
+    async def stage_calculation(
+        self, session: AsyncSession, calc_type: str, league_id: Optional[int] = None
+    ) -> int:
+        """Persist a pending calculation inside the caller's transaction.
+
+        This is the outbox-style path for destructive writes: the mutation and
+        its required recalculation commit atomically. The background worker
+        discovers the pending row after commit and retries polling across
+        process restarts. A pending job for the same target is reused, while a
+        running job gets a follow-up pending job so the new write is not lost.
+        """
+        await self._acquire_stage_lock(session, calc_type, league_id)
+        queued = await self._find_queued_job(session, calc_type, league_id, for_update=True)
+        if queued:
+            return queued.id
+
+        job = StatsCalculationJob(
+            calc_type=calc_type,
+            league_id=league_id,
+            status=StatsCalculationJobStatus.PENDING,
+        )
+        session.add(job)
+        await session.flush()
+        return job.id
+
+    @staticmethod
+    async def _acquire_stage_lock(
+        session: AsyncSession, calc_type: str, league_id: Optional[int]
+    ) -> None:
+        """Serialize transactional staging for one target in PostgreSQL.
+
+        The advisory lock closes the no-existing-row race without adding a
+        migration. SQLite ignores this production concurrency guard in tests.
+        """
+        if session.get_bind().dialect.name != "postgresql":
+            return
+
+        # Two-int advisory locks keep the queue namespace separate while using
+        # target 0 for global and positive league IDs for league calculations.
+        target = 0 if calc_type == "global" else league_id
+        if target is None:
+            raise ValueError("league_id required for league calculation")
+        await session.execute(select(func.pg_advisory_xact_lock(1_397_907_796, target)))
 
     async def _find_existing_job(
         self, session: AsyncSession, calc_type: str, league_id: Optional[int]
@@ -133,7 +196,12 @@ class StatsCalculationQueue:
         return result.scalar_one_or_none()
 
     async def _find_queued_job(
-        self, session: AsyncSession, calc_type: str, league_id: Optional[int]
+        self,
+        session: AsyncSession,
+        calc_type: str,
+        league_id: Optional[int],
+        *,
+        for_update: bool = False,
     ) -> Optional[StatsCalculationJob]:
         """Find queued job with same calc_type and league_id."""
         conditions = [
@@ -145,9 +213,12 @@ class StatsCalculationQueue:
         else:
             conditions.append(StatsCalculationJob.league_id == league_id)
 
-        result = await session.execute(
-            select(StatsCalculationJob).where(and_(*conditions)).limit(1)
-        )
+        query = select(StatsCalculationJob).where(and_(*conditions)).limit(1)
+        if for_update:
+            # Holding this row lock through the caller's commit ensures a worker
+            # cannot consume a reused pending job before the paired write lands.
+            query = query.with_for_update()
+        result = await session.execute(query)
         return result.scalar_one_or_none()
 
     async def _get_first_queued_job(self, session: AsyncSession) -> Optional[StatsCalculationJob]:
@@ -171,6 +242,129 @@ class StatsCalculationQueue:
         await session.commit()
         await session.refresh(job)
         return job.id
+
+    @staticmethod
+    def _claimable(now):
+        return or_(
+            and_(
+                StatsCalculationJob.status == StatsCalculationJobStatus.PENDING,
+                StatsCalculationJob.available_at <= now,
+            ),
+            and_(
+                StatsCalculationJob.status == StatsCalculationJobStatus.RUNNING,
+                StatsCalculationJob.lease_expires_at.is_not(None),
+                StatsCalculationJob.lease_expires_at <= now,
+            ),
+        )
+
+    async def claim_next_job(
+        self, session: AsyncSession, *, now=None
+    ) -> Optional[ClaimedStatsJob]:
+        """Exclusively claim one available or stale job.
+
+        PostgreSQL workers skip rows locked by another claimant. The guarded
+        update is a compare-and-swap fallback for databases where row-level
+        ``FOR UPDATE`` is unavailable, so only one worker receives ownership.
+        """
+        claimed_at = now or utcnow()
+        claimable = self._claimable(claimed_at)
+        result = await session.execute(
+            select(
+                StatsCalculationJob.id,
+                StatsCalculationJob.calc_type,
+                StatsCalculationJob.league_id,
+            )
+            .where(claimable)
+            .order_by(StatsCalculationJob.available_at.asc(), StatsCalculationJob.id.asc())
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
+        candidate = result.one_or_none()
+        if candidate is None:
+            await session.rollback()
+            return None
+
+        claim_token = str(uuid4())
+        claimed = await session.execute(
+            update(StatsCalculationJob)
+            .where(StatsCalculationJob.id == candidate.id, self._claimable(claimed_at))
+            .values(
+                status=StatsCalculationJobStatus.RUNNING,
+                started_at=claimed_at,
+                completed_at=None,
+                claim_token=claim_token,
+                lease_expires_at=claimed_at + timedelta(seconds=self._lease_seconds),
+                attempts=StatsCalculationJob.attempts + 1,
+            )
+        )
+        if claimed.rowcount != 1:
+            await session.rollback()
+            return None
+        await session.commit()
+        return ClaimedStatsJob(
+            id=candidate.id,
+            claim_token=claim_token,
+            calc_type=candidate.calc_type,
+            league_id=candidate.league_id,
+        )
+
+    @staticmethod
+    def _owned_claim(job_id: int, claim_token: Optional[str]):
+        token_condition = (
+            StatsCalculationJob.claim_token.is_(None)
+            if claim_token is None
+            else StatsCalculationJob.claim_token == claim_token
+        )
+        return and_(
+            StatsCalculationJob.id == job_id,
+            StatsCalculationJob.status == StatsCalculationJobStatus.RUNNING,
+            token_condition,
+        )
+
+    async def _renew_lease(self, job_id: int, claim_token: str) -> None:
+        interval = max(0.1, self._lease_seconds / 3)
+        while True:
+            await asyncio.sleep(interval)
+            session = db.AsyncSessionLocal()
+            try:
+                try:
+                    renewed = await session.execute(
+                        update(StatsCalculationJob)
+                        .where(self._owned_claim(job_id, claim_token))
+                        .values(lease_expires_at=utcnow() + timedelta(seconds=self._lease_seconds))
+                    )
+                    await session.commit()
+                    if renewed.rowcount != 1:
+                        return
+                except Exception:
+                    await session.rollback()
+                    logger.exception("Unable to renew stats job %s lease", job_id)
+            finally:
+                await session.close()
+
+    async def _release_for_retry(
+        self,
+        session: AsyncSession,
+        job_id: int,
+        claim_token: Optional[str],
+        error: BaseException,
+        *,
+        immediate: bool,
+    ) -> None:
+        retry_at = utcnow() + timedelta(seconds=0 if immediate else self._retry_seconds)
+        await session.execute(
+            update(StatsCalculationJob)
+            .where(self._owned_claim(job_id, claim_token))
+            .values(
+                status=StatsCalculationJobStatus.PENDING,
+                available_at=retry_at,
+                claim_token=None,
+                lease_expires_at=None,
+                completed_at=None,
+                error_message=str(error),
+            )
+        )
+        await session.commit()
 
     def register_calculation_callbacks(
         self,
@@ -205,27 +399,31 @@ class StatsCalculationQueue:
         self._league_calc_callback = league_calc_callback
         logger.info("Stats calculation callbacks registered successfully")
 
-    async def _run_calculation(self, job_id: int) -> None:
-        """Run a calculation job."""
+    async def _run_calculation(self, job_id: int, claim_token: Optional[str] = None) -> None:
+        """Run an exclusively claimed calculation and retain retry ownership."""
         session = db.AsyncSessionLocal()
+        heartbeat: Optional[asyncio.Task] = None
         try:
-            # Get job to verify it exists and get calc_type/league_id
             result = await session.execute(
                 select(StatsCalculationJob).where(StatsCalculationJob.id == job_id)
             )
             job = result.scalar_one_or_none()
             if not job:
                 return
+            effective_token = claim_token if claim_token is not None else job.claim_token
+            if job.status != StatsCalculationJobStatus.RUNNING:
+                return
+            if claim_token is not None and job.claim_token != claim_token:
+                return
+            if effective_token is not None:
+                heartbeat = asyncio.create_task(self._renew_lease(job_id, effective_token))
 
-            # Validate callbacks are registered
-            if self._global_calc_callback is None or self._league_calc_callback is None:
-                raise RuntimeError(
-                    "Calculation callbacks not registered. "
-                    "Call register_calculation_callbacks() before starting the queue worker."
-                )
-
-            # Run the calculation
             try:
+                if self._global_calc_callback is None or self._league_calc_callback is None:
+                    raise RuntimeError(
+                        "Calculation callbacks not registered. "
+                        "Call register_calculation_callbacks() before starting the queue worker."
+                    )
                 if job.calc_type == "global":
                     await self._global_calc_callback(session)
                 elif job.calc_type == "league":
@@ -235,28 +433,45 @@ class StatsCalculationQueue:
                 else:
                     raise ValueError(f"Unknown calc_type: {job.calc_type}")
 
-                # Mark as completed
                 await session.execute(
                     update(StatsCalculationJob)
-                    .where(StatsCalculationJob.id == job_id)
-                    .values(status=StatsCalculationJobStatus.COMPLETED, completed_at=utcnow())
-                )
-                await session.commit()
-
-            except Exception as e:
-                # Mark as failed
-                await session.execute(
-                    update(StatsCalculationJob)
-                    .where(StatsCalculationJob.id == job_id)
+                    .where(self._owned_claim(job_id, effective_token))
                     .values(
-                        status=StatsCalculationJobStatus.FAILED,
+                        status=StatsCalculationJobStatus.COMPLETED,
                         completed_at=utcnow(),
-                        error_message=str(e),
+                        claim_token=None,
+                        lease_expires_at=None,
+                        error_message=None,
                     )
                 )
                 await session.commit()
+            except asyncio.CancelledError as error:
+                await session.rollback()
+                await self._release_for_retry(
+                    session,
+                    job_id,
+                    effective_token,
+                    error,
+                    immediate=True,
+                )
+                raise
+            except Exception as error:
+                await session.rollback()
+                await self._release_for_retry(
+                    session,
+                    job_id,
+                    effective_token,
+                    error,
+                    immediate=False,
+                )
                 raise
         finally:
+            if heartbeat is not None:
+                heartbeat.cancel()
+                try:
+                    await heartbeat
+                except asyncio.CancelledError:
+                    pass
             await session.close()
 
     async def _process_queue_worker(self) -> None:
@@ -265,20 +480,10 @@ class StatsCalculationQueue:
             try:
                 session = db.AsyncSessionLocal()
                 try:
-                    # Get first pending job
-                    job = await self._get_first_queued_job(session)
-                    if job:
-                        # Mark as running
-                        await session.execute(
-                            update(StatsCalculationJob)
-                            .where(StatsCalculationJob.id == job.id)
-                            .values(status=StatsCalculationJobStatus.RUNNING, started_at=utcnow())
-                        )
-                        await session.commit()
+                    claimed = await self.claim_next_job(session)
+                    if claimed:
                         await session.close()
-
-                        # Run calculation (it will create its own session)
-                        await self._run_calculation(job.id)
+                        await self._run_calculation(claimed.id, claimed.claim_token)
                     else:
                         # No pending jobs, wait a bit
                         await session.close()

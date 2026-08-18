@@ -3,10 +3,14 @@ Tests for stats calculation queue service.
 Tests enqueueing, deduplication, and job status tracking.
 """
 
+import asyncio
+from datetime import timedelta
+
 import pytest
 import pytest_asyncio
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select
+from backend.database import db
 from backend.database.models import StatsCalculationJob, StatsCalculationJobStatus
 from backend.services.stats.stats_queue import StatsCalculationQueue, get_stats_queue
 
@@ -123,6 +127,41 @@ async def test_deduplication_same_job(db_session, queue):
     result = await db_session.execute(StatsCalculationJob.__table__.select())
     jobs = result.fetchall()
     assert len(jobs) == 1
+
+
+@pytest.mark.asyncio
+async def test_stage_calculation_is_pending_and_deduplicated(db_session, queue):
+    """Durable staging reuses one pending outbox row for the same target."""
+    job_id1 = await queue.stage_calculation(db_session, "global", None)
+    job_id2 = await queue.stage_calculation(db_session, "global", None)
+
+    assert job_id1 == job_id2
+    result = await db_session.execute(select(StatsCalculationJob))
+    jobs = result.scalars().all()
+    assert len(jobs) == 1
+    assert jobs[0].status == StatsCalculationJobStatus.PENDING
+
+
+@pytest.mark.asyncio
+async def test_stage_calculation_follows_running_job(db_session, queue):
+    """A running calculation cannot absorb a write that commits after it began."""
+    running = StatsCalculationJob(
+        calc_type="global",
+        status=StatsCalculationJobStatus.RUNNING,
+        started_at=utcnow(),
+    )
+    db_session.add(running)
+    await db_session.commit()
+
+    pending_id = await queue.stage_calculation(db_session, "global", None)
+
+    assert pending_id != running.id
+    result = await db_session.execute(select(StatsCalculationJob).order_by(StatsCalculationJob.id))
+    jobs = result.scalars().all()
+    assert [job.status for job in jobs] == [
+        StatsCalculationJobStatus.RUNNING,
+        StatsCalculationJobStatus.PENDING,
+    ]
 
 
 @pytest.mark.asyncio
@@ -546,21 +585,21 @@ async def test_run_calculation_league_without_league_id_raises_error(db_session)
     # Rollback the test session to start a fresh transaction that will see the committed changes
     await db_session.rollback()
 
-    # Job should be marked as failed
+    # Retryable failures return the durable job to the pending queue.
     # Re-query to get fresh data from database
     result = await db_session.execute(
         select(StatsCalculationJob).where(StatsCalculationJob.id == job_id)
     )
     updated_job = result.scalar_one()
-    assert updated_job.status == StatsCalculationJobStatus.FAILED
-    assert updated_job.completed_at is not None
+    assert updated_job.status == StatsCalculationJobStatus.PENDING
+    assert updated_job.completed_at is None
     assert "league_id required" in updated_job.error_message
 
 
 @pytest.mark.asyncio
-async def test_run_calculation_callback_exception_marks_job_failed(db_session):
-    """Test that if callback raises an exception, job is marked as failed."""
-    queue = StatsCalculationQueue()
+async def test_run_calculation_callback_exception_releases_job_for_retry(db_session):
+    """A callback failure leaves the same durable job available for retry."""
+    queue = StatsCalculationQueue(retry_seconds=0)
 
     async def global_calc(session):
         raise ValueError("Test error from callback")
@@ -572,33 +611,43 @@ async def test_run_calculation_callback_exception_marks_job_failed(db_session):
         global_calc_callback=global_calc, league_calc_callback=league_calc
     )
 
-    # Create and run a global calculation job
+    # Persist and exclusively claim a global calculation job.
     job = StatsCalculationJob(
         calc_type="global",
-        status=StatsCalculationJobStatus.RUNNING,
-        started_at=utcnow(),
+        status=StatsCalculationJobStatus.PENDING,
     )
     db_session.add(job)
     await db_session.commit()
     await db_session.refresh(job)
 
-    job_id = job.id  # Store ID before rollback
-    # Should raise the exception
+    job_id = job.id
+    claimed = await queue.claim_next_job(db_session)
+    assert claimed is not None
+    initial_claim_token = claimed.claim_token
     with pytest.raises(ValueError, match="Test error from callback"):
-        await queue._run_calculation(job_id)
+        await queue._run_calculation(job_id, claimed.claim_token)
 
     # Rollback the test session to start a fresh transaction that will see the committed changes
     await db_session.rollback()
+    db_session.expire_all()
 
-    # Verify job was marked as failed with error message
+    # Verify the same job is pending with its diagnostic retained.
     # Re-query to get fresh data from database
     result = await db_session.execute(
         select(StatsCalculationJob).where(StatsCalculationJob.id == job_id)
     )
     updated_job = result.scalar_one()
-    assert updated_job.status == StatsCalculationJobStatus.FAILED
-    assert updated_job.completed_at is not None
+    assert updated_job.status == StatsCalculationJobStatus.PENDING
+    assert updated_job.completed_at is None
+    assert updated_job.claim_token is None
+    assert updated_job.lease_expires_at is None
     assert "Test error from callback" in updated_job.error_message
+
+    await db_session.rollback()
+    claimed = await queue.claim_next_job(db_session)
+    assert claimed is not None
+    assert claimed.id == job_id
+    assert claimed.claim_token != initial_claim_token
 
 
 @pytest.mark.asyncio
@@ -634,15 +683,102 @@ async def test_run_calculation_unknown_calc_type_raises_error(db_session):
     # Rollback the test session to start a fresh transaction that will see the committed changes
     await db_session.rollback()
 
-    # Job should be marked as failed
+    # Invalid legacy work remains durable for corrected configuration/data.
     # Re-query to get fresh data from database
     result = await db_session.execute(
         select(StatsCalculationJob).where(StatsCalculationJob.id == job_id)
     )
     updated_job = result.scalar_one()
-    assert updated_job.status == StatsCalculationJobStatus.FAILED
-    assert updated_job.completed_at is not None
+    assert updated_job.status == StatsCalculationJobStatus.PENDING
+    assert updated_job.completed_at is None
     assert "Unknown calc_type" in updated_job.error_message
+
+
+@pytest.mark.asyncio
+async def test_cancelled_claim_is_recoverable_after_worker_restart(db_session):
+    """Cancellation releases ownership so a replacement worker can claim the job."""
+    queue = StatsCalculationQueue(retry_seconds=0)
+    callback_started = asyncio.Event()
+
+    async def global_calc(session):
+        callback_started.set()
+        await asyncio.Event().wait()
+
+    async def league_calc(session, league_id):
+        return {}
+
+    queue.register_calculation_callbacks(global_calc, league_calc)
+    job = StatsCalculationJob(calc_type="global", status=StatsCalculationJobStatus.PENDING)
+    db_session.add(job)
+    await db_session.commit()
+    await db_session.refresh(job)
+    job_id = job.id
+
+    claimed = await queue.claim_next_job(db_session)
+    assert claimed is not None
+    task = asyncio.create_task(queue._run_calculation(claimed.id, claimed.claim_token))
+    await callback_started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    replacement_worker = StatsCalculationQueue(retry_seconds=0)
+    await db_session.rollback()
+    reclaimed = await replacement_worker.claim_next_job(db_session)
+    assert reclaimed is not None
+    assert reclaimed.id == job_id
+    assert reclaimed.claim_token != claimed.claim_token
+
+
+@pytest.mark.asyncio
+async def test_stale_claim_is_recovered_after_process_restart(db_session):
+    """An expired running lease is rediscovered without creating duplicate work."""
+    queue = StatsCalculationQueue(lease_seconds=30)
+    stale_token = "stale-worker"
+    job = StatsCalculationJob(
+        calc_type="global",
+        status=StatsCalculationJobStatus.RUNNING,
+        available_at=utcnow() - timedelta(minutes=2),
+        lease_expires_at=utcnow() - timedelta(minutes=1),
+        claim_token=stale_token,
+        attempts=1,
+    )
+    db_session.add(job)
+    await db_session.commit()
+    await db_session.refresh(job)
+    job_id = job.id
+
+    claimed = await queue.claim_next_job(db_session)
+
+    assert claimed is not None
+    assert claimed.id == job_id
+    assert claimed.claim_token != stale_token
+    await db_session.rollback()
+    recovered = await db_session.get(StatsCalculationJob, job_id)
+    assert recovered.status == StatsCalculationJobStatus.RUNNING
+    assert recovered.claim_token == claimed.claim_token
+    assert recovered.attempts == 2
+
+
+@pytest.mark.asyncio
+async def test_concurrent_workers_exclusively_claim_one_job(db_session):
+    """PostgreSQL row locking permits exactly one owner for pending work."""
+    job = StatsCalculationJob(calc_type="global", status=StatsCalculationJobStatus.PENDING)
+    db_session.add(job)
+    await db_session.commit()
+    await db_session.refresh(job)
+    job_id = job.id
+    queue = StatsCalculationQueue()
+
+    async with db.AsyncSessionLocal() as first, db.AsyncSessionLocal() as second:
+        claims = await asyncio.gather(
+            queue.claim_next_job(first),
+            queue.claim_next_job(second),
+        )
+
+    owners = [claim for claim in claims if claim is not None]
+    assert len(owners) == 1
+    assert owners[0].id == job_id
 
 
 @pytest.mark.asyncio

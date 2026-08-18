@@ -3,6 +3,7 @@
  */
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { ScrollView } from 'react-native';
 
 // Icon stubs — used indirectly by SelectField and SheetOptionList
 jest.mock('@/components/ui/icons', () => {
@@ -253,6 +254,28 @@ describe('SheetOptionList', () => {
     // ActivityIndicator renders — presence of node tree != null.
     const ActivityIndicator = require('react-native').ActivityIndicator;
     expect(UNSAFE_queryAllByType(ActivityIndicator).length).toBe(1);
+  });
+
+  it('keeps filtered results tappable while the search keyboard is open', () => {
+    const { getByLabelText, getByText, queryByText, UNSAFE_getByType } = render(
+      <SheetOptionList
+        title="Pick a state"
+        options={options}
+        selectedValue=""
+        onSelect={() => {}}
+        searchable
+        searchPlaceholder="Search states"
+      />,
+    );
+
+    fireEvent.changeText(getByLabelText('Search states'), 'option b');
+
+    expect(queryByText('Option A')).toBeNull();
+    expect(getByText('Option B')).toBeTruthy();
+    expect(UNSAFE_getByType(ScrollView)).toHaveProp(
+      'keyboardShouldPersistTaps',
+      'always',
+    );
   });
 });
 

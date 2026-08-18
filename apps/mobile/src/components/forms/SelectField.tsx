@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { Pressable } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { ChevronDownIcon } from '@/components/ui/icons';
@@ -13,18 +13,25 @@ interface SelectFieldProps {
   readonly testID?: string;
 }
 
-export default function SelectField({
-  placeholder,
-  value,
-  error = false,
-  disabled = false,
-  onPress,
-  testID,
-}: SelectFieldProps): React.ReactNode {
+const SelectField = forwardRef<
+  React.ElementRef<typeof Pressable>,
+  SelectFieldProps
+>(function SelectField(
+  {
+    placeholder,
+    value,
+    error = false,
+    disabled = false,
+    onPress,
+    testID,
+  },
+  ref,
+): React.ReactNode {
   const palette = usePaletteColors();
   const hasValue = !!value;
   return (
     <Pressable
+      ref={ref}
       className={`h-12 px-md flex-row items-center justify-between rounded-lg border bg-surface ${
         error ? 'border-danger' : 'border-divider'
       } ${disabled ? 'opacity-50' : ''}`}
@@ -46,4 +53,6 @@ export default function SelectField({
       <ChevronDownIcon size={16} color={palette.textTertiary} />
     </Pressable>
   );
-}
+});
+
+export default SelectField;

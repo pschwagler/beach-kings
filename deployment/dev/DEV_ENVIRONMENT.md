@@ -22,6 +22,7 @@ Allocate an Elastic IP and associate it to the instance.
 ### 3. DNS
 
 In GoDaddy, add an A record:
+
 - **Name**: `dev`
 - **Value**: the Elastic IP
 
@@ -64,19 +65,50 @@ sudo htpasswd -c /etc/nginx/.htpasswd <username>
 sudo systemctl reload nginx
 ```
 
-### 8. GitHub Secrets
+### 8. Protected GitHub environment and secrets
 
-Add these in **repo Settings > Secrets and variables > Actions**:
+Create the GitHub Actions environment `dev-provider-validation`. Configure at
+least one required reviewer and restrict deployment branches to `main` and the
+currently approved TestFlight integration ref only. The workflow also exposes
+only those refs as dispatch choices and checks the selected ref before invoking
+the secret-bearing deployment step.
 
-| Secret | Value |
-|--------|-------|
-| `DEV_EC2_HOST` | Elastic IP |
-| `DEV_EC2_USER` | `ubuntu` |
-| `DEV_EC2_SSH_KEY` | PEM private key contents |
-| `DEV_JWT_SECRET_KEY` | `openssl rand -hex 32` |
-| `DEV_POSTGRES_PASSWORD` | Choose a strong password |
-| `PROD_EC2_HOST` | Prod IP (for DB snapshots) |
-| `PROD_EC2_SSH_KEY` | Prod PEM key (for DB snapshots) |
+Store the provider values as **environment secrets**, not repository-level
+secrets, so unapproved jobs and refs cannot receive them. Add these in
+**repo Settings > Environments > dev-provider-validation** (the non-provider
+deployment secrets may remain at their existing protected scope):
+
+| Secret                           | Value                                                                                                                 |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `DEV_EC2_HOST`                   | Elastic IP                                                                                                            |
+| `DEV_EC2_USER`                   | `ubuntu`                                                                                                              |
+| `DEV_EC2_SSH_KEY`                | PEM private key contents                                                                                              |
+| `DEV_JWT_SECRET_KEY`             | `openssl rand -hex 32`                                                                                                |
+| `DEV_POSTGRES_PASSWORD`          | Choose a strong password                                                                                              |
+| `DEV_GOOGLE_CLIENT_ID`           | Existing approved web OAuth client ID; this remains the backend primary audience and the dev web client               |
+| `DEV_GOOGLE_CLIENT_IDS`          | Comma-separated additional approved audiences, including the iOS client represented by the checked-in redirect scheme |
+| `DEV_APPLE_CLIENT_ID`            | Apple App ID for the iOS bundle (`com.beachleague.app`)                                                               |
+| `DEV_APPLE_CLIENT_IDS`           | Optional comma-separated additional approved App ID or Services ID audiences                                          |
+| `DEV_APPLE_TEAM_ID`              | Apple Developer Program team identifier                                                                               |
+| `DEV_APPLE_KEY_ID`               | Key identifier for a Sign in with Apple-enabled private key                                                           |
+| `DEV_APPLE_PRIVATE_KEY`          | Complete Sign in with Apple `.p8` key encoded as one line with literal `\n` separators                                |
+| `DEV_APPLE_TOKEN_ENCRYPTION_KEY` | Stable, dedicated URL-safe base64 Fernet key for encrypted Apple refresh tokens                                       |
+| `PROD_EC2_HOST`                  | Prod IP (for DB snapshots)                                                                                            |
+| `PROD_EC2_SSH_KEY`               | Prod PEM key (for DB snapshots)                                                                                       |
+
+The Apple values must come from the app owner's Apple Developer account and
+remain owner-only Actions secrets. Create or obtain a key authorized for Sign in
+with Apple and record its Key ID, the membership Team ID, the native App ID, and
+the downloaded `.p8` contents. Do not reuse the App Store Connect/TestFlight API
+key: it is a different credential with different authority. Apple only permits a
+private-key download once, so transfer it directly into the secret manager and
+retain it according to the owner's credential-recovery policy.
+
+`DEV_APPLE_PRIVATE_KEY` must contain the complete key on one physical line. For
+example, convert each real newline to the two literal characters `\n`; do not
+paste a multiline value into the generated `.env`. Generate
+`DEV_APPLE_TOKEN_ENCRYPTION_KEY` independently and keep it stable while any
+Apple refresh-token or revocation work exists.
 
 ---
 
@@ -87,7 +119,15 @@ Go to **Actions > Deploy Dev > Run workflow**:
 - **branch**: branch to deploy (default: `main`)
 - **refresh_db**: check to pull a fresh sanitized copy of prod data
 
-The workflow handles: git checkout, `.env` creation, optional DB snapshot/restore/sanitize, `docker compose up --build`, and health checks.
+The workflow handles: git checkout, `.env` creation, provider-configuration
+preflight, optional DB snapshot/restore/sanitize, `docker compose up --build`,
+and health checks. The provider preflight reports only presence/matching status
+and stops before database restore or container build if either provider is
+incomplete or mismatched.
+
+When the approved TestFlight integration ref changes, update both the workflow
+choice/guard and the protected environment's deployment-branch rule in the same
+reviewed change. Do not temporarily broaden the rule to all branches.
 
 ---
 

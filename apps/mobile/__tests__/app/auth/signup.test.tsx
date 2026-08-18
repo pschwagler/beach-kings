@@ -6,12 +6,15 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert, KeyboardAvoidingView } from 'react-native';
+import { Alert, KeyboardAvoidingView, ScrollView } from 'react-native';
 
+let mockAutoEligibility = true;
 jest.mock('@/components/auth/YouthEligibilityGate', () => {
   const ReactModule = require('react');
   return function MockYouthEligibilityGate({ onEligible }: { onEligible: (token: string) => void }) {
-    ReactModule.useEffect(() => onEligible('eligible-token'), [onEligible]);
+    ReactModule.useEffect(() => {
+      if (mockAutoEligibility) onEligible('eligible-token');
+    }, [onEligible]);
     return null;
   };
 });
@@ -74,6 +77,17 @@ function getCreateButton(helpers: ReturnType<typeof render>) {
 describe('SignupScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAutoEligibility = true;
+  });
+
+  it('lets the first state-result tap pass through while the keyboard is open', () => {
+    mockAutoEligibility = false;
+    const { UNSAFE_getByType } = render(<SignupScreen />);
+
+    expect(UNSAFE_getByType(ScrollView)).toHaveProp(
+      'keyboardShouldPersistTaps',
+      'always',
+    );
   });
 
   it('renders Google OAuth button at the top', () => {

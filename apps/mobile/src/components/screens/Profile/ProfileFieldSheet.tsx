@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   View,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { Player } from '@beach-kings/shared';
+import { spacing } from '@beach-kings/shared/tokens';
 import { BottomSheet, Button, Input } from '@/components/ui';
 import AppText from '@/components/ui/AppText';
 import {
@@ -152,7 +151,7 @@ export default function ProfileFieldSheet({
       className="max-h-[88%]"
     >
       {editor != null ? (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <>
           <View className="flex-row items-center justify-between px-lg pb-sm">
             <AppText family="display" weight="bold" className="text-title3 text-default">
               {PROFILE_EDITOR_TITLES[editor]}
@@ -160,8 +159,13 @@ export default function ProfileFieldSheet({
             <Button title="Cancel" variant="ghost" onPress={requestClose} disabled={saving} />
           </View>
           <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerClassName="px-lg pb-xl"
+            testID="profile-editor-scroll"
+            style={{ flexShrink: 1 }}
+            keyboardShouldPersistTaps="always"
+            contentContainerStyle={{
+              paddingHorizontal: spacing.lg,
+              paddingBottom: spacing.xl,
+            }}
           >
             <EditorFields
               editor={editor}
@@ -181,7 +185,7 @@ export default function ProfileFieldSheet({
               testID={`profile-editor-${editor}-save`}
             />
           </ScrollView>
-        </KeyboardAvoidingView>
+        </>
       ) : null}
     </BottomSheet>
   );
@@ -226,7 +230,14 @@ function EditorFields({
     case 'gender':
       return <BottomSheetSelect title="Select gender" placeholder="Select gender" options={GENDER_SELECT_OPTIONS} value={draft.gender} onChange={(v) => setField('gender', v)} testID="profile-editor-gender" />;
     case 'height':
-      return <Input value={draft.height} onChangeText={(v) => setField('height', v)} placeholder="Height (for example, 5 ft 10 in)" testID="profile-editor-height" />;
+      return (
+        <View>
+          <Input value={draft.height} onChangeText={(v) => setField('height', v)} placeholder="Enter height" testID="profile-editor-height" />
+          <AppText className="text-caption text-muted mt-xs">
+            Use feet and inches (for example, 5 ft 10 in) or meters (for example, 1.78 m).
+          </AppText>
+        </View>
+      );
     case 'level':
       return <BottomSheetSelect title="Select skill level" placeholder="Select skill level" options={SKILL_LEVEL_SELECT_OPTIONS} value={draft.level} onChange={(v) => setField('level', v)} testID="profile-editor-level" />;
     case 'location':

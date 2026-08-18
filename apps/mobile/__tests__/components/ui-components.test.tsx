@@ -5,6 +5,8 @@
 
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
+import { Platform } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before any component imports
@@ -535,6 +537,43 @@ describe('BottomSheet', () => {
     );
     // Modal is not visible, tree should still be non-null (RN Modal renders null or empty)
     expect(toJSON()).toBeNull();
+  });
+
+  it('uses controller-driven iOS avoidance with automatic modal offset', () => {
+    const originalOS = Platform.OS;
+    Platform.OS = 'ios';
+
+    const { UNSAFE_getByType } = render(
+      <BottomSheet visible onClose={jest.fn()}>
+        <></>
+      </BottomSheet>,
+    );
+
+    expect(UNSAFE_getByType(KeyboardAvoidingView)).toHaveProp(
+      'behavior',
+      'padding',
+    );
+    expect(UNSAFE_getByType(KeyboardAvoidingView)).toHaveProp(
+      'automaticOffset',
+      true,
+    );
+    expect(UNSAFE_getByType(KeyboardAvoidingView)).toHaveProp('enabled', true);
+    expect(UNSAFE_getByType(KeyboardAvoidingView)).toHaveStyle({ flex: 1 });
+    Platform.OS = originalOS;
+  });
+
+  it('disables controller avoidance on Android', () => {
+    const originalOS = Platform.OS;
+    Platform.OS = 'android';
+
+    const { UNSAFE_getByType } = render(
+      <BottomSheet visible onClose={jest.fn()}>
+        <></>
+      </BottomSheet>,
+    );
+
+    expect(UNSAFE_getByType(KeyboardAvoidingView)).toHaveProp('enabled', false);
+    Platform.OS = originalOS;
   });
 });
 

@@ -326,7 +326,50 @@ class TestUploadAvatar:
             )
 
         assert response.status_code == 200
-        assert "profile_picture_url" in response.json()
+        assert response.json() == {"profile_picture_url": "https://cdn.example.com/avatar.jpg"}
+        assert mock_player_obj.profile_picture_url == "https://cdn.example.com/avatar.jpg"
+        assert mock_player_obj.avatar == "https://cdn.example.com/avatar.jpg"
+
+    def test_rejected_replacement_preserves_old_avatar(self, monkeypatch):
+        """A failed upload deletes only the rejected object and retains persisted old data."""
+        client, headers = _make_authed_client(monkeypatch)
+        old_url = "https://cdn.example.com/old.jpg"
+        new_url = "https://cdn.example.com/new.jpg"
+        fake_player = {
+            "id": 42,
+            "full_name": "Test User",
+            "profile_picture_url": old_url,
+        }
+
+        async def fake_get_player(session, user_id):
+            return fake_player
+
+        async def reject_image(url, safety_identifier):
+            raise moderation_worker.ContentRejected("rejected")
+
+        deleted_urls: list[str] = []
+        monkeypatch.setattr(
+            data_service, "get_player_by_user_id_with_stats", fake_get_player, raising=True
+        )
+        monkeypatch.setattr(
+            avatar_service, "validate_avatar", lambda b, ct: (True, ""), raising=True
+        )
+        monkeypatch.setattr(avatar_service, "process_avatar", lambda b: b, raising=True)
+        monkeypatch.setattr(s3_service, "upload_avatar", lambda pid, b: new_url, raising=True)
+        monkeypatch.setattr(
+            s3_service, "delete_avatar", lambda url: deleted_urls.append(url) or True, raising=True
+        )
+        monkeypatch.setattr(moderation_worker, "screen_image_url", reject_image, raising=True)
+
+        response = client.post(
+            "/api/users/me/avatar",
+            files={"file": ("test.jpg", b"fake_image_bytes", "image/jpeg")},
+            headers=headers,
+        )
+
+        assert response.status_code == 422
+        assert fake_player["profile_picture_url"] == old_url
+        assert deleted_urls == [new_url]
 
     def test_upload_avatar_no_player_returns_404(self, monkeypatch):
         """Returns 404 when the user has no player profile."""

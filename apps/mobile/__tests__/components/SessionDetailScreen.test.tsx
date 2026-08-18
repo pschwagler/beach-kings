@@ -116,13 +116,20 @@ jest.mock(
 
 import type { SessionDetail, SessionGame } from '@beach-kings/shared';
 
-const makeGame = (id: number, p1: string, p2: string, p3: string, p4: string): SessionGame => ({
+const makeGame = (
+  id: number,
+  p1: string,
+  p2: string,
+  p3: string,
+  p4: string,
+  playerIds: readonly [number | null, number | null, number | null, number | null],
+): SessionGame => ({
   id,
   game_number: id,
-  team1_player1_id: 1,
-  team1_player2_id: 2,
-  team2_player1_id: 3,
-  team2_player2_id: 4,
+  team1_player1_id: playerIds[0],
+  team1_player2_id: playerIds[1],
+  team2_player1_id: playerIds[2],
+  team2_player2_id: playerIds[3],
   team1_player1_name: p1,
   team1_player2_name: p2,
   team2_player1_name: p3,
@@ -152,10 +159,10 @@ const baseSession: SessionDetail = {
   user_rating_change: 4.2,
   players: [],
   games: [
-    makeGame(1, 'Patrick Schwagler', 'Alex Chen', 'Sam Torres', 'Jordan Lee'),
+    makeGame(1, 'Patrick Schwagler', 'Alex Chen', 'Sam Torres', 'Jordan Lee', [10, 20, 30, 40]),
     // Game 2: Patrick is on team2 with a different partner to avoid duplicate text
-    makeGame(2, 'Sam Torres', 'Jordan Lee', 'Patrick Schwagler', 'Maya Rivera'),
-    makeGame(3, 'Sam Torres', 'Jordan Lee', 'Tyler Kim', 'River Park'),
+    makeGame(2, 'Sam Torres', 'Jordan Lee', 'Patrick Schwagler', 'Maya Rivera', [30, 40, 10, 50]),
+    makeGame(3, 'Sam Torres', 'Jordan Lee', 'Tyler Kim', 'River Park', [30, 40, 60, 70]),
   ],
 };
 
@@ -169,7 +176,7 @@ const defaultHookResult = {
   submitError: null,
   isUpdatingCourt: false,
   courtUpdateError: null,
-  currentPlayerName: 'Patrick Schwagler',
+  currentPlayerId: 10,
   onRefresh: jest.fn(),
   onRetry: jest.fn(),
   openMenu: jest.fn(),
@@ -230,10 +237,10 @@ describe('SessionDetailScreen — games filter toggle', () => {
     expect(screen.getAllByText('3').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('hides toggle when currentPlayerName is null', () => {
+  it('hides toggle when currentPlayerId is null', () => {
     mockUseSessionDetailScreen.mockReturnValue({
       ...defaultHookResult,
-      currentPlayerName: null,
+      currentPlayerId: null,
     });
     render(<SessionDetailScreen sessionId={42} />);
     expect(screen.queryByText('My Games')).toBeNull();
@@ -258,10 +265,10 @@ describe('SessionDetailScreen — games filter toggle', () => {
       session: {
         ...baseSession,
         games: [
-          makeGame(1, 'Sam Torres', 'Jordan Lee', 'Tyler Kim', 'River Park'),
+          makeGame(1, 'Sam Torres', 'Jordan Lee', 'Tyler Kim', 'River Park', [30, 40, 60, 70]),
         ],
       },
-      currentPlayerName: 'Patrick Schwagler',
+      currentPlayerId: 10,
     });
     render(<SessionDetailScreen sessionId={42} />);
     expect(screen.queryByText('My Games')).toBeNull();
@@ -315,16 +322,34 @@ describe('SessionDetailScreen — "You" substitution in game cards', () => {
     expect(screen.getByText('You / Maya Rivera')).toBeTruthy();
   });
 
-  it('shows full names when currentPlayerName is null', () => {
+  it('shows full names when currentPlayerId is null', () => {
     mockUseSessionDetailScreen.mockReturnValue({
       ...defaultHookResult,
-      currentPlayerName: null,
+      currentPlayerId: null,
       session: {
         ...baseSession,
-        games: [makeGame(1, 'Patrick Schwagler', 'Alex Chen', 'Sam Torres', 'Jordan Lee')],
+        games: [makeGame(1, 'Patrick Schwagler', 'Alex Chen', 'Sam Torres', 'Jordan Lee', [10, 20, 30, 40])],
       },
     });
     render(<SessionDetailScreen sessionId={42} />);
     expect(screen.getByText('Patrick Schwagler / Alex Chen')).toBeTruthy();
+  });
+
+  it('keeps a duplicate display name and filters by player ID only', () => {
+    mockUseSessionDetailScreen.mockReturnValue({
+      ...defaultHookResult,
+      session: {
+        ...baseSession,
+        games: [
+          makeGame(1, 'Patrick Schwagler', 'patrick schwagler', 'Sam Torres', 'Jordan Lee', [10, 20, 30, 40]),
+          makeGame(2, 'Patrick Schwagler', 'Alex Chen', 'Sam Torres', 'Jordan Lee', [50, 20, 30, 40]),
+        ],
+      },
+    });
+
+    render(<SessionDetailScreen sessionId={42} />);
+
+    expect(screen.getByText('You / patrick schwagler')).toBeTruthy();
+    expect(screen.queryByTestId('session-game-card-2')).toBeNull();
   });
 });

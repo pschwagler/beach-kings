@@ -251,46 +251,56 @@ class TestAppleIdTokenVerification:
     def test_missing_client_id_raises(self, monkeypatch):
         """Test that missing APPLE_CLIENT_ID raises ValueError."""
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", None)
-        with pytest.raises(ValueError, match="APPLE_CLIENT_ID"):
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
+        with pytest.raises(auth_service.ProviderConfigurationError):
             auth_service.verify_apple_id_token("some_token")
 
     def test_invalid_token_header_raises(self, monkeypatch):
         """Test that a token without kid in header raises ValueError."""
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
 
         from jose import jwt as jose_jwt
 
         # Create a token without kid in header
         with patch.object(jose_jwt, "get_unverified_header", return_value={}):
-            with pytest.raises(ValueError, match="kid"):
+            with pytest.raises(auth_service.ProviderTokenError):
                 auth_service.verify_apple_id_token("token_without_kid")
 
     def test_no_matching_key_raises(self, monkeypatch):
         """Test that no matching Apple public key raises ValueError."""
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
         # Clear cache
         monkeypatch.setattr(auth_service, "_apple_jwks_cache", None)
 
         from jose import jwt as jose_jwt
 
-        with patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "unknown_kid"}):
+        with (
+            patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "unknown_kid"}),
+            patch.object(jose_jwt, "get_unverified_claims", return_value={"aud": "com.test.app"}),
+        ):
             with patch.object(
                 auth_service,
                 "_fetch_apple_public_keys",
                 return_value={"keys": [{"kid": "different_kid"}]},
             ):
-                with pytest.raises(ValueError, match="No matching Apple public key"):
+                with pytest.raises(auth_service.ProviderTokenError):
                     auth_service.verify_apple_id_token("some_token")
 
     def test_successful_verification(self, monkeypatch):
         """Test successful Apple token verification returns user info."""
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
 
         from jose import jwt as jose_jwt
 
         matching_key = {"kid": "test_kid", "kty": "RSA", "n": "abc", "e": "AQAB"}
 
-        with patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}):
+        with (
+            patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}),
+            patch.object(jose_jwt, "get_unverified_claims", return_value={"aud": "com.test.app"}),
+        ):
             with patch.object(
                 auth_service,
                 "_fetch_apple_public_keys",
@@ -303,6 +313,7 @@ class TestAppleIdTokenVerification:
                         "sub": "apple.user.123",
                         "email": "test@example.com",
                         "email_verified": True,
+                        "aud": "com.test.app",
                     },
                 ):
                     result = auth_service.verify_apple_id_token("valid_token")
@@ -314,12 +325,16 @@ class TestAppleIdTokenVerification:
     def test_missing_email_raises(self, monkeypatch):
         """Test that a token missing the email claim raises ValueError."""
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
 
         from jose import jwt as jose_jwt
 
         matching_key = {"kid": "test_kid", "kty": "RSA"}
 
-        with patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}):
+        with (
+            patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}),
+            patch.object(jose_jwt, "get_unverified_claims", return_value={"aud": "com.test.app"}),
+        ):
             with patch.object(
                 auth_service,
                 "_fetch_apple_public_keys",
@@ -328,21 +343,29 @@ class TestAppleIdTokenVerification:
                 with patch.object(
                     jose_jwt,
                     "decode",
-                    return_value={"sub": "apple.user.123", "email_verified": True},
+                    return_value={
+                        "sub": "apple.user.123",
+                        "email_verified": True,
+                        "aud": "com.test.app",
+                    },
                 ):
-                    with pytest.raises(ValueError, match="missing email"):
+                    with pytest.raises(auth_service.ProviderTokenError):
                         auth_service.verify_apple_id_token("valid_token")
 
     def test_jwt_error_raises_valueerror(self, monkeypatch):
         """Test that JWTError from jose is wrapped as ValueError."""
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
 
         from jose import jwt as jose_jwt
         from jose import JWTError
 
         matching_key = {"kid": "test_kid", "kty": "RSA"}
 
-        with patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}):
+        with (
+            patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}),
+            patch.object(jose_jwt, "get_unverified_claims", return_value={"aud": "com.test.app"}),
+        ):
             with patch.object(
                 auth_service,
                 "_fetch_apple_public_keys",
@@ -351,3 +374,111 @@ class TestAppleIdTokenVerification:
                 with patch.object(jose_jwt, "decode", side_effect=JWTError("expired")):
                     with pytest.raises(ValueError, match="Invalid Apple ID token"):
                         auth_service.verify_apple_id_token("expired_token")
+
+    def test_additional_allowlisted_audience_is_verified_exactly(self, monkeypatch):
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", "com.test.ios, com.test.web")
+
+        from jose import jwt as jose_jwt
+
+        matching_key = {"kid": "test_kid", "kty": "RSA"}
+        with (
+            patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}),
+            patch.object(jose_jwt, "get_unverified_claims", return_value={"aud": "com.test.ios"}),
+            patch.object(
+                auth_service,
+                "_fetch_apple_public_keys",
+                return_value={"keys": [matching_key]},
+            ),
+            patch.object(
+                jose_jwt,
+                "decode",
+                return_value={
+                    "sub": "apple.user.123",
+                    "email": "test@example.com",
+                    "email_verified": True,
+                    "aud": "com.test.ios",
+                },
+            ) as decode,
+        ):
+            result = auth_service.verify_apple_id_token("valid_token")
+
+        assert result["aud"] == "com.test.ios"
+        assert decode.call_args.kwargs["audience"] == "com.test.ios"
+
+    def test_unallowlisted_audience_fails_before_decode(self, monkeypatch):
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", "com.test.ios")
+
+        from jose import jwt as jose_jwt
+
+        with (
+            patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}),
+            patch.object(jose_jwt, "get_unverified_claims", return_value={"aud": "attacker.app"}),
+            patch.object(jose_jwt, "decode") as decode,
+            pytest.raises(auth_service.ProviderAudienceError),
+        ):
+            auth_service.verify_apple_id_token("wrong_audience_token")
+        decode.assert_not_called()
+
+
+class TestGoogleIdTokenVerification:
+    def test_missing_audience_configuration_is_rejected(self, monkeypatch):
+        monkeypatch.setattr(auth_service, "GOOGLE_CLIENT_ID", None)
+        monkeypatch.setattr(auth_service, "GOOGLE_CLIENT_IDS", None)
+
+        with pytest.raises(auth_service.ProviderConfigurationError):
+            auth_service.verify_google_id_token("some_token")
+
+    def test_legacy_single_audience_still_works(self, monkeypatch):
+        monkeypatch.setattr(auth_service, "GOOGLE_CLIENT_ID", "google-web")
+        monkeypatch.setattr(auth_service, "GOOGLE_CLIENT_IDS", None)
+
+        with patch(
+            "google.oauth2.id_token.verify_oauth2_token",
+            return_value={
+                "aud": "google-web",
+                "sub": "google-user",
+                "email": "user@example.com",
+                "email_verified": True,
+            },
+        ) as verify:
+            result = auth_service.verify_google_id_token("valid_token")
+
+        assert result["aud"] == "google-web"
+        assert verify.call_args.kwargs["audience"] is None
+
+    def test_mobile_audience_can_be_explicitly_allowlisted(self, monkeypatch):
+        monkeypatch.setattr(auth_service, "GOOGLE_CLIENT_ID", "google-web")
+        monkeypatch.setattr(auth_service, "GOOGLE_CLIENT_IDS", "google-ios, google-android")
+
+        with patch(
+            "google.oauth2.id_token.verify_oauth2_token",
+            return_value={
+                "aud": "google-ios",
+                "sub": "google-user",
+                "email": "user@example.com",
+                "email_verified": True,
+            },
+        ):
+            result = auth_service.verify_google_id_token("valid_token")
+
+        assert result["aud"] == "google-ios"
+
+    def test_unallowlisted_mobile_audience_is_rejected(self, monkeypatch):
+        monkeypatch.setattr(auth_service, "GOOGLE_CLIENT_ID", "google-web")
+        monkeypatch.setattr(auth_service, "GOOGLE_CLIENT_IDS", "google-ios")
+
+        with (
+            patch(
+                "google.oauth2.id_token.verify_oauth2_token",
+                return_value={
+                    "aud": "unknown-client",
+                    "sub": "google-user",
+                    "email": "user@example.com",
+                    "email_verified": True,
+                },
+            ),
+            pytest.raises(auth_service.ProviderAudienceError),
+        ):
+            auth_service.verify_google_id_token("wrong_audience_token")

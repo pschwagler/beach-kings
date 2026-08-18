@@ -159,3 +159,6 @@ replacements.txt
 .gemini/*
 !.gemini/commands/
 gha-creds-*.json
+
+# Private TestFlight feedback, plans, reviews, and device evidence
+.testflight-triage/

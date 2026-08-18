@@ -328,6 +328,31 @@ describe('ProfileScreen', () => {
     );
   });
 
+  it('keeps height units and examples visible while the value is edited', async () => {
+    const { findByTestId, findByText } = render(<ProfileScreen />);
+    fireEvent.press(await findByTestId('profile-info-height'));
+
+    const guidance = await findByText(/feet and inches.*meters/i);
+    fireEvent.changeText(await findByTestId('profile-editor-height'), '1.78 m');
+
+    expect(guidance).toBeTruthy();
+    expect(await findByText(/feet and inches.*meters/i)).toBeTruthy();
+  });
+
+  it('lets the sheet own keyboard avoidance while keeping profile actions tappable', async () => {
+    const { findByTestId } = render(<ProfileScreen />);
+    fireEvent.press(await findByTestId('profile-info-height'));
+
+    expect(await findByTestId('bottom-sheet-keyboard-avoider')).toHaveProp(
+      'enabled',
+      true,
+    );
+    expect(await findByTestId('profile-editor-scroll')).toHaveProp(
+      'keyboardShouldPersistTaps',
+      'always',
+    );
+  });
+
   it('pressing Friends opens the Friends subsection deterministically', async () => {
     const { findAllByLabelText } = render(<ProfileScreen />);
     const friendsButtons = await findAllByLabelText('Friends');

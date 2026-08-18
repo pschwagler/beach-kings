@@ -180,12 +180,15 @@ describe('SessionBottomSheet — Delete Session', () => {
     });
 
     await waitFor(() => expect(mockDeleteSession).toHaveBeenCalledWith(42));
+    expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
     expect(onClose).toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/add-games');
   });
 
   it('surfaces an error alert and stays put when deletion fails', async () => {
-    mockDeleteSession.mockRejectedValueOnce(new Error('network'));
+    mockDeleteSession.mockRejectedValueOnce(
+      Object.assign(new Error('server error'), { response: { status: 500 } }),
+    );
     const { getByTestId } = render(<SessionBottomSheet {...baseProps} />);
 
     fireEvent.press(getByTestId('session-menu-delete'));
@@ -201,6 +204,67 @@ describe('SessionBottomSheet — Delete Session', () => {
         expect.any(Array),
       ),
     );
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [401, 'Sign in to delete session', 'session has expired'],
+    [403, 'Not allowed to delete session', 'permission'],
+    [404, 'Session not found', 'no longer exists'],
+  ])(
+    'maps HTTP %i without closing or navigating',
+    async (status, expectedTitle, expectedMessage) => {
+      mockDeleteSession.mockRejectedValueOnce(
+        Object.assign(new Error('request failed'), { response: { status } }),
+      );
+      const onClose = jest.fn();
+      const { getByTestId } = render(
+        <SessionBottomSheet {...baseProps} onClose={onClose} />,
+      );
+
+      fireEvent.press(getByTestId('session-menu-delete'));
+      await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+      await act(async () => {
+        await pressAlertButton('Delete');
+      });
+
+      await waitFor(() =>
+        expect(Alert.alert).toHaveBeenLastCalledWith(
+          expectedTitle,
+          expect.stringContaining(expectedMessage),
+          expect.any(Array),
+        ),
+      );
+      expect(onClose).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
+      expect(mockInvalidateQueries).not.toHaveBeenCalled();
+    },
+  );
+
+  it('shows a connectivity-specific retry message and stays put', async () => {
+    mockDeleteSession.mockRejectedValueOnce(
+      Object.assign(new Error('Network Error'), { request: {} }),
+    );
+    const onClose = jest.fn();
+    const { getByTestId } = render(
+      <SessionBottomSheet {...baseProps} onClose={onClose} />,
+    );
+
+    fireEvent.press(getByTestId('session-menu-delete'));
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+    await act(async () => {
+      await pressAlertButton('Delete');
+    });
+
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenLastCalledWith(
+        'Connection problem',
+        expect.stringContaining('connection'),
+        expect.any(Array),
+      ),
+    );
+    expect(onClose).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });

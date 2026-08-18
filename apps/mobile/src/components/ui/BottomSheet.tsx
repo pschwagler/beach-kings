@@ -5,7 +5,13 @@
  */
 
 import React, { useEffect } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import {
+  Modal,
+  Platform,
+  Pressable,
+  View,
+} from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -28,6 +34,7 @@ interface BottomSheetProps {
   readonly accessibilityLabel?: string;
   readonly initialFocusRef?: AccessibilityFocusRef;
   readonly returnFocusRef?: AccessibilityFocusRef;
+  readonly keyboardAvoidanceEnabled?: boolean;
 }
 
 const SLIDE_DURATION = 280;
@@ -41,6 +48,7 @@ export default function BottomSheet({
   accessibilityLabel = 'Bottom sheet',
   initialFocusRef,
   returnFocusRef,
+  keyboardAvoidanceEnabled = true,
 }: BottomSheetProps): React.ReactNode {
   const reduceMotion = useReducedMotion();
   const translateY = useSharedValue(600);
@@ -77,33 +85,43 @@ export default function BottomSheet({
       onShow={focusInitialElement}
       accessibilityViewIsModal
     >
-      {/* Backdrop */}
-      <Pressable
-        testID={testID != null ? `${testID}-backdrop` : 'bottom-sheet-backdrop'}
-        className="flex-1 bg-black/50"
-        onPress={onClose}
-        accessible={false}
-        importantForAccessibility="no"
-      />
-
-      {/* Sheet content */}
-      <Animated.View
-        ref={modalRef}
-        testID={testID}
-        style={animatedStyle}
-        className={`absolute bottom-0 left-0 right-0 bg-surface rounded-t-2xl ${className}`}
-        role="dialog"
-        accessibilityLabel={accessibilityLabel}
-        accessibilityViewIsModal
-        onAccessibilityEscape={onClose}
+      <KeyboardAvoidingView
+        testID="bottom-sheet-keyboard-avoider"
+        style={{ flex: 1 }}
+        behavior="padding"
+        automaticOffset
+        enabled={keyboardAvoidanceEnabled && Platform.OS === 'ios'}
       >
-        {/* Handle bar */}
-        <View className="items-center pt-sm pb-xs">
-          <View className="w-10 h-1 rounded-full bg-divider" />
-        </View>
+        {/* Backdrop */}
+        <Pressable
+          testID={testID != null ? `${testID}-backdrop` : 'bottom-sheet-backdrop'}
+          className="absolute inset-0 bg-black/50"
+          onPress={onClose}
+          accessible={false}
+          importantForAccessibility="no"
+        />
 
-        {children}
-      </Animated.View>
+        <View className="flex-1 justify-end" pointerEvents="box-none">
+          {/* Sheet content */}
+          <Animated.View
+            ref={modalRef}
+            testID={testID}
+            style={animatedStyle}
+            className={`bg-surface rounded-t-2xl ${className}`}
+            role="dialog"
+            accessibilityLabel={accessibilityLabel}
+            accessibilityViewIsModal
+            onAccessibilityEscape={onClose}
+          >
+            {/* Handle bar */}
+            <View className="items-center pt-sm pb-xs">
+              <View className="w-10 h-1 rounded-full bg-divider" />
+            </View>
+
+            {children}
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

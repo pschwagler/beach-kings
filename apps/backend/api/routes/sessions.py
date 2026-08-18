@@ -342,6 +342,10 @@ async def require_session_manager(
     if await _is_system_admin(db_session, user):
         return
 
+    player = await data_service.get_player_by_user_id(db_session, user["id"])
+    if player and session_obj.get("created_by") == player["id"]:
+        return
+
     if session_obj.get("league_id") is not None:
         if await is_user_admin_of_session_league(
             db_session,
@@ -349,11 +353,6 @@ async def require_session_manager(
             session_obj["id"],
         ):
             return
-    else:
-        player = await data_service.get_player_by_user_id(db_session, user["id"])
-        if player and session_obj.get("created_by") == player["id"]:
-            return
-
     raise _session_not_found(session_obj["id"])
 
 
@@ -1171,28 +1170,17 @@ async def delete_session(
 
         await require_session_manager(session, session_obj, current_user)
 
-        success = await data_service.delete_session(session, session_id)
+        delete_result = await data_service.delete_session(session, session_id)
 
-        if not success:
+        if not delete_result:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-
-        # delete_session already enqueues these jobs for submitted sessions.
-        # Enqueueing again is idempotent and gives the client the canonical job
-        # IDs it needs to wait before refreshing derived totals.
-        stats_jobs = (
-            await data_service.enqueue_stats_recalculation(
-                session,
-                session_obj.get("league_id"),
-            )
-            if session_obj.get("status") != "ACTIVE"
-            else {"global_job_id": None, "league_job_id": None}
-        )
 
         return {
             "status": "success",
             "message": "Session deleted successfully",
             "session_id": session_id,
-            **stats_jobs,
+            "global_job_id": delete_result.get("global_job_id"),
+            "league_job_id": delete_result.get("league_job_id"),
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

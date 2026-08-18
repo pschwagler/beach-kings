@@ -9,8 +9,12 @@ Covers:
 - Both endpoints: bad token → 401 from verify helper
 """
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, Lock
+
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 
 from backend.api.main import app
 from backend.api.auth_dependencies import get_current_user
@@ -176,6 +180,7 @@ class TestGoogleAdd:
         async def fake_set_google(session, user_id, google_id):
             assert user_id == USER_ID
             assert google_id == GOOGLE_SUB
+            return True
 
         async def fake_get_by_id(session, uid):
             return _base_user(google_id=GOOGLE_SUB)
@@ -215,7 +220,93 @@ class TestGoogleAdd:
         client = TestClient(app)
         resp = client.post("/api/auth/google/add", json={"id_token": "valid-google-token"})
         assert resp.status_code == 409
-        assert "different" in resp.json()["detail"].lower()
+        assert resp.json()["detail"]["code"] == "PROVIDER_LINK_CONFLICT"
+
+    def test_different_google_id_cannot_replace_current_accounts_link(self, monkeypatch):
+        _install_auth(_base_user(google_id="original-google-sub"))
+        monkeypatch.setattr(
+            auth_service,
+            "verify_google_id_token",
+            lambda token: {"sub": "replacement-google-sub", "email": "user@example.com"},
+            raising=True,
+        )
+
+        client = TestClient(app)
+        resp = client.post("/api/auth/google/add", json={"id_token": "valid-google-token"})
+
+        assert resp.status_code == 409
+        assert resp.json()["detail"]["code"] == "PROVIDER_ALREADY_CONNECTED"
+
+    def test_concurrent_different_google_links_only_commit_one_identity(self, monkeypatch):
+        _install_auth(_base_user(google_id=None))
+        lookup_barrier = Barrier(2)
+        state_lock = Lock()
+        state = {"google_id": None}
+
+        monkeypatch.setattr(
+            auth_service,
+            "verify_google_id_token",
+            lambda token: {"sub": token, "email": "user@example.com"},
+            raising=True,
+        )
+
+        async def fake_get_by_google_id(session, google_id):
+            lookup_barrier.wait(timeout=5)
+            return None
+
+        async def conditional_set(session, user_id, google_id):
+            with state_lock:
+                if state["google_id"] not in (None, google_id):
+                    return False
+                state["google_id"] = google_id
+                return True
+
+        async def fake_get_by_id(session, user_id):
+            return _base_user(google_id=state["google_id"])
+
+        monkeypatch.setattr(
+            user_service, "get_user_by_google_id", fake_get_by_google_id, raising=True
+        )
+        monkeypatch.setattr(auth_module, "_set_google_id", conditional_set, raising=True)
+        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_by_id, raising=True)
+
+        def link(subject: str):
+            return TestClient(app).post("/api/auth/google/add", json={"id_token": subject})
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(pool.map(link, ["google-sub-one", "google-sub-two"]))
+
+        assert sorted(response.status_code for response in responses) == [200, 409]
+        conflict = next(response for response in responses if response.status_code == 409)
+        assert conflict.json()["detail"]["code"] == "PROVIDER_ALREADY_CONNECTED"
+        assert state["google_id"] in {"google-sub-one", "google-sub-two"}
+
+    def test_google_unique_race_maps_to_cross_account_conflict(self, monkeypatch):
+        _install_auth(_base_user(google_id=None))
+        monkeypatch.setattr(
+            auth_service,
+            "verify_google_id_token",
+            lambda token: {"sub": GOOGLE_SUB, "email": "user@example.com"},
+            raising=True,
+        )
+
+        async def fake_get_by_google_id(session, google_id):
+            return None
+
+        async def unique_race(*_args, **_kwargs):
+            raise IntegrityError("conditional update", {}, Exception("unique"))
+
+        monkeypatch.setattr(
+            user_service, "get_user_by_google_id", fake_get_by_google_id, raising=True
+        )
+        monkeypatch.setattr(auth_module, "_set_google_id", unique_race, raising=True)
+
+        resp = TestClient(app).post(
+            "/api/auth/google/add", json={"id_token": "valid-google-token"}
+        )
+
+        assert resp.status_code == 409
+        assert resp.json()["detail"]["code"] == "PROVIDER_LINK_CONFLICT"
 
     def test_idempotent_when_already_linked_to_same_user(self, monkeypatch):
         """Token's sub is already linked to this user → 200, no error."""
@@ -257,6 +348,43 @@ class TestGoogleAdd:
         client = TestClient(app)
         resp = client.post("/api/auth/google/add", json={"id_token": "garbage"})
         assert resp.status_code == 401
+        assert resp.json()["detail"] == {
+            "code": "PROVIDER_LINK_TOKEN_INVALID",
+            "message": "The provider token could not be verified.",
+        }
+
+    def test_audience_mismatch_returns_stable_sanitized_code(self, monkeypatch):
+        _install_auth(_base_user())
+
+        def raise_audience(_token):
+            raise auth_service.ProviderAudienceError("unexpected-client-id")
+
+        monkeypatch.setattr(auth_service, "verify_google_id_token", raise_audience, raising=True)
+
+        client = TestClient(app)
+        resp = client.post("/api/auth/google/add", json={"id_token": "sensitive-token"})
+
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == {
+            "code": "PROVIDER_LINK_AUDIENCE",
+            "message": "The provider token was issued for an unsupported application.",
+        }
+        assert "unexpected-client-id" not in resp.text
+
+    def test_missing_configuration_returns_stable_sanitized_code(self, monkeypatch):
+        _install_auth(_base_user())
+
+        def raise_config(_token):
+            raise auth_service.ProviderConfigurationError("GOOGLE_CLIENT_IDS missing")
+
+        monkeypatch.setattr(auth_service, "verify_google_id_token", raise_config, raising=True)
+
+        client = TestClient(app)
+        resp = client.post("/api/auth/google/add", json={"id_token": "sensitive-token"})
+
+        assert resp.status_code == 503
+        assert resp.json()["detail"]["code"] == "PROVIDER_LINK_CONFIG"
+        assert "GOOGLE_CLIENT_IDS" not in resp.text
 
     def test_unauthenticated_returns_401(self):
         """No bearer token → 401 before any logic runs."""
@@ -291,6 +419,12 @@ class TestAppleAdd:
         async def fake_set_apple(session, user_id, apple_id):
             assert user_id == USER_ID
             assert apple_id == APPLE_SUB
+            return True
+
+        async def fake_capture(session, *, user_id, apple_id, authorization_code, client_id=None):
+            assert user_id == USER_ID
+            assert apple_id == APPLE_SUB
+            assert authorization_code == "apple-code"
 
         async def fake_get_by_id(session, uid):
             return _base_user(apple_id=APPLE_SUB)
@@ -299,10 +433,16 @@ class TestAppleAdd:
             user_service, "get_user_by_apple_id", fake_get_by_apple_id, raising=True
         )
         monkeypatch.setattr(auth_module, "_set_apple_id", fake_set_apple, raising=True)
+        monkeypatch.setattr(
+            auth_module, "_capture_apple_refresh_token", fake_capture, raising=True
+        )
         monkeypatch.setattr(user_service, "get_user_by_id", fake_get_by_id, raising=True)
 
         client = TestClient(app)
-        resp = client.post("/api/auth/apple/add", json={"id_token": "valid-apple-token"})
+        resp = client.post(
+            "/api/auth/apple/add",
+            json={"id_token": "valid-apple-token", "authorization_code": "apple-code"},
+        )
         assert resp.status_code == 200, resp.text
         data = resp.json()
         assert data["apple_connected"] is True
@@ -329,7 +469,131 @@ class TestAppleAdd:
         client = TestClient(app)
         resp = client.post("/api/auth/apple/add", json={"id_token": "valid-apple-token"})
         assert resp.status_code == 409
-        assert "different" in resp.json()["detail"].lower()
+        assert resp.json()["detail"]["code"] == "PROVIDER_LINK_CONFLICT"
+
+    def test_different_apple_id_cannot_replace_current_accounts_link(self, monkeypatch):
+        _install_auth(_base_user(apple_id="original-apple-sub"))
+        monkeypatch.setattr(
+            auth_service,
+            "verify_apple_id_token",
+            lambda token: {
+                "sub": "replacement-apple-sub",
+                "email": "user@example.com",
+                "aud": "com.beachleague.app",
+            },
+            raising=True,
+        )
+
+        async def should_not_capture(*_args, **_kwargs):
+            pytest.fail("replacement attempt must not exchange an Apple code")
+
+        monkeypatch.setattr(
+            auth_module, "_capture_apple_refresh_token", should_not_capture, raising=True
+        )
+
+        client = TestClient(app)
+        resp = client.post(
+            "/api/auth/apple/add",
+            json={"id_token": "valid-apple-token", "authorization_code": "apple-code"},
+        )
+
+        assert resp.status_code == 409
+        assert resp.json()["detail"]["code"] == "PROVIDER_ALREADY_CONNECTED"
+
+    def test_concurrent_different_apple_links_only_commit_one_identity(self, monkeypatch):
+        _install_auth(_base_user(apple_id=None))
+        lookup_barrier = Barrier(2)
+        state_lock = Lock()
+        state = {"apple_id": None}
+
+        monkeypatch.setattr(
+            auth_service,
+            "verify_apple_id_token",
+            lambda token: {
+                "sub": token,
+                "email": "user@example.com",
+                "aud": "com.beachleague.app",
+            },
+            raising=True,
+        )
+
+        async def fake_get_by_apple_id(session, apple_id):
+            lookup_barrier.wait(timeout=5)
+            return None
+
+        async def fake_capture(*_args, **_kwargs):
+            return None
+
+        async def conditional_set(session, user_id, apple_id):
+            with state_lock:
+                if state["apple_id"] not in (None, apple_id):
+                    return False
+                state["apple_id"] = apple_id
+                return True
+
+        async def fake_get_by_id(session, user_id):
+            return _base_user(apple_id=state["apple_id"])
+
+        monkeypatch.setattr(
+            user_service, "get_user_by_apple_id", fake_get_by_apple_id, raising=True
+        )
+        monkeypatch.setattr(
+            auth_module, "_capture_apple_refresh_token", fake_capture, raising=True
+        )
+        monkeypatch.setattr(auth_module, "_set_apple_id", conditional_set, raising=True)
+        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_by_id, raising=True)
+
+        def link(subject: str):
+            return TestClient(app).post(
+                "/api/auth/apple/add",
+                json={"id_token": subject, "authorization_code": f"code-{subject}"},
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(pool.map(link, ["apple-sub-one", "apple-sub-two"]))
+
+        assert sorted(response.status_code for response in responses) == [200, 409]
+        conflict = next(response for response in responses if response.status_code == 409)
+        assert conflict.json()["detail"]["code"] == "PROVIDER_ALREADY_CONNECTED"
+        assert state["apple_id"] in {"apple-sub-one", "apple-sub-two"}
+
+    def test_apple_unique_race_maps_to_cross_account_conflict(self, monkeypatch):
+        _install_auth(_base_user(apple_id=None))
+        monkeypatch.setattr(
+            auth_service,
+            "verify_apple_id_token",
+            lambda token: {
+                "sub": APPLE_SUB,
+                "email": "user@example.com",
+                "aud": "com.beachleague.app",
+            },
+            raising=True,
+        )
+
+        async def fake_get_by_apple_id(session, apple_id):
+            return None
+
+        async def fake_capture(*_args, **_kwargs):
+            return None
+
+        async def unique_race(*_args, **_kwargs):
+            raise IntegrityError("conditional update", {}, Exception("unique"))
+
+        monkeypatch.setattr(
+            user_service, "get_user_by_apple_id", fake_get_by_apple_id, raising=True
+        )
+        monkeypatch.setattr(
+            auth_module, "_capture_apple_refresh_token", fake_capture, raising=True
+        )
+        monkeypatch.setattr(auth_module, "_set_apple_id", unique_race, raising=True)
+
+        resp = TestClient(app).post(
+            "/api/auth/apple/add",
+            json={"id_token": "valid-apple-token", "authorization_code": "apple-code"},
+        )
+
+        assert resp.status_code == 409
+        assert resp.json()["detail"]["code"] == "PROVIDER_LINK_CONFLICT"
 
     def test_idempotent_when_already_linked_to_same_user(self, monkeypatch):
         """Token's sub is already linked to this user → 200, no error."""
@@ -353,8 +617,18 @@ class TestAppleAdd:
         )
         monkeypatch.setattr(user_service, "get_user_by_id", fake_get_by_id, raising=True)
 
+        async def should_not_capture(*_args, **_kwargs):
+            pytest.fail("idempotent repeat must not consume another Apple code")
+
+        monkeypatch.setattr(
+            auth_module, "_capture_apple_refresh_token", should_not_capture, raising=True
+        )
+
         client = TestClient(app)
-        resp = client.post("/api/auth/apple/add", json={"id_token": "valid-apple-token"})
+        resp = client.post(
+            "/api/auth/apple/add",
+            json={"id_token": "valid-apple-token", "authorization_code": "new-code"},
+        )
         assert resp.status_code == 200, resp.text
         data = resp.json()
         assert data["apple_connected"] is True
@@ -371,6 +645,50 @@ class TestAppleAdd:
         client = TestClient(app)
         resp = client.post("/api/auth/apple/add", json={"id_token": "garbage"})
         assert resp.status_code == 401
+        assert resp.json()["detail"]["code"] == "PROVIDER_LINK_TOKEN_INVALID"
+
+    def test_code_exchange_failure_rolls_back_before_provider_id_write(self, monkeypatch):
+        _install_auth(_base_user(apple_id=None))
+        monkeypatch.setattr(
+            auth_service,
+            "verify_apple_id_token",
+            lambda token: {
+                "sub": APPLE_SUB,
+                "email": "user@example.com",
+                "aud": "com.beachleague.app",
+            },
+            raising=True,
+        )
+
+        async def fake_get_by_apple_id(session, aid):
+            return None
+
+        async def fail_capture(*_args, **_kwargs):
+            raise auth_module.HTTPException(status_code=503, detail="provider response details")
+
+        async def should_not_set(*_args, **_kwargs):
+            pytest.fail("apple_id write must not run after code exchange failure")
+
+        monkeypatch.setattr(
+            user_service, "get_user_by_apple_id", fake_get_by_apple_id, raising=True
+        )
+        monkeypatch.setattr(
+            auth_module, "_capture_apple_refresh_token", fail_capture, raising=True
+        )
+        monkeypatch.setattr(auth_module, "_set_apple_id", should_not_set, raising=True)
+
+        client = TestClient(app)
+        resp = client.post(
+            "/api/auth/apple/add",
+            json={"id_token": "valid-apple-token", "authorization_code": "one-time-code"},
+        )
+
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == {
+            "code": "APPLE_LINK_CODE_EXCHANGE",
+            "message": "Apple authorization could not be completed securely.",
+        }
+        assert "provider response details" not in resp.text
 
     def test_unauthenticated_returns_401(self):
         """No bearer token → 401 before any logic runs."""

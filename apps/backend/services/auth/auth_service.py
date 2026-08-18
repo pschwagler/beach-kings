@@ -301,8 +301,42 @@ def normalize_email(email: str) -> str:
     return email
 
 
-# Google OAuth Configuration
+# Provider token verification failures are deliberately typed so authenticated
+# linking routes can return stable, sanitized diagnostics without leaking JWT
+# claims, provider responses, or deployment configuration.
+class ProviderTokenError(ValueError):
+    """A signed provider token could not be accepted."""
+
+
+class ProviderAudienceError(ProviderTokenError):
+    """The token audience is not in the configured first-party allowlist."""
+
+
+class ProviderConfigurationError(ProviderTokenError):
+    """No usable first-party audience has been configured."""
+
+
+class ProviderVerificationUnavailableError(ProviderTokenError):
+    """Provider verification could not complete due to an external failure."""
+
+
+def _configured_audiences(
+    legacy_value: Optional[str], allowlist_value: Optional[str]
+) -> tuple[str, ...]:
+    """Return a stable, deduplicated audience allowlist.
+
+    The singular value remains first so existing deployments retain their
+    current primary client while plural comma-separated configuration can add
+    iOS, Android, and web audiences during migration.
+    """
+    values = [legacy_value or "", *(allowlist_value or "").split(",")]
+    return tuple(dict.fromkeys(value.strip() for value in values if value.strip()))
+
+
+# Google OAuth Configuration. GOOGLE_CLIENT_ID remains supported; the plural
+# value adds explicit first-party platform audiences.
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_IDS = os.getenv("GOOGLE_CLIENT_IDS")
 
 
 def verify_google_id_token(token: str) -> dict:
@@ -324,18 +358,24 @@ def verify_google_id_token(token: str) -> dict:
     from google.oauth2 import id_token as google_id_token
     from google.auth.transport import requests as google_requests
 
-    if not GOOGLE_CLIENT_ID:
-        raise ValueError("GOOGLE_CLIENT_ID environment variable is not set")
+    audiences = _configured_audiences(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_IDS)
+    if not audiences:
+        raise ProviderConfigurationError("Google token audiences are not configured")
 
     try:
+        # Signature, expiry, and issuer are verified by google-auth. Audience
+        # is checked explicitly below so multiple platform clients can be
+        # accepted without weakening validation.
         id_info = google_id_token.verify_oauth2_token(
             token,
             google_requests.Request(),
-            GOOGLE_CLIENT_ID,
+            audience=None,
         )
 
+        if id_info.get("aud") not in audiences:
+            raise ProviderAudienceError("Google token audience is not allowed")
         if not id_info.get("email_verified"):
-            raise ValueError("Google email is not verified")
+            raise ProviderTokenError("Google email is not verified")
 
         return {
             "email": id_info["email"],
@@ -345,16 +385,22 @@ def verify_google_id_token(token: str) -> dict:
             "family_name": id_info.get("family_name"),
             "picture": id_info.get("picture"),
             "email_verified": id_info.get("email_verified", False),
+            "aud": id_info["aud"],
         }
-    except ValueError:
+    except ProviderTokenError:
         raise
-    except Exception as e:
-        logger.error(f"Google ID token verification failed: {e}")
-        raise ValueError(f"Invalid Google ID token: {e}")
+    except ValueError as exc:
+        raise ProviderTokenError("Invalid Google ID token") from exc
+    except Exception as exc:
+        logger.warning("Google ID token verification unavailable", exc_info=True)
+        raise ProviderVerificationUnavailableError(
+            "Google token verification is temporarily unavailable"
+        ) from exc
 
 
 # Apple Sign In Configuration
 APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID")  # e.g. "com.beachleague.mobile"
+APPLE_CLIENT_IDS = os.getenv("APPLE_CLIENT_IDS")
 APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
 
 # Cache Apple's public keys to avoid fetching on every request
@@ -384,9 +430,11 @@ def _fetch_apple_public_keys() -> dict:
         response.raise_for_status()
         _apple_jwks_cache = response.json()
         return _apple_jwks_cache
-    except Exception as e:
-        logger.error(f"Failed to fetch Apple public keys: {e}")
-        raise ValueError(f"Could not fetch Apple public keys: {e}")
+    except Exception as exc:
+        logger.warning("Unable to fetch Apple public keys", exc_info=True)
+        raise ProviderVerificationUnavailableError(
+            "Apple token verification is temporarily unavailable"
+        ) from exc
 
 
 def verify_apple_id_token(token: str) -> dict:
@@ -406,15 +454,22 @@ def verify_apple_id_token(token: str) -> dict:
         ValueError: If token is invalid, expired, or audience doesn't match
     """
 
-    if not APPLE_CLIENT_ID:
-        raise ValueError("APPLE_CLIENT_ID environment variable is not set")
+    audiences = _configured_audiences(APPLE_CLIENT_ID, APPLE_CLIENT_IDS)
+    if not audiences:
+        raise ProviderConfigurationError("Apple token audiences are not configured")
 
     try:
         # Get the key ID from the token header
         header = jwt.get_unverified_header(token)
         kid = header.get("kid")
         if not kid:
-            raise ValueError("Token header missing 'kid'")
+            raise ProviderTokenError("Apple token header is invalid")
+
+        # Read the unverified audience only to select an allowlisted expected
+        # value. jwt.decode below still verifies the signed claim exactly.
+        unverified_audience = jwt.get_unverified_claims(token).get("aud")
+        if unverified_audience not in audiences:
+            raise ProviderAudienceError("Apple token audience is not allowed")
 
         # Fetch Apple's public keys and find the matching key
         jwks = _fetch_apple_public_keys()
@@ -435,33 +490,36 @@ def verify_apple_id_token(token: str) -> dict:
                     break
 
         if matching_key is None:
-            raise ValueError("No matching Apple public key found for token")
+            raise ProviderTokenError("Apple token signing key is not recognized")
 
         # Verify and decode the token
         payload = jwt.decode(
             token,
             matching_key,
             algorithms=["RS256"],
-            audience=APPLE_CLIENT_ID,
+            audience=unverified_audience,
             issuer="https://appleid.apple.com",
         )
 
         email = payload.get("email")
         if not email:
-            raise ValueError("Apple token missing email claim")
+            raise ProviderTokenError("Apple token is missing a required claim")
 
         return {
             "email": email,
             "sub": payload["sub"],
             "email_verified": payload.get("email_verified", False),
+            "aud": payload["aud"],
         }
     except JWTError as e:
-        raise ValueError(f"Invalid Apple ID token: {e}")
-    except ValueError:
+        raise ProviderTokenError("Invalid Apple ID token") from e
+    except ProviderTokenError:
         raise
-    except Exception as e:
-        logger.error(f"Apple ID token verification failed: {e}")
-        raise ValueError(f"Invalid Apple ID token: {e}")
+    except Exception as exc:
+        logger.warning("Apple ID token verification unavailable", exc_info=True)
+        raise ProviderVerificationUnavailableError(
+            "Apple token verification is temporarily unavailable"
+        ) from exc
 
 
 async def send_sms_verification(session: AsyncSession, phone_number: str, code: str) -> bool:
