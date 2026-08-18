@@ -104,7 +104,7 @@ export default function SheetOptionList({
       ) : (
         <ScrollView
           style={{ maxHeight: 420, flexShrink: 1 }}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
         >
           {filtered.map((opt) => {
             const selected = opt.value === selectedValue;

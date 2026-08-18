@@ -339,21 +339,17 @@ describe('ProfileScreen', () => {
     expect(await findByText(/feet and inches.*meters/i)).toBeTruthy();
   });
 
-  it('uses one keyboard-aware scroll owner for focused profile fields', async () => {
+  it('lets the sheet own keyboard avoidance while keeping profile actions tappable', async () => {
     const { findByTestId } = render(<ProfileScreen />);
     fireEvent.press(await findByTestId('profile-info-height'));
 
     expect(await findByTestId('bottom-sheet-keyboard-avoider')).toHaveProp(
       'enabled',
-      false,
+      true,
     );
     expect(await findByTestId('profile-editor-scroll')).toHaveProp(
-      'bottomOffset',
-      16,
-    );
-    expect(await findByTestId('profile-editor-scroll')).toHaveProp(
-      'mode',
-      'insets',
+      'keyboardShouldPersistTaps',
+      'always',
     );
   });
 

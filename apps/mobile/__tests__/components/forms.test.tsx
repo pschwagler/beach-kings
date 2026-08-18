@@ -274,7 +274,7 @@ describe('SheetOptionList', () => {
     expect(getByText('Option B')).toBeTruthy();
     expect(UNSAFE_getByType(ScrollView)).toHaveProp(
       'keyboardShouldPersistTaps',
-      'handled',
+      'always',
     );
   });
 });

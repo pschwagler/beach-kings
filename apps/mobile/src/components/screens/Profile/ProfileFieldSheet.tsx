@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Platform,
+  ScrollView,
   View,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useQuery } from '@tanstack/react-query';
 import type { Player } from '@beach-kings/shared';
 import { spacing } from '@beach-kings/shared/tokens';
@@ -150,7 +149,6 @@ export default function ProfileFieldSheet({
       visible={editor != null}
       onClose={requestClose}
       className="max-h-[88%]"
-      keyboardAvoidanceEnabled={false}
     >
       {editor != null ? (
         <>
@@ -160,13 +158,10 @@ export default function ProfileFieldSheet({
             </AppText>
             <Button title="Cancel" variant="ghost" onPress={requestClose} disabled={saving} />
           </View>
-          <KeyboardAwareScrollView
+          <ScrollView
             testID="profile-editor-scroll"
             style={{ flexShrink: 1 }}
-            enabled={Platform.OS === 'ios'}
-            bottomOffset={16}
-            mode="insets"
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
             contentContainerStyle={{
               paddingHorizontal: spacing.lg,
               paddingBottom: spacing.xl,
@@ -189,7 +184,7 @@ export default function ProfileFieldSheet({
               className="mt-lg"
               testID={`profile-editor-${editor}-save`}
             />
-          </KeyboardAwareScrollView>
+          </ScrollView>
         </>
       ) : null}
     </BottomSheet>
