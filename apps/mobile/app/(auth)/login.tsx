@@ -15,7 +15,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppText, Button, Input, TopNav, Divider } from '@/components/ui';
-import { CrownIcon } from '@/components/ui/icons';
+import { BrandMark } from '@/components/brand/BrandImage';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FormError } from '@/components/forms';
@@ -153,7 +153,11 @@ export default function LoginScreen(): React.ReactNode {
           keyboardShouldPersistTaps="handled"
         >
           <View className="items-center mb-md">
-            <CrownIcon size={40} color={palette.brandGold} />
+            <BrandMark
+              surface={isDark ? 'dark' : 'light'}
+              size={56}
+              testID="login-brand-mark"
+            />
             <AppText className="text-footnote text-muted mt-xxs">
               Welcome back
             </AppText>

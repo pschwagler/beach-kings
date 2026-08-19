@@ -280,6 +280,11 @@ describe('SettingsScreen — render', () => {
     render(<SettingsRoute />);
     expect(screen.getByTestId('settings-logout-btn')).toBeTruthy();
   });
+
+  it('renders the Beach League brand mark', () => {
+    render(<SettingsRoute />);
+    expect(screen.getByTestId('settings-brand-mark')).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------

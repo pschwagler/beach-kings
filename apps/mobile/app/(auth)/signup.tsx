@@ -16,7 +16,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input, TopNav, Divider } from '@/components/ui';
-import { CrownIcon } from '@/components/ui/icons';
+import { BrandMark } from '@/components/brand/BrandImage';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { thirdPartyColors } from '@/theme/thirdPartyColors';
@@ -184,7 +184,11 @@ export default function SignupScreen(): React.ReactNode {
           keyboardShouldPersistTaps="handled"
         >
           <View className="items-center mb-md">
-            <CrownIcon size={40} color={palette.brandGold} />
+            <BrandMark
+              surface={isDark ? 'dark' : 'light'}
+              size={56}
+              testID="signup-brand-mark"
+            />
             <AppText className="text-footnote text-muted mt-xxs">
               Create your player profile
             </AppText>

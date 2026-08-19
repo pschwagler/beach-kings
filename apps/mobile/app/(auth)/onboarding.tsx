@@ -17,7 +17,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input } from '@/components/ui';
 import SectionError from '@/components/home/SectionError';
-import { CrownIcon, CheckIcon } from '@/components/ui/icons';
+import { CheckIcon } from '@/components/ui/icons';
+import { BrandMark } from '@/components/brand/BrandImage';
 import {
   FormLabel,
   FormError,
@@ -43,6 +44,7 @@ import {
 } from '@/components/screens/Profile/profileFormOptions';
 import { locationQueries } from '@/features/locations';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 type Screen = 'form' | 'success';
 
@@ -50,6 +52,7 @@ export default function OnboardingScreen(): React.ReactNode {
   const { setProfileComplete } = useAuth();
   const router = useRouter();
   const palette = usePaletteColors();
+  const { isDark } = useTheme();
 
   const [screen, setScreen] = useState<Screen>('form');
   const locationsQuery = useQuery(locationQueries.all());
@@ -206,7 +209,11 @@ export default function OnboardingScreen(): React.ReactNode {
             </AppText>
           </Pressable>
           <View className="items-center mb-sm">
-            <CrownIcon size={36} color={palette.brandGold} />
+            <BrandMark
+              surface={isDark ? 'dark' : 'light'}
+              size={48}
+              testID="onboarding-brand-mark"
+            />
           </View>
           <AppText className="text-title3 font-bold text-default text-center mb-xs">
             Complete Your Profile

@@ -35,7 +35,6 @@ jest.mock('@/components/ui/icons', () => {
       <View testID={`icon-${name}`} />
     );
   return {
-    CrownIcon: stub('Crown'),
     ChatIcon: stub('Chat'),
     BellIcon: stub('Bell'),
     UsersIcon: stub('Users'),
@@ -125,8 +124,8 @@ afterAll(() => {
 // HomeHeader
 // ---------------------------------------------------------------------------
 describe('HomeHeader', () => {
-  it('renders the brand wordmark + avatar', () => {
-    const { getByLabelText, getByText, getByTestId } = render(
+  it('renders the brand lockup + avatar', () => {
+    const { getByLabelText, getByTestId } = render(
       <HomeHeader
         userName="Ava"
         avatarUrl={null}
@@ -134,7 +133,7 @@ describe('HomeHeader', () => {
         notificationUnreadCount={0}
       />,
     );
-    expect(getByText('BEACH LEAGUE')).toBeTruthy();
+    expect(getByTestId('home-brand-lockup')).toBeTruthy();
     expect(getByLabelText('Beach League home')).toBeTruthy();
     expect(getByTestId('avatar')).toBeTruthy();
   });
@@ -147,7 +146,7 @@ describe('HomeHeader', () => {
       fontScale: 2,
     });
 
-    const { getByLabelText, queryByText } = render(
+    const { getByLabelText, getByTestId, queryByTestId } = render(
       <HomeHeader
         userName="Ava"
         dmUnreadCount={0}
@@ -155,7 +154,8 @@ describe('HomeHeader', () => {
       />,
     );
 
-    expect(queryByText('BEACH LEAGUE')).toBeNull();
+    expect(queryByTestId('home-brand-lockup')).toBeNull();
+    expect(getByTestId('home-brand-mark')).toBeTruthy();
     expect(getByLabelText('Beach League home')).toBeTruthy();
     expect(getByLabelText('Messages')).toBeTruthy();
     expect(getByLabelText('Notifications')).toBeTruthy();
