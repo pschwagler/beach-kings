@@ -32,12 +32,18 @@ export function mapPublicPlayerToPlayer(res: PublicPlayerResponse): Player {
   const wins = hideWinStats ? null : rawWins;
   // rawWins is non-null here because hideWinStats would be true otherwise.
   const losses = hideWinStats ? null : games - (rawWins as number);
+  const avatar = res.avatar?.trim() ?? null;
+  const profilePictureUrl =
+    avatar != null && /^(?:https?:|file:|data:|content:|blob:)/i.test(avatar)
+      ? avatar
+      : null;
 
   return {
     id: res.id,
     name: res.full_name,
     full_name: res.full_name,
     avatar: res.avatar,
+    profile_picture_url: profilePictureUrl,
     gender: res.gender,
     level: res.level,
     is_placeholder: res.is_placeholder,

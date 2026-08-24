@@ -153,6 +153,14 @@ export interface ThreadResponse {
   total_count: number;
   has_more?: boolean;
   capability?: import('./moderation').InteractionCapability;
+  /** Client-reconciled, privacy-approved identity for this thread's peer. */
+  peer?: ThreadPeer;
+}
+
+export interface ThreadPeer {
+  readonly player_id: number;
+  readonly full_name: string;
+  readonly avatar: string | null;
 }
 
 export interface MarkReadResponse {

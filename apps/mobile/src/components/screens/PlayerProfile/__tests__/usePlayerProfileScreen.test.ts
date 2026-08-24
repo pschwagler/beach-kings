@@ -122,7 +122,9 @@ describe('usePlayerProfileScreen', () => {
 
     expect(result.current.profileData?.mutualFriends).toEqual([]);
     expect(result.current.profileData?.leagues).toEqual([]);
-    expect(result.current.profileData?.player).toEqual(FAKE_PLAYER);
+    expect(result.current.profileData?.player).toEqual(
+      expect.objectContaining(FAKE_PLAYER),
+    );
   });
 
   it('identifies a hidden or zero-game profile 404', async () => {

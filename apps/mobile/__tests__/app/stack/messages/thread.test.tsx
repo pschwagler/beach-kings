@@ -460,6 +460,27 @@ describe('MessageThreadScreen — messages list', () => {
       expect.objectContaining({ backgroundColor: '#bae6fd' }),
     );
   });
+
+  it('shows the privacy-approved peer photo in the thread header', async () => {
+    mockGetPublicPlayer.mockResolvedValueOnce({
+      id: 42,
+      name: 'Alex Torres',
+      full_name: 'Alex Torres',
+      avatar: 'https://cdn.example.com/alex.jpg',
+      profile_picture_url: 'https://cdn.example.com/alex.jpg',
+    });
+
+    render(<MessageThreadRoute />);
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByLabelText('Alex Torres').some(
+          (element) =>
+            element.props.source?.uri === 'https://cdn.example.com/alex.jpg',
+        ),
+      ).toBe(true);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

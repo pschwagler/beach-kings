@@ -5,11 +5,11 @@
  * Provides search/filter over the loaded conversations client-side.
  */
 
-import { useState, useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { messageQueries } from "@/features/messages";
+import { messageQueries, reconcilePeerIdentityCaches } from "@/features/messages";
 import { useCurrentPlayer } from "@/hooks/useCurrentPlayer";
 import { routes } from "@/lib/navigation";
 import { hapticLight } from "@/utils/haptics";
@@ -34,9 +34,26 @@ export function useMessagesScreen(): UseMessagesScreenResult {
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const [searchQuery, setSearchQuery] = useState("");
+  const queryClient = useQueryClient();
 
   const conversationsQuery = useQuery(messageQueries.conversations(userId));
   const playerQuery = useCurrentPlayer();
+
+  useEffect(() => {
+    if (!conversationsQuery.isFetchedAfterMount) return;
+    for (const conversation of conversationsQuery.data?.items ?? []) {
+      reconcilePeerIdentityCaches(queryClient, userId, {
+        playerId: conversation.player_id,
+        fullName: conversation.full_name,
+        avatar: conversation.avatar,
+      });
+    }
+  }, [
+    conversationsQuery.data,
+    conversationsQuery.isFetchedAfterMount,
+    queryClient,
+    userId,
+  ]);
 
   const conversations = useMemo(() => {
     const allConversations = conversationsQuery.data?.items ?? [];

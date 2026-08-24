@@ -1,11 +1,12 @@
 /** Cached data and shared relationship actions for the public player profile. */
 
-import { useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FriendshipStatus, MutualFriend, Player, PlayerLeague } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFriendshipMutations, socialQueries } from '@/features/social';
 import { usePlayerRelationshipQuery } from '@/features/social/usePlayerRelationshipQuery';
+import { reconcilePeerIdentityCaches } from '@/features/messages';
 
 export interface PlayerProfileData {
   readonly player: Player;
@@ -38,10 +39,27 @@ export function usePlayerProfileScreen(
   const userId = user?.id ?? 0;
   const relationshipQuery = usePlayerRelationshipQuery(numericId);
   const friendship = useFriendshipMutations();
+  const queryClient = useQueryClient();
 
   const profileQuery = useQuery(
     socialQueries.profile(userId, numericId, isAuthenticated),
   );
+
+  useEffect(() => {
+    const player = profileQuery.data?.player;
+    if (player == null || !profileQuery.isFetchedAfterMount) return;
+    reconcilePeerIdentityCaches(queryClient, userId, {
+      playerId: numericId,
+      fullName: player.full_name ?? player.name,
+      avatar: player.profile_picture_url,
+    });
+  }, [
+    numericId,
+    profileQuery.data?.player,
+    profileQuery.isFetchedAfterMount,
+    queryClient,
+    userId,
+  ]);
 
   const onRefresh = useCallback(() => {
     void Promise.all([profileQuery.refetch(), relationshipQuery.refetch()]);

@@ -41,5 +41,8 @@ export const messageQueries = {
     queryFn: (): Promise<Player> => api.getPublicPlayer(playerId),
     enabled: enabled && userId > 0 && playerId > 0,
     staleTime: 30_000,
+    // A peer can change or remove their photo while this account is active.
+    // Keep cached identity visible, then reconcile from a fresh privacy-gated response.
+    refetchOnMount: 'always' as const,
   }),
 };
