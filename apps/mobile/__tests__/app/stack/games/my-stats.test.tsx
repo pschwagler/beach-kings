@@ -80,6 +80,7 @@ jest.mock('react-native-svg', () => {
   const Svg = ({ children }: { children?: React.ReactNode }) => <View>{children}</View>;
   const Path = () => null;
   const Circle = () => null;
+  const Line = () => null;
   const Polygon = () => null;
   const Polyline = () => null;
   const Defs = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
@@ -91,6 +92,7 @@ jest.mock('react-native-svg', () => {
     Svg,
     Path,
     Circle,
+    Line,
     Polygon,
     Polyline,
     Defs,
@@ -428,6 +430,16 @@ describe('MyStatsScreen — rating chart', () => {
     render(<MyStatsScreen />);
     await waitFor(() => {
       expect(screen.getByTestId('rating-chart')).toBeTruthy();
+    });
+  });
+
+  it('keeps an explicit rating-history empty state with no timeline points', async () => {
+    mockGetMyStats.mockResolvedValue({ ...MOCK_STATS, elo_timeline: [] });
+    render(<MyStatsScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('rating-chart')).toBeTruthy();
+      expect(screen.getByText('Play more games to see your rating trend.')).toBeTruthy();
     });
   });
 });

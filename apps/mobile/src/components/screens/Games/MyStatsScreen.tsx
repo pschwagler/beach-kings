@@ -259,9 +259,7 @@ export default function MyStatsScreen(): React.ReactNode {
           </View>
 
           {/* Rating history chart */}
-          {stats.elo_timeline.length >= 2 && (
-            <RatingChart timeline={stats.elo_timeline} />
-          )}
+          <RatingChart timeline={stats.elo_timeline} />
 
           {/* Partners / Opponents breakdown */}
           <AppText className="text-[15px] font-bold text-default mb-[10px]">
