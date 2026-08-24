@@ -17,6 +17,30 @@ type Declaration =
   | 'verified'
   | 'guardian_verified'
   | 'not_shared';
+type EligibilityStage = 'requesting_apple' | 'manual' | 'checking' | 'error';
+
+export const APPLE_FALLBACK_DELAY_MS = 3_000;
+export const ELIGIBILITY_TIMEOUT_MS = 15_000;
+
+export async function withDeadline<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      task,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error('ELIGIBILITY_TIMEOUT')),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
 
 export function declarationFromApple(value?: string): Declaration {
   const normalized = (value ?? '').toLowerCase();
@@ -47,6 +71,12 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const appleRequestStarted = useRef(false);
+  const operationRef = useRef(0);
+  const mountedRef = useRef(true);
+  const requestPendingRef = useRef(false);
+  const [stage, setStage] = useState<EligibilityStage>(
+    Platform.OS === 'ios' ? 'requesting_apple' : 'manual',
+  );
 
   const minimumAge = 14 as const;
   const bandOptions = useMemo(
@@ -64,47 +94,87 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
     selectedDeclaration = declaration,
     consent = guardianConsent,
   ) => {
+    if (requestPendingRef.current) return;
+    requestPendingRef.current = true;
+    const operation = ++operationRef.current;
     setLoading(true);
+    setStage('checking');
     setError('');
     try {
-      const result = await api.checkYouthEligibility({
-        declared_band: selectedBand,
-        assurance_source: selectedSource,
-        declaration_source: selectedDeclaration,
-        guardian_consent: consent,
-      });
+      const result = await withDeadline(
+        api.checkYouthEligibility({
+          declared_band: selectedBand,
+          assurance_source: selectedSource,
+          declaration_source: selectedDeclaration,
+          guardian_consent: consent,
+        }),
+        ELIGIBILITY_TIMEOUT_MS,
+      );
+      if (!mountedRef.current || operation !== operationRef.current) return;
       onEligible(result.eligibility_token);
     } catch (caught) {
+      if (!mountedRef.current || operation !== operationRef.current) return;
       const message = (caught as { response?: { data?: { detail?: string } } })
         .response?.data?.detail;
-      setError(message ?? 'We could not complete the age check. Please try again.');
+      setStage('error');
+      setError(
+        caught instanceof Error && caught.message === 'ELIGIBILITY_TIMEOUT'
+          ? 'The age check took too long. Please try again.'
+          : message ?? 'We could not complete the age check. Please try again.',
+      );
     } finally {
-      setLoading(false);
+      if (mountedRef.current && operation === operationRef.current) {
+        requestPendingRef.current = false;
+        setLoading(false);
+      }
     }
   }, [declaration, guardianConsent, onEligible, source]);
 
   const handleAppleAgeRange = useCallback(async () => {
+    if (requestPendingRef.current) return;
+    requestPendingRef.current = true;
+    const operation = ++operationRef.current;
     setLoading(true);
+    setStage('requesting_apple');
     setError('');
-    const result = await requestDeclaredAgeRange(minimumAge);
-    setLoading(false);
-    if (result.status !== 'shared') {
+    const fallbackTimer = setTimeout(() => {
+      if (!mountedRef.current || operation !== operationRef.current) return;
       setFallbackVisible(true);
-      setSource('self_declared');
-      setDeclaration('not_shared');
-      return;
-    }
-    const selectedBand = bandFromApple(result.lowerBound);
-    const selectedDeclaration = declarationFromApple(result.declaration);
-    const consent = selectedDeclaration.startsWith('guardian_');
-    setBand(selectedBand);
-    setSource('apple_declared_age_range');
-    setDeclaration(selectedDeclaration);
-    setGuardianConsent(consent);
-    if (selectedBand === 'adult' || selectedBand === 'under_minimum' || consent) {
-      await submitFacts(selectedBand, 'apple_declared_age_range', selectedDeclaration, consent);
-    } else {
+      setStage('manual');
+    }, APPLE_FALLBACK_DELAY_MS);
+    try {
+      const result = await requestDeclaredAgeRange(minimumAge);
+      if (!mountedRef.current || operation !== operationRef.current) return;
+      requestPendingRef.current = false;
+      setLoading(false);
+      if (result.status !== 'shared' || result.lowerBound == null) {
+        setFallbackVisible(true);
+        setStage('manual');
+        setSource('self_declared');
+        setDeclaration('not_shared');
+        return;
+      }
+      const selectedBand = bandFromApple(result.lowerBound);
+      const selectedDeclaration = declarationFromApple(result.declaration);
+      const consent = selectedDeclaration.startsWith('guardian_');
+      setBand(selectedBand);
+      setSource('apple_declared_age_range');
+      setDeclaration(selectedDeclaration);
+      setGuardianConsent(consent);
+      if (selectedBand === 'adult' || selectedBand === 'under_minimum' || consent) {
+        await submitFacts(selectedBand, 'apple_declared_age_range', selectedDeclaration, consent);
+      } else {
+        setFallbackVisible(true);
+        setStage('manual');
+      }
+    } catch {
+      if (!mountedRef.current || operation !== operationRef.current) return;
+      requestPendingRef.current = false;
+      setLoading(false);
       setFallbackVisible(true);
+      setStage('manual');
+    } finally {
+      clearTimeout(fallbackTimer);
     }
   }, [minimumAge, submitFacts]);
 
@@ -114,6 +184,30 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
       void handleAppleAgeRange();
     }
   }, [handleAppleAgeRange]);
+
+  useEffect(() => {
+    // React StrictMode replays effects without discarding refs. Restore the
+    // mounted bit on setup so the one native Apple request remains owned by
+    // the replayed tree; a real unmount still makes every completion stale.
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      requestPendingRef.current = false;
+    };
+  }, []);
+
+  const chooseManualBand = useCallback((value: string) => {
+    // A user choice wins over a late Apple completion.
+    operationRef.current += 1;
+    requestPendingRef.current = false;
+    setLoading(false);
+    setBand(value as Band);
+    setSource('self_declared');
+    setDeclaration('self_declared');
+    setGuardianConsent(false);
+    setStage('manual');
+    setError('');
+  }, []);
 
   const canContinue = Boolean(band) && (band !== 'junior' || guardianConsent);
 
@@ -126,6 +220,17 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
           your birthdate or jurisdiction.
         </AppText>
       </View>
+
+      <AppText
+        className="text-caption text-muted"
+        accessibilityLiveRegion="polite"
+        testID="eligibility-stage"
+      >
+        {stage === 'requesting_apple' && 'Waiting for Apple age range…'}
+        {stage === 'manual' && 'Choose your age range to continue.'}
+        {stage === 'checking' && 'Checking eligibility…'}
+        {stage === 'error' && 'Age check needs attention.'}
+      </AppText>
 
       {Platform.OS === 'ios' && !fallbackVisible ? (
         <Button
@@ -146,13 +251,7 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
               placeholder="Select age range"
               value={band}
               options={bandOptions}
-              onChange={(value) => {
-                setBand(value as Band);
-                setSource('self_declared');
-                setDeclaration('self_declared');
-                setGuardianConsent(false);
-                setError('');
-              }}
+              onChange={chooseManualBand}
               testID="age-band"
             />
           </View>
