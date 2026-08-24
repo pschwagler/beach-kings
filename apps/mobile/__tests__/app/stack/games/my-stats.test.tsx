@@ -162,6 +162,7 @@ const MOCK_STATS = {
     {
       player_id: 10,
       display_name: 'C. Gulla',
+      full_name: 'Caroline Gulla',
       initials: 'CG',
       games_played: 34,
       wins: 28,
@@ -173,6 +174,7 @@ const MOCK_STATS = {
     {
       player_id: 20,
       display_name: 'J. Drabos',
+      full_name: 'Jordan Drabos',
       initials: 'JD',
       games_played: 12,
       wins: 7,
@@ -459,7 +461,8 @@ describe('MyStatsScreen — breakdown table', () => {
   it('renders partner rows by default', async () => {
     render(<MyStatsScreen />);
     await waitFor(() => {
-      expect(screen.getByText('C. Gulla')).toBeTruthy();
+      expect(screen.getByText('Caroline Gulla')).toBeTruthy();
+      expect(screen.queryByText('C. Gulla')).toBeNull();
     });
   });
 
@@ -470,7 +473,72 @@ describe('MyStatsScreen — breakdown table', () => {
     });
     fireEvent.press(screen.getByTestId('toggle-opponents'));
     await waitFor(() => {
-      expect(screen.getByText('J. Drabos')).toBeTruthy();
+      expect(screen.getByText('Jordan Drabos')).toBeTruthy();
+      expect(screen.queryByText('Caroline Gulla')).toBeNull();
     });
+
+    fireEvent.press(screen.getByTestId('toggle-partners'));
+    expect(screen.getByText('Caroline Gulla')).toBeTruthy();
+    expect(screen.queryByText('Jordan Drabos')).toBeNull();
+  });
+
+  it('exposes an unambiguous selected tab state and updates it on switch', async () => {
+    render(<MyStatsScreen />);
+    await waitFor(() => expect(screen.getByTestId('toggle-partners')).toBeTruthy());
+    const partners = screen.getByTestId('toggle-partners');
+    const opponents = screen.getByTestId('toggle-opponents');
+    expect(partners).toHaveAccessibilityState({ selected: true });
+    expect(opponents).toHaveAccessibilityState({ selected: false });
+    expect(partners.props.style.backgroundColor).not.toBe(
+      opponents.props.style.backgroundColor,
+    );
+
+    fireEvent.press(opponents);
+
+    expect(screen.getByTestId('toggle-partners')).toHaveAccessibilityState({
+      selected: false,
+    });
+    expect(screen.getByTestId('toggle-opponents')).toHaveAccessibilityState({
+      selected: true,
+    });
+  });
+
+  it('falls back to display_name when full_name is unavailable', async () => {
+    mockGetMyStats.mockResolvedValue({
+      ...MOCK_STATS,
+      partners: [{ ...MOCK_STATS.partners[0], full_name: ' ' }],
+    });
+    render(<MyStatsScreen />);
+
+    await waitFor(() => expect(screen.getByText('C. Gulla')).toBeTruthy());
+  });
+
+  it('uses a deterministic player fallback when both names are blank', async () => {
+    mockGetMyStats.mockResolvedValue({
+      ...MOCK_STATS,
+      partners: [
+        { ...MOCK_STATS.partners[0], full_name: null, display_name: ' ' },
+      ],
+    });
+    render(<MyStatsScreen />);
+
+    await waitFor(() => expect(screen.getByText('Player 10')).toBeTruthy());
+  });
+
+  it('truncates long full names predictably without moving stat columns', async () => {
+    const longName = 'Alexandria Cassandra Montgomery-Smith the Third';
+    mockGetMyStats.mockResolvedValue({
+      ...MOCK_STATS,
+      partners: [{ ...MOCK_STATS.partners[0], full_name: longName }],
+    });
+    render(<MyStatsScreen />);
+
+    const name = await screen.findByTestId('breakdown-name-10');
+    expect(name).toHaveTextContent(longName);
+    expect(name).toHaveProp('numberOfLines', 1);
+    expect(name).toHaveProp('ellipsizeMode', 'tail');
+    expect(screen.getByText('34')).toBeTruthy();
+    expect(screen.getByText('28-6')).toBeTruthy();
+    expect(screen.getByText('82%')).toBeTruthy();
   });
 });

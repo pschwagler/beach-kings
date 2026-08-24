@@ -60,6 +60,7 @@ MINIMAL_STATS_PAYLOAD = {
         {
             "player_id": 99,
             "display_name": "B. Jones",
+            "full_name": "Beatrice Jones",
             "initials": "BJ",
             "games_played": 8,
             "wins": 6,
@@ -163,6 +164,7 @@ class TestGetMyStatsRoute:
             for key in (
                 "player_id",
                 "display_name",
+                "full_name",
                 "initials",
                 "games_played",
                 "wins",
@@ -171,6 +173,8 @@ class TestGetMyStatsRoute:
             ):
                 assert key in partner, f"Missing partner key: {key}"
             assert "rating_diff" not in partner, "rating_diff must not be present"
+            assert partner["display_name"] == "B. Jones"
+            assert partner["full_name"] == "Beatrice Jones"
 
         # elo_timeline sub-shape
         assert isinstance(data["elo_timeline"], list)

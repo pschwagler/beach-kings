@@ -692,10 +692,11 @@ def _build_relation_row(
     Returns:
         Dict with keys matching ``MyStatsRelationStat``.
     """
-    name = full_name or f"Player {player_id}"
+    normalized_full_name = " ".join((full_name or "").split()) or None
+    name = normalized_full_name or f"Player {player_id}"
     initials = generate_player_initials(name)
     parts = name.split()
-    if len(parts) >= 2:
+    if normalized_full_name is not None and len(parts) >= 2:
         display_name = f"{parts[0][0]}. {parts[-1]}"
     else:
         display_name = name
@@ -703,6 +704,7 @@ def _build_relation_row(
     return {
         "player_id": player_id,
         "display_name": display_name,
+        "full_name": normalized_full_name,
         "initials": initials,
         "avatar_url": avatar_url,
         "games_played": games,

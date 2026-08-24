@@ -38,6 +38,7 @@ class MyStatsRelationStat(BaseModel):
 
     player_id: int
     display_name: str
+    full_name: Optional[str] = None
     initials: str
     avatar_url: Optional[str] = None
     games_played: int
