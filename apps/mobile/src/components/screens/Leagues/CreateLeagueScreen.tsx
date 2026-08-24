@@ -450,7 +450,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
     void hapticMedium();
     const newId = await onSubmit();
     if (newId != null) {
-      router.push(routes.league(newId));
+      router.replace(routes.league(newId));
     }
   };
 

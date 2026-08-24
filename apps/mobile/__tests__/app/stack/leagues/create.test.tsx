@@ -26,10 +26,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // ---------------------------------------------------------------------------
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 const mockBack = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: mockBack }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace, back: mockBack }),
   useLocalSearchParams: () => ({}),
 }));
 
@@ -342,14 +343,15 @@ describe('CreateLeagueScreen — submit', () => {
     });
   });
 
-  it('navigates to league detail on success', async () => {
+  it('replaces the completed form with league detail on success', async () => {
     mockCreateLeague.mockResolvedValueOnce({ id: 42 });
     render(<CreateLeagueRoute />);
     fireEvent.changeText(screen.getByTestId('league-name-input'), 'New League');
     fireEvent.press(screen.getByTestId('create-league-button'));
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('42'));
+      expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining('42'));
     });
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('does not call addLeagueHomeCourt when no court selected', async () => {
@@ -369,7 +371,7 @@ describe('CreateLeagueScreen — submit', () => {
     fireEvent.changeText(screen.getByTestId('league-name-input'), 'Beach Kings');
     fireEvent.press(screen.getByTestId('create-league-button'));
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('55'));
+      expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining('55'));
     });
     expect(mockCreateLeagueSeason).not.toHaveBeenCalled();
   });
