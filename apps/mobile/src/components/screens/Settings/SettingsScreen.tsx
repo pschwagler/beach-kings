@@ -177,8 +177,7 @@ export default function SettingsScreen(): React.ReactNode {
     [],
   );
 
-  const maskedEmail =
-    user?.email != null ? maskEmail(user.email) : 'Not set';
+  const ownerEmail = user?.email ?? 'Not set';
 
   const phone =
     (player as { phone_number?: string } | undefined)?.phone_number ??
@@ -323,7 +322,7 @@ export default function SettingsScreen(): React.ReactNode {
           <SettingsRow
             testID="settings-row-email"
             label="Email"
-            value={maskedEmail}
+            value={ownerEmail}
           />
           {hasPassword && (
             <SettingsRow
@@ -526,13 +525,6 @@ export default function SettingsScreen(): React.ReactNode {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (local == null || domain == null) return email;
-  const masked = local.charAt(0) + '***';
-  return `${masked}@${domain}`;
-}
 
 function maskPhone(phone: string): string {
   if (phone.length < 4) return phone;

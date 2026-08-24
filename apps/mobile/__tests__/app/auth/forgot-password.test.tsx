@@ -97,7 +97,7 @@ describe('ForgotPasswordScreen', () => {
       message: 'Code sent',
     });
 
-    const { getByPlaceholderText, getByLabelText } = render(
+    const { getByPlaceholderText, getByLabelText, getByText, queryByText } = render(
       <ForgotPasswordScreen />,
     );
 
@@ -107,6 +107,8 @@ describe('ForgotPasswordScreen', () => {
     await waitFor(() => {
       expect(mockResetPasswordEmail).toHaveBeenCalledWith('user@example.com');
     });
+    expect(getByText(/us••@example\.com/)).toBeTruthy();
+    expect(queryByText(/user@example\.com/)).toBeNull();
   });
 
   it('sends phone reset request after toggling to Phone', async () => {

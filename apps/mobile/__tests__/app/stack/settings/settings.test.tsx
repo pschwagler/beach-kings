@@ -288,14 +288,14 @@ describe('SettingsScreen — render', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Email masking
+// Owner email visibility
 // ---------------------------------------------------------------------------
 
-describe('SettingsScreen — email masking', () => {
-  it('shows masked email from auth user', async () => {
+describe('SettingsScreen — owner email', () => {
+  it('shows the authenticated owner their full email', async () => {
     render(<SettingsRoute />);
     await waitFor(() => {
-      expect(screen.getByText('t***@example.com')).toBeTruthy();
+      expect(screen.getByText('test@example.com')).toBeTruthy();
     });
   });
 });

@@ -28,13 +28,6 @@ function maskPhone(phone: string): string {
   return `••••${digits.slice(-4)}`;
 }
 
-function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (!domain || !local) return email;
-  const visible = local.slice(0, Math.min(2, local.length));
-  return `${visible}${'•'.repeat(Math.max(1, local.length - visible.length))}@${domain}`;
-}
-
 export default function VerifyScreen(): React.ReactNode {
   const { phone, email } = useLocalSearchParams<{
     phone?: string;
@@ -150,8 +143,9 @@ export default function VerifyScreen(): React.ReactNode {
     router.replace(routes.forgotPassword());
   }, [router]);
 
-  const masked =
-    mode === 'email' ? maskEmail(email ?? '') : maskPhone(phone ?? '');
+  // This screen is entered directly from signup, so the submitted email is
+  // shown in full for typo detection. Phone verification retains masking.
+  const destination = mode === 'email' ? (email ?? '') : maskPhone(phone ?? '');
   const resendDisabled = countdown > 0;
   const title = mode === 'email' ? 'Verify Email' : 'Verify Phone';
   const useDifferentLabel =
@@ -175,7 +169,7 @@ export default function VerifyScreen(): React.ReactNode {
               Enter Verification Code
             </AppText>
             <AppText className="text-body text-muted text-center">
-              If {masked} can be used, a 6-digit code will arrive shortly.
+              If {destination} can be used, a 6-digit code will arrive shortly.
               {'\n'}Only the newest code works.
             </AppText>
           </View>
