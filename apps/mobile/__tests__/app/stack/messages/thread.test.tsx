@@ -338,7 +338,7 @@ describe('MessageThreadScreen — messages list', () => {
     });
   });
 
-  it('labels an own pending message as under review', async () => {
+  it('does not label normal pending delivery as reviewing', async () => {
     mockGetThread.mockResolvedValue({
       items: [
         {
@@ -348,7 +348,7 @@ describe('MessageThreadScreen — messages list', () => {
           message_text: 'Waiting for review',
           is_read: false,
           read_at: null,
-          created_at: NOW,
+          created_at: new Date().toISOString(),
           moderation_visibility: 'pending',
         },
       ],
@@ -358,8 +358,85 @@ describe('MessageThreadScreen — messages list', () => {
     render(<MessageThreadRoute />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Reviewing/)).toBeTruthy();
+      expect(screen.queryByText(/Reviewing|Delivery delayed/)).toBeNull();
     });
+  });
+
+  it('labels a materially delayed own message', async () => {
+    mockGetThread.mockResolvedValue({
+      items: [{
+        id: 5,
+        sender_player_id: 0,
+        receiver_player_id: 42,
+        message_text: 'Still pending',
+        is_read: false,
+        read_at: null,
+        created_at: NOW,
+        moderation_visibility: 'pending',
+      }],
+      total_count: 1,
+    });
+    render(<MessageThreadRoute />);
+    await waitFor(() => expect(screen.getByText(/Delivery delayed/)).toBeTruthy());
+  });
+
+  it('never shows sender delivery status on an incoming message', async () => {
+    mockGetThread.mockResolvedValue({
+      items: [{
+        id: 6,
+        sender_player_id: 42,
+        receiver_player_id: 0,
+        message_text: 'Incoming pending message',
+        is_read: false,
+        read_at: null,
+        created_at: NOW,
+        moderation_visibility: 'pending',
+      }],
+      total_count: 1,
+    });
+    render(<MessageThreadRoute />);
+    await waitFor(() => expect(screen.getByText('Incoming pending message')).toBeTruthy());
+    expect(screen.queryByText(/Delivery delayed/)).toBeNull();
+  });
+
+  it('refreshes an owned pending message and clears a stale delay label', async () => {
+    mockGetThread
+      .mockResolvedValueOnce({
+        items: [{
+          id: 7,
+          sender_player_id: 0,
+          receiver_player_id: 42,
+          message_text: 'Pending then delivered',
+          is_read: false,
+          read_at: null,
+          created_at: NOW,
+          moderation_visibility: 'pending',
+        }],
+        total_count: 1,
+      })
+      .mockResolvedValue({
+        items: [{
+          id: 7,
+          sender_player_id: 0,
+          receiver_player_id: 42,
+          message_text: 'Pending then delivered',
+          is_read: false,
+          read_at: null,
+          created_at: NOW,
+          moderation_visibility: 'visible',
+        }],
+        total_count: 1,
+      });
+
+    render(<MessageThreadRoute />);
+    await waitFor(() => expect(screen.getByText(/Delivery delayed/)).toBeTruthy());
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(5_000);
+    });
+
+    await waitFor(() => expect(screen.queryByText(/Delivery delayed/)).toBeNull());
+    expect(mockGetThread).toHaveBeenCalledTimes(2);
   });
 
   it('renders the player name in the header, not "Chat"', async () => {

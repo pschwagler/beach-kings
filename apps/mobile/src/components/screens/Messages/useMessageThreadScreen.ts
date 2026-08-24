@@ -19,6 +19,7 @@ import type {
   ConversationListResponse,
   DirectMessage,
 } from '@beach-kings/shared';
+import { pendingDeliveryRefetchInterval } from './useMessageDeliveryStatus';
 
 const EMPTY_MESSAGES: readonly DirectMessage[] = [];
 
@@ -47,6 +48,7 @@ export interface UseMessageThreadScreenResult {
  */
 export function useMessageThreadScreen(
   playerId: number,
+  currentPlayerId: number,
 ): UseMessageThreadScreenResult {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [messageText, setMessageText] = useState('');
@@ -56,7 +58,16 @@ export function useMessageThreadScreen(
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const queryClient = useQueryClient();
-  const threadQuery = useQuery(messageQueries.thread(userId, playerId));
+  const threadQuery = useQuery({
+    ...messageQueries.thread(userId, playerId),
+    refetchInterval: (query) => pendingDeliveryRefetchInterval(
+      query.state.data?.items.some(
+        (message) =>
+          message.sender_player_id === currentPlayerId &&
+          message.moderation_visibility === 'pending',
+      ) ?? false,
+    ),
+  });
   const peerQuery = useQuery(messageQueries.peer(userId, playerId));
   const { markThreadRead, sendMessage } = useMessageMutations();
   const messages = threadQuery.data?.items ?? EMPTY_MESSAGES;

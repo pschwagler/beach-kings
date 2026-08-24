@@ -99,11 +99,12 @@ describe('LeagueChatTab', () => {
     expect(screen.getByTestId('chat-message-input')).toBeTruthy();
   });
 
-  it('labels an own pending message as under review', () => {
+  it('does not label normal pending delivery as reviewing', () => {
     arrangeHook({
       messages: [
         {
           ...MESSAGE,
+          created_at: new Date().toISOString(),
           is_mine: true,
           moderation_visibility: 'pending',
         },
@@ -112,7 +113,24 @@ describe('LeagueChatTab', () => {
 
     renderChat();
 
-    expect(screen.getByText(/Reviewing/)).toBeTruthy();
+    expect(screen.queryByText(/Reviewing|Delivery delayed/)).toBeNull();
+  });
+
+  it('labels a materially delayed own message', () => {
+    arrangeHook({
+      messages: [{ ...MESSAGE, is_mine: true, moderation_visibility: 'pending' }],
+    });
+    renderChat();
+    expect(screen.getByText(/Delivery delayed/)).toBeTruthy();
+  });
+
+  it('never shows sender delivery status on an incoming message', () => {
+    arrangeHook({
+      messages: [{ ...MESSAGE, is_mine: false, moderation_visibility: 'pending' }],
+    });
+    renderChat();
+    expect(screen.getByText('See everyone at the courts!')).toBeTruthy();
+    expect(screen.queryByText(/Delivery delayed/)).toBeNull();
   });
 
   it('renders the loading state without an empty state or composer', () => {
