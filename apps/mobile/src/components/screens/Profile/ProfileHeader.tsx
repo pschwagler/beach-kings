@@ -16,18 +16,22 @@ interface ProfileHeaderProps {
   readonly player: Player | null;
   readonly isLoading: boolean;
   readonly friendCount: number | null;
+  readonly friendCountError?: boolean;
   readonly onPhotoPress: () => void;
   readonly photoBusy?: boolean;
   readonly onFriendsPress: () => void;
+  readonly onFriendCountRetry?: () => void;
 }
 
 export default function ProfileHeader({
   player,
   isLoading,
   friendCount,
+  friendCountError = false,
   onPhotoPress,
   photoBusy = false,
   onFriendsPress,
+  onFriendCountRetry,
 }: ProfileHeaderProps): React.ReactNode {
   const palette = usePaletteColors();
   if (isLoading) {
@@ -121,12 +125,24 @@ export default function ProfileHeader({
             </AppText>
           )}
           <Pressable
-            onPress={onFriendsPress}
+            onPress={friendCountError ? onFriendCountRetry : onFriendsPress}
             accessibilityRole="button"
-            accessibilityLabel={friendCount == null ? 'Friends' : `${friendCount} Friends`}
+            accessibilityLabel={
+              friendCountError
+                ? 'Retry loading friend count'
+                : friendCount == null
+                  ? 'Friends'
+                  : `${friendCount} Friends`
+            }
           >
             <AppText className="text-sm font-semibold text-brand-teal">
-              {friendCount == null ? 'Friends' : `${friendCount} Friends`}
+              {friendCountError
+                ? friendCount == null
+                  ? 'Friends unavailable · Retry'
+                  : `${friendCount} Friends · Retry`
+                : friendCount == null
+                  ? 'Friends'
+                  : `${friendCount} Friends`}
             </AppText>
           </Pressable>
         </View>

@@ -43,13 +43,14 @@ jest.mock('@/contexts/ThemeContext', () => ({
 
 const mockLogout = jest.fn();
 const mockShowToast = jest.fn();
+let mockUserId = 1;
 jest.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ showToast: mockShowToast }),
 }));
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     logout: mockLogout,
-    user: { id: 1 },
+    user: { id: mockUserId },
     isAuthenticated: true,
     profileComplete: true,
   }),
@@ -131,6 +132,7 @@ const MOCK_FRIENDS_RESPONSE_REAL = {
 // ---------------------------------------------------------------------------
 
 import ProfileScreen from '../../../app/(tabs)/profile';
+import { playerKeys } from '@/features/player';
 
 let queryClient: QueryClient;
 
@@ -147,12 +149,17 @@ function render(ui: React.ReactElement) {
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUserId = 1;
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
     mockGetCurrentUserPlayer.mockResolvedValue(MOCK_PLAYER);
     mockGetFriendsPage.mockResolvedValue(MOCK_FRIENDS_RESPONSE);
     mockUpdatePlayerProfile.mockImplementation(async (updates) => updates);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -164,6 +171,67 @@ describe('ProfileScreen', () => {
 
     const { getByLabelText } = render(<ProfileScreen />);
     expect(getByLabelText('Loading profile')).toBeTruthy();
+  });
+
+  it('replaces an uncached hung request with retry after 10 seconds', () => {
+    jest.useFakeTimers();
+    mockGetCurrentUserPlayer.mockReturnValue(new Promise(() => {}));
+
+    const view = render(<ProfileScreen />);
+    expect(view.getByLabelText('Loading profile')).toBeTruthy();
+
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(view.getByLabelText('Failed to load profile')).toBeTruthy();
+    expect(view.getByLabelText('Retry loading profile')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  it('cancels a hung initial request before retrying', async () => {
+    jest.useFakeTimers();
+    mockGetCurrentUserPlayer
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValueOnce(MOCK_PLAYER);
+
+    const view = render(<ProfileScreen />);
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+    const retry = view.getByLabelText('Retry loading profile');
+    jest.useRealTimers();
+
+    fireEvent.press(retry);
+
+    expect((await view.findAllByText('Patrick Schwagler')).length).toBeGreaterThan(0);
+    expect(mockGetCurrentUserPlayer).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps cached profile content visible during a hung refresh', async () => {
+    queryClient.setQueryData(playerKeys.me(1), MOCK_PLAYER, { updatedAt: 0 });
+    mockGetCurrentUserPlayer.mockReturnValue(new Promise(() => {}));
+
+    const view = render(<ProfileScreen />);
+
+    expect((await view.findAllByText('Patrick Schwagler')).length).toBeGreaterThan(0);
+    expect(view.queryByLabelText('Loading profile')).toBeNull();
+  });
+
+  it('does not reuse cached profile data after an account switch', async () => {
+    const view = render(<ProfileScreen />);
+    expect((await view.findAllByText('Patrick Schwagler')).length).toBeGreaterThan(0);
+
+    mockUserId = 2;
+    mockGetCurrentUserPlayer.mockReturnValue(new Promise(() => {}));
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <ProfileScreen />
+      </QueryClientProvider>,
+    );
+
+    expect(view.getByLabelText('Loading profile')).toBeTruthy();
+    expect(view.queryByText('Patrick Schwagler')).toBeNull();
   });
 
   // ── Data display ───────────────────────────────────────────────────────────
@@ -208,6 +276,29 @@ describe('ProfileScreen', () => {
 
     const { findByText } = render(<ProfileScreen />);
     expect(await findByText('12 Friends')).toBeTruthy();
+  });
+
+  it('keeps player content visible when friend count fails', async () => {
+    mockGetFriendsPage.mockRejectedValueOnce(new Error('friend count unavailable'));
+
+    const view = render(<ProfileScreen />);
+
+    expect((await view.findAllByText('Patrick Schwagler')).length).toBeGreaterThan(0);
+    expect(await view.findByLabelText('Retry loading friend count')).toBeTruthy();
+    expect(view.queryByText(/Some profile details could not be refreshed/)).toBeNull();
+  });
+
+  it('retries a failed friend count without refetching the player', async () => {
+    mockGetFriendsPage.mockRejectedValueOnce(new Error('friend count unavailable'));
+    const view = render(<ProfileScreen />);
+    const retry = await view.findByLabelText('Retry loading friend count');
+    mockGetCurrentUserPlayer.mockClear();
+
+    fireEvent.press(retry);
+
+    expect(await view.findByText('12 Friends')).toBeTruthy();
+    expect(mockGetCurrentUserPlayer).not.toHaveBeenCalled();
+    expect(mockGetFriendsPage).toHaveBeenCalledTimes(2);
   });
 
   it('shows profile fields like level', async () => {
