@@ -5,12 +5,13 @@
  * Columns: Name | G | W | L | W% | +/-
  */
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import AppText from '@/components/ui/AppText';
-import { View, Pressable } from 'react-native';
+import { View } from 'react-native';
 import type { MyStatsRelationStat } from '@beach-kings/shared';
 import Avatar from '@/components/ui/Avatar';
 import type { BreakdownTab } from './useMyStatsScreen';
+import SegmentControl from '@/components/ui/SegmentControl';
 
 // ---------------------------------------------------------------------------
 // Toggle
@@ -23,32 +24,17 @@ interface ToggleProps {
 
 function TableToggle({ tab, onTabChange }: ToggleProps): React.ReactNode {
   return (
-    <View className="flex-row bg-elevated rounded-[8px] p-[2px] mb-[10px]">
-      {(['partners', 'opponents'] as const).map((t) => (
-        <Pressable
-          key={t}
-          testID={`toggle-${t}`}
-          onPress={() => onTabChange(t)}
-          accessibilityRole="button"
-          accessibilityLabel={t === 'partners' ? 'Partners' : 'Opponents'}
-          className={`flex-1 items-center py-2 rounded-[6px] ${
-            tab === t
-              ? 'bg-surface'
-              : ''
-          }`}
-        >
-          <AppText
-            className={`text-[12px] font-bold ${
-              tab === t
-                ? 'text-default'
-                : 'text-muted'
-            }`}
-          >
-            {t === 'partners' ? 'Partners' : 'Opponents'}
-          </AppText>
-        </Pressable>
-      ))}
-    </View>
+    <SegmentControl
+      testID="breakdown-toggle"
+      className="mb-sm"
+      compact
+      value={tab}
+      onValueChange={onTabChange}
+      items={[
+        { value: 'partners', label: 'Partners', testID: 'toggle-partners' },
+        { value: 'opponents', label: 'Opponents', testID: 'toggle-opponents' },
+      ]}
+    />
   );
 }
 
@@ -61,19 +47,32 @@ interface RowProps {
 }
 
 function DataRow({ row }: RowProps): React.ReactNode {
+  const fullName = row.full_name?.trim();
+  const fallbackName = row.display_name.trim();
+  const name = fullName || fallbackName || `Player ${row.player_id}`;
+
   return (
-    <View className="flex-row items-center px-[14px] py-[11px] border-b border-divider last:border-b-0">
+    <View
+      testID={`breakdown-row-${row.player_id}`}
+      className="flex-row items-center px-[14px] py-[11px] border-b border-divider last:border-b-0"
+    >
       {/* Avatar initials + name */}
-      <View className="flex-1 flex-row items-center gap-2">
+      <View className="flex-1 min-w-0 flex-row items-center gap-2 pr-xs">
         <Avatar
           imageUrl={row.avatar_url}
-          name={row.display_name}
+          name={name}
           size={28}
           colorSeed={row.player_id}
           accessible={false}
         />
-        <AppText className="text-[13px] font-bold text-default">
-          {row.display_name}
+        <AppText
+          testID={`breakdown-name-${row.player_id}`}
+          className="flex-1 min-w-0 text-[13px] font-bold text-default"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          accessibilityLabel={name}
+        >
+          {name}
         </AppText>
       </View>
 

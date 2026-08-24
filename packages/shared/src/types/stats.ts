@@ -33,6 +33,8 @@ export interface MyStatsTrophy {
 export interface MyStatsRelationStat {
   readonly player_id: number;
   readonly display_name: string;
+  /** Full identity when permitted by the endpoint; older servers may omit it. */
+  readonly full_name?: string | null;
   readonly initials: string;
   readonly avatar_url?: string | null;
   readonly games_played: number;

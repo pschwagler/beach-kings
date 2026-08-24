@@ -18,7 +18,11 @@ import { useRouter } from "expo-router";
 import type { LeagueDetail } from "@beach-kings/shared";
 import { api } from "@/lib/api";
 import { leagueKeys } from "./leagueKeys";
-import { leagueQueries } from "@/features/leagues";
+import {
+  getPendingLeagueInvites,
+  leagueQueries,
+  useLeagueInviteResponses,
+} from "@/features/leagues";
 import { routes, type LeagueTab } from "@/lib/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getQueryErrorPresentation } from "@/infrastructure/query/retryPolicy";
@@ -90,6 +94,12 @@ export interface UseLeagueDetailScreenResult {
   readonly onRequestToJoin: () => Promise<void>;
   /** True while a request-to-join is in flight. */
   readonly isRequestingToJoin: boolean;
+  /** True when this visitor has a pending invitation to this league. */
+  readonly hasLeagueInvitation: boolean;
+  /** True while the invitation is being accepted or declined. */
+  readonly isRespondingToInvitation: boolean;
+  readonly onAcceptInvitation: () => Promise<void>;
+  readonly onDeclineInvitation: () => Promise<void>;
 }
 
 /**
@@ -108,6 +118,10 @@ export function useLeagueDetailScreen(
   const [isJoiningLeague, setIsJoiningLeague] = useState(false);
 
   const detailQuery = useQuery(leagueQueries.detail(userId, leagueId));
+  const receivedInvitesQuery = useQuery(
+    leagueQueries.receivedInvites(userId),
+  );
+  const inviteResponses = useLeagueInviteResponses(userId);
 
   const detail = detailQuery.data ?? null;
   const detailError = getQueryErrorPresentation(detailQuery.error, "League");
@@ -120,6 +134,16 @@ export function useLeagueDetailScreen(
   // loading we treat the caller as a member so the full tab set is assumed
   // (the screen shows a spinner until the role is known either way).
   const isVisitor = detail != null && detail.user_role == null;
+  const numericLeagueId = Number(leagueId);
+  const invitation = getPendingLeagueInvites(receivedInvitesQuery.data).find(
+    (invite) => invite.league_id === numericLeagueId,
+  );
+  const isRespondingToInvitation =
+    inviteResponses.respondingIds.has(numericLeagueId);
+  // Keep the invitation treatment mounted while its optimistic cache removal
+  // is in flight. Accept then refreshes detail before the response settles.
+  const hasLeagueInvitation =
+    isVisitor && (invitation != null || isRespondingToInvitation);
   // A visitor of a PRIVATE league can't see Standings — the backend 403s
   // that request for non-members. Public leagues intentionally allow
   // visitors to browse Standings, so only strip the tab when is_public is
@@ -213,6 +237,15 @@ export function useLeagueDetailScreen(
     }
   }, [queryClient, leagueId, userId]);
 
+  const onAcceptInvitation = useCallback(
+    () => inviteResponses.onAccept(numericLeagueId),
+    [inviteResponses, numericLeagueId],
+  );
+  const onDeclineInvitation = useCallback(
+    () => inviteResponses.onDecline(numericLeagueId),
+    [inviteResponses, numericLeagueId],
+  );
+
   return {
     leagueId,
     detail,
@@ -233,5 +266,9 @@ export function useLeagueDetailScreen(
     isJoiningLeague,
     onRequestToJoin,
     isRequestingToJoin,
+    hasLeagueInvitation,
+    isRespondingToInvitation,
+    onAcceptInvitation,
+    onDeclineInvitation,
   };
 }

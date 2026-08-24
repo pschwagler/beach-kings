@@ -21,6 +21,7 @@ jest.mock('@/lib/api', () => {
     getFriendRequests: jest.fn(),
     getCourts: jest.fn(),
     getPlayerMatchHistory: jest.fn(),
+    getMyStats: jest.fn(),
     // Used by the centralized location resolver (skipDevice path on home).
     getPlayerHomeCourts: jest.fn(),
     getLocations: jest.fn(),
@@ -39,6 +40,7 @@ const mockApi = api as unknown as {
   getFriendRequests: jest.Mock;
   getCourts: jest.Mock;
   getPlayerMatchHistory: jest.Mock;
+  getMyStats: jest.Mock;
   getPlayerHomeCourts: jest.Mock;
   getLocations: jest.Mock;
 };
@@ -77,6 +79,12 @@ beforeEach(() => {
   mockApi.getFriendRequests.mockReset();
   mockApi.getCourts.mockReset();
   mockApi.getPlayerMatchHistory.mockReset();
+  mockApi.getMyStats.mockReset().mockResolvedValue({
+    player_name: 'Player', player_city: null, player_level: null,
+    overall: { wins: 0, losses: 0, games_played: 0, rating: 1200,
+      peak_rating: 1200, win_rate: 0, current_streak: 0, avg_point_diff: 0 },
+    trophies: [], partners: [], opponents: [], elo_timeline: [],
+  });
   // Resolver fallbacks: default to "nothing found" so coords stay null and the
   // dashboard keeps using the location_id filter (PLAYER has no city coords).
   mockApi.getPlayerHomeCourts.mockReset().mockResolvedValue([]);
@@ -123,6 +131,9 @@ describe('dashboardKeys', () => {
       'history',
       'none',
     ]);
+    expect(dashboardKeys.stats(7)).toEqual([
+      'private', 7, 'stats', 'me', { league_id: 'all', days: 'all' },
+    ]);
   });
 });
 
@@ -132,6 +143,7 @@ describe('useDashboard', () => {
     ['friendRequests', 'getFriendRequests'],
     ['courts', 'getCourts'],
     ['matches', 'getPlayerMatchHistory'],
+    ['stats', 'getMyStats'],
   ] as const)(
     'does not globally gate ready content on never-resolving %s',
     async (section, method) => {
@@ -177,6 +189,7 @@ describe('useDashboard', () => {
     expect(result.current.friendRequests.data).toEqual([]);
     expect(result.current.courts.data).toEqual([]);
     expect(result.current.matches.data).toEqual([]);
+    expect(result.current.stats.data?.overall.rating).toBe(1200);
   });
 
   it('passes the player location_id into getCourts', async () => {

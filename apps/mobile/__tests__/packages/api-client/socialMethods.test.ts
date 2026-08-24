@@ -113,7 +113,11 @@ describe("social API response contracts", () => {
     const methods = createApiMethods(makeClient({ get }));
 
     await expect(
-      methods.discoverPlayers({ has_mutuals: true }),
+      methods.discoverPlayers({
+        has_mutuals: true,
+        origin_location_id: 'socal_sd',
+        radius_miles: 25,
+      }),
     ).resolves.toEqual([
       {
         player_id: 17,
@@ -129,7 +133,11 @@ describe("social API response contracts", () => {
       },
     ]);
     expect(get).toHaveBeenCalledWith("/api/friends/discover", {
-      params: { has_mutuals: true },
+      params: {
+        has_mutuals: true,
+        origin_location_id: 'socal_sd',
+        radius_miles: 25,
+      },
     });
   });
 

@@ -9,7 +9,7 @@ import { ScrollView, View, Pressable, RefreshControl } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { normalizePlayerStats } from '@beach-kings/shared';
 import type { Player } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,10 +29,13 @@ import ProfileFieldSheet from '@/components/screens/Profile/ProfileFieldSheet';
 import type { ProfileEditorKey } from '@/components/screens/Profile/profileEditorModel';
 import { useProfilePhotoActions } from '@/components/screens/Profile/useProfilePhotoActions';
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
-import { usePlayerProfileMutations } from '@/features/player';
+import { playerKeys, usePlayerProfileMutations } from '@/features/player';
 import { useToast } from '@/contexts/ToastContext';
 import { hapticSuccess } from '@/utils/haptics';
 import { getApiErrorMessage } from '@/lib/apiError';
+import ProfileHomeCourtsSection from '@/components/screens/Profile/ProfileHomeCourtsSection';
+
+export const PROFILE_INITIAL_LOAD_TIMEOUT_MS = 10_000;
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -44,7 +47,13 @@ export default function ProfileScreen(): React.ReactNode {
   const palette = usePaletteColors();
   const scrollRef = useRef<ScrollView>(null);
   const [editor, setEditor] = useState<ProfileEditorKey | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [timedOutLoad, setTimedOutLoad] = useState<{
+    readonly userId: number;
+    readonly attempt: number;
+  } | null>(null);
   const userId = user?.id ?? 0;
+  const queryClient = useQueryClient();
   const playerQuery = useCurrentPlayer();
   const friendCountQuery = useQuery(socialQueries.friendCount(userId));
   const refetchPlayer = playerQuery.refetch;
@@ -70,12 +79,34 @@ export default function ProfileScreen(): React.ReactNode {
   const photoActions = useProfilePhotoActions(player);
   const friendCount = friendCountQuery.data ?? null;
   const hasPlayerData = playerQuery.data !== undefined;
-  const isInitialLoading = !hasPlayerData && playerQuery.isPending;
-  const isInitialError = !hasPlayerData && playerQuery.isError;
-  const hasRefreshError =
-    hasPlayerData && (playerQuery.isError || friendCountQuery.isError);
+  const isWaitingForInitialPlayer = !hasPlayerData && playerQuery.isPending;
+  const didInitialLoadTimeOut =
+    timedOutLoad?.userId === userId && timedOutLoad.attempt === loadAttempt;
+  const isInitialLoading = isWaitingForInitialPlayer && !didInitialLoadTimeOut;
+  const isInitialError =
+    !hasPlayerData && (playerQuery.isError || didInitialLoadTimeOut);
+  const hasPlayerRefreshError = hasPlayerData && playerQuery.isError;
   const isRefreshing =
     hasPlayerData && (playerQuery.isFetching || friendCountQuery.isFetching);
+
+  useEffect(() => {
+    if (!isWaitingForInitialPlayer) return;
+    const timer = setTimeout(() => {
+      setTimedOutLoad({ userId, attempt: loadAttempt });
+    }, PROFILE_INITIAL_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [isWaitingForInitialPlayer, loadAttempt, userId]);
+
+  const retryInitialLoad = useCallback(() => {
+    setLoadAttempt((attempt) => attempt + 1);
+    void (async () => {
+      await queryClient.cancelQueries({
+        queryKey: playerKeys.me(userId),
+        exact: true,
+      });
+      await Promise.allSettled([refetchPlayer(), refetchFriendCount()]);
+    })();
+  }, [queryClient, refetchFriendCount, refetchPlayer, userId]);
 
   // `/api/users/me/player` nests aggregates under `stats` (current_rating,
   // total_games, total_wins) and exposes no `losses` field — derive it. Fall
@@ -129,12 +160,12 @@ export default function ProfileScreen(): React.ReactNode {
         ) : isInitialError ? (
           <ErrorState
             onRetry={() => {
-              void onRefresh();
+              retryInitialLoad();
             }}
           />
         ) : (
           <>
-            {hasRefreshError && (
+            {hasPlayerRefreshError && (
               <View className="px-lg pt-lg">
                 <SectionError
                   message="Some profile details could not be refreshed. Showing the last saved version."
@@ -149,11 +180,15 @@ export default function ProfileScreen(): React.ReactNode {
               player={player}
               isLoading={false}
               friendCount={friendCount}
+              friendCountError={friendCountQuery.isError}
               onPhotoPress={photoActions.onPhotoPress}
               photoBusy={photoActions.busy}
               onFriendsPress={() =>
                 router.push(routes.social({ tab: 'friends' }))
               }
+              onFriendCountRetry={() => {
+                void refetchFriendCount();
+              }}
             />
 
             <StatsBar
@@ -165,7 +200,13 @@ export default function ProfileScreen(): React.ReactNode {
             />
 
             {player != null && (
-              <ProfileInfoSection player={player} onEdit={setEditor} />
+              <>
+                <ProfileInfoSection player={player} onEdit={setEditor} />
+                <ProfileHomeCourtsSection
+                  playerId={player.id}
+                  onEdit={() => router.push(routes.homeCourts())}
+                />
+              </>
             )}
 
             <ProfileMenuSection

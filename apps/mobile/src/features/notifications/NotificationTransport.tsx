@@ -72,7 +72,7 @@ export default function NotificationTransport(): null {
         markAsRead(notification.id);
         router.push((
           resolveNotificationRoute(notification.link_url) ??
-          routes.social({ tab: 'notifications' })
+          routes.notifications()
         ) as never);
       });
     }

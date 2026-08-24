@@ -105,7 +105,7 @@ async def _record_bad_code(
 @router.post("/api/auth/youth-eligibility", response_model=YouthEligibilityResponse)
 @limiter.limit("20/minute")
 async def check_youth_eligibility(request: Request, payload: YouthEligibilityRequest):
-    """Run the PII-free age/territory gate and issue a short-lived proof."""
+    """Run the PII-free global age gate and issue a short-lived proof."""
     try:
         facts = youth_safety_service.evaluate_gate(**payload.model_dump())
     except youth_safety_service.YouthEligibilityError as exc:
@@ -113,7 +113,8 @@ async def check_youth_eligibility(request: Request, payload: YouthEligibilityReq
     return YouthEligibilityResponse(
         eligibility_token=youth_safety_service.create_eligibility_token(facts),
         age_group=facts.age_group,
-        minimum_age=13 if facts.country_code == "US" else 14,
+        minimum_age=youth_safety_service.MINIMUM_AGE,
+        policy=youth_safety_service.POLICY,
     )
 
 
@@ -169,9 +170,13 @@ async def _check_profile_complete(session: AsyncSession, user_id: int) -> bool:
         True if the player has gender and level set, False otherwise
     """
     player = await data_service.get_player_by_user_id(session, user_id)
-    if not player or not player.get("gender") or not player.get("level"):
+    if not player:
         return False
-    return True
+    gender = player.get("gender")
+    level = player.get("level")
+    return bool(
+        isinstance(gender, str) and gender.strip() and isinstance(level, str) and level.strip()
+    )
 
 
 @router.post("/api/auth/signup", response_model=Dict[str, Any])
@@ -194,10 +199,6 @@ async def signup(
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         youth_facts = youth_safety_service.account_values(eligibility)
         auth_service.validate_password_length(payload.password)
-        if not any(char.isdigit() for char in payload.password):
-            raise HTTPException(
-                status_code=400, detail="Password must include at least one number"
-            )
         # Name validation is handled by SignupRequest's model_validator
         # which ensures first_name + last_name (or full_name) are resolved.
 

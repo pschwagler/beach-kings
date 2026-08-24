@@ -9,6 +9,7 @@ import { getApiErrorMessage } from '@/lib/apiError';
 import type { LeagueChatMessage } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
 import { useAuth } from '@/contexts/AuthContext';
+import { pendingDeliveryRefetchInterval } from '../Messages/useMessageDeliveryStatus';
 
 export interface UseLeagueChatTabResult {
   readonly messages: readonly LeagueChatMessage[];
@@ -63,6 +64,12 @@ export function useLeagueChatTab(
       return rows.map(withInitials);
     },
     enabled: userId > 0,
+    refetchInterval: (query) => pendingDeliveryRefetchInterval(
+      query.state.data?.some(
+        (message) =>
+          message.is_mine && message.moderation_visibility === 'pending',
+      ) ?? false,
+    ),
   });
 
   const onChangeText = useCallback((v: string) => {

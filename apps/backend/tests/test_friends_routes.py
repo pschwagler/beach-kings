@@ -587,7 +587,8 @@ class TestDiscoverPlayers:
 
         response = client.get(
             "/api/friends/discover?search=Bob&gender=male&level=advanced"
-            "&sort_by=games&sort_dir=asc&min_games=5&page=2&page_size=10",
+            "&sort_by=games&sort_dir=asc&min_games=5&page=2&page_size=10"
+            "&origin_location_id=socal_la&radius_miles=25",
             headers=headers,
         )
         assert response.status_code == 200
@@ -599,6 +600,30 @@ class TestDiscoverPlayers:
         assert captured["min_games"] == 5
         assert captured["page"] == 2
         assert captured["page_size"] == 10
+        assert captured["origin_location_id"] == "socal_la"
+        assert captured["radius_miles"] == 25
+
+    def test_discover_rejects_unpaired_proximity_params(self, client, headers):
+        """A radius and hub origin must always be supplied together."""
+        radius_only = client.get(
+            "/api/friends/discover?radius_miles=25",
+            headers=headers,
+        )
+        origin_only = client.get(
+            "/api/friends/discover?origin_location_id=socal_la",
+            headers=headers,
+        )
+
+        assert radius_only.status_code == 422
+        assert origin_only.status_code == 422
+
+    def test_discover_rejects_unsupported_radius(self, client, headers):
+        response = client.get(
+            "/api/friends/discover?origin_location_id=socal_la&radius_miles=30",
+            headers=headers,
+        )
+
+        assert response.status_code == 422
 
     def test_discover_no_auth(self):
         """No auth returns 401/403."""

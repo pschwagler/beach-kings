@@ -15,10 +15,25 @@
 
 import React from 'react';
 import { render as renderTestingLibrary, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ThemeProvider from '@/contexts/ThemeContext';
+import { statsKeys } from '@/features/stats';
 
-function render(ui: React.ReactElement): ReturnType<typeof renderTestingLibrary> {
-  return renderTestingLibrary(<ThemeProvider>{ui}</ThemeProvider>);
+function makeClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+}
+
+function render(
+  ui: React.ReactElement,
+  client = makeClient(),
+): ReturnType<typeof renderTestingLibrary> {
+  return renderTestingLibrary(
+    <QueryClientProvider client={client}>
+      <ThemeProvider>{ui}</ThemeProvider>
+    </QueryClientProvider>,
+  );
 }
 
 jest.mock('nativewind', () => ({
@@ -80,6 +95,7 @@ jest.mock('react-native-svg', () => {
   const Svg = ({ children }: { children?: React.ReactNode }) => <View>{children}</View>;
   const Path = () => null;
   const Circle = () => null;
+  const Line = () => null;
   const Polygon = () => null;
   const Polyline = () => null;
   const Defs = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
@@ -91,6 +107,7 @@ jest.mock('react-native-svg', () => {
     Svg,
     Path,
     Circle,
+    Line,
     Polygon,
     Polyline,
     Defs,
@@ -106,6 +123,10 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockGetMyStats = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -160,6 +181,7 @@ const MOCK_STATS = {
     {
       player_id: 10,
       display_name: 'C. Gulla',
+      full_name: 'Caroline Gulla',
       initials: 'CG',
       games_played: 34,
       wins: 28,
@@ -171,6 +193,7 @@ const MOCK_STATS = {
     {
       player_id: 20,
       display_name: 'J. Drabos',
+      full_name: 'Jordan Drabos',
       initials: 'JD',
       games_played: 12,
       wins: 7,
@@ -239,6 +262,19 @@ describe('MyStatsScreen — error state', () => {
     await waitFor(() => {
       expect(mockGetMyStats).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('keeps shared cached stats visible after a failed refresh', async () => {
+    const client = makeClient();
+    render(<MyStatsScreen />, client);
+    await screen.findByText('Patrick Schwagler');
+
+    mockGetMyStats.mockRejectedValue(new Error('offline'));
+    await client.invalidateQueries({ queryKey: statsKeys.my(7) });
+
+    await screen.findByText('Your stats may be out of date.');
+    expect(screen.getByText('Patrick Schwagler')).toBeTruthy();
+    expect(screen.queryByTestId('stats-error-state')).toBeNull();
   });
 });
 
@@ -430,6 +466,16 @@ describe('MyStatsScreen — rating chart', () => {
       expect(screen.getByTestId('rating-chart')).toBeTruthy();
     });
   });
+
+  it('keeps an explicit rating-history empty state with no timeline points', async () => {
+    mockGetMyStats.mockResolvedValue({ ...MOCK_STATS, elo_timeline: [] });
+    render(<MyStatsScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('rating-chart')).toBeTruthy();
+      expect(screen.getByText('Play more games to see your rating trend.')).toBeTruthy();
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -447,7 +493,8 @@ describe('MyStatsScreen — breakdown table', () => {
   it('renders partner rows by default', async () => {
     render(<MyStatsScreen />);
     await waitFor(() => {
-      expect(screen.getByText('C. Gulla')).toBeTruthy();
+      expect(screen.getByText('Caroline Gulla')).toBeTruthy();
+      expect(screen.queryByText('C. Gulla')).toBeNull();
     });
   });
 
@@ -458,7 +505,72 @@ describe('MyStatsScreen — breakdown table', () => {
     });
     fireEvent.press(screen.getByTestId('toggle-opponents'));
     await waitFor(() => {
-      expect(screen.getByText('J. Drabos')).toBeTruthy();
+      expect(screen.getByText('Jordan Drabos')).toBeTruthy();
+      expect(screen.queryByText('Caroline Gulla')).toBeNull();
     });
+
+    fireEvent.press(screen.getByTestId('toggle-partners'));
+    expect(screen.getByText('Caroline Gulla')).toBeTruthy();
+    expect(screen.queryByText('Jordan Drabos')).toBeNull();
+  });
+
+  it('exposes an unambiguous selected tab state and updates it on switch', async () => {
+    render(<MyStatsScreen />);
+    await waitFor(() => expect(screen.getByTestId('toggle-partners')).toBeTruthy());
+    const partners = screen.getByTestId('toggle-partners');
+    const opponents = screen.getByTestId('toggle-opponents');
+    expect(partners).toHaveAccessibilityState({ selected: true });
+    expect(opponents).toHaveAccessibilityState({ selected: false });
+    expect(partners.props.style.backgroundColor).not.toBe(
+      opponents.props.style.backgroundColor,
+    );
+
+    fireEvent.press(opponents);
+
+    expect(screen.getByTestId('toggle-partners')).toHaveAccessibilityState({
+      selected: false,
+    });
+    expect(screen.getByTestId('toggle-opponents')).toHaveAccessibilityState({
+      selected: true,
+    });
+  });
+
+  it('falls back to display_name when full_name is unavailable', async () => {
+    mockGetMyStats.mockResolvedValue({
+      ...MOCK_STATS,
+      partners: [{ ...MOCK_STATS.partners[0], full_name: ' ' }],
+    });
+    render(<MyStatsScreen />);
+
+    await waitFor(() => expect(screen.getByText('C. Gulla')).toBeTruthy());
+  });
+
+  it('uses a deterministic player fallback when both names are blank', async () => {
+    mockGetMyStats.mockResolvedValue({
+      ...MOCK_STATS,
+      partners: [
+        { ...MOCK_STATS.partners[0], full_name: null, display_name: ' ' },
+      ],
+    });
+    render(<MyStatsScreen />);
+
+    await waitFor(() => expect(screen.getByText('Player 10')).toBeTruthy());
+  });
+
+  it('truncates long full names predictably without moving stat columns', async () => {
+    const longName = 'Alexandria Cassandra Montgomery-Smith the Third';
+    mockGetMyStats.mockResolvedValue({
+      ...MOCK_STATS,
+      partners: [{ ...MOCK_STATS.partners[0], full_name: longName }],
+    });
+    render(<MyStatsScreen />);
+
+    const name = await screen.findByTestId('breakdown-name-10');
+    expect(name).toHaveTextContent(longName);
+    expect(name).toHaveProp('numberOfLines', 1);
+    expect(name).toHaveProp('ellipsizeMode', 'tail');
+    expect(screen.getByText('34')).toBeTruthy();
+    expect(screen.getByText('28-6')).toBeTruthy();
+    expect(screen.getByText('82%')).toBeTruthy();
   });
 });

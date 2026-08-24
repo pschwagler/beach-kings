@@ -20,6 +20,11 @@ import SessionCourtPicker from './SessionCourtPicker';
 import SessionSeasonSelector from './SessionSeasonSelector';
 import SessionDateField from './SessionDateField';
 import { useSessionCreateScreen } from './useSessionCreateScreen';
+import { useQuery } from '@tanstack/react-query';
+import BottomSheetSelect from '@/components/forms/BottomSheetSelect';
+import { locationQueries } from '@/features/locations';
+import { formatLocationLabel } from '@/components/screens/Profile/profileFormOptions';
+import SectionError from '@/components/home/SectionError';
 
 interface FormRowProps {
   readonly label: string;
@@ -69,6 +74,12 @@ export default function SessionCreateScreen({
     date,
     startTime,
     courtId,
+    courtName,
+    courtConfirmed,
+    needsMetro,
+    isSavingMetro,
+    metroError,
+    courtSuggestionError,
     leagueName,
     leagueSeasons,
     selectedSeasonId,
@@ -80,10 +91,21 @@ export default function SessionCreateScreen({
     setDate,
     setStartTime,
     setCourtId,
+    confirmCourt,
+    saveMetro,
+    retryCourtSuggestion,
     setSelectedSeasonId,
     setIsRanked,
     onSubmit,
   } = useSessionCreateScreen({ leagueId, seasonId, playerIds });
+  const locationsQuery = useQuery({
+    ...locationQueries.all(),
+    enabled: needsMetro,
+  });
+  const locationOptions = (locationsQuery.data ?? []).map((location) => ({
+    value: location.id,
+    label: formatLocationLabel(location),
+  }));
   return (
     <SafeAreaView className="flex-1 bg-page" edges={['top']} testID="session-create-screen">
       <TopNav title="Start Session" showBack />
@@ -102,13 +124,81 @@ export default function SessionCreateScreen({
           </View>
 
           <AppText className="text-[15px] font-bold text-default mt-[24px] mb-[4px]">Location</AppText>
-          <SessionCourtPicker
-            selectedCourtId={courtId}
-            onChange={setCourtId}
-            testIDPrefix="session"
-            allowNone={false}
-            selectDefaultCourt
-          />
+          {needsMetro ? (
+            <View className="mt-2 rounded-card bg-surface px-md py-md gap-sm">
+              <AppText className="text-body font-semibold text-default">
+                Choose your metro
+              </AppText>
+              <AppText className="text-sm text-muted">
+                We use a named metro to offer an Other / Private Court option. No exact location is saved.
+              </AppText>
+              <BottomSheetSelect
+                title="Select metro"
+                placeholder={locationsQuery.isPending ? 'Loading metros…' : 'Select metro'}
+                options={locationOptions}
+                value=""
+                onChange={(locationId) => {
+                  const location = locationsQuery.data?.find((item) => item.id === locationId);
+                  if (location != null) void saveMetro(location);
+                }}
+                disabled={locationsQuery.isPending || isSavingMetro}
+                loading={locationsQuery.isPending || isSavingMetro}
+                searchable
+                searchPlaceholder="Search metros"
+                testID="session-metro-picker"
+              />
+              {locationsQuery.isError && (
+                <SectionError
+                  message="Available metros could not be loaded."
+                  onRetry={() => { void locationsQuery.refetch(); }}
+                />
+              )}
+              {metroError != null && (
+                <AppText accessibilityRole="alert" className="text-sm text-danger">
+                  {metroError}
+                </AppText>
+              )}
+            </View>
+          ) : (
+            <>
+              <SessionCourtPicker
+                selectedCourtId={courtId}
+                selectedCourtName={courtName}
+                onChange={setCourtId}
+                testIDPrefix="session"
+                allowNone={false}
+                useProfileCoordinates={false}
+              />
+              {courtId != null && !courtConfirmed ? (
+                <View className="mt-sm rounded-card bg-info-tint px-md py-md gap-sm">
+                  <AppText className="text-sm text-default">
+                    Confirm this court before starting the session.
+                  </AppText>
+                  <TouchableOpacity
+                    testID="session-confirm-court"
+                    onPress={confirmCourt}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Confirm ${courtName ?? 'suggested court'}`}
+                    className="min-h-touch rounded-button bg-brand-teal items-center justify-center px-md"
+                  >
+                    <AppText className="text-sm font-semibold text-on-brand">Confirm Court</AppText>
+                  </TouchableOpacity>
+                </View>
+              ) : courtConfirmed ? (
+                <AppText testID="session-court-confirmed" className="mt-xs text-sm text-success">
+                  Court confirmed
+                </AppText>
+              ) : null}
+              {courtSuggestionError != null && (
+                <View className="mt-sm">
+                  <SectionError
+                    message={courtSuggestionError}
+                    onRetry={() => { void retryCourtSuggestion(); }}
+                  />
+                </View>
+              )}
+            </>
+          )}
 
           {leagueId != null && (
             <>

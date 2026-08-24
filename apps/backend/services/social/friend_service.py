@@ -5,6 +5,7 @@ Handles sending/accepting/declining requests, listing friends,
 mutual friend calculations, and multi-signal suggestions.
 """
 
+import math
 from typing import List, Dict, Set, Optional
 
 from backend.utils.slugify import slugify
@@ -35,6 +36,57 @@ from backend.utils.datetime_utils import utcnow
 import logging
 
 logger = logging.getLogger(__name__)
+
+_EARTH_RADIUS_MILES = 3958.8
+
+
+def _haversine_miles(
+    latitude_a: float,
+    longitude_a: float,
+    latitude_b: float,
+    longitude_b: float,
+) -> float:
+    """Return centroid-to-centroid distance without using player coordinates."""
+    lat_a = math.radians(latitude_a)
+    lat_b = math.radians(latitude_b)
+    delta_lat = lat_b - lat_a
+    delta_lon = math.radians(longitude_b - longitude_a)
+    haversine = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat_a) * math.cos(lat_b) * math.sin(delta_lon / 2) ** 2
+    )
+    return 2 * _EARTH_RADIUS_MILES * math.asin(min(1.0, math.sqrt(haversine)))
+
+
+async def _location_ids_within_radius(
+    session: AsyncSession,
+    origin_location_id: str,
+    radius_miles: int,
+) -> Set[str]:
+    """Resolve a radius to metro IDs using only catalog hub centroids."""
+    locations_result = await session.execute(
+        select(Location.id, Location.latitude, Location.longitude).where(
+            Location.is_active.is_(True),
+            Location.latitude.is_not(None),
+            Location.longitude.is_not(None),
+        )
+    )
+    locations = locations_result.all()
+    origin = next((row for row in locations if row.id == origin_location_id), None)
+    if origin is None:
+        return set()
+
+    return {
+        row.id
+        for row in locations
+        if _haversine_miles(
+            origin.latitude,
+            origin.longitude,
+            row.latitude,
+            row.longitude,
+        )
+        <= radius_miles
+    }
 
 
 async def get_player_id_for_user(session: AsyncSession, user_id: int) -> Optional[int]:
@@ -867,6 +919,8 @@ async def discover_players(
     caller_player_id: int,
     search: Optional[str] = None,
     location_id: Optional[str] = None,
+    origin_location_id: Optional[str] = None,
+    radius_miles: Optional[int] = None,
     gender: Optional[str] = None,
     level: Optional[str] = None,
     sort_by: Optional[str] = "mutuals",
@@ -889,6 +943,8 @@ async def discover_players(
         caller_player_id: Authenticated player's ID (excluded from results)
         search: Optional name search filter
         location_id: Optional location filter
+        origin_location_id: Optional metro/hub centroid for proximity filtering
+        radius_miles: Radius around origin_location_id (10, 25, 50, or 100)
         gender: Optional gender filter
         level: Optional level filter
         sort_by: Sort column — mutuals, games, name, rating
@@ -903,6 +959,13 @@ async def discover_players(
         Dict with items, total_count, page, page_size
     """
     my_friends = await get_friend_ids(session, caller_player_id)
+    nearby_location_ids: Optional[Set[str]] = None
+    if origin_location_id is not None and radius_miles is not None:
+        nearby_location_ids = await _location_ids_within_radius(
+            session,
+            origin_location_id,
+            radius_miles,
+        )
 
     # Build mutual friend count subquery
     if my_friends:
@@ -975,6 +1038,8 @@ async def discover_players(
         base_query = base_query.where(Player.full_name.ilike(f"%{search}%"))
     if location_id:
         base_query = base_query.where(Player.location_id == location_id)
+    if nearby_location_ids is not None:
+        base_query = base_query.where(Player.location_id.in_(nearby_location_ids))
     if gender:
         base_query = base_query.where(Player.gender == gender)
     if level:

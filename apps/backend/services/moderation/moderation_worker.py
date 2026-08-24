@@ -18,10 +18,12 @@ from backend.database.models import (
     DirectMessage,
     LeagueMessage,
     ModerationCase,
+    ModerationAppeal,
     ModerationEvent,
     ModerationJob,
     ModerationReport,
     Player,
+    User,
 )
 from backend.utils.datetime_utils import utcnow
 
@@ -67,6 +69,15 @@ def validate_worker_config() -> None:
         raise RuntimeError("MODERATION_AUTO_ENFORCE_SCORE must be a number") from exc
     if not 0 < threshold <= 1:
         raise RuntimeError("MODERATION_AUTO_ENFORCE_SCORE must be greater than 0 and at most 1")
+    try:
+        flagship_timeout = float(os.getenv("MODERATION_FLAGSHIP_TIMEOUT", "30"))
+        flagship_attempts = int(os.getenv("MODERATION_FLAGSHIP_MAX_ATTEMPTS", "2"))
+    except ValueError as exc:
+        raise RuntimeError("Flagship timeout and attempts must be numeric") from exc
+    if flagship_timeout <= 0 or flagship_attempts < 1:
+        raise RuntimeError("Flagship timeout and attempts must be positive")
+    if not os.getenv("MODERATION_FLAGSHIP_MODEL", "gpt-5.6").strip():
+        raise RuntimeError("MODERATION_FLAGSHIP_MODEL cannot be empty")
     from backend.services.moderation.moderation_alerts import validate_alert_config
 
     validate_alert_config()
@@ -215,6 +226,40 @@ async def process_job(session: AsyncSession, job: ModerationJob) -> None:
                 )
             except Exception as exc:
                 result["triage_error"] = str(exc)[:500]
+            case = await session.get(ModerationCase, job.case_id) if job.case_id else None
+            junior_involved = bool(getattr(case, "junior_involved", False))
+            if not junior_involved and subject_player_id is not None:
+                junior_involved = await _subject_is_junior(session, subject_player_id)
+            appeal_context = await _appeal_context(session, job.case_id)
+            review_context = await _flagship_review_context(
+                session, job.case_id, job.target_type, target
+            )
+            escalation_reasons = flagship_escalation_reasons(
+                flagged=flagged,
+                categories=categories,
+                triage=result.get("triage"),
+                junior_involved=junior_involved,
+                report_reasons=report_reasons,
+                appeal_count=appeal_context["open_appeal_count"],
+            )
+            if escalation_reasons:
+                result["flagship_required"] = True
+                result["flagship_reasons"] = escalation_reasons
+                try:
+                    result["flagship"] = await flagship_recommendation(
+                        target_type=job.target_type,
+                        categories=categories,
+                        luna_recommendation=result.get("triage") or {},
+                        safety_identifier=f"target_{job.target_type}_{job.target_id}",
+                        repeat_context=repeat_context,
+                        report_reasons=report_reasons,
+                        junior_involved=junior_involved,
+                        appeal_context=appeal_context,
+                        review_context=review_context,
+                        escalation_reasons=escalation_reasons,
+                    )
+                except Exception as exc:
+                    result["flagship_error"] = type(exc).__name__
         await _complete(session, job, flagged, categories, result)
     except Exception as exc:
         await _retry_or_fail(session, job, str(exc))
@@ -362,6 +407,147 @@ async def triage_recommendation(
     return parsed
 
 
+def flagship_escalation_reasons(
+    *,
+    flagged: bool,
+    categories: dict[str, Any],
+    triage: dict[str, Any] | None,
+    junior_involved: bool,
+    report_reasons: list[str],
+    appeal_count: int,
+) -> list[str]:
+    """Return policy-owned reasons for asking the flagship model for advice."""
+    triage = triage or {}
+    reasons: list[str] = []
+    if provider_incident_type(categories) is not None or triage.get("severity") == "urgent":
+        reasons.append("severe")
+    if triage.get("recommendation") in {"quarantine", "owner_review"}:
+        reasons.append("ambiguous")
+    if junior_involved:
+        reasons.append("junior_involved")
+    luna_recommendation = triage.get("recommendation")
+    if (flagged and luna_recommendation == "allow") or (
+        not flagged and luna_recommendation is not None and luna_recommendation != "allow"
+    ):
+        reasons.append("model_disagreement")
+    contextual_report_reasons = {
+        "threats_violence",
+        "stalking_doxxing",
+        "sexual_exploitation",
+        "minor_safety",
+        "self_harm",
+    }
+    if set(report_reasons) & contextual_report_reasons:
+        reasons.append("reported_context")
+    if appeal_count:
+        reasons.append("appeal")
+    return reasons
+
+
+async def flagship_recommendation(
+    *,
+    target_type: str,
+    categories: dict[str, Any],
+    luna_recommendation: dict[str, Any],
+    safety_identifier: str,
+    repeat_context: dict[str, int],
+    report_reasons: list[str],
+    junior_involved: bool,
+    appeal_context: dict[str, int],
+    review_context: dict[str, Any],
+    escalation_reasons: list[str],
+) -> dict[str, Any]:
+    """Request structured recommendation-only review from the flagship model."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+    model = os.getenv("MODERATION_FLAGSHIP_MODEL", "gpt-5.6")
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "severity": {"type": "string", "enum": ["ordinary", "urgent"]},
+            "recommendation": {
+                "type": "string",
+                "enum": [
+                    "allow",
+                    "warn",
+                    "quarantine",
+                    "interaction_lock",
+                    "account_suspend",
+                    "account_ban",
+                    "owner_review",
+                ],
+            },
+            "rationale": {"type": "string", "maxLength": 800},
+            "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        },
+        "required": ["severity", "recommendation", "rationale", "confidence"],
+    }
+    payload = {
+        "model": model,
+        "store": False,
+        "safety_identifier": safety_identifier,
+        "input": [
+            {
+                "role": "system",
+                "content": (
+                    "Provide an audited recommendation for a human owner. Policy code is the "
+                    "only enforcement authority; do not claim to take action."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Target type: {target_type}. Escalation reasons: {escalation_reasons}. "
+                    f"Provider categories: {sorted(k for k, v in categories.items() if v)}. "
+                    f"Luna recommendation: {luna_recommendation}. Repeat context: {repeat_context}. "
+                    f"Report reasons: {report_reasons}. Junior involved: {junior_involved}. "
+                    f"Appeal context: {appeal_context}. Minimized dispute context: "
+                    f"{review_context}."
+                ),
+            },
+        ],
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "moderation_flagship_review",
+                "strict": True,
+                "schema": schema,
+            }
+        },
+    }
+    attempts = max(1, int(os.getenv("MODERATION_FLAGSHIP_MAX_ATTEMPTS", "2")))
+    timeout = float(os.getenv("MODERATION_FLAGSHIP_TIMEOUT", "30"))
+    last_error: Exception | None = None
+    for _ in range(attempts):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json=payload,
+                )
+                response.raise_for_status()
+                raw = response.json()
+            import json
+
+            output_text = raw.get("output_text")
+            if not output_text:
+                for item in raw.get("output", []):
+                    for content in item.get("content", []):
+                        if content.get("type") == "output_text":
+                            output_text = content.get("text")
+                            break
+            parsed = json.loads(output_text or "{}")
+            if set(parsed) != {"severity", "recommendation", "rationale", "confidence"}:
+                raise ValueError("Invalid flagship structured output")
+            return {**parsed, "model": model}
+        except Exception as exc:
+            last_error = exc
+    raise RuntimeError("Flagship moderation review failed") from last_error
+
+
 async def _complete(
     session: AsyncSession,
     job: ModerationJob,
@@ -415,6 +601,24 @@ async def _complete(
                 },
             )
         )
+        if provider_payload.get("flagship_required"):
+            flagship = provider_payload.get("flagship")
+            session.add(
+                ModerationEvent(
+                    case_id=case.id,
+                    event_type=(
+                        "flagship_recommendation" if flagship else "flagship_review_failed"
+                    ),
+                    metadata_json={
+                        "model": (flagship or {}).get("model")
+                        or os.getenv("MODERATION_FLAGSHIP_MODEL", "gpt-5.6"),
+                        "reasons": provider_payload.get("flagship_reasons", []),
+                        "recommendation": flagship,
+                        "error_type": provider_payload.get("flagship_error"),
+                        "policy_authority": "ugc-v1",
+                    },
+                )
+            )
     model = TARGET_MODELS.get(job.target_type)
     target = await session.get(model, job.target_id) if model else None
     is_submission_job = job.idempotency_key.startswith("content:")
@@ -423,15 +627,32 @@ async def _complete(
         and hasattr(target, "moderation_visibility")
         and moderation_mode() == "enforce"
     ):
-        target.moderation_visibility = "quarantined" if flagged else "visible"
+        flagship_failed = bool(
+            provider_payload.get("flagship_required") and provider_payload.get("flagship_error")
+        )
+        prior_visibility = target.moderation_visibility
+        if flagged or flagship_failed:
+            target.moderation_visibility = "quarantined"
+        elif is_submission_job:
+            target.moderation_visibility = "visible"
         await session.flush()
-        if job.target_type == "court_review":
+        if job.target_type == "court_review" and target.moderation_visibility != prior_visibility:
             await _recalculate_court_rating(session, target.court_id)
-        if not flagged and is_submission_job and job.target_type == "direct_message":
+        if (
+            not flagged
+            and not flagship_failed
+            and is_submission_job
+            and job.target_type == "direct_message"
+        ):
             from backend.services.social.direct_message_service import publish_approved_message
 
             await publish_approved_message(session, target)
-        if not flagged and is_submission_job and job.target_type == "league_message":
+        if (
+            not flagged
+            and not flagship_failed
+            and is_submission_job
+            and job.target_type == "league_message"
+        ):
             from backend.services.social.message_data import publish_approved_league_message
 
             await publish_approved_league_message(session, target)
@@ -443,9 +664,11 @@ async def _complete(
             schedule_case_alerts,
         )
 
-        decision = automatic_enforcement_decision(
-            categories, provider_payload.get("category_scores") or {}
-        )
+        decision = None
+        if not provider_payload.get("flagship_error"):
+            decision = automatic_enforcement_decision(
+                categories, provider_payload.get("category_scores") or {}
+            )
         if decision is not None and case.subject_player_id is not None:
             from backend.services import moderation_service
 
@@ -576,6 +799,82 @@ async def _subject_player_id(session: AsyncSession, target_type: str, target: An
             )
         ).scalar_one_or_none()
     return None
+
+
+async def _subject_is_junior(session: AsyncSession, player_id: int) -> bool:
+    return bool(
+        await session.scalar(
+            select(User.id)
+            .join(Player, Player.user_id == User.id)
+            .where(Player.id == player_id, User.age_group == "junior")
+            .limit(1)
+        )
+    )
+
+
+async def _appeal_context(session: AsyncSession, case_id: int | None) -> dict[str, int]:
+    if case_id is None:
+        return {"open_appeal_count": 0}
+    count = await session.scalar(
+        select(func.count(ModerationAppeal.id)).where(
+            ModerationAppeal.case_id == case_id,
+            ModerationAppeal.status == "open",
+        )
+    )
+    return {"open_appeal_count": int(count or 0)}
+
+
+def _bounded_context_text(value: str | None, limit: int) -> str | None:
+    if not value:
+        return None
+    normalized = " ".join(value.split())
+    return normalized[:limit] or None
+
+
+async def _flagship_review_context(
+    session: AsyncSession,
+    case_id: int | None,
+    target_type: str,
+    target: Any,
+) -> dict[str, Any]:
+    """Return bounded dispute text without identities or private media URLs."""
+    target_text = None
+    if target_type in {"direct_message", "league_message"}:
+        target_text = getattr(target, "message_text", None)
+    elif target_type == "court_review":
+        target_text = getattr(target, "review_text", None)
+    elif target_type == "court_photo":
+        target_text = getattr(target, "caption", None)
+    context: dict[str, Any] = {
+        "target_text": _bounded_context_text(target_text, 2_000),
+        "report_details": [],
+        "appeal_statements": [],
+    }
+    if case_id is None:
+        return context
+    reports = await session.execute(
+        select(ModerationReport.details)
+        .where(ModerationReport.case_id == case_id, ModerationReport.details.is_not(None))
+        .order_by(ModerationReport.id.desc())
+        .limit(3)
+    )
+    context["report_details"] = [
+        item
+        for value in reports.scalars().all()
+        if (item := _bounded_context_text(value, 1_000)) is not None
+    ]
+    appeals = await session.execute(
+        select(ModerationAppeal.statement)
+        .where(ModerationAppeal.case_id == case_id, ModerationAppeal.status == "open")
+        .order_by(ModerationAppeal.id.desc())
+        .limit(1)
+    )
+    context["appeal_statements"] = [
+        item
+        for value in appeals.scalars().all()
+        if (item := _bounded_context_text(value, 1_500)) is not None
+    ]
+    return context
 
 
 async def _report_reasons(session: AsyncSession, case_id: int | None) -> list[str]:

@@ -1,16 +1,23 @@
-/**
- * Notifications route — redirects into the Social hub.
- *
- * Notifications now live in the Social tab's Notifications subnav (single source
- * of truth). This route stays only so existing deep links to
- * /(stack)/notifications still resolve — it forwards to the hub with the
- * Notifications tab selected.
- */
+/** Standalone global notification inbox for bell, push, and deep links. */
 
-import React from 'react';
-import { Redirect } from 'expo-router';
-import { routes } from '@/lib/navigation';
+import React, { useState } from 'react';
+import { View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import TopNav from '@/components/ui/TopNav';
+import NotificationsTab from '@/components/screens/Social/NotificationsTab';
 
 export default function NotificationsRoute(): React.ReactNode {
-  return <Redirect href={routes.social({ tab: 'notifications' })} />;
+  const [headerAction, setHeaderAction] = useState<React.ReactNode>(null);
+  return (
+    <SafeAreaView className="flex-1 bg-page" edges={['top']}>
+      <TopNav
+        title="Notifications"
+        showBack
+        rightAction={headerAction ?? undefined}
+      />
+      <View className="flex-1" testID="standalone-notifications-screen">
+        <NotificationsTab setHeaderAction={setHeaderAction} />
+      </View>
+    </SafeAreaView>
+  );
 }

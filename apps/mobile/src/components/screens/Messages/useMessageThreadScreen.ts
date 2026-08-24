@@ -12,6 +12,7 @@ import {
   messageKeys,
   messageQueries,
   useMessageMutations,
+  reconcilePeerIdentityCaches,
 } from '@/features/messages';
 import { hapticMedium, hapticError } from '@/utils/haptics';
 import { getApiErrorMessage } from '@/lib/apiError';
@@ -19,6 +20,7 @@ import type {
   ConversationListResponse,
   DirectMessage,
 } from '@beach-kings/shared';
+import { pendingDeliveryRefetchInterval } from './useMessageDeliveryStatus';
 
 const EMPTY_MESSAGES: readonly DirectMessage[] = [];
 
@@ -47,6 +49,7 @@ export interface UseMessageThreadScreenResult {
  */
 export function useMessageThreadScreen(
   playerId: number,
+  currentPlayerId: number,
 ): UseMessageThreadScreenResult {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [messageText, setMessageText] = useState('');
@@ -56,11 +59,37 @@ export function useMessageThreadScreen(
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const queryClient = useQueryClient();
-  const threadQuery = useQuery(messageQueries.thread(userId, playerId));
+  const threadQuery = useQuery({
+    ...messageQueries.thread(userId, playerId),
+    refetchInterval: (query) => pendingDeliveryRefetchInterval(
+      query.state.data?.items.some(
+        (message) =>
+          message.sender_player_id === currentPlayerId &&
+          message.moderation_visibility === 'pending',
+      ) ?? false,
+    ),
+  });
   const peerQuery = useQuery(messageQueries.peer(userId, playerId));
   const { markThreadRead, sendMessage } = useMessageMutations();
   const messages = threadQuery.data?.items ?? EMPTY_MESSAGES;
   const attemptedReadSignature = useRef<string | null>(null);
+
+  useEffect(() => {
+    const peer = peerQuery.data;
+    if (peer == null || !peerQuery.isFetchedAfterMount) return;
+    reconcilePeerIdentityCaches(queryClient, userId, {
+      playerId,
+      fullName: peer.full_name ?? peer.name,
+      avatar: peer.profile_picture_url,
+    });
+  }, [
+    peerQuery.data,
+    peerQuery.isFetchedAfterMount,
+    playerId,
+    queryClient,
+    threadQuery.data?.peer,
+    userId,
+  ]);
 
   const unreadSignature = useMemo(() => {
     const unreadMessageIds = messages
@@ -131,8 +160,10 @@ export function useMessageThreadScreen(
     setMessageText,
     isSending,
     sendError,
-    peerName: peerQuery.data?.full_name ?? null,
-    peerAvatarUrl: peerQuery.data?.profile_picture_url ?? null,
+    peerName:
+      peerQuery.data?.full_name ?? threadQuery.data?.peer?.full_name ?? null,
+    peerAvatarUrl:
+      peerQuery.data?.profile_picture_url ?? threadQuery.data?.peer?.avatar ?? null,
     canInteract: threadQuery.data?.capability?.actions.direct_message ?? true,
     blockedByViewer: threadQuery.data?.capability?.blocked_by_viewer ?? false,
     onRefresh,

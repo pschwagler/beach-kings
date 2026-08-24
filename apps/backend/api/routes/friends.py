@@ -120,6 +120,8 @@ async def remove_friend(
 async def discover_players(
     search: Optional[str] = Query(None),
     location_id: Optional[str] = Query(None),
+    origin_location_id: Optional[str] = Query(None),
+    radius_miles: Optional[int] = Query(None, ge=1),
     gender: Optional[Literal["male", "female"]] = Query(None),
     level: Optional[str] = Query(None),
     sort_by: Optional[Literal["mutuals", "games", "name", "rating"]] = Query(None),
@@ -133,12 +135,24 @@ async def discover_players(
     session: AsyncSession = Depends(get_db_session),
 ):
     """Discover players with mutual friend counts and friend status."""
+    if (origin_location_id is None) != (radius_miles is None):
+        raise HTTPException(
+            status_code=422,
+            detail="origin_location_id and radius_miles must be provided together",
+        )
+    if radius_miles is not None and radius_miles not in {10, 25, 50, 100}:
+        raise HTTPException(
+            status_code=422,
+            detail="radius_miles must be one of 10, 25, 50, or 100",
+        )
     try:
         result = await friend_service.discover_players(
             session,
             user["player_id"],
             search=search,
             location_id=location_id,
+            origin_location_id=origin_location_id,
+            radius_miles=radius_miles,
             gender=gender,
             level=level,
             sort_by=sort_by,

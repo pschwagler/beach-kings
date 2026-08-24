@@ -124,18 +124,64 @@ function OrStartNewDivider(): React.ReactNode {
 
 function AddGamesIntro(): React.ReactNode {
   return (
-    <View className="relative mb-lg min-h-[142px] overflow-hidden rounded-card border border-divider bg-surface p-lg">
+    <View className="relative min-h-[142px] overflow-hidden p-lg">
       <CourtLineMotif variant="add-games" />
       <View className="relative max-w-[74%]">
         <AppText className="text-caption font-bold uppercase tracking-wide text-brand-teal">
           Match day
         </AppText>
-        <AppText className="mt-xs text-title3 font-bold text-default">
+        <AppText
+          nativeID="game-type-heading"
+          accessibilityRole="header"
+          className="mt-xs text-title3 font-bold text-default"
+        >
           What are you playing?
         </AppText>
         <AppText className="mt-xs text-caption leading-[19px] text-muted">
           Record a league or pickup game to keep your stats current.
         </AppText>
+      </View>
+    </View>
+  );
+}
+
+interface GameChoiceGroupProps {
+  readonly onLeagueGame: () => void;
+  readonly onPickupGame: () => void;
+}
+
+function GameChoiceGroup({
+  onLeagueGame,
+  onPickupGame,
+}: GameChoiceGroupProps): React.ReactNode {
+  return (
+    <View
+      testID="game-choice-group"
+      accessibilityLabelledBy="game-type-heading"
+      className="mb-3 overflow-hidden rounded-card border border-divider bg-surface"
+    >
+      <AddGamesIntro />
+      <View className="border-t border-divider">
+        <GameTypeCard
+          testID="tile-league-game"
+          icon={<LeagueIconSvg />}
+          iconBgClass="bg-info-tint"
+          title="League Game"
+          description="Record a game in one of your leagues"
+          onPress={onLeagueGame}
+          grouped
+          showDivider
+        />
+
+        <GameTypeCard
+          testID="tile-pickup-game"
+          icon={<PickupIconSvg />}
+          iconBgClass="bg-warning-tint"
+          title="Pickup Game"
+          description="Start a new session for casual play"
+          onPress={onPickupGame}
+          grouped
+        />
       </View>
     </View>
   );
@@ -349,8 +395,6 @@ export default function AddGamesScreen(): React.ReactNode {
           />
         }
       >
-        <AddGamesIntro />
-
         {/* Active session banner (when present) */}
         {pickupSession != null && !sessionLoading && (
           <>
@@ -362,23 +406,9 @@ export default function AddGamesScreen(): React.ReactNode {
           </>
         )}
 
-        {/* Game type cards */}
-        <GameTypeCard
-          testID="tile-league-game"
-          icon={<LeagueIconSvg />}
-          iconBgClass="bg-info-tint"
-          title="League Game"
-          description="Record a game in one of your leagues"
-          onPress={handleLeagueGame}
-        />
-
-        <GameTypeCard
-          testID="tile-pickup-game"
-          icon={<PickupIconSvg />}
-          iconBgClass="bg-warning-tint"
-          title="Pickup Game"
-          description="Start a new session for casual play"
-          onPress={handlePickupGame}
+        <GameChoiceGroup
+          onLeagueGame={handleLeagueGame}
+          onPickupGame={handlePickupGame}
         />
       </ScrollView>
     </SafeAreaView>

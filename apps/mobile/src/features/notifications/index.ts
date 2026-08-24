@@ -3,3 +3,4 @@ export { useNotifications } from './useNotifications';
 export { notificationKeys } from './keys';
 export { notificationQueries } from './queries';
 export { usePushPreferences } from './usePushPreferences';
+export { navigationBadgeCounts, useNavigationBadgeCounts } from './badges';

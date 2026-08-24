@@ -310,6 +310,7 @@ jest.mock('@/hooks/useDashboard', () => {
       friendRequests: makeQuery([]),
       courts: makeQuery([]),
       matches: makeQuery([]),
+      stats: makeQuery(undefined),
       isInitialLoading: true,
       isRefreshing: false,
       refetchAll: jest.fn().mockResolvedValue(undefined),
@@ -831,6 +832,7 @@ const mockCapturedScreens: Array<{ name: string; options: Record<string, unknown
 // Captures the props passed to the <Tabs> container (e.g. backBehavior) so the
 // tab back-behavior policy can be asserted.
 const mockCapturedTabsProps: Record<string, unknown> = {};
+let mockNavigationBadges = { global: 0, social: 0, leagues: 0 };
 
 // A second mock factory for expo-router that captures Tabs.Screen options.
 // We use jest.doMock (not hoisted) inside a describe-scoped beforeEach so that
@@ -838,9 +840,14 @@ const mockCapturedTabsProps: Record<string, unknown> = {};
 
 describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   beforeEach(() => {
+    mockNavigationBadges = { global: 0, social: 0, leagues: 0 };
     mockCapturedScreens.length = 0;
     Object.keys(mockCapturedTabsProps).forEach((k) => delete mockCapturedTabsProps[k]);
     jest.resetModules();
+
+    jest.doMock('@/features/notifications/badges', () => ({
+      useNavigationBadgeCounts: () => mockNavigationBadges,
+    }));
 
     // Re-apply all required mocks after resetModules
     jest.doMock('expo-router', () => {
@@ -1024,12 +1031,13 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   });
 
   it('TabIcon — badge count > 0 is rendered', () => {
+    mockNavigationBadges = { global: 9, social: 5, leagues: 0 };
     jest.doMock('@/features/notifications', () => ({
       __esModule: true,
       useNotifications: () => ({
         notifications: [],
-        unreadCount: 5,
-        dmUnreadCount: 0,
+        unreadCount: 9,
+        dmUnreadCount: 5,
         markAsRead: jest.fn(),
         markAllAsRead: jest.fn(),
       }),
@@ -1044,12 +1052,13 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   });
 
   it('TabIcon — badge count > 99 shows "99+"', () => {
+    mockNavigationBadges = { global: 200, social: 150, leagues: 0 };
     jest.doMock('@/features/notifications', () => ({
       __esModule: true,
       useNotifications: () => ({
         notifications: [],
-        unreadCount: 150,
-        dmUnreadCount: 0,
+        unreadCount: 200,
+        dmUnreadCount: 150,
         markAsRead: jest.fn(),
         markAllAsRead: jest.fn(),
       }),
@@ -1061,6 +1070,28 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
     expect(renderer).not.toBeNull();
     const { getByTestId } = render(renderer!({ focused: false }) as React.ReactElement);
     expect(getByTestId('social-unread-badge').props.children.props.children).toBe('99+');
+  });
+
+  it('TabIcon — pending invitations appear only on Leagues', () => {
+    mockNavigationBadges = { global: 8, social: 0, leagues: 4 };
+    const TabLayout = require('../../app/(tabs)/_layout').default;
+    render(<TabLayout />);
+    const leaguesRenderer = getTabIconRenderer('leagues');
+    const socialRenderer = getTabIconRenderer('social');
+    expect(leaguesRenderer).not.toBeNull();
+    expect(socialRenderer).not.toBeNull();
+
+    const leaguesIcon = render(
+      leaguesRenderer!({ focused: false }) as React.ReactElement,
+    );
+    expect(
+      leaguesIcon.getByTestId('leagues-invite-badge').props.children.props.children,
+    ).toBe(4);
+    leaguesIcon.unmount();
+    expect(
+      render(socialRenderer!({ focused: false }) as React.ReactElement)
+        .queryByTestId('social-unread-badge'),
+    ).toBeNull();
   });
 
   it('TabIcon — badge with count 0 does not render badge text', () => {

@@ -105,6 +105,11 @@ def _make_user_client(monkeypatch, phone: str = PHONE, user_id: int = USER_ID):
 
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
+
+    async def fake_is_system_admin(session, uid: int) -> bool:
+        return False
+
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
 

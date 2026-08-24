@@ -19,6 +19,7 @@ import { usePaletteColors } from '@/theme/usePaletteColors';
 import { useLeagueChatTab } from './useLeagueChatTab';
 import type { LeagueChatMessage } from '@beach-kings/shared';
 import ReportSheet from '@/components/moderation/ReportSheet';
+import { useMessageDeliveryStatus } from '../Messages/useMessageDeliveryStatus';
 
 // ---------------------------------------------------------------------------
 // Message bubble
@@ -36,6 +37,10 @@ interface MessageBubbleProps {
 
 function MessageBubble({ message, showSender, onReport }: MessageBubbleProps): React.ReactNode {
   const [revealed, setRevealed] = useState(false);
+  const deliveryStatus = useMessageDeliveryStatus(
+    message.is_mine ? message.moderation_visibility : undefined,
+    message.created_at,
+  );
   const timeLabel = message.created_at
     ? new Date(message.created_at).toLocaleTimeString('en-US', {
         hour: 'numeric',
@@ -70,7 +75,7 @@ function MessageBubble({ message, showSender, onReport }: MessageBubbleProps): R
         </Pressable>
         <AppText className="text-[10px] text-tertiary mt-[2px]">
           {timeLabel}
-          {message.moderation_visibility === 'pending' ? ' · Reviewing' : ''}
+          {deliveryStatus ? ` · ${deliveryStatus}` : ''}
         </AppText>
       </View>
     );

@@ -609,3 +609,32 @@ describe('getPlayerHomeCourts', () => {
     expect(result[0].longitude).toBe(-117.23);
   });
 });
+
+describe('setPlayerHomeCourts', () => {
+  it('replaces the ordered home-court ids and returns the response', async () => {
+    const orderedCourts = [
+      { id: 9, name: 'North Beach', position: 0 },
+      { id: 4, name: 'South Beach', position: 1 },
+    ];
+    const mockPut = jest.fn().mockResolvedValue({ data: orderedCourts });
+    const methods = createApiMethods(makeClient({ put: mockPut }));
+
+    await expect(methods.setPlayerHomeCourts(42, [9, 4])).resolves.toEqual(orderedCourts);
+    expect(mockPut).toHaveBeenCalledWith('/api/players/42/home-courts', {
+      court_ids: [9, 4],
+    });
+  });
+});
+
+describe('getPlaceholderCourt', () => {
+  it('requests the private court for the named location', async () => {
+    const placeholder = { id: 91, name: 'Other / Private Court', location_id: 'montreal' };
+    const mockGet = jest.fn().mockResolvedValue({ data: placeholder });
+    const methods = createApiMethods(makeClient({ get: mockGet }));
+
+    await expect(methods.getPlaceholderCourt('montreal')).resolves.toEqual(placeholder);
+    expect(mockGet).toHaveBeenCalledWith('/api/courts/placeholder', {
+      params: { location_id: 'montreal' },
+    });
+  });
+});

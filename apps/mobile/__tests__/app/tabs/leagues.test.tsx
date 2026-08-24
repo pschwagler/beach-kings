@@ -44,12 +44,21 @@ jest.mock('@/contexts/ThemeContext', () => ({
 
 const mockGetUserLeagues = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();
+const mockGetReceivedLeagueInvites = jest.fn();
+const mockAcceptLeagueInvite = jest.fn();
+const mockDeclineLeagueInvite = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     getUserLeagues: (...args: unknown[]) => mockGetUserLeagues(...args),
     getCurrentUserPlayer: (...args: unknown[]) =>
       mockGetCurrentUserPlayer(...args),
+    getReceivedLeagueInvites: (...args: unknown[]) =>
+      mockGetReceivedLeagueInvites(...args),
+    acceptLeagueInvite: (...args: unknown[]) =>
+      mockAcceptLeagueInvite(...args),
+    declineLeagueInvite: (...args: unknown[]) =>
+      mockDeclineLeagueInvite(...args),
   },
 }));
 
@@ -66,9 +75,10 @@ function makeQueryClient() {
 
 function renderWithQuery(ui: React.ReactElement) {
   const client = makeQueryClient();
-  return render(
+  const rendered = render(
     <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
   );
+  return { ...rendered, client };
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +141,17 @@ const SECOND_LEAGUE_FIXTURE = {
   ],
 };
 
+const INVITE_FIXTURES = [1, 2, 3, 4].map((id) => ({
+  id,
+  league_id: 300 + id,
+  league_name: `Invited League ${id}`,
+  player_id: 1,
+  display_name: 'League Organizer',
+  initials: `L${id}`,
+  invited_at: `2026-08-0${10 - id}T12:00:00Z`,
+  status: 'pending' as const,
+}));
+
 // ---------------------------------------------------------------------------
 // Import screen AFTER mocks are configured
 // ---------------------------------------------------------------------------
@@ -147,6 +168,9 @@ describe('LeaguesScreen', () => {
     // Default: instant resolution
     mockGetCurrentUserPlayer.mockResolvedValue(PLAYER_FIXTURE);
     mockGetUserLeagues.mockResolvedValue([LEAGUE_FIXTURE]);
+    mockGetReceivedLeagueInvites.mockResolvedValue([]);
+    mockAcceptLeagueInvite.mockResolvedValue({ status: 'accepted' });
+    mockDeclineLeagueInvite.mockResolvedValue({ status: 'declined' });
   });
 
   // ---- Loading state -------------------------------------------------------
@@ -221,6 +245,147 @@ describe('LeaguesScreen', () => {
     });
 
     expect(getByTestId('join-another-league-cta')).toBeTruthy();
+  });
+
+  it('shows at most three pending invitation cards above My Leagues', async () => {
+    mockGetReceivedLeagueInvites.mockResolvedValue(INVITE_FIXTURES);
+
+    const { getByTestId, getByText, queryByTestId } = renderWithQuery(
+      <LeaguesScreen />,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('received-invites-preview')).toBeTruthy();
+      expect(getByText('Invitations (4)')).toBeTruthy();
+    });
+    expect(getByTestId('received-invite-row-1')).toBeTruthy();
+    expect(getByTestId('received-invite-row-2')).toBeTruthy();
+    expect(getByTestId('received-invite-row-3')).toBeTruthy();
+    expect(queryByTestId('received-invite-row-4')).toBeNull();
+    expect(getByTestId('league-card-101')).toBeTruthy();
+  });
+
+  it('filters non-pending cached invitations from the preview', async () => {
+    mockGetReceivedLeagueInvites.mockResolvedValue([
+      INVITE_FIXTURES[0],
+      { ...INVITE_FIXTURES[1], status: 'declined' },
+      { ...INVITE_FIXTURES[2], status: 'accepted' },
+    ]);
+
+    const { getByText, queryByText } = renderWithQuery(<LeaguesScreen />);
+
+    await waitFor(() => expect(getByText('Invitations (1)')).toBeTruthy());
+    expect(queryByText('Invited League 2')).toBeNull();
+    expect(queryByText('Invited League 3')).toBeNull();
+  });
+
+  it('removes an accepted invitation from the shared cache immediately', async () => {
+    mockGetReceivedLeagueInvites.mockResolvedValue(INVITE_FIXTURES.slice(0, 2));
+    let resolveAccept!: (value: { status: string }) => void;
+    mockAcceptLeagueInvite.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAccept = resolve;
+      }),
+    );
+
+    const { getByTestId, queryByTestId, getByText } = renderWithQuery(
+      <LeaguesScreen />,
+    );
+    await waitFor(() => expect(getByText('Invitations (2)')).toBeTruthy());
+
+    fireEvent.press(getByTestId('accept-invite-1'));
+
+    await waitFor(() => {
+      expect(queryByTestId('received-invite-row-1')).toBeNull();
+      expect(getByText('Invitations (1)')).toBeTruthy();
+    });
+    expect(mockAcceptLeagueInvite).toHaveBeenCalledWith(301);
+
+    await act(async () => {
+      resolveAccept({ status: 'accepted' });
+    });
+  });
+
+  it('restores two failed preview actions without changing the capped order', async () => {
+    mockGetReceivedLeagueInvites.mockResolvedValue(INVITE_FIXTURES);
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    let rejectAccept!: (error: Error) => void;
+    let rejectDecline!: (error: Error) => void;
+    mockAcceptLeagueInvite.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectAccept = reject;
+      }),
+    );
+    mockDeclineLeagueInvite.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectDecline = reject;
+      }),
+    );
+    const { getByTestId, queryByTestId } = renderWithQuery(<LeaguesScreen />);
+    await waitFor(() => expect(getByTestId('received-invite-row-3')).toBeTruthy());
+
+    fireEvent.press(getByTestId('accept-invite-1'));
+    fireEvent.press(getByTestId('decline-invite-3'));
+    await waitFor(() => {
+      expect(mockAcceptLeagueInvite).toHaveBeenCalledWith(301);
+      expect(mockDeclineLeagueInvite).toHaveBeenCalledWith(303);
+    });
+
+    await act(async () => {
+      rejectAccept(new Error('accept failed'));
+    });
+    await act(async () => {
+      rejectDecline(new Error('decline failed'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('received-invite-row-1')).toBeTruthy();
+      expect(getByTestId('received-invite-row-2')).toBeTruthy();
+      expect(getByTestId('received-invite-row-3')).toBeTruthy();
+      expect(queryByTestId('received-invite-row-4')).toBeNull();
+    });
+  });
+
+  it('keeps invitation failure local while league content remains ready', async () => {
+    mockGetReceivedLeagueInvites.mockRejectedValue(new Error('offline'));
+
+    const { getByText, getByTestId } = renderWithQuery(<LeaguesScreen />);
+
+    await waitFor(() => {
+      expect(getByText('Could not load invitations.')).toBeTruthy();
+      expect(getByTestId('league-card-101')).toBeTruthy();
+    });
+  });
+
+  it('retries only the invitation section after a failure', async () => {
+    mockGetReceivedLeagueInvites
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(INVITE_FIXTURES.slice(0, 1));
+
+    const { getByLabelText, getByText } = renderWithQuery(<LeaguesScreen />);
+    await waitFor(() => expect(getByText('Could not load invitations.')).toBeTruthy());
+
+    fireEvent.press(getByLabelText('Retry loading this section'));
+
+    await waitFor(() => expect(getByText('Invitations (1)')).toBeTruthy());
+    expect(mockGetUserLeagues).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the compact invitation row without a zero count', async () => {
+    const { getByTestId, queryByText } = renderWithQuery(<LeaguesScreen />);
+
+    await waitFor(() => expect(getByTestId('received-invites-link')).toBeTruthy());
+    expect(queryByText('Invitations (0)')).toBeNull();
+  });
+
+  it('View All navigates to the standalone invitations screen', async () => {
+    mockGetReceivedLeagueInvites.mockResolvedValue(INVITE_FIXTURES);
+    const { getByTestId } = renderWithQuery(<LeaguesScreen />);
+    await waitFor(() => expect(getByTestId('received-invites-view-all')).toBeTruthy());
+
+    fireEvent.press(getByTestId('received-invites-view-all'));
+
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/received-invites');
   });
 
   it('tapping "Join Another League" CTA navigates to find-leagues', async () => {

@@ -35,7 +35,6 @@ jest.mock('@/components/ui/icons', () => {
       <View testID={`icon-${name}`} />
     );
   return {
-    CrownIcon: stub('Crown'),
     ChatIcon: stub('Chat'),
     BellIcon: stub('Bell'),
     UsersIcon: stub('Users'),
@@ -125,8 +124,8 @@ afterAll(() => {
 // HomeHeader
 // ---------------------------------------------------------------------------
 describe('HomeHeader', () => {
-  it('renders the brand wordmark + avatar', () => {
-    const { getByLabelText, getByText, getByTestId } = render(
+  it('renders the brand lockup + avatar', () => {
+    const { getByLabelText, getByTestId } = render(
       <HomeHeader
         userName="Ava"
         avatarUrl={null}
@@ -134,7 +133,7 @@ describe('HomeHeader', () => {
         notificationUnreadCount={0}
       />,
     );
-    expect(getByText('BEACH LEAGUE')).toBeTruthy();
+    expect(getByTestId('home-brand-lockup')).toBeTruthy();
     expect(getByLabelText('Beach League home')).toBeTruthy();
     expect(getByTestId('avatar')).toBeTruthy();
   });
@@ -147,7 +146,7 @@ describe('HomeHeader', () => {
       fontScale: 2,
     });
 
-    const { getByLabelText, queryByText } = render(
+    const { getByLabelText, getByTestId, queryByTestId } = render(
       <HomeHeader
         userName="Ava"
         dmUnreadCount={0}
@@ -155,7 +154,8 @@ describe('HomeHeader', () => {
       />,
     );
 
-    expect(queryByText('BEACH LEAGUE')).toBeNull();
+    expect(queryByTestId('home-brand-lockup')).toBeNull();
+    expect(getByTestId('home-brand-mark')).toBeTruthy();
     expect(getByLabelText('Beach League home')).toBeTruthy();
     expect(getByLabelText('Messages')).toBeTruthy();
     expect(getByLabelText('Notifications')).toBeTruthy();
@@ -185,6 +185,25 @@ describe('HomeHeader', () => {
     );
     expect(queryByTestId('messages-unread-badge')).toBeNull();
     expect(queryByTestId('notifications-unread-badge')).toBeNull();
+  });
+
+  it('uses borderless 44-point actions with pressed and focus feedback', () => {
+    const { getByLabelText } = render(
+      <HomeHeader
+        userName="Ava"
+        dmUnreadCount={0}
+        notificationUnreadCount={0}
+      />,
+    );
+
+    for (const label of ['Messages', 'Notifications']) {
+      const action = getByLabelText(label);
+      expect(action.props.className).toContain('w-11');
+      expect(action.props.className).toContain('h-11');
+      expect(action.props.className).toContain('active:opacity-70');
+      expect(action.props.className).toContain('focus:opacity-70');
+      expect(action.props.className).not.toMatch(/\bborder(?:-|\s|$)/);
+    }
   });
 
   it('shows unread counts on both badges', () => {
@@ -218,14 +237,12 @@ describe('HomeHeader', () => {
         notificationUnreadCount={0}
       />,
     );
-    // Chat/bell switch into the Social hub tab (root-tab model), not a push.
+    // Messages stays in Social; the global bell owns a standalone inbox.
     fireEvent.press(getByLabelText('Messages, 2 unread'));
     expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/social?tab=messages');
 
     fireEvent.press(getByLabelText('Notifications'));
-    expect(mockNavigate).toHaveBeenCalledWith(
-      '/(tabs)/social?tab=notifications',
-    );
+    expect(mockNavigate).toHaveBeenCalledWith('/(stack)/notifications');
 
     fireEvent.press(getByLabelText('My profile'));
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/profile');

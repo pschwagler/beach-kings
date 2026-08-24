@@ -5,6 +5,12 @@ import { leagueKeys } from './keys';
 const LEAGUE_GAMES_PAGE_SIZE = 500;
 
 export const leagueQueries = {
+  receivedInvites: (userId: number, enabled = true) => queryOptions({
+    queryKey: leagueKeys.receivedInvites(userId),
+    queryFn: () => api.getReceivedLeagueInvites(),
+    enabled: enabled && userId > 0,
+    staleTime: 15_000,
+  }),
   detail: (userId: number, leagueId: number | string, enabled = true) =>
     queryOptions({
       queryKey: leagueKeys.detail(userId, leagueId),

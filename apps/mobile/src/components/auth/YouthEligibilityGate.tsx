@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { Button } from '@/components/ui';
@@ -10,7 +10,6 @@ import { PUBLIC_URLS } from '@/lib/publicUrls';
 import { openPublicWebUrl } from '@/lib/externalUrls';
 import { requestDeclaredAgeRange } from 'expo-declared-age-range';
 
-type Country = 'US' | 'CA';
 type Band = 'under_minimum' | 'junior' | 'adult';
 type Declaration =
   | 'self_declared'
@@ -18,29 +17,30 @@ type Declaration =
   | 'verified'
   | 'guardian_verified'
   | 'not_shared';
+type EligibilityStage = 'requesting_apple' | 'manual' | 'checking' | 'error';
 
-const US_REGIONS = [
-  ['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'],
-  ['CA', 'California'], ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'],
-  ['DC', 'District of Columbia'], ['FL', 'Florida'], ['GA', 'Georgia'], ['HI', 'Hawaii'],
-  ['ID', 'Idaho'], ['IL', 'Illinois'], ['IN', 'Indiana'], ['IA', 'Iowa'], ['KS', 'Kansas'],
-  ['KY', 'Kentucky'], ['LA', 'Louisiana'], ['ME', 'Maine'], ['MD', 'Maryland'],
-  ['MA', 'Massachusetts'], ['MI', 'Michigan'], ['MN', 'Minnesota'], ['MS', 'Mississippi'],
-  ['MO', 'Missouri'], ['MT', 'Montana'], ['NE', 'Nebraska'], ['NV', 'Nevada'],
-  ['NH', 'New Hampshire'], ['NJ', 'New Jersey'], ['NM', 'New Mexico'], ['NY', 'New York'],
-  ['NC', 'North Carolina'], ['ND', 'North Dakota'], ['OH', 'Ohio'], ['OK', 'Oklahoma'],
-  ['OR', 'Oregon'], ['PA', 'Pennsylvania'], ['RI', 'Rhode Island'],
-  ['SC', 'South Carolina'], ['SD', 'South Dakota'], ['TN', 'Tennessee'], ['TX', 'Texas'],
-  ['UT', 'Utah'], ['VT', 'Vermont'], ['VA', 'Virginia'], ['WA', 'Washington'],
-  ['WV', 'West Virginia'], ['WI', 'Wisconsin'], ['WY', 'Wyoming'],
-] as const;
+export const APPLE_FALLBACK_DELAY_MS = 3_000;
+export const ELIGIBILITY_TIMEOUT_MS = 15_000;
 
-const CA_REGIONS = [
-  ['AB', 'Alberta'], ['BC', 'British Columbia'], ['MB', 'Manitoba'],
-  ['NB', 'New Brunswick'], ['NL', 'Newfoundland and Labrador'], ['NS', 'Nova Scotia'],
-  ['NT', 'Northwest Territories'], ['NU', 'Nunavut'], ['ON', 'Ontario'],
-  ['PE', 'Prince Edward Island'], ['QC', 'Québec'], ['SK', 'Saskatchewan'], ['YT', 'Yukon'],
-] as const;
+export async function withDeadline<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      task,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error('ELIGIBILITY_TIMEOUT')),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
 
 export function declarationFromApple(value?: string): Declaration {
   const normalized = (value ?? '').toLowerCase();
@@ -63,8 +63,6 @@ interface Props {
 
 export default function YouthEligibilityGate({ onEligible }: Props): React.ReactNode {
   const palette = usePaletteColors();
-  const [country, setCountry] = useState<Country | ''>('');
-  const [region, setRegion] = useState('');
   const [band, setBand] = useState<Band | ''>('');
   const [source, setSource] = useState<'apple_declared_age_range' | 'self_declared'>('self_declared');
   const [declaration, setDeclaration] = useState<Declaration>('not_shared');
@@ -72,12 +70,15 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
   const [fallbackVisible, setFallbackVisible] = useState(Platform.OS !== 'ios');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const minimumAge = country === 'CA' ? 14 : 13;
-  const regionOptions = useMemo(
-    () => (country === 'CA' ? CA_REGIONS : US_REGIONS).map(([value, label]) => ({ value, label })),
-    [country],
+  const appleRequestStarted = useRef(false);
+  const operationRef = useRef(0);
+  const mountedRef = useRef(true);
+  const requestPendingRef = useRef(false);
+  const [stage, setStage] = useState<EligibilityStage>(
+    Platform.OS === 'ios' ? 'requesting_apple' : 'manual',
   );
+
+  const minimumAge = 14 as const;
   const bandOptions = useMemo(
     () => [
       { value: 'under_minimum', label: `Under ${minimumAge}` },
@@ -93,102 +94,149 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
     selectedDeclaration = declaration,
     consent = guardianConsent,
   ) => {
-    if (!country || !region) return;
+    if (requestPendingRef.current) return;
+    requestPendingRef.current = true;
+    const operation = ++operationRef.current;
     setLoading(true);
+    setStage('checking');
     setError('');
     try {
-      const result = await api.checkYouthEligibility({
-        country_code: country,
-        region_code: region,
-        declared_band: selectedBand,
-        assurance_source: selectedSource,
-        declaration_source: selectedDeclaration,
-        guardian_consent: consent,
-      });
+      const result = await withDeadline(
+        api.checkYouthEligibility({
+          declared_band: selectedBand,
+          assurance_source: selectedSource,
+          declaration_source: selectedDeclaration,
+          guardian_consent: consent,
+        }),
+        ELIGIBILITY_TIMEOUT_MS,
+      );
+      if (!mountedRef.current || operation !== operationRef.current) return;
       onEligible(result.eligibility_token);
     } catch (caught) {
+      if (!mountedRef.current || operation !== operationRef.current) return;
       const message = (caught as { response?: { data?: { detail?: string } } })
         .response?.data?.detail;
-      setError(message ?? 'We could not complete the age check. Please try again.');
+      setStage('error');
+      setError(
+        caught instanceof Error && caught.message === 'ELIGIBILITY_TIMEOUT'
+          ? 'The age check took too long. Please try again.'
+          : message ?? 'We could not complete the age check. Please try again.',
+      );
     } finally {
-      setLoading(false);
+      if (mountedRef.current && operation === operationRef.current) {
+        requestPendingRef.current = false;
+        setLoading(false);
+      }
     }
-  }, [country, declaration, guardianConsent, onEligible, region, source]);
+  }, [declaration, guardianConsent, onEligible, source]);
 
   const handleAppleAgeRange = useCallback(async () => {
-    if (!country || !region) {
-      setError('Select your country and state or province first.');
-      return;
-    }
+    if (requestPendingRef.current) return;
+    requestPendingRef.current = true;
+    const operation = ++operationRef.current;
     setLoading(true);
+    setStage('requesting_apple');
     setError('');
-    const result = await requestDeclaredAgeRange(minimumAge);
-    setLoading(false);
-    if (result.status !== 'shared') {
+    const fallbackTimer = setTimeout(() => {
+      if (!mountedRef.current || operation !== operationRef.current) return;
       setFallbackVisible(true);
-      setSource('self_declared');
-      setDeclaration('not_shared');
-      return;
-    }
-    const selectedBand = bandFromApple(result.lowerBound);
-    const selectedDeclaration = declarationFromApple(result.declaration);
-    const consent = selectedDeclaration.startsWith('guardian_');
-    setBand(selectedBand);
-    setSource('apple_declared_age_range');
-    setDeclaration(selectedDeclaration);
-    setGuardianConsent(consent);
-    if (selectedBand === 'adult' || selectedBand === 'under_minimum' || consent) {
-      await submitFacts(selectedBand, 'apple_declared_age_range', selectedDeclaration, consent);
-    } else {
+      setStage('manual');
+    }, APPLE_FALLBACK_DELAY_MS);
+    try {
+      const result = await requestDeclaredAgeRange(minimumAge);
+      if (!mountedRef.current || operation !== operationRef.current) return;
+      requestPendingRef.current = false;
+      setLoading(false);
+      if (result.status !== 'shared' || result.lowerBound == null) {
+        setFallbackVisible(true);
+        setStage('manual');
+        setSource('self_declared');
+        setDeclaration('not_shared');
+        return;
+      }
+      const selectedBand = bandFromApple(result.lowerBound);
+      const selectedDeclaration = declarationFromApple(result.declaration);
+      const consent = selectedDeclaration.startsWith('guardian_');
+      setBand(selectedBand);
+      setSource('apple_declared_age_range');
+      setDeclaration(selectedDeclaration);
+      setGuardianConsent(consent);
+      if (selectedBand === 'adult' || selectedBand === 'under_minimum' || consent) {
+        await submitFacts(selectedBand, 'apple_declared_age_range', selectedDeclaration, consent);
+      } else {
+        setFallbackVisible(true);
+        setStage('manual');
+      }
+    } catch {
+      if (!mountedRef.current || operation !== operationRef.current) return;
+      requestPendingRef.current = false;
+      setLoading(false);
       setFallbackVisible(true);
+      setStage('manual');
+    } finally {
+      clearTimeout(fallbackTimer);
     }
-  }, [country, minimumAge, region, submitFacts]);
+  }, [minimumAge, submitFacts]);
 
-  const canContinue = Boolean(country && region && band)
-    && (band !== 'junior' || guardianConsent);
+  useEffect(() => {
+    if (Platform.OS === 'ios' && !appleRequestStarted.current) {
+      appleRequestStarted.current = true;
+      void handleAppleAgeRange();
+    }
+  }, [handleAppleAgeRange]);
+
+  useEffect(() => {
+    // React StrictMode replays effects without discarding refs. Restore the
+    // mounted bit on setup so the one native Apple request remains owned by
+    // the replayed tree; a real unmount still makes every completion stale.
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      requestPendingRef.current = false;
+    };
+  }, []);
+
+  const chooseManualBand = useCallback((value: string) => {
+    // A user choice wins over a late Apple completion.
+    operationRef.current += 1;
+    requestPendingRef.current = false;
+    setLoading(false);
+    setBand(value as Band);
+    setSource('self_declared');
+    setDeclaration('self_declared');
+    setGuardianConsent(false);
+    setStage('manual');
+    setError('');
+  }, []);
+
+  const canContinue = Boolean(band) && (band !== 'junior' || guardianConsent);
 
   return (
     <View className="bg-surface rounded-card p-lg gap-md" testID="youth-eligibility-gate">
       <View>
         <AppText className="text-title3 font-bold text-default">Before you create an account</AppText>
         <AppText className="text-body text-muted mt-xs">
-          Tell us only your age range and location. We use these to keep Beach League safer and
-          won’t ask for your birthdate.
+          Share only your age range so we can apply the right safety settings. We won’t ask for
+          your birthdate or jurisdiction.
         </AppText>
       </View>
 
-      <View>
-        <FormLabel>Country</FormLabel>
-        <BottomSheetSelect
-          title="Select country"
-          placeholder="Select country"
-          value={country}
-          options={[{ value: 'US', label: 'United States' }, { value: 'CA', label: 'Canada' }]}
-          onChange={(value) => { setCountry(value as Country); setRegion(''); setBand(''); setError(''); }}
-          testID="age-country"
-        />
-      </View>
-
-      {country ? (
-        <View>
-          <FormLabel>{country === 'CA' ? 'Province or territory' : 'State'}</FormLabel>
-          <BottomSheetSelect
-            title={country === 'CA' ? 'Select province or territory' : 'Select state'}
-            placeholder={country === 'CA' ? 'Select province or territory' : 'Select state'}
-            value={region}
-            options={regionOptions}
-            onChange={(value) => { setRegion(value); setBand(''); setError(''); }}
-            searchable
-            testID="age-region"
-          />
-        </View>
-      ) : null}
+      <AppText
+        className="text-caption text-muted"
+        accessibilityLiveRegion="polite"
+        testID="eligibility-stage"
+      >
+        {stage === 'requesting_apple' && 'Waiting for Apple age range…'}
+        {stage === 'manual' && 'Choose your age range to continue.'}
+        {stage === 'checking' && 'Checking eligibility…'}
+        {stage === 'error' && 'Age check needs attention.'}
+      </AppText>
 
       {Platform.OS === 'ios' && !fallbackVisible ? (
         <Button
           title="Share Age Range with Apple"
           onPress={() => { void handleAppleAgeRange(); }}
-          disabled={!country || !region || loading}
+          disabled={loading}
           loading={loading}
           variant="secondary"
         />
@@ -203,13 +251,7 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
               placeholder="Select age range"
               value={band}
               options={bandOptions}
-              onChange={(value) => {
-                setBand(value as Band);
-                setSource('self_declared');
-                setDeclaration('self_declared');
-                setGuardianConsent(false);
-                setError('');
-              }}
+              onChange={chooseManualBand}
               testID="age-band"
             />
           </View>

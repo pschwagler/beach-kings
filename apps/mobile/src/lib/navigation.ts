@@ -15,7 +15,7 @@
  * of the tab keys; `SocialSubnav` re-exports this so components and route
  * helpers agree on the same union.
  */
-export type SocialTab = 'messages' | 'notifications' | 'friends' | 'findplayers';
+export type SocialTab = 'messages' | 'friends' | 'findplayers';
 export type LeagueTab = 'games' | 'standings' | 'chat' | 'signups' | 'info';
 
 export const routes = {
@@ -101,6 +101,7 @@ export const routes = {
   // ---- Stack: personal ----
   myGames: () => '/(stack)/my-games' as const,
   myStats: () => '/(stack)/my-stats' as const,
+  homeCourts: () => '/(stack)/profile/home-courts' as const,
   // Returns plain `string` rather than the `as const` literal used by other
   // routes here. expo-router typed routes can't express dynamic query strings,
   // so callers cast with `as never` at the push site. The runtime builder
@@ -258,6 +259,7 @@ export const routeUp: Record<string, UpTarget> = {
   '(stack)/my-games': routes.profile(),
   '(stack)/my-stats': routes.profile(),
   '(stack)/edit-profile': routes.profile(),
+  '(stack)/profile/home-courts': routes.profile(),
 
   // Misc
   '(stack)/kob/[code]': routes.home(),
@@ -266,7 +268,7 @@ export const routeUp: Record<string, UpTarget> = {
   // Inbox / social hub
   '(stack)/messages': routes.social({ tab: 'messages' }),
   '(stack)/messages/[playerId]': routes.social({ tab: 'messages' }),
-  '(stack)/notifications': routes.social({ tab: 'notifications' }),
+  '(stack)/notifications': routes.home(),
   '(stack)/find-players': routes.social({ tab: 'findplayers' }),
 
   // Creators

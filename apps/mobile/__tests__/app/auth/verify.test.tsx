@@ -275,6 +275,11 @@ describe('VerifyScreen (email mode)', () => {
     expect(getByText('Verify Email')).toBeTruthy();
   });
 
+  it('shows the full just-submitted email for typo detection', () => {
+    const { getByText } = render(<VerifyScreen />);
+    expect(getByText(/test@example\.com/)).toBeTruthy();
+  });
+
   it('resend calls sendEmailVerification (not sendVerification) in email mode', async () => {
     mockSendEmailVerification.mockResolvedValueOnce(undefined);
     const { getByText } = render(<VerifyScreen />);

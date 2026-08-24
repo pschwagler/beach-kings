@@ -373,6 +373,8 @@ async def test_relation_win_rate_units_from_aggregates(db_session, seeded):
     opponents = {row["player_id"]: row for row in payload["opponents"]}
     assert partners[seeded["partner_a"].id]["win_rate"] == pytest.approx(83.3, abs=0.1)
     assert opponents[seeded["opp_a"].id]["win_rate"] == pytest.approx(40.0, abs=0.1)
+    assert partners[seeded["partner_a"].id]["full_name"] == "Partner A"
+    assert opponents[seeded["opp_a"].id]["full_name"] == "Opp A"
 
 
 @pytest.mark.asyncio
@@ -402,6 +404,8 @@ async def test_days_30_only(db_session, seeded):
     assert partner_ids[seeded["partner_a"].id]["wins"] == 2
     assert partner_ids[seeded["partner_b"].id]["games_played"] == 2
     assert partner_ids[seeded["partner_b"].id]["wins"] == 1
+    assert partner_ids[seeded["partner_a"].id]["full_name"] == "Partner A"
+    assert partner_ids[seeded["partner_b"].id]["full_name"] == "Partner B"
     # Opponents: opp_a + opp_b in all 4 recent matches
     for opp_row in payload["opponents"]:
         assert opp_row["games_played"] == 4

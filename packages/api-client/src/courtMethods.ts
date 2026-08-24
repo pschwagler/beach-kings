@@ -141,6 +141,14 @@ export function createCourtMethods(api: AxiosInstance) {
       return courts.map(normalizeCourt);
     },
 
+    /** Return the non-geocoded private/other court for a saved metro. */
+    async getPlaceholderCourt(locationId: string): Promise<Court> {
+      const response = await api.get<Court>('/api/courts/placeholder', {
+        params: { location_id: locationId },
+      });
+      return response.data;
+    },
+
     /**
      * Fetch a player's home courts (ordered by position), including
      * coordinates. Used as a fallback when resolving the user's location.
@@ -150,6 +158,18 @@ export function createCourtMethods(api: AxiosInstance) {
     async getPlayerHomeCourts(playerId: number): Promise<PlayerHomeCourt[]> {
       const response = await api.get<PlayerHomeCourt[]>(
         `/api/players/${playerId}/home-courts`,
+      );
+      return response.data;
+    },
+
+    /** Replace and order the authenticated player's home courts atomically. */
+    async setPlayerHomeCourts(
+      playerId: number,
+      courtIds: readonly number[],
+    ): Promise<PlayerHomeCourt[]> {
+      const response = await api.put<PlayerHomeCourt[]>(
+        `/api/players/${playerId}/home-courts`,
+        { court_ids: courtIds },
       );
       return response.data;
     },

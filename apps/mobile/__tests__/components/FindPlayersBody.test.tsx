@@ -20,7 +20,15 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 jest.mock('@/theme/usePaletteColors', () => ({
-  usePaletteColors: () => ({ textTertiary: '#999999' }),
+  usePaletteColors: () => ({
+    textTertiary: '#999999',
+    textDefault: '#111111',
+    brandTeal: '#005555',
+  }),
+}));
+
+jest.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({ isDark: false }),
 }));
 
 import FindPlayersBody, {
@@ -75,8 +83,34 @@ function makeProps(
     sameLeagueOnly: false,
     sharedFriendsOnly: false,
     onToggleLevel: jest.fn(),
+    onSetLevel: jest.fn(),
     onToggleSameLeague: jest.fn(),
     onToggleSharedFriends: jest.fn(),
+    locations: [
+      {
+        id: 'socal_sd',
+        name: 'San Diego',
+        city: 'San Diego',
+        state: 'CA',
+        latitude: 32.72,
+        longitude: -117.16,
+      },
+    ],
+    locationsPending: false,
+    locationsError: null,
+    onRetryLocations: jest.fn(),
+    metroFilterId: null,
+    nearMeEnabled: false,
+    nearMePending: false,
+    nearMeDenied: false,
+    nearMeUnavailable: false,
+    nearMeOriginLabel: null,
+    radiusMiles: 25,
+    onSelectMetro: jest.fn(),
+    onSelectNearMe: jest.fn(),
+    onSetRadius: jest.fn(),
+    onClearLocation: jest.fn(),
+    hasLocationFilter: false,
     ...overrides,
   };
 }
@@ -101,6 +135,7 @@ describe('FindPlayersBody — loading & error', () => {
       <FindPlayersBody {...makeProps({ playersError: new Error('boom') })} />,
     );
     expect(screen.getByTestId('find-players-error-state')).toBeTruthy();
+    expect(screen.getByTestId('discover-filter-button')).toBeTruthy();
   });
 
   it('retries discovery from the error state', () => {
@@ -149,23 +184,26 @@ describe('FindPlayersBody — empty states', () => {
 // Filter chips
 // ---------------------------------------------------------------------------
 
-describe('FindPlayersBody — filter chips', () => {
-  it('renders the full chip row', () => {
+describe('FindPlayersBody — filter controls', () => {
+  it('keeps only the approved primary views inline', () => {
     render(<FindPlayersBody {...makeProps()} />);
+    expect(screen.getByTestId('discover-chip-all-players')).toBeTruthy();
     expect(screen.getByTestId('discover-chip-same-league')).toBeTruthy();
     expect(screen.getByTestId('discover-chip-shared-friends')).toBeTruthy();
-    expect(screen.getByTestId('discover-chip-level-Open')).toBeTruthy();
-    expect(screen.getByTestId('discover-chip-level-AA')).toBeTruthy();
-    expect(screen.getByTestId('discover-chip-level-advanced')).toBeTruthy();
-    expect(screen.getByTestId('discover-chip-level-intermediate')).toBeTruthy();
-    expect(screen.getByTestId('discover-chip-level-beginner')).toBeTruthy();
+    expect(screen.queryByTestId('discover-level-filters')).toBeNull();
+    expect(screen.getByTestId('discover-filter-button')).toBeTruthy();
   });
 
-  it('toggles a level via the chip', () => {
-    const onToggleLevel = jest.fn();
-    render(<FindPlayersBody {...makeProps({ onToggleLevel })} />);
-    fireEvent.press(screen.getByTestId('discover-chip-level-AA'));
-    expect(onToggleLevel).toHaveBeenCalledWith('AA');
+  it('keeps refinement changes as drafts until Apply', () => {
+    const onSetLevel = jest.fn();
+    render(<FindPlayersBody {...makeProps({ onSetLevel })} />);
+
+    fireEvent.press(screen.getByTestId('discover-filter-button'));
+    fireEvent.press(screen.getByTestId('discover-sheet-level-AA'));
+    expect(onSetLevel).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByTestId('discover-filter-apply'));
+    expect(onSetLevel).toHaveBeenCalledWith('AA');
   });
 
   it('toggles the Same League and Shared Friends chips', () => {
@@ -182,27 +220,179 @@ describe('FindPlayersBody — filter chips', () => {
     expect(onToggleSharedFriends).toHaveBeenCalledTimes(1);
   });
 
-  it('marks active chips as selected for accessibility', () => {
+  it('marks primary and sheet selections for accessibility', () => {
     render(
       <FindPlayersBody
         {...makeProps({ levelFilter: 'Open', sameLeagueOnly: true })}
       />,
     );
     expect(
-      screen.getByTestId('discover-chip-level-Open').props.accessibilityState,
-    ).toEqual(expect.objectContaining({ selected: true }));
-    expect(
       screen.getByTestId('discover-chip-same-league').props.accessibilityState,
     ).toEqual(expect.objectContaining({ selected: true }));
+    fireEvent.press(screen.getByTestId('discover-filter-button'));
     expect(
-      screen.getByTestId('discover-chip-level-AA').props.accessibilityState,
-    ).toEqual(expect.objectContaining({ selected: false }));
+      screen.getByTestId('discover-sheet-level-Open').props.accessibilityState,
+    ).toEqual(expect.objectContaining({ selected: true }));
   });
 
-  it('keeps the chip row visible in the empty state', () => {
+  it('keeps primary views and refinements available in the empty state', () => {
     render(<FindPlayersBody {...makeProps({ players: [] })} />);
     expect(screen.getByTestId('discover-chip-same-league')).toBeTruthy();
+    expect(screen.getByTestId('discover-filter-button')).toBeTruthy();
     expect(screen.getByTestId('find-players-empty-state')).toBeTruthy();
+  });
+
+  it('requests Near Me only after its draft is applied', () => {
+    const onSelectNearMe = jest.fn();
+    render(<FindPlayersBody {...makeProps({ onSelectNearMe })} />);
+
+    expect(onSelectNearMe).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('discover-filter-button'));
+    fireEvent.press(screen.getByTestId('discover-sheet-location-nearby'));
+    expect(onSelectNearMe).not.toHaveBeenCalled();
+    expect(screen.getByText(/requested only after you apply near me/i)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('discover-filter-apply'));
+    expect(onSelectNearMe).toHaveBeenCalledTimes(1);
+  });
+
+  it('selects and clears an exact metro from the catalog control', () => {
+    const onSelectMetro = jest.fn();
+    const onClearLocation = jest.fn();
+    const view = render(
+      <FindPlayersBody {...makeProps({ onSelectMetro, onClearLocation })} />,
+    );
+
+    fireEvent.press(screen.getByTestId('discover-filter-button'));
+    fireEvent.press(screen.getByTestId('discover-sheet-location-metro'));
+    fireEvent.press(screen.getByTestId('discover-sheet-metro-select'));
+    fireEvent.press(screen.getByText('San Diego'));
+    expect(onSelectMetro).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('discover-filter-apply'));
+    expect(onSelectMetro).toHaveBeenCalledWith('socal_sd');
+
+    view.rerender(
+      <FindPlayersBody
+        {...makeProps({
+          metroFilterId: 'socal_sd',
+          onSelectMetro,
+          onClearLocation,
+        })}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('discover-filter-button'));
+    fireEvent.press(screen.getByTestId('discover-sheet-location-all'));
+    fireEvent.press(screen.getByTestId('discover-filter-apply'));
+    expect(onClearLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows every approved radius and applies the selected radius', () => {
+    const onSetRadius = jest.fn();
+    render(
+      <FindPlayersBody
+        {...makeProps({
+          nearMeEnabled: true,
+          nearMeOriginLabel: 'San Diego',
+          onSetRadius,
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/Near San Diego · 25 mi/)).toBeTruthy();
+    expect(screen.getByText('Filters (2)')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('discover-filter-button'));
+    expect(screen.getByTestId('discover-sheet-radius-10')).toBeTruthy();
+    expect(screen.getByTestId('discover-sheet-radius-25')).toBeTruthy();
+    expect(screen.getByTestId('discover-sheet-radius-50')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('discover-sheet-radius-100'));
+    expect(onSetRadius).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('discover-filter-apply'));
+    expect(onSetRadius).toHaveBeenCalledWith(100);
+  });
+
+  it('clears every refinement as one draft and updates the active count on apply', () => {
+    const onSetLevel = jest.fn();
+    const onClearLocation = jest.fn();
+    render(
+      <FindPlayersBody
+        {...makeProps({
+          levelFilter: 'advanced',
+          metroFilterId: 'socal_sd',
+          onSetLevel,
+          onClearLocation,
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Filters (2)')).toBeTruthy();
+    expect(screen.getByText(/Advanced · San Diego/)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('discover-filter-button'));
+    fireEvent.press(screen.getByTestId('discover-filter-clear-all'));
+    expect(onSetLevel).not.toHaveBeenCalled();
+    expect(onClearLocation).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('discover-filter-apply'));
+    expect(onSetLevel).toHaveBeenCalledWith(null);
+    expect(onClearLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows permission denial with a usable metro selector fallback', () => {
+    render(
+      <FindPlayersBody
+        {...makeProps({ nearMeEnabled: true, nearMeDenied: true })}
+      />,
+    );
+
+    expect(screen.getByText(/choose a metro or clear near me/i)).toBeTruthy();
+    expect(screen.getByTestId('discover-filter-button')).toBeTruthy();
+    expect(screen.getByTestId('find-players-near-me-denied')).toBeTruthy();
+    expect(screen.queryByTestId('player-row-30')).toBeNull();
+    expect(screen.queryByTestId('find-players-empty-state')).toBeNull();
+    fireEvent.press(screen.getByTestId('discover-filter-button'));
+    fireEvent.press(screen.getByTestId('discover-sheet-location-metro'));
+    expect(screen.getByTestId('discover-sheet-metro-select')).toBeTruthy();
+  });
+
+  it('hides stale players behind an explicit Near Me resolving state', () => {
+    render(
+      <FindPlayersBody
+        {...makeProps({ nearMeEnabled: true, nearMePending: true })}
+      />,
+    );
+
+    expect(screen.getByTestId('find-players-near-me-resolving')).toBeTruthy();
+    expect(screen.queryByTestId('player-row-30')).toBeNull();
+    expect(screen.queryByTestId('find-players-empty-state')).toBeNull();
+  });
+
+  it('renders a dedicated unavailable state instead of generic empty results', () => {
+    render(
+      <FindPlayersBody
+        {...makeProps({
+          nearMeEnabled: true,
+          nearMeUnavailable: true,
+          locationsError: new Error('offline'),
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('find-players-near-me-unavailable')).toBeTruthy();
+    expect(screen.queryByTestId('player-row-30')).toBeNull();
+    expect(screen.queryByTestId('find-players-empty-state')).toBeNull();
+  });
+
+  it('retries a section-local metro catalog failure', () => {
+    const onRetryLocations = jest.fn();
+    render(
+      <FindPlayersBody
+        {...makeProps({
+          locationsError: new Error('offline'),
+          onRetryLocations,
+        })}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('discover-filter-button'));
+    fireEvent.press(screen.getByTestId('discover-sheet-location-retry'));
+    expect(onRetryLocations).toHaveBeenCalledTimes(1);
   });
 });
 

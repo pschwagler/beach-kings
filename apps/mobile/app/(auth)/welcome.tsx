@@ -5,7 +5,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
-  CrownIcon,
   TrophyIcon,
   TrendingUpIcon,
   UsersIcon,
@@ -18,6 +17,7 @@ import { routes } from '@/lib/navigation';
 import { PUBLIC_URLS } from '@/lib/publicUrls';
 import { openPublicWebUrl } from '@/lib/externalUrls';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { BrandLockup } from '@/components/brand/BrandImage';
 
 interface FeatureRow {
   readonly title: string;
@@ -81,15 +81,12 @@ export default function WelcomeScreen(): React.ReactNode {
         <View className="relative flex-1 justify-between px-lg py-xl">
           <View className="flex-1 justify-center">
             <View className="items-center mb-xxl">
-              <View testID="welcome-crown-icon" className="mb-md">
-                <CrownIcon size={64} color={palette.brandGold} />
-              </View>
-              <AppText
-                family="display"
-                className="text-large-title font-bold text-inverse tracking-wider mb-xs"
-              >
-                BEACH LEAGUE
-              </AppText>
+              <BrandLockup
+                surface="dark"
+                width={280}
+                testID="welcome-brand-lockup"
+                style={{ marginBottom: 8 }}
+              />
               <AppText className="text-body text-inverse text-center">
                 Track your games. Find new players.{'\n'}Rule the Sand.
               </AppText>

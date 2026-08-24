@@ -3,6 +3,7 @@ import type {
   ConversationListResponse,
   DirectMessage,
   ThreadResponse,
+  Player,
 } from '@beach-kings/shared';
 import type { QueryClient } from '@tanstack/react-query';
 import {
@@ -12,6 +13,117 @@ import {
   type DirectMessageSummaryPatch,
 } from '@/features/notifications/cache';
 import { messageKeys } from './keys';
+import { socialKeys } from '@/features/social/keys';
+import type { PlayerProfileDetails } from '@/features/social/queries';
+
+export interface PeerIdentity {
+  readonly playerId: number;
+  readonly fullName: string;
+  readonly avatar: string | null | undefined;
+}
+
+export function privacyAllowedAvatar(
+  value: string | null | undefined,
+): string | null {
+  const normalized = value?.trim();
+  return normalized != null &&
+    /^(?:https?:|file:|data:|content:|blob:)/i.test(normalized)
+    ? normalized
+    : null;
+}
+
+/** Reconciles one server-approved peer identity across user-scoped caches. */
+export function reconcilePeerIdentityCaches(
+  queryClient: QueryClient,
+  userId: number,
+  identity: PeerIdentity,
+): void {
+  if (userId <= 0 || identity.playerId <= 0) return;
+  const avatar = privacyAllowedAvatar(identity.avatar);
+  const fullName = identity.fullName.trim() || 'Player';
+
+  queryClient.setQueryData<ConversationListResponse>(
+    messageKeys.conversations(userId),
+    (current) => {
+      if (current == null) return current;
+      let changed = false;
+      const items = current.items.map((conversation) => {
+        if (conversation.player_id !== identity.playerId) return conversation;
+        if (conversation.avatar === avatar && conversation.full_name === fullName) {
+          return conversation;
+        }
+        changed = true;
+        return { ...conversation, avatar, full_name: fullName };
+      });
+      return changed ? { ...current, items } : current;
+    },
+  );
+
+  const threadKey = messageKeys.thread(userId, identity.playerId);
+  const currentThread = queryClient.getQueryData<ThreadResponse>(threadKey);
+  const currentPeer = currentThread?.peer;
+  if (
+    currentThread != null &&
+    !(
+      currentPeer?.player_id === identity.playerId &&
+      currentPeer.full_name === fullName &&
+      currentPeer.avatar === avatar
+    )
+  ) {
+    queryClient.setQueryData<ThreadResponse>(threadKey, {
+      ...currentThread,
+      peer: { player_id: identity.playerId, full_name: fullName, avatar },
+    });
+  }
+
+  queryClient.setQueryData<Player>(
+    messageKeys.peer(userId, identity.playerId),
+    (current) => {
+      if (current == null) return current;
+      if (
+        current.name === fullName &&
+        current.full_name === fullName &&
+        current.avatar === avatar &&
+        current.profile_picture_url === avatar
+      ) {
+        return current;
+      }
+      return {
+          ...current,
+          name: fullName,
+          full_name: fullName,
+          avatar,
+          profile_picture_url: avatar,
+      };
+    },
+  );
+
+  queryClient.setQueryData<PlayerProfileDetails>(
+    socialKeys.profile(userId, identity.playerId),
+    (current) => {
+      if (current == null) return current;
+      const player = current.player;
+      if (
+        player.name === fullName &&
+        player.full_name === fullName &&
+        player.avatar === avatar &&
+        player.profile_picture_url === avatar
+      ) {
+        return current;
+      }
+      return {
+          ...current,
+          player: {
+            ...player,
+            name: fullName,
+            full_name: fullName,
+            avatar,
+            profile_picture_url: avatar,
+          },
+      };
+    },
+  );
+}
 
 interface MessageUnreadCountCache {
   readonly count: number;

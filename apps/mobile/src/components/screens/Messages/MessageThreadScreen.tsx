@@ -35,6 +35,7 @@ import { useModerationMutations } from '@/features/moderation';
 import BlockPlayerDialog from '@/components/moderation/BlockPlayerDialog';
 import PlayerSafetySheet from '@/components/moderation/PlayerSafetySheet';
 import UnblockPlayerDialog from '@/components/moderation/UnblockPlayerDialog';
+import { useMessageDeliveryStatus } from './useMessageDeliveryStatus';
 
 // ---------------------------------------------------------------------------
 // Message bubble
@@ -60,6 +61,10 @@ function MessageBubble({
   isOwn,
   onReport,
 }: MessageBubbleProps): React.ReactNode {
+  const deliveryStatus = useMessageDeliveryStatus(
+    isOwn ? message.moderation_visibility : undefined,
+    message.created_at,
+  );
   return (
     <View className={`mb-3 px-4 ${isOwn ? "items-end" : "items-start"}`}>
       <Pressable
@@ -85,7 +90,7 @@ function MessageBubble({
           }`}
         >
           {formatMsgTime(message.created_at)}
-          {message.moderation_visibility === 'pending' ? ' · Reviewing' : ''}
+          {deliveryStatus ? ` · ${deliveryStatus}` : ''}
         </AppText>
       </Pressable>
     </View>
@@ -152,7 +157,7 @@ export default function MessageThreadScreen({
     onRefresh,
     onRetry,
     onSend,
-  } = useMessageThreadScreen(playerId);
+  } = useMessageThreadScreen(playerId, currentPlayerId);
 
   const displayName =
     peerName ??

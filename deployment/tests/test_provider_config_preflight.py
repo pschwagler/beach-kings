@@ -14,6 +14,7 @@ from unittest import mock
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "deployment" / "provider_config_preflight.py"
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "deploy-dev.yml"
+PROD_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "deploy-prod.yml"
 
 
 def load_preflight_module():
@@ -203,6 +204,20 @@ class ProviderConfigPreflightTests(unittest.TestCase):
         self.assertIn("\n.env\n", dockerignore)
         self.assertIn("\n.env.*\n", dockerignore)
         self.assertIn("\n!.env.example\n", dockerignore)
+
+    def test_prod_workflow_fails_closed_before_deployment(self):
+        workflow = PROD_WORKFLOW_PATH.read_text(encoding="utf-8")
+        self.assertIn("vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID", workflow)
+        self.assertIn(
+            "NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}",
+            workflow,
+        )
+
+        preflight_index = workflow.index("provider_config_preflight.py")
+        backup_index = workflow.index("Pre-deployment database backup")
+        pull_index = workflow.index("docker-compose pull frontend backend")
+        self.assertLess(preflight_index, backup_index)
+        self.assertLess(preflight_index, pull_index)
 
 
 if __name__ == "__main__":

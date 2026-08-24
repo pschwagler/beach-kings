@@ -280,17 +280,22 @@ describe('SettingsScreen — render', () => {
     render(<SettingsRoute />);
     expect(screen.getByTestId('settings-logout-btn')).toBeTruthy();
   });
+
+  it('renders the Beach League brand mark', () => {
+    render(<SettingsRoute />);
+    expect(screen.getByTestId('settings-brand-mark')).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------
-// Email masking
+// Owner email visibility
 // ---------------------------------------------------------------------------
 
-describe('SettingsScreen — email masking', () => {
-  it('shows masked email from auth user', async () => {
+describe('SettingsScreen — owner email', () => {
+  it('shows the authenticated owner their full email', async () => {
     render(<SettingsRoute />);
     await waitFor(() => {
-      expect(screen.getByText('t***@example.com')).toBeTruthy();
+      expect(screen.getByText('test@example.com')).toBeTruthy();
     });
   });
 });

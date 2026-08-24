@@ -123,6 +123,18 @@ describe('mapPublicPlayerToPlayer', () => {
     expect(player.full_name).toBe('Alice Smith');
   });
 
+  it('maps only a real public avatar URI to profile_picture_url', () => {
+    expect(mapPublicPlayerToPlayer(PUBLIC_RESPONSE).profile_picture_url).toBeNull();
+
+    const imagePlayer = mapPublicPlayerToPlayer({
+      ...PUBLIC_RESPONSE,
+      avatar: ' https://cdn.example.com/players/42.jpg ',
+    });
+    expect(imagePlayer.profile_picture_url).toBe(
+      'https://cdn.example.com/players/42.jpg',
+    );
+  });
+
   it('flattens location city/state and keeps id/name/slug', () => {
     const player = mapPublicPlayerToPlayer(PUBLIC_RESPONSE);
 

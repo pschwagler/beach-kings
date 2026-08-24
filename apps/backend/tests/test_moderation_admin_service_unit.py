@@ -341,7 +341,13 @@ async def test_account_restore_cannot_lift_another_cases_enforcement():
 
 @pytest.mark.asyncio
 async def test_appeal_remains_eligible_when_a_later_case_action_replaced_the_label():
-    case = SimpleNamespace(id=7, subject_player_id=22, current_action="warn")
+    case = SimpleNamespace(
+        id=7,
+        subject_player_id=22,
+        current_action="warn",
+        target_type="direct_message",
+        target_id=31,
+    )
     session = AsyncMock()
     session.get.return_value = case
     session.execute.side_effect = [_result(44), _result(None), _result(None)]
@@ -354,6 +360,9 @@ async def test_appeal_remains_eligible_when_a_later_case_action_replaced_the_lab
     appeal = session.add.call_args_list[0].args[0]
     assert appeal.player_id == 22
     assert appeal.statement.startswith("Please review")
+    flagship_job = session.add.call_args_list[2].args[0]
+    assert flagship_job.idempotency_key.startswith("appeal:")
+    assert flagship_job.case_id == 7
 
 
 @pytest.mark.asyncio

@@ -21,6 +21,7 @@ import LeaguesEmptyState from '@/components/screens/Leagues/LeaguesEmptyState';
 import LeaguesErrorState from '@/components/screens/Leagues/LeaguesErrorState';
 import LeaguesActionBar from '@/components/screens/Leagues/LeaguesActionBar';
 import JoinAnotherLeagueCta from '@/components/screens/Leagues/JoinAnotherLeagueCta';
+import ReceivedInvitesPreview from '@/components/screens/Leagues/ReceivedInvitesPreview';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
@@ -97,67 +98,53 @@ export default function LeaguesScreen(): React.ReactNode {
         onCreateLeague={handleCreateLeague}
       />
 
-      {/* Secondary nav: invitations received */}
-      <Pressable
-        testID="received-invites-link"
-        onPress={handleReceivedInvites}
-        accessibilityRole="button"
-        accessibilityLabel="Invitations"
-        className="flex-row items-center justify-between px-lg py-sm bg-surface border-b border-divider active:opacity-70"
+      <ScrollView
+        ref={scrollRef}
+        className="flex-1"
+        contentContainerStyle={{ flexGrow: 1 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={palette.brandTeal}
+          />
+        }
       >
-        <AppText className="text-footnote font-medium text-default">
-          Invitations Received
-        </AppText>
-        <AppText className="text-muted text-[12px]">›</AppText>
-      </Pressable>
+        <ReceivedInvitesPreview onViewAll={handleReceivedInvites} />
 
-      {isLoading ? (
-        <LeaguesSkeleton />
-      ) : isError ? (
-        <LeaguesErrorState onRetry={onRetry} />
-      ) : (
-        <ScrollView
-          ref={scrollRef}
-          className="flex-1"
-          contentContainerStyle={leagues.length === 0 ? { flex: 1 } : undefined}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={palette.brandTeal}
-            />
-          }
-        >
-          {leagues.length === 0 ? (
-            <LeaguesEmptyState
-              onFindLeagues={handleFindLeagues}
-              onCreateLeague={handleCreateLeague}
-            />
-          ) : (
-            <View className="px-lg pt-md pb-xxxl">
-              <AppText className="text-callout font-bold text-default mb-md">
-                My Leagues
-              </AppText>
+        {isLoading ? (
+          <LeaguesSkeleton />
+        ) : isError ? (
+          <LeaguesErrorState onRetry={onRetry} />
+        ) : leagues.length === 0 ? (
+          <LeaguesEmptyState
+            onFindLeagues={handleFindLeagues}
+            onCreateLeague={handleCreateLeague}
+          />
+        ) : (
+          <View className="px-lg pt-md pb-xxxl">
+            <AppText className="text-callout font-bold text-default mb-md">
+              My Leagues
+            </AppText>
 
-              {leagues.map((league) => {
-                const standing = getUserStandingRow(league, playerId);
-                return (
-                  <LeagueCard
-                    key={league.id}
-                    league={league}
-                    userRank={standing?.season_rank ?? null}
-                    userWins={standing?.wins ?? 0}
-                    userLosses={standing?.losses ?? 0}
-                    onPress={() => handleLeaguePress(league)}
-                  />
-                );
-              })}
+            {leagues.map((league) => {
+              const standing = getUserStandingRow(league, playerId);
+              return (
+                <LeagueCard
+                  key={league.id}
+                  league={league}
+                  userRank={standing?.season_rank ?? null}
+                  userWins={standing?.wins ?? 0}
+                  userLosses={standing?.losses ?? 0}
+                  onPress={() => handleLeaguePress(league)}
+                />
+              );
+            })}
 
-              <JoinAnotherLeagueCta onPress={handleFindLeagues} />
-            </View>
-          )}
-        </ScrollView>
-      )}
+            <JoinAnotherLeagueCta onPress={handleFindLeagues} />
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }

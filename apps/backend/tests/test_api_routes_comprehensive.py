@@ -137,10 +137,10 @@ class TestAuthEndpoints:
             auth_service, "normalize_phone_number", fake_normalize_phone_number, raising=True
         )
 
-        # Password must have at least 8 chars and at least one number
+        # Password policy is length-only; digits are not required.
         payload = {
             "phone_number": "+15551234567",
-            "password": "testpass123",  # Has 11 chars and includes numbers
+            "password": "abcdefgh",
             "full_name": "Test User",
             "email": "test@example.com",
             "eligibility_token": _eligibility_token(),
@@ -150,6 +150,20 @@ class TestAuthEndpoints:
             print(f"Error: {response.status_code}, {response.text}")
         assert response.status_code == 200, f"Response: {response.status_code} - {response.text}"
         assert response.json()["status"] == "success"
+
+    def test_signup_rejects_password_shorter_than_eight_characters(self):
+        client = TestClient(app)
+        response = client.post(
+            "/api/auth/signup",
+            json={
+                "phone_number": "+15551234567",
+                "password": "abcdefg",
+                "full_name": "Test User",
+                "eligibility_token": _eligibility_token(),
+            },
+        )
+        assert response.status_code == 400
+        assert "at least 8" in response.json()["detail"]
 
     def test_signup_duplicate_phone_returns_uniform_success(self, monkeypatch):
         """Signup does not disclose whether the phone number is registered."""

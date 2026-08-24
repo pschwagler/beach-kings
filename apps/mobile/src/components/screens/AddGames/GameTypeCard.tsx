@@ -24,6 +24,10 @@ interface GameTypeCardProps {
   readonly title: string;
   readonly description: string;
   readonly onPress: () => void;
+  /** Renders the choice as a row inside a shared decision card. */
+  readonly grouped?: boolean;
+  /** Adds the separator used between rows in a shared decision card. */
+  readonly showDivider?: boolean;
 }
 
 export default function GameTypeCard({
@@ -33,6 +37,8 @@ export default function GameTypeCard({
   title,
   description,
   onPress,
+  grouped = false,
+  showDivider = false,
 }: GameTypeCardProps): React.ReactNode {
   const palette = usePaletteColors();
   const handlePress = useCallback(() => {
@@ -46,7 +52,14 @@ export default function GameTypeCard({
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={title}
-      className="flex-row items-center gap-[14px] bg-surface rounded-[14px] px-4 py-[18px] border border-divider mb-3 active:border active:border-brand-teal"
+      accessibilityHint={description}
+      className={`flex-row items-center gap-[14px] bg-surface px-4 py-[18px] active:bg-inset ${
+        grouped
+          ? showDivider
+            ? 'border-b border-divider'
+            : ''
+          : 'rounded-[14px] border border-divider mb-3 active:border-brand-teal'
+      }`}
     >
       {/* Icon container */}
       <View

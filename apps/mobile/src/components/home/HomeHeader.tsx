@@ -1,19 +1,19 @@
 /**
  * Brand-specific top header for the Home tab.
- * Crown icon + BEACH LEAGUE wordmark on the left.
+ * Beach League brand lockup on the left.
  * Messages + Notifications icon buttons (with badges) + avatar on the right.
  * Mirrors `mobile-audit/wireframes/home.html` `.top-nav`.
  */
 
 import React from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
-import AppText from '@/components/ui/AppText';
 import { useRouter } from 'expo-router';
 import Avatar from '@/components/ui/Avatar';
-import { CrownIcon, ChatIcon, BellIcon } from '@/components/ui/icons';
+import { ChatIcon, BellIcon } from '@/components/ui/icons';
 import { routes } from '@/lib/navigation';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import UnreadBadge from '@/components/ui/UnreadBadge';
+import { BrandLockup, BrandMark } from '@/components/brand/BrandImage';
 
 interface HomeHeaderProps {
   readonly userName: string;
@@ -45,21 +45,27 @@ export default function HomeHeader({
       accessibilityRole="header"
       accessibilityLabel="Beach League home"
     >
-      <View className="flex-row items-center gap-2">
-        <CrownIcon size={20} color={palette.brandGold} />
-        {showWordmark && (
-          <AppText
-            family="display"
-            className="text-inverse font-bold text-headline tracking-wider"
-          >
-            BEACH LEAGUE
-          </AppText>
+      <View className="flex-row items-center">
+        {showWordmark ? (
+          <BrandLockup
+            surface="dark"
+            width={118}
+            accessible={false}
+            testID="home-brand-lockup"
+          />
+        ) : (
+          <BrandMark
+            surface="dark"
+            size={30}
+            accessible={false}
+            testID="home-brand-mark"
+          />
         )}
       </View>
 
       <View className="flex-row items-center gap-3">
         <Pressable
-          className="w-11 h-11 rounded-full border border-inverse items-center justify-center"
+          className="w-11 h-11 rounded-full items-center justify-center active:opacity-70 focus:opacity-70"
           onPress={() => router.navigate(routes.social({ tab: 'messages' }))}
           accessibilityLabel={`Messages${dmUnreadCount > 0 ? `, ${dmUnreadCount} unread` : ''}`}
           accessibilityRole="button"
@@ -74,9 +80,9 @@ export default function HomeHeader({
         </Pressable>
 
         <Pressable
-          className="w-11 h-11 rounded-full border border-inverse items-center justify-center"
+          className="w-11 h-11 rounded-full items-center justify-center active:opacity-70 focus:opacity-70"
           onPress={() =>
-            router.navigate(routes.social({ tab: 'notifications' }))
+            router.navigate(routes.notifications())
           }
           accessibilityLabel={`Notifications${notificationUnreadCount > 0 ? `, ${notificationUnreadCount} unread` : ''}`}
           accessibilityRole="button"

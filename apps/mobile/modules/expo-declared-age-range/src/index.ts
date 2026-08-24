@@ -20,7 +20,7 @@ const nativeModule =
   requireOptionalNativeModule<NativeDeclaredAgeRange>('ExpoDeclaredAgeRange');
 
 export async function requestDeclaredAgeRange(
-  minimumAge: 13 | 14,
+  minimumAge: 14,
 ): Promise<DeclaredAgeRangeResult> {
   if (!nativeModule) return { status: 'unavailable' };
   return nativeModule.requestAgeRangeAsync([minimumAge, 18]);

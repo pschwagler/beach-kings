@@ -23,6 +23,20 @@ const mockMakeQuery = <T,>(data: T, overrides: Record<string, unknown> = {}) => 
   ...overrides,
 });
 let mockDashboardState: Record<string, unknown>;
+const MOCK_STATS = {
+  player_name: 'Ready Player',
+  player_city: null,
+  player_level: null,
+  overall: {
+    wins: 8, losses: 2, games_played: 10, rating: 1450,
+    peak_rating: 1460, win_rate: 80, current_streak: 2, avg_point_diff: 3,
+  },
+  trophies: [], partners: [], opponents: [],
+  elo_timeline: [
+    { date: '2026-08-01', rating: 1440 },
+    { date: '2026-08-20', rating: 1450 },
+  ],
+};
 
 function resetDashboardState(): void {
   mockDashboardState = {
@@ -39,6 +53,7 @@ function resetDashboardState(): void {
         opponent_2_is_placeholder: false,
       },
     ]),
+    stats: mockMakeQuery(MOCK_STATS),
     isInitialLoading: false,
     isRefreshing: false,
     refetchAll: mockRefetchAll,
@@ -228,6 +243,77 @@ describe('HomeScreen navigation', () => {
     const { getByTestId } = render(<HomeScreen />);
     fireEvent.press(getByTestId('view-all-Recent Games'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/my-games');
+  });
+
+  it('opens My Stats from the Home widget before Courts', () => {
+    const screen = render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId('home-my-stats-widget'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/my-stats');
+
+    const orderedSections = screen.UNSAFE_root.findAll(
+      (node) => node.props.testID === 'home-my-stats-section' ||
+        node.props.testID === 'home-courts-section',
+    );
+    expect([...new Set(orderedSections.map((node) => node.props.testID))]).toEqual([
+      'home-my-stats-section',
+      'home-courts-section',
+    ]);
+  });
+
+  it('keeps cached stats visible when their refresh fails', () => {
+    const retry = jest.fn().mockResolvedValue(undefined);
+    mockDashboardState = {
+      ...mockDashboardState,
+      stats: mockMakeQuery(MOCK_STATS, {
+        isError: true,
+        isSuccess: false,
+        error: new Error('offline'),
+        refetch: retry,
+      }),
+    };
+    const screen = render(<HomeScreen />);
+    expect(screen.getByText('1450')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('retry-Your stats may be out of date.'));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('contains uncached stats loading and failure to the section', () => {
+    mockDashboardState = {
+      ...mockDashboardState,
+      stats: mockMakeQuery(undefined, {
+        isPending: true, isFetching: true, isSuccess: false,
+      }),
+    };
+    const pending = render(<HomeScreen />);
+    expect(pending.getByTestId('section-skeleton-my stats')).toBeTruthy();
+    expect(pending.getByTestId('home-header')).toBeTruthy();
+    pending.unmount();
+
+    mockDashboardState = {
+      ...mockDashboardState,
+      stats: mockMakeQuery(undefined, {
+        isPending: false, isError: true, isSuccess: false,
+        error: new Error('offline'),
+      }),
+    };
+    const failed = render(<HomeScreen />);
+    expect(failed.getByText('Could not load your stats.')).toBeTruthy();
+    expect(failed.getByTestId('home-header')).toBeTruthy();
+  });
+
+  it('shows a retryable offline state instead of a blank stats body', () => {
+    mockDashboardState = {
+      ...mockDashboardState,
+      stats: mockMakeQuery(undefined, {
+        isPending: true,
+        isFetching: false,
+        isSuccess: false,
+      }),
+    };
+    const screen = render(<HomeScreen />);
+    expect(screen.getByText('Stats are unavailable while offline.')).toBeTruthy();
+    expect(screen.queryByTestId('section-skeleton-my stats')).toBeNull();
+    expect(screen.getByTestId('home-header')).toBeTruthy();
   });
 
   it('keeps cached header content visible while independent sections load', () => {

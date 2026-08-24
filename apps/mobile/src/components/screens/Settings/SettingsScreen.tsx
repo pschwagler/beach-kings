@@ -45,6 +45,7 @@ import { api } from '@/lib/api';
 import type { Player } from '@beach-kings/shared';
 import { useConnectedAccounts } from './useConnectedAccounts';
 import DeleteAccountDialog from './DeleteAccountDialog';
+import { BrandMark } from '@/components/brand/BrandImage';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -156,7 +157,7 @@ function ConnectButton({ onPress, loading = false, testID }: ConnectButtonProps)
 export default function SettingsScreen(): React.ReactNode {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { themeMode } = useTheme();
+  const { isDark, themeMode } = useTheme();
   const hasPassword = user?.has_password !== false;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -176,8 +177,7 @@ export default function SettingsScreen(): React.ReactNode {
     [],
   );
 
-  const maskedEmail =
-    user?.email != null ? maskEmail(user.email) : 'Not set';
+  const ownerEmail = user?.email ?? 'Not set';
 
   const phone =
     (player as { phone_number?: string } | undefined)?.phone_number ??
@@ -322,7 +322,7 @@ export default function SettingsScreen(): React.ReactNode {
           <SettingsRow
             testID="settings-row-email"
             label="Email"
-            value={maskedEmail}
+            value={ownerEmail}
           />
           {hasPassword && (
             <SettingsRow
@@ -485,9 +485,17 @@ export default function SettingsScreen(): React.ReactNode {
           />
         </View>
 
-        <AppText className="text-center text-[12px] text-muted pb-lg">
-          Beach League v1.0.0
-        </AppText>
+        <View className="items-center pb-lg">
+          <BrandMark
+            surface={isDark ? 'dark' : 'light'}
+            size={48}
+            testID="settings-brand-mark"
+            style={{ marginBottom: 4 }}
+          />
+          <AppText className="text-center text-[12px] text-muted">
+            Beach League v1.0.0
+          </AppText>
+        </View>
 
       </ScrollView>
 
@@ -517,13 +525,6 @@ export default function SettingsScreen(): React.ReactNode {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (local == null || domain == null) return email;
-  const masked = local.charAt(0) + '***';
-  return `${masked}@${domain}`;
-}
 
 function maskPhone(phone: string): string {
   if (phone.length < 4) return phone;

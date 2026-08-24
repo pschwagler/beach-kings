@@ -108,6 +108,9 @@ const mockApproveJoinRequest = jest.fn();
 const mockRejectJoinRequest = jest.fn();
 const mockRequestToJoinLeague = jest.fn();
 const mockJoinLeague = jest.fn();
+const mockGetReceivedLeagueInvites = jest.fn();
+const mockAcceptLeagueInvite = jest.fn();
+const mockDeclineLeagueInvite = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -129,6 +132,12 @@ jest.mock('@/lib/api', () => ({
     getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
     requestToJoinLeague: (...args: unknown[]) => mockRequestToJoinLeague(...args),
     joinLeague: (...args: unknown[]) => mockJoinLeague(...args),
+    getReceivedLeagueInvites: (...args: unknown[]) =>
+      mockGetReceivedLeagueInvites(...args),
+    acceptLeagueInvite: (...args: unknown[]) =>
+      mockAcceptLeagueInvite(...args),
+    declineLeagueInvite: (...args: unknown[]) =>
+      mockDeclineLeagueInvite(...args),
   },
 }));
 
@@ -185,6 +194,17 @@ const VISITOR_DETAIL = {
   has_pending_request: false,
 };
 
+const RECEIVED_INVITE = {
+  id: 91,
+  league_id: 1,
+  league_name: 'Manhattan Open',
+  player_id: 1,
+  display_name: 'Test Player',
+  initials: 'MO',
+  invited_at: '2026-08-24T12:00:00Z',
+  status: 'pending' as const,
+};
+
 const ONE_STANDING = {
   standings: [
     {
@@ -225,6 +245,9 @@ beforeEach(() => {
   mockRejectJoinRequest.mockResolvedValue({ success: true });
   mockRequestToJoinLeague.mockResolvedValue({ success: true, message: 'ok' });
   mockJoinLeague.mockResolvedValue({ success: true, message: 'Joined!' });
+  mockGetReceivedLeagueInvites.mockResolvedValue([]);
+  mockAcceptLeagueInvite.mockResolvedValue({ status: 'accepted' });
+  mockDeclineLeagueInvite.mockResolvedValue({ status: 'declined' });
 });
 
 // ---------------------------------------------------------------------------
@@ -509,6 +532,80 @@ describe.skip('LeagueDetailScreen — signups tab', () => {
 // ---------------------------------------------------------------------------
 
 describe('LeagueDetailScreen — non-member visitor', () => {
+  it('shows explicit invitation context with primary Accept and secondary Decline', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    mockGetReceivedLeagueInvites.mockResolvedValue([RECEIVED_INVITE]);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('league-invitation-banner')).toBeTruthy(),
+    );
+    expect(screen.getByText('You’re invited')).toBeTruthy();
+    expect(screen.getByLabelText('Accept invitation to Manhattan Open')).toBeTruthy();
+    expect(screen.getByLabelText('Decline invitation to Manhattan Open')).toBeTruthy();
+    expect(screen.queryByTestId('league-join-banner')).toBeNull();
+  });
+
+  it('accepts from the invitation banner and transitions to member detail', async () => {
+    mockGetLeague
+      .mockResolvedValueOnce(VISITOR_DETAIL)
+      .mockResolvedValue({ ...MOCK_DETAIL, user_role: 'member' });
+    mockGetReceivedLeagueInvites.mockResolvedValue([RECEIVED_INVITE]);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() =>
+      expect(screen.getByTestId('league-invitation-accept')).toBeTruthy(),
+    );
+
+    fireEvent.press(screen.getByTestId('league-invitation-accept'));
+
+    await waitFor(() => {
+      expect(mockAcceptLeagueInvite).toHaveBeenCalledWith(1);
+      expect(screen.queryByTestId('league-invitation-banner')).toBeNull();
+      expect(screen.getByTestId('segment-tab-games')).toBeTruthy();
+    });
+  });
+
+  it('declines from the invitation banner and restores the generic visitor view', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    mockGetReceivedLeagueInvites.mockResolvedValue([RECEIVED_INVITE]);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() =>
+      expect(screen.getByTestId('league-invitation-decline')).toBeTruthy(),
+    );
+
+    fireEvent.press(screen.getByTestId('league-invitation-decline'));
+
+    await waitFor(() => {
+      expect(mockDeclineLeagueInvite).toHaveBeenCalledWith(1);
+      expect(screen.queryByTestId('league-invitation-banner')).toBeNull();
+      expect(screen.getByTestId('league-join-banner')).toBeTruthy();
+    });
+  });
+
+  it('restores the invitation banner after a failed response', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    mockGetReceivedLeagueInvites.mockResolvedValue([RECEIVED_INVITE]);
+    mockAcceptLeagueInvite.mockRejectedValue(new Error('offline'));
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() =>
+      expect(screen.getByTestId('league-invitation-accept')).toBeTruthy(),
+    );
+
+    fireEvent.press(screen.getByTestId('league-invitation-accept'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Error',
+        'Could not accept the invite. Please try again.',
+      );
+      expect(screen.getByTestId('league-invitation-banner')).toBeTruthy();
+    });
+    alertSpy.mockRestore();
+    consoleSpy.mockRestore();
+  });
+
   it('shows only standings + info tabs (hides games, chat, sign ups)', async () => {
     mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });

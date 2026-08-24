@@ -2,6 +2,7 @@ import { privateKeys, publicKeys } from '@/infrastructure/query/keys';
 import { currentPlayerKeys } from '@/hooks/useCurrentPlayer';
 import { dashboardKeys } from '@/hooks/useDashboard';
 import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
+import { statsKeys } from '@/features/stats';
 
 describe('private Query key namespaces', () => {
   it('prefixes personalized domains with the authenticated user id', () => {
@@ -13,6 +14,7 @@ describe('private Query key namespaces', () => {
       dashboardKeys.activeSession(12),
       dashboardKeys.courts(12, null, 'socal_sd'),
       dashboardKeys.matches(12, 44),
+      statsKeys.my(12, { days: 30 }),
       leagueKeys.userLeagues(12),
       leagueKeys.findLeagues(12, { q: 'open' }),
       leagueKeys.detail(12, 8),
@@ -33,6 +35,7 @@ describe('private Query key namespaces', () => {
       dashboardKeys.activeSession(2),
     );
     expect(leagueKeys.detail(1, 8)).not.toEqual(leagueKeys.detail(2, 8));
+    expect(statsKeys.my(1)).not.toEqual(statsKeys.my(2));
   });
 
   it('keeps the locations catalog public and account independent', () => {

@@ -5,9 +5,19 @@ and Apple ID token verification.
 """
 
 import pytest
+from fastapi import HTTPException
 from unittest.mock import patch
 from datetime import timedelta
 from backend.services import auth_service
+
+
+def test_password_policy_accepts_eight_characters_without_a_number():
+    auth_service.validate_password_length("abcdefgh")
+
+
+def test_password_policy_rejects_fewer_than_eight_characters():
+    with pytest.raises(HTTPException, match="at least 8"):
+        auth_service.validate_password_length("abcdefg")
 
 
 class TestPasswordHashing:

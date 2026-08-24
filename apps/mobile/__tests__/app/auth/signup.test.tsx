@@ -11,11 +11,12 @@ import { Alert, KeyboardAvoidingView, ScrollView } from 'react-native';
 let mockAutoEligibility = true;
 jest.mock('@/components/auth/YouthEligibilityGate', () => {
   const ReactModule = require('react');
+  const { View } = require('react-native');
   return function MockYouthEligibilityGate({ onEligible }: { onEligible: (token: string) => void }) {
     ReactModule.useEffect(() => {
       if (mockAutoEligibility) onEligible('eligible-token');
     }, [onEligible]);
-    return null;
+    return <View testID="mock-youth-eligibility-gate" />;
   };
 });
 
@@ -80,11 +81,21 @@ describe('SignupScreen', () => {
     mockAutoEligibility = true;
   });
 
-  it('lets the first state-result tap pass through while the keyboard is open', () => {
+  it('shows signup immediately and defers age assurance until submission', async () => {
     mockAutoEligibility = false;
-    const { UNSAFE_getByType } = render(<SignupScreen />);
+    const result = render(<SignupScreen />);
 
-    expect(UNSAFE_getByType(ScrollView)).toHaveProp(
+    expect(result.getByPlaceholderText('Email')).toBeTruthy();
+    expect(result.queryByTestId('mock-youth-eligibility-gate')).toBeNull();
+
+    fireEvent.changeText(result.getByPlaceholderText('First Name'), 'John');
+    fireEvent.changeText(result.getByPlaceholderText('Last Name'), 'Doe');
+    fireEvent.changeText(result.getByPlaceholderText('Email'), 'john@example.com');
+    fireEvent.changeText(result.getByPlaceholderText('Password'), 'StrongPass1!');
+    fireEvent.press(getCreateButton(result));
+
+    expect(await result.findByTestId('mock-youth-eligibility-gate')).toBeTruthy();
+    expect(result.UNSAFE_getByType(ScrollView)).toHaveProp(
       'keyboardShouldPersistTaps',
       'always',
     );

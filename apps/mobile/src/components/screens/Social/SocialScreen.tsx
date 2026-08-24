@@ -1,18 +1,15 @@
 /**
- * SocialScreen — the Social hub with a 4-tab subnav.
+ * SocialScreen — the Social hub with a 3-tab subnav.
  *
- * Layout decision: a `SocialSubnav` (Messages · Notifications · Friends · Find
- * Players) matching the wireframe's `.social-subnav`, replacing the earlier
- * 2-segment ("Messages" | "Friends") control. Rationale for revisiting that
- * call: the wireframes present a single Social section that owns all four
- * destinations, so consolidating them under one subnav (rather than scattering
- * Notifications/Find Players across separate stack routes) is the parity target.
+ * `SocialSubnav` owns Messages, Friends, and Find Players. Notifications is a
+ * standalone global inbox because its bell, push, and deep-link entry points
+ * sit outside Social.
  *
  * Each tab mounts a thin container that owns its own data hook, so only the
  * active tab fetches. The extracted, chrome-free bodies are shared with the
  * standalone stack routes (Messages/Notifications), which keep their TopNav
- * chrome. All four tabs now render real inline content: Messages,
- * Notifications, Friends (Phase 2), and the discover-only Find Players body
+ * chrome. The three tabs render real inline content: Messages,
+ * Friends, and the discover-only Find Players body
  * (Phase 3 of the social-hub parity plan).
  *
  * A `?tab=` param lets Home header shortcuts and deep links land on a specific
@@ -25,12 +22,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
-import { type SocialTab } from "@/lib/navigation";
+import { Redirect, useLocalSearchParams } from "expo-router";
+import { routes, type SocialTab } from "@/lib/navigation";
 import TopNav from "@/components/ui/TopNav";
 import SocialSubnav from "./SocialSubnav";
 import MessagesTab from "./MessagesTab";
-import NotificationsTab from "./NotificationsTab";
 import FriendsTab from "./FriendsTab";
 import FindPlayersTab from "./FindPlayersTab";
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
@@ -38,7 +34,6 @@ import { registerRootTabScroll } from '@/lib/rootTabScroll';
 const DEFAULT_TAB: SocialTab = "messages";
 const VALID_TABS: readonly SocialTab[] = [
   "messages",
-  "notifications",
   "friends",
   "findplayers",
 ];
@@ -51,6 +46,7 @@ function normalizeTab(raw: string | string[] | undefined): SocialTab | null {
 
 export default function SocialScreen(): React.ReactNode {
   const params = useLocalSearchParams<{ tab?: string }>();
+  const rawParamTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const paramTab = normalizeTab(params.tab);
 
   const [activeTab, setActiveTab] = useState<SocialTab>(
@@ -94,13 +90,17 @@ export default function SocialScreen(): React.ReactNode {
             scrollRequest={scrollRequest}
           />
         );
-      case "notifications":
-        return <NotificationsTab setHeaderAction={setHeaderAction} scrollRequest={scrollRequest} />;
       case "friends":
         return <FriendsTab onFindPlayers={goToFindPlayers} scrollRequest={scrollRequest} />;
       case "findplayers":
         return <FindPlayersTab scrollRequest={scrollRequest} />;
     }
+  }
+
+  // Preserve previously issued Social notification URLs while keeping one
+  // canonical global inbox destination.
+  if (rawParamTab === 'notifications') {
+    return <Redirect href={routes.notifications()} />;
   }
 
   return (

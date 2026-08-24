@@ -28,6 +28,7 @@ from backend.services import (
     avatar_service,
     interaction_policy,
     moderation_worker,
+    role_service,
     s3_service,
     court_service,
 )
@@ -69,6 +70,16 @@ def _make_authed_client(monkeypatch, phone: str = PHONE, user_id: int = USER_ID)
 
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
+
+    async def fake_can_become_inaccessible(session, uid: int) -> None:
+        return None
+
+    monkeypatch.setattr(
+        role_service,
+        "ensure_can_become_inaccessible",
+        fake_can_become_inaccessible,
+        raising=True,
+    )
 
     async def fake_enforce_ugc_creation(session, player_id):
         return None

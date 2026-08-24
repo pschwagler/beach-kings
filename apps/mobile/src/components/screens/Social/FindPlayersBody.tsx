@@ -13,12 +13,9 @@
  * Deliberately discover-only: friend management lives in its own Friends subnav
  * tab now, so the old internal Players|Friends tab bar is dropped.
  *
- * Filter chips (Same League / Shared Friends / skill levels) sit under the
- * search bar and drive server-side discover params via the hook's toggle
- * handlers. The chip row stays visible in the loading and empty states so an
- * active filter that empties (or is refetching) the list can still be cleared.
- * Level chips use the app's real SkillLevel values rather than the wireframe's
- * Open/AA/A/B — 'A'/'B' don't exist in the data model.
+ * The primary relationship views stay inline. Level and location refinements
+ * live in one draft-based Filter sheet and commit only when Apply is pressed.
+ * Both controls remain available in loading, error, and empty states.
  *
  * Wireframe ref: find-players.html
  */
@@ -41,9 +38,9 @@ import FindPlayersErrorState from '@/components/screens/FindPlayers/FindPlayersE
 import FilterChipBar from '@/components/ui/FilterChipBar';
 import EmptyState from '@/components/ui/EmptyState';
 import type {
-  DiscoverLevel,
   UseDiscoverPlayersResult,
 } from '@/components/screens/FindPlayers/useDiscoverPlayers';
+import DiscoveryFilterPanel from './DiscoveryFilterPanel';
 
 // ---------------------------------------------------------------------------
 // Search bar
@@ -95,34 +92,20 @@ function PlayersSearchBar({
 // Filter chips
 // ---------------------------------------------------------------------------
 
-/** Level chips mirror the real SkillLevel values (see header comment). */
-const LEVEL_CHIPS: readonly { value: DiscoverLevel; label: string }[] = [
-  { value: 'Open', label: 'Open' },
-  { value: 'AA', label: 'AA' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'beginner', label: 'Beginner' },
-];
-
 interface FilterChipsRowProps {
-  readonly levelFilter: DiscoverLevel | null;
   readonly sameLeagueOnly: boolean;
   readonly sharedFriendsOnly: boolean;
-  readonly onToggleLevel: (level: DiscoverLevel) => void;
   readonly onToggleSameLeague: () => void;
   readonly onToggleSharedFriends: () => void;
 }
 
 function FilterChipsRow({
-  levelFilter,
   sameLeagueOnly,
   sharedFriendsOnly,
-  onToggleLevel,
   onToggleSameLeague,
   onToggleSharedFriends,
 }: FilterChipsRowProps): React.ReactNode {
   type ConnectionFilter = 'any' | 'same-league' | 'shared-friends';
-  type LevelFilter = 'any' | DiscoverLevel;
   const connectionValue: ConnectionFilter = sameLeagueOnly
     ? 'same-league'
     : sharedFriendsOnly
@@ -149,27 +132,6 @@ function FilterChipsRow({
         ]}
         value={connectionValue}
         onValueChange={changeConnection}
-      />
-      <FilterChipBar<LevelFilter>
-        testID="discover-level-filters"
-        accessibilityLabel="Player level filters"
-        items={[
-          { value: 'any', label: 'Any Level', testID: 'discover-chip-level-any' },
-          ...LEVEL_CHIPS.map((chip) => ({
-            value: chip.value,
-            label: chip.label,
-            testID: `discover-chip-level-${chip.value}`,
-          })),
-        ]}
-        value={levelFilter ?? 'any'}
-        onValueChange={(next) => {
-          void hapticLight();
-          if (next === 'any') {
-            if (levelFilter != null) onToggleLevel(levelFilter);
-            return;
-          }
-          onToggleLevel(next);
-        }}
       />
     </View>
   );
@@ -224,9 +186,25 @@ export default function FindPlayersBody({
   levelFilter,
   sameLeagueOnly,
   sharedFriendsOnly,
-  onToggleLevel,
+  onSetLevel,
   onToggleSameLeague,
   onToggleSharedFriends,
+  locations,
+  locationsPending,
+  locationsError,
+  onRetryLocations,
+  metroFilterId,
+  nearMeEnabled,
+  nearMePending,
+  nearMeDenied,
+  nearMeUnavailable,
+  nearMeOriginLabel,
+  radiusMiles,
+  onSelectMetro,
+  onSelectNearMe,
+  onSetRadius,
+  onClearLocation,
+  hasLocationFilter,
   scrollRequest = 0,
 }: FindPlayersBodyProps): React.ReactNode {
   const listRef = useRef<FlatList<DiscoverPlayer>>(null);
@@ -238,14 +216,33 @@ export default function FindPlayersBody({
   }, [scrollRequest]);
 
   const filterChips = (
-    <FilterChipsRow
-      levelFilter={levelFilter}
-      sameLeagueOnly={sameLeagueOnly}
-      sharedFriendsOnly={sharedFriendsOnly}
-      onToggleLevel={onToggleLevel}
-      onToggleSameLeague={onToggleSameLeague}
-      onToggleSharedFriends={onToggleSharedFriends}
-    />
+    <>
+      <FilterChipsRow
+        sameLeagueOnly={sameLeagueOnly}
+        sharedFriendsOnly={sharedFriendsOnly}
+        onToggleSameLeague={onToggleSameLeague}
+        onToggleSharedFriends={onToggleSharedFriends}
+      />
+      <DiscoveryFilterPanel
+        levelFilter={levelFilter}
+        onSetLevel={onSetLevel}
+        locations={locations}
+        locationsPending={locationsPending}
+        locationsError={locationsError}
+        onRetryLocations={onRetryLocations}
+        metroFilterId={metroFilterId}
+        nearMeEnabled={nearMeEnabled}
+        nearMePending={nearMePending}
+        nearMeDenied={nearMeDenied}
+        nearMeUnavailable={nearMeUnavailable}
+        nearMeOriginLabel={nearMeOriginLabel}
+        radiusMiles={radiusMiles}
+        onSelectMetro={onSelectMetro}
+        onSelectNearMe={onSelectNearMe}
+        onSetRadius={onSetRadius}
+        onClearLocation={onClearLocation}
+      />
+    </>
   );
 
   const renderItem = useCallback<ListRenderItem<DiscoverPlayer>>(
@@ -261,6 +258,52 @@ export default function FindPlayersBody({
   );
 
   const renderContent = (): React.ReactNode => {
+    const searchAndFilters = (
+      <>
+        <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} />
+        {filterChips}
+      </>
+    );
+
+    if (nearMePending) {
+      return (
+        <>
+          {searchAndFilters}
+          <EmptyState
+            testID="find-players-near-me-resolving"
+            title="Finding Nearby Players"
+            description="Your results will update after we find the nearest metro."
+          />
+        </>
+      );
+    }
+
+    if (nearMeDenied) {
+      return (
+        <>
+          {searchAndFilters}
+          <EmptyState
+            testID="find-players-near-me-denied"
+            title="Location Needed"
+            description="Choose a metro or clear Near Me to continue."
+          />
+        </>
+      );
+    }
+
+    if (nearMeUnavailable) {
+      return (
+        <>
+          {searchAndFilters}
+          <EmptyState
+            testID="find-players-near-me-unavailable"
+            title="Nearby Search Unavailable"
+            description="Retry the metro list, choose a metro, or clear Near Me."
+          />
+        </>
+      );
+    }
+
     if (isLoadingPlayers && !isRefreshingPlayers) {
       return (
         <>
@@ -272,7 +315,13 @@ export default function FindPlayersBody({
     }
 
     if (playersError != null && !isRefreshingPlayers) {
-      return <FindPlayersErrorState onRetry={onRetryPlayers} />;
+      return (
+        <>
+          <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} />
+          {filterChips}
+          <FindPlayersErrorState onRetry={onRetryPlayers} />
+        </>
+      );
     }
 
     if (players.length === 0) {
@@ -280,7 +329,15 @@ export default function FindPlayersBody({
         <>
           <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} />
           {filterChips}
-          <PlayersEmptyState isSearching={searchQuery.trim() !== ''} />
+          <PlayersEmptyState
+            isSearching={
+              searchQuery.trim() !== ''
+              || levelFilter != null
+              || sameLeagueOnly
+              || sharedFriendsOnly
+              || hasLocationFilter
+            }
+          />
         </>
       );
     }

@@ -420,6 +420,17 @@ async def create_appeal(
             metadata_json={"appeal_id": appeal.id},
         )
     )
+    session.add(
+        ModerationJob(
+            idempotency_key=f"appeal:{appeal.id}:v1",
+            case_id=case_id,
+            target_type=case.target_type,
+            target_id=case.target_id,
+        )
+    )
+    from backend.services.moderation.moderation_alerts import schedule_appeal_review_alert
+
+    await schedule_appeal_review_alert(session, case, appeal.id)
     await session.flush()
     return _appeal_dict(appeal)
 

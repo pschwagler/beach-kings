@@ -234,6 +234,27 @@ describe('AddGamesScreen — chooser view (no active session)', () => {
     });
   });
 
+  it('groups the prompt and both choices into one labeled section', async () => {
+    renderAddGames();
+
+    await waitFor(() => {
+      const group = screen.getByTestId('game-choice-group');
+      expect(group.props.accessibilityLabelledBy).toBe('game-type-heading');
+      expect(screen.getByText('What are you playing?').props.nativeID).toBe(
+        'game-type-heading',
+      );
+      expect(screen.getByText('What are you playing?').props.accessibilityRole).toBe(
+        'header',
+      );
+      expect(screen.getByTestId('tile-league-game').props.accessibilityHint).toBe(
+        'Record a game in one of your leagues',
+      );
+      expect(screen.getByTestId('tile-pickup-game').props.accessibilityHint).toBe(
+        'Start a new session for casual play',
+      );
+    });
+  });
+
   it('renders the League Game tile', async () => {
     renderAddGames();
     await waitFor(() => {

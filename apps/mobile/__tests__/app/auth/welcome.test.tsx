@@ -1,6 +1,6 @@
 /**
  * Tests for the Welcome screen.
- * Wireframe: dark navy bg, crown icon, "BEACH LEAGUE" branding,
+ * Wireframe: dark navy bg, Beach League lockup branding,
  * "Get Started" -> signup, "I Already Have an Account" -> login.
  */
 
@@ -30,14 +30,10 @@ describe('WelcomeScreen', () => {
     mockOpenPublicWebUrl.mockClear();
   });
 
-  it('renders the app title', () => {
-    const { getByText } = render(<WelcomeScreen />);
-    expect(getByText('BEACH LEAGUE')).toBeTruthy();
-  });
-
-  it('renders the crown icon', () => {
-    const { getByTestId } = render(<WelcomeScreen />);
-    expect(getByTestId('welcome-crown-icon')).toBeTruthy();
+  it('renders the accessible brand lockup', () => {
+    const { getByLabelText, getByTestId } = render(<WelcomeScreen />);
+    expect(getByLabelText('Beach League')).toBeTruthy();
+    expect(getByTestId('welcome-brand-lockup')).toBeTruthy();
   });
 
   it('renders the full court-line brand motif as decoration', () => {

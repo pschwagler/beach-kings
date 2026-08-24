@@ -21,6 +21,7 @@ import { routes } from '@/lib/navigation';
 import { hapticSuccess, hapticError } from '@/utils/haptics';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { getApiResponseErrorMessage } from '@/lib/apiError';
+import { maskRecoveryEmail } from '@/lib/contactPrivacy';
 import {
   otpSchema,
   resetPasswordRequestSchema,
@@ -194,7 +195,10 @@ export default function ForgotPasswordScreen(): React.ReactNode {
     router.replace(routes.login());
   }, [router]);
 
-  const otpSubtitle = `If an account exists for this ${method}, a code will arrive shortly. Only the newest code works.`;
+  const recoveryDestination = method === 'email'
+    ? maskRecoveryEmail(email)
+    : 'this phone number';
+  const otpSubtitle = `If an account exists for ${recoveryDestination}, a code will arrive shortly. Only the newest code works.`;
 
   return (
     <SafeAreaView className="flex-1 bg-page">

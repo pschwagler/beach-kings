@@ -137,6 +137,25 @@ async def test_ordinary_due_soon_is_scheduled_four_hours_before_deadline(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_dispositioned_appeal_is_durably_routed_to_owner(monkeypatch):
+    monkeypatch.setenv("MODERATION_ALERTS_ENABLED", "true")
+    case = SimpleNamespace(id=17, dispositioned_at=datetime.now(timezone.utc))
+    session = AsyncMock()
+
+    await moderation_alerts.schedule_appeal_review_alert(session, case, appeal_id=6)
+
+    statement = session.execute.await_args.args[0]
+    params = statement.compile().params
+    assert params["idempotency_key"] == "appeal_review_required:17:6"
+    assert params["alert_kind"] == "appeal_review_required"
+    assert params["payload_json"] == {"case_id": 17, "appeal_id": 6}
+
+    job = SimpleNamespace(alert_kind="appeal_review_required", case_id=17)
+    session.get.return_value = case
+    assert await moderation_alerts._eligible_cases(session, job) == [case]
+
+
+@pytest.mark.asyncio
 async def test_alert_email_body_contains_only_safe_case_metadata():
     now = datetime.now(timezone.utc)
     case = SimpleNamespace(

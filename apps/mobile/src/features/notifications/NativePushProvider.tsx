@@ -213,7 +213,7 @@ export default function NativePushProvider({
     markAsRead(data.notificationId);
     router.push((
       resolveNotificationRoute(data.linkUrl) ??
-      routes.social({ tab: 'notifications' })
+      routes.notifications()
     ) as never);
   }, [isAuthenticated, markAsRead, rootNavigationState?.key, router, userId]);
 
@@ -239,7 +239,7 @@ export default function NativePushProvider({
           markAsRead(data.notificationId);
           router.push((
             resolveNotificationRoute(data.linkUrl) ??
-            routes.social({ tab: 'notifications' })
+            routes.notifications()
           ) as never);
         });
       }

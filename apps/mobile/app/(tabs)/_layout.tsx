@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { usePaletteColors, type PaletteColors } from '@/theme/usePaletteColors';
-import { useNotifications } from '@/features/notifications';
+import { useNavigationBadgeCounts } from '@/features/notifications/badges';
 import {
   HomeIcon,
   TrophyIcon,
@@ -30,6 +30,7 @@ interface TabIconProps {
   readonly isAddGames?: boolean;
   readonly palette: PaletteColors;
   readonly badge?: number;
+  readonly badgeTestID?: string;
 }
 
 function TabIcon({
@@ -38,6 +39,7 @@ function TabIcon({
   isAddGames,
   palette,
   badge,
+  badgeTestID,
 }: TabIconProps): React.ReactNode {
   if (isAddGames) {
     return (
@@ -56,7 +58,7 @@ function TabIcon({
         count={badge ?? 0}
         borderColor={palette.bgTabbar}
         className="absolute -top-1.5 -right-2.5"
-        testID="social-unread-badge"
+        testID={badgeTestID}
       />
     </View>
   );
@@ -64,7 +66,7 @@ function TabIcon({
 
 export default function TabLayout(): React.ReactNode {
   const palette = usePaletteColors();
-  const { unreadCount } = useNotifications();
+  const badges = useNavigationBadgeCounts();
 
   return (
     <Tabs
@@ -112,7 +114,13 @@ export default function TabLayout(): React.ReactNode {
           title: 'Leagues',
           tabBarAccessibilityLabel: 'Leagues tab',
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon={TrophyIcon} focused={focused} palette={palette} />
+            <TabIcon
+              icon={TrophyIcon}
+              focused={focused}
+              palette={palette}
+              badge={badges.leagues}
+              badgeTestID="leagues-invite-badge"
+            />
           ),
         }}
       />
@@ -148,7 +156,8 @@ export default function TabLayout(): React.ReactNode {
               icon={ChatIcon}
               focused={focused}
               palette={palette}
-              badge={unreadCount}
+              badge={badges.social}
+              badgeTestID="social-unread-badge"
             />
           ),
         }}

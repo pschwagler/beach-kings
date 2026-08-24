@@ -9,10 +9,13 @@ import {
   applyMarkThreadRead,
   commitMarkThreadRead,
   reconcileDirectMessageEvent,
+  reconcilePeerIdentityCaches,
   rollbackMarkThreadRead,
 } from '@/features/messages/cache';
 import { messageKeys } from '@/features/messages/keys';
 import { notificationKeys } from '@/features/notifications/keys';
+import { socialKeys } from '@/features/social/keys';
+import type { PlayerProfileDetails } from '@/features/social/queries';
 
 const USER_ID = 7;
 const PLAYER_ID = 42;
@@ -89,6 +92,89 @@ describe('message cache reconciliation', () => {
     expect(messageKeys.thread(USER_ID, PLAYER_ID)).not.toEqual(
       messageKeys.thread(USER_ID + 1, PLAYER_ID),
     );
+  });
+
+  it('reconciles a privacy-approved avatar across only the active account caches', () => {
+    const client = makeClient();
+    const otherUserId = USER_ID + 1;
+    const oldPeer = {
+      id: PLAYER_ID,
+      name: 'Alex Torres',
+      full_name: 'Alex Torres',
+      avatar: null,
+      profile_picture_url: null,
+    };
+    const profile: PlayerProfileDetails = {
+      player: oldPeer,
+      mutualFriends: [],
+      leagues: [],
+    };
+    client.setQueryData(messageKeys.peer(USER_ID, PLAYER_ID), oldPeer);
+    client.setQueryData(socialKeys.profile(USER_ID, PLAYER_ID), profile);
+    client.setQueryData(messageKeys.conversations(otherUserId), conversations);
+    client.setQueryData(messageKeys.thread(otherUserId, PLAYER_ID), thread);
+
+    reconcilePeerIdentityCaches(client, USER_ID, {
+      playerId: PLAYER_ID,
+      fullName: 'Alexandra Torres',
+      avatar: 'https://cdn.example.com/alex.jpg',
+    });
+
+    expect(
+      client.getQueryData<ConversationListResponse>(
+        messageKeys.conversations(USER_ID),
+      )?.items[0],
+    ).toEqual(expect.objectContaining({
+      full_name: 'Alexandra Torres',
+      avatar: 'https://cdn.example.com/alex.jpg',
+    }));
+    expect(
+      client.getQueryData<ThreadResponse>(
+        messageKeys.thread(USER_ID, PLAYER_ID),
+      )?.peer,
+    ).toEqual({
+      player_id: PLAYER_ID,
+      full_name: 'Alexandra Torres',
+      avatar: 'https://cdn.example.com/alex.jpg',
+    });
+    expect(
+      client.getQueryData<PlayerProfileDetails>(
+        socialKeys.profile(USER_ID, PLAYER_ID),
+      )?.player.profile_picture_url,
+    ).toBe('https://cdn.example.com/alex.jpg');
+    expect(
+      client.getQueryData<ConversationListResponse>(
+        messageKeys.conversations(otherUserId),
+      ),
+    ).toEqual(conversations);
+    expect(
+      client.getQueryData<ThreadResponse>(
+        messageKeys.thread(otherUserId, PLAYER_ID),
+      ),
+    ).toEqual(thread);
+
+    const threadKey = messageKeys.thread(USER_ID, PLAYER_ID);
+    const updateCount = client.getQueryState(threadKey)?.dataUpdateCount;
+    reconcilePeerIdentityCaches(client, USER_ID, {
+      playerId: PLAYER_ID,
+      fullName: 'Alexandra Torres',
+      avatar: 'https://cdn.example.com/alex.jpg',
+    });
+    expect(client.getQueryState(threadKey)?.dataUpdateCount).toBe(updateCount);
+  });
+
+  it('rejects initials and blank values as image sources', () => {
+    const client = makeClient();
+    reconcilePeerIdentityCaches(client, USER_ID, {
+      playerId: PLAYER_ID,
+      fullName: 'Alex Torres',
+      avatar: 'AT',
+    });
+    expect(
+      client.getQueryData<ConversationListResponse>(
+        messageKeys.conversations(USER_ID),
+      )?.items[0]?.avatar,
+    ).toBeNull();
   });
 
   it('optimistically clears a thread, inbox row, counts, and DM summary', () => {
