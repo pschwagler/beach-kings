@@ -33,6 +33,7 @@ import { playerKeys, usePlayerProfileMutations } from '@/features/player';
 import { useToast } from '@/contexts/ToastContext';
 import { hapticSuccess } from '@/utils/haptics';
 import { getApiErrorMessage } from '@/lib/apiError';
+import ProfileHomeCourtsSection from '@/components/screens/Profile/ProfileHomeCourtsSection';
 
 export const PROFILE_INITIAL_LOAD_TIMEOUT_MS = 10_000;
 
@@ -199,7 +200,13 @@ export default function ProfileScreen(): React.ReactNode {
             />
 
             {player != null && (
-              <ProfileInfoSection player={player} onEdit={setEditor} />
+              <>
+                <ProfileInfoSection player={player} onEdit={setEditor} />
+                <ProfileHomeCourtsSection
+                  playerId={player.id}
+                  onEdit={() => router.push(routes.homeCourts())}
+                />
+              </>
             )}
 
             <ProfileMenuSection

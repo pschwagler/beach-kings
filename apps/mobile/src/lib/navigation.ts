@@ -101,6 +101,7 @@ export const routes = {
   // ---- Stack: personal ----
   myGames: () => '/(stack)/my-games' as const,
   myStats: () => '/(stack)/my-stats' as const,
+  homeCourts: () => '/(stack)/profile/home-courts' as const,
   // Returns plain `string` rather than the `as const` literal used by other
   // routes here. expo-router typed routes can't express dynamic query strings,
   // so callers cast with `as never` at the push site. The runtime builder
@@ -258,6 +259,7 @@ export const routeUp: Record<string, UpTarget> = {
   '(stack)/my-games': routes.profile(),
   '(stack)/my-stats': routes.profile(),
   '(stack)/edit-profile': routes.profile(),
+  '(stack)/profile/home-courts': routes.profile(),
 
   // Misc
   '(stack)/kob/[code]': routes.home(),

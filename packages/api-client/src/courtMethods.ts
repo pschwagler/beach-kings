@@ -154,6 +154,18 @@ export function createCourtMethods(api: AxiosInstance) {
       return response.data;
     },
 
+    /** Replace and order the authenticated player's home courts atomically. */
+    async setPlayerHomeCourts(
+      playerId: number,
+      courtIds: readonly number[],
+    ): Promise<PlayerHomeCourt[]> {
+      const response = await api.put<PlayerHomeCourt[]>(
+        `/api/players/${playerId}/home-courts`,
+        { court_ids: courtIds },
+      );
+      return response.data;
+    },
+
     async suggestCourtEdit(
       courtId: number,
       input: SuggestCourtEditInput,

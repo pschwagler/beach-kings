@@ -59,11 +59,13 @@ jest.mock('@/contexts/AuthContext', () => ({
 const mockGetCurrentUserPlayer = jest.fn();
 const mockGetFriendsPage = jest.fn();
 const mockUpdatePlayerProfile = jest.fn();
+const mockGetPlayerHomeCourts = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
     getFriendsPage: (...args: unknown[]) => mockGetFriendsPage(...args),
     updatePlayerProfile: (...args: unknown[]) => mockUpdatePlayerProfile(...args),
+    getPlayerHomeCourts: (...args: unknown[]) => mockGetPlayerHomeCourts(...args),
     uploadAvatar: jest.fn(),
     deleteAvatar: jest.fn(),
     getLocations: jest.fn(),
@@ -155,6 +157,7 @@ describe('ProfileScreen', () => {
     });
     mockGetCurrentUserPlayer.mockResolvedValue(MOCK_PLAYER);
     mockGetFriendsPage.mockResolvedValue(MOCK_FRIENDS_RESPONSE);
+    mockGetPlayerHomeCourts.mockResolvedValue([]);
     mockUpdatePlayerProfile.mockImplementation(async (updates) => updates);
   });
 
@@ -306,6 +309,32 @@ describe('ProfileScreen', () => {
     // "Open" appears in both the header level badge and the info section field
     const elements = await findAllByText('Open');
     expect(elements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows ordered home-court names without private location details', async () => {
+    mockGetPlayerHomeCourts.mockResolvedValueOnce([
+      { id: 20, name: 'Second Beach', address: 'Private address 2', latitude: 2, longitude: 3, position: 1 },
+      { id: 10, name: 'First Beach', address: 'Private address 1', latitude: 4, longitude: 5, position: 0 },
+    ]);
+
+    const view = render(<ProfileScreen />);
+    expect(await view.findByText('1. First Beach')).toBeTruthy();
+    expect(await view.findByText('2. Second Beach')).toBeTruthy();
+    expect(view.queryByText(/Private address/)).toBeNull();
+  });
+
+  it('keeps profile content visible when home courts fail', async () => {
+    mockGetPlayerHomeCourts.mockRejectedValueOnce(new Error('unavailable'));
+    const view = render(<ProfileScreen />);
+
+    expect((await view.findAllByText('Patrick Schwagler')).length).toBeGreaterThan(0);
+    expect(await view.findByText('Home courts could not be loaded.')).toBeTruthy();
+  });
+
+  it('opens the dedicated home-court editor', async () => {
+    const view = render(<ProfileScreen />);
+    fireEvent.press(await view.findByLabelText('Edit home courts'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/profile/home-courts');
   });
 
   it('presents profile details as compact tappable rows instead of permanent inputs', async () => {
