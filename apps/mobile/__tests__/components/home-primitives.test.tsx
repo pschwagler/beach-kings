@@ -187,6 +187,25 @@ describe('HomeHeader', () => {
     expect(queryByTestId('notifications-unread-badge')).toBeNull();
   });
 
+  it('uses borderless 44-point actions with pressed and focus feedback', () => {
+    const { getByLabelText } = render(
+      <HomeHeader
+        userName="Ava"
+        dmUnreadCount={0}
+        notificationUnreadCount={0}
+      />,
+    );
+
+    for (const label of ['Messages', 'Notifications']) {
+      const action = getByLabelText(label);
+      expect(action.props.className).toContain('w-11');
+      expect(action.props.className).toContain('h-11');
+      expect(action.props.className).toContain('active:bg-inverse/10');
+      expect(action.props.className).toContain('focus:bg-inverse/10');
+      expect(action.props.className).not.toMatch(/\bborder(?:-|\s|$)/);
+    }
+  });
+
   it('shows unread counts on both badges', () => {
     const { getByTestId } = render(
       <HomeHeader
