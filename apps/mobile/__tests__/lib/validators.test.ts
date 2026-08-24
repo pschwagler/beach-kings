@@ -112,6 +112,12 @@ describe('signupSchema', () => {
     expect(signupSchema.safeParse(validSignup).success).toBe(true);
   });
 
+  it('accepts eight characters without requiring a number', () => {
+    expect(
+      signupSchema.safeParse({ ...validSignup, password: 'abcdefgh' }).success,
+    ).toBe(true);
+  });
+
   it('passes with optional phone number included', () => {
     const result = signupSchema.safeParse({
       ...validSignup,

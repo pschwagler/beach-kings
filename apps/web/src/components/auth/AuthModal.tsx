@@ -9,6 +9,7 @@ import type { AuthMode } from '../../contexts/AuthModalContext';
 import PhoneInput from '../ui/PhoneInput';
 import VerificationCodeInput from './VerificationCodeInput';
 import api from '../../services/api';
+import { validatePassword } from '../../utils/passwordPolicy';
 
 const MODE_TITLES: Record<AuthMode, string> = {
   'sign-in': 'Log In',
@@ -61,7 +62,6 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
   const [isPhoneValid, setIsPhoneValid] = useState(false);
   const [passwordRequirements, setPasswordRequirements] = useState({
     minLength: false,
-    hasNumber: false,
   });
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [isSignupFlow, setIsSignupFlow] = useState(false);
@@ -114,7 +114,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setErrorMessage('');
     setStatusMessage('');
     setIsPhoneValid(false);
-    setPasswordRequirements({ minLength: false, hasNumber: false });
+    setPasswordRequirements({ minLength: false });
     setResetToken(null);
     setIsSignupFlow(false);
     setEligibilityToken('');
@@ -123,13 +123,6 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setAgeBand('');
     setGuardianConsent(false);
     onClose?.();
-  };
-
-  const validatePassword = (password: string) => {
-    return {
-      minLength: password.length >= 8,
-      hasNumber: /\d/.test(password),
-    };
   };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,7 +144,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setStatusMessage('');
     setFormData(defaultFormState);
     setIsPhoneValid(false);
-    setPasswordRequirements({ minLength: false, hasNumber: false });
+    setPasswordRequirements({ minLength: false });
     setResetToken(null);
     setEligibilityToken('');
   };
@@ -197,8 +190,8 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
         return;
       }
       const passwordValid = validatePassword(formData.password);
-      if (!passwordValid.minLength || !passwordValid.hasNumber) {
-        setErrorMessage('Password must be at least 8 characters long and include a number');
+      if (!passwordValid.minLength) {
+        setErrorMessage('Password must be at least 8 characters long');
         return;
       }
     }
@@ -279,8 +272,8 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       if (activeMode === 'reset-password-new') {
         // Validate password strength
         const passwordValid = validatePassword(formData.password);
-        if (!passwordValid.minLength || !passwordValid.hasNumber) {
-          setErrorMessage('Password must be at least 8 characters long and include a number');
+        if (!passwordValid.minLength) {
+          setErrorMessage('Password must be at least 8 characters long');
           return;
         }
         if (!resetToken) {
@@ -507,14 +500,6 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
                       <XIcon size={14} className="auth-modal__requirement-icon" />
                     )}
                     <span>At least 8 characters</span>
-                  </div>
-                  <div className={`auth-modal__requirement ${passwordRequirements.hasNumber ? 'valid' : ''}`}>
-                    {passwordRequirements.hasNumber ? (
-                      <Check size={14} className="auth-modal__requirement-icon" />
-                    ) : (
-                      <XIcon size={14} className="auth-modal__requirement-icon" />
-                    )}
-                    <span>Includes a number</span>
                   </div>
                 </div>
               )}

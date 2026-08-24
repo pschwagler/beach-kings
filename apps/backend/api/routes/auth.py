@@ -195,10 +195,6 @@ async def signup(
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         youth_facts = youth_safety_service.account_values(eligibility)
         auth_service.validate_password_length(payload.password)
-        if not any(char.isdigit() for char in payload.password):
-            raise HTTPException(
-                status_code=400, detail="Password must include at least one number"
-            )
         # Name validation is handled by SignupRequest's model_validator
         # which ensures first_name + last_name (or full_name) are resolved.
 
