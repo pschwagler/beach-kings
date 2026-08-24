@@ -170,9 +170,16 @@ async def _check_profile_complete(session: AsyncSession, user_id: int) -> bool:
         True if the player has gender and level set, False otherwise
     """
     player = await data_service.get_player_by_user_id(session, user_id)
-    if not player or not player.get("gender") or not player.get("level"):
+    if not player:
         return False
-    return True
+    gender = player.get("gender")
+    level = player.get("level")
+    return bool(
+        isinstance(gender, str)
+        and gender.strip()
+        and isinstance(level, str)
+        and level.strip()
+    )
 
 
 @router.post("/api/auth/signup", response_model=Dict[str, Any])

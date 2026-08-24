@@ -1,7 +1,7 @@
 """Players models."""
 
 from typing import Any, Optional, List
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class PlayerBase(BaseModel):
@@ -46,6 +46,17 @@ class PlayerUpdate(BaseModel):
         None  # Optional: manually override auto-matched location (location_id string, e.g., "socal_la")
     )
     distance_to_location: Optional[float] = None  # Optional: pre-calculated distance from frontend
+
+    @field_validator("gender", "level")
+    @classmethod
+    def reject_blank_demographics(cls, value: Optional[str]) -> Optional[str]:
+        """Owner demographics may be omitted, but not saved as blank text."""
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("gender and level must not be blank")
+        return normalized
 
     @model_validator(mode="after")
     def resolve_names(self) -> "PlayerUpdate":
