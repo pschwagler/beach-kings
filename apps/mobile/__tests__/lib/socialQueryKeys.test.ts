@@ -10,6 +10,23 @@ describe('private social Query contracts', () => {
     expect(notificationKeys.feed(1).slice(0, 2)).toEqual(['private', 1]);
   });
 
+  it('isolates every normalized discovery location input', () => {
+    const exact = socialKeys.discovery(1, { location_id: 'socal_sd' });
+    const nearby25 = socialKeys.discovery(1, {
+      origin_location_id: 'socal_sd',
+      radius_miles: 25,
+    });
+    const nearby50 = socialKeys.discovery(1, {
+      origin_location_id: 'socal_sd',
+      radius_miles: 50,
+    });
+
+    expect(exact.slice(0, 2)).toEqual(['private', 1]);
+    expect(exact).not.toEqual(socialKeys.discovery(2, { location_id: 'socal_sd' }));
+    expect(exact).not.toEqual(nearby25);
+    expect(nearby25).not.toEqual(nearby50);
+  });
+
   it('prefers canonical relationship metadata with request id', () => {
     expect(normalizePlayerRelationship({
       statuses: { '44': 'pending_outgoing' },

@@ -29,7 +29,23 @@ jest.mock('@/lib/api', () => ({
   api: {
     discoverPlayers: jest.fn(),
     sendFriendRequest: jest.fn(),
+    getLocations: jest.fn(),
   },
+}));
+
+type MockDeviceLocation = {
+  readonly coords: { readonly latitude: number; readonly longitude: number } | null;
+  readonly status: 'pending' | 'granted' | 'denied';
+};
+const mockUseDeviceLocation = jest.fn(
+  (_options: { readonly enabled?: boolean }): MockDeviceLocation => ({
+    coords: null,
+    status: 'pending',
+  }),
+);
+jest.mock('@/hooks/useDeviceLocation', () => ({
+  useDeviceLocation: (options: { readonly enabled?: boolean }) =>
+    mockUseDeviceLocation(options),
 }));
 
 import { useDiscoverPlayers } from '../useDiscoverPlayers';
@@ -38,6 +54,7 @@ import { api } from '@/lib/api';
 const mockApi = api as unknown as {
   discoverPlayers: jest.Mock;
   sendFriendRequest: jest.Mock;
+  getLocations: jest.Mock;
 };
 
 function renderHook<Result, Props>(
@@ -75,6 +92,25 @@ const PLAYER = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockApi.sendFriendRequest.mockResolvedValue(undefined);
+  mockApi.getLocations.mockResolvedValue([
+    {
+      id: 'socal_sd',
+      name: 'San Diego',
+      city: 'San Diego',
+      state: 'CA',
+      latitude: 32.72,
+      longitude: -117.16,
+    },
+    {
+      id: 'socal_la',
+      name: 'Los Angeles',
+      city: 'Los Angeles',
+      state: 'CA',
+      latitude: 34.05,
+      longitude: -118.24,
+    },
+  ]);
+  mockUseDeviceLocation.mockReturnValue({ coords: null, status: 'pending' });
 });
 
 // ---------------------------------------------------------------------------
@@ -159,6 +195,135 @@ describe('useDiscoverPlayers — filters', () => {
     );
     expect(result.current.sameLeagueOnly).toBe(true);
     expect(result.current.sharedFriendsOnly).toBe(true);
+  });
+
+  it('filters by an exact metro and clears it without requesting device location', async () => {
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+
+    act(() => result.current.onSelectMetro('socal_sd'));
+
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        location_id: 'socal_sd',
+      }),
+    );
+    expect(result.current.metroFilterId).toBe('socal_sd');
+    expect(mockUseDeviceLocation).toHaveBeenLastCalledWith({ enabled: false });
+
+    act(() => result.current.onClearLocation());
+    await waitFor(() => expect(result.current.metroFilterId).toBeNull());
+  });
+
+  it('requests location only after Near Me and sends only a hub origin', async () => {
+    const hook = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(hook.result.current.locations.length).toBe(2));
+    expect(mockUseDeviceLocation).toHaveBeenLastCalledWith({ enabled: false });
+
+    act(() => hook.result.current.onSelectNearMe());
+    expect(mockUseDeviceLocation).toHaveBeenLastCalledWith({ enabled: true });
+    expect(hook.result.current.nearMePending).toBe(true);
+    expect(hook.result.current.players).toEqual([]);
+
+    const callsBeforeBlockedActions = mockApi.discoverPlayers.mock.calls.length;
+    act(() => {
+      hook.result.current.onRetryPlayers();
+      hook.result.current.onRefreshPlayers();
+    });
+    expect(mockApi.discoverPlayers).toHaveBeenCalledTimes(callsBeforeBlockedActions);
+    expect(hook.result.current.isRefreshingPlayers).toBe(false);
+
+    mockUseDeviceLocation.mockReturnValue({
+      coords: { latitude: 32.73, longitude: -117.15 },
+      status: 'granted',
+    });
+    hook.rerender(undefined);
+
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        origin_location_id: 'socal_sd',
+        radius_miles: 25,
+      }),
+    );
+    const proximityParams = mockApi.discoverPlayers.mock.calls.at(-1)?.[0];
+    expect(proximityParams).not.toHaveProperty('latitude');
+    expect(proximityParams).not.toHaveProperty('longitude');
+    expect(hook.result.current.nearMeOriginLabel).toBe('San Diego');
+
+    act(() => hook.result.current.onSetRadius(100));
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        origin_location_id: 'socal_sd',
+        radius_miles: 100,
+      }),
+    );
+  });
+
+  it('offers an exact-metro fallback after location denial', async () => {
+    const hook = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(hook.result.current.locations.length).toBe(2));
+    act(() => hook.result.current.onSelectNearMe());
+
+    mockUseDeviceLocation.mockReturnValue({ coords: null, status: 'denied' });
+    hook.rerender(undefined);
+    await waitFor(() => expect(hook.result.current.nearMeDenied).toBe(true));
+    expect(hook.result.current.players).toEqual([]);
+
+    act(() => hook.result.current.onSelectMetro('socal_la'));
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        location_id: 'socal_la',
+      }),
+    );
+    expect(hook.result.current.nearMeEnabled).toBe(false);
+  });
+
+  it('suppresses a cached discovery error while Near Me is unresolved', async () => {
+    mockApi.discoverPlayers.mockRejectedValueOnce(new Error('offline'));
+    const hook = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(hook.result.current.playersError).not.toBeNull());
+
+    act(() => hook.result.current.onSelectNearMe());
+
+    expect(hook.result.current.nearMePending).toBe(true);
+    expect(hook.result.current.playersError).toBeNull();
+    expect(hook.result.current.players).toEqual([]);
+  });
+
+  it('recovers from an unavailable hub catalog without fetching unfiltered data', async () => {
+    mockApi.getLocations.mockRejectedValueOnce(new Error('catalog offline'));
+    mockUseDeviceLocation.mockReturnValue({
+      coords: { latitude: 32.73, longitude: -117.15 },
+      status: 'granted',
+    });
+    const hook = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(hook.result.current.locationsError).not.toBeNull());
+    const unfilteredCalls = mockApi.discoverPlayers.mock.calls.length;
+
+    act(() => hook.result.current.onSelectNearMe());
+    await waitFor(() => expect(hook.result.current.nearMeUnavailable).toBe(true));
+    expect(hook.result.current.players).toEqual([]);
+    expect(mockApi.discoverPlayers).toHaveBeenCalledTimes(unfilteredCalls);
+
+    mockApi.getLocations.mockResolvedValueOnce([
+      {
+        id: 'socal_sd',
+        name: 'San Diego',
+        city: 'San Diego',
+        state: 'CA',
+        latitude: 32.72,
+        longitude: -117.16,
+      },
+    ]);
+    act(() => hook.result.current.onRetryLocations());
+
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        origin_location_id: 'socal_sd',
+        radius_miles: 25,
+      }),
+    );
+    expect(hook.result.current.nearMeUnavailable).toBe(false);
   });
 });
 

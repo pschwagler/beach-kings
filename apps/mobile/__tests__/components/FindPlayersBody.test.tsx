@@ -20,7 +20,15 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 jest.mock('@/theme/usePaletteColors', () => ({
-  usePaletteColors: () => ({ textTertiary: '#999999' }),
+  usePaletteColors: () => ({
+    textTertiary: '#999999',
+    textDefault: '#111111',
+    brandTeal: '#005555',
+  }),
+}));
+
+jest.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({ isDark: false }),
 }));
 
 import FindPlayersBody, {
@@ -77,6 +85,31 @@ function makeProps(
     onToggleLevel: jest.fn(),
     onToggleSameLeague: jest.fn(),
     onToggleSharedFriends: jest.fn(),
+    locations: [
+      {
+        id: 'socal_sd',
+        name: 'San Diego',
+        city: 'San Diego',
+        state: 'CA',
+        latitude: 32.72,
+        longitude: -117.16,
+      },
+    ],
+    locationsPending: false,
+    locationsError: null,
+    onRetryLocations: jest.fn(),
+    metroFilterId: null,
+    nearMeEnabled: false,
+    nearMePending: false,
+    nearMeDenied: false,
+    nearMeUnavailable: false,
+    nearMeOriginLabel: null,
+    radiusMiles: 25,
+    onSelectMetro: jest.fn(),
+    onSelectNearMe: jest.fn(),
+    onSetRadius: jest.fn(),
+    onClearLocation: jest.fn(),
+    hasLocationFilter: false,
     ...overrides,
   };
 }
@@ -101,6 +134,7 @@ describe('FindPlayersBody — loading & error', () => {
       <FindPlayersBody {...makeProps({ playersError: new Error('boom') })} />,
     );
     expect(screen.getByTestId('find-players-error-state')).toBeTruthy();
+    expect(screen.getByTestId('discover-location-controls')).toBeTruthy();
   });
 
   it('retries discovery from the error state', () => {
@@ -203,6 +237,112 @@ describe('FindPlayersBody — filter chips', () => {
     render(<FindPlayersBody {...makeProps({ players: [] })} />);
     expect(screen.getByTestId('discover-chip-same-league')).toBeTruthy();
     expect(screen.getByTestId('find-players-empty-state')).toBeTruthy();
+  });
+
+  it('requests Near Me only from the explicit control', () => {
+    const onSelectNearMe = jest.fn();
+    render(<FindPlayersBody {...makeProps({ onSelectNearMe })} />);
+
+    expect(onSelectNearMe).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('discover-near-me'));
+    expect(onSelectNearMe).toHaveBeenCalledTimes(1);
+  });
+
+  it('selects and clears an exact metro from the catalog control', () => {
+    const onSelectMetro = jest.fn();
+    const view = render(
+      <FindPlayersBody {...makeProps({ onSelectMetro })} />,
+    );
+
+    fireEvent.press(screen.getByTestId('discover-metro-select'));
+    fireEvent.press(screen.getByText('San Diego'));
+    expect(onSelectMetro).toHaveBeenCalledWith('socal_sd');
+
+    view.rerender(
+      <FindPlayersBody
+        {...makeProps({ metroFilterId: 'socal_sd', onSelectMetro })}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('discover-metro-select'));
+    fireEvent.press(screen.getByText('All metros'));
+    expect(onSelectMetro).toHaveBeenLastCalledWith(null);
+  });
+
+  it('shows every approved radius and updates the selected radius', () => {
+    const onSetRadius = jest.fn();
+    render(
+      <FindPlayersBody
+        {...makeProps({
+          nearMeEnabled: true,
+          nearMeOriginLabel: 'San Diego',
+          onSetRadius,
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Near San Diego')).toBeTruthy();
+    expect(screen.getByTestId('discover-radius-10')).toBeTruthy();
+    expect(screen.getByTestId('discover-radius-25')).toBeTruthy();
+    expect(screen.getByTestId('discover-radius-50')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('discover-radius-100'));
+    expect(onSetRadius).toHaveBeenCalledWith(100);
+  });
+
+  it('shows permission denial with a usable metro selector fallback', () => {
+    render(
+      <FindPlayersBody
+        {...makeProps({ nearMeEnabled: true, nearMeDenied: true })}
+      />,
+    );
+
+    expect(screen.getByText(/choose a metro to keep filtering/i)).toBeTruthy();
+    expect(screen.getByTestId('discover-metro-select')).toBeTruthy();
+    expect(screen.getByTestId('find-players-near-me-denied')).toBeTruthy();
+    expect(screen.queryByTestId('player-row-30')).toBeNull();
+    expect(screen.queryByTestId('find-players-empty-state')).toBeNull();
+  });
+
+  it('hides stale players behind an explicit Near Me resolving state', () => {
+    render(
+      <FindPlayersBody
+        {...makeProps({ nearMeEnabled: true, nearMePending: true })}
+      />,
+    );
+
+    expect(screen.getByTestId('find-players-near-me-resolving')).toBeTruthy();
+    expect(screen.queryByTestId('player-row-30')).toBeNull();
+    expect(screen.queryByTestId('find-players-empty-state')).toBeNull();
+  });
+
+  it('renders a dedicated unavailable state instead of generic empty results', () => {
+    render(
+      <FindPlayersBody
+        {...makeProps({
+          nearMeEnabled: true,
+          nearMeUnavailable: true,
+          locationsError: new Error('offline'),
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('find-players-near-me-unavailable')).toBeTruthy();
+    expect(screen.queryByTestId('player-row-30')).toBeNull();
+    expect(screen.queryByTestId('find-players-empty-state')).toBeNull();
+  });
+
+  it('retries a section-local metro catalog failure', () => {
+    const onRetryLocations = jest.fn();
+    render(
+      <FindPlayersBody
+        {...makeProps({
+          locationsError: new Error('offline'),
+          onRetryLocations,
+        })}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('discover-location-retry'));
+    expect(onRetryLocations).toHaveBeenCalledTimes(1);
   });
 });
 

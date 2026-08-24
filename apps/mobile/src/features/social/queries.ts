@@ -1,6 +1,7 @@
-import { queryOptions } from '@tanstack/react-query';
+import { queryOptions, skipToken } from '@tanstack/react-query';
 import type {
   DiscoverFilters,
+  DiscoverPlayer,
   FriendRequestDirection,
   FriendshipRelationship,
   MutualFriend,
@@ -61,10 +62,13 @@ export const socialQueries = {
     userId: number,
     filters: DiscoverFilters,
     enabled = true,
-  ) => queryOptions({
-    queryKey: socialKeys.discovery(userId, filters),
-    queryFn: () => api.discoverPlayers(filters),
-    enabled: enabled && userId > 0,
+    unresolvedNearby = false,
+  ) => queryOptions<DiscoverPlayer[]>({
+    queryKey: unresolvedNearby
+      ? [...socialKeys.discoveryRoot(userId), 'nearby-unresolved']
+      : socialKeys.discovery(userId, filters),
+    queryFn: unresolvedNearby ? skipToken : () => api.discoverPlayers(filters),
+    enabled: enabled && userId > 0 && !unresolvedNearby,
     staleTime: SOCIAL_STALE_TIME_MS,
   }),
 

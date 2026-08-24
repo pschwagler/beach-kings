@@ -1348,6 +1348,66 @@ async def test_discover_players_location_filter(db_session, discover_setup):
 
 
 @pytest.mark.asyncio
+async def test_discover_players_radius_uses_only_hub_centroids(db_session, discover_setup):
+    """Proximity includes metros in range without consulting player coordinates."""
+    origin = await db_session.get(Location, "test_beach")
+    origin.latitude = 0.0
+    origin.longitude = 0.0
+    nearby = Location(
+        id="nearby_metro",
+        name="Nearby Metro",
+        latitude=0.1,
+        longitude=0.0,
+        is_active=True,
+    )
+    far = Location(
+        id="far_metro",
+        name="Far Metro",
+        latitude=1.0,
+        longitude=0.0,
+        is_active=True,
+    )
+    db_session.add_all([nearby, far])
+    dave = await db_session.get(Player, discover_setup["dave"])
+    eve = await db_session.get(Player, discover_setup["eve"])
+    dave.location_id = nearby.id
+    eve.location_id = far.id
+    await db_session.flush()
+
+    result = await friend_service.discover_players(
+        db_session,
+        discover_setup["alice"],
+        origin_location_id="test_beach",
+        radius_miles=10,
+    )
+
+    result_ids = {item["id"] for item in result["items"]}
+    assert discover_setup["bob"] in result_ids
+    assert discover_setup["carol"] in result_ids
+    assert discover_setup["dave"] in result_ids
+    assert discover_setup["eve"] not in result_ids
+
+
+@pytest.mark.asyncio
+async def test_discover_players_unknown_radius_origin_is_empty(db_session, discover_setup):
+    result = await friend_service.discover_players(
+        db_session,
+        discover_setup["alice"],
+        origin_location_id="missing_metro",
+        radius_miles=25,
+    )
+
+    assert result["items"] == []
+    assert result["total_count"] == 0
+
+
+def test_haversine_uses_mile_boundaries():
+    distance = friend_service._haversine_miles(0.0, 0.0, 0.1, 0.0)
+
+    assert 6.8 < distance < 7.0
+
+
+@pytest.mark.asyncio
 async def test_discover_players_sort_by_games(db_session, discover_setup):
     """Sort by games descending orders by total_games."""
     result = await friend_service.discover_players(
@@ -1421,3 +1481,5 @@ async def test_discover_players_includes_required_fields(db_session, discover_se
         "friend_status",
     }
     assert required_fields.issubset(item.keys())
+    assert "latitude" not in item
+    assert "longitude" not in item

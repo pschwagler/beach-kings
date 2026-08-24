@@ -87,7 +87,12 @@ export interface FriendBatchStatusResponse {
 /** Filters accepted by authenticated player discovery. */
 export interface DiscoverFilters {
   readonly search?: string;
+  /** Exact saved metro filter. */
   readonly location_id?: string;
+  /** Metro/hub centroid used as the origin for a proximity filter. */
+  readonly origin_location_id?: string;
+  /** Allowed proximity radius around `origin_location_id`. */
+  readonly radius_miles?: 10 | 25 | 50 | 100;
   readonly gender?: 'male' | 'female';
   readonly level?: string;
   readonly sort_by?: 'mutuals' | 'games' | 'name' | 'rating';
