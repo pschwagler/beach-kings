@@ -70,6 +70,16 @@ export const courtQueries = {
     enabled: enabled && userId > 0,
     staleTime: COURT_CATALOG_STALE_TIME_MS,
   }),
+  placeholder: (
+    userId: number,
+    locationId: string | null,
+    enabled = true,
+  ) => queryOptions({
+    queryKey: courtKeys.placeholder(userId, locationId ?? ''),
+    queryFn: (): Promise<Court> => api.getPlaceholderCourt(locationId ?? ''),
+    enabled: enabled && userId > 0 && locationId != null && locationId.length > 0,
+    staleTime: COURT_CATALOG_STALE_TIME_MS,
+  }),
   reviewTags: (enabled = true) => queryOptions({
     queryKey: courtKeys.reviewTags(),
     queryFn: (): Promise<CourtReviewTag[]> => api.getCourtTags(),

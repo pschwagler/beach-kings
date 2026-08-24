@@ -21,6 +21,8 @@ export const courtKeys = {
     latitude: number | null,
     longitude: number | null,
   ) => [...courtKeys.all(userId), 'catalog', latitude, longitude] as const,
+  placeholder: (userId: number, locationId: string) =>
+    [...courtKeys.all(userId), 'placeholder', locationId] as const,
   detail: (userId: number, idOrSlug: number | string) =>
     [...courtKeys.all(userId), 'detail', String(idOrSlug)] as const,
   photos: (userId: number, idOrSlug: number | string) =>

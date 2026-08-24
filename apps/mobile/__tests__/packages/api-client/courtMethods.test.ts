@@ -625,3 +625,16 @@ describe('setPlayerHomeCourts', () => {
     });
   });
 });
+
+describe('getPlaceholderCourt', () => {
+  it('requests the private court for the named location', async () => {
+    const placeholder = { id: 91, name: 'Other / Private Court', location_id: 'montreal' };
+    const mockGet = jest.fn().mockResolvedValue({ data: placeholder });
+    const methods = createApiMethods(makeClient({ get: mockGet }));
+
+    await expect(methods.getPlaceholderCourt('montreal')).resolves.toEqual(placeholder);
+    expect(mockGet).toHaveBeenCalledWith('/api/courts/placeholder', {
+      params: { location_id: 'montreal' },
+    });
+  });
+});

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import AppText from '@/components/ui/AppText';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -17,9 +17,10 @@ interface Props {
   readonly onChange: (courtId: number | null, courtName?: string | null) => void;
   readonly testIDPrefix: string;
   readonly allowNone?: boolean;
-  readonly selectDefaultCourt?: boolean;
   readonly isUpdating?: boolean;
   readonly error?: string | null;
+  /** Disable all coordinate resolution/sorting for privacy-sensitive flows. */
+  readonly useProfileCoordinates?: boolean;
 }
 
 function courtId(court: Court): number | null {
@@ -29,21 +30,37 @@ function courtId(court: Court): number | null {
 }
 
 /** Reusable picker for assigning a session to one of the existing courts. */
-export default function SessionCourtPicker({
+export default function SessionCourtPicker(props: Props): React.ReactNode {
+  if (props.useProfileCoordinates === false) {
+    return <SessionCourtPickerContent {...props} coords={null} isResolving={false} />;
+  }
+  return <ResolvedSessionCourtPicker {...props} />;
+}
+
+function ResolvedSessionCourtPicker(props: Props): React.ReactNode {
+  const { coords, isResolving } = useResolvedUserLocation({ skipDevice: true });
+  return <SessionCourtPickerContent {...props} coords={coords} isResolving={isResolving} />;
+}
+
+interface ContentProps extends Props {
+  readonly coords: { readonly latitude: number; readonly longitude: number } | null;
+  readonly isResolving: boolean;
+}
+
+function SessionCourtPickerContent({
   selectedCourtId,
   selectedCourtName,
   onChange,
   testIDPrefix,
   allowNone = true,
-  selectDefaultCourt = false,
   isUpdating = false,
   error = null,
-}: Props): React.ReactNode {
+  coords,
+  isResolving,
+}: ContentProps): React.ReactNode {
   const palette = usePaletteColors();
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const didSelectDefault = useRef(false);
-  const { coords, isResolving } = useResolvedUserLocation({ skipDevice: true });
   const { data: courts, isLoading } = useQuery(
     courtQueries.catalog(user?.id ?? 0, coords, !isResolving && user != null),
   );
@@ -64,27 +81,6 @@ export default function SessionCourtPicker({
     }),
     [courts],
   );
-
-  useEffect(() => {
-    if (
-      !selectDefaultCourt ||
-      didSelectDefault.current ||
-      isLoading ||
-      selectedCourtId != null ||
-      courtOptions.length === 0
-    ) {
-      return;
-    }
-    didSelectDefault.current = true;
-    const nearest = courtOptions[0];
-    onChange(nearest.id, nearest.name);
-  }, [
-    courtOptions,
-    isLoading,
-    onChange,
-    selectDefaultCourt,
-    selectedCourtId,
-  ]);
 
   const selectedName = useMemo(() => {
     if (selectedCourtId == null) return 'Select a court';
