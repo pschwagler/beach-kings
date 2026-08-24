@@ -37,6 +37,7 @@ jest.mock('@/lib/api', () => ({
 import { useReceivedInvitesScreen } from '@/components/screens/Leagues/useReceivedInvitesScreen';
 import type { LeagueInviteItem } from '@beach-kings/shared';
 import { Alert } from 'react-native';
+import { leagueKeys } from '@/features/leagues';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -110,6 +111,19 @@ describe('useReceivedInvitesScreen', () => {
     expect(result.current.isError).toBe(false);
   });
 
+  it('returns only pending invitations from a stale mixed-status cache', async () => {
+    mockGetReceivedLeagueInvites.mockResolvedValue([
+      MOCK_INVITES[0],
+      { ...MOCK_INVITES[1], status: 'declined' },
+    ]);
+    const { result } = renderHook(() => useReceivedInvitesScreen(), {
+      wrapper: makeWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.invites).toEqual([MOCK_INVITES[0]]);
+  });
+
   it('returns empty array and isLoading=true while fetching', () => {
     mockGetReceivedLeagueInvites.mockReturnValue(new Promise(() => {}));
 
@@ -145,8 +159,9 @@ describe('useReceivedInvitesScreen', () => {
   });
 
   it('onAccept optimistically removes the invite row', async () => {
+    const client = makeClient();
     const { result } = renderHook(() => useReceivedInvitesScreen(), {
-      wrapper: makeWrapper(makeClient()),
+      wrapper: makeWrapper(client),
     });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -161,6 +176,36 @@ describe('useReceivedInvitesScreen', () => {
     expect(result.current.invites.find((i) => i.league_id === 10)).toBeUndefined();
     // Row with league_id 11 remains.
     expect(result.current.invites.find((i) => i.league_id === 11)).toBeDefined();
+    expect(
+      client
+        .getQueryData<LeagueInviteItem[]>(leagueKeys.receivedInvites(7))
+        ?.find((invite) => invite.league_id === 10),
+    ).toBeUndefined();
+  });
+
+  it('ignores a duplicate response while the same invite is in flight', async () => {
+    let resolveAccept!: (value: { status: string }) => void;
+    mockAcceptLeagueInvite.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAccept = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useReceivedInvitesScreen(), {
+      wrapper: makeWrapper(makeClient()),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      void result.current.onAccept(10);
+      void result.current.onAccept(10);
+    });
+    await waitFor(() =>
+      expect(mockAcceptLeagueInvite).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      resolveAccept({ status: 'accepted' });
+    });
   });
 
   it('onDecline optimistically removes the invite row', async () => {
@@ -263,6 +308,103 @@ describe('useReceivedInvitesScreen', () => {
       error,
     );
   });
+
+  it('rolls back only the failed row when concurrent responses settle out of order', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    let rejectAccept!: (error: Error) => void;
+    let resolveDecline!: (value: { status: string }) => void;
+    mockAcceptLeagueInvite.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectAccept = reject;
+      }),
+    );
+    mockDeclineLeagueInvite.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDecline = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useReceivedInvitesScreen(), {
+      wrapper: makeWrapper(makeClient()),
+    });
+    await waitFor(() => expect(result.current.invites).toHaveLength(2));
+
+    act(() => {
+      void result.current.onAccept(10);
+      void result.current.onDecline(11);
+    });
+    await waitFor(() => expect(result.current.invites).toHaveLength(0));
+
+    await act(async () => {
+      resolveDecline({ status: 'declined' });
+    });
+    await act(async () => {
+      rejectAccept(new Error('accept failed'));
+    });
+
+    await waitFor(() => {
+      expect(result.current.invites.map((invite) => invite.league_id)).toEqual([
+        10,
+      ]);
+    });
+    expect(consoleError).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['first then last', [10, 13]],
+    ['last then first', [13, 10]],
+  ] as const)(
+    'preserves newest-first cache order when two failures settle %s',
+    async (_label, rejectionOrder) => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      const fourInvites: LeagueInviteItem[] = [
+        MOCK_INVITES[0],
+        MOCK_INVITES[1],
+        {
+          ...MOCK_INVITES[1],
+          id: 3,
+          league_id: 12,
+          invited_at: '2025-05-10T10:00:00Z',
+        },
+        {
+          ...MOCK_INVITES[1],
+          id: 4,
+          league_id: 13,
+          invited_at: '2025-05-01T10:00:00Z',
+        },
+      ];
+      mockGetReceivedLeagueInvites.mockResolvedValue(fourInvites);
+      const rejectors = new Map<number, (error: Error) => void>();
+      mockAcceptLeagueInvite.mockImplementation(
+        (leagueId: number) =>
+          new Promise((_resolve, reject) => {
+            rejectors.set(leagueId, reject);
+          }),
+      );
+
+      const { result } = renderHook(() => useReceivedInvitesScreen(), {
+        wrapper: makeWrapper(makeClient()),
+      });
+      await waitFor(() => expect(result.current.invites).toHaveLength(4));
+
+      act(() => {
+        void result.current.onAccept(10);
+        void result.current.onAccept(13);
+      });
+      await waitFor(() => expect(result.current.invites).toHaveLength(2));
+
+      for (const leagueId of rejectionOrder) {
+        await act(async () => {
+          rejectors.get(leagueId)?.(new Error(`failed ${leagueId}`));
+        });
+      }
+
+      await waitFor(() => {
+        expect(result.current.invites.map((invite) => invite.league_id)).toEqual(
+          [10, 11, 12, 13],
+        );
+      });
+    },
+  );
 
   it('shows fallback message in Alert when reject value is not an Error', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
