@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { LeagueInviteItem } from '@beach-kings/shared';
+import type { LeagueDetail, LeagueInviteItem } from '@beach-kings/shared';
 import { api } from '@/lib/api';
 import { leagueKeys } from './keys';
 import { orderReceivedLeagueInvites } from './invites';
@@ -68,18 +68,35 @@ export function useLeagueInviteResponses(
       );
       return { removedInvite };
     },
-    onSuccess: (_data, { action }) => {
-      if (action === 'accept') {
-        void queryClient.invalidateQueries({
-          queryKey: leagueKeys.userLeagues(userId),
-        });
-      }
+    onSuccess: (_data, { action, leagueId }) => {
       // Mark stale without replacing the optimistic result with an older
       // response. The next normal observation confirms server state.
       void queryClient.invalidateQueries({
         queryKey: leagueKeys.receivedInvites(userId),
         refetchType: 'none',
       });
+      if (action === 'accept') {
+        queryClient.setQueryData<LeagueDetail>(
+          leagueKeys.detail(userId, leagueId),
+          (current) =>
+            current == null
+              ? current
+              : {
+                  ...current,
+                  user_role: current.user_role ?? 'member',
+                  has_pending_request: false,
+                },
+        );
+        void queryClient.invalidateQueries({
+          queryKey: leagueKeys.detail(userId, leagueId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: leagueKeys.userLeagues(userId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: leagueKeys.findRoot(userId),
+        });
+      }
     },
     onError: (error, { leagueId, action }, context) => {
       if (context?.removedInvite != null) {

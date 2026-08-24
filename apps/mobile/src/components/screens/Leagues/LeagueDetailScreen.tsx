@@ -44,6 +44,7 @@ import LeagueSignupsTab from './LeagueSignupsTab';
 import LeagueInfoTab from './LeagueInfoTab';
 import LeagueMatchesTab from './LeagueMatchesTab';
 import LeagueStatsTab from './LeagueStatsTab';
+import LeagueInvitationBanner from './LeagueInvitationBanner';
 
 // ---------------------------------------------------------------------------
 // Tab definition
@@ -319,6 +320,10 @@ export default function LeagueDetailScreen({
     isRequestingToJoin,
     onJoinLeague,
     onRequestToJoin,
+    hasLeagueInvitation,
+    isRespondingToInvitation,
+    onAcceptInvitation,
+    onDeclineInvitation,
   } = useLeagueDetailScreen(resolvedId, initialTab);
 
   // Track which player row was tapped in standings to push stats sub-view
@@ -440,7 +445,14 @@ export default function LeagueDetailScreen({
           memberCount={detail.member_count}
         />
 
-        {isVisitor && (
+        {hasLeagueInvitation ? (
+          <LeagueInvitationBanner
+            leagueName={detail.name}
+            isResponding={isRespondingToInvitation}
+            onAccept={() => void onAcceptInvitation()}
+            onDecline={() => void onDeclineInvitation()}
+          />
+        ) : isVisitor ? (
           <VisitorJoinBanner
             canJoinDirectly={canJoinDirectly}
             canRequestToJoin={canRequestToJoin}
@@ -450,7 +462,7 @@ export default function LeagueDetailScreen({
             onJoinLeague={() => void handleJoinLeague()}
             onRequestToJoin={() => void handleRequestToJoin()}
           />
-        )}
+        ) : null}
 
         <SegmentBar
           items={tabsForRole}

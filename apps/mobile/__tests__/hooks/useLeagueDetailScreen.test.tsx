@@ -17,6 +17,9 @@ jest.mock('@/lib/api', () => {
     getLeague: jest.fn(),
     requestToJoinLeague: jest.fn(),
     joinLeague: jest.fn(),
+    getReceivedLeagueInvites: jest.fn(),
+    acceptLeagueInvite: jest.fn(),
+    declineLeagueInvite: jest.fn(),
   };
   return { api };
 });
@@ -33,6 +36,9 @@ const mockApi = api as unknown as {
   getLeague: jest.Mock;
   requestToJoinLeague: jest.Mock;
   joinLeague: jest.Mock;
+  getReceivedLeagueInvites: jest.Mock;
+  acceptLeagueInvite: jest.Mock;
+  declineLeagueInvite: jest.Mock;
 };
 
 function makeWrapper(client: QueryClient) {
@@ -90,10 +96,27 @@ const VISITOR_INVITE_ONLY: LeagueDetail = {
   access_type: 'invite_only',
 };
 
+const RECEIVED_INVITE = {
+  id: 9,
+  league_id: 42,
+  league_name: 'Test League',
+  player_id: 7,
+  display_name: 'Test Player',
+  initials: 'TL',
+  invited_at: '2026-08-24T12:00:00Z',
+  status: 'pending' as const,
+};
+
 beforeEach(() => {
   mockApi.getLeague.mockReset();
   mockApi.requestToJoinLeague.mockReset();
   mockApi.joinLeague.mockReset();
+  mockApi.getReceivedLeagueInvites.mockReset();
+  mockApi.acceptLeagueInvite.mockReset();
+  mockApi.declineLeagueInvite.mockReset();
+  mockApi.getReceivedLeagueInvites.mockResolvedValue([]);
+  mockApi.acceptLeagueInvite.mockResolvedValue({ status: 'accepted' });
+  mockApi.declineLeagueInvite.mockResolvedValue({ status: 'declined' });
 });
 
 describe('useLeagueDetailScreen', () => {
@@ -248,6 +271,105 @@ describe('useLeagueDetailScreen', () => {
       expect(result.current.hasPendingRequest).toBe(true);
       expect(result.current.canRequestToJoin).toBe(false);
       expect(result.current.canJoinDirectly).toBe(false);
+    });
+  });
+
+  describe('received invitation composition', () => {
+    it('distinguishes a matching visitor invitation from generic join eligibility', async () => {
+      mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
+      mockApi.getReceivedLeagueInvites.mockResolvedValue([RECEIVED_INVITE]);
+      const { result } = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(makeClient()),
+      });
+
+      await waitFor(() => expect(result.current.hasLeagueInvitation).toBe(true));
+      expect(result.current.isVisitor).toBe(true);
+      expect(result.current.isRespondingToInvitation).toBe(false);
+    });
+
+    it('ignores an invitation for a different league and for an existing member', async () => {
+      mockApi.getReceivedLeagueInvites.mockResolvedValue([
+        { ...RECEIVED_INVITE, league_id: 99 },
+      ]);
+      mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
+      const visitor = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(makeClient()),
+      });
+      await waitFor(() => expect(visitor.result.current.isLoading).toBe(false));
+      expect(visitor.result.current.hasLeagueInvitation).toBe(false);
+      visitor.unmount();
+
+      mockApi.getReceivedLeagueInvites.mockResolvedValue([RECEIVED_INVITE]);
+      mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+      const member = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(makeClient()),
+      });
+      await waitFor(() => expect(member.result.current.isLoading).toBe(false));
+      expect(member.result.current.hasLeagueInvitation).toBe(false);
+    });
+
+    it('keeps invitation state during accept and refreshes detail before settling', async () => {
+      let resolveAccept!: (value: { status: string }) => void;
+      let resolveDetailRefresh!: (value: LeagueDetail) => void;
+      mockApi.getLeague
+        .mockResolvedValueOnce(VISITOR_OPEN)
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveDetailRefresh = resolve;
+          }),
+        );
+      mockApi.getReceivedLeagueInvites.mockResolvedValue([RECEIVED_INVITE]);
+      mockApi.acceptLeagueInvite.mockReturnValue(
+        new Promise((resolve) => {
+          resolveAccept = resolve;
+        }),
+      );
+      const client = makeClient();
+      const { result } = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(client),
+      });
+      await waitFor(() => expect(result.current.hasLeagueInvitation).toBe(true));
+
+      let acceptPromise!: Promise<void>;
+      act(() => {
+        acceptPromise = result.current.onAcceptInvitation();
+      });
+      await waitFor(() => {
+        expect(result.current.isRespondingToInvitation).toBe(true);
+        expect(result.current.hasLeagueInvitation).toBe(true);
+      });
+
+      act(() => {
+        resolveAccept({ status: 'accepted' });
+      });
+      // The authoritative accept response updates cached membership before
+      // the detail refresh completes, so the generic visitor CTA never flashes.
+      await waitFor(() => expect(result.current.isVisitor).toBe(false));
+      expect(result.current.hasLeagueInvitation).toBe(false);
+      expect(mockApi.getLeague).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        resolveDetailRefresh({ ...LEAGUE_DETAIL, user_role: 'member' });
+        await acceptPromise;
+      });
+    });
+
+    it('removes a declined invitation without changing generic detail', async () => {
+      mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
+      mockApi.getReceivedLeagueInvites.mockResolvedValue([RECEIVED_INVITE]);
+      const { result } = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(makeClient()),
+      });
+      await waitFor(() => expect(result.current.hasLeagueInvitation).toBe(true));
+
+      await act(async () => {
+        await result.current.onDeclineInvitation();
+      });
+
+      expect(mockApi.declineLeagueInvite).toHaveBeenCalledWith(42);
+      expect(result.current.hasLeagueInvitation).toBe(false);
+      expect(result.current.canJoinDirectly).toBe(true);
+      expect(mockApi.getLeague).toHaveBeenCalledTimes(1);
     });
   });
 
