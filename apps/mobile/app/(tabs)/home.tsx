@@ -266,6 +266,11 @@ export default function HomeScreen(): React.ReactNode {
               />
               {isActivelyPending(stats) ? (
                 <HomeSectionSkeleton label="my stats" />
+              ) : statsData === undefined && stats.isPending ? (
+                <SectionError
+                  message="Stats are unavailable while offline."
+                  onRetry={() => void stats.refetch()}
+                />
               ) : statsData === undefined && stats.isError ? (
                 <SectionError
                   message="Could not load your stats."

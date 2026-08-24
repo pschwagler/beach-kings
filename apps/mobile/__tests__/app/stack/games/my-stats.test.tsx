@@ -17,11 +17,18 @@ import React from 'react';
 import { render as renderTestingLibrary, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ThemeProvider from '@/contexts/ThemeContext';
+import { statsKeys } from '@/features/stats';
 
-function render(ui: React.ReactElement): ReturnType<typeof renderTestingLibrary> {
-  const client = new QueryClient({
+function makeClient(): QueryClient {
+  return new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
+}
+
+function render(
+  ui: React.ReactElement,
+  client = makeClient(),
+): ReturnType<typeof renderTestingLibrary> {
   return renderTestingLibrary(
     <QueryClientProvider client={client}>
       <ThemeProvider>{ui}</ThemeProvider>
@@ -255,6 +262,19 @@ describe('MyStatsScreen — error state', () => {
     await waitFor(() => {
       expect(mockGetMyStats).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('keeps shared cached stats visible after a failed refresh', async () => {
+    const client = makeClient();
+    render(<MyStatsScreen />, client);
+    await screen.findByText('Patrick Schwagler');
+
+    mockGetMyStats.mockRejectedValue(new Error('offline'));
+    await client.invalidateQueries({ queryKey: statsKeys.my(7) });
+
+    await screen.findByText('Your stats may be out of date.');
+    expect(screen.getByText('Patrick Schwagler')).toBeTruthy();
+    expect(screen.queryByTestId('stats-error-state')).toBeNull();
   });
 });
 

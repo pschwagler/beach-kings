@@ -29,6 +29,7 @@ import RatingChart from './RatingChart';
 import BreakdownTable from './BreakdownTable';
 import Avatar from '@/components/ui/Avatar';
 import FilterChipBar from '@/components/ui/FilterChipBar';
+import SectionError from '@/components/home/SectionError';
 
 // ---------------------------------------------------------------------------
 // Profile header
@@ -165,7 +166,7 @@ export default function MyStatsScreen(): React.ReactNode {
   }
 
   // --- Error ---
-  if (error != null && !isRefreshing) {
+  if (error != null && stats == null && !isRefreshing) {
     return (
       <SafeAreaView
         className="flex-1 bg-page"
@@ -209,6 +210,15 @@ export default function MyStatsScreen(): React.ReactNode {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         }
       >
+        {error != null ? (
+          <View className="px-4 pt-4">
+            <SectionError
+              message="Your stats may be out of date."
+              onRetry={onRetry}
+            />
+          </View>
+        ) : null}
+
         {/* Profile header */}
         <ProfileHeader
           name={stats.player_name}

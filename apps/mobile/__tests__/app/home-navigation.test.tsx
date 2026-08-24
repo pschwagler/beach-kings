@@ -301,6 +301,21 @@ describe('HomeScreen navigation', () => {
     expect(failed.getByTestId('home-header')).toBeTruthy();
   });
 
+  it('shows a retryable offline state instead of a blank stats body', () => {
+    mockDashboardState = {
+      ...mockDashboardState,
+      stats: mockMakeQuery(undefined, {
+        isPending: true,
+        isFetching: false,
+        isSuccess: false,
+      }),
+    };
+    const screen = render(<HomeScreen />);
+    expect(screen.getByText('Stats are unavailable while offline.')).toBeTruthy();
+    expect(screen.queryByTestId('section-skeleton-my stats')).toBeNull();
+    expect(screen.getByTestId('home-header')).toBeTruthy();
+  });
+
   it('keeps cached header content visible while independent sections load', () => {
     mockDashboardState = {
       ...mockDashboardState,

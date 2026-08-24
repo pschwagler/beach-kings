@@ -1,8 +1,12 @@
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import type { EloTimelinePoint, MyStatsPayload } from '@beach-kings/shared';
+import type {
+  EloTimelinePoint,
+  MyStatsOverall,
+  MyStatsPayload,
+} from '@beach-kings/shared';
 import AppText from '@/components/ui/AppText';
-import { formatElo, formatRecord, formatWinRate } from '@/lib/formatters';
+import { formatElo, formatRecord } from '@/lib/formatters';
 
 export function getRecentRatingChange(
   timeline: readonly EloTimelinePoint[],
@@ -15,6 +19,11 @@ function formatChange(change: number | null): string {
   if (change == null) return '--';
   const rounded = Math.round(change);
   return rounded > 0 ? `+${rounded}` : String(rounded);
+}
+
+export function formatStatsWinRate(overall: MyStatsOverall): string {
+  if (overall.games_played === 0) return '--';
+  return `${Math.round(overall.win_rate)}%`;
 }
 
 function Metric({ label, value, detail, valueClassName = 'text-heading' }: {
@@ -38,6 +47,7 @@ export default function MyStatsWidget({ stats, onPress }: {
 }): React.ReactNode {
   const { overall } = stats;
   const change = getRecentRatingChange(stats.elo_timeline);
+  const winRate = formatStatsWinRate(overall);
   const changeClass = change == null || change === 0
     ? 'text-muted'
     : change > 0 ? 'text-success' : 'text-danger';
@@ -46,7 +56,7 @@ export default function MyStatsWidget({ stats, onPress }: {
     <Pressable
       testID="home-my-stats-widget"
       accessibilityRole="button"
-      accessibilityLabel={`My Stats. Rating ${formatElo(overall.rating)}. Record ${formatRecord(overall.wins, overall.losses)}. Win rate ${formatWinRate(overall.wins, overall.losses)}. Recent rating change ${formatChange(change)}.`}
+      accessibilityLabel={`My Stats. Rating ${formatElo(overall.rating)}. Record ${formatRecord(overall.wins, overall.losses)}. Win rate ${winRate}. Recent rating change ${formatChange(change)}.`}
       accessibilityHint="Opens your complete stats"
       onPress={onPress}
       className="min-h-11 rounded-card border border-divider bg-surface px-lg py-md active:bg-surface-subtle focus:bg-surface-subtle"
@@ -56,7 +66,7 @@ export default function MyStatsWidget({ stats, onPress }: {
         <Metric
           label="W-L"
           value={formatRecord(overall.wins, overall.losses)}
-          detail={`${formatWinRate(overall.wins, overall.losses)} win rate`}
+          detail={`${winRate} win rate`}
         />
         <Metric
           label="Recent change"

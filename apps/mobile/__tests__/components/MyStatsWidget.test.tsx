@@ -1,7 +1,10 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import type { MyStatsPayload } from '@beach-kings/shared';
-import MyStatsWidget, { getRecentRatingChange } from '@/components/home/MyStatsWidget';
+import MyStatsWidget, {
+  formatStatsWinRate,
+  getRecentRatingChange,
+} from '@/components/home/MyStatsWidget';
 
 const STATS: MyStatsPayload = {
   player_name: 'Player', player_city: null, player_level: null,
@@ -49,5 +52,22 @@ describe('MyStatsWidget', () => {
       />,
     );
     expect(screen.getByText('-7')).toBeTruthy();
+  });
+
+  it('uses the authoritative tie-inclusive win rate', () => {
+    const overall = {
+      ...STATS.overall,
+      wins: 1,
+      losses: 0,
+      games_played: 2,
+      win_rate: 50,
+    };
+    expect(formatStatsWinRate(overall)).toBe('50%');
+    const screen = render(
+      <MyStatsWidget stats={{ ...STATS, overall }} onPress={jest.fn()} />,
+    );
+    expect(screen.getByText('50% win rate')).toBeTruthy();
+    expect(screen.getByTestId('home-my-stats-widget').props.accessibilityLabel)
+      .toContain('Win rate 50%');
   });
 });
