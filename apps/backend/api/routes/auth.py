@@ -175,10 +175,7 @@ async def _check_profile_complete(session: AsyncSession, user_id: int) -> bool:
     gender = player.get("gender")
     level = player.get("level")
     return bool(
-        isinstance(gender, str)
-        and gender.strip()
-        and isinstance(level, str)
-        and level.strip()
+        isinstance(gender, str) and gender.strip() and isinstance(level, str) and level.strip()
     )
 
 

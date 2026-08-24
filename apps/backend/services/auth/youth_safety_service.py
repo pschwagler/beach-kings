@@ -132,9 +132,7 @@ def evaluate_gate(
 ) -> EligibilityFacts:
     """Validate a neutral range response without accepting an exact age."""
     if declared_band == "under_minimum":
-        raise YouthEligibilityError(
-            f"You must be at least {MINIMUM_AGE} to create an account"
-        )
+        raise YouthEligibilityError(f"You must be at least {MINIMUM_AGE} to create an account")
     if declared_band not in {"junior", "adult"}:
         raise YouthEligibilityError("Select an age range")
     if assurance_source not in {"apple_declared_age_range", "self_declared"}:
@@ -179,9 +177,7 @@ def create_eligibility_token(facts: EligibilityFacts) -> str:
 
 def decode_eligibility_token(token: str | None) -> EligibilityFacts:
     if not token:
-        raise YouthEligibilityError(
-            "Complete the age check before creating an account"
-        )
+        raise YouthEligibilityError("Complete the age check before creating an account")
     try:
         payload = jwt.decode(token, _signing_secret(), algorithms=[auth_service.JWT_ALGORITHM])
     except JWTError as exc:

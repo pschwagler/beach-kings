@@ -60,14 +60,17 @@ def test_flagship_escalation_policy_covers_only_approved_triggers():
         "reported_context",
         "appeal",
     ]
-    assert moderation_worker.flagship_escalation_reasons(
-        flagged=True,
-        categories={"harassment": True},
-        triage={"severity": "ordinary", "recommendation": "warn"},
-        junior_involved=False,
-        report_reasons=[],
-        appeal_count=0,
-    ) == []
+    assert (
+        moderation_worker.flagship_escalation_reasons(
+            flagged=True,
+            categories={"harassment": True},
+            triage={"severity": "ordinary", "recommendation": "warn"},
+            junior_involved=False,
+            report_reasons=[],
+            appeal_count=0,
+        )
+        == []
+    )
 
 
 def test_photo_caption_and_image_are_screened_together():
@@ -288,7 +291,11 @@ async def test_flagged_job_passes_repeat_context_to_triage_and_audit(monkeypatch
         moderation_worker,
         "_flagship_review_context",
         AsyncMock(
-            return_value={"target_text": "reported text", "report_details": [], "appeal_statements": []}
+            return_value={
+                "target_text": "reported text",
+                "report_details": [],
+                "appeal_statements": [],
+            }
         ),
     )
     monkeypatch.setattr(moderation_worker, "_complete", complete)
@@ -358,8 +365,7 @@ async def test_flagship_failure_quarantines_without_automatic_ban(monkeypatch):
     assert target.moderation_visibility == "quarantined"
     apply_action.assert_not_awaited()
     assert any(
-        isinstance(event, ModerationEvent)
-        and event.event_type == "flagship_review_failed"
+        isinstance(event, ModerationEvent) and event.event_type == "flagship_review_failed"
         for event in added
     )
 
@@ -500,7 +506,11 @@ async def test_reported_clean_content_still_receives_policy_triage(monkeypatch):
         moderation_worker,
         "_flagship_review_context",
         AsyncMock(
-            return_value={"target_text": "reported text", "report_details": [], "appeal_statements": []}
+            return_value={
+                "target_text": "reported text",
+                "report_details": [],
+                "appeal_statements": [],
+            }
         ),
     )
     triage = AsyncMock(return_value={"severity": "ordinary"})
@@ -619,7 +629,10 @@ async def test_flagship_context_is_bounded_and_excludes_identity_fields():
 
     session = SimpleNamespace(
         execute=AsyncMock(
-            side_effect=[Result([" report   detail " + "x" * 2_000]), Result([" appeal " + "y" * 2_000])]
+            side_effect=[
+                Result([" report   detail " + "x" * 2_000]),
+                Result([" appeal " + "y" * 2_000]),
+            ]
         )
     )
     target = SimpleNamespace(

@@ -470,8 +470,13 @@ async def flagship_recommendation(
             "recommendation": {
                 "type": "string",
                 "enum": [
-                    "allow", "warn", "quarantine", "interaction_lock",
-                    "account_suspend", "account_ban", "owner_review",
+                    "allow",
+                    "warn",
+                    "quarantine",
+                    "interaction_lock",
+                    "account_suspend",
+                    "account_ban",
+                    "owner_review",
                 ],
             },
             "rationale": {"type": "string", "maxLength": 800},
@@ -623,8 +628,7 @@ async def _complete(
         and moderation_mode() == "enforce"
     ):
         flagship_failed = bool(
-            provider_payload.get("flagship_required")
-            and provider_payload.get("flagship_error")
+            provider_payload.get("flagship_required") and provider_payload.get("flagship_error")
         )
         prior_visibility = target.moderation_visibility
         if flagged or flagship_failed:
@@ -634,11 +638,21 @@ async def _complete(
         await session.flush()
         if job.target_type == "court_review" and target.moderation_visibility != prior_visibility:
             await _recalculate_court_rating(session, target.court_id)
-        if not flagged and not flagship_failed and is_submission_job and job.target_type == "direct_message":
+        if (
+            not flagged
+            and not flagship_failed
+            and is_submission_job
+            and job.target_type == "direct_message"
+        ):
             from backend.services.social.direct_message_service import publish_approved_message
 
             await publish_approved_message(session, target)
-        if not flagged and not flagship_failed and is_submission_job and job.target_type == "league_message":
+        if (
+            not flagged
+            and not flagship_failed
+            and is_submission_job
+            and job.target_type == "league_message"
+        ):
             from backend.services.social.message_data import publish_approved_league_message
 
             await publish_approved_league_message(session, target)
