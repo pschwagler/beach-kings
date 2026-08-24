@@ -7,6 +7,7 @@ import type {
   Court,
   FriendRequest,
   MatchRecord,
+  MyStatsPayload,
 } from '@beach-kings/shared';
 import { api } from '@/lib/api';
 import { useCurrentPlayer, currentPlayerKeys } from '@/hooks/useCurrentPlayer';
@@ -19,6 +20,7 @@ import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
 import { sessionKeys, sessionQueries } from '@/features/sessions';
 import { matchKeys } from '@/features/matches';
 import { courtKeys, courtQueries, type CourtQueryCoords } from '@/features/courts';
+import { statsKeys, statsQueries } from '@/features/stats';
 
 export const dashboardKeys = {
   root: (userId: number) =>
@@ -40,6 +42,7 @@ export const dashboardKeys = {
   ),
   matches: (userId: number, playerId: number | null | undefined) =>
     matchKeys.history(userId, playerId),
+  stats: (userId: number) => statsKeys.my(userId),
 };
 
 export interface DashboardSections {
@@ -49,6 +52,7 @@ export interface DashboardSections {
   readonly friendRequests: UseQueryResult<readonly FriendRequest[], Error>;
   readonly courts: UseQueryResult<readonly Court[], Error>;
   readonly matches: UseQueryResult<readonly MatchRecord[], Error>;
+  readonly stats: UseQueryResult<MyStatsPayload, Error>;
 }
 
 export interface UseDashboardResult extends DashboardSections {
@@ -103,12 +107,15 @@ export function useDashboard(): UseDashboardResult {
     enabled: player.isSuccess && playerId != null,
   });
 
+  const stats = useQuery(statsQueries.my(userId));
+
   const refreshPlayer = player.refetch;
   const refreshLeagues = leagues.refetch;
   const refreshActiveSession = activeSession.refetch;
   const refreshFriendRequests = friendRequests.refetch;
   const refreshCourts = courts.refetch;
   const refreshMatches = matches.refetch;
+  const refreshStats = stats.refetch;
 
   const refetchAll = useCallback(async () => {
     await Promise.allSettled([
@@ -118,6 +125,7 @@ export function useDashboard(): UseDashboardResult {
       refreshFriendRequests(),
       refreshCourts(),
       refreshMatches(),
+      refreshStats(),
     ]);
   }, [
     refreshActiveSession,
@@ -126,6 +134,7 @@ export function useDashboard(): UseDashboardResult {
     refreshLeagues,
     refreshMatches,
     refreshPlayer,
+    refreshStats,
   ]);
 
   // Only an uncached player fetch is identity-critical. Independent Home
@@ -140,7 +149,8 @@ export function useDashboard(): UseDashboardResult {
     activeSession.isFetching ||
     friendRequests.isFetching ||
     courts.isFetching ||
-    matches.isFetching;
+    matches.isFetching ||
+    stats.isFetching;
 
   return useMemo<UseDashboardResult>(
     () => ({
@@ -150,6 +160,7 @@ export function useDashboard(): UseDashboardResult {
       friendRequests,
       courts,
       matches,
+      stats,
       isInitialLoading,
       isRefreshing,
       refetchAll,
@@ -161,6 +172,7 @@ export function useDashboard(): UseDashboardResult {
       friendRequests,
       courts,
       matches,
+      stats,
       isInitialLoading,
       isRefreshing,
       refetchAll,

@@ -7,8 +7,9 @@
  */
 
 import { useState, useCallback } from 'react';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { statsQueries } from '@/features/stats';
 import type { MyStatsPayload } from '@beach-kings/shared';
 
 export type TimeFilter = '30d' | '90d' | '1y' | 'all';
@@ -42,6 +43,7 @@ function timeToDays(t: TimeFilter): number | null {
  * Returns data and filter state for the My Stats screen.
  */
 export function useMyStatsScreen(): UseMyStatsScreenResult {
+  const { user } = useAuth();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [leagueFilter, setLeagueFilter] = useState<number | null>(null);
   const [breakdownTab, setBreakdownTab] = useState<BreakdownTab>('partners');
@@ -52,10 +54,8 @@ export function useMyStatsScreen(): UseMyStatsScreenResult {
     days: timeToDays(timeFilter),
   };
 
-  const { data, isLoading, error, refetch } = useApi<MyStatsPayload>(
-    () => api.getMyStats(params),
-    [timeFilter, leagueFilter],
-  );
+  const query = useQuery(statsQueries.my(user?.id ?? 0, params));
+  const refetch = query.refetch;
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -69,9 +69,9 @@ export function useMyStatsScreen(): UseMyStatsScreenResult {
   }, [refetch]);
 
   return {
-    stats: data ?? null,
-    isLoading,
-    error,
+    stats: query.data ?? null,
+    isLoading: query.isPending,
+    error: query.error instanceof Error ? query.error : null,
     isRefreshing,
     timeFilter,
     leagueFilter,

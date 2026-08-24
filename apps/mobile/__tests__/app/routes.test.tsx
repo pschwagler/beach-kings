@@ -310,6 +310,7 @@ jest.mock('@/hooks/useDashboard', () => {
       friendRequests: makeQuery([]),
       courts: makeQuery([]),
       matches: makeQuery([]),
+      stats: makeQuery(undefined),
       isInitialLoading: true,
       isRefreshing: false,
       refetchAll: jest.fn().mockResolvedValue(undefined),

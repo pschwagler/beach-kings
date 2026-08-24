@@ -25,6 +25,7 @@ import LeaguesScroll from '@/components/home/LeaguesScroll';
 import CourtsScroll from '@/components/home/CourtsScroll';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
 import HomeSectionSkeleton from '@/components/home/HomeSectionSkeleton';
+import MyStatsWidget from '@/components/home/MyStatsWidget';
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
 function isActivelyPending(query: {
@@ -96,6 +97,7 @@ export default function HomeScreen(): React.ReactNode {
     friendRequests,
     courts,
     matches,
+    stats,
     isInitialLoading,
     isRefreshing,
     refetchAll,
@@ -123,6 +125,7 @@ export default function HomeScreen(): React.ReactNode {
   const leaguesData = leagues.data ?? [];
   const matchesData = matches.data ?? [];
   const courtsData = courts.data ?? [];
+  const statsData = stats.data;
   const friendRequestsData = friendRequests.data ?? [];
   const activeSessionData = activeSession.data ?? null;
   const playerDependencyError =
@@ -193,7 +196,7 @@ export default function HomeScreen(): React.ReactNode {
         {isInitialLoading ? (
           <DashboardSkeleton />
         ) : (
-          <View className="px-lg pt-md pb-xxxl">
+          <View testID="home-sections" className="px-lg pt-md pb-xxxl">
             {leadPending ? (
               <HomeSectionSkeleton label="next action" wide />
             ) : friendRequestError ? (
@@ -255,7 +258,38 @@ export default function HomeScreen(): React.ReactNode {
               )}
             </View>
 
-            <View className="mb-lg">
+            <View testID="home-my-stats-section" className="mb-lg">
+              <SectionHeader
+                title="My Stats"
+                linkLabel="View All"
+                onLinkPress={() => router.push(routes.myStats())}
+              />
+              {isActivelyPending(stats) ? (
+                <HomeSectionSkeleton label="my stats" />
+              ) : statsData === undefined && stats.isError ? (
+                <SectionError
+                  message="Could not load your stats."
+                  onRetry={() => void stats.refetch()}
+                />
+              ) : statsData != null ? (
+                <>
+                  <MyStatsWidget
+                    stats={statsData}
+                    onPress={() => router.push(routes.myStats())}
+                  />
+                  {stats.isError ? (
+                    <View className="mt-sm">
+                      <SectionError
+                        message="Your stats may be out of date."
+                        onRetry={() => void stats.refetch()}
+                      />
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
+            </View>
+
+            <View testID="home-courts-section" className="mb-lg">
               <SectionHeader
                 title="Courts Near You"
                 linkLabel="See Map"

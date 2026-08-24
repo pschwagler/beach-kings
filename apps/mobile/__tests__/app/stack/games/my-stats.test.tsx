@@ -15,10 +15,18 @@
 
 import React from 'react';
 import { render as renderTestingLibrary, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ThemeProvider from '@/contexts/ThemeContext';
 
 function render(ui: React.ReactElement): ReturnType<typeof renderTestingLibrary> {
-  return renderTestingLibrary(<ThemeProvider>{ui}</ThemeProvider>);
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  return renderTestingLibrary(
+    <QueryClientProvider client={client}>
+      <ThemeProvider>{ui}</ThemeProvider>
+    </QueryClientProvider>,
+  );
 }
 
 jest.mock('nativewind', () => ({
@@ -108,6 +116,10 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockGetMyStats = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
