@@ -13,6 +13,7 @@
 
 import React from 'react';
 import {
+  act,
   render as renderWithoutQuery,
   screen,
   fireEvent,
@@ -90,10 +91,12 @@ const mockGetCourts = jest.fn();
 const mockAddLeagueHomeCourt = jest.fn();
 const mockCreateLeagueSeason = jest.fn();
 const mockGetLocationDistances = jest.fn();
+const mockRequestForegroundPermissions = jest.fn();
+const mockGetCurrentPosition = jest.fn();
 
 jest.mock('expo-location', () => ({
-  requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
-  getCurrentPositionAsync: jest.fn(),
+  requestForegroundPermissionsAsync: (...args: unknown[]) => mockRequestForegroundPermissions(...args),
+  getCurrentPositionAsync: (...args: unknown[]) => mockGetCurrentPosition(...args),
   Accuracy: { Balanced: 3 },
 }));
 
@@ -153,6 +156,10 @@ beforeEach(() => {
   mockAddLeagueHomeCourt.mockResolvedValue({ id: 1, name: 'QBK Sports', position: 0 });
   mockCreateLeagueSeason.mockResolvedValue({ id: 1, name: 'Season 1', is_active: true });
   mockGetLocationDistances.mockResolvedValue([]);
+  mockRequestForegroundPermissions.mockResolvedValue({ status: 'denied' });
+  mockGetCurrentPosition.mockResolvedValue({
+    coords: { latitude: 45.5, longitude: -73.6 },
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -375,5 +382,130 @@ describe('CreateLeagueScreen — submit', () => {
     await waitFor(() => {
       expect(screen.getByTestId('submit-error')).toBeTruthy();
     });
+  });
+
+  it('does not commit a nearby location or court suggestion without confirmation', async () => {
+    mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
+    mockRequestForegroundPermissions.mockResolvedValue({ status: 'granted' });
+    mockGetLocationDistances.mockResolvedValue([
+      { ...MOCK_LOCATIONS[0], distance_miles: 2 },
+      { ...MOCK_LOCATIONS[1], distance_miles: 120 },
+    ]);
+    mockCreateLeague.mockResolvedValue({ id: 99 });
+    render(<CreateLeagueRoute />);
+
+    expect(await screen.findByTestId('confirm-suggested-location')).toBeTruthy();
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'Suggested League');
+    fireEvent.press(screen.getByTestId('create-league-button'));
+
+    await waitFor(() => expect(mockCreateLeague).toHaveBeenCalled());
+    expect(mockCreateLeague.mock.calls[0][0]).not.toHaveProperty('location_id');
+    expect(mockAddLeagueHomeCourt).not.toHaveBeenCalled();
+  });
+
+  it('commits suggested location and court only after separate confirmation', async () => {
+    mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
+    mockRequestForegroundPermissions.mockResolvedValue({ status: 'granted' });
+    mockGetLocationDistances.mockResolvedValue([
+      { ...MOCK_LOCATIONS[0], distance_miles: 2 },
+    ]);
+    mockCreateLeague.mockResolvedValue({ id: 99 });
+    render(<CreateLeagueRoute />);
+
+    fireEvent.press(await screen.findByTestId('confirm-suggested-location'));
+    fireEvent.press(await screen.findByTestId('confirm-suggested-court'));
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'Confirmed League');
+    fireEvent.press(screen.getByTestId('create-league-button'));
+
+    await waitFor(() => {
+      expect(mockCreateLeague).toHaveBeenCalledWith(
+        expect.objectContaining({ location_id: 'socal_sd' }),
+      );
+      expect(mockAddLeagueHomeCourt).toHaveBeenCalledWith(99, 1);
+    });
+  });
+
+  it('does not commit the first court after a manual location selection', async () => {
+    mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
+    mockCreateLeague.mockResolvedValue({ id: 88 });
+    render(<CreateLeagueRoute />);
+
+    fireEvent.press(await screen.findByTestId('location-picker-row'));
+    fireEvent.press(await screen.findByTestId('location-modal-option-socal_sd'));
+    expect(await screen.findByTestId('confirm-suggested-court')).toBeTruthy();
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'Manual Metro League');
+    fireEvent.press(screen.getByTestId('create-league-button'));
+
+    await waitFor(() => expect(mockCreateLeague).toHaveBeenCalled());
+    expect(mockCreateLeague).toHaveBeenCalledWith(
+      expect.objectContaining({ location_id: 'socal_sd' }),
+    );
+    expect(mockAddLeagueHomeCourt).not.toHaveBeenCalled();
+  });
+
+  it('ignores a late GPS suggestion after manual location selection', async () => {
+    let resolvePosition!: (value: { coords: { latitude: number; longitude: number } }) => void;
+    mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
+    mockRequestForegroundPermissions.mockResolvedValue({ status: 'granted' });
+    mockGetCurrentPosition.mockReturnValue(new Promise((resolve) => {
+      resolvePosition = resolve;
+    }));
+    mockGetLocationDistances.mockResolvedValue([
+      { ...MOCK_LOCATIONS[0], distance_miles: 1 },
+      { ...MOCK_LOCATIONS[1], distance_miles: 100 },
+    ]);
+    mockCreateLeague.mockResolvedValue({ id: 91 });
+    render(<CreateLeagueRoute />);
+
+    fireEvent.press(await screen.findByTestId('location-picker-row'));
+    fireEvent.press(await screen.findByTestId('location-modal-option-socal_la'));
+    await act(async () => {
+      resolvePosition({ coords: { latitude: 32.7, longitude: -117.2 } });
+    });
+    await waitFor(() => expect(mockGetLocationDistances).toHaveBeenCalled());
+
+    expect(screen.queryByTestId('confirm-suggested-location')).toBeNull();
+    expect(screen.getByTestId('location-picker-row')).toHaveTextContent('Los Angeles');
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'Manual Wins');
+    fireEvent.press(screen.getByTestId('create-league-button'));
+    await waitFor(() => {
+      expect(mockCreateLeague).toHaveBeenCalledWith(
+        expect.objectContaining({ location_id: 'socal_la' }),
+      );
+    });
+  });
+
+  it('keeps explicit no-court choice when a fresh court query resolves late', async () => {
+    let resolveCourts!: (value: typeof MOCK_COURTS) => void;
+    mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
+    mockCreateLeague.mockResolvedValue({ id: 92 });
+    const client = makeClient();
+    render(<CreateLeagueRoute />, client);
+
+    fireEvent.press(await screen.findByTestId('location-picker-row'));
+    fireEvent.press(await screen.findByTestId('location-modal-option-socal_sd'));
+    await waitFor(() => {
+      expect(screen.getByTestId('court-picker-row').props.accessibilityState?.disabled).toBe(false);
+    });
+    fireEvent.press(screen.getByTestId('court-picker-row'));
+    fireEvent.press(await screen.findByTestId('court-modal-option-none'));
+
+    mockGetCourts.mockReturnValueOnce(new Promise((resolve) => {
+      resolveCourts = resolve;
+    }));
+    void client.invalidateQueries({
+      queryKey: courtKeys.nearby(7, null, null, 'socal_sd'),
+    });
+    await waitFor(() => expect(mockGetCourts).toHaveBeenCalledTimes(2));
+    await act(async () => { resolveCourts(MOCK_COURTS); });
+    expect(screen.queryByTestId('confirm-suggested-court')).toBeNull();
+
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'No Court Wins');
+    fireEvent.press(screen.getByTestId('create-league-button'));
+    await waitFor(() => expect(mockCreateLeague).toHaveBeenCalled());
+    expect(mockCreateLeague).toHaveBeenCalledWith(
+      expect.objectContaining({ location_id: 'socal_sd' }),
+    );
+    expect(mockAddLeagueHomeCourt).not.toHaveBeenCalled();
   });
 });

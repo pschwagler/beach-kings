@@ -7,8 +7,8 @@
  *   Create button (gold/disabled until valid)
  *
  * Location and Home Court open full-screen search modals.
- * On mount the hook requests device location and auto-selects the closest
- * location + first court so the user rarely needs to touch these fields.
+ * On mount the hook may offer a nearby location/court suggestion. Suggestions
+ * never enter the create payload until the user explicitly confirms them.
  */
 
 import React, { useRef, useState, useMemo } from "react";
@@ -426,6 +426,8 @@ export default function CreateLeagueScreen(): React.ReactNode {
     courtsLoading,
     locationModalOpen,
     courtModalOpen,
+    suggestedLocationId,
+    suggestedCourtId,
     onChangeName,
     onChangeDescription,
     onChangeAccessType,
@@ -433,6 +435,8 @@ export default function CreateLeagueScreen(): React.ReactNode {
     onChangeLevel,
     onChangeLocation,
     onChangeCourt,
+    onConfirmSuggestedLocation,
+    onConfirmSuggestedCourt,
     onOpenLocationModal,
     onCloseLocationModal,
     onOpenCourtModal,
@@ -456,11 +460,18 @@ export default function CreateLeagueScreen(): React.ReactNode {
       `${selectedLocation.city}, ${selectedLocation.state}`)
     : "";
 
+  const suggestedLocation = locations.find((l) => l.id === suggestedLocationId);
+  const suggestedLocationLabel = suggestedLocation
+    ? (suggestedLocation.name ?? `${suggestedLocation.city}, ${suggestedLocation.state}`)
+    : "";
+
   const selectedCourt = courts.find((c) => {
     const id = typeof c.id === "string" ? parseInt(c.id, 10) : c.id;
     return id === form.court_id;
   });
   const courtLabel = selectedCourt?.name ?? "";
+  const suggestedCourt = courts.find((court) => Number(court.id) === suggestedCourtId);
+  const suggestedCourtLabel = suggestedCourt?.name ?? "";
 
   const cancelAction = (
     <Pressable
@@ -596,7 +607,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
             <PickerRow
               testID="location-picker-row"
               label="Location (optional)"
-              value={locationLabel}
+              value={locationLabel || (suggestedLocationLabel ? `Suggested: ${suggestedLocationLabel}` : "")}
               placeholder="Select location…"
               loading={locationsLoading}
               onPress={onOpenLocationModal}
@@ -605,7 +616,7 @@ export default function CreateLeagueScreen(): React.ReactNode {
             <PickerRow
               testID="court-picker-row"
               label="Home Court (optional)"
-              value={courtLabel}
+              value={courtLabel || (suggestedCourtLabel ? `Suggested: ${suggestedCourtLabel}` : "")}
               placeholder={
                 form.location_id ? "Select court…" : "Select a location first"
               }
@@ -614,6 +625,40 @@ export default function CreateLeagueScreen(): React.ReactNode {
               onPress={onOpenCourtModal}
             />
           </View>
+
+          {form.location_id.length === 0 && suggestedLocationLabel.length > 0 && (
+            <View className="mx-4 mt-sm rounded-card bg-info-tint px-md py-md gap-sm">
+              <AppText className="text-sm text-default">
+                Nearby suggestion: {suggestedLocationLabel}
+              </AppText>
+              <Pressable
+                testID="confirm-suggested-location"
+                onPress={onConfirmSuggestedLocation}
+                accessibilityRole="button"
+                accessibilityLabel={`Use suggested location ${suggestedLocationLabel}`}
+                className="min-h-touch rounded-button bg-brand-teal items-center justify-center px-md active:opacity-80"
+              >
+                <AppText className="text-sm font-semibold text-on-brand">Use This Location</AppText>
+              </Pressable>
+            </View>
+          )}
+
+          {form.location_id.length > 0 && form.court_id == null && suggestedCourtLabel.length > 0 && (
+            <View className="mx-4 mt-sm rounded-card bg-info-tint px-md py-md gap-sm">
+              <AppText className="text-sm text-default">
+                Home court suggestion: {suggestedCourtLabel}
+              </AppText>
+              <Pressable
+                testID="confirm-suggested-court"
+                onPress={onConfirmSuggestedCourt}
+                accessibilityRole="button"
+                accessibilityLabel={`Use suggested home court ${suggestedCourtLabel}`}
+                className="min-h-touch rounded-button bg-brand-teal items-center justify-center px-md active:opacity-80"
+              >
+                <AppText className="text-sm font-semibold text-on-brand">Use This Court</AppText>
+              </Pressable>
+            </View>
+          )}
 
           {/* ---- Error ---- */}
           {submitError != null && (

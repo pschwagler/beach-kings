@@ -12,7 +12,7 @@
  *   - Does NOT seed a Season 1 — the backend owns season creation.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as ExpoLocation from 'expo-location';
 import { api } from '@/lib/api';
@@ -49,6 +49,8 @@ export interface UseCreateLeagueScreenResult {
   readonly courtsLoading: boolean;
   readonly locationModalOpen: boolean;
   readonly courtModalOpen: boolean;
+  readonly suggestedLocationId: string | null;
+  readonly suggestedCourtId: number | null;
   readonly onChangeName: (v: string) => void;
   readonly onChangeDescription: (v: string) => void;
   readonly onChangeAccessType: (v: LeagueAccessType) => void;
@@ -56,6 +58,8 @@ export interface UseCreateLeagueScreenResult {
   readonly onChangeLevel: (v: LevelOption | '') => void;
   readonly onChangeLocation: (v: string) => void;
   readonly onChangeCourt: (v: number | null) => void;
+  readonly onConfirmSuggestedLocation: () => void;
+  readonly onConfirmSuggestedCourt: () => void;
   readonly onOpenLocationModal: () => void;
   readonly onCloseLocationModal: () => void;
   readonly onOpenCourtModal: () => void;
@@ -80,20 +84,25 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
   const [form, setForm] = useState<CreateLeagueForm>({ ...DEFAULT_FORM });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [suggestedLocationId, setSuggestedLocationId] = useState<string | null>(null);
+  const [suggestedCourtId, setSuggestedCourtId] = useState<number | null>(null);
+  const locationTouchedRef = useRef(false);
+  const courtTouchedRef = useRef(false);
 
   const [locations, setLocations] = useState<readonly LocationWithDistance[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
 
+  const activeLocationId = form.location_id || suggestedLocationId;
   const courtsQuery = useQuery(
     courtQueries.nearby(
       user?.id ?? 0,
       null,
-      form.location_id || null,
-      form.location_id.length > 0,
+      activeLocationId,
+      activeLocationId != null && activeLocationId.length > 0,
     ),
   );
   const courts: readonly Court[] = courtsQuery.data ?? EMPTY_COURTS;
-  const courtsLoading = form.location_id.length > 0 && courtsQuery.isFetching;
+  const courtsLoading = activeLocationId != null && courtsQuery.isFetching;
 
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [courtModalOpen, setCourtModalOpen] = useState(false);
@@ -139,9 +148,10 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
 
         if (!cancelled) {
           setLocations(withDistances);
-          // Auto-select closest location
-          const closestId = String(ranked[0].id);
-          setForm((prev) => ({ ...prev, location_id: closestId, court_id: null }));
+          // Keep proximity as a suggestion until the user explicitly accepts it.
+          if (!locationTouchedRef.current) {
+            setSuggestedLocationId(String(ranked[0].id));
+          }
         }
       } catch {
         // Permission denied or location unavailable — leave user to pick manually
@@ -152,18 +162,13 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
     return () => { cancelled = true; };
   }, []);
 
-  // Keep the form selection in sync with the canonical location-scoped query.
+  // Suggest the first nearby court without committing it to form state.
   useEffect(() => {
     const first = courts[0];
-    if (!form.location_id || first == null) return;
-    setForm((prev) => {
-      if (prev.location_id !== form.location_id || prev.court_id != null) {
-        return prev;
-      }
-      const firstId = Number(first.id);
-      return Number.isFinite(firstId) ? { ...prev, court_id: firstId } : prev;
-    });
-  }, [courts, form.location_id]);
+    if (!activeLocationId || first == null || courtTouchedRef.current) return;
+    const firstId = Number(first.id);
+    if (Number.isFinite(firstId)) setSuggestedCourtId(firstId);
+  }, [activeLocationId, courts]);
 
   const onChangeName = useCallback((v: string) => {
     setForm((prev) => ({ ...prev, name: v }));
@@ -187,12 +192,36 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
   }, []);
 
   const onChangeLocation = useCallback((v: string) => {
+    locationTouchedRef.current = true;
+    courtTouchedRef.current = false;
+    setSuggestedLocationId(null);
+    setSuggestedCourtId(null);
     setForm((prev) => ({ ...prev, location_id: v, court_id: null }));
   }, []);
 
   const onChangeCourt = useCallback((v: number | null) => {
+    courtTouchedRef.current = true;
+    setSuggestedCourtId(null);
     setForm((prev) => ({ ...prev, court_id: v }));
   }, []);
+
+  const onConfirmSuggestedLocation = useCallback(() => {
+    if (suggestedLocationId == null) return;
+    locationTouchedRef.current = true;
+    setForm((prev) => ({
+      ...prev,
+      location_id: suggestedLocationId,
+      court_id: null,
+    }));
+    setSuggestedLocationId(null);
+  }, [suggestedLocationId]);
+
+  const onConfirmSuggestedCourt = useCallback(() => {
+    if (suggestedCourtId == null || !form.location_id) return;
+    courtTouchedRef.current = true;
+    setForm((prev) => ({ ...prev, court_id: suggestedCourtId }));
+    setSuggestedCourtId(null);
+  }, [form.location_id, suggestedCourtId]);
 
   const onOpenLocationModal = useCallback(() => setLocationModalOpen(true), []);
   const onCloseLocationModal = useCallback(() => setLocationModalOpen(false), []);
@@ -253,6 +282,8 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
     courtsLoading,
     locationModalOpen,
     courtModalOpen,
+    suggestedLocationId,
+    suggestedCourtId,
     onChangeName,
     onChangeDescription,
     onChangeAccessType,
@@ -260,6 +291,8 @@ export function useCreateLeagueScreen(): UseCreateLeagueScreenResult {
     onChangeLevel,
     onChangeLocation,
     onChangeCourt,
+    onConfirmSuggestedLocation,
+    onConfirmSuggestedCourt,
     onOpenLocationModal,
     onCloseLocationModal,
     onOpenCourtModal,
