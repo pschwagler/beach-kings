@@ -197,6 +197,26 @@ describe('useDiscoverPlayers — filters', () => {
     expect(result.current.sharedFriendsOnly).toBe(true);
   });
 
+  it('commits a refinement batch as one normalized discovery request', async () => {
+    const { result } = renderHook(() => useDiscoverPlayers());
+    await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
+    const initialCalls = mockApi.discoverPlayers.mock.calls.length;
+
+    act(() => {
+      result.current.onSetLevel('AA');
+      result.current.onSelectMetro('socal_sd');
+      result.current.onSetRadius(50);
+    });
+
+    await waitFor(() =>
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
+        level: 'AA',
+        location_id: 'socal_sd',
+      }),
+    );
+    expect(mockApi.discoverPlayers).toHaveBeenCalledTimes(initialCalls + 1);
+  });
+
   it('filters by an exact metro and clears it without requesting device location', async () => {
     const { result } = renderHook(() => useDiscoverPlayers());
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));

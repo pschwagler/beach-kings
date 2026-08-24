@@ -70,6 +70,7 @@ export interface UseDiscoverPlayersResult {
   readonly sharedFriendsOnly: boolean;
   /** Single-select toggle: tapping the active level clears it. */
   readonly onToggleLevel: (level: DiscoverLevel) => void;
+  readonly onSetLevel: (level: DiscoverLevel | null) => void;
   readonly onToggleSameLeague: () => void;
   readonly onToggleSharedFriends: () => void;
   readonly locations: readonly Location[];
@@ -233,6 +234,7 @@ export function useDiscoverPlayers(
     sameLeagueOnly,
     sharedFriendsOnly,
     onToggleLevel,
+    onSetLevel: setLevelFilter,
     onToggleSameLeague,
     onToggleSharedFriends,
     locations,

@@ -13,12 +13,9 @@
  * Deliberately discover-only: friend management lives in its own Friends subnav
  * tab now, so the old internal Players|Friends tab bar is dropped.
  *
- * Filter chips (Same League / Shared Friends / skill levels) sit under the
- * search bar and drive server-side discover params via the hook's toggle
- * handlers. The chip row stays visible in the loading and empty states so an
- * active filter that empties (or is refetching) the list can still be cleared.
- * Level chips use the app's real SkillLevel values rather than the wireframe's
- * Open/AA/A/B — 'A'/'B' don't exist in the data model.
+ * The primary relationship views stay inline. Level and location refinements
+ * live in one draft-based Filter sheet and commit only when Apply is pressed.
+ * Both controls remain available in loading, error, and empty states.
  *
  * Wireframe ref: find-players.html
  */
@@ -27,7 +24,6 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   FlatList,
-  Pressable,
   TextInput,
   RefreshControl,
 } from 'react-native';
@@ -41,18 +37,10 @@ import FindPlayersSkeleton from '@/components/screens/FindPlayers/FindPlayersSke
 import FindPlayersErrorState from '@/components/screens/FindPlayers/FindPlayersErrorState';
 import FilterChipBar from '@/components/ui/FilterChipBar';
 import EmptyState from '@/components/ui/EmptyState';
-import AppText from '@/components/ui/AppText';
-import { BottomSheetSelect, type SelectOption } from '@/components/forms';
 import type {
-  DiscoverLevel,
   UseDiscoverPlayersResult,
 } from '@/components/screens/FindPlayers/useDiscoverPlayers';
-import {
-  DISCOVERY_RADII,
-  formatMetroLabel,
-  type DiscoverRadius,
-} from '@/components/screens/FindPlayers/discoveryLocation';
-import type { Location } from '@beach-kings/shared';
+import DiscoveryFilterPanel from './DiscoveryFilterPanel';
 
 // ---------------------------------------------------------------------------
 // Search bar
@@ -104,34 +92,20 @@ function PlayersSearchBar({
 // Filter chips
 // ---------------------------------------------------------------------------
 
-/** Level chips mirror the real SkillLevel values (see header comment). */
-const LEVEL_CHIPS: readonly { value: DiscoverLevel; label: string }[] = [
-  { value: 'Open', label: 'Open' },
-  { value: 'AA', label: 'AA' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'beginner', label: 'Beginner' },
-];
-
 interface FilterChipsRowProps {
-  readonly levelFilter: DiscoverLevel | null;
   readonly sameLeagueOnly: boolean;
   readonly sharedFriendsOnly: boolean;
-  readonly onToggleLevel: (level: DiscoverLevel) => void;
   readonly onToggleSameLeague: () => void;
   readonly onToggleSharedFriends: () => void;
 }
 
 function FilterChipsRow({
-  levelFilter,
   sameLeagueOnly,
   sharedFriendsOnly,
-  onToggleLevel,
   onToggleSameLeague,
   onToggleSharedFriends,
 }: FilterChipsRowProps): React.ReactNode {
   type ConnectionFilter = 'any' | 'same-league' | 'shared-friends';
-  type LevelFilter = 'any' | DiscoverLevel;
   const connectionValue: ConnectionFilter = sameLeagueOnly
     ? 'same-league'
     : sharedFriendsOnly
@@ -159,171 +133,6 @@ function FilterChipsRow({
         value={connectionValue}
         onValueChange={changeConnection}
       />
-      <FilterChipBar<LevelFilter>
-        testID="discover-level-filters"
-        accessibilityLabel="Player level filters"
-        items={[
-          { value: 'any', label: 'Any Level', testID: 'discover-chip-level-any' },
-          ...LEVEL_CHIPS.map((chip) => ({
-            value: chip.value,
-            label: chip.label,
-            testID: `discover-chip-level-${chip.value}`,
-          })),
-        ]}
-        value={levelFilter ?? 'any'}
-        onValueChange={(next) => {
-          void hapticLight();
-          if (next === 'any') {
-            if (levelFilter != null) onToggleLevel(levelFilter);
-            return;
-          }
-          onToggleLevel(next);
-        }}
-      />
-    </View>
-  );
-}
-
-interface LocationFilterControlsProps {
-  readonly locations: readonly Location[];
-  readonly locationsPending: boolean;
-  readonly locationsError: Error | null;
-  readonly onRetryLocations: () => void;
-  readonly metroFilterId: string | null;
-  readonly nearMeEnabled: boolean;
-  readonly nearMePending: boolean;
-  readonly nearMeDenied: boolean;
-  readonly nearMeUnavailable: boolean;
-  readonly nearMeOriginLabel: string | null;
-  readonly radiusMiles: DiscoverRadius;
-  readonly onSelectMetro: (locationId: string | null) => void;
-  readonly onSelectNearMe: () => void;
-  readonly onSetRadius: (radius: DiscoverRadius) => void;
-  readonly onClearLocation: () => void;
-}
-
-function LocationFilterControls({
-  locations,
-  locationsPending,
-  locationsError,
-  onRetryLocations,
-  metroFilterId,
-  nearMeEnabled,
-  nearMePending,
-  nearMeDenied,
-  nearMeUnavailable,
-  nearMeOriginLabel,
-  radiusMiles,
-  onSelectMetro,
-  onSelectNearMe,
-  onSetRadius,
-  onClearLocation,
-}: LocationFilterControlsProps): React.ReactNode {
-  const options: readonly SelectOption[] = [
-    { value: '', label: 'All metros' },
-    ...locations.map((location) => ({
-      value: location.id,
-      label: formatMetroLabel(location),
-      searchText: [location.name, location.city, location.state]
-        .filter(Boolean)
-        .join(' '),
-    })),
-  ];
-
-  return (
-    <View
-      testID="discover-location-controls"
-      className="gap-2 border-b border-divider bg-surface px-4 py-3"
-    >
-      <AppText accessibilityRole="header" className="text-caption font-bold text-default">
-        Location
-      </AppText>
-      <View className="flex-row items-center gap-2">
-        <View className="min-w-0 flex-1">
-          <BottomSheetSelect
-            title="Choose a metro"
-            placeholder={locationsPending ? 'Loading metros…' : 'All metros'}
-            options={options}
-            value={metroFilterId ?? ''}
-            onChange={(value) => onSelectMetro(value || null)}
-            loading={locationsPending}
-            disabled={locationsPending}
-            searchable
-            searchPlaceholder="Search metros"
-            testID="discover-metro-select"
-          />
-        </View>
-        <Pressable
-          testID="discover-near-me"
-          accessibilityRole="button"
-          accessibilityLabel={nearMeEnabled ? 'Clear Near Me filter' : 'Filter players Near Me'}
-          accessibilityHint="Requests device location only when selected"
-          accessibilityState={{ selected: nearMeEnabled }}
-          onPress={nearMeEnabled ? onClearLocation : onSelectNearMe}
-          className={`min-h-touch justify-center rounded-full border px-4 ${
-            nearMeEnabled
-              ? 'border-brand-teal bg-brand-teal'
-              : 'border-divider bg-surface'
-          }`}
-        >
-          <AppText
-            className={`text-caption font-semibold ${
-              nearMeEnabled ? 'text-on-brand-teal' : 'text-default'
-            }`}
-          >
-            Near Me
-          </AppText>
-        </Pressable>
-      </View>
-
-      {locationsError != null && (
-        <View className="flex-row flex-wrap items-center gap-2">
-          <AppText className="text-caption text-danger">Metros could not be loaded.</AppText>
-          <Pressable
-            testID="discover-location-retry"
-            accessibilityRole="button"
-            accessibilityLabel="Retry metro list"
-            onPress={onRetryLocations}
-            className="min-h-touch justify-center"
-          >
-            <AppText className="text-caption font-bold text-brand-teal">Retry</AppText>
-          </Pressable>
-        </View>
-      )}
-
-      {nearMePending && (
-        <AppText accessibilityLiveRegion="polite" className="text-caption text-muted">
-          Finding your nearest metro…
-        </AppText>
-      )}
-      {nearMeDenied && (
-        <AppText accessibilityLiveRegion="polite" className="text-caption text-danger">
-          Location is unavailable. Choose a metro to keep filtering.
-        </AppText>
-      )}
-      {nearMeUnavailable && (
-        <AppText accessibilityLiveRegion="polite" className="text-caption text-danger">
-          Nearby search is unavailable. Retry metros or choose a metro.
-        </AppText>
-      )}
-      {nearMeEnabled && nearMeOriginLabel != null && (
-        <View className="gap-2">
-          <AppText accessibilityLiveRegion="polite" className="text-caption text-muted">
-            Near {nearMeOriginLabel}
-          </AppText>
-          <FilterChipBar<`${DiscoverRadius}`>
-            testID="discover-radius-filters"
-            accessibilityLabel="Distance radius"
-            items={DISCOVERY_RADII.map((radius) => ({
-              value: String(radius) as `${DiscoverRadius}`,
-              label: `${radius} mi`,
-              testID: `discover-radius-${radius}`,
-            }))}
-            value={String(radiusMiles) as `${DiscoverRadius}`}
-            onValueChange={(radius) => onSetRadius(Number(radius) as DiscoverRadius)}
-          />
-        </View>
-      )}
     </View>
   );
 }
@@ -377,7 +186,7 @@ export default function FindPlayersBody({
   levelFilter,
   sameLeagueOnly,
   sharedFriendsOnly,
-  onToggleLevel,
+  onSetLevel,
   onToggleSameLeague,
   onToggleSharedFriends,
   locations,
@@ -409,14 +218,14 @@ export default function FindPlayersBody({
   const filterChips = (
     <>
       <FilterChipsRow
-        levelFilter={levelFilter}
         sameLeagueOnly={sameLeagueOnly}
         sharedFriendsOnly={sharedFriendsOnly}
-        onToggleLevel={onToggleLevel}
         onToggleSameLeague={onToggleSameLeague}
         onToggleSharedFriends={onToggleSharedFriends}
       />
-      <LocationFilterControls
+      <DiscoveryFilterPanel
+        levelFilter={levelFilter}
+        onSetLevel={onSetLevel}
         locations={locations}
         locationsPending={locationsPending}
         locationsError={locationsError}
