@@ -65,7 +65,7 @@ export default function HomeHeader({
 
       <View className="flex-row items-center gap-3">
         <Pressable
-          className="w-11 h-11 rounded-full items-center justify-center active:bg-inverse/10 focus:bg-inverse/10"
+          className="w-11 h-11 rounded-full items-center justify-center active:opacity-70 focus:opacity-70"
           onPress={() => router.navigate(routes.social({ tab: 'messages' }))}
           accessibilityLabel={`Messages${dmUnreadCount > 0 ? `, ${dmUnreadCount} unread` : ''}`}
           accessibilityRole="button"
@@ -80,7 +80,7 @@ export default function HomeHeader({
         </Pressable>
 
         <Pressable
-          className="w-11 h-11 rounded-full items-center justify-center active:bg-inverse/10 focus:bg-inverse/10"
+          className="w-11 h-11 rounded-full items-center justify-center active:opacity-70 focus:opacity-70"
           onPress={() =>
             router.navigate(routes.notifications())
           }

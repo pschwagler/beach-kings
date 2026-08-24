@@ -200,8 +200,8 @@ describe('HomeHeader', () => {
       const action = getByLabelText(label);
       expect(action.props.className).toContain('w-11');
       expect(action.props.className).toContain('h-11');
-      expect(action.props.className).toContain('active:bg-inverse/10');
-      expect(action.props.className).toContain('focus:bg-inverse/10');
+      expect(action.props.className).toContain('active:opacity-70');
+      expect(action.props.className).toContain('focus:opacity-70');
       expect(action.props.className).not.toMatch(/\bborder(?:-|\s|$)/);
     }
   });
