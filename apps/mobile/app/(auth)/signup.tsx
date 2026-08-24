@@ -37,7 +37,7 @@ import YouthEligibilityGate from '@/components/auth/YouthEligibilityGate';
 import { getApiResponseErrorMessage } from '@/lib/apiError';
 
 export default function SignupScreen(): React.ReactNode {
-  const [eligibilityToken, setEligibilityToken] = useState<string | null>(null);
+  const [showEligibility, setShowEligibility] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const { signup, loginWithGoogle, loginWithApple } = useAuth();
   const palette = usePaletteColors();
@@ -53,6 +53,8 @@ export default function SignupScreen(): React.ReactNode {
   const lastNameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
+  const pendingSignupRef = useRef<((token: string) => Promise<void>) | null>(null);
+  const providerEligibilityRef = useRef<string | null>(null);
 
   const {
     control,
@@ -76,7 +78,7 @@ export default function SignupScreen(): React.ReactNode {
   const handleGoogleToken = useCallback(
     async (idToken: string) => {
       try {
-        await loginWithGoogle(idToken, eligibilityToken ?? undefined);
+        await loginWithGoogle(idToken, providerEligibilityRef.current ?? undefined);
       } catch {
         void hapticError();
         Alert.alert(
@@ -85,7 +87,7 @@ export default function SignupScreen(): React.ReactNode {
         );
       }
     },
-    [eligibilityToken, loginWithGoogle],
+    [loginWithGoogle],
   );
 
   const { promptGoogle } = useGoogleSignIn(handleGoogleToken);
@@ -93,41 +95,48 @@ export default function SignupScreen(): React.ReactNode {
   const onSubmit = useCallback(
     async (values: SignupFormValues) => {
       const email = values.email.trim();
-      try {
-        await signup({
-          email,
-          password: values.password,
-          firstName: values.firstName.trim(),
-          lastName: values.lastName.trim(),
-          eligibilityToken: eligibilityToken!,
-        });
-        router.push({ pathname: routes.verify(), params: { email } });
-      } catch (error) {
-        void hapticError();
-        Alert.alert(
-          'Signup Failed',
-          getApiResponseErrorMessage(
-            error,
-            'Could not start signup. Please try again.',
-          ),
-        );
-      }
+      pendingSignupRef.current = async (token) => {
+        try {
+          await signup({
+            email,
+            password: values.password,
+            firstName: values.firstName.trim(),
+            lastName: values.lastName.trim(),
+            eligibilityToken: token,
+          });
+          router.push({ pathname: routes.verify(), params: { email } });
+        } catch (error) {
+          void hapticError();
+          Alert.alert(
+            'Signup Failed',
+            getApiResponseErrorMessage(
+              error,
+              'Could not start signup. Please try again.',
+            ),
+          );
+        }
+      };
+      setShowEligibility(true);
     },
-    [eligibilityToken, signup, router],
+    [signup, router],
   );
 
   const handleGoogleSignIn = useCallback(async () => {
-    try {
-      await promptGoogle();
-    } catch (err) {
-      if (err instanceof OAuthCancelledError) return;
-      if (err instanceof OAuthNotConfiguredError) {
-        Alert.alert('Not Available', 'Google sign-in is not configured.');
-        return;
+    pendingSignupRef.current = async (token) => {
+      providerEligibilityRef.current = token;
+      try {
+        await promptGoogle();
+      } catch (err) {
+        if (err instanceof OAuthCancelledError) return;
+        if (err instanceof OAuthNotConfiguredError) {
+          Alert.alert('Not Available', 'Google sign-in is not configured.');
+          return;
+        }
+        void hapticError();
+        Alert.alert('Sign Up Failed', 'Google sign-in failed. Please try again.');
       }
-      void hapticError();
-      Alert.alert('Sign Up Failed', 'Google sign-in failed. Please try again.');
-    }
+    };
+    setShowEligibility(true);
   }, [promptGoogle]);
 
   const handleTos = useCallback(() => {
@@ -139,32 +148,42 @@ export default function SignupScreen(): React.ReactNode {
   }, []);
 
   const handleAppleSignIn = useCallback(async () => {
-    try {
-      const credential = await signInWithApple();
-      await loginWithApple({ ...credential, eligibilityToken: eligibilityToken ?? undefined });
-    } catch (err) {
-      if (err instanceof OAuthCancelledError) return;
-      if (err instanceof OAuthNotConfiguredError) {
-        Alert.alert('Not Available', 'Apple sign-in is only available on iOS.');
-        return;
+    pendingSignupRef.current = async (token) => {
+      try {
+        const credential = await signInWithApple();
+        await loginWithApple({ ...credential, eligibilityToken: token });
+      } catch (err) {
+        if (err instanceof OAuthCancelledError) return;
+        if (err instanceof OAuthNotConfiguredError) {
+          Alert.alert('Not Available', 'Apple sign-in is only available on iOS.');
+          return;
+        }
+        void hapticError();
+        Alert.alert('Sign Up Failed', 'Apple sign-in failed. Please try again.');
       }
-      void hapticError();
-      Alert.alert('Sign Up Failed', 'Apple sign-in failed. Please try again.');
-    }
-  }, [eligibilityToken, loginWithApple]);
+    };
+    setShowEligibility(true);
+  }, [loginWithApple]);
+
+  const handleEligible = useCallback((token: string) => {
+    setShowEligibility(false);
+    const pendingSignup = pendingSignupRef.current;
+    pendingSignupRef.current = null;
+    if (pendingSignup) void pendingSignup(token);
+  }, []);
 
   const showApple = Platform.OS === 'ios' && appleAvailable;
 
-  if (!eligibilityToken) {
+  if (showEligibility) {
     return (
       <SafeAreaView className="flex-1 bg-page">
-        <TopNav title="Age & Location" showBack />
+        <TopNav title="Age Check" showBack onBack={() => setShowEligibility(false)} />
         <ScrollView
           className="flex-1 px-lg"
           contentContainerClassName="py-lg"
           keyboardShouldPersistTaps="always"
         >
-          <YouthEligibilityGate onEligible={setEligibilityToken} />
+          <YouthEligibilityGate onEligible={handleEligible} />
         </ScrollView>
       </SafeAreaView>
     );

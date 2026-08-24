@@ -9,8 +9,6 @@ import type {
 export function createAuthMethods(api: AxiosInstance) {
   return {
     async checkYouthEligibility(data: {
-      country_code: 'US' | 'CA';
-      region_code: string;
       declared_band: 'under_minimum' | 'junior' | 'adult';
       assurance_source: 'apple_declared_age_range' | 'self_declared';
       declaration_source:
@@ -20,7 +18,7 @@ export function createAuthMethods(api: AxiosInstance) {
         | 'guardian_verified'
         | 'not_shared';
       guardian_consent: boolean;
-    }): Promise<{ eligibility_token: string; age_group: 'junior' | 'adult'; minimum_age: number }> {
+    }): Promise<{ eligibility_token: string; age_group: 'junior' | 'adult'; minimum_age: number; policy: 'global-14-v1' }> {
       const response = await api.post('/api/auth/youth-eligibility', data);
       return response.data;
     },

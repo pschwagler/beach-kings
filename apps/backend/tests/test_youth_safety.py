@@ -9,8 +9,6 @@ from backend.services import youth_interaction_policy, youth_safety_service
 
 def _facts(**overrides):
     values = {
-        "country_code": "US",
-        "region_code": "NY",
         "declared_band": "adult",
         "assurance_source": "self_declared",
         "declaration_source": "self_declared",
@@ -20,35 +18,28 @@ def _facts(**overrides):
     return youth_safety_service.evaluate_gate(**values)
 
 
-@pytest.mark.parametrize(
-    ("country", "region", "minimum"),
-    [("US", "NY", 13), ("CA", "ON", 14), ("CA", "QC", 14)],
-)
-def test_under_minimum_is_rejected_for_launch_territories(country, region, minimum):
+def test_global_minimum_rejects_under_fourteen_without_jurisdiction():
     with pytest.raises(
         youth_safety_service.YouthEligibilityError,
-        match=f"at least {minimum}",
+        match="at least 14",
     ):
-        _facts(country_code=country, region_code=region, declared_band="under_minimum")
+        _facts(declared_band="under_minimum")
 
 
-def test_canadian_junior_boundary_requires_guardian_consent():
+def test_junior_boundary_requires_guardian_consent():
     with pytest.raises(youth_safety_service.YouthEligibilityError, match="guardian"):
         _facts(
-            country_code="CA",
-            region_code="QC",
             declared_band="junior",
             guardian_consent=False,
         )
     facts = _facts(
-        country_code="CA",
-        region_code="QC",
         declared_band="junior",
         declaration_source="guardian_declared",
         guardian_consent=True,
     )
     assert facts.age_group == "junior"
-    assert facts.region_code == "QC"
+    assert facts.country_code is None
+    assert facts.region_code is None
 
 
 def test_signed_token_round_trip_and_privacy_defaults():
@@ -60,6 +51,8 @@ def test_signed_token_round_trip_and_privacy_defaults():
     values = youth_safety_service.account_values(decoded)
     assert values["profile_is_private"] is True
     assert values["show_game_history"] is False
+    assert values["eligibility_country"] is None
+    assert values["eligibility_region"] is None
     assert "birthdate" not in values
 
 
@@ -81,8 +74,6 @@ def test_gate_schema_rejects_registration_pii():
     with pytest.raises(ValidationError):
         YouthEligibilityRequest.model_validate(
             {
-                "country_code": "US",
-                "region_code": "NY",
                 "declared_band": "adult",
                 "assurance_source": "self_declared",
                 "declaration_source": "self_declared",
@@ -90,6 +81,21 @@ def test_gate_schema_rejects_registration_pii():
                 "email": "not-collected-here@example.com",
             }
         )
+
+
+def test_legacy_jurisdiction_fields_are_accepted_but_discarded():
+    request = YouthEligibilityRequest.model_validate(
+        {
+            "country_code": "US",
+            "region_code": "NY",
+            "declared_band": "adult",
+            "assurance_source": "self_declared",
+            "declaration_source": "self_declared",
+        }
+    )
+    facts = youth_safety_service.evaluate_gate(**request.model_dump())
+    assert facts.country_code is None
+    assert facts.region_code is None
 
 
 def test_exact_birthdate_update_is_rejected():

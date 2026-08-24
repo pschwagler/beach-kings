@@ -78,12 +78,17 @@ class AppleAuthRequest(BaseModel):
 
 
 class YouthEligibilityRequest(BaseModel):
-    """PII-free input to the neutral pre-registration age gate."""
+    """PII-free input to the global pre-registration age gate.
+
+    Country and region remain optional for one compatibility window so an
+    already-released client can still finish signup.  The global policy does
+    not use or persist either value.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    country_code: Literal["US", "CA"]
-    region_code: str
+    country_code: Optional[Literal["US", "CA"]] = None
+    region_code: Optional[str] = None
     declared_band: Literal["under_minimum", "junior", "adult"]
     assurance_source: Literal["apple_declared_age_range", "self_declared"]
     declaration_source: Literal[
@@ -96,6 +101,7 @@ class YouthEligibilityResponse(BaseModel):
     eligibility_token: str
     age_group: Literal["junior", "adult"]
     minimum_age: int
+    policy: Literal["global-14-v1"] = "global-14-v1"
 
 
 class LinkProviderRequest(BaseModel):

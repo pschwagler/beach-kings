@@ -1,7 +1,7 @@
 """Server-owned youth eligibility and account-safety policy.
 
-The public age gate intentionally runs before registration identifiers are
-collected.  Successful checks produce a short-lived signed token; account
+The public age gate intentionally receives no registration identifiers.
+Successful checks produce a short-lived signed token; account
 creation consumes the token and stores only the small set of facts needed to
 enforce junior protections.  Exact ages and birthdates are never accepted.
 """
@@ -81,6 +81,8 @@ US_REGIONS = frozenset(
 )
 TOKEN_TYPE = "youth_eligibility"
 TOKEN_LIFETIME_MINUTES = 30
+POLICY = "global-14-v1"
+MINIMUM_AGE = 14
 
 
 class YouthEligibilityError(ValueError):
@@ -89,8 +91,8 @@ class YouthEligibilityError(ValueError):
 
 @dataclass(frozen=True)
 class EligibilityFacts:
-    country_code: CountryCode
-    region_code: str
+    country_code: CountryCode | None
+    region_code: str | None
     age_group: AgeGroup
     assurance_source: str
     declaration_source: str
@@ -121,18 +123,18 @@ def normalize_territory(country_code: str, region_code: str) -> tuple[CountryCod
 
 def evaluate_gate(
     *,
-    country_code: str,
-    region_code: str,
+    country_code: str | None = None,
+    region_code: str | None = None,
     declared_band: str,
     assurance_source: str,
     declaration_source: str,
     guardian_consent: bool,
 ) -> EligibilityFacts:
     """Validate a neutral range response without accepting an exact age."""
-    country, region = normalize_territory(country_code, region_code)
     if declared_band == "under_minimum":
-        minimum = 13 if country == "US" else 14
-        raise YouthEligibilityError(f"You must be at least {minimum} to create an account")
+        raise YouthEligibilityError(
+            f"You must be at least {MINIMUM_AGE} to create an account"
+        )
     if declared_band not in {"junior", "adult"}:
         raise YouthEligibilityError("Select an age range")
     if assurance_source not in {"apple_declared_age_range", "self_declared"}:
@@ -149,8 +151,10 @@ def evaluate_gate(
     if declared_band == "junior" and not guardian_consent:
         raise YouthEligibilityError("A parent or legal guardian must consent for a junior account")
     return EligibilityFacts(
-        country_code=country,
-        region_code=region,
+        # Jurisdiction is intentionally discarded under the global policy.
+        # The parameters remain accepted temporarily for client compatibility.
+        country_code=None,
+        region_code=None,
         age_group=declared_band,  # type: ignore[arg-type]
         assurance_source=assurance_source,
         declaration_source=declaration_source,
@@ -162,8 +166,7 @@ def create_eligibility_token(facts: EligibilityFacts) -> str:
     now = utcnow()
     payload = {
         "type": TOKEN_TYPE,
-        "country_code": facts.country_code,
-        "region_code": facts.region_code,
+        "policy": POLICY,
         "age_group": facts.age_group,
         "assurance_source": facts.assurance_source,
         "declaration_source": facts.declaration_source,
@@ -177,7 +180,7 @@ def create_eligibility_token(facts: EligibilityFacts) -> str:
 def decode_eligibility_token(token: str | None) -> EligibilityFacts:
     if not token:
         raise YouthEligibilityError(
-            "Complete the age and location check before creating an account"
+            "Complete the age check before creating an account"
         )
     try:
         payload = jwt.decode(token, _signing_secret(), algorithms=[auth_service.JWT_ALGORITHM])
@@ -186,8 +189,6 @@ def decode_eligibility_token(token: str | None) -> EligibilityFacts:
     if payload.get("type") != TOKEN_TYPE:
         raise YouthEligibilityError("Invalid age check")
     return evaluate_gate(
-        country_code=str(payload.get("country_code", "")),
-        region_code=str(payload.get("region_code", "")),
         declared_band=str(payload.get("age_group", "")),
         assurance_source=str(payload.get("assurance_source", "")),
         declaration_source=str(payload.get("declaration_source", "")),
@@ -199,8 +200,8 @@ def account_values(facts: EligibilityFacts) -> dict[str, object]:
     """Return immutable account facts and privacy-protective defaults."""
     return {
         "age_group": facts.age_group,
-        "eligibility_country": facts.country_code,
-        "eligibility_region": facts.region_code,
+        "eligibility_country": None,
+        "eligibility_region": None,
         "age_assurance_source": facts.assurance_source,
         "age_declaration_source": facts.declaration_source,
         "guardian_consent": facts.guardian_consent,

@@ -105,7 +105,7 @@ async def _record_bad_code(
 @router.post("/api/auth/youth-eligibility", response_model=YouthEligibilityResponse)
 @limiter.limit("20/minute")
 async def check_youth_eligibility(request: Request, payload: YouthEligibilityRequest):
-    """Run the PII-free age/territory gate and issue a short-lived proof."""
+    """Run the PII-free global age gate and issue a short-lived proof."""
     try:
         facts = youth_safety_service.evaluate_gate(**payload.model_dump())
     except youth_safety_service.YouthEligibilityError as exc:
@@ -113,7 +113,8 @@ async def check_youth_eligibility(request: Request, payload: YouthEligibilityReq
     return YouthEligibilityResponse(
         eligibility_token=youth_safety_service.create_eligibility_token(facts),
         age_group=facts.age_group,
-        minimum_age=13 if facts.country_code == "US" else 14,
+        minimum_age=youth_safety_service.MINIMUM_AGE,
+        policy=youth_safety_service.POLICY,
     )
 
 

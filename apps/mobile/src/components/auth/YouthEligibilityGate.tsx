@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { Button } from '@/components/ui';
@@ -10,7 +10,6 @@ import { PUBLIC_URLS } from '@/lib/publicUrls';
 import { openPublicWebUrl } from '@/lib/externalUrls';
 import { requestDeclaredAgeRange } from 'expo-declared-age-range';
 
-type Country = 'US' | 'CA';
 type Band = 'under_minimum' | 'junior' | 'adult';
 type Declaration =
   | 'self_declared'
@@ -18,29 +17,6 @@ type Declaration =
   | 'verified'
   | 'guardian_verified'
   | 'not_shared';
-
-const US_REGIONS = [
-  ['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'],
-  ['CA', 'California'], ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'],
-  ['DC', 'District of Columbia'], ['FL', 'Florida'], ['GA', 'Georgia'], ['HI', 'Hawaii'],
-  ['ID', 'Idaho'], ['IL', 'Illinois'], ['IN', 'Indiana'], ['IA', 'Iowa'], ['KS', 'Kansas'],
-  ['KY', 'Kentucky'], ['LA', 'Louisiana'], ['ME', 'Maine'], ['MD', 'Maryland'],
-  ['MA', 'Massachusetts'], ['MI', 'Michigan'], ['MN', 'Minnesota'], ['MS', 'Mississippi'],
-  ['MO', 'Missouri'], ['MT', 'Montana'], ['NE', 'Nebraska'], ['NV', 'Nevada'],
-  ['NH', 'New Hampshire'], ['NJ', 'New Jersey'], ['NM', 'New Mexico'], ['NY', 'New York'],
-  ['NC', 'North Carolina'], ['ND', 'North Dakota'], ['OH', 'Ohio'], ['OK', 'Oklahoma'],
-  ['OR', 'Oregon'], ['PA', 'Pennsylvania'], ['RI', 'Rhode Island'],
-  ['SC', 'South Carolina'], ['SD', 'South Dakota'], ['TN', 'Tennessee'], ['TX', 'Texas'],
-  ['UT', 'Utah'], ['VT', 'Vermont'], ['VA', 'Virginia'], ['WA', 'Washington'],
-  ['WV', 'West Virginia'], ['WI', 'Wisconsin'], ['WY', 'Wyoming'],
-] as const;
-
-const CA_REGIONS = [
-  ['AB', 'Alberta'], ['BC', 'British Columbia'], ['MB', 'Manitoba'],
-  ['NB', 'New Brunswick'], ['NL', 'Newfoundland and Labrador'], ['NS', 'Nova Scotia'],
-  ['NT', 'Northwest Territories'], ['NU', 'Nunavut'], ['ON', 'Ontario'],
-  ['PE', 'Prince Edward Island'], ['QC', 'Québec'], ['SK', 'Saskatchewan'], ['YT', 'Yukon'],
-] as const;
 
 export function declarationFromApple(value?: string): Declaration {
   const normalized = (value ?? '').toLowerCase();
@@ -63,8 +39,6 @@ interface Props {
 
 export default function YouthEligibilityGate({ onEligible }: Props): React.ReactNode {
   const palette = usePaletteColors();
-  const [country, setCountry] = useState<Country | ''>('');
-  const [region, setRegion] = useState('');
   const [band, setBand] = useState<Band | ''>('');
   const [source, setSource] = useState<'apple_declared_age_range' | 'self_declared'>('self_declared');
   const [declaration, setDeclaration] = useState<Declaration>('not_shared');
@@ -72,12 +46,9 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
   const [fallbackVisible, setFallbackVisible] = useState(Platform.OS !== 'ios');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const appleRequestStarted = useRef(false);
 
-  const minimumAge = country === 'CA' ? 14 : 13;
-  const regionOptions = useMemo(
-    () => (country === 'CA' ? CA_REGIONS : US_REGIONS).map(([value, label]) => ({ value, label })),
-    [country],
-  );
+  const minimumAge = 14 as const;
   const bandOptions = useMemo(
     () => [
       { value: 'under_minimum', label: `Under ${minimumAge}` },
@@ -93,13 +64,10 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
     selectedDeclaration = declaration,
     consent = guardianConsent,
   ) => {
-    if (!country || !region) return;
     setLoading(true);
     setError('');
     try {
       const result = await api.checkYouthEligibility({
-        country_code: country,
-        region_code: region,
         declared_band: selectedBand,
         assurance_source: selectedSource,
         declaration_source: selectedDeclaration,
@@ -113,13 +81,9 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
     } finally {
       setLoading(false);
     }
-  }, [country, declaration, guardianConsent, onEligible, region, source]);
+  }, [declaration, guardianConsent, onEligible, source]);
 
   const handleAppleAgeRange = useCallback(async () => {
-    if (!country || !region) {
-      setError('Select your country and state or province first.');
-      return;
-    }
     setLoading(true);
     setError('');
     const result = await requestDeclaredAgeRange(minimumAge);
@@ -142,53 +106,32 @@ export default function YouthEligibilityGate({ onEligible }: Props): React.React
     } else {
       setFallbackVisible(true);
     }
-  }, [country, minimumAge, region, submitFacts]);
+  }, [minimumAge, submitFacts]);
 
-  const canContinue = Boolean(country && region && band)
-    && (band !== 'junior' || guardianConsent);
+  useEffect(() => {
+    if (Platform.OS === 'ios' && !appleRequestStarted.current) {
+      appleRequestStarted.current = true;
+      void handleAppleAgeRange();
+    }
+  }, [handleAppleAgeRange]);
+
+  const canContinue = Boolean(band) && (band !== 'junior' || guardianConsent);
 
   return (
     <View className="bg-surface rounded-card p-lg gap-md" testID="youth-eligibility-gate">
       <View>
         <AppText className="text-title3 font-bold text-default">Before you create an account</AppText>
         <AppText className="text-body text-muted mt-xs">
-          Tell us only your age range and location. We use these to keep Beach League safer and
-          won’t ask for your birthdate.
+          Share only your age range so we can apply the right safety settings. We won’t ask for
+          your birthdate or jurisdiction.
         </AppText>
       </View>
-
-      <View>
-        <FormLabel>Country</FormLabel>
-        <BottomSheetSelect
-          title="Select country"
-          placeholder="Select country"
-          value={country}
-          options={[{ value: 'US', label: 'United States' }, { value: 'CA', label: 'Canada' }]}
-          onChange={(value) => { setCountry(value as Country); setRegion(''); setBand(''); setError(''); }}
-          testID="age-country"
-        />
-      </View>
-
-      {country ? (
-        <View>
-          <FormLabel>{country === 'CA' ? 'Province or territory' : 'State'}</FormLabel>
-          <BottomSheetSelect
-            title={country === 'CA' ? 'Select province or territory' : 'Select state'}
-            placeholder={country === 'CA' ? 'Select province or territory' : 'Select state'}
-            value={region}
-            options={regionOptions}
-            onChange={(value) => { setRegion(value); setBand(''); setError(''); }}
-            searchable
-            testID="age-region"
-          />
-        </View>
-      ) : null}
 
       {Platform.OS === 'ios' && !fallbackVisible ? (
         <Button
           title="Share Age Range with Apple"
           onPress={() => { void handleAppleAgeRange(); }}
-          disabled={!country || !region || loading}
+          disabled={loading}
           loading={loading}
           variant="secondary"
         />
