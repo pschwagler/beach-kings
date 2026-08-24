@@ -1,0 +1,171 @@
+name: Promote Provider Config
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-provider-config
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    environment: dev-provider-validation
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate protected provider configuration
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.DEV_GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_IDS: ${{ secrets.DEV_GOOGLE_CLIENT_IDS }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.DEV_GOOGLE_CLIENT_ID }}
+          APPLE_CLIENT_ID: ${{ secrets.DEV_APPLE_CLIENT_ID }}
+          APPLE_CLIENT_IDS: ${{ secrets.DEV_APPLE_CLIENT_IDS }}
+          APPLE_TEAM_ID: ${{ secrets.DEV_APPLE_TEAM_ID }}
+          APPLE_KEY_ID: ${{ secrets.DEV_APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.DEV_APPLE_PRIVATE_KEY }}
+          APPLE_TOKEN_ENCRYPTION_KEY: ${{ secrets.DEV_APPLE_TOKEN_ENCRYPTION_KEY }}
+        run: |
+          umask 077
+          provider_env="$RUNNER_TEMP/provider.env"
+          encrypted_env="$RUNNER_TEMP/provider.env.cms"
+          cleanup() { rm -f "$provider_env"; }
+          trap cleanup EXIT
+          python3 - "$provider_env" <<'PY'
+          import os
+          import sys
+
+          keys = (
+              "GOOGLE_CLIENT_ID",
+              "GOOGLE_CLIENT_IDS",
+              "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+              "APPLE_CLIENT_ID",
+              "APPLE_CLIENT_IDS",
+              "APPLE_TEAM_ID",
+              "APPLE_KEY_ID",
+              "APPLE_PRIVATE_KEY",
+              "APPLE_TOKEN_ENCRYPTION_KEY",
+          )
+          with open(sys.argv[1], "w", encoding="utf-8") as handle:
+              for key in keys:
+                  handle.write(f"{key}={os.environ.get(key, '')}\n")
+          PY
+          python3 deployment/provider_config_preflight.py \
+            --env-file "$provider_env" \
+            --app-config apps/mobile/app.json
+          openssl cms -encrypt -binary -aes-256-cbc \
+            -in "$provider_env" \
+            -out "$encrypted_env" \
+            -outform DER \
+            deployment/provider-promotion-cert.pem
+
+      - name: Upload encrypted provider configuration
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-config-${{ github.run_id }}
+          path: ${{ runner.temp }}/provider.env.cms
+          retention-days: 1
+          if-no-files-found: error
+
+  promote:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production-provider-config
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download encrypted provider configuration
+        uses: actions/download-artifact@v4
+        with:
+          name: provider-config-${{ github.run_id }}
+          path: ${{ runner.temp }}
+
+      - name: Decrypt and revalidate provider configuration
+        env:
+          PROVIDER_PROMOTION_PRIVATE_KEY: ${{ secrets.PROVIDER_PROMOTION_PRIVATE_KEY }}
+        run: |
+          umask 077
+          private_key="$RUNNER_TEMP/provider-promotion-key.pem"
+          provider_env="$RUNNER_TEMP/provider.env"
+          cleanup() { rm -f "$private_key"; }
+          trap cleanup EXIT
+          printf '%s\n' "$PROVIDER_PROMOTION_PRIVATE_KEY" > "$private_key"
+          openssl cms -decrypt -binary -inform DER \
+            -in "$RUNNER_TEMP/provider.env.cms" \
+            -inkey "$private_key" \
+            -recip deployment/provider-promotion-cert.pem \
+            -out "$provider_env"
+          python3 deployment/provider_config_preflight.py \
+            --env-file "$provider_env" \
+            --app-config apps/mobile/app.json
+
+      - name: Promote configuration to production
+        env:
+          PROD_EC2_HOST: ${{ secrets.PROD_EC2_HOST }}
+          PROD_EC2_SSH_KEY: ${{ secrets.PROD_EC2_SSH_KEY }}
+        run: |
+          set -e
+          umask 077
+          ssh_key="$RUNNER_TEMP/prod-key.pem"
+          known_hosts="$RUNNER_TEMP/known_hosts"
+          provider_env="$RUNNER_TEMP/provider.env"
+          remote_env="/tmp/provider-config-${GITHUB_RUN_ID}.env"
+          remote_uploaded=false
+          cleanup() {
+            if [ "$remote_uploaded" = true ]; then
+              ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" \
+                -i "$ssh_key" "ubuntu@${PROD_EC2_HOST}" \
+                "unlink '$remote_env'" >/dev/null 2>&1 || true
+            fi
+            rm -f "$ssh_key" "$provider_env"
+          }
+          trap cleanup EXIT
+          printf '%s\n' "$PROD_EC2_SSH_KEY" > "$ssh_key"
+          scp -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts" \
+            -i "$ssh_key" \
+            "$provider_env" "ubuntu@${PROD_EC2_HOST}:${remote_env}"
+          remote_uploaded=true
+          ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" \
+            -i "$ssh_key" \
+            "ubuntu@${PROD_EC2_HOST}" \
+            "PROMOTION_FILE='$remote_env' bash -s" <<'REMOTE'
+          set -e
+          umask 077
+          cleanup_remote() { unlink "$PROMOTION_FILE" 2>/dev/null || true; }
+          trap cleanup_remote EXIT
+          cd ~/beach-kings
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          env_backup=$(mktemp .env.provider-backup.XXXXXX)
+          cp -p .env "$env_backup"
+          restore_env() {
+            code="$1"
+            trap - ERR INT TERM
+            if [ -f "$env_backup" ]; then mv -f "$env_backup" .env; fi
+            exit "$code"
+          }
+          trap 'restore_env $?' ERR
+          trap 'restore_env 130' INT
+          trap 'restore_env 143' TERM
+
+          python3 deployment/promote_provider_config.py \
+            --env-file .env \
+            --source-env-file "$PROMOTION_FILE"
+          python3 deployment/provider_config_preflight.py \
+            --env-file .env \
+            --app-config apps/mobile/app.json
+
+          trap - ERR INT TERM
+          rm -f "$env_backup"
+          cleanup_remote
+          trap - EXIT
+          echo "Production provider configuration passed preflight"
+          REMOTE
+          remote_uploaded=false
