@@ -44,6 +44,32 @@ def test_provider_content_excludes_identity_fields():
     assert moderation_worker._provider_content("direct_message", target) == {"input": "a message"}
 
 
+def test_flagship_escalation_policy_covers_only_approved_triggers():
+    reasons = moderation_worker.flagship_escalation_reasons(
+        flagged=True,
+        categories={"harassment/threatening": True},
+        triage={"severity": "urgent", "recommendation": "allow"},
+        junior_involved=True,
+        report_reasons=["minor_safety"],
+        appeal_count=1,
+    )
+    assert reasons == [
+        "severe",
+        "junior_involved",
+        "model_disagreement",
+        "reported_context",
+        "appeal",
+    ]
+    assert moderation_worker.flagship_escalation_reasons(
+        flagged=True,
+        categories={"harassment": True},
+        triage={"severity": "ordinary", "recommendation": "warn"},
+        junior_involved=False,
+        report_reasons=[],
+        appeal_count=0,
+    ) == []
+
+
 def test_photo_caption_and_image_are_screened_together():
     target = SimpleNamespace(caption="busy tonight", url="https://example.test/photo.jpg")
     assert moderation_worker._provider_content("court_photo", target) == {
@@ -248,8 +274,23 @@ async def test_flagged_job_passes_repeat_context_to_triage_and_audit(monkeypatch
         AsyncMock(return_value=[]),
     )
     triage = AsyncMock(return_value={"severity": "urgent"})
+    flagship = AsyncMock(return_value={"recommendation": "owner_review"})
     complete = AsyncMock()
     monkeypatch.setattr(moderation_worker, "triage_recommendation", triage)
+    monkeypatch.setattr(moderation_worker, "flagship_recommendation", flagship)
+    monkeypatch.setattr(moderation_worker, "_subject_is_junior", AsyncMock(return_value=False))
+    monkeypatch.setattr(
+        moderation_worker,
+        "_appeal_context",
+        AsyncMock(return_value={"open_appeal_count": 0}),
+    )
+    monkeypatch.setattr(
+        moderation_worker,
+        "_flagship_review_context",
+        AsyncMock(
+            return_value={"target_text": "reported text", "report_details": [], "appeal_statements": []}
+        ),
+    )
     monkeypatch.setattr(moderation_worker, "_complete", complete)
 
     await moderation_worker.process_job(session, job)
@@ -260,6 +301,67 @@ async def test_flagged_job_passes_repeat_context_to_triage_and_audit(monkeypatch
     assert provider_payload["subject_player_id"] == 12
     assert provider_payload["repeat_context"] == repeat_context
     assert provider_payload["triage"] == {"severity": "urgent"}
+    assert provider_payload["flagship"] == {"recommendation": "owner_review"}
+
+
+@pytest.mark.asyncio
+async def test_flagship_failure_quarantines_without_automatic_ban(monkeypatch):
+    from backend.database.models import ModerationCase, ModerationEvent
+    from backend.services import moderation_service
+
+    monkeypatch.setenv("MODERATION_MODE", "enforce")
+    monkeypatch.setenv("ENV", "development")
+    case = SimpleNamespace(
+        id=24,
+        subject_player_id=12,
+        severity="ordinary",
+        due_at=None,
+        incident_type=None,
+    )
+    target = SimpleNamespace(moderation_visibility="pending")
+    job = SimpleNamespace(
+        target_type="direct_message",
+        target_id=19,
+        case_id=24,
+        idempotency_key="content:direct_message:19:v1",
+        status="processing",
+        last_error=None,
+    )
+
+    async def get(model, _target_id):
+        return case if model is ModerationCase else target
+
+    added = []
+    session = SimpleNamespace(get=get, add=added.append, flush=AsyncMock())
+    apply_action = AsyncMock()
+    monkeypatch.setattr(moderation_service, "apply_action", apply_action)
+    monkeypatch.setattr(moderation_worker, "_capture_flagged_evidence", AsyncMock())
+    monkeypatch.setattr(
+        "backend.services.moderation.moderation_alerts.schedule_case_alerts",
+        AsyncMock(),
+    )
+
+    await moderation_worker._complete(
+        session,
+        job,
+        True,
+        {"sexual/minors": True},
+        {
+            "model": "omni-moderation-latest",
+            "category_scores": {"sexual/minors": 0.99},
+            "flagship_required": True,
+            "flagship_reasons": ["severe"],
+            "flagship_error": "TimeoutException",
+        },
+    )
+
+    assert target.moderation_visibility == "quarantined"
+    apply_action.assert_not_awaited()
+    assert any(
+        isinstance(event, ModerationEvent)
+        and event.event_type == "flagship_review_failed"
+        for event in added
+    )
 
 
 @pytest.mark.asyncio
@@ -388,6 +490,19 @@ async def test_reported_clean_content_still_receives_policy_triage(monkeypatch):
         "_report_reasons",
         AsyncMock(return_value=["harassment"]),
     )
+    monkeypatch.setattr(moderation_worker, "_subject_is_junior", AsyncMock(return_value=False))
+    monkeypatch.setattr(
+        moderation_worker,
+        "_appeal_context",
+        AsyncMock(return_value={"open_appeal_count": 0}),
+    )
+    monkeypatch.setattr(
+        moderation_worker,
+        "_flagship_review_context",
+        AsyncMock(
+            return_value={"target_text": "reported text", "report_details": [], "appeal_statements": []}
+        ),
+    )
     triage = AsyncMock(return_value={"severity": "ordinary"})
     complete = AsyncMock()
     monkeypatch.setattr(moderation_worker, "triage_recommendation", triage)
@@ -436,6 +551,92 @@ async def test_clean_report_job_does_not_redeliver_existing_message(monkeypatch)
 
     publish.assert_not_awaited()
     assert target.moderation_visibility == "visible"
+
+
+@pytest.mark.asyncio
+async def test_clean_appeal_review_cannot_restore_quarantined_content(monkeypatch):
+    from backend.database.models import ModerationCase
+
+    monkeypatch.setenv("MODERATION_MODE", "enforce")
+    monkeypatch.setenv("ENV", "development")
+    case = SimpleNamespace(id=4, subject_player_id=12, severity="ordinary", due_at=None)
+    target = SimpleNamespace(moderation_visibility="quarantined")
+    job = SimpleNamespace(
+        target_type="direct_message",
+        target_id=9,
+        case_id=4,
+        idempotency_key="appeal:3:v1",
+        status="processing",
+        last_error=None,
+    )
+
+    async def get(model, _target_id):
+        return case if model is ModerationCase else target
+
+    session = SimpleNamespace(get=get, add=Mock(), flush=AsyncMock())
+    monkeypatch.setattr(
+        "backend.services.moderation.moderation_alerts.schedule_case_alerts",
+        AsyncMock(),
+    )
+
+    await moderation_worker._complete(
+        session,
+        job,
+        False,
+        {},
+        {
+            "model": "omni-moderation-latest",
+            "flagship_required": True,
+            "flagship_reasons": ["appeal"],
+            "flagship": {
+                "model": "gpt-5.6",
+                "severity": "ordinary",
+                "recommendation": "allow",
+                "rationale": "Owner should review the appeal.",
+                "confidence": "medium",
+            },
+        },
+    )
+
+    assert target.moderation_visibility == "quarantined"
+
+
+@pytest.mark.asyncio
+async def test_flagship_context_is_bounded_and_excludes_identity_fields():
+    class Scalars:
+        def __init__(self, values):
+            self.values = values
+
+        def all(self):
+            return self.values
+
+    class Result:
+        def __init__(self, values):
+            self.values = values
+
+        def scalars(self):
+            return Scalars(self.values)
+
+    session = SimpleNamespace(
+        execute=AsyncMock(
+            side_effect=[Result([" report   detail " + "x" * 2_000]), Result([" appeal " + "y" * 2_000])]
+        )
+    )
+    target = SimpleNamespace(
+        message_text=" target   content " + "z" * 3_000,
+        sender_player_id=77,
+        receiver_player_id=88,
+    )
+
+    context = await moderation_worker._flagship_review_context(
+        session, 4, "direct_message", target
+    )
+
+    assert len(context["target_text"]) == 2_000
+    assert len(context["report_details"][0]) == 1_000
+    assert len(context["appeal_statements"][0]) == 1_500
+    assert "sender_player_id" not in context
+    assert "receiver_player_id" not in context
 
 
 @pytest.mark.asyncio

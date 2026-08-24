@@ -24,6 +24,7 @@ from backend.utils.datetime_utils import utcnow
 
 
 ALERT_KINDS = {
+    "appeal_review_required",
     "automatic_enforcement",
     "urgent_initial",
     "urgent_repeat",
@@ -156,6 +157,24 @@ async def schedule_automatic_enforcement_alert(
             "categories": decision["categories"],
             "lock_hours": decision["lock_hours"],
         },
+    )
+
+
+async def schedule_appeal_review_alert(
+    session: AsyncSession,
+    case: ModerationCase,
+    appeal_id: int,
+) -> None:
+    """Route an appeal to the owner even when its enforcement case is disposed."""
+    if not alerts_enabled():
+        return
+    await _enqueue(
+        session,
+        key=f"appeal_review_required:{case.id}:{appeal_id}",
+        kind="appeal_review_required",
+        case_id=case.id,
+        available_at=utcnow(),
+        payload={"case_id": case.id, "appeal_id": appeal_id},
     )
 
 
@@ -294,7 +313,7 @@ async def _eligible_cases(session: AsyncSession, job: ModerationAlertJob) -> lis
     if job.case_id is None:
         return []
     case = await session.get(ModerationCase, job.case_id)
-    if job.alert_kind == "automatic_enforcement":
+    if job.alert_kind in {"automatic_enforcement", "appeal_review_required"}:
         return [case] if case is not None else []
     if (
         case is None
@@ -333,6 +352,7 @@ async def _render_email(
     session: AsyncSession, job: ModerationAlertJob, cases: list[ModerationCase]
 ) -> tuple[str, str]:
     label = {
+        "appeal_review_required": "Moderation appeal needs review",
         "automatic_enforcement": "Automatic safety enforcement",
         "urgent_initial": "Urgent moderation case",
         "urgent_repeat": "Unacknowledged urgent moderation case",
