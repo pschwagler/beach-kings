@@ -1,7 +1,7 @@
 /**
  * Behavior-focused tests for the Social hub shell (SocialScreen).
  *
- * Phase 1 covers the 4-tab subnav shell:
+ * Covers the 3-tab subnav shell:
  * - Renders the TopNav "Social" title and the SocialSubnav.
  * - Defaults to the Messages tab.
  * - Switching subnav tabs swaps the active body.
@@ -10,7 +10,7 @@
  * - The `?tab=` param selects the initial tab (and falls back to Messages when
  *   the value is unrecognized).
  *
- * The per-tab data containers (MessagesTab / NotificationsTab / FriendsTab /
+ * The per-tab data containers (MessagesTab / FriendsTab /
  * FindPlayersTab) are stubbed so these tests exercise shell routing, not the
  * underlying data hooks (which have their own suites).
  */
@@ -39,6 +39,11 @@ let mockParams: { tab?: string } = {};
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
   useLocalSearchParams: () => mockParams,
+  Redirect: ({ href }: { href: string }) => {
+    const React = require('react');
+    const { View } = require('react-native');
+    return <View testID="social-redirect" accessibilityLabel={href} />;
+  },
 }));
 
 jest.mock('react-native-safe-area-context', () => {
@@ -100,15 +105,6 @@ jest.mock('@/components/screens/Social/MessagesTab', () => {
   return { __esModule: true, default: MessagesTabStub };
 });
 
-jest.mock('@/components/screens/Social/NotificationsTab', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return {
-    __esModule: true,
-    default: () => <View testID="notifications-tab-stub" />,
-  };
-});
-
 jest.mock('@/components/screens/Social/FriendsTab', () => {
   const React = require('react');
   const { Text, Pressable } = require('react-native');
@@ -154,11 +150,11 @@ describe('SocialScreen — chrome', () => {
     expect(screen.getByTestId('top-nav').props.children).toBe('Social');
   });
 
-  it('renders the 4-tab subnav', () => {
+  it('renders the 3-tab subnav without Notifications', () => {
     render(<SocialScreen />);
     expect(screen.getByTestId('social-subnav')).toBeTruthy();
     expect(screen.getByTestId('social-subnav-tab-messages')).toBeTruthy();
-    expect(screen.getByTestId('social-subnav-tab-notifications')).toBeTruthy();
+    expect(screen.queryByTestId('social-subnav-tab-notifications')).toBeNull();
     expect(screen.getByTestId('social-subnav-tab-friends')).toBeTruthy();
     expect(screen.getByTestId('social-subnav-tab-findplayers')).toBeTruthy();
   });
@@ -172,7 +168,6 @@ describe('SocialScreen — default tab', () => {
   it('shows the Messages tab by default', () => {
     render(<SocialScreen />);
     expect(screen.getByTestId('messages-tab-stub')).toBeTruthy();
-    expect(screen.queryByTestId('notifications-tab-stub')).toBeNull();
   });
 
   it('marks Messages as the selected subnav tab by default', () => {
@@ -189,14 +184,6 @@ describe('SocialScreen — default tab', () => {
 // ---------------------------------------------------------------------------
 
 describe('SocialScreen — tab switching', () => {
-  it('switches to Notifications when its tab is pressed', () => {
-    render(<SocialScreen />);
-    fireEvent.press(screen.getByTestId('social-subnav-tab-notifications'));
-
-    expect(screen.getByTestId('notifications-tab-stub')).toBeTruthy();
-    expect(screen.queryByTestId('messages-tab-stub')).toBeNull();
-  });
-
   it('shows the Friends body on the Friends tab', () => {
     render(<SocialScreen />);
     fireEvent.press(screen.getByTestId('social-subnav-tab-friends'));
@@ -215,11 +202,10 @@ describe('SocialScreen — tab switching', () => {
 
   it('can switch back to Messages after leaving it', () => {
     render(<SocialScreen />);
-    fireEvent.press(screen.getByTestId('social-subnav-tab-notifications'));
+    fireEvent.press(screen.getByTestId('social-subnav-tab-friends'));
     fireEvent.press(screen.getByTestId('social-subnav-tab-messages'));
 
     expect(screen.getByTestId('messages-tab-stub')).toBeTruthy();
-    expect(screen.queryByTestId('notifications-tab-stub')).toBeNull();
   });
 });
 
@@ -267,12 +253,13 @@ describe('SocialScreen — in-hub navigation', () => {
 // ---------------------------------------------------------------------------
 
 describe('SocialScreen — ?tab= param', () => {
-  it('opens directly on Notifications when tab=notifications', () => {
+  it('redirects a legacy tab=notifications URL to the standalone inbox', () => {
     mockParams = { tab: 'notifications' };
     render(<SocialScreen />);
 
-    expect(screen.getByTestId('notifications-tab-stub')).toBeTruthy();
-    expect(screen.queryByTestId('messages-tab-stub')).toBeNull();
+    expect(screen.getByTestId('social-redirect').props.accessibilityLabel).toBe(
+      '/(stack)/notifications',
+    );
   });
 
   it('opens directly on the Find Players body when tab=findplayers', () => {

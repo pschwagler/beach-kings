@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import type { LeagueInviteItem } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
 import { useAuth } from '@/contexts/AuthContext';
+import { leagueQueries } from '@/features/leagues';
 
 export interface UseReceivedInvitesScreenResult {
   /** Pending invites currently displayed (responded invites are removed optimistically). */
@@ -35,11 +36,7 @@ export function useReceivedInvitesScreen(): UseReceivedInvitesScreenResult {
   const { user } = useAuth();
   const userId = user?.id ?? 0;
 
-  const invitesQuery = useQuery({
-    queryKey: leagueKeys.receivedInvites(userId),
-    queryFn: () => api.getReceivedLeagueInvites(),
-    enabled: userId > 0,
-  });
+  const invitesQuery = useQuery(leagueQueries.receivedInvites(userId));
 
   /**
    * Optimistic overlay: league IDs that have been responded to are removed

@@ -218,14 +218,12 @@ describe('HomeHeader', () => {
         notificationUnreadCount={0}
       />,
     );
-    // Chat/bell switch into the Social hub tab (root-tab model), not a push.
+    // Messages stays in Social; the global bell owns a standalone inbox.
     fireEvent.press(getByLabelText('Messages, 2 unread'));
     expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/social?tab=messages');
 
     fireEvent.press(getByLabelText('Notifications'));
-    expect(mockNavigate).toHaveBeenCalledWith(
-      '/(tabs)/social?tab=notifications',
-    );
+    expect(mockNavigate).toHaveBeenCalledWith('/(stack)/notifications');
 
     fireEvent.press(getByLabelText('My profile'));
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/profile');

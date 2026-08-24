@@ -3,7 +3,6 @@ import { PUBLIC_WEB_ORIGIN } from '@/lib/publicUrls';
 
 const HOME_SOCIAL_TABS: Readonly<Record<string, SocialTab>> = {
   messages: 'messages',
-  notifications: 'notifications',
   friends: 'friends',
 };
 
@@ -43,6 +42,7 @@ export function resolveNotificationRoute(linkUrl: string | null): string | null 
   const pathname = url.pathname.replace(/\/+$/, '') || '/';
   if (pathname === '/' || pathname === '/home') {
     const tab = url.searchParams.get('tab');
+    if (tab === 'notifications') return routes.notifications();
     const socialTab = tab == null ? null : HOME_SOCIAL_TABS[tab];
     if (socialTab === 'messages') {
       const threadId = url.searchParams.get('thread');
@@ -54,7 +54,7 @@ export function resolveNotificationRoute(linkUrl: string | null): string | null 
   }
 
   if (pathname === '/notifications') {
-    return routes.social({ tab: 'notifications' });
+    return routes.notifications();
   }
   if (pathname === '/messages') {
     return routes.social({ tab: 'messages' });

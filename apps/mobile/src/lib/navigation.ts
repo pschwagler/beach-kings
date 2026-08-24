@@ -15,7 +15,7 @@
  * of the tab keys; `SocialSubnav` re-exports this so components and route
  * helpers agree on the same union.
  */
-export type SocialTab = 'messages' | 'notifications' | 'friends' | 'findplayers';
+export type SocialTab = 'messages' | 'friends' | 'findplayers';
 export type LeagueTab = 'games' | 'standings' | 'chat' | 'signups' | 'info';
 
 export const routes = {
@@ -266,7 +266,7 @@ export const routeUp: Record<string, UpTarget> = {
   // Inbox / social hub
   '(stack)/messages': routes.social({ tab: 'messages' }),
   '(stack)/messages/[playerId]': routes.social({ tab: 'messages' }),
-  '(stack)/notifications': routes.social({ tab: 'notifications' }),
+  '(stack)/notifications': routes.home(),
   '(stack)/find-players': routes.social({ tab: 'findplayers' }),
 
   // Creators

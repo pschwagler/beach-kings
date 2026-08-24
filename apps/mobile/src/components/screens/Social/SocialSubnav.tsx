@@ -1,7 +1,7 @@
 /**
- * SocialSubnav — 4-tab subnavigation for the Social hub.
+ * SocialSubnav — 3-tab subnavigation for the Social hub.
  *
- * Tabs: Messages · Notifications · Friends · Find Players.
+ * Tabs: Messages · Friends · Find Players.
  *
  * Mirrors the wireframe's `.social-subnav` (13px semibold labels, the active
  * tab colored with a brand-teal underline, 44px min tap targets). Purely
@@ -17,7 +17,7 @@ import type { SocialTab } from "@/lib/navigation";
 import TabView from '@/components/ui/TabView';
 
 /**
- * The four destinations reachable from the Social hub subnav. Re-exported from
+ * The three destinations reachable from the Social hub subnav. Re-exported from
  * the canonical definition in `@/lib/navigation` so importers of this component
  * can keep pulling the type from here.
  */
@@ -26,7 +26,6 @@ export type { SocialTab };
 const TABS: ReadonlyArray<{ readonly key: SocialTab; readonly label: string }> =
   [
     { key: "messages", label: "Messages" },
-    { key: "notifications", label: "Notifications" },
     { key: "friends", label: "Friends" },
     { key: "findplayers", label: "Find Players" },
   ];

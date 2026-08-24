@@ -82,7 +82,7 @@ export default function HomeHeader({
         <Pressable
           className="w-11 h-11 rounded-full border border-inverse items-center justify-center"
           onPress={() =>
-            router.navigate(routes.social({ tab: 'notifications' }))
+            router.navigate(routes.notifications())
           }
           accessibilityLabel={`Notifications${notificationUnreadCount > 0 ? `, ${notificationUnreadCount} unread` : ''}`}
           accessibilityRole="button"

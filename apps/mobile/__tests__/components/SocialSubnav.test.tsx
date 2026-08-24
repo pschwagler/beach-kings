@@ -2,7 +2,7 @@
  * Tests for the SocialSubnav component.
  *
  * Covers:
- *   - Renders all four subnav tabs.
+ *   - Renders all three subnav tabs.
  *   - Marks the active tab as selected for accessibility.
  *   - Calls onTabPress with the pressed tab key.
  *   - Fires light haptic feedback on press.
@@ -32,11 +32,11 @@ beforeEach(() => {
 });
 
 describe('SocialSubnav', () => {
-  it('renders all four tabs', () => {
+  it('renders all three tabs without Notifications', () => {
     render(<SocialSubnav activeTab="messages" onTabPress={jest.fn()} />);
 
     expect(screen.getByTestId('social-subnav-tab-messages')).toBeTruthy();
-    expect(screen.getByTestId('social-subnav-tab-notifications')).toBeTruthy();
+    expect(screen.queryByTestId('social-subnav-tab-notifications')).toBeNull();
     expect(screen.getByTestId('social-subnav-tab-friends')).toBeTruthy();
     expect(screen.getByTestId('social-subnav-tab-findplayers')).toBeTruthy();
   });
@@ -54,9 +54,9 @@ describe('SocialSubnav', () => {
     const onTabPress = jest.fn();
     render(<SocialSubnav activeTab="messages" onTabPress={onTabPress} />);
 
-    fireEvent.press(screen.getByTestId('social-subnav-tab-notifications'));
+    fireEvent.press(screen.getByTestId('social-subnav-tab-friends'));
 
-    const expected: SocialTab = 'notifications';
+    const expected: SocialTab = 'friends';
     expect(onTabPress).toHaveBeenCalledWith(expected);
   });
 

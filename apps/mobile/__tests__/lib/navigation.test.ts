@@ -63,8 +63,8 @@ describe('routes', () => {
   });
 
   it('social route with a tab appends the ?tab= query', () => {
-    expect(routes.social({ tab: 'notifications' })).toBe(
-      '/(tabs)/social?tab=notifications',
+    expect(routes.social({ tab: 'friends' })).toBe(
+      '/(tabs)/social?tab=friends',
     );
   });
 
@@ -136,7 +136,7 @@ describe('resolveUp', () => {
     ['(auth)/verify', routes.welcome()],
     ['(stack)/messages', routes.social({ tab: 'messages' })],
     ['(stack)/messages/[playerId]', routes.social({ tab: 'messages' })],
-    ['(stack)/notifications', routes.social({ tab: 'notifications' })],
+    ['(stack)/notifications', routes.home()],
     ['(stack)/find-players', routes.social({ tab: 'findplayers' })],
     ['(stack)/create-league', routes.leagues()],
     ['(stack)/add-new-player', routes.addGames()],
