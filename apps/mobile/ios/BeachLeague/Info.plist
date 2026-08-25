@@ -33,6 +33,14 @@
           <string>com.beachleague.app</string>
         </array>
       </dict>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>com.beachleague.app.google-signin</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>com.googleusercontent.apps.817191446075-ddkmr5ml8quamvf5258dp9tbuabfv4rc</string>
+        </array>
+      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>$(CURRENT_PROJECT_VERSION)</string>
@@ -40,6 +48,8 @@
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>NSAppTransportSecurity</key>
     <dict>
       <key>NSAllowsArbitraryLoads</key>
