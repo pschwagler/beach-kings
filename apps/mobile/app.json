@@ -15,6 +15,9 @@
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.beachleague.app",
       "appStoreUrl": "https://apps.apple.com/app/id6801891670",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "entitlements": {
         "com.apple.developer.declared-age-range": true,
         "keychain-access-groups": [

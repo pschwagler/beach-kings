@@ -11,6 +11,8 @@ const EXPECTED = Object.freeze({
   displayName: 'Beach League',
   version: '1.0.0',
   buildNumber: '1',
+  googleRedirectScheme:
+    'com.googleusercontent.apps.817191446075-ddkmr5ml8quamvf5258dp9tbuabfv4rc',
   locationPurpose:
     'Beach League uses your location to suggest the nearest league location.',
   motionPurpose:
@@ -278,6 +280,14 @@ function verifyReleaseConfiguration({
   }
   if (appConfig.ios?.supportsTablet !== false)
     fail('Expo must be iPhone-only.');
+  if (appConfig.ios?.config?.usesNonExemptEncryption !== false) {
+    fail('Expo must declare that the app does not use non-exempt encryption.');
+  }
+  const expoUrlSchemes = (appConfig.ios?.infoPlist?.CFBundleURLTypes ?? [])
+    .flatMap((entry) => entry.CFBundleURLSchemes ?? []);
+  if (!expoUrlSchemes.includes(EXPECTED.googleRedirectScheme)) {
+    fail('Expo Google redirect scheme is missing or changed.');
+  }
 
   assertOccurrences(
     project,
@@ -319,6 +329,19 @@ function verifyReleaseConfiguration({
   if (!infoPlist.includes(`<string>${EXPECTED.motionPurpose}</string>`)) {
     fail('motion purpose declaration is missing or changed.');
   }
+  if (
+    !/<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\s*\/>/.test(
+      infoPlist,
+    )
+  ) {
+    fail('native exempt-encryption declaration is missing or enabled.');
+  }
+  assertOccurrences(
+    infoPlist,
+    new RegExp(`<string>${EXPECTED.googleRedirectScheme}<\\/string>`, 'g'),
+    1,
+    'native Google redirect scheme is missing or duplicated',
+  );
 
   lintPropertyList(privacyManifestPath);
   const privacy = verifyPrivacyManifest(privacyManifest);

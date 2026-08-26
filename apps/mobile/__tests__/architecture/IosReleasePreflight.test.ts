@@ -218,6 +218,48 @@ describe('iOS release preflight', () => {
     }
   });
 
+  it.each([
+    {
+      name: 'Google redirect scheme',
+      remove:
+        /\s*<string>com\.googleusercontent\.apps\.[^<]+<\/string>/,
+      error: /native Google redirect scheme/,
+    },
+    {
+      name: 'exempt-encryption declaration',
+      remove:
+        /\s*<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\s*\/>/,
+      error: /native exempt-encryption declaration/,
+    },
+  ])('rejects a missing native $name', ({ remove, error }) => {
+    const infoPlistPath = path.join(
+      mobileRoot,
+      'ios/BeachLeague/Info.plist',
+    );
+    const changed = fs.readFileSync(infoPlistPath, 'utf8').replace(remove, '');
+    const temporaryRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'bk-ios-provider-config-'),
+    );
+
+    try {
+      fs.cpSync(mobileRoot, temporaryRoot, { recursive: true });
+      fs.writeFileSync(
+        path.join(temporaryRoot, 'ios/BeachLeague/Info.plist'),
+        changed,
+      );
+      expect(() =>
+        verifyReleaseConfiguration({
+          mobileRoot: temporaryRoot,
+          apiUrl: 'https://beachleaguevb.com',
+          webUrl: 'https://beachleaguevb.com',
+          exportDirectory: path.join(temporaryRoot, 'dist'),
+        }),
+      ).toThrow(error);
+    } finally {
+      fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+  });
+
   describe('v1 OTA policy', () => {
     it('accepts an app with updates explicitly disabled', () => {
       expect(() =>
