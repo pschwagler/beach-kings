@@ -1,11 +1,8 @@
-"""Backfill league creator metadata from the earliest admin membership.
+"""Reserve the league creator metadata migration revision.
 
 Revision ID: 077
 Revises: 076
 """
-
-import sqlalchemy as sa
-from alembic import op
 
 
 revision = "077"
@@ -15,25 +12,11 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(
-        sa.text(
-            """
-            UPDATE leagues AS league
-            SET created_by = creator.player_id
-            FROM (
-                SELECT DISTINCT ON (league_id) league_id, player_id
-                FROM league_members
-                WHERE role = 'admin'
-                ORDER BY league_id, created_at ASC, id ASC
-            ) AS creator
-            WHERE league.id = creator.league_id
-              AND league.created_by IS NULL
-            """
-        )
-    )
+    # Historical creator identity cannot be inferred safely: the original
+    # creator may have left or lost admin status. New leagues persist the true
+    # creator at creation time; legacy leagues remain unlabeled when unknown.
+    pass
 
 
 def downgrade() -> None:
-    # Existing creator metadata predates this migration, so it cannot be
-    # distinguished safely from backfilled values during rollback.
     pass

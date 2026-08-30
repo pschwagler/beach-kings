@@ -80,6 +80,11 @@ def _make_admin_client(monkeypatch, phone: str = PHONE, user_id: int = USER_ID):
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
 
+    async def fake_get_league(session, league_id: int):
+        return {"id": league_id, "is_open": True}
+
+    monkeypatch.setattr(data_service, "get_league", fake_get_league, raising=True)
+
     async def fake_is_system_admin(session, uid: int) -> bool:
         return True
 
@@ -581,6 +586,18 @@ class TestGetJoinRequests:
         response = client.get(f"/api/leagues/{LEAGUE_ID}/join-requests")
         assert response.status_code in (401, 403)
 
+    def test_get_join_requests_rejects_invite_only_league(self, monkeypatch):
+        """Invite-only leagues never expose old pending join requests."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_league(session, league_id: int):
+            return {"id": league_id, "is_open": False}
+
+        monkeypatch.setattr(data_service, "get_league", fake_get_league, raising=True)
+        response = client.get(f"/api/leagues/{LEAGUE_ID}/join-requests", headers=headers)
+        assert response.status_code == 400
+        assert "invite-only" in response.json()["detail"]
+
 
 # ---------------------------------------------------------------------------
 # POST /api/leagues/{league_id}/join-requests/{request_id}/approve
@@ -672,6 +689,20 @@ class TestApproveJoinRequest:
         response = client.post(f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/approve")
         assert response.status_code in (401, 403)
 
+    def test_approve_rejects_invite_only_league(self, monkeypatch):
+        """A stale request cannot bypass invitation-only membership."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_league(session, league_id: int):
+            return {"id": league_id, "is_open": False}
+
+        monkeypatch.setattr(data_service, "get_league", fake_get_league, raising=True)
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/approve",
+            headers=headers,
+        )
+        assert response.status_code == 400
+
 
 # ---------------------------------------------------------------------------
 # POST /api/leagues/{league_id}/join-requests/{request_id}/reject
@@ -740,6 +771,20 @@ class TestRejectJoinRequest:
         client = TestClient(app)
         response = client.post(f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/reject")
         assert response.status_code in (401, 403)
+
+    def test_reject_rejects_invite_only_league(self, monkeypatch):
+        """Invite-only leagues cannot process stale request decisions."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_league(session, league_id: int):
+            return {"id": league_id, "is_open": False}
+
+        monkeypatch.setattr(data_service, "get_league", fake_get_league, raising=True)
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/reject",
+            headers=headers,
+        )
+        assert response.status_code == 400
 
 
 # ---------------------------------------------------------------------------

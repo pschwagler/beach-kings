@@ -295,6 +295,19 @@ export interface LeagueMemberApiRow {
   is_placeholder?: boolean;
 }
 
+/**
+ * Consent-aware result returned by both league-admin member-add endpoints.
+ * A player appears in exactly one of `added`, `invited`, or `failed`.
+ */
+export interface LeagueMemberAddResult {
+  readonly added: readonly LeagueMemberApiRow[];
+  readonly invited: readonly number[];
+  readonly failed: readonly {
+    readonly player_id: number | null;
+    readonly error: string;
+  }[];
+}
+
 /** Full info tab payload composed from multiple parallel API calls. */
 export interface LeagueInfoDetail {
   readonly id: number;

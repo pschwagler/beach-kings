@@ -50,6 +50,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _require_public_join_requests(session: AsyncSession, league_id: int) -> None:
+    """Reject request-review actions when the league is invitation-only."""
+    league = await data_service.get_league(session, league_id)
+    if not league:
+        raise HTTPException(status_code=404, detail="League not found")
+    if not league.get("is_open"):
+        raise HTTPException(
+            status_code=400,
+            detail="This league is invite-only. Membership requires an invitation.",
+        )
+
+
 @router.post("/api/leagues", response_model=LeagueResponse)
 async def create_league(
     payload: LeagueCreate,
@@ -585,9 +597,12 @@ async def get_league_join_requests(
     Returns { "pending": [...], "rejected": [...] } for the details UI.
     """
     try:
+        await _require_public_join_requests(session, league_id)
         pending = await data_service.list_league_join_requests(session, league_id)
         rejected = await data_service.list_league_join_requests_rejected(session, league_id)
         return {"pending": pending, "rejected": rejected}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing join requests: {e}")
         raise HTTPException(status_code=500, detail="Error listing join requests")
@@ -608,6 +623,8 @@ async def approve_league_join_request(
     """
     try:
         from backend.database.models import LeagueRequest
+
+        await _require_public_join_requests(session, league_id)
 
         # Rejected requests are terminal. A later admin action must send an
         # invitation, preserving the player's prior rejection/consent state.
@@ -678,6 +695,8 @@ async def reject_league_join_request(
     """
     try:
         from backend.database.models import LeagueRequest
+
+        await _require_public_join_requests(session, league_id)
 
         # Get the join request
         request_result = await session.execute(

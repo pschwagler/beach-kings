@@ -3,7 +3,13 @@
  */
 
 import api from '../api-client';
-import type { League, Season, LeagueMember, HomeCourtResponse } from '../../types';
+import type {
+  League,
+  Season,
+  LeagueMember,
+  LeagueMemberAddResult,
+  HomeCourtResponse,
+} from '../../types';
 
 /**
  * Create a new league
@@ -118,10 +124,15 @@ export const getUserLeagues = async () => {
 };
 
 /**
- * Add a player to a league
+ * Consent-aware single-player add. The response reports whether the player
+ * was added immediately or sent an invitation after a prior opt-out.
  */
-export const addLeagueMember = async (leagueId: number, playerId: number, role: string = 'member') => {
-  const response = await api.post(`/api/leagues/${leagueId}/members`, {
+export const addLeagueMember = async (
+  leagueId: number,
+  playerId: number,
+  role: string = 'member',
+): Promise<LeagueMemberAddResult> => {
+  const response = await api.post<LeagueMemberAddResult>(`/api/leagues/${leagueId}/members`, {
     player_id: playerId,
     role
   });
@@ -134,8 +145,11 @@ export const addLeagueMember = async (leagueId: number, playerId: number, role: 
  * @param {Array<{ player_id: number, role?: string }>} members - List of { player_id, role } (role defaults to 'member')
  * @returns {Promise<{ added: Array, invited: number[], failed: Array<{ player_id: number, error: string }> }>}
  */
-export const addLeagueMembersBatch = async (leagueId: number, members: Array<{ player_id: number; role?: string }>) => {
-  const response = await api.post(`/api/leagues/${leagueId}/members_batch`, {
+export const addLeagueMembersBatch = async (
+  leagueId: number,
+  members: Array<{ player_id: number; role?: string }>,
+): Promise<LeagueMemberAddResult> => {
+  const response = await api.post<LeagueMemberAddResult>(`/api/leagues/${leagueId}/members_batch`, {
     members: Array.isArray(members) ? members : [],
   });
   return response.data;

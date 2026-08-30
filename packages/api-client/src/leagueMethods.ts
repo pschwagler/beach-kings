@@ -10,6 +10,7 @@ import type {
   LeagueStandingsResponse,
   LeagueDetail,
   LeagueMemberApiRow,
+  LeagueMemberAddResult,
   LeaguePlayerStats,
 } from '@beach-kings/shared';
 
@@ -155,17 +156,28 @@ export function createLeagueMethods(api: AxiosInstance) {
       return response.data;
     },
 
-    async addLeagueMember(leagueId: number, playerId: number, role = 'member') {
-      const response = await api.post(`/api/leagues/${leagueId}/members`, { player_id: playerId, role });
+    /**
+     * Consent-aware single-player add. The result may contain an immediate
+     * membership or a pending invitation, so it intentionally uses the same
+     * envelope as the batch endpoint.
+     */
+    async addLeagueMember(
+      leagueId: number,
+      playerId: number,
+      role = 'member',
+    ): Promise<LeagueMemberAddResult> {
+      const response = await api.post<LeagueMemberAddResult>(
+        `/api/leagues/${leagueId}/members`,
+        { player_id: playerId, role },
+      );
       return response.data;
     },
 
-    async addLeagueMembersBatch(leagueId: number, playerIds: readonly number[]) {
-      const response = await api.post<{
-        added: LeagueMemberApiRow[];
-        invited: number[];
-        failed: Array<{ player_id: number | null; error: string }>;
-      }>(`/api/leagues/${leagueId}/members_batch`, {
+    async addLeagueMembersBatch(
+      leagueId: number,
+      playerIds: readonly number[],
+    ): Promise<LeagueMemberAddResult> {
+      const response = await api.post<LeagueMemberAddResult>(`/api/leagues/${leagueId}/members_batch`, {
         members: playerIds.map((playerId) => ({ player_id: playerId, role: 'member' })),
       });
       return response.data;
