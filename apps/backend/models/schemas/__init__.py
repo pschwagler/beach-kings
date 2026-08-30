@@ -97,6 +97,8 @@ from .social import InteractionCapabilityBatchRequest
 from .social import InteractionCapabilityBatchResponse
 from .social import ConversationResponse
 from .social import ConversationListResponse
+from .social import ConversationVisibilityRequest
+from .social import ConversationVisibilityResponse
 from .social import ThreadResponse
 from .social import FriendCreate
 from .social import FriendResponse
@@ -364,6 +366,8 @@ __all__ = [
     "InteractionCapabilityBatchResponse",
     "ConversationResponse",
     "ConversationListResponse",
+    "ConversationVisibilityRequest",
+    "ConversationVisibilityResponse",
     "ThreadResponse",
     "FriendCreate",
     "FriendResponse",

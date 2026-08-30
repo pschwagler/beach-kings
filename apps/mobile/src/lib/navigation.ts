@@ -153,6 +153,7 @@ export const routes = {
 
   // ---- Stack: inbox ----
   messagesList: () => '/(stack)/messages' as const,
+  hiddenMessages: () => '/(stack)/messages/hidden' as const,
   messages: (playerId: number | string, name?: string) =>
     name != null && name.length > 0
       ? (`/(stack)/messages/${playerId}?name=${encodeURIComponent(name)}` as const)
@@ -235,6 +236,8 @@ export const routeUp: Record<string, UpTarget> = {
   '(stack)/pending-invites': routes.leagues(),
   '(stack)/league/[id]': routes.leagues(),
   '(stack)/league/[id]/invite': (p) => routes.league(firstParam(p.id)),
+
+  '(stack)/messages/hidden': routes.social({ tab: 'messages' }),
 
   // Players
   '(stack)/player/[id]': routes.social(),

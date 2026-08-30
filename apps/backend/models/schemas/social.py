@@ -77,6 +77,7 @@ class ConversationResponse(BaseModel):
     last_message_sender_id: int
     unread_count: int = 0
     is_friend: bool = False
+    is_hidden: bool = False
     capability: InteractionCapabilityResponse = Field(
         default_factory=_available_interaction_capability
     )
@@ -95,9 +96,22 @@ class ThreadResponse(BaseModel):
     items: List[DirectMessageResponse]
     total_count: int
     has_more: bool
+    is_hidden: bool = False
     capability: InteractionCapabilityResponse = Field(
         default_factory=_available_interaction_capability
     )
+
+
+class ConversationVisibilityRequest(BaseModel):
+    """Viewer-owned visibility preference for one conversation."""
+
+    hidden: bool
+
+
+class ConversationVisibilityResponse(BaseModel):
+    """Updated viewer-owned conversation visibility."""
+
+    hidden: bool
 
 
 class FriendCreate(BaseModel):
@@ -150,6 +164,9 @@ class FriendListItem(BaseModel):
     level: Optional[str] = None
     shared_league_name: Optional[str] = None
     last_active: Optional[str] = None
+    capability: InteractionCapabilityResponse = Field(
+        default_factory=_available_interaction_capability
+    )
 
 
 class FriendListResponse(BaseModel):

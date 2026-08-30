@@ -88,7 +88,11 @@ describe('message cache reconciliation', () => {
       USER_ID,
       'messages',
       'conversations',
+      'inbox',
     ]);
+    expect(messageKeys.conversations(USER_ID, 'hidden')).not.toEqual(
+      messageKeys.conversations(USER_ID, 'inbox'),
+    );
     expect(messageKeys.thread(USER_ID, PLAYER_ID)).not.toEqual(
       messageKeys.thread(USER_ID + 1, PLAYER_ID),
     );

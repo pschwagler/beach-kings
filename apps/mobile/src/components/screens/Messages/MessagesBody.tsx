@@ -34,11 +34,15 @@ import { usePaletteColors } from '@/theme/usePaletteColors';
 interface MessagesSearchBarProps {
   readonly value: string;
   readonly onChangeText: (text: string) => void;
+  readonly showHiddenAction: boolean;
+  readonly onHiddenPress: () => void;
 }
 
 function MessagesSearchBar({
   value,
   onChangeText,
+  showHiddenAction,
+  onHiddenPress,
 }: MessagesSearchBarProps): React.ReactNode {
   const palette = usePaletteColors();
   return (
@@ -46,7 +50,8 @@ function MessagesSearchBar({
       testID="messages-search-bar"
       className="px-4 py-3 bg-surface border-b border-strong"
     >
-      <View className="flex-row items-center min-h-touch px-3 rounded-[10px] border border-strong bg-elevated gap-2">
+      <View className="flex-row items-center gap-2">
+      <View className="flex-1 flex-row items-center min-h-touch px-3 rounded-[10px] border border-strong bg-elevated gap-2">
         <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
           <Circle cx={11} cy={11} r={8} stroke={palette.textTertiary} strokeWidth={2} />
           <Path d="M21 21l-4.35-4.35" stroke={palette.textTertiary} strokeWidth={2} strokeLinecap="round" />
@@ -82,6 +87,18 @@ function MessagesSearchBar({
           </Pressable>
         )}
       </View>
+      {showHiddenAction && (
+        <Pressable
+          testID="hidden-messages-btn"
+          onPress={onHiddenPress}
+          accessibilityRole="button"
+          accessibilityLabel="View hidden messages"
+          className="min-h-touch px-2 items-center justify-center"
+        >
+          <AppText className="text-sm font-bold text-brand-teal">Hidden</AppText>
+        </Pressable>
+      )}
+      </View>
     </View>
   );
 }
@@ -90,7 +107,13 @@ function MessagesSearchBar({
 // Empty state
 // ---------------------------------------------------------------------------
 
-function MessagesEmptyState({ onCompose }: { readonly onCompose?: () => void }): React.ReactNode {
+function MessagesEmptyState({
+  onCompose,
+  hidden,
+}: {
+  readonly onCompose?: () => void;
+  readonly hidden: boolean;
+}): React.ReactNode {
   const palette = usePaletteColors();
   return (
     <View
@@ -107,10 +130,12 @@ function MessagesEmptyState({ onCompose }: { readonly onCompose?: () => void }):
         />
       </Svg>
       <AppText className="text-[16px] font-bold text-default mt-4 mb-[6px] text-center">
-        No Messages Yet
+        {hidden ? 'No Hidden Messages' : 'No Messages Yet'}
       </AppText>
       <AppText className="text-[13px] text-muted text-center leading-[1.5]">
-        Start a conversation with a friend or league member
+        {hidden
+          ? 'Conversations you hide will appear here'
+          : 'Start a conversation with any player'}
       </AppText>
       {onCompose != null && (
         <Pressable
@@ -147,6 +172,9 @@ export default function MessagesBody({
   onRetry,
   onConversationPress,
   currentPlayerId,
+  folder,
+  onConversationVisibility,
+  onHiddenPress,
   onCompose,
   scrollRequest = 0,
 }: MessagesBodyProps): React.ReactNode {
@@ -162,7 +190,12 @@ export default function MessagesBody({
     if (isLoading && !isRefreshing) {
       return (
         <>
-          <MessagesSearchBar value="" onChangeText={() => undefined} />
+          <MessagesSearchBar
+            value=""
+            onChangeText={() => undefined}
+            showHiddenAction={folder === 'inbox'}
+            onHiddenPress={onHiddenPress}
+          />
           <MessagesSkeleton />
         </>
       );
@@ -174,9 +207,14 @@ export default function MessagesBody({
 
     return (
       <>
-        <MessagesSearchBar value={searchQuery} onChangeText={setSearchQuery} />
+        <MessagesSearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          showHiddenAction={folder === 'inbox'}
+          onHiddenPress={onHiddenPress}
+        />
         {conversations.length === 0 ? (
-          <MessagesEmptyState onCompose={onCompose} />
+          <MessagesEmptyState onCompose={folder === 'inbox' ? onCompose : undefined} hidden={folder === 'hidden'} />
         ) : (
           <FlatList<Conversation>
             ref={listRef}
@@ -188,6 +226,7 @@ export default function MessagesBody({
                 conversation={item}
                 onPress={onConversationPress}
                 currentPlayerId={currentPlayerId}
+                onVisibilityChange={onConversationVisibility}
               />
             )}
             contentContainerStyle={{ paddingBottom: 100 }}

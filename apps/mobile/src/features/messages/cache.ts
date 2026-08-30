@@ -42,22 +42,24 @@ export function reconcilePeerIdentityCaches(
   const avatar = privacyAllowedAvatar(identity.avatar);
   const fullName = identity.fullName.trim() || 'Player';
 
-  queryClient.setQueryData<ConversationListResponse>(
-    messageKeys.conversations(userId),
-    (current) => {
-      if (current == null) return current;
-      let changed = false;
-      const items = current.items.map((conversation) => {
-        if (conversation.player_id !== identity.playerId) return conversation;
-        if (conversation.avatar === avatar && conversation.full_name === fullName) {
-          return conversation;
-        }
-        changed = true;
-        return { ...conversation, avatar, full_name: fullName };
-      });
-      return changed ? { ...current, items } : current;
-    },
-  );
+  for (const folder of ['inbox', 'hidden'] as const) {
+    queryClient.setQueryData<ConversationListResponse>(
+      messageKeys.conversations(userId, folder),
+      (current) => {
+        if (current == null) return current;
+        let changed = false;
+        const items = current.items.map((conversation) => {
+          if (conversation.player_id !== identity.playerId) return conversation;
+          if (conversation.avatar === avatar && conversation.full_name === fullName) {
+            return conversation;
+          }
+          changed = true;
+          return { ...conversation, avatar, full_name: fullName };
+        });
+        return changed ? { ...current, items } : current;
+      },
+    );
+  }
 
   const threadKey = messageKeys.thread(userId, identity.playerId);
   const currentThread = queryClient.getQueryData<ThreadResponse>(threadKey);

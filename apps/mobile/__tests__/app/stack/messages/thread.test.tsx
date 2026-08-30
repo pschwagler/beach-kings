@@ -115,6 +115,7 @@ const mockGetThread = jest.fn();
 const mockGetPublicPlayer = jest.fn();
 const mockSendDirectMessage = jest.fn();
 const mockMarkThreadRead = jest.fn();
+const mockSetConversationHidden = jest.fn();
 const mockBlockPlayer = jest.fn();
 const mockUnblockPlayer = jest.fn();
 
@@ -124,6 +125,7 @@ jest.mock('@/lib/api', () => ({
     getPublicPlayer: (...args: unknown[]) => mockGetPublicPlayer(...args),
     sendDirectMessage: (...args: unknown[]) => mockSendDirectMessage(...args),
     markThreadRead: (...args: unknown[]) => mockMarkThreadRead(...args),
+    setConversationHidden: (...args: unknown[]) => mockSetConversationHidden(...args),
     blockPlayer: (...args: unknown[]) => mockBlockPlayer(...args),
     unblockPlayer: (...args: unknown[]) => mockUnblockPlayer(...args),
   },
@@ -209,6 +211,7 @@ beforeEach(() => {
     profile_picture_url: null,
   });
   mockMarkThreadRead.mockResolvedValue({ status: 'ok', marked_count: 1 });
+  mockSetConversationHidden.mockResolvedValue({ hidden: false });
   mockBlockPlayer.mockResolvedValue({ player_id: 42, status: 'blocked' });
   mockUnblockPlayer.mockResolvedValue({ player_id: 42, status: 'unblocked' });
   mockSendDirectMessage.mockResolvedValue({
@@ -314,6 +317,28 @@ describe('MessageThreadScreen — messages list', () => {
     await waitFor(() => {
       expect(queryClient.isMutating() + queryClient.isFetching()).toBe(0);
     });
+  });
+
+  it('keeps hidden messages unread and requires restore before replying', async () => {
+    mockGetThread.mockResolvedValue({
+      items: [{
+        id: 3,
+        sender_player_id: 42,
+        receiver_player_id: 0,
+        message_text: 'Hidden unread message',
+        is_read: false,
+        read_at: null,
+        created_at: NOW,
+      }],
+      total_count: 1,
+      is_hidden: true,
+    });
+
+    render(<MessageThreadRoute />);
+
+    await waitFor(() => expect(screen.getByTestId('restore-conversation-btn')).toBeTruthy());
+    expect(mockMarkThreadRead).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('message-input')).toBeNull();
   });
 
   it('renders thread screen when messages are loaded', async () => {

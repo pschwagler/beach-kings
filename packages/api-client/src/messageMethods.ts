@@ -3,6 +3,8 @@ import type {
   ConversationListResponse,
   DirectMessage,
   MarkReadResponse,
+  MessageFolder,
+  ConversationVisibilityResponse,
   ThreadResponse,
 } from '@beach-kings/shared';
 
@@ -17,10 +19,14 @@ export function createMessageMethods(api: AxiosInstance) {
     /**
      * Get the current user's conversation list, ordered by most recent.
      */
-    async getConversations(page = 1, pageSize = 50): Promise<ConversationListResponse> {
+    async getConversations(
+      page = 1,
+      pageSize = 50,
+      folder: MessageFolder = 'inbox',
+    ): Promise<ConversationListResponse> {
       const response = await api.get<ConversationListResponse>(
         '/api/messages/conversations',
-        { params: { page, page_size: pageSize } },
+        { params: { page, page_size: pageSize, folder } },
       );
       return response.data;
     },
@@ -62,6 +68,18 @@ export function createMessageMethods(api: AxiosInstance) {
     ): Promise<MarkReadResponse> {
       const response = await api.put<MarkReadResponse>(
         `/api/messages/conversations/${encodeURIComponent(playerId)}/read`,
+      );
+      return response.data;
+    },
+
+    /** Hide or restore one conversation for the current player. */
+    async setConversationHidden(
+      playerId: number,
+      hidden: boolean,
+    ): Promise<ConversationVisibilityResponse> {
+      const response = await api.put<ConversationVisibilityResponse>(
+        `/api/messages/conversations/${encodeURIComponent(playerId)}/visibility`,
+        { hidden },
       );
       return response.data;
     },

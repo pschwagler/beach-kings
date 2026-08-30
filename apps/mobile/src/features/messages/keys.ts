@@ -1,10 +1,11 @@
 import { privateKeys } from '@/infrastructure/query/keys';
+import type { MessageFolder } from '@beach-kings/shared';
 
 export const messageKeys = {
   all: (userId: number) =>
     [...privateKeys.user(userId), 'messages'] as const,
-  conversations: (userId: number) =>
-    [...messageKeys.all(userId), 'conversations'] as const,
+  conversations: (userId: number, folder: MessageFolder = 'inbox') =>
+    [...messageKeys.all(userId), 'conversations', folder] as const,
   threads: (userId: number) =>
     [...messageKeys.all(userId), 'threads'] as const,
   thread: (userId: number, playerId: number) =>
@@ -20,4 +21,6 @@ export const messageMutationKeys = {
     [...messageKeys.all(userId), 'mark-thread-read'] as const,
   send: (userId: number) =>
     [...messageKeys.all(userId), 'send'] as const,
+  visibility: (userId: number) =>
+    [...messageKeys.all(userId), 'visibility'] as const,
 };

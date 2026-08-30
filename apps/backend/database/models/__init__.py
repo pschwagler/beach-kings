@@ -19,6 +19,7 @@ from .courts import Court
 from .social import Friend
 from .social import FriendRequest
 from .social import DirectMessage
+from .social import DirectMessageThreadPreference
 from .stats import PlayerSeasonStats
 from .games import Session
 from .games import SessionParticipant
@@ -104,6 +105,7 @@ __all__ = [
     "Friend",
     "FriendRequest",
     "DirectMessage",
+    "DirectMessageThreadPreference",
     "PlayerSeasonStats",
     "Session",
     "SessionParticipant",

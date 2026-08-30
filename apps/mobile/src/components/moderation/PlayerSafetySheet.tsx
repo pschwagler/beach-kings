@@ -9,6 +9,8 @@ interface Props {
   readonly blockedByViewer: boolean;
   readonly onViewProfile?: () => void;
   readonly onRemoveFriend?: () => void;
+  readonly onConversationVisibility?: () => void;
+  readonly conversationHidden?: boolean;
   readonly onBlockChange: () => void;
   readonly onReport: () => void;
   readonly onClose: () => void;
@@ -37,6 +39,12 @@ export default function PlayerSafetySheet(props: Props): React.ReactNode {
           </AppText>
         </View>
         {props.onViewProfile != null && action('View profile', props.onViewProfile)}
+        {props.onConversationVisibility != null && action(
+          props.conversationHidden ? 'Restore conversation' : 'Hide conversation',
+          props.onConversationVisibility,
+          false,
+          'action-sheet-conversation-visibility',
+        )}
         {props.onRemoveFriend != null && action('Remove friend', props.onRemoveFriend, true, 'action-sheet-remove-friend')}
         {action(props.blockedByViewer ? 'Unblock player' : 'Block player', props.onBlockChange, !props.blockedByViewer, 'action-sheet-block')}
         {action('Report player', props.onReport, true, 'action-sheet-report')}

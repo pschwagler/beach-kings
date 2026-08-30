@@ -41,6 +41,8 @@ export interface Friend {
    * played games), or null when they have no recorded matches.
    */
   last_active?: string | null;
+  /** Privacy-safe actions currently available with this player. */
+  capability?: import('./moderation').InteractionCapability;
 }
 
 export interface FriendListResponse {
@@ -145,6 +147,7 @@ export interface Conversation {
   last_message_sender_id: number;
   unread_count: number;
   is_friend: boolean;
+  is_hidden?: boolean;
   capability?: import('./moderation').InteractionCapability;
 }
 
@@ -157,6 +160,7 @@ export interface ThreadResponse {
   items: DirectMessage[];
   total_count: number;
   has_more?: boolean;
+  is_hidden?: boolean;
   capability?: import('./moderation').InteractionCapability;
   /** Client-reconciled, privacy-approved identity for this thread's peer. */
   peer?: ThreadPeer;
@@ -171,4 +175,10 @@ export interface ThreadPeer {
 export interface MarkReadResponse {
   status: string;
   marked_count: number;
+}
+
+export type MessageFolder = 'inbox' | 'hidden';
+
+export interface ConversationVisibilityResponse {
+  hidden: boolean;
 }

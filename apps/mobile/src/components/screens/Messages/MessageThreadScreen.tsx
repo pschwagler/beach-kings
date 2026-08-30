@@ -154,9 +154,11 @@ export default function MessageThreadScreen({
     peerAvatarUrl,
     canInteract,
     blockedByViewer,
+    isHidden,
     onRefresh,
     onRetry,
     onSend,
+    onConversationVisibility,
   } = useMessageThreadScreen(playerId, currentPlayerId);
 
   const displayName =
@@ -168,6 +170,30 @@ export default function MessageThreadScreen({
   }, [router, playerId]);
 
   const onPlayerActions = useCallback(() => setShowSafetySheet(true), []);
+
+  const changeConversationVisibility = useCallback(() => {
+    const hidden = !isHidden;
+    const apply = () => {
+      setShowSafetySheet(false);
+      void onConversationVisibility(hidden).then(() => {
+        router.replace(routes.messagesList());
+      }).catch(() => {
+        Alert.alert('Could not update conversation', 'Please try again.');
+      });
+    };
+    if (!hidden) {
+      apply();
+      return;
+    }
+    Alert.alert(
+      'Hide conversation?',
+      `Messages from ${displayName} will stay in Hidden without notifications or badges.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Hide', onPress: apply },
+      ],
+    );
+  }, [displayName, isHidden, onConversationVisibility, router]);
 
   const onBlockChange = useCallback(() => {
     setShowSafetySheet(false);
@@ -223,7 +249,21 @@ export default function MessageThreadScreen({
           />
         )}
         getTimestamp={(msg) => msg.created_at}
-        renderComposer={() => canInteract ? (
+        renderComposer={() => isHidden ? (
+          <View className="px-lg py-md border-t border-divider bg-surface">
+            <AppText className="text-sm text-muted text-center">
+              Restore this conversation to reply. Hidden messages stay silent and unread.
+            </AppText>
+            <Pressable
+              testID="restore-conversation-btn"
+              onPress={changeConversationVisibility}
+              accessibilityRole="button"
+              className="min-h-touch items-center justify-center mt-xs"
+            >
+              <AppText className="text-brand-teal font-bold">Restore conversation</AppText>
+            </Pressable>
+          </View>
+        ) : canInteract ? (
           <ChatComposer
             value={messageText}
             onChangeText={setMessageText}
@@ -319,6 +359,8 @@ export default function MessageThreadScreen({
             setShowSafetySheet(false);
             onProfile();
           }}
+          conversationHidden={isHidden}
+          onConversationVisibility={changeConversationVisibility}
           onBlockChange={onBlockChange}
           onReport={() => {
             setShowSafetySheet(false);

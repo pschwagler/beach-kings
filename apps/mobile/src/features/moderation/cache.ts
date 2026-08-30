@@ -102,17 +102,19 @@ export function applyPlayerBlock(
     }
   }
 
-  const conversationsKey = messageKeys.conversations(userId);
-  const conversations = queryClient.getQueryData<ConversationListResponse>(conversationsKey);
-  if (conversations != null) {
+  for (const folder of ['inbox', 'hidden'] as const) {
+    const conversationsKey = messageKeys.conversations(userId, folder);
+    const conversations = queryClient.getQueryData<ConversationListResponse>(conversationsKey);
+    if (conversations == null) continue;
     const removed = conversations.items.find((item) => item.player_id === playerId);
     const items = conversations.items.filter((item) => item.player_id !== playerId);
-    if (items.length !== conversations.items.length) {
-      remember(queryClient, entries, conversationsKey, conversations, {
-        ...conversations,
-        items,
-        total_count: Math.max(0, conversations.total_count - 1),
-      });
+    if (items.length === conversations.items.length) continue;
+    remember(queryClient, entries, conversationsKey, conversations, {
+      ...conversations,
+      items,
+      total_count: Math.max(0, conversations.total_count - 1),
+    });
+    if (folder === 'inbox') {
       const unreadKey = messageKeys.unreadCount(userId);
       const unread = queryClient.getQueryData<{ readonly count: number }>(unreadKey);
       if (unread != null && (removed?.unread_count ?? 0) > 0) {

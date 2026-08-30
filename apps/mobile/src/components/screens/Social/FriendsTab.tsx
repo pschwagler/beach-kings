@@ -37,6 +37,13 @@ export default function FriendsTab({
     [router],
   );
 
+  const onMessagePress = useCallback(
+    (playerId: number, fullName: string) => {
+      router.push(routes.messages(playerId, fullName));
+    },
+    [router],
+  );
+
   const handleFindPlayers = useCallback(() => {
     onFindPlayers?.();
   }, [onFindPlayers]);
@@ -47,6 +54,7 @@ export default function FriendsTab({
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       onPlayerPress={onPlayerPress}
+      onMessagePress={onMessagePress}
       onFindPlayers={handleFindPlayers}
       scrollRequest={scrollRequest}
     />

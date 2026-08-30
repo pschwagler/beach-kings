@@ -9,11 +9,15 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { messageQueries, reconcilePeerIdentityCaches } from "@/features/messages";
+import {
+  messageQueries,
+  reconcilePeerIdentityCaches,
+  useMessageMutations,
+} from "@/features/messages";
 import { useCurrentPlayer } from "@/hooks/useCurrentPlayer";
 import { routes } from "@/lib/navigation";
 import { hapticLight } from "@/utils/haptics";
-import type { Conversation } from "@beach-kings/shared";
+import type { Conversation, MessageFolder } from "@beach-kings/shared";
 
 export interface UseMessagesScreenResult {
   readonly conversations: readonly Conversation[];
@@ -25,19 +29,23 @@ export interface UseMessagesScreenResult {
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly onConversationPress: (playerId: number, name?: string) => void;
+  readonly folder: MessageFolder;
+  readonly onConversationVisibility: (playerId: number, hidden: boolean) => Promise<void>;
+  readonly onHiddenPress: () => void;
   /** The current user's player ID, or 0 if not yet loaded. */
   readonly currentPlayerId: number;
 }
 
-export function useMessagesScreen(): UseMessagesScreenResult {
+export function useMessagesScreen(folder: MessageFolder = 'inbox'): UseMessagesScreenResult {
   const router = useRouter();
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const [searchQuery, setSearchQuery] = useState("");
   const queryClient = useQueryClient();
 
-  const conversationsQuery = useQuery(messageQueries.conversations(userId));
+  const conversationsQuery = useQuery(messageQueries.conversations(userId, folder));
   const playerQuery = useCurrentPlayer();
+  const { setConversationHidden } = useMessageMutations();
 
   useEffect(() => {
     if (!conversationsQuery.isFetchedAfterMount) return;
@@ -80,6 +88,19 @@ export function useMessagesScreen(): UseMessagesScreenResult {
     [router],
   );
 
+  const onConversationVisibility = useCallback(
+    async (playerId: number, hidden: boolean) => {
+      void hapticLight();
+      await setConversationHidden.mutateAsync({ playerId, hidden });
+    },
+    [setConversationHidden],
+  );
+
+  const onHiddenPress = useCallback(() => {
+    void hapticLight();
+    router.push(routes.hiddenMessages());
+  }, [router]);
+
   return {
     conversations,
     isLoading: conversationsQuery.isPending,
@@ -90,6 +111,9 @@ export function useMessagesScreen(): UseMessagesScreenResult {
     onRefresh,
     onRetry,
     onConversationPress,
+    folder,
+    onConversationVisibility,
+    onHiddenPress,
     currentPlayerId: playerQuery.data?.id ?? 0,
   };
 }

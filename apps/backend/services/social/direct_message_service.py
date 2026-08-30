@@ -1,5 +1,5 @@
 """
-Direct message service for 1:1 messaging between friends.
+Direct message service for 1:1 messaging between active players.
 
 Handles sending messages, fetching conversations and threads,
 marking messages as read, and unread count queries.
@@ -7,26 +7,42 @@ marking messages as read, and unread count queries.
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func, and_, or_, case
+from sqlalchemy import select, update, func, and_, or_, case, exists
 from sqlalchemy.orm import aliased
 
-from backend.database.models import DirectMessage, Notification, NotificationType, Player
+from backend.database.models import (
+    DirectMessage,
+    DirectMessageThreadPreference,
+    Notification,
+    NotificationType,
+    Player,
+)
 from backend.services import (
     friend_service,
     notification_service,
     interaction_policy,
     message_write_policy,
     moderation_worker,
-    youth_interaction_policy,
 )
 from backend.services.notifications.notification_service import notification_to_dict
 from backend.services.platform.websocket_manager import get_websocket_manager
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
+
+
+def _hidden_preference_exists(owner_player_id: int, other_player_id):
+    """Correlated predicate for the owner's currently hidden conversation."""
+    return exists(
+        select(DirectMessageThreadPreference.id).where(
+            DirectMessageThreadPreference.owner_player_id == owner_player_id,
+            DirectMessageThreadPreference.other_player_id == other_player_id,
+            DirectMessageThreadPreference.hidden_at.is_not(None),
+        )
+    )
 
 
 async def send_message(
@@ -38,7 +54,7 @@ async def send_message(
     """
     Send a direct message to another player.
 
-    Validates friendship, persists the message, sends a WebSocket
+    Validates interaction availability, persists the message, sends a WebSocket
     notification, and creates a bell notification for the receiver.
 
     Args:
@@ -51,7 +67,7 @@ async def send_message(
         Dict representing the created DirectMessageResponse
 
     Raises:
-        ValueError: If validation fails (not friends, self-message, empty text)
+        ValueError: If validation fails (self-message, empty text, excessive length)
     """
     await message_write_policy.enforce_write_enabled(
         session, message_write_policy.MessageSurface.DIRECT_MESSAGES
@@ -67,13 +83,19 @@ async def send_message(
         interaction_policy.InteractionAction.DIRECT_MESSAGE,
     )
 
-    # Validate friendship
-    friends = await friend_service.are_friends(session, sender_player_id, receiver_player_id)
-    if not friends:
-        raise ValueError("You must be friends to send messages")
-    await youth_interaction_policy.enforce_direct_message_pair(
-        session, sender_player_id, receiver_player_id
+    # Open messaging applies only to claimed, active accounts. Placeholder
+    # players can be created while entering league rosters and must not collect
+    # private messages that become visible if that profile is claimed later.
+    eligible_receiver = await session.scalar(
+        select(Player.id).where(
+            Player.id == receiver_player_id,
+            Player.deleted_at.is_(None),
+            Player.is_placeholder.is_(False),
+            Player.user_id.is_not(None),
+        )
     )
+    if eligible_receiver is None:
+        raise ValueError("Player is not available for messaging")
 
     # Trim and validate
     message_text = message_text.strip()
@@ -113,6 +135,13 @@ async def publish_approved_message(session: AsyncSession, dm: DirectMessage) -> 
         )
     except interaction_policy.InteractionUnavailable:
         return False
+
+    # Hidden is a private, persistent recipient preference. Store the message,
+    # but do not surface it through real-time delivery or notifications.
+    if await is_conversation_hidden(
+        session, dm.receiver_player_id, dm.sender_player_id
+    ):
+        return True
 
     message_dict = _dm_to_dict(dm)
 
@@ -168,6 +197,7 @@ async def get_conversations(
     player_id: int,
     limit: int = 50,
     offset: int = 0,
+    folder: Literal["inbox", "hidden"] = "inbox",
 ) -> Dict[str, Any]:
     """
     Get the conversation list for a player, sorted by most recent message.
@@ -192,6 +222,9 @@ async def get_conversations(
 
     # Get all distinct conversation partners with latest message info
     # Using a window function approach for efficiency
+    hidden_preference = _hidden_preference_exists(player_id, other_player)
+    folder_filter = hidden_preference if folder == "hidden" else ~hidden_preference
+
     all_msgs_query = select(
         other_player,
         DirectMessage.id.label("msg_id"),
@@ -209,6 +242,7 @@ async def get_conversations(
             DirectMessage.sender_player_id == player_id,
             DirectMessage.receiver_player_id == player_id,
         ),
+        folder_filter,
         or_(
             DirectMessage.moderation_visibility == "visible",
             and_(
@@ -261,6 +295,7 @@ async def get_conversations(
                 DirectMessage.receiver_player_id == player_id,
                 DirectMessage.is_read.is_(False),
                 DirectMessage.moderation_visibility == "visible",
+                ~_hidden_preference_exists(player_id, DirectMessage.sender_player_id),
             )
         )
         .group_by(DirectMessage.sender_player_id)
@@ -289,6 +324,7 @@ async def get_conversations(
                 "last_message_sender_id": row.sender_player_id,
                 "unread_count": unread_map.get(row.other_player_id, 0),
                 "is_friend": row.other_player_id in friend_ids,
+                "is_hidden": folder == "hidden",
                 "capability": capabilities[row.other_player_id],
             }
         )
@@ -331,7 +367,13 @@ async def get_thread(
         interaction_policy.DenialReason.BLOCKED_BY_VIEWER,
         interaction_policy.DenialReason.BLOCKED_BY_OTHER,
     }:
-        return {"items": [], "total_count": 0, "has_more": False, "capability": capability}
+        return {
+            "items": [],
+            "total_count": 0,
+            "has_more": False,
+            "is_hidden": await is_conversation_hidden(session, player_id, other_player_id),
+            "capability": capability,
+        }
 
     base_filter = or_(
         and_(
@@ -373,6 +415,7 @@ async def get_thread(
         "items": messages,
         "total_count": total_count,
         "has_more": has_more,
+        "is_hidden": await is_conversation_hidden(session, player_id, other_player_id),
         "capability": capability,
     }
 
@@ -393,6 +436,9 @@ async def mark_thread_read(
     Returns:
         Number of messages marked as read
     """
+    if await is_conversation_hidden(session, player_id, other_player_id):
+        return 0
+
     await interaction_policy.enforce_action(
         session,
         player_id,
@@ -408,6 +454,7 @@ async def mark_thread_read(
                 DirectMessage.receiver_player_id == player_id,
                 DirectMessage.is_read.is_(False),
                 DirectMessage.moderation_visibility == "visible",
+                ~_hidden_preference_exists(player_id, DirectMessage.sender_player_id),
             )
         )
         .values(is_read=True, read_at=now)
@@ -451,6 +498,7 @@ async def get_unread_count(session: AsyncSession, player_id: int) -> int:
                 DirectMessage.receiver_player_id == player_id,
                 DirectMessage.is_read.is_(False),
                 DirectMessage.moderation_visibility == "visible",
+                ~_hidden_preference_exists(player_id, DirectMessage.sender_player_id),
             )
         )
     )
@@ -459,6 +507,68 @@ async def get_unread_count(session: AsyncSession, player_id: int) -> int:
     )
     result = await session.execute(query)
     return result.scalar_one() or 0
+
+
+async def is_conversation_hidden(
+    session: AsyncSession,
+    owner_player_id: int,
+    other_player_id: int,
+) -> bool:
+    """Return whether the owner placed this conversation in Hidden."""
+    result = await session.execute(
+        select(DirectMessageThreadPreference.id).where(
+            DirectMessageThreadPreference.owner_player_id == owner_player_id,
+            DirectMessageThreadPreference.other_player_id == other_player_id,
+            DirectMessageThreadPreference.hidden_at.is_not(None),
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def set_conversation_hidden(
+    session: AsyncSession,
+    owner_player_id: int,
+    other_player_id: int,
+    *,
+    hidden: bool,
+) -> bool:
+    """Hide or restore one conversation for its owner without changing read state."""
+    if owner_player_id == other_player_id:
+        raise ValueError("Cannot change visibility for a conversation with yourself")
+
+    other_exists = await session.scalar(
+        select(Player.id).where(Player.id == other_player_id, Player.deleted_at.is_(None))
+    )
+    if other_exists is None:
+        raise ValueError("Player not found")
+
+    preference = (
+        await session.execute(
+            select(DirectMessageThreadPreference).where(
+                DirectMessageThreadPreference.owner_player_id == owner_player_id,
+                DirectMessageThreadPreference.other_player_id == other_player_id,
+            )
+        )
+    ).scalar_one_or_none()
+    hidden_at = utcnow() if hidden else None
+    if preference is None:
+        session.add(
+            DirectMessageThreadPreference(
+                owner_player_id=owner_player_id,
+                other_player_id=other_player_id,
+                hidden_at=hidden_at,
+            )
+        )
+    else:
+        preference.hidden_at = hidden_at
+    await session.flush()
+
+    # Reconcile the existing summary notification without marking messages read
+    # or creating a restoration push.
+    user_id = await _get_user_id_for_player(session, owner_player_id)
+    if user_id:
+        await _update_or_dismiss_dm_notification(session, user_id, owner_player_id)
+    return hidden
 
 
 # ---------------------------------------------------------------------------
@@ -593,8 +703,31 @@ async def _update_or_dismiss_dm_notification(
         notif.is_read = True
         notif.read_at = utcnow()
     else:
+        latest_query = (
+            select(DirectMessage, Player.full_name)
+            .join(Player, Player.id == DirectMessage.sender_player_id)
+            .where(
+                DirectMessage.receiver_player_id == player_id,
+                DirectMessage.is_read.is_(False),
+                DirectMessage.moderation_visibility == "visible",
+                ~_hidden_preference_exists(player_id, DirectMessage.sender_player_id),
+            )
+            .order_by(DirectMessage.created_at.desc(), DirectMessage.id.desc())
+            .limit(1)
+        )
+        latest_query = interaction_policy.exclude_blocked_players(
+            latest_query, player_id, DirectMessage.sender_player_id
+        )
+        latest = (await session.execute(latest_query)).first()
         notif.title = f"You have {remaining} unread message{'s' if remaining != 1 else ''}"
         notif.data = json.dumps({"unread_count": remaining})
+        if latest is not None:
+            latest_message, sender_name = latest
+            preview = latest_message.message_text[:100]
+            if len(latest_message.message_text) > 100:
+                preview += "..."
+            notif.message = f"{sender_name or 'Someone'}: {preview}"
+            notif.actor_player_id = latest_message.sender_player_id
         notif.created_at = utcnow()
 
     await session.flush()

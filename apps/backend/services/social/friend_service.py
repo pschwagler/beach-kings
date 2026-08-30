@@ -610,6 +610,10 @@ async def get_friends(
     # Latest match activity per friend (batched; misses mean no matches)
     last_actives = await batch_last_active(session, friend_ids)
 
+    capabilities = await interaction_policy.interaction_capabilities(
+        session, player_id, friend_ids
+    )
+
     # Build response
     items = []
     for fid in friend_ids:
@@ -626,6 +630,7 @@ async def get_friends(
                 "level": p.level,
                 "shared_league_name": shared_leagues.get(fid),
                 "last_active": (last_actives[fid].isoformat() if fid in last_actives else None),
+                "capability": capabilities[fid],
             }
         )
 

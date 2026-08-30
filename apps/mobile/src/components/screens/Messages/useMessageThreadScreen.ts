@@ -37,9 +37,11 @@ export interface UseMessageThreadScreenResult {
   readonly peerAvatarUrl: string | null;
   readonly canInteract: boolean;
   readonly blockedByViewer: boolean;
+  readonly isHidden: boolean;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly onSend: () => Promise<void>;
+  readonly onConversationVisibility: (hidden: boolean) => Promise<void>;
 }
 
 /**
@@ -70,7 +72,7 @@ export function useMessageThreadScreen(
     ),
   });
   const peerQuery = useQuery(messageQueries.peer(userId, playerId));
-  const { markThreadRead, sendMessage } = useMessageMutations();
+  const { markThreadRead, sendMessage, setConversationHidden } = useMessageMutations();
   const messages = threadQuery.data?.items ?? EMPTY_MESSAGES;
   const attemptedReadSignature = useRef<string | null>(null);
 
@@ -110,6 +112,7 @@ export function useMessageThreadScreen(
   useEffect(() => {
     if (
       unreadSignature == null ||
+      threadQuery.data?.is_hidden === true ||
       attemptedReadSignature.current === unreadSignature ||
       markThreadRead.isPending
     ) {
@@ -117,7 +120,7 @@ export function useMessageThreadScreen(
     }
     attemptedReadSignature.current = unreadSignature;
     markThreadRead.mutate(playerId);
-  }, [markThreadRead, playerId, unreadSignature]);
+  }, [markThreadRead, playerId, threadQuery.data?.is_hidden, unreadSignature]);
 
   const onRefresh = useCallback(() => {
     attemptedReadSignature.current = null;
@@ -151,6 +154,13 @@ export function useMessageThreadScreen(
     }
   }, [messageText, playerId, sendMessage]);
 
+  const onConversationVisibility = useCallback(
+    async (hidden: boolean) => {
+      await setConversationHidden.mutateAsync({ playerId, hidden });
+    },
+    [playerId, setConversationHidden],
+  );
+
   return {
     messages,
     isLoading: threadQuery.isPending,
@@ -166,8 +176,10 @@ export function useMessageThreadScreen(
       peerQuery.data?.profile_picture_url ?? threadQuery.data?.peer?.avatar ?? null,
     canInteract: threadQuery.data?.capability?.actions.direct_message ?? true,
     blockedByViewer: threadQuery.data?.capability?.blocked_by_viewer ?? false,
+    isHidden: threadQuery.data?.is_hidden ?? false,
     onRefresh,
     onRetry,
     onSend,
+    onConversationVisibility,
   };
 }

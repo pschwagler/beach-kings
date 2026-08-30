@@ -6,7 +6,7 @@
 
 import React, { useCallback } from 'react';
 import AppText from '@/components/ui/AppText';
-import { View, Pressable } from 'react-native';
+import { Alert, View, Pressable } from 'react-native';
 import { type Conversation, formatRelativeTime } from '@beach-kings/shared';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight } from '@/utils/haptics';
@@ -15,12 +15,14 @@ interface ConversationRowProps {
   readonly conversation: Conversation;
   readonly onPress: (playerId: number, name: string) => void;
   readonly currentPlayerId: number;
+  readonly onVisibilityChange: (playerId: number, hidden: boolean) => Promise<void>;
 }
 
 export default function ConversationRow({
   conversation,
   onPress,
   currentPlayerId,
+  onVisibilityChange,
 }: ConversationRowProps): React.ReactNode {
   const isUnread = conversation.unread_count > 0;
   const isSentByMe = conversation.last_message_sender_id === currentPlayerId;
@@ -38,6 +40,27 @@ export default function ConversationRow({
     void hapticLight();
     onPress(conversation.player_id, conversation.full_name);
   }, [onPress, conversation.player_id, conversation.full_name]);
+
+  const changeVisibility = useCallback(() => {
+    const hidden = !conversation.is_hidden;
+    const apply = () => {
+      void onVisibilityChange(conversation.player_id, hidden).catch(() => {
+        Alert.alert('Could not update conversation', 'Please try again.');
+      });
+    };
+    if (!hidden) {
+      apply();
+      return;
+    }
+    Alert.alert(
+      'Hide conversation?',
+      `Messages from ${conversation.full_name} will stay in Hidden without notifications or badges.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Hide', onPress: apply },
+      ],
+    );
+  }, [conversation.full_name, conversation.is_hidden, conversation.player_id, onVisibilityChange]);
 
   return (
     <Pressable
@@ -96,6 +119,16 @@ export default function ConversationRow({
           className="w-[10px] h-[10px] rounded-full bg-brand-teal flex-shrink-0"
         />
       )}
+      <Pressable
+        testID={`convo-visibility-${conversation.player_id}`}
+        onPress={changeVisibility}
+        accessibilityRole="button"
+        accessibilityLabel={`${conversation.is_hidden ? 'Restore' : 'Hide'} conversation with ${conversation.full_name}`}
+        hitSlop={8}
+        className="min-h-touch min-w-touch items-center justify-center"
+      >
+        <AppText className="text-lg text-muted">•••</AppText>
+      </Pressable>
     </Pressable>
   );
 }

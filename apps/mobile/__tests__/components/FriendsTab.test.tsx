@@ -42,6 +42,7 @@ jest.mock('@/components/screens/Social/FriendsBody', () => {
       searchQuery: string;
       setSearchQuery: (v: string) => void;
       onPlayerPress: (id: number) => void;
+      onMessagePress: (id: number, name: string) => void;
       onFindPlayers: () => void;
       friends: readonly { player_id: number }[];
     }) => (
@@ -58,6 +59,12 @@ jest.mock('@/components/screens/Social/FriendsBody', () => {
           onPress={() => props.onPlayerPress(42)}
         >
           <Text>player</Text>
+        </Pressable>
+        <Pressable
+          testID="body-message-press"
+          onPress={() => props.onMessagePress(42, 'Morgan Davis')}
+        >
+          <Text>message</Text>
         </Pressable>
         <Pressable testID="body-find-players" onPress={props.onFindPlayers}>
           <Text>find</Text>
@@ -107,6 +114,16 @@ describe('FriendsTab', () => {
     fireEvent.press(screen.getByTestId('body-player-press'));
 
     expect(mockPush).toHaveBeenCalledWith('/(stack)/player/42');
+  });
+
+  it('pushes the named message thread from the separate message action', () => {
+    render(<FriendsTab />);
+
+    fireEvent.press(screen.getByTestId('body-message-press'));
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/(stack)/messages/42?name=Morgan%20Davis',
+    );
   });
 
   it('forwards onFindPlayers to the injected callback (no push)', () => {

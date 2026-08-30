@@ -285,6 +285,13 @@ describe('MessagesTab — conversations list', () => {
       expect(mockPush).toHaveBeenCalledWith('/(stack)/messages/10?name=Alex%20Torres');
     });
   });
+
+  it('opens the hidden messages folder', async () => {
+    render(<MessagesTab />);
+    await waitFor(() => expect(screen.getByTestId('hidden-messages-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('hidden-messages-btn'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/messages/hidden');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import type {
   ConversationListResponse,
   Player,
   ThreadResponse,
+  MessageFolder,
 } from '@beach-kings/shared';
 import { api } from '@/lib/api';
 import { messageKeys } from './keys';
@@ -10,9 +11,13 @@ import { messageKeys } from './keys';
 const MESSAGE_STALE_TIME_MS = 15_000;
 
 export const messageQueries = {
-  conversations: (userId: number, enabled = true) => queryOptions({
-    queryKey: messageKeys.conversations(userId),
-    queryFn: (): Promise<ConversationListResponse> => api.getConversations(),
+  conversations: (
+    userId: number,
+    folder: MessageFolder = 'inbox',
+    enabled = true,
+  ) => queryOptions({
+    queryKey: messageKeys.conversations(userId, folder),
+    queryFn: (): Promise<ConversationListResponse> => api.getConversations(1, 50, folder),
     enabled: enabled && userId > 0,
     staleTime: MESSAGE_STALE_TIME_MS,
   }),

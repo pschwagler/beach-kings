@@ -100,6 +100,39 @@ class DirectMessage(Base):
     )
 
 
+class DirectMessageThreadPreference(Base):
+    """Viewer-owned state for a direct-message conversation."""
+
+    __tablename__ = "direct_message_thread_preferences"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
+    )
+    other_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
+    )
+    hidden_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_player_id", "other_player_id", name="uq_dm_thread_preferences_pair"
+        ),
+        CheckConstraint(
+            "owner_player_id <> other_player_id", name="ck_dm_thread_preferences_not_self"
+        ),
+        Index(
+            "idx_dm_thread_preferences_owner_hidden",
+            "owner_player_id",
+            "hidden_at",
+        ),
+    )
+
+
 class UserBlock(Base):
     """Directed, idempotent player block."""
 

@@ -59,7 +59,7 @@ class TestGetConversations:
     def test_conversations_success(self, client, headers, monkeypatch):
         """Returns conversation list."""
 
-        async def fake_get(session, player_id, limit=50, offset=0):
+        async def fake_get(session, player_id, limit=50, offset=0, folder="inbox"):
             return {
                 "items": [
                     {
@@ -88,9 +88,10 @@ class TestGetConversations:
         """Pagination params are passed through."""
         captured = {}
 
-        async def fake_get(session, player_id, limit=50, offset=0):
+        async def fake_get(session, player_id, limit=50, offset=0, folder="inbox"):
             captured["limit"] = limit
             captured["offset"] = offset
+            captured["folder"] = folder
             return {"items": [], "total_count": 0}
 
         monkeypatch.setattr(direct_message_service, "get_conversations", fake_get, raising=True)
@@ -99,6 +100,18 @@ class TestGetConversations:
         assert response.status_code == 200
         assert captured["limit"] == 10
         assert captured["offset"] == 10  # (2-1) * 10
+
+    def test_conversations_hidden_folder(self, client, headers, monkeypatch):
+        captured = {}
+
+        async def fake_get(session, player_id, limit=50, offset=0, folder="inbox"):
+            captured["folder"] = folder
+            return {"items": [], "total_count": 0}
+
+        monkeypatch.setattr(direct_message_service, "get_conversations", fake_get, raising=True)
+        response = client.get("/api/messages/conversations?folder=hidden", headers=headers)
+        assert response.status_code == 200
+        assert captured["folder"] == "hidden"
 
     def test_conversations_no_auth(self):
         """No auth returns 401/403."""
@@ -259,6 +272,25 @@ class TestMarkThreadRead:
         response = client.put("/api/messages/conversations/20/read", headers=headers)
         assert response.status_code == 200
         assert response.json()["marked_count"] == 0
+
+
+class TestConversationVisibility:
+    def test_hide_success(self, client, headers, monkeypatch):
+        async def fake_set(session, owner_id, other_id, *, hidden):
+            assert owner_id == 10
+            assert other_id == 20
+            return hidden
+
+        monkeypatch.setattr(
+            direct_message_service, "set_conversation_hidden", fake_set, raising=True
+        )
+        response = client.put(
+            "/api/messages/conversations/20/visibility",
+            json={"hidden": True},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert response.json() == {"hidden": True}
 
 
 # ============================================================================

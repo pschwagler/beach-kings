@@ -100,6 +100,7 @@ function makeProps(overrides: Partial<FriendsBodyProps> = {}): FriendsBodyProps 
     searchQuery: '',
     setSearchQuery: jest.fn(),
     onPlayerPress: jest.fn(),
+    onMessagePress: jest.fn(),
     onFindPlayers: jest.fn(),
     ...overrides,
   };
@@ -455,6 +456,56 @@ describe('FriendsBody — navigation', () => {
 
     fireEvent.press(screen.getByTestId(`friend-row-${FRIEND.player_id}`));
     expect(onPlayerPress).toHaveBeenCalledWith(FRIEND.player_id);
+  });
+
+  it('opens a separate message action for an eligible friend', () => {
+    const onMessagePress = jest.fn();
+    render(<FriendsBody {...makeProps({ onMessagePress })} />);
+
+    fireEvent.press(screen.getByTestId(`friend-message-${FRIEND.player_id}`));
+    expect(onMessagePress).toHaveBeenCalledWith(
+      FRIEND.player_id,
+      FRIEND.full_name,
+    );
+  });
+
+  it('disables the message action when contact is restricted', () => {
+    const onMessagePress = jest.fn();
+    const restrictedFriend: Friend = {
+      ...FRIEND,
+      capability: {
+        actions: {
+          direct_message: false,
+          friend_request: false,
+          league_invite: false,
+          session_invite: false,
+          mention: false,
+          reply: false,
+          presence: false,
+          read_receipt: false,
+          notification: false,
+          discovery: false,
+          user_generated_content: false,
+          shared_operational_content: false,
+        },
+        blocked_by_viewer: false,
+        viewer_restricted: false,
+      },
+    };
+    render(
+      <FriendsBody
+        {...makeProps({ friends: [restrictedFriend], onMessagePress })}
+      />,
+    );
+
+    fireEvent.press(
+      screen.getByTestId(`friend-message-${restrictedFriend.player_id}`),
+    );
+    expect(onMessagePress).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId(`friend-message-${restrictedFriend.player_id}`).props
+        .accessibilityState,
+    ).toEqual({ disabled: true });
   });
 
   it('opens a suggested player profile on row press', () => {

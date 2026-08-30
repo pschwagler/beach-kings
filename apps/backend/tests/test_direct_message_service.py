@@ -1,19 +1,24 @@
 """
 Unit tests for direct message service.
 
-Tests message sending validation, thread retrieval, read marking,
-unread counts, and friendship gating.
+Tests message sending validation, thread retrieval, hidden state, and unread counts.
 """
 
 import pytest
 import pytest_asyncio
+from unittest.mock import AsyncMock, Mock
 from backend.services import direct_message_service
 from backend.database.models import User, Player, Friend
 
 
-async def _create_user_and_player(db_session, phone, name):
+async def _create_user_and_player(db_session, phone, name, age_group="adult"):
     """Helper: create a user + player pair, return (user_id, player_id)."""
-    user = User(phone_number=phone, password_hash="hash", is_verified=True)
+    user = User(
+        phone_number=phone,
+        password_hash="hash",
+        is_verified=True,
+        age_group=age_group,
+    )
     db_session.add(user)
     await db_session.flush()
 
@@ -37,7 +42,9 @@ async def players(db_session):
     """Create two test users with player profiles."""
     u1, p1 = await _create_user_and_player(db_session, "+15559000001", "Alice Sender")
     u2, p2 = await _create_user_and_player(db_session, "+15559000002", "Bob Receiver")
-    u3, p3 = await _create_user_and_player(db_session, "+15559000003", "Carol Bystander")
+    u3, p3 = await _create_user_and_player(
+        db_session, "+15559000003", "Carol Bystander", age_group="junior"
+    )
     return {
         "alice": {"user_id": u1, "player_id": p1},
         "bob": {"user_id": u2, "player_id": p2},
@@ -66,12 +73,29 @@ async def test_send_message_self_raises(db_session, friends):
 
 
 @pytest.mark.asyncio
-async def test_send_message_not_friends_raises(db_session, players):
-    """Cannot send a message to a non-friend."""
+async def test_send_message_allows_non_friends(db_session, players):
+    """Verified active players, including juniors, do not need friendship to message."""
     alice = players["alice"]["player_id"]
     carol = players["carol"]["player_id"]
-    with pytest.raises(ValueError, match="You must be friends"):
-        await direct_message_service.send_message(db_session, alice, carol, "Hello")
+    result = await direct_message_service.send_message(db_session, alice, carol, "Hello")
+    assert result["sender_player_id"] == alice
+    assert result["receiver_player_id"] == carol
+
+
+@pytest.mark.asyncio
+async def test_send_message_rejects_unclaimed_placeholder(db_session, players):
+    """Roster placeholders cannot accumulate messages before account claim."""
+    placeholder = Player(full_name="Unclaimed Player", is_placeholder=True)
+    db_session.add(placeholder)
+    await db_session.flush()
+
+    with pytest.raises(ValueError, match="not available for messaging"):
+        await direct_message_service.send_message(
+            db_session,
+            players["alice"]["player_id"],
+            placeholder.id,
+            "Hello",
+        )
 
 
 @pytest.mark.asyncio
@@ -281,3 +305,64 @@ async def test_get_conversations_shows_unread_count(db_session, friends):
 
     result = await direct_message_service.get_conversations(db_session, alice)
     assert result["items"][0]["unread_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_hidden_conversation_is_silent_until_restored(db_session, players):
+    alice = players["alice"]["player_id"]
+    bob = players["bob"]["player_id"]
+
+    await direct_message_service.send_message(db_session, bob, alice, "Unwanted")
+    await direct_message_service.set_conversation_hidden(
+        db_session, alice, bob, hidden=True
+    )
+
+    inbox = await direct_message_service.get_conversations(db_session, alice)
+    hidden = await direct_message_service.get_conversations(
+        db_session, alice, folder="hidden"
+    )
+    thread = await direct_message_service.get_thread(db_session, alice, bob)
+
+    assert inbox["items"] == []
+    assert hidden["items"][0]["player_id"] == bob
+    assert hidden["items"][0]["unread_count"] == 0
+    assert thread["is_hidden"] is True
+    assert await direct_message_service.get_unread_count(db_session, alice) == 0
+    assert await direct_message_service.mark_thread_read(db_session, alice, bob) == 0
+    assert await direct_message_service.get_unread_count(db_session, bob) == 0
+
+    await direct_message_service.set_conversation_hidden(
+        db_session, alice, bob, hidden=False
+    )
+    restored = await direct_message_service.get_conversations(db_session, alice)
+    assert restored["items"][0]["player_id"] == bob
+    assert restored["items"][0]["unread_count"] == 1
+    assert await direct_message_service.get_unread_count(db_session, alice) == 1
+
+
+@pytest.mark.asyncio
+async def test_new_messages_to_hidden_conversation_skip_realtime_and_notifications(
+    db_session, players, monkeypatch
+):
+    alice = players["alice"]["player_id"]
+    bob = players["bob"]["player_id"]
+    manager = Mock()
+    manager.send_to_user = AsyncMock()
+    get_manager = Mock(return_value=manager)
+    upsert_notification = AsyncMock()
+    monkeypatch.setattr(direct_message_service, "get_websocket_manager", get_manager)
+    monkeypatch.setattr(
+        direct_message_service,
+        "_upsert_dm_summary_notification",
+        upsert_notification,
+    )
+
+    await direct_message_service.set_conversation_hidden(
+        db_session, alice, bob, hidden=True
+    )
+    await direct_message_service.send_message(db_session, bob, alice, "Still hidden")
+
+    get_manager.assert_not_called()
+    manager.send_to_user.assert_not_awaited()
+    upsert_notification.assert_not_awaited()
+    assert await direct_message_service.get_unread_count(db_session, alice) == 0

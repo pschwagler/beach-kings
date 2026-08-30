@@ -330,6 +330,8 @@ export interface FriendsBodyProps extends UseFriendsResult {
   readonly setSearchQuery: (q: string) => void;
   /** Navigate to a player's profile. */
   readonly onPlayerPress: (playerId: number) => void;
+  /** Open a direct-message thread with an eligible friend. */
+  readonly onMessagePress: (playerId: number, fullName: string) => void;
   /** Navigate to the Find Players destination (empty-state CTA). */
   readonly onFindPlayers: () => void;
   readonly scrollRequest?: number;
@@ -353,6 +355,7 @@ export default function FriendsBody({
   searchQuery,
   setSearchQuery,
   onPlayerPress,
+  onMessagePress,
   onFindPlayers,
   scrollRequest = 0,
 }: FriendsBodyProps): React.ReactNode {
@@ -380,7 +383,13 @@ export default function FriendsBody({
             />
           );
         case 'friend':
-          return <FriendRow friend={item.friend} onPress={onPlayerPress} />;
+          return (
+            <FriendRow
+              friend={item.friend}
+              onPress={onPlayerPress}
+              onMessagePress={onMessagePress}
+            />
+          );
         case 'suggestion':
           return (
             <SuggestionRow
@@ -398,6 +407,7 @@ export default function FriendsBody({
       onAcceptRequest,
       onDeclineRequest,
       onPlayerPress,
+      onMessagePress,
       onAddSuggestion,
       pendingAddIds,
     ],
