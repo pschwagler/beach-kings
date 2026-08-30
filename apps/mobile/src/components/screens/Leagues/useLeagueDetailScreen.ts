@@ -173,11 +173,12 @@ export function useLeagueDetailScreen(
 
   const hasPendingRequest = detail?.has_pending_request ?? false;
   const isInviteOnly = isVisitor && detail?.access_type === "invite_only";
-  // Open leagues are joined directly; invite-only leagues require a request
-  // (see backend: POST /join 400s invite-only leagues, POST /request-join
-  // 400s open leagues).
-  const canJoinDirectly = isVisitor && detail?.access_type === "open";
-  const canRequestToJoin = isInviteOnly && !hasPendingRequest;
+  const canJoinDirectly = false;
+  const canRequestToJoin =
+    isVisitor &&
+    detail?.access_type === "open" &&
+    !hasPendingRequest &&
+    detail.join_request_status !== "rejected";
 
   const onRequestToJoin = useCallback(async (): Promise<void> => {
     setIsRequestingToJoin(true);
@@ -212,30 +213,8 @@ export function useLeagueDetailScreen(
   }, [queryClient, leagueId, userId]);
 
   const onJoinLeague = useCallback(async (): Promise<void> => {
-    setIsJoiningLeague(true);
-    try {
-      await api.joinLeague(Number(leagueId));
-      // A direct join makes the caller a member (user_role, visible tabs,
-      // and stats all change) — refetch rather than guess at every field.
-      // The list-level caches also encode this league's membership/status
-      // under separate key namespaces, so invalidate them too or the
-      // "My Leagues" tab and Find Leagues results stay stale (staleTime 30s,
-      // no focus-refetch) after a successful join.
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: leagueKeys.detail(userId, leagueId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: leagueKeys.userLeagues(userId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: leagueKeys.findRoot(userId),
-        }),
-      ]);
-    } finally {
-      setIsJoiningLeague(false);
-    }
-  }, [queryClient, leagueId, userId]);
+    setIsJoiningLeague(false);
+  }, []);
 
   const onAcceptInvitation = useCallback(
     () => inviteResponses.onAccept(numericLeagueId),

@@ -625,33 +625,16 @@ describe('LeagueDetailScreen — non-member visitor', () => {
     expect(screen.queryByTestId('league-add-game-btn')).toBeNull();
   });
 
-  it('renders a Join CTA for an open league', async () => {
+  it('renders a Request to join CTA for a public league', async () => {
     mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
-    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
-    await waitFor(() => expect(screen.getByTestId('league-join-banner')).toBeTruthy());
-    expect(screen.getByTestId('league-join-btn')).toBeTruthy();
-    expect(screen.queryByTestId('league-request-join-btn')).toBeNull();
-  });
-
-  it('calls api.joinLeague (not requestToJoinLeague) when the open-league CTA is pressed', async () => {
-    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
-    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
-    await waitFor(() => expect(screen.getByTestId('league-join-btn')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('league-join-btn'));
-    await waitFor(() => expect(mockJoinLeague).toHaveBeenCalledWith(1));
-    expect(mockRequestToJoinLeague).not.toHaveBeenCalled();
-  });
-
-  it('shows a Request to join CTA for an invite-only league', async () => {
-    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, access_type: 'invite_only' });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-join-banner')).toBeTruthy());
     expect(screen.getByTestId('league-request-join-btn')).toBeTruthy();
     expect(screen.queryByTestId('league-join-btn')).toBeNull();
   });
 
-  it('calls api.requestToJoinLeague (not joinLeague) when the invite-only CTA is pressed', async () => {
-    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, access_type: 'invite_only' });
+  it('calls api.requestToJoinLeague for the public-league CTA', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-request-join-btn')).toBeTruthy());
     fireEvent.press(screen.getByTestId('league-request-join-btn'));
@@ -659,10 +642,46 @@ describe('LeagueDetailScreen — non-member visitor', () => {
     expect(mockJoinLeague).not.toHaveBeenCalled();
   });
 
-  it('shows "Request sent" when an invite-only request is already pending', async () => {
+  it('shows no self-request CTA for an invite-only league', async () => {
+    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, access_type: 'invite_only' });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-join-banner')).toBeTruthy());
+    expect(screen.getByText('Invite only · Message an admin to learn more')).toBeTruthy();
+    expect(screen.queryByTestId('league-request-join-btn')).toBeNull();
+    expect(screen.queryByTestId('league-join-btn')).toBeNull();
+  });
+
+  it('shows current admins and opens a direct message from league info', async () => {
     mockGetLeague.mockResolvedValue({
       ...VISITOR_DETAIL,
       access_type: 'invite_only',
+      created_by_player_id: 77,
+    });
+    mockGetLeagueMembers.mockResolvedValue([
+      {
+        id: 10,
+        player_id: 77,
+        player_name: 'Sandy Spiker',
+        player_avatar: null,
+        role: 'admin',
+        created_at: '2026-08-30T12:00:00Z',
+      },
+    ]);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('segment-tab-info')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('segment-tab-info'));
+    await waitFor(() => expect(screen.getByTestId('message-admin-77')).toBeTruthy());
+    expect(screen.getByText('Creator')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('message-admin-77'));
+    expect(mockPush).toHaveBeenCalledWith(
+      '/(stack)/messages/77?name=Sandy%20Spiker',
+    );
+  });
+
+  it('shows "Request sent" when a public request is already pending', async () => {
+    mockGetLeague.mockResolvedValue({
+      ...VISITOR_DETAIL,
+      access_type: 'open',
       has_pending_request: true,
     });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
@@ -672,20 +691,9 @@ describe('LeagueDetailScreen — non-member visitor', () => {
     expect(screen.queryByTestId('league-request-join-btn')).toBeNull();
   });
 
-  it('shows an Alert and does not crash when joinLeague fails', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
-    mockJoinLeague.mockRejectedValue(new Error('boom'));
-    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
-    await waitFor(() => expect(screen.getByTestId('league-join-btn')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('league-join-btn'));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
-    alertSpy.mockRestore();
-  });
-
   it('shows an Alert and does not crash when requestToJoinLeague fails', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockGetLeague.mockResolvedValue({ ...VISITOR_DETAIL, access_type: 'invite_only' });
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
     mockRequestToJoinLeague.mockRejectedValue(new Error('boom'));
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('league-request-join-btn')).toBeTruthy());

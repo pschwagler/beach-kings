@@ -230,6 +230,12 @@ function LeagueResultCard({
             Request Pending
           </AppText>
         </View>
+      ) : league.user_status === 'rejected' ? (
+        <View className="bg-page rounded-[8px] py-[10px] px-3 items-center">
+          <AppText className="text-[13px] font-semibold text-muted text-center">
+            An admin must invite you
+          </AppText>
+        </View>
       ) : league.access_type === 'open' ? (
         <>
           <Pressable
@@ -243,9 +249,9 @@ function LeagueResultCard({
             accessibilityLabel={
               joinError != null
                 ? `Try joining ${league.name} again`
-                : `Join ${league.name}`
+                : `Request to join ${league.name}`
             }
-            accessibilityHint="Joins this open league"
+            accessibilityHint="Sends a request for league admin approval"
             accessibilityState={{
               disabled: isRequesting,
               busy: isRequesting,
@@ -256,7 +262,7 @@ function LeagueResultCard({
               <ActivityIndicator size="small" color={palette.onBrandTeal} />
             ) : (
               <AppText className="text-[13px] font-bold text-on-brand-teal">
-                {joinError != null ? 'Try Again' : 'Join League'}
+                {joinError != null ? 'Try Again' : 'Request to Join'}
               </AppText>
             )}
           </Pressable>

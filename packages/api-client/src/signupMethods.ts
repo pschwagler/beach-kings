@@ -128,6 +128,7 @@ export function createSignupMethods(api: AxiosInstance) {
           location_name: string | null;
           member_count: number;
           has_pending_request: boolean;
+          join_request_status?: 'pending' | 'approved' | 'rejected' | null;
           friends_preview: Array<{ player_id: number; first_name: string; last_name: string | null; avatar: string | null }>;
         }>;
         page: number;
@@ -149,7 +150,11 @@ export function createSignupMethods(api: AxiosInstance) {
           initials: (f.first_name.charAt(0) + (f.last_name?.charAt(0) ?? '')).toUpperCase(),
           avatar_url: f.avatar,
         })),
-        user_status: item.has_pending_request ? 'requested' : 'none',
+        user_status: item.has_pending_request
+          ? 'requested'
+          : item.join_request_status === 'rejected'
+            ? 'rejected'
+            : 'none',
       }));
 
       return { items, page: data.page, page_size: data.page_size, total_count: data.total_count };

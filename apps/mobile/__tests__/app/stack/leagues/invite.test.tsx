@@ -83,12 +83,12 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockGetInvitablePlayers = jest.fn();
-const mockSendLeagueInvites = jest.fn();
+const mockAddLeagueMembersBatch = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     getInvitablePlayers: (...args: unknown[]) => mockGetInvitablePlayers(...args),
-    sendLeagueInvites: (...args: unknown[]) => mockSendLeagueInvites(...args),
+    addLeagueMembersBatch: (...args: unknown[]) => mockAddLeagueMembersBatch(...args),
   },
 }));
 
@@ -125,9 +125,9 @@ const MOCK_PLAYERS = [
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetInvitablePlayers.mockResolvedValue(MOCK_PLAYERS);
-  // sendLeagueInvites throws a "TODO" error (backend not yet implemented).
+  // Default add request fails so error handling remains covered unless overridden.
   // Individual tests that need it to succeed will override with mockResolvedValue.
-  mockSendLeagueInvites.mockRejectedValue(new Error('TODO(backend): POST /api/leagues/:id/invites'));
+  mockAddLeagueMembersBatch.mockRejectedValue(new Error('Add failed'));
 });
 
 // ---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ describe('LeagueInviteScreen — selection', () => {
     await waitFor(() => expect(screen.getByTestId('invite-player-row-60')).toBeTruthy());
     fireEvent.press(screen.getByTestId('invite-player-row-60'));
     await waitFor(() => {
-      expect(screen.getByText('Send (1)')).toBeTruthy();
+      expect(screen.getByText('Add (1)')).toBeTruthy();
     });
   });
 
@@ -200,10 +200,10 @@ describe('LeagueInviteScreen — selection', () => {
     render(<LeagueInviteRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('invite-player-row-60')).toBeTruthy());
     fireEvent.press(screen.getByTestId('invite-player-row-60'));
-    await waitFor(() => expect(screen.getByText('Send (1)')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Add (1)')).toBeTruthy());
     fireEvent.press(screen.getByTestId('invite-player-row-60'));
     await waitFor(() => {
-      expect(screen.getByText('Send')).toBeTruthy();
+      expect(screen.getByText('Add')).toBeTruthy();
     });
   });
 
@@ -234,16 +234,16 @@ describe('LeagueInviteScreen — send invites', () => {
     expect(button.props.accessibilityState?.disabled).toBe(true);
   });
 
-  it('calls sendLeagueInvites with selected player ids', async () => {
+  it('applies consent-aware adds for selected player ids', async () => {
     // Override to resolve so the hook completes without unhandled rejection
-    mockSendLeagueInvites.mockResolvedValueOnce(undefined);
+    mockAddLeagueMembersBatch.mockResolvedValueOnce(undefined);
     render(<LeagueInviteRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('invite-player-row-60')).toBeTruthy());
     fireEvent.press(screen.getByTestId('invite-player-row-60'));
-    await waitFor(() => expect(screen.getByText('Send (1)')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Add (1)')).toBeTruthy());
     fireEvent.press(screen.getByTestId('send-invites-button'));
     await waitFor(() => {
-      expect(mockSendLeagueInvites).toHaveBeenCalledWith(
+      expect(mockAddLeagueMembersBatch).toHaveBeenCalledWith(
         expect.anything(),
         expect.arrayContaining([60]),
       );

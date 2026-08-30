@@ -158,6 +158,17 @@ describe('getLeague — has_pending_request mapping', () => {
     const result = await methods.getLeague(42);
     expect(result.has_pending_request).toBe(false);
   });
+
+  it('maps creator and terminal join-request metadata', async () => {
+    const client = makeMockClient(makeRawDetail({
+      created_by_player_id: 9,
+      join_request_status: 'rejected',
+    }));
+    const methods = createApiMethods(client);
+    const result = await methods.getLeague(42);
+    expect(result.created_by_player_id).toBe(9);
+    expect(result.join_request_status).toBe('rejected');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -227,5 +238,25 @@ describe('joinLeague', () => {
     const methods = createApiMethods(client);
     const result = await methods.joinLeague(99);
     expect(result).toEqual({ success: true, message: 'Joined!' });
+  });
+});
+
+describe('addLeagueMembersBatch', () => {
+  it('POSTs selected players as member additions', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: { added: [], invited: [7], failed: [] },
+    });
+    const client = { axiosInstance: { post } } as unknown as ApiClient;
+    const methods = createApiMethods(client);
+
+    const result = await methods.addLeagueMembersBatch(42, [7, 8]);
+
+    expect(post).toHaveBeenCalledWith('/api/leagues/42/members_batch', {
+      members: [
+        { player_id: 7, role: 'member' },
+        { player_id: 8, role: 'member' },
+      ],
+    });
+    expect(result.invited).toEqual([7]);
   });
 });

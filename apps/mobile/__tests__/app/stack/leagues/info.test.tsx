@@ -318,7 +318,7 @@ describe('LeagueInfoTab — members', () => {
     render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Patrick Schwagler')).toBeTruthy();
+      expect(screen.getAllByText('Patrick Schwagler')).toHaveLength(2);
       expect(screen.getByText('Jane Smith')).toBeTruthy();
     });
   });

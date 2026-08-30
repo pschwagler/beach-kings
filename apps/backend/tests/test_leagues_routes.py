@@ -162,17 +162,31 @@ class TestAddLeagueMember:
         """League admin can add a player."""
         client, headers = _make_admin_client(monkeypatch)
 
-        async def fake_add_league_member(session, league_id, player_id, role):
-            return {"id": MEMBER_ID, "player_id": player_id, "role": role}
+        async def fake_get_player_by_user_id(session, user_id):
+            return {"id": 1, "user_id": user_id}
+
+        async def fake_admin_add(session, league_id, members, admin_player_id):
+            return {
+                "added": [{"id": MEMBER_ID, "league_id": league_id, **members[0]}],
+                "invited": [],
+                "failed": [],
+            }
 
         monkeypatch.setattr(
-            data_service, "add_league_member", fake_add_league_member, raising=True
+            data_service, "get_player_by_user_id", fake_get_player_by_user_id, raising=True
         )
+        monkeypatch.setattr(data_service, "admin_add_league_members", fake_admin_add, raising=True)
         monkeypatch.setattr(
             notification_service,
             "notify_members_about_new_member_background",
             _noop,
             raising=True,
+        )
+        monkeypatch.setattr(
+            notification_service, "notify_player_about_admin_addition", _noop, raising=True
+        )
+        monkeypatch.setattr(
+            notification_service, "notify_player_about_league_invite", _noop, raising=True
         )
 
         response = client.post(
@@ -181,7 +195,7 @@ class TestAddLeagueMember:
             headers=headers,
         )
         assert response.status_code == 200
-        assert response.json()["player_id"] == PLAYER_ID
+        assert response.json()["added"][0]["player_id"] == PLAYER_ID
 
     def test_add_member_missing_player_id(self, monkeypatch):
         """Missing player_id returns 400."""
@@ -216,21 +230,36 @@ class TestAddLeagueMembersBatch:
         """League admin can batch-add players."""
         client, headers = _make_admin_client(monkeypatch)
 
-        async def fake_add_league_members_batch(session, league_id, members):
+        async def fake_get_player_by_user_id(session, user_id):
+            return {"id": 1, "user_id": user_id}
+
+        async def fake_admin_add(session, league_id, members, admin_player_id):
             added = [
-                {"id": i + 1, "player_id": m["player_id"], "role": m.get("role", "member")}
+                {
+                    "id": i + 1,
+                    "league_id": league_id,
+                    "player_id": m["player_id"],
+                    "role": m.get("role", "member"),
+                }
                 for i, m in enumerate(members)
             ]
-            return {"added": added, "failed": []}
+            return {"added": added, "invited": [], "failed": []}
 
         monkeypatch.setattr(
-            data_service, "add_league_members_batch", fake_add_league_members_batch, raising=True
+            data_service, "get_player_by_user_id", fake_get_player_by_user_id, raising=True
         )
+        monkeypatch.setattr(data_service, "admin_add_league_members", fake_admin_add, raising=True)
         monkeypatch.setattr(
             notification_service,
             "notify_members_about_new_member_background",
             _noop,
             raising=True,
+        )
+        monkeypatch.setattr(
+            notification_service, "notify_player_about_admin_addition", _noop, raising=True
+        )
+        monkeypatch.setattr(
+            notification_service, "notify_player_about_league_invite", _noop, raising=True
         )
 
         response = client.post(
@@ -335,8 +364,8 @@ class TestRemoveLeagueMember:
 class TestJoinLeague:
     """Tests for POST /api/leagues/{league_id}/join."""
 
-    def test_join_open_league_success(self, monkeypatch):
-        """Authenticated user can join an open league."""
+    def test_join_open_league_requires_request(self, monkeypatch):
+        """Public league membership requires an approved request."""
         client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_league(session, league_id):
@@ -370,8 +399,8 @@ class TestJoinLeague:
         )
 
         response = client.post(f"/api/leagues/{LEAGUE_ID}/join", headers=headers)
-        assert response.status_code == 200
-        assert response.json()["success"] is True
+        assert response.status_code == 400
+        assert "approved join request" in response.json()["detail"].lower()
 
     def test_join_closed_league_returns_400(self, monkeypatch):
         """Joining an invite-only league directly returns 400."""
@@ -407,7 +436,7 @@ class TestJoinLeague:
 
         response = client.post(f"/api/leagues/{LEAGUE_ID}/join", headers=headers)
         assert response.status_code == 400
-        assert "already a member" in response.json()["detail"].lower()
+        assert "approved join request" in response.json()["detail"].lower()
 
     def test_join_league_unauthenticated(self, monkeypatch):
         """Unauthenticated request is rejected."""
@@ -424,12 +453,12 @@ class TestJoinLeague:
 class TestRequestJoinLeague:
     """Tests for POST /api/leagues/{league_id}/request-join."""
 
-    def test_request_join_invite_only_success(self, monkeypatch):
-        """User can submit a join request for an invite-only league."""
+    def test_request_join_public_success(self, monkeypatch):
+        """User can submit a join request for a public league."""
         client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_league(session, league_id):
-            return {"id": league_id, "is_open": False}
+            return {"id": league_id, "is_open": True}
 
         async def fake_get_player_by_user_id(session, user_id):
             return {"id": PLAYER_ID, "user_id": user_id}
@@ -461,18 +490,18 @@ class TestRequestJoinLeague:
         assert body["success"] is True
         assert body["request_id"] == 55
 
-    def test_request_join_open_league_returns_400(self, monkeypatch):
-        """Attempting a join request on an open league returns 400."""
+    def test_request_join_invite_only_returns_400(self, monkeypatch):
+        """Invite-only leagues do not expose a request path."""
         client, headers = _make_user_client(monkeypatch)
 
         async def fake_get_league(session, league_id):
-            return {"id": league_id, "is_open": True}
+            return {"id": league_id, "is_open": False}
 
         monkeypatch.setattr(data_service, "get_league", fake_get_league, raising=True)
 
         response = client.post(f"/api/leagues/{LEAGUE_ID}/request-join", headers=headers)
         assert response.status_code == 400
-        assert "open" in response.json()["detail"].lower()
+        assert "invite-only" in response.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -734,7 +763,10 @@ class TestLeaveLeague:
         async def fake_get_league_member_by_player(session, league_id, player_id):
             return {"id": MEMBER_ID, "player_id": player_id}
 
-        async def fake_remove_league_member(session, league_id, member_id):
+        async def fake_remove_league_member(
+            session, league_id, member_id, self_left_by_player_id=None
+        ):
+            assert self_left_by_player_id == PLAYER_ID
             return True
 
         monkeypatch.setattr(

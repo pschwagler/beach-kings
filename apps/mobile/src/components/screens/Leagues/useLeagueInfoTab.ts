@@ -151,6 +151,7 @@ export function useLeagueInfoTab(
         members,
         seasons,
         join_requests: joinRequests,
+        created_by_player_id: league.created_by_player_id,
       };
     },
     enabled: userId > 0,

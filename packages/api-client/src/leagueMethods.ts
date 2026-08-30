@@ -49,6 +49,8 @@ export function createLeagueMethods(api: AxiosInstance) {
         user_losses: number | null;
         user_rating: number | null;
         has_pending_request?: boolean;
+        join_request_status?: 'pending' | 'approved' | 'rejected' | null;
+        created_by_player_id?: number | null;
       }>(`/api/leagues/${leagueId}`);
       const raw = response.data;
       return {
@@ -73,6 +75,8 @@ export function createLeagueMethods(api: AxiosInstance) {
         user_losses: raw.user_losses,
         user_rating: raw.user_rating,
         has_pending_request: raw.has_pending_request ?? false,
+        join_request_status: raw.join_request_status ?? null,
+        created_by_player_id: raw.created_by_player_id ?? null,
       };
     },
 
@@ -153,6 +157,17 @@ export function createLeagueMethods(api: AxiosInstance) {
 
     async addLeagueMember(leagueId: number, playerId: number, role = 'member') {
       const response = await api.post(`/api/leagues/${leagueId}/members`, { player_id: playerId, role });
+      return response.data;
+    },
+
+    async addLeagueMembersBatch(leagueId: number, playerIds: readonly number[]) {
+      const response = await api.post<{
+        added: LeagueMemberApiRow[];
+        invited: number[];
+        failed: Array<{ player_id: number | null; error: string }>;
+      }>(`/api/leagues/${leagueId}/members_batch`, {
+        members: playerIds.map((playerId) => ({ player_id: playerId, role: 'member' })),
+      });
       return response.data;
     },
 

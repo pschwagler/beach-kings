@@ -2,7 +2,7 @@
  * Data hook for the League Invite screen.
  *
  * Fetches invitable players (friends, recent opponents, suggested),
- * manages search text and selected player IDs, and sends invites.
+ * manages search text and selected player IDs, and applies consent-aware adds.
  */
 
 import { useState, useCallback } from 'react';
@@ -68,7 +68,7 @@ export function useLeagueInviteScreen(
     setIsSending(true);
     setInviteError(null);
     try {
-      await api.sendLeagueInvites(Number(leagueId), [...selectedIds]);
+      await api.addLeagueMembersBatch(Number(leagueId), [...selectedIds]);
       await queryClient.invalidateQueries({
         queryKey: leagueKeys.invitablePlayers(userId, leagueId, searchQuery),
       });
@@ -77,7 +77,7 @@ export function useLeagueInviteScreen(
       const message =
         err instanceof Error
           ? err.message
-          : 'Could not send invites. Please try again.';
+          : 'Could not add players. Please try again.';
       setInviteError(message);
     } finally {
       setIsSending(false);

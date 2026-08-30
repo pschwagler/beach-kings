@@ -75,6 +75,15 @@ describe('queryLeagues — user_status mapping', () => {
     const result = await methods.queryLeagues({});
     expect(result.items[0].user_status).toBe('none');
   });
+
+  it('maps a terminal rejection so the UI requires an admin invitation', async () => {
+    const client = makeMockClient([
+      makeRawItem({ has_pending_request: false, join_request_status: 'rejected' }),
+    ]);
+    const methods = createApiMethods(client);
+    const result = await methods.queryLeagues({});
+    expect(result.items[0].user_status).toBe('rejected');
+  });
 });
 
 // ---------------------------------------------------------------------------

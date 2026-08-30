@@ -323,15 +323,20 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
     try {
       const result = await addLeagueMembersBatch(leagueId, selectedPlayers);
       const added = result?.added ?? [];
+      const invited = result?.invited ?? [];
       const failed = result?.failed ?? [];
       if (failed.length > 0) {
         const msg =
-          added.length > 0
-            ? `${added.length} added; ${failed.length} failed (e.g. ${failed[0].error})`
+          added.length > 0 || invited.length > 0
+            ? `${added.length} added, ${invited.length} invited; ${failed.length} failed (e.g. ${failed[0].error})`
             : failed.map((f: { error?: string }) => f.error).join('; ');
         showToast(msg, 'error');
       }
-      if (added.length > 0) {
+      if (added.length > 0 || invited.length > 0) {
+        showToast(
+          `${added.length} added${invited.length > 0 ? `; ${invited.length} invitation${invited.length === 1 ? '' : 's'} sent` : ''}`,
+          'success',
+        );
         onSuccess?.();
         onClose?.();
       }

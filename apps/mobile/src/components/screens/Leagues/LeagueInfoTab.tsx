@@ -606,6 +606,7 @@ export default function LeagueInfoTab({
       ? null
       : info.members.find((member) => member.player_id === currentPlayerId) ?? null;
   const isAdmin = userRole === 'admin' && currentMember?.role !== 'member';
+  const leagueAdmins = info.members.filter((member) => member.role === 'admin');
 
   const levelOptions = LEVEL_OPTIONS.map((l) => ({ label: l, value: l }));
 
@@ -648,6 +649,57 @@ export default function LeagueInfoTab({
                 )}
               </Pressable>
             )}
+          </View>
+        </>
+      )}
+
+      {leagueAdmins.length > 0 && (
+        <>
+          <SectionLabel title="League admins" />
+          <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
+            {leagueAdmins.map((admin) => {
+              const isSelf = currentPlayerId === admin.player_id;
+              const isCreator = info.created_by_player_id === admin.player_id;
+              return (
+                <View
+                  key={admin.player_id}
+                  className="min-h-touch flex-row items-center gap-3 px-4 py-2 border-b border-divider"
+                >
+                  <Avatar
+                    imageUrl={admin.avatar_url}
+                    name={admin.display_name}
+                    size="sm"
+                    colorSeed={admin.player_id}
+                    accessible={false}
+                  />
+                  <View className="flex-1 min-w-0">
+                    <AppText className="text-[14px] font-semibold text-default" numberOfLines={1}>
+                      {admin.display_name}
+                    </AppText>
+                    {isCreator && (
+                      <AppText className="text-[11px] font-semibold text-brand-teal">
+                        Creator
+                      </AppText>
+                    )}
+                  </View>
+                  {isSelf ? (
+                    <AppText className="text-[12px] text-muted">You</AppText>
+                  ) : (
+                    <Pressable
+                      testID={`message-admin-${admin.player_id}`}
+                      onPress={() => router.push(routes.messages(admin.player_id, admin.display_name))}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Message ${admin.display_name}`}
+                      className="min-h-touch min-w-touch items-center justify-center rounded-full border border-brand-teal px-3 active:opacity-70"
+                    >
+                      <AppText className="text-[12px] font-semibold text-brand-teal">
+                        Message
+                      </AppText>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
           </View>
         </>
       )}
@@ -779,7 +831,7 @@ export default function LeagueInfoTab({
           omitted until the app has a real backend contract for them. */}
       {isAdmin && (
         <>
-          <SectionLabel title="Invites" />
+          <SectionLabel title="Add players" />
           <Pressable
             testID="invite-players-btn"
             onPress={() => {
@@ -787,15 +839,15 @@ export default function LeagueInfoTab({
               router.push(routes.leagueInvite(leagueId));
             }}
             accessibilityRole="button"
-            accessibilityLabel="Invite players to this league"
+            accessibilityLabel="Add players to this league"
             className="min-h-touch bg-surface rounded-[12px] mx-4 border border-divider px-4 py-4 flex-row items-center active:opacity-70"
           >
             <View className="flex-1">
               <AppText className="text-[14px] font-semibold text-default">
-                Invite Players
+                Add Players
               </AppText>
               <AppText className="text-[12px] text-muted mt-1">
-                Send league invitations to eligible players.
+                Add a new player now, or send an invitation after they opt out.
               </AppText>
             </View>
             <AppText className="text-[18px] text-brand-teal" importantForAccessibility="no">

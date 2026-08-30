@@ -243,7 +243,7 @@ async def list_league_members(
         raise HTTPException(status_code=500, detail=f"Error listing members: {str(e)}")
 
 
-@router.post("/api/leagues/{league_id}/members", response_model=LeagueMemberResponse)
+@router.post("/api/leagues/{league_id}/members", response_model=BatchMemberResponse)
 async def add_league_member(
     league_id: int,
     request: Request,
@@ -256,7 +256,15 @@ async def add_league_member(
         body = await request.json()
         player_id = body["player_id"]
         role = body.get("role", "member")
-        member = await data_service.add_league_member(session, league_id, player_id, role)
+        admin = await data_service.get_player_by_user_id(session, user["id"])
+        if not admin:
+            raise HTTPException(status_code=404, detail="Admin player profile not found")
+        result = await data_service.admin_add_league_members(
+            session,
+            league_id,
+            [{"player_id": player_id, "role": role}],
+            admin["id"],
+        )
 
         # Notify all league members about the new member (non-blocking)
         try:
@@ -265,17 +273,30 @@ async def add_league_member(
             )
             player_user_id = player_result.scalar_one_or_none()
 
-            if player_user_id:
+            if player_user_id and result.get("added"):
+                await notification_service.notify_player_about_admin_addition(
+                    session=session,
+                    league_id=league_id,
+                    player_user_id=player_user_id,
+                    actor_player_id=admin["id"],
+                )
                 background_tasks.add_task(
                     notification_service.notify_members_about_new_member_background,
                     league_id=league_id,
                     new_member_user_id=player_user_id,
                 )
+            elif player_user_id and result.get("invited"):
+                await notification_service.notify_player_about_league_invite(
+                    session=session,
+                    league_id=league_id,
+                    player_user_id=player_user_id,
+                    actor_player_id=admin["id"],
+                )
         except Exception as e:
             # Don't fail the member addition if notification fails
             logger.warning(f"Failed to create notification for new league member: {e}")
 
-        return member
+        return result
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
     except HTTPException:
@@ -302,7 +323,12 @@ async def add_league_members_batch(
         members = body.get("members")
         if not isinstance(members, list):
             raise HTTPException(status_code=400, detail="members must be an array")
-        result = await data_service.add_league_members_batch(session, league_id, members)
+        admin = await data_service.get_player_by_user_id(session, user["id"])
+        if not admin:
+            raise HTTPException(status_code=404, detail="Admin player profile not found")
+        result = await data_service.admin_add_league_members(
+            session, league_id, members, admin["id"]
+        )
         added = result.get("added", [])
         # Notify league members about each new member (non-blocking)
         for member in added:
@@ -315,6 +341,12 @@ async def add_league_members_batch(
                 )
                 player_user_id = player_result.scalar_one_or_none()
                 if player_user_id:
+                    await notification_service.notify_player_about_admin_addition(
+                        session=session,
+                        league_id=league_id,
+                        player_user_id=player_user_id,
+                        actor_player_id=admin["id"],
+                    )
                     background_tasks.add_task(
                         notification_service.notify_members_about_new_member_background,
                         league_id=league_id,
@@ -322,6 +354,20 @@ async def add_league_members_batch(
                     )
             except Exception as e:
                 logger.warning(f"Failed to create notification for new league member: {e}")
+        for player_id in result.get("invited", []):
+            try:
+                player_user_id = (
+                    await session.execute(select(Player.user_id).where(Player.id == player_id))
+                ).scalar_one_or_none()
+                if player_user_id:
+                    await notification_service.notify_player_about_league_invite(
+                        session=session,
+                        league_id=league_id,
+                        player_user_id=player_user_id,
+                        actor_player_id=admin["id"],
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to notify invited player: {e}")
         return result
     except HTTPException:
         raise
@@ -409,8 +455,7 @@ async def join_league(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Join a public league (authenticated user).
-    User can only join open leagues.
+    Legacy join endpoint. Membership now requires approval or invitation.
     """
     try:
         # Get the league
@@ -418,39 +463,15 @@ async def join_league(
         if not league:
             raise HTTPException(status_code=404, detail="League not found")
 
-        # Check if league is open
-        if not league.get("is_open"):
+        if league.get("is_open"):
             raise HTTPException(
                 status_code=400,
-                detail="This league is invite-only. Please request to join instead.",
+                detail="Public leagues require an approved join request.",
             )
-
-        # Get user's player profile
-        player = await data_service.get_player_by_user_id(session, user["id"])
-        if not player:
-            raise HTTPException(
-                status_code=404,
-                detail="Player profile not found. Please create a player profile first.",
-            )
-
-        # Check if user is already a member
-        is_member = await data_service.is_league_member(session, league_id, player["id"])
-        if is_member:
-            raise HTTPException(status_code=400, detail="You are already a member of this league")
-
-        # Add member
-        member = await data_service.add_league_member(session, league_id, player["id"], "member")
-
-        # Notify all league members about the new member (excluding the new member themselves)
-        try:
-            await notification_service.notify_members_about_new_member(
-                session=session, league_id=league_id, new_member_user_id=user["id"]
-            )
-        except Exception as e:
-            # Don't fail the join if notification fails
-            logger.warning(f"Failed to create notification for new league member: {e}")
-
-        return {"success": True, "message": "Successfully joined the league", "member": member}
+        raise HTTPException(
+            status_code=400,
+            detail="This league is invite-only. A league admin must invite you.",
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -464,7 +485,7 @@ async def request_to_join_league(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Request to join an invite-only league (authenticated user).
+    Request to join a public league (authenticated user).
     Creates a join request that league admins can review via notification action buttons.
 
     Note: Admins receive notifications with approve/reject buttons. The approve/reject
@@ -476,10 +497,12 @@ async def request_to_join_league(
         if not league:
             raise HTTPException(status_code=404, detail="League not found")
 
-        # Check if league is invite-only (not open)
-        if league.get("is_open"):
+        # Invite-only means exactly that: only an admin invitation can add a
+        # player. Public leagues use approval-backed join requests.
+        if not league.get("is_open"):
             raise HTTPException(
-                status_code=400, detail="This league is open. You can join directly instead."
+                status_code=400,
+                detail="This league is invite-only. A league admin must invite you.",
             )
 
         # Get user's player profile
@@ -532,7 +555,7 @@ async def cancel_league_join_request(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Cancel the current user's pending join request for an invite-only league.
+    Cancel the current user's pending join request for a public league.
     Only the requesting player can cancel their own request.
     """
     try:
@@ -586,13 +609,14 @@ async def approve_league_join_request(
     try:
         from backend.database.models import LeagueRequest
 
-        # Get the join request (allow pending or rejected so admin can approve a previously declined request)
+        # Rejected requests are terminal. A later admin action must send an
+        # invitation, preserving the player's prior rejection/consent state.
         request_result = await session.execute(
             select(LeagueRequest).where(
                 and_(
                     LeagueRequest.id == request_id,
                     LeagueRequest.league_id == league_id,
-                    LeagueRequest.status.in_(["pending", "rejected"]),
+                    LeagueRequest.status == "pending",
                 )
             )
         )
@@ -730,7 +754,12 @@ async def leave_league(
             raise HTTPException(status_code=404, detail="Membership not found")
 
         # Remove member
-        success = await data_service.remove_league_member(session, league_id, member["id"])
+        success = await data_service.remove_league_member(
+            session,
+            league_id,
+            member["id"],
+            self_left_by_player_id=player["id"],
+        )
         if not success:
             raise HTTPException(status_code=500, detail="Failed to leave league")
 

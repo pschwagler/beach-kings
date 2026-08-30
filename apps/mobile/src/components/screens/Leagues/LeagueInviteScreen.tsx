@@ -235,7 +235,7 @@ export default function LeagueInviteScreen({
       className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title="Invite Players" showBack />
+      <TopNav title="Add Players" showBack />
       <KeyboardAvoidingView
       testID="league-invite-screen"
       className="flex-1 bg-page"
@@ -342,7 +342,7 @@ export default function LeagueInviteScreen({
                 selectedIds.size > 0 ? 'text-on-brand-teal' : 'text-tertiary'
               }`}
             >
-              {selectedIds.size > 0 ? `Send (${selectedIds.size})` : 'Send'}
+              {selectedIds.size > 0 ? `Add (${selectedIds.size})` : 'Add'}
             </AppText>
           )}
         </Pressable>

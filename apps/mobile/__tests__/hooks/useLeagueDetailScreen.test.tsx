@@ -230,22 +230,8 @@ describe('useLeagueDetailScreen', () => {
   });
 
   describe('join CTA — access_type routing', () => {
-    it('an open-league visitor can join directly, not request to join', async () => {
+    it('a public-league visitor can request approval, not join directly', async () => {
       mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
-      const client = makeClient();
-      const { result } = renderHook(() => useLeagueDetailScreen(42), {
-        wrapper: makeWrapper(client),
-      });
-
-      await waitFor(() => expect(result.current.isVisitor).toBe(true));
-      expect(result.current.canJoinDirectly).toBe(true);
-      expect(result.current.canRequestToJoin).toBe(false);
-      expect(result.current.isInviteOnly).toBe(false);
-      expect(result.current.hasPendingRequest).toBe(false);
-    });
-
-    it('an invite-only visitor can request to join, not join directly', async () => {
-      mockApi.getLeague.mockResolvedValue(VISITOR_INVITE_ONLY);
       const client = makeClient();
       const { result } = renderHook(() => useLeagueDetailScreen(42), {
         wrapper: makeWrapper(client),
@@ -254,6 +240,20 @@ describe('useLeagueDetailScreen', () => {
       await waitFor(() => expect(result.current.isVisitor).toBe(true));
       expect(result.current.canJoinDirectly).toBe(false);
       expect(result.current.canRequestToJoin).toBe(true);
+      expect(result.current.isInviteOnly).toBe(false);
+      expect(result.current.hasPendingRequest).toBe(false);
+    });
+
+    it('an invite-only visitor cannot self-request or join directly', async () => {
+      mockApi.getLeague.mockResolvedValue(VISITOR_INVITE_ONLY);
+      const client = makeClient();
+      const { result } = renderHook(() => useLeagueDetailScreen(42), {
+        wrapper: makeWrapper(client),
+      });
+
+      await waitFor(() => expect(result.current.isVisitor).toBe(true));
+      expect(result.current.canJoinDirectly).toBe(false);
+      expect(result.current.canRequestToJoin).toBe(false);
       expect(result.current.isInviteOnly).toBe(true);
     });
 
@@ -368,14 +368,14 @@ describe('useLeagueDetailScreen', () => {
 
       expect(mockApi.declineLeagueInvite).toHaveBeenCalledWith(42);
       expect(result.current.hasLeagueInvitation).toBe(false);
-      expect(result.current.canJoinDirectly).toBe(true);
+      expect(result.current.canRequestToJoin).toBe(true);
       expect(mockApi.getLeague).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe('onRequestToJoin (invite-only leagues)', () => {
+  describe('onRequestToJoin (public leagues)', () => {
     it('calls api.requestToJoinLeague (not joinLeague) and optimistically flips the flag', async () => {
-      mockApi.getLeague.mockResolvedValue(VISITOR_INVITE_ONLY);
+      mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
       mockApi.requestToJoinLeague.mockResolvedValue({ success: true, message: 'ok' });
       const client = makeClient();
       const { result } = renderHook(() => useLeagueDetailScreen(42), {
@@ -397,7 +397,7 @@ describe('useLeagueDetailScreen', () => {
     });
 
     it('rolls back the optimistic flag and reconciles with the server if the request fails', async () => {
-      mockApi.getLeague.mockResolvedValue(VISITOR_INVITE_ONLY);
+      mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
       mockApi.requestToJoinLeague.mockRejectedValue(new Error('boom'));
       const client = makeClient();
       const { result } = renderHook(() => useLeagueDetailScreen(42), {
@@ -413,45 +413,14 @@ describe('useLeagueDetailScreen', () => {
     });
   });
 
-  describe('onJoinLeague (open leagues)', () => {
-    it('calls api.joinLeague (not requestToJoinLeague) and refetches on success', async () => {
-      mockApi.getLeague
-        .mockResolvedValueOnce(VISITOR_OPEN)
-        .mockResolvedValue({ ...VISITOR_OPEN, user_role: 'member' });
-      mockApi.joinLeague.mockResolvedValue({ success: true, message: 'Joined!' });
-      const client = makeClient();
-      const { result } = renderHook(() => useLeagueDetailScreen(42), {
-        wrapper: makeWrapper(client),
-      });
-
-      await waitFor(() => expect(result.current.canJoinDirectly).toBe(true));
-      await act(async () => {
-        await result.current.onJoinLeague();
-      });
-
-      expect(mockApi.joinLeague).toHaveBeenCalledWith(42);
-      expect(mockApi.requestToJoinLeague).not.toHaveBeenCalled();
-      // A direct join changes membership — the detail is refetched so
-      // user_role (and therefore isVisitor / visibleTabs) update.
-      await waitFor(() => expect(result.current.isVisitor).toBe(false));
+  it('never exposes the legacy direct-join action', async () => {
+    mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
+    const { result } = renderHook(() => useLeagueDetailScreen(42), {
+      wrapper: makeWrapper(makeClient()),
     });
-
-    it('does not refetch when onJoinLeague fails', async () => {
-      mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
-      mockApi.joinLeague.mockRejectedValue(new Error('boom'));
-      const client = makeClient();
-      const { result } = renderHook(() => useLeagueDetailScreen(42), {
-        wrapper: makeWrapper(client),
-      });
-
-      await waitFor(() => expect(result.current.canJoinDirectly).toBe(true));
-      await act(async () => {
-        await expect(result.current.onJoinLeague()).rejects.toThrow('boom');
-      });
-
-      expect(mockApi.getLeague).toHaveBeenCalledTimes(1);
-      expect(result.current.isVisitor).toBe(true);
-    });
+    await waitFor(() => expect(result.current.isVisitor).toBe(true));
+    expect(result.current.canJoinDirectly).toBe(false);
+    expect(mockApi.joinLeague).not.toHaveBeenCalled();
   });
 
   describe('standings tab gating for private leagues', () => {

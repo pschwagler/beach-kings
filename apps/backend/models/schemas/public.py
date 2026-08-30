@@ -1,7 +1,7 @@
 """Public models."""
 
 from typing import Optional, List, Literal
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from .leagues import LeagueMemberResponse
 
 
@@ -245,6 +245,7 @@ class BatchMemberResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     added: List[LeagueMemberResponse]
+    invited: List[int] = Field(default_factory=list)
     failed: List[BatchMemberFailItem]
 
 

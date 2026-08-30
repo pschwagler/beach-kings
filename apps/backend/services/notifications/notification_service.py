@@ -891,6 +891,32 @@ async def notify_player_about_league_invite(
         logger.warning(f"Failed to create league invite notification: {e}")
 
 
+async def notify_player_about_admin_addition(
+    session: AsyncSession,
+    league_id: int,
+    player_user_id: int,
+    league_name: Optional[str] = None,
+    actor_player_id: Optional[int] = None,
+) -> None:
+    """Tell a player they were added directly and can leave at any time."""
+    try:
+        if league_name is None:
+            result = await session.execute(select(League.name).where(League.id == league_id))
+            league_name = result.scalar_one_or_none() or "a league"
+        await create_notification(
+            session=session,
+            user_id=player_user_id,
+            type=NotificationType.MEMBER_JOINED.value,
+            title="Added to a league",
+            message=f"An admin added you to {league_name}. You can leave at any time.",
+            data={"league_id": league_id, "admin_added": True},
+            link_url=f"/league/{league_id}",
+            actor_player_id=actor_player_id,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create admin-addition notification: {e}")
+
+
 async def notify_player_about_join_rejection(
     session: AsyncSession, league_id: int, player_user_id: int, league_name: Optional[str] = None
 ) -> None:

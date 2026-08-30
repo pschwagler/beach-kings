@@ -140,6 +140,8 @@ interface VisitorJoinBannerProps {
   readonly isRequestingToJoin: boolean;
   readonly onJoinLeague: () => void;
   readonly onRequestToJoin: () => void;
+  readonly isInviteOnly: boolean;
+  readonly joinRequestStatus?: 'pending' | 'approved' | 'rejected' | null;
 }
 
 /**
@@ -156,6 +158,8 @@ function VisitorJoinBanner({
   isRequestingToJoin,
   onJoinLeague,
   onRequestToJoin,
+  isInviteOnly,
+  joinRequestStatus,
 }: VisitorJoinBannerProps): React.ReactNode {
   const action = ((): React.ReactNode => {
     if (hasPendingRequest) {
@@ -204,6 +208,20 @@ function VisitorJoinBanner({
             {isRequestingToJoin ? 'Sending…' : 'Request to join'}
           </AppText>
         </Pressable>
+      );
+    }
+    if (isInviteOnly) {
+      return (
+        <AppText className="text-[13px] font-semibold text-muted text-right flex-1">
+          Invite only · Message an admin to learn more
+        </AppText>
+      );
+    }
+    if (joinRequestStatus === 'rejected') {
+      return (
+        <AppText className="text-[13px] font-semibold text-muted text-right flex-1">
+          Request declined · An admin must invite you
+        </AppText>
       );
     }
     return null;
@@ -316,6 +334,7 @@ export default function LeagueDetailScreen({
     canJoinDirectly,
     canRequestToJoin,
     hasPendingRequest,
+    isInviteOnly,
     isJoiningLeague,
     isRequestingToJoin,
     onJoinLeague,
@@ -461,6 +480,8 @@ export default function LeagueDetailScreen({
             isRequestingToJoin={isRequestingToJoin}
             onJoinLeague={() => void handleJoinLeague()}
             onRequestToJoin={() => void handleRequestToJoin()}
+            isInviteOnly={isInviteOnly}
+            joinRequestStatus={detail.join_request_status}
           />
         ) : null}
 

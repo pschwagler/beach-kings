@@ -176,7 +176,7 @@ class Season(Base):
 
 
 class LeagueRequest(Base):
-    """Join requests for invite-only leagues."""
+    """Approval-backed join requests for public leagues."""
 
     __tablename__ = "league_requests"
 

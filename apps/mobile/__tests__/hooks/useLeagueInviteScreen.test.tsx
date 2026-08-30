@@ -7,7 +7,7 @@ import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetInvitablePlayers = jest.fn();
-const mockSendLeagueInvites = jest.fn();
+const mockAddLeagueMembersBatch = jest.fn();
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
@@ -16,7 +16,7 @@ jest.mock('@/contexts/AuthContext', () => ({
 jest.mock('@/lib/api', () => ({
   api: {
     getInvitablePlayers: (...args: unknown[]) => mockGetInvitablePlayers(...args),
-    sendLeagueInvites: (...args: unknown[]) => mockSendLeagueInvites(...args),
+    addLeagueMembersBatch: (...args: unknown[]) => mockAddLeagueMembersBatch(...args),
   },
 }));
 
@@ -100,11 +100,11 @@ describe('useLeagueInviteScreen', () => {
       await result.current.onSendInvites();
     });
 
-    expect(mockSendLeagueInvites).not.toHaveBeenCalled();
+    expect(mockAddLeagueMembersBatch).not.toHaveBeenCalled();
   });
 
   it('onSendInvites surfaces an Error message in inviteError', async () => {
-    mockSendLeagueInvites.mockRejectedValue(new Error('Network error'));
+    mockAddLeagueMembersBatch.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useLeagueInviteScreen(7), {
       wrapper: makeWrapper(makeClient()),
@@ -124,7 +124,7 @@ describe('useLeagueInviteScreen', () => {
   });
 
   it('onSendInvites uses fallback message when caught value is not an Error', async () => {
-    mockSendLeagueInvites.mockRejectedValue('plain rejection');
+    mockAddLeagueMembersBatch.mockRejectedValue('plain rejection');
 
     const { result } = renderHook(() => useLeagueInviteScreen(7), {
       wrapper: makeWrapper(makeClient()),
@@ -139,11 +139,11 @@ describe('useLeagueInviteScreen', () => {
       await result.current.onSendInvites();
     });
 
-    expect(result.current.inviteError).toMatch(/Could not send invites/i);
+    expect(result.current.inviteError).toMatch(/Could not add players/i);
   });
 
   it('onSendInvites clears selection on success and leaves inviteError null', async () => {
-    mockSendLeagueInvites.mockResolvedValue(undefined);
+    mockAddLeagueMembersBatch.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useLeagueInviteScreen(7), {
       wrapper: makeWrapper(makeClient()),
@@ -159,13 +159,13 @@ describe('useLeagueInviteScreen', () => {
       await result.current.onSendInvites();
     });
 
-    expect(mockSendLeagueInvites).toHaveBeenCalledWith(7, [1, 2]);
+    expect(mockAddLeagueMembersBatch).toHaveBeenCalledWith(7, [1, 2]);
     expect(result.current.selectedIds.size).toBe(0);
     expect(result.current.inviteError).toBeNull();
   });
 
   it('onClearInviteError resets inviteError to null', async () => {
-    mockSendLeagueInvites.mockRejectedValue(new Error('boom'));
+    mockAddLeagueMembersBatch.mockRejectedValue(new Error('boom'));
 
     const { result } = renderHook(() => useLeagueInviteScreen(7), {
       wrapper: makeWrapper(makeClient()),

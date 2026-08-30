@@ -27,7 +27,7 @@ function isAlreadyMemberError(error: unknown): boolean {
   return /already a member/i.test(getErrorDetail(error) ?? '');
 }
 
-/** Product-level copy for a failed public-league join. */
+/** Product-level copy for a failed public-league join request. */
 export function getJoinLeagueErrorMessage(error: unknown): string {
   const status = (error as HttpErrorShape)?.response?.status;
   const detail = getErrorDetail(error) ?? '';
@@ -44,7 +44,7 @@ export function getJoinLeagueErrorMessage(error: unknown): string {
   if (/pending|request already exists/i.test(detail)) {
     return 'Your request is already pending. Open the league to view its status.';
   }
-  return 'We could not join this league. Refresh the list and try again.';
+  return 'We could not request to join this league. Refresh the list and try again.';
 }
 
 export function useJoinLeagueMutation() {
@@ -56,7 +56,7 @@ export function useJoinLeagueMutation() {
     mutationKey: [...leagueKeys.root(userId), 'join'] as const,
     mutationFn: async (leagueId: number) => {
       try {
-        return await api.joinLeague(leagueId);
+        return await api.requestToJoinLeague(leagueId);
       } catch (error) {
         // The server is authoritative. If a stale card still offered Join,
         // reconcile it as success instead of showing an error.
@@ -85,7 +85,7 @@ export function useJoinLeagueMutation() {
                 ...old,
                 items: old.items.map((league) =>
                   league.id === leagueId
-                    ? { ...league, user_status: 'member' as const }
+                    ? { ...league, user_status: 'requested' as const }
                     : league,
                 ),
               },
@@ -99,7 +99,7 @@ export function useJoinLeagueMutation() {
         );
         const stillOurOptimisticState = current?.items.some(
           (league) =>
-            league.id === leagueId && league.user_status === 'member',
+            league.id === leagueId && league.user_status === 'requested',
         );
         if (stillOurOptimisticState) {
           queryClient.setQueryData(snapshot.queryKey, snapshot.data);

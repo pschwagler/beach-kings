@@ -75,6 +75,7 @@ class LeagueResponse(LeagueBase):
     location_name: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    created_by_player_id: Optional[int] = None
     home_courts: List[HomeCourtResponse] = []
 
 
@@ -92,6 +93,7 @@ class LeagueDetailResponse(LeagueResponse):
     user_losses: Optional[int] = None
     user_rating: Optional[float] = None
     has_pending_request: bool = False
+    join_request_status: Optional[str] = None
 
 
 class LeagueMemberBase(BaseModel):

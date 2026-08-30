@@ -56,7 +56,7 @@ export interface FindLeagueResult {
     readonly avatar_url?: string | null;
   }>;
   /** Derived from backend `has_pending_request`. 'member' is not returned by this endpoint. */
-  readonly user_status: 'none' | 'member' | 'requested';
+  readonly user_status: 'none' | 'member' | 'requested' | 'rejected';
 }
 
 /** Paginated response from POST /api/leagues/query (with items adapted to FindLeagueResult). */
@@ -253,6 +253,8 @@ export interface LeagueDetail {
   readonly user_rating: number | null;
   /** True when the caller has a pending join request (drives the "Request sent" CTA). */
   readonly has_pending_request: boolean;
+  readonly join_request_status?: 'pending' | 'approved' | 'rejected' | null;
+  readonly created_by_player_id?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +307,7 @@ export interface LeagueInfoDetail {
   readonly members: readonly LeagueMemberRow[];
   readonly seasons: readonly LeagueSeason[];
   readonly join_requests: readonly JoinRequest[];
+  readonly created_by_player_id?: number | null;
 }
 
 export interface League {

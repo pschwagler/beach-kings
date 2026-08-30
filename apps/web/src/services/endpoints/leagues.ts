@@ -132,7 +132,7 @@ export const addLeagueMember = async (leagueId: number, playerId: number, role: 
  * Add multiple players to a league in one request.
  * @param {number} leagueId - League ID
  * @param {Array<{ player_id: number, role?: string }>} members - List of { player_id, role } (role defaults to 'member')
- * @returns {Promise<{ added: Array, failed: Array<{ player_id: number, error: string }> }>}
+ * @returns {Promise<{ added: Array, invited: number[], failed: Array<{ player_id: number, error: string }> }>}
  */
 export const addLeagueMembersBatch = async (leagueId: number, members: Array<{ player_id: number; role?: string }>) => {
   const response = await api.post(`/api/leagues/${leagueId}/members_batch`, {

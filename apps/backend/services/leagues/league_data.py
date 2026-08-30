@@ -50,6 +50,7 @@ __all__ = [
     "list_league_members",
     "add_league_member",
     "add_league_members_batch",
+    "admin_add_league_members",
     "is_league_member",
     "get_league_member_by_player",
     "update_league_member",
@@ -122,6 +123,13 @@ async def create_league(
     level: Optional[str] = None,
 ) -> Dict:
     """Create a new league."""
+    # Resolve the creator before inserting so ownership metadata and the
+    # initial admin membership are written atomically.
+    result = await session.execute(select(Player).where(Player.user_id == creator_user_id))
+    player = result.scalar_one_or_none()
+    if not player:
+        raise ValueError("Player not found for user_id")
+
     league = League(
         name=name,
         description=description,
@@ -130,18 +138,18 @@ async def create_league(
         whatsapp_group_id=whatsapp_group_id,
         gender=gender,
         level=level,
+        created_by=player.id,
     )
     session.add(league)
     await session.flush()  # Get the league ID
 
-    # Get creator's player_id
-    result = await session.execute(select(Player).where(Player.user_id == creator_user_id))
-    player = result.scalar_one_or_none()
-    if not player:
-        raise ValueError("Player not found for user_id")
-
     # Add creator as admin member
-    member = LeagueMember(league_id=league.id, player_id=player.id, role="admin")
+    member = LeagueMember(
+        league_id=league.id,
+        player_id=player.id,
+        role="admin",
+        created_by=player.id,
+    )
     session.add(member)
     # Commit the league together with its admin member. A new league
     # deliberately starts with NO season: seasons are explicit competitive
@@ -157,6 +165,7 @@ async def create_league(
         "description": league.description,
         "location_id": league.location_id,
         "is_open": league.is_open,
+        "created_by_player_id": league.created_by,
         "whatsapp_group_id": league.whatsapp_group_id,
         "gender": league.gender,
         "level": league.level,
@@ -397,17 +406,14 @@ async def query_leagues(
     # This is a bulk lookup across every league on the page, so it stays a
     # single IN-query rather than calling has_pending_league_request() in a
     # loop (which would issue one query per league).
-    pending_league_ids: set = set()
+    request_status_by_league: Dict[int, str] = {}
     if player_id is not None:
         pending_result = await session.execute(
-            select(LeagueRequest.league_id).where(
-                and_(
-                    LeagueRequest.player_id == player_id,
-                    LeagueRequest.status == "pending",
-                )
+            select(LeagueRequest.league_id, LeagueRequest.status).where(
+                LeagueRequest.player_id == player_id
             )
         )
-        pending_league_ids = {row[0] for row in pending_result.all()}
+        request_status_by_league = {row.league_id: row.status for row in pending_result.all()}
 
     # Fetch friends who are members of the leagues on this page.
     # The friends table stores rows with player1_id < player2_id (DB constraint),
@@ -475,7 +481,8 @@ async def query_leagues(
             "member_count": int(member_count) if member_count is not None else 0,
             "created_at": league.created_at.isoformat() if league.created_at else None,
             "updated_at": league.updated_at.isoformat() if league.updated_at else None,
-            "has_pending_request": league.id in pending_league_ids,
+            "has_pending_request": request_status_by_league.get(league.id) == "pending",
+            "join_request_status": request_status_by_league.get(league.id),
             "friend_count": len(friends_by_league.get(league.id, [])),
             "friends_preview": friends_by_league.get(league.id, [])[:3],
         }
@@ -512,6 +519,7 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
         "location_id": league.location_id,
         "location_name": location_name,
         "is_open": league.is_open,
+        "created_by_player_id": league.created_by,
         "whatsapp_group_id": league.whatsapp_group_id,
         "gender": league.gender,
         "level": league.level,
@@ -580,6 +588,7 @@ async def get_league_detail(session: AsyncSession, league_id: int, user_id: int)
     user_losses: Optional[int] = None
     user_rating: Optional[float] = None
     has_pending_request = False
+    join_request_status: Optional[str] = None
 
     if caller_player_id is not None:
         # Membership role — checked first so a confirmed member skips the
@@ -596,9 +605,14 @@ async def get_league_detail(session: AsyncSession, league_id: int, user_id: int)
             user_role = str(role_row)
         else:
             # Pending join request — drives the non-member "Request sent" CTA state.
-            has_pending_request = await has_pending_league_request(
-                session, league_id, caller_player_id
+            request_status_result = await session.execute(
+                select(LeagueRequest.status).where(
+                    LeagueRequest.league_id == league_id,
+                    LeagueRequest.player_id == caller_player_id,
+                )
             )
+            join_request_status = request_status_result.scalar_one_or_none()
+            has_pending_request = join_request_status == "pending"
 
         # Current-season stats + rank
         if current_season_id is not None:
@@ -645,6 +659,7 @@ async def get_league_detail(session: AsyncSession, league_id: int, user_id: int)
         "location_id": league.location_id,
         "location_name": location_name,
         "is_open": league.is_open,
+        "created_by_player_id": league.created_by,
         "is_public": getattr(league, "is_public", False),
         "whatsapp_group_id": league.whatsapp_group_id,
         "gender": league.gender,
@@ -663,6 +678,7 @@ async def get_league_detail(session: AsyncSession, league_id: int, user_id: int)
         "user_losses": user_losses,
         "user_rating": user_rating,
         "has_pending_request": has_pending_request,
+        "join_request_status": join_request_status,
     }
 
 
@@ -2085,13 +2101,22 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
 
 
 async def add_league_member(
-    session: AsyncSession, league_id: int, player_id: int, role: str = "member"
+    session: AsyncSession,
+    league_id: int,
+    player_id: int,
+    role: str = "member",
+    created_by: Optional[int] = None,
 ) -> Dict:
     """Add a league member."""
     from backend.services.players.player_lifecycle import require_active_players
 
     await require_active_players(session, [player_id])
-    member = LeagueMember(league_id=league_id, player_id=player_id, role=role)
+    member = LeagueMember(
+        league_id=league_id,
+        player_id=player_id,
+        role=role,
+        created_by=created_by,
+    )
     session.add(member)
     await session.commit()
     await session.refresh(member)
@@ -2200,6 +2225,173 @@ async def add_league_members_batch(
     return {"added": added, "failed": failed}
 
 
+async def admin_add_league_members(
+    session: AsyncSession,
+    league_id: int,
+    members: List[Dict],
+    admin_player_id: int,
+) -> Dict:
+    """Apply consent-aware admin additions for one or more active players.
+
+    A first admin action joins immediately. A prior self-leave, declined
+    invitation, or rejected public request requires a pending invitation.
+    Pending public requests are treated as approval.
+    """
+    from backend.services import interaction_policy
+
+    added: List[Dict] = []
+    invited: List[int] = []
+    failed: List[Dict] = []
+    entries: List[tuple[int, str]] = []
+    seen: set[int] = set()
+    for item in members:
+        if not isinstance(item, dict):
+            failed.append({"player_id": None, "error": "Invalid member"})
+            continue
+        try:
+            player_id = int(item.get("player_id"))
+        except (TypeError, ValueError):
+            failed.append({"player_id": item.get("player_id"), "error": "Invalid player_id"})
+            continue
+        role = item.get("role", "member")
+        if role not in {"member", "admin"}:
+            failed.append({"player_id": player_id, "error": "Invalid role"})
+            continue
+        if player_id in seen:
+            failed.append({"player_id": player_id, "error": "Duplicate player"})
+            continue
+        seen.add(player_id)
+        entries.append((player_id, role))
+
+    if not entries:
+        return {"added": added, "invited": invited, "failed": failed}
+
+    player_ids = [player_id for player_id, _ in entries]
+    active_ids = set(
+        (
+            await session.execute(
+                select(Player.id).where(
+                    Player.id.in_(player_ids),
+                    Player.deleted_at.is_(None),
+                )
+            )
+        ).scalars()
+    )
+    member_ids = set(
+        (
+            await session.execute(
+                select(LeagueMember.player_id).where(
+                    LeagueMember.league_id == league_id,
+                    LeagueMember.player_id.in_(player_ids),
+                )
+            )
+        ).scalars()
+    )
+    requests = {
+        row.player_id: row
+        for row in (
+            await session.execute(
+                select(LeagueRequest).where(
+                    LeagueRequest.league_id == league_id,
+                    LeagueRequest.player_id.in_(player_ids),
+                )
+            )
+        ).scalars()
+    }
+    invites = {
+        row.player_id: row
+        for row in (
+            await session.execute(
+                select(LeagueInvite).where(
+                    LeagueInvite.league_id == league_id,
+                    LeagueInvite.player_id.in_(player_ids),
+                )
+            )
+        ).scalars()
+    }
+
+    new_members: List[LeagueMember] = []
+    member_roles: Dict[int, str] = {}
+    for player_id, role in entries:
+        if player_id not in active_ids:
+            failed.append({"player_id": player_id, "error": "Player not found"})
+            continue
+        if player_id in member_ids:
+            failed.append({"player_id": player_id, "error": "Already a member"})
+            continue
+        try:
+            await interaction_policy.enforce_action(
+                session,
+                admin_player_id,
+                player_id,
+                interaction_policy.InteractionAction.LEAGUE_INVITE,
+            )
+        except interaction_policy.InteractionUnavailable:
+            failed.append({"player_id": player_id, "error": "Interaction unavailable"})
+            continue
+
+        join_request = requests.get(player_id)
+        invite = invites.get(player_id)
+        requires_consent = (join_request is not None and join_request.status == "rejected") or (
+            invite is not None and invite.status in {"pending", "declined"}
+        )
+
+        if requires_consent:
+            if invite is None:
+                invite = LeagueInvite(
+                    league_id=league_id,
+                    player_id=player_id,
+                    invited_by_player_id=admin_player_id,
+                    status="pending",
+                )
+                session.add(invite)
+                invites[player_id] = invite
+            else:
+                invite.status = "pending"
+                invite.invited_by_player_id = admin_player_id
+                invite.updated_at = sql_func.now()
+            invited.append(player_id)
+            continue
+
+        member = LeagueMember(
+            league_id=league_id,
+            player_id=player_id,
+            role=role,
+            created_by=admin_player_id,
+        )
+        session.add(member)
+        new_members.append(member)
+        member_roles[player_id] = role
+        if join_request is not None and join_request.status == "pending":
+            join_request.status = "approved"
+        if invite is None:
+            session.add(
+                LeagueInvite(
+                    league_id=league_id,
+                    player_id=player_id,
+                    invited_by_player_id=admin_player_id,
+                    status="accepted",
+                )
+            )
+        else:
+            invite.status = "accepted"
+            invite.invited_by_player_id = admin_player_id
+            invite.updated_at = sql_func.now()
+
+    await session.commit()
+    for member in new_members:
+        await session.refresh(member)
+        added.append(
+            {
+                "id": member.id,
+                "league_id": member.league_id,
+                "player_id": member.player_id,
+                "role": member_roles[member.player_id],
+            }
+        )
+    return {"added": added, "invited": invited, "failed": failed}
+
+
 async def is_league_member(session: AsyncSession, league_id: int, player_id: int) -> bool:
     """Check if a player is a member of a league."""
     result = await session.execute(
@@ -2257,8 +2449,33 @@ async def update_league_member(
     }
 
 
-async def remove_league_member(session: AsyncSession, league_id: int, member_id: int) -> bool:
-    """Remove a league member."""
+async def remove_league_member(
+    session: AsyncSession,
+    league_id: int,
+    member_id: int,
+    self_left_by_player_id: Optional[int] = None,
+) -> bool:
+    """Remove a member, optionally recording the player's explicit opt-out."""
+    if self_left_by_player_id is not None:
+        invite = (
+            await session.execute(
+                select(LeagueInvite).where(
+                    LeagueInvite.league_id == league_id,
+                    LeagueInvite.player_id == self_left_by_player_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if invite is None:
+            session.add(
+                LeagueInvite(
+                    league_id=league_id,
+                    player_id=self_left_by_player_id,
+                    status="declined",
+                )
+            )
+        else:
+            invite.status = "declined"
+            invite.updated_at = sql_func.now()
     result = await session.execute(
         delete(LeagueMember).where(
             and_(LeagueMember.id == member_id, LeagueMember.league_id == league_id)
@@ -2349,12 +2566,24 @@ async def has_pending_league_request(
 
 
 async def create_league_request(session: AsyncSession, league_id: int, player_id: int) -> Dict:
-    """Create a join request for an invite-only league."""
+    """Create a join request for a public-access league."""
     from backend.services.players.player_lifecycle import require_active_players
 
     await require_active_players(session, [player_id])
-    if await has_pending_league_request(session, league_id, player_id):
-        raise ValueError("A pending join request already exists for this league")
+    existing = (
+        await session.execute(
+            select(LeagueRequest).where(
+                LeagueRequest.league_id == league_id,
+                LeagueRequest.player_id == player_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        if existing.status == "pending":
+            raise ValueError("A pending join request already exists for this league")
+        if existing.status == "rejected":
+            raise ValueError("This request was declined; a league admin must invite you")
+        raise ValueError("This join request has already been processed")
 
     # Create new request
     request = LeagueRequest(league_id=league_id, player_id=player_id, status="pending")
@@ -2414,8 +2643,7 @@ async def list_league_join_requests(session: AsyncSession, league_id: int) -> Li
 
 async def list_league_join_requests_rejected(session: AsyncSession, league_id: int) -> List[Dict]:
     """
-    List rejected join requests for a league (for admin UI).
-    Allows admins to find declined requests and approve them later.
+    List rejected join requests for a league (for admin invitation UI).
     """
     result = await session.execute(
         select(LeagueRequest, Player.full_name, Player.profile_picture_url)
@@ -2809,7 +3037,7 @@ async def create_league_invites(
     invited_by_player_id: Optional[int] = None,
 ) -> int:
     """
-    Bulk-insert league invite rows, skipping duplicates.
+    Create or reopen pending league invite rows.
 
     Args:
         session: Async database session.
@@ -2837,34 +3065,37 @@ async def create_league_invites(
             interaction_policy.InteractionAction.LEAGUE_INVITE,
         )
 
-    # Filter out players that already have a pending invite.
+    # Reuse the unique league/player row so a declined invitation can be sent
+    # again without violating the database invariant.
     existing_result = await session.execute(
-        select(LeagueInvite.player_id).where(
+        select(LeagueInvite).where(
             and_(
                 LeagueInvite.league_id == league_id,
                 LeagueInvite.player_id.in_(player_ids),
-                LeagueInvite.status == "pending",
             )
         )
     )
-    existing_ids: set[int] = {r[0] for r in existing_result.all()}
-    new_ids = [pid for pid in player_ids if pid not in existing_ids]
-
-    if not new_ids:
-        return 0
-
-    new_invites = [
-        LeagueInvite(
-            league_id=league_id,
-            player_id=pid,
-            invited_by_player_id=invited_by_player_id,
-            status="pending",
-        )
-        for pid in new_ids
-    ]
-    session.add_all(new_invites)
+    existing = {invite.player_id: invite for invite in existing_result.scalars().all()}
+    changed = 0
+    for player_id in dict.fromkeys(player_ids):
+        invite = existing.get(player_id)
+        if invite is None:
+            session.add(
+                LeagueInvite(
+                    league_id=league_id,
+                    player_id=player_id,
+                    invited_by_player_id=invited_by_player_id,
+                    status="pending",
+                )
+            )
+            changed += 1
+        elif invite.status != "pending":
+            invite.status = "pending"
+            invite.invited_by_player_id = invited_by_player_id
+            invite.updated_at = sql_func.now()
+            changed += 1
     await session.commit()
-    return len(new_invites)
+    return changed
 
 
 async def _batch_game_counts(session: AsyncSession, player_ids: list[int]) -> dict[int, int]:

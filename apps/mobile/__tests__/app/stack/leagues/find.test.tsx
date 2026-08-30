@@ -78,11 +78,13 @@ jest.mock('@/theme/usePaletteColors', () => ({
 
 const mockQueryLeagues = jest.fn();
 const mockJoinLeague = jest.fn();
+const mockRequestToJoinLeague = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
     queryLeagues: (...args: unknown[]) => mockQueryLeagues(...args),
     joinLeague: (...args: unknown[]) => mockJoinLeague(...args),
+    requestToJoinLeague: (...args: unknown[]) => mockRequestToJoinLeague(...args),
   },
 }));
 
@@ -220,12 +222,12 @@ describe('FindLeaguesScreen — request to join', () => {
     });
   });
 
-  it('calls joinLeague when the open-league action is pressed', async () => {
+  it('requests approval when the public-league action is pressed', async () => {
     render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('request-join-btn-1')).toBeTruthy());
     fireEvent.press(screen.getByTestId('request-join-btn-1'));
     await waitFor(() => {
-      expect(mockJoinLeague).toHaveBeenCalledWith(1);
+      expect(mockRequestToJoinLeague).toHaveBeenCalledWith(1);
     });
   });
 
@@ -257,9 +259,9 @@ describe('FindLeaguesScreen — request to join', () => {
     ).toBe('View Manhattan Open');
     expect(
       screen.getByTestId('request-join-btn-1').props.accessibilityLabel,
-    ).toBe('Join Manhattan Open');
+    ).toBe('Request to join Manhattan Open');
     expect(screen.getByTestId('request-join-btn-1').props.accessibilityHint).toBe(
-      'Joins this open league',
+      'Sends a request for league admin approval',
     );
   });
 
@@ -267,7 +269,7 @@ describe('FindLeaguesScreen — request to join', () => {
     [
       '400',
       { response: { status: 400, data: { detail: 'Invalid join request' } } },
-      'We could not join this league',
+      'We could not request to join this league',
     ],
     [
       '403',
@@ -294,7 +296,7 @@ describe('FindLeaguesScreen — request to join', () => {
     error,
     expectedCopy,
   ) => {
-    mockJoinLeague.mockRejectedValueOnce(error);
+    mockRequestToJoinLeague.mockRejectedValueOnce(error);
     render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('request-join-btn-1')).toBeTruthy());
 
@@ -310,7 +312,7 @@ describe('FindLeaguesScreen — request to join', () => {
   });
 
   it('clears join feedback when navigating to the league', async () => {
-    mockJoinLeague.mockRejectedValueOnce(new Error('Network Error'));
+    mockRequestToJoinLeague.mockRejectedValueOnce(new Error('Network Error'));
     render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
     await waitFor(() => expect(screen.getByTestId('request-join-btn-1')).toBeTruthy());
     fireEvent.press(screen.getByTestId('request-join-btn-1'));
