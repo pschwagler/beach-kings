@@ -70,7 +70,10 @@ export function useLeagueInviteScreen(
     try {
       await api.addLeagueMembersBatch(Number(leagueId), [...selectedIds]);
       await queryClient.invalidateQueries({
-        queryKey: leagueKeys.invitablePlayers(userId, leagueId, searchQuery),
+        // An immediate add changes the league roster, member counts, detail,
+        // and the eligible-player results. Invalidate the user-scoped league
+        // domain so every already-cached surface refetches authoritative data.
+        queryKey: leagueKeys.root(userId),
       });
       setSelectedIds(new Set());
     } catch (err) {

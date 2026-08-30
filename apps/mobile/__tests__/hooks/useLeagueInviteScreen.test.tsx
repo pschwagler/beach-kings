@@ -21,6 +21,7 @@ jest.mock('@/lib/api', () => ({
 }));
 
 import { useLeagueInviteScreen } from '@/components/screens/Leagues/useLeagueInviteScreen';
+import { leagueKeys } from '@/features/leagues';
 import type { InvitablePlayer } from '@beach-kings/shared';
 
 const PLAYERS: InvitablePlayer[] = [
@@ -145,8 +146,12 @@ describe('useLeagueInviteScreen', () => {
   it('onSendInvites clears selection on success and leaves inviteError null', async () => {
     mockAddLeagueMembersBatch.mockResolvedValue(undefined);
 
+    const client = makeClient();
+    client.setQueryData(leagueKeys.info(7, 7), { members: [] });
+    client.setQueryData(leagueKeys.userLeagues(7), [{ id: 7, member_count: 1 }]);
+
     const { result } = renderHook(() => useLeagueInviteScreen(7), {
-      wrapper: makeWrapper(makeClient()),
+      wrapper: makeWrapper(client),
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -162,6 +167,8 @@ describe('useLeagueInviteScreen', () => {
     expect(mockAddLeagueMembersBatch).toHaveBeenCalledWith(7, [1, 2]);
     expect(result.current.selectedIds.size).toBe(0);
     expect(result.current.inviteError).toBeNull();
+    expect(client.getQueryState(leagueKeys.info(7, 7))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(leagueKeys.userLeagues(7))?.isInvalidated).toBe(true);
   });
 
   it('onClearInviteError resets inviteError to null', async () => {
