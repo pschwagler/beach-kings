@@ -190,12 +190,12 @@ export default function Page() {
             <h2 className="landing-welcome-title">
               Welcome to{" "}
               <Image
-                src="/beach-league-gold-on-white-cropped.png"
+                src="/brand/lockup-on-light-640.png"
                 alt="Beach League"
                 width={200}
-                height={50}
+                height={53}
                 className="landing-brand-logo"
-                priority
+                preload
               />
             </h2>
             <p>Log in to get started</p>

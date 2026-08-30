@@ -153,11 +153,12 @@ export default function InviteLandingPage() {
     <>
       <div className="invite-page__logo">
         <Image
-          src="/beach-league-gold-on-white-cropped.png"
+          src="/brand/lockup-on-light-640.png"
           alt="Beach League"
           width={180}
-          height={45}
-          priority
+          height={48}
+          sizes="180px"
+          preload
         />
       </div>
       <h1 className="invite-page__heading">You&rsquo;ve Been Invited!</h1>

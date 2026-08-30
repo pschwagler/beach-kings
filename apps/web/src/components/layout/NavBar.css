@@ -51,7 +51,7 @@
 }
 
 .navbar-brand-logo {
-  height: 25px;
+  height: 34px;
   width: auto;
   object-fit: contain;
 }
@@ -457,9 +457,8 @@ body.drawer-open .navbar {
     height: 52px;
   }
 
-  .navbar-brand-text {
-    font-size: 1.2em;
-    letter-spacing: 0.06em;
+  .navbar-brand-logo {
+    height: 29px;
   }
 
   .navbar-menu-button {
@@ -490,9 +489,8 @@ body.drawer-open .navbar {
     height: 52px;
   }
 
-  .navbar-brand-text {
-    font-size: 1.1em;
-    letter-spacing: 0.05em;
+  .navbar-brand-logo {
+    height: 26px;
   }
 
   .navbar-menu-button {

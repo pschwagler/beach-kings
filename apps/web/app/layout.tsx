@@ -12,7 +12,8 @@ export const metadata = {
   description:
     'Find and join beach volleyball leagues near you. Track stats, ELO ratings, standings, and connect with players in your area.',
   icons: {
-    icon: '/favicon.ico',
+    icon: [{ url: '/brand/favicon.png', type: 'image/png', sizes: '48x48' }],
+    apple: [{ url: '/brand/brand-tile-512.png', type: 'image/png', sizes: '512x512' }],
   },
   openGraph: {
     type: 'website',

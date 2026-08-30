@@ -14,7 +14,7 @@ export const OG_WIDTH = 1200;
 export const OG_HEIGHT = 630;
 
 /** Logo file in /public. */
-const LOGO_FILE = 'beach-league-gold-on-navy.png';
+const LOGO_FILE = 'brand/lockup-on-dark-640.png';
 
 /** Layout & color tokens. */
 export const OG_STYLES = {
