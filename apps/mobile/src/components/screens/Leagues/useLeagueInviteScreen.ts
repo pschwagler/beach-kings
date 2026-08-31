@@ -85,7 +85,7 @@ export function useLeagueInviteScreen(
     } finally {
       setIsSending(false);
     }
-  }, [leagueId, selectedIds, searchQuery, queryClient, userId]);
+  }, [leagueId, selectedIds, queryClient, userId]);
 
   const onClearInviteError = useCallback(() => {
     setInviteError(null);
