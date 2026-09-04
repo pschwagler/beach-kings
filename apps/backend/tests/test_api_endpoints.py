@@ -238,18 +238,10 @@ def test_courts_crud_system_admin(monkeypatch):
     assert r.status_code == 200
 
 
-def test_matches_query_public(monkeypatch):
-    # no auth provided; should still work for submitted-only public view
+def test_matches_query_rejects_anonymous_access():
+    # Raw match search is member-scoped; public discovery uses /api/public/*.
     client = TestClient(app)
 
-    async def fake_query_matches(session, body, user=None):
-        return []
-
-    monkeypatch.setattr(data_service, "query_matches", fake_query_matches, raising=True)
-
     r = client.post("/api/matches/search", json={"limit": 5})
-    # even if empty DB, endpoint should respond
-    if r.status_code != 200:
-        print(f"Error: {r.status_code}, {r.text}")
-    assert r.status_code == 200, f"Response: {r.status_code} - {r.text}"
-    assert isinstance(r.json(), list)
+    assert r.status_code == 401
+    assert r.json() == {"detail": "Authentication required"}

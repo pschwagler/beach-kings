@@ -1,7 +1,7 @@
 """Leagues models."""
 
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class LeagueConfigBase(BaseModel):
@@ -32,7 +32,7 @@ class LeagueBase(BaseModel):
     description: Optional[str] = None
     location_id: Optional[str] = None
     is_open: bool = True
-    is_public: Optional[bool] = True  # Whether league is visible on public pages
+    is_public: bool = True  # Whether league is visible on public pages
     whatsapp_group_id: Optional[str] = None
     gender: Optional[str] = None  # 'mens', 'womens', 'coed'
     level: Optional[str] = None
@@ -42,6 +42,26 @@ class LeagueCreate(LeagueBase):
     """Request to create a league."""
 
     pass
+
+
+class LeagueUpdate(BaseModel):
+    """Fields an administrator may update without resetting omitted values."""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    location_id: Optional[str] = None
+    is_open: Optional[bool] = None
+    is_public: Optional[bool] = None
+    whatsapp_group_id: Optional[str] = None
+    gender: Optional[str] = None
+    level: Optional[str] = None
+
+    @model_validator(mode="after")
+    def reject_null_required_fields(self):
+        for field_name in ("name", "is_open", "is_public"):
+            if field_name in self.model_fields_set and getattr(self, field_name) is None:
+                raise ValueError(f"{field_name} cannot be null")
+        return self
 
 
 class HomeCourtResponse(BaseModel):

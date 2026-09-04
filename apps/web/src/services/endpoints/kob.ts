@@ -219,21 +219,12 @@ export const getKobTournamentByCode = async (code: string) => {
 };
 
 /**
- * Submit a score publicly (no auth).
+ * Submit a score as the authenticated tournament director.
  * @param {string} code - Tournament code
  * @param {string} matchupId - Match identifier
  * @param {Object} data - { team1_score, team2_score, game_index? }
  */
-export const submitKobScorePublic = async (code: string, matchupId: string, data: Record<string, any>) => {
-  const baseUrl = API_BASE_URL || '';
-  const res = await fetch(`${baseUrl}/api/kob/${code}/score?matchup_id=${matchupId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Failed to submit score: ${res.status}`);
-  }
-  return res.json();
+export const submitKobScore = async (code: string, matchupId: string, data: Record<string, any>) => {
+  const response = await api.post(`/api/kob/${code}/score?matchup_id=${matchupId}`, data);
+  return response.data;
 };

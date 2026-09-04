@@ -129,6 +129,7 @@ export default function ScoreEntryCard({
   const showInputs = isBo3
     ? (!matchDecided || editing)
     : (!isScored || editing);
+  const canEnterScore = isDirector && showInputs && !matchDecided;
 
   return (
     <div className={`kob-score-card ${(isScored || matchDecided) ? "kob-score-card--scored" : ""}`}>
@@ -168,7 +169,7 @@ export default function ScoreEntryCard({
         {/* Team 1 */}
         <div className={`kob-score-card__team ${matchDecided && match.winner === 1 ? "kob-score-card__team--winner" : ""}`}>
           <span className="kob-score-card__team-names">{team1Names || "Team 1"}</span>
-          {showInputs && !matchDecided ? (
+          {canEnterScore ? (
             <input
               type="number"
               className="kob-score-card__score-input"
@@ -178,6 +179,8 @@ export default function ScoreEntryCard({
               min={0}
               inputMode="numeric"
             />
+          ) : match.team1_score == null && !isBo3 ? (
+            <span className="kob-score-card__score">—</span>
           ) : !isBo3 ? (
             <span className={`kob-score-card__score ${match.winner === 1 ? "kob-score-card__score--winner" : ""}`}>
               {match.team1_score}
@@ -194,7 +197,7 @@ export default function ScoreEntryCard({
         {/* Team 2 */}
         <div className={`kob-score-card__team ${matchDecided && match.winner === 2 ? "kob-score-card__team--winner" : ""}`}>
           <span className="kob-score-card__team-names">{team2Names || "Team 2"}</span>
-          {showInputs && !matchDecided ? (
+          {canEnterScore ? (
             <input
               type="number"
               className="kob-score-card__score-input"
@@ -204,6 +207,8 @@ export default function ScoreEntryCard({
               min={0}
               inputMode="numeric"
             />
+          ) : match.team2_score == null && !isBo3 ? (
+            <span className="kob-score-card__score">—</span>
           ) : !isBo3 ? (
             <span className={`kob-score-card__score ${match.winner === 2 ? "kob-score-card__score--winner" : ""}`}>
               {match.team2_score}
@@ -218,7 +223,11 @@ export default function ScoreEntryCard({
 
       {error && <p className="kob-score-card__error">{error}</p>}
 
-      {showInputs && !matchDecided && (
+      {showInputs && !matchDecided && !isDirector && (
+        <p className="kob-score-card__error">Only the tournament director can enter scores.</p>
+      )}
+
+      {canEnterScore && (
         <Button
           onClick={handleSubmit}
           disabled={submitting}

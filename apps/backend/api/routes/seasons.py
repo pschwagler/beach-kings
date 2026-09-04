@@ -4,30 +4,34 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy import select as sa_select
-
-from backend.database.db import get_db_session
-from backend.database.models import Season as SeasonModel
-from backend.services import (
-    data_service,
-    notification_service,
-    season_awards_service,
-    friend_service,
-)
 from backend.api.auth_dependencies import (
     _has_league_role,
     _is_system_admin,
     get_current_user,
     get_current_user_optional,
-    require_user,
     make_require_league_admin,
     make_require_league_admin_from_season,
+    make_require_league_member,
+    make_require_league_member_from_season,
+    make_require_league_member_or_public,
+    require_league_member_for_scope,
+    require_user,
+    require_verified_player,
 )
+from backend.database.db import get_db_session
+from backend.database.models import Season as SeasonModel
 from backend.models.schemas import (
     PartnershipOpponentStatsResponse,
     SeasonResponse,
+)
+from backend.services import (
+    data_service,
+    friend_service,
+    notification_service,
+    season_awards_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,10 +96,10 @@ async def create_season(
 @router.get("/api/leagues/{league_id}/seasons", response_model=list[SeasonResponse])
 async def list_seasons(
     league_id: int,
-    user: dict = Depends(require_user),
+    user: dict = Depends(make_require_league_member_or_public()),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """List seasons for a league. Requires authentication only."""
+    """List safe season metadata for a public league or one the caller belongs to."""
     try:
         return await data_service.list_seasons(session, league_id)
     except Exception as e:
@@ -103,8 +107,12 @@ async def list_seasons(
 
 
 @router.get("/api/seasons/{season_id}", response_model=SeasonResponse)
-async def get_season(season_id: int, session: AsyncSession = Depends(get_db_session)):
-    """Get a season (public)."""
+async def get_season(
+    season_id: int,
+    user: dict = Depends(make_require_league_member_from_season()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get a season (league member)."""
     try:
         season = await data_service.get_season(session, season_id)
         if not season:
@@ -163,12 +171,20 @@ async def update_season(
 
 
 @router.post("/api/matches/elo", response_model=list[dict])
-async def get_matches(request: Request, session: AsyncSession = Depends(get_db_session)):
-    """Get all matches for a season or league with ELO changes (public)."""
+async def get_matches(
+    request: Request,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get member-only matches for exactly one season or league."""
     try:
         body = await request.json()
         season_id = body.get("season_id")
         league_id = body.get("league_id")
+
+        await require_league_member_for_scope(
+            session, user, season_id=season_id, league_id=league_id
+        )
 
         if season_id is not None:
             matches = await data_service.get_season_matches_with_elo(session, season_id)
@@ -176,10 +192,7 @@ async def get_matches(request: Request, session: AsyncSession = Depends(get_db_s
         elif league_id is not None:
             matches = await data_service.get_league_matches_with_elo(session, league_id)
             return matches
-        else:
-            raise HTTPException(
-                status_code=400, detail="Either season_id or league_id is required"
-            )
+        raise AssertionError("scope authorization accepted an empty scope")
     except HTTPException:
         raise
     except Exception as e:
@@ -187,8 +200,12 @@ async def get_matches(request: Request, session: AsyncSession = Depends(get_db_s
 
 
 @router.get("/api/seasons/{season_id}/matches", response_model=list[dict])
-async def get_season_matches(season_id: int, session: AsyncSession = Depends(get_db_session)):
-    """Get all matches for a season with ELO changes (public). Deprecated: use POST /api/matches instead."""
+async def get_season_matches(
+    season_id: int,
+    user: dict = Depends(make_require_league_member_from_season()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get member-only season matches. Deprecated: use POST /api/matches/elo."""
     try:
         matches = await data_service.get_season_matches_with_elo(session, season_id)
         return matches
@@ -197,12 +214,20 @@ async def get_season_matches(season_id: int, session: AsyncSession = Depends(get
 
 
 @router.post("/api/player-stats")
-async def get_all_player_stats(request: Request, session: AsyncSession = Depends(get_db_session)):
-    """Get all player stats for a season or league (public)."""
+async def get_all_player_stats(
+    request: Request,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get member-only player stats for exactly one season or league."""
     try:
         body = await request.json()
         season_id = body.get("season_id")
         league_id = body.get("league_id")
+
+        await require_league_member_for_scope(
+            session, user, season_id=season_id, league_id=league_id
+        )
 
         if season_id is not None:
             player_stats = await data_service.get_all_player_season_stats(session, season_id)
@@ -210,10 +235,7 @@ async def get_all_player_stats(request: Request, session: AsyncSession = Depends
         elif league_id is not None:
             player_stats = await data_service.get_all_player_league_stats(session, league_id)
             return player_stats
-        else:
-            raise HTTPException(
-                status_code=400, detail="Either season_id or league_id is required"
-            )
+        raise AssertionError("scope authorization accepted an empty scope")
     except HTTPException:
         raise
     except Exception as e:
@@ -221,8 +243,12 @@ async def get_all_player_stats(request: Request, session: AsyncSession = Depends
 
 
 @router.get("/api/seasons/{season_id}/player-stats")
-async def get_season_player_stats(season_id: int, session: AsyncSession = Depends(get_db_session)):
-    """Get all player season stats for a season (public). Deprecated: use POST /api/player-stats instead."""
+async def get_season_player_stats(
+    season_id: int,
+    user: dict = Depends(make_require_league_member_from_season()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get member-only season stats. Deprecated: use POST /api/player-stats."""
     try:
         player_stats = await data_service.get_all_player_season_stats(session, season_id)
         return player_stats
@@ -232,13 +258,19 @@ async def get_season_player_stats(season_id: int, session: AsyncSession = Depend
 
 @router.post("/api/partnership-opponent-stats")
 async def get_partnership_opponent_stats(
-    request: Request, session: AsyncSession = Depends(get_db_session)
+    request: Request,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session),
 ):
-    """Get all partnership and opponent stats for all players in a season or league (public)."""
+    """Get member-only relationship stats for exactly one season or league."""
     try:
         body = await request.json()
         season_id = body.get("season_id")
         league_id = body.get("league_id")
+
+        await require_league_member_for_scope(
+            session, user, season_id=season_id, league_id=league_id
+        )
 
         if season_id is not None:
             stats = await data_service.get_all_player_season_partnership_opponent_stats(
@@ -250,10 +282,7 @@ async def get_partnership_opponent_stats(
                 session, league_id
             )
             return stats
-        else:
-            raise HTTPException(
-                status_code=400, detail="Either season_id or league_id is required"
-            )
+        raise AssertionError("scope authorization accepted an empty scope")
     except HTTPException:
         raise
     except Exception as e:
@@ -265,9 +294,11 @@ async def get_partnership_opponent_stats(
 
 @router.get("/api/seasons/{season_id}/partnership-opponent-stats")
 async def get_season_partnership_opponent_stats(
-    season_id: int, session: AsyncSession = Depends(get_db_session)
+    season_id: int,
+    user: dict = Depends(make_require_league_member_from_season()),
+    session: AsyncSession = Depends(get_db_session),
 ):
-    """Get all partnership and opponent stats for all players in a season (public). Deprecated: use POST /api/partnership-opponent-stats instead."""
+    """Get member-only season relationship stats. Deprecated: use the scoped POST route."""
     try:
         stats = await data_service.get_all_player_season_partnership_opponent_stats(
             session, season_id
@@ -285,9 +316,12 @@ async def get_season_partnership_opponent_stats(
     response_model=PartnershipOpponentStatsResponse,
 )
 async def get_player_season_partnership_opponent_stats(
-    player_id: int, season_id: int, session: AsyncSession = Depends(get_db_session)
+    player_id: int,
+    season_id: int,
+    user: dict = Depends(make_require_league_member_from_season()),
+    session: AsyncSession = Depends(get_db_session),
 ):
-    """Get partnership and opponent stats for a player in a season (public)."""
+    """Get a player's season relationship stats as a league member."""
     try:
         if await data_service.get_player_by_id(session, player_id) is None:
             raise HTTPException(status_code=404, detail="Player not found")
@@ -305,8 +339,12 @@ async def get_player_season_partnership_opponent_stats(
 
 
 @router.get("/api/leagues/{league_id}/player-stats")
-async def get_league_player_stats(league_id: int, session: AsyncSession = Depends(get_db_session)):
-    """Get all player league stats for a league (public)."""
+async def get_league_player_stats(
+    league_id: int,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get all player league stats as a league member."""
     try:
         player_stats = await data_service.get_all_player_league_stats(session, league_id)
         return player_stats
@@ -316,9 +354,11 @@ async def get_league_player_stats(league_id: int, session: AsyncSession = Depend
 
 @router.get("/api/leagues/{league_id}/partnership-opponent-stats")
 async def get_league_partnership_opponent_stats(
-    league_id: int, session: AsyncSession = Depends(get_db_session)
+    league_id: int,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session),
 ):
-    """Get all partnership and opponent stats for all players in a league (public)."""
+    """Get all league relationship stats as a league member."""
     try:
         stats = await data_service.get_all_player_league_partnership_opponent_stats(
             session, league_id
@@ -333,7 +373,10 @@ async def get_league_partnership_opponent_stats(
 
 @router.get("/api/players/{player_id}/league/{league_id}/stats", response_model=dict)
 async def get_player_league_stats(
-    player_id: int, league_id: int, session: AsyncSession = Depends(get_db_session)
+    player_id: int,
+    league_id: int,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """
     Legacy slim endpoint kept for the web app. Returns only counts/rates from
@@ -408,9 +451,12 @@ async def get_league_player_stats_full(
     response_model=PartnershipOpponentStatsResponse,
 )
 async def get_player_league_partnership_opponent_stats(
-    player_id: int, league_id: int, session: AsyncSession = Depends(get_db_session)
+    player_id: int,
+    league_id: int,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session),
 ):
-    """Get partnership and opponent stats for a player in a league (public)."""
+    """Get a player's league relationship stats as a league member."""
     try:
         if await data_service.get_player_by_id(session, player_id) is None:
             raise HTTPException(status_code=404, detail="Player not found")
@@ -433,7 +479,11 @@ async def get_player_league_partnership_opponent_stats(
 
 
 @router.post("/api/rankings", response_model=list[dict])
-async def query_rankings(request: Request, session: AsyncSession = Depends(get_db_session)):
+async def query_rankings(
+    request: Request,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session),
+):
     """
     Query rankings with filters (e.g., by season_id).
     Body: RankingsQueryRequest
@@ -443,6 +493,12 @@ async def query_rankings(request: Request, session: AsyncSession = Depends(get_d
     """
     try:
         body = await request.json()
+        await require_league_member_for_scope(
+            session,
+            user,
+            season_id=body.get("season_id"),
+            league_id=body.get("league_id"),
+        )
         rankings = await data_service.get_rankings(session, body)
         # Return empty array with 200 status if no rankings (e.g., season with no matches)
         # This is more appropriate than 404, as the resource exists but has no data
@@ -461,9 +517,10 @@ async def query_rankings(request: Request, session: AsyncSession = Depends(get_d
 @router.get("/api/seasons/{season_id}/awards", response_model=list[dict])
 async def get_season_awards(
     season_id: int,
+    user: dict = Depends(make_require_league_member_from_season()),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get awards for a season (public). Lazy-computes awards if season has ended."""
+    """Get season awards as a league member, computing them lazily when eligible."""
     try:
         awards = await season_awards_service.get_season_awards(session, season_id)
         return awards
@@ -476,9 +533,10 @@ async def get_season_awards(
 @router.get("/api/leagues/{league_id}/awards", response_model=list[dict])
 async def get_league_awards(
     league_id: int,
+    user: dict = Depends(make_require_league_member()),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get all awards across all seasons in a league (public)."""
+    """Get all league awards as a league member."""
     try:
         awards = await season_awards_service.get_league_awards(session, league_id)
         return awards
@@ -489,12 +547,17 @@ async def get_league_awards(
 @router.get("/api/players/{player_id}/awards", response_model=list[dict])
 async def get_player_awards(
     player_id: int,
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get all awards for a player across leagues (public)."""
+    """Get all awards for the authenticated player's own profile."""
     try:
+        if user["player_id"] != player_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
         awards = await season_awards_service.get_player_awards(session, player_id)
         return awards
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading player awards: {str(e)}")
 

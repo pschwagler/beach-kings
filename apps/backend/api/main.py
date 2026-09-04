@@ -5,14 +5,18 @@ FastAPI server that provides REST endpoints for ELO calculations and statistics.
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import re
+from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 import logging
 import os
 import uvicorn
+from uuid import uuid4
 from slowapi import _rate_limit_exceeded_handler  # type: ignore
 from slowapi.errors import RateLimitExceeded  # type: ignore
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.api.routes import router, limiter as routes_limiter
 from backend.api.public_routes import public_router
@@ -32,11 +36,45 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
+
+
+def safe_request_id(request: Request) -> str:
+    """Accept only bounded log/header-safe caller IDs; otherwise issue a server ID."""
+    candidate = request.headers.get("X-Request-ID", "")
+    if REQUEST_ID_PATTERN.fullmatch(candidate):
+        return candidate
+    return uuid4().hex
+
+
+async def safe_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Keep internal exception details out of API responses."""
+    if exc.status_code < 500:
+        return await http_exception_handler(request, exc)
+
+    request_id = safe_request_id(request)
+    logger.error(
+        "HTTP %s response suppressed (request_id=%s, path=%s)",
+        exc.status_code,
+        request_id,
+        request.url.path,
+    )
+    headers = dict(exc.headers or {})
+    headers["X-Request-ID"] = request_id
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": {"code": "internal_error", "request_id": request_id}},
+        headers=headers,
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan handler for startup and shutdown events."""
     # Startup
+    from backend.services import auth_service
+
+    auth_service.validate_runtime_security_config()
     logger.info("Starting up Beach Volleyball ELO API...")
 
     # Runtime startup is deliberately read-only with respect to schema and catalog.
@@ -156,6 +194,7 @@ app = FastAPI(
 # Setup rate limiter
 app.state.limiter = routes_limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(StarletteHTTPException, safe_http_exception_handler)
 
 # Add CORS middleware — origins configured via ALLOWED_ORIGINS env var
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")

@@ -59,14 +59,18 @@ is linked to the user unless the row says otherwise.
 | Expo Push Service | Expo push token and privacy-conscious notification payload | Background/terminated-app delivery; enhanced access-token security is required before production enablement |
 | OpenAI | Minimized reported/flagged text or image evidence and pseudonymous safety identifiers | Safety classification and recommendation-only triage; response storage disabled where supported; no training opt-in; deployment-account controls still require owner verification |
 | Geocoding provider | User-entered city/place search text and, when supplied, transient coordinates | Return autocomplete/nearby results; do not build a user location history |
-| Sentry (US region) | Pseudonymous internal user ID, app/release/environment/route tags, device/OS class, error type, and stack trace | Crash/error diagnostics only; disabled unless a DSN is configured |
+| Sentry (deferred) | No data in v1. The SDK remains installed but runtime transmission and build-time symbol upload are disabled. | Do not configure or enable until the privacy manifest, App Store answers, public policy, and this inventory are updated together |
 
 ## Sentry launch configuration
 
-The official React Native SDK is installed but sends nothing unless a valid
-HTTPS `EXPO_PUBLIC_SENTRY_DSN` is configured. The production EAS environment
-provides the DSN, organization, and project values without committing them to
-the repository. The repository enforces the following boundary:
+Sentry is off for v1. Every checked-in EAS profile explicitly sets an empty
+`EXPO_PUBLIC_SENTRY_DSN` and `SENTRY_DISABLE_AUTO_UPLOAD=true`. The runtime also
+requires a valid HTTPS DSN before enabling transmission. Do not supply Sentry
+organization, project, or upload credentials to a v1 build.
+
+Enabling Sentry in a later release requires privacy approval and disclosure
+changes before the DSN or build upload is activated. The intended technical
+boundary for that future review is:
 
 - Only a pseudonymous internal user ID is attached; names, email addresses,
   phone numbers, and provider identities are excluded.
@@ -85,8 +89,8 @@ the repository. The repository enforces the following boundary:
   threads, screenshots, view hierarchy, failed-request capture, tracing, and
   logs disabled. Native crash diagnostics can still contain app/device/OS
   metadata and the crashing stack required to diagnose the failure.
-- Crash Data and Other Diagnostic Data are used for App Functionality, linked
-  through the pseudonymous ID, and never used for tracking.
+- Crash Data and Other Diagnostic Data would be used for App Functionality,
+  linked through the pseudonymous ID, and never used for tracking.
 
 ## Maintenance contract
 
@@ -96,5 +100,6 @@ location retention, or new use of existing data must update this inventory,
 `PrivacyInfo.xcprivacy` in the same release. The release owner must regenerate
 Xcode's aggregate privacy report from the signed archive and verify the
 30-day operational-log retention setting before submission.
-Before the first release build, enable Sentry's server-side PII/IP scrubbing
-and verify sanitized JavaScript and native test events in the US-region project.
+Before enabling Sentry in a later release, update the disclosures above, enable
+server-side PII/IP scrubbing, and verify sanitized JavaScript and native test
+events in the approved project.

@@ -215,6 +215,18 @@ function verifyV1OtaPolicy(packageJson, appConfig) {
   }
 }
 
+function verifyV1SentryPolicy(easConfig) {
+  for (const profile of ['development-simulator', 'preview', 'production']) {
+    const environment = easConfig.build?.[profile]?.env;
+    if (environment?.SENTRY_DISABLE_AUTO_UPLOAD !== 'true') {
+      fail(`${profile} must disable Sentry auto upload for v1.`);
+    }
+    if (environment?.EXPO_PUBLIC_SENTRY_DSN !== '') {
+      fail(`${profile} must explicitly disable the Sentry runtime DSN for v1.`);
+    }
+  }
+}
+
 function verifyStoreUrls(appConfig) {
   if (appConfig.ios?.appStoreUrl !== EXPECTED.appStoreUrl) {
     fail('Expo iOS App Store URL is missing or unexpected.');
@@ -269,6 +281,7 @@ function verifyReleaseConfiguration({
 
   verifyNoTrackingDependencies(packageJson);
   verifyV1OtaPolicy(packageJson, appConfig);
+  verifyV1SentryPolicy(easConfig);
   const storeUrls = verifyStoreUrls(appConfig);
 
   if (appConfig.name !== EXPECTED.displayName)
@@ -453,4 +466,5 @@ module.exports = {
   verifyReleaseConfiguration,
   verifyStoreUrls,
   verifyV1OtaPolicy,
+  verifyV1SentryPolicy,
 };

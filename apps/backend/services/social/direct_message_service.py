@@ -138,9 +138,7 @@ async def publish_approved_message(session: AsyncSession, dm: DirectMessage) -> 
 
     # Hidden is a private, persistent recipient preference. Store the message,
     # but do not surface it through real-time delivery or notifications.
-    if await is_conversation_hidden(
-        session, dm.receiver_player_id, dm.sender_player_id
-    ):
+    if await is_conversation_hidden(session, dm.receiver_player_id, dm.sender_player_id):
         return True
 
     message_dict = _dm_to_dict(dm)

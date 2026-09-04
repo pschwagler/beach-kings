@@ -24,7 +24,6 @@ import {
 import useHomeCourts from '../../hooks/useHomeCourts';
 import { slugify } from '../../utils/slugify';
 import { useToast } from '../../contexts/ToastContext';
-import PlayerTrophies from './PlayerTrophies';
 import CourtSelector from '../court/CourtSelector';
 import './PublicPlayerPage.css';
 
@@ -354,9 +353,6 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
           </div>
         </section>
       )}
-
-      {/* Trophies — renders nothing if player has no awards */}
-      {player?.id && <PlayerTrophies playerId={player.id} />}
 
       {/* Home Courts */}
       {(homeCourts.length > 0 || isSelf) && (

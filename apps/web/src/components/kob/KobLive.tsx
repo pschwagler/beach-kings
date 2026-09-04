@@ -6,7 +6,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useAuthModal } from "../../contexts/AuthModalContext";
 import {
   getKobTournamentByCode,
-  submitKobScorePublic,
+  submitKobScore,
   advanceKobRound,
   dropKobPlayer,
   editKobScore,
@@ -70,7 +70,7 @@ export default function KobLive({ code }: KobLiveProps) {
   }, [tournament?.status, loadTournament]);
 
   const handleScoreSubmit = async (matchupId: string, team1Score: number, team2Score: number) => {
-    await submitKobScorePublic(code, matchupId, {
+    await submitKobScore(code, matchupId, {
       team1_score: team1Score,
       team2_score: team2Score,
     });

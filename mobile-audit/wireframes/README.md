@@ -43,7 +43,7 @@ A sticky header bar (not production UI) lets reviewers toggle between screen sta
 | `.btn-primary` / `.btn-secondary` | `Pressable` buttons | Gold CTA / outlined secondary |
 | `.filter-chip` | `Pressable` pill toggle | Active state with teal bg |
 
-## Pages (51 HTML files)
+## Pages (63 HTML files)
 
 ### Auth (4)
 | File | Description |
@@ -104,13 +104,16 @@ A sticky header bar (not production UI) lets reviewers toggle between screen sta
 | court-detail | Court info, check-ins, conditions |
 | court-photos | Court photo gallery |
 
-### Tournaments (8)
+### Tournaments (11)
 | File | Description |
 |------|-------------|
 | tournaments | Tournament discovery and list |
 | tournament-detail | Multi-role tournament view (6 states: spectator, player, organizer, etc.) |
 | tournament-edit | Tournament settings editor |
 | tournament-invite | Invite players to tournament |
+| tournament-create-2v2 | Two-milestone flow for opening team sign-ups, confirming the field, and publishing a 2v2 schedule |
+| tournament-hub | Shared player/organizer tournament-day hub with schedule, standings, bracket, teams, and completion states |
+| tournament-manage | Organizer action dashboard, court board, stage review, corrections, communication, and disruption recovery |
 | kob-create | King of the Beach tournament setup |
 | kob-live | Live KoB bracket and scoring |
 | kob-standings | KoB standings and stats |

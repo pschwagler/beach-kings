@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Tournament Hub - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  :root {
+    --hub-teal: var(--color-primary);
+    --hub-gold: var(--color-accent);
+    --hub-blue: #2a7d9c;
+    --hub-sand: #f4ead3;
+    --hub-surface: var(--color-bg-surface);
+    --hub-muted: var(--color-text-secondary);
+    --hub-line: var(--color-border);
+    --hub-green: #247a45;
+    --hub-green-bg: #e7f5eb;
+    --hub-amber: #8b6412;
+    --hub-amber-bg: #fbf2d7;
+  }
+
+  body { min-height: 844px; }
+  button { font: inherit; }
+  .screen { min-height: 844px; padding-bottom: 82px; }
+  .top-nav { position: relative; }
+  .top-nav .back { width: 92px; }
+  .top-nav .action {
+    width: 92px; min-height: 44px; border: 0; background: transparent;
+    text-align: right; cursor: pointer; font-weight: 700;
+  }
+  .top-nav .action[hidden] { display: block; visibility: hidden; }
+
+  .event-masthead {
+    padding: 12px 16px 10px; color: var(--color-text-inverse);
+    background: var(--hub-teal); border-top: 1px solid rgba(255,255,255,.09);
+  }
+  .event-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .event-kicker { font-size: 11px; font-weight: 700; letter-spacing: .65px; text-transform: uppercase; color: #e8c96a; }
+  .event-name { margin-top: 3px; font-size: 19px; line-height: 1.15; font-weight: 800; letter-spacing: -.25px; }
+  .event-status {
+    flex: none; margin-top: 1px; padding: 4px 8px; border-radius: 999px;
+    background: #e7f5eb; color: #176a39; font-size: 10px; font-weight: 800;
+  }
+  .event-meta { margin-top: 7px; font-size: 12px; color: rgba(255,255,255,.76); }
+
+  .tourney-tabs {
+    display: flex; overflow-x: auto; scrollbar-width: none; background: var(--hub-surface);
+    border-bottom: 1px solid var(--hub-line); padding: 0 10px;
+  }
+  .tourney-tabs::-webkit-scrollbar { display: none; }
+  .hub-tab {
+    position: relative; flex: 0 0 auto; min-height: 47px; padding: 0 10px;
+    border: 0; background: transparent; color: var(--hub-muted); font-size: 12px;
+    font-weight: 650; cursor: pointer;
+  }
+  .hub-tab.active { color: var(--hub-teal); font-weight: 800; }
+  .hub-tab.active::after {
+    content: ""; position: absolute; left: 9px; right: 9px; bottom: 0;
+    height: 3px; border-radius: 3px 3px 0 0; background: var(--hub-gold);
+  }
+
+  .view { display: none; padding: 14px 16px 24px; }
+  .view.active { display: block; animation: reveal .22s cubic-bezier(.22,1,.36,1); }
+  @keyframes reveal { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .view.active { animation: none; } }
+
+  .section-heading { margin: 18px 0 9px; font-size: 15px; font-weight: 800; letter-spacing: -.1px; }
+  .section-heading:first-child { margin-top: 0; }
+  .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; color: var(--hub-muted); }
+  .muted { color: var(--hub-muted); }
+  .surface { background: var(--hub-surface); border: 1px solid var(--hub-line); border-radius: 14px; }
+
+  .obligation {
+    position: relative; overflow: hidden; padding: 16px; color: var(--color-text-inverse);
+    border-radius: 15px; background: var(--hub-teal); box-shadow: var(--shadow-card);
+  }
+  .obligation::after {
+    content: ""; position: absolute; width: 150px; height: 150px; border-radius: 50%;
+    right: -81px; top: -78px; border: 24px solid rgba(212,168,67,.2);
+  }
+  .obligation.work { background: #315f69; }
+  .obligation.wait { color: var(--color-text-primary); background: var(--hub-sand); }
+  .obligation.wait::after { border-color: rgba(212,168,67,.25); }
+  .obligation .eyebrow { color: #e8c96a; }
+  .obligation.wait .eyebrow { color: #795b15; }
+  .obligation-title { max-width: 270px; margin-top: 7px; font-size: 23px; line-height: 1.13; font-weight: 850; letter-spacing: -.5px; }
+  .obligation-meta { margin-top: 8px; font-size: 13px; line-height: 1.5; color: rgba(255,255,255,.78); }
+  .obligation.wait .obligation-meta { color: #665a43; }
+  .obligation .badge-row { display: flex; gap: 6px; margin-top: 13px; }
+  .obligation .micro-badge { padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.12); font-size: 11px; font-weight: 700; }
+  .obligation.wait .micro-badge { background: rgba(255,255,255,.55); }
+  .primary-action {
+    display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px;
+    margin-top: 13px; padding: 12px 16px; border: 0; border-radius: 11px;
+    background: var(--hub-gold); color: var(--color-text-primary); font-size: 14px; font-weight: 800; cursor: pointer;
+  }
+  .secondary-action {
+    display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px;
+    margin-top: 9px; border: 1px solid var(--hub-line); border-radius: 11px;
+    background: var(--hub-surface); color: var(--hub-teal); font-size: 13px; font-weight: 750; cursor: pointer;
+  }
+
+  .progress-strip { display: grid; grid-template-columns: repeat(3,1fr); margin-top: 10px; overflow: hidden; }
+  .progress-cell { padding: 11px 8px; text-align: center; border-right: 1px solid var(--hub-line); }
+  .progress-cell:last-child { border-right: 0; }
+  .progress-value { font-size: 14px; font-weight: 800; }
+  .progress-label { margin-top: 2px; font-size: 10px; color: var(--hub-muted); }
+
+  .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 13px; }
+  .notice-mark { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--hub-gold); flex: none; }
+  .notice-title { font-size: 13px; font-weight: 750; }
+  .notice-copy { margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--hub-muted); }
+
+  .lifecycle-hero { padding: 16px; overflow: hidden; position: relative; }
+  .lifecycle-hero::after {
+    content: ""; position: absolute; right: -34px; top: -42px; width: 112px; height: 112px;
+    border: 18px solid var(--hub-sand); border-radius: 50%; opacity: .75; pointer-events: none;
+  }
+  .lifecycle-title { position: relative; z-index: 1; margin-top: 5px; max-width: 275px; font-size: 21px; line-height: 1.18; font-weight: 850; letter-spacing: -.35px; }
+  .lifecycle-copy { position: relative; z-index: 1; max-width: 300px; margin-top: 7px; font-size: 12px; line-height: 1.5; color: var(--hub-muted); }
+  .signup-progress { display: flex; gap: 5px; margin-top: 14px; }
+  .signup-progress span { height: 5px; flex: 1; border-radius: 3px; background: #dfe4e5; }
+  .signup-progress span.done { background: var(--hub-green); }
+  .signup-progress span.current { background: var(--hub-gold); }
+  .signup-status { display: flex; align-items: center; gap: 11px; padding: 12px 13px; }
+  .signup-check { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: none; border-radius: 50%; background: var(--hub-amber-bg); color: var(--hub-amber); font-weight: 850; }
+  .signup-main { flex: 1; min-width: 0; }
+  .signup-title { font-size: 13px; font-weight: 800; }
+  .signup-copy { margin-top: 2px; font-size: 11px; line-height: 1.35; color: var(--hub-muted); }
+  .certainty-block { overflow: hidden; margin-top: 10px; }
+  .certainty-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 13px; border-bottom: 1px solid var(--hub-line); }
+  .certainty-title { font-size: 13px; font-weight: 800; }
+  .certainty-badge { padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+  .certainty-badge.confirmed { background: var(--hub-green-bg); color: var(--hub-green); }
+  .certainty-badge.provisional { background: var(--hub-amber-bg); color: var(--hub-amber); }
+  .certainty-list { padding: 4px 13px; }
+  .certainty-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--hub-line); }
+  .certainty-row:last-child { border-bottom: 0; }
+  .certainty-icon { width: 17px; color: var(--hub-green); font-size: 12px; font-weight: 850; }
+  .certainty-block.provisional .certainty-icon { color: var(--hub-amber); }
+  .certainty-label { font-size: 12px; font-weight: 700; }
+  .certainty-detail { margin-top: 2px; font-size: 10px; line-height: 1.35; color: var(--hub-muted); }
+  .milestones { position: relative; padding-left: 25px; }
+  .milestones::before { content: ""; position: absolute; left: 8px; top: 7px; bottom: 10px; width: 2px; background: var(--hub-line); }
+  .milestone { position: relative; padding: 0 0 14px 3px; }
+  .milestone:last-child { padding-bottom: 0; }
+  .milestone::before { content: ""; position: absolute; left: -22px; top: 2px; width: 10px; height: 10px; border: 2px solid var(--hub-surface); border-radius: 50%; background: var(--hub-gold); box-shadow: 0 0 0 1px var(--hub-gold); }
+  .milestone.future::before { background: var(--hub-surface); box-shadow: 0 0 0 1px var(--hub-line); }
+  .milestone-title { font-size: 12px; font-weight: 800; }
+  .milestone-copy { margin-top: 2px; font-size: 11px; line-height: 1.4; color: var(--hub-muted); }
+  .published-banner { padding: 13px 14px; color: var(--color-text-inverse); background: var(--hub-teal); border-radius: 14px; }
+  .published-banner .eyebrow { color: #e8c96a; }
+  .published-title { margin-top: 5px; font-size: 20px; font-weight: 850; }
+  .published-copy { margin-top: 5px; font-size: 12px; line-height: 1.45; color: rgba(255,255,255,.78); }
+
+  .result-row { display: flex; align-items: center; gap: 10px; padding: 12px 13px; }
+  .result-score { min-width: 48px; font-size: 19px; font-weight: 850; color: var(--hub-green); letter-spacing: -.4px; }
+  .result-main { flex: 1; min-width: 0; }
+  .result-title { font-size: 13px; font-weight: 700; }
+  .result-meta { margin-top: 2px; font-size: 11px; color: var(--hub-muted); }
+  .text-action { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--hub-blue); font-size: 12px; font-weight: 750; cursor: pointer; }
+
+  .filters { display: flex; gap: 7px; overflow-x: auto; margin-bottom: 11px; scrollbar-width: none; }
+  .filter-chip { flex: none; }
+  .schedule-group { margin-bottom: 11px; overflow: hidden; }
+  .group-head { display: flex; justify-content: space-between; padding: 11px 13px; border-bottom: 1px solid var(--hub-line); }
+  .group-title { font-size: 13px; font-weight: 800; }
+  .status { padding: 3px 7px; border-radius: 999px; background: var(--hub-amber-bg); color: var(--hub-amber); font-size: 10px; font-weight: 750; }
+  .status.upcoming { background: #eef1f2; color: var(--hub-muted); }
+  .status.neutral { background: #eef1f2; color: var(--hub-muted); }
+  .status.complete { background: var(--hub-green-bg); color: var(--hub-green); }
+  .match-line { display: grid; grid-template-columns: 47px 1fr auto; gap: 9px; align-items: center; min-height: 54px; padding: 8px 13px; border-bottom: 1px solid var(--hub-line); }
+  .match-line:last-child { border-bottom: 0; }
+  .match-time { font-size: 11px; font-weight: 800; color: var(--hub-blue); }
+  .match-name { font-size: 12px; line-height: 1.35; }
+  .match-sub { margin-top: 2px; font-size: 10px; color: var(--hub-muted); }
+  .match-court { font-size: 11px; font-weight: 800; }
+  .you-tag { color: var(--hub-teal); font-weight: 800; }
+
+  .pool-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+  .pool-label h2 { font-size: 16px; }
+  .pool-label span { font-size: 11px; color: var(--hub-muted); }
+  .standings { overflow: hidden; }
+  .standing-row { display: grid; grid-template-columns: 25px 1fr 34px 38px 37px; align-items: center; min-height: 48px; padding: 0 10px; border-bottom: 1px solid var(--hub-line); }
+  .standing-row:last-child { border-bottom: 0; }
+  .standing-row.head { min-height: 34px; background: #f0f2f2; color: var(--hub-muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+  .standing-row.qualifier { background: #f5faf7; }
+  .standing-rank { font-size: 12px; font-weight: 800; }
+  .standing-team { font-size: 12px; font-weight: 700; }
+  .standing-stat { text-align: center; font-size: 11px; }
+  .rank-reason {
+    width: 100%; min-height: 44px; margin-top: 10px; border: 1px solid var(--hub-line);
+    border-radius: 11px; background: var(--hub-surface); color: var(--hub-blue); font-size: 12px; font-weight: 750; cursor: pointer;
+  }
+  .reason-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .2s ease; }
+  .reason-panel.open { grid-template-rows: 1fr; }
+  .reason-inner { overflow: hidden; }
+  .reason-copy { margin-top: 8px; padding: 12px 13px; background: var(--hub-amber-bg); border-radius: 11px; font-size: 12px; line-height: 1.45; color: #5f4b1e; }
+  .key { display: flex; gap: 12px; margin-top: 10px; font-size: 10px; color: var(--hub-muted); }
+  .key span::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 2px; background: var(--hub-green-bg); border: 1px solid #9cc7a9; }
+
+  .bracket-scroll { overflow-x: auto; margin: 0 -16px; padding: 0 16px 10px; scrollbar-width: none; }
+  .bracket { display: grid; grid-template-columns: 160px 160px; gap: 23px; min-width: 343px; align-items: center; }
+  .round-label { margin-bottom: 8px; font-size: 11px; font-weight: 800; color: var(--hub-muted); text-transform: uppercase; letter-spacing: .5px; }
+  .bracket-match { overflow: hidden; margin-bottom: 12px; border: 1px solid var(--hub-line); border-radius: 10px; background: var(--hub-surface); }
+  .bracket-team { display: flex; justify-content: space-between; padding: 9px 10px; border-bottom: 1px solid var(--hub-line); font-size: 11px; }
+  .bracket-team:last-child { border-bottom: 0; }
+  .bracket-team.winner { font-weight: 800; color: var(--hub-green); }
+  .bracket-note { padding: 8px 10px; background: var(--hub-amber-bg); color: var(--hub-amber); font-size: 10px; font-weight: 700; }
+
+  .team-row { display: flex; align-items: center; gap: 11px; min-height: 64px; padding: 9px 12px; border-bottom: 1px solid var(--hub-line); }
+  .team-row:last-child { border-bottom: 0; }
+  .seed { width: 24px; color: var(--hub-muted); font-size: 11px; font-weight: 800; text-align: center; }
+  .team-avatar { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #d8e8ec; color: var(--hub-teal); font-size: 11px; font-weight: 850; }
+  .team-copy { flex: 1; }
+  .team-name { font-size: 13px; font-weight: 750; }
+  .team-players { margin-top: 2px; font-size: 11px; color: var(--hub-muted); }
+  .team-rating { font-size: 11px; font-weight: 750; }
+
+  .info-block { padding: 14px; margin-bottom: 10px; }
+  .info-title { font-size: 14px; font-weight: 800; }
+  .info-copy { margin-top: 6px; font-size: 12px; line-height: 1.55; color: var(--hub-muted); }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px 10px; margin-top: 13px; }
+  .info-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--hub-muted); }
+  .info-value { margin-top: 3px; font-size: 12px; font-weight: 700; }
+
+  .champion { overflow: hidden; text-align: center; }
+  .champion-top { padding: 23px 16px 19px; color: var(--color-text-inverse); background: var(--hub-teal); }
+  .trophy { width: 54px; height: 54px; margin: 0 auto 9px; color: var(--hub-gold); }
+  .champion-kicker { color: #e8c96a; font-size: 11px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+  .champion-name { margin-top: 4px; font-size: 24px; font-weight: 850; letter-spacing: -.5px; }
+  .champion-players { margin-top: 5px; color: rgba(255,255,255,.76); font-size: 12px; }
+  .final-score { padding: 15px; font-size: 13px; }
+  .final-score strong { display: block; margin-top: 4px; font-size: 22px; color: var(--hub-teal); }
+  .placements { margin-top: 11px; }
+  .placement { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border-bottom: 1px solid var(--hub-line); }
+  .placement:last-child { border-bottom: 0; }
+  .place { width: 24px; font-size: 13px; font-weight: 850; color: var(--hub-gold); }
+  .place-team { flex: 1; font-size: 12px; font-weight: 700; }
+
+  .role-organizer .organizer-only { display: flex; }
+  .organizer-only { display: none; }
+  .manage-drawer {
+    display: none; position: fixed; z-index: 300; inset: 0 auto 0 0; width: 390px;
+    padding: 192px 16px 98px; background: rgba(26,58,74,.72);
+  }
+  .manage-drawer.open { display: flex; align-items: flex-start; }
+  .manage-sheet { width: 100%; padding: 16px; background: var(--hub-surface); border-radius: 16px; box-shadow: var(--shadow-elevated); }
+  .manage-head { display: flex; align-items: center; justify-content: space-between; }
+  .manage-title { font-size: 17px; font-weight: 850; }
+  .close { width: 44px; height: 44px; border: 0; border-radius: 22px; background: #eef1f2; color: var(--hub-teal); cursor: pointer; }
+  .manage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .manage-link { min-height: 49px; padding: 10px; border: 1px solid var(--hub-line); border-radius: 10px; background: var(--hub-surface); color: var(--color-text-primary); text-align: left; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .manage-link:first-child { color: var(--hub-teal); background: var(--hub-sand); border-color: #d9c89d; }
+
+  .toast { display: none; position: fixed; z-index: 400; left: 43px; bottom: 94px; width: 304px; padding: 11px 14px; border-radius: 10px; color: var(--color-text-inverse); background: var(--hub-teal); text-align: center; font-size: 12px; font-weight: 700; box-shadow: var(--shadow-elevated); }
+  .toast.show { display: block; }
+
+  .tab-bar { z-index: 100; }
+  body.dark-theme .event-masthead, body.dark-theme .obligation { background: var(--dark-bg-nav); }
+  body.dark-theme .tourney-tabs, body.dark-theme .surface, body.dark-theme .hub-tab,
+  body.dark-theme .secondary-action, body.dark-theme .rank-reason, body.dark-theme .manage-sheet,
+  body.dark-theme .manage-link, body.dark-theme .bracket-match { background: var(--dark-bg-surface); border-color: var(--dark-border); }
+  body.dark-theme .standing-row.head { background: var(--dark-bg-elevated); }
+  body.dark-theme .standing-row.qualifier { background: var(--dark-success-bg); }
+  body.dark-theme .obligation.wait { background: var(--dark-warning-bg); color: var(--dark-text-primary); }
+  body.dark-theme .obligation.wait .obligation-meta { color: var(--dark-text-secondary); }
+  body.dark-theme .reason-copy, body.dark-theme .bracket-note { background: var(--dark-warning-bg); color: var(--dark-warning-text); }
+  body.dark-theme .signup-progress span { background: var(--dark-border); }
+  body.dark-theme .published-banner { background: var(--dark-bg-nav); }
+</style>
+</head>
+<body class="role-player">
+
+<div class="state-switcher" aria-label="Wireframe states">
+  <div class="sw-label">Tournament hub state</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" data-switch="pre-event" onclick="setView('pre-event', this)">Signups Open</button>
+    <button class="sw-pill" data-switch="published" onclick="setView('published', this)">Schedule Published</button>
+    <button class="sw-pill" data-switch="today-play" onclick="setView('today-play', this)">Today · Play</button>
+    <button class="sw-pill" data-switch="today-work" onclick="setView('today-work', this)">Today · Work</button>
+    <button class="sw-pill" data-switch="today-wait" onclick="setView('today-wait', this)">Today · Wait</button>
+    <button class="sw-pill" data-switch="schedule" onclick="setView('schedule', this)">Schedule</button>
+    <button class="sw-pill" data-switch="standings" onclick="setView('standings', this)">Standings</button>
+    <button class="sw-pill" data-switch="bracket" onclick="setView('bracket', this)">Bracket</button>
+    <button class="sw-pill" data-switch="teams" onclick="setView('teams', this)">Teams</button>
+    <button class="sw-pill" data-switch="info" onclick="setView('info', this)">Info</button>
+    <button class="sw-pill" data-switch="completed" onclick="setView('completed', this)">Champion</button>
+  </div>
+  <div class="sw-label" style="margin-top:8px">Role</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" data-role-switch="player" onclick="setRole('player', this)">Player</button>
+    <button class="sw-pill" data-role-switch="organizer" onclick="setRole('organizer', this)">Organizer</button>
+  </div>
+</div>
+
+<main class="screen">
+  <div class="status-bar"><span>9:41</span><span style="font-size:11px;font-weight:400">● ◔ ▰</span></div>
+  <nav class="top-nav" aria-label="Page navigation">
+    <a href="tournaments.html" class="back">‹ Events</a>
+    <div class="title">Tournament</div>
+    <button class="action organizer-only" onclick="toggleManage()">Manage</button>
+    <button class="action player-action" hidden aria-hidden="true">Manage</button>
+  </nav>
+
+  <header class="event-masthead">
+    <div class="event-row">
+      <div><div class="event-kicker">Ocean City · September 6</div><div class="event-name">Endless Summer Open</div></div>
+      <span class="event-status" id="event-status">Signups open</span>
+    </div>
+    <div class="event-meta" id="event-meta">Men’s 2v2 · 9 of 12 expected · 3 courts</div>
+  </header>
+
+  <nav class="tourney-tabs" aria-label="Tournament sections">
+    <button class="hub-tab active" data-tab="today" onclick="openPrimaryTab()" id="today-tab">Overview</button>
+    <button class="hub-tab" data-tab="schedule" onclick="setView('schedule')">Schedule</button>
+    <button class="hub-tab" data-tab="standings" onclick="setView('standings')">Standings</button>
+    <button class="hub-tab" data-tab="bracket" onclick="setView('bracket')">Bracket</button>
+    <button class="hub-tab" data-tab="teams" onclick="setView('teams')">Teams</button>
+    <button class="hub-tab" data-tab="info" onclick="setView('info')">Info</button>
+  </nav>
+
+  <section class="view active" data-view="pre-event">
+    <div class="lifecycle-hero surface">
+      <div class="eyebrow">Signups close September 3</div>
+      <div class="lifecycle-title">Finish your team to join the field.</div>
+      <div class="lifecycle-copy">Alex still needs to accept your partner invite. Your team is confirmed when both players accept.</div>
+      <div class="signup-progress" aria-label="Team signup progress"><span class="done"></span><span class="current"></span><span></span></div>
+    </div>
+    <h2 class="section-heading">Your signup</h2>
+    <div class="signup-status surface"><div class="signup-check">1/2</div><div class="signup-main"><div class="signup-title">Partner invited</div><div class="signup-copy">Waiting for Alex Morgan · Sent today</div></div><button class="text-action" onclick="showToast('Partner invite options opened')">Manage</button></div>
+    <div class="certainty-block surface">
+      <div class="certainty-head"><div class="certainty-title">Event details</div><span class="certainty-badge confirmed">Confirmed</span></div>
+      <div class="certainty-list"><div class="certainty-row"><div class="certainty-icon">✓</div><div><div class="certainty-label">Sunday, September 6</div><div class="certainty-detail">Plan to be available from 8:30 AM–3:00 PM</div></div></div><div class="certainty-row"><div class="certainty-icon">✓</div><div><div class="certainty-label">Ocean City Courts</div><div class="certainty-detail">3101 Boardwalk · Ocean City, MD</div></div></div></div>
+    </div>
+    <div class="certainty-block provisional surface">
+      <div class="certainty-head"><div class="certainty-title">Current plan</div><span class="certainty-badge provisional">May change</span></div>
+      <div class="certainty-list"><div class="certainty-row"><div class="certainty-icon">~</div><div><div class="certainty-label">Pools into single elimination</div><div class="certainty-detail">Based on 12 expected teams and 3 courts</div></div></div><div class="certainty-row"><div class="certainty-icon">~</div><div><div class="certainty-label">About 4–6 matches per team</div><div class="certainty-detail">The final field determines pools, opponents and match count</div></div></div></div>
+    </div>
+    <h2 class="section-heading">When will I get my schedule?</h2>
+    <div class="milestones"><div class="milestone"><div class="milestone-title">Now · Build the field</div><div class="milestone-copy">Teams join and partner invitations are completed.</div></div><div class="milestone future"><div class="milestone-title">After signups · Organizer confirms the field</div><div class="milestone-copy">Then you’ll get exact opponents, courts and approximate match times.</div></div></div>
+  </section>
+
+  <section class="view" data-view="published">
+    <div class="published-banner"><div class="eyebrow">Schedule published</div><div class="published-title">You start on Court 2</div><div class="published-copy">Arrive by 8:30 AM. Your first match is approximately 9:00 AM against Shore Thing.</div></div>
+    <button class="primary-action" onclick="setView('schedule')">View my full schedule</button>
+    <h2 class="section-heading">Your first obligations</h2>
+    <div class="schedule-group surface"><div class="match-line"><div class="match-time">9:00</div><div><div class="match-name"><span class="you-tag">Play</span> · vs. Shore Thing</div><div class="match-sub">Pool B · Match 1</div></div><div class="match-court">Ct 2</div></div><div class="match-line"><div class="match-time">9:25</div><div><div class="match-name"><span class="you-tag">Work</span> · High Tide vs. Sandbar</div><div class="match-sub">Referee and track score</div></div><div class="match-court">Ct 2</div></div><div class="match-line"><div class="match-time">9:50</div><div><div class="match-name"><span class="you-tag">Play</span> · vs. High Tide</div><div class="match-sub">Pool B · Match 4</div></div><div class="match-court">Ct 1</div></div></div>
+    <h2 class="section-heading">What changed?</h2>
+    <div class="surface notice"><span class="notice-mark"></span><div><div class="notice-title">The field is confirmed at 12 teams</div><div class="notice-copy">Format, seeds and schedule are now set. If the organizer republishes a change, affected players will be notified.</div></div></div>
+    <h2 class="section-heading">Day-of details</h2>
+    <div class="surface info-block"><div class="info-copy" style="margin-top:0"><strong style="color:var(--color-text-primary)">Sunday, September 6 · 8:30 AM–3:00 PM</strong><br>Ocean City Courts · Bring water and a ball for warmups.</div></div>
+  </section>
+
+  <section class="view" data-view="today-play">
+    <div class="obligation">
+      <div class="eyebrow">Up next · Play</div>
+      <div class="obligation-title">vs. High Tide</div>
+      <div class="obligation-meta">10:20 AM · Court 2<br>Pool B · Match 7</div>
+      <div class="badge-row"><span class="micro-badge">Starts in ~12 min</span><span class="micro-badge">Best of 3</span></div>
+      <button class="primary-action" onclick="showToast('Match details opened')">Open match</button>
+    </div>
+    <div class="progress-strip surface">
+      <div class="progress-cell"><div class="progress-value">2–0</div><div class="progress-label">Pool record</div></div>
+      <div class="progress-cell"><div class="progress-value">2nd</div><div class="progress-label">Pool B</div></div>
+      <div class="progress-cell"><div class="progress-value">+18</div><div class="progress-label">Point diff.</div></div>
+    </div>
+    <h2 class="section-heading">Last match</h2>
+    <div class="surface result-row"><div class="result-score">21–17</div><div class="result-main"><div class="result-title">Win vs. Shore Thing</div><div class="result-meta">Court 1 · 9:48 AM · 1 set</div></div><button class="text-action" onclick="showToast('Score entry opened')">Edit</button></div>
+    <h2 class="section-heading">Tournament update</h2>
+    <div class="surface notice"><span class="notice-mark"></span><div><div class="notice-title">Court 3 is running 15 minutes late</div><div class="notice-copy">Published match times remain approximate. Your next match is unchanged.</div></div></div>
+  </section>
+
+  <section class="view" data-view="today-work">
+    <div class="obligation work">
+      <div class="eyebrow">Up next · Work</div>
+      <div class="obligation-title">Referee Court 1</div>
+      <div class="obligation-meta">10:05 AM · Report to Court 1<br>High Tide vs. Side Out</div>
+      <div class="badge-row"><span class="micro-badge">Starts in ~4 min</span><span class="micro-badge">Bring score card</span></div>
+      <button class="primary-action" onclick="showToast('Work assignment opened')">View assignment</button>
+    </div>
+    <div class="progress-strip surface">
+      <div class="progress-cell"><div class="progress-value">10:05</div><div class="progress-label">Work</div></div>
+      <div class="progress-cell"><div class="progress-value">10:50</div><div class="progress-label">Play next</div></div>
+      <div class="progress-cell"><div class="progress-value">Court 3</div><div class="progress-label">Next match</div></div>
+    </div>
+    <h2 class="section-heading">After this duty</h2>
+    <div class="surface notice"><span class="notice-mark"></span><div><div class="notice-title">You play Sandbar at approximately 10:50</div><div class="notice-copy">Court 3 · Your opponent is currently playing on Court 2.</div></div></div>
+  </section>
+
+  <section class="view" data-view="today-wait">
+    <div class="obligation wait">
+      <div class="eyebrow">Right now · Off</div>
+      <div class="obligation-title">Hydrate. You’re up in two matches.</div>
+      <div class="obligation-meta">Next: vs. Sandbar · approximately 10:50 AM · Court 3</div>
+      <div class="badge-row"><span class="micro-badge">No work duty</span><span class="micro-badge">~38 min</span></div>
+      <button class="secondary-action" onclick="setView('schedule')">See my schedule</button>
+    </div>
+    <h2 class="section-heading">What you’re waiting on</h2>
+    <div class="surface notice"><span class="notice-mark"></span><div><div class="notice-title">Sandbar is playing now</div><div class="notice-copy">Their match on Court 2 determines when your court opens. We’ll alert you when it’s time.</div></div></div>
+    <h2 class="section-heading">Your pool</h2>
+    <div class="surface result-row"><div class="result-score">2nd</div><div class="result-main"><div class="result-title">Pool B · 2 wins, 0 losses</div><div class="result-meta">Top 2 advance to the quarterfinals</div></div><button class="text-action" onclick="setView('standings')">View</button></div>
+  </section>
+
+  <section class="view" data-view="schedule">
+    <div class="filters" aria-label="Schedule filters"><button class="filter-chip active">My day</button><button class="filter-chip">All courts</button><button class="filter-chip">Pool B</button></div>
+    <div class="schedule-group surface"><div class="group-head"><div class="group-title">Now · 10:05 AM</div><span class="status">In progress</span></div><div class="match-line"><div class="match-time">Court 1</div><div><div class="match-name">High Tide vs. Side Out</div><div class="match-sub"><span class="you-tag">You work</span> · Match 6</div></div><div class="match-court">18–15</div></div><div class="match-line"><div class="match-time">Court 2</div><div><div class="match-name">Sandbar vs. Block Party</div><div class="match-sub">Pool B · Match 5</div></div><div class="match-court">12–9</div></div></div>
+    <div class="schedule-group surface"><div class="group-head"><div class="group-title">Next · 10:20 AM</div><span class="status upcoming">Approx.</span></div><div class="match-line"><div class="match-time">Court 2</div><div><div class="match-name"><span class="you-tag">Sets on the Beach</span> vs. High Tide</div><div class="match-sub">Your match · Pool B</div></div><div class="match-court">›</div></div><div class="match-line"><div class="match-time">Court 3</div><div><div class="match-name">Ace Holes vs. Deep Dish</div><div class="match-sub">Pool C</div></div><div class="match-court">›</div></div></div>
+    <div class="schedule-group surface"><div class="group-head"><div class="group-title">Later · 10:50 AM</div><span class="status upcoming">Approx.</span></div><div class="match-line"><div class="match-time">Court 3</div><div><div class="match-name"><span class="you-tag">Sets on the Beach</span> vs. Sandbar</div><div class="match-sub">Your match · Pool B</div></div><div class="match-court">›</div></div></div>
+  </section>
+
+  <section class="view" data-view="standings">
+    <div class="pool-label"><h2>Pool B</h2><span>3 of 6 matches complete</span></div>
+    <div class="standings surface">
+      <div class="standing-row head"><div>#</div><div>Team</div><div>W–L</div><div>Sets</div><div>Pts</div></div>
+      <div class="standing-row qualifier"><div class="standing-rank">1</div><div class="standing-team">High Tide</div><div class="standing-stat">2–0</div><div class="standing-stat">+3</div><div class="standing-stat">+22</div></div>
+      <div class="standing-row qualifier"><div class="standing-rank">2</div><div class="standing-team">Sets on the Beach</div><div class="standing-stat">2–0</div><div class="standing-stat">+3</div><div class="standing-stat">+18</div></div>
+      <div class="standing-row"><div class="standing-rank">3</div><div class="standing-team">Sandbar</div><div class="standing-stat">1–1</div><div class="standing-stat">0</div><div class="standing-stat">+2</div></div>
+      <div class="standing-row"><div class="standing-rank">4</div><div class="standing-team">Shore Thing</div><div class="standing-stat">0–2</div><div class="standing-stat">−4</div><div class="standing-stat">−42</div></div>
+    </div>
+    <div class="key"><span>Top 2 advance</span><span>Live standings</span></div>
+    <button class="rank-reason" aria-expanded="false" onclick="toggleReason(this)">Why am I ranked 2nd? <span aria-hidden="true">⌄</span></button>
+    <div class="reason-panel" id="rank-reason"><div class="reason-inner"><div class="reason-copy"><strong>You and High Tide are both 2–0.</strong> Your head-to-head match has not been played yet and set differential is tied at +3, so the live order uses point differential: High Tide is +22 and you are +18. A completed head-to-head result will take priority while exactly two teams are tied.</div></div></div>
+    <h2 class="section-heading">Tiebreak order</h2>
+    <div class="surface info-block"><div class="info-copy" style="margin-top:0">Win percentage → two-team head-to-head → set differential among tied teams → point differential among tied teams → overall point differential → coin flip.</div></div>
+  </section>
+
+  <section class="view" data-view="bracket">
+    <div class="pool-label"><h2>Championship bracket</h2><span>Starts after pool review</span></div>
+    <div class="surface notice" style="margin-bottom:14px"><span class="notice-mark"></span><div><div class="notice-title">Projected — not started</div><div class="notice-copy">Qualifiers lock after the organizer reviews pool results.</div></div></div>
+    <div class="bracket-scroll"><div class="bracket"><div><div class="round-label">Semifinals</div><div class="bracket-match"><div class="bracket-team"><span>1 · High Tide</span><b>—</b></div><div class="bracket-team"><span>4 · Deep Dish</span><b>—</b></div><div class="bracket-note">Court 1 · approx. 1:10</div></div><div class="bracket-match"><div class="bracket-team winner"><span>2 · Sets on the Beach</span><b>—</b></div><div class="bracket-team"><span>3 · Ace Holes</span><b>—</b></div><div class="bracket-note">Court 2 · approx. 1:10</div></div></div><div><div class="round-label">Final</div><div class="bracket-match"><div class="bracket-team"><span>Winner SF 1</span><b>—</b></div><div class="bracket-team"><span>Winner SF 2</span><b>—</b></div><div class="bracket-note">Court 1 · approx. 2:00</div></div></div></div></div>
+  </section>
+
+  <section class="view" data-view="teams">
+    <div class="pool-label"><h2>12 teams</h2><span>Seeds locked at publish</span></div>
+    <div class="surface"><div class="team-row"><div class="seed">1</div><div class="team-avatar">HT</div><div class="team-copy"><div class="team-name">High Tide</div><div class="team-players">Maya Chen · Jo Rivera</div></div><div class="team-rating">4.82</div></div><div class="team-row"><div class="seed">2</div><div class="team-avatar">SB</div><div class="team-copy"><div class="team-name">Sets on the Beach</div><div class="team-players">You · Alex Morgan</div></div><div class="team-rating">4.76</div></div><div class="team-row"><div class="seed">3</div><div class="team-avatar">DD</div><div class="team-copy"><div class="team-name">Deep Dish</div><div class="team-players">Nico Hall · Eli Price</div></div><div class="team-rating">4.68</div></div><div class="team-row"><div class="seed">4</div><div class="team-avatar">BP</div><div class="team-copy"><div class="team-name">Block Party</div><div class="team-players">Sam Patel · Cole Young</div></div><div class="team-rating">4.61</div></div><div class="team-row"><div class="seed">5</div><div class="team-avatar">SH</div><div class="team-copy"><div class="team-name">Sandbar</div><div class="team-players">Ari Cruz · Max Lee</div></div><div class="team-rating">4.57</div></div></div>
+  </section>
+
+  <section class="view" data-view="info">
+    <div class="surface info-block"><div class="info-title">Endless Summer Open</div><div class="info-copy">A player-run men’s 2v2 tournament with pool play into a single-elimination championship.</div><div class="info-grid"><div><div class="info-label">Date</div><div class="info-value">Sun, Sep 6 · 8:30 AM</div></div><div><div class="info-label">Target finish</div><div class="info-value">3:00 PM</div></div><div><div class="info-label">Venue</div><div class="info-value">Ocean City Courts</div></div><div><div class="info-label">Visibility</div><div class="info-value">Public</div></div></div></div>
+    <div class="surface info-block"><div class="info-title">Match rules</div><div class="info-copy">Pool play: one set to 21, win by 2, cap at 23.<br>Playoffs: best of 3; sets to 21, deciding set to 15.</div></div>
+    <div class="surface info-block"><div class="info-title">Organizers</div><div class="info-copy"><strong style="color:var(--color-text-primary)">Taylor Brooks · Jordan Kim</strong><br>Co-organizers have identical management access.</div><button class="secondary-action" onclick="showToast('Message started')">Message organizers</button></div>
+  </section>
+
+  <section class="view" data-view="completed">
+    <div class="champion surface"><div class="champion-top"><svg class="trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 01-10 0V4z"/><path d="M7 6H4v1a4 4 0 004 4M17 6h3v1a4 4 0 01-4 4"/></svg><div class="champion-kicker">2026 champions</div><div class="champion-name">Sets on the Beach</div><div class="champion-players">Alex Morgan · Patrick Kelly</div></div><div class="final-score">Championship final<strong>21–18 · 18–21 · 15–12</strong><div class="muted" style="margin-top:5px;font-size:11px">vs. High Tide · Court 1</div></div></div>
+    <h2 class="section-heading">Final placements</h2>
+    <div class="placements surface"><div class="placement"><div class="place">1</div><div class="place-team">Sets on the Beach</div><span class="status complete">Champion</span></div><div class="placement"><div class="place">2</div><div class="place-team">High Tide</div><span class="status neutral">Finalist</span></div><div class="placement"><div class="place" style="width:46px">—</div><div class="place-team">Deep Dish</div><span class="status neutral">Semifinalist</span></div><div class="placement"><div class="place" style="width:46px">—</div><div class="place-team">Ace Holes</div><span class="status neutral">Semifinalist</span></div></div>
+    <button class="primary-action" onclick="showToast('Tournament results shared')">Share results</button>
+  </section>
+</main>
+
+<aside class="manage-drawer" id="manage-drawer" aria-label="Tournament management">
+  <div class="manage-sheet"><div class="manage-head"><div><div class="eyebrow">Organizer tools</div><div class="manage-title">Manage tournament</div></div><button class="close" aria-label="Close" onclick="toggleManage()">×</button></div><div class="manage-grid"><button class="manage-link">Dashboard · 2 alerts</button><button class="manage-link">Teams & players</button><button class="manage-link">Format & rules</button><button class="manage-link">Schedule & courts</button><button class="manage-link">Results</button><button class="manage-link">Communications</button><button class="manage-link">Tournament settings</button></div></div>
+</aside>
+
+<div class="toast" id="toast" role="status"></div>
+
+<nav class="tab-bar" aria-label="App tabs">
+  <a href="home.html" class="tab"><div class="tab-icon active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v9H6v-9z"/></svg></div><div class="tab-label active">Home</div></a>
+  <a href="leagues-tab.html" class="tab"><div class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4h10v5a5 5 0 01-10 0V4zM12 14v6M8 20h8M7 7H4v1a4 4 0 004 4M17 7h3v1a4 4 0 01-4 4"/></svg></div><div class="tab-label">Leagues</div></a>
+  <a href="add-games.html" class="tab add-games"><div class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></div><div class="tab-label">Add Games</div></a>
+  <a href="messages.html" class="tab"><div class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H8l-4 4V5z"/></svg></div><div class="tab-label">Social</div></a>
+  <a href="profile.html" class="tab"><div class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0114 0"/></svg></div><div class="tab-label">Profile</div></a>
+</nav>
+
+<script>
+  const viewToTab = { 'pre-event':'today', published:'today', 'today-play':'today', 'today-work':'today', 'today-wait':'today', schedule:'schedule', standings:'standings', bracket:'bracket', teams:'teams', info:'info', completed:null };
+  const lifecycleLabels = {
+    'pre-event': { status:'Signups open', tab:'Overview', meta:'Men’s 2v2 · 9 of 12 expected · 3 courts' },
+    published: { status:'Schedule set', tab:'Overview', meta:'Men’s 2v2 · 12 teams · 3 courts' },
+    completed: { status:'Complete', tab:'Today', meta:'Men’s 2v2 · 12 teams · 3 courts' }
+  };
+  let primaryView = 'pre-event';
+  function openPrimaryTab() { setView(primaryView); }
+  function setView(name, switchButton) {
+    document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.dataset.view === name));
+    document.querySelectorAll('.hub-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.tab === viewToTab[name]));
+    document.querySelectorAll('[data-switch]').forEach(pill => pill.classList.toggle('active', pill.dataset.switch === name));
+    const lifecycle = lifecycleLabels[name] || { status:'Pool play', tab:'Today', meta:'Men’s 2v2 · 12 teams · 3 courts' };
+    document.getElementById('event-status').textContent = lifecycle.status;
+    document.getElementById('today-tab').textContent = lifecycle.tab;
+    document.getElementById('event-meta').textContent = lifecycle.meta;
+    if (viewToTab[name] === 'today') primaryView = name;
+    if (switchButton) switchButton.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function setRole(role) {
+    document.body.classList.toggle('role-organizer', role === 'organizer');
+    document.body.classList.toggle('role-player', role === 'player');
+    document.querySelectorAll('[data-role-switch]').forEach(pill => pill.classList.toggle('active', pill.dataset.roleSwitch === role));
+    if (role === 'player') document.getElementById('manage-drawer').classList.remove('open');
+  }
+  function toggleReason(button) {
+    const panel = document.getElementById('rank-reason');
+    const open = panel.classList.toggle('open');
+    button.setAttribute('aria-expanded', String(open));
+    button.innerHTML = open ? 'Hide ranking explanation <span aria-hidden="true">⌃</span>' : 'Why am I ranked 2nd? <span aria-hidden="true">⌄</span>';
+  }
+  function toggleManage() { document.getElementById('manage-drawer').classList.toggle('open'); }
+  let toastTimer;
+  function showToast(message) {
+    const toast = document.getElementById('toast'); toast.textContent = message; toast.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+</script>
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

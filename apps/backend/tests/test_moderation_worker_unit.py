@@ -1,9 +1,10 @@
+import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 
-from backend.services import moderation_worker
+from backend.services import moderation_alerts, moderation_evidence_service, moderation_worker
 
 
 def test_moderation_mode_defaults_off(monkeypatch):
@@ -37,6 +38,212 @@ def test_enabled_worker_requires_provider_credential(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
         moderation_worker.validate_worker_config()
+
+
+def configure_valid_deployed_worker(monkeypatch):
+    monkeypatch.setenv("ENV", "production")
+    monkeypatch.setenv("OPENAI_API_KEY", "provider-test-value")
+    monkeypatch.setenv("AWS_S3_BUCKET", "public-media-test-bucket")
+    monkeypatch.setenv("AWS_MODERATION_EVIDENCE_BUCKET", "evidence-test-bucket")
+    monkeypatch.setenv("RELEASE_READINESS_GENERATION", "release-test-generation")
+    monkeypatch.setenv("MODERATION_ALERTS_ENABLED", "true")
+    monkeypatch.setenv("RESEND_API_KEY", "mail-test-value")
+    monkeypatch.setenv("RESEND_FROM_EMAIL", "alerts@example.test")
+    monkeypatch.setenv("MODERATION_ALERT_EMAIL", "reviewer@example.test")
+
+
+def test_deployed_worker_requires_evidence_bucket(monkeypatch):
+    configure_valid_deployed_worker(monkeypatch)
+    monkeypatch.delenv("AWS_MODERATION_EVIDENCE_BUCKET")
+
+    with pytest.raises(RuntimeError, match="AWS_MODERATION_EVIDENCE_BUCKET"):
+        moderation_worker.validate_worker_config()
+
+
+def test_deployed_worker_requires_separate_private_evidence_bucket(monkeypatch):
+    configure_valid_deployed_worker(monkeypatch)
+    monkeypatch.setenv("AWS_S3_BUCKET", "  EVIDENCE-TEST-BUCKET  ")
+
+    with pytest.raises(RuntimeError, match="separate private bucket"):
+        moderation_worker.validate_worker_config()
+
+
+def test_deployed_worker_requires_release_generation(monkeypatch):
+    configure_valid_deployed_worker(monkeypatch)
+    monkeypatch.delenv("RELEASE_READINESS_GENERATION")
+
+    with pytest.raises(RuntimeError, match="RELEASE_READINESS_GENERATION"):
+        moderation_worker.validate_worker_config()
+
+
+def test_worker_configuration_issues_are_privacy_safe(monkeypatch):
+    monkeypatch.setattr(
+        moderation_worker,
+        "validate_worker_config",
+        Mock(side_effect=RuntimeError("OPENAI_API_KEY secret-value")),
+    )
+
+    assert moderation_worker.worker_configuration_issues() == ["moderation worker configuration"]
+
+
+@pytest.mark.asyncio
+async def test_moderation_worker_publishes_and_reads_heartbeat(monkeypatch):
+    monkeypatch.setenv("RELEASE_READINESS_GENERATION", "current-release")
+    redis = AsyncMock()
+    redis.get.return_value = "current-release"
+    monkeypatch.setattr(
+        moderation_worker.redis_service,
+        "get_redis_client",
+        AsyncMock(return_value=redis),
+    )
+
+    assert await moderation_worker.publish_heartbeat() is True
+    redis.set.assert_awaited_once_with(
+        moderation_worker.HEARTBEAT_KEY,
+        "current-release",
+        ex=moderation_worker.HEARTBEAT_TTL_SECONDS,
+    )
+    assert await moderation_worker.publish_cycle_progress() is True
+    redis.set.assert_awaited_with(
+        moderation_worker.PROGRESS_KEY,
+        "current-release",
+        ex=moderation_worker.PROGRESS_TTL_SECONDS,
+    )
+    assert await moderation_worker.heartbeat_is_fresh() is True
+    assert redis.get.await_args_list == [
+        call(moderation_worker.HEARTBEAT_KEY),
+        call(moderation_worker.PROGRESS_KEY),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_live_worker_without_recent_cycle_progress_is_not_ready(monkeypatch):
+    redis = AsyncMock()
+    redis.get.side_effect = [moderation_worker.WORKER_GENERATION, None]
+    monkeypatch.setattr(
+        moderation_worker.redis_service,
+        "get_redis_client",
+        AsyncMock(return_value=redis),
+    )
+
+    assert await moderation_worker.heartbeat_is_fresh() is False
+
+
+@pytest.mark.asyncio
+async def test_new_worker_does_not_accept_previous_generation_progress(monkeypatch):
+    redis = AsyncMock()
+    redis.get.side_effect = ["new-worker-generation", "previous-worker-generation"]
+    monkeypatch.setattr(
+        moderation_worker.redis_service,
+        "get_redis_client",
+        AsyncMock(return_value=redis),
+    )
+
+    assert await moderation_worker.heartbeat_is_fresh() is False
+
+
+@pytest.mark.asyncio
+async def test_failed_new_release_does_not_accept_prior_release_keys(monkeypatch):
+    """Old matching keys cannot hide a new worker that never starts publishing."""
+    monkeypatch.setenv("RELEASE_READINESS_GENERATION", "current-release")
+    redis = AsyncMock()
+    redis.get.side_effect = ["prior-release", "prior-release"]
+    monkeypatch.setattr(
+        moderation_worker.redis_service,
+        "get_redis_client",
+        AsyncMock(return_value=redis),
+    )
+
+    assert await moderation_worker.heartbeat_is_fresh("current-release") is False
+
+
+def test_cycle_progress_window_covers_every_supported_provider_call():
+    expected_work_budget = (
+        2 * moderation_worker.MAX_PROVIDER_TIMEOUT_SECONDS
+        + moderation_worker.MAX_FLAGSHIP_ATTEMPTS * moderation_worker.MAX_FLAGSHIP_TIMEOUT_SECONDS
+        + moderation_worker.PROGRESS_RUNTIME_MARGIN_SECONDS
+    )
+    assert moderation_worker.CYCLE_WORK_READINESS_BUDGET_SECONDS == expected_work_budget
+    assert moderation_worker.PROGRESS_TTL_SECONDS == (
+        expected_work_budget
+        + moderation_worker.MAX_IDLE_POLL_SECONDS
+        + moderation_worker.PROGRESS_SCHEDULING_MARGIN_SECONDS
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        ("MODERATION_PROVIDER_TIMEOUT", "31", "MODERATION_PROVIDER_TIMEOUT"),
+        ("MODERATION_FLAGSHIP_TIMEOUT", "46", "MODERATION_FLAGSHIP_TIMEOUT"),
+        ("MODERATION_FLAGSHIP_MAX_ATTEMPTS", "3", "MODERATION_FLAGSHIP_MAX_ATTEMPTS"),
+    ],
+)
+def test_worker_rejects_runtime_beyond_progress_window(monkeypatch, name, value, message):
+    monkeypatch.setenv("MODERATION_MODE", "off")
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(RuntimeError, match=message):
+        moderation_worker.validate_worker_config()
+
+
+@pytest.mark.asyncio
+async def test_moderation_worker_heartbeat_fails_closed(monkeypatch):
+    monkeypatch.setattr(
+        moderation_worker.redis_service,
+        "get_redis_client",
+        AsyncMock(side_effect=ConnectionError("redis unavailable")),
+    )
+
+    assert await moderation_worker.publish_heartbeat() is False
+    assert await moderation_worker.heartbeat_is_fresh() is False
+
+
+@pytest.mark.asyncio
+async def test_worker_refreshes_heartbeat_during_long_inflight_job(monkeypatch):
+    session = AsyncMock()
+
+    class SessionContext:
+        async def __aenter__(self):
+            return session
+
+        async def __aexit__(self, *_args):
+            return False
+
+    monkeypatch.setattr(moderation_worker, "validate_worker_config", Mock())
+    monkeypatch.setattr(moderation_worker, "moderation_mode", lambda: "enforce")
+    monkeypatch.setattr(moderation_worker, "HEARTBEAT_TTL_SECONDS", 0.02)
+    monkeypatch.setattr(moderation_worker, "HEARTBEAT_INTERVAL_SECONDS", 0.004)
+    monkeypatch.setattr(
+        moderation_evidence_service,
+        "purge_due",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(moderation_alerts, "recover_stale_claims", AsyncMock())
+    monkeypatch.setattr(moderation_alerts, "ensure_alert_schedule", AsyncMock())
+    monkeypatch.setattr(moderation_alerts, "purge_terminal_jobs", AsyncMock())
+    monkeypatch.setattr(moderation_alerts, "claim_alert", AsyncMock(return_value=None))
+    monkeypatch.setattr(moderation_worker, "recover_stale_jobs", AsyncMock())
+    monkeypatch.setattr(moderation_worker, "claim_job", AsyncMock(return_value=object()))
+
+    refresh_times = []
+
+    async def record_heartbeat():
+        refresh_times.append(asyncio.get_running_loop().time())
+        return True
+
+    async def long_inflight_job(_session, _job):
+        await asyncio.sleep(0.04)
+        raise RuntimeError("stop after in-flight work")
+
+    monkeypatch.setattr(moderation_worker, "publish_heartbeat", record_heartbeat)
+    monkeypatch.setattr(moderation_worker, "process_job", long_inflight_job)
+
+    with pytest.raises(RuntimeError, match="stop after in-flight work"):
+        await moderation_worker.run_forever(lambda: SessionContext())
+
+    assert len(refresh_times) >= 3
+    assert refresh_times[-1] - refresh_times[0] > moderation_worker.HEARTBEAT_TTL_SECONDS
 
 
 def test_provider_content_excludes_identity_fields():

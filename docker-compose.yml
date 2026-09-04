@@ -66,7 +66,6 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-beachkings}
       - FRONTEND_PORT=${FRONTEND_PORT:-3000}
       # - ENABLE_WHATSAPP=${ENABLE_WHATSAPP:-true}  # WhatsApp service is inactive
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - AUTH_DELIVERY_ENABLED=${AUTH_DELIVERY_ENABLED:-true}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
@@ -81,6 +80,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=${REDIS_DB:-0}
+      - RELEASE_READINESS_GENERATION=${RELEASE_READINESS_GENERATION:-}
       - DEBUG_BACKEND=${DEBUG_BACKEND:-0}
       - DEBUGPY_PORT=${DEBUGPY_PORT:-5678}
       - BACKEND_INTERNAL_PORT=${BACKEND_INTERNAL_PORT:-8000}
@@ -125,6 +125,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=${REDIS_DB:-0}
+      - RELEASE_READINESS_GENERATION=${RELEASE_READINESS_GENERATION:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -158,8 +159,14 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_MODERATION_EVIDENCE_BUCKET=${AWS_MODERATION_EVIDENCE_BUCKET:-}
       - AWS_S3_REGION=${AWS_S3_REGION:-us-west-2}
+      - RELEASE_READINESS_GENERATION=${RELEASE_READINESS_GENERATION:-}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=${REDIS_DB:-0}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./apps/backend:/app/backend

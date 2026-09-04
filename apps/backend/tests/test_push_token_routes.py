@@ -181,7 +181,9 @@ class TestRegisterPushToken:
             headers=headers,
         )
         assert response.status_code == 500
-        assert "Failed to register push token" in response.json()["detail"]
+        assert response.json()["detail"]["code"] == "internal_error"
+        assert response.json()["detail"]["request_id"]
+        assert "DB connection lost" not in response.text
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +267,9 @@ class TestUnregisterPushToken:
             headers=headers,
         )
         assert response.status_code == 500
-        assert "Failed to unregister push token" in response.json()["detail"]
+        assert response.json()["detail"]["code"] == "internal_error"
+        assert response.json()["detail"]["request_id"]
+        assert "DB connection lost" not in response.text
 
 
 class TestUnregisterInstallation:

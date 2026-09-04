@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Tournament Management Hub - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  button, input, textarea { font: inherit; }
+  button { cursor: pointer; }
+  .state { display: none; }
+  .state.active { display: block; }
+  .top-nav .action { min-width: 60px; min-height: 44px; border: 0; background: none; text-align: right; }
+  .event-strip { background: var(--color-bg-surface); padding: 13px 16px 12px; border-bottom: 1px solid var(--color-border); }
+  .event-title { font-size: 18px; font-weight: 700; letter-spacing: -.2px; }
+  .event-meta { display: flex; align-items: center; gap: 7px; margin-top: 6px; color: var(--color-text-secondary); font-size: 12px; }
+  .stage-track { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+  .stage-line { height: 3px; flex: 1; border-radius: 2px; background: var(--color-border); }
+  .stage-line.done { background: var(--color-primary); }
+  .stage-line.next { background: var(--color-accent); }
+  .chip { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .chip.live, .chip.success { background: #e6f5eb; color: #21733a; }
+  .chip.warning { background: #fff2d7; color: #8a5b00; }
+  .chip.danger { background: #fde8e9; color: #a6202d; }
+  .chip.info { background: #e8f4f8; color: #236d88; }
+  .chip.neutral { background: #eceff1; color: #59636a; }
+  .screen-content { padding: 14px 16px 106px; }
+  .eyebrow { color: var(--color-text-secondary); font-size: 11px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
+  .screen-title { margin-top: 3px; font-size: 23px; line-height: 1.12; font-weight: 750; letter-spacing: -.45px; }
+  .screen-intro { margin-top: 5px; color: var(--color-text-secondary); font-size: 13px; line-height: 1.4; }
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 9px; }
+  .section-head h2 { font-size: 15px; }
+  .text-action { border: 0; background: none; color: var(--color-primary-light); font-size: 12px; font-weight: 700; min-height: 44px; padding: 0 2px 0 12px; }
+  .priority-list { border-radius: 12px; overflow: hidden; background: var(--color-bg-surface); box-shadow: var(--shadow-card); }
+  .priority-item { width: 100%; display: grid; grid-template-columns: 30px 1fr 20px; gap: 10px; align-items: start; padding: 13px 12px; min-height: 64px; color: inherit; text-align: left; border: 0; border-bottom: 1px solid var(--color-border); background: transparent; }
+  .priority-item:last-child { border-bottom: 0; }
+  .priority-item:active { background: #f3f6f7; }
+  .priority-num { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; background: var(--color-primary); color: #fff; font-size: 12px; font-weight: 800; }
+  .priority-num.warn { background: var(--color-warning); }
+  .priority-num.danger { background: var(--color-danger); }
+  .priority-title { display: block; font-size: 14px; font-weight: 700; line-height: 1.25; }
+  .priority-copy { display: block; margin-top: 3px; color: var(--color-text-secondary); font-size: 12px; line-height: 1.35; }
+  .chevron { color: var(--color-text-tertiary); font-size: 20px; line-height: 25px; }
+  .status-rail { display: flex; gap: 1px; overflow: hidden; border-radius: 10px; background: var(--color-border); }
+  .status-cell { flex: 1; padding: 10px 6px; background: var(--color-bg-surface); text-align: center; }
+  .status-value { font-size: 15px; font-weight: 750; }
+  .status-label { margin-top: 2px; color: var(--color-text-secondary); font-size: 10px; }
+  .primary-action { width: 100%; min-height: 48px; border: 0; border-radius: 12px; background: var(--color-accent); color: #fff; font-weight: 750; font-size: 15px; }
+  .secondary-action { width: 100%; min-height: 46px; border: 1.5px solid var(--color-border); border-radius: 12px; background: var(--color-bg-surface); color: var(--color-text-primary); font-weight: 700; }
+  .small-action { min-height: 44px; padding: 0 13px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-bg-surface); color: var(--color-text-primary); font-size: 12px; font-weight: 700; }
+  .filter-row { display: flex; gap: 7px; overflow-x: auto; padding: 12px 16px 4px; scrollbar-width: none; }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter { flex: 0 0 auto; min-height: 38px; padding: 0 13px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-bg-surface); color: var(--color-text-secondary); font-size: 12px; font-weight: 700; }
+  .filter.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .search { width: 100%; height: 44px; margin-top: 10px; padding: 0 13px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-surface); color: var(--color-text-primary); }
+  .court-card, .panel { background: var(--color-bg-surface); border-radius: 12px; margin-bottom: 10px; box-shadow: var(--shadow-card); overflow: hidden; }
+  .court-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 13px; border-bottom: 1px solid var(--color-border); }
+  .court-name { font-size: 14px; font-weight: 750; }
+  .court-note { color: var(--color-text-secondary); font-size: 11px; }
+  .match-row { position: relative; display: grid; grid-template-columns: 54px 1fr auto; gap: 9px; align-items: center; min-height: 72px; padding: 10px 12px; border-bottom: 1px solid var(--color-border); }
+  .match-row:last-child { border-bottom: 0; }
+  .match-time { font-size: 12px; font-weight: 750; }
+  .match-time small { display: block; margin-top: 3px; color: var(--color-text-secondary); font-size: 10px; font-weight: 500; }
+  .match-teams { font-size: 13px; font-weight: 700; line-height: 1.35; }
+  .match-detail { margin-top: 3px; color: var(--color-text-secondary); font-size: 11px; font-weight: 500; }
+  .alert-strip { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; padding: 11px 12px; border-radius: 10px; background: #fff2d7; color: #704a00; font-size: 12px; line-height: 1.4; }
+  .alert-strip.danger { background: #fde8e9; color: #8c1d27; }
+  .alert-strip.info { background: #e8f4f8; color: #1f6077; }
+  .summary-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 13px; border-bottom: 1px solid var(--color-border); }
+  .summary-line:last-child { border-bottom: 0; }
+  .summary-main { font-size: 13px; font-weight: 700; }
+  .summary-sub { margin-top: 3px; color: var(--color-text-secondary); font-size: 11px; line-height: 1.35; }
+  .standing-row { display: grid; grid-template-columns: 23px 1fr 36px 40px; align-items: center; min-height: 42px; padding: 0 13px; border-bottom: 1px solid var(--color-border); font-size: 12px; }
+  .standing-row:last-child { border-bottom: 0; }
+  .standing-row.header { min-height: 34px; background: #f3f5f6; color: var(--color-text-secondary); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .standing-row.qualifier { background: #fbf6e8; }
+  .stand-rank, .stand-stat { font-weight: 750; }
+  .why-button { min-height: 44px; padding: 0 13px; border: 0; background: none; color: var(--color-primary-light); font-size: 12px; font-weight: 700; }
+  .why-copy { display: none; padding: 0 13px 13px; color: var(--color-text-secondary); font-size: 12px; line-height: 1.4; }
+  .why-copy.open { display: block; }
+  .seed-row, .team-row { display: flex; align-items: center; gap: 11px; min-height: 64px; padding: 10px 12px; border-bottom: 1px solid var(--color-border); }
+  .seed-row:last-child, .team-row:last-child { border-bottom: 0; }
+  .seed { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 50%; background: #e8f4f8; color: var(--color-primary); font-size: 12px; font-weight: 800; }
+  .team-main { flex: 1; min-width: 0; }
+  .team-name { font-size: 13px; font-weight: 750; }
+  .team-players { margin-top: 3px; color: var(--color-text-secondary); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-button { width: 44px; height: 44px; border: 0; background: none; color: var(--color-text-secondary); font-size: 22px; }
+  .field-label { display: block; margin: 14px 0 6px; color: var(--color-text-secondary); font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+  .score-match { padding: 13px; }
+  .versus { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; text-align: center; }
+  .versus .team-name { font-size: 14px; }
+  .vs { color: var(--color-text-secondary); font-size: 11px; font-weight: 700; }
+  .set-row { display: grid; grid-template-columns: 1fr 64px 18px 64px; align-items: center; gap: 7px; min-height: 58px; padding: 7px 12px; border-top: 1px solid var(--color-border); }
+  .set-label { font-size: 13px; font-weight: 700; }
+  .score-input { width: 64px; height: 44px; border: 1.5px solid var(--color-border); border-radius: 9px; background: var(--color-bg-primary); color: var(--color-text-primary); text-align: center; font-size: 18px; font-weight: 750; }
+  .impact-line { display: flex; gap: 10px; align-items: flex-start; padding: 11px 12px; border-bottom: 1px solid var(--color-border); }
+  .impact-line:last-child { border-bottom: 0; }
+  .impact-icon { width: 24px; height: 24px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 6px; background: #fff2d7; color: #8a5b00; font-size: 12px; font-weight: 800; }
+  .recipient-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .recipient { min-height: 48px; padding: 6px 10px; border: 1.5px solid var(--color-border); border-radius: 10px; background: var(--color-bg-surface); color: var(--color-text-secondary); font-size: 12px; font-weight: 700; }
+  .recipient.selected { border-color: var(--color-primary); background: #e8f4f8; color: var(--color-primary); }
+  textarea { width: 100%; min-height: 116px; resize: none; padding: 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-surface); color: var(--color-text-primary); font-size: 14px; line-height: 1.4; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; min-height: 50px; }
+  .switch { width: 48px; height: 28px; padding: 3px; border: 0; border-radius: 999px; background: var(--color-primary); }
+  .switch::after { content: ''; display: block; width: 22px; height: 22px; margin-left: 20px; border-radius: 50%; background: #fff; transition: transform .15s ease-out; }
+  .switch.off { background: var(--color-border); }
+  .switch.off::after { transform: translateX(-20px); }
+  .change-box { padding: 13px; border-radius: 11px; background: var(--color-bg-surface); box-shadow: var(--shadow-card); }
+  .change-arrow { padding: 4px 0; color: var(--color-text-secondary); text-align: center; font-size: 18px; }
+  .change-value { display: flex; align-items: center; justify-content: space-between; padding: 10px 11px; border-radius: 9px; background: var(--color-bg-primary); }
+  .change-value.new { background: #e8f4f8; color: #174b60; }
+  .exception-card { margin-bottom: 10px; padding: 13px; border-radius: 11px; background: var(--color-bg-surface); box-shadow: var(--shadow-card); }
+  .exception-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .exception-title { font-size: 14px; font-weight: 750; }
+  .exception-copy { margin: 7px 0 11px; color: var(--color-text-secondary); font-size: 12px; line-height: 1.4; }
+  .button-pair { display: flex; gap: 8px; }
+  .button-pair > * { flex: 1; }
+  .confirmation { display: none; margin-top: 10px; padding: 10px 12px; border-radius: 9px; background: #e6f5eb; color: #21733a; font-size: 12px; font-weight: 700; }
+  .confirmation.show { display: block; }
+  .milestones { display: grid; grid-template-columns: 1fr 24px 1fr; align-items: center; margin: 14px 0 16px; }
+  .milestone { display: flex; align-items: center; gap: 7px; color: var(--color-text-secondary); font-size: 11px; font-weight: 700; }
+  .milestone:last-child { justify-content: flex-end; }
+  .milestone-dot { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--color-border); color: var(--color-text-secondary); font-size: 11px; }
+  .milestone.current { color: var(--color-text-primary); }
+  .milestone.current .milestone-dot { background: var(--color-primary); color: #fff; }
+  .milestone.done .milestone-dot { background: var(--color-success); color: #fff; }
+  .milestone-connector { height: 2px; background: var(--color-border); }
+  .readiness-row { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; min-height: 58px; padding: 8px 12px; border-bottom: 1px solid var(--color-border); }
+  .readiness-row:last-child { border-bottom: 0; }
+  .readiness-mark { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; background: #e6f5eb; color: #21733a; font-size: 13px; font-weight: 800; }
+  .field-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; min-height: 62px; padding: 9px 12px; border-bottom: 1px solid var(--color-border); }
+  .field-row:last-child { border-bottom: 0; }
+  .field-toggle { min-width: 76px; min-height: 38px; border: 1.5px solid var(--color-primary); border-radius: 9px; background: #e8f4f8; color: var(--color-primary); font-size: 11px; font-weight: 750; }
+  .field-toggle.excluded { border-color: var(--color-border); background: transparent; color: var(--color-text-secondary); }
+  .field-toggle:disabled { opacity: .58; cursor: default; }
+  .locked-note { display: none; }
+  .locked-note.show { display: block; }
+  .tab-bar { z-index: 100; background: var(--color-bg-surface); border-color: var(--color-border); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  body.dark-theme .event-strip, body.dark-theme .priority-list, body.dark-theme .status-cell, body.dark-theme .court-card,
+  body.dark-theme .panel, body.dark-theme .small-action, body.dark-theme .secondary-action, body.dark-theme .recipient,
+  body.dark-theme textarea, body.dark-theme .change-box, body.dark-theme .exception-card, body.dark-theme .tab-bar { background: #161b22; }
+  body.dark-theme .standing-row.header, body.dark-theme .match-row:active, body.dark-theme .priority-item:active,
+  body.dark-theme .score-input, body.dark-theme .change-value { background: #0d1117; }
+  body.dark-theme .alert-strip { background: #2a1f05; color: #d29922; }
+  body.dark-theme .alert-strip.danger { background: #2a1215; color: #f85149; }
+  body.dark-theme .alert-strip.info, body.dark-theme .recipient.selected, body.dark-theme .change-value.new { background: #0d1d35; color: #58a6ff; }
+  body.dark-theme .standing-row.qualifier { background: #2a1f05; }
+  body.dark-theme .field-toggle { background: #0d1d35; color: #58a6ff; }
+  body.dark-theme .field-toggle.excluded { background: transparent; color: #8b949e; }
+</style>
+</head>
+<body>
+
+<div class="state-switcher" aria-label="Wireframe states">
+  <div class="sw-label">Organizer management states</div>
+  <div class="sw-pills">
+    <button class="sw-pill" data-state="signups">Signups open</button>
+    <button class="sw-pill" data-state="final-field">Final field</button>
+    <button class="sw-pill active" data-state="dashboard">Dashboard</button>
+    <button class="sw-pill" data-state="courts">Court board</button>
+    <button class="sw-pill" data-state="review">Stage review</button>
+    <button class="sw-pill" data-state="teams">Teams</button>
+    <button class="sw-pill" data-state="result">Correct result</button>
+    <button class="sw-pill" data-state="message">Message</button>
+    <button class="sw-pill" data-state="impact">Impact preview</button>
+    <button class="sw-pill" data-state="exceptions">Exceptions</button>
+  </div>
+</div>
+
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;font-weight:400">● ● ●</span></div>
+<nav class="top-nav" aria-label="Tournament management">
+  <a href="tournament-hub.html" class="back">&larr; Tournament</a>
+  <div class="title">Manage</div>
+  <button class="action" onclick="setState('message')">Broadcast</button>
+</nav>
+
+<header class="event-strip">
+  <div class="event-title">Rockaway Open</div>
+  <div class="event-meta"><span class="chip live" id="event-status">Live</span><span id="event-stage">Pool play</span><span>·</span><span id="event-progress">9 of 15 matches</span></div>
+  <div class="stage-track" id="event-track" aria-label="Pool play nearing completion"><span class="stage-line done"></span><span class="stage-line done"></span><span class="stage-line done"></span><span class="stage-line next"></span></div>
+</header>
+
+<main>
+  <section class="state" id="state-signups">
+    <div class="screen-content">
+      <div class="eyebrow">Before scheduling</div>
+      <h1 class="screen-title">Build the field</h1>
+      <p class="screen-intro">Signups are open. Accepted teams have joined in the app; you decide which teams enter the final field.</p>
+      <div class="milestones" aria-label="Tournament setup milestones">
+        <div class="milestone current"><span class="milestone-dot">1</span><span>Final field</span></div><span class="milestone-connector"></span><div class="milestone"><span class="milestone-dot">2</span><span>Publish schedule</span></div>
+      </div>
+      <div class="status-rail">
+        <div class="status-cell"><div class="status-value">9</div><div class="status-label">Accepted teams</div></div>
+        <div class="status-cell"><div class="status-value">9</div><div class="status-label">Rosters complete</div></div>
+        <div class="status-cell"><div class="status-value">3</div><div class="status-label">Courts ready</div></div>
+      </div>
+      <div class="section-head"><h2>Ready to decide</h2><span class="chip success">No blockers</span></div>
+      <div class="panel">
+        <div class="readiness-row"><span class="readiness-mark">✓</span><div><div class="summary-main">All partner invitations accepted</div><div class="summary-sub">Every team has two players.</div></div><button class="text-action" onclick="setState('teams')">View</button></div>
+        <div class="readiness-row"><span class="readiness-mark">✓</span><div><div class="summary-main">Courts and time window set</div><div class="summary-sub">3 courts · 9:00 AM–4:30 PM</div></div><span class="chip success">Ready</span></div>
+        <div class="readiness-row"><span class="readiness-mark">✓</span><div><div class="summary-main">Recommended plan available</div><div class="summary-sub">Currently based on 12 expected teams.</div></div><span class="chip info">Draft</span></div>
+      </div>
+      <div class="alert-strip info"><strong>No player check-in:</strong><span>Accepting in the app is not day-of attendance confirmation. Finalize now or courtside based on the teams you expect to play.</span></div>
+      <button class="primary-action" onclick="setState('final-field')">Choose final field</button>
+      <button class="secondary-action" onclick="showConfirmation('signups-confirm','Signup link copied')" style="margin-top:8px">Share signup link</button>
+      <div class="confirmation" id="signups-confirm"></div>
+    </div>
+  </section>
+
+  <section class="state" id="state-final-field">
+    <div class="screen-content">
+      <div class="eyebrow">Milestone 1 of 2</div>
+      <h1 class="screen-title">Confirm final field</h1>
+      <p class="screen-intro">Include the accepted teams you want scheduled. This is an organizer decision, not player check-in.</p>
+      <div class="milestones" aria-label="Tournament setup milestones">
+        <div class="milestone current" id="field-milestone"><span class="milestone-dot">1</span><span>Final field</span></div><span class="milestone-connector"></span><div class="milestone" id="schedule-milestone"><span class="milestone-dot">2</span><span>Publish schedule</span></div>
+      </div>
+      <div class="section-head" style="margin-top:0"><h2><span id="field-count">8</span> of 9 accepted teams included</h2><button class="text-action" onclick="setAllFieldTeams(true)">Include all</button></div>
+      <div class="panel" id="field-list">
+        <div class="field-row"><div><div class="team-name">Dig This</div><div class="team-players">Maya Chen · Jo Reyes · Accepted Aug 28</div></div><button class="field-toggle" aria-pressed="true" onclick="toggleFieldTeam(this)">Included</button></div>
+        <div class="field-row"><div><div class="team-name">High Tide</div><div class="team-players">Nia Brooks · Jules Kim · Accepted Aug 29</div></div><button class="field-toggle" aria-pressed="true" onclick="toggleFieldTeam(this)">Included</button></div>
+        <div class="field-row"><div><div class="team-name">Shore Thing</div><div class="team-players">Ari Flores · Sam Lee · Accepted Sep 1</div></div><button class="field-toggle" aria-pressed="true" onclick="toggleFieldTeam(this)">Included</button></div>
+        <div class="field-row"><div><div class="team-name">Side Out</div><div class="team-players">Kai Ford · Remy Stone · Accepted Sep 2</div></div><button class="field-toggle excluded" aria-pressed="false" onclick="toggleFieldTeam(this)">Excluded</button></div>
+        <div class="summary-line"><div><div class="summary-main">5 more accepted teams</div><div class="summary-sub">All 5 are included in the final field.</div></div><span class="chip success">Included</span></div>
+      </div>
+      <div class="alert-strip"><strong>Plan will change:</strong><span id="plan-warning-text">Your draft expected 12 teams. With 8 included, Beach League recommends 2 pools of 4, then semifinals and a final.</span></div>
+      <div class="panel">
+        <div class="summary-line"><div><div class="summary-main">Updated plan</div><div class="summary-sub" id="updated-plan-detail">2 pools of 4 · Top 2 from each pool advance</div></div><span class="chip info">Recommended</span></div>
+        <div class="summary-line"><div><div class="summary-main">Estimated schedule</div><div class="summary-sub" id="schedule-estimate-detail">15 total matches · 3 courts · Finish about 3:45 PM</div></div><span class="chip neutral">Not generated</span></div>
+      </div>
+      <button class="primary-action" id="field-primary" onclick="advanceFinalField()">Confirm 8-team field</button>
+      <div class="confirmation" id="field-confirm"></div>
+      <div class="locked-note" id="publish-step">
+        <div class="alert-strip info" style="margin-top:10px"><strong>Field confirmed:</strong><span>The updated plan is ready. Generate the schedule, review courts and work assignments, then publish.</span></div>
+        <button class="primary-action" id="schedule-primary" onclick="advanceSchedule()">Generate schedule</button>
+      </div>
+      <button class="secondary-action" id="field-secondary" onclick="handleFieldSecondary()" style="margin-top:8px">Keep signups open</button>
+    </div>
+  </section>
+
+  <section class="state active" id="state-dashboard">
+    <div class="screen-content">
+      <div class="eyebrow">Organizer dashboard</div>
+      <h1 class="screen-title">Keep play moving</h1>
+      <p class="screen-intro">The next decisions, ordered by what blocks the tournament.</p>
+
+      <div class="section-head"><h2>Needs attention</h2><span class="chip danger">3 actions</span></div>
+      <div class="priority-list">
+        <button class="priority-item" onclick="setState('result')"><span class="priority-num danger">1</span><span><span class="priority-title">Missing result blocks Pool A</span><span class="priority-copy">Match 12 · Shore Thing vs High Tide · Court 2</span></span><span class="chevron">›</span></button>
+        <button class="priority-item" onclick="setState('courts')"><span class="priority-num warn">2</span><span><span class="priority-title">Court 3 is 22 min behind</span><span class="priority-copy">3 upcoming matches keep their published times</span></span><span class="chevron">›</span></button>
+        <button class="priority-item" onclick="setState('exceptions')"><span class="priority-num warn">3</span><span><span class="priority-title">Withdrawn team needs resolution</span><span class="priority-copy">Side Out has 2 unplayed pool matches</span></span><span class="chevron">›</span></button>
+      </div>
+
+      <div class="section-head"><h2>Coming next</h2><span class="chip warning">Not ready</span></div>
+      <div class="panel">
+        <div class="summary-line"><div><div class="summary-main">Review pool results</div><div class="summary-sub">5 results and 1 organizer decision remain.</div></div><button class="small-action" onclick="setState('review')">Preview</button></div>
+      </div>
+
+      <div class="section-head"><h2>Live status</h2><button class="text-action" onclick="setState('courts')">View courts</button></div>
+      <div class="status-rail">
+        <div class="status-cell"><div class="status-value">9/15</div><div class="status-label">Matches</div></div>
+        <div class="status-cell"><div class="status-value">2/3</div><div class="status-label">Courts active</div></div>
+        <div class="status-cell"><div class="status-value">4 · 2 · 10</div><div class="status-label">Play · Work · Wait</div></div>
+        <div class="status-cell"><div class="status-value">4:35</div><div class="status-label">Published finish</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="state" id="state-courts">
+    <div class="filter-row"><button class="filter active">All courts</button><button class="filter">Court 1</button><button class="filter">Court 2</button><button class="filter">Court 3</button><button class="filter">Missing score</button></div>
+    <div class="screen-content" style="padding-top:10px">
+      <div class="eyebrow">Live schedule</div><h1 class="screen-title">Court board</h1>
+      <input class="search" aria-label="Search team or player" placeholder="Search team or player">
+      <div class="alert-strip" style="margin-top:12px"><strong>Delay:</strong><span>Court 3 is 22 min behind. Published times have not changed.</span></div>
+      <div class="court-card">
+        <div class="court-head"><div><div class="court-name">Court 1</div><div class="court-note">On schedule</div></div><span class="chip success">Playing</span></div>
+        <div class="match-row"><div class="match-time">11:10<small>Published</small></div><div><div class="match-teams">Dig This vs Ace Holes</div><div class="match-detail">Work: High Tide</div></div><button class="icon-button" aria-label="Edit match">•••</button></div>
+        <div class="match-row"><div class="match-time">11:40<small>Published</small></div><div><div class="match-teams">Block Party vs Sandy Feet</div><div class="match-detail">Upcoming · Work: Shore Thing</div></div><button class="icon-button" aria-label="Edit match">•••</button></div>
+      </div>
+      <div class="court-card">
+        <div class="court-head"><div><div class="court-name">Court 3</div><div class="court-note">Running ~22 min late</div></div><span class="chip warning">Delayed</span></div>
+        <div class="match-row"><div class="match-time">10:50<small>Published</small></div><div><div class="match-teams">Net Results vs Sand Bar</div><div class="match-detail">Playing · Work: Side Out</div></div><button class="icon-button" aria-label="Edit match">•••</button></div>
+        <div class="match-row"><div class="match-time">10:20<small>Published</small></div><div><div class="match-teams">Sets on Beach vs Suns Out</div><div class="match-detail" style="color:var(--color-danger);font-weight:700">Missing result</div></div><button class="small-action" onclick="setState('result')">Enter</button></div>
+      </div>
+      <button class="secondary-action" onclick="setState('impact')">Change court availability</button>
+    </div>
+  </section>
+
+  <section class="state" id="state-review">
+    <div class="screen-content">
+      <div class="eyebrow">Stage boundary</div><h1 class="screen-title">Review pool play</h1><p class="screen-intro">Playoffs will not publish until you confirm the field.</p>
+      <div class="alert-strip info" style="margin-top:13px"><strong>Ready:</strong><span>All required pool results are in. Your review is the final checkpoint.</span></div>
+      <div class="panel">
+        <div class="summary-line"><div><div class="summary-main">Completion</div><div class="summary-sub">12 of 12 pool matches complete</div></div><span class="chip success">Complete</span></div>
+        <div class="summary-line"><div><div class="summary-main">Corrected results</div><div class="summary-sub">Match 7 corrected by Alex M. at 10:42</div></div><span class="chip info">Reviewed</span></div>
+      </div>
+      <div class="section-head"><h2>Pool A · proposed qualifiers</h2><span class="chip info">Top 2 advance</span></div>
+      <div class="panel">
+        <div class="standing-row header"><span>#</span><span>Team</span><span>W-L</span><span>Diff</span></div>
+        <div class="standing-row qualifier"><span class="stand-rank">1</span><span>Dig This</span><span class="stand-stat">3-0</span><span>+18</span></div>
+        <div class="standing-row qualifier"><span class="stand-rank">2</span><span>High Tide</span><span class="stand-stat">2-1</span><span>+7</span></div>
+        <div class="standing-row"><span class="stand-rank">3</span><span>Sand Bar</span><span class="stand-stat">2-1</span><span>+7</span></div>
+        <button class="why-button" onclick="toggleWhy(this)">Why High Tide ranks 2nd ▾</button>
+        <div class="why-copy">High Tide and Sand Bar are both 2–1 with +7 set differential. High Tide won their head-to-head match.</div>
+      </div>
+      <div class="section-head"><h2>Proposed semifinals</h2><button class="text-action">Override seed</button></div>
+      <div class="panel">
+        <div class="summary-line"><div><div class="summary-main">1A Dig This vs 2B Block Party</div><div class="summary-sub">Court 1 · 2:15 PM · Work: Shore Thing</div></div><span class="chip neutral">Draft</span></div>
+        <div class="summary-line"><div><div class="summary-main">1B Ace Holes vs 2A High Tide</div><div class="summary-sub">Court 2 · 2:15 PM · Work: Sand Bar</div></div><span class="chip neutral">Draft</span></div>
+      </div>
+      <button class="primary-action" onclick="showConfirmation('review-confirm','Playoffs started · bracket and schedules published')">Start playoffs</button>
+      <div class="confirmation" id="review-confirm"></div>
+      <button class="secondary-action" onclick="setState('dashboard')" style="margin-top:8px">Return to pool play</button>
+    </div>
+  </section>
+
+  <section class="state" id="state-teams">
+    <div class="screen-content">
+      <div class="eyebrow">Roster management</div><h1 class="screen-title">Teams</h1>
+      <div class="button-pair" style="margin-top:12px"><button class="primary-action" onclick="showConfirmation('team-confirm','Add-team flow opened')">Add team</button><button class="secondary-action" style="margin-top:0" onclick="setState('message')">Message all</button></div>
+      <div class="confirmation" id="team-confirm"></div>
+      <input class="search" aria-label="Search teams" placeholder="Search team or player">
+      <div class="section-head"><h2>8 teams</h2><span class="chip warning">1 withdrawn</span></div>
+      <div class="panel">
+        <div class="team-row"><span class="seed">1</span><div class="team-main"><div class="team-name">Dig This</div><div class="team-players">Maya Chen · Jo Reyes · Pool A</div></div><button class="icon-button" aria-label="Team actions">•••</button></div>
+        <div class="team-row"><span class="seed">2</span><div class="team-main"><div class="team-name">High Tide</div><div class="team-players">Nia Brooks · Jules Kim · Pool A</div></div><button class="icon-button" aria-label="Team actions">•••</button></div>
+        <div class="team-row"><span class="seed">5</span><div class="team-main"><div class="team-name">Shore Thing</div><div class="team-players">Ari Flores · Sam Lee · Pool B</div></div><button class="icon-button" aria-label="Team actions">•••</button></div>
+        <div class="team-row"><span class="seed">8</span><div class="team-main"><div class="team-name">Side Out <span class="chip danger" style="margin-left:4px">Withdrawn</span></div><div class="team-players">Kai Ford · Remy Stone · Pool B</div></div><button class="small-action" onclick="setState('exceptions')">Resolve</button></div>
+      </div>
+      <div class="alert-strip info"><strong>Play has started.</strong><span>Roster, seed, pool, or withdrawal changes show their downstream impact before they apply.</span></div>
+    </div>
+  </section>
+
+  <section class="state" id="state-result">
+    <div class="screen-content">
+      <div class="eyebrow">Match 12 · Pool A</div><h1 class="screen-title">Correct result</h1><p class="screen-intro">The winner is derived from every set score.</p>
+      <div class="panel" style="margin-top:13px">
+        <div class="score-match"><div class="versus"><div><div class="team-name">Shore Thing</div><span class="chip success" style="margin-top:5px">Current winner</span></div><span class="vs">VS</span><div><div class="team-name">High Tide</div></div></div></div>
+        <div class="set-row"><span class="set-label">Set 1</span><input class="score-input" type="number" value="21" aria-label="Shore Thing set 1"><span>–</span><input class="score-input" type="number" value="17" aria-label="High Tide set 1"></div>
+        <div class="set-row"><span class="set-label">Set 2</span><input class="score-input" type="number" value="19" aria-label="Shore Thing set 2"><span>–</span><input class="score-input" type="number" value="21" aria-label="High Tide set 2"></div>
+        <div class="set-row"><span class="set-label">Set 3</span><input class="score-input" type="number" value="15" aria-label="Shore Thing set 3"><span>–</span><input class="score-input" type="number" value="12" aria-label="High Tide set 3"></div>
+      </div>
+      <div class="section-head"><h2>What this may change</h2><span class="chip warning">Review impact</span></div>
+      <div class="panel">
+        <div class="impact-line"><span class="impact-icon">1</span><div><div class="summary-main">Pool A standings</div><div class="summary-sub">High Tide and Sand Bar may change positions.</div></div></div>
+        <div class="impact-line"><span class="impact-icon">2</span><div><div class="summary-main">Proposed playoff seeds</div><div class="summary-sub">No playoff match has started, so the draft can update safely.</div></div></div>
+      </div>
+      <button class="primary-action" onclick="setState('impact')">Review correction impact</button>
+      <button class="secondary-action" onclick="setState('dashboard')" style="margin-top:8px">Cancel</button>
+    </div>
+  </section>
+
+  <section class="state" id="state-message">
+    <div class="screen-content">
+      <div class="eyebrow">Communications</div><h1 class="screen-title">Post an announcement</h1><p class="screen-intro">It stays visible in the tournament and can notify recipients.</p>
+      <label class="field-label">Recipients</label>
+      <div class="recipient-grid">
+        <button class="recipient selected" onclick="selectRecipient(this)">Everyone · 16</button>
+        <button class="recipient" onclick="selectRecipient(this)">Selected team</button>
+        <button class="recipient" onclick="selectRecipient(this)">Selected player</button>
+        <button class="recipient" onclick="selectRecipient(this)">Court/time group</button>
+      </div>
+      <label class="field-label" for="announcement">Message</label>
+      <textarea id="announcement">Court 3 is unavailable. Matches assigned there will move to Courts 1 and 2. Check your updated schedule.</textarea>
+      <div class="panel" style="margin-top:12px;padding:0 13px">
+        <div class="toggle-row"><div><div class="summary-main">Notify recipients</div><div class="summary-sub">Send an in-app notification too</div></div><button class="switch" aria-label="Toggle notifications" onclick="this.classList.toggle('off')"></button></div>
+      </div>
+      <button class="primary-action" onclick="showConfirmation('message-confirm','Announcement posted to the tournament')">Post announcement</button>
+      <div class="confirmation" id="message-confirm"></div>
+      <div class="section-head"><h2>Recent</h2></div>
+      <div class="panel"><div class="summary-line"><div><div class="summary-main">Pool play started</div><div class="summary-sub">Everyone · 9:04 AM · Posted by Alex M.</div></div></div></div>
+    </div>
+  </section>
+
+  <section class="state" id="state-impact">
+    <div class="screen-content">
+      <div class="eyebrow">Before you apply</div><h1 class="screen-title">Review operational impact</h1><p class="screen-intro">Completed results stay preserved. Only future assignments change.</p>
+      <div class="change-box" style="margin-top:13px">
+        <div class="change-value"><span><strong>Court 3</strong><br><small>Playable · 3 upcoming matches</small></span><span class="chip success">Available</span></div>
+        <div class="change-arrow">↓</div>
+        <div class="change-value new"><span><strong>Court 3 unavailable</strong><br><small>Until restored by an organizer</small></span><span class="chip warning">Change</span></div>
+      </div>
+      <div class="section-head"><h2>Affected by this change</h2><span class="chip warning">8 players</span></div>
+      <div class="panel">
+        <div class="impact-line"><span class="impact-icon">3</span><div><div class="summary-main">Upcoming matches move</div><div class="summary-sub">Matches 10, 12 and 14 will be reassigned to Courts 1 and 2.</div></div></div>
+        <div class="impact-line"><span class="impact-icon">2</span><div><div class="summary-main">Work assignments change</div><div class="summary-sub">High Tide and Shore Thing receive new courts.</div></div></div>
+        <div class="impact-line"><span class="impact-icon">0</span><div><div class="summary-main">Completed results affected</div><div class="summary-sub">All 9 completed matches remain unchanged.</div></div></div>
+      </div>
+      <div class="alert-strip"><strong>Published schedule:</strong><span>Players keep existing times. Court changes publish when you apply.</span></div>
+      <div class="panel" style="padding:0 13px"><div class="toggle-row"><div><div class="summary-main">Notify 8 affected players</div><div class="summary-sub">Court and work assignment changes</div></div><button class="switch" aria-label="Toggle notifications" onclick="this.classList.toggle('off')"></button></div></div>
+      <button class="primary-action" onclick="showConfirmation('impact-confirm','Court 3 marked unavailable · schedule republished')">Apply & publish changes</button>
+      <div class="confirmation" id="impact-confirm"></div>
+      <button class="secondary-action" onclick="setState('courts')" style="margin-top:8px">Go back</button>
+    </div>
+  </section>
+
+  <section class="state" id="state-exceptions">
+    <div class="screen-content">
+      <div class="eyebrow">Recovery tools</div><h1 class="screen-title">Exceptions</h1><p class="screen-intro">Resolve the day-of problems currently affecting play.</p>
+      <div class="section-head"><h2>Open issues</h2><span class="chip danger">3</span></div>
+      <div class="exception-card">
+        <div class="exception-top"><div class="exception-title">Court 3 unavailable</div><span class="chip danger">Blocks 3</span></div>
+        <div class="exception-copy">Reassign unplayed matches. Completed results on this court remain untouched.</div>
+        <div class="button-pair"><button class="small-action" onclick="setState('impact')">Preview reassignment</button><button class="small-action" onclick="showConfirmation('exception-confirm','Court 3 restored')">Restore court</button></div>
+      </div>
+      <div class="exception-card">
+        <div class="exception-top"><div class="exception-title">Side Out withdrew</div><span class="chip warning">2 unplayed</span></div>
+        <div class="exception-copy">Their 2 completed ranked results are preserved. No synthetic scores will be created.</div>
+        <div class="button-pair"><button class="small-action">Replace player</button><button class="small-action">Admin advance</button></div>
+      </div>
+      <div class="exception-card">
+        <div class="exception-top"><div class="exception-title">Match 12 missing result</div><span class="chip danger">Blocks review</span></div>
+        <div class="exception-copy">Shore Thing vs High Tide · Court 2 · published 10:40 AM</div>
+        <div class="button-pair"><button class="small-action" onclick="setState('result')">Enter result</button><button class="small-action">Reschedule</button></div>
+      </div>
+      <div class="confirmation" id="exception-confirm"></div>
+      <div class="section-head"><h2>Recently resolved</h2></div>
+      <div class="panel"><div class="summary-line"><div><div class="summary-main">Match 7 score corrected</div><div class="summary-sub">Standings updated · Alex M. · 10:42 AM</div></div><span class="chip success">Done</span></div></div>
+    </div>
+  </section>
+</main>
+
+<nav class="tab-bar" aria-label="App tabs">
+  <a href="home.html" class="tab"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1z"/></svg></span><span class="tab-label">Home</span></a>
+  <a href="leagues-tab.html" class="tab"><span class="tab-icon active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 3h10v5a5 5 0 01-10 0zM7 5H4v2a4 4 0 004 4M17 5h3v2a4 4 0 01-4 4"/></svg></span><span class="tab-label active">Leagues</span></a>
+  <a href="add-games.html" class="tab add-games"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></span><span class="tab-label">Add Games</span></a>
+  <a href="messages.html" class="tab"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 01-8 8 9 9 0 01-4-.9L3 21l1.7-4A8 8 0 113 12"/></svg></span><span class="tab-badge">2</span><span class="tab-label">Social</span></a>
+  <a href="profile.html" class="tab"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0114 0"/></svg></span><span class="tab-label">Profile</span></a>
+</nav>
+
+<script>
+  var finalFieldConfirmed = false;
+  var scheduleGenerated = false;
+  function setState(name) {
+    document.querySelectorAll('.state').forEach(function (state) { state.classList.remove('active'); });
+    document.querySelectorAll('.sw-pill').forEach(function (pill) { pill.classList.toggle('active', pill.dataset.state === name); });
+    document.getElementById('state-' + name).classList.add('active');
+    setEventHeader(name);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function setEventHeader(name) {
+    var status = document.getElementById('event-status');
+    var stage = document.getElementById('event-stage');
+    var progress = document.getElementById('event-progress');
+    var lines = document.querySelectorAll('#event-track .stage-line');
+    lines.forEach(function (line) { line.className = 'stage-line'; });
+    if (name === 'signups') {
+      status.className = 'chip info'; status.textContent = 'Signups open';
+      stage.textContent = 'Setup'; progress.textContent = '9 accepted teams';
+      lines[0].classList.add('next');
+    } else if (name === 'final-field') {
+      if (scheduleGenerated && document.getElementById('schedule-primary').disabled) {
+        status.className = 'chip success'; status.textContent = 'Scheduled';
+        stage.textContent = 'Ready to start'; progress.textContent = 'Schedule published';
+        lines.forEach(function (line) { line.classList.add('done'); });
+      } else {
+        status.className = 'chip warning'; status.textContent = 'Draft';
+        stage.textContent = finalFieldConfirmed ? 'Build schedule' : 'Final field';
+        progress.textContent = document.getElementById('field-count').textContent + ' included';
+        lines[0].classList.add('done'); lines[1].classList.add('next');
+      }
+    } else {
+      status.className = 'chip live'; status.textContent = 'Live';
+      stage.textContent = 'Pool play'; progress.textContent = '9 of 15 matches';
+      lines[0].classList.add('done'); lines[1].classList.add('done'); lines[2].classList.add('done'); lines[3].classList.add('next');
+    }
+  }
+  document.querySelectorAll('.sw-pill').forEach(function (pill) { pill.addEventListener('click', function () { setState(pill.dataset.state); }); });
+  document.querySelectorAll('.filter').forEach(function (filter) { filter.addEventListener('click', function () { document.querySelectorAll('.filter').forEach(function (item) { item.classList.remove('active'); }); filter.classList.add('active'); }); });
+  function toggleWhy(button) {
+    var copy = button.nextElementSibling;
+    copy.classList.toggle('open');
+    button.textContent = copy.classList.contains('open') ? 'Hide ranking explanation ▴' : 'Why High Tide ranks 2nd ▾';
+  }
+  function selectRecipient(button) {
+    document.querySelectorAll('.recipient').forEach(function (item) { item.classList.remove('selected'); });
+    button.classList.add('selected');
+  }
+  function showConfirmation(id, message) {
+    var notice = document.getElementById(id);
+    notice.textContent = '✓ ' + message;
+    notice.classList.add('show');
+  }
+  function updateFieldCount() {
+    var visibleIncluded = document.querySelectorAll('#field-list .field-toggle:not(.excluded)').length;
+    var count = visibleIncluded + 5;
+    document.getElementById('field-count').textContent = count;
+    document.getElementById('field-primary').textContent = 'Confirm ' + count + '-team field';
+    document.getElementById('event-progress').textContent = count + ' included';
+    document.getElementById('plan-warning-text').textContent = 'Your draft expected 12 teams. With ' + count + ' included, Beach League will recalculate pools, advancement and timing before it generates the schedule.';
+    var plan = document.getElementById('updated-plan-detail');
+    var estimate = document.getElementById('schedule-estimate-detail');
+    if (count === 8) {
+      plan.textContent = '2 pools of 4 · Top 2 from each pool advance';
+      estimate.textContent = '15 total matches · 3 courts · Finish about 3:45 PM';
+    } else {
+      plan.textContent = 'Pool shape and advancement update when you confirm';
+      estimate.textContent = 'Match count and finish time update with the final field';
+    }
+  }
+  function toggleFieldTeam(button) {
+    if (finalFieldConfirmed) return;
+    var excluded = button.classList.toggle('excluded');
+    button.textContent = excluded ? 'Excluded' : 'Included';
+    button.setAttribute('aria-pressed', String(!excluded));
+    updateFieldCount();
+  }
+  function setAllFieldTeams(include) {
+    if (finalFieldConfirmed) return;
+    document.querySelectorAll('#field-list .field-toggle').forEach(function (button) {
+      button.classList.toggle('excluded', !include);
+      button.textContent = include ? 'Included' : 'Excluded';
+      button.setAttribute('aria-pressed', String(include));
+    });
+    updateFieldCount();
+  }
+  function advanceFinalField() {
+    finalFieldConfirmed = true;
+    var count = document.getElementById('field-count').textContent;
+    document.querySelectorAll('#field-list .field-toggle').forEach(function (button) { button.disabled = true; });
+    document.getElementById('field-primary').style.display = 'none';
+    document.getElementById('field-milestone').classList.remove('current');
+    document.getElementById('field-milestone').classList.add('done');
+    document.querySelector('#field-milestone .milestone-dot').textContent = '✓';
+    document.getElementById('schedule-milestone').classList.add('current');
+    showConfirmation('field-confirm', count + '-team final field confirmed');
+    document.getElementById('publish-step').classList.add('show');
+    document.getElementById('field-secondary').textContent = 'Reopen final field';
+  }
+  function advanceSchedule() {
+    var button = document.getElementById('schedule-primary');
+    if (!scheduleGenerated) {
+      scheduleGenerated = true;
+      button.textContent = 'Publish schedule & lock format';
+      showConfirmation('field-confirm', 'Schedule generated · courts, times and work assignments ready to review');
+      return;
+    }
+    button.textContent = 'Schedule published';
+    button.disabled = true;
+    document.getElementById('schedule-milestone').classList.remove('current');
+    document.getElementById('schedule-milestone').classList.add('done');
+    document.querySelector('#schedule-milestone .milestone-dot').textContent = '✓';
+    showConfirmation('field-confirm', 'Schedule published · format and seeds locked · players notified');
+    var status = document.getElementById('event-status');
+    status.className = 'chip success'; status.textContent = 'Scheduled';
+    document.getElementById('event-stage').textContent = 'Ready to start';
+    document.getElementById('event-progress').textContent = 'Schedule published';
+    document.getElementById('field-secondary').textContent = 'Field locked with schedule';
+    document.getElementById('field-secondary').disabled = true;
+  }
+  function handleFieldSecondary() {
+    if (!finalFieldConfirmed) { setState('signups'); return; }
+    reopenFinalField();
+  }
+  function reopenFinalField() {
+    if (document.getElementById('schedule-primary').disabled) return;
+    finalFieldConfirmed = false;
+    scheduleGenerated = false;
+    document.querySelectorAll('#field-list .field-toggle').forEach(function (button) { button.disabled = false; });
+    document.getElementById('field-primary').style.display = 'block';
+    document.getElementById('field-milestone').classList.remove('done');
+    document.getElementById('field-milestone').classList.add('current');
+    document.querySelector('#field-milestone .milestone-dot').textContent = '1';
+    document.getElementById('schedule-milestone').classList.remove('current');
+    document.querySelector('#schedule-milestone .milestone-dot').textContent = '2';
+    document.getElementById('field-confirm').classList.remove('show');
+    document.getElementById('publish-step').classList.remove('show');
+    document.getElementById('schedule-primary').textContent = 'Generate schedule';
+    document.getElementById('field-secondary').textContent = 'Keep signups open';
+    setEventHeader('final-field');
+  }
+</script>
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

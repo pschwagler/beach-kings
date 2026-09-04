@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.services.platform import email_service
-from backend.services import auth_service, auth_delivery_service
+from backend.services.platform import email_service, release_metadata, s3_service
+from backend.services import auth_service, auth_delivery_service, moderation_worker
 from backend.services.social import message_write_policy
 from backend.services.stats.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import get_current_user, require_system_admin
@@ -136,11 +136,17 @@ async def readiness_check(session: AsyncSession = Depends(get_db_session)):
         else:
             checks["email"] = "ready"
 
-    if os.getenv("ENV", "development").lower() == "production":
+    if os.getenv("ENV", "development").lower() in moderation_worker.FAIL_CLOSED_ENVS:
+        security_missing = auth_service.runtime_security_configuration_issues()
+        checks["auth_security"] = "misconfigured" if security_missing else "ready"
+        missing.extend(security_missing)
+
         if not auth_delivery_service.delivery_enabled():
             checks["auth_delivery"] = "disabled"
             missing.append("AUTH_DELIVERY_ENABLED=true")
-        elif not await auth_delivery_service.heartbeat_is_fresh():
+        elif not await auth_delivery_service.heartbeat_is_fresh(
+            os.getenv(release_metadata.READINESS_GENERATION_ENV)
+        ):
             checks["auth_delivery"] = "unavailable"
             missing.append("auth delivery worker heartbeat")
         else:
@@ -153,6 +159,22 @@ async def readiness_check(session: AsyncSession = Depends(get_db_session)):
             missing.extend(sms_missing)
         else:
             checks["sms"] = "disabled"
+
+        media_missing = s3_service.configuration_issues()
+        checks["media_storage"] = "misconfigured" if media_missing else "ready"
+        missing.extend(media_missing)
+
+        moderation_missing = moderation_worker.worker_configuration_issues()
+        if moderation_missing:
+            checks["moderation_worker"] = "misconfigured"
+            missing.extend(moderation_missing)
+        elif not await moderation_worker.heartbeat_is_fresh(
+            os.getenv(release_metadata.READINESS_GENERATION_ENV)
+        ):
+            checks["moderation_worker"] = "unavailable"
+            missing.append("moderation worker heartbeat")
+        else:
+            checks["moderation_worker"] = "ready"
 
     message_statuses = await message_write_policy.readiness_statuses(session)
     checks.update(message_statuses)

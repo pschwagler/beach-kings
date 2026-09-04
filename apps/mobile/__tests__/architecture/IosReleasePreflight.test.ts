@@ -9,6 +9,7 @@ const {
   verifyReleaseConfiguration,
   verifyStoreUrls,
   verifyV1OtaPolicy,
+  verifyV1SentryPolicy,
 } = require('../../scripts/release-preflight') as {
   assertSecureProductionOrigin: (
     value: string | undefined,
@@ -30,6 +31,9 @@ const {
     },
     appConfig: { updates?: { enabled?: boolean }; runtimeVersion?: unknown },
   ) => void;
+  verifyV1SentryPolicy: (easConfig: {
+    build?: Record<string, { env?: Record<string, string> }>;
+  }) => void;
   verifyReleaseConfiguration: (options: {
     mobileRoot: string;
     apiUrl: string | undefined;
@@ -287,6 +291,53 @@ describe('iOS release preflight', () => {
           { updates: { enabled: false }, runtimeVersion: '1.0.0' },
         ),
       ).toThrow(/deferred OTA rollout policy/);
+    });
+  });
+
+  describe('v1 Sentry policy', () => {
+    const disabledProfile = {
+      env: {
+        EXPO_PUBLIC_SENTRY_DSN: '',
+        SENTRY_DISABLE_AUTO_UPLOAD: 'true',
+      },
+    };
+
+    it('accepts disabled runtime telemetry and symbol upload in every profile', () => {
+      expect(() =>
+        verifyV1SentryPolicy({
+          build: {
+            'development-simulator': disabledProfile,
+            preview: disabledProfile,
+            production: disabledProfile,
+          },
+        }),
+      ).not.toThrow();
+    });
+
+    it.each([
+      {
+        name: 'auto upload is not disabled',
+        productionEnv: { EXPO_PUBLIC_SENTRY_DSN: '' },
+        error: /disable Sentry auto upload/,
+      },
+      {
+        name: 'a runtime DSN is configured',
+        productionEnv: {
+          EXPO_PUBLIC_SENTRY_DSN: 'https://public@example.ingest.sentry.io/123',
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true',
+        },
+        error: /disable the Sentry runtime DSN/,
+      },
+    ])('rejects v1 when $name', ({ productionEnv, error }) => {
+      expect(() =>
+        verifyV1SentryPolicy({
+          build: {
+            'development-simulator': disabledProfile,
+            preview: disabledProfile,
+            production: { env: productionEnv },
+          },
+        }),
+      ).toThrow(error);
     });
   });
 });

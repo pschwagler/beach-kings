@@ -44,6 +44,27 @@ def valid_config():
     }
 
 
+def valid_production_config():
+    return {
+        **valid_config(),
+        "JWT_SECRET_KEY": "production-test-secret-with-at-least-32-bytes",
+        "AWS_ACCESS_KEY_ID": "media-access-test-value",
+        "AWS_SECRET_ACCESS_KEY": "media-secret-test-value",
+        "AWS_S3_BUCKET": "media-bucket-test-value",
+        "AWS_MODERATION_EVIDENCE_BUCKET": "moderation-evidence-test-bucket",
+        "OPENAI_API_KEY": "moderation-provider-test-value",
+        "MODERATION_AUTO_ENFORCE_SCORE": "0.95",
+        "MODERATION_PROVIDER_TIMEOUT": "20",
+        "MODERATION_FLAGSHIP_TIMEOUT": "30",
+        "MODERATION_FLAGSHIP_MAX_ATTEMPTS": "2",
+        "MODERATION_FLAGSHIP_MODEL": "flagship-test-model",
+        "MODERATION_ALERTS_ENABLED": "true",
+        "RESEND_API_KEY": "alert-mail-test-value",
+        "RESEND_FROM_EMAIL": "alerts@example.test",
+        "MODERATION_ALERT_EMAIL": "reviewer@example.test",
+    }
+
+
 def write_app_config(directory: Path):
     path = directory / "app.json"
     path.write_text(
@@ -115,6 +136,99 @@ class ProviderConfigPreflightTests(unittest.TestCase):
         self.assertIn("FAIL Apple private key uses escaped single-line format", report)
         self.assertNotIn("wrong-mobile-audience", report)
         self.assertNotIn("secret-but-malformed", report)
+
+    def test_valid_production_runtime_configuration_reports_without_values(self):
+        config = valid_production_config()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_config = write_app_config(Path(temp_dir))
+            output = io.StringIO()
+            with redirect_stdout(output):
+                passed = self.preflight.run_checks(config, app_config, production=True)
+
+        self.assertTrue(passed)
+        report = output.getvalue()
+        for name in (
+            "JWT_SECRET_KEY",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+            "OPENAI_API_KEY",
+            "AWS_MODERATION_EVIDENCE_BUCKET",
+            "RESEND_API_KEY",
+            "MODERATION_ALERT_EMAIL",
+        ):
+            self.assertNotIn(config[name], report)
+
+    def test_production_runtime_misconfiguration_fails_without_values(self):
+        invalid_cases = (
+            ("JWT_SECRET_KEY", "change-me-in-production", "Production JWT secret"),
+            ("AWS_ACCESS_KEY_ID", "", "Media access key"),
+            ("AWS_SECRET_ACCESS_KEY", "", "Media secret key"),
+            ("AWS_S3_BUCKET", "", "Media bucket"),
+            ("OPENAI_API_KEY", "", "Moderation provider credential"),
+            (
+                "AWS_MODERATION_EVIDENCE_BUCKET",
+                "",
+                "Moderation evidence bucket",
+            ),
+            (
+                "MODERATION_AUTO_ENFORCE_SCORE",
+                "1.1",
+                "Moderation auto-enforcement threshold",
+            ),
+            ("MODERATION_PROVIDER_TIMEOUT", "31", "Moderation provider timeout"),
+            ("MODERATION_FLAGSHIP_TIMEOUT", "46", "Moderation flagship timeout"),
+            (
+                "MODERATION_FLAGSHIP_MAX_ATTEMPTS",
+                "3",
+                "Moderation flagship attempts",
+            ),
+            ("MODERATION_FLAGSHIP_MODEL", "", "Moderation flagship model"),
+            ("MODERATION_ALERTS_ENABLED", "false", "Moderation owner alerts"),
+            ("RESEND_API_KEY", "", "Moderation alert mail credential"),
+            ("RESEND_FROM_EMAIL", "", "Moderation alert sender"),
+            ("MODERATION_ALERT_EMAIL", "", "Moderation alert recipient"),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_config = write_app_config(Path(temp_dir))
+            for name, invalid_value, expected_label in invalid_cases:
+                with self.subTest(name=name):
+                    config = valid_production_config()
+                    config[name] = invalid_value
+                    output = io.StringIO()
+                    with redirect_stdout(output):
+                        passed = self.preflight.run_checks(config, app_config, production=True)
+
+                    self.assertFalse(passed)
+                    report = output.getvalue()
+                    self.assertIn(f"FAIL {expected_label}", report)
+                    if invalid_value and name in {
+                        "JWT_SECRET_KEY",
+                        "AWS_ACCESS_KEY_ID",
+                        "AWS_SECRET_ACCESS_KEY",
+                        "OPENAI_API_KEY",
+                        "AWS_MODERATION_EVIDENCE_BUCKET",
+                        "RESEND_API_KEY",
+                        "MODERATION_ALERT_EMAIL",
+                    }:
+                        self.assertNotIn(invalid_value, report)
+
+    def test_production_rejects_public_bucket_reused_for_moderation_evidence(self):
+        config = valid_production_config()
+        config["AWS_MODERATION_EVIDENCE_BUCKET"] = f"  {config['AWS_S3_BUCKET'].upper()}  "
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_config = write_app_config(Path(temp_dir))
+            output = io.StringIO()
+            with redirect_stdout(output):
+                passed = self.preflight.run_checks(config, app_config, production=True)
+
+        self.assertFalse(passed)
+        report = output.getvalue()
+        self.assertIn(
+            "FAIL Moderation evidence bucket is separate from public media",
+            report,
+        )
+        self.assertNotIn(config["AWS_S3_BUCKET"], report)
+        self.assertNotIn(config["AWS_MODERATION_EVIDENCE_BUCKET"].strip(), report)
 
     def test_cli_rejects_incomplete_env_before_success(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -216,6 +330,12 @@ class ProviderConfigPreflightTests(unittest.TestCase):
         preflight_index = workflow.index("provider_config_preflight.py")
         backup_index = workflow.index("Pre-deployment database backup")
         pull_index = workflow.index("docker-compose pull frontend backend")
+        self.assertIn("--production", workflow[preflight_index:backup_index])
+        self.assertIn("command_timeout: 20m", workflow)
+        self.assertIn(
+            'export RELEASE_READINESS_GENERATION="$(git rev-parse HEAD)-$(openssl rand -hex 16)"',
+            workflow,
+        )
         self.assertLess(preflight_index, backup_index)
         self.assertLess(preflight_index, pull_index)
 

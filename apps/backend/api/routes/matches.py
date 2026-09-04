@@ -446,7 +446,7 @@ async def upload_match_photo(
     season_id: Optional[int] = Form(None),
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
-    _league_member=Depends(make_require_league_member),
+    _league_member=Depends(make_require_league_member()),
 ):
     """
     Upload a photo of game scores for AI processing.
@@ -526,7 +526,7 @@ async def edit_photo_results(
     body: EditPhotoResultsRequest,
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
-    _league_member=Depends(make_require_league_member),
+    _league_member=Depends(make_require_league_member()),
 ):
     """Send edit prompt for conversation refinement."""
     try:
@@ -574,7 +574,7 @@ async def stream_photo_job(
     request: Request,
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
-    _league_member=Depends(make_require_league_member),
+    _league_member=Depends(make_require_league_member()),
 ):
     """
     Stream photo job progress via Server-Sent Events.
@@ -628,7 +628,7 @@ async def get_photo_job_status(
     request: Request,
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
-    _league_member=Depends(make_require_league_member),
+    _league_member=Depends(make_require_league_member()),
 ):
     """Get status of a photo processing job."""
     try:
@@ -678,7 +678,7 @@ async def confirm_photo_matches(
     body: ConfirmPhotoMatchesRequest,
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
-    _league_member=Depends(make_require_league_member),
+    _league_member=Depends(make_require_league_member()),
 ):
     """Confirm parsed matches and create them in the database."""
     try:
@@ -739,7 +739,7 @@ async def cancel_photo_session(
     session_id: str,
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
-    _league_member=Depends(make_require_league_member),
+    _league_member=Depends(make_require_league_member()),
 ):
     """Cancel session and cleanup Redis data."""
     try:

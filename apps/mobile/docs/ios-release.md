@@ -78,6 +78,10 @@ owner records an explicit go decision.
 - [ ] Configure production public values and protected secrets in EAS/GitHub;
   verify API, WebSocket, OAuth callback, universal-link, and support hosts use
   the intended `beachleaguevb.com` endpoints.
+- [ ] Keep Sentry off for v1: verify the production profile has an empty
+  `EXPO_PUBLIC_SENTRY_DSN`, sets `SENTRY_DISABLE_AUTO_UPLOAD=true`, and does not
+  receive Sentry upload credentials. Enabling it requires IOS-005 disclosure
+  updates before the build.
 - [ ] With Xcode 26.4+ and the iOS 26.4+ SDK, create an Apple Distribution
   archive using the correct App Store profile and upload it without unresolved
   App Store Connect processing warnings.
@@ -88,6 +92,8 @@ owner records an explicit go decision.
   then enter App Privacy answers from the approved
   [privacy inventory](privacy-inventory.md) and
   [App Store worksheet](app-store-privacy-answers.md).
+- [ ] Confirm the v1 archive sends no Sentry events and contains no enabled
+  Sentry DSN; keep Crash Data unselected for this release.
 
 ### IOS-006 — TestFlight release candidate
 

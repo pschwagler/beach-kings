@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react-native';
-import type { ErrorEvent } from '@sentry/react-native';
+import type { ErrorEvent, Exception, StackFrame } from '@sentry/react-native';
 
 const SAFE_CONTEXTS = new Set(['app', 'device', 'os', 'react_native_context', 'runtime']);
 const SAFE_TAGS = new Set(['environment', 'release', 'dist', 'route']);
@@ -48,7 +48,7 @@ export function scrubSentryEvent(event: ErrorEvent): ErrorEvent {
     exception: event.exception == null
       ? undefined
       : {
-          values: event.exception.values?.map((value) => ({
+          values: event.exception.values?.map((value: Exception) => ({
             type: value.type,
             mechanism: value.mechanism == null
               ? undefined
@@ -64,7 +64,7 @@ export function scrubSentryEvent(event: ErrorEvent): ErrorEvent {
             stacktrace: value.stacktrace == null
               ? undefined
               : {
-                  frames: value.stacktrace.frames?.map((frame) => ({
+                  frames: value.stacktrace.frames?.map((frame: StackFrame) => ({
                     filename: frame.filename,
                     function: frame.function,
                     module: frame.module,

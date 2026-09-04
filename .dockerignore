@@ -24,6 +24,8 @@ out/
 .env
 .env.*
 !.env.example
+credentials.json
+credentials.*.json
 *.md
 .DS_Store
 *.log

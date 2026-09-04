@@ -104,6 +104,7 @@ from backend.database.models import (
 )
 
 logger = logging.getLogger(__name__)
+_UNSET = object()
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +122,7 @@ async def create_league(
     creator_user_id: int,
     gender: Optional[str] = None,
     level: Optional[str] = None,
+    is_public: bool = True,
 ) -> Dict:
     """Create a new league."""
     # Resolve the creator before inserting so ownership metadata and the
@@ -135,6 +137,7 @@ async def create_league(
         description=description,
         location_id=location_id,
         is_open=is_open,
+        is_public=is_public,
         whatsapp_group_id=whatsapp_group_id,
         gender=gender,
         level=level,
@@ -165,6 +168,7 @@ async def create_league(
         "description": league.description,
         "location_id": league.location_id,
         "is_open": league.is_open,
+        "is_public": league.is_public,
         "created_by_player_id": league.created_by,
         "whatsapp_group_id": league.whatsapp_group_id,
         "gender": league.gender,
@@ -212,7 +216,7 @@ async def list_leagues(
     )
 
     # Apply filters
-    conditions = []
+    conditions = [League.is_public.is_(True)]
     if location_id is not None:
         conditions.append(League.location_id == location_id)
     if region_id is not None:
@@ -266,7 +270,8 @@ async def list_leagues(
             "region_id": league_region_id,
             "region_name": league_region_name,
             "is_open": league.is_open,
-            "whatsapp_group_id": league.whatsapp_group_id,
+            "is_public": league.is_public,
+            "whatsapp_group_id": None,
             "gender": league.gender,
             "level": league.level,
             "member_count": int(member_count) if member_count is not None else 0,
@@ -337,7 +342,7 @@ async def query_leagues(
     )
 
     # Build filter conditions (shared between count and items)
-    conditions = []
+    conditions = [League.is_public.is_(True)]
     if location_id is not None:
         conditions.append(League.location_id == location_id)
     if region_id is not None:
@@ -475,7 +480,8 @@ async def query_leagues(
             "region_id": league_region_id,
             "region_name": league_region_name,
             "is_open": league.is_open,
-            "whatsapp_group_id": league.whatsapp_group_id,
+            "is_public": league.is_public,
+            "whatsapp_group_id": None,
             "gender": league.gender,
             "level": league.level,
             "member_count": int(member_count) if member_count is not None else 0,
@@ -519,6 +525,7 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
         "location_id": league.location_id,
         "location_name": location_name,
         "is_open": league.is_open,
+        "is_public": league.is_public,
         "created_by_player_id": league.created_by,
         "whatsapp_group_id": league.whatsapp_group_id,
         "gender": league.gender,
@@ -1149,29 +1156,30 @@ async def get_player_public_leagues(session: AsyncSession, player_id: int) -> li
 async def update_league(
     session: AsyncSession,
     league_id: int,
-    name: str,
-    description: Optional[str],
-    location_id: Optional[str],
-    is_open: bool,
-    whatsapp_group_id: Optional[str],
-    gender: Optional[str] = None,
-    level: Optional[str] = None,
+    name: object = _UNSET,
+    description: object = _UNSET,
+    location_id: object = _UNSET,
+    is_open: object = _UNSET,
+    whatsapp_group_id: object = _UNSET,
+    gender: object = _UNSET,
+    level: object = _UNSET,
+    is_public: object = _UNSET,
 ) -> Optional[Dict]:
-    """Update a league."""
-    update_values = {
+    """Update only explicitly provided league fields."""
+    requested_values = {
         "name": name,
         "description": description,
         "location_id": location_id,
         "is_open": is_open,
+        "is_public": is_public,
         "whatsapp_group_id": whatsapp_group_id,
+        "gender": gender,
+        "level": level,
     }
-    if gender is not None:
-        update_values["gender"] = gender
-    if level is not None:
-        update_values["level"] = level
-
-    await session.execute(update(League).where(League.id == league_id).values(**update_values))
-    await session.commit()
+    update_values = {key: value for key, value in requested_values.items() if value is not _UNSET}
+    if update_values:
+        await session.execute(update(League).where(League.id == league_id).values(**update_values))
+        await session.commit()
     return await get_league(session, league_id)
 
 

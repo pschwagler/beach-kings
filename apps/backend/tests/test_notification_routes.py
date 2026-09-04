@@ -253,7 +253,9 @@ async def test_get_notifications_error_handling(monkeypatch):
 
     response = client.get("/api/notifications", headers=headers)
     assert response.status_code == 500
-    assert "Error fetching notifications" in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "internal_error"
+    assert response.json()["detail"]["request_id"]
+    assert "Database error" not in response.text
 
 
 @pytest.mark.asyncio

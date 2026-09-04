@@ -69,6 +69,7 @@ export default function NowPlayingTab({ matches, tournament, onScoreSubmit, isDi
                 winBy={tournament.win_by}
                 gamesPerMatch={getEffectiveGamesPerMatch(tournament, match)}
                 onSubmit={onScoreSubmit}
+                isDirector={isDirector}
               />
             ))}
           </div>

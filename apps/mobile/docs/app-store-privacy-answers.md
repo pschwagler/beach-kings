@@ -53,10 +53,17 @@ the purpose, **Yes** for linked to the user's identity, and **No** for tracking.
 
 ## Sentry diagnostics
 
-Select **Crash Data** and **Other Diagnostic Data** when Sentry is enabled. For
-each choose App Functionality, linked to the user through a pseudonymous internal
-ID, and not used for tracking. Do not select Performance Data while tracing and
-profiling remain disabled.
+Sentry is disabled for the v1 binary: the runtime DSN is explicitly empty and
+build-time symbol upload is disabled. Do **not** select Crash Data in App Store
+Connect for this release. Other Diagnostic Data remains selected for the
+sanitized operational logs described above.
+
+Before enabling Sentry in a later release, update the privacy manifest, this
+worksheet, the privacy inventory, and the public Privacy Policy. At that point,
+select **Crash Data** and **Other Diagnostic Data** for Sentry as App
+Functionality, linked through the pseudonymous internal ID, and not used for
+tracking. Do not select Performance Data while tracing and profiling remain
+disabled.
 
 ## Submission verification
 

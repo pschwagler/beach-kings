@@ -414,18 +414,21 @@ async def get_tournament_by_code(
 
 @router.post("/api/kob/{code}/score", response_model=KobMatchResponse)
 @limiter.limit("30/minute")
-async def submit_score_public(
+async def submit_score_as_director(
     request: Request,
     code: str,
     matchup_id: str = Query(...),
     payload: KobScoreSubmit = ...,
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Submit a score for a match (public — anyone with the link)."""
+    """Submit a score for a match as the authenticated tournament director."""
     try:
         tournament = await kob_service.get_tournament_by_code(session, code)
         if not tournament:
             raise HTTPException(status_code=404, detail="Tournament not found")
+        if tournament.director_player_id != user["player_id"]:
+            raise HTTPException(status_code=403, detail="Tournament director access required")
 
         match = await kob_service.submit_score(
             session,

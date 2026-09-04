@@ -7,8 +7,8 @@ Strategy:
 - _require_director calls require_verified_player internally; we override
   require_verified_player AND monkeypatch kob_service.get_tournament so the
   auth dependency returns a user dict with a fake tournament attached.
-- Public endpoints (GET /api/kob/{code}, POST /api/kob/{code}/score) are tested
-  without auth, just mocking the service.
+- The public GET endpoint is tested without auth. Score submission requires the
+  authenticated tournament director.
 """
 
 import pytest
@@ -841,15 +841,15 @@ class TestGetTournamentByCode:
 
 
 # ============================================================================
-# POST /api/kob/{code}/score  — public score submission
+# POST /api/kob/{code}/score  — director score submission
 # ============================================================================
 
 
-class TestSubmitScorePublic:
-    """Tests for POST /api/kob/{code}/score (public)."""
+class TestSubmitScore:
+    """Tests for director-only POST /api/kob/{code}/score."""
 
-    def test_submit_score_success(self, client, monkeypatch):
-        """Anyone with the link can submit a score."""
+    def test_submit_score_success(self, client, headers, monkeypatch):
+        """The authenticated tournament director can submit a score."""
         fake_tournament = _make_fake_tournament()
         fake_match = MagicMock()
         fake_match.id = 1
@@ -870,11 +870,12 @@ class TestSubmitScorePublic:
         response = client.post(
             f"/api/kob/{_TOURNAMENT_CODE}/score?matchup_id=r1-m1",
             json={"team1_score": 21, "team2_score": 15},
+            headers=headers,
         )
         assert response.status_code == 200
         assert response.json()["matchup_id"] == "r1-m1"
 
-    def test_submit_score_invalid_code_returns_404(self, client, monkeypatch):
+    def test_submit_score_invalid_code_returns_404(self, client, headers, monkeypatch):
         """Unknown tournament code returns 404."""
 
         async def fake_get_by_code(session, code):
@@ -885,10 +886,35 @@ class TestSubmitScorePublic:
         response = client.post(
             "/api/kob/BADCODE/score?matchup_id=r1-m1",
             json={"team1_score": 21, "team2_score": 15},
+            headers=headers,
         )
         assert response.status_code == 404
 
-    def test_submit_score_value_error_returns_400(self, client, monkeypatch):
+    def test_submit_score_rejects_non_director(self, client, headers, monkeypatch):
+        fake_tournament = _make_fake_tournament()
+        fake_tournament.director_player_id = 999
+
+        async def fake_get_by_code(session, code):
+            return fake_tournament
+
+        monkeypatch.setattr(kob_service, "get_tournament_by_code", fake_get_by_code, raising=True)
+
+        response = client.post(
+            f"/api/kob/{_TOURNAMENT_CODE}/score?matchup_id=r1-m1",
+            json={"team1_score": 21, "team2_score": 15},
+            headers=headers,
+        )
+        assert response.status_code == 403
+
+    def test_submit_score_requires_auth(self, client, monkeypatch):
+        app.dependency_overrides.pop(require_verified_player, None)
+        response = client.post(
+            f"/api/kob/{_TOURNAMENT_CODE}/score?matchup_id=r1-m1",
+            json={"team1_score": 21, "team2_score": 15},
+        )
+        assert response.status_code == 401
+
+    def test_submit_score_value_error_returns_400(self, client, headers, monkeypatch):
         """ValueError (e.g., match already complete) returns 400."""
         fake_tournament = _make_fake_tournament()
 
@@ -904,22 +930,25 @@ class TestSubmitScorePublic:
         response = client.post(
             f"/api/kob/{_TOURNAMENT_CODE}/score?matchup_id=r1-m1",
             json={"team1_score": 21, "team2_score": 15},
+            headers=headers,
         )
         assert response.status_code == 400
 
-    def test_submit_score_missing_matchup_id_returns_422(self, client, monkeypatch):
+    def test_submit_score_missing_matchup_id_returns_422(self, client, headers, monkeypatch):
         """Missing matchup_id query param returns 422."""
         response = client.post(
             f"/api/kob/{_TOURNAMENT_CODE}/score",
             json={"team1_score": 21, "team2_score": 15},
+            headers=headers,
         )
         assert response.status_code == 422
 
-    def test_submit_score_missing_body_returns_422(self, client, monkeypatch):
+    def test_submit_score_missing_body_returns_422(self, client, headers, monkeypatch):
         """Missing score body returns 422."""
         response = client.post(
             f"/api/kob/{_TOURNAMENT_CODE}/score?matchup_id=r1-m1",
             json={},
+            headers=headers,
         )
         assert response.status_code == 422
 

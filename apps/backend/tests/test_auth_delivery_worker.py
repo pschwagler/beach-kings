@@ -7,8 +7,48 @@ from sqlalchemy import select
 
 from backend.database.models import AuthDeliveryJob, VerificationCode
 from backend.services import user_service
-from backend.services.auth import auth_delivery_worker
+from backend.services.auth import auth_delivery_service, auth_delivery_worker
+from backend.services.platform import release_metadata
 from backend.utils.datetime_utils import utcnow
+
+
+@pytest.mark.asyncio
+async def test_auth_delivery_heartbeat_uses_release_generation(monkeypatch):
+    monkeypatch.setenv("RELEASE_READINESS_GENERATION", "current-release")
+    redis = AsyncMock()
+    redis.get.return_value = "current-release"
+    monkeypatch.setattr(
+        auth_delivery_service.redis_service,
+        "get_redis_client",
+        AsyncMock(return_value=redis),
+    )
+
+    assert await auth_delivery_service.publish_heartbeat() is True
+    redis.set.assert_awaited_once_with(
+        auth_delivery_service.HEARTBEAT_KEY,
+        "current-release",
+        ex=auth_delivery_service.HEARTBEAT_TTL_SECONDS,
+    )
+    assert await auth_delivery_service.heartbeat_is_fresh("current-release") is True
+
+
+@pytest.mark.asyncio
+async def test_auth_delivery_rejects_prior_release_heartbeat(monkeypatch):
+    redis = AsyncMock()
+    redis.get.return_value = "prior-release"
+    monkeypatch.setattr(
+        auth_delivery_service.redis_service,
+        "get_redis_client",
+        AsyncMock(return_value=redis),
+    )
+
+    assert await auth_delivery_service.heartbeat_is_fresh("current-release") is False
+
+
+def test_release_generation_has_local_fallback(monkeypatch):
+    monkeypatch.delenv("RELEASE_READINESS_GENERATION", raising=False)
+
+    assert release_metadata.readiness_generation() == release_metadata.PROCESS_GENERATION
 
 
 @pytest.mark.asyncio

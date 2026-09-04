@@ -132,8 +132,8 @@ class TestListLeagueMembers:
     """Tests for GET /api/leagues/{league_id}/members."""
 
     def test_list_members_success(self, monkeypatch):
-        """Returns member list for any authenticated user."""
-        client, headers = _make_user_client(monkeypatch)
+        """Returns member list for an authorized league member."""
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_list_league_members(session, league_id: int):
             return [{"id": MEMBER_ID, "player_id": PLAYER_ID, "role": "member"}]
@@ -1097,7 +1097,8 @@ class TestLeagueMessages:
         )
 
         assert response.status_code == 503
-        assert response.json()["detail"] == "Messaging is temporarily unavailable"
+        assert response.json()["detail"]["code"] == "internal_error"
+        assert response.json()["detail"]["request_id"]
 
     def test_get_messages_unauthenticated(self, monkeypatch):
         """Unauthenticated request is rejected."""
@@ -1567,6 +1568,25 @@ class TestGetLeagueDetail:
         assert body["user_wins"] is None
         assert body["user_losses"] is None
         assert body["user_rating"] is None
+
+    def test_public_visitor_does_not_receive_group_identifier(self, monkeypatch):
+        """Public discovery omits the member-only WhatsApp group identifier."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_league_detail(session, league_id, user_id):
+            return {
+                **_LEAGUE_DETAIL_BASE,
+                "user_role": None,
+                "whatsapp_group_id": "private-group-id",
+            }
+
+        monkeypatch.setattr(
+            data_service, "get_league_detail", fake_get_league_detail, raising=True
+        )
+
+        response = client.get(f"/api/leagues/{LEAGUE_ID}", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["whatsapp_group_id"] is None
 
     def test_zero_seasons(self, monkeypatch):
         """League with no seasons returns season_count=0 and null current_season fields."""

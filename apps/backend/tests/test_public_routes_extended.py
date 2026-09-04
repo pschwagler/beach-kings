@@ -201,8 +201,9 @@ def test_sitemap_players_error_returns_500(mock_sitemap, client):
 
     response = client.get("/api/public/sitemap/players")
     assert response.status_code == 500
-    assert "Internal server error" in response.json()["detail"]
-    assert "connection refused" not in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "internal_error"
+    assert response.json()["detail"]["request_id"]
+    assert "connection refused" not in response.text
 
 
 # ===========================================================================
@@ -232,7 +233,8 @@ def test_sitemap_locations_error_returns_500(mock_sitemap, client):
 
     response = client.get("/api/public/sitemap/locations")
     assert response.status_code == 500
-    assert "Internal server error" in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "internal_error"
+    assert response.json()["detail"]["request_id"]
 
 
 # ===========================================================================
@@ -261,8 +263,9 @@ def test_sitemap_courts_error_returns_500(mock_sitemap, client):
 
     response = client.get("/api/public/sitemap/courts")
     assert response.status_code == 500
-    assert "Internal server error" in response.json()["detail"]
-    assert "db error" not in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "internal_error"
+    assert response.json()["detail"]["request_id"]
+    assert "db error" not in response.text
 
 
 # ===========================================================================

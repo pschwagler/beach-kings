@@ -29,7 +29,8 @@ Locked v1 decisions:
   ambiguous flags stay quarantined for owner review. Multi-model adjudication
   is not a launch requirement.
 - EAS-managed builds are preferred. Production promotion remains manual.
-- Sentry Cloud uses the US region, with privacy-sensitive capture disabled.
+- Sentry is deferred and disabled for v1. Any later enablement requires privacy
+  disclosure updates and privacy-sensitive capture must remain disabled.
 - `expo-updates` remains disabled for v1; releases ship through App Store builds.
 - Marketing email, product analytics, session replay, metadata automation, and
   build-promotion automation are outside v1 scope.

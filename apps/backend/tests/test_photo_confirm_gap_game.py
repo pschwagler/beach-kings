@@ -24,7 +24,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.services import auth_service, data_service, photo_match_service, user_service
+from backend.services import (
+    auth_service,
+    data_service,
+    photo_match_service,
+    role_service,
+    user_service,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -58,9 +64,13 @@ def _make_admin_client(monkeypatch, phone: str = _PHONE, user_id: int = _USER_ID
             return None
         return None
 
+    async def fake_is_system_admin(session, uid: int) -> bool:
+        return uid == user_id
+
     monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
 
     return TestClient(app), {"Authorization": "Bearer dummy"}
 

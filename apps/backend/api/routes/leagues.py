@@ -6,44 +6,45 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, field_validator
-from sqlalchemy import select, and_, update
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.auth_dependencies import (
+    get_current_user_optional,
+    make_require_league_admin,
+    make_require_league_member,
+    make_require_league_member_or_public,
+    require_system_admin,
+    require_user,
+)
 from backend.database.db import get_db_session
-from backend.database.models import Player, LeagueMember
+from backend.database.models import LeagueMember, Player
+from backend.models.schemas import (
+    BatchMemberResponse,
+    HomeCourtResponse,
+    InvitablePlayerResponse,
+    InviteActionResponse,
+    JoinRequestsResponse,
+    LeagueCreate,
+    LeagueUpdate,
+    LeagueDetailResponse,
+    LeagueGamesResponse,
+    LeagueInviteItemResponse,
+    LeagueJoinResponse,
+    LeagueMemberDetailResponse,
+    LeagueMemberResponse,
+    LeagueResponse,
+    LeagueStandingsResponse,
+    RequestJoinResponse,
+    SuccessMessageResponse,
+    SuccessResponse,
+)
 from backend.services import (
     data_service,
     interaction_policy,
     league_games_service,
     message_write_policy,
     notification_service,
-)
-from backend.api.auth_dependencies import (
-    get_current_user_optional,
-    require_user,
-    require_system_admin,
-    make_require_league_admin,
-    make_require_league_member,
-    make_require_league_member_or_public,
-)
-from backend.models.schemas import (
-    LeagueCreate,
-    LeagueResponse,
-    LeagueDetailResponse,
-    LeagueMemberResponse,
-    LeagueMemberDetailResponse,
-    HomeCourtResponse,
-    SuccessResponse,
-    SuccessMessageResponse,
-    BatchMemberResponse,
-    JoinRequestsResponse,
-    RequestJoinResponse,
-    LeagueJoinResponse,
-    LeagueStandingsResponse,
-    LeagueGamesResponse,
-    InvitablePlayerResponse,
-    LeagueInviteItemResponse,
-    InviteActionResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ async def create_league(
             description=payload.description,
             location_id=payload.location_id,
             is_open=payload.is_open,
+            is_public=payload.is_public,
             whatsapp_group_id=payload.whatsapp_group_id,
             creator_user_id=user["id"],
             gender=payload.gender,
@@ -162,7 +164,7 @@ async def query_leagues(
 async def get_league(
     league_id: int,
     session: AsyncSession = Depends(get_db_session),
-    user: dict = Depends(require_user),
+    user: dict = Depends(make_require_league_member_or_public()),
 ):
     """
     Get enriched league detail. Requires authentication.
@@ -173,6 +175,10 @@ async def get_league(
         league = await data_service.get_league_detail(session, league_id, user["id"])
         if not league:
             raise HTTPException(status_code=404, detail="League not found")
+        # Public discovery never exposes the private group identifier to a
+        # non-member. Members retain the existing full-detail response.
+        if league.get("user_role") is None:
+            league = {**league, "whatsapp_group_id": None}
         return league
     except HTTPException:
         raise
@@ -184,7 +190,7 @@ async def get_league(
 @router.put("/api/leagues/{league_id}", response_model=LeagueResponse)
 async def update_league(
     league_id: int,
-    payload: LeagueCreate,
+    payload: LeagueUpdate,
     user: dict = Depends(make_require_league_admin()),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -196,13 +202,7 @@ async def update_league(
         league = await data_service.update_league(
             session=session,
             league_id=league_id,
-            name=payload.name,
-            description=payload.description,
-            location_id=payload.location_id,
-            is_open=payload.is_open,
-            whatsapp_group_id=payload.whatsapp_group_id,
-            gender=payload.gender,
-            level=payload.level,
+            **payload.model_dump(exclude_unset=True),
         )
         if not league:
             raise HTTPException(status_code=404, detail="League not found")
@@ -245,10 +245,10 @@ async def delete_league(
 @router.get("/api/leagues/{league_id}/members", response_model=list[LeagueMemberDetailResponse])
 async def list_league_members(
     league_id: int,
-    user: dict = Depends(require_user),
+    user: dict = Depends(make_require_league_member_or_public()),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """List league members (league_member). Requires authentication only (no league membership required)."""
+    """List members for a public league or a private league the caller belongs to."""
     try:
         return await data_service.list_league_members(session, league_id)
     except Exception as e:

@@ -11,10 +11,21 @@ from typing import Mapping
 
 
 GOOGLE_SCHEME_PREFIX = "com.googleusercontent.apps."
+KNOWN_PLACEHOLDER_JWT_SECRETS = {
+    "change-me-in-production",
+    "changeme",
+    "replace-me",
+    "your-secret-key",
+}
+MINIMUM_DEPLOYED_JWT_SECRET_BYTES = 32
 
 
 def _present(config: Mapping[str, str], name: str) -> bool:
     return bool(config.get(name, "").strip())
+
+
+def _normalized_bucket(config: Mapping[str, str], name: str) -> str:
+    return config.get(name, "").strip().casefold()
 
 
 def _audiences(config: Mapping[str, str], primary: str, additional: str) -> set[str]:
@@ -69,7 +80,88 @@ def _fernet_key_has_valid_shape(value: str) -> bool:
         return False
 
 
-def run_checks(config: Mapping[str, str], app_config_path: Path) -> bool:
+def _secure_jwt_secret(config: Mapping[str, str]) -> bool:
+    secret = config.get("JWT_SECRET_KEY", "").strip()
+    return (
+        bool(secret)
+        and secret.lower() not in KNOWN_PLACEHOLDER_JWT_SECRETS
+        and len(secret.encode("utf-8")) >= MINIMUM_DEPLOYED_JWT_SECRET_BYTES
+    )
+
+
+def _positive_float_at_most(
+    config: Mapping[str, str], name: str, default: str, maximum: float
+) -> bool:
+    try:
+        value = float(config.get(name, default))
+    except (TypeError, ValueError):
+        return False
+    return 0 < value <= maximum
+
+
+def _int_in_range(
+    config: Mapping[str, str], name: str, default: str, minimum: int, maximum: int
+) -> bool:
+    try:
+        value = int(config.get(name, default))
+    except (TypeError, ValueError):
+        return False
+    return minimum <= value <= maximum
+
+
+def _production_runtime_checks(config: Mapping[str, str]) -> tuple[tuple[str, bool], ...]:
+    return (
+        (
+            "Production JWT secret is non-placeholder and at least 32 bytes",
+            _secure_jwt_secret(config),
+        ),
+        ("Media access key is present", _present(config, "AWS_ACCESS_KEY_ID")),
+        ("Media secret key is present", _present(config, "AWS_SECRET_ACCESS_KEY")),
+        ("Media bucket is present", _present(config, "AWS_S3_BUCKET")),
+        ("Moderation provider credential is present", _present(config, "OPENAI_API_KEY")),
+        (
+            "Moderation evidence bucket is present",
+            _present(config, "AWS_MODERATION_EVIDENCE_BUCKET"),
+        ),
+        (
+            "Moderation evidence bucket is separate from public media",
+            bool(_normalized_bucket(config, "AWS_MODERATION_EVIDENCE_BUCKET"))
+            and _normalized_bucket(config, "AWS_MODERATION_EVIDENCE_BUCKET")
+            != _normalized_bucket(config, "AWS_S3_BUCKET"),
+        ),
+        (
+            "Moderation auto-enforcement threshold is valid",
+            _positive_float_at_most(config, "MODERATION_AUTO_ENFORCE_SCORE", "0.95", 1),
+        ),
+        (
+            "Moderation provider timeout fits the readiness budget",
+            _positive_float_at_most(config, "MODERATION_PROVIDER_TIMEOUT", "20", 30),
+        ),
+        (
+            "Moderation flagship timeout fits the readiness budget",
+            _positive_float_at_most(config, "MODERATION_FLAGSHIP_TIMEOUT", "30", 45),
+        ),
+        (
+            "Moderation flagship attempts fit the readiness budget",
+            _int_in_range(config, "MODERATION_FLAGSHIP_MAX_ATTEMPTS", "2", 1, 2),
+        ),
+        (
+            "Moderation flagship model is configured",
+            bool(config.get("MODERATION_FLAGSHIP_MODEL", "gpt-5.6").strip()),
+        ),
+        (
+            "Moderation owner alerts are enabled",
+            config.get("MODERATION_ALERTS_ENABLED", "false").lower() in {"1", "true", "yes"},
+        ),
+        ("Moderation alert mail credential is present", _present(config, "RESEND_API_KEY")),
+        ("Moderation alert sender is present", _present(config, "RESEND_FROM_EMAIL")),
+        ("Moderation alert recipient is present", _present(config, "MODERATION_ALERT_EMAIL")),
+    )
+
+
+def run_checks(
+    config: Mapping[str, str], app_config_path: Path, *, production: bool = False
+) -> bool:
     bundle_identifier, google_ios_audience = _load_app_identity(app_config_path)
     google_audiences = _audiences(config, "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_IDS")
     apple_audiences = _audiences(config, "APPLE_CLIENT_ID", "APPLE_CLIENT_IDS")
@@ -107,6 +199,8 @@ def run_checks(config: Mapping[str, str], app_config_path: Path) -> bool:
             _fernet_key_has_valid_shape(config.get("APPLE_TOKEN_ENCRYPTION_KEY", "")),
         ),
     )
+    if production:
+        checks += _production_runtime_checks(config)
 
     for label, passed in checks:
         print(f"{'PASS' if passed else 'FAIL'} {label}")
@@ -151,6 +245,11 @@ def main() -> int:
     )
     parser.add_argument("--env-file", type=Path)
     parser.add_argument("--app-config", type=Path, required=True)
+    parser.add_argument(
+        "--production",
+        action="store_true",
+        help="also validate deterministic production runtime requirements",
+    )
     args = parser.parse_args()
 
     try:
@@ -158,7 +257,7 @@ def main() -> int:
     except (OSError, ValueError):
         print("Provider configuration preflight failed: environment file is unreadable or invalid")
         return 1
-    return 0 if run_checks(config, args.app_config) else 1
+    return 0 if run_checks(config, args.app_config, production=args.production) else 1
 
 
 if __name__ == "__main__":

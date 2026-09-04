@@ -313,14 +313,10 @@ async def test_hidden_conversation_is_silent_until_restored(db_session, players)
     bob = players["bob"]["player_id"]
 
     await direct_message_service.send_message(db_session, bob, alice, "Unwanted")
-    await direct_message_service.set_conversation_hidden(
-        db_session, alice, bob, hidden=True
-    )
+    await direct_message_service.set_conversation_hidden(db_session, alice, bob, hidden=True)
 
     inbox = await direct_message_service.get_conversations(db_session, alice)
-    hidden = await direct_message_service.get_conversations(
-        db_session, alice, folder="hidden"
-    )
+    hidden = await direct_message_service.get_conversations(db_session, alice, folder="hidden")
     thread = await direct_message_service.get_thread(db_session, alice, bob)
 
     assert inbox["items"] == []
@@ -331,9 +327,7 @@ async def test_hidden_conversation_is_silent_until_restored(db_session, players)
     assert await direct_message_service.mark_thread_read(db_session, alice, bob) == 0
     assert await direct_message_service.get_unread_count(db_session, bob) == 0
 
-    await direct_message_service.set_conversation_hidden(
-        db_session, alice, bob, hidden=False
-    )
+    await direct_message_service.set_conversation_hidden(db_session, alice, bob, hidden=False)
     restored = await direct_message_service.get_conversations(db_session, alice)
     assert restored["items"][0]["player_id"] == bob
     assert restored["items"][0]["unread_count"] == 1
@@ -357,9 +351,7 @@ async def test_new_messages_to_hidden_conversation_skip_realtime_and_notificatio
         upsert_notification,
     )
 
-    await direct_message_service.set_conversation_hidden(
-        db_session, alice, bob, hidden=True
-    )
+    await direct_message_service.set_conversation_hidden(db_session, alice, bob, hidden=True)
     await direct_message_service.send_message(db_session, bob, alice, "Still hidden")
 
     get_manager.assert_not_called()

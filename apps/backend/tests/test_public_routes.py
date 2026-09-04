@@ -308,6 +308,7 @@ def test_sitemap_leagues_error_returns_500(mock_sitemap, client):
 
     response = client.get("/api/public/sitemap/leagues")
     assert response.status_code == 500
-    assert "Internal server error" in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "internal_error"
+    assert response.json()["detail"]["request_id"]
     # Ensure the actual error message is NOT exposed
-    assert "database crashed" not in response.json()["detail"]
+    assert "database crashed" not in response.text

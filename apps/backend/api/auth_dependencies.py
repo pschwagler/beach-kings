@@ -334,6 +334,51 @@ async def _has_league_role(
     return result.scalar_one_or_none() is not None
 
 
+async def require_league_member_for_scope(
+    session: AsyncSession,
+    user: dict,
+    *,
+    league_id: Optional[int] = None,
+    season_id: Optional[int] = None,
+) -> None:
+    """Authorize one explicit league or season scope.
+
+    Legacy aggregate endpoints accept their scope in a request body, so they
+    cannot use the path-parameter dependency factories below. Keep their
+    deny-by-default rules in one place: exactly one scope is required, seasons
+    are resolved to their owning league, and only league members (or system
+    admins) may read the raw dataset.
+    """
+    if (league_id is None) == (season_id is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Exactly one of league_id or season_id is required",
+        )
+
+    if await _is_system_admin(session, user):
+        return
+
+    resolved_league_id = league_id
+    if season_id is not None:
+        resolved_league_id = await session.scalar(
+            select(Season.league_id).where(Season.id == season_id)
+        )
+        if resolved_league_id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Season not found")
+
+    assert resolved_league_id is not None
+    if not await _has_league_role(
+        session,
+        user_id=user["id"],
+        league_id=resolved_league_id,
+        required_role=None,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="League membership required",
+        )
+
+
 async def require_system_admin(
     user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_db_session)
 ) -> dict:
@@ -458,6 +503,9 @@ def make_require_league_member_from_season():
         user: dict = Depends(get_current_user),
         session: AsyncSession = Depends(get_db_session),
     ) -> dict:
+        if await _is_system_admin(session, user):
+            return user
+
         # Get season to find league_id
         result = await session.execute(select(Season).where(Season.id == season_id))
         season = result.scalar_one_or_none()
@@ -466,8 +514,6 @@ def make_require_league_member_from_season():
 
         league_id = season.league_id
 
-        if await _is_system_admin(session, user):
-            return user
         if not await _has_league_role(
             session, user_id=user["id"], league_id=league_id, required_role=None
         ):

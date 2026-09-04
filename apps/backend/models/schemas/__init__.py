@@ -64,6 +64,7 @@ from .leagues import LeagueConfigCreate
 from .leagues import LeagueConfigResponse
 from .leagues import LeagueBase
 from .leagues import LeagueCreate
+from .leagues import LeagueUpdate
 from .leagues import HomeCourtResponse
 from .leagues import PlayerHomeCourtResponse
 from .leagues import LeagueResponse
@@ -333,6 +334,7 @@ __all__ = [
     "LeagueConfigResponse",
     "LeagueBase",
     "LeagueCreate",
+    "LeagueUpdate",
     "HomeCourtResponse",
     "PlayerHomeCourtResponse",
     "LeagueResponse",

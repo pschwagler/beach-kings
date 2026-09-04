@@ -27,12 +27,23 @@ def _get_config():
     }
 
 
+def configuration_issues() -> list[str]:
+    """Return missing media-storage settings without probing S3 or exposing values."""
+    config = _get_config()
+    required = {
+        "AWS_ACCESS_KEY_ID": config["access_key_id"],
+        "AWS_SECRET_ACCESS_KEY": config["secret_access_key"],
+        "AWS_S3_BUCKET": config["bucket"],
+    }
+    return [name for name, value in required.items() if not value or not value.strip()]
+
+
 def _get_s3_client():
     """Get or create the boto3 S3 client. Lazy-imports boto3 to avoid import-time dependency."""
     global _s3_client
     if _s3_client is None:
         cfg = _get_config()
-        if not all([cfg["access_key_id"], cfg["secret_access_key"], cfg["bucket"]]):
+        if configuration_issues():
             raise ValueError(
                 "AWS S3 environment variables not configured. "
                 "Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_S3_BUCKET."

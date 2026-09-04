@@ -106,12 +106,8 @@ class DirectMessageThreadPreference(Base):
     __tablename__ = "direct_message_thread_preferences"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    owner_player_id = Column(
-        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
-    )
-    other_player_id = Column(
-        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
-    )
+    owner_player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    other_player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
     hidden_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(

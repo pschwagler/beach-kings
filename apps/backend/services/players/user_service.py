@@ -2,70 +2,73 @@
 User service layer for user and verification code database operations.
 """
 
-from datetime import datetime, timedelta, timezone
 import logging
 import secrets
-from typing import Optional, Dict
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Optional
 from urllib.parse import urlparse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
-from backend.utils.datetime_utils import utcnow
-from sqlalchemy import and_, select, update, delete, func
+
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.database.models import (
-    User,
-    VerificationCode,
-    RefreshToken,
-    PasswordResetToken,
-    Player,
-    Friend,
-    FriendRequest,
-    DirectMessage,
-    Notification,
-    LeagueMember,
-    LeagueMessage,
-    LeagueRequest,
-    PlayerSeasonStats,
-    PlayerLeagueStats,
-    PlayerGlobalStats,
-    PartnershipStats,
-    PartnershipStatsSeason,
-    PartnershipStatsLeague,
-    OpponentStats,
-    OpponentStatsSeason,
-    OpponentStatsLeague,
-    EloHistory,
-    SeasonRatingHistory,
-    SignupPlayer,
-    SignupEvent,
-    SessionParticipant,
-    Feedback,
-    CourtReview,
-    CourtReviewPhoto,
-    CourtPhoto,
-    CourtEditSuggestion,
-    PlayerInvite,
-    Court,
-    CourtCheckIn,
-    KobTournament,
-    KobPlayer,
-    League,
-    LeagueConfig,
-    LeagueInvite,
-    Location,
-    Match,
-    PlayerHomeCourt,
-    Season,
-    SeasonAward,
-    Session,
-    Setting,
-    Signup,
-    WeeklySchedule,
-    MediaDeletionJob,
     AppleCredential,
     AppleRevocationJob,
     AuthDeliveryJob,
+    Court,
+    CourtCheckIn,
+    CourtEditSuggestion,
+    CourtPhoto,
+    CourtReview,
+    CourtReviewPhoto,
+    DirectMessage,
+    EloHistory,
+    Feedback,
+    Friend,
+    FriendRequest,
+    KobPlayer,
+    KobTournament,
+    League,
+    LeagueConfig,
+    LeagueInvite,
+    LeagueMember,
+    LeagueMessage,
+    LeagueRequest,
+    Location,
+    Match,
+    MediaDeletionJob,
+    Notification,
+    OpponentStats,
+    OpponentStatsLeague,
+    OpponentStatsSeason,
+    PartnershipStats,
+    PartnershipStatsLeague,
+    PartnershipStatsSeason,
+    PasswordResetToken,
+    Player,
+    PlayerGlobalStats,
+    PlayerHomeCourt,
+    PlayerInvite,
+    PlayerLeagueStats,
+    PlayerSeasonStats,
+    RefreshToken,
+    Season,
+    SeasonAward,
+    SeasonRatingHistory,
+    Session,
+    SessionParticipant,
+    Setting,
+    Signup,
+    SignupEvent,
+    SignupPlayer,
+    User,
+    VerificationCode,
+    WeeklySchedule,
 )
+from backend.services.auth import auth_service
+from backend.utils.datetime_utils import utcnow
 
 
 def effective_moderation_status(user: dict) -> str:
@@ -960,10 +963,13 @@ async def create_refresh_token(
             )
         )
 
-        # Create new refresh token
+        token_hash = auth_service.hash_opaque_token(token, purpose="refresh")
+
+        # Store only the keyed digest. The bearer token is returned to the
+        # client once and cannot be recovered from the database.
         new_token = RefreshToken(
             user_id=user_id,
-            token=token,
+            token=token_hash,
             expires_at=expires_at_str,
             session_version=session_version,
         )
@@ -987,13 +993,21 @@ async def get_refresh_token(session: AsyncSession, token: str) -> Optional[Dict]
     Returns:
         Refresh token dictionary with user_id and expires_at, or None if not found
     """
-    result = await session.execute(select(RefreshToken).where(RefreshToken.token == token))
+    if token.startswith(auth_service.OPAQUE_TOKEN_DIGEST_PREFIX):
+        return None
+    token_hash = auth_service.hash_opaque_token(token, purpose="refresh")
+    legacy_token = and_(
+        ~RefreshToken.token.startswith(auth_service.OPAQUE_TOKEN_DIGEST_PREFIX),
+        RefreshToken.token == token,
+    )
+    result = await session.execute(
+        select(RefreshToken).where(or_(RefreshToken.token == token_hash, legacy_token))
+    )
     refresh_token = result.scalar_one_or_none()
     if refresh_token:
         return {
             "id": refresh_token.id,
             "user_id": refresh_token.user_id,
-            "token": refresh_token.token,
             "expires_at": refresh_token.expires_at,
             "session_version": refresh_token.session_version or 0,
             "created_at": refresh_token.created_at.isoformat()
@@ -1014,7 +1028,16 @@ async def delete_refresh_token(session: AsyncSession, token: str) -> bool:
     Returns:
         True if token was deleted, False otherwise
     """
-    result = await session.execute(delete(RefreshToken).where(RefreshToken.token == token))
+    if token.startswith(auth_service.OPAQUE_TOKEN_DIGEST_PREFIX):
+        return False
+    token_hash = auth_service.hash_opaque_token(token, purpose="refresh")
+    legacy_token = and_(
+        ~RefreshToken.token.startswith(auth_service.OPAQUE_TOKEN_DIGEST_PREFIX),
+        RefreshToken.token == token,
+    )
+    result = await session.execute(
+        delete(RefreshToken).where(or_(RefreshToken.token == token_hash, legacy_token))
+    )
     await session.flush()
     return result.rowcount > 0
 
@@ -1067,9 +1090,11 @@ async def create_password_reset_token(
             )
         )
 
-        # Create new reset token
+        token_hash = auth_service.hash_opaque_token(token, purpose="password_reset")
+
+        # Store only the keyed digest; the raw reset token is returned once.
         new_token = PasswordResetToken(
-            user_id=user_id, token=token, expires_at=expires_at_str, used=False
+            user_id=user_id, token=token_hash, expires_at=expires_at_str, used=False
         )
         session.add(new_token)
         await session.commit()
@@ -1092,9 +1117,16 @@ async def verify_and_use_password_reset_token(session: AsyncSession, token: str)
         User ID if token is valid and was marked as used, None otherwise
     """
     # Get the token and verify it's valid and not expired
+    if token.startswith(auth_service.OPAQUE_TOKEN_DIGEST_PREFIX):
+        return None
+    token_hash = auth_service.hash_opaque_token(token, purpose="password_reset")
+    legacy_token = and_(
+        ~PasswordResetToken.token.startswith(auth_service.OPAQUE_TOKEN_DIGEST_PREFIX),
+        PasswordResetToken.token == token,
+    )
     result = await session.execute(
         select(PasswordResetToken).where(
-            PasswordResetToken.token == token,
+            or_(PasswordResetToken.token == token_hash, legacy_token),
             PasswordResetToken.used.is_(False),
             PasswordResetToken.expires_at > utcnow().isoformat(),
         )

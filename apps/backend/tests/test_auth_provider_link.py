@@ -383,7 +383,8 @@ class TestGoogleAdd:
         resp = client.post("/api/auth/google/add", json={"id_token": "sensitive-token"})
 
         assert resp.status_code == 503
-        assert resp.json()["detail"]["code"] == "PROVIDER_LINK_CONFIG"
+        assert resp.json()["detail"]["code"] == "internal_error"
+        assert resp.json()["detail"]["request_id"]
         assert "GOOGLE_CLIENT_IDS" not in resp.text
 
     def test_unauthenticated_returns_401(self):
@@ -684,10 +685,8 @@ class TestAppleAdd:
         )
 
         assert resp.status_code == 503
-        assert resp.json()["detail"] == {
-            "code": "APPLE_LINK_CODE_EXCHANGE",
-            "message": "Apple authorization could not be completed securely.",
-        }
+        assert resp.json()["detail"]["code"] == "internal_error"
+        assert resp.json()["detail"]["request_id"]
         assert "provider response details" not in resp.text
 
     def test_unauthenticated_returns_401(self):

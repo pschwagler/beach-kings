@@ -50,7 +50,7 @@ class VerificationCode(Base):
 
 
 class RefreshToken(Base):
-    """JWT refresh tokens for token rotation."""
+    """Keyed refresh-token digests for token rotation."""
 
     __tablename__ = "refresh_tokens"
 
@@ -72,7 +72,7 @@ class RefreshToken(Base):
 
 
 class PasswordResetToken(Base):
-    """Tokens for password reset after verification."""
+    """Keyed password-reset-token digests after verification."""
 
     __tablename__ = "password_reset_tokens"
 

@@ -14,7 +14,11 @@ from backend.services import data_service, placeholder_service, league_data
 from backend.api.auth_dependencies import (
     get_current_user,
     get_current_user_optional,
+    require_league_member_for_scope,
+    require_system_admin,
+    require_user,
     require_verified_player,
+    make_require_league_member_from_season,
 )
 from backend.models.schemas import (
     ClaimInviteResponse,
@@ -396,7 +400,9 @@ async def create_player(
 
 @router.get("/api/players/{player_id}/matches", response_model=List[Any])
 async def get_player_match_history(
-    player_id: int, session: AsyncSession = Depends(get_db_session)
+    player_id: int,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """
     Get match history for a specific player.
@@ -408,6 +414,8 @@ async def get_player_match_history(
         list: Array of player's matches (most recent first, may be empty)
     """
     try:
+        if user["player_id"] != player_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
         match_history = await data_service.get_player_match_history_by_id(session, player_id)
 
         if match_history is None:
@@ -447,7 +455,10 @@ async def get_player_leagues(player_id: int, session: AsyncSession = Depends(get
     response_model=dict,
 )
 async def get_player_season_stats(
-    player_id: int, season_id: int, session: AsyncSession = Depends(get_db_session)
+    player_id: int,
+    season_id: int,
+    user: dict = Depends(make_require_league_member_from_season()),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """
     Get player statistics for a specific season.
@@ -474,7 +485,10 @@ async def get_player_season_stats(
 
 
 @router.get("/api/elo-timeline", response_model=List[Any])
-async def get_elo_timeline(session: AsyncSession = Depends(get_db_session)):
+async def get_elo_timeline(
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
     """
     Get ELO timeline data for all players.
     Useful for creating charts/graphs of ELO changes over time.
@@ -499,7 +513,7 @@ async def get_elo_timeline(session: AsyncSession = Depends(get_db_session)):
 @router.post("/api/matches/search", response_model=List[Any])
 async def search_matches(
     body: MatchesQueryRequest,
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(require_user),
     session: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -510,7 +524,14 @@ async def search_matches(
         list: Array of matches matching the query criteria
     """
     try:
-        results = await data_service.query_matches(session, body.model_dump(), user)
+        query = body.model_dump()
+        await require_league_member_for_scope(
+            session,
+            user,
+            season_id=query.get("season_id"),
+            league_id=query.get("league_id"),
+        )
+        results = await data_service.query_matches(session, query, user)
         return results
     except HTTPException:
         raise
@@ -520,7 +541,10 @@ async def search_matches(
 
 
 @router.get("/api/matches/export")
-async def export_matches(session: AsyncSession = Depends(get_db_session)):
+async def export_matches(
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
     """
     Export all matches to CSV format (Google Sheets compatible).
 
@@ -539,7 +563,11 @@ async def export_matches(session: AsyncSession = Depends(get_db_session)):
 
 
 @router.get("/api/players/{player_id}/stats", response_model=dict)
-async def get_player_stats(player_id: int, session: AsyncSession = Depends(get_db_session)):
+async def get_player_stats(
+    player_id: int,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
     """
     Get detailed statistics for a specific player.
 
@@ -550,6 +578,8 @@ async def get_player_stats(player_id: int, session: AsyncSession = Depends(get_d
         dict: Player stats including partnerships and opponents
     """
     try:
+        if user["player_id"] != player_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
         player_stats = await data_service.get_player_stats_by_id(session, player_id)
 
         if player_stats is None:

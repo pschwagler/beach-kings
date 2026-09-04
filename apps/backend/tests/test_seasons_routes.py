@@ -31,6 +31,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
+from backend.api.auth_dependencies import require_verified_player
 from backend.api.main import app
 from backend.services import (
     auth_service,
@@ -240,28 +241,28 @@ class TestGetSeason:
     """Tests for GET /api/seasons/{season_id}."""
 
     def test_get_season_success(self, monkeypatch):
-        """Public endpoint returns season data."""
-        client = TestClient(app)
+        """A league member can read season data."""
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_season(session, season_id):
             return _SEASON
 
         monkeypatch.setattr(data_service, "get_season", fake_get_season, raising=True)
 
-        response = client.get(f"/api/seasons/{SEASON_ID}")
+        response = client.get(f"/api/seasons/{SEASON_ID}", headers=headers)
         assert response.status_code == 200
         assert response.json()["id"] == SEASON_ID
 
     def test_get_season_not_found(self, monkeypatch):
         """Returns 404 when season does not exist."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_season(session, season_id):
             return None
 
         monkeypatch.setattr(data_service, "get_season", fake_get_season, raising=True)
 
-        response = client.get(f"/api/seasons/{SEASON_ID}")
+        response = client.get(f"/api/seasons/{SEASON_ID}", headers=headers)
         assert response.status_code == 404
 
 
@@ -366,7 +367,7 @@ class TestGetMatchesElo:
 
     def test_elo_by_season_id(self, monkeypatch):
         """Returns matches for a season when season_id is provided."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_season_matches(session, season_id):
             return [{"id": 1, "season_id": season_id}]
@@ -375,7 +376,7 @@ class TestGetMatchesElo:
             data_service, "get_season_matches_with_elo", fake_get_season_matches, raising=True
         )
 
-        response = client.post("/api/matches/elo", json={"season_id": SEASON_ID})
+        response = client.post("/api/matches/elo", json={"season_id": SEASON_ID}, headers=headers)
         assert response.status_code == 200
         body = response.json()
         assert isinstance(body, list)
@@ -383,7 +384,7 @@ class TestGetMatchesElo:
 
     def test_elo_by_league_id(self, monkeypatch):
         """Returns matches for a league when league_id is provided."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_league_matches(session, league_id):
             return [{"id": 2, "league_id": league_id}]
@@ -392,15 +393,24 @@ class TestGetMatchesElo:
             data_service, "get_league_matches_with_elo", fake_get_league_matches, raising=True
         )
 
-        response = client.post("/api/matches/elo", json={"league_id": LEAGUE_ID})
+        response = client.post("/api/matches/elo", json={"league_id": LEAGUE_ID}, headers=headers)
         assert response.status_code == 200
         body = response.json()
         assert body[0]["league_id"] == LEAGUE_ID
 
     def test_elo_missing_id_returns_400(self, monkeypatch):
         """Returns 400 when neither season_id nor league_id is provided."""
-        client = TestClient(app)
-        response = client.post("/api/matches/elo", json={})
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.post("/api/matches/elo", json={}, headers=headers)
+        assert response.status_code == 400
+
+    def test_elo_rejects_ambiguous_scope(self, monkeypatch):
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.post(
+            "/api/matches/elo",
+            json={"season_id": SEASON_ID, "league_id": LEAGUE_ID},
+            headers=headers,
+        )
         assert response.status_code == 400
 
 
@@ -414,7 +424,7 @@ class TestGetSeasonMatches:
 
     def test_get_season_matches_success(self, monkeypatch):
         """Public endpoint returns match list for a season."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_season_matches(session, season_id):
             return [{"id": 1, "season_id": season_id}]
@@ -423,7 +433,7 @@ class TestGetSeasonMatches:
             data_service, "get_season_matches_with_elo", fake_get_season_matches, raising=True
         )
 
-        response = client.get(f"/api/seasons/{SEASON_ID}/matches")
+        response = client.get(f"/api/seasons/{SEASON_ID}/matches", headers=headers)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
@@ -438,7 +448,7 @@ class TestGetAllPlayerStats:
 
     def test_player_stats_by_season_id(self, monkeypatch):
         """Returns player stats for a season."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_season_stats(session, season_id):
             return [{"player_id": PLAYER_ID, "wins": 5}]
@@ -447,7 +457,7 @@ class TestGetAllPlayerStats:
             data_service, "get_all_player_season_stats", fake_get_season_stats, raising=True
         )
 
-        response = client.post("/api/player-stats", json={"season_id": SEASON_ID})
+        response = client.post("/api/player-stats", json={"season_id": SEASON_ID}, headers=headers)
         assert response.status_code == 200
         body = response.json()
         assert isinstance(body, list)
@@ -455,7 +465,7 @@ class TestGetAllPlayerStats:
 
     def test_player_stats_by_league_id(self, monkeypatch):
         """Returns player stats for a league."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_league_stats(session, league_id):
             return [{"player_id": PLAYER_ID, "wins": 10}]
@@ -464,14 +474,14 @@ class TestGetAllPlayerStats:
             data_service, "get_all_player_league_stats", fake_get_league_stats, raising=True
         )
 
-        response = client.post("/api/player-stats", json={"league_id": LEAGUE_ID})
+        response = client.post("/api/player-stats", json={"league_id": LEAGUE_ID}, headers=headers)
         assert response.status_code == 200
         assert response.json()[0]["wins"] == 10
 
     def test_player_stats_missing_id_returns_400(self, monkeypatch):
         """Returns 400 when neither season_id nor league_id is provided."""
-        client = TestClient(app)
-        response = client.post("/api/player-stats", json={})
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.post("/api/player-stats", json={}, headers=headers)
         assert response.status_code == 400
 
 
@@ -485,7 +495,7 @@ class TestGetSeasonPlayerStats:
 
     def test_get_season_player_stats_success(self, monkeypatch):
         """Public endpoint returns player stats for a season."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_stats(session, season_id):
             return [{"player_id": PLAYER_ID}]
@@ -494,7 +504,7 @@ class TestGetSeasonPlayerStats:
             data_service, "get_all_player_season_stats", fake_get_stats, raising=True
         )
 
-        response = client.get(f"/api/seasons/{SEASON_ID}/player-stats")
+        response = client.get(f"/api/seasons/{SEASON_ID}/player-stats", headers=headers)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
@@ -509,7 +519,7 @@ class TestGetPartnershipOpponentStats:
 
     def test_partnership_stats_by_season_id(self, monkeypatch):
         """Returns partnership/opponent stats for a season."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_season_stats(session, season_id):
             return [{"player_id": PLAYER_ID}]
@@ -521,12 +531,16 @@ class TestGetPartnershipOpponentStats:
             raising=True,
         )
 
-        response = client.post("/api/partnership-opponent-stats", json={"season_id": SEASON_ID})
+        response = client.post(
+            "/api/partnership-opponent-stats",
+            json={"season_id": SEASON_ID},
+            headers=headers,
+        )
         assert response.status_code == 200
 
     def test_partnership_stats_by_league_id(self, monkeypatch):
         """Returns partnership/opponent stats for a league."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_league_stats(session, league_id):
             return [{"player_id": PLAYER_ID}]
@@ -538,13 +552,17 @@ class TestGetPartnershipOpponentStats:
             raising=True,
         )
 
-        response = client.post("/api/partnership-opponent-stats", json={"league_id": LEAGUE_ID})
+        response = client.post(
+            "/api/partnership-opponent-stats",
+            json={"league_id": LEAGUE_ID},
+            headers=headers,
+        )
         assert response.status_code == 200
 
     def test_partnership_stats_missing_id_returns_400(self, monkeypatch):
         """Returns 400 when neither season_id nor league_id is provided."""
-        client = TestClient(app)
-        response = client.post("/api/partnership-opponent-stats", json={})
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.post("/api/partnership-opponent-stats", json={}, headers=headers)
         assert response.status_code == 400
 
 
@@ -563,7 +581,7 @@ class TestPublicStatsEndpoints:
 
     def test_season_partnership_opponent_stats(self, monkeypatch):
         """GET /api/seasons/{season_id}/partnership-opponent-stats returns data."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_stats(session, season_id):
             return [{"player_id": PLAYER_ID}]
@@ -575,12 +593,14 @@ class TestPublicStatsEndpoints:
             raising=True,
         )
 
-        response = client.get(f"/api/seasons/{SEASON_ID}/partnership-opponent-stats")
+        response = client.get(
+            f"/api/seasons/{SEASON_ID}/partnership-opponent-stats", headers=headers
+        )
         assert response.status_code == 200
 
     def test_player_season_partnership_opponent_stats(self, monkeypatch):
         """GET /api/players/{player_id}/season/{season_id}/partnership-opponent-stats."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_player(session, player_id):
             return {"id": player_id}
@@ -597,7 +617,8 @@ class TestPublicStatsEndpoints:
         )
 
         response = client.get(
-            f"/api/players/{PLAYER_ID}/season/{SEASON_ID}/partnership-opponent-stats"
+            f"/api/players/{PLAYER_ID}/season/{SEASON_ID}/partnership-opponent-stats",
+            headers=headers,
         )
         assert response.status_code == 200
         body = response.json()
@@ -606,7 +627,7 @@ class TestPublicStatsEndpoints:
 
     def test_league_player_stats(self, monkeypatch):
         """GET /api/leagues/{league_id}/player-stats returns list."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_stats(session, league_id):
             return [{"player_id": PLAYER_ID, "wins": 3}]
@@ -615,13 +636,13 @@ class TestPublicStatsEndpoints:
             data_service, "get_all_player_league_stats", fake_get_stats, raising=True
         )
 
-        response = client.get(f"/api/leagues/{LEAGUE_ID}/player-stats")
+        response = client.get(f"/api/leagues/{LEAGUE_ID}/player-stats", headers=headers)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
     def test_league_partnership_opponent_stats(self, monkeypatch):
         """GET /api/leagues/{league_id}/partnership-opponent-stats returns list."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_stats(session, league_id):
             return [{"player_id": PLAYER_ID}]
@@ -633,37 +654,43 @@ class TestPublicStatsEndpoints:
             raising=True,
         )
 
-        response = client.get(f"/api/leagues/{LEAGUE_ID}/partnership-opponent-stats")
+        response = client.get(
+            f"/api/leagues/{LEAGUE_ID}/partnership-opponent-stats", headers=headers
+        )
         assert response.status_code == 200
 
     def test_player_league_stats_success(self, monkeypatch):
         """GET /api/players/{player_id}/league/{league_id}/stats returns stats."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_stats(session, player_id, league_id):
             return {"player_id": player_id, "league_id": league_id, "wins": 7}
 
         monkeypatch.setattr(data_service, "get_player_league_stats", fake_get_stats, raising=True)
 
-        response = client.get(f"/api/players/{PLAYER_ID}/league/{LEAGUE_ID}/stats")
+        response = client.get(
+            f"/api/players/{PLAYER_ID}/league/{LEAGUE_ID}/stats", headers=headers
+        )
         assert response.status_code == 200
         assert response.json()["wins"] == 7
 
     def test_player_league_stats_not_found(self, monkeypatch):
         """GET /api/players/{player_id}/league/{league_id}/stats returns 404 when missing."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_stats(session, player_id, league_id):
             return None
 
         monkeypatch.setattr(data_service, "get_player_league_stats", fake_get_stats, raising=True)
 
-        response = client.get(f"/api/players/{PLAYER_ID}/league/{LEAGUE_ID}/stats")
+        response = client.get(
+            f"/api/players/{PLAYER_ID}/league/{LEAGUE_ID}/stats", headers=headers
+        )
         assert response.status_code == 404
 
     def test_player_league_partnership_opponent_stats(self, monkeypatch):
         """GET /api/players/{player_id}/league/{league_id}/partnership-opponent-stats."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_player(session, player_id):
             return {"id": player_id}
@@ -680,7 +707,8 @@ class TestPublicStatsEndpoints:
         )
 
         response = client.get(
-            f"/api/players/{PLAYER_ID}/league/{LEAGUE_ID}/partnership-opponent-stats"
+            f"/api/players/{PLAYER_ID}/league/{LEAGUE_ID}/partnership-opponent-stats",
+            headers=headers,
         )
         assert response.status_code == 200
         body = response.json()
@@ -689,7 +717,7 @@ class TestPublicStatsEndpoints:
 
     def test_league_player_stats_full_success(self, monkeypatch):
         """GET /api/leagues/{league_id}/players/{player_id}/stats returns full shape."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         captured: dict = {}
 
@@ -739,7 +767,7 @@ class TestPublicStatsEndpoints:
 
     def test_league_player_stats_full_with_season_id(self, monkeypatch):
         """Optional season_id query param is forwarded to the service."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         captured: dict = {}
 
@@ -804,7 +832,7 @@ class TestAwardsEndpoints:
 
     def test_get_season_awards_success(self, monkeypatch):
         """GET /api/seasons/{season_id}/awards returns award list."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_awards(session, season_id):
             return [{"type": "mvp", "player_id": PLAYER_ID}]
@@ -813,7 +841,7 @@ class TestAwardsEndpoints:
             season_awards_service, "get_season_awards", fake_get_awards, raising=True
         )
 
-        response = client.get(f"/api/seasons/{SEASON_ID}/awards")
+        response = client.get(f"/api/seasons/{SEASON_ID}/awards", headers=headers)
         assert response.status_code == 200
         body = response.json()
         assert isinstance(body, list)
@@ -821,7 +849,7 @@ class TestAwardsEndpoints:
 
     def test_get_league_awards_success(self, monkeypatch):
         """GET /api/leagues/{league_id}/awards returns awards across seasons."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_awards(session, league_id):
             return [{"type": "best_record", "player_id": PLAYER_ID}]
@@ -830,7 +858,7 @@ class TestAwardsEndpoints:
             season_awards_service, "get_league_awards", fake_get_awards, raising=True
         )
 
-        response = client.get(f"/api/leagues/{LEAGUE_ID}/awards")
+        response = client.get(f"/api/leagues/{LEAGUE_ID}/awards", headers=headers)
         assert response.status_code == 200
         body = response.json()
         assert isinstance(body, list)
@@ -839,6 +867,10 @@ class TestAwardsEndpoints:
     def test_get_player_awards_success(self, monkeypatch):
         """GET /api/players/{player_id}/awards returns player awards."""
         client = TestClient(app)
+        app.dependency_overrides[require_verified_player] = lambda: {
+            "id": USER_ID,
+            "player_id": PLAYER_ID,
+        }
 
         async def fake_get_awards(session, player_id):
             return [{"type": "mvp", "season_id": SEASON_ID}]
@@ -847,7 +879,10 @@ class TestAwardsEndpoints:
             season_awards_service, "get_player_awards", fake_get_awards, raising=True
         )
 
-        response = client.get(f"/api/players/{PLAYER_ID}/awards")
+        try:
+            response = client.get(f"/api/players/{PLAYER_ID}/awards")
+        finally:
+            app.dependency_overrides.pop(require_verified_player, None)
         assert response.status_code == 200
         body = response.json()
         assert isinstance(body, list)
@@ -855,7 +890,7 @@ class TestAwardsEndpoints:
 
     def test_get_season_awards_service_error_returns_500(self, monkeypatch):
         """Unexpected service error propagates as 500."""
-        client = TestClient(app)
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_awards(session, season_id):
             raise RuntimeError("db failure")
@@ -864,7 +899,7 @@ class TestAwardsEndpoints:
             season_awards_service, "get_season_awards", fake_get_awards, raising=True
         )
 
-        response = client.get(f"/api/seasons/{SEASON_ID}/awards")
+        response = client.get(f"/api/seasons/{SEASON_ID}/awards", headers=headers)
         assert response.status_code == 500
 
 

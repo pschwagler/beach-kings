@@ -2,23 +2,27 @@
 Authentication service for password hashing, JWT tokens, and SMS verification.
 """
 
-import bcrypt
-import os
+import hashlib
+import hmac
 import logging
+import os
 import re
 import secrets
 from datetime import timedelta
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from backend.utils.constants import APP_NAME
-from backend.utils.datetime_utils import utcnow
+
+import bcrypt
+import phonenumbers
+from dotenv import load_dotenv
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError
-from twilio.rest import Client
-from dotenv import load_dotenv
-import phonenumbers
 from phonenumbers import NumberParseException, PhoneNumberFormat
+from sqlalchemy.ext.asyncio import AsyncSession
+from twilio.rest import Client
+
 from backend.services import settings_service
+from backend.utils.constants import APP_NAME
+from backend.utils.datetime_utils import utcnow
 
 # Load environment variables
 load_dotenv()
@@ -55,6 +59,38 @@ if not JWT_SECRET_KEY:
         "Generate a secure random key with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
     )
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+
+DEPLOYED_ENVIRONMENTS = {"production", "prod", "staging"}
+KNOWN_PLACEHOLDER_JWT_SECRETS = {
+    "change-me-in-production",
+    "changeme",
+    "replace-me",
+    "your-secret-key",
+}
+OPAQUE_TOKEN_DIGEST_PREFIX = "hmac-sha256:v1:"
+MINIMUM_DEPLOYED_JWT_SECRET_BYTES = 32
+
+
+def runtime_security_configuration_issues() -> list[str]:
+    """Return unsafe deployed-runtime settings without exposing their values."""
+    if os.getenv("ENV", "development").lower() not in DEPLOYED_ENVIRONMENTS:
+        return []
+    secret = (os.getenv("JWT_SECRET_KEY") or "").strip()
+    if (
+        not secret
+        or secret.lower() in KNOWN_PLACEHOLDER_JWT_SECRETS
+        or len(secret.encode("utf-8")) < MINIMUM_DEPLOYED_JWT_SECRET_BYTES
+    ):
+        return ["JWT_SECRET_KEY"]
+    return []
+
+
+def validate_runtime_security_config() -> None:
+    """Reject unsafe authentication configuration before a deployed API starts."""
+    if runtime_security_configuration_issues():
+        raise RuntimeError("JWT_SECRET_KEY must be configured securely for deployment")
+
+
 JWT_EXPIRATION_MINUTES = int(
     float(os.getenv("JWT_EXPIRATION_HOURS", "1")) * 60
 )  # Access token: read hours from env, convert to minutes (default 1 hour)
@@ -175,6 +211,13 @@ def generate_refresh_token() -> str:
         Random token string suitable for use as refresh token
     """
     return secrets.token_urlsafe(32)
+
+
+def hash_opaque_token(token: str, *, purpose: str) -> str:
+    """Return a versioned, purpose-separated keyed digest for an opaque token."""
+    message = f"{purpose}:{token}".encode("utf-8")
+    digest = hmac.new(JWT_SECRET_KEY.encode("utf-8"), message, hashlib.sha256).hexdigest()
+    return f"{OPAQUE_TOKEN_DIGEST_PREFIX}{digest}"
 
 
 def verify_token(token: str) -> Optional[dict]:
@@ -355,8 +398,8 @@ def verify_google_id_token(token: str) -> dict:
     Raises:
         ValueError: If token is invalid, expired, or audience doesn't match
     """
-    from google.oauth2 import id_token as google_id_token
     from google.auth.transport import requests as google_requests
+    from google.oauth2 import id_token as google_id_token
 
     audiences = _configured_audiences(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_IDS)
     if not audiences:

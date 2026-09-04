@@ -2,13 +2,15 @@
 Tests for user service - user management and authentication.
 """
 
+from datetime import timedelta
+
 import pytest
 import pytest_asyncio
-from datetime import timedelta
-from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select
+
+from backend.database.models import PasswordResetToken, RefreshToken, VerificationCode
 from backend.services import user_service
-from backend.database.models import VerificationCode
+from backend.utils.datetime_utils import utcnow
 
 
 # db_session fixture is provided by conftest.py - using test_session as alias for compatibility
@@ -199,6 +201,89 @@ async def test_create_refresh_token(test_session):
     token = await user_service.get_refresh_token(test_session, "refresh_token_123")
     assert token is not None
     assert token["user_id"] == user_id
+
+    stored = (await test_session.execute(select(RefreshToken))).scalar_one()
+    assert stored.token != "refresh_token_123"
+    assert stored.token.startswith("hmac-sha256:v1:")
+    assert len(stored.token) == 79
+
+    # A database digest is not itself a bearer credential. This prevents a
+    # leaked token table from being replayed through the legacy read path.
+    assert await user_service.get_refresh_token(test_session, stored.token) is None
+    assert await user_service.delete_refresh_token(test_session, stored.token) is False
+    assert await user_service.get_refresh_token(test_session, "refresh_token_123") is not None
+
+
+@pytest.mark.asyncio
+async def test_password_reset_token_is_stored_as_keyed_digest(test_session):
+    user_id = await user_service.create_user(
+        session=test_session, phone_number="+15551234568", password_hash="hash"
+    )
+    raw_token = "password_reset_token_123"
+
+    assert await user_service.create_password_reset_token(
+        test_session,
+        user_id,
+        raw_token,
+        utcnow() + timedelta(minutes=15),
+    )
+
+    stored = (await test_session.execute(select(PasswordResetToken))).scalar_one()
+    assert stored.token != raw_token
+    assert stored.token.startswith("hmac-sha256:v1:")
+    assert len(stored.token) == 79
+    assert (
+        await user_service.verify_and_use_password_reset_token(test_session, stored.token) is None
+    )
+    assert (
+        await user_service.verify_and_use_password_reset_token(test_session, raw_token) == user_id
+    )
+
+
+@pytest.mark.asyncio
+async def test_legacy_plaintext_refresh_token_remains_usable(test_session):
+    """Pre-transition sessions remain valid until normal rotation or expiry."""
+    user_id = await user_service.create_user(
+        session=test_session, phone_number="+15551234569", password_hash="hash"
+    )
+    legacy_token = "legacy_refresh_token"
+    test_session.add(
+        RefreshToken(
+            user_id=user_id,
+            token=legacy_token,
+            expires_at=(utcnow() + timedelta(days=7)).isoformat(),
+            session_version=0,
+        )
+    )
+    await test_session.commit()
+
+    stored = await user_service.get_refresh_token(test_session, legacy_token)
+    assert stored is not None
+    assert stored["user_id"] == user_id
+    assert await user_service.delete_refresh_token(test_session, legacy_token) is True
+
+
+@pytest.mark.asyncio
+async def test_legacy_plaintext_password_reset_token_remains_usable(test_session):
+    """Existing reset links remain valid and are consumed normally."""
+    user_id = await user_service.create_user(
+        session=test_session, phone_number="+15551234570", password_hash="hash"
+    )
+    legacy_token = "legacy_password_reset_token"
+    test_session.add(
+        PasswordResetToken(
+            user_id=user_id,
+            token=legacy_token,
+            expires_at=(utcnow() + timedelta(minutes=15)).isoformat(),
+            used=False,
+        )
+    )
+    await test_session.commit()
+
+    assert (
+        await user_service.verify_and_use_password_reset_token(test_session, legacy_token)
+        == user_id
+    )
 
 
 @pytest.mark.asyncio

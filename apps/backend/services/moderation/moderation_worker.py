@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import os
+from contextlib import suppress
 from datetime import timedelta
 from typing import Any
 
@@ -11,22 +12,22 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
-    CourtPhoto,
     Court,
+    CourtPhoto,
     CourtReview,
     CourtReviewPhoto,
     DirectMessage,
     LeagueMessage,
-    ModerationCase,
     ModerationAppeal,
+    ModerationCase,
     ModerationEvent,
     ModerationJob,
     ModerationReport,
     Player,
     User,
 )
+from backend.services.platform import redis_service, release_metadata
 from backend.utils.datetime_utils import utcnow
-
 
 VALID_MODES = {"off", "shadow", "enforce"}
 FAIL_CLOSED_ENVS = {"production", "prod", "staging"}
@@ -41,6 +42,32 @@ TARGET_MODELS = {
 AUTOMATIC_BAN_CATEGORIES = frozenset({"sexual/minors", "sexual/minors/explicit"})
 AUTOMATIC_SUSPEND_CATEGORIES = frozenset(
     {"harassment/threatening", "hate/threatening", "illicit/violent"}
+)
+HEARTBEAT_KEY = "workers:moderation:heartbeat"
+HEARTBEAT_TTL_SECONDS = 30
+HEARTBEAT_INTERVAL_SECONDS = 10
+PROGRESS_KEY = "workers:moderation:last-successful-cycle"
+WORKER_GENERATION = release_metadata.PROCESS_GENERATION
+READINESS_GENERATION_ENV = release_metadata.READINESS_GENERATION_ENV
+MAX_PROVIDER_TIMEOUT_SECONDS = 30
+MAX_FLAGSHIP_TIMEOUT_SECONDS = 45
+MAX_FLAGSHIP_ATTEMPTS = 2
+# This is a readiness budget, not a hard wall-clock timeout. A flagged job can
+# make one classification request, one triage request, and the bounded number
+# of flagship attempts. Leave a full minute for database, evidence, and
+# owner-alert work around those network calls.
+PROGRESS_RUNTIME_MARGIN_SECONDS = 60
+CYCLE_WORK_READINESS_BUDGET_SECONDS = (
+    2 * MAX_PROVIDER_TIMEOUT_SECONDS
+    + MAX_FLAGSHIP_ATTEMPTS * MAX_FLAGSHIP_TIMEOUT_SECONDS
+    + PROGRESS_RUNTIME_MARGIN_SECONDS
+)
+MAX_IDLE_POLL_SECONDS = 2
+PROGRESS_SCHEDULING_MARGIN_SECONDS = 30
+PROGRESS_TTL_SECONDS = (
+    CYCLE_WORK_READINESS_BUDGET_SECONDS
+    + MAX_IDLE_POLL_SECONDS
+    + PROGRESS_SCHEDULING_MARGIN_SECONDS
 )
 
 
@@ -61,8 +88,22 @@ def content_revision(value: str | None) -> str:
 
 
 def validate_worker_config() -> None:
-    if moderation_mode() != "off" and not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError("OPENAI_API_KEY is required when moderation is enabled")
+    if moderation_mode() != "off":
+        if not os.getenv("OPENAI_API_KEY"):
+            raise RuntimeError("OPENAI_API_KEY is required when moderation is enabled")
+        evidence_bucket = os.getenv("AWS_MODERATION_EVIDENCE_BUCKET", "").strip()
+        media_bucket = os.getenv("AWS_S3_BUCKET", "").strip()
+        if not evidence_bucket:
+            raise RuntimeError(
+                "AWS_MODERATION_EVIDENCE_BUCKET is required when moderation is enabled"
+            )
+        if media_bucket and evidence_bucket.casefold() == media_bucket.casefold():
+            raise RuntimeError("Moderation evidence storage must use a separate private bucket")
+    if os.getenv("ENV", "development").lower() in FAIL_CLOSED_ENVS:
+        if release_metadata.configured_readiness_generation() is None:
+            raise RuntimeError(
+                f"{READINESS_GENERATION_ENV} is required and must be a bounded release identifier"
+            )
     try:
         threshold = float(os.getenv("MODERATION_AUTO_ENFORCE_SCORE", "0.95"))
     except ValueError as exc:
@@ -70,17 +111,89 @@ def validate_worker_config() -> None:
     if not 0 < threshold <= 1:
         raise RuntimeError("MODERATION_AUTO_ENFORCE_SCORE must be greater than 0 and at most 1")
     try:
+        provider_timeout = float(os.getenv("MODERATION_PROVIDER_TIMEOUT", "20"))
         flagship_timeout = float(os.getenv("MODERATION_FLAGSHIP_TIMEOUT", "30"))
         flagship_attempts = int(os.getenv("MODERATION_FLAGSHIP_MAX_ATTEMPTS", "2"))
     except ValueError as exc:
-        raise RuntimeError("Flagship timeout and attempts must be numeric") from exc
-    if flagship_timeout <= 0 or flagship_attempts < 1:
-        raise RuntimeError("Flagship timeout and attempts must be positive")
+        raise RuntimeError("Moderation timeouts and attempts must be numeric") from exc
+    if not 0 < provider_timeout <= MAX_PROVIDER_TIMEOUT_SECONDS:
+        raise RuntimeError(
+            f"MODERATION_PROVIDER_TIMEOUT must be positive and at most "
+            f"{MAX_PROVIDER_TIMEOUT_SECONDS}"
+        )
+    if not 0 < flagship_timeout <= MAX_FLAGSHIP_TIMEOUT_SECONDS:
+        raise RuntimeError(
+            f"MODERATION_FLAGSHIP_TIMEOUT must be positive and at most "
+            f"{MAX_FLAGSHIP_TIMEOUT_SECONDS}"
+        )
+    if not 1 <= flagship_attempts <= MAX_FLAGSHIP_ATTEMPTS:
+        raise RuntimeError(
+            f"MODERATION_FLAGSHIP_MAX_ATTEMPTS must be between 1 and {MAX_FLAGSHIP_ATTEMPTS}"
+        )
     if not os.getenv("MODERATION_FLAGSHIP_MODEL", "gpt-5.6").strip():
         raise RuntimeError("MODERATION_FLAGSHIP_MODEL cannot be empty")
     from backend.services.moderation.moderation_alerts import validate_alert_config
 
     validate_alert_config()
+
+
+def worker_configuration_issues() -> list[str]:
+    """Return a privacy-safe readiness issue when worker configuration is invalid."""
+    try:
+        validate_worker_config()
+    except RuntimeError:
+        return ["moderation worker configuration"]
+    return []
+
+
+async def publish_heartbeat() -> bool:
+    """Publish a short-lived signal after a successful moderation worker cycle."""
+    try:
+        client = await redis_service.get_redis_client()
+        if client is None:
+            return False
+        await client.set(HEARTBEAT_KEY, readiness_generation(), ex=HEARTBEAT_TTL_SECONDS)
+        return True
+    except Exception:
+        return False
+
+
+async def heartbeat_is_fresh(expected_generation: str | None = None) -> bool:
+    """Require both live execution and a recently completed processing cycle."""
+    try:
+        client = await redis_service.get_redis_client()
+        if client is None:
+            return False
+        expected = expected_generation or readiness_generation()
+        heartbeat = await client.get(HEARTBEAT_KEY)
+        progress = await client.get(PROGRESS_KEY)
+        return bool(heartbeat and progress and heartbeat == progress == expected)
+    except Exception:
+        return False
+
+
+async def publish_cycle_progress() -> bool:
+    """Record a successfully committed cycle with room for legitimate long jobs."""
+    try:
+        client = await redis_service.get_redis_client()
+        if client is None:
+            return False
+        await client.set(PROGRESS_KEY, readiness_generation(), ex=PROGRESS_TTL_SECONDS)
+        return True
+    except Exception:
+        return False
+
+
+async def refresh_heartbeat_forever() -> None:
+    """Refresh readiness independently of potentially long moderation work."""
+    while True:
+        await publish_heartbeat()
+        await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
+
+
+def readiness_generation() -> str:
+    """Return the shared release generation, with a process-local dev fallback."""
+    return release_metadata.readiness_generation()
 
 
 def provider_incident_type(categories: dict[str, Any]) -> str | None:
@@ -979,24 +1092,31 @@ async def _recalculate_court_rating(session: AsyncSession, court_id: int) -> Non
 async def run_forever(session_factory) -> None:
     """Process owner alerts before provider work on each polling cycle."""
     validate_worker_config()
-    while True:
-        alert_job = None
-        provider_job = None
-        async with session_factory() as session:
-            from backend.services.moderation.moderation_evidence_service import purge_due
-            from backend.services import moderation_alerts
+    heartbeat_task = asyncio.create_task(refresh_heartbeat_forever())
+    try:
+        while True:
+            alert_job = None
+            provider_job = None
+            async with session_factory() as session:
+                from backend.services import moderation_alerts
+                from backend.services.moderation.moderation_evidence_service import purge_due
 
-            await moderation_alerts.recover_stale_claims(session)
-            await moderation_alerts.ensure_alert_schedule(session)
-            await moderation_alerts.purge_terminal_jobs(session)
-            await purge_due(session)
-            alert_job = await moderation_alerts.claim_alert(session)
-            if alert_job:
-                await moderation_alerts.process_alert(session, alert_job)
-            elif moderation_mode() != "off":
-                await recover_stale_jobs(session)
-                provider_job = await claim_job(session)
-                if provider_job:
-                    await process_job(session, provider_job)
-            await session.commit()
-        await asyncio.sleep(0.25 if alert_job or provider_job else 2)
+                await moderation_alerts.recover_stale_claims(session)
+                await moderation_alerts.ensure_alert_schedule(session)
+                await moderation_alerts.purge_terminal_jobs(session)
+                await purge_due(session)
+                alert_job = await moderation_alerts.claim_alert(session)
+                if alert_job:
+                    await moderation_alerts.process_alert(session, alert_job)
+                elif moderation_mode() != "off":
+                    await recover_stale_jobs(session)
+                    provider_job = await claim_job(session)
+                    if provider_job:
+                        await process_job(session, provider_job)
+                await session.commit()
+            await publish_cycle_progress()
+            await asyncio.sleep(0.25 if alert_job or provider_job else MAX_IDLE_POLL_SECONDS)
+    finally:
+        heartbeat_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await heartbeat_task

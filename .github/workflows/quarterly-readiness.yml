@@ -34,8 +34,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Report production npm advisories
-        continue-on-error: true
+      - name: Block high-severity production npm advisories
         run: npm audit --omit=dev --audit-level=high
 
       - name: Verify Expo dependency compatibility

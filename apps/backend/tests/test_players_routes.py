@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.main import app
 from backend.api.auth_dependencies import require_verified_player
-from backend.services import data_service, league_data
+from backend.services import auth_service, data_service, league_data, role_service, user_service
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +56,27 @@ def _override_auth():
     app.dependency_overrides[require_verified_player] = _fake
     yield
     app.dependency_overrides.pop(require_verified_player, None)
+
+
+def _make_admin_client(monkeypatch):
+    """Return a system-admin client for member/global administrative reads."""
+
+    monkeypatch.setattr(
+        auth_service,
+        "verify_token",
+        lambda token: {"user_id": FAKE_USER["id"]},
+        raising=True,
+    )
+
+    async def fake_get_user_by_id(session, user_id):
+        return FAKE_USER
+
+    async def fake_is_system_admin(session, user_id):
+        return True
+
+    monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
+    monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+    return TestClient(app), {"Authorization": "Bearer dummy"}
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +175,7 @@ class TestPlayerMatchHistory:
         )
 
         client = TestClient(app)
-        response = client.get("/api/players/9999/matches")
+        response = client.get(f"/api/players/{PLAYER_ID}/matches")
         assert response.status_code == 404
 
 
@@ -177,8 +198,8 @@ class TestPlayerSeasonStats:
             data_service, "get_player_season_stats", fake_season_stats, raising=True
         )
 
-        client = TestClient(app)
-        response = client.get(f"/api/players/{PLAYER_ID}/season/3/stats")
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.get(f"/api/players/{PLAYER_ID}/season/3/stats", headers=headers)
 
         assert response.status_code == 200
         assert response.json()["elo"] == 1050
@@ -193,8 +214,8 @@ class TestPlayerSeasonStats:
             data_service, "get_player_season_stats", fake_season_stats, raising=True
         )
 
-        client = TestClient(app)
-        response = client.get(f"/api/players/{PLAYER_ID}/season/999/stats")
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.get(f"/api/players/{PLAYER_ID}/season/999/stats", headers=headers)
         assert response.status_code == 404
 
 
@@ -217,8 +238,8 @@ class TestMatchExport:
 
         monkeypatch.setattr(data_service, "export_matches_to_csv", fake_export, raising=True)
 
-        client = TestClient(app)
-        response = client.get("/api/matches/export")
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.get("/api/matches/export", headers=headers)
 
         assert response.status_code == 200
         assert "text/csv" in response.headers["content-type"]
@@ -233,8 +254,8 @@ class TestMatchExport:
 
         monkeypatch.setattr(data_service, "export_matches_to_csv", fake_export, raising=True)
 
-        client = TestClient(app)
-        response = client.get("/api/matches/export")
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.get("/api/matches/export", headers=headers)
         assert response.status_code == 500
 
 

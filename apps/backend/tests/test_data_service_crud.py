@@ -80,6 +80,7 @@ async def test_create_league(db_session, test_player, test_user):
         creator_user_id=test_player.user_id,
         gender="male",
         level="Open",
+        is_public=False,
     )
 
     assert league["id"] > 0
@@ -88,12 +89,14 @@ async def test_create_league(db_session, test_player, test_user):
     assert league["is_open"] is True
     assert league["gender"] == "male"
     assert league["level"] == "Open"
+    assert league["is_public"] is False
 
     # Verify league was created in database
     result = await db_session.execute(select(League).where(League.id == league["id"]))
     db_league = result.scalar_one_or_none()
     assert db_league is not None
     assert db_league.name == "Test League"
+    assert db_league.is_public is False
 
     # Verify creator was added as admin
     result = await db_session.execute(
@@ -174,7 +177,7 @@ async def test_add_league_members_batch(db_session, test_player):
 
 @pytest.mark.asyncio
 async def test_list_leagues(db_session, test_player):
-    """Test listing leagues."""
+    """Public discovery excludes private leagues and redacts group identifiers."""
     # Create two leagues
     _ = await data_service.create_league(
         session=db_session,
@@ -182,7 +185,7 @@ async def test_list_leagues(db_session, test_player):
         description=None,
         location_id=None,
         is_open=True,
-        whatsapp_group_id=None,
+        whatsapp_group_id="public-group-id",
         creator_user_id=test_player.user_id,
     )
 
@@ -196,12 +199,25 @@ async def test_list_leagues(db_session, test_player):
         creator_user_id=test_player.user_id,
     )
 
+    _ = await data_service.create_league(
+        session=db_session,
+        name="Private League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id="private-group-id",
+        creator_user_id=test_player.user_id,
+        is_public=False,
+    )
+
     leagues = await data_service.list_leagues(db_session)
 
     assert len(leagues) >= 2
     league_names = [lev["name"] for lev in leagues]
     assert "League 1" in league_names
     assert "League 2" in league_names
+    assert "Private League" not in league_names
+    assert all(league["whatsapp_group_id"] is None for league in leagues)
 
 
 @pytest.mark.asyncio
@@ -234,7 +250,7 @@ async def test_get_league_not_found(db_session):
 
 @pytest.mark.asyncio
 async def test_update_league(db_session, test_player):
-    """Test updating a league."""
+    """Partial updates persist visibility and preserve it when omitted."""
     created = await data_service.create_league(
         session=db_session,
         name="Old Name",
@@ -243,21 +259,62 @@ async def test_update_league(db_session, test_player):
         is_open=True,
         whatsapp_group_id=None,
         creator_user_id=test_player.user_id,
+        is_public=False,
     )
 
     updated = await data_service.update_league(
         session=db_session,
         league_id=created["id"],
         name="New Name",
-        description="New Desc",
-        location_id=None,
-        is_open=False,
-        whatsapp_group_id=None,
     )
 
     assert updated["name"] == "New Name"
-    assert updated["description"] == "New Desc"
-    assert updated["is_open"] is False
+    assert updated["description"] == "Old Desc"
+    assert updated["is_open"] is True
+    assert updated["is_public"] is False
+
+    updated = await data_service.update_league(
+        session=db_session,
+        league_id=created["id"],
+        is_public=True,
+    )
+    assert updated["is_public"] is True
+
+
+@pytest.mark.asyncio
+async def test_query_leagues_excludes_private_and_redacts_group_identifier(
+    db_session, test_player
+):
+    """Paginated discovery cannot enumerate private leagues or group IDs."""
+    await data_service.create_league(
+        session=db_session,
+        name="Discovery Visibility Public",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id="public-discovery-group",
+        creator_user_id=test_player.user_id,
+        is_public=True,
+    )
+    await data_service.create_league(
+        session=db_session,
+        name="Discovery Visibility Private",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id="private-discovery-group",
+        creator_user_id=test_player.user_id,
+        is_public=False,
+    )
+
+    result = await data_service.query_leagues(
+        session=db_session,
+        q="Discovery Visibility",
+    )
+
+    assert result["total_count"] == 1
+    assert [item["name"] for item in result["items"]] == ["Discovery Visibility Public"]
+    assert result["items"][0]["whatsapp_group_id"] is None
 
 
 @pytest.mark.asyncio

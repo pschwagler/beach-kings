@@ -709,8 +709,9 @@ class TestGoogleAuthEndpoint:
 
         response = client.post("/api/auth/google", json={"id_token": "valid_token"})
         assert response.status_code == 500
-        assert "SECRET_INTERNAL_ERROR_DETAIL" not in response.json()["detail"]
-        assert "Authentication failed" in response.json()["detail"]
+        assert "SECRET_INTERNAL_ERROR_DETAIL" not in response.text
+        assert response.json()["detail"]["code"] == "internal_error"
+        assert response.json()["detail"]["request_id"]
 
 
 class TestAppleAuthEndpoint:
@@ -886,8 +887,9 @@ class TestAppleAuthEndpoint:
 
         response = client.post("/api/auth/apple", json={"id_token": "valid_token"})
         assert response.status_code == 500
-        assert "SECRET_INTERNAL_ERROR_DETAIL" not in response.json()["detail"]
-        assert "Authentication failed" in response.json()["detail"]
+        assert "SECRET_INTERNAL_ERROR_DETAIL" not in response.text
+        assert response.json()["detail"]["code"] == "internal_error"
+        assert response.json()["detail"]["request_id"]
 
 
 # ============================================================================
@@ -901,6 +903,7 @@ class TestLeagueEndpoints:
     def test_create_league(self, monkeypatch):
         """Test creating a league."""
         client, headers = make_client_with_auth(monkeypatch, phone="+10000000001", user_id=2)
+        captured = {}
 
         async def fake_get_setting(session, key):
             return "+10000000000"  # Not admin
@@ -909,6 +912,7 @@ class TestLeagueEndpoints:
             return {"id": 1, "user_id": user_id}
 
         async def fake_create_league(session, **kwargs):
+            captured.update(kwargs)
             return {
                 "id": 1,
                 "name": "Test League",
@@ -923,10 +927,16 @@ class TestLeagueEndpoints:
         )
         monkeypatch.setattr(data_service, "create_league", fake_create_league, raising=True)
 
-        payload = {"name": "Test League", "description": "Test", "is_open": True}
+        payload = {
+            "name": "Test League",
+            "description": "Test",
+            "is_open": True,
+            "is_public": False,
+        }
         response = client.post("/api/leagues", json=payload, headers=headers)
         assert response.status_code == 200
         assert response.json()["name"] == "Test League"
+        assert captured["is_public"] is False
 
     def test_list_leagues(self, monkeypatch):
         """Test listing leagues."""
@@ -954,7 +964,7 @@ class TestLeagueEndpoints:
                 "location_name": None,
                 "is_open": True,
                 "is_public": True,
-                "whatsapp_group_id": None,
+                "whatsapp_group_id": "members-only-group-id",
                 "gender": None,
                 "level": None,
                 "created_at": None,
@@ -979,15 +989,18 @@ class TestLeagueEndpoints:
         response = client.get("/api/leagues/1", headers=headers)
         assert response.status_code == 200
         assert response.json()["id"] == 1
+        assert response.json()["whatsapp_group_id"] is None
 
     def test_update_league(self, monkeypatch):
-        """Test updating a league."""
+        """An authorized partial update forwards only explicitly supplied fields."""
         client, headers = make_client_with_auth(monkeypatch)
+        captured = {}
 
         async def fake_get_league(session, league_id):
             return {"id": league_id, "name": "Old Name"}
 
         async def fake_update_league(session, **kwargs):
+            captured.update(kwargs)
             return {
                 "id": 1,
                 "name": "Updated Name",
@@ -1009,6 +1022,31 @@ class TestLeagueEndpoints:
         response = client.put("/api/leagues/1", json=payload, headers=headers)
         assert response.status_code == 200
         assert response.json()["name"] == "Updated Name"
+        assert captured == {"league_id": 1, "name": "Updated Name"}
+
+    def test_update_league_visibility_requires_admin(self, monkeypatch):
+        """A non-admin cannot change a league's discovery visibility."""
+        client, headers = make_client_with_auth(monkeypatch)
+
+        async def fake_is_system_admin(session, user_id):
+            return False
+
+        async def fake_has_league_role(session, user_id, league_id, required_role):
+            return False
+
+        monkeypatch.setattr(
+            auth_dependencies, "_is_system_admin", fake_is_system_admin, raising=True
+        )
+        monkeypatch.setattr(
+            auth_dependencies, "_has_league_role", fake_has_league_role, raising=True
+        )
+
+        response = client.put(
+            "/api/leagues/1",
+            json={"is_public": False},
+            headers=headers,
+        )
+        assert response.status_code == 403
 
     def test_delete_league(self, monkeypatch):
         """Test deleting a league."""
@@ -1059,6 +1097,10 @@ class TestPlayerEndpoints:
     def test_get_player_stats(self, monkeypatch):
         """Test getting player statistics by player ID."""
         client = TestClient(app)
+        app.dependency_overrides[auth_dependencies.require_verified_player] = lambda: {
+            "id": 1,
+            "player_id": 123,
+        }
 
         async def fake_get_player_stats_by_id(session, player_id):
             return {
@@ -1074,7 +1116,10 @@ class TestPlayerEndpoints:
             data_service, "get_player_stats_by_id", fake_get_player_stats_by_id, raising=True
         )
 
-        response = client.get("/api/players/123/stats")
+        try:
+            response = client.get("/api/players/123/stats")
+        finally:
+            app.dependency_overrides.pop(auth_dependencies.require_verified_player, None)
         assert response.status_code == 200
         assert response.json()["player_id"] == 123
 
@@ -1217,21 +1262,21 @@ class TestMatchEndpoints:
 
     def test_query_matches(self, monkeypatch):
         """Test querying matches."""
-        client = TestClient(app)
+        client, headers = make_client_with_auth(monkeypatch)
 
         async def fake_query_matches(session, body, user=None):
             return [{"id": 1, "team1_score": 21, "team2_score": 19}]
 
         monkeypatch.setattr(data_service, "query_matches", fake_query_matches, raising=True)
 
-        payload = {"limit": 10}
-        response = client.post("/api/matches/search", json=payload)
+        payload = {"limit": 10, "league_id": 1}
+        response = client.post("/api/matches/search", json=payload, headers=headers)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
     def test_get_elo_timeline(self, monkeypatch):
         """Test getting ELO timeline."""
-        client = TestClient(app)
+        client, headers = make_client_with_auth(monkeypatch)
 
         async def fake_get_elo_timeline(session):
             return [
@@ -1241,7 +1286,7 @@ class TestMatchEndpoints:
 
         monkeypatch.setattr(data_service, "get_elo_timeline", fake_get_elo_timeline, raising=True)
 
-        response = client.get("/api/elo-timeline")
+        response = client.get("/api/elo-timeline", headers=headers)
         assert response.status_code == 200
         assert len(response.json()) == 2
 
@@ -1256,7 +1301,7 @@ class TestStatsEndpoints:
 
     def test_get_rankings(self, monkeypatch):
         """Test getting player rankings."""
-        client = TestClient(app)
+        client, headers = make_client_with_auth(monkeypatch)
 
         async def fake_get_rankings(session, body=None):
             return [
@@ -1267,7 +1312,7 @@ class TestStatsEndpoints:
         monkeypatch.setattr(data_service, "get_rankings", fake_get_rankings, raising=True)
 
         # Rankings endpoint is POST, not GET
-        response = client.post("/api/rankings", json={})
+        response = client.post("/api/rankings", json={"league_id": 1}, headers=headers)
         assert response.status_code == 200
         assert len(response.json()) == 2
 

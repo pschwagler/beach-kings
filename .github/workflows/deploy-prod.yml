@@ -82,7 +82,7 @@ jobs:
           host: ${{ secrets.PROD_EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.PROD_EC2_SSH_KEY }}
-          command_timeout: 10m
+          command_timeout: 20m
           envs: DEPLOY_BRANCH
           script: |
             set -e
@@ -92,11 +92,14 @@ jobs:
             git fetch --all
             git checkout "$DEPLOY_BRANCH"
             git pull origin "$DEPLOY_BRANCH"
+            # Correlate API readiness with the worker from this exact checkout.
+            export RELEASE_READINESS_GENERATION="$(git rev-parse HEAD)-$(openssl rand -hex 16)"
 
             echo "=== Provider configuration preflight ==="
             python3 deployment/provider_config_preflight.py \
               --env-file .env \
-              --app-config apps/mobile/app.json
+              --app-config apps/mobile/app.json \
+              --production
 
             echo "=== Pre-deployment database backup ==="
             if sudo systemctl cat beach-kings-db-backup.service > /dev/null 2>&1; then
@@ -110,6 +113,10 @@ jobs:
             fi
 
             echo "=== Pulling pre-built images ==="
+            # This workflow is the production deployment contract. Exporting
+            # ENV here overrides docker-compose's development-friendly local
+            # default for every production service.
+            export ENV=production
             docker-compose pull frontend backend
 
             echo "=== Starting containers ==="
@@ -136,7 +143,20 @@ jobs:
             fi
 
             echo "=== Production readiness ==="
-            if ! curl -sf http://localhost:8000/api/ready > /dev/null; then
+            # A new moderation-worker generation reports ready only after its
+            # own committed cycle. Its 242s progress budget is deliberately
+            # below this 360s warm-up window.
+            production_ready=false
+            for i in $(seq 1 72); do
+              if curl -sf http://localhost:8000/api/ready > /dev/null 2>&1; then
+                echo "Production dependencies are ready"
+                production_ready=true
+                break
+              fi
+              echo "  Waiting for production dependencies... (attempt $i/72)"
+              sleep 5
+            done
+            if [ "$production_ready" = false ]; then
               echo "Backend is running but production dependencies are not ready"
               curl -s http://localhost:8000/api/ready || true
               exit 1

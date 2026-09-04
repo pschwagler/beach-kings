@@ -227,7 +227,8 @@ class TestSendMessage:
         )
 
         assert response.status_code == 503
-        assert response.json()["detail"] == "Messaging is temporarily unavailable"
+        assert response.json()["detail"]["code"] == "internal_error"
+        assert response.json()["detail"]["request_id"]
 
     def test_send_missing_fields(self, client, headers):
         """Missing required fields returns 422."""

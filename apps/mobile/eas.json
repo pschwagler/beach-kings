@@ -9,7 +9,9 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "http://localhost:8000",
         "EXPO_PUBLIC_WEB_URL": "http://localhost:3000",
-        "EXPO_PUBLIC_APP_ENV": "development"
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_SENTRY_DSN": "",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "ios": {
         "image": "macos-tahoe-26.5-xcode-26.6",
@@ -21,7 +23,9 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://dev.beachleaguevb.com",
         "EXPO_PUBLIC_WEB_URL": "https://dev.beachleaguevb.com",
-        "EXPO_PUBLIC_APP_ENV": "preview"
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_SENTRY_DSN": "",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "ios": {
         "image": "macos-tahoe-26.5-xcode-26.6"
@@ -32,7 +36,9 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://beachleaguevb.com",
         "EXPO_PUBLIC_WEB_URL": "https://beachleaguevb.com",
-        "EXPO_PUBLIC_APP_ENV": "production"
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_SENTRY_DSN": "",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "ios": {
         "image": "macos-tahoe-26.5-xcode-26.6"
