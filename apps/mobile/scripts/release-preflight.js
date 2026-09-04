@@ -221,8 +221,8 @@ function verifyV1SentryPolicy(easConfig) {
     if (environment?.SENTRY_DISABLE_AUTO_UPLOAD !== 'true') {
       fail(`${profile} must disable Sentry auto upload for v1.`);
     }
-    if (environment?.EXPO_PUBLIC_SENTRY_DSN !== '') {
-      fail(`${profile} must explicitly disable the Sentry runtime DSN for v1.`);
+    if (Object.prototype.hasOwnProperty.call(environment ?? {}, 'EXPO_PUBLIC_SENTRY_DSN')) {
+      fail(`${profile} must omit the Sentry runtime DSN for v1.`);
     }
   }
 }

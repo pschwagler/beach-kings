@@ -78,7 +78,7 @@ company names.
 Use the App Store Connect seller's exact person or entity name:
 
 ```text
-2026 [SELLER LEGAL NAME]
+2026 Patrick Schwagler
 ```
 
 Apple expects the year followed by the person or entity that owns the exclusive

@@ -78,7 +78,7 @@ owner records an explicit go decision.
 - [ ] Configure production public values and protected secrets in EAS/GitHub;
   verify API, WebSocket, OAuth callback, universal-link, and support hosts use
   the intended `beachleaguevb.com` endpoints.
-- [ ] Keep Sentry off for v1: verify the production profile has an empty
+- [ ] Keep Sentry off for v1: verify the production profile omits
   `EXPO_PUBLIC_SENTRY_DSN`, sets `SENTRY_DISABLE_AUTO_UPLOAD=true`, and does not
   receive Sentry upload credentials. Enabling it requires IOS-005 disclosure
   updates before the build.

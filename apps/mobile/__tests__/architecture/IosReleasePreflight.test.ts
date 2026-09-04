@@ -297,7 +297,6 @@ describe('iOS release preflight', () => {
   describe('v1 Sentry policy', () => {
     const disabledProfile = {
       env: {
-        EXPO_PUBLIC_SENTRY_DSN: '',
         SENTRY_DISABLE_AUTO_UPLOAD: 'true',
       },
     };
@@ -314,10 +313,14 @@ describe('iOS release preflight', () => {
       ).not.toThrow();
     });
 
-    it.each([
+    it.each<{
+      name: string;
+      productionEnv: Record<string, string>;
+      error: RegExp;
+    }>([
       {
         name: 'auto upload is not disabled',
-        productionEnv: { EXPO_PUBLIC_SENTRY_DSN: '' },
+        productionEnv: {},
         error: /disable Sentry auto upload/,
       },
       {
@@ -326,7 +329,7 @@ describe('iOS release preflight', () => {
           EXPO_PUBLIC_SENTRY_DSN: 'https://public@example.ingest.sentry.io/123',
           SENTRY_DISABLE_AUTO_UPLOAD: 'true',
         },
-        error: /disable the Sentry runtime DSN/,
+        error: /omit the Sentry runtime DSN/,
       },
     ])('rejects v1 when $name', ({ productionEnv, error }) => {
       expect(() =>

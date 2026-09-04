@@ -63,8 +63,8 @@ is linked to the user unless the row says otherwise.
 
 ## Sentry launch configuration
 
-Sentry is off for v1. Every checked-in EAS profile explicitly sets an empty
-`EXPO_PUBLIC_SENTRY_DSN` and `SENTRY_DISABLE_AUTO_UPLOAD=true`. The runtime also
+Sentry is off for v1. Every checked-in EAS profile omits
+`EXPO_PUBLIC_SENTRY_DSN` and sets `SENTRY_DISABLE_AUTO_UPLOAD=true`. The runtime also
 requires a valid HTTPS DSN before enabling transmission. Do not supply Sentry
 organization, project, or upload credentials to a v1 build.
 
