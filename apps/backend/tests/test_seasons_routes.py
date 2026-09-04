@@ -7,23 +7,23 @@ Already tested elsewhere:
 
 Covered here:
 - POST /api/leagues/{league_id}/seasons       (make_require_league_admin)
-- GET  /api/leagues/{league_id}/seasons       (require_user)
-- GET  /api/seasons/{season_id}               (public)
+- GET  /api/leagues/{league_id}/seasons       (member or public league)
+- GET  /api/seasons/{season_id}               (league member)
 - PUT  /api/seasons/{season_id}               (league admin/system admin)
-- POST /api/matches/elo                       (public)
-- GET  /api/seasons/{season_id}/matches       (public)
-- POST /api/player-stats                      (public)
-- GET  /api/seasons/{season_id}/player-stats  (public)
-- POST /api/partnership-opponent-stats        (public)
-- GET  /api/seasons/{season_id}/partnership-opponent-stats  (public)
-- GET  /api/players/{player_id}/season/{season_id}/partnership-opponent-stats (public)
-- GET  /api/leagues/{league_id}/player-stats  (public)
-- GET  /api/leagues/{league_id}/partnership-opponent-stats  (public)
-- GET  /api/players/{player_id}/league/{league_id}/stats    (public)
-- GET  /api/players/{player_id}/league/{league_id}/partnership-opponent-stats (public)
-- GET  /api/seasons/{season_id}/awards        (public)
-- GET  /api/leagues/{league_id}/awards        (public)
-- GET  /api/players/{player_id}/awards        (public)
+- POST /api/matches/elo                       (authorized league/season scope)
+- GET  /api/seasons/{season_id}/matches       (league member)
+- POST /api/player-stats                      (authorized league/season scope)
+- GET  /api/seasons/{season_id}/player-stats  (league member)
+- POST /api/partnership-opponent-stats        (authorized league/season scope)
+- GET  /api/seasons/{season_id}/partnership-opponent-stats  (league member)
+- GET  /api/players/{player_id}/season/{season_id}/partnership-opponent-stats (league member)
+- GET  /api/leagues/{league_id}/player-stats  (league member)
+- GET  /api/leagues/{league_id}/partnership-opponent-stats  (league member)
+- GET  /api/players/{player_id}/league/{league_id}/stats    (league member)
+- GET  /api/players/{player_id}/league/{league_id}/partnership-opponent-stats (league member)
+- GET  /api/seasons/{season_id}/awards        (league member)
+- GET  /api/leagues/{league_id}/awards        (league member)
+- GET  /api/players/{player_id}/awards        (self only)
 - POST /api/seasons/{season_id}/finalize-awards (make_require_league_admin_from_season)
 """
 
@@ -198,8 +198,8 @@ class TestListSeasons:
     """Tests for GET /api/leagues/{league_id}/seasons."""
 
     def test_list_seasons_success(self, monkeypatch):
-        """Authenticated user can list seasons for a league."""
-        client, headers = _make_user_client(monkeypatch)
+        """An authorized caller can list seasons for a league."""
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_list_seasons(session, league_id):
             return [_SEASON]
@@ -213,8 +213,8 @@ class TestListSeasons:
         assert body[0]["id"] == SEASON_ID
 
     def test_list_seasons_empty(self, monkeypatch):
-        """Returns an empty list when no seasons exist."""
-        client, headers = _make_user_client(monkeypatch)
+        """Returns an empty list when an authorized league has no seasons."""
+        client, headers = _make_admin_client(monkeypatch)
 
         async def fake_list_seasons(session, league_id):
             return []
