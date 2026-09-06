@@ -1,0 +1,34 @@
+name: Seed App Review
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-review-seed
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Seed synthetic App Review account
+        uses: appleboy/ssh-action@v1
+        env:
+          APP_REVIEW_PASSWORD: ${{ secrets.APP_REVIEW_PASSWORD }}
+        with:
+          host: ${{ secrets.PROD_EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.PROD_EC2_SSH_KEY }}
+          envs: APP_REVIEW_PASSWORD
+          script: |
+            set -e
+            cd ~/beach-kings
+            test -n "$APP_REVIEW_PASSWORD"
+            git fetch origin main
+            git show origin/main:scripts/seed_app_review.py | docker-compose exec -T \
+              -e APP_REVIEW_PASSWORD="$APP_REVIEW_PASSWORD" \
+              backend bash -c \
+              "cd /app && PYTHONPATH=/app python -"
