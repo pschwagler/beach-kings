@@ -120,7 +120,7 @@ Use the non-expiring demo credentials supplied in the App Store Connect sign-in 
 RECOMMENDED REVIEW PATH
 1. Home: view recent games, leagues, and nearby courts.
 2. Leagues: open the seeded league to review its information, roster, standings, schedule, and league chat.
-3. Add Games: create a pickup game or continue the seeded league session, select four players, and enter a score. Please use the seeded review session: [REVIEW SESSION NAME].
+3. Add Games: create a pickup game or continue the seeded league session, select four players, and enter a score. Please use the seeded review session: App Review Session.
 4. Profile: open My Stats and My Games to see results, rating history, and partner/opponent breakdowns.
 5. Social: view friends, direct messages, and notifications. Open a seeded conversation to test reporting and blocking without contacting a real user.
 6. Courts: open a seeded court to view photos and reviews. Submitted photos remain pending while automated safety review completes.
@@ -143,7 +143,7 @@ AGE ELIGIBILITY
 The app admits users aged 13 or older in the United States and 14 or older in Canada. Users below the applicable minimum cannot continue registration, and there is no parental override below the minimum. Exact birthdates are not collected for this eligibility check.
 
 BUILD-SPECIFIC NOTES
-- Build: [APP STORE BUILD NUMBER]
+- Build: 8
 - Production API and web links use beachleaguevb.com.
 - No payment, subscription, advertising, or in-app purchase is offered in v1.
 - If review needs help with the seeded moderation examples, contact the App Review contact listed in App Store Connect.
