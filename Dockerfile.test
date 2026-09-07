@@ -16,13 +16,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend code (from apps/backend to maintain backend.* import structure)
 COPY apps/backend ./backend
 
+# The seed contract tests resolve the repository's scripts directory relative
+# to backend/tests; that directory is /scripts in this flattened test image.
+COPY scripts/seed_app_review.py /scripts/seed_app_review.py
+
 # Set PYTHONPATH so imports work
 ENV PYTHONPATH=/app
 ENV ENV=test
 
 # Default command (can be overridden)
 CMD ["pytest", "backend/tests/", "-v"]
-
 
 
 
