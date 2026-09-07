@@ -44,9 +44,11 @@ jest.mock('@/contexts/ThemeContext', () => ({
 const mockIsAppleSignInAvailable = jest.fn<Promise<boolean>, []>(
   () => new Promise(() => {}),
 );
+const mockSignInWithApple = jest.fn();
 jest.mock('@/lib/oauth', () => ({
   ...jest.requireActual('@/lib/oauth'),
   isAppleSignInAvailable: () => mockIsAppleSignInAvailable(),
+  signInWithApple: () => mockSignInWithApple(),
 }));
 
 jest.spyOn(Alert, 'alert');
@@ -128,6 +130,29 @@ describe('LoginScreen', () => {
         password: 'password123',
       });
     });
+  });
+
+  it('offers signup for first-time Apple login without bypassing eligibility', async () => {
+    mockIsAppleSignInAvailable.mockResolvedValueOnce(true);
+    mockSignInWithApple.mockResolvedValueOnce({ idToken: 'token', authorizationCode: 'code' });
+    mockLoginWithApple.mockRejectedValueOnce({ response: { data: { detail: { code: 'APPLE_AUTH_ELIGIBILITY' } } } });
+    const result = render(<LoginScreen />);
+    fireEvent.press(await result.findByText('Continue with Apple'));
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith('Sign In Failed', expect.stringContaining('age check'), expect.any(Array)));
+    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+    buttons.find((button: { text: string }) => button.text === 'Sign Up').onPress();
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/signup');
+  });
+
+  it('silently exits canceled Apple login', async () => {
+    const { OAuthCancelledError } = require('@/lib/oauth');
+    mockIsAppleSignInAvailable.mockResolvedValueOnce(true);
+    mockSignInWithApple.mockRejectedValueOnce(new OAuthCancelledError());
+    const result = render(<LoginScreen />);
+    fireEvent.press(await result.findByText('Continue with Apple'));
+    await waitFor(() => expect(mockSignInWithApple).toHaveBeenCalled());
+    expect(mockLoginWithApple).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   it('does not call console.log during a successful submit', async () => {

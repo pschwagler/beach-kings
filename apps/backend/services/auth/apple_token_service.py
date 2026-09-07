@@ -20,7 +20,13 @@ class AppleConfigurationError(RuntimeError):
 
 
 class AppleProviderError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, category: str = "unavailable"):
+        super().__init__(message)
+        self.category = (
+            category
+            if category in {"invalid_client", "invalid_grant", "invalid_response", "unavailable"}
+            else "unavailable"
+        )
 
 
 def _required_env(name: str) -> str:
@@ -43,18 +49,24 @@ def _client_id(client_id: str | None = None) -> str:
 def create_client_secret(client_id: str | None = None) -> str:
     resolved_client_id = _client_id(client_id)
     now = utcnow()
-    return jwt.encode(
-        {
-            "iss": _required_env("APPLE_TEAM_ID"),
-            "iat": now,
-            "exp": now + timedelta(minutes=10),
-            "aud": "https://appleid.apple.com",
-            "sub": resolved_client_id,
-        },
-        _private_key(),
-        algorithm="ES256",
-        headers={"kid": _required_env("APPLE_KEY_ID")},
-    )
+    try:
+        return jwt.encode(
+            {
+                "iss": _required_env("APPLE_TEAM_ID"),
+                "iat": now,
+                "exp": now + timedelta(minutes=10),
+                "aud": "https://appleid.apple.com",
+                "sub": resolved_client_id,
+            },
+            _private_key(),
+            algorithm="ES256",
+            headers={"kid": _required_env("APPLE_KEY_ID")},
+        )
+    except AppleConfigurationError:
+        raise
+    except Exception as exc:
+        # Signing-library exceptions can contain key material. Never propagate it.
+        raise AppleConfigurationError("Apple client signing configuration is invalid") from exc
 
 
 def _fernet() -> Fernet:
@@ -123,10 +135,27 @@ async def exchange_authorization_code(code: str, client_id: str | None = None) -
         except httpx.RequestError as exc:
             raise AppleProviderError("Apple token exchange request failed") from exc
     if response.status_code != 200:
-        raise AppleProviderError(f"Apple token exchange returned HTTP {response.status_code}")
-    payload = response.json()
-    if not payload.get("refresh_token") or not payload.get("id_token"):
-        raise AppleProviderError("Apple token exchange response was incomplete")
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        category = body.get("error") if isinstance(body, dict) else None
+        if category not in {"invalid_client", "invalid_grant"}:
+            category = "unavailable"
+        raise AppleProviderError("Apple token exchange failed", category=category)
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise AppleProviderError(
+            "Apple token exchange response was invalid", category="invalid_response"
+        ) from exc
+    if not isinstance(payload, dict) or any(
+        not isinstance(payload.get(key), str) or not payload[key].strip()
+        for key in ("refresh_token", "id_token")
+    ):
+        raise AppleProviderError(
+            "Apple token exchange response was incomplete", category="invalid_response"
+        )
     return payload
 
 

@@ -933,6 +933,7 @@ async def upsert_user_player(
     city_latitude: Optional[float] = None,
     city_longitude: Optional[float] = None,
     distance_to_location: Optional[float] = None,
+    commit: bool = True,
 ) -> Optional[Dict]:
     """
     Create or update the player profile linked to a user.
@@ -961,6 +962,7 @@ async def upsert_user_player(
         city_latitude: City latitude coordinate (optional).
         city_longitude: City longitude coordinate (optional).
         distance_to_location: Distance to default location in miles (optional).
+        commit: False lets an enclosing account-creation transaction own commit.
 
     Returns:
         Player dict, or None if creation was attempted without a name.
@@ -994,7 +996,10 @@ async def upsert_user_player(
             distance_to_location=distance_to_location,
         )
         session.add(player)
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
         await session.refresh(player)
     else:
         update_values = {
@@ -1024,7 +1029,10 @@ async def upsert_user_player(
             await session.execute(
                 update(Player).where(Player.user_id == user_id).values(**update_values)
             )
-            await session.commit()
+            if commit:
+                await session.commit()
+            else:
+                await session.flush()
             await session.refresh(player)
 
     return {

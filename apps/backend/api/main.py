@@ -49,6 +49,18 @@ def safe_request_id(request: Request) -> str:
 
 async def safe_http_exception_handler(request: Request, exc: StarletteHTTPException):
     """Keep internal exception details out of API responses."""
+    from backend.api.provider_errors import APPLE_AUTH_ERRORS, SafeAppleAuthError
+
+    if isinstance(exc, SafeAppleAuthError):
+        code = exc.detail["code"]
+        status, message = APPLE_AUTH_ERRORS[code]
+        request_id = safe_request_id(request)
+        logger.warning("Apple authentication failed code=%s request_id=%s", code, request_id)
+        return JSONResponse(
+            status_code=status,
+            content={"detail": {"code": code, "message": message, "request_id": request_id}},
+            headers={"X-Request-ID": request_id},
+        )
     if exc.status_code < 500:
         return await http_exception_handler(request, exc)
 

@@ -480,7 +480,7 @@ def _fetch_apple_public_keys() -> dict:
         ) from exc
 
 
-def verify_apple_id_token(token: str) -> dict:
+def verify_apple_id_token(token: str, *, access_token: str | None = None) -> dict:
     """
     Verify an Apple ID token and extract user info.
 
@@ -489,6 +489,7 @@ def verify_apple_id_token(token: str) -> dict:
 
     Args:
         token: The ID token string from the Sign in with Apple flow
+        access_token: Token from the same code exchange, for signed at_hash verification.
 
     Returns:
         Dictionary with 'email', 'sub' (Apple user ID), 'email_verified'
@@ -542,6 +543,7 @@ def verify_apple_id_token(token: str) -> dict:
             algorithms=["RS256"],
             audience=unverified_audience,
             issuer="https://appleid.apple.com",
+            access_token=access_token,
         )
 
         email = payload.get("email")

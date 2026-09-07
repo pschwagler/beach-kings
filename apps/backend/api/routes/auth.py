@@ -34,6 +34,7 @@ from backend.services import (
     auth_delivery_service,
 )
 from backend.api.auth_dependencies import get_current_user
+from backend.api.provider_errors import SafeAppleAuthError
 from backend.models.schemas import (
     SignupRequest,
     LoginRequest,
@@ -505,11 +506,7 @@ async def apple_auth(
             # 2. Check if email already in use -- do NOT auto-link
             existing = await user_service.get_user_by_email(session, email)
             if existing:
-                raise HTTPException(
-                    status_code=409,
-                    detail="An account with this email already exists. "
-                    "Please sign in with your original method and link Apple from account settings.",
-                )
+                raise SafeAppleAuthError("APPLE_AUTH_CONFLICT")
 
         if not user:
             # 3. Create new user + player profile in a single transaction
@@ -518,7 +515,7 @@ async def apple_auth(
                     payload.eligibility_token
                 )
             except youth_safety_service.YouthEligibilityError as exc:
-                raise HTTPException(status_code=403, detail=str(exc)) from exc
+                raise SafeAppleAuthError("APPLE_AUTH_ELIGIBILITY") from exc
             display_name = email.split("@")[0]
             user_id = await user_service.create_apple_user(
                 session,
@@ -533,12 +530,10 @@ async def apple_auth(
                 session=session,
                 user_id=user_id,
                 full_name=display_name,
+                commit=False,
             )
             if not player:
-                logger.error(f"Failed to create player profile for Apple user {user_id}")
-
-            # Commit user + player together atomically
-            await session.commit()
+                raise RuntimeError("Unable to create Apple player profile")
 
             user = await user_service.get_user_by_id(session, user_id)
 
@@ -550,6 +545,9 @@ async def apple_auth(
                 authorization_code=payload.authorization_code,
                 client_id=apple_info.get("aud"),
             )
+
+        # No helper may commit a fresh account before required credential capture.
+        await session.commit()
 
         await _maybe_cancel_deletion(session, user)
 
@@ -568,12 +566,22 @@ async def apple_auth(
             profile_complete=profile_complete,
             is_new_user=is_new_user,
         )
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+    except ValueError as exc:
+        await session.rollback()
+        code = (
+            "APPLE_AUTH_CONFIG"
+            if isinstance(exc, auth_service.ProviderConfigurationError)
+            else "APPLE_AUTH_PROVIDER"
+            if isinstance(exc, auth_service.ProviderVerificationUnavailableError)
+            else "APPLE_AUTH_RETRY"
+        )
+        raise SafeAppleAuthError(code) from exc
     except HTTPException:
+        await session.rollback()
         raise
-    except Exception:
-        logger.exception("Error during Apple auth")
+    except Exception as exc:
+        await session.rollback()
+        logger.error("Apple auth failed error_class=%s", type(exc).__name__)
         raise HTTPException(status_code=500, detail="Authentication failed. Please try again.")
 
 
@@ -690,7 +698,9 @@ async def _capture_apple_refresh_token(
         token_response = await apple_token_service.exchange_authorization_code(
             authorization_code, client_id
         )
-        exchanged_identity = auth_service.verify_apple_id_token(token_response["id_token"])
+        exchanged_identity = auth_service.verify_apple_id_token(
+            token_response["id_token"], access_token=token_response.get("access_token")
+        )
         if exchanged_identity["sub"] != apple_id:
             raise ValueError("Apple authorization code belongs to a different account")
         exchanged_client_id = exchanged_identity.get("aud") or client_id
@@ -703,16 +713,25 @@ async def _capture_apple_refresh_token(
         )
         await user_service.store_apple_refresh_token(session, user_id, ciphertext)
     except ValueError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-    except (
-        apple_token_service.AppleConfigurationError,
-        apple_token_service.AppleProviderError,
-    ) as exc:
-        logger.warning("Unable to capture Apple revocation credential: %s", exc)
-        raise HTTPException(
-            status_code=503,
-            detail="Apple sign-in is temporarily unavailable. Please try again.",
-        ) from exc
+        code = (
+            "APPLE_AUTH_CONFIG"
+            if isinstance(exc, auth_service.ProviderConfigurationError)
+            else "APPLE_AUTH_PROVIDER"
+            if isinstance(exc, auth_service.ProviderVerificationUnavailableError)
+            else "APPLE_AUTH_RETRY"
+        )
+        logger.warning("Apple credential capture failed category=identity_validation")
+        raise SafeAppleAuthError(code) from exc
+    except apple_token_service.AppleConfigurationError as exc:
+        logger.warning("Apple credential capture failed category=configuration")
+        raise SafeAppleAuthError("APPLE_AUTH_CONFIG") from exc
+    except apple_token_service.AppleProviderError as exc:
+        logger.warning("Apple credential capture failed category=%s", exc.category)
+        code = {
+            "invalid_client": "APPLE_AUTH_CONFIG",
+            "invalid_grant": "APPLE_AUTH_RETRY",
+        }.get(exc.category, "APPLE_AUTH_PROVIDER")
+        raise SafeAppleAuthError(code) from exc
 
 
 def _provider_link_error(status_code: int, code: str, message: str) -> HTTPException:

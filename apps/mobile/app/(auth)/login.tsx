@@ -32,6 +32,7 @@ import { loginSchema, type LoginFormValues } from '@/lib/validators';
 import DevLoginPanel from '@/components/dev/DevLoginPanel';
 import { thirdPartyColors } from '@/theme/thirdPartyColors';
 import { getApiResponseErrorMessage } from '@/lib/apiError';
+import { getAppleAuthError } from '@/lib/appleAuthError';
 
 export default function LoginScreen(): React.ReactNode {
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -133,9 +134,13 @@ export default function LoginScreen(): React.ReactNode {
         Alert.alert('Not Available', 'Apple sign-in is only available on iOS.');
         return;
       }
-      Alert.alert('Sign In Failed', 'Apple sign-in failed. Please try again.');
+      const failure = getAppleAuthError(err);
+      Alert.alert('Sign In Failed', failure.message, failure.needsSignup ? [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Up', onPress: () => router.push(routes.signup()) },
+      ] : undefined);
     }
-  }, [loginWithApple]);
+  }, [loginWithApple, router]);
 
   const showApple = Platform.OS === 'ios' && appleAvailable;
 

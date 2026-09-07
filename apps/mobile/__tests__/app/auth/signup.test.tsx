@@ -60,9 +60,11 @@ jest.mock('@/contexts/ThemeContext', () => ({
 const mockIsAppleSignInAvailable = jest.fn<Promise<boolean>, []>(
   () => new Promise(() => {}),
 );
+const mockSignInWithApple = jest.fn();
 jest.mock('@/lib/oauth', () => ({
   ...jest.requireActual('@/lib/oauth'),
   isAppleSignInAvailable: () => mockIsAppleSignInAvailable(),
+  signInWithApple: () => mockSignInWithApple(),
 }));
 
 jest.spyOn(Alert, 'alert');
@@ -117,6 +119,27 @@ describe('SignupScreen', () => {
   it('renders OR divider', () => {
     const { getByText } = render(<SignupScreen />);
     expect(getByText('OR')).toBeTruthy();
+  });
+
+  it('sends Apple code and eligibility together, then shows safe conflict recovery', async () => {
+    mockIsAppleSignInAvailable.mockResolvedValueOnce(true);
+    mockSignInWithApple.mockResolvedValueOnce({ idToken: 'token', authorizationCode: 'code' });
+    mockLoginWithApple.mockRejectedValueOnce({ response: { data: { detail: { code: 'APPLE_AUTH_CONFLICT' } } } });
+    const result = render(<SignupScreen />);
+    fireEvent.press(await result.findByText('Sign Up with Apple'));
+    await waitFor(() => expect(mockLoginWithApple).toHaveBeenCalledWith({ idToken: 'token', authorizationCode: 'code', eligibilityToken: 'eligible-token' }));
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith('Sign Up Failed', expect.stringContaining('original method')));
+  });
+
+  it('silently exits canceled Apple signup', async () => {
+    const { OAuthCancelledError } = require('@/lib/oauth');
+    mockIsAppleSignInAvailable.mockResolvedValueOnce(true);
+    mockSignInWithApple.mockRejectedValueOnce(new OAuthCancelledError());
+    const result = render(<SignupScreen />);
+    fireEvent.press(await result.findByText('Sign Up with Apple'));
+    await waitFor(() => expect(mockSignInWithApple).toHaveBeenCalled());
+    expect(mockLoginWithApple).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   it('renders name inputs', () => {

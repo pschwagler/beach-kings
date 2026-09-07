@@ -857,7 +857,7 @@ class TestAppleAuthEndpoint:
 
         response = client.post("/api/auth/apple", json={"id_token": "valid_token"})
         assert response.status_code == 409
-        assert "already exists" in response.json()["detail"]
+        assert response.json()["detail"]["code"] == "APPLE_AUTH_CONFLICT"
 
     def test_apple_auth_invalid_token_401(self, monkeypatch):
         """Test Apple auth returns 401 for invalid/expired token."""
@@ -872,7 +872,7 @@ class TestAppleAuthEndpoint:
 
         response = client.post("/api/auth/apple", json={"id_token": "bad_token"})
         assert response.status_code == 401
-        assert "Invalid Apple ID token" in response.json()["detail"]
+        assert response.json()["detail"]["code"] == "APPLE_AUTH_RETRY"
 
     def test_apple_auth_unexpected_error_generic_500(self, monkeypatch):
         """Test Apple auth returns generic 500 message (no internal details leaked)."""

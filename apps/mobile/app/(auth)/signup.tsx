@@ -35,6 +35,7 @@ import { hapticError, hapticLight } from '@/utils/haptics';
 import { signupSchema, type SignupFormValues } from '@/lib/validators';
 import YouthEligibilityGate from '@/components/auth/YouthEligibilityGate';
 import { getApiResponseErrorMessage } from '@/lib/apiError';
+import { getAppleAuthError } from '@/lib/appleAuthError';
 
 export default function SignupScreen(): React.ReactNode {
   const [showEligibility, setShowEligibility] = useState(false);
@@ -159,7 +160,7 @@ export default function SignupScreen(): React.ReactNode {
           return;
         }
         void hapticError();
-        Alert.alert('Sign Up Failed', 'Apple sign-in failed. Please try again.');
+        Alert.alert('Sign Up Failed', getAppleAuthError(err).message);
       }
     };
     setShowEligibility(true);
