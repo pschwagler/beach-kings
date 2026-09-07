@@ -27,8 +27,8 @@ let mockRootNavigationState = {
 };
 const mockCancelQueries = jest.fn(() => Promise.resolve());
 const mockClearQueryClient = jest.fn();
-const mockFetchQuery = jest.fn((options: { queryFn: () => unknown }) =>
-  options.queryFn(),
+const mockFetchQuery = jest.fn((options: { queryFn: (context: { signal: AbortSignal }) => unknown }) =>
+  options.queryFn({ signal: new AbortController().signal }),
 );
 const mockQueryClient = {
   cancelQueries: mockCancelQueries,

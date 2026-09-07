@@ -61,11 +61,12 @@ export const courtQueries = {
       coords?.longitude ?? null,
       coords == null ? locationId : null,
     ),
-    queryFn: (): Promise<Court[]> =>
+    queryFn: ({ signal }): Promise<Court[]> =>
       api.getCourts(
         coords == null
           ? { location_id: locationId }
           : { user_lat: coords.latitude, user_lng: coords.longitude },
+        { signal },
       ),
     enabled: enabled && userId > 0,
     staleTime: COURT_CATALOG_STALE_TIME_MS,

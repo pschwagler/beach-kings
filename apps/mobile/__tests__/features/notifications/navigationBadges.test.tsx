@@ -62,7 +62,7 @@ describe('navigation badge scopes', () => {
     await waitFor(() => {
       expect(result.current).toEqual({ global: 12, social: 5, leagues: 2 });
     });
-    expect(mockGetFriendRequests).toHaveBeenCalledWith('incoming');
+    expect(mockGetFriendRequests).toHaveBeenCalledWith('incoming', { signal: expect.any(AbortSignal) });
     expect(mockGetReceivedLeagueInvites).toHaveBeenCalledTimes(1);
   });
 });

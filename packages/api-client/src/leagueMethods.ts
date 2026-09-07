@@ -1,4 +1,5 @@
 import type { AxiosInstance } from 'axios';
+import { getRead, type ReadRequestOptions } from './readRequest';
 import type {
   Match,
   League,
@@ -151,8 +152,8 @@ export function createLeagueMethods(api: AxiosInstance) {
       return response.data;
     },
 
-    async getUserLeagues() {
-      const response = await api.get<League[]>('/api/users/me/leagues');
+    async getUserLeagues(options?: ReadRequestOptions) {
+      const response = await getRead<League[]>(api, '/api/users/me/leagues', undefined, options);
       return response.data;
     },
 

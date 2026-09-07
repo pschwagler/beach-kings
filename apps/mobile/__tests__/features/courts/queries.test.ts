@@ -52,7 +52,8 @@ describe('court query catalog', () => {
       { latitude: 40.7, longitude: -74 },
       'ignored-location',
     );
-    await options.queryFn?.({} as never);
+    const signal = new AbortController().signal;
+    await options.queryFn?.({ signal } as never);
 
     expect(options.queryKey).toEqual(
       courtKeys.nearby(7, 40.7, -74, null),
@@ -60,7 +61,7 @@ describe('court query catalog', () => {
     expect(api.getCourts).toHaveBeenCalledWith({
       user_lat: 40.7,
       user_lng: -74,
-    });
+    }, { signal });
     expect(courtKeys.nearby(7, null, null, 'socal_sd')).not.toEqual(
       courtKeys.nearby(8, null, null, 'socal_sd'),
     );

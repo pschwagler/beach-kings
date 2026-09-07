@@ -43,7 +43,7 @@ export const socialQueries = {
     enabled = true,
   ) => queryOptions({
     queryKey: socialKeys.requests(userId, direction),
-    queryFn: () => api.getFriendRequests(direction),
+    queryFn: ({ signal }) => api.getFriendRequests(direction, { signal }),
     // Resolved requests remain in the raw cache briefly as entity-local
     // optimistic tombstones. Observers only expose server-pending requests.
     select: (requests) => requests.filter((request) => request.status === 'pending'),

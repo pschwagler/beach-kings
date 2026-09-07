@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
@@ -207,7 +207,7 @@ describe('useDashboard', () => {
     await waitFor(() => expect(result.current.isInitialLoading).toBe(false));
     expect(mockApi.getCourts).toHaveBeenCalledWith({
       location_id: 'socal_sd',
-    });
+    }, { signal: expect.any(AbortSignal) });
   });
 
   it('requests incoming friend requests (backend direction vocabulary)', async () => {
@@ -224,7 +224,7 @@ describe('useDashboard', () => {
 
     await waitFor(() => expect(result.current.isInitialLoading).toBe(false));
     // Backend only accepts incoming/outgoing/both; received/sent -> 422.
-    expect(mockApi.getFriendRequests).toHaveBeenCalledWith('incoming');
+    expect(mockApi.getFriendRequests).toHaveBeenCalledWith('incoming', { signal: expect.any(AbortSignal) });
   });
 
   it('passes the player id into getPlayerMatchHistory', async () => {
@@ -240,7 +240,7 @@ describe('useDashboard', () => {
     });
 
     await waitFor(() => expect(result.current.isInitialLoading).toBe(false));
-    expect(mockApi.getPlayerMatchHistory).toHaveBeenCalledWith(42);
+    expect(mockApi.getPlayerMatchHistory).toHaveBeenCalledWith(42, { signal: expect.any(AbortSignal) });
   });
 
   it('skips matches when the player fetch returns null', async () => {
@@ -263,7 +263,7 @@ describe('useDashboard', () => {
     expect(result.current.isInitialLoading).toBe(false);
     // Courts still fires with a null location id (not player-id gated).
     await waitFor(() => expect(mockApi.getCourts).toHaveBeenCalled());
-    expect(mockApi.getCourts).toHaveBeenCalledWith({ location_id: null });
+    expect(mockApi.getCourts).toHaveBeenCalledWith({ location_id: null }, { signal: expect.any(AbortSignal) });
   });
 
   it('keeps player-dependent queries idle after an uncached player failure', async () => {
@@ -322,5 +322,72 @@ describe('useDashboard', () => {
     expect(
       mockApi.getCurrentUserPlayer.mock.calls.length,
     ).toBeGreaterThan(callsBefore);
+  });
+
+  it('rejects explicit refresh when a Query result is an error rather than a rejected promise', async () => {
+    mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
+    mockApi.getUserLeagues.mockRejectedValue(new Error('unavailable'));
+    mockApi.getSessions.mockResolvedValue([]);
+    mockApi.getFriendRequests.mockResolvedValue([]);
+    mockApi.getCourts.mockResolvedValue([]);
+    mockApi.getPlayerMatchHistory.mockResolvedValue([]);
+    const { result } = renderHook(() => useDashboard(), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(result.current.leagues.isError).toBe(true));
+    await act(async () => {
+      await expect(result.current.refetchAll()).rejects.toThrow('Some sections');
+    });
+    expect(result.current.player.data).toEqual(PLAYER);
+  });
+
+  it('cancels all seven exact Home reads and retains cached cards without cancelling other queries', async () => {
+    mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
+    mockApi.getUserLeagues.mockResolvedValue([]);
+    mockApi.getSessions.mockResolvedValue([]);
+    mockApi.getFriendRequests.mockResolvedValue([]);
+    mockApi.getCourts.mockResolvedValue([]);
+    mockApi.getPlayerMatchHistory.mockResolvedValue([]);
+    const client = makeClient();
+    const cancelSpy = jest.spyOn(client, 'cancelQueries');
+    const { result } = renderHook(() => useDashboard(), { wrapper: makeWrapper(client) });
+    await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+    const methods = [mockApi.getCurrentUserPlayer, mockApi.getUserLeagues, mockApi.getSessions,
+      mockApi.getFriendRequests, mockApi.getCourts, mockApi.getPlayerMatchHistory, mockApi.getMyStats];
+    methods.forEach(method => method.mockImplementation(() => new Promise(() => undefined)));
+    let otherSignal!: AbortSignal;
+    void client.fetchQuery({ queryKey: ['public', 'unrelated'], queryFn: ({ signal }) => {
+      otherSignal = signal;
+      return new Promise(() => undefined);
+    } }).catch(() => undefined);
+    let refresh!: Promise<void>;
+    act(() => { refresh = result.current.refetchAll(); });
+    const settled = refresh.catch(() => undefined);
+    await waitFor(() => expect(result.current.isRefreshing).toBe(true));
+    const signals = methods.map(method => method.mock.calls.at(-1)?.at(-1)?.signal as AbortSignal);
+    await act(async () => result.current.cancelRefresh());
+    await settled;
+    expect(signals.every(signal => signal.aborted)).toBe(true);
+    expect(otherSignal.aborted).toBe(false);
+    expect(cancelSpy).toHaveBeenCalledTimes(7);
+    expect(cancelSpy.mock.calls.every(([filters]) => filters?.exact === true)).toBe(true);
+    expect(result.current.player.data).toEqual(PLAYER);
+    await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+    client.clear();
+  });
+
+  it('fails an explicit offline refresh immediately instead of parking a UI promise', async () => {
+    mockApi.getCurrentUserPlayer.mockResolvedValue(PLAYER);
+    mockApi.getUserLeagues.mockResolvedValue([]);
+    mockApi.getSessions.mockResolvedValue([]);
+    mockApi.getFriendRequests.mockResolvedValue([]);
+    mockApi.getCourts.mockResolvedValue([]);
+    mockApi.getPlayerMatchHistory.mockResolvedValue([]);
+    const { result } = renderHook(() => useDashboard(), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+    onlineManager.setOnline(false);
+    try {
+      await expect(result.current.refetchAll()).rejects.toThrow('offline');
+    } finally {
+      onlineManager.setOnline(true);
+    }
   });
 });

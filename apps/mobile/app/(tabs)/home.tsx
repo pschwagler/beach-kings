@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import { ScrollView, View, RefreshControl } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { FriendRequest, Player, Session } from '@beach-kings/shared';
@@ -13,7 +13,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/features/notifications';
 import { useDashboard } from '@/hooks/useDashboard';
 import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
-import { usePaletteColors } from '@/theme/usePaletteColors';
+import HomeRefreshScrollView from '@/components/home/HomeRefreshScrollView';
+import { useHomeRefresh } from '@/components/home/useHomeRefresh';
 import { routes } from '@/lib/navigation';
 import HomeHeader from '@/components/home/HomeHeader';
 import QuickStatsRow from '@/components/home/QuickStatsRow';
@@ -85,8 +86,7 @@ export function resolveHomeLeadState({
 export default function HomeScreen(): React.ReactNode {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
-  const palette = usePaletteColors();
-  const { profileComplete } = useAuth();
+  const { profileComplete, user } = useAuth();
   const { unreadCount, dmUnreadCount } = useNotifications();
 
   const dashboard = useDashboard();
@@ -99,13 +99,11 @@ export default function HomeScreen(): React.ReactNode {
     matches,
     stats,
     isInitialLoading,
-    isRefreshing,
     refetchAll,
+    cancelRefresh,
   } = dashboard;
 
-  const onRefresh = useCallback(() => {
-    void refetchAll();
-  }, [refetchAll]);
+  const refresh = useHomeRefresh(refetchAll, cancelRefresh, user?.id);
 
   const refetchPlayer = player.refetch;
   const refetchActiveSession = activeSession.refetch;
@@ -181,17 +179,13 @@ export default function HomeScreen(): React.ReactNode {
         losses={losses}
       />
 
-      <ScrollView
+      <HomeRefreshScrollView
         ref={scrollRef}
         testID="home-scroll"
         className="flex-1"
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing && !isInitialLoading}
-            onRefresh={onRefresh}
-            tintColor={palette.brandTeal}
-          />
-        }
+        refreshing={refresh.refreshing}
+        refreshError={refresh.error}
+        onRefresh={refresh.onRefresh}
       >
         {isInitialLoading ? (
           <DashboardSkeleton />
@@ -318,7 +312,7 @@ export default function HomeScreen(): React.ReactNode {
             </View>
           </View>
         )}
-      </ScrollView>
+      </HomeRefreshScrollView>
     </SafeAreaView>
   );
 }

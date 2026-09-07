@@ -1,4 +1,5 @@
 import type { AxiosInstance } from 'axios';
+import { getRead, type ReadRequestOptions } from './readRequest';
 import type {
   Player,
   MyStatsPayload,
@@ -35,8 +36,8 @@ export function createUserMethods(api: AxiosInstance) {
     // User
     // -----------------------------------------------------------------------
 
-    async getCurrentUserPlayer() {
-      const response = await api.get<Player>('/api/users/me/player');
+    async getCurrentUserPlayer(options?: ReadRequestOptions) {
+      const response = await getRead<Player>(api, '/api/users/me/player', undefined, options);
       return response.data;
     },
 
@@ -47,8 +48,8 @@ export function createUserMethods(api: AxiosInstance) {
     async getMyStats(params?: {
       league_id?: number | null;
       days?: number | null;
-    }): Promise<MyStatsPayload> {
-      const response = await api.get<MyStatsPayload>('/api/users/me/stats', { params });
+    }, options?: ReadRequestOptions): Promise<MyStatsPayload> {
+      const response = await getRead<MyStatsPayload>(api, '/api/users/me/stats', { params }, options);
       return response.data;
     },
 

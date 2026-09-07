@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { RefreshControl } from 'react-native';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -61,6 +62,13 @@ function resetDashboardState(): void {
 }
 
 resetDashboardState();
+
+it('does not mount a native iOS refresh control when background Home queries fetch', () => {
+  resetDashboardState();
+  mockDashboardState.isRefreshing = true;
+  const screen = render(<HomeScreen />);
+  expect(screen.UNSAFE_queryAllByType(RefreshControl)).toHaveLength(0);
+});
 
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -440,6 +448,7 @@ describe('HomeScreen navigation', () => {
     const screen = render(<HomeScreen />);
 
     expect(screen.queryByTestId('dashboard-skeleton')).toBeNull();
-    expect(screen.getByTestId('home-scroll').props.refreshControl.props.refreshing).toBe(true);
+    expect(screen.queryByTestId('home-refresh-indicator')).toBeNull();
+    expect(screen.UNSAFE_queryAllByType(RefreshControl)).toHaveLength(0);
   });
 });

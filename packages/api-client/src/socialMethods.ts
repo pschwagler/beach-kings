@@ -1,4 +1,5 @@
 import type { AxiosInstance } from "axios";
+import { getRead, type ReadRequestOptions } from './readRequest';
 import type {
   DiscoverFilters,
   DiscoverPlayer,
@@ -144,11 +145,12 @@ export function createSocialMethods(api: AxiosInstance) {
 
     async getFriendRequests(
       direction?: FriendRequestDirection,
+      options?: ReadRequestOptions,
     ): Promise<FriendRequest[]> {
       const params = direction ? { direction } : {};
-      const response = await api.get<
+      const response = await getRead<
         { items?: FriendRequest[] } | FriendRequest[]
-      >("/api/friends/requests", { params });
+      >(api, "/api/friends/requests", { params }, options);
       return normalizeItems(response.data);
     },
 

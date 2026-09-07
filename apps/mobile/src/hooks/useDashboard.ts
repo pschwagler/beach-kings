@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { onlineManager, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type {
   Player,
   League,
@@ -59,9 +59,11 @@ export interface UseDashboardResult extends DashboardSections {
   readonly isInitialLoading: boolean;
   readonly isRefreshing: boolean;
   readonly refetchAll: () => Promise<void>;
+  readonly cancelRefresh: () => Promise<void>;
 }
 
 export function useDashboard(): UseDashboardResult {
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? 0;
 
@@ -79,8 +81,8 @@ export function useDashboard(): UseDashboardResult {
 
   const leagues = useQuery({
     queryKey: dashboardKeys.leagues(userId),
-    queryFn: async (): Promise<readonly League[]> => {
-      const result = await api.getUserLeagues();
+    queryFn: async ({ signal }): Promise<readonly League[]> => {
+      const result = await api.getUserLeagues({ signal });
       return result ?? [];
     },
     enabled: userId > 0,
@@ -99,9 +101,9 @@ export function useDashboard(): UseDashboardResult {
 
   const matches = useQuery({
     queryKey: dashboardKeys.matches(userId, playerId),
-    queryFn: async (): Promise<readonly MatchRecord[]> => {
+    queryFn: async ({ signal }): Promise<readonly MatchRecord[]> => {
       if (playerId == null) return [];
-      const result = await api.getPlayerMatchHistory(playerId);
+      const result = await api.getPlayerMatchHistory(playerId, { signal });
       return result ?? [];
     },
     enabled: player.isSuccess && playerId != null,
@@ -118,7 +120,8 @@ export function useDashboard(): UseDashboardResult {
   const refreshStats = stats.refetch;
 
   const refetchAll = useCallback(async () => {
-    await Promise.allSettled([
+    if (!onlineManager.isOnline()) throw new Error('You are offline. Reconnect and try again.');
+    const results = await Promise.allSettled([
       refreshPlayer(),
       refreshLeagues(),
       refreshActiveSession(),
@@ -127,6 +130,10 @@ export function useDashboard(): UseDashboardResult {
       refreshMatches(),
       refreshStats(),
     ]);
+    if (results.some(result => result.status === 'rejected'
+      || result.value.isError || result.value.fetchStatus === 'paused')) {
+      throw new Error('Some sections could not refresh. Please try again.');
+    }
   }, [
     refreshActiveSession,
     refreshCourts,
@@ -136,6 +143,16 @@ export function useDashboard(): UseDashboardResult {
     refreshPlayer,
     refreshStats,
   ]);
+
+  const cancelRefresh = useCallback(async () => {
+    const keys = [
+      dashboardKeys.player(userId), dashboardKeys.leagues(userId),
+      dashboardKeys.activeSession(userId), dashboardKeys.friendRequests(userId),
+      dashboardKeys.courts(userId, nearbyCoords, locationId),
+      dashboardKeys.matches(userId, playerId), dashboardKeys.stats(userId),
+    ];
+    await Promise.all(keys.map(queryKey => queryClient.cancelQueries({ queryKey, exact: true })));
+  }, [queryClient, userId, nearbyCoords, locationId, playerId]);
 
   // Only an uncached player fetch is identity-critical. Independent Home
   // sections own their pending/error UI, and disabled dependent queries remain
@@ -164,6 +181,7 @@ export function useDashboard(): UseDashboardResult {
       isInitialLoading,
       isRefreshing,
       refetchAll,
+      cancelRefresh,
     }),
     [
       player,
@@ -176,6 +194,7 @@ export function useDashboard(): UseDashboardResult {
       isInitialLoading,
       isRefreshing,
       refetchAll,
+      cancelRefresh,
     ],
   );
 }

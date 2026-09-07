@@ -9,10 +9,10 @@ export const statsQueries = {
   my: (userId: number, filters: MyStatsFilters = {}, enabled = true) =>
     queryOptions({
       queryKey: statsKeys.my(userId, filters),
-      queryFn: (): Promise<MyStatsPayload> => api.getMyStats({
+      queryFn: ({ signal }): Promise<MyStatsPayload> => api.getMyStats({
         league_id: filters.league_id ?? null,
         days: filters.days ?? null,
-      }),
+      }, { signal }),
       enabled: enabled && userId > 0,
       staleTime: STATS_STALE_TIME_MS,
     }),

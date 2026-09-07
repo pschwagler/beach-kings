@@ -226,7 +226,7 @@ describe('CreateLeagueScreen — render', () => {
     fireEvent.press(await screen.findByTestId('location-modal-option-socal_sd'));
 
     await waitFor(() => {
-      expect(mockGetCourts).toHaveBeenCalledWith({ location_id: 'socal_sd' });
+      expect(mockGetCourts).toHaveBeenCalledWith({ location_id: 'socal_sd' }, { signal: expect.any(AbortSignal) });
       expect(
         client.getQueryData(courtKeys.nearby(7, null, null, 'socal_sd')),
       ).toEqual(MOCK_COURTS);

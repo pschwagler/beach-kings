@@ -131,7 +131,7 @@ describe('useFriends — fetching', () => {
     expect(result.current.friends).toEqual([FRIEND, FRIEND_2]);
     expect(result.current.friendRequests).toEqual([REQUEST]);
     expect(result.current.suggestions).toEqual([SUGGESTION]);
-    expect(mockApi.getFriendRequests).toHaveBeenCalledWith('incoming');
+    expect(mockApi.getFriendRequests).toHaveBeenCalledWith('incoming', { signal: expect.any(AbortSignal) });
     expect(mockApi.getFriendSuggestions).toHaveBeenCalled();
   });
 

@@ -1,4 +1,5 @@
 import type { AxiosInstance } from "axios";
+import { getRead, type ReadRequestOptions } from './readRequest';
 import type {
   Player,
   PlayerSearchResponse,
@@ -122,8 +123,8 @@ export function createPlayerMethods(api: AxiosInstance) {
       return response.data;
     },
 
-    async getPlayerMatchHistory(playerId: number | string) {
-      const response = await api.get(`/api/players/${encodeURIComponent(playerId)}/matches`);
+    async getPlayerMatchHistory(playerId: number | string, options?: ReadRequestOptions) {
+      const response = await getRead<any>(api, `/api/players/${encodeURIComponent(playerId)}/matches`, undefined, options);
       return response.data;
     },
 

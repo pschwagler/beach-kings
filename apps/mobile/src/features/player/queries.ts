@@ -18,8 +18,8 @@ export const playerQueries = {
   }),
   me: (userId: number, enabled = true) => queryOptions({
     queryKey: playerKeys.me(userId),
-    queryFn: async (): Promise<Player | null> =>
-      (await api.getCurrentUserPlayer()) ?? null,
+    queryFn: async ({ signal }): Promise<Player | null> =>
+      (await api.getCurrentUserPlayer({ signal })) ?? null,
     enabled: enabled && userId > 0,
     staleTime: PLAYER_STALE_TIME_MS,
     // Player identity and stats are small, critical, and can change while the

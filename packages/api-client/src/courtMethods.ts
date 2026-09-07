@@ -1,4 +1,5 @@
 import type { AxiosInstance } from 'axios';
+import { getRead, type ReadRequestOptions } from './readRequest';
 import type {
   PlayerHomeCourt,
   Location,
@@ -101,7 +102,7 @@ export function createCourtMethods(api: AxiosInstance) {
       search?: string;
       /** Retrieve every page. Intended for complete picker catalogs. */
       all?: boolean;
-    }) {
+    }, options?: ReadRequestOptions) {
       type CourtPage = {
         items: Court[];
         total_count?: number;
@@ -110,9 +111,9 @@ export function createCourtMethods(api: AxiosInstance) {
       };
 
       const { all = false, ...requestParams } = params ?? {};
-      const response = await api.get<CourtPage | Court[]>('/api/public/courts', {
+      const response = await getRead<CourtPage | Court[]>(api, '/api/public/courts', {
         params: requestParams,
-      });
+      }, options);
       const data = response.data;
       if (Array.isArray(data)) return data.map(normalizeCourt);
 
@@ -130,9 +131,9 @@ export function createCourtMethods(api: AxiosInstance) {
         pageSize > 0 ? Math.min(Math.ceil(totalCount / pageSize), 1_000) : page;
       while (courts.length < totalCount && page < lastPage) {
         page += 1;
-        const next = await api.get<CourtPage>('/api/public/courts', {
+        const next = await getRead<CourtPage>(api, '/api/public/courts', {
           params: { ...requestParams, page, page_size: pageSize },
-        });
+        }, options);
         const items = next.data?.items ?? [];
         if (items.length === 0) break;
         courts.push(...items);

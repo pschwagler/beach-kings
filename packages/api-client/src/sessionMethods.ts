@@ -1,4 +1,5 @@
 import type { AxiosInstance } from 'axios';
+import { getRead, type ReadRequestOptions } from './readRequest';
 import type {
   League,
   Session,
@@ -19,8 +20,8 @@ export function createSessionMethods(api: AxiosInstance) {
     // Session
     // -----------------------------------------------------------------------
 
-    async getSessions() {
-      const response = await api.get<Session[]>('/api/sessions/open');
+    async getSessions(options?: ReadRequestOptions) {
+      const response = await getRead<Session[]>(api, '/api/sessions/open', undefined, options);
       return response.data;
     },
 

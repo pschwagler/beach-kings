@@ -6,6 +6,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import type { StorageAdapter } from './storage';
 import { WebStorageAdapter } from './storage';
+import { readAbortError, withRequestDeadline } from './readRequest';
 
 const ACCESS_TOKEN_KEY = 'beach_access_token';
 const REFRESH_TOKEN_KEY = 'beach_refresh_token';
@@ -38,6 +39,7 @@ function isPublicAuthEndpoint(url: string | undefined): boolean {
 interface QueuedRequest {
   resolve: (token: string | null) => void;
   reject: (error: any) => void;
+  cleanup: () => void;
 }
 
 export type AuthInvalidationListener = () => void;
@@ -54,6 +56,9 @@ export class ApiClient {
   private failedQueue: QueuedRequest[] = [];
   private authInvalidationListeners = new Set<AuthInvalidationListener>();
   private authInvalidationEmitted = false;
+  private authGeneration = 0;
+  private refreshController: AbortController | null = null;
+  private storageMutation: Promise<void> = Promise.resolve();
 
   constructor(baseURL: string, storage?: StorageAdapter) {
     this.storage = storage || new WebStorageAdapter();
@@ -81,9 +86,11 @@ export class ApiClient {
   }
 
   private async loadStoredTokens(): Promise<void> {
+    const generation = this.authGeneration;
     try {
-      this.authTokens.accessToken = await this.storage.getItem(ACCESS_TOKEN_KEY);
-      this.authTokens.refreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY);
+      const accessToken = await this.storage.getItem(ACCESS_TOKEN_KEY);
+      const refreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY);
+      if (generation === this.authGeneration) this.authTokens = { accessToken, refreshToken };
     } catch (error) {
       console.error('Error loading stored tokens:', error);
     }
@@ -112,6 +119,9 @@ export class ApiClient {
         const isForbidden = error.response?.status === 403;
         const url = originalRequest.url || '';
 
+        // Cancelling a screen read must not initiate a refresh or invalidate auth.
+        if (originalRequest.signal?.aborted) return Promise.reject(readAbortError());
+
         // React Native exposes a `window`-like global but does not provide the
         // browser CustomEvent constructor. Keep this legacy web notification
         // behind capability checks so native callers receive the original 403.
@@ -132,11 +142,25 @@ export class ApiClient {
         }
 
         // If already refreshing, queue this request
-        if (isUnauthorized && this.isRefreshing) {
+        if (isUnauthorized && !originalRequest._retry && this.isRefreshing) {
+          originalRequest._retry = true;
           return new Promise((resolve, reject) => {
-            this.failedQueue.push({ resolve, reject });
+            const signal = originalRequest.signal;
+            const cancel = () => {
+              this.failedQueue = this.failedQueue.filter(item => item !== queued);
+              queued.cleanup();
+              reject(readAbortError());
+            };
+            const queued: QueuedRequest = {
+              resolve, reject,
+              cleanup: () => signal?.removeEventListener('abort', cancel),
+            };
+            this.failedQueue.push(queued);
+            signal?.addEventListener('abort', cancel, { once: true });
+            if (signal?.aborted) cancel();
           })
             .then(token => {
+              if (originalRequest.signal?.aborted) throw readAbortError();
               originalRequest.headers = originalRequest.headers || {};
               originalRequest.headers.Authorization = `Bearer ${token}`;
               return this.api(originalRequest);
@@ -150,47 +174,70 @@ export class ApiClient {
         if (isUnauthorized && !originalRequest._retry && !isPublicAuthEndpoint(url)) {
           originalRequest._retry = true;
           this.isRefreshing = true;
+          const generation = this.authGeneration;
+          const refreshController = new AbortController();
+          this.refreshController = refreshController;
+          const startedAt = Date.now();
           const hadCredentials = Boolean(
             this.authTokens.accessToken || this.authTokens.refreshToken,
           );
 
           try {
-            const latestRefreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY) || this.authTokens.refreshToken;
-
-            if (!latestRefreshToken) {
-              if (hadCredentials) {
-                await this.clearAndNotifyAuthInvalidated();
+            const newAccessToken = await withRequestDeadline(async (signal, timeout) => {
+              const assertCurrent = () => {
+                if (signal.aborted || generation !== this.authGeneration) throw readAbortError();
+              };
+              const latestRefreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY) || this.authTokens.refreshToken;
+              assertCurrent();
+              if (!latestRefreshToken) throw new Error('No refresh token available');
+              const { data } = await this.refreshClient.post('/api/auth/refresh', {
+                refresh_token: latestRefreshToken,
+              }, { signal, timeout });
+              assertCurrent();
+              const token = data.access_token;
+              if (typeof token !== 'string' || token.length === 0) {
+                throw new Error('Refresh response did not include an access token');
               }
-              this.isRefreshing = false;
-              this.processQueue(error, null);
-              return Promise.reject(error);
-            }
-            
-            const { data } = await this.refreshClient.post('/api/auth/refresh', {
-              refresh_token: latestRefreshToken,
-            });
-            
-            const newAccessToken = data.access_token;
-            if (typeof newAccessToken !== 'string' || newAccessToken.length === 0) {
-              throw new Error('Refresh response did not include an access token');
-            }
-            await this.setAuthTokens(newAccessToken);
+              await this.persistAuthTokens(token);
+              assertCurrent();
+              return token;
+            },
+              { timeoutMs: 15_000, signal: refreshController.signal },
+            );
+            if (generation !== this.authGeneration) return Promise.reject(readAbortError());
             
             this.isRefreshing = false;
+            this.refreshController = null;
             this.processQueue(null, newAccessToken);
-            
+
+            // The initiating read may have been cancelled while a shared
+            // refresh, still needed by other callers, completed successfully.
+            if (originalRequest.signal?.aborted) return Promise.reject(readAbortError());
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
             return this.api(originalRequest);
           } catch (refreshError) {
+            // AuthContext has already transitioned identity. Obsolete refresh
+            // work must neither install old credentials nor log out the new user.
+            if (generation !== this.authGeneration) return Promise.reject(readAbortError());
+            if (!hadCredentials && !this.authTokens.accessToken && !this.authTokens.refreshToken) {
+              this.invalidatePendingRefresh();
+              return Promise.reject(error);
+            }
+            // Clearing immediately retires the logical refresh and queue. OS
+            // storage may not be cancellable; its FIFO cleanup can finish later.
+            const clearing = this.clearAndNotifyAuthInvalidated();
+            const remainingMs = 15_000 - (Date.now() - startedAt);
             try {
-              await this.clearAndNotifyAuthInvalidated();
+              if (remainingMs > 0) {
+                await withRequestDeadline(() => clearing, { timeoutMs: remainingMs });
+              } else {
+                void clearing.catch(() => undefined);
+              }
             } catch {
               // In-memory credentials are cleared before storage operations;
               // auth observers must still be allowed to end the session.
             }
-            this.isRefreshing = false;
-            this.processQueue(refreshError, null);
             return Promise.reject(error);
           }
         }
@@ -202,6 +249,7 @@ export class ApiClient {
 
   private processQueue(error: any, token: string | null): void {
     this.failedQueue.forEach(prom => {
+      prom.cleanup();
       if (error) {
         prom.reject(error);
       } else {
@@ -224,10 +272,12 @@ export class ApiClient {
   }
 
   private async clearAndNotifyAuthInvalidated(): Promise<void> {
+    const clearing = this.clearAuthTokens();
+    const generation = this.authGeneration;
     try {
-      await this.clearAuthTokens();
+      await clearing;
     } finally {
-      this.emitAuthInvalidated();
+      if (generation === this.authGeneration) this.emitAuthInvalidated();
     }
   }
 
@@ -239,47 +289,66 @@ export class ApiClient {
   }
 
   async setAuthTokens(accessToken: string | null, refreshToken?: string | null): Promise<void> {
-    this.authTokens.accessToken = accessToken;
-    if (accessToken) {
-      await this.storage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    } else {
-      await this.storage.removeItem(ACCESS_TOKEN_KEY);
-    }
+    this.invalidatePendingRefresh();
+    await this.persistAuthTokens(accessToken, refreshToken);
+  }
 
+  private invalidatePendingRefresh(): void {
+    this.authGeneration += 1;
+    this.refreshController?.abort();
+    this.refreshController = null;
+    this.isRefreshing = false;
+    this.processQueue(readAbortError(), null);
+  }
+
+  private async persistAuthTokens(accessToken: string | null, refreshToken?: string | null): Promise<void> {
+    this.authTokens.accessToken = accessToken;
     if (typeof refreshToken !== 'undefined') {
       this.authTokens.refreshToken = refreshToken;
-      if (refreshToken) {
-        await this.storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-      } else {
-        await this.storage.removeItem(REFRESH_TOKEN_KEY);
-      }
     }
-
     if (this.authTokens.accessToken || this.authTokens.refreshToken) {
       this.authInvalidationEmitted = false;
     }
+    await this.mutateStorage(async () => {
+      if (accessToken) await this.storage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      else await this.storage.removeItem(ACCESS_TOKEN_KEY);
+      if (typeof refreshToken !== 'undefined') {
+        if (refreshToken) await this.storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+        else await this.storage.removeItem(REFRESH_TOKEN_KEY);
+      }
+    });
+  }
+
+  /** Preserve identity-write ordering even if native storage resolves slowly. */
+  private mutateStorage(operation: () => Promise<void>): Promise<void> {
+    const work = this.storageMutation.then(operation, operation);
+    this.storageMutation = work.catch(() => undefined);
+    return work;
   }
 
   async clearAuthTokens(): Promise<void> {
+    this.invalidatePendingRefresh();
     this.authTokens.accessToken = null;
     this.authTokens.refreshToken = null;
-    const results = await Promise.allSettled([
-      this.storage.removeItem(ACCESS_TOKEN_KEY),
-      this.storage.removeItem(REFRESH_TOKEN_KEY),
-    ]);
-    const failed = results.find(
-      (result): result is PromiseRejectedResult => result.status === 'rejected',
-    );
-    if (failed != null) throw failed.reason;
+    await this.mutateStorage(async () => {
+      const results = await Promise.allSettled([
+        this.storage.removeItem(ACCESS_TOKEN_KEY),
+        this.storage.removeItem(REFRESH_TOKEN_KEY),
+      ]);
+      const failed = results.find(
+        (result): result is PromiseRejectedResult => result.status === 'rejected',
+      );
+      if (failed != null) throw failed.reason;
+    });
   }
 
   async getStoredTokens(): Promise<{ accessToken: string | null; refreshToken: string | null }> {
-    this.authTokens.accessToken = await this.storage.getItem(ACCESS_TOKEN_KEY);
-    this.authTokens.refreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY);
-    return {
-      accessToken: this.authTokens.accessToken,
-      refreshToken: this.authTokens.refreshToken,
-    };
+    await this.storageMutation;
+    const generation = this.authGeneration;
+    const accessToken = await this.storage.getItem(ACCESS_TOKEN_KEY);
+    const refreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY);
+    if (generation === this.authGeneration) this.authTokens = { accessToken, refreshToken };
+    return { ...this.authTokens };
   }
 
   // Expose axios instance for direct use

@@ -13,8 +13,8 @@ export const sessionQueries = {
   open: (userId: number, enabled = true) =>
     queryOptions({
       queryKey: sessionKeys.open(userId),
-      queryFn: async (): Promise<readonly Session[]> =>
-        (await api.getSessions()) ?? [],
+      queryFn: async ({ signal }): Promise<readonly Session[]> =>
+        (await api.getSessions({ signal })) ?? [],
       enabled: enabled && userId > 0,
       staleTime: SESSION_STALE_TIME_MS,
       refetchOnWindowFocus: 'always' as const,

@@ -757,7 +757,7 @@ describe('LeagueInfoTab — league info section', () => {
     });
 
     await waitFor(() => {
-      expect(mockGetCourts).toHaveBeenCalledWith({ location_id: 'socal_sd' });
+      expect(mockGetCourts).toHaveBeenCalledWith({ location_id: 'socal_sd' }, { signal: expect.any(AbortSignal) });
       expect(
         client.getQueryData(courtKeys.nearby(7, null, null, 'socal_sd')),
       ).toEqual([{ id: 99, name: 'New Court' }]);
