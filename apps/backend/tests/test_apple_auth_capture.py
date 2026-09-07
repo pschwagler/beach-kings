@@ -9,6 +9,7 @@ from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
+from backend.api.auth_dependencies import get_current_user
 from backend.database.db import get_db_session
 from backend.services import (
     auth_service,
@@ -212,6 +213,118 @@ def test_jwks_outage_is_provider_unavailable_not_invalid_authorization(
     entry.session.commit.assert_not_awaited()
     entry.session.rollback.assert_awaited_once()
     entry.store.assert_not_awaited()
+
+
+@pytest.fixture
+def apple_link(apple_entry, monkeypatch):
+    entry = apple_entry
+    entry.user.update(
+        {
+            "auth_provider": "google",
+            "email": "original@example.com",
+            "phone_number": None,
+            "apple_id": None,
+            "created_at": "2024-01-01T00:00:00Z",
+        }
+    )
+    app.dependency_overrides[get_current_user] = lambda: entry.user
+
+    async def set_identity(session, user_id, apple_id):
+        session.commit.assert_not_awaited()
+        entry.store.assert_awaited_once()
+        entry.user["apple_id"] = apple_id
+        return True
+
+    entry.set_identity = AsyncMock(side_effect=set_identity)
+    monkeypatch.setattr(auth_routes, "_set_apple_id", entry.set_identity)
+    yield entry
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.parametrize("provider", ["google", "phone"])
+def test_link_capture_keeps_original_identity_and_bound_credential(apple_link, provider):
+    entry = apple_link
+    entry.user["auth_provider"] = provider
+    response = entry.client.post("/api/auth/apple/add", json=entry.payload)
+    assert response.status_code == 200
+    assert response.json()["id"] == entry.user["id"]
+    assert response.json()["auth_provider"] == provider
+    assert response.json()["email"] == "original@example.com"
+    assert response.json()["apple_connected"] is True
+    ciphertext = entry.store.await_args.args[2]
+    assert apple_token_service.decrypt_refresh_credential(ciphertext) == (
+        "test-refresh",
+        "com.example.app",
+    )
+    entry.session.commit.assert_awaited_once()
+    entry.create.assert_not_awaited()
+    entry.player.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "failure,code",
+    [
+        ("invalid_client", "APPLE_AUTH_CONFIG"),
+        ("invalid_grant", "APPLE_AUTH_RETRY"),
+        ("timeout", "APPLE_AUTH_PROVIDER"),
+        ("wrong_subject", "APPLE_AUTH_RETRY"),
+        ("wrong_audience", "APPLE_AUTH_RETRY"),
+        ("encryption", "APPLE_AUTH_CONFIG"),
+    ],
+)
+def test_link_capture_failure_preserves_unlinked_state(apple_link, monkeypatch, failure, code):
+    entry = apple_link
+    if failure in {"invalid_client", "invalid_grant"}:
+        entry.post.return_value = httpx.Response(
+            400, json={"error": failure, "error_description": "PRIVATE"}
+        )
+    elif failure == "timeout":
+        entry.post.side_effect = httpx.ReadTimeout("PRIVATE")
+    elif failure in {"wrong_subject", "wrong_audience"}:
+        key = "sub" if failure == "wrong_subject" else "aud"
+        monkeypatch.setattr(
+            auth_service,
+            "verify_apple_id_token",
+            lambda token, **kwargs: (
+                entry.identity if token == "initial" else {**entry.identity, key: "wrong"}
+            ),
+        )
+    else:
+        monkeypatch.setenv("APPLE_TOKEN_ENCRYPTION_KEY", "invalid")
+    response = entry.client.post(
+        "/api/auth/apple/add", json=entry.payload, headers={"X-Request-ID": "test-link-request"}
+    )
+    assert response.status_code in (401, 503)
+    assert response.json()["detail"]["code"] == code
+    assert response.json()["detail"]["request_id"] == "test-link-request"
+    assert "PRIVATE" not in response.text
+    assert entry.user["apple_id"] is None
+    entry.set_identity.assert_not_awaited()
+    entry.store.assert_not_awaited()
+    entry.session.commit.assert_not_awaited()
+    entry.session.rollback.assert_awaited_once()
+
+
+def test_repeat_link_does_not_consume_another_code(apple_link):
+    entry = apple_link
+    entry.user["apple_id"] = entry.identity["sub"]
+    entry.lookup.return_value = entry.user
+    response = entry.client.post("/api/auth/apple/add", json=entry.payload)
+    assert response.status_code == 200
+    assert response.json()["apple_connected"] is True
+    entry.post.assert_not_awaited()
+    entry.store.assert_not_awaited()
+    entry.set_identity.assert_not_awaited()
+
+
+def test_another_accounts_apple_identity_is_not_merged(apple_link):
+    entry = apple_link
+    entry.lookup.return_value = {"id": 999}
+    response = entry.client.post("/api/auth/apple/add", json=entry.payload)
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "PROVIDER_LINK_CONFLICT"
+    entry.post.assert_not_awaited()
+    entry.set_identity.assert_not_awaited()
 
 
 @pytest.mark.asyncio

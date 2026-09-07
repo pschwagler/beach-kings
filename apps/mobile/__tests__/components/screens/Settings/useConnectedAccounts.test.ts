@@ -364,6 +364,30 @@ describe('useConnectedAccounts — Apple', () => {
     expect(mockLinkApple).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['APPLE_AUTH_CONFIG', 'temporarily unavailable'],
+    ['APPLE_AUTH_PROVIDER', 'in a moment'],
+    ['APPLE_AUTH_RETRY', 'Connect Apple again'],
+  ])('shows safe Apple capture recovery for %s and clears loading', async (code, message) => {
+    mockLinkApple.mockRejectedValue({ response: { status: 503, data: { detail: { code, message: 'PRIVATE', request_id: 'safe-request-123' } } } });
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { result } = renderHook(() => useConnectedAccounts());
+    await act(async () => { await result.current.handleConnectApple(); });
+    expect(alertSpy).toHaveBeenCalledWith('Apple Link Not Completed', expect.stringContaining(message));
+    expect(alertSpy).toHaveBeenCalledWith('Apple Link Not Completed', expect.stringContaining('not partially linked'));
+    expect(alertSpy).toHaveBeenCalledWith('Apple Link Not Completed', expect.stringContaining('safe-request-123'));
+    expect(JSON.stringify(alertSpy.mock.calls)).not.toContain('PRIVATE');
+    expect(result.current.isLinkingApple).toBe(false);
+  });
+
+  it('does not display an unknown error code or malformed support reference', async () => {
+    mockLinkApple.mockRejectedValue({ response: { status: 503, data: { detail: { code: 'PRIVATE_UNKNOWN', request_id: 'bad\nreference' } } } });
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { result } = renderHook(() => useConnectedAccounts());
+    await act(async () => { await result.current.handleConnectApple(); });
+    expect(alertSpy).toHaveBeenCalledWith('Link Failed', 'Could not link your Apple account. Please try again.');
+  });
+
   it('sets appleAvailable based on isAppleSignInAvailable()', async () => {
     const { result } = renderHook(() => useConnectedAccounts());
     await waitFor(() => {

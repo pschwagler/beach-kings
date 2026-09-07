@@ -46,22 +46,39 @@ interface ProviderLinkErrorShape {
       readonly detail?: string | {
         readonly code?: string;
         readonly message?: string;
+        readonly request_id?: string;
       };
     };
   };
 }
 
-function providerErrorDetails(error: unknown): { status?: number; code?: string } {
+function providerErrorDetails(error: unknown): { status?: number; code?: string; requestId?: string } {
   const shaped = error as ProviderLinkErrorShape;
   const detail = shaped?.response?.data?.detail;
   return {
     status: shaped?.response?.status ?? shaped?.status,
     code: typeof detail === 'object' && detail != null ? detail.code : undefined,
+    requestId: typeof detail === 'object' && detail != null
+      && typeof detail.request_id === 'string'
+      && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(detail.request_id)
+      ? detail.request_id : undefined,
   };
 }
 
 function showProviderLinkError(provider: Provider, error: unknown): void {
-  const { status, code } = providerErrorDetails(error);
+  const { status, code, requestId } = providerErrorDetails(error);
+  const appleCaptureMessages: Record<string, string> = {
+    APPLE_AUTH_CONFIG: 'Apple linking is temporarily unavailable. Please try again later or contact support.',
+    APPLE_AUTH_PROVIDER: 'Apple could not complete linking right now. Please try again in a moment.',
+    APPLE_AUTH_RETRY: 'Apple authorization expired or could not be verified. Please start Connect Apple again.',
+  };
+  if (provider === 'Apple' && code && appleCaptureMessages[code]) {
+    Alert.alert(
+      'Apple Link Not Completed',
+      `${appleCaptureMessages[code]} Your account was not partially linked.${requestId ? ` Support reference: ${requestId}.` : ''}`,
+    );
+    return;
+  }
   if (code === 'PROVIDER_ALREADY_CONNECTED') {
     Alert.alert(
       'Already Connected',
@@ -111,7 +128,7 @@ function showProviderLinkError(provider: Provider, error: unknown): void {
 
   Alert.alert(
     'Link Failed',
-    `Could not link your ${provider} account. Please try again.${code ? ` (${code})` : ''}`,
+    `Could not link your ${provider} account. Please try again.`,
   );
 }
 

@@ -1706,6 +1706,10 @@ async def add_apple_provider(
             raise _provider_already_connected_error("Apple") from exc
         except HTTPException as exc:
             await session.rollback()
+            if isinstance(exc, SafeAppleAuthError):
+                # Preserve the allowlisted capture-stage recovery and request ID.
+                # No identity write has committed when capture rejects the link.
+                raise
             logger.warning("Provider link rejected provider=apple code=APPLE_LINK_CODE_EXCHANGE")
             raise _provider_link_error(
                 503,
