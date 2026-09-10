@@ -141,6 +141,7 @@ describe('native host adapters', () => {
     await act(async () => fireEvent.press(screen.getByLabelText('Refresh content')));
     const overlay = screen.getByTestId('refresh-indicator');
     expect(StyleSheet.flatten(overlay.props.style)?.zIndex).toBeGreaterThan(0);
+    expect(overlay.props.className.split(' ')).toEqual(expect.arrayContaining(['border', 'border-divider']));
     expect(overlay.props.pointerEvents).toBe('none');
     const list = screen.UNSAFE_getByType(FlatList);
     expect(list.props.contentContainerStyle).toBe(contentStyle);
