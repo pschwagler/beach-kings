@@ -195,8 +195,8 @@ export function createCourtMethods(api: AxiosInstance) {
      * Fetch full detail for a single court by numeric id or slug.
      * Returns 404 when the court is not found.
      */
-    async getCourtById(idOrSlug: string | number): Promise<Court> {
-      const response = await api.get<Court>(`/api/courts/${idOrSlug}`);
+    async getCourtById(idOrSlug: string | number, options?: ReadRequestOptions): Promise<Court> {
+      const response = await getRead<Court>(api, `/api/courts/${idOrSlug}`, undefined, options);
       return normalizeCourt(response.data);
     },
 
@@ -204,9 +204,10 @@ export function createCourtMethods(api: AxiosInstance) {
      * List standalone photos for a court (public — no auth required).
      * Accepts numeric id or url slug.
      */
-    async getCourtPhotos(idOrSlug: string | number): Promise<CourtPhoto[]> {
-      const response = await api.get<CourtPhoto[]>(
+    async getCourtPhotos(idOrSlug: string | number, options?: ReadRequestOptions): Promise<CourtPhoto[]> {
+      const response = await getRead<CourtPhoto[]>(api,
         `/api/public/courts/${idOrSlug}/photos`,
+        undefined, options,
       );
       return response.data;
     },

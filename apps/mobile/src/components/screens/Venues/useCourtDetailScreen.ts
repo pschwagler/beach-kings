@@ -33,11 +33,11 @@ export function useCourtDetailScreen(
   );
 
   const onRefresh = useCallback(() => {
-    void refetch();
+    return refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const onRetry = useCallback(() => {
-    void refetch();
+    void refetch({ cancelRefetch: false });
   }, [refetch]);
 
   return {

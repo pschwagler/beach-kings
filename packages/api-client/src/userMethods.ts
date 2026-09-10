@@ -60,10 +60,10 @@ export function createUserMethods(api: AxiosInstance) {
      * Supports optional filtering by league_id, result, and pagination via
      * limit/offset.
      */
-    async getMyGames(params?: MyGamesQueryParams): Promise<MyGamesResponse> {
-      const response = await api.get<MyGamesResponse>('/api/users/me/games', {
+    async getMyGames(params?: MyGamesQueryParams, options?: ReadRequestOptions): Promise<MyGamesResponse> {
+      const response = await getRead<MyGamesResponse>(api, '/api/users/me/games', {
         params: params ?? {},
-      });
+      }, options);
       return response.data;
     },
 

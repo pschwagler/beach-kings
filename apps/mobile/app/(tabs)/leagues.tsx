@@ -1,3 +1,4 @@
+import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * Leagues tab screen.
  * Mirrors `mobile-audit/wireframes/leagues-tab.html`.
@@ -6,7 +7,7 @@
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import { ScrollView, View, Pressable, RefreshControl } from 'react-native';
+import { ScrollView, View, Pressable, } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -98,17 +99,11 @@ export default function LeaguesScreen(): React.ReactNode {
         onCreateLeague={handleCreateLeague}
       />
 
-      <ScrollView
+      <RefreshScrollView
         ref={scrollRef}
         className="flex-1"
         contentContainerStyle={{ flexGrow: 1 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={palette.brandTeal}
-          />
-        }
+        onRefresh={onRefresh}
       >
         <ReceivedInvitesPreview onViewAll={handleReceivedInvites} />
 
@@ -144,7 +139,7 @@ export default function LeaguesScreen(): React.ReactNode {
             <JoinAnotherLeagueCta onPress={handleFindLeagues} />
           </View>
         )}
-      </ScrollView>
+      </RefreshScrollView>
     </SafeAreaView>
   );
 }

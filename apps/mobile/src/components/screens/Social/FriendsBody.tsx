@@ -1,3 +1,6 @@
+import { isAccessRevokedError } from '@/lib/apiError';
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import RefreshFlatList from '@/components/refresh/RefreshFlatList';
 /**
  * FriendsBody — chrome-free content for the Social hub's Friends tab.
  *
@@ -27,8 +30,7 @@ import {
   FlatList,
   Pressable,
   TextInput,
-  RefreshControl,
-} from 'react-native';
+  } from 'react-native';
 import type { ListRenderItem } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
@@ -423,8 +425,8 @@ export default function FriendsBody({
       );
     }
 
-    if (friendsError != null && !isRefreshingFriends) {
-      return <FriendsErrorState onRetry={onRetryFriends} />;
+    if (friendsError != null && (friends.length === 0 || isAccessRevokedError(friendsError))) {
+      return <><FriendsErrorState onRetry={onRetryFriends} /><RefreshEmptyAction onRefresh={onRefreshFriends} refreshScope={searchQuery} /></>;
     }
 
     // While searching, scope the view to the friends list only. The box is
@@ -457,9 +459,9 @@ export default function FriendsBody({
         <>
           <FriendsSearchBar value={searchQuery} onChangeText={setSearchQuery} />
           {isSearching ? (
-            <FriendsNoResults query={searchQuery} />
+            <><FriendsNoResults query={searchQuery} /><RefreshEmptyAction onRefresh={onRefreshFriends} refreshScope={searchQuery} refreshLabel="friends" /></>
           ) : (
-            <FriendsEmptyState onFindPlayers={onFindPlayers} />
+            <><FriendsEmptyState onFindPlayers={onFindPlayers} /><RefreshEmptyAction onRefresh={onRefreshFriends} refreshLabel="friends" /></>
           )}
         </>
       );
@@ -474,7 +476,7 @@ export default function FriendsBody({
     return (
       <>
         <FriendsSearchBar value={searchQuery} onChangeText={setSearchQuery} />
-        <FlatList<FriendsListItem>
+        <RefreshFlatList<FriendsListItem>
           ref={listRef}
           testID="friends-list"
           data={listItems}
@@ -497,12 +499,8 @@ export default function FriendsBody({
           }
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshingFriends}
-              onRefresh={onRefreshFriends}
-            />
-          }
+          onRefresh={onRefreshFriends}
+          refreshScope={searchQuery}
         />
       </>
     );

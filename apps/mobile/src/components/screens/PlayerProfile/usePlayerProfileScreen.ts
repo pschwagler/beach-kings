@@ -1,6 +1,7 @@
 /** Cached data and shared relationship actions for the public player profile. */
 
 import { useCallback, useEffect } from 'react';
+import { isAccessRevokedError } from '@/lib/apiError';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FriendshipStatus, MutualFriend, Player, PlayerLeague } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,7 +63,7 @@ export function usePlayerProfileScreen(
   ]);
 
   const onRefresh = useCallback(() => {
-    void Promise.all([profileQuery.refetch(), relationshipQuery.refetch()]);
+    return Promise.all([profileQuery.refetch({ cancelRefetch: false }), relationshipQuery.refetch({ cancelRefetch: false })]);
   }, [profileQuery, relationshipQuery]);
 
   const onAddFriend = useCallback(async () => {
@@ -94,7 +95,8 @@ export function usePlayerProfileScreen(
     onNavigateToMessages(numericId, name);
   }, [numericId, onNavigateToMessages, profileQuery.data?.player]);
 
-  const error = (profileQuery.error ?? relationshipQuery.error) as Error | null;
+  const error = ([profileQuery.error, relationshipQuery.error].find(isAccessRevokedError)
+    ?? profileQuery.error ?? relationshipQuery.error) as Error | null;
   const isNotFound =
     (profileQuery.error as { response?: { status?: number } } | null)?.response
       ?.status === 404;

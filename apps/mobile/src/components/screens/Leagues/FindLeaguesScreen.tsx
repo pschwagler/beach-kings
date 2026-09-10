@@ -1,3 +1,4 @@
+import RefreshFlatList from '@/components/refresh/RefreshFlatList';
 /**
  * FindLeaguesScreen — search and filter public leagues.
  *
@@ -16,7 +17,6 @@ import {
   FlatList,
   Pressable,
   TextInput,
-  RefreshControl,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -380,7 +380,7 @@ export default function FindLeaguesScreen(): React.ReactNode {
     }
 
     return (
-      <FlatList
+      <RefreshFlatList
         testID="find-leagues-list"
         data={leagues}
         keyExtractor={(item) => String(item.id)}
@@ -396,9 +396,8 @@ export default function FindLeaguesScreen(): React.ReactNode {
           />
         )}
         contentContainerStyle={{ paddingTop: 12, paddingBottom: 32 }}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
+        onRefresh={onRefresh}
+          refreshScope={JSON.stringify([searchQuery, activeFilter])}
       />
     );
   };

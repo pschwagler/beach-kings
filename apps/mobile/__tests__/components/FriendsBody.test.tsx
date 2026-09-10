@@ -1,3 +1,5 @@
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, isAuthenticated: true }) }));
+jest.mock('expo-router', () => ({ useFocusEffect: jest.fn() }));
 /**
  * Tests for FriendsBody — the Social hub's Friends tab content.
  *
@@ -16,7 +18,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, act } from '@testing-library/react-native';
 
 jest.mock('@/utils/haptics', () => ({
   hapticLight: jest.fn(),
@@ -151,7 +153,7 @@ describe('FriendsBody — loading & error', () => {
   it('renders the full-page error state when the friends list fails', () => {
     render(
       <FriendsBody
-        {...makeProps({ friendsError: new Error('boom') })}
+        {...makeProps({ friends: [], friendsError: new Error('boom') })}
       />,
     );
     expect(screen.getByTestId('friends-error-state')).toBeTruthy();
@@ -161,7 +163,7 @@ describe('FriendsBody — loading & error', () => {
     const onRetryFriends = jest.fn();
     render(
       <FriendsBody
-        {...makeProps({ friendsError: new Error('boom'), onRetryFriends })}
+        {...makeProps({ friends: [], friendsError: new Error('boom'), onRetryFriends })}
       />,
     );
     fireEvent.press(screen.getByTestId('friends-retry-btn'));
@@ -264,6 +266,23 @@ describe('FriendsBody — search scoping', () => {
 // ---------------------------------------------------------------------------
 
 describe('FriendsBody — sections', () => {
+  it('preserves cached friends on transient failure but hides them after access revocation', () => {
+    const tree = render(<FriendsBody {...makeProps({ friendsError: new Error('offline') })} />);
+    expect(screen.getByText('Friends · 2')).toBeTruthy();
+    expect(screen.queryByTestId('friends-error-state')).toBeNull();
+    tree.rerender(<FriendsBody {...makeProps({ isRefreshingFriends: true, friendsError: Object.assign(new Error('denied'), { response: { status: 403 } }) })} />);
+    expect(screen.queryByText('Friends · 2')).toBeNull();
+  });
+
+  it('retires explicit refresh when a nonempty friend search changes', async () => {
+    const onRefreshFriends = jest.fn(() => new Promise<void>(() => undefined));
+    const tree = render(<FriendsBody {...makeProps({ onRefreshFriends, searchQuery: 'm' })} />);
+    await act(async () => fireEvent.press(screen.getByLabelText('Refresh content')));
+    expect(screen.getByLabelText('Refresh content').props.accessibilityState.busy).toBe(true);
+    tree.rerender(<FriendsBody {...makeProps({ onRefreshFriends, searchQuery: 'mo' })} />);
+    expect(screen.getByLabelText('Refresh content').props.accessibilityState.busy).toBe(false);
+  });
+
   it('renders all three sections with counts', () => {
     render(<FriendsBody {...makeProps()} />);
 

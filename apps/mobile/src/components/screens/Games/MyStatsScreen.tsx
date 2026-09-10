@@ -1,3 +1,5 @@
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * MyStatsScreen — orchestrator for the My Stats screen.
  *
@@ -15,7 +17,7 @@
 
 import React, { useCallback } from 'react';
 import AppText from '@/components/ui/AppText';
-import { View, ScrollView, RefreshControl } from 'react-native';
+import { View, ScrollView, } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
@@ -174,7 +176,7 @@ export default function MyStatsScreen(): React.ReactNode {
         testID="my-stats-screen"
       >
         <TopNav title="My Stats" showBack />
-        <StatsErrorState onRetry={onRetry} />
+        <><StatsErrorState onRetry={onRetry} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={timeFilter} /></>
       </SafeAreaView>
     );
   }
@@ -203,12 +205,11 @@ export default function MyStatsScreen(): React.ReactNode {
     >
       <TopNav title="My Stats" showBack />
 
-      <ScrollView
+      <RefreshScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
+        onRefresh={onRefresh}
+          refreshScope={timeFilter}
       >
         {error != null ? (
           <View className="px-4 pt-4">
@@ -282,7 +283,7 @@ export default function MyStatsScreen(): React.ReactNode {
             onTabChange={setBreakdownTab}
           />
         </View>
-      </ScrollView>
+      </RefreshScrollView>
     </SafeAreaView>
   );
 }

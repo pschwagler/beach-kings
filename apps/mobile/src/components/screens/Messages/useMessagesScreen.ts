@@ -73,11 +73,11 @@ export function useMessagesScreen(folder: MessageFolder = 'inbox'): UseMessagesS
   }, [conversationsQuery.data, searchQuery]);
 
   const onRefresh = useCallback(() => {
-    void conversationsQuery.refetch();
+    return conversationsQuery.refetch({ cancelRefetch: false });
   }, [conversationsQuery]);
 
   const onRetry = useCallback(() => {
-    void conversationsQuery.refetch();
+    void conversationsQuery.refetch({ cancelRefetch: false });
   }, [conversationsQuery]);
 
   const onConversationPress = useCallback(

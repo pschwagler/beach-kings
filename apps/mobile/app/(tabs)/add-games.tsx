@@ -1,3 +1,4 @@
+import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * Add Games tab — primary creation action.
  *
@@ -17,7 +18,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { View, Pressable, ScrollView, } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -222,8 +223,8 @@ export default function AddGamesScreen(): React.ReactNode {
   // User leagues fetch — only needed when league-select view is open
   const leaguesQuery = useQuery({
     queryKey: leagueKeys.userLeagues(userId),
-    queryFn: async (): Promise<readonly League[]> =>
-      (await api.getUserLeagues()) ?? [],
+    queryFn: async ({ signal }): Promise<readonly League[]> =>
+      (await api.getUserLeagues({ signal })) ?? [],
     enabled: userId > 0 && view === 'league-select',
   });
   const leagues = leaguesQuery.data;
@@ -250,23 +251,17 @@ export default function AddGamesScreen(): React.ReactNode {
   }, [leagues, allSessions]);
 
   // Refresh both when pull-to-refresh on chooser
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await refreshOpenSessions();
-    } finally {
-      setIsRefreshing(false);
-    }
+    return refreshOpenSessions({ cancelRefetch: false });
   }, [refreshOpenSessions]);
 
   const refreshCriticalData = useCallback(async () => {
-    await refreshOpenSessions();
+    await refreshOpenSessions({ cancelRefetch: false });
   }, [refreshOpenSessions]);
   useRefreshOnFocus(refreshCriticalData, 0);
 
   const refreshLeagueSelection = useCallback(async () => {
-    await Promise.allSettled([refreshLeagues(), refreshOpenSessions()]);
+    return Promise.allSettled([refreshLeagues({ cancelRefetch: false }), refreshOpenSessions({ cancelRefetch: false })]);
   }, [refreshLeagues, refreshOpenSessions]);
 
   const handleLeagueGame = useCallback(() => {
@@ -384,16 +379,11 @@ export default function AddGamesScreen(): React.ReactNode {
       testID="add-games-screen"
     >
       <TopNav title="Add Games" />
-      <ScrollView
+      <RefreshScrollView
         ref={scrollRef}
         className="flex-1"
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing || sessionLoading}
-            onRefresh={handleRefresh}
-          />
-        }
+        onRefresh={handleRefresh}
       >
         {/* Active session banner (when present) */}
         {pickupSession != null && !sessionLoading && (
@@ -410,7 +400,7 @@ export default function AddGamesScreen(): React.ReactNode {
           onLeagueGame={handleLeagueGame}
           onPickupGame={handlePickupGame}
         />
-      </ScrollView>
+      </RefreshScrollView>
     </SafeAreaView>
   );
 }

@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { render as testingRender, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, RefreshControl } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
@@ -268,7 +268,7 @@ describe('ProfileScreen', () => {
   it('shows friends count', async () => {
     const { findByText } = render(<ProfileScreen />);
     expect(await findByText('12 Friends')).toBeTruthy();
-    expect(mockGetFriendsPage).toHaveBeenCalledWith({ page: 1, page_size: 1 });
+    expect(mockGetFriendsPage).toHaveBeenCalledWith({ page: 1, page_size: 1 }, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it('shows friends count from the real `total_count` field the endpoint returns', async () => {
@@ -572,6 +572,18 @@ describe('ProfileScreen', () => {
 
   // ── Pull-to-refresh ────────────────────────────────────────────────────────
 
+  it('keeps cached Profile silent during an observed background fetch without a native iOS refresh control', async () => {
+    const screen = render(<ProfileScreen />);
+    await screen.findAllByText('Patrick Schwagler');
+    let finish!: (value: typeof MOCK_PLAYER) => void;
+    mockGetCurrentUserPlayer.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    act(() => { void queryClient.invalidateQueries({ queryKey: playerKeys.me(1), exact: true }); });
+    await waitFor(() => expect(queryClient.getQueryState(playerKeys.me(1))?.fetchStatus).toBe('fetching'));
+    expect(screen.UNSAFE_queryAllByType(RefreshControl)).toHaveLength(0);
+    expect(screen.queryByText('Refreshing…')).toBeNull();
+    await act(async () => finish(MOCK_PLAYER));
+  });
+
   it('pull-to-refresh triggers a refetch', async () => {
     const { findAllByText, getByTestId } = render(<ProfileScreen />);
     await findAllByText('Patrick Schwagler');
@@ -582,19 +594,10 @@ describe('ProfileScreen', () => {
     mockGetFriendsPage.mockResolvedValueOnce(MOCK_FRIENDS_RESPONSE);
 
     const scrollView = getByTestId('profile-scroll-view');
-    const refreshControl = (
-      scrollView as {
-        props?: {
-          refreshControl?: { props?: { onRefresh?: () => void } };
-        };
-      }
-    ).props?.refreshControl;
-
-    if (refreshControl?.props?.onRefresh) {
-      await act(async () => {
-        refreshControl.props!.onRefresh!();
-      });
-    }
+    await act(async () => {
+      fireEvent(scrollView, 'scrollBeginDrag', { nativeEvent: { contentOffset: { y: 0 } } });
+      fireEvent(scrollView, 'scrollEndDrag', { nativeEvent: { contentOffset: { y: -90 } } });
+    });
 
     await waitFor(() => {
       expect(mockGetCurrentUserPlayer).toHaveBeenCalledTimes(1);

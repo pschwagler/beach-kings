@@ -93,8 +93,8 @@ export function createSessionMethods(api: AxiosInstance) {
      *
      * Maps to GET /api/sessions/:id.
      */
-    async getSessionById(sessionId: number): Promise<SessionDetail> {
-      const response = await api.get<SessionDetail>(`/api/sessions/${sessionId}`);
+    async getSessionById(sessionId: number, options?: ReadRequestOptions): Promise<SessionDetail> {
+      const response = await getRead<SessionDetail>(api, `/api/sessions/${sessionId}`, undefined, options);
       const raw = response.data;
       const normalized = (raw.status ?? '').toString().toLowerCase();
       const status: SessionDetail['status'] =

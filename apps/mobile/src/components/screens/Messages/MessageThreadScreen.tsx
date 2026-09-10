@@ -1,3 +1,5 @@
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import { isAccessRevokedError } from '@/lib/apiError';
 /**
  * MessageThreadScreen — single DM conversation view.
  *
@@ -228,8 +230,8 @@ export default function MessageThreadScreen({
       return <MessagesSkeleton count={4} />;
     }
 
-    if (error != null && !isRefreshing) {
-      return <MessagesErrorState onRetry={onRetry} />;
+    if (error != null && (messages.length === 0 || isAccessRevokedError(error))) {
+      return <><MessagesErrorState onRetry={onRetry} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={String(playerId)} /></>;
     }
 
     // API returns newest-first; ChatView expects oldest-first.
@@ -290,6 +292,7 @@ export default function MessageThreadScreen({
           </View>
         )}
         onRefresh={onRefresh}
+          refreshScope={String(playerId)}
         isRefreshing={isRefreshing}
         emptyState={<ThreadEmptyState />}
         bottomInset={insets.bottom}

@@ -102,7 +102,6 @@ export function useDiscoverPlayers(
   const userId = user?.id ?? 0;
   const friendshipMutations = useFriendshipMutations();
 
-  const [isRefreshingPlayers, setIsRefreshingPlayers] = useState(false);
   const pendingSendIds = usePendingFriendRequestPlayerIds();
   const [levelFilter, setLevelFilter] = useState<DiscoverLevel | null>(null);
   const [sameLeagueOnly, setSameLeagueOnly] = useState(false);
@@ -177,16 +176,14 @@ export function useDiscoverPlayers(
   );
 
   const onRefreshPlayers = useCallback(() => {
-    if (!proximityReady) return;
-    setIsRefreshingPlayers(true);
-    playersQuery.refetch().finally(() => {
-      setIsRefreshingPlayers(false);
-    });
+    if (!proximityReady) return Promise.resolve({ fetchStatus: 'paused' });
+
+    return playersQuery.refetch({ cancelRefetch: false });
   }, [playersQuery, proximityReady]);
 
   const onRetryPlayers = useCallback(() => {
     if (!proximityReady) return;
-    void playersQuery.refetch();
+    void playersQuery.refetch({ cancelRefetch: false });
   }, [playersQuery, proximityReady]);
 
   const onToggleLevel = useCallback((level: DiscoverLevel) => {
@@ -225,7 +222,7 @@ export function useDiscoverPlayers(
     players,
     isLoadingPlayers: proximityReady ? playersQuery.isPending : false,
     playersError: proximityReady ? playersQuery.error : null,
-    isRefreshingPlayers,
+    isRefreshingPlayers: false,
     onRefreshPlayers,
     onRetryPlayers,
     onAddFriend,
@@ -240,7 +237,7 @@ export function useDiscoverPlayers(
     locations,
     locationsPending: locationsQuery.isPending,
     locationsError: locationsQuery.error,
-    onRetryLocations: () => { void locationsQuery.refetch(); },
+    onRetryLocations: () => { void locationsQuery.refetch({ cancelRefetch: false }); },
     metroFilterId: locationMode === 'metro' ? metroFilterId : null,
     nearMeEnabled: locationMode === 'nearby',
     nearMePending:

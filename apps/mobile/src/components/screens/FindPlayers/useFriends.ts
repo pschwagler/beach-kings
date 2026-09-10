@@ -80,7 +80,6 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   const userId = user?.id ?? 0;
   const friendshipMutations = useFriendshipMutations();
 
-  const [isRefreshingFriends, setIsRefreshingFriends] = useState(false);
   const pendingAddIds = usePendingFriendRequestPlayerIds();
 
   // ------- Friends list -------
@@ -126,20 +125,18 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
   const isLoadingSuggestions = withSuggestions && suggestionsQuery.isPending;
 
   const onRefreshFriends = useCallback(() => {
-    setIsRefreshingFriends(true);
-    Promise.all([
-      friendsQuery.refetch(),
-      requestsQuery.refetch(),
-      ...(withSuggestions ? [suggestionsQuery.refetch()] : []),
-    ]).finally(() => {
-      setIsRefreshingFriends(false);
-    });
+
+    return Promise.all([
+      friendsQuery.refetch({ cancelRefetch: false }),
+      requestsQuery.refetch({ cancelRefetch: false }),
+      ...(withSuggestions ? [suggestionsQuery.refetch({ cancelRefetch: false })] : []),
+    ]);
   }, [friendsQuery, requestsQuery, suggestionsQuery, withSuggestions]);
 
   const onRetryFriends = useCallback(() => {
-    void friendsQuery.refetch();
-    void requestsQuery.refetch();
-    if (withSuggestions) void suggestionsQuery.refetch();
+    void friendsQuery.refetch({ cancelRefetch: false });
+    void requestsQuery.refetch({ cancelRefetch: false });
+    if (withSuggestions) void suggestionsQuery.refetch({ cancelRefetch: false });
   }, [friendsQuery, requestsQuery, suggestionsQuery, withSuggestions]);
 
   const onAcceptRequest = useCallback(
@@ -172,7 +169,7 @@ export function useFriends(options: UseFriendsOptions = {}): UseFriendsResult {
     friendsError: friendsQuery.error,
     friendRequestsError: requestsQuery.error,
     suggestionsError: suggestionsQuery.error,
-    isRefreshingFriends,
+    isRefreshingFriends: false,
     onRefreshFriends,
     onRetryFriends,
     onAcceptRequest,

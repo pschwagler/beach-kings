@@ -122,13 +122,13 @@ export function useDashboard(): UseDashboardResult {
   const refetchAll = useCallback(async () => {
     if (!onlineManager.isOnline()) throw new Error('You are offline. Reconnect and try again.');
     const results = await Promise.allSettled([
-      refreshPlayer(),
-      refreshLeagues(),
-      refreshActiveSession(),
-      refreshFriendRequests(),
-      refreshCourts(),
-      refreshMatches(),
-      refreshStats(),
+      refreshPlayer({ cancelRefetch: false }),
+      refreshLeagues({ cancelRefetch: false }),
+      refreshActiveSession({ cancelRefetch: false }),
+      refreshFriendRequests({ cancelRefetch: false }),
+      refreshCourts({ cancelRefetch: false }),
+      refreshMatches({ cancelRefetch: false }),
+      refreshStats({ cancelRefetch: false }),
     ]);
     if (results.some(result => result.status === 'rejected'
       || result.value.isError || result.value.fetchStatus === 'paused')) {

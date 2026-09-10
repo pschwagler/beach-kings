@@ -25,7 +25,8 @@ jest.mock('@/contexts/AuthContext', () => ({
 
 jest.mock('expo-router', () => ({
   useSegments: () => [],
-  useRouter: () => ({ canGoBack: () => true, push: mockPush }),
+  useFocusEffect: jest.fn(),
+    useRouter: () => ({ canGoBack: () => true, push: mockPush }),
   useLocalSearchParams: () => ({}),
 }));
 
@@ -193,7 +194,7 @@ describe('FindLeaguesScreen — filter chips', () => {
     fireEvent.press(screen.getByTestId('filter-chip-public'));
     await waitFor(() => {
       expect(mockQueryLeagues).toHaveBeenCalledWith(
-        expect.objectContaining({ is_open: true }),
+        expect.objectContaining({ is_open: true }), expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });

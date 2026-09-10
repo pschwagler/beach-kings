@@ -126,7 +126,7 @@ describe('useDiscoverPlayers — filters', () => {
     const { result } = renderHook(() => useDiscoverPlayers());
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
 
-    expect(mockApi.discoverPlayers).toHaveBeenCalledWith({});
+    expect(mockApi.discoverPlayers).toHaveBeenCalledWith({}, expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(result.current.levelFilter).toBeNull();
     expect(result.current.sameLeagueOnly).toBe(false);
     expect(result.current.sharedFriendsOnly).toBe(false);
@@ -141,7 +141,7 @@ describe('useDiscoverPlayers — filters', () => {
     });
 
     await waitFor(() =>
-      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({ level: 'AA' }),
+      expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({ level: 'AA' }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
     expect(result.current.levelFilter).toBe('AA');
   });
@@ -159,7 +159,7 @@ describe('useDiscoverPlayers — filters', () => {
     await waitFor(() =>
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         level: 'Open',
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
 
     act(() => {
@@ -181,7 +181,7 @@ describe('useDiscoverPlayers — filters', () => {
     await waitFor(() =>
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         same_league: true,
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
 
     act(() => {
@@ -191,7 +191,7 @@ describe('useDiscoverPlayers — filters', () => {
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         same_league: true,
         has_mutuals: true,
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
     expect(result.current.sameLeagueOnly).toBe(true);
     expect(result.current.sharedFriendsOnly).toBe(true);
@@ -212,7 +212,7 @@ describe('useDiscoverPlayers — filters', () => {
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         level: 'AA',
         location_id: 'socal_sd',
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
     expect(mockApi.discoverPlayers).toHaveBeenCalledTimes(initialCalls + 1);
   });
@@ -226,7 +226,7 @@ describe('useDiscoverPlayers — filters', () => {
     await waitFor(() =>
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         location_id: 'socal_sd',
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
     expect(result.current.metroFilterId).toBe('socal_sd');
     expect(mockUseDeviceLocation).toHaveBeenLastCalledWith({ enabled: false });
@@ -263,7 +263,7 @@ describe('useDiscoverPlayers — filters', () => {
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         origin_location_id: 'socal_sd',
         radius_miles: 25,
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
     const proximityParams = mockApi.discoverPlayers.mock.calls.at(-1)?.[0];
     expect(proximityParams).not.toHaveProperty('latitude');
@@ -275,7 +275,7 @@ describe('useDiscoverPlayers — filters', () => {
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         origin_location_id: 'socal_sd',
         radius_miles: 100,
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
   });
 
@@ -293,7 +293,7 @@ describe('useDiscoverPlayers — filters', () => {
     await waitFor(() =>
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         location_id: 'socal_la',
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
     expect(hook.result.current.nearMeEnabled).toBe(false);
   });
@@ -341,7 +341,7 @@ describe('useDiscoverPlayers — filters', () => {
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         origin_location_id: 'socal_sd',
         radius_miles: 25,
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
     expect(hook.result.current.nearMeUnavailable).toBe(false);
   });
@@ -409,7 +409,7 @@ describe('useDiscoverPlayers — search', () => {
 
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
 
-    expect(mockApi.discoverPlayers).toHaveBeenCalledWith({ search: 'bob' });
+    expect(mockApi.discoverPlayers).toHaveBeenCalledWith({ search: 'bob' }, expect.objectContaining({ signal: expect.any(AbortSignal) }));
     // Results are used as-is; the server applies the name filter.
     expect(result.current.players).toEqual([PLAYER]);
   });
@@ -422,7 +422,7 @@ describe('useDiscoverPlayers — search', () => {
       { initialProps: { q: '' } },
     );
     await waitFor(() =>
-      expect(mockApi.discoverPlayers).toHaveBeenCalledWith({}),
+      expect(mockApi.discoverPlayers).toHaveBeenCalledWith({}, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
 
     rerender({ q: 'nina' });
@@ -432,7 +432,7 @@ describe('useDiscoverPlayers — search', () => {
     await waitFor(() =>
       expect(mockApi.discoverPlayers).toHaveBeenLastCalledWith({
         search: 'nina',
-      }),
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) })),
     );
   });
 
@@ -445,7 +445,7 @@ describe('useDiscoverPlayers — search', () => {
 
     await waitFor(() => expect(result.current.isLoadingPlayers).toBe(false));
 
-    expect(mockApi.discoverPlayers).toHaveBeenCalledWith({});
+    expect(mockApi.discoverPlayers).toHaveBeenCalledWith({}, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 });
 

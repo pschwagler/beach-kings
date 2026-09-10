@@ -17,7 +17,7 @@ export const messageQueries = {
     enabled = true,
   ) => queryOptions({
     queryKey: messageKeys.conversations(userId, folder),
-    queryFn: (): Promise<ConversationListResponse> => api.getConversations(1, 50, folder),
+    queryFn: ({ signal }): Promise<ConversationListResponse> => api.getConversations(1, 50, folder, { signal }),
     enabled: enabled && userId > 0,
     staleTime: MESSAGE_STALE_TIME_MS,
   }),
@@ -27,13 +27,13 @@ export const messageQueries = {
     enabled = true,
   ) => queryOptions({
     queryKey: messageKeys.thread(userId, playerId),
-    queryFn: (): Promise<ThreadResponse> => api.getThread(playerId),
+    queryFn: ({ signal }): Promise<ThreadResponse> => api.getThread(playerId, 1, 50, { signal }),
     enabled: enabled && userId > 0 && playerId > 0,
     staleTime: MESSAGE_STALE_TIME_MS,
   }),
   unreadCount: (userId: number, enabled = true) => queryOptions({
     queryKey: messageKeys.unreadCount(userId),
-    queryFn: () => api.getDmUnreadCount(),
+    queryFn: ({ signal }) => api.getDmUnreadCount({ signal }),
     enabled: enabled && userId > 0,
     staleTime: MESSAGE_STALE_TIME_MS,
   }),
@@ -43,7 +43,7 @@ export const messageQueries = {
     enabled = true,
   ) => queryOptions({
     queryKey: messageKeys.peer(userId, playerId),
-    queryFn: (): Promise<Player> => api.getPublicPlayer(playerId),
+    queryFn: ({ signal }): Promise<Player> => api.getPublicPlayer(playerId, { signal }),
     enabled: enabled && userId > 0 && playerId > 0,
     staleTime: 30_000,
     // A peer can change or remove their photo while this account is active.

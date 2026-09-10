@@ -21,6 +21,7 @@ import {
   fireEvent,
   waitFor,
   within,
+  act,
 } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -33,7 +34,8 @@ const mockBack = jest.fn();
 const mockReplace = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
+  useFocusEffect: jest.fn(),
+    useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
   useLocalSearchParams: () => ({}),
 }));
 
@@ -299,6 +301,18 @@ describe('MessagesTab — conversations list', () => {
 // ---------------------------------------------------------------------------
 
 describe('MessagesTab — search', () => {
+  it('retires explicit refresh when a nonempty inbox search changes', async () => {
+    render(<MessagesTab />);
+    await waitFor(() => expect(screen.getByTestId('convo-row-10')).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId('messages-search-input'), 'Al');
+    mockGetConversations.mockImplementation(() => new Promise(() => undefined));
+    await act(async () => fireEvent.press(screen.getByLabelText('Refresh content')));
+    expect(screen.getByLabelText('Refresh content').props.accessibilityState.busy).toBe(true);
+    fireEvent.changeText(screen.getByTestId('messages-search-input'), 'Alex');
+    expect(screen.getByTestId('convo-row-10')).toBeTruthy();
+    expect(screen.getByLabelText('Refresh content').props.accessibilityState.busy).toBe(false);
+  });
+
   it('renders search input', async () => {
     render(<MessagesTab />);
     await waitFor(() => {

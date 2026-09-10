@@ -7,9 +7,10 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import useApi from '@/hooks/useApi';
-import { api } from '@/lib/api';
-import type { GameHistoryEntry, MyGamesResponse } from '@beach-kings/shared';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { matchQueries } from '@/features/matches/queries';
+import type { GameHistoryEntry } from '@beach-kings/shared';
 
 export type ResultFilter = 'all' | 'W' | 'L' | 'partner' | 'opponent';
 
@@ -33,19 +34,18 @@ export interface UseMyGamesScreenResult {
 }
 
 export function useMyGamesScreen(): UseMyGamesScreenResult {
+  const { user } = useAuth();
   const [leagueFilter, setLeagueFilter] = useState<number | null>(null);
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
   const [selectedPartner, setSelectedPartner] = useState<string | null>(null);
   const [selectedOpponent, setSelectedOpponent] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Only W/L are sent to the API — partner/opponent are handled client-side
   const apiResult =
     resultFilter === 'W' || resultFilter === 'L' ? resultFilter : undefined;
 
-  const { data, isLoading, error, refetch } = useApi<MyGamesResponse>(
-    () => api.getMyGames({ league_id: leagueFilter ?? undefined, result: apiResult }),
-    [leagueFilter, apiResult],
+  const { data, isPending: isLoading, error, refetch } = useQuery(
+    matchQueries.myGames(user?.id ?? 0, leagueFilter, apiResult),
   );
 
   const allGames = useMemo(() => data?.games ?? [], [data]);
@@ -80,10 +80,8 @@ export function useMyGamesScreen(): UseMyGamesScreenResult {
   }, []);
 
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    refetch().finally(() => {
-      setIsRefreshing(false);
-    });
+
+    return refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const onRetry = useCallback(() => {
@@ -94,7 +92,7 @@ export function useMyGamesScreen(): UseMyGamesScreenResult {
     games: filteredGames,
     isLoading,
     error,
-    isRefreshing,
+    isRefreshing: false,
     leagueFilter,
     resultFilter,
     selectedPartner,

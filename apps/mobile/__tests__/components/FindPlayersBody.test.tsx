@@ -1,3 +1,5 @@
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, isAuthenticated: true }) }));
+jest.mock('expo-router', () => ({ useFocusEffect: jest.fn() }));
 /**
  * Tests for FindPlayersBody — the Social hub's Find Players tab content.
  *
@@ -12,6 +14,7 @@
  */
 
 import React from 'react';
+import { act } from '@testing-library/react-native';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 
 jest.mock('@/utils/haptics', () => ({
@@ -132,7 +135,7 @@ describe('FindPlayersBody — loading & error', () => {
 
   it('renders the full-page error state when discovery fails', () => {
     render(
-      <FindPlayersBody {...makeProps({ playersError: new Error('boom') })} />,
+      <FindPlayersBody {...makeProps({ players: [], playersError: new Error('boom') })} />,
     );
     expect(screen.getByTestId('find-players-error-state')).toBeTruthy();
     expect(screen.getByTestId('discover-filter-button')).toBeTruthy();
@@ -142,7 +145,7 @@ describe('FindPlayersBody — loading & error', () => {
     const onRetryPlayers = jest.fn();
     render(
       <FindPlayersBody
-        {...makeProps({ playersError: new Error('boom'), onRetryPlayers })}
+        {...makeProps({ players: [], playersError: new Error('boom'), onRetryPlayers })}
       />,
     );
     fireEvent.press(screen.getByTestId('find-players-retry-btn'));
@@ -165,6 +168,15 @@ describe('FindPlayersBody — loading & error', () => {
 // ---------------------------------------------------------------------------
 
 describe('FindPlayersBody — empty states', () => {
+  it.each(['sameLeagueOnly', 'sharedFriendsOnly', 'nearMeEnabled', 'radiusMiles'] as const)('resets empty discovery refresh when %s changes', async field => {
+    const onRefreshPlayers = jest.fn(() => new Promise<void>(() => undefined));
+    const tree = render(<FindPlayersBody {...makeProps({ players: [], onRefreshPlayers })} />);
+    await act(async () => fireEvent.press(screen.getByLabelText('Refresh players')));
+    expect(screen.getByLabelText('Refresh players').props.accessibilityState.busy).toBe(true);
+    tree.rerender(<FindPlayersBody {...makeProps({ players: [], onRefreshPlayers, [field]: field === 'radiusMiles' ? 100 : true })} />);
+    expect(screen.getByLabelText('Refresh players').props.accessibilityState.busy).toBe(false);
+  });
+
   it('renders the empty state with idle copy when there are no players', () => {
     render(<FindPlayersBody {...makeProps({ players: [] })} />);
     expect(screen.getByTestId('find-players-empty-state')).toBeTruthy();

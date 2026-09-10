@@ -1,3 +1,6 @@
+import { isAccessRevokedError } from '@/lib/apiError';
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import RefreshFlatList from '@/components/refresh/RefreshFlatList';
 /**
  * MessagesBody — chrome-free inbox content for the Messages destination.
  *
@@ -15,7 +18,6 @@ import AppText from '@/components/ui/AppText';
 import {
   View,
   FlatList,
-  RefreshControl,
   TextInput,
   Pressable,
 } from 'react-native';
@@ -201,8 +203,8 @@ export default function MessagesBody({
       );
     }
 
-    if (error != null && !isRefreshing) {
-      return <MessagesErrorState onRetry={onRetry} />;
+    if (error != null && (conversations.length === 0 || isAccessRevokedError(error))) {
+      return <><MessagesErrorState onRetry={onRetry} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={JSON.stringify([folder, searchQuery])} /></>;
     }
 
     return (
@@ -214,9 +216,9 @@ export default function MessagesBody({
           onHiddenPress={onHiddenPress}
         />
         {conversations.length === 0 ? (
-          <MessagesEmptyState onCompose={folder === 'inbox' ? onCompose : undefined} hidden={folder === 'hidden'} />
+          <><MessagesEmptyState onCompose={folder === 'inbox' ? onCompose : undefined} hidden={folder === 'hidden'} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={JSON.stringify([folder, searchQuery])} refreshLabel="messages" /></>
         ) : (
-          <FlatList<Conversation>
+          <RefreshFlatList<Conversation>
             ref={listRef}
             testID="conversations-list"
             data={conversations as Conversation[]}
@@ -230,9 +232,8 @@ export default function MessagesBody({
               />
             )}
             contentContainerStyle={{ paddingBottom: 100 }}
-            refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-            }
+            onRefresh={onRefresh}
+            refreshScope={JSON.stringify([folder, searchQuery])}
           />
         )}
       </>

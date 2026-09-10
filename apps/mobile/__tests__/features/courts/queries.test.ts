@@ -7,6 +7,8 @@ import { QueryClient } from '@tanstack/react-query';
 import { courtSurfaceLabel, normalizeCourtSurface } from '@/features/courts/presentation';
 import { api } from '@/lib/api';
 
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 } }) }));
+
 jest.mock('@/lib/api', () => ({
   api: {
     getCourts: jest.fn(),
@@ -36,13 +38,13 @@ describe('court query catalog', () => {
   it('always requests the complete catalog and includes location when known', async () => {
     jest.mocked(api.getCourts).mockResolvedValue([]);
     const options = courtQueries.catalog(7, { latitude: 40.7, longitude: -74 });
-    await options.queryFn?.({} as never);
+    await options.queryFn?.({ signal: new AbortController().signal } as never);
 
     expect(api.getCourts).toHaveBeenCalledWith({
       user_lat: 40.7,
       user_lng: -74,
       all: true,
-    });
+    }, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it('shares the private nearby definition across dashboard consumers', async () => {

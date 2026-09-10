@@ -1,3 +1,6 @@
+import { isAccessRevokedError } from '@/lib/apiError';
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import RefreshFlatList from '@/components/refresh/RefreshFlatList';
 /**
  * FindPlayersBody — chrome-free content for the Social hub's Find Players tab.
  *
@@ -25,8 +28,7 @@ import {
   View,
   FlatList,
   TextInput,
-  RefreshControl,
-} from 'react-native';
+  } from 'react-native';
 import type { ListRenderItem } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -314,12 +316,12 @@ export default function FindPlayersBody({
       );
     }
 
-    if (playersError != null && !isRefreshingPlayers) {
+    if (playersError != null && (players.length === 0 || isAccessRevokedError(playersError))) {
       return (
         <>
           <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} />
           {filterChips}
-          <FindPlayersErrorState onRetry={onRetryPlayers} />
+          <><FindPlayersErrorState onRetry={onRetryPlayers} /><RefreshEmptyAction onRefresh={onRefreshPlayers} refreshScope={JSON.stringify([searchQuery, levelFilter, sameLeagueOnly, sharedFriendsOnly, metroFilterId, nearMeEnabled, radiusMiles])} /></>
         </>
       );
     }
@@ -329,6 +331,7 @@ export default function FindPlayersBody({
         <>
           <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} />
           {filterChips}
+          <RefreshEmptyAction onRefresh={onRefreshPlayers} refreshScope={JSON.stringify([searchQuery, levelFilter, sameLeagueOnly, sharedFriendsOnly, metroFilterId, nearMeEnabled, radiusMiles])} refreshLabel="players" />
           <PlayersEmptyState
             isSearching={
               searchQuery.trim() !== ''
@@ -346,19 +349,15 @@ export default function FindPlayersBody({
       <>
         <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} />
         {filterChips}
-        <FlatList<DiscoverPlayer>
+        <RefreshFlatList<DiscoverPlayer>
           ref={listRef}
           testID="find-players-list"
           data={players as DiscoverPlayer[]}
           keyExtractor={(item) => String(item.player_id)}
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshingPlayers}
-              onRefresh={onRefreshPlayers}
-            />
-          }
+          onRefresh={onRefreshPlayers}
+          refreshScope={JSON.stringify([searchQuery, levelFilter, sameLeagueOnly, sharedFriendsOnly, metroFilterId, nearMeEnabled, radiusMiles])}
         />
       </>
     );

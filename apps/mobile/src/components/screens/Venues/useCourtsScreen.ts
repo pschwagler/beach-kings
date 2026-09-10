@@ -79,11 +79,11 @@ export function useCourtsScreen(): UseCourtsScreenResult {
   );
 
   const onRefresh = useCallback(() => {
-    void refetch();
+    return refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const onRetry = useCallback(() => {
-    void refetch();
+    void refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const allCourts: readonly Court[] = Array.isArray(data) ? data : [];
