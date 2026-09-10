@@ -1,3 +1,4 @@
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, isAuthenticated: true }) }));
 /**
  * Tests for InvitePlayersScreen.
  *
@@ -76,7 +77,8 @@ const mockRouterBack = jest.fn();
 jest.mock('expo-router', () => ({
   useSegments: () => [],
   useLocalSearchParams: () => ({}),
-  useRouter: () => ({ canGoBack: () => true, push: jest.fn(), back: mockRouterBack }),
+  useFocusEffect: jest.fn(),
+    useRouter: () => ({ canGoBack: () => true, push: jest.fn(), back: mockRouterBack }),
 }));
 
 jest.mock('@/utils/haptics', () => ({
@@ -565,10 +567,12 @@ jest.mock('expo-router', () => ({
   useSegments: () => [],
   useLocalSearchParams: () => ({}),
   useRouter: () => ({
+    // This second router mock is used by the SessionDetail integration cases.
     canGoBack: () => true,
     push: mockRouterPush,
     back: mockRouterBack,
   }),
+  useFocusEffect: jest.fn(),
 }));
 
 describe('SessionDetailScreen — invite banner integration', () => {

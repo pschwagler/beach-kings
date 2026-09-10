@@ -84,7 +84,7 @@ describe('useNotifications', () => {
     expect(result.current.notifications).toEqual([notification]);
     expect(mockApi.getNotifications).toHaveBeenCalledWith({
       unreadOnly: true,
-    });
+    }, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it('optimistically synchronizes feed and total count when marking read', async () => {

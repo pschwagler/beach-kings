@@ -53,7 +53,6 @@ export function useMessageThreadScreen(
   playerId: number,
   currentPlayerId: number,
 ): UseMessageThreadScreenResult {
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -124,15 +123,13 @@ export function useMessageThreadScreen(
 
   const onRefresh = useCallback(() => {
     attemptedReadSignature.current = null;
-    setIsRefreshing(true);
-    threadQuery.refetch().finally(() => {
-      setIsRefreshing(false);
-    });
+
+    return threadQuery.refetch({ cancelRefetch: false });
   }, [threadQuery]);
 
   const onRetry = useCallback(() => {
     attemptedReadSignature.current = null;
-    void threadQuery.refetch();
+    void threadQuery.refetch({ cancelRefetch: false });
   }, [threadQuery]);
 
   const onSend = useCallback(async () => {
@@ -165,7 +162,7 @@ export function useMessageThreadScreen(
     messages,
     isLoading: threadQuery.isPending,
     error: threadQuery.error,
-    isRefreshing,
+    isRefreshing: false,
     messageText,
     setMessageText,
     isSending,

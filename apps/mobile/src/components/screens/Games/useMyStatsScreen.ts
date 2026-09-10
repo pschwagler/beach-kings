@@ -47,7 +47,6 @@ export function useMyStatsScreen(): UseMyStatsScreenResult {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [leagueFilter, setLeagueFilter] = useState<number | null>(null);
   const [breakdownTab, setBreakdownTab] = useState<BreakdownTab>('partners');
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const params = {
     league_id: leagueFilter,
@@ -58,21 +57,19 @@ export function useMyStatsScreen(): UseMyStatsScreenResult {
   const refetch = query.refetch;
 
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    refetch().finally(() => {
-      setIsRefreshing(false);
-    });
+
+    return refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const onRetry = useCallback(() => {
-    void refetch();
+    void refetch({ cancelRefetch: false });
   }, [refetch]);
 
   return {
     stats: query.data ?? null,
     isLoading: query.isPending,
     error: query.error instanceof Error ? query.error : null,
-    isRefreshing,
+    isRefreshing: false,
     timeFilter,
     leagueFilter,
     breakdownTab,

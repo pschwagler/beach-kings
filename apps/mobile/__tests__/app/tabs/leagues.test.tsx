@@ -31,6 +31,7 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
 }));
 jest.mock('expo-router', () => ({
+  useFocusEffect: jest.fn(),
   useRouter: () => ({ push: mockPush }),
 }));
 
@@ -514,22 +515,15 @@ describe('LeaguesScreen', () => {
         return Promise.resolve([LEAGUE_FIXTURE]);
       });
 
-    const { getByTestId, UNSAFE_root } = renderWithQuery(<LeaguesScreen />);
+    const { getByTestId, getByLabelText } = renderWithQuery(<LeaguesScreen />);
 
     // Wait for initial load
     await waitFor(() => {
       expect(getByTestId('league-card-101')).toBeTruthy();
     });
 
-    // Find the ScrollView and fire its onRefresh via the refreshControl prop
-    const scrollViewNode = UNSAFE_root.findByType(
-      require('react-native').ScrollView,
-    );
-    const { onRefresh } = (scrollViewNode.props as { refreshControl?: { props?: { onRefresh?: () => void } } })
-      .refreshControl?.props ?? {};
-
     await act(async () => {
-      onRefresh?.();
+      fireEvent.press(getByLabelText('Refresh content'));
       await refreshPromise;
     });
 

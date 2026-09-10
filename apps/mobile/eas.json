@@ -31,10 +31,12 @@
     },
     "production": {
       "autoIncrement": true,
+      "buildArtifactPaths": ["ios/build/BeachLeague.xcarchive"],
       "env": {
         "EXPO_PUBLIC_API_URL": "https://beachleaguevb.com",
         "EXPO_PUBLIC_WEB_URL": "https://beachleaguevb.com",
         "EXPO_PUBLIC_APP_ENV": "production",
+        "GYM_ARCHIVE_PATH": "./build/BeachLeague.xcarchive",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "ios": {

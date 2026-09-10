@@ -109,7 +109,7 @@ describe('useSessionDetailScreen', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.session).toEqual(SESSION);
     expect(result.current.error).toBeNull();
-    expect(mockGetSessionById).toHaveBeenCalledWith(7);
+    expect(mockGetSessionById).toHaveBeenCalledWith(7, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it('exposes currentPlayerId fetched via getCurrentUserPlayer', async () => {

@@ -1,3 +1,4 @@
+import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * LeagueSelectList — inline league-picker for the "League Game" flow.
  *
@@ -17,7 +18,7 @@
 
 import React, { useCallback } from 'react';
 import AppText from '@/components/ui/AppText';
-import { View, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { View, Pressable, ScrollView, } from 'react-native';
 import type { League, Session } from '@beach-kings/shared';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { TrophyIcon } from '@/components/ui/icons';
@@ -214,12 +215,10 @@ export default function LeagueSelectList({
   }
 
   return (
-    <ScrollView
+    <RefreshScrollView
       testID="league-list"
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-      }
+      onRefresh={onRefresh}
     >
       <AppText className="text-[12px] font-semibold text-muted uppercase tracking-wide mb-[10px]">
         Your Leagues
@@ -232,6 +231,6 @@ export default function LeagueSelectList({
           onStartNew={onStartNewSession}
         />
       ))}
-    </ScrollView>
+    </RefreshScrollView>
   );
 }

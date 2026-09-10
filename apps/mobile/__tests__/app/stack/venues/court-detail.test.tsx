@@ -33,6 +33,7 @@ jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
+    useFocusEffect: jest.fn(),
     useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
     useLocalSearchParams: () => ({ id: '1' }),
     Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,
@@ -525,7 +526,7 @@ describe('CourtDetailScreen — different ids render different courts', () => {
     mockGetCourtById.mockResolvedValue(MOCK_COURT);
     renderScreen();
     await waitFor(() => {
-      expect(mockGetCourtById).toHaveBeenCalledWith('1');
+      expect(mockGetCourtById).toHaveBeenCalledWith('1', expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });
   });
 

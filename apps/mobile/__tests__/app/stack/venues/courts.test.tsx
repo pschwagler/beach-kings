@@ -30,6 +30,7 @@ jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
+    useFocusEffect: jest.fn(),
     useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
     useLocalSearchParams: () => ({}),
     Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,

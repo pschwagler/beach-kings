@@ -23,7 +23,7 @@ export const sessionQueries = {
   detail: (userId: number, sessionId: number, enabled = true) =>
     queryOptions({
       queryKey: sessionKeys.detail(userId, sessionId),
-      queryFn: () => api.getSessionById(sessionId),
+      queryFn: ({ signal }) => api.getSessionById(sessionId, { signal }),
       enabled: enabled && userId > 0 && sessionId > 0,
       staleTime: SESSION_STALE_TIME_MS,
     }),

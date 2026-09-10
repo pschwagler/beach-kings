@@ -111,9 +111,10 @@ export function createPlayerMethods(api: AxiosInstance) {
      * Player shape. Maps to GET /api/public/players/{id}; 404s for unknown
      * players or players with no games. Used by the mobile PlayerProfile screen.
      */
-    async getPublicPlayer(playerId: number | string): Promise<Player> {
-      const response = await api.get<PublicPlayerResponse>(
+    async getPublicPlayer(playerId: number | string, options?: ReadRequestOptions): Promise<Player> {
+      const response = await getRead<PublicPlayerResponse>(api,
         `/api/public/players/${encodeURIComponent(playerId)}`,
+        undefined, options,
       );
       return mapPublicPlayerToPlayer(response.data);
     },
@@ -137,8 +138,8 @@ export function createPlayerMethods(api: AxiosInstance) {
      * Get public leagues for a given player (public-only, no auth required).
      * Returns [] if the player has no public league memberships.
      */
-    async getPlayerLeagues(playerId: number): Promise<PlayerLeague[]> {
-      const response = await api.get<PlayerLeague[]>(`/api/players/${playerId}/leagues`);
+    async getPlayerLeagues(playerId: number, options?: ReadRequestOptions): Promise<PlayerLeague[]> {
+      const response = await getRead<PlayerLeague[]>(api, `/api/players/${playerId}/leagues`, undefined, options);
       return response.data;
     },
 

@@ -1,3 +1,6 @@
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import { isAccessRevokedError } from '@/lib/apiError';
+import RefreshFlatList from '@/components/refresh/RefreshFlatList';
 /**
  * CourtsScreen — courts list/map with search, filter chips, and a map toggle.
  *
@@ -18,7 +21,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, FlatList, RefreshControl, Pressable } from 'react-native';
+import { View, FlatList, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -174,7 +177,7 @@ export default function CourtsScreen(): React.ReactNode {
   }
 
   // --- Error ---
-  if (error != null && !isRefreshing) {
+  if (error != null && (courts.length === 0 || isAccessRevokedError(error))) {
     return (
       <SafeAreaView
         className="flex-1 bg-page"
@@ -182,7 +185,7 @@ export default function CourtsScreen(): React.ReactNode {
         testID="courts-screen"
       >
         {topNav}
-        <CourtsErrorState onRetry={onRetry} />
+        <><CourtsErrorState onRetry={onRetry} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={JSON.stringify([searchQuery, activeFilter, userLocation])} /></>
       </SafeAreaView>
     );
   }
@@ -229,7 +232,7 @@ export default function CourtsScreen(): React.ReactNode {
     >
       {topNav}
 
-      <FlatList<Court>
+      <RefreshFlatList<Court>
         testID="courts-list"
         data={courts as Court[]}
         keyExtractor={(item) => String(item.id)}
@@ -254,9 +257,8 @@ export default function CourtsScreen(): React.ReactNode {
           />
         }
         contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
+        onRefresh={onRefresh}
+          refreshScope={JSON.stringify([searchQuery, activeFilter, userLocation])}
       />
     </SafeAreaView>
   );

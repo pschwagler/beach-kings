@@ -102,11 +102,11 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
   }, [rawNotifications, activeFilter]);
 
   const onRefresh = useCallback(() => {
-    void refetch();
+    return refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const onRetry = useCallback(() => {
-    void refetch();
+    void refetch({ cancelRefetch: false });
   }, [refetch]);
 
   /** Mark a single notification read and navigate if it has a link. */

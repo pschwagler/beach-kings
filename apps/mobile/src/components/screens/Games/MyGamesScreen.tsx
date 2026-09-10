@@ -1,3 +1,6 @@
+import { isAccessRevokedError } from '@/lib/apiError';
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import RefreshFlatList from '@/components/refresh/RefreshFlatList';
 /**
  * MyGamesScreen — main orchestrator for the My Games history view.
  *
@@ -13,7 +16,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { FlatList, RefreshControl } from 'react-native';
+import { FlatList, } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useRouter } from 'expo-router';
@@ -58,8 +61,8 @@ export default function MyGamesScreen(): React.ReactNode {
   let content: React.ReactNode;
   if (isLoading && !isRefreshing) {
     content = <GamesSkeleton />;
-  } else if (error != null && !isRefreshing) {
-    content = <GamesErrorState onRetry={onRetry} />;
+  } else if (error != null && (games.length === 0 || isAccessRevokedError(error))) {
+    content = <><GamesErrorState onRetry={onRetry} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={JSON.stringify([leagueFilter, resultFilter, selectedPartner, selectedOpponent])} /></>;
   } else {
     content = (
       <>
@@ -77,9 +80,9 @@ export default function MyGamesScreen(): React.ReactNode {
           onOpponentSelect={setSelectedOpponent}
         />
         {games.length === 0 ? (
-          <GamesEmptyState />
+          <><GamesEmptyState /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={JSON.stringify([leagueFilter, resultFilter, selectedPartner, selectedOpponent])} refreshLabel="games" /></>
         ) : (
-          <FlatList<GameHistoryEntry>
+          <RefreshFlatList<GameHistoryEntry>
             testID="games-list"
             data={games as GameHistoryEntry[]}
             keyExtractor={(item) => String(item.id)}
@@ -87,9 +90,8 @@ export default function MyGamesScreen(): React.ReactNode {
               <GameRow game={item} onPress={handleGamePress} />
             )}
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
-            refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-            }
+            onRefresh={onRefresh}
+          refreshScope={JSON.stringify([leagueFilter, resultFilter, selectedPartner, selectedOpponent])}
           />
         )}
       </>

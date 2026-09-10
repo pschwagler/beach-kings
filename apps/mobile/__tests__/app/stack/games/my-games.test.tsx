@@ -1,3 +1,4 @@
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, isAuthenticated: true }) }));
 /**
  * Behavior tests for the My Games screen and its sub-components.
  *
@@ -12,7 +13,13 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render as testingRender, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  return testingRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -26,6 +33,7 @@ jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
+    useFocusEffect: jest.fn(),
     useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
     Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,
     useLocalSearchParams: () => ({}),
@@ -448,7 +456,7 @@ describe('MyGamesScreen — filter bar', () => {
     fireEvent.press(screen.getByTestId('filter-result-W'));
     await waitFor(() => {
       expect(mockGetMyGames).toHaveBeenCalledWith(
-        expect.objectContaining({ result: 'W' }),
+        expect.objectContaining({ result: 'W' }), expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });
@@ -462,7 +470,7 @@ describe('MyGamesScreen — filter bar', () => {
     fireEvent.press(screen.getByTestId('filter-result-L'));
     await waitFor(() => {
       expect(mockGetMyGames).toHaveBeenCalledWith(
-        expect.objectContaining({ result: 'L' }),
+        expect.objectContaining({ result: 'L' }), expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });
@@ -478,7 +486,7 @@ describe('MyGamesScreen — filter bar', () => {
     // No new fetch should occur (deps unchanged: leagueFilter=null, apiResult=undefined)
     await waitFor(() => {
       expect(mockGetMyGames).not.toHaveBeenCalledWith(
-        expect.objectContaining({ result: 'partner' }),
+        expect.objectContaining({ result: 'partner' }), expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });

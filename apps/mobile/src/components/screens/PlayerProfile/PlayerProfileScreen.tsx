@@ -1,3 +1,6 @@
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import { isAccessRevokedError } from '@/lib/apiError';
+import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * PlayerProfileScreen — orchestrator for viewing another player's public profile.
  *
@@ -17,7 +20,7 @@
 
 import React, { useCallback, useState } from 'react';
 import AppText from '@/components/ui/AppText';
-import { AccessibilityInfo, Pressable, ScrollView, RefreshControl, Alert } from 'react-native';
+import { AccessibilityInfo, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -200,15 +203,14 @@ export default function PlayerProfileScreen({
 
       {isLoading && !isRefreshing ? (
         <PlayerProfileSkeleton />
-      ) : error != null && !isRefreshing ? (
-        <PlayerProfileErrorState onRetry={onRefresh} notFound={isNotFound} />
+      ) : error != null && (profileData == null || isAccessRevokedError(error)) ? (
+        <><PlayerProfileErrorState onRetry={onRefresh} notFound={isNotFound} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={String(playerId)} /></>
       ) : profileData != null ? (
-        <ScrollView
+        <RefreshScrollView
           testID="player-profile-scroll"
           className="flex-1"
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-          }
+          onRefresh={onRefresh}
+          refreshScope={String(playerId)}
         >
           <PlayerProfileHeader
             player={profileData.player}
@@ -232,7 +234,7 @@ export default function PlayerProfileScreen({
             leagues={profileData.leagues}
             onLeaguePress={handleLeaguePress}
           />
-        </ScrollView>
+        </RefreshScrollView>
       ) : null}
 
       {/* Action sheet overlay */}

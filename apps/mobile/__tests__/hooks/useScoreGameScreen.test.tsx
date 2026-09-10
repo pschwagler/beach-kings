@@ -595,21 +595,21 @@ describe('useScoreGameScreen — is_ranked defaults', () => {
     // Default mock: { id: 7, games: [] } — no is_ranked → ?? false
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
     await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
-    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7));
+    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7, expect.objectContaining({ signal: expect.any(AbortSignal) })));
     expect(result.current.isRanked).toBe(false);
   });
 
   it('session.is_ranked=true → isRanked true for new-game path', async () => {
     mockGetSessionById.mockResolvedValueOnce({ id: 7, games: [], is_ranked: true });
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
-    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7));
+    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7, expect.objectContaining({ signal: expect.any(AbortSignal) })));
     await waitFor(() => expect(result.current.isRanked).toBe(true));
   });
 
   it('session.is_ranked=false → isRanked false for new-game path', async () => {
     mockGetSessionById.mockResolvedValueOnce({ id: 7, games: [], is_ranked: false });
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
-    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7));
+    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7, expect.objectContaining({ signal: expect.any(AbortSignal) })));
     await waitFor(() => expect(result.current.isRanked).toBe(false));
   });
 
@@ -1143,7 +1143,7 @@ describe('useScoreGameScreen — edit mode', () => {
     // once to read session.is_ranked — the edit-mode pre-fill path is NOT taken
     // (no slot/score hydration occurs).
     const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
-    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7));
+    await waitFor(() => expect(mockGetSessionById).toHaveBeenCalledWith(7, expect.objectContaining({ signal: expect.any(AbortSignal) })));
     // Slots remain empty — session fetch was only for is_ranked, not pre-fill.
     expect(result.current.team1[0].player_id).toBeNull();
     expect(result.current.score1).toBe(0);

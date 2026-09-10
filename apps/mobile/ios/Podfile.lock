@@ -8,7 +8,7 @@ PODS:
   - EXJSONUtils (57.0.1)
   - EXManifests (57.0.1):
     - ExpoModulesCore
-  - Expo (57.0.20):
+  - Expo (57.0.21):
     - boost
     - DoubleConversion
     - ExpoModulesCore
@@ -234,7 +234,7 @@ PODS:
     - ExpoModulesCore
   - ExpoFont (57.0.3):
     - ExpoModulesCore
-  - ExpoGlassEffect (57.0.1):
+  - ExpoGlassEffect (57.0.2):
     - ExpoModulesCore
   - ExpoHaptics (57.0.2):
     - ExpoModulesCore
@@ -255,7 +255,7 @@ PODS:
     - ExpoModulesCore
   - ExpoLogBox (57.0.4):
     - React-Core
-  - ExpoModulesCore (57.0.16):
+  - ExpoModulesCore (57.0.17):
     - boost
     - DoubleConversion
     - ExpoModulesJSI
@@ -285,20 +285,20 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ExpoModulesJSI (57.0.8):
+  - ExpoModulesJSI (57.1.0):
     - React-Core
     - ReactCommon
-  - ExpoModulesWorklets (57.0.16):
+  - ExpoModulesWorklets (57.0.17):
     - ExpoModulesCore
     - ExpoModulesJSI
-  - ExpoModulesWorkletsAdapter (57.0.16):
+  - ExpoModulesWorkletsAdapter (57.0.17):
     - ExpoModulesCore
     - ExpoModulesJSI
     - ExpoModulesWorklets
     - RNWorklets
   - ExpoNotifications (57.0.17):
     - ExpoModulesCore
-  - ExpoRouter (57.0.19):
+  - ExpoRouter (57.0.20):
     - ExpoModulesCore
     - RNScreens
   - ExpoSecureStore (57.0.3):
@@ -309,7 +309,7 @@ PODS:
     - ExpoModulesCore
   - ExpoSymbols (57.0.2):
     - ExpoModulesCore
-  - ExpoUI (57.0.16):
+  - ExpoUI (57.0.17):
     - ExpoModulesCore
     - ExpoModulesWorklets
     - React-RCTFabric
@@ -3938,7 +3938,7 @@ SPEC CHECKSUMS:
   EXConstants: 799577d2516460afb4b57874d6823a62327ce5c7
   EXJSONUtils: 7a1683cfa2cbe6d11fca97097d51a496755b0287
   EXManifests: f9888c0bf5aaa6ddb7e3d4b224d6d54ac4ca84a4
-  Expo: 08869861579c3f9954c1735fad7dbf171d874d59
+  Expo: e0e896eea2db8ca3add432ff5a16f5de8e25736b
   expo-dev-client: 053b4d48d32e7ed130d3498491461fdba04aee28
   expo-dev-launcher: ab1c20e43d2f0501d6e7575b86988ffbfe5921a4
   expo-dev-menu: c69f22baa693753659042911482171670f60da33
@@ -3951,7 +3951,7 @@ SPEC CHECKSUMS:
   ExpoDomWebView: beaec034e51bd028428b98bb1f2633ab79c6d095
   ExpoFileSystem: cc500f33804065aacc7b3366007267b84deca8c8
   ExpoFont: d5b77d74f8d5d1a248de70955bfad847079e9074
-  ExpoGlassEffect: 4b62afb489e6b84357701737ce002137c9d5fdbc
+  ExpoGlassEffect: 4b35b067ea72a4115642c4690416fc3ffc71449e
   ExpoHaptics: bc5461002fc97e53c213a1af6c88c8f95965b734
   ExpoImage: 83e66008c6440975f7f279b78bb80f1f9c0c24ca
   ExpoImagePicker: 2286f2bcb81240cf66208dacddc2367fd4a1b715
@@ -3959,17 +3959,17 @@ SPEC CHECKSUMS:
   ExpoLinking: 0e104e1f3402abec3fd8243fd9586ca38df8e3ef
   ExpoLocation: cb57588a0dd9f8d732a1cab7674f423b6566d3b3
   ExpoLogBox: 80957303325cd4439137765c90a87d7f22aaf2ff
-  ExpoModulesCore: 43201e5caf4c2016d8b54e292b39c9fe65970f21
-  ExpoModulesJSI: 1a6f80255963c29cdf9a11d59cbdc12b3558d585
-  ExpoModulesWorklets: 161e2e951499cdbadb74acf4af86ff19d02919c9
-  ExpoModulesWorkletsAdapter: 1120c275ef670601f2ae95b097a2eaca5d61eb7a
+  ExpoModulesCore: 68d12176295af3bd79ffb4530957780f50bc7b44
+  ExpoModulesJSI: 9df8e7c9719f59e8c001ec33611774137fc1484a
+  ExpoModulesWorklets: 767d05688faa3bbf38b19c08abca031b5328093a
+  ExpoModulesWorkletsAdapter: 06ca1704b41351f7f8e501dd94efcc8c46d558c9
   ExpoNotifications: 42cba361a6b378e6e54b795f55932e4eba058829
-  ExpoRouter: 7c6fad2473a397635e4bc2171e5166bed9469667
+  ExpoRouter: e8c323faba5926e06e3909b16f3b4b12ccaccdbb
   ExpoSecureStore: 536804a6aea15cafa49dc969609cd6636d506e68
   ExpoSplashScreen: 6f422fd595600d78520c6b7dcf8a908fb8a7fec0
   ExpoStoreReview: 4695f78a9ca1d33f0e0755801c10f7dc875c298d
   ExpoSymbols: 0efd93edf0f825bf3c762582b0769dd3b296235c
-  ExpoUI: fa0a98f9af0a39d428218c71bcc2de46996b7b09
+  ExpoUI: a0fad5e14b298a3eae971d6e57bb09389d1c3293
   ExpoWebBrowser: 9b98d939d5f1c5dd8f523f0a0683056fb1204434
   EXUpdatesInterface: 92d2aa5194b6fb93ca8ab749db75665cb28b2e60
   fast_float: b32c788ed9c6a8c584d114d0047beda9664e7cc6

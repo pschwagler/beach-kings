@@ -1,3 +1,6 @@
+import { isAccessRevokedError } from '@/lib/apiError';
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import RefreshFlatList from '@/components/refresh/RefreshFlatList';
 /**
  * CourtPhotosScreen — photo gallery for a court.
  *
@@ -21,7 +24,6 @@ import {
   FlatList,
   Image,
   Pressable,
-  RefreshControl,
   Alert,
   ActivityIndicator,
   useWindowDimensions,
@@ -83,6 +85,7 @@ function PhotoGrid({
         testID="court-photos-empty"
         className="flex-1 items-center justify-center py-16 px-8"
       >
+        <RefreshEmptyAction onRefresh={onRefresh} refreshLabel="photos" />
         <AppText className="text-[16px] font-semibold text-default mb-2 text-center">
           No Photos Yet
         </AppText>
@@ -103,7 +106,7 @@ function PhotoGrid({
   }
 
   return (
-    <FlatList<CourtPhoto>
+    <RefreshFlatList<CourtPhoto>
       testID="court-photos-grid"
       data={photos as CourtPhoto[]}
       keyExtractor={(item) => String(item.id)}
@@ -129,9 +132,7 @@ function PhotoGrid({
         </Pressable>
       )}
       contentContainerStyle={{ paddingBottom: 100 }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      onRefresh={onRefresh}
     />
   );
 }
@@ -223,7 +224,7 @@ export default function CourtPhotosScreen({
   }
 
   // --- Error ---
-  if (error != null) {
+  if (error != null && (photos.length === 0 || isAccessRevokedError(error))) {
     return (
       <SafeAreaView
         className="flex-1 bg-page"
@@ -235,6 +236,7 @@ export default function CourtPhotosScreen({
           testID="court-photos-error"
           className="flex-1 items-center justify-center px-8"
         >
+          <RefreshEmptyAction onRefresh={onRefresh} refreshScope={String(idOrSlug)} refreshLabel="photos" />
           <AppText className="text-[16px] font-semibold text-default mb-2">
             Could Not Load Photos
           </AppText>
@@ -292,7 +294,7 @@ export default function CourtPhotosScreen({
         </AppText>
       </View>
 
-      <PhotoGrid
+      <PhotoGrid key={String(idOrSlug)}
         photos={photos}
         photoSize={photoSize}
         onAddPhoto={handleAddPhoto}

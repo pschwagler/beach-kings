@@ -1,3 +1,4 @@
+import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * Profile tab screen.
  * Mirrors mobile-audit/wireframes/profile.html — avatar header, stats bar,
@@ -5,7 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, View, Pressable, RefreshControl } from 'react-native';
+import { ScrollView, View, Pressable, } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -60,7 +61,7 @@ export default function ProfileScreen(): React.ReactNode {
   const refetchFriendCount = friendCountQuery.refetch;
 
   const onRefresh = useCallback(async () => {
-    await Promise.allSettled([refetchPlayer(), refetchFriendCount()]);
+    return Promise.allSettled([refetchPlayer({ cancelRefetch: false }), refetchFriendCount({ cancelRefetch: false })]);
   }, [refetchFriendCount, refetchPlayer]);
 
   useRefreshOnFocus(onRefresh, 0);
@@ -86,8 +87,6 @@ export default function ProfileScreen(): React.ReactNode {
   const isInitialError =
     !hasPlayerData && (playerQuery.isError || didInitialLoadTimeOut);
   const hasPlayerRefreshError = hasPlayerData && playerQuery.isError;
-  const isRefreshing =
-    hasPlayerData && (playerQuery.isFetching || friendCountQuery.isFetching);
 
   useEffect(() => {
     if (!isWaitingForInitialPlayer) return;
@@ -104,7 +103,7 @@ export default function ProfileScreen(): React.ReactNode {
         queryKey: playerKeys.me(userId),
         exact: true,
       });
-      await Promise.allSettled([refetchPlayer(), refetchFriendCount()]);
+      await Promise.allSettled([refetchPlayer({ cancelRefetch: false }), refetchFriendCount({ cancelRefetch: false })]);
     })();
   }, [queryClient, refetchFriendCount, refetchPlayer, userId]);
 
@@ -141,19 +140,12 @@ export default function ProfileScreen(): React.ReactNode {
     <SafeAreaView className="flex-1 bg-page" edges={['top']}>
       <TopNav title="Profile" />
 
-      <ScrollView
+      <RefreshScrollView
         ref={scrollRef}
         className="flex-1"
         testID="profile-scroll-view"
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={() => {
-              void onRefresh();
-            }}
-            tintColor={palette.brandTeal}
-          />
-        }
+        onRefresh={onRefresh}
+        refreshLabel="Profile"
       >
         {isInitialLoading ? (
           <ProfileSkeleton />
@@ -187,7 +179,7 @@ export default function ProfileScreen(): React.ReactNode {
                 router.push(routes.social({ tab: 'friends' }))
               }
               onFriendCountRetry={() => {
-                void refetchFriendCount();
+                void refetchFriendCount({ cancelRefetch: false });
               }}
             />
 
@@ -220,7 +212,7 @@ export default function ProfileScreen(): React.ReactNode {
             />
           </>
         )}
-      </ScrollView>
+      </RefreshScrollView>
       {player != null ? (
         <ProfileFieldSheet
           editor={editor}

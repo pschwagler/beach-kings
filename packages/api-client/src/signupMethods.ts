@@ -1,4 +1,5 @@
 import type { AxiosInstance } from 'axios';
+import { withRequestDeadline, type ReadRequestOptions } from './readRequest';
 import type {
   League,
   LeagueSignupsApiResponse,
@@ -109,7 +110,7 @@ export function createSignupMethods(api: AxiosInstance) {
       is_open?: boolean | null;
       page?: number;
       page_size?: number;
-    }): Promise<LeagueQueryResponse> {
+    }, options?: ReadRequestOptions): Promise<LeagueQueryResponse> {
       const body: Record<string, unknown> = {};
       if (params.q) body.q = params.q;
       if (params.gender) body.gender = params.gender;
@@ -118,7 +119,7 @@ export function createSignupMethods(api: AxiosInstance) {
       if (params.page != null) body.page = params.page;
       if (params.page_size != null) body.page_size = params.page_size;
 
-      const response = await api.post<{
+      const request = (signal?: AbortSignal, timeout?: number) => api.post<{
         items: Array<{
           id: number;
           name: string;
@@ -134,7 +135,8 @@ export function createSignupMethods(api: AxiosInstance) {
         page: number;
         page_size: number;
         total_count: number;
-      }>('/api/leagues/query', body);
+      }>('/api/leagues/query', body, ...(signal ? [{ signal, timeout }] : []));
+      const response = await (options ? withRequestDeadline(request, options) : request());
 
       const data = response.data;
       const items: FindLeagueResult[] = data.items.map((item) => ({

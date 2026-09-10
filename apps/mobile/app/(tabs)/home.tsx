@@ -108,7 +108,7 @@ export default function HomeScreen(): React.ReactNode {
   const refetchPlayer = player.refetch;
   const refetchActiveSession = activeSession.refetch;
   const refreshCriticalData = useCallback(async () => {
-    await Promise.allSettled([refetchPlayer(), refetchActiveSession()]);
+    await Promise.allSettled([refetchPlayer({ cancelRefetch: false }), refetchActiveSession({ cancelRefetch: false })]);
   }, [refetchActiveSession, refetchPlayer]);
   useRefreshOnFocus(refreshCriticalData, 0);
 
@@ -184,6 +184,7 @@ export default function HomeScreen(): React.ReactNode {
         testID="home-scroll"
         className="flex-1"
         refreshing={refresh.refreshing}
+        refreshScope={String(user?.id)}
         refreshError={refresh.error}
         onRefresh={refresh.onRefresh}
       >

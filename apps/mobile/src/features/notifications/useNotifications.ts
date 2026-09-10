@@ -110,10 +110,10 @@ export function useNotifications() {
     markAllAsReadMutate();
   }, [markAllAsReadMutate]);
   const refetch = useCallback(
-    () => Promise.all([
-      refetchFeed(),
-      refetchUnreadCount(),
-      refetchDmUnreadCount(),
+    (_options?: { cancelRefetch?: boolean }) => Promise.all([
+      refetchFeed({ cancelRefetch: false }),
+      refetchUnreadCount({ cancelRefetch: false }),
+      refetchDmUnreadCount({ cancelRefetch: false }),
     ]),
     [refetchDmUnreadCount, refetchFeed, refetchUnreadCount],
   );

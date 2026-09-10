@@ -2,6 +2,7 @@ import { queryOptions } from '@tanstack/react-query';
 import type { Court, CourtPhoto } from '@beach-kings/shared';
 
 import { api } from '@/lib/api';
+import { isAccessRevokedError } from '@/lib/apiError';
 import { courtKeys } from './keys';
 
 export interface CourtQueryCoords {
@@ -14,6 +15,7 @@ const COURT_CATALOG_STALE_TIME_MS = 5 * 60_000;
 export interface CourtPhotosQueryData {
   readonly court: Court | null;
   readonly photos: readonly CourtPhoto[];
+  readonly refreshIncomplete?: boolean;
 }
 
 export interface CourtReviewTag {
@@ -36,7 +38,7 @@ export const courtQueries = {
       coords?.latitude ?? null,
       coords?.longitude ?? null,
     ),
-    queryFn: (): Promise<Court[]> =>
+    queryFn: ({ signal }): Promise<Court[]> =>
       api.getCourts(
         coords == null
           ? { all: true }
@@ -45,6 +47,7 @@ export const courtQueries = {
               user_lng: coords.longitude,
               all: true,
             },
+        { signal },
       ),
     enabled: enabled && userId > 0,
     staleTime: COURT_CATALOG_STALE_TIME_MS,
@@ -90,19 +93,28 @@ export const courtQueries = {
   detail: (userId: number, idOrSlug: number | string, enabled = true) =>
     queryOptions({
       queryKey: courtKeys.detail(userId, idOrSlug),
-      queryFn: (): Promise<Court> => api.getCourtById(idOrSlug),
+      queryFn: ({ signal }): Promise<Court> => api.getCourtById(idOrSlug, { signal }),
       enabled: enabled && userId > 0 && String(idOrSlug).length > 0,
       staleTime: COURT_CATALOG_STALE_TIME_MS,
     }),
   photos: (userId: number, idOrSlug: number | string, enabled = true) =>
     queryOptions({
       queryKey: courtKeys.photos(userId, idOrSlug),
-      queryFn: async (): Promise<CourtPhotosQueryData> => {
-        const [photos, court] = await Promise.all([
-          api.getCourtPhotos(idOrSlug),
-          api.getCourtById(idOrSlug).catch(() => null as Court | null),
+      queryFn: async ({ signal, client, queryKey }): Promise<CourtPhotosQueryData> => {
+        const previous = client.getQueryData<CourtPhotosQueryData>(queryKey);
+        const results = await Promise.allSettled([
+          api.getCourtPhotos(idOrSlug, { signal }),
+          api.getCourtById(idOrSlug, { signal }),
         ]);
-        return { photos, court };
+        const denied = results.find(result => result.status === 'rejected' && isAccessRevokedError(result.reason));
+        if (denied?.status === 'rejected') throw denied.reason;
+        const [photos, court] = results;
+        if (photos.status === 'rejected') throw photos.reason;
+        return {
+          photos: photos.value,
+          court: court.status === 'fulfilled' ? court.value : previous?.court ?? null,
+          refreshIncomplete: court.status === 'rejected',
+        };
       },
       enabled: enabled && userId > 0 && String(idOrSlug).length > 0,
       staleTime: COURT_CATALOG_STALE_TIME_MS,

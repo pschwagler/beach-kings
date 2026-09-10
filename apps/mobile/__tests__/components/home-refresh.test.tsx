@@ -6,6 +6,7 @@ import { HOME_REFRESH_BUDGET_MS, useHomeRefresh } from '@/components/home/useHom
 
 let mockBlur: (() => void) | undefined;
 let mockReduceMotion = false;
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 } }) }));
 jest.mock('@/hooks/useReducedMotion', () => ({ useReducedMotion: () => mockReduceMotion }));
 jest.mock('expo-router', () => ({
   useFocusEffect: (callback: () => (() => void)) => { mockBlur = callback(); },
@@ -23,7 +24,7 @@ describe('Home refresh transaction', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 
-  it('owns only explicit refresh, deduplicates pulls, and cancels real work at the deadline', async () => {
+  it('owns only explicit refresh and bounds UI without cancelling shared observers at the deadline', async () => {
     const alert = jest.spyOn(Alert, 'alert');
     const refetch = jest.fn(never);
     const cancel = jest.fn().mockResolvedValue(undefined);
@@ -33,7 +34,7 @@ describe('Home refresh transaction', () => {
     expect(result.current.refreshing).toBe(true);
     expect(refetch).toHaveBeenCalledTimes(1);
     await act(async () => { jest.advanceTimersByTime(HOME_REFRESH_BUDGET_MS); });
-    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(cancel).not.toHaveBeenCalled();
     expect(result.current.refreshing).toBe(false);
     expect(result.current.error).toMatch(/too long/);
     expect(alert).toHaveBeenCalledWith('Could not refresh Home', expect.stringMatching(/try again/));
@@ -81,7 +82,7 @@ describe('Home refresh transaction', () => {
     expect(result.current.refreshing).toBe(false);
     await act(async () => result.current.onRefresh());
     unmount();
-    expect(cancel).toHaveBeenCalledTimes(4);
+    expect(cancel).not.toHaveBeenCalled();
     act(() => jest.advanceTimersByTime(0));
     expect(jest.getTimerCount()).toBe(0);
   });
@@ -145,6 +146,19 @@ describe('Home pull surface', () => {
     expect(control.props.refreshing).toBe(true);
     expect(tree.queryByTestId('home-refresh-indicator')).toBeNull();
     expect(tree.getByText('Cached card')).toBeTruthy();
+  });
+
+  it('clears an armed idle gesture on identity change even without navigation blur', () => {
+    const onRefresh = jest.fn();
+    const make = (identity: string) => <HomeRefreshScrollView testID="scroll" refreshing={false} refreshError={null} onRefresh={onRefresh} refreshScope={identity}><Text>Cached card</Text></HomeRefreshScrollView>;
+    const tree = render(make('account-a'));
+    fireEvent(tree.getByTestId('scroll'), 'scrollBeginDrag', scrollEvent(0));
+    fireEvent.scroll(tree.getByTestId('scroll'), scrollEvent(-100));
+    expect(tree.getByText('Release to refresh')).toBeTruthy();
+    tree.rerender(make('account-b'));
+    fireEvent(tree.getByTestId('scroll'), 'scrollEndDrag', scrollEvent(-100));
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(tree.queryByTestId('home-refresh-indicator')).toBeNull();
   });
 
   it('uses static labeled busy feedback with reduced motion, and never intercepts content taps', () => {

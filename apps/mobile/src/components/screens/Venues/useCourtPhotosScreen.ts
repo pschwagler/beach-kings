@@ -72,11 +72,11 @@ export function useCourtPhotosScreen(
   );
 
   const onRefresh = useCallback(() => {
-    void refetch();
+    return refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const onRetry = useCallback(() => {
-    void refetch();
+    void refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const onUploadPhoto = useCallback(
@@ -118,7 +118,7 @@ export function useCourtPhotosScreen(
       setIsUploading(true);
       try {
         const uploaded = await api.uploadCourtPhoto(courtId as number, file, caption);
-        await refetch();
+        await refetch({ cancelRefetch: false });
         return uploaded;
       } catch (err) {
         const wrapped = err instanceof Error ? err : new Error('Upload failed');

@@ -1,5 +1,5 @@
 import type { AxiosInstance } from "axios";
-import { getRead, type ReadRequestOptions } from './readRequest';
+import { getRead, withRequestDeadline, type ReadRequestOptions } from './readRequest';
 import type {
   DiscoverFilters,
   DiscoverPlayer,
@@ -120,10 +120,12 @@ function normalizeBatchStatus(
 export function createSocialMethods(api: AxiosInstance) {
   async function getFriendsPage(
     params: FriendListParams = {},
+    options?: ReadRequestOptions,
   ): Promise<FriendListResponse> {
-    const response = await api.get<FriendListResponse | Friend[]>(
+    const response = await getRead<FriendListResponse | Friend[]>(api,
       "/api/friends",
       { params },
+      options,
     );
     const items = normalizeItems(response.data);
     return {
@@ -139,8 +141,8 @@ export function createSocialMethods(api: AxiosInstance) {
   return {
     getFriendsPage,
 
-    async getFriends(params?: FriendListParams): Promise<Friend[]> {
-      return (await getFriendsPage(params)).items;
+    async getFriends(params?: FriendListParams, options?: ReadRequestOptions): Promise<Friend[]> {
+      return (await getFriendsPage(params, options)).items;
     },
 
     async getFriendRequests(
@@ -185,10 +187,10 @@ export function createSocialMethods(api: AxiosInstance) {
       return response.data;
     },
 
-    async getFriendSuggestions(): Promise<Friend[]> {
-      const response = await api.get<
+    async getFriendSuggestions(options?: ReadRequestOptions): Promise<Friend[]> {
+      const response = await getRead<
         { items?: RawFriendSuggestion[] } | RawFriendSuggestion[]
-      >("/api/friends/suggestions");
+      >(api, "/api/friends/suggestions", undefined, options);
       return normalizeItems(response.data)
         .map(normalizeFriendSuggestion)
         .filter((item): item is Friend => item != null);
@@ -196,29 +198,34 @@ export function createSocialMethods(api: AxiosInstance) {
 
     async batchFriendStatus(
       playerIds: number[],
+      options?: ReadRequestOptions,
     ): Promise<FriendBatchStatusResponse> {
-      const response = await api.post<RawBatchStatusResponse>(
+      // This POST is a read-only status lookup; mutation budgets stay unchanged.
+      const request = (signal?: AbortSignal, timeout?: number) => api.post<RawBatchStatusResponse>(
         "/api/friends/batch-status",
         {
           player_ids: playerIds,
         },
+        ...(signal ? [{ signal, timeout }] : []),
       );
+      const response = await (options ? withRequestDeadline(request, options) : request());
       return normalizeBatchStatus(response.data);
     },
 
-    async getMutualFriends(otherPlayerId: number): Promise<MutualFriend[]> {
-      const response = await api.get<
+    async getMutualFriends(otherPlayerId: number, options?: ReadRequestOptions): Promise<MutualFriend[]> {
+      const response = await getRead<
         { items?: MutualFriend[] } | MutualFriend[]
-      >(`/api/friends/mutual/${otherPlayerId}`);
+      >(api, `/api/friends/mutual/${otherPlayerId}`, undefined, options);
       return normalizeItems(response.data);
     },
 
     async discoverPlayers(
       params: DiscoverFilters = {},
+      options?: ReadRequestOptions,
     ): Promise<DiscoverPlayer[]> {
-      const response = await api.get<
+      const response = await getRead<
         { items?: RawDiscoverPlayer[] } | RawDiscoverPlayer[]
-      >("/api/friends/discover", { params });
+      >(api, "/api/friends/discover", { params }, options);
       return normalizeItems(response.data)
         .map(normalizeDiscoverPlayer)
         .filter((item): item is DiscoverPlayer => item != null);

@@ -1,3 +1,5 @@
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * SessionDetailScreen — active and submitted session view.
  *
@@ -20,7 +22,6 @@ import {
   ScrollView,
   FlatList,
   TouchableOpacity,
-  RefreshControl,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -318,7 +319,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
         testID="session-detail-screen"
       >
         <TopNav title="Session" showBack />
-        <SessionDetailErrorState onRetry={onRetry} />
+        <><SessionDetailErrorState onRetry={onRetry} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={String(sessionId)} /></>
       </SafeAreaView>
     );
   }
@@ -345,10 +346,9 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
         }
       />
 
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
+      <RefreshScrollView
+        onRefresh={onRefresh}
+          refreshScope={String(sessionId)}
         contentContainerStyle={{ paddingBottom: 120 }}
         testID="session-detail-scroll"
       >
@@ -457,7 +457,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
             </View>
           </>
         )}
-      </ScrollView>
+      </RefreshScrollView>
 
       {/* Submit error banner */}
       {submitError != null && (

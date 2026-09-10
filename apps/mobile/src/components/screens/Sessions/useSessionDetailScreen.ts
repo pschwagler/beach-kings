@@ -60,7 +60,6 @@ export function useSessionDetailScreen(
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const currentPlayer = useCurrentPlayer();
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -77,7 +76,7 @@ export function useSessionDetailScreen(
   // Refresh on focus so returning from score-game (after a save / edit /
   // delete) reflects the new game list without a manual pull-to-refresh.
   const refreshOnFocus = useCallback(async () => {
-    await refetch();
+    await refetch({ cancelRefetch: false });
   }, [refetch]);
   useRefreshOnFocus(refreshOnFocus);
 
@@ -89,14 +88,12 @@ export function useSessionDetailScreen(
   dataRef.current = data ?? null;
 
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    refetch().finally(() => {
-      setIsRefreshing(false);
-    });
+
+    return refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const onRetry = useCallback(() => {
-    void refetch();
+    void refetch({ cancelRefetch: false });
   }, [refetch]);
 
   const openMenu = useCallback(() => {
@@ -216,7 +213,7 @@ export function useSessionDetailScreen(
     session: data ?? null,
     isLoading,
     error,
-    isRefreshing,
+    isRefreshing: false,
     isMenuOpen,
     isSubmitting,
     submitError,

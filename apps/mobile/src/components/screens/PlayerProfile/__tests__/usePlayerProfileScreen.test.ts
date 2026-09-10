@@ -103,15 +103,15 @@ describe('usePlayerProfileScreen', () => {
     const { result } = renderProfileHook();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(mockApi.getPublicPlayer).toHaveBeenCalledWith(PLAYER_ID);
-    expect(mockApi.getPlayerLeagues).toHaveBeenCalledWith(PLAYER_ID);
+    expect(mockApi.getPublicPlayer).toHaveBeenCalledWith(PLAYER_ID, expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(mockApi.getPlayerLeagues).toHaveBeenCalledWith(PLAYER_ID, expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(result.current.profileData?.leagues).toEqual(FAKE_LEAGUES);
   });
 
   it('converts a string player ID before querying', async () => {
     const { result } = renderProfileHook(String(PLAYER_ID));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(mockApi.getPlayerLeagues).toHaveBeenCalledWith(PLAYER_ID);
+    expect(mockApi.getPlayerLeagues).toHaveBeenCalledWith(PLAYER_ID, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it('falls back to optional empty profile collections', async () => {

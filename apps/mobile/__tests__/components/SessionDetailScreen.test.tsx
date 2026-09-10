@@ -1,3 +1,4 @@
+jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, isAuthenticated: true }) }));
 /**
  * Tests for SessionDetailScreen — "My Games" / "All Games" toggle and "You" substitution.
  */
@@ -64,7 +65,8 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('expo-router', () => ({
   useSegments: () => [],
   useLocalSearchParams: () => ({}),
-  useRouter: () => ({ canGoBack: () => true, push: jest.fn(), back: jest.fn() }),
+  useFocusEffect: jest.fn(),
+    useRouter: () => ({ canGoBack: () => true, push: jest.fn(), back: jest.fn() }),
 }));
 
 jest.mock('@/utils/haptics', () => ({

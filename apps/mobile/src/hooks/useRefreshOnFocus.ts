@@ -19,7 +19,7 @@ const DEFAULT_COOLDOWN_MS = 30_000;
  * @param cooldownMs - Minimum milliseconds between fetches. Default: 30 000.
  */
 function useRefreshOnFocus(
-  refetch: () => void | Promise<void>,
+  refetch: () => unknown,
   cooldownMs: number = DEFAULT_COOLDOWN_MS,
 ): void {
   const lastFetchedAt = useRef<number>(0);

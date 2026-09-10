@@ -1,4 +1,5 @@
 import type { AxiosInstance } from "axios";
+import { getRead, type ReadRequestOptions } from './readRequest';
 import type {
   Notification,
   PushNotificationPrefs,
@@ -14,24 +15,25 @@ export function createNotificationMethods(api: AxiosInstance) {
       limit?: number;
       offset?: number;
       unreadOnly?: boolean;
-    }): Promise<Notification[]> {
+    }, options?: ReadRequestOptions): Promise<Notification[]> {
       const { unreadOnly, ...pagination } = params ?? {};
-      const response = await api.get<
+      const response = await getRead<
         { items?: Notification[] } | Notification[]
-      >("/api/notifications", {
+      >(api, "/api/notifications", {
         params: {
           ...pagination,
           ...(unreadOnly == null ? {} : { unread_only: unreadOnly }),
         },
-      });
+      }, options);
       return normalizeItems(response.data).filter(
         (notification) => notification.dismissed_at == null,
       );
     },
 
-    async getUnreadNotificationCount(): Promise<{ count: number }> {
-      const response = await api.get<{ count: number }>(
+    async getUnreadNotificationCount(options?: ReadRequestOptions): Promise<{ count: number }> {
+      const response = await getRead<{ count: number }>(api,
         "/api/notifications/unread-count",
+        undefined, options,
       );
       return response.data;
     },

@@ -1,3 +1,6 @@
+import { isAccessRevokedError } from '@/lib/apiError';
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import RefreshFlatList from '@/components/refresh/RefreshFlatList';
 /**
  * NotificationsBody — chrome-free notification content.
  *
@@ -14,7 +17,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, FlatList, RefreshControl } from 'react-native';
+import { View, FlatList, } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
 import TabView from '@/components/ui/TabView';
 import EmptyState from '@/components/ui/EmptyState';
@@ -128,15 +131,15 @@ export default function NotificationsBody({
     if (isLoading && !isRefreshing) {
       return <NotificationsSkeleton count={6} />;
     }
-    if (error != null && !isRefreshing) {
-      return <NotificationsErrorState onRetry={onRetry} />;
+    if (error != null && (notifications.length === 0 || isAccessRevokedError(error))) {
+      return <><NotificationsErrorState onRetry={onRetry} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={activeFilter} /></>;
     }
     if (notifications.length === 0) {
-      return <NotificationsEmptyState filter={activeFilter} />;
+      return <><NotificationsEmptyState filter={activeFilter} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={activeFilter} refreshLabel="notifications" /></>;
     }
 
     return (
-      <FlatList<Notification>
+      <RefreshFlatList<Notification>
         ref={listRef}
         testID="notifications-list"
         data={notifications}
@@ -149,9 +152,8 @@ export default function NotificationsBody({
             onDeclineFriendRequest={onDeclineFriendRequest}
           />
         )}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
+        onRefresh={onRefresh}
+          refreshScope={activeFilter}
       />
     );
   };

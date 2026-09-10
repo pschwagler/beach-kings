@@ -1,3 +1,6 @@
+import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
+import { isAccessRevokedError } from '@/lib/apiError';
+import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * CourtDetailScreen — full detail view for a single court.
  *
@@ -22,7 +25,6 @@ import {
   ScrollView,
   Image,
   Pressable,
-  RefreshControl,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -299,7 +301,7 @@ export default function CourtDetailScreen({
   }
 
   // --- Error ---
-  if (error != null || court == null) {
+  if (court == null || isAccessRevokedError(error)) {
     return (
       <SafeAreaView
         className="flex-1 bg-page"
@@ -307,7 +309,7 @@ export default function CourtDetailScreen({
         testID="court-detail-screen"
       >
         <TopNav title="Court" showBack />
-        <CourtDetailErrorState onRetry={onRetry} />
+        <><CourtDetailErrorState onRetry={onRetry} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={String(idOrSlug)} /></>
       </SafeAreaView>
     );
   }
@@ -324,11 +326,10 @@ export default function CourtDetailScreen({
     >
       <TopNav title="Court" showBack />
 
-      <ScrollView
+      <RefreshScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
+        onRefresh={onRefresh}
+          refreshScope={String(idOrSlug)}
       >
         {/* Hero carousel */}
         <CourtHeroCarousel court={court} />
@@ -410,7 +411,7 @@ export default function CourtDetailScreen({
           currentPlayerId={currentPlayerId}
           onReviewChanged={onRefresh}
         />
-      </ScrollView>
+      </RefreshScrollView>
     </SafeAreaView>
   );
 }

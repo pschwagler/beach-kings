@@ -1,11 +1,18 @@
 interface HttpErrorShape {
   readonly response?: {
+    readonly status?: number;
     readonly data?: {
       readonly detail?: unknown;
       readonly message?: unknown;
     };
   };
   readonly message?: unknown;
+}
+
+/** Cached content is not a fallback for revoked access or removed resources. */
+export function isAccessRevokedError(error: unknown): boolean {
+  const status = (error as HttpErrorShape | null | undefined)?.response?.status;
+  return status === 401 || status === 403 || status === 404;
 }
 
 /**

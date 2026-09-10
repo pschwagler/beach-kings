@@ -1,3 +1,4 @@
+import { isAccessRevokedError } from '@/lib/apiError';
 /**
  * Data hook for the Find Leagues screen.
  *
@@ -80,7 +81,6 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   const userId = user?.id ?? 0;
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FindLeaguesFilter>("all");
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [requestingIds, setRequestingIds] = useState<Set<number>>(new Set());
   const [joinError, setJoinError] = useState<{
     leagueId: number;
@@ -96,7 +96,7 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
 
   const leaguesQuery = useQuery({
     queryKey: leagueKeys.findLeagues(userId, queryParams),
-    queryFn: () => api.queryLeagues(queryParams),
+    queryFn: ({ signal }) => api.queryLeagues(queryParams, { signal }),
     enabled: userId > 0,
   });
 
@@ -111,12 +111,12 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   }, []);
 
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    void leaguesQuery.refetch().finally(() => setIsRefreshing(false));
+
+    return leaguesQuery.refetch({ cancelRefetch: false });
   }, [leaguesQuery]);
 
   const onRetry = useCallback(() => {
-    void leaguesQuery.refetch();
+    void leaguesQuery.refetch({ cancelRefetch: false });
   }, [leaguesQuery]);
 
   const onPressLeague = useCallback(
@@ -153,17 +153,16 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
     router.push(routes.createLeague());
   }, [router]);
 
-  const isLoading =
-    (leaguesQuery.isLoading || leaguesQuery.isFetching) && !isRefreshing;
+  const isLoading = leaguesQuery.isLoading;
 
-  const isError = leaguesQuery.isError && !isLoading;
+  const isError = leaguesQuery.isError && (leaguesQuery.data === undefined || isAccessRevokedError(leaguesQuery.error)) && !isLoading;
 
   return {
     searchQuery,
     activeFilter,
     leagues: leaguesQuery.data?.items ?? [],
     isLoading,
-    isRefreshing,
+    isRefreshing: false,
     isError,
     onChangeSearch,
     onSelectFilter,

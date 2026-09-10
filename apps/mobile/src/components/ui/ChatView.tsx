@@ -10,7 +10,8 @@
  */
 
 import React, { useRef } from 'react';
-import { View, FlatList, RefreshControl } from 'react-native';
+import { View, FlatList } from 'react-native';
+import RefreshFlatList from '@/components/refresh/RefreshFlatList';
 import AppText from '@/components/ui/AppText';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import {
@@ -93,6 +94,7 @@ export interface ChatViewProps<T> {
   readonly getTimestamp: (item: T) => string;
   readonly renderComposer: () => React.ReactNode;
   readonly onRefresh?: () => void;
+  readonly refreshScope?: string;
   readonly isRefreshing?: boolean;
   readonly emptyState?: React.ReactNode;
   readonly listTestID?: string;
@@ -119,7 +121,7 @@ export default function ChatView<T>({
   getTimestamp,
   renderComposer,
   onRefresh,
-  isRefreshing = false,
+  refreshScope,
   emptyState,
   listTestID,
   testID,
@@ -171,7 +173,7 @@ export default function ChatView<T>({
 
   return (
     <View testID={testID} style={{ flex: 1 }}>
-      <FlatList<ListItem<T>>
+      <RefreshFlatList<ListItem<T>>
         ref={flatListRef}
         testID={listTestID}
         data={listItems}
@@ -192,11 +194,9 @@ export default function ChatView<T>({
         onContentSizeChange={() => {
           flatListRef.current?.scrollToEnd({ animated: false });
         }}
-        refreshControl={
-          onRefresh != null ? (
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-          ) : undefined
-        }
+        onRefresh={onRefresh}
+        refreshScope={refreshScope}
+        refreshLabel="messages"
         ListEmptyComponent={
           emptyState != null ? (emptyState as React.ReactElement) : undefined
         }

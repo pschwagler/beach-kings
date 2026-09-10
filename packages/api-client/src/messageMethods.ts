@@ -1,4 +1,5 @@
 import type { AxiosInstance } from 'axios';
+import { getRead, type ReadRequestOptions } from './readRequest';
 import type {
   ConversationListResponse,
   DirectMessage,
@@ -23,10 +24,12 @@ export function createMessageMethods(api: AxiosInstance) {
       page = 1,
       pageSize = 50,
       folder: MessageFolder = 'inbox',
+      options?: ReadRequestOptions,
     ): Promise<ConversationListResponse> {
-      const response = await api.get<ConversationListResponse>(
+      const response = await getRead<ConversationListResponse>(api,
         '/api/messages/conversations',
         { params: { page, page_size: pageSize, folder } },
+        options,
       );
       return response.data;
     },
@@ -38,10 +41,12 @@ export function createMessageMethods(api: AxiosInstance) {
       playerId: number,
       page = 1,
       pageSize = 50,
+      options?: ReadRequestOptions,
     ): Promise<ThreadResponse> {
-      const response = await api.get<ThreadResponse>(
+      const response = await getRead<ThreadResponse>(api,
         `/api/messages/conversations/${encodeURIComponent(playerId)}`,
         { params: { page, page_size: pageSize } },
+        options,
       );
       return response.data;
     },
@@ -87,9 +92,10 @@ export function createMessageMethods(api: AxiosInstance) {
     /**
      * Get total unread DM count across all conversations.
      */
-    async getDmUnreadCount(): Promise<{ count: number }> {
-      const response = await api.get<{ count: number }>(
+    async getDmUnreadCount(options?: ReadRequestOptions): Promise<{ count: number }> {
+      const response = await getRead<{ count: number }>(api,
         '/api/messages/unread-count',
+        undefined, options,
       );
       return response.data;
     },
