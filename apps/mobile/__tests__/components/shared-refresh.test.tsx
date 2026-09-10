@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
-import { Alert, AppState, FlatList, Platform, RefreshControl, Text, View, type AppStateStatus } from 'react-native';
+import { Alert, AppState, FlatList, Platform, RefreshControl, StyleSheet, Text, View, type AppStateStatus } from 'react-native';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { useExplicitRefresh, REFRESH_BUDGET_MS } from '@/components/refresh/useExplicitRefresh';
 import RefreshFlatList from '@/components/refresh/RefreshFlatList';
@@ -131,6 +131,25 @@ it('two screen refreshes join one canonical read; blurring A never aborts B', as
 });
 
 describe('native host adapters', () => {
+  it('stacks the active overlay above list rows without changing list geometry or footer', async () => {
+    const work = deferred<void>();
+    const footer = <Text>Existing footer</Text>;
+    const contentStyle = { paddingBottom: 100 };
+    const screen = render(<RefreshFlatList data={[1]} renderItem={() => <Text>Cached row</Text>}
+      contentContainerStyle={contentStyle} ListFooterComponent={footer} onRefresh={() => work.promise} />);
+    expect(screen.queryByTestId('refresh-indicator')).toBeNull();
+    await act(async () => fireEvent.press(screen.getByLabelText('Refresh content')));
+    const overlay = screen.getByTestId('refresh-indicator');
+    expect(StyleSheet.flatten(overlay.props.style)?.zIndex).toBeGreaterThan(0);
+    expect(overlay.props.pointerEvents).toBe('none');
+    const list = screen.UNSAFE_getByType(FlatList);
+    expect(list.props.contentContainerStyle).toBe(contentStyle);
+    expect(list.props.ListFooterComponent).toBe(footer);
+    expect(list.props.contentInset).toBeUndefined();
+    await act(async () => work.resolve());
+    expect(screen.queryByTestId('refresh-indicator')).toBeNull();
+  });
+
   it('keeps the virtualized grid, footer, header, ref and existing gesture handlers', async () => {
     const ref = React.createRef<FlatList<number>>();
     const begin = jest.fn(); const end = jest.fn(); const moved = jest.fn();
