@@ -82,7 +82,7 @@ export function useLeagueInfoTab(
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? 0;
-  const leaveLeague = useLeaveLeagueMutation();
+  const { mutateAsync: leaveLeague } = useLeaveLeagueMutation();
 
   const infoQuery = useQuery<LeagueInfoDetail>({
     queryKey: leagueKeys.info(userId, leagueId),
@@ -192,8 +192,8 @@ export function useLeagueInfoTab(
   );
 
   const onLeaveLeague = useCallback(async (): Promise<void> => {
-    await leaveLeague.mutateAsync(numericId);
-  }, [numericId, leaveLeague.mutateAsync]);
+    await leaveLeague(numericId);
+  }, [numericId, leaveLeague]);
 
   const onChangeRole = useCallback(
     async (memberId: number, role: 'admin' | 'member'): Promise<void> => {
