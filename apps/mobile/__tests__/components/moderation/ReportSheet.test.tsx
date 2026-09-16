@@ -4,6 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ReportSheet from '@/components/moderation/ReportSheet';
 
 const mockMutateAsync = jest.fn();
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }) }));
 
 jest.mock('@/features/moderation', () => ({
   useModerationMutations: () => ({
@@ -16,6 +17,32 @@ jest.mock('@/theme/usePaletteColors', () => ({
 
 describe('ReportSheet urgent report reasons', () => {
   beforeEach(() => mockMutateAsync.mockReset().mockResolvedValue({}));
+
+  it('keeps details and reason after a structured API error and allows retry', async () => {
+    mockMutateAsync.mockRejectedValueOnce({ response: { data: { detail: { code: 'failed' } } } });
+    const onClose = jest.fn();
+    const screen = render(<ReportSheet targetType="player" targetId={42} onClose={onClose} />);
+    fireEvent.press(screen.getByText('Other'));
+    fireEvent.changeText(screen.getByLabelText('Report details'), 'Please review this');
+    fireEvent.press(screen.getByText('Submit report'));
+    await screen.findByText('Could not submit this report. Please try again.');
+    expect(screen.getByLabelText('Report details').props.value).toBe('Please review this');
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByText('Submit report'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('provides a scrolling keyboard-dismissible form and guards rapid submission', async () => {
+    mockMutateAsync.mockReturnValue(new Promise(() => {}));
+    const screen = render(<ReportSheet targetType="player" targetId={42} onClose={jest.fn()} />);
+    expect(screen.getByTestId('report-form-scroll').props.keyboardShouldPersistTaps).toBe('handled');
+    expect(screen.getByLabelText('Close report')).toBeTruthy();
+    expect(screen.getByText('Dismiss keyboard')).toBeTruthy();
+    fireEvent.press(screen.getByText('Other'));
+    fireEvent.press(screen.getByText('Submit report'));
+    fireEvent.press(screen.getByText('Submit report'));
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+  });
 
   it.each([
     ['Stalking or doxxing', 'stalking_doxxing'],

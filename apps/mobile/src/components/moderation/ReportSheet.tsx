@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, TextInput, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportReason, ReportTargetType } from '@beach-kings/shared';
 import AppText from '@/components/ui/AppText';
+import BottomSheet from '@/components/ui/BottomSheet';
+import { getApiResponseErrorMessage } from '@/lib/apiError';
 import { useModerationMutations } from '@/features/moderation';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 
@@ -28,13 +31,16 @@ interface Props {
 
 export default function ReportSheet({ targetType, targetId, onClose, onSubmitted }: Props) {
   const palette = usePaletteColors();
+  const insets = useSafeAreaInsets();
+  const submitting = useRef(false);
   const { report } = useModerationMutations();
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (reason == null) return;
+    if (reason == null || submitting.current) return;
+    submitting.current = true;
     setError(null);
     try {
       await report.mutateAsync({
@@ -46,22 +52,22 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
       onSubmitted?.();
       onClose();
     } catch (cause) {
-      const duplicate = (cause as { response?: { data?: { detail?: string } } }).response?.data?.detail;
-      setError(duplicate ?? 'Could not submit this report. Please try again.');
+      setError(getApiResponseErrorMessage(cause, 'Could not submit this report. Please try again.'));
+    } finally {
+      submitting.current = false;
     }
   };
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-    <View className="absolute inset-0 justify-end" accessibilityViewIsModal>
-      <View
-        className="absolute inset-0"
-        style={{ backgroundColor: palette.bgNav, opacity: 0.8 }}
-        accessible={false}
-      />
-      <Pressable className="flex-1" onPress={onClose} accessibilityLabel="Close report" />
-      <View className="bg-elevated rounded-t-3xl px-lg pt-lg pb-2xl">
+    <BottomSheet visible onClose={onClose} accessibilityLabel="Report" className="max-h-[90%]">
+      <View className="shrink px-lg" style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
+        <View className="flex-row items-center justify-between">
         <AppText accessibilityRole="header" className="text-xl font-bold text-default">Report</AppText>
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close report" className="min-h-touch justify-center px-sm">
+          <AppText className="text-brand-teal">Close</AppText>
+        </Pressable>
+        </View>
+        <ScrollView testID="report-form-scroll" style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <AppText className="text-sm text-muted mt-xs mb-md">Choose the reason that best describes the problem.</AppText>
         <View className="flex-row flex-wrap gap-sm">
           {REASONS.map((item) => (
@@ -87,7 +93,11 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
           accessibilityLabel="Report details"
         />
         <AppText className="text-xs text-muted text-right mt-xs">{details.length}/1000</AppText>
+        <Pressable onPress={Keyboard.dismiss} accessibilityRole="button" className="min-h-touch justify-center self-end px-sm">
+          <AppText className="text-brand-teal">Dismiss keyboard</AppText>
+        </Pressable>
         {error != null && <AppText className="text-sm text-danger mt-sm" accessibilityRole="alert">{error}</AppText>}
+        </ScrollView>
         <Pressable
           onPress={() => { void submit(); }}
           disabled={reason == null || report.isPending}
@@ -98,7 +108,6 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
           {report.isPending ? <ActivityIndicator color={palette.textDefault} /> : <AppText className="font-bold text-on-brand-gold">Submit report</AppText>}
         </Pressable>
       </View>
-    </View>
-    </Modal>
+    </BottomSheet>
   );
 }
