@@ -524,6 +524,9 @@ export default function LeagueInfoTab({
             setLeavePending(true);
             try {
               await onLeaveLeague();
+              router.replace(routes.leagues());
+            } catch {
+              Alert.alert('Could not confirm departure', 'We couldn’t confirm whether you left. Please refresh and try again.');
             } finally {
               setLeavePending(false);
             }
