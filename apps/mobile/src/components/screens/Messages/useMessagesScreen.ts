@@ -5,7 +5,7 @@
  * Provides search/filter over the loaded conversations client-side.
  */
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ import {
   useMessageMutations,
 } from "@/features/messages";
 import { useCurrentPlayer } from "@/hooks/useCurrentPlayer";
+import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
 import { routes } from "@/lib/navigation";
 import { hapticLight } from "@/utils/haptics";
 import type { Conversation, MessageFolder } from "@beach-kings/shared";
@@ -46,6 +47,16 @@ export function useMessagesScreen(folder: MessageFolder = 'inbox'): UseMessagesS
   const conversationsQuery = useQuery(messageQueries.conversations(userId, folder));
   const playerQuery = useCurrentPlayer();
   const { setConversationHidden } = useMessageMutations();
+
+  const canRefreshOnFocus = useRef(false);
+  canRefreshOnFocus.current = conversationsQuery.dataUpdatedAt > 0 || conversationsQuery.isError;
+  const refetchConversations = conversationsQuery.refetch;
+  const refreshOnFocus = useCallback(() => {
+    // Initial loading is owned by Query. Re-entering a mounted inbox catches
+    // changes missed while away without driving the explicit pull indicator.
+    if (canRefreshOnFocus.current) void refetchConversations({ cancelRefetch: false });
+  }, [refetchConversations]);
+  useRefreshOnFocus(refreshOnFocus, 0);
 
   useEffect(() => {
     if (!conversationsQuery.isFetchedAfterMount) return;

@@ -11,6 +11,7 @@ import { reconcileGameMutation } from '@/features/matches';
 import {
   getSocketDirectMessage,
   reconcileDirectMessageEvent,
+  messageKeys,
 } from '@/features/messages';
 import useWebSocket from '@/hooks/useWebSocket';
 import { api } from '@/lib/api';
@@ -129,13 +130,16 @@ export default function NotificationTransport(): null {
       .then(({ accessToken }) => {
         if (!cancelled && accessToken != null) {
           send({ type: 'auth', token: accessToken });
+          // Reconnect may have missed messages; reconcile from authenticated
+          // HTTP queries rather than waiting for another socket event.
+          void queryClient.invalidateQueries({ queryKey: messageKeys.all(userId) });
         }
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, isConnected, send, userId]);
+  }, [isAuthenticated, isConnected, send, userId, queryClient]);
 
   useEffect(() => {
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;

@@ -24,6 +24,7 @@ import {
   act,
 } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useFocusEffect } from 'expo-router';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -173,6 +174,25 @@ describe('MessagesTab — empty state', () => {
     await waitFor(() => {
       expect(screen.getByTestId('messages-empty-state')).toBeTruthy();
     });
+    expect(screen.queryByLabelText('Refresh messages')).toBeNull();
+    expect(screen.getByTestId('messages-empty-scroll').props.alwaysBounceVertical).toBe(true);
+    const scroll = screen.getByTestId('messages-empty-scroll');
+    const event = (y: number) => ({ nativeEvent: { contentOffset: { x: 0, y }, contentInset: { top: 0 } } });
+    fireEvent(scroll, 'scrollBeginDrag', event(0));
+    fireEvent.scroll(scroll, event(-90));
+    fireEvent(scroll, 'scrollEndDrag', event(-90));
+    await waitFor(() => expect(mockGetConversations).toHaveBeenCalledTimes(2));
+  });
+
+  it('refreshes on return to a mounted inbox without an explicit spinner', async () => {
+    mockGetConversations.mockResolvedValueOnce({ items: [], total_count: 0 });
+    render(<MessagesTab />);
+    await waitFor(() => expect(screen.getByTestId('messages-empty-state')).toBeTruthy());
+    const focus = jest.mocked(useFocusEffect).mock.calls[0][0];
+    await act(async () => { focus(); });
+    await waitFor(() => expect(screen.getByTestId('convo-row-10')).toBeTruthy());
+    expect(mockGetConversations).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId('refresh-indicator')).toBeNull();
   });
 });
 

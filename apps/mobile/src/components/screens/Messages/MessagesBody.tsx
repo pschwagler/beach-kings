@@ -1,6 +1,7 @@
 import { isAccessRevokedError } from '@/lib/apiError';
 import RefreshEmptyAction from '@/components/refresh/RefreshEmptyAction';
 import RefreshFlatList from '@/components/refresh/RefreshFlatList';
+import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * MessagesBody — chrome-free inbox content for the Messages destination.
  *
@@ -216,7 +217,11 @@ export default function MessagesBody({
           onHiddenPress={onHiddenPress}
         />
         {conversations.length === 0 ? (
-          <><MessagesEmptyState onCompose={folder === 'inbox' ? onCompose : undefined} hidden={folder === 'hidden'} /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={JSON.stringify([folder, searchQuery])} refreshLabel="messages" /></>
+          <RefreshScrollView testID="messages-empty-scroll" contentContainerStyle={{ flexGrow: 1 }}
+            alwaysBounceVertical onRefresh={onRefresh} refreshScope={JSON.stringify([folder, searchQuery])}
+            refreshLabel="messages" showRefreshAction={false}>
+            <MessagesEmptyState onCompose={folder === 'inbox' ? onCompose : undefined} hidden={folder === 'hidden'} />
+          </RefreshScrollView>
         ) : (
           <RefreshFlatList<Conversation>
             ref={listRef}
