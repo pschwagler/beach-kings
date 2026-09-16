@@ -1,7 +1,8 @@
 # Identity and login improvement plan
 
-Last updated: 2026-09-16. Status: approved for implementation; live-provider
-acceptance and release verification remain required.
+Last updated: 2026-09-16. Status: implemented and independently code-reviewed;
+native-device acceptance, live-provider acceptance, and release verification
+remain required. This document does not certify a released candidate.
 
 ## Goal and decisions
 
@@ -96,6 +97,17 @@ registration system or expand SMS delivery regions.
 No account-schema migration is expected. Add shared API-client methods and types
 only for the new browser transaction flow; reuse existing login/link contracts
 where possible. Configuration must fail closed when incomplete.
+
+Implemented interface additions:
+
+- `GET /api/auth/apple/web/config` advertises availability without exposing secrets.
+- `POST /api/auth/apple/web/start` and `/complete` handle browser login;
+  `/link/start` and `/link/complete` handle authenticated connection transactions.
+- Google connection accepts optional `expected_user_id` to reject a completion
+  initiated for a different signed-in account. Existing native clients remain
+  compatible; browser callbacks are also retired on session change or unmount.
+- Shared user types expose optional `has_password`, `google_connected`, and
+  `apple_connected` status fields already returned by the backend.
 
 ### Apple web configuration
 
