@@ -11,9 +11,13 @@ export default function AppleCallbackPage() {
   return <div className="legal-page-container">
     <NavBar isLoggedIn={isAuthenticated} user={user} currentUserPlayer={currentUserPlayer} onSignOut={logout} />
     <main className="legal-page-main">
-      <h1>Apple sign-in</h1>
-      <p>Return to the Beach League window where you started signing in. If it did not finish, close this window and try again.</p>
-      <Link href="/">Return to Beach League</Link>
+      <header className="legal-page-header">
+        <h1 className="legal-page-title">Apple sign-in</h1>
+      </header>
+      <section className="legal-section">
+        <p>Return to the Beach League window where you started signing in. If it did not finish, close this window and try again.</p>
+        <Link href="/">Return to Beach League</Link>
+      </section>
     </main>
   </div>;
 }

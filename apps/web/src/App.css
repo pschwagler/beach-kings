@@ -7092,6 +7092,12 @@ button.match-config-toggle.inline svg {
 
 .auth-modal__name-row > .auth-modal__label {
   flex: 1;
+  min-width: 0;
+}
+
+.auth-modal__name-row .auth-modal__input {
+  width: 100%;
+  min-width: 0;
 }
 
 .auth-modal__label {
