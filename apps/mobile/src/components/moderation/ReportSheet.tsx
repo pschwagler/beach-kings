@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportReason, ReportTargetType } from '@beach-kings/shared';
 import AppText from '@/components/ui/AppText';
-import BottomSheet from '@/components/ui/BottomSheet';
 import { getApiResponseErrorMessage } from '@/lib/apiError';
 import { useModerationMutations } from '@/features/moderation';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -59,8 +59,11 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
   };
 
   return (
-    <BottomSheet visible onClose={onClose} accessibilityLabel="Report" className="max-h-[90%]">
-      <View className="shrink px-lg" style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
+    <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" enabled={Platform.OS === 'ios'} automaticOffset>
+      <View style={{ flex: 1 }} className="justify-end" accessibilityViewIsModal>
+        <Pressable className="absolute inset-0 bg-black/50" onPress={onClose} accessible={false} importantForAccessibility="no" />
+      <View className="bg-elevated rounded-t-3xl px-lg pt-sm" style={{ maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 16) }}>
         <View className="flex-row items-center justify-between">
         <AppText accessibilityRole="header" className="text-xl font-bold text-default">Report</AppText>
         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close report" className="min-h-touch justify-center px-sm">
@@ -108,6 +111,8 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
           {report.isPending ? <ActivityIndicator color={palette.textDefault} /> : <AppText className="font-bold text-on-brand-gold">Submit report</AppText>}
         </Pressable>
       </View>
-    </BottomSheet>
+      </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
