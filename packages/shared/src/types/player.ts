@@ -11,6 +11,9 @@ export interface User {
   phone_number?: string | null;
   is_verified?: boolean;
   auth_provider?: string;
+  has_password?: boolean;
+  google_connected?: boolean;
+  apple_connected?: boolean;
   created_at?: string;
   deletion_scheduled_at?: string | null;
   is_system_admin?: boolean;

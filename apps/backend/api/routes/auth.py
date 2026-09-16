@@ -481,6 +481,16 @@ async def google_auth(
 async def apple_auth(
     request: Request, payload: AppleAuthRequest, session: AsyncSession = Depends(get_db_session)
 ):
+    return await _authenticate_apple(payload, session)
+
+
+async def _authenticate_apple(
+    payload: AppleAuthRequest,
+    session: AsyncSession,
+    *,
+    redirect_uri: str | None = None,
+    expected_nonce: str | None = None,
+):
     """
     Authenticate with Apple ID token.
 
@@ -495,6 +505,7 @@ async def apple_auth(
     try:
         # Verify Apple token
         apple_info = auth_service.verify_apple_id_token(payload.id_token)
+        _require_apple_web_transaction(apple_info, redirect_uri)
         apple_id = apple_info["sub"]
         email = apple_info["email"].strip().lower()
 
@@ -544,6 +555,11 @@ async def apple_auth(
                 apple_id=apple_id,
                 authorization_code=payload.authorization_code,
                 client_id=apple_info.get("aud"),
+                **(
+                    {"redirect_uri": redirect_uri, "expected_nonce": expected_nonce}
+                    if redirect_uri
+                    else {}
+                ),
             )
 
         # No helper may commit a fresh account before required credential capture.
@@ -692,17 +708,22 @@ async def _capture_apple_refresh_token(
     apple_id: str,
     authorization_code: str,
     client_id: str | None = None,
+    redirect_uri: str | None = None,
+    expected_nonce: str | None = None,
 ) -> None:
     """Exchange Apple's one-time code and retain an encrypted revocation token."""
     try:
+        exchange_kwargs = {"redirect_uri": redirect_uri} if redirect_uri else {}
         token_response = await apple_token_service.exchange_authorization_code(
-            authorization_code, client_id
+            authorization_code, client_id, **exchange_kwargs
         )
         exchanged_identity = auth_service.verify_apple_id_token(
             token_response["id_token"], access_token=token_response.get("access_token")
         )
         if exchanged_identity["sub"] != apple_id:
             raise ValueError("Apple authorization code belongs to a different account")
+        if expected_nonce is not None and exchanged_identity.get("nonce") != expected_nonce:
+            raise ValueError("Apple authorization code nonce does not match")
         exchanged_client_id = exchanged_identity.get("aud") or client_id
         if client_id is not None and exchanged_client_id != client_id:
             raise ValueError("Apple authorization code audience does not match")
@@ -1588,6 +1609,12 @@ async def add_google_provider(
     Linking a secondary provider does NOT change ``auth_provider`` — the
     user's primary sign-in method is preserved.
     """
+    if payload.expected_user_id is not None and payload.expected_user_id != current_user["id"]:
+        raise _provider_link_error(
+            409,
+            "PROVIDER_LINK_SESSION_CHANGED",
+            "Your account changed. Please start connecting Google again.",
+        )
     try:
         google_info = auth_service.verify_google_id_token(payload.id_token)
     except ValueError as exc:
@@ -1650,6 +1677,23 @@ async def add_apple_provider(
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
+    return await _link_apple_provider(payload, current_user, session)
+
+
+def _require_apple_web_transaction(apple_info: dict, redirect_uri: str | None) -> None:
+    """A Services ID cannot bypass the browser transaction via the native route."""
+    if apple_info.get("aud") == os.getenv("APPLE_WEB_CLIENT_ID", "").strip() and not redirect_uri:
+        raise SafeAppleAuthError("APPLE_AUTH_RETRY")
+
+
+async def _link_apple_provider(
+    payload: LinkProviderRequest,
+    current_user: dict,
+    session: AsyncSession,
+    *,
+    redirect_uri: str | None = None,
+    expected_nonce: str | None = None,
+):
     """
     Link an Apple account to the currently authenticated user.
 
@@ -1663,6 +1707,7 @@ async def add_apple_provider(
     """
     try:
         apple_info = auth_service.verify_apple_id_token(payload.id_token)
+        _require_apple_web_transaction(apple_info, redirect_uri)
     except ValueError as exc:
         _raise_provider_verification_error("apple", exc)
 
@@ -1694,6 +1739,11 @@ async def add_apple_provider(
                     apple_id=apple_id,
                     authorization_code=payload.authorization_code,
                     client_id=apple_info.get("aud"),
+                    **(
+                        {"redirect_uri": redirect_uri, "expected_nonce": expected_nonce}
+                        if redirect_uri
+                        else {}
+                    ),
                 )
             if not await _set_apple_id(session, current_user["id"], apple_id):
                 raise _ProviderAlreadyConnectedError
