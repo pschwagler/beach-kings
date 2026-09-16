@@ -16,11 +16,10 @@ import useWebSocket from '@/hooks/useWebSocket';
 import { api } from '@/lib/api';
 import { privateKeys } from '@/infrastructure/query/keys';
 import { useToast } from '@/contexts/ToastContext';
-import { routes } from '@/lib/navigation';
 import { moderationKeys } from '@/features/moderation';
 import { getSocketNotification, reconcileNotificationEvent } from './cache';
 import { claimNotificationPresentation } from './dedupe';
-import { resolveNotificationRoute } from './navigation';
+import { openNotification } from './openNotification';
 import { useNotifications } from './useNotifications';
 
 /** WebSocket lifecycle and cache reconciliation for notification events. */
@@ -69,11 +68,7 @@ export default function NotificationTransport(): null {
       claimNotificationPresentation(notification.id)
     ) {
       showToast(`${notification.title}\n${notification.message}`, 'info', () => {
-        markAsRead(notification.id);
-        router.push((
-          resolveNotificationRoute(notification.link_url) ??
-          routes.notifications()
-        ) as never);
+        openNotification(notification, (route) => router.push(route as never), markAsRead);
       });
     }
     if (

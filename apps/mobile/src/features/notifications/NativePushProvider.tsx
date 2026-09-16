@@ -15,10 +15,9 @@ import type { NativePushData, PushPlatform } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { api } from '@/lib/api';
-import { routes } from '@/lib/navigation';
 import { notificationKeys } from './keys';
 import { moderationKeys } from '@/features/moderation';
-import { resolveNotificationRoute } from './navigation';
+import { openNotification } from './openNotification';
 import { claimNotificationPresentation } from './dedupe';
 import { useNotifications } from './useNotifications';
 import { usePushPreferences } from './usePushPreferences';
@@ -210,11 +209,10 @@ export default function NativePushProvider({
       handledResponseIdsRef.current.clear();
     }
     handledResponseIdsRef.current.add(responseId);
-    markAsRead(data.notificationId);
-    router.push((
-      resolveNotificationRoute(data.linkUrl) ??
-      routes.notifications()
-    ) as never);
+    const content = response.notification.request.content;
+    openNotification({ id: data.notificationId, type: data.type, link_url: data.linkUrl,
+      title: content.title ?? 'Beach League', message: content.body ?? 'You have a new notification' },
+    (route) => router.push(route as never), markAsRead);
   }, [isAuthenticated, markAsRead, rootNavigationState?.key, router, userId]);
 
   useEffect(() => {
@@ -236,11 +234,8 @@ export default function NativePushProvider({
         const title = notification.request.content.title ?? 'Beach League';
         const body = notification.request.content.body ?? 'You have a new notification';
         showToast(`${title}\n${body}`, 'info', () => {
-          markAsRead(data.notificationId);
-          router.push((
-            resolveNotificationRoute(data.linkUrl) ??
-            routes.notifications()
-          ) as never);
+          openNotification({ id: data.notificationId, type: data.type, link_url: data.linkUrl,
+            title, message: body }, (route) => router.push(route as never), markAsRead);
         });
       }
     });

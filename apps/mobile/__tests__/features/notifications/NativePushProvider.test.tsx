@@ -255,7 +255,7 @@ describe('NativePushProvider', () => {
     renderProvider();
 
     await waitFor(() => expect(mockMarkAsRead).toHaveBeenCalledWith(91));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/notifications');
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/social?tab=friends');
     expect(Notifications.clearLastNotificationResponseAsync).toHaveBeenCalled();
   });
 
