@@ -85,6 +85,8 @@ interface CoreAuthContextValue extends AuthState {
     params: LoginWithEmailParams | LoginWithPhoneParams,
   ) => Promise<void>;
   readonly signup: (params: SignupParams) => Promise<void>;
+  readonly sendLoginCode: (phoneNumber: string) => Promise<void>;
+  readonly loginWithSms: (phoneNumber: string, code: string) => Promise<void>;
   readonly loginWithGoogle: (idToken: string, eligibilityToken?: string) => Promise<void>;
   readonly loginWithApple: (credential: {
     readonly idToken: string;
@@ -578,6 +580,17 @@ export default function AuthProvider({
     [beginAuthOperation, completeAuthentication, prepareAuthentication],
   );
 
+  const sendLoginCode = useCallback(async (phoneNumber: string) => {
+    await api.sendVerification(phoneNumber);
+  }, []);
+
+  const loginWithSms = useCallback(async (phoneNumber: string, code: string) => {
+    const revision = beginAuthOperation();
+    if (!(await prepareAuthentication(revision))) return;
+    const data = await api.smsLogin(phoneNumber, code);
+    await completeAuthentication(revision, { ...data, is_new_user: false });
+  }, [beginAuthOperation, completeAuthentication, prepareAuthentication]);
+
   const signup = useCallback(async (params: SignupParams) => {
     // The signup call now returns a pending-verification response for the
     // email/phone-only branches; session state is not authenticated yet.
@@ -745,6 +758,8 @@ export default function AuthProvider({
   const value: AuthContextValue = {
     ...state,
     login,
+    sendLoginCode,
+    loginWithSms,
     signup,
     loginWithGoogle,
     loginWithApple,

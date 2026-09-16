@@ -62,6 +62,8 @@ jest.mock('@/lib/api', () => ({
     getMe: jest.fn(),
     getCurrentUserPlayer: jest.fn(),
     login: jest.fn(),
+    sendVerification: jest.fn(),
+    smsLogin: jest.fn(),
     signup: jest.fn(),
     googleAuth: jest.fn(),
     appleAuth: jest.fn(),
@@ -357,6 +359,44 @@ describe('AuthProvider — session restore', () => {
 });
 
 describe('AuthProvider — login', () => {
+  it('sends an SMS code without authenticating', async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => { await result.current.sendLoginCode('+12025550123'); });
+    expect(api.sendVerification).toHaveBeenCalledWith('+12025550123');
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(mockSetAuthTokens).not.toHaveBeenCalled();
+  });
+
+  it('authenticates SMS through the centralized token and cache transition', async () => {
+    (api.smsLogin as jest.Mock).mockResolvedValue(mockAuthResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    mockCancelQueries.mockClear();
+    mockClearQueryClient.mockClear();
+    await act(async () => { await result.current.loginWithSms('+12025550123', '123456'); });
+    expect(api.smsLogin).toHaveBeenCalledWith('+12025550123', '123456');
+    expect(api.verifyPhone).not.toHaveBeenCalled();
+    expect(mockCancelQueries).toHaveBeenCalled();
+    expect(mockClearQueryClient).toHaveBeenCalled();
+    expect(mockCancelQueries.mock.invocationCallOrder[0]).toBeLessThan(mockClearQueryClient.mock.invocationCallOrder[0]!);
+    expect(mockClearQueryClient.mock.invocationCallOrder[0]).toBeLessThan(mockSetAuthTokens.mock.invocationCallOrder[0]!);
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.user?.id).toBe(1);
+  });
+
+  it('does not publish a session for an invalid SMS code', async () => {
+    (api.smsLogin as jest.Mock).mockRejectedValue(new Error('Invalid or expired code'));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      await expect(result.current.loginWithSms('+12025550123', '123456')).rejects.toThrow('Invalid or expired code');
+    });
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(mockSetAuthTokens).not.toHaveBeenCalled();
+  });
+
   it('logs in with email and stores tokens', async () => {
     mockLogin.mockResolvedValue(mockAuthResponse);
     mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
