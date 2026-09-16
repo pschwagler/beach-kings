@@ -53,6 +53,7 @@ async def begin(user_id=None):
     return config, request(binding)
 
 
+@pytest.mark.asyncio
 async def test_single_use_and_concurrent_consumption(browser, monkeypatch):
     config, req = await begin()
     monkeypatch.setattr(
@@ -73,6 +74,7 @@ async def test_single_use_and_concurrent_consumption(browser, monkeypatch):
     )
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "failure", ["cookie", "account", "nonce", "audience", "expired", "origin"]
 )
@@ -95,6 +97,7 @@ async def test_rejects_invalid_browser_transaction(browser, monkeypatch, failure
     assert error.value.status_code in (401, 403)
 
 
+@pytest.mark.asyncio
 async def test_redis_unavailable_fails_closed(browser, monkeypatch):
     monkeypatch.setattr(redis_service, "get_redis_client", AsyncMock(return_value=None))
     with pytest.raises(HTTPException) as error:
@@ -122,6 +125,7 @@ def test_native_entry_cannot_bypass_web_state(browser):
     _require_apple_web_transaction({"aud": "com.example.app"}, None)
 
 
+@pytest.mark.asyncio
 async def test_google_link_rejects_session_switch_before_provider_work(monkeypatch):
     verify = AsyncMock()
     monkeypatch.setattr(auth_service, "verify_google_id_token", verify)
@@ -134,6 +138,7 @@ async def test_google_link_rejects_session_switch_before_provider_work(monkeypat
     verify.assert_not_called()
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("claim", ["sub", "aud", "nonce"])
 async def test_code_exchange_identity_mismatch_never_persists(browser, monkeypatch, claim):
     exchange = AsyncMock(return_value={"id_token": "exchanged", "refresh_token": "refresh"})
