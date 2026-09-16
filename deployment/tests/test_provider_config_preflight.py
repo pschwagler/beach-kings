@@ -120,6 +120,68 @@ class ProviderConfigPreflightTests(unittest.TestCase):
             if value:
                 self.assertNotIn(value, report)
 
+    def test_optional_apple_web_configuration(self):
+        config = {
+            **valid_config(),
+            "APPLE_WEB_CLIENT_ID": "com.example.web",
+            "APPLE_CLIENT_IDS": "com.example.web",
+            "APPLE_WEB_REDIRECT_URI": "https://beachleaguevb.com/auth/apple/callback",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_config = write_app_config(Path(temp_dir))
+            output = io.StringIO()
+            with redirect_stdout(output):
+                passed = self.preflight.run_checks(config, app_config)
+        self.assertTrue(passed)
+        self.assertIn("PASS Apple web", output.getvalue())
+        self.assertNotIn(config["APPLE_WEB_CLIENT_ID"], output.getvalue())
+        self.assertNotIn(config["APPLE_WEB_REDIRECT_URI"], output.getvalue())
+
+    def test_apple_web_rejects_partial_native_or_unapproved_configuration(self):
+        valid = {
+            **valid_config(),
+            "APPLE_WEB_CLIENT_ID": "com.example.web",
+            "APPLE_CLIENT_IDS": "com.example.web",
+            "APPLE_WEB_REDIRECT_URI": "https://beachleaguevb.com/auth/apple/callback",
+        }
+        invalid_cases = (
+            {"APPLE_WEB_CLIENT_ID": ""},
+            {"APPLE_WEB_REDIRECT_URI": ""},
+            {"APPLE_WEB_CLIENT_ID": "com.beachleague.app"},
+            {"APPLE_CLIENT_IDS": "different.example"},
+            {"APPLE_WEB_REDIRECT_URI": "http://beachleaguevb.com/auth/apple/callback"},
+            {"APPLE_WEB_REDIRECT_URI": "https://example.test/auth/apple/callback"},
+            {"APPLE_WEB_REDIRECT_URI": "https://beachleaguevb.com/wrong"},
+            {"APPLE_WEB_REDIRECT_URI": "https://beachleaguevb.com:444/auth/apple/callback"},
+            {"APPLE_WEB_REDIRECT_URI": "https://user@beachleaguevb.com/auth/apple/callback"},
+            {"APPLE_WEB_REDIRECT_URI": "https://beachleaguevb.com/auth/apple/callback?code=x"},
+            {"APPLE_WEB_REDIRECT_URI": "https://beachleaguevb.com/auth/apple/callback#fragment"},
+            {"APPLE_WEB_REDIRECT_URI": "https://beachleaguevb.com/auth/apple/callback?"},
+            {"APPLE_WEB_REDIRECT_URI": "https://beachleaguevb.com/auth/apple/callback#"},
+            {"APPLE_WEB_REDIRECT_URI": "https://beachleaguevb.com/\nauth/apple/callback"},
+            {"APPLE_WEB_REDIRECT_URI": "https://[invalid/auth/apple/callback"},
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_config = write_app_config(Path(temp_dir))
+            for override in invalid_cases:
+                with self.subTest(override=override), redirect_stdout(io.StringIO()):
+                    self.assertFalse(self.preflight.run_checks({**valid, **override}, app_config))
+
+    def test_production_apple_web_requires_production_callback(self):
+        config = {
+            **valid_production_config(),
+            "APPLE_WEB_CLIENT_ID": "com.example.web",
+            "APPLE_CLIENT_IDS": "com.example.web",
+            "APPLE_WEB_REDIRECT_URI": "https://dev.beachleaguevb.com/auth/apple/callback",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_config = write_app_config(Path(temp_dir))
+            with redirect_stdout(io.StringIO()):
+                self.assertTrue(self.preflight.run_checks(config, app_config))
+                self.assertFalse(self.preflight.run_checks(config, app_config, production=True))
+                config["APPLE_WEB_REDIRECT_URI"] = "https://beachleaguevb.com/auth/apple/callback"
+                self.assertTrue(self.preflight.run_checks(config, app_config, production=True))
+
     def test_mismatched_or_missing_configuration_fails_without_values(self):
         config = valid_config()
         config["GOOGLE_CLIENT_IDS"] = "wrong-mobile-audience"
