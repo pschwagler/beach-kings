@@ -196,7 +196,8 @@ def _apple_web_checks(
         ),
         (
             "Apple web Services ID is an allowed audience",
-            bool(client_id) and client_id in _audiences(config, "APPLE_CLIENT_ID", "APPLE_CLIENT_IDS"),
+            bool(client_id)
+            and client_id in _audiences(config, "APPLE_CLIENT_ID", "APPLE_CLIENT_IDS"),
         ),
         ("Apple web return URL matches the owned HTTPS callback", valid_redirect),
     )
