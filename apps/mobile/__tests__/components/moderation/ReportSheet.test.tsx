@@ -36,6 +36,8 @@ describe('ReportSheet urgent report reasons', () => {
     mockMutateAsync.mockReturnValue(new Promise(() => {}));
     const screen = render(<ReportSheet targetType="player" targetId={42} onClose={jest.fn()} />);
     expect(screen.getByTestId('report-form-scroll').props.keyboardShouldPersistTaps).toBe('handled');
+    expect(screen.getByTestId('report-keyboard-avoider').props.accessible).toBe(false);
+    expect(screen.getByTestId('report-keyboard-avoider').props.accessibilityViewIsModal).toBe(true);
     expect(screen.getByLabelText('Close report')).toBeTruthy();
     expect(screen.getByText('Dismiss keyboard')).toBeTruthy();
     fireEvent.press(screen.getByText('Other'));

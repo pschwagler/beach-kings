@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportReason, ReportTargetType } from '@beach-kings/shared';
 import AppText from '@/components/ui/AppText';
@@ -60,8 +59,8 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" enabled={Platform.OS === 'ios'} automaticOffset>
-      <View style={{ flex: 1 }} className="justify-end" accessibilityViewIsModal>
+      <KeyboardAvoidingView testID="report-keyboard-avoider" style={{ flex: 1 }} behavior="padding" enabled={Platform.OS === 'ios'} accessible={false} accessibilityViewIsModal>
+      <View style={{ flex: 1 }} className="justify-end">
         <Pressable className="absolute inset-0 bg-black/50" onPress={onClose} accessible={false} importantForAccessibility="no" />
       <View className="bg-elevated rounded-t-3xl px-lg pt-sm" style={{ maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 16) }}>
         <View className="flex-row items-center justify-between">
