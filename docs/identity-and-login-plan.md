@@ -97,6 +97,29 @@ No account-schema migration is expected. Add shared API-client methods and types
 only for the new browser transaction flow; reuse existing login/link contracts
 where possible. Configuration must fail closed when incomplete.
 
+### Apple web configuration
+
+The browser discovers availability from the backend; no additional public
+frontend build-time Apple variable is needed.
+
+| Setting                                    | Requirement                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------- |
+| `APPLE_WEB_CLIENT_ID`                      | Registered Apple Services ID, distinct from the native app identifier |
+| `APPLE_CLIENT_IDS`                         | Include the Services ID while retaining existing native audiences     |
+| `APPLE_WEB_REDIRECT_URI`                   | `https://beachleaguevb.com/auth/apple/callback` in production         |
+| Existing Apple signing/encryption settings | Retain the current protected configuration                            |
+
+Leave both web settings absent for a native-only deployment. Setting only one
+fails deployment preflight. The preflight rejects unapproved hosts, non-HTTPS
+URLs, alternate paths, ports, credentials, queries, and fragments. Development
+may use `https://dev.beachleaguevb.com/auth/apple/callback` after registering it
+with Apple; production requires the production callback.
+
+These checks validate configuration shape, not Apple-console registration.
+Register the Services ID under the existing primary App ID and verify a real
+returning native user signs into the same account on the web before enabling the
+entry point in production.
+
 ## Connection and recovery behavior
 
 | Situation                                            | Expected behavior                                                           |
