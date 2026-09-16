@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { act, render, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 
@@ -12,7 +12,11 @@ import api, { setAuthTokens, getCurrentUserPlayer, getStoredTokens } from '../..
 import { AuthProvider, useAuth } from '../AuthContext';
 
 let auth: ReturnType<typeof useAuth>;
-function Consumer() { auth = useAuth(); return null; }
+function Consumer() {
+  const context = useAuth();
+  useEffect(() => { auth = context; }, [context]);
+  return null;
+}
 beforeEach(async () => {
   vi.clearAllMocks();
   vi.mocked(getStoredTokens).mockReturnValue({ accessToken: null, refreshToken: null });
