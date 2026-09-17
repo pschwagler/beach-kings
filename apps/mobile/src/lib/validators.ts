@@ -40,7 +40,7 @@ const otpCodeField = z
 
 /**
  * Login form schema — email + password.
- * The mobile UI is email-only; phone sign-in is not offered here.
+ * Phone login uses phoneSchema separately from the email/password form.
  */
 export const loginSchema = z.object({
   email: z.string().trim().email('Please enter a valid email address.'),

@@ -2,17 +2,20 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useGoogleOAuth } from '@react-oauth/google';
+import { getStoredTokens } from '../../services/api';
 
 export interface GoogleCredentialResponse {
   credential?: string;
   clientId?: string;
   select_by?: string;
+  state?: string;
 }
 
 interface GoogleAuthButtonProps {
   onSuccess: (credentialResponse: GoogleCredentialResponse) => void;
   onError: () => void;
   text?: 'signin_with' | 'signup_with';
+  disabled?: boolean;
 }
 
 interface GisWindow extends Window {
@@ -32,6 +35,8 @@ interface GisWindow extends Window {
             text: 'signin_with' | 'signup_with';
             shape: 'rectangular';
             width: number;
+            state: string;
+            click_listener: () => void;
           },
         ) => void;
       };
@@ -44,32 +49,19 @@ interface GisWindow extends Window {
 const MIN_BUTTON_WIDTH = 200;
 const MAX_BUTTON_WIDTH = 400;
 
-// google.accounts.id.initialize() may only run once per page load; further
-// calls trigger "initialized multiple times" warnings and only the last call
-// takes effect. Handlers live in module scope so the single registered
-// callback always dispatches to the currently mounted button (only one
-// Google button is ever visible at a time).
+// Initialize once, but dispatch by the provider-returned button state. A popup
+// must never deliver its credential to a different mounted login/link button.
 let gisInitialized = false;
-const activeHandlers: {
-  onSuccess?: (response: GoogleCredentialResponse) => void;
-  onError?: () => void;
-} = {};
+const buttonHandlers = new Map<string, (response: GoogleCredentialResponse) => void>();
 
-export default function GoogleAuthButton({ onSuccess, onError, text = 'signin_with' }: GoogleAuthButtonProps) {
+export default function GoogleAuthButton({ onSuccess, onError, text = 'signin_with', disabled = false }: GoogleAuthButtonProps) {
   const { clientId, scriptLoadedSuccessfully } = useGoogleOAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const [buttonWidth, setButtonWidth] = useState(0);
+  const callbacks = useRef({ onSuccess, onError });
 
-  // Point the module-scope handlers at this instance.
   useEffect(() => {
-    activeHandlers.onSuccess = onSuccess;
-    activeHandlers.onError = onError;
-    return () => {
-      if (activeHandlers.onSuccess === onSuccess) {
-        activeHandlers.onSuccess = undefined;
-        activeHandlers.onError = undefined;
-      }
-    };
+    callbacks.current = { onSuccess, onError };
   });
 
   // Measure the container so renderButton receives a valid pixel width.
@@ -95,16 +87,24 @@ export default function GoogleAuthButton({ onSuccess, onError, text = 'signin_wi
       google.accounts.id.initialize({
         client_id: clientId,
         callback: (response: GoogleCredentialResponse) => {
-          if (!response?.credential) {
-            activeHandlers.onError?.();
-            return;
-          }
-          activeHandlers.onSuccess?.(response);
+          if (response.state) buttonHandlers.get(response.state)?.(response);
         },
       });
       gisInitialized = true;
     }
 
+    const state = crypto.randomUUID();
+    let pending: { accessToken: string | null; onSuccess: typeof onSuccess; onError: typeof onError } | null = null;
+    buttonHandlers.set(state, (response) => {
+      const operation = pending;
+      pending = null;
+      if (!operation) return;
+      if (!response.credential || getStoredTokens().accessToken !== operation.accessToken) {
+        operation.onError();
+        return;
+      }
+      operation.onSuccess(response);
+    });
     container.innerHTML = '';
     google.accounts.id.renderButton(container, {
       type: 'standard',
@@ -113,8 +113,11 @@ export default function GoogleAuthButton({ onSuccess, onError, text = 'signin_wi
       text,
       shape: 'rectangular',
       width: buttonWidth,
+      state,
+      click_listener: () => { pending = { ...callbacks.current, accessToken: getStoredTokens().accessToken }; },
     });
+    return () => { buttonHandlers.delete(state); };
   }, [scriptLoadedSuccessfully, clientId, text, buttonWidth]);
 
-  return <div ref={containerRef} />;
+  return <div ref={containerRef} inert={disabled} aria-disabled={disabled || undefined} />;
 }

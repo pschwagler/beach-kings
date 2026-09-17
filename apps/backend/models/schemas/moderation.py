@@ -68,9 +68,20 @@ class ModerationActionRequest(BaseModel):
         "legal_hold",
     ]
     reason: str = Field(min_length=1, max_length=1000)
+    player_message: Optional[str] = Field(default=None, max_length=1000)
     lock_hours: Optional[int] = Field(default=None, ge=1, le=24 * 30)
     legal_hold: Optional[bool] = None
     appeal_id: Optional[int] = None
+
+    @field_validator("player_message")
+    @classmethod
+    def validate_player_message(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("player_message must not be blank")
+        return normalized
 
 
 class ModerationAppealCreate(BaseModel):
@@ -96,6 +107,12 @@ class ModerationAppealReceipt(BaseModel):
     resolved_at: Optional[datetime] = None
 
 
+class ModerationWarningReceipt(BaseModel):
+    id: int
+    message: str
+    created_at: datetime
+
+
 class AccountModerationStatusResponse(BaseModel):
     account_status: Literal["active", "suspended", "banned"]
     account_expires_at: Optional[datetime] = None
@@ -103,6 +120,7 @@ class AccountModerationStatusResponse(BaseModel):
     interaction_restricted_until: Optional[datetime] = None
     interaction_restriction_case_id: Optional[int] = None
     appeals: List[ModerationAppealReceipt] = Field(default_factory=list)
+    warnings: List[ModerationWarningReceipt] = Field(default_factory=list)
 
 
 class ModerationRetryRequest(BaseModel):

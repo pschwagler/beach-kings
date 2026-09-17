@@ -66,6 +66,8 @@ describe('NotificationTransport', () => {
       refreshToken: 'refresh-token',
     });
     const client = makeClient();
+    client.setQueryData(messageKeys.conversations(7), { items: [], total_count: 0 });
+    client.setQueryData(messageKeys.conversations(8), { items: [], total_count: 0 });
 
     render(
       <QueryClientProvider client={client}>
@@ -77,6 +79,8 @@ describe('NotificationTransport', () => {
       type: 'auth',
       token: 'access-token',
     }));
+    expect(client.getQueryState(messageKeys.conversations(7))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(messageKeys.conversations(8))?.isInvalidated).toBe(false);
   });
 
   it('routes direct-message socket events into the message Query cache', async () => {

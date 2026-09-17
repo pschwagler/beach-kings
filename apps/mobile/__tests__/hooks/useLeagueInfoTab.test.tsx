@@ -117,6 +117,30 @@ beforeEach(() => {
 });
 
 describe('useLeagueInfoTab', () => {
+  it('updates detail and Home membership after confirmed departure, isolated by account', async () => {
+    const client = makeClient();
+    client.setQueryData(leagueKeys.detail(7, 4), { ...LEAGUE, user_role: 'member' });
+    client.setQueryData(leagueKeys.userLeagues(7), [LEAGUE, { id: 5 }]);
+    client.setQueryData(leagueKeys.userLeagues(8), [LEAGUE]);
+    mockLeaveLeague.mockResolvedValue({});
+    const { result } = renderHook(() => useLeagueInfoTab(4), { wrapper: makeWrapper(client) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => { await result.current.onLeaveLeague(); });
+    expect(client.getQueryData(leagueKeys.detail(7, 4))).toMatchObject({ user_role: null });
+    expect(client.getQueryData(leagueKeys.userLeagues(7))).toEqual([{ id: 5 }]);
+    expect(client.getQueryData(leagueKeys.userLeagues(8))).toEqual([LEAGUE]);
+    expect(client.getQueryState(leagueKeys.detail(7, 4))?.isInvalidated).toBe(true);
+  });
+
+  it('preserves membership when departure fails', async () => {
+    const client = makeClient();
+    client.setQueryData(leagueKeys.detail(7, 4), { ...LEAGUE, user_role: 'member' });
+    mockLeaveLeague.mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderHook(() => useLeagueInfoTab(4), { wrapper: makeWrapper(client) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => { await expect(result.current.onLeaveLeague()).rejects.toThrow('offline'); });
+    expect(client.getQueryData(leagueKeys.detail(7, 4))).toMatchObject({ user_role: 'member' });
+  });
   it('composes detail from parallel API calls', async () => {
     const { result } = renderHook(() => useLeagueInfoTab(4), {
       wrapper: makeWrapper(makeClient()),

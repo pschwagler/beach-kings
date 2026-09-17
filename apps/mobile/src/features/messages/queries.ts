@@ -20,6 +20,7 @@ export const messageQueries = {
     queryFn: ({ signal }): Promise<ConversationListResponse> => api.getConversations(1, 50, folder, { signal }),
     enabled: enabled && userId > 0,
     staleTime: MESSAGE_STALE_TIME_MS,
+    refetchOnMount: 'always' as const,
   }),
   thread: (
     userId: number,

@@ -555,6 +555,7 @@ def verify_apple_id_token(token: str, *, access_token: str | None = None) -> dic
             "sub": payload["sub"],
             "email_verified": payload.get("email_verified", False),
             "aud": payload["aud"],
+            "nonce": payload.get("nonce"),
         }
     except JWTError as e:
         raise ProviderTokenError("Invalid Apple ID token") from e

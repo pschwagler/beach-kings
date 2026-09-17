@@ -118,7 +118,9 @@ def decrypt_refresh_credential(ciphertext: str) -> tuple[str, str | None]:
     return refresh_token, client_id
 
 
-async def exchange_authorization_code(code: str, client_id: str | None = None) -> dict:
+async def exchange_authorization_code(
+    code: str, client_id: str | None = None, *, redirect_uri: str | None = None
+) -> dict:
     resolved_client_id = _client_id(client_id)
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
@@ -129,6 +131,7 @@ async def exchange_authorization_code(code: str, client_id: str | None = None) -
                     "client_secret": create_client_secret(resolved_client_id),
                     "code": code,
                     "grant_type": "authorization_code",
+                    **({"redirect_uri": redirect_uri} if redirect_uri else {}),
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )

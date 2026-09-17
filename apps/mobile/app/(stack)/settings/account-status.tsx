@@ -1,3 +1,10 @@
 import AccountModerationScreen from '@/components/screens/Settings/AccountModerationScreen';
+import { useLocalSearchParams } from 'expo-router';
 
-export default AccountModerationScreen;
+export default function AccountStatusRoute() {
+  const { warningId, notificationId } = useLocalSearchParams<{
+    warningId?: string;
+    notificationId?: string;
+  }>();
+  return <AccountModerationScreen warningId={warningId} notificationId={notificationId} />;
+}

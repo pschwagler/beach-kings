@@ -163,6 +163,25 @@ describe('AdminModerationTab', () => {
     expect(submit).toBeEnabled();
   });
 
+  it('requires a separate player-facing message for warnings', async () => {
+    params = new URLSearchParams('tab=moderation&state=active&case=17');
+    render(<AdminModerationTab />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Send warning' }));
+    const submit = screen.getAllByRole('button', { name: 'Send warning' }).at(-1)!;
+    fireEvent.change(screen.getByLabelText('Required private reason'), {
+      target: { value: 'Private policy basis' },
+    });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Required message to player'), {
+      target: { value: 'Please stop sending unwanted messages.' },
+    });
+    fireEvent.click(submit);
+    await waitFor(() => expect(adminApi.applyModerationAction).toHaveBeenCalledWith(17, {
+      action: 'warn', reason: 'Private policy basis',
+      player_message: 'Please stop sending unwanted messages.',
+    }));
+  });
+
   it('shows the urgent incident checklist and records a human external response', async () => {
     params = new URLSearchParams('tab=moderation&state=active&case=17');
     render(<AdminModerationTab />);

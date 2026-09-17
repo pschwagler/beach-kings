@@ -60,6 +60,10 @@ export function resolveNotificationRoute(linkUrl: string | null): string | null 
     return routes.social({ tab: 'messages' });
   }
   if (pathname === '/account-status') {
+    const warningId = url.searchParams.get('warningId');
+    if (isNumericId(warningId)) {
+      return `${routes.settingsAccountStatus()}?warningId=${warningId}`;
+    }
     return routes.settingsAccountStatus();
   }
 

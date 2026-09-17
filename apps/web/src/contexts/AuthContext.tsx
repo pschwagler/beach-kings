@@ -7,6 +7,7 @@ import type { User, Player } from '../types';
 
 interface SignupResponse {
   phone_number?: string;
+  email?: string;
   message?: string;
   [key: string]: unknown;
 }
@@ -31,9 +32,10 @@ interface AuthContextValue {
   deletionScheduledAt: string | null | undefined;
   fetchCurrentUser: () => Promise<void>;
   loginWithGoogle: (credentialResponse: { credential?: string }, eligibilityToken?: string) => Promise<{ profile_complete: boolean }>;
+  completeAppleLogin: (authorization: { id_token: string; code: string; state: string }, eligibilityToken?: string, signal?: AbortSignal) => Promise<{ profile_complete: boolean }>;
   loginWithPassword: (phoneNumber: string, password: string) => Promise<void>;
   loginWithSms: (phoneNumber: string, code: string) => Promise<void>;
-  signup: (params: { phoneNumber: string; password: string; firstName: string; lastName: string; email?: string; eligibilityToken: string }) => Promise<SignupResponse>;
+  signup: (params: { phoneNumber?: string; password: string; firstName: string; lastName: string; email?: string; eligibilityToken: string }) => Promise<SignupResponse>;
   sendVerificationCode: (phoneNumber: string) => Promise<void>;
   verifyPhone: (phoneNumber: string, code: string) => Promise<{ profile_complete: boolean }>;
   resetPassword: (phoneNumber: string) => Promise<unknown>;
@@ -46,6 +48,9 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const normalizePhone = (phone: string | undefined | null) => phone?.trim();
+const identifierFields = (identifier: string) => identifier.includes('@')
+  ? { email: identifier.trim().toLowerCase() }
+  : { phone_number: normalizePhone(identifier) };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -155,7 +160,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const loginWithPassword = useCallback(
     async (phoneNumber: string, password: string) => {
       const response = await api.post('/api/auth/login', {
-        phone_number: normalizePhone(phoneNumber),
+        ...identifierFields(phoneNumber),
         password,
       });
       await handleAuthSuccess(response.data);
@@ -174,7 +179,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [handleAuthSuccess]
   );
 
-  const signup = useCallback(async ({ phoneNumber, password, firstName, lastName, email, eligibilityToken }: { phoneNumber: string; password: string; firstName: string; lastName: string; email?: string; eligibilityToken: string }) => {
+  const completeAppleLogin = useCallback(async (authorization: { id_token: string; code: string; state: string }, eligibilityToken?: string, signal?: AbortSignal) => {
+    const initiatingAccessToken = getStoredTokens().accessToken;
+    const response = await api.post('/api/auth/apple/web/complete', {
+      id_token: authorization.id_token, authorization_code: authorization.code,
+      state: authorization.state, eligibility_token: eligibilityToken,
+    }, { withCredentials: true, ...(signal ? { signal } : {}) });
+    if (signal?.aborted || getStoredTokens().accessToken !== initiatingAccessToken) {
+      throw new Error('Your account changed. Please start Apple sign-in again.');
+    }
+    return { profile_complete: await handleAuthSuccess(response.data) };
+  }, [handleAuthSuccess]);
+
+  const signup = useCallback(async ({ phoneNumber, password, firstName, lastName, email, eligibilityToken }: { phoneNumber?: string; password: string; firstName: string; lastName: string; email?: string; eligibilityToken: string }) => {
     const response = await api.post('/api/auth/signup', {
       phone_number: normalizePhone(phoneNumber),
       password: password.trim(),
@@ -187,15 +204,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const sendVerificationCode = useCallback(async (phoneNumber: string) => {
-    await api.post('/api/auth/send-verification', {
-      phone_number: normalizePhone(phoneNumber),
-    });
+    await api.post(phoneNumber.includes('@') ? '/api/auth/send-email-verification' : '/api/auth/send-verification', identifierFields(phoneNumber));
   }, []);
 
   const verifyPhone = useCallback(
     async (phoneNumber: string, code: string) => {
-      const response = await api.post('/api/auth/verify-phone', {
-        phone_number: normalizePhone(phoneNumber),
+      const response = await api.post(phoneNumber.includes('@') ? '/api/auth/verify-email' : '/api/auth/verify-phone', {
+        ...identifierFields(phoneNumber),
         code,
       });
       const profileComplete = await handleAuthSuccess(response.data);
@@ -205,15 +220,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const resetPassword = useCallback(async (phoneNumber: string) => {
-    const response = await api.post('/api/auth/reset-password', {
-      phone_number: normalizePhone(phoneNumber),
-    });
+    const response = await api.post(phoneNumber.includes('@') ? '/api/auth/reset-password-email' : '/api/auth/reset-password', identifierFields(phoneNumber));
     return response.data;
   }, []);
 
   const verifyPasswordReset = useCallback(async (phoneNumber: string, code: string) => {
-    const response = await api.post('/api/auth/reset-password-verify', {
-      phone_number: normalizePhone(phoneNumber),
+    const response = await api.post(phoneNumber.includes('@') ? '/api/auth/reset-password-email-verify' : '/api/auth/reset-password-verify', {
+      ...identifierFields(phoneNumber),
       code,
     });
     return response.data;
@@ -259,6 +272,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     deletionScheduledAt: user?.deletion_scheduled_at || null,
     fetchCurrentUser,
     loginWithGoogle,
+    completeAppleLogin,
     loginWithPassword,
     loginWithSms,
     signup,
@@ -276,6 +290,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     sessionExpired,
     fetchCurrentUser,
     loginWithGoogle,
+    completeAppleLogin,
     loginWithPassword,
     loginWithSms,
     signup,

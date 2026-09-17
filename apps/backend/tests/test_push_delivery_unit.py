@@ -63,6 +63,21 @@ def test_safe_payload_uses_private_preview_overrides():
     assert "private text" not in str(payload)
 
 
+def test_warning_push_keeps_lock_screen_generic_and_preserves_warning_link():
+    notification = SimpleNamespace(
+        id=42,
+        type="moderation_update",
+        title="Safety update",
+        message="A safety action was applied. Open the app to review it.",
+        link_url="/account-status?warningId=19",
+    )
+    payload = build_safe_payload(notification, {"case_id": 7, "action": "warn"})
+    assert payload["body"] == notification.message
+    assert payload["data"]["linkUrl"] == "/account-status?warningId=19"
+    assert payload["data"]["data"] == {}
+    assert "Please stop sending unwanted messages." not in str(payload)
+
+
 @pytest.mark.parametrize(
     ("value", "expected"),
     [

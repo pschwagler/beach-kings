@@ -19,6 +19,7 @@ import { BrandMark } from '@/components/brand/BrandImage';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FormError } from '@/components/forms';
+import PhoneLoginForm from '@/components/forms/PhoneLoginForm';
 import {
   useGoogleSignIn,
   signInWithApple,
@@ -36,6 +37,7 @@ import { getAppleAuthError } from '@/lib/appleAuthError';
 
 export default function LoginScreen(): React.ReactNode {
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const [phoneLogin, setPhoneLogin] = useState(false);
   const { login, loginWithGoogle, loginWithApple } = useAuth();
   const palette = usePaletteColors();
   const { isDark } = useTheme();
@@ -168,7 +170,7 @@ export default function LoginScreen(): React.ReactNode {
             </AppText>
           </View>
 
-          <View className="bg-surface rounded-card p-lg gap-md">
+          {phoneLogin ? <PhoneLoginForm onCancel={() => setPhoneLogin(false)} /> : <View className="bg-surface rounded-card p-lg gap-md">
             <View>
               <Controller
                 control={control}
@@ -235,7 +237,9 @@ export default function LoginScreen(): React.ReactNode {
               disabled={isSubmitting}
               loading={isSubmitting}
             />
-          </View>
+            <Button title="Log in with phone" variant="ghost" disabled={isSubmitting}
+              onPress={() => setPhoneLogin(true)} />
+          </View>}
 
           <View className="flex-row items-center my-md">
             <Divider className="flex-1" />

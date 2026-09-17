@@ -1,4 +1,5 @@
 'use client';
+import ConnectedAccounts from '../auth/ConnectedAccounts';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { updateUserProfile, updatePlayerProfile, getLocations, scheduleAccountDeletion, getPlayerHomeCourts, setPlayerHomeCourts } from '../../services/api';
@@ -542,6 +543,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         />
       </div>
 
+      <ConnectedAccounts key={user?.id} />
       {/* Account management — intentionally subtle */}
       <div className="profile-page__account-footer">
         {deletionScheduledAt ? (

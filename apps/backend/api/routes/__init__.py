@@ -51,6 +51,7 @@ from backend.api.routes.players import router as players_router
 from backend.api.routes.courts import router as courts_router
 from backend.api.routes.locations import router as locations_router
 from backend.api.routes.auth import router as auth_router
+from backend.api.routes.apple_web import router as apple_web_router
 from backend.api.routes.users import router as users_router
 from backend.api.routes.friends import router as friends_router
 from backend.api.routes.messages import router as messages_router
@@ -71,6 +72,7 @@ router.include_router(players_router)
 router.include_router(courts_router)
 router.include_router(locations_router)
 router.include_router(auth_router)
+router.include_router(apple_web_router)
 router.include_router(users_router)
 router.include_router(friends_router)
 router.include_router(messages_router)

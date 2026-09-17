@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { X, CheckCircle, AlertCircle, Check, X as XIcon } from 'lucide-react';
 import GoogleAuthButton from './GoogleAuthButton';
+import AppleAuthButton from './AppleAuthButton';
 import { useAuth } from '../../contexts/AuthContext';
 import type { AuthMode } from '../../contexts/AuthModalContext';
 import PhoneInput from '../ui/PhoneInput';
@@ -15,7 +16,7 @@ const MODE_TITLES: Record<AuthMode, string> = {
   'sign-in': 'Log In',
   'sign-up': 'Create Account',
   'sms-login': 'SMS Login',
-  verify: 'Verify Phone Number',
+  verify: 'Verify Account',
   'reset-password': 'Send Code',
   'reset-password-code': 'Continue',
   'reset-password-new': 'Reset Password',
@@ -31,8 +32,11 @@ const defaultFormState = {
 };
 
 const getErrorMessage = (error: unknown): string => {
-  const e = error as { response?: { data?: { detail?: string } }; message?: string };
-  return e.response?.data?.detail || e.message || 'Something went wrong';
+  const e = error as { response?: { data?: { detail?: unknown } }; message?: string };
+  const detail = e.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object' && 'message' in detail && typeof detail.message === 'string') return detail.message;
+  return 'Something went wrong. Please try again.';
 };
 
 interface AuthModalProps {
@@ -45,6 +49,7 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifySuccess }: AuthModalProps) {
   const {
     loginWithGoogle,
+    completeAppleLogin,
     loginWithPassword,
     loginWithSms,
     signup,
@@ -55,6 +60,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     confirmPasswordReset,
   } = useAuth();
   const [activeMode, setActiveMode] = useState<AuthMode>(mode);
+  const [credentialKind, setCredentialKind] = useState<'phone' | 'email'>('phone');
   const [formData, setFormData] = useState(defaultFormState);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -70,6 +76,10 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
   const [ageRegion, setAgeRegion] = useState('');
   const [ageBand, setAgeBand] = useState<'under_minimum' | 'junior' | 'adult' | ''>('');
   const [guardianConsent, setGuardianConsent] = useState(false);
+  const useEmail = credentialKind === 'email' && activeMode !== 'sms-login';
+  const identifier = useEmail ? formData.email.trim() : formData.phoneNumber;
+  const validIdentifier = useEmail ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier) : isPhoneValid;
+  const identifierLabel = useEmail ? 'email address' : 'phone number';
 
   useEffect(() => {
     if (isOpen) {
@@ -109,6 +119,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
   }
 
   const handleClose = () => {
+    setIsSubmitting(false);
     setActiveMode('sign-in');
     setFormData(defaultFormState);
     setErrorMessage('');
@@ -117,6 +128,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setPasswordRequirements({ minLength: false });
     setResetToken(null);
     setIsSignupFlow(false);
+    setCredentialKind('phone');
     setEligibilityToken('');
     setAgeCountry('');
     setAgeRegion('');
@@ -150,8 +162,8 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
   };
 
   const handleSendVerification = async () => {
-    if (!isPhoneValid || !formData.phoneNumber) {
-      setErrorMessage('Please enter a valid phone number');
+    if (!validIdentifier) {
+      setErrorMessage(`Please enter a valid ${identifierLabel}`);
       return;
     }
 
@@ -159,8 +171,8 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setErrorMessage('');
     setStatusMessage('');
     try {
-      await sendVerificationCode(formData.phoneNumber);
-      setStatusMessage('If this phone number can be used, a code will arrive shortly. Only the newest code works.');
+      await sendVerificationCode(identifier);
+      setStatusMessage(`If this ${identifierLabel} can be used, a code will arrive shortly. Only the newest code works.`);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -170,12 +182,13 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting) return;
     setErrorMessage('');
     setStatusMessage('');
 
     // Validate phone number if required (not needed for reset-password-new as it's already verified)
-    if ((activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'sms-login' || activeMode === 'verify' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && !isPhoneValid) {
-      setErrorMessage('Please enter a valid phone number');
+    if (activeMode !== 'reset-password-new' && !validIdentifier) {
+      setErrorMessage(`Please enter a valid ${identifierLabel}`);
       return;
     }
 
@@ -200,24 +213,25 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
     try {
       if (activeMode === 'sign-in') {
-        await loginWithPassword(formData.phoneNumber, formData.password);
+        await loginWithPassword(identifier, formData.password);
         handleClose();
         return;
       }
 
       if (activeMode === 'sign-up') {
         const result = await signup({
-          phoneNumber: formData.phoneNumber,
+          phoneNumber: useEmail ? undefined : formData.phoneNumber,
           password: formData.password,
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
-          email: formData.email,
+          email: formData.email.trim() || undefined,
           eligibilityToken,
         });
-        setStatusMessage(result.message || 'If this phone number can be used, a code will arrive shortly. Only the newest code works.');
+        setStatusMessage(result.message || `If this ${identifierLabel} can be used, a code will arrive shortly. Only the newest code works.`);
         setFormData((prev) => ({
           ...prev,
           phoneNumber: result.phone_number || prev.phoneNumber,
+          email: result.email || prev.email,
         }));
         setIsSignupFlow(true); // Mark that we're in signup flow
         setActiveMode('verify');
@@ -231,7 +245,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       }
 
       if (activeMode === 'verify') {
-        const result = await verifyPhone(formData.phoneNumber, formData.code);
+        const result = await verifyPhone(identifier, formData.code);
         // If this was a signup flow, close modal first, then notify parent to show player profile modal
         if (isSignupFlow && onVerifySuccess) {
           handleClose();
@@ -249,8 +263,8 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       }
 
       if (activeMode === 'reset-password') {
-        await resetPassword(formData.phoneNumber);
-        setStatusMessage('If an account exists for this phone number, a code will arrive shortly. Only the newest code works.');
+        await resetPassword(identifier);
+        setStatusMessage(`If an account exists for this ${identifierLabel}, a code will arrive shortly. Only the newest code works.`);
         setActiveMode('reset-password-code');
         return;
       }
@@ -261,7 +275,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           setErrorMessage('Please enter a valid 6-digit verification code');
           return;
         }
-        const result = await verifyPasswordReset(formData.phoneNumber, formData.code);
+        const result = await verifyPasswordReset(identifier, formData.code);
         setResetToken(result.reset_token ?? null);
         setActiveMode('reset-password-new');
         setErrorMessage('');
@@ -299,11 +313,11 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       case 'sms-login':
         return 'Enter your phone number and the code we send via SMS.';
       case 'verify':
-        return 'If this phone number can be used, enter the code that arrives. Only the newest code works.';
+        return `Enter the code sent to ${identifier}. Only the newest code works.`;
       case 'reset-password':
-        return 'Enter your phone number to receive a verification code for password reset.';
+        return `Enter your ${identifierLabel} to receive a verification code for password reset.`;
       case 'reset-password-code':
-        return 'If an account exists for this phone number, enter the code that arrives. Only the newest code works.';
+        return `If an account exists for this ${identifierLabel}, enter the code that arrives. Only the newest code works.`;
       case 'reset-password-new':
         return 'Enter your new password.';
       default:
@@ -355,10 +369,19 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
         <p className="auth-modal__description">{renderDescription()}</p>
 
+        {(activeMode === 'sign-in' || (activeMode === 'sign-up' && eligibilityToken)) && (
+          <AppleAuthButton disabled={isSubmitting} onBusyChange={setIsSubmitting} onError={setErrorMessage} onSuccess={async (authorization, signal) => {
+            const result = await completeAppleLogin(authorization, eligibilityToken || undefined, signal);
+            handleClose();
+            if (!result.profile_complete) onVerifySuccess?.(false);
+          }} />
+        )}
+
         {(activeMode === 'sign-in' || (activeMode === 'sign-up' && eligibilityToken)) && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
           <>
             <div className="auth-modal__google-wrapper">
               <GoogleAuthButton
+                disabled={isSubmitting}
                 onSuccess={async (credentialResponse) => {
                   setIsSubmitting(true);
                   setErrorMessage('');
@@ -413,8 +436,8 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
               Age range
               <select className="auth-modal__input" value={ageBand} onChange={(event) => { setAgeBand(event.target.value as typeof ageBand); setGuardianConsent(false); }}>
                 <option value="">Select age range</option>
-                <option value="under_minimum">Under {ageCountry === 'CA' ? 14 : 13}</option>
-                <option value="junior">{ageCountry === 'CA' ? '14' : '13'}–17</option>
+                <option value="under_minimum">Under 14</option>
+                <option value="junior">14–17</option>
                 <option value="adult">18 or older</option>
               </select>
             </label>
@@ -428,6 +451,13 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           </form>
         ) : (
         <form className="auth-modal__form" onSubmit={handleSubmit} noValidate>
+          {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password') && (
+            <fieldset className="auth-modal__name-row" disabled={isSubmitting}>
+              <legend>Use your</legend>
+              <label><input type="radio" name="credentialKind" checked={credentialKind === 'phone'} onChange={() => { setCredentialKind('phone'); setErrorMessage(''); }} /> Phone number</label>
+              <label><input type="radio" name="credentialKind" checked={credentialKind === 'email'} onChange={() => { setCredentialKind('email'); setErrorMessage(''); }} /> Email</label>
+            </fieldset>
+          )}
           {activeMode === 'sign-up' && (
             <div className="auth-modal__name-row">
               <label className="auth-modal__label">
@@ -455,7 +485,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
             </div>
           )}
 
-          {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
+          {!useEmail && (activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'sms-login' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
             <label className="auth-modal__label">
               <span>Phone Number <span className="required-asterisk">*</span></span>
               <PhoneInput
@@ -468,13 +498,19 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
             </label>
           )}
 
+          {useEmail && (activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
+            <label className="auth-modal__label">Email
+              <input type="email" name="email" autoComplete="email" className="auth-modal__input" value={formData.email} onChange={handleInputChange} required />
+            </label>
+          )}
+
           {activeMode === 'reset-password-new' && (
             <label className="auth-modal__label">
-              Phone Number
+              {useEmail ? 'Email' : 'Phone Number'}
               <input
-                type="tel"
+                type="text"
                 className="auth-modal__input disabled-button"
-                value={formData.phoneNumber}
+                value={identifier}
                 disabled
               />
             </label>
@@ -513,7 +549,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
             />
           )}
 
-          {activeMode === 'sign-up' && (
+          {activeMode === 'sign-up' && !useEmail && (
             <label className="auth-modal__label">
               Email
               <input
@@ -540,6 +576,9 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
             {isSubmitting ? 'Please wait...' : MODE_TITLES[activeMode]}
           </button>
 
+          {activeMode === 'sign-in' && !useEmail && <button type="button" className="auth-modal__footer-link" disabled={isSubmitting} onClick={() => { setActiveMode('sms-login'); setErrorMessage(''); }}>Log in with a text code instead</button>}
+          {activeMode === 'sms-login' && <button type="button" className="auth-modal__footer-link" disabled={isSubmitting} onClick={() => handleSwitchMode('sign-in')}>Use a password instead</button>}
+
           {activeMode === 'sign-in' && (
             <p className="auth-modal__legal-text">
               By continuing, you agree to our <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and have read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
@@ -548,7 +587,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
           {activeMode === 'sign-up' && (
             <p className="auth-modal__legal-text">
-              By providing your phone number, you agree to receive a one-time verification code from Beach League. Message and data rates may apply. Message frequency varies. Reply HELP for help or STOP to cancel. By continuing, you agree to our <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and have read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
+              {!useEmail && 'By providing your phone number, you agree to receive a one-time verification code from Beach League. Message and data rates may apply. Message frequency varies. Reply HELP for help or STOP to cancel. '}By continuing, you agree to our <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and have read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
             </p>
           )}
         </form>

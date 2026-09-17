@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional, Literal
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -109,6 +109,7 @@ class LinkProviderRequest(BaseModel):
 
     id_token: str
     authorization_code: Optional[str] = None
+    expected_user_id: int | None = Field(default=None, gt=0)
 
 
 class AuthResponse(BaseModel):

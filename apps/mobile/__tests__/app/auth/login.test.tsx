@@ -71,6 +71,15 @@ describe('LoginScreen', () => {
     expect(getByPlaceholderText('Password')).toBeTruthy();
   });
 
+  it('offers phone login and can return to the email form', () => {
+    const screen = render(<LoginScreen />);
+    fireEvent.press(screen.getByLabelText('Log in with phone'));
+    expect(screen.getByPlaceholderText('Phone number')).toBeTruthy();
+    expect(screen.queryByPlaceholderText('Email')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Back to email login'));
+    expect(screen.getByPlaceholderText('Email')).toBeTruthy();
+  });
+
   it('renders "Log In" text (button title and/or nav title) but not "Sign In"', () => {
     const result = render(<LoginScreen />);
     // At least one "Log In" text should appear (button and/or nav title)

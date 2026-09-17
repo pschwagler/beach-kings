@@ -13,7 +13,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
 import { hapticMedium } from "@/utils/haptics";
 import { useNotifications } from '@/features/notifications';
-import { resolveNotificationRoute } from '@/features/notifications/navigation';
+import { openNotification } from '@/features/notifications/openNotification';
 import { useFriendshipMutations } from '@/features/social';
 import type { Notification, NotificationType } from "@beach-kings/shared";
 
@@ -112,21 +112,9 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
   /** Mark a single notification read and navigate if it has a link. */
   const onNotificationPress = useCallback(
     (notification: Notification) => {
-      if (!notification.is_read) {
-        markAsRead(notification.id);
-      }
-      const route = resolveNotificationRoute(notification.link_url);
-      if (route != null) {
-        router.push(route as Parameters<typeof router.push>[0]);
-      } else if (
-        __DEV__ &&
-        notification.link_url != null &&
-        notification.link_url.length > 0
-      ) {
-        console.warn(
-          `[notifications] Ignoring unsupported link "${notification.link_url}"`,
-        );
-      }
+      openNotification(notification, (route) => router.push(route as never), (id) => {
+        if (!notification.is_read) markAsRead(id);
+      });
     },
     [markAsRead, router],
   );

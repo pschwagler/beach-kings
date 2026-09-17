@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 from typing import Mapping
+from urllib.parse import urlsplit
 
 
 GOOGLE_SCHEME_PREFIX = "com.googleusercontent.apps."
@@ -159,6 +160,49 @@ def _production_runtime_checks(config: Mapping[str, str]) -> tuple[tuple[str, bo
     )
 
 
+def _apple_web_checks(
+    config: Mapping[str, str], bundle_identifier: str | None, *, production: bool
+) -> tuple[tuple[str, bool], ...]:
+    """Allow native-only deployments, but reject partial browser configuration."""
+    client_id = config.get("APPLE_WEB_CLIENT_ID", "").strip()
+    redirect_uri = config.get("APPLE_WEB_REDIRECT_URI", "").strip()
+    if not client_id and not redirect_uri:
+        return ()
+
+    allowed_hosts = {"beachleaguevb.com"}
+    if not production:
+        allowed_hosts.add("dev.beachleaguevb.com")
+    try:
+        uri = urlsplit(redirect_uri)
+        valid_redirect = (
+            uri.scheme == "https"
+            and uri.hostname in allowed_hosts
+            and uri.netloc == uri.hostname
+            and uri.path == "/auth/apple/callback"
+            and not uri.query
+            and not uri.fragment
+            and "?" not in redirect_uri
+            and "#" not in redirect_uri
+            and not any(character.isspace() for character in redirect_uri)
+        )
+    except ValueError:
+        valid_redirect = False
+    return (
+        ("Apple web configuration is complete", bool(client_id and redirect_uri)),
+        (
+            "Apple web Services ID is separate from native identity",
+            bool(client_id)
+            and client_id not in {bundle_identifier, config.get("APPLE_CLIENT_ID", "").strip()},
+        ),
+        (
+            "Apple web Services ID is an allowed audience",
+            bool(client_id)
+            and client_id in _audiences(config, "APPLE_CLIENT_ID", "APPLE_CLIENT_IDS"),
+        ),
+        ("Apple web return URL matches the owned HTTPS callback", valid_redirect),
+    )
+
+
 def run_checks(
     config: Mapping[str, str], app_config_path: Path, *, production: bool = False
 ) -> bool:
@@ -199,6 +243,7 @@ def run_checks(
             _fernet_key_has_valid_shape(config.get("APPLE_TOKEN_ENCRYPTION_KEY", "")),
         ),
     )
+    checks += _apple_web_checks(config, bundle_identifier, production=production)
     if production:
         checks += _production_runtime_checks(config)
 

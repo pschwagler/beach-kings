@@ -18,6 +18,7 @@ import { api } from '@/lib/api';
 import { leagueKeys } from './leagueKeys';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
+import { useLeaveLeagueMutation } from '@/features/leagues/useLeaveLeagueMutation';
 import type {
   JoinRequest,
   LeagueInfoDetail,
@@ -81,6 +82,7 @@ export function useLeagueInfoTab(
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? 0;
+  const { mutateAsync: leaveLeague } = useLeaveLeagueMutation();
 
   const infoQuery = useQuery<LeagueInfoDetail>({
     queryKey: leagueKeys.info(userId, leagueId),
@@ -190,9 +192,8 @@ export function useLeagueInfoTab(
   );
 
   const onLeaveLeague = useCallback(async (): Promise<void> => {
-    await api.leaveLeague(numericId);
-    await invalidateInfo();
-  }, [numericId, invalidateInfo]);
+    await leaveLeague(numericId);
+  }, [numericId, leaveLeague]);
 
   const onChangeRole = useCallback(
     async (memberId: number, role: 'admin' | 'member'): Promise<void> => {

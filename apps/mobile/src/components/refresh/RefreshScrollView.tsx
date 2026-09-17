@@ -9,16 +9,17 @@ export interface RefreshProps {
   onRefresh?: () => unknown;
   refreshScope?: string;
   refreshLabel?: string;
+  showRefreshAction?: boolean;
 }
 
 export const RefreshScrollSurface = forwardRef<ScrollView, ScrollViewProps & {
-  state: RefreshState; label: string; scope?: string; indicatorTestID?: string;
-}>(function RefreshScrollSurface({ state, label, scope = '', indicatorTestID, children, ...props }, ref) {
+  state: RefreshState; label: string; scope?: string; indicatorTestID?: string; showRefreshAction?: boolean;
+}>(function RefreshScrollSurface({ state, label, scope = '', indicatorTestID, showRefreshAction = true, children, ...props }, ref) {
   const { scrollProps, pull } = useRefreshGesture(props, state.refreshing, state.onRefresh, scope);
   return <View className="flex-1">
     <ScrollView {...scrollProps} ref={ref}>
       {children}
-      <RefreshAction state={state} label={label} />
+      {showRefreshAction && <RefreshAction state={state} label={label} />}
     </ScrollView>
     <RefreshOverlay state={state} pull={pull} testID={indicatorTestID} />
   </View>;
