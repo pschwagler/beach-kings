@@ -131,7 +131,9 @@ class ModerationWarning(Base):
     __tablename__ = "moderation_warnings"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
+    case_id = Column(
+        Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False
+    )
     player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
     message = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -65,7 +65,9 @@ def test_safe_payload_uses_private_preview_overrides():
 
 def test_warning_push_keeps_lock_screen_generic_and_preserves_warning_link():
     notification = SimpleNamespace(
-        id=42, type="moderation_update", title="Safety update",
+        id=42,
+        type="moderation_update",
+        title="Safety update",
         message="A safety action was applied. Open the app to review it.",
         link_url="/account-status?warningId=19",
     )

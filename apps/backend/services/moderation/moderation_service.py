@@ -669,7 +669,8 @@ async def apply_action(
                 data={"case_id": case.id, "action": action},
                 link_url=(
                     f"/account-status?warningId={warning.id}"
-                    if warning is not None else "/account-status"
+                    if warning is not None
+                    else "/account-status"
                 ),
             )
             if action in {"account_suspend", "account_ban"}:
