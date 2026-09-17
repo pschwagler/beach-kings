@@ -61,6 +61,7 @@ from .social import InteractionRestriction
 from .moderation import ModerationCase
 from .moderation import ModerationReport
 from .moderation import ModerationAppeal
+from .moderation import ModerationWarning
 from .moderation import ModerationEvent
 from .moderation import ModerationJob
 from .moderation import ModerationAlertJob
@@ -147,6 +148,7 @@ __all__ = [
     "ModerationCase",
     "ModerationReport",
     "ModerationAppeal",
+    "ModerationWarning",
     "ModerationEvent",
     "ModerationJob",
     "ModerationAlertJob",

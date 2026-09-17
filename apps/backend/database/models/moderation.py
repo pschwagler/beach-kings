@@ -125,6 +125,20 @@ class ModerationAppeal(Base):
     )
 
 
+class ModerationWarning(Base):
+    """Message deliberately authored for a player; audit reasons stay on events."""
+
+    __tablename__ = "moderation_warnings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (Index("idx_moderation_warnings_player", "player_id", "created_at"),)
+
+
 class ModerationEvent(Base):
     """Append-only case audit and provider history."""
 

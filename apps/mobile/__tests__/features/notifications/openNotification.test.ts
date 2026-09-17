@@ -35,6 +35,13 @@ describe('notification tap policy', () => {
     expect(read).toHaveBeenCalledWith(42);
   });
 
+  it('opens a specific warning without consuming it before account status loads', () => {
+    openNotification({ ...notification, type: 'moderation_update', link_url: '/account-status?warningId=21' }, navigate, read);
+    expect(navigate).toHaveBeenCalledWith('/(stack)/settings/account-status?warningId=21&notificationId=42');
+    expect(read).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+  });
+
   it('opens actionable friend requests instead of marking an unread inbox row away', () => {
     openNotification({ ...notification, type: 'friend_request', link_url: '/notifications' }, navigate, read);
     expect(navigate).toHaveBeenCalledWith('/(tabs)/social?tab=friends');

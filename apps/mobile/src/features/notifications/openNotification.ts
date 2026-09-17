@@ -20,6 +20,12 @@ export function openNotification(
   const route = notification.type === 'friend_request' && resolved === routes.notifications()
     ? routes.social({ tab: 'friends' })
     : resolved;
+  if (notification.type === 'moderation_update' &&
+    route?.startsWith(`${routes.settingsAccountStatus()}?warningId=`)) {
+    navigate(`${route}&notificationId=${notification.id}`);
+    // Account status acknowledges this row only after its exact warning loads.
+    return;
+  }
   const needsDetails = notification.type === 'moderation_update' || route == null ||
     route === routes.home() || route === routes.notifications();
   if (!needsDetails) {

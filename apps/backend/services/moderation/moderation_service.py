@@ -19,6 +19,7 @@ from backend.database.models import (
     MediaDeletionJob,
     ModerationCase,
     ModerationAppeal,
+    ModerationWarning,
     ModerationEvent,
     ModerationJob,
     ModerationReport,
@@ -338,6 +339,17 @@ async def account_status(session: AsyncSession, user_id: int) -> dict[str, Any]:
 
         restriction = await interaction_policy.current_restriction(session, player_id)
     appeals = await list_appeals(session, player_id) if player_id is not None else []
+    warnings = []
+    if player_id is not None:
+        warning_result = await session.execute(
+            select(ModerationWarning)
+            .where(ModerationWarning.player_id == player_id)
+            .order_by(ModerationWarning.created_at.desc(), ModerationWarning.id.desc())
+        )
+        warnings = [
+            {"id": item.id, "message": item.message, "created_at": item.created_at}
+            for item in warning_result.scalars().all()
+        ]
     effective_status = _effective_user_status(user)
     return {
         "account_status": effective_status,
@@ -348,6 +360,7 @@ async def account_status(session: AsyncSession, user_id: int) -> dict[str, Any]:
         "interaction_restricted_until": restriction.expires_at if restriction else None,
         "interaction_restriction_case_id": restriction.case_id if restriction else None,
         "appeals": appeals,
+        "warnings": warnings,
     }
 
 
@@ -453,6 +466,7 @@ async def apply_action(
     lock_hours: int | None,
     legal_hold: bool | None = None,
     appeal_id: int | None = None,
+    player_message: str | None = None,
 ) -> dict[str, Any]:
     result = await session.execute(
         select(ModerationCase).where(ModerationCase.id == case_id).with_for_update()
@@ -494,6 +508,12 @@ async def apply_action(
         if action in {"restore", "remove"}:
             case.state, case.closed_at = "closed", now
     elif action == "warn":
+        if not case.subject_player_id:
+            raise ValueError("This case has no account subject")
+        if not player_message or not player_message.strip():
+            raise ValueError("A player-facing warning message is required")
+        if len(player_message.strip()) > 1000:
+            raise ValueError("The player-facing warning message is too long")
         case.current_action = "warn"
     elif action == "interaction_lock":
         if not case.subject_player_id or not lock_hours:
@@ -610,6 +630,15 @@ async def apply_action(
             metadata_json=metadata,
         )
     )
+    warning = None
+    if action == "warn":
+        warning = ModerationWarning(
+            case_id=case.id,
+            player_id=case.subject_player_id,
+            message=player_message.strip(),
+        )
+        session.add(warning)
+        await session.flush()
     if (
         action
         in {
@@ -638,7 +667,10 @@ async def apply_action(
                 "Safety update",
                 "A safety action was applied to your account or content. Review your account status for details and appeal options.",
                 data={"case_id": case.id, "action": action},
-                link_url="/account-status",
+                link_url=(
+                    f"/account-status?warningId={warning.id}"
+                    if warning is not None else "/account-status"
+                ),
             )
             if action in {"account_suspend", "account_ban"}:
                 from backend.services.platform.websocket_manager import get_websocket_manager

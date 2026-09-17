@@ -178,6 +178,7 @@ async def moderation_action(
             payload.lock_hours,
             payload.legal_hold,
             payload.appeal_id,
+            payload.player_message,
         )
     except ValueError as exc:
         status = 404 if str(exc) == "Case not found" else 400

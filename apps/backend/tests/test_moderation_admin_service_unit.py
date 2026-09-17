@@ -212,6 +212,62 @@ async def test_closed_case_rejects_new_enforcement_actions():
 
 
 @pytest.mark.asyncio
+async def test_warning_requires_player_message_before_writing_audit_or_notification():
+    case = SimpleNamespace(id=7, state="open", subject_player_id=22)
+    session = AsyncMock()
+    session.execute.return_value = _result(case)
+
+    with pytest.raises(ValueError, match="player-facing warning message is required"):
+        await moderation_service.apply_action(session, 7, 4, "warn", "Private basis", None)
+
+    session.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_warning_keeps_private_reason_out_of_player_notification():
+    case = SimpleNamespace(
+        id=7, state="open", subject_player_id=22, acknowledged_at=None,
+        severity="ordinary", dispositioned_at=None, closed_at=None,
+    )
+    session = AsyncMock()
+    session.execute.side_effect = [_result(case), _result(11)]
+    warning = SimpleNamespace(id=19, case_id=7, player_id=22,
+                              message="Please stop sending unwanted messages.")
+    with patch.object(moderation_service, "_case_dict", return_value={}), patch.object(
+        moderation_service, "ModerationWarning", return_value=warning
+    ), patch.object(
+        moderation_service.notification_service, "create_notification", new=AsyncMock()
+    ) as notify:
+        await moderation_service.apply_action(
+            session, 7, 4, "warn", "Private policy basis", None,
+            player_message="Please stop sending unwanted messages.",
+        )
+
+    assert warning in [call.args[0] for call in session.add.call_args_list]
+    assert notify.await_args.args[4] != "Private policy basis"
+    assert notify.await_args.kwargs["link_url"] == "/account-status?warningId=19"
+    assert "Private policy basis" not in str(notify.await_args)
+
+
+@pytest.mark.asyncio
+async def test_account_status_returns_only_viewers_player_warning_messages():
+    session = AsyncMock()
+    session.get.return_value = SimpleNamespace(id=11)
+    warning = SimpleNamespace(id=19, message="Please stop sending unwanted messages.",
+                              created_at=datetime(2026, 9, 16, tzinfo=timezone.utc))
+    session.execute.side_effect = [_result(22), _scalars_result([warning])]
+    with patch.object(moderation_service, "_effective_user_status", return_value="active"), patch.object(
+        moderation_service, "list_appeals", new=AsyncMock(return_value=[])
+    ), patch("backend.services.social.interaction_policy.current_restriction", new=AsyncMock(return_value=None)):
+        status = await moderation_service.account_status(session, 11)
+
+    assert status["warnings"] == [{"id": 19, "message": warning.message,
+                                   "created_at": warning.created_at}]
+    assert "Private policy basis" not in str(status)
+    assert "moderation_warnings.player_id" in str(session.execute.await_args_list[1].args[0])
+
+
+@pytest.mark.asyncio
 async def test_restore_requires_quarantined_visibility():
     case = SimpleNamespace(id=7, state="open")
     session = AsyncMock()

@@ -153,7 +153,7 @@ export const getModerationContext = async (caseId: number) => {
 
 export const applyModerationAction = async (
   caseId: number,
-  input: { action: string; reason: string; lock_hours?: number; legal_hold?: boolean; appeal_id?: number },
+  input: { action: string; reason: string; player_message?: string; lock_hours?: number; legal_hold?: boolean; appeal_id?: number },
 ) => (await api.post(`/api/admin-view/moderation/cases/${caseId}/actions`, input)).data;
 
 export const createModerationEscalation = async (

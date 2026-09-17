@@ -14,12 +14,15 @@ import AppText from '@/components/ui/AppText';
 import TopNav from '@/components/ui/TopNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { moderationKeys, moderationQueries } from '@/features/moderation';
+import { useNotifications } from '@/features/notifications';
 import { api } from '@/lib/api';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import DeleteAccountDialog from './DeleteAccountDialog';
 
 interface AccountModerationScreenProps {
   readonly fullAccount?: boolean;
+  readonly warningId?: string;
+  readonly notificationId?: string;
 }
 
 function formatExpiry(value: string | null): string | null {
@@ -37,17 +40,52 @@ function formatExpiry(value: string | null): string | null {
 
 export default function AccountModerationScreen({
   fullAccount = false,
+  warningId,
+  notificationId,
 }: AccountModerationScreenProps): React.ReactNode {
   const { user, logout, refreshUser } = useAuth();
   const palette = usePaletteColors();
   const queryClient = useQueryClient();
   const userId = user?.id ?? 0;
   const statusQuery = useQuery(moderationQueries.accountStatus(userId));
+  const { markAsRead } = useNotifications();
+  const [loadedWarningKey, setLoadedWarningKey] = useState<string | null>(null);
+  const [warningLoadError, setWarningLoadError] = useState(false);
+  const requestedWarningId = warningId != null && /^\d+$/.test(warningId)
+    ? Number(warningId) : null;
+  const openedNotificationId = notificationId != null && /^\d+$/.test(notificationId)
+    ? Number(notificationId) : null;
+  const requestedWarningKey = requestedWarningId != null
+    ? `${userId}:${requestedWarningId}:${openedNotificationId ?? ''}` : null;
+  const warningReady = requestedWarningKey != null && loadedWarningKey === requestedWarningKey;
   const [statement, setStatement] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletionPending, setDeletionPending] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const status = statusQuery.data;
+  const selectedWarning = warningReady
+    ? status?.warnings?.find((warning) => warning.id === requestedWarningId) : null;
+
+  useEffect(() => {
+    if (requestedWarningId == null || userId === 0) return;
+    let active = true;
+    setLoadedWarningKey(null);
+    setWarningLoadError(false);
+    void statusQuery.refetch().then((result) => {
+      if (!active) return;
+      const found = result.isSuccess &&
+        result.data?.warnings?.some((warning) => warning.id === requestedWarningId);
+      setLoadedWarningKey(found ? requestedWarningKey : null);
+      setWarningLoadError(!found);
+    });
+    return () => { active = false; };
+  }, [requestedWarningKey, requestedWarningId, userId]); // Open each linked warning against fresh, viewer-scoped data.
+
+  useEffect(() => {
+    if (selectedWarning != null && openedNotificationId != null) {
+      markAsRead(openedNotificationId);
+    }
+  }, [selectedWarning?.id, openedNotificationId, markAsRead]);
   const accountState = status?.account_status ?? user?.moderation_status ?? 'active';
   const restrictedUntil = status?.interaction_restricted_until ??
     user?.interaction_restricted_until ?? null;
@@ -114,6 +152,8 @@ export default function AccountModerationScreen({
   const canAppeal = caseId != null && caseAppeal == null &&
     (accountState !== 'active' || restrictedUntil != null);
   const statementValid = statement.trim().length >= 10;
+  const showStatusCard = accountState !== 'active' || restrictedUntil != null ||
+    (!warningLoadError && !(statusQuery.isError && status == null));
 
   const scheduleDeletion = () => {
     setDeletionError(null);
@@ -132,7 +172,53 @@ export default function AccountModerationScreen({
         contentContainerClassName="px-lg py-2xl gap-lg"
         keyboardShouldPersistTaps="handled"
       >
-        <View className="rounded-2xl border border-divider bg-surface p-xl gap-sm">
+        {requestedWarningId != null && !warningReady && !warningLoadError && (
+          <ActivityIndicator color={palette.textMuted} accessibilityLabel="Loading warning" />
+        )}
+        {requestedWarningId != null && warningLoadError && (
+          <View className="rounded-2xl border border-divider bg-surface p-lg gap-sm">
+            <AppText accessibilityRole="alert" className="text-[16px] font-bold text-default">
+              Warning unavailable
+            </AppText>
+            <AppText className="text-[14px] text-muted">Could not load this warning. Please try again.</AppText>
+            <Pressable accessibilityRole="button" onPress={() => {
+              setWarningLoadError(false);
+              setLoadedWarningKey(null);
+              void statusQuery.refetch().then((result) => {
+                const found = result.isSuccess &&
+                  result.data?.warnings?.some((warning) => warning.id === requestedWarningId);
+                setLoadedWarningKey(found ? requestedWarningKey : null);
+                setWarningLoadError(!found);
+              });
+            }} className="min-h-touch items-center justify-center rounded-xl border border-default">
+              <AppText className="font-semibold text-default">Retry warning</AppText>
+            </Pressable>
+          </View>
+        )}
+        {selectedWarning != null && (
+          <View testID="selected-moderation-warning" className="rounded-2xl border border-warning bg-warning-tint p-xl gap-sm">
+            <AppText accessibilityRole="header" className="text-xl font-bold text-default">Account warning</AppText>
+            <AppText className="text-[15px] leading-6 text-default">{selectedWarning.message}</AppText>
+          </View>
+        )}
+        {status?.warnings != null && status.warnings.length > 0 && (
+          <View className="gap-sm">
+            <AppText accessibilityRole="header" className="text-lg font-bold text-default">Warnings</AppText>
+            {status.warnings.filter((warning) => warning.id !== selectedWarning?.id).map((warning) => (
+              <View key={warning.id} className="rounded-2xl border border-warning bg-warning-tint p-lg gap-xs">
+                <AppText className="text-[14px] font-semibold text-default">Account warning</AppText>
+                <AppText className="text-[14px] leading-6 text-default">{warning.message}</AppText>
+                <AppText className="text-[12px] text-muted">{formatExpiry(warning.created_at)}</AppText>
+              </View>
+            ))}
+          </View>
+        )}
+        {statusQuery.isError && status == null && requestedWarningId == null && (
+          <AppText accessibilityRole="alert" className="text-[14px] text-danger">
+            Could not load account status. Please refresh and try again.
+          </AppText>
+        )}
+        {showStatusCard && <View className="rounded-2xl border border-divider bg-surface p-xl gap-sm">
           <AppText className="text-2xl font-bold text-default">{copy.title}</AppText>
           <AppText className="text-[15px] leading-6 text-muted">{copy.message}</AppText>
           {copy.expiry != null && (
@@ -145,7 +231,7 @@ export default function AccountModerationScreen({
           {caseId != null && (
             <AppText className="text-[12px] text-muted">Reference: case {caseId}</AppText>
           )}
-        </View>
+        </View>}
 
         {statusQuery.isLoading && (
           <ActivityIndicator color={palette.textMuted} accessibilityLabel="Loading account status" />

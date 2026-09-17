@@ -85,6 +85,13 @@ export interface AccountModerationStatus {
   readonly interaction_restricted_until: string | null;
   readonly interaction_restriction_case_id: number | null;
   readonly appeals: readonly ModerationAppeal[];
+  readonly warnings: readonly ModerationWarning[];
+}
+
+export interface ModerationWarning {
+  readonly id: number;
+  readonly message: string;
+  readonly created_at: string;
 }
 
 export interface ModerationAppealInput {
