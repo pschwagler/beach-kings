@@ -6,6 +6,7 @@ import AppText from '@/components/ui/AppText';
 import { getApiResponseErrorMessage } from '@/lib/apiError';
 import { useModerationMutations } from '@/features/moderation';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { useModalAccessibility } from '@/components/ui/useModalAccessibility';
 
 const REASONS: readonly { value: ReportReason; label: string }[] = [
   { value: 'harassment', label: 'Harassment or bullying' },
@@ -36,6 +37,7 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { modalRef, focusInitialElement } = useModalAccessibility({ visible: true });
 
   const submit = async () => {
     if (reason == null || submitting.current) return;
@@ -58,11 +60,20 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
   };
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView testID="report-keyboard-avoider" style={{ flex: 1 }} behavior="padding" enabled={Platform.OS === 'ios'} accessible={false} accessibilityViewIsModal>
+    <Modal transparent animationType="slide" onRequestClose={onClose} onShow={focusInitialElement} statusBarTranslucent accessibilityViewIsModal>
+      <KeyboardAvoidingView testID="report-keyboard-avoider" style={{ flex: 1 }} behavior="padding" enabled={Platform.OS === 'ios'} accessible={false}>
       <View style={{ flex: 1 }} className="justify-end">
         <Pressable className="absolute inset-0 bg-black/50" onPress={onClose} accessible={false} importantForAccessibility="no" />
-      <View className="bg-elevated rounded-t-3xl px-lg pt-sm" style={{ maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 16) }}>
+      <View
+        ref={modalRef}
+        testID="report-dialog"
+        role="dialog"
+        accessibilityLabel="Report"
+        accessibilityViewIsModal
+        onAccessibilityEscape={onClose}
+        className="bg-elevated rounded-t-3xl px-lg pt-sm"
+        style={{ maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 16) }}
+      >
         <View className="flex-row items-center justify-between">
         <AppText accessibilityRole="header" className="text-xl font-bold text-default">Report</AppText>
         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close report" className="min-h-touch justify-center px-sm">

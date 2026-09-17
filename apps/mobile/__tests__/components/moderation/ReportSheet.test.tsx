@@ -37,7 +37,8 @@ describe('ReportSheet urgent report reasons', () => {
     const screen = render(<ReportSheet targetType="player" targetId={42} onClose={jest.fn()} />);
     expect(screen.getByTestId('report-form-scroll').props.keyboardShouldPersistTaps).toBe('handled');
     expect(screen.getByTestId('report-keyboard-avoider').props.accessible).toBe(false);
-    expect(screen.getByTestId('report-keyboard-avoider').props.accessibilityViewIsModal).toBe(true);
+    expect(screen.getByTestId('report-dialog').props.accessibilityViewIsModal).toBe(true);
+    expect(screen.getByTestId('report-dialog').props.role).toBe('dialog');
     expect(screen.getByLabelText('Close report')).toBeTruthy();
     expect(screen.getByText('Dismiss keyboard')).toBeTruthy();
     fireEvent.press(screen.getByText('Other'));
