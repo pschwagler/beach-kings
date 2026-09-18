@@ -1,12 +1,14 @@
-import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReportReason, ReportTargetType } from '@beach-kings/shared';
 import AppText from '@/components/ui/AppText';
 import { getApiResponseErrorMessage } from '@/lib/apiError';
 import { useModerationMutations } from '@/features/moderation';
 import { usePaletteColors } from '@/theme/usePaletteColors';
-import { useModalAccessibility } from '@/components/ui/useModalAccessibility';
+import BottomSheet from '@/components/ui/BottomSheet';
+import useKeyboard from '@/hooks/useKeyboard';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const REASONS: readonly { value: ReportReason; label: string }[] = [
   { value: 'harassment', label: 'Harassment or bullying' },
@@ -37,7 +39,25 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { modalRef, focusInitialElement } = useModalAccessibility({ visible: true });
+  const { isDark } = useTheme();
+  const { isVisible: keyboardVisible } = useKeyboard();
+  const { fontScale } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
+  const detailsFocused = useRef(false);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [formHeight, setFormHeight] = useState(0);
+  const [counterHeight, setCounterHeight] = useState(0);
+  // Keep several lines visible; longer drafts scroll inside the native editor.
+  // The editor itself must also fit the scrolling viewport at large text sizes.
+  const editorLimit = formHeight > 0 ? Math.max(56, formHeight - counterHeight - 28) : 240;
+  const detailsHeight = Math.min(Math.max(112, 88 * fontScale, contentHeight), 240, editorLimit);
+  const revealDetails = useCallback(() => {
+    if (detailsFocused.current) scrollRef.current?.scrollToEnd({ animated: false });
+  }, []);
+
+  useEffect(() => {
+    if (keyboardVisible) revealDetails();
+  }, [keyboardVisible, revealDetails]);
 
   const submit = async () => {
     if (reason == null || submitting.current) return;
@@ -60,27 +80,32 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
   };
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose} onShow={focusInitialElement} statusBarTranslucent accessibilityViewIsModal>
-      <KeyboardAvoidingView testID="report-keyboard-avoider" style={{ flex: 1 }} behavior="padding" enabled={Platform.OS === 'ios'} accessible={false}>
-      <View style={{ flex: 1 }} className="justify-end">
-        <Pressable className="absolute inset-0 bg-black/50" onPress={onClose} accessible={false} importantForAccessibility="no" />
-      <View
-        ref={modalRef}
-        testID="report-dialog"
-        role="dialog"
-        accessibilityLabel="Report"
-        accessibilityViewIsModal
-        onAccessibilityEscape={onClose}
-        className="bg-elevated rounded-t-3xl px-lg pt-sm"
-        style={{ maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 16) }}
-      >
-        <View className="flex-row items-center justify-between">
+    <BottomSheet
+      visible
+      onClose={onClose}
+      testID="report-dialog"
+      accessibilityLabel="Report"
+      className="bg-elevated"
+      style={{ height: '90%', maxHeight: '100%' }}
+    >
+      {/* Remeasure static controls after an in-place Dynamic Type change. */}
+      <View key={`header-${fontScale}`} style={{ flexShrink: 0 }} className="flex-row items-center justify-between px-lg">
         <AppText accessibilityRole="header" className="text-xl font-bold text-default">Report</AppText>
         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close report" className="min-h-touch justify-center px-sm">
           <AppText className="text-brand-teal">Close</AppText>
         </Pressable>
-        </View>
-        <ScrollView testID="report-form-scroll" style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      </View>
+      <ScrollView
+        ref={scrollRef}
+        testID="report-form-scroll"
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 16 }}
+        onLayout={(event) => { setFormHeight(event.nativeEvent.layout.height); revealDetails(); }}
+        onContentSizeChange={revealDetails}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets={false}
+      >
         <AppText className="text-sm text-muted mt-xs mb-md">Choose the reason that best describes the problem.</AppText>
         <View className="flex-row flex-wrap gap-sm">
           {REASONS.map((item) => (
@@ -98,31 +123,46 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
         <TextInput
           value={details}
           onChangeText={(text) => setDetails(text.slice(0, 1000))}
+          onFocus={() => { detailsFocused.current = true; revealDetails(); }}
+          onBlur={() => { detailsFocused.current = false; }}
+          onContentSizeChange={(event) => setContentHeight(event.nativeEvent.contentSize.height)}
           placeholder="Add details (optional)"
           placeholderTextColor={palette.textMuted}
+          keyboardAppearance={isDark ? 'dark' : 'light'}
           multiline
+          submitBehavior="newline"
+          textAlignVertical="top"
+          scrollEnabled
           maxLength={1000}
-          className="min-h-[88px] mt-md rounded-xl border border-divider bg-surface px-md py-sm text-default"
+          style={{ height: detailsHeight, flexShrink: 0, color: palette.textDefault, fontSize: 16 }}
+          className="mt-md rounded-xl border border-divider bg-surface px-md py-sm"
           accessibilityLabel="Report details"
         />
-        <AppText className="text-xs text-muted text-right mt-xs">{details.length}/1000</AppText>
-        <Pressable onPress={Keyboard.dismiss} accessibilityRole="button" className="min-h-touch justify-center self-end px-sm">
-          <AppText className="text-brand-teal">Dismiss keyboard</AppText>
-        </Pressable>
+        <AppText key={`counter-${fontScale}`} onLayout={(event) => setCounterHeight(event.nativeEvent.layout.height)} className="text-xs text-muted text-right mt-xs">{details.length}/1000</AppText>
         {error != null && <AppText className="text-sm text-danger mt-sm" accessibilityRole="alert">{error}</AppText>}
-        </ScrollView>
+      </ScrollView>
+      {/* Actions stay in the keyboard-adjusted viewport, outside the form's scroll area. */}
+      <View
+        key={`actions-${fontScale}`}
+        testID="report-actions"
+        style={{ flexShrink: 0, paddingBottom: keyboardVisible ? 8 : Math.max(insets.bottom, 16) }}
+        className="px-lg pt-sm border-t border-divider"
+      >
+        {keyboardVisible && (
+          <Pressable onPress={Keyboard.dismiss} accessibilityRole="button" accessibilityLabel="Dismiss keyboard" className="min-h-touch justify-center self-end px-sm">
+            <AppText className="text-brand-teal">{fontScale > 1.5 ? 'Done' : 'Dismiss keyboard'}</AppText>
+          </Pressable>
+        )}
         <Pressable
           onPress={() => { void submit(); }}
           disabled={reason == null || report.isPending}
           accessibilityRole="button"
           accessibilityState={{ disabled: reason == null || report.isPending }}
-          className={`min-h-touch rounded-xl items-center justify-center mt-md ${reason == null ? 'bg-inset' : 'bg-brand-gold'}`}
+          className={`min-h-touch rounded-xl items-center justify-center ${reason == null ? 'bg-inset' : 'bg-brand-gold'}`}
         >
           {report.isPending ? <ActivityIndicator color={palette.textDefault} /> : <AppText className="font-bold text-on-brand-gold">Submit report</AppText>}
         </Pressable>
       </View>
-      </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </BottomSheet>
   );
 }
