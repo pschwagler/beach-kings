@@ -9,6 +9,7 @@ jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
+    useSafeAreaInsets: () => ({ top: 47, right: 0, bottom: 34, left: 0 }),
     SafeAreaView: React.forwardRef(
       (
         { children, ...props }: { children?: React.ReactNode },

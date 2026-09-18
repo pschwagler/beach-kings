@@ -10,8 +10,12 @@ import {
   Platform,
   Pressable,
   View,
+  useWindowDimensions,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -27,9 +31,12 @@ import {
 interface BottomSheetProps {
   readonly visible: boolean;
   readonly onClose: () => void;
+  readonly onDismiss?: () => void;
   readonly children: React.ReactNode;
   readonly snapPoints?: number[];
   readonly className?: string;
+  /** Bound form sheets to the available viewport after keyboard avoidance. */
+  readonly style?: StyleProp<ViewStyle>;
   readonly testID?: string;
   readonly accessibilityLabel?: string;
   readonly initialFocusRef?: AccessibilityFocusRef;
@@ -42,8 +49,10 @@ const SLIDE_DURATION = 280;
 export default function BottomSheet({
   visible,
   onClose,
+  onDismiss,
   children,
   className = '',
+  style,
   testID,
   accessibilityLabel = 'Bottom sheet',
   initialFocusRef,
@@ -51,7 +60,9 @@ export default function BottomSheet({
   keyboardAvoidanceEnabled = true,
 }: BottomSheetProps): React.ReactNode {
   const reduceMotion = useReducedMotion();
-  const translateY = useSharedValue(600);
+  const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const translateY = useSharedValue(windowHeight);
   const { modalRef, focusInitialElement } = useModalAccessibility({
     visible,
     initialFocusRef,
@@ -65,12 +76,12 @@ export default function BottomSheet({
         easing: Easing.out(Easing.cubic),
       });
     } else {
-      translateY.value = withTiming(600, {
+      translateY.value = withTiming(windowHeight, {
         duration: reduceMotion ? 0 : SLIDE_DURATION,
         easing: Easing.in(Easing.cubic),
       });
     }
-  }, [reduceMotion, translateY, visible]);
+  }, [reduceMotion, translateY, visible, windowHeight]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -82,6 +93,7 @@ export default function BottomSheet({
       transparent
       animationType="none"
       onRequestClose={onClose}
+      onDismiss={onDismiss}
       onShow={focusInitialElement}
       accessibilityViewIsModal
     >
@@ -101,12 +113,12 @@ export default function BottomSheet({
           importantForAccessibility="no"
         />
 
-        <View className="flex-1 justify-end" pointerEvents="box-none">
+        <View className="flex-1 justify-end" style={{ paddingTop: insets.top }} pointerEvents="box-none">
           {/* Sheet content */}
           <Animated.View
             ref={modalRef}
             testID={testID}
-            style={animatedStyle}
+            style={[style, animatedStyle]}
             className={`bg-surface rounded-t-2xl ${className}`}
             role="dialog"
             accessibilityLabel={accessibilityLabel}

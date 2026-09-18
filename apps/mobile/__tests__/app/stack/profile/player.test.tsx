@@ -16,7 +16,7 @@
  */
 
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Modal as RNModal } from 'react-native';
 import type { AlertButton } from 'react-native';
 import {
   render as renderWithTestingLibrary,
@@ -444,6 +444,11 @@ describe('PlayerProfileScreen — action sheet', () => {
     await waitFor(() => expect(screen.getByTestId('player-profile-screen')).toBeTruthy());
     fireEvent.press(screen.getByTestId('player-more-btn'));
     fireEvent.press(screen.getByTestId('action-sheet-report'));
+
+    expect(screen.queryByText('Choose the reason that best describes the problem.')).toBeNull();
+    const closingModal = screen.UNSAFE_getAllByType(RNModal).find((modal) => modal.props.onDismiss != null);
+    expect(closingModal?.props.visible).toBe(false);
+    fireEvent(closingModal!, 'dismiss');
 
     expect(screen.getByText('Choose the reason that best describes the problem.')).toBeTruthy();
     expect(screen.getByText('Harassment or bullying')).toBeTruthy();

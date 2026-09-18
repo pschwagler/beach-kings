@@ -21,8 +21,8 @@ interface UseKeyboardResult {
  * up the subscriptions on unmount.
  */
 function useKeyboard(): UseKeyboardResult {
-  const [isVisible, setIsVisible] = useState<boolean>(false);
-  const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
+  const [isVisible, setIsVisible] = useState(() => Keyboard.isVisible());
+  const [keyboardHeight, setKeyboardHeight] = useState(() => Keyboard.metrics()?.height ?? 0);
 
   useEffect(() => {
     const showSubscription = Keyboard.addListener(
