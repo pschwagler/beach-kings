@@ -3,6 +3,12 @@ import '@testing-library/jest-native/extend-expect';
 import { act } from '@testing-library/react-native';
 import { notifyManager, timeoutManager } from '@tanstack/react-query';
 
+// Shared sheets read safe-area metrics even when a focused screen test omits
+// the app's root provider. Keep native geometry deterministic in Jest.
+jest.mock('react-native-safe-area-context', () =>
+  require('react-native-safe-area-context/jest/mock').default,
+);
+
 // Expo 57 installs `fetch` lazily. Resolve it while Jest's native-module mocks
 // are still active so late async cleanup cannot trigger ExpoModulesCore after
 // the test environment has already been torn down.
