@@ -265,6 +265,7 @@ describe('SettingsScreen — render', () => {
       expect(screen.getByTestId('settings-row-phone')).toBeTruthy();
       expect(screen.getByTestId('settings-row-google')).toBeTruthy();
       expect(screen.getByTestId('settings-row-privacy')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-account-status')).toBeTruthy();
       expect(screen.getByTestId('settings-row-notifications')).toBeTruthy();
       expect(screen.getByTestId('settings-row-appearance')).toBeTruthy();
       expect(screen.getByTestId('settings-row-feedback')).toBeTruthy();
@@ -315,6 +316,12 @@ describe('SettingsScreen — navigation', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-privacy'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/settings/privacy');
+  });
+
+  it('keeps warning history reachable from account status', () => {
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-account-status'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/settings/account-status');
   });
 
   it('navigates to notifications when notifications row is pressed', () => {

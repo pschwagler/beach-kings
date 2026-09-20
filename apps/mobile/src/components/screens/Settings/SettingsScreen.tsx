@@ -392,20 +392,18 @@ export default function SettingsScreen(): React.ReactNode {
           />
         </View>
 
-        {user?.interaction_restricted_until != null && (
-          <>
-            <SectionLabel title="Account" />
-            <View>
-              <SettingsRow
-                testID="settings-row-account-status"
-                label="Social features limited"
-                value="View status"
-                valueColor="text-brand-teal"
-                onPress={handleAccountStatus}
-              />
-            </View>
-          </>
-        )}
+        <SectionLabel title="Account" />
+        <View>
+          <SettingsRow
+            testID="settings-row-account-status"
+            label={user?.interaction_restricted_until != null
+              ? 'Social features limited'
+              : 'Account status'}
+            value="View status"
+            valueColor="text-brand-teal"
+            onPress={handleAccountStatus}
+          />
+        </View>
 
         <SectionLabel title="Notifications" />
         <View>
