@@ -304,10 +304,17 @@ export default function SeasonFormSheet({
                         key={option.value}
                         testID={`scoring-${option.value}`}
                         onPress={() => setField('scoring_system', option.value)}
-                        className={`flex-1 items-center rounded-[8px] border px-3 py-[10px] active:opacity-75 ${
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: selected }}
+                        className={`min-h-touch flex-1 flex-row items-center justify-center gap-2 rounded-[8px] border px-3 py-[10px] active:opacity-75 ${
                           selected ? 'border-brand-teal bg-info-tint' : 'border-divider bg-elevated'
                         }`}
                       >
+                        {selected && (
+                          <AppText accessibilityElementsHidden importantForAccessibility="no" className="text-[12px] font-bold text-brand-teal">
+                            ✓
+                          </AppText>
+                        )}
                         <AppText
                           className={`text-[12px] font-bold ${
                             selected ? 'text-brand-teal' : 'text-muted'

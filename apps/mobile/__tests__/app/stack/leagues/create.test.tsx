@@ -211,6 +211,36 @@ describe('CreateLeagueScreen — render', () => {
     expect(screen.getByTestId('court-picker-row')).toBeTruthy();
   });
 
+  it('exposes level and location selection state without relying on color', async () => {
+    mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
+    render(<CreateLeagueRoute />);
+
+    const level = screen.getByTestId('level-option-AA');
+    expect(level.props.accessibilityRole).toBe('radio');
+    expect(level.props.accessibilityState.checked).toBe(false);
+    expect(level.props.className).toContain('min-h-touch');
+    fireEvent.press(level);
+    expect(screen.getByTestId('level-option-AA').props.accessibilityState.checked).toBe(true);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location-picker-row').props.accessibilityState.disabled)
+        .toBe(false);
+    });
+    expect(screen.getByTestId('location-picker-row').props.accessibilityValue)
+      .toEqual({ text: 'Select location…' });
+    fireEvent.press(screen.getByTestId('location-picker-row'));
+    expect(screen.getByTestId('location-search-input').props.accessibilityLabel)
+      .toBe('Search locations');
+    expect(screen.getByTestId('location-modal-option-none').props.accessibilityRole)
+      .toBe('radio');
+    expect(screen.getByTestId('location-modal-option-none').props.accessibilityState.checked)
+      .toBe(true);
+    fireEvent.press(await screen.findByTestId('location-modal-option-socal_sd'));
+    fireEvent.press(screen.getByTestId('location-picker-row'));
+    expect(screen.getByTestId('location-modal-option-socal_sd').props.accessibilityState.checked)
+      .toBe(true);
+  });
+
   it('loads selected-location courts through the private court Query catalog', async () => {
     mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
     const client = makeClient();

@@ -107,6 +107,12 @@ describe('SessionEditScreen', () => {
     expect(screen.queryByText('Context')).toBeNull();
     expect(screen.getByTestId('edit-session-ranked-toggle').props.disabled).toBe(true);
     expect(screen.queryByTestId('edit-session-type-league')).toBeNull();
+    expect(screen.getByTestId('edit-session-season-10').props.accessibilityRole).toBe('radio');
+    expect(screen.getByTestId('edit-session-season-10').props.accessibilityState.checked).toBe(true);
+    expect(screen.getByTestId('edit-session-season-none').props.accessibilityState.checked).toBe(false);
+    fireEvent.press(screen.getByTestId('edit-session-season-none'));
+    expect(screen.getByTestId('edit-session-season-none').props.accessibilityState.checked).toBe(true);
+    expect(screen.getByTestId('edit-session-season-10').props.accessibilityState.checked).toBe(false);
   });
 
   it('omits the league/context block for pickup sessions', async () => {
@@ -143,6 +149,10 @@ describe('SessionEditScreen', () => {
     mockUpdateSession.mockResolvedValue({});
     render(<SessionEditRoute />);
     await waitFor(() => expect(screen.getByTestId('edit-session-season-10')).toBeTruthy());
+
+    expect(screen.getByTestId('edit-session-court-picker').props.accessibilityLabel).toBe('Court');
+    expect(screen.getByTestId('edit-session-court-picker').props.accessibilityValue)
+      .toEqual({ text: 'Ocean Beach' });
 
     fireEvent.press(screen.getByTestId('edit-session-court-picker'));
     await waitFor(() => expect(screen.getByTestId('edit-session-court-option-8')).toBeTruthy());

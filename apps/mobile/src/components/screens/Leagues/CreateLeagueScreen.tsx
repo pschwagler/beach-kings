@@ -190,12 +190,23 @@ function LevelSelector({
               void hapticLight();
               onChange(isActive ? "" : lvl);
             }}
-            className={`px-4 py-[10px] rounded-[8px] border ${
+            className={`min-h-touch flex-row items-center justify-center gap-2 px-4 py-[10px] rounded-[8px] border ${
               isActive
                 ? "bg-brand-teal border-brand-teal"
                 : "bg-surface border-strong"
             } active:opacity-70`}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: isActive }}
           >
+            {isActive && (
+              <AppText
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+                className="text-[13px] font-bold text-on-brand-teal"
+              >
+                ✓
+              </AppText>
+            )}
             <AppText
               className={`text-[13px] font-semibold ${
                 isActive ? "text-on-brand-teal" : "text-muted"
@@ -248,6 +259,8 @@ function PickerRow({
       }`}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityValue={{ text: loading ? 'Loading' : hasValue ? value : placeholder }}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
       <View className="flex-1">
         <AppText className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-[2px]">
@@ -339,6 +352,7 @@ function LocationPickerModal({
           <View className="bg-surface rounded-[10px] flex-row items-center px-3 py-[10px]">
             <AppText className="text-muted mr-2">🔍</AppText>
             <TextInput
+              testID="location-search-input"
               value={query}
               onChangeText={setQuery}
               placeholder="Search locations…"
@@ -347,6 +361,7 @@ function LocationPickerModal({
               autoCapitalize="none"
               autoCorrect={false}
               clearButtonMode="while-editing"
+              accessibilityLabel="Search locations"
             />
           </View>
         </View>
@@ -380,6 +395,9 @@ function LocationPickerModal({
                 className={`flex-row items-center px-4 py-[14px] ${
                   index > 0 ? "border-t border-divider" : ""
                 } active:opacity-70 ${isActive ? "bg-info-tint" : ""}`}
+                accessibilityRole="radio"
+                accessibilityLabel={label}
+                accessibilityState={{ checked: isActive }}
               >
                 <View
                   className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
