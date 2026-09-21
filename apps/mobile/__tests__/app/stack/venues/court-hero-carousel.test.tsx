@@ -4,7 +4,7 @@
  * Covers:
  *   - Multiple photos: all slides render, dot count matches, court-hero-image present
  *   - Single photo: one slide renders, no dots shown, court-hero-image present
- *   - No photos: picsum placeholder slide renders, court-hero-image present
+ *   - No photos: neutral local empty state renders, court-hero-image present
  */
 
 import React from 'react';
@@ -193,9 +193,15 @@ describe('CourtHeroCarousel — no photos', () => {
     expect(screen.getByTestId('court-hero-image')).toBeTruthy();
   });
 
-  it('renders exactly one slide (picsum placeholder)', () => {
+  it('renders a local neutral empty state without a carousel slide', () => {
     render(<CourtHeroCarousel court={court} />);
-    expect(screen.getAllByTestId('carousel-slide').length).toBe(1);
+    expect(
+      screen.getByTestId('court-photo-placeholder', { includeHiddenElements: true }),
+    ).toBeTruthy();
+    expect(screen.getByText('No photos yet', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryAllByTestId('carousel-slide')).toHaveLength(0);
+    expect(screen.queryByLabelText('Court photo 1')).toBeNull();
+    expect(screen.getByLabelText('No court photos yet')).toBeTruthy();
   });
 
   it('does not render dot indicators when no photos', () => {

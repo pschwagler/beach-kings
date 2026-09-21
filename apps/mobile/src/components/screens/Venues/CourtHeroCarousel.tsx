@@ -7,7 +7,7 @@
  * indicators are displayed below the images reflecting the current page.
  *
  * Photo source priority: `court.court_photos` → `court.all_photos`.
- * If both are empty or undefined, a single picsum placeholder is shown.
+ * If both are empty or undefined, a local neutral empty state is shown.
  *
  * The first/active image carries `testID="court-hero-image"` so that
  * existing CourtDetailScreen tests continue to pass unchanged.
@@ -47,13 +47,6 @@ const HERO_HEIGHT = 200;
  */
 function resolvePhotos(court: Court): CourtPhoto[] {
   return court.court_photos ?? court.all_photos ?? [];
-}
-
-/**
- * Returns the placeholder picsum URL for a court with no uploaded photos.
- */
-function placeholderUrl(courtId: number | string): string {
-  return `https://picsum.photos/seed/court${courtId}/800/400`;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,12 +130,6 @@ export default function CourtHeroCarousel({
   const photos = resolvePhotos(court);
   const hasPhotos = photos.length > 0;
 
-  // Build the ordered list of slides. If there are no uploaded photos we
-  // render a single placeholder slide so the hero area is never empty.
-  const slides: CourtPhoto[] = hasPhotos
-    ? photos
-    : [{ id: -1, url: placeholderUrl(court.id) }];
-
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetX = event.nativeEvent.contentOffset.x;
@@ -153,6 +140,28 @@ export default function CourtHeroCarousel({
   );
 
   const totalPhotoCount = court.photo_count ?? (hasPhotos ? photos.length : 0);
+
+  if (!hasPhotos) {
+    return (
+      <View
+        testID="court-hero-image"
+        className="relative bg-elevated items-center justify-center px-6"
+        style={{ width: windowWidth, height: HERO_HEIGHT }}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel="No court photos yet"
+      >
+        <View
+          testID="court-photo-placeholder"
+          className="w-16 h-12 rounded-xl border-2 border-divider bg-surface mb-3"
+          importantForAccessibility="no-hide-descendants"
+        />
+        <AppText className="text-[15px] font-semibold text-muted text-center">
+          No photos yet
+        </AppText>
+      </View>
+    );
+  }
 
   return (
     <View testID="court-hero-image" className="relative">
@@ -167,7 +176,7 @@ export default function CourtHeroCarousel({
         style={{ width: windowWidth, height: HERO_HEIGHT }}
         contentContainerStyle={{ alignItems: 'stretch' }}
       >
-        {slides.map((photo, index) => (
+        {photos.map((photo, index) => (
           <View
             key={photo.id}
             testID="carousel-slide"
@@ -194,7 +203,7 @@ export default function CourtHeroCarousel({
         ))}
       </ScrollView>
 
-      <DotIndicators count={slides.length} activeIndex={activeIndex} />
+      <DotIndicators count={photos.length} activeIndex={activeIndex} />
       <PhotoCountBadge count={totalPhotoCount} />
       {reportPhoto != null && (
         <ReportSheet
