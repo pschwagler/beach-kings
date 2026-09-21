@@ -5,12 +5,14 @@
  * manages search text and selected player IDs, and applies consent-aware adds.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { InvitablePlayer } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
 import { useAuth } from '@/contexts/AuthContext';
+import { leagueQueries } from '@/features/leagues/queries';
+import { shareLeagueInvitation } from '@/features/leagues/share';
 
 export interface UseLeagueInviteScreenResult {
   readonly players: InvitablePlayer[];
@@ -19,10 +21,12 @@ export interface UseLeagueInviteScreenResult {
   readonly searchQuery: string;
   readonly selectedIds: ReadonlySet<number>;
   readonly isSending: boolean;
+  readonly isSharing: boolean;
   readonly inviteError: string | null;
   readonly onChangeSearch: (q: string) => void;
   readonly onTogglePlayer: (id: number) => void;
   readonly onSendInvites: () => Promise<void>;
+  readonly onShareLink: () => Promise<void>;
   readonly onClearInviteError: () => void;
 }
 
@@ -38,7 +42,9 @@ export function useLeagueInviteScreen(
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
   const [isSending, setIsSending] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const shareInFlightRef = useRef(false);
 
   const playersQuery = useQuery({
     queryKey: leagueKeys.invitablePlayers(userId, leagueId, searchQuery),
@@ -46,6 +52,7 @@ export function useLeagueInviteScreen(
       api.getInvitablePlayers(Number(leagueId), searchQuery || undefined),
     enabled: userId > 0,
   });
+  const detailQuery = useQuery(leagueQueries.detail(userId, leagueId));
 
   const onChangeSearch = useCallback((q: string) => {
     setSearchQuery(q);
@@ -91,6 +98,22 @@ export function useLeagueInviteScreen(
     setInviteError(null);
   }, []);
 
+  const onShareLink = useCallback(async (): Promise<void> => {
+    if (shareInFlightRef.current) return;
+    shareInFlightRef.current = true;
+    setIsSharing(true);
+    setInviteError(null);
+    try {
+      const league = detailQuery.data ?? (await detailQuery.refetch()).data;
+      await shareLeagueInvitation(leagueId, league?.name ?? '');
+    } catch {
+      setInviteError('Could not share this league. Please try again.');
+    } finally {
+      shareInFlightRef.current = false;
+      setIsSharing(false);
+    }
+  }, [detailQuery.data, detailQuery.refetch, leagueId]);
+
   return {
     players: playersQuery.data ?? [],
     isLoading: playersQuery.isLoading,
@@ -98,10 +121,12 @@ export function useLeagueInviteScreen(
     searchQuery,
     selectedIds,
     isSending,
+    isSharing,
     inviteError,
     onChangeSearch,
     onTogglePlayer,
     onSendInvites,
+    onShareLink,
     onClearInviteError,
   };
 }
