@@ -14,7 +14,7 @@ const EXPECTED = Object.freeze({
   googleRedirectScheme:
     'com.googleusercontent.apps.817191446075-ddkmr5ml8quamvf5258dp9tbuabfv4rc',
   locationPurpose:
-    'Beach League uses your location to suggest the nearest league location.',
+    'Beach League uses your location to help you find nearby leagues, courts, and players. You can also browse without sharing your location.',
   motionPurpose:
     'Beach League uses motion activity to support location features when helping you find nearby courts.',
   easImage: 'macos-tahoe-26.5-xcode-26.6',
