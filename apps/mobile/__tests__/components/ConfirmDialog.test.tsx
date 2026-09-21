@@ -134,6 +134,7 @@ describe('ConfirmDialog', () => {
       expect(dialog).toHaveProp('role', 'dialog');
       expect(dialog).toHaveProp('accessibilityLabel', 'Discard this game?');
       expect(dialog).toHaveProp('accessibilityViewIsModal', true);
+      expect(screen.getByRole('header')).toHaveProp('accessibilityLabel', 'Discard this game?');
       expect(screen.getByLabelText('Discard')).toBeTruthy();
       expect(screen.getByLabelText('Keep Scoring')).toBeTruthy();
       expect(screen.getByTestId('dlg-backdrop', { includeHiddenElements: true }))

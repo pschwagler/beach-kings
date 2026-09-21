@@ -258,6 +258,7 @@ export default function PlayerProfileScreen({
           targetId={numericPlayerId}
           onClose={() => setShowReportSheet(false)}
           onSubmitted={() => Alert.alert('Report received', 'Thank you for helping keep Beach League safe.')}
+          returnFocusRef={moreButtonRef}
         />
       )}
       <BlockPlayerDialog

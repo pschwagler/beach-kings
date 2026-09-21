@@ -454,6 +454,21 @@ describe('PlayerProfileScreen — action sheet', () => {
     expect(screen.getByText('Harassment or bullying')).toBeTruthy();
     // Action sheet closes after choosing report.
     expect(screen.queryByTestId('player-action-sheet')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Close report'));
+    const closingReportModal = screen.UNSAFE_getAllByType(RNModal).find(
+      (modal) => modal.props.visible === false && modal.props.onDismiss != null,
+    );
+    expect(closingReportModal).toBeDefined();
+    fireEvent(closingReportModal!, 'dismiss');
+    fireEvent.press(screen.getByTestId('player-more-btn'));
+    fireEvent.press(screen.getByTestId('action-sheet-report'));
+    const reopenedClosingModal = screen.UNSAFE_getAllByType(RNModal).find(
+      (modal) => modal.props.onDismiss != null,
+    );
+    expect(reopenedClosingModal?.props.visible).toBe(false);
+    fireEvent(reopenedClosingModal!, 'dismiss');
+    expect(screen.getByTestId('report-dialog')).toBeTruthy();
   });
 
   it('waits for the safety sheet to dismiss before opening block confirmation', async () => {

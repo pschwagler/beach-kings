@@ -9,6 +9,7 @@ import { usePaletteColors } from '@/theme/usePaletteColors';
 import BottomSheet from '@/components/ui/BottomSheet';
 import useKeyboard from '@/hooks/useKeyboard';
 import { useTheme } from '@/contexts/ThemeContext';
+import type { AccessibilityFocusRef } from '@/components/ui/useModalAccessibility';
 
 const REASONS: readonly { value: ReportReason; label: string }[] = [
   { value: 'harassment', label: 'Harassment or bullying' },
@@ -29,13 +30,17 @@ interface Props {
   readonly targetId: number;
   readonly onClose: () => void;
   readonly onSubmitted?: () => void;
+  readonly returnFocusRef?: AccessibilityFocusRef;
 }
 
-export default function ReportSheet({ targetType, targetId, onClose, onSubmitted }: Props) {
+export default function ReportSheet({ targetType, targetId, onClose, onSubmitted, returnFocusRef }: Props) {
   const palette = usePaletteColors();
   const insets = useSafeAreaInsets();
   const submitting = useRef(false);
+  const submitted = useRef(false);
+  const dismissed = useRef(false);
   const { report } = useModerationMutations();
+  const [visible, setVisible] = useState(true);
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +48,7 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
   const { isVisible: keyboardVisible } = useKeyboard();
   const { fontScale } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
+  const titleRef = useRef<View>(null);
   const detailsFocused = useRef(false);
   const [contentHeight, setContentHeight] = useState(0);
   const [formHeight, setFormHeight] = useState(0);
@@ -54,6 +60,15 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
   const revealDetails = useCallback(() => {
     if (detailsFocused.current) scrollRef.current?.scrollToEnd({ animated: false });
   }, []);
+  const close = useCallback(() => {
+    setVisible(false);
+  }, []);
+  const finishDismissal = useCallback(() => {
+    if (dismissed.current) return;
+    dismissed.current = true;
+    onClose();
+    if (submitted.current) onSubmitted?.();
+  }, [onClose, onSubmitted]);
 
   useEffect(() => {
     if (keyboardVisible) revealDetails();
@@ -70,8 +85,8 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
         reason,
         ...(details.trim() ? { details: details.trim() } : {}),
       });
-      onSubmitted?.();
-      onClose();
+      submitted.current = true;
+      close();
     } catch (cause) {
       setError(getApiResponseErrorMessage(cause, 'Could not submit this report. Please try again.'));
     } finally {
@@ -81,17 +96,22 @@ export default function ReportSheet({ targetType, targetId, onClose, onSubmitted
 
   return (
     <BottomSheet
-      visible
-      onClose={onClose}
+      visible={visible}
+      onClose={close}
+      onDismiss={finishDismissal}
       testID="report-dialog"
       accessibilityLabel="Report"
+      initialFocusRef={titleRef}
+      returnFocusRef={returnFocusRef}
       className="bg-elevated"
       style={{ height: '90%', maxHeight: '100%' }}
     >
       {/* Remeasure static controls after an in-place Dynamic Type change. */}
       <View key={`header-${fontScale}`} style={{ flexShrink: 0 }} className="flex-row items-center justify-between px-lg">
-        <AppText accessibilityRole="header" className="text-xl font-bold text-default">Report</AppText>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close report" className="min-h-touch justify-center px-sm">
+        <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel="Report">
+          <AppText accessible={false} className="text-xl font-bold text-default">Report</AppText>
+        </View>
+        <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close report" className="min-h-touch justify-center px-sm">
           <AppText className="text-brand-teal">Close</AppText>
         </Pressable>
       </View>

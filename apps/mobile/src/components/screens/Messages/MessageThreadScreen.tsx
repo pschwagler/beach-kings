@@ -382,6 +382,7 @@ export default function MessageThreadScreen({
           targetId={playerId}
           onClose={() => setShowPlayerReport(false)}
           onSubmitted={() => Alert.alert('Report received', 'Thank you for helping keep Beach League safe.')}
+          returnFocusRef={actionsButtonRef}
         />
       )}
       <BlockPlayerDialog
