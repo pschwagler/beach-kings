@@ -42,11 +42,11 @@ const HERO_HEIGHT = 200;
 
 /**
  * Resolves the ordered list of photos for a court, falling back to
- * `all_photos` when `court_photos` is absent, and ultimately to an empty
+ * `all_photos` when `court_photos` is empty or absent, and ultimately to an empty
  * array when neither is present.
  */
 function resolvePhotos(court: Court): CourtPhoto[] {
-  return court.court_photos ?? court.all_photos ?? [];
+  return court.court_photos?.length ? court.court_photos : (court.all_photos ?? []);
 }
 
 // ---------------------------------------------------------------------------

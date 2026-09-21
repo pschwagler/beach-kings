@@ -243,3 +243,20 @@ describe('CourtHeroCarousel — falls back to all_photos', () => {
     expect(screen.getAllByTestId('carousel-dot').length).toBe(2);
   });
 });
+
+describe('CourtHeroCarousel — empty court photos fall back to review photos', () => {
+  const photos = [makePhoto(20), makePhoto(21)];
+  const court = {
+    ...BASE_COURT,
+    photo_count: 2,
+    court_photos: [],
+    all_photos: photos,
+  };
+
+  it('keeps real uploaded photos visible when court_photos is empty', () => {
+    render(<CourtHeroCarousel court={court} />);
+    expect(screen.getAllByTestId('carousel-slide')).toHaveLength(2);
+    expect(screen.queryByLabelText('No court photos yet')).toBeNull();
+    expect(screen.getByText('2 photos')).toBeTruthy();
+  });
+});
