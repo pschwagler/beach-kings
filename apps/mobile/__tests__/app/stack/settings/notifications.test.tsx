@@ -4,7 +4,7 @@
  * Covers:
  *   - Loading skeleton while prefs are fetching
  *   - Error state on fetch failure + retry
- *   - All toggle rows render after data loads
+ *   - Supported toggle rows render after data loads
  *   - Master toggle is on when all prefs are true
  *   - Master toggle is off when any pref is false
  *   - Individual toggle calls onToggle with the correct key
@@ -224,7 +224,7 @@ describe('NotificationsSettingsScreen — toggles', () => {
     });
   });
 
-  it('renders all individual notification type toggles', async () => {
+  it('renders supported notification type toggles and hides the dormant tournament preference', async () => {
     render(<NotificationsRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('toggle-direct_messages')).toBeTruthy();
@@ -232,7 +232,8 @@ describe('NotificationsSettingsScreen — toggles', () => {
       expect(screen.getByTestId('toggle-friend_requests')).toBeTruthy();
       expect(screen.getByTestId('toggle-match_invites')).toBeTruthy();
       expect(screen.getByTestId('toggle-ranking_changes')).toBeTruthy();
-      expect(screen.getByTestId('toggle-tournament_updates')).toBeTruthy();
+      expect(screen.queryByTestId('toggle-tournament_updates')).toBeNull();
+      expect(screen.queryByText('Tournament Alerts')).toBeNull();
     });
   });
 

@@ -37,7 +37,6 @@ const TOGGLE_ROWS: ToggleRowConfig[] = [
   { key: 'friend_requests', label: 'Friend Requests' },
   { key: 'match_invites', label: 'Game Results' },
   { key: 'ranking_changes', label: 'Ranking Changes' },
-  { key: 'tournament_updates', label: 'Tournament Alerts' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -103,7 +102,7 @@ function ToggleRow({
 function NotificationsSkeleton(): React.ReactNode {
   return (
     <ScrollView testID="notifications-skeleton" className="flex-1" scrollEnabled={false}>
-      {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+      {[1, 2, 3, 4, 5, 6].map((i) => (
         <View key={i} className="px-lg py-md bg-surface border-b border-divider">
           <LoadingSkeleton width="100%" height={20} borderRadius={4} />
         </View>

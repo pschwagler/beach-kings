@@ -65,6 +65,19 @@ describe('WelcomeScreen', () => {
     expect(getByText('I Already Have an Account')).toBeTruthy();
   });
 
+  it('describes only currently available mobile features', () => {
+    const { getByText, queryByText } = render(<WelcomeScreen />);
+
+    expect(getByText('Track your games')).toBeTruthy();
+    expect(getByText('Join Leagues')).toBeTruthy();
+    expect(getByText('Find Players')).toBeTruthy();
+    expect(getByText('Discover Courts')).toBeTruthy();
+    expect(queryByText('Tournaments')).toBeNull();
+    expect(
+      queryByText('Create and manage tournaments with friends.'),
+    ).toBeNull();
+  });
+
   it('navigates to signup when "Get Started" is pressed', () => {
     const { getByText } = render(<WelcomeScreen />);
     fireEvent.press(getByText('Get Started'));
