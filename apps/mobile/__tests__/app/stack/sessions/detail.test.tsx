@@ -473,7 +473,7 @@ describe('SessionDetailScreen — menu', () => {
     });
   });
 
-  it('hides Copy Results and Duplicate while the session is active', async () => {
+  it('hides Copy Results while the session is active', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_ACTIVE);
     renderRoute();
     await waitFor(() => {
@@ -494,7 +494,7 @@ describe('SessionDetailScreen — menu', () => {
     expect(screen.getByTestId('session-menu-delete')).toBeTruthy();
   });
 
-  it('shows Copy Results and Duplicate once the session is submitted', async () => {
+  it('shows Copy Results without the unsupported duplicate action once submitted', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
     renderRoute();
     await waitFor(() => {
@@ -505,7 +505,7 @@ describe('SessionDetailScreen — menu', () => {
       expect(screen.getByTestId('session-bottom-sheet')).toBeTruthy();
     });
     expect(screen.getByTestId('session-menu-copy-results')).toBeTruthy();
-    expect(screen.getByTestId('session-menu-duplicate')).toBeTruthy();
+    expect(screen.queryByTestId('session-menu-duplicate')).toBeNull();
     expect(screen.getByTestId('session-menu-roster')).toHaveTextContent(
       'View Players',
     );

@@ -98,7 +98,7 @@ describe('SessionBottomSheet — submitted results', () => {
 
   it('copies deterministic submitted results once and closes after success', async () => {
     const onClose = jest.fn();
-    const { getByTestId } = render(
+    const { getByTestId, queryByTestId } = render(
       <SessionBottomSheet
         {...baseProps}
         status="submitted"
@@ -106,6 +106,7 @@ describe('SessionBottomSheet — submitted results', () => {
       />,
     );
 
+    expect(queryByTestId('session-menu-duplicate')).toBeNull();
     fireEvent.press(getByTestId('session-menu-copy-results'));
 
     await waitFor(() =>
