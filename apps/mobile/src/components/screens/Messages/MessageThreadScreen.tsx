@@ -292,7 +292,8 @@ export default function MessageThreadScreen({
           </View>
         )}
         onRefresh={onRefresh}
-          refreshScope={String(playerId)}
+        refreshScope={String(playerId)}
+        showRefreshAction={false}
         isRefreshing={isRefreshing}
         emptyState={<ThreadEmptyState />}
         bottomInset={insets.bottom}
