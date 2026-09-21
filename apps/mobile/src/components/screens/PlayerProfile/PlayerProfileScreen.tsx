@@ -18,7 +18,7 @@ import RefreshScrollView from '@/components/refresh/RefreshScrollView';
  * Wireframe ref: player-profile.html
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import AppText from '@/components/ui/AppText';
 import { AccessibilityInfo, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -62,6 +62,7 @@ export default function PlayerProfileScreen({
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const [showUnblockDialog, setShowUnblockDialog] = useState(false);
   const [safetyError, setSafetyError] = useState<string | null>(null);
+  const moreButtonRef = useRef<React.ElementRef<typeof Pressable>>(null);
   const numericPlayerId = typeof playerId === 'string' ? Number(playerId) : playerId;
   const safety = usePlayerSafety(numericPlayerId);
 
@@ -183,6 +184,7 @@ export default function PlayerProfileScreen({
 
   const rightAction = (
     <Pressable
+      ref={moreButtonRef}
       testID="player-more-btn"
       onPress={handleMorePress}
       accessibilityRole="button"
@@ -247,6 +249,7 @@ export default function PlayerProfileScreen({
           onReport={handleReport}
           onBlockChange={handleBlock}
           onClose={() => setShowActionSheet(false)}
+          returnFocusRef={moreButtonRef}
         />
       )}
       {showReportSheet && (
@@ -264,6 +267,7 @@ export default function PlayerProfileScreen({
         errorMessage={safetyError}
         onConfirm={confirmBlock}
         onCancel={() => setShowBlockDialog(false)}
+        returnFocusRef={moreButtonRef}
       />
       <UnblockPlayerDialog
         visible={showUnblockDialog}
@@ -272,6 +276,7 @@ export default function PlayerProfileScreen({
         errorMessage={safetyError}
         onConfirm={confirmUnblock}
         onCancel={() => setShowUnblockDialog(false)}
+        returnFocusRef={moreButtonRef}
       />
     </SafeAreaView>
   );

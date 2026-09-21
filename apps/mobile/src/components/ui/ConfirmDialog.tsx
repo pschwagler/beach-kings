@@ -5,11 +5,15 @@
  * Backdrop tap and hardware-back both invoke `onCancel`.
  */
 
-import React, { useEffect } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Modal as RNModal, View, Pressable } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { ActivityIndicator, Modal as RNModal, View, Pressable } from 'react-native';
 import AppText from './AppText';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import {
+  type AccessibilityFocusRef,
+  useModalAccessibility,
+} from './useModalAccessibility';
 
 export type ConfirmDialogVariant = 'destructive' | 'primary';
 
@@ -25,6 +29,7 @@ export interface ConfirmDialogProps {
   readonly isPending?: boolean;
   readonly errorMessage?: string | null;
   readonly testID?: string;
+  readonly returnFocusRef?: AccessibilityFocusRef;
 }
 
 export default function ConfirmDialog({
@@ -39,6 +44,7 @@ export default function ConfirmDialog({
   isPending = false,
   errorMessage = null,
   testID,
+  returnFocusRef,
 }: ConfirmDialogProps): React.ReactNode {
   const reduceMotion = useReducedMotion();
   const palette = usePaletteColors();
@@ -47,9 +53,23 @@ export default function ConfirmDialog({
   const confirmText =
     confirmVariant === 'destructive' ? 'text-on-danger' : 'text-on-brand-gold';
 
+  const activationPendingRef = useRef(false);
+  const titleRef = useRef<View>(null);
+  const { modalRef, focusInitialElement, restoreFocusAfterDismissal } = useModalAccessibility({
+    visible,
+    initialFocusRef: titleRef,
+    returnFocusRef,
+  });
+
   useEffect(() => {
-    if (visible) AccessibilityInfo.announceForAccessibility(title);
-  }, [title, visible]);
+    if (!visible || !isPending) activationPendingRef.current = false;
+  }, [isPending, visible]);
+
+  const confirmOnce = useCallback(() => {
+    if (isPending || activationPendingRef.current) return;
+    activationPendingRef.current = true;
+    onConfirm();
+  }, [isPending, onConfirm]);
 
   return (
     <RNModal
@@ -57,28 +77,39 @@ export default function ConfirmDialog({
       transparent
       animationType={reduceMotion ? 'none' : 'fade'}
       onRequestClose={isPending ? () => {} : onCancel}
+      onShow={focusInitialElement}
+      onDismiss={restoreFocusAfterDismissal}
       accessibilityViewIsModal
     >
-      <Pressable
-        testID={
-          testID != null ? `${testID}-backdrop` : 'confirm-dialog-backdrop'
-        }
-        onPress={isPending ? undefined : onCancel}
-        accessibilityRole="button"
-        accessibilityLabel="Dismiss"
-        className="flex-1 bg-black/70 items-center justify-center px-6"
-      >
-        {/* Inner pressable swallows taps so the dialog body doesn't dismiss. */}
+      <View className="flex-1 items-center justify-center px-6">
         <Pressable
+          testID={
+            testID != null ? `${testID}-backdrop` : 'confirm-dialog-backdrop'
+          }
+          onPress={isPending ? undefined : onCancel}
+          accessible={false}
+          importantForAccessibility="no"
+          className="absolute inset-0 bg-black/70"
+        />
+        <View
+          ref={modalRef}
           testID={testID ?? 'confirm-dialog'}
-          onPress={() => {}}
           onAccessibilityEscape={isPending ? undefined : onCancel}
+          role="dialog"
+          accessibilityLabel={title}
           accessibilityViewIsModal
           className="w-full max-w-[360px] bg-surface rounded-2xl px-5 py-5"
         >
-          <AppText className="text-[17px] font-bold text-default text-center">
-            {title}
-          </AppText>
+          <View
+            ref={titleRef}
+            accessible
+            accessibilityRole="header"
+            accessibilityLabel={title}
+          >
+            <AppText accessible={false} className="text-[17px] font-bold text-default text-center">
+              {title}
+            </AppText>
+          </View>
           <AppText className="text-[14px] text-muted text-center leading-[1.45] mt-2">
             {message}
           </AppText>
@@ -93,7 +124,7 @@ export default function ConfirmDialog({
               testID={
                 testID != null ? `${testID}-confirm` : 'confirm-dialog-confirm'
               }
-              onPress={onConfirm}
+              onPress={confirmOnce}
               disabled={isPending}
               accessibilityRole="button"
               accessibilityLabel={confirmLabel}
@@ -125,8 +156,8 @@ export default function ConfirmDialog({
               </AppText>
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </RNModal>
   );
 }

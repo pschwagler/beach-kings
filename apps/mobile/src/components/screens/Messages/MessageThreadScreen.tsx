@@ -13,7 +13,7 @@ import { isAccessRevokedError } from '@/lib/apiError';
  * Wireframe ref: message-thread.html
  */
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import AppText from '@/components/ui/AppText';
 import { AccessibilityInfo, View, Pressable, Alert } from "react-native";
 import {
@@ -141,6 +141,7 @@ export default function MessageThreadScreen({
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const [showUnblockDialog, setShowUnblockDialog] = useState(false);
   const [safetyError, setSafetyError] = useState<string | null>(null);
+  const actionsButtonRef = useRef<React.ElementRef<typeof Pressable>>(null);
   const handleBack = useBack();
   const insets = useSafeAreaInsets();
   const {
@@ -336,6 +337,7 @@ export default function MessageThreadScreen({
         </View>
 
         <Pressable
+          ref={actionsButtonRef}
           testID="thread-profile-btn"
           onPress={onPlayerActions}
           accessibilityRole="button"
@@ -371,6 +373,7 @@ export default function MessageThreadScreen({
             setShowPlayerReport(true);
           }}
           onClose={() => setShowSafetySheet(false)}
+          returnFocusRef={actionsButtonRef}
         />
       )}
       {showPlayerReport && (
@@ -388,6 +391,7 @@ export default function MessageThreadScreen({
         errorMessage={safetyError}
         onConfirm={confirmBlock}
         onCancel={() => setShowBlockDialog(false)}
+        returnFocusRef={actionsButtonRef}
       />
       <UnblockPlayerDialog
         visible={showUnblockDialog}
@@ -396,6 +400,7 @@ export default function MessageThreadScreen({
         errorMessage={safetyError}
         onConfirm={confirmUnblock}
         onCancel={() => setShowUnblockDialog(false)}
+        returnFocusRef={actionsButtonRef}
       />
     </SafeAreaView>
   );
