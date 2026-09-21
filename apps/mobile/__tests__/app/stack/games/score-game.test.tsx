@@ -197,12 +197,23 @@ import ScoreGameScreen from '../../../../app/(stack)/score-game';
 import AddNewPlayerProvider from '@/contexts/AddNewPlayerContext';
 import { AddNewPlayerScreen } from '@/components/screens/Games';
 
+const useWindowDimensionsSpy = jest.spyOn(
+  require('react-native'),
+  'useWindowDimensions',
+);
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
   jest.clearAllMocks();
+  useWindowDimensionsSpy.mockReturnValue({
+    width: 393,
+    height: 852,
+    scale: 3,
+    fontScale: 1,
+  });
   mockHapticMedium.mockResolvedValue(undefined);
   // Default: throw to exercise error state
   mockSubmitScoredGame.mockRejectedValue(new Error('TODO(backend)'));
@@ -231,6 +242,10 @@ beforeEach(() => {
   // Drop any beforeRemove listeners captured by the previous test so each
   // test starts with a clean navigation event stream.
   beforeRemoveListeners.length = 0;
+});
+
+afterAll(() => {
+  useWindowDimensionsSpy.mockRestore();
 });
 
 // ---------------------------------------------------------------------------
@@ -319,6 +334,64 @@ describe('ScoreGameScreen — scoreboard', () => {
   it('renders the scoreboard', async () => {
     renderScoreGame();
     expect(screen.getByTestId('scoreboard')).toBeTruthy();
+  });
+
+  it('keeps the complete roster-to-score task scrollable and actionable with accessibility text', async () => {
+    useWindowDimensionsSpy.mockReturnValue({
+      width: 393,
+      height: 852,
+      scale: 3,
+      fontScale: 2,
+    });
+
+    renderScoreGame();
+
+    expect(screen.getByTestId('compact-team-summaries').props.className).toBe(
+      'flex-col',
+    );
+    expect(screen.getByTestId('roster-search-input')).toBeTruthy();
+    expect(screen.getByTestId('save-game-btn')).toBeTruthy();
+    expect(screen.getByTestId('score-game-keyboard-layout')).toBeTruthy();
+
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('roster-chip-10'));
+    fireEvent.press(screen.getByTestId('compact-slot-team1-1'));
+    fireEvent.press(screen.getByTestId('roster-chip-11'));
+    fireEvent.press(screen.getByTestId('compact-slot-team2-0'));
+    fireEvent.press(screen.getByTestId('roster-chip-12'));
+    fireEvent.press(screen.getByTestId('compact-slot-team2-1'));
+    fireEvent.press(screen.getByTestId('roster-chip-13'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('accessibility-score-scroll')).toBeTruthy();
+      expect(screen.getByTestId('scoreboard-team-layout').props.className).toBe(
+        'flex-col',
+      );
+      expect(screen.getByTestId('numpad-next')).toBeTruthy();
+    });
+
+    const scoringScroll = screen.getByTestId('accessibility-score-scroll');
+    expect(scoringScroll.props.scrollEnabled).not.toBe(false);
+    expect(scoringScroll.props.contentContainerStyle).toEqual(
+      expect.objectContaining({ flexGrow: 1 }),
+    );
+    expect(screen.getByLabelText('first player for Team 1, C. Gulla')).toBeTruthy();
+    expect(screen.getByLabelText('second player for Team 2, S. Jindash')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('numpad-2'));
+    fireEvent.press(screen.getByTestId('numpad-next'));
+    fireEvent.press(screen.getByTestId('numpad-1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('score-display-team1').props.children).toBe('02');
+      expect(screen.getByTestId('score-display-team2').props.children).toBe('01');
+      expect(screen.getByTestId('save-game-btn')).toHaveAccessibilityState({
+        disabled: false,
+      });
+      expect(screen.getByTestId('numpad-next').props.accessibilityLabel).toBe(
+        'DONE',
+      );
+    });
   });
 
   it('renders initial score 00 for both teams after slots are filled', async () => {

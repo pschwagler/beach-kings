@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, ScrollView } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -78,85 +78,96 @@ export default function WelcomeScreen(): React.ReactNode {
       <StatusBar style="light" />
       <View className="relative flex-1 overflow-hidden">
         <CourtLineMotif variant="welcome" />
-        <View className="relative flex-1 justify-between px-lg py-xl">
-          <View className="flex-1 justify-center">
-            <View className="items-center mb-xxl">
-              <BrandLockup
-                surface="dark"
-                width={280}
-                testID="welcome-brand-lockup"
-                style={{ marginBottom: 8 }}
+        <ScrollView
+          testID="welcome-scroll-view"
+          className="relative flex-1"
+          contentContainerStyle={{ flexGrow: 1 }}
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            className="justify-between px-lg py-xl"
+            style={{ flexGrow: 1 }}
+          >
+            <View className="grow justify-center">
+              <View className="items-center mb-xxl">
+                <BrandLockup
+                  surface="dark"
+                  width={280}
+                  testID="welcome-brand-lockup"
+                  style={{ marginBottom: 8 }}
+                />
+                <AppText className="text-body text-inverse text-center">
+                  Track your games. Find new players.{'\n'}Rule the Sand.
+                </AppText>
+              </View>
+
+              <View className="gap-md mb-xl">
+                {FEATURES.map(({ title, description, Icon }) => (
+                  <View key={title} className="flex-row items-center gap-md">
+                    <View className="w-11 h-11 items-center justify-center">
+                      <Icon size={20} color={palette.textInverse} />
+                    </View>
+                    <View className="flex-1">
+                      <AppText className="text-footnote font-semibold text-inverse">
+                        {title}
+                      </AppText>
+                      <AppText className="text-caption text-inverse mt-xxs">
+                        {description}
+                      </AppText>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <View className="gap-sm">
+              <Button
+                title="Get Started"
+                onPress={handleGetStarted}
+                variant="secondary"
               />
-              <AppText className="text-body text-inverse text-center">
-                Track your games. Find new players.{'\n'}Rule the Sand.
-              </AppText>
-            </View>
+              <Pressable
+                className="min-h-touch items-center justify-center rounded-card border border-inverse"
+                onPress={handleSignIn}
+                testID="welcome-sign-in-link"
+                accessibilityLabel="I already have an account"
+                accessibilityRole="link"
+              >
+                <AppText className="text-body font-semibold text-inverse">
+                  I Already Have an Account
+                </AppText>
+              </Pressable>
 
-            <View className="gap-md mb-xl">
-              {FEATURES.map(({ title, description, Icon }) => (
-                <View key={title} className="flex-row items-center gap-md">
-                  <View className="w-11 h-11 items-center justify-center">
-                    <Icon size={20} color={palette.textInverse} />
-                  </View>
-                  <View className="flex-1">
-                    <AppText className="text-footnote font-semibold text-inverse">
-                      {title}
+              <View className="items-center mt-md">
+                <AppText className="text-caption text-inverse text-center">
+                  By continuing, you agree to our
+                </AppText>
+                <View className="flex-row flex-wrap justify-center gap-xs mt-xxs">
+                  <Pressable
+                    onPress={handleTos}
+                    accessibilityRole="link"
+                    className="min-h-touch justify-center px-xs"
+                  >
+                    <AppText className="text-caption text-inverse underline">
+                      Terms of Service
                     </AppText>
-                    <AppText className="text-caption text-inverse mt-xxs">
-                      {description}
+                  </Pressable>
+                  <AppText className="text-caption text-inverse">and</AppText>
+                  <Pressable
+                    onPress={handlePrivacy}
+                    accessibilityRole="link"
+                    className="min-h-touch justify-center px-xs"
+                  >
+                    <AppText className="text-caption text-inverse underline">
+                      Privacy Policy
                     </AppText>
-                  </View>
+                  </Pressable>
                 </View>
-              ))}
-            </View>
-          </View>
-
-          <View className="gap-sm">
-            <Button
-              title="Get Started"
-              onPress={handleGetStarted}
-              variant="secondary"
-            />
-            <Pressable
-              className="min-h-touch items-center justify-center rounded-card border border-inverse"
-              onPress={handleSignIn}
-              testID="welcome-sign-in-link"
-              accessibilityLabel="I already have an account"
-              accessibilityRole="link"
-            >
-              <AppText className="text-body font-semibold text-inverse">
-                I Already Have an Account
-              </AppText>
-            </Pressable>
-
-            <View className="items-center mt-md">
-              <AppText className="text-caption text-inverse text-center">
-                By continuing, you agree to our
-              </AppText>
-              <View className="flex-row gap-xs mt-xxs">
-                <Pressable
-                  onPress={handleTos}
-                  accessibilityRole="link"
-                  className="min-h-touch justify-center px-xs"
-                >
-                  <AppText className="text-caption text-inverse underline">
-                    Terms of Service
-                  </AppText>
-                </Pressable>
-                <AppText className="text-caption text-inverse">and</AppText>
-                <Pressable
-                  onPress={handlePrivacy}
-                  accessibilityRole="link"
-                  className="min-h-touch justify-center px-xs"
-                >
-                  <AppText className="text-caption text-inverse underline">
-                    Privacy Policy
-                  </AppText>
-                </Pressable>
               </View>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
