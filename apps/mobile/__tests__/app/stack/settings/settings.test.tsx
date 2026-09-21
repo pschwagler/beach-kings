@@ -296,8 +296,34 @@ describe('SettingsScreen — owner email', () => {
   it('shows the authenticated owner their full email', async () => {
     render(<SettingsRoute />);
     await waitFor(() => {
-      expect(screen.getByText('test@example.com')).toBeTruthy();
+      expect(screen.getByText('test@example.com', { includeHiddenElements: true })).toBeTruthy();
     });
+  });
+});
+
+describe('SettingsScreen — accessible row values', () => {
+  it('announces the same values and actions that are visible in plain rows', () => {
+    render(<SettingsRoute />);
+
+    expect(screen.getByTestId('settings-row-email').props.accessibilityLabel)
+      .toBe('Email, test@example.com');
+    expect(screen.getByTestId('settings-row-password').props.accessibilityLabel)
+      .toBe('Password, Change');
+    expect(screen.getByTestId('settings-row-phone').props.accessibilityLabel)
+      .toBe('Phone Number, Not set');
+    expect(screen.getByTestId('settings-row-account-status').props.accessibilityLabel)
+      .toBe('Account status, View status');
+    expect(screen.getByTestId('settings-row-appearance').props.accessibilityLabel)
+      .toBe('Theme, System');
+  });
+
+  it('keeps a disconnected provider label separate from its named action', () => {
+    render(<SettingsRoute />);
+
+    expect(screen.getByTestId('settings-row-google').props.accessible).toBe(false);
+    expect(screen.getByLabelText('Connect Google account')).toBeTruthy();
+    expect(screen.getByTestId('settings-connect-google-btn').props.accessibilityRole)
+      .toBe('button');
   });
 });
 
@@ -345,7 +371,7 @@ describe('SettingsScreen — phone row', () => {
   it('navigates to add-phone route when no phone is set', async () => {
     render(<SettingsRoute />);
     await waitFor(() => {
-      expect(screen.getByText('Not set')).toBeTruthy();
+      expect(screen.getByText('Not set', { includeHiddenElements: true })).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('settings-row-phone'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/settings/phone');
@@ -364,7 +390,7 @@ describe('SettingsScreen — phone row', () => {
     });
     // Wait for player data to load before pressing.
     await waitFor(() => {
-      expect(screen.queryByText('Not set')).toBeNull();
+      expect(screen.queryByText('Not set', { includeHiddenElements: true })).toBeNull();
     });
     fireEvent.press(screen.getByTestId('settings-row-phone'));
     await waitFor(() => {
@@ -389,8 +415,10 @@ describe('SettingsScreen — connected accounts', () => {
   it('shows Connected badge for Google when connected', () => {
     mockUser = { ...mockUser, google_connected: true };
     render(<SettingsRoute />);
-    expect(screen.getByText('Connected')).toBeTruthy();
+    expect(screen.getByText('Connected', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByTestId('settings-connect-google-btn')).toBeNull();
+    expect(screen.getByLabelText('Google, Connected')).toBeTruthy();
+    expect(screen.queryByLabelText('Connected')).toBeNull();
   });
 
   it('Apple row is hidden on non-iOS platforms (test env)', () => {

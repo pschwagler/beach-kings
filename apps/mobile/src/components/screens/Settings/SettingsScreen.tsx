@@ -57,6 +57,7 @@ interface SettingsRowProps {
   readonly valueColor?: string;
   readonly labelColor?: string;
   readonly rightElement?: React.ReactNode;
+  readonly accessibleValue?: string;
   readonly onPress?: () => void;
   readonly testID?: string;
 }
@@ -67,23 +68,42 @@ function SettingsRow({
   valueColor = 'text-muted',
   labelColor = 'text-default',
   rightElement,
+  accessibleValue,
   onPress,
   testID,
 }: SettingsRowProps): React.ReactNode {
+  const announcedValue = value ?? accessibleValue;
+  const isRowAccessible = onPress != null || announcedValue != null;
   return (
     <Pressable
       testID={testID}
       onPress={onPress}
+      accessible={isRowAccessible}
       accessibilityRole={onPress != null ? 'button' : undefined}
-      accessibilityLabel={label}
+      accessibilityLabel={
+        isRowAccessible
+          ? announcedValue != null
+            ? `${label}, ${announcedValue}`
+            : label
+          : undefined
+      }
       className="flex-row items-center justify-between px-lg py-[14px] bg-surface border-b border-divider last:border-0 active:opacity-70"
     >
       <AppText className={`text-[15px] ${labelColor}`}>{label}</AppText>
 
       {rightElement != null ? (
-        rightElement
+        <View
+          accessibilityElementsHidden={isRowAccessible}
+          importantForAccessibility={isRowAccessible ? 'no-hide-descendants' : 'auto'}
+        >
+          {rightElement}
+        </View>
       ) : (
-        <View className="flex-row items-center gap-sm">
+        <View
+          className="flex-row items-center gap-sm"
+          accessibilityElementsHidden={isRowAccessible}
+          importantForAccessibility={isRowAccessible ? 'no-hide-descendants' : 'auto'}
+        >
           {value != null && (
             <AppText className={`text-[13px] ${valueColor}`}>{value}</AppText>
           )}
@@ -128,17 +148,21 @@ function ConnectedBadge(): React.ReactNode {
 
 interface ConnectButtonProps {
   readonly onPress: () => void;
+  readonly provider: string;
   readonly loading?: boolean;
   readonly testID?: string;
 }
 
-function ConnectButton({ onPress, loading = false, testID }: ConnectButtonProps): React.ReactNode {
+function ConnectButton({ onPress, provider, loading = false, testID }: ConnectButtonProps): React.ReactNode {
   const palette = usePaletteColors();
   return (
     <Pressable
       testID={testID}
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={`Connect ${provider} account`}
+      accessibilityState={{ busy: loading, disabled: loading }}
+      disabled={loading}
       className="min-h-touch px-md rounded-lg border-[1.5px] border-default items-center justify-center active:opacity-70"
     >
       {loading ? (
@@ -347,12 +371,14 @@ export default function SettingsScreen(): React.ReactNode {
           <SettingsRow
             testID="settings-row-google"
             label="Google"
+            accessibleValue={googleConnected ? 'Connected' : undefined}
             rightElement={
               googleConnected ? (
                 <ConnectedBadge />
               ) : (
                 <ConnectButton
                   testID="settings-connect-google-btn"
+                  provider="Google"
                   onPress={() => { void hapticLight(); void handleConnectGoogle(); }}
                   loading={isLinkingGoogle}
                 />
@@ -363,12 +389,14 @@ export default function SettingsScreen(): React.ReactNode {
             <SettingsRow
               testID="settings-row-apple"
               label="Apple"
+              accessibleValue={appleConnected ? 'Connected' : undefined}
               rightElement={
                 appleConnected ? (
                   <ConnectedBadge />
                 ) : (
                   <ConnectButton
                     testID="settings-connect-apple-btn"
+                    provider="Apple"
                     onPress={() => { void hapticLight(); void handleConnectApple(); }}
                     loading={isLinkingApple}
                   />
