@@ -160,6 +160,10 @@ describe('MessagesTab — loading state', () => {
     await waitFor(() => {
       expect(screen.getByTestId('messages-loading')).toBeTruthy();
     });
+    const search = screen.getByTestId('messages-search-input');
+    expect(search.props.editable).toBe(false);
+    expect(search.props.focusable).toBe(false);
+    expect(search.props.accessibilityState).toEqual({ disabled: true, busy: true });
   });
 });
 

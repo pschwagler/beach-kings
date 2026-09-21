@@ -131,6 +131,10 @@ describe('FindPlayersBody — loading & error', () => {
     render(<FindPlayersBody {...makeProps({ isLoadingPlayers: true })} />);
     expect(screen.getByTestId('find-players-loading')).toBeTruthy();
     expect(screen.queryByTestId('find-players-list')).toBeNull();
+    const search = screen.getByTestId('find-players-search-input');
+    expect(search.props.editable).toBe(false);
+    expect(search.props.focusable).toBe(false);
+    expect(search.props.accessibilityState).toEqual({ disabled: true, busy: true });
   });
 
   it('renders the full-page error state when discovery fails', () => {
@@ -160,6 +164,7 @@ describe('FindPlayersBody — loading & error', () => {
     );
     expect(screen.getByTestId('find-players-list')).toBeTruthy();
     expect(screen.queryByTestId('find-players-loading')).toBeNull();
+    expect(screen.getByTestId('find-players-search-input').props.editable).toBe(true);
   });
 });
 

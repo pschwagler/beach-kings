@@ -51,11 +51,13 @@ import DiscoveryFilterPanel from './DiscoveryFilterPanel';
 interface PlayersSearchBarProps {
   readonly value: string;
   readonly onChangeText: (text: string) => void;
+  readonly disabled?: boolean;
 }
 
 function PlayersSearchBar({
   value,
   onChangeText,
+  disabled = false,
 }: PlayersSearchBarProps): React.ReactNode {
   const palette = usePaletteColors();
   return (
@@ -84,6 +86,9 @@ function PlayersSearchBar({
           textContentType="none"
           clearButtonMode="while-editing"
           accessibilityLabel="Search players"
+          editable={!disabled}
+          focusable={!disabled}
+          accessibilityState={{ disabled, busy: disabled }}
         />
       </View>
     </View>
@@ -309,7 +314,7 @@ export default function FindPlayersBody({
     if (isLoadingPlayers && !isRefreshingPlayers) {
       return (
         <>
-          <PlayersSearchBar value="" onChangeText={() => undefined} />
+          <PlayersSearchBar value={searchQuery} onChangeText={setSearchQuery} disabled />
           {filterChips}
           <FindPlayersSkeleton count={6} />
         </>

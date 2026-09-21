@@ -121,6 +121,10 @@ describe('FriendsBody — loading & error', () => {
     render(<FriendsBody {...makeProps({ isLoadingFriends: true })} />);
     expect(screen.getByTestId('friends-loading')).toBeTruthy();
     expect(screen.queryByTestId('friends-list')).toBeNull();
+    const search = screen.getByTestId('friends-search-input');
+    expect(search.props.editable).toBe(false);
+    expect(search.props.focusable).toBe(false);
+    expect(search.props.accessibilityState).toEqual({ disabled: true, busy: true });
   });
 
   it('renders friends and requests while suggestions are still loading', () => {
@@ -148,6 +152,7 @@ describe('FriendsBody — loading & error', () => {
     );
     expect(screen.getByTestId('friends-loading')).toBeTruthy();
     expect(screen.queryByTestId('friends-empty-state')).toBeNull();
+    expect(screen.getByTestId('friends-search-input').props.editable).toBe(false);
   });
 
   it('renders the full-page error state when the friends list fails', () => {
