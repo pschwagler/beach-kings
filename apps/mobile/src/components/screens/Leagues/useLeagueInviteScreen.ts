@@ -52,7 +52,9 @@ export function useLeagueInviteScreen(
       api.getInvitablePlayers(Number(leagueId), searchQuery || undefined),
     enabled: userId > 0,
   });
-  const detailQuery = useQuery(leagueQueries.detail(userId, leagueId));
+  const { data: league, refetch: refetchLeague } = useQuery(
+    leagueQueries.detail(userId, leagueId),
+  );
 
   const onChangeSearch = useCallback((q: string) => {
     setSearchQuery(q);
@@ -104,15 +106,15 @@ export function useLeagueInviteScreen(
     setIsSharing(true);
     setInviteError(null);
     try {
-      const league = detailQuery.data ?? (await detailQuery.refetch()).data;
-      await shareLeagueInvitation(leagueId, league?.name ?? '');
+      const currentLeague = league ?? (await refetchLeague()).data;
+      await shareLeagueInvitation(leagueId, currentLeague?.name ?? '');
     } catch {
       setInviteError('Could not share this league. Please try again.');
     } finally {
       shareInFlightRef.current = false;
       setIsSharing(false);
     }
-  }, [detailQuery.data, detailQuery.refetch, leagueId]);
+  }, [league, leagueId, refetchLeague]);
 
   return {
     players: playersQuery.data ?? [],
