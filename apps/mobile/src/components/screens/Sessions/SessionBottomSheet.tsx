@@ -36,6 +36,7 @@ import {
   type SessionResultsSummary,
 } from "@/features/sessions";
 import * as Clipboard from 'expo-clipboard';
+import { useModalAnimationType } from '@/hooks/useModalAnimationType';
 
 interface Props {
   readonly visible: boolean;
@@ -151,6 +152,7 @@ export default function SessionBottomSheet({
   resultsSummary,
   status,
 }: Props): React.ReactNode {
+  const animationType = useModalAnimationType();
   const isSubmitted = status === "submitted";
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -254,7 +256,7 @@ export default function SessionBottomSheet({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType={animationType}
       onRequestClose={onClose}
       testID="session-bottom-sheet-modal"
     >

@@ -39,6 +39,7 @@ import {
   type LevelOption,
   type LocationWithDistance,
 } from "./useCreateLeagueScreen";
+import { useModalAnimationType } from '@/hooks/useModalAnimationType';
 
 // ---------------------------------------------------------------------------
 // Section header
@@ -287,6 +288,7 @@ function LocationPickerModal({
   onClose,
 }: LocationPickerModalProps): React.ReactNode {
   const palette = usePaletteColors();
+  const animationType = useModalAnimationType();
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -312,7 +314,7 @@ function LocationPickerModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType={animationType}
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >

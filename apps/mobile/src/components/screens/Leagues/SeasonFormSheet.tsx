@@ -13,6 +13,7 @@ import {
 import type { LeagueSeason } from '@beach-kings/shared';
 import type { SeasonFormPayload } from './useLeagueInfoTab';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { useModalAnimationType } from '@/hooks/useModalAnimationType';
 
 type ScoringSystem = 'points_system' | 'season_rating';
 
@@ -167,6 +168,7 @@ export default function SeasonFormSheet({
   onClose,
   onSubmit,
 }: SeasonFormSheetProps): React.ReactNode {
+  const animationType = useModalAnimationType();
   const [form, setForm] = useState<SeasonFormState>(() => getInitialState(mode, season));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,7 +238,7 @@ export default function SeasonFormSheet({
       testID="season-form-sheet"
       visible={visible}
       transparent
-      animationType="slide"
+      animationType={animationType}
       onRequestClose={onClose}
     >
       <View className="flex-1 justify-end bg-black/40">

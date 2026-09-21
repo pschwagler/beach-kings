@@ -19,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useModalAnimationType } from '@/hooks/useModalAnimationType';
 
 interface Props {
   readonly visible: boolean;
@@ -68,11 +69,12 @@ export default function ScoreGameMenu({
   onShareSession,
   canShare,
 }: Props): React.ReactNode {
+  const animationType = useModalAnimationType();
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType={animationType}
       onRequestClose={onClose}
       testID="score-game-menu-modal"
     >
