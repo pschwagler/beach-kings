@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AccountModerationScreen from '@/components/screens/Settings/AccountModerationScreen';
 import { api } from '@/lib/api';
 
+jest.mock('expo-router', () => ({ useFocusEffect: jest.fn() }));
+
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     user: {
@@ -97,6 +99,52 @@ describe('AccountModerationScreen', () => {
     screen.rerender(first('22', '43'));
     expect(await screen.findByText('Warning unavailable')).toBeTruthy();
     expect(mockMarkAsRead).not.toHaveBeenCalled();
+  });
+
+  it('keeps cached warnings visible and offers retry after manual refresh fails', async () => {
+    const cachedStatus = {
+      account_status: 'active' as const,
+      account_expires_at: null,
+      account_case_id: null,
+      interaction_restricted_until: null,
+      interaction_restriction_case_id: null,
+      appeals: [],
+      warnings: [{
+        id: 21,
+        message: 'Keep this viewer-safe warning visible.',
+        created_at: '2026-09-16T12:00:00Z',
+      }],
+    };
+    jest.mocked(api.getAccountModerationStatus)
+      .mockResolvedValueOnce(cachedStatus)
+      .mockRejectedValueOnce(new Error('offline'));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(
+      <QueryClientProvider client={client}>
+        <AccountModerationScreen />
+      </QueryClientProvider>,
+    );
+    expect(await view.findByText('Keep this viewer-safe warning visible.')).toBeTruthy();
+
+    fireEvent.press(view.getByText('Refresh status'));
+
+    expect(await view.findByText('Account status may be out of date')).toBeTruthy();
+    expect(view.getByText('Keep this viewer-safe warning visible.')).toBeTruthy();
+    jest.mocked(api.getAccountModerationStatus).mockResolvedValue({
+      ...cachedStatus,
+      warnings: [{
+        id: 22,
+        message: 'Recovered warning history.',
+        created_at: '2026-09-17T12:00:00Z',
+      }],
+    });
+
+    fireEvent.press(view.getByText('Retry refresh'));
+
+    expect(await view.findByText('Recovered warning history.')).toBeTruthy();
+    await waitFor(() => {
+      expect(view.queryByText('Account status may be out of date')).toBeNull();
+    });
   });
 
   it('shows an upheld appeal as final instead of offering a broken repeat form', async () => {

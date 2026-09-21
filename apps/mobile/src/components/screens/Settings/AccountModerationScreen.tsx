@@ -18,6 +18,7 @@ import { useNotifications } from '@/features/notifications';
 import { api } from '@/lib/api';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import DeleteAccountDialog from './DeleteAccountDialog';
+import { useExplicitRefresh } from '@/components/refresh/useExplicitRefresh';
 
 interface AccountModerationScreenProps {
   readonly fullAccount?: boolean;
@@ -63,6 +64,11 @@ export default function AccountModerationScreen({
   const [deletionPending, setDeletionPending] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const status = statusQuery.data;
+  const statusRefresh = useExplicitRefresh(
+    () => statusQuery.refetch(),
+    String(userId),
+    'account status',
+  );
   const selectedWarning = warningReady
     ? status?.warnings?.find((warning) => warning.id === requestedWarningId) : null;
 
@@ -218,6 +224,28 @@ export default function AccountModerationScreen({
             Could not load account status. Please refresh and try again.
           </AppText>
         )}
+        {statusRefresh.error != null && status != null && (
+          <View
+            testID="account-status-refresh-error"
+            accessibilityRole="alert"
+            className="rounded-2xl border border-danger bg-danger-tint p-lg gap-sm"
+          >
+            <AppText className="text-[14px] font-semibold text-danger">
+              Account status may be out of date
+            </AppText>
+            <AppText className="text-[13px] text-danger">
+              {statusRefresh.error}
+            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Retry refreshing account status"
+              onPress={statusRefresh.onRefresh}
+              className="min-h-touch items-center justify-center rounded-xl border border-danger"
+            >
+              <AppText className="font-semibold text-danger">Retry refresh</AppText>
+            </Pressable>
+          </View>
+        )}
         {showStatusCard && <View className="rounded-2xl border border-divider bg-surface p-xl gap-sm">
           <AppText className="text-2xl font-bold text-default">{copy.title}</AppText>
           <AppText className="text-[15px] leading-6 text-muted">{copy.message}</AppText>
@@ -298,10 +326,17 @@ export default function AccountModerationScreen({
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => void statusQuery.refetch()}
+          accessibilityState={{
+            busy: statusRefresh.refreshing,
+            disabled: statusRefresh.refreshing,
+          }}
+          disabled={statusRefresh.refreshing}
+          onPress={statusRefresh.onRefresh}
           className="min-h-touch items-center justify-center rounded-xl border border-default bg-surface px-lg active:opacity-70"
         >
-          <AppText className="text-[15px] font-semibold text-default">Refresh status</AppText>
+          <AppText className="text-[15px] font-semibold text-default">
+            {statusRefresh.refreshing ? 'Refreshing status…' : 'Refresh status'}
+          </AppText>
         </Pressable>
 
         {fullAccount && (
