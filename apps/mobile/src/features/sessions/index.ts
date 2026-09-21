@@ -7,3 +7,4 @@ export {
   SessionInvitationUnavailableError,
   shareSessionInvitation,
 } from './share';
+export { formatSessionResults, type SessionResultsSummary } from './formatResults';

@@ -12,6 +12,7 @@ import { PUBLIC_WEB_ORIGIN } from '@/lib/publicUrls';
 const mockReplace = jest.fn();
 const mockDeleteSession = jest.fn();
 const mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
+const mockSetStringAsync = jest.fn();
 
 jest.mock('nativewind', () => ({
   useColorScheme: () => ({
@@ -44,6 +45,10 @@ jest.mock('@/lib/api', () => ({
   },
 }));
 
+jest.mock('expo-clipboard', () => ({
+  setStringAsync: (...args: unknown[]) => mockSetStringAsync(...args),
+}));
+
 jest.spyOn(Alert, 'alert');
 jest.spyOn(Share, 'share');
 
@@ -58,8 +63,104 @@ const baseProps = {
   sessionLabel: '3/19/2026 Session #1',
   gameCount: 5,
   playerCount: 4,
+  resultsSummary: {
+    contextLabel: 'QBK Open Men · Session #1',
+    date: '2026-03-19',
+    viewerPlayerId: 1,
+    games: [
+      {
+        id: 1001,
+        game_number: 1,
+        team1_player1_id: 1,
+        team1_player2_id: 2,
+        team2_player1_id: 3,
+        team2_player2_id: 4,
+        team1_player1_name: 'Pat',
+        team1_player2_name: 'Kim',
+        team2_player1_name: 'Alex',
+        team2_player2_name: 'Chris',
+        team1_score: 21,
+        team2_score: 16,
+        winner: 1 as const,
+        rating_change: 4.2,
+        is_ranked: true,
+      },
+    ],
+  },
   status: 'active' as const,
 };
+
+describe('SessionBottomSheet — submitted results', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSetStringAsync.mockResolvedValue(undefined);
+  });
+
+  it('copies deterministic submitted results once and closes after success', async () => {
+    const onClose = jest.fn();
+    const { getByTestId } = render(
+      <SessionBottomSheet
+        {...baseProps}
+        status="submitted"
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.press(getByTestId('session-menu-copy-results'));
+
+    await waitFor(() =>
+      expect(mockSetStringAsync).toHaveBeenCalledWith(
+        'QBK Open Men · Session #1 · Mar 19, 2026\nYou / Kim 21 – 16 Alex / Chris',
+      ),
+    );
+    expect(mockSetStringAsync).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Results copied',
+      'The session results are ready to paste.',
+    );
+  });
+
+  it('guards repeated copy activation while the clipboard request is pending', async () => {
+    let resolveClipboard: (() => void) | undefined;
+    mockSetStringAsync.mockReturnValueOnce(
+      new Promise<void>((resolve) => { resolveClipboard = resolve; }),
+    );
+    const { getByTestId } = render(
+      <SessionBottomSheet {...baseProps} status="submitted" />,
+    );
+
+    fireEvent.press(getByTestId('session-menu-copy-results'));
+    await waitFor(() => expect(mockSetStringAsync).toHaveBeenCalledTimes(1));
+    fireEvent.press(getByTestId('session-menu-copy-results'));
+    expect(mockSetStringAsync).toHaveBeenCalledTimes(1);
+
+    await act(async () => { resolveClipboard?.(); });
+  });
+
+  it('keeps the menu open and reports clipboard failure', async () => {
+    mockSetStringAsync.mockRejectedValueOnce(new Error('unavailable'));
+    const onClose = jest.fn();
+    const { getByTestId } = render(
+      <SessionBottomSheet
+        {...baseProps}
+        status="submitted"
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.press(getByTestId('session-menu-copy-results'));
+
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Could not copy results',
+        expect.stringContaining('clipboard'),
+        expect.any(Array),
+      ),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
 
 describe('SessionBottomSheet — Share Session', () => {
   beforeEach(() => {

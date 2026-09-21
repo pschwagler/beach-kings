@@ -14,7 +14,7 @@
  * Wireframe ref: session-menu.html
  */
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -31,7 +31,12 @@ import { pluralize } from "@/lib/formatters";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { reconcileGameMutation } from "@/features/matches";
-import { shareSessionInvitation } from "@/features/sessions";
+import {
+  formatSessionResults,
+  shareSessionInvitation,
+  type SessionResultsSummary,
+} from "@/features/sessions";
+import * as Clipboard from 'expo-clipboard';
 
 interface Props {
   readonly visible: boolean;
@@ -42,9 +47,10 @@ interface Props {
   readonly sessionLabel: string;
   readonly gameCount: number;
   readonly playerCount: number;
+  readonly resultsSummary: SessionResultsSummary;
   /**
-   * Session status. Copy Results + Duplicate are hidden while active —
-   * those actions only make sense once results are finalized.
+   * Copy Results + Duplicate are hidden while active because those actions
+   * only make sense once results are finalized.
    */
   readonly status: "active" | "submitted";
 }
@@ -143,6 +149,7 @@ export default function SessionBottomSheet({
   sessionLabel,
   gameCount,
   playerCount,
+  resultsSummary,
   status,
 }: Props): React.ReactNode {
   const isSubmitted = status === "submitted";
@@ -152,6 +159,8 @@ export default function SessionBottomSheet({
   const userId = user?.id ?? 0;
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [isCopyingResults, setIsCopyingResults] = useState(false);
+  const copyingResultsRef = useRef(false);
 
   const handleEdit = async (): Promise<void> => {
     await hapticLight();
@@ -185,9 +194,24 @@ export default function SessionBottomSheet({
   };
 
   const handleCopyResults = async (): Promise<void> => {
+    if (copyingResultsRef.current) return;
+    copyingResultsRef.current = true;
+    setIsCopyingResults(true);
     await hapticLight();
-    onClose();
-    // TODO(backend): format and copy results to clipboard
+    try {
+      await Clipboard.setStringAsync(formatSessionResults(resultsSummary));
+      onClose();
+      Alert.alert('Results copied', 'The session results are ready to paste.');
+    } catch {
+      Alert.alert(
+        'Could not copy results',
+        'The clipboard could not be updated. Please try again.',
+        [{ text: 'OK' }],
+      );
+    } finally {
+      copyingResultsRef.current = false;
+      setIsCopyingResults(false);
+    }
   };
 
   const handleDuplicate = async (): Promise<void> => {
@@ -291,11 +315,13 @@ export default function SessionBottomSheet({
         {isSubmitted && (
           <>
             <MenuItem
-              label="Copy Results"
+              label={isCopyingResults ? "Copying Results..." : "Copy Results"}
               testID="session-menu-copy-results"
               onPress={() => {
                 void handleCopyResults();
               }}
+              disabled={isCopyingResults}
+              busy={isCopyingResults}
             />
             <MenuItem
               label="Duplicate as New Session"

@@ -539,6 +539,12 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           sessionLabel={`Session #${session.session_number}`}
           gameCount={session.games.length}
           playerCount={session.players.length}
+          resultsSummary={{
+            contextLabel: `${session.league_name ?? (session.session_type === 'pickup' ? 'Pickup' : 'League')} · Session #${session.session_number}`,
+            date: session.date,
+            games: session.games,
+            viewerPlayerId: currentPlayerId,
+          }}
           status={session.status}
         />
       )}
