@@ -1,6 +1,6 @@
 /** Data and submission state for editing a session. */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Season, SessionDetail } from '@beach-kings/shared';
@@ -56,6 +56,7 @@ export function useSessionEditScreen(sessionId: number): UseSessionEditScreenRes
   const [selectedSeasonId, setSelectedSeasonIdState] = useState<number | null>(null);
   const [isRanked, setIsRanked] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const isRankedLocked = selectedSeasonId != null;
 
@@ -83,10 +84,12 @@ export function useSessionEditScreen(sessionId: number): UseSessionEditScreenRes
   }, [selectedSeasonId]);
 
   const onSave = useCallback(async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitError(null);
     setIsSubmitting(true);
-    await hapticMedium();
     try {
+      await hapticMedium();
       await api.updateSession(sessionId, {
         date,
         start_time: startTime || null,
@@ -99,6 +102,7 @@ export function useSessionEditScreen(sessionId: number): UseSessionEditScreenRes
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to save changes.');
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   }, [courtId, date, isRanked, isRankedLocked, leagueId, queryClient, router, selectedSeasonId, sessionId, startTime, userId]);

@@ -36,10 +36,17 @@ import {
   act,
 } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Keyboard } from 'react-native';
 
 // ---------------------------------------------------------------------------
 // Global mocks
 // ---------------------------------------------------------------------------
+
+let mockKeyboardVisible = false;
+jest.mock('@/hooks/useKeyboard', () => ({
+  __esModule: true,
+  default: () => ({ isVisible: mockKeyboardVisible, keyboardHeight: mockKeyboardVisible ? 300 : 0 }),
+}));
 
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
@@ -457,6 +464,7 @@ describe('CourtReviewsSection', () => {
 // ---------------------------------------------------------------------------
 
 describe('WriteReviewModal — create flow', () => {
+  beforeEach(() => { mockKeyboardVisible = false; });
   it('renders in create mode with correct title', async () => {
     render(
       <WriteReviewModal
@@ -590,6 +598,55 @@ describe('WriteReviewModal — create flow', () => {
     await waitFor(() => {
       expect(screen.getByTestId('review-error-msg')).toBeTruthy();
     });
+  });
+
+  it('keeps review choices when dismissing the keyboard and exposes fixed actions', async () => {
+    mockGetCourtTags.mockResolvedValue([{ id: 1, name: 'Clean Nets', category: 'Facility' }]);
+    const dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => {});
+    const view = render(
+      <WriteReviewModal visible courtId={1} existingReview={null} onClose={jest.fn()} onSuccess={jest.fn()} />,
+    );
+    await screen.findByTestId('tag-btn-1');
+    fireEvent.press(screen.getByLabelText('5 stars'));
+    fireEvent.press(screen.getByTestId('tag-btn-1'));
+    fireEvent.changeText(screen.getByTestId('review-text-input'), 'First line\nSecond line');
+
+    mockKeyboardVisible = true;
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <WriteReviewModal visible courtId={1} existingReview={null} onClose={jest.fn()} onSuccess={jest.fn()} />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByTestId('write-review-keyboard-avoider').props.automaticOffset).toBe(true);
+    expect(screen.getByTestId('review-actions')).toContainElement(screen.getByTestId('submit-review-btn'));
+    expect(screen.getByTestId('review-actions')).toContainElement(screen.getByTestId('cancel-review-btn'));
+    fireEvent.press(screen.getByLabelText('Dismiss keyboard'));
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('5 stars').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('tag-btn-1').props.accessibilityState.checked).toBe(true);
+    expect(screen.getByTestId('review-text-input').props.value).toBe('First line\nSecond line');
+    dismiss.mockRestore();
+  });
+
+  it('preserves the draft after failure, retries, and prevents duplicate submission', async () => {
+    let resolveRetry: (() => void) | undefined;
+    mockCreateCourtReview
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { resolveRetry = resolve; }));
+    render(
+      <WriteReviewModal visible courtId={1} existingReview={null} onClose={jest.fn()} onSuccess={jest.fn()} />,
+    );
+    fireEvent.press(screen.getByLabelText('4 stars'));
+    fireEvent.changeText(screen.getByTestId('review-text-input'), 'Keep this draft');
+    fireEvent.press(screen.getByTestId('submit-review-btn'));
+    await screen.findByTestId('review-error-msg');
+    expect(screen.getByTestId('review-text-input').props.value).toBe('Keep this draft');
+
+    fireEvent.press(screen.getByTestId('submit-review-btn'));
+    fireEvent.press(screen.getByTestId('submit-review-btn'));
+    expect(mockCreateCourtReview).toHaveBeenCalledTimes(2);
+    await act(async () => { resolveRetry?.(); });
   });
 });
 
