@@ -54,6 +54,7 @@ export class MobileStorageAdapter implements StorageAdapter {
       await this.secureStore.setItemAsync(key, value);
     } catch (error) {
       console.error('Error writing to secure store:', error);
+      throw error;
     }
   }
 
@@ -62,7 +63,7 @@ export class MobileStorageAdapter implements StorageAdapter {
       await this.secureStore.deleteItemAsync(key);
     } catch (error) {
       console.error('Error removing from secure store:', error);
+      throw error;
     }
   }
 }
-

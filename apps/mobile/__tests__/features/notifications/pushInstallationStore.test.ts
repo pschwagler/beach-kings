@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { api } from '@/lib/api';
 import {
+  __resetPushInstallationStoreForTests,
   getPushInstallationState,
   retirePushInstallation,
   retryPendingPushUnregister,
@@ -25,6 +26,7 @@ const unregister = api.unregisterPushInstallation as jest.Mock;
 describe('push installation persistence', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    __resetPushInstallationStoreForTests();
     getItem.mockResolvedValue(null);
     setItem.mockResolvedValue(undefined);
     unregister.mockResolvedValue({ success: true });
@@ -97,4 +99,73 @@ describe('push installation persistence', () => {
       installationId: 'installation-uuid-0001',
     });
   });
+
+  it('persists token-free retry metadata before a stalled unregister', async () => {
+    jest.useFakeTimers();
+    getItem.mockResolvedValue(JSON.stringify({
+      installationId: 'installation-uuid-0001',
+      token: 'ExponentPushToken[one]',
+      platform: 'ios',
+      registeredUserId: 7,
+      unregisterSecret: 'secret-value',
+    }));
+    unregister.mockReturnValue(new Promise(() => {}));
+
+    const retirement = retirePushInstallation();
+    await Promise.resolve();
+    await Promise.resolve();
+    const persisted = JSON.parse(setItem.mock.calls.at(-1)?.[1]);
+    expect(persisted).toEqual({
+      installationId: 'installation-uuid-0001',
+      pendingUnregister: {
+        installationId: 'installation-uuid-0001',
+        unregisterSecret: 'secret-value',
+      },
+    });
+    expect(JSON.stringify(persisted)).not.toContain('ExponentPushToken');
+    expect(JSON.stringify(persisted)).not.toContain('registeredUserId');
+
+    await jest.advanceTimersByTimeAsync(5_000);
+    await expect(retirement).resolves.toBeUndefined();
+    jest.useRealTimers();
+  });
+
+  it('does not let late retirement clear a newer account registration', async () => {
+    const unregisterRequest = deferred<{ success: boolean }>();
+    getItem.mockResolvedValue(JSON.stringify({
+      installationId: 'installation-uuid-0001',
+      token: 'ExponentPushToken[old]',
+      platform: 'ios',
+      unregisterSecret: 'old-secret',
+    }));
+    unregister.mockReturnValue(unregisterRequest.promise);
+
+    const retirement = retirePushInstallation();
+    await Promise.resolve();
+    await savePushRegistration({
+      token: 'ExponentPushToken[new]',
+      platform: 'ios',
+      projectId: 'project-1',
+      userId: 8,
+      unregisterSecret: 'new-secret',
+    });
+    unregisterRequest.resolve({ success: true });
+    await retirement;
+
+    const persisted = JSON.parse(setItem.mock.calls.at(-1)?.[1]);
+    expect(persisted).toMatchObject({
+      token: 'ExponentPushToken[new]',
+      registeredUserId: 8,
+      unregisterSecret: 'new-secret',
+    });
+  });
 });
+
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}

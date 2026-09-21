@@ -23,7 +23,10 @@ jest.mock("axios", () => ({
 }));
 
 import { ApiClient } from "../../../../../packages/api-client/src/client";
-import type { StorageAdapter } from "../../../../../packages/api-client/src/storage";
+import {
+  MobileStorageAdapter,
+  type StorageAdapter,
+} from "../../../../../packages/api-client/src/storage";
 
 class MemoryStorage implements StorageAdapter {
   private values = new Map<string, string>();
@@ -86,6 +89,72 @@ function forbidden(url: string) {
 }
 
 describe("ApiClient auth invalidation", () => {
+  it('snapshots the old bearer credential for best-effort server logout', async () => {
+    const { client, api } = await makeClient();
+    await client.setAuthTokens('old-access', 'old-refresh');
+    api.post.mockResolvedValue({ data: { status: 'ok' } });
+
+    const logout = client.logoutCurrentSession();
+    await client.clearAuthTokens();
+    await logout;
+
+    expect(api.post).toHaveBeenCalledWith(
+      '/api/auth/logout',
+      undefined,
+      { headers: { Authorization: 'Bearer old-access' } },
+    );
+  });
+
+  it('propagates native credential write failures to lifecycle coordination', async () => {
+    const failure = new Error('native storage unavailable');
+    const adapter = new MobileStorageAdapter({
+      setItemAsync: jest.fn().mockRejectedValue(failure),
+      deleteItemAsync: jest.fn().mockRejectedValue(failure),
+    });
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(adapter.setItem('key', 'value')).rejects.toBe(failure);
+    await expect(adapter.removeItem('key')).rejects.toBe(failure);
+    consoleError.mockRestore();
+  });
+
+  it('notifies auth invalidation before a never-settling credential delete', async () => {
+    jest.useFakeTimers();
+    try {
+      mockAxiosInstances.splice(0);
+      const values = new Map<string, string>();
+      const storage: StorageAdapter = {
+        getItem: async key => values.get(key) ?? null,
+        setItem: async (key, value) => { values.set(key, value); },
+        removeItem: async () => new Promise<void>(() => {}),
+      };
+      const client = new ApiClient('https://example.test', storage);
+      await client.setAuthTokens('expired', 'bad-refresh');
+      const api = mockAxiosInstances[0] as unknown as FakeAxiosInstance;
+      const refresh = mockAxiosInstances[1] as unknown as FakeAxiosInstance;
+      const rejectResponse = api.interceptors.response.use.mock
+        .calls[0][1] as RejectInterceptor;
+      refresh.post.mockRejectedValue(new Error('refresh rejected'));
+      const listener = jest.fn();
+      client.onAuthInvalidated(listener);
+
+      const request = rejectResponse(unauthorized('/private')).catch(
+        () => undefined,
+      );
+      for (let attempt = 0; attempt < 12; attempt += 1) await Promise.resolve();
+
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect((client as unknown as {
+        authTokens: { accessToken: string | null; refreshToken: string | null };
+      }).authTokens).toEqual({ accessToken: null, refreshToken: null });
+
+      jest.advanceTimersByTime(15_000);
+      await request;
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it.each(['read', 'write'])('retires shared refresh and queue when native storage %s stalls', async stage => {
     jest.useFakeTimers();
     try {
@@ -157,10 +226,11 @@ describe("ApiClient auth invalidation", () => {
     const first = rejectResponse(unauthorized('/old')).catch(() => undefined);
     for (let attempt = 0; attempt < 12; attempt += 1) await Promise.resolve();
     expect(removeItem).toHaveBeenCalled();
+    expect(listener).toHaveBeenCalledTimes(1);
     const signIn = client.setAuthTokens('new-access', 'new-refresh');
     release();
     await Promise.all([first, signIn]);
-    expect(listener).not.toHaveBeenCalled();
+    expect(listener).toHaveBeenCalledTimes(1);
     expect(await client.getStoredTokens()).toEqual({ accessToken: 'new-access', refreshToken: 'new-refresh' });
   });
 

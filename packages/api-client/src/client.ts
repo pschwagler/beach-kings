@@ -271,14 +271,14 @@ export class ApiClient {
     });
   }
 
-  private async clearAndNotifyAuthInvalidated(): Promise<void> {
+  private clearAndNotifyAuthInvalidated(): Promise<void> {
     const clearing = this.clearAuthTokens();
     const generation = this.authGeneration;
-    try {
-      await clearing;
-    } finally {
-      if (generation === this.authGeneration) this.emitAuthInvalidated();
-    }
+    // clearAuthTokens retires in-memory credentials before its first await.
+    // Notify the app in the same turn so a stalled native deletion cannot
+    // leave the retired identity and private cache visible indefinitely.
+    if (generation === this.authGeneration) this.emitAuthInvalidated();
+    return clearing;
   }
 
   onAuthInvalidated(listener: AuthInvalidationListener): () => void {
@@ -286,6 +286,19 @@ export class ApiClient {
     return () => {
       this.authInvalidationListeners.delete(listener);
     };
+  }
+
+  /** Snapshot account A's bearer credential before local logout clears it. */
+  async logoutCurrentSession(): Promise<{ status: string }> {
+    const accessToken = this.authTokens.accessToken;
+    const response = await this.api.post<{ status: string }>(
+      '/api/auth/logout',
+      undefined,
+      accessToken == null
+        ? undefined
+        : { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    return response.data;
   }
 
   async setAuthTokens(accessToken: string | null, refreshToken?: string | null): Promise<void> {
