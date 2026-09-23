@@ -17,7 +17,9 @@ import {
   screen,
   fireEvent,
   waitFor,
+  act,
 } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
@@ -90,11 +92,12 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+let mockUserId = 7;
 jest.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ isAuthenticated: true, user: { id: 7 } }),
+  useAuth: () => ({ isAuthenticated: true, user: { id: mockUserId } }),
 }));
 
-const mockEnablePush = jest.fn().mockResolvedValue(true);
+const mockEnablePush = jest.fn().mockResolvedValue('enabled');
 const mockOpenSettings = jest.fn().mockResolvedValue(undefined);
 let mockAuthorization = 'authorized';
 jest.mock('@/features/notifications/nativePushContext', () => ({
@@ -135,6 +138,12 @@ function render(ui: React.ReactElement) {
   );
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => { resolve = res; });
+  return { promise, resolve };
+}
+
 // ---------------------------------------------------------------------------
 // Mock data
 // ---------------------------------------------------------------------------
@@ -160,7 +169,9 @@ const MIXED_PREFS = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockUserId = 7;
   mockAuthorization = 'authorized';
+  mockEnablePush.mockResolvedValue('enabled');
   mockGetPushNotificationPrefs.mockResolvedValue(ALL_ON_PREFS);
   mockUpdatePushNotificationPrefs.mockResolvedValue({});
 });
@@ -311,5 +322,99 @@ describe('NotificationsSettingsScreen — toggles', () => {
     fireEvent.press(screen.getByTestId('notifications-open-settings'));
     expect(mockOpenSettings).toHaveBeenCalled();
     expect(screen.getByTestId('toggle-master').props.value).toBe(false);
+  });
+
+  it('rolls back a rejected change, announces it, and retries successfully', async () => {
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    mockUpdatePushNotificationPrefs
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ ...ALL_ON_PREFS, direct_messages: false });
+    render(<NotificationsRoute />);
+    await waitFor(() => expect(screen.getByTestId('toggle-direct_messages')).toBeTruthy());
+
+    fireEvent(screen.getByTestId('toggle-direct_messages'), 'valueChange', false);
+    await waitFor(() => expect(
+      screen.getByTestId('notification-action-error-direct_messages'),
+    ).toBeTruthy());
+    expect(screen.getByTestId('toggle-direct_messages').props.value).toBe(true);
+    expect(announce).toHaveBeenCalledWith(expect.stringContaining('Retry is available'));
+
+    mockGetPushNotificationPrefs.mockResolvedValue({ ...ALL_ON_PREFS, direct_messages: false });
+    fireEvent.press(screen.getByTestId('notification-action-retry-direct_messages'));
+    await waitFor(() => expect(mockUpdatePushNotificationPrefs).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(
+      screen.queryByTestId('notification-action-error-direct_messages'),
+    ).toBeNull());
+    expect(screen.getByTestId('toggle-direct_messages').props.value).toBe(false);
+    announce.mockRestore();
+  });
+
+  it('guards repeated activation while leaving unrelated controls enabled', async () => {
+    const pending = deferred<typeof ALL_ON_PREFS>();
+    mockUpdatePushNotificationPrefs.mockReturnValue(pending.promise);
+    render(<NotificationsRoute />);
+    await waitFor(() => expect(screen.getByTestId('toggle-direct_messages')).toBeTruthy());
+
+    fireEvent(screen.getByTestId('toggle-direct_messages'), 'valueChange', false);
+    fireEvent(screen.getByTestId('toggle-direct_messages'), 'valueChange', false);
+
+    await waitFor(() => expect(mockUpdatePushNotificationPrefs).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('toggle-direct_messages')).toHaveAccessibilityState({ disabled: true });
+    expect(screen.getByTestId('toggle-league_messages')).toHaveAccessibilityState({ disabled: false });
+    await act(async () => { pending.resolve({ ...ALL_ON_PREFS, direct_messages: false }); });
+  });
+
+  it('retires a never-settling action after the documented deadline', async () => {
+    jest.useFakeTimers();
+    mockUpdatePushNotificationPrefs.mockReturnValue(new Promise(() => {}));
+    render(<NotificationsRoute />);
+    await waitFor(() => expect(screen.getByTestId('toggle-direct_messages')).toBeTruthy());
+    fireEvent(screen.getByTestId('toggle-direct_messages'), 'valueChange', false);
+
+    await waitFor(() => expect(mockUpdatePushNotificationPrefs).toHaveBeenCalledTimes(1));
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    await waitFor(() => expect(
+      screen.getByText(/could not confirm the chat messages change in time/i),
+    ).toBeTruthy());
+    expect(screen.getByTestId('toggle-direct_messages')).toHaveAccessibilityState({ disabled: false });
+    jest.useRealTimers();
+  });
+
+  it('bounds the master action while native registration waits behind older work', async () => {
+    jest.useFakeTimers();
+    mockAuthorization = 'not_determined';
+    mockGetPushNotificationPrefs.mockResolvedValue(MIXED_PREFS);
+    mockEnablePush.mockReturnValue(new Promise(() => {}));
+    render(<NotificationsRoute />);
+    await waitFor(() => expect(screen.getByTestId('toggle-master')).toBeTruthy());
+
+    fireEvent(screen.getByTestId('toggle-master'), 'valueChange', true);
+    await waitFor(() => expect(mockEnablePush).toHaveBeenCalledTimes(1));
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+
+    await waitFor(() => expect(
+      screen.getByText(/could not confirm the push notifications change in time/i),
+    ).toBeTruthy());
+    expect(screen.getByTestId('toggle-master')).toHaveAccessibilityState({ disabled: false });
+    expect(screen.getByTestId('notification-action-retry-push_enabled')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  it('retries only the server preference after native registration partially succeeds', async () => {
+    mockAuthorization = 'not_determined';
+    mockGetPushNotificationPrefs.mockResolvedValue(MIXED_PREFS);
+    mockEnablePush.mockResolvedValue('preference_failed');
+    mockUpdatePushNotificationPrefs.mockResolvedValue({ ...ALL_ON_PREFS, push_enabled: true });
+    render(<NotificationsRoute />);
+    await waitFor(() => expect(screen.getByTestId('toggle-master')).toBeTruthy());
+
+    fireEvent(screen.getByTestId('toggle-master'), 'valueChange', true);
+    await waitFor(() => expect(screen.getByText(/device notifications are enabled/i)).toBeTruthy());
+    fireEvent.press(screen.getByTestId('notification-action-retry-push_enabled'));
+
+    await waitFor(() => expect(mockUpdatePushNotificationPrefs).toHaveBeenCalledWith({
+      push_enabled: true,
+    }));
+    expect(mockEnablePush).toHaveBeenCalledTimes(1);
   });
 });

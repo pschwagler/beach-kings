@@ -20,6 +20,7 @@ import { useNotificationsScreen } from './useNotificationsScreen';
 import type { PushNotificationPrefs } from '@beach-kings/shared';
 import AppSwitch from '@/components/ui/AppSwitch';
 import Button from '@/components/ui/Button';
+import type { PreferenceActionError } from './useNotificationsScreen';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -138,6 +139,25 @@ function NotificationsErrorState({ onRetry }: ErrorStateProps): React.ReactNode 
   );
 }
 
+function ActionError({ error }: { readonly error?: PreferenceActionError }): React.ReactNode {
+  if (error == null) return null;
+  return (
+    <View
+      testID={`notification-action-error-${error.key}`}
+      accessibilityRole="alert"
+      className="px-lg py-sm bg-surface border-b border-divider"
+    >
+      <AppText className="text-[13px] text-danger mb-sm">{error.message}</AppText>
+      <Button
+        testID={`notification-action-retry-${error.key}`}
+        title="Retry"
+        variant="outline"
+        onPress={error.retry}
+      />
+    </View>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
@@ -148,7 +168,8 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
     authorization,
     isLoading,
     error,
-    isSaving,
+    pendingKeys,
+    actionErrors,
     onToggle,
     onRetry,
     openSettings,
@@ -197,9 +218,10 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
             testID="toggle-master"
             label="Push Notifications"
             value={allEnabled}
-            disabled={isSaving}
+            disabled={pendingKeys.has('push_enabled')}
             onToggle={handleMasterToggle}
           />
+          <ActionError error={actionErrors.push_enabled} />
           {authorization === 'denied' && (
             <View className="px-lg py-sm bg-surface">
               <AppText className="text-[12px] text-muted mb-sm">
@@ -223,17 +245,19 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
         <SectionHeader title="Notification Types" />
         <View testID="notifications-types-section">
           {TOGGLE_ROWS.map(({ key, label }) => (
-            <ToggleRow
-              key={key}
-              testID={`toggle-${key}`}
-              label={label}
-              value={prefs?.[key] ?? false}
-              disabled={!allEnabled && prefs != null}
-              onToggle={() => {
-                void hapticLight();
-                onToggle(key);
-              }}
-            />
+            <React.Fragment key={key}>
+              <ToggleRow
+                testID={`toggle-${key}`}
+                label={label}
+                value={prefs?.[key] ?? false}
+                disabled={(!allEnabled && prefs != null) || pendingKeys.has(key)}
+                onToggle={() => {
+                  void hapticLight();
+                  onToggle(key);
+                }}
+              />
+              <ActionError error={actionErrors[key]} />
+            </React.Fragment>
           ))}
         </View>
 
