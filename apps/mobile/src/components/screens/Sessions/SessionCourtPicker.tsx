@@ -108,7 +108,6 @@ function SessionCourtPickerContent({
           className={`flex-1 text-[14px] ${
             selectedCourtId == null ? 'text-muted' : 'text-default'
           }`}
-          numberOfLines={1}
         >
           {selectedName}
         </AppText>

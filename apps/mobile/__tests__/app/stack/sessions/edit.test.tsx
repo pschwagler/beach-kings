@@ -115,6 +115,17 @@ describe('SessionEditScreen', () => {
     expect(screen.getByTestId('edit-session-season-10').props.accessibilityState.checked).toBe(false);
   });
 
+  it('allows long season and court names to wrap at accessibility text sizes', async () => {
+    mockGetLeagueSeasons.mockResolvedValue([{ id: 10, name: 'A very long accessibility season name that needs more than one line', is_active: true }]);
+    mockGetCourts.mockResolvedValue([{ id: 7, name: 'A very long accessibility court name that needs more than one line' }]);
+    render(<SessionEditRoute />);
+
+    const season = await screen.findByText('A very long accessibility season name that needs more than one line');
+    const court = await screen.findByTestId('edit-session-selected-court');
+    expect(season.props.numberOfLines).toBeUndefined();
+    expect(court.props.numberOfLines).toBeUndefined();
+  });
+
   it('omits the league/context block for pickup sessions', async () => {
     mockGetSessionById.mockResolvedValue({
       id: 42,

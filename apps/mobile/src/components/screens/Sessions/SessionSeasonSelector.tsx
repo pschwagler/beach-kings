@@ -68,7 +68,6 @@ export default function SessionSeasonSelector({
                 className={`text-[14px] font-semibold flex-1 ${
                   selected ? 'text-brand-teal' : 'text-default'
                 }`}
-                numberOfLines={1}
               >
                 {seasonLabel(season)}
               </AppText>
