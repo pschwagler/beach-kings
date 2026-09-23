@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import AccountModerationScreen from '@/components/screens/Settings/AccountModerationScreen';
@@ -130,16 +130,25 @@ describe('AccountModerationScreen', () => {
 
     expect(await view.findByText('Account status may be out of date')).toBeTruthy();
     expect(view.getByText('Keep this viewer-safe warning visible.')).toBeTruthy();
-    jest.mocked(api.getAccountModerationStatus).mockResolvedValue({
+    let finishRetry!: (value: typeof cachedStatus) => void;
+    jest.mocked(api.getAccountModerationStatus).mockReturnValue(new Promise((resolve) => {
+      finishRetry = resolve;
+    }));
+    const recoveredStatus = {
       ...cachedStatus,
       warnings: [{
         id: 22,
         message: 'Recovered warning history.',
         created_at: '2026-09-17T12:00:00Z',
       }],
-    });
+    };
 
     fireEvent.press(view.getByText('Retry refresh'));
+
+    expect(await view.findByText('Retrying refresh…')).toBeTruthy();
+    expect(view.getByLabelText('Retry refreshing account status').props.accessibilityState)
+      .toEqual({ busy: true, disabled: true });
+    await act(async () => { finishRetry(recoveredStatus); });
 
     expect(await view.findByText('Recovered warning history.')).toBeTruthy();
     await waitFor(() => {

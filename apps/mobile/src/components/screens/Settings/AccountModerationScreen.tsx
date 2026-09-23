@@ -239,10 +239,17 @@ export default function AccountModerationScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Retry refreshing account status"
+              accessibilityState={{
+                busy: statusRefresh.refreshing,
+                disabled: statusRefresh.refreshing,
+              }}
+              disabled={statusRefresh.refreshing}
               onPress={statusRefresh.onRefresh}
               className="min-h-touch items-center justify-center rounded-xl border border-danger"
             >
-              <AppText className="font-semibold text-danger">Retry refresh</AppText>
+              <AppText className="font-semibold text-danger">
+                {statusRefresh.refreshing ? 'Retrying refresh…' : 'Retry refresh'}
+              </AppText>
             </Pressable>
           </View>
         )}

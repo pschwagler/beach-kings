@@ -48,7 +48,6 @@ export function useExplicitRefresh(run: () => unknown, scope: string, label: str
     const token = {};
     const request = callback.current;
     setRefreshing(true);
-    setError(null);
     AccessibilityInfo.announceForAccessibility(`Refreshing ${label}`);
     const finish = (message: string | null) => {
       if (active.current?.token !== token) return;
