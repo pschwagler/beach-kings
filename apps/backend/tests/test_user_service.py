@@ -37,7 +37,43 @@ async def test_create_user(test_session):
     assert user is not None
     assert user["phone_number"] == "+15551234567"
     assert user["email"] == "test@example.com"
+    assert user["auth_provider"] == "phone"
     assert user["is_verified"] is True
+
+
+@pytest.mark.asyncio
+async def test_create_email_user_sets_email_auth_provider(monkeypatch):
+    """Email-only signup must not inherit the database's phone default."""
+    created_users = []
+
+    class FakeSession:
+        def add(self, user):
+            user.id = 42
+            created_users.append(user)
+
+        async def flush(self):
+            pass
+
+        async def commit(self):
+            pass
+
+    async def fake_get_user_by_email(session, email):
+        return None
+
+    monkeypatch.setattr(user_service, "get_user_by_email", fake_get_user_by_email)
+
+    user_id = await user_service.create_user(
+        session=FakeSession(),
+        phone_number=None,
+        password_hash="hashed_password",
+        email="email-only@example.com",
+    )
+
+    assert user_id == 42
+    assert len(created_users) == 1
+    assert created_users[0].phone_number is None
+    assert created_users[0].email == "email-only@example.com"
+    assert created_users[0].auth_provider == "email"
 
 
 @pytest.mark.asyncio

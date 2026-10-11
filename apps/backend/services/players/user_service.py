@@ -144,6 +144,7 @@ async def create_user(
         phone_number=phone_number,
         password_hash=password_hash,
         email=normalized_email,
+        auth_provider="phone" if phone_number else "email",
         is_verified=True,
         **(youth_facts or {}),
     )
