@@ -2,6 +2,12 @@ name: Inspect Player Account Links
 
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: "Commit the three preflighted account links"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -14,15 +20,23 @@ jobs:
   seed:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect selected production accounts without contact details
+      - name: Reconcile selected production accounts
         uses: appleboy/ssh-action@v1
+        env:
+          RECONCILE_APPLY: ${{ inputs.apply }}
         with:
           host: ${{ secrets.PROD_EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.PROD_EC2_SSH_KEY }}
+          envs: RECONCILE_APPLY
           script: |
             set -e
             cd ~/beach-kings
             git fetch origin ops/link-existing-players-20261018
-            git show origin/ops/link-existing-players-20261018:scripts/inspect_player_account_pairs.py | \
-              docker-compose exec -T backend bash -c "cd /app && PYTHONPATH=/app python -"
+            if [ "$RECONCILE_APPLY" = "true" ]; then
+              git show origin/ops/link-existing-players-20261018:scripts/link_existing_player_logins.py | \
+                docker-compose exec -T backend bash -c "cd /app && PYTHONPATH=/app python - --apply"
+            else
+              git show origin/ops/link-existing-players-20261018:scripts/link_existing_player_logins.py | \
+                docker-compose exec -T backend bash -c "cd /app && PYTHONPATH=/app python -"
+            fi
