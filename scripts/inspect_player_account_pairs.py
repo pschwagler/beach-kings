@@ -76,6 +76,10 @@ async def inspect() -> None:
             print(
                 json.dumps(
                     {
+                        "old_user_id": rows[0]["user_id"],
+                        "old_user_references": await reference_counts(
+                            session, "users", rows[0]["user_id"]
+                        ),
                         "new_player_id": new_id,
                         "player_references": await reference_counts(session, "players", new_id),
                         "new_user_id": rows[1]["user_id"],
