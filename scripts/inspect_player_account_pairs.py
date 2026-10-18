@@ -5,11 +5,25 @@ import json
 
 from sqlalchemy import func, or_, select
 
-from backend.database.db import AsyncSessionLocal, engine
+from backend.database.db import AsyncSessionLocal, Base, engine
 from backend.database.models import LeagueMember, Match, Player, User
 
 
 PAIRS = ((4, 52), (3, 49), (12, 50))
+
+
+async def reference_counts(session, entity: str, row_id: int) -> dict[str, int]:
+    counts = {}
+    for table in Base.metadata.tables.values():
+        for column in table.columns:
+            if not any(fk.target_fullname == f"{entity}.id" for fk in column.foreign_keys):
+                continue
+            count = await session.scalar(
+                select(func.count()).select_from(table).where(column == row_id)
+            )
+            if count:
+                counts[f"{table.name}.{column.name}"] = count
+    return counts
 
 
 async def inspect() -> None:
@@ -24,12 +38,14 @@ async def inspect() -> None:
                 if user is None:
                     raise RuntimeError(f"Missing user for player {player_id}")
                 leagues = await session.scalar(
-                    select(func.count()).select_from(LeagueMember).where(
-                        LeagueMember.player_id == player_id
-                    )
+                    select(func.count())
+                    .select_from(LeagueMember)
+                    .where(LeagueMember.player_id == player_id)
                 )
                 matches = await session.scalar(
-                    select(func.count()).select_from(Match).where(
+                    select(func.count())
+                    .select_from(Match)
+                    .where(
                         or_(
                             Match.team1_player1_id == player_id,
                             Match.team1_player2_id == player_id,
@@ -57,6 +73,19 @@ async def inspect() -> None:
                     }
                 )
             print(json.dumps(rows, sort_keys=True))
+            print(
+                json.dumps(
+                    {
+                        "new_player_id": new_id,
+                        "player_references": await reference_counts(session, "players", new_id),
+                        "new_user_id": rows[1]["user_id"],
+                        "user_references": await reference_counts(
+                            session, "users", rows[1]["user_id"]
+                        ),
+                    },
+                    sort_keys=True,
+                )
+            )
     await engine.dispose()
 
 
