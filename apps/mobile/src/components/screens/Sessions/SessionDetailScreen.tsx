@@ -28,6 +28,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import TopNav from '@/components/ui/TopNav';
+import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
 import SessionSubmitSheet from './SessionSubmitSheet';
 import SessionResultsTable from './SessionResultsTable';
 import { EllipsisIcon, ChevronRightIcon } from '@/components/ui/icons';
@@ -191,11 +192,7 @@ function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
             {session.status === 'active' ? 'Active' : 'Submitted'}
           </AppText>
         </View>
-        <View className="bg-elevated px-[8px] py-[3px] rounded-[10px]">
-          <AppText className="text-[11px] text-muted">
-            {session.session_type === 'pickup' ? 'Pickup' : 'League'}
-          </AppText>
-        </View>
+        <PlayTypeBadge type={session.session_type === 'pickup' ? 'pickup' : 'league'} noun="session" />
       </View>
     </View>
   );
