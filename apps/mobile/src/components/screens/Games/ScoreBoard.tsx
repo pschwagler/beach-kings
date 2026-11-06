@@ -200,7 +200,10 @@ function FilledChip({
   );
 }
 
-function PlayerChip(props: PlayerChipProps): React.ReactNode {
+// Score and active-score changes must not rebuild the chips' native gestures.
+const PlayerChip = React.memo(function PlayerChip(
+  props: PlayerChipProps,
+): React.ReactNode {
   const { slot, index, team, isActive, onPress } = props;
   const isEmpty = slot.player_id == null;
 
@@ -230,7 +233,7 @@ function PlayerChip(props: PlayerChipProps): React.ReactNode {
   }
 
   return <FilledChip {...props} />;
-}
+});
 
 // ---------------------------------------------------------------------------
 // Score display (scoring mode only — tappable score box)
@@ -305,7 +308,7 @@ interface BoardHalfProps {
   readonly onChipDragCancel?: () => void;
 }
 
-function BoardHalf({
+const BoardHalf = React.memo(function BoardHalf({
   team,
   slots,
   score,
@@ -327,6 +330,18 @@ function BoardHalf({
 
   const chipRef0 = useRef<View>(null);
   const chipRef1 = useRef<View>(null);
+  const handlePress0 = useCallback(() => onSlotPress?.(0), [onSlotPress]);
+  const handlePress1 = useCallback(() => onSlotPress?.(1), [onSlotPress]);
+  const handleRemove0 = useCallback(() => onRemovePlayer?.(0), [onRemovePlayer]);
+  const handleRemove1 = useCallback(() => onRemovePlayer?.(1), [onRemovePlayer]);
+  const handleDragStart0 = useCallback(
+    (x: number, y: number) => onChipDragStart?.(0, x, y),
+    [onChipDragStart],
+  );
+  const handleDragStart1 = useCallback(
+    (x: number, y: number) => onChipDragStart?.(1, x, y),
+    [onChipDragStart],
+  );
 
   useEffect(() => {
     if (setChipRef == null) return;
@@ -354,12 +369,12 @@ function BoardHalf({
           index={0}
           team={team}
           isActive={activeSlot?.team === team && activeSlot?.slot === 0}
-          onPress={() => onSlotPress?.(0)}
-          onRemove={() => onRemovePlayer?.(0)}
+          onPress={handlePress0}
+          onRemove={handleRemove0}
           containerRef={chipRef0}
           isDragging={dragFrom?.team === team && dragFrom?.slot === 0}
           isDragTarget={dragTarget?.team === team && dragTarget?.slot === 0}
-          onDragStart={(x, y) => onChipDragStart?.(0, x, y)}
+          onDragStart={handleDragStart0}
           onDragMove={onChipDragMove}
           onDragEnd={onChipDragEnd}
           onDragCancel={onChipDragCancel}
@@ -369,12 +384,12 @@ function BoardHalf({
           index={1}
           team={team}
           isActive={activeSlot?.team === team && activeSlot?.slot === 1}
-          onPress={() => onSlotPress?.(1)}
-          onRemove={() => onRemovePlayer?.(1)}
+          onPress={handlePress1}
+          onRemove={handleRemove1}
           containerRef={chipRef1}
           isDragging={dragFrom?.team === team && dragFrom?.slot === 1}
           isDragTarget={dragTarget?.team === team && dragTarget?.slot === 1}
-          onDragStart={(x, y) => onChipDragStart?.(1, x, y)}
+          onDragStart={handleDragStart1}
           onDragMove={onChipDragMove}
           onDragEnd={onChipDragEnd}
           onDragCancel={onChipDragCancel}
@@ -391,7 +406,7 @@ function BoardHalf({
       )}
     </View>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Main ScoreBoard export
@@ -558,7 +573,7 @@ function GhostChip({ visible, label, team, ghostX, ghostY }: GhostChipProps): Re
   );
 }
 
-export default function ScoreBoard({
+function ScoreBoard({
   team1Slots,
   team2Slots,
   score1,
@@ -733,3 +748,5 @@ export default function ScoreBoard({
 function slotOrdinal(index: number): 'first' | 'second' {
   return index === 0 ? 'first' : 'second';
 }
+
+export default React.memo(ScoreBoard);

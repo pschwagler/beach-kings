@@ -752,6 +752,22 @@ describe('ScoreGameScreen — success view content', () => {
     expect(screen.queryByText('Team 1')).toBeNull();
     expect(screen.queryByText('Team 2')).toBeNull();
   });
+
+  it('starts the next game on team 1 with an empty digit buffer', async () => {
+    renderScoreGame();
+    await fillAllSlots();
+    fireEvent.press(screen.getByTestId('numpad-2'));
+    fireEvent.press(screen.getByTestId('numpad-1'));
+    fireEvent.press(screen.getByTestId('numpad-9'));
+    fireEvent.press(screen.getByTestId('save-game-btn'));
+    await waitFor(() => expect(screen.getByTestId('add-another-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('add-another-btn'));
+
+    await fillAllSlots();
+    fireEvent.press(screen.getByTestId('numpad-2'));
+    expect(screen.getByTestId('score-display-team1')).toHaveTextContent('02');
+    expect(screen.getByTestId('score-display-team2')).toHaveTextContent('00');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1170,6 +1186,18 @@ describe('ScoreGameScreen — edit mode', () => {
     await waitFor(() => {
       expect(screen.getByText('Edit Game')).toBeTruthy();
     });
+  });
+
+  it('opens a new game in the same session after saving an edit and choosing Add Another', async () => {
+    mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555', leagueId: '3', seasonId: '8' });
+    renderScoreGame();
+    await waitFor(() => expect(screen.getByTestId('save-game-btn').props.accessibilityState.disabled).toBe(false));
+    fireEvent.press(screen.getByTestId('save-game-btn'));
+    await waitFor(() => expect(screen.getByTestId('add-another-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('add-another-btn'));
+
+    expect(mockUpdateMatch).toHaveBeenCalledWith(555, expect.any(Object));
+    expect(mockReplace).toHaveBeenCalledWith('/(stack)/score-game?sessionId=7&leagueId=3&seasonId=8');
   });
 
   it('shows the Delete Game link only in edit mode', async () => {
