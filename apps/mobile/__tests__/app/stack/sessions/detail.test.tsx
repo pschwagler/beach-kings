@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
@@ -509,5 +509,50 @@ describe('SessionDetailScreen — menu', () => {
     expect(screen.getByTestId('session-menu-roster')).toHaveTextContent(
       'View Players',
     );
+  });
+});
+
+
+describe('SessionDetailScreen — game editing and submission review', () => {
+  it('opens an active game scoreboard by tapping its card', async () => {
+    renderRoute();
+    await waitFor(() => expect(screen.getByTestId('session-game-card-1001')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('session-game-card-1001'));
+    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('matchId=1001'));
+  });
+
+  it('keeps submitted game cards read-only', async () => {
+    mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
+    renderRoute();
+    await waitFor(() => expect(screen.getByTestId('session-game-card-1001')).toBeTruthy());
+    expect(screen.getByTestId('session-game-card-1001')).toBeDisabled();
+    fireEvent.press(screen.getByTestId('session-game-card-1001'));
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('shows all-player results before submission and lets the player cancel without locking', async () => {
+    renderRoute();
+    await waitFor(() => expect(screen.getByTestId('session-submit-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('session-submit-btn'));
+    await waitFor(() => expect(screen.getByTestId('session-submit-confirm')).toBeTruthy());
+    const summary = within(screen.getByTestId('session-submit-confirm'));
+    expect(summary.getByLabelText('You, 1 wins, 0 losses, point difference +5')).toBeTruthy();
+    expect(summary.getByLabelText('A. Marthey, 0 wins, 1 losses, point difference -5')).toBeTruthy();
+    expect(mockLockInSession).not.toHaveBeenCalled();
+    fireEvent.press(summary.getByTestId('session-submit-confirm-cancel'));
+    expect(mockLockInSession).not.toHaveBeenCalled();
+  });
+
+  it('locks only after confirmation and keeps all-player results on submitted sessions', async () => {
+    mockLockInSession.mockResolvedValue({});
+    mockGetSessionById.mockResolvedValueOnce(MOCK_SESSION_ACTIVE).mockResolvedValue(MOCK_SESSION_SUBMITTED);
+    renderRoute();
+    await waitFor(() => expect(screen.getByTestId('session-submit-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('session-submit-btn'));
+    fireEvent.press(screen.getByTestId('session-submit-confirm-confirm'));
+    await waitFor(() => expect(mockLockInSession).toHaveBeenCalledWith(42));
+    await waitFor(() => expect(screen.queryByTestId('session-submit-btn')).toBeNull());
+    expect(screen.getByTestId('session-results-table')).toBeTruthy();
+    expect(screen.getByLabelText('A. Marthey, 0 wins, 1 losses, point difference -5')).toBeTruthy();
   });
 });

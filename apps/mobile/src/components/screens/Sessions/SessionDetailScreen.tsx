@@ -28,7 +28,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import TopNav from '@/components/ui/TopNav';
-import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import SessionSubmitSheet from './SessionSubmitSheet';
+import SessionResultsTable from './SessionResultsTable';
 import { EllipsisIcon, ChevronRightIcon } from '@/components/ui/icons';
 import SessionDetailSkeleton from './SessionDetailSkeleton';
 import SessionDetailErrorState from './SessionDetailErrorState';
@@ -356,6 +357,11 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           <>
             <SessionHeader session={session} />
             <StatsBar session={session} />
+            {session.status === 'submitted' && (
+              <View className="mx-4 mt-4">
+                <SessionResultsTable games={session.games} />
+              </View>
+            )}
             <View className="mx-[16px] mt-[16px]">
               <AppText className="text-[15px] font-bold text-default">Location</AppText>
               <SessionCourtPicker
@@ -513,14 +519,9 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
       )}
 
       {/* Submit confirmation — locks scores + rating updates are irreversible. */}
-      <ConfirmDialog
-        testID="session-submit-confirm"
+      <SessionSubmitSheet
         visible={submitConfirmVisible}
-        title="Submit session?"
-        message="Scores will be locked and ratings updated. This can't be undone."
-        confirmLabel="Submit"
-        confirmVariant="destructive"
-        cancelLabel="Keep editing"
+        games={session?.games ?? []}
         onConfirm={() => {
           setSubmitConfirmVisible(false);
           void onSubmitSession();
