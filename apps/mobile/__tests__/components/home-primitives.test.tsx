@@ -320,14 +320,13 @@ describe('SectionError', () => {
 // HomeLeadAction
 // ---------------------------------------------------------------------------
 describe('HomeLeadAction', () => {
-  it('renders the record-game fallback as one branded lead', () => {
-    const { getByLabelText, getByTestId } = render(
+  it('makes the whole record-game action tappable without decorative copy', () => {
+    const { getByLabelText, getByTestId, queryByTestId, queryByText } = render(
       <HomeLeadAction state={{ kind: 'record-game' }} onRetryActiveSession={() => {}} />,
     );
     expect(getByTestId('home-lead-record-game')).toBeTruthy();
-    expect(getByTestId('court-line-motif-home', {
-      includeHiddenElements: true,
-    })).toBeTruthy();
+    expect(queryByTestId('court-line-motif-home', { includeHiddenElements: true })).toBeNull();
+    expect(queryByText('Ready for another game?')).toBeNull();
     fireEvent.press(getByLabelText('Record a Game'));
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/add-games');
   });
