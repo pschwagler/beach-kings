@@ -18,7 +18,7 @@
  * Wireframe ref: league-detail.html
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -26,6 +26,7 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -267,25 +268,25 @@ function TabContent({
   chatDraft,
   onChatDraftChange,
 }: TabContentProps): React.ReactNode {
-  // Stats sub-view is pushed from standings tab
-  if (activeTab === 'standings' && statsPlayerId != null) {
-    return (
-      <LeagueStatsTab
-        leagueId={leagueId}
-        playerId={statsPlayerId}
-      />
-    );
-  }
-
   switch (activeTab) {
     case 'games':
       return <LeagueMatchesTab leagueId={leagueId} />;
     case 'standings':
       return (
-        <LeagueDashboardTab
-          leagueId={leagueId}
-          onPressPlayer={(id) => onViewPlayerStats(id)}
-        />
+        <View className="flex-1">
+          {/* Keep season, sort, and scroll positions while inspecting a player. */}
+          <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
+            opacity: statsPlayerId == null ? 1 : 0 }}
+            pointerEvents={statsPlayerId == null ? 'auto' : 'none'}
+            accessibilityElementsHidden={statsPlayerId != null}
+            importantForAccessibility={statsPlayerId != null ? 'no-hide-descendants' : 'auto'}>
+            <LeagueDashboardTab
+              leagueId={leagueId}
+              onPressPlayer={(id) => onViewPlayerStats(id)}
+            />
+          </View>
+          {statsPlayerId != null && <LeagueStatsTab leagueId={leagueId} playerId={statsPlayerId} />}
+        </View>
       );
     case 'chat':
       return (
@@ -347,6 +348,14 @@ export default function LeagueDetailScreen({
 
   // Track which player row was tapped in standings to push stats sub-view
   const [statsPlayerId, setStatsPlayerId] = useState<number | string | null>(null);
+  useEffect(() => {
+    if (statsPlayerId == null) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setStatsPlayerId(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [statsPlayerId]);
   // Preserve an unsent league-chat draft when the user visits another league
   // tab. Sending or explicitly editing the composer remains the only way this
   // text changes.
@@ -456,7 +465,9 @@ export default function LeagueDetailScreen({
       className="flex-1 bg-page"
       edges={['top', 'bottom']}
     >
-      <TopNav title="League" showBack rightAction={addGameAction} />
+      <TopNav title={statsPlayerId == null ? 'League' : 'Player Stats'} showBack
+        onBack={statsPlayerId == null ? undefined : () => setStatsPlayerId(null)}
+        rightAction={statsPlayerId == null ? addGameAction : undefined} />
       <View testID="league-detail-screen" className="flex-1 bg-page">
         <LeagueHeader
           name={detail.name}

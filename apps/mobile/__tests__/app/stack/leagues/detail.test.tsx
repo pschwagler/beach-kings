@@ -709,7 +709,7 @@ describe('LeagueDetailScreen — non-member visitor', () => {
 
     // Standings is the default tab for a visitor.
     await waitFor(() => expect(screen.getByTestId('standings-row-77')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('standings-row-77'));
+    fireEvent.press(screen.getByTestId('standings-player-77'));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalled());
     const dest = mockPush.mock.calls[0][0] as string;
@@ -732,5 +732,36 @@ describe('LeagueDetailScreen — non-member visitor', () => {
     await waitFor(() => expect(screen.getByTestId('league-segment-bar')).toBeTruthy());
 
     expect(screen.getByTestId('segment-tab-standings')).toBeTruthy();
+  });
+});
+
+describe('LeagueDetailScreen — standings return navigation', () => {
+  it('returns from player stats to the same standings season and sort without leaving the league', async () => {
+    mockGetLeagueStandings.mockResolvedValue(ONE_STANDING);
+    mockGetLeagueSeasons.mockResolvedValue([
+      { id: 3, name: 'Current season', is_active: true },
+      { id: 2, name: 'Previous season', is_active: false },
+    ]);
+    mockGetLeaguePlayerStats.mockReturnValue(new Promise(() => {}));
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await screen.findByTestId('segment-tab-standings');
+    fireEvent.press(screen.getByTestId('segment-tab-standings'));
+    await screen.findByTestId('season-pill-2');
+    fireEvent.press(screen.getByTestId('season-pill-2'));
+    await waitFor(() => expect(mockGetLeagueStandings).toHaveBeenCalledWith(1, 2));
+    await screen.findByTestId('sort-by-rating');
+    fireEvent.press(screen.getByTestId('sort-by-rating'));
+    fireEvent.press(screen.getByTestId('standings-player-77'));
+    await screen.findByTestId('player-stats-loading');
+    expect(screen.getByText('Player Stats')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
+    await screen.findByTestId('standings-player-77');
+    expect(screen.queryByTestId('player-stats-loading')).toBeNull();
+    expect(screen.getByTestId('season-pill-2').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('sort-by-rating').props.accessibilityState.selected).toBe(true);
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });
