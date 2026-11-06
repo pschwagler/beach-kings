@@ -13,6 +13,7 @@ import type { League } from '@beach-kings/shared';
 import { TrophyIcon, ChevronRightIcon } from '@/components/ui/icons';
 import { formatRecord, formatWinRate, formatOrdinal, pluralize } from '@/lib/formatters';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
 
 interface LeagueCardProps {
   readonly league: League;
@@ -77,6 +78,7 @@ export default function LeagueCard({
         </View>
 
         <View className="flex-1 ml-md">
+          <View className="mb-xs"><PlayTypeBadge type="league" /></View>
           <AppText
             className="text-callout font-bold text-default"
             numberOfLines={2}

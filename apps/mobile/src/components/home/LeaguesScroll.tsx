@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import type { League } from '@beach-kings/shared';
 import { formatOrdinal } from '@/lib/formatters';
 import { routes } from '@/lib/navigation';
+import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
 
 interface LeaguesScrollProps {
   readonly leagues: readonly League[];
@@ -38,6 +39,7 @@ function LeagueCard({
 
   const content = (
     <>
+      <View className="mb-xs"><PlayTypeBadge type="league" /></View>
       <AppText
         className="text-footnote font-semibold text-default leading-[17px]"
         numberOfLines={2}

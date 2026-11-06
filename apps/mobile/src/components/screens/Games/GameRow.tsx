@@ -15,6 +15,7 @@ import { View, Pressable } from 'react-native';
 import { hapticMedium } from '@/utils/haptics';
 import { formatGameScore } from '@/lib/formatters';
 import type { GameHistoryEntry } from '@beach-kings/shared';
+import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
 
 interface GameRowProps {
   readonly game: GameHistoryEntry;
@@ -138,7 +139,9 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
       {/* Top row: result badge */}
       <View className="flex-row justify-between items-center mb-2">
         <ResultBadge result={game.result} />
+        <PlayTypeBadge type={game.league_id != null ? 'league' : 'pickup'} noun="game" />
       </View>
+
 
       {/* Score */}
       <AppText className="text-[20px] font-bold text-default mb-1">
