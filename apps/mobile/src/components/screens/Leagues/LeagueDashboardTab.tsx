@@ -15,7 +15,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import Avatar from '@/components/ui/Avatar';
+import LeagueStandingsTable from './LeagueStandingsTable';
 import { hapticLight } from '@/utils/haptics';
 import { useLeagueDashboardTab } from './useLeagueDashboardTab';
 import type { LeagueStanding, LeagueSeasonInfo } from '@beach-kings/shared';
@@ -54,6 +54,8 @@ function SeasonPicker({ seasons, selectedId, onSelect }: SeasonPickerProps): Rea
     >
       <Pressable
         testID="season-pill-all"
+        accessibilityRole="button"
+        accessibilityState={{ selected: allActive }}
         onPress={() => {
           void hapticLight();
           onSelect('all');
@@ -81,6 +83,8 @@ function SeasonPicker({ seasons, selectedId, onSelect }: SeasonPickerProps): Rea
           <Pressable
             key={s.id}
             testID={`season-pill-${s.id}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
             onPress={() => {
               void hapticLight();
               onSelect(s.id);
@@ -105,233 +109,6 @@ function SeasonPicker({ seasons, selectedId, onSelect }: SeasonPickerProps): Rea
         );
       })}
     </ScrollView>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Standings table row
-// ---------------------------------------------------------------------------
-
-interface StandingsRowProps {
-  readonly standing: LeagueStanding;
-  readonly isSeasonView: boolean;
-  readonly onPress: (playerId: number) => void;
-}
-
-function StandingsRow({ standing, isSeasonView, onPress }: StandingsRowProps): React.ReactNode {
-  const ratingDelta = standing.rating_delta;
-  const ratingDisplay = standing.rating != null ? Math.round(standing.rating) : '—';
-  const deltaDisplay = ratingDelta != null ? Math.round(ratingDelta) : null;
-
-  return (
-    <Pressable
-      testID={`standings-row-${standing.player_id}`}
-      onPress={() => {
-        void hapticLight();
-        onPress(standing.player_id);
-      }}
-      className="flex-row items-center px-4 py-[12px] border-b border-divider bg-surface active:opacity-70"
-    >
-      {/* Rank */}
-      <AppText className="w-8 text-[13px] font-bold text-muted">
-        {standing.rank}
-      </AppText>
-
-      {/* Avatar + Name */}
-      <View className="flex-1 flex-row items-center gap-2 min-w-0">
-        <Avatar
-          imageUrl={standing.avatar_url}
-          name={standing.display_name}
-          size="sm"
-          colorSeed={standing.player_id}
-          accessible={false}
-        />
-        <AppText
-          className="text-[14px] font-semibold text-default"
-          numberOfLines={1}
-        >
-          {standing.display_name}
-        </AppText>
-      </View>
-
-      {/* W-L */}
-      <AppText className="w-12 text-[13px] text-muted text-center">
-        {standing.wins}-{standing.losses}
-      </AppText>
-
-      {/* Win% */}
-      <AppText className="w-12 text-[13px] text-muted text-center">
-        {standing.win_rate}%
-      </AppText>
-
-      {/* PTS / Rating */}
-      <View className="w-16 items-end">
-        <AppText className="text-[14px] font-semibold text-default">
-          {ratingDisplay}
-        </AppText>
-        {!isSeasonView && deltaDisplay != null && (
-          <AppText
-            className={`text-[10px] font-medium ${
-              deltaDisplay >= 0
-                ? 'text-success'
-                : 'text-danger'
-            }`}
-          >
-            {deltaDisplay >= 0 ? '+' : ''}
-            {deltaDisplay}
-          </AppText>
-        )}
-      </View>
-    </Pressable>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Standings table header (sortable)
-// ---------------------------------------------------------------------------
-
-interface StandingsHeaderProps {
-  readonly isSeasonView: boolean;
-  readonly sortField: SortField | null;
-  readonly sortDir: SortDir;
-  readonly onSort: (field: SortField) => void;
-}
-
-function SortIndicator({
-  field,
-  sortField,
-  sortDir,
-}: {
-  field: SortField;
-  sortField: SortField | null;
-  sortDir: SortDir;
-}): React.ReactNode {
-  if (field !== sortField) return null;
-  return (
-    <AppText className="text-[9px] text-default ml-[2px]">
-      {sortDir === 'desc' ? '▼' : '▲'}
-    </AppText>
-  );
-}
-
-const HEADER_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 } as const;
-
-interface SortableHeaderProps {
-  readonly testID: string;
-  readonly field: SortField;
-  readonly sortField: SortField | null;
-  readonly sortDir: SortDir;
-  readonly onSort: (field: SortField) => void;
-  readonly label: string;
-  readonly className: string;
-  readonly textAlign?: 'left' | 'center' | 'right';
-}
-
-function SortableHeader({
-  testID,
-  field,
-  sortField,
-  sortDir,
-  onSort,
-  label,
-  className,
-  textAlign = 'left',
-}: SortableHeaderProps): React.ReactNode {
-  const isActive = field === sortField;
-  const justify =
-    textAlign === 'center'
-      ? 'justify-center'
-      : textAlign === 'right'
-        ? 'justify-end'
-        : 'justify-start';
-  const textAlignClass =
-    textAlign === 'center'
-      ? 'text-center'
-      : textAlign === 'right'
-        ? 'text-right'
-        : 'text-left';
-
-  return (
-    <Pressable
-      testID={testID}
-      onPress={() => onSort(field)}
-      hitSlop={HEADER_HIT_SLOP}
-      accessibilityRole="button"
-      accessibilityLabel={`Sort by ${label}`}
-      accessibilityState={{ selected: isActive }}
-      accessibilityHint={
-        isActive
-          ? `Currently sorted ${sortDir === 'desc' ? 'descending' : 'ascending'}. Tap to reverse.`
-          : 'Tap to sort by this column.'
-      }
-      className={`${className} flex-row items-center ${justify} active:opacity-70`}
-    >
-      <AppText
-        className={`text-[12px] font-semibold ${textAlignClass} ${
-          isActive
-            ? 'text-default'
-            : 'text-tertiary'
-        }`}
-      >
-        {label}
-      </AppText>
-      <SortIndicator field={field} sortField={sortField} sortDir={sortDir} />
-    </Pressable>
-  );
-}
-
-function StandingsHeader({ isSeasonView, sortField, sortDir, onSort }: StandingsHeaderProps): React.ReactNode {
-  return (
-    <View className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider">
-      <SortableHeader
-        testID="sort-by-rank"
-        field="rank"
-        sortField={sortField}
-        sortDir={sortDir}
-        onSort={onSort}
-        label="#"
-        className="w-8"
-      />
-      <SortableHeader
-        testID="sort-by-name"
-        field="name"
-        sortField={sortField}
-        sortDir={sortDir}
-        onSort={onSort}
-        label="Player"
-        className="flex-1"
-      />
-      <SortableHeader
-        testID="sort-by-wins"
-        field="wins"
-        sortField={sortField}
-        sortDir={sortDir}
-        onSort={onSort}
-        label="W-L"
-        className="w-12"
-        textAlign="center"
-      />
-      <SortableHeader
-        testID="sort-by-win-rate"
-        field="win_rate"
-        sortField={sortField}
-        sortDir={sortDir}
-        onSort={onSort}
-        label="Win%"
-        className="w-12"
-        textAlign="center"
-      />
-      <SortableHeader
-        testID="sort-by-rating"
-        field="rating"
-        sortField={sortField}
-        sortDir={sortDir}
-        onSort={onSort}
-        label={isSeasonView ? 'PTS' : 'Rating'}
-        className="w-16"
-        textAlign="right"
-      />
-    </View>
   );
 }
 
@@ -497,15 +274,16 @@ export default function LeagueDashboardTab({
       />
 
       <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden mb-2">
-        <StandingsHeader
-          isSeasonView={isSeasonView}
-          sortField={sortField}
-          sortDir={sortDir}
-          onSort={handleSort}
-        />
-        {sortedStandings.map((s) => (
-          <StandingsRow key={s.player_id} standing={s} isSeasonView={isSeasonView} onPress={onPressPlayer} />
-        ))}
+        {sortedStandings.length > 0 && (
+          <LeagueStandingsTable
+            standings={sortedStandings}
+            isSeasonView={isSeasonView}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onPressPlayer={onPressPlayer}
+          />
+        )}
         {sortedStandings.length === 0 && (
           <View className="py-10 px-6 items-center">
             <AppText className="text-[15px] font-semibold text-default text-center">
