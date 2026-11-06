@@ -180,8 +180,6 @@ export default function HomeScreen(): React.ReactNode {
         losses={losses}
       />
 
-      <EarlyReleaseFeedback />
-
       <HomeRefreshScrollView
         ref={scrollRef}
         testID="home-scroll"
@@ -191,6 +189,7 @@ export default function HomeScreen(): React.ReactNode {
         refreshError={refresh.error}
         onRefresh={refresh.onRefresh}
       >
+        <EarlyReleaseFeedback />
         {isInitialLoading ? (
           <DashboardSkeleton />
         ) : (

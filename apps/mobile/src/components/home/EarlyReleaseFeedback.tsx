@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import AppText from '@/components/ui/AppText';
 import { routes } from '@/lib/navigation';
 
-/** Always visible on Home, including while dashboard data is loading/offline. */
+/** First on Home even while loading/offline; scrolls so large text leaves room for actions. */
 export default function EarlyReleaseFeedback(): React.ReactNode {
   const router = useRouter();
   return (
