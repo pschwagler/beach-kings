@@ -8,7 +8,7 @@
 
 import React from 'react';
 import AppText from '@/components/ui/AppText';
-import { View, TouchableOpacity } from 'react-native';
+import { View, Pressable } from 'react-native';
 import type { SessionGame } from '@beach-kings/shared';
 import {
   getViewerSlotForGame,
@@ -95,7 +95,12 @@ export default function SessionGameCard({
       : null;
 
   return (
-    <View
+    <Pressable
+      onPress={onEdit}
+      disabled={onEdit == null}
+      accessible={onEdit != null}
+      accessibilityRole={onEdit != null ? 'button' : undefined}
+      accessibilityHint={onEdit != null ? 'Opens the scoreboard to edit this game' : undefined}
       testID={`session-game-card-${game.id}`}
       className="bg-surface rounded-[12px] p-[12px] mb-[8px] border border-divider"
     >
@@ -111,13 +116,9 @@ export default function SessionGameCard({
             </View>
           )}
           {onEdit != null && (
-            <TouchableOpacity
-              onPress={onEdit}
-              testID={`session-game-edit-${game.id}`}
-              className="p-[4px]"
-            >
-              <AppText className="text-[12px] text-brand-teal">Edit</AppText>
-            </TouchableOpacity>
+            <AppText className="text-[12px] font-semibold text-brand-teal">
+              Edit game ›
+            </AppText>
           )}
         </View>
       </View>
@@ -147,6 +148,6 @@ export default function SessionGameCard({
           {ratingText}
         </AppText>
       )}
-    </View>
+    </Pressable>
   );
 }
