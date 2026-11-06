@@ -31,7 +31,7 @@ export class AuthPage extends BasePage {
       eligibilityAge: 'label:has-text("Age range") select',
       
       // Buttons
-      submitButton: '.auth-modal__submit',
+      submitButton: '.auth-modal__submit[type="submit"]',
       sendCodeButton: 'button:has-text("Send Code")',
       
       // Footer links
@@ -234,7 +234,7 @@ export class AuthPage extends BasePage {
     await this.page.waitForFunction(
       () => {
         const title = document.querySelector('.auth-modal__header h2');
-        return title && title.textContent.toLowerCase().includes('log in');
+        return title && (title.textContent.toLowerCase().includes('log in') || title.textContent.toLowerCase().includes('welcome back'));
       },
       { timeout: 2000 }
     ).catch(() => {

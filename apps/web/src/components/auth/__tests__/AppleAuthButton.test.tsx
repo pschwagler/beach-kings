@@ -53,3 +53,12 @@ it('provides an actionable page reload after SDK load failure', async () => {
   expect(screen.getByRole('button', { name: 'reload this page' })).toBeEnabled();
   expect(screen.queryByRole('button', { name: 'Retry Apple sign-in' })).not.toBeInTheDocument();
 });
+
+
+it('hides unavailable Apple sign-in when requested by the login dialog', async () => {
+  vi.mocked(api.get).mockResolvedValue({ data: { enabled: false } });
+  render(<AppleAuthButton hideUnavailable onSuccess={vi.fn()} onError={vi.fn()} />);
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Sign in with Apple' })).not.toBeInTheDocument());
+  expect(screen.queryByText(/not available yet/)).not.toBeInTheDocument();
+  expect(api.post).not.toHaveBeenCalled();
+});
