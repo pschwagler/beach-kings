@@ -52,12 +52,12 @@ export const sessionQueries = {
         normalizedQuery,
         leagueId,
       ),
-      queryFn: (): Promise<PlayerSearchResponse> =>
+      queryFn: ({ signal }): Promise<PlayerSearchResponse> =>
         api.searchPlayers(normalizedQuery, {
           ...(sessionId != null ? { sessionId } : {}),
           leagueId,
           limit: 50,
-        }),
+        }, { signal }),
       enabled: enabled && userId > 0,
       staleTime: 15_000,
     });

@@ -19,7 +19,7 @@
  * feature modules. This hook keeps only form and interaction state locally.
  */
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { routes } from "@/lib/navigation";
@@ -112,6 +112,11 @@ export function useScoreGameScreen(
   const [savedMatchId, setSavedMatchId] = useState<number | null>(null);
   const [deleteState, setDeleteState] = useState<DeleteState>("idle");
   const debouncedSearch = useDebounce(search, 250);
+  // Release obsolete search observers immediately while the next term is
+  // debouncing. Query aborts their transport unless another consumer needs it.
+  const activeSearch = search.trim() === debouncedSearch.trim()
+    ? debouncedSearch.trim()
+    : "";
 
   const sessionDetailQuery = useQuery(
     sessionQueries.detail(userId, sessionId ?? 0, sessionId != null),
@@ -126,9 +131,9 @@ export function useScoreGameScreen(
     sessionQueries.playerSearch(
       userId,
       sessionId,
-      debouncedSearch,
+      activeSearch,
       leagueId,
-      debouncedSearch.trim() !== "",
+      activeSearch !== "",
     ),
   );
   const friendsQuery = useQuery(
@@ -169,7 +174,10 @@ export function useScoreGameScreen(
     matchId == null ? leagueId != null : false,
   );
 
-  // Hydrate form-only state from the canonical session-detail query.
+  const hydratedMatchId = useRef<number | null>(null);
+
+  // Initialize each edit draft once. Background refetches keep the Query
+  // cache current without overwriting the user's unsaved players or scores.
   useEffect(() => {
     const session = sessionDetailQuery.data;
     if (session == null) return;
@@ -177,8 +185,10 @@ export function useScoreGameScreen(
       if (session.is_ranked != null) setIsRanked(session.is_ranked);
       return;
     }
+    if (hydratedMatchId.current === matchId) return;
     const game = session.games.find((candidate) => candidate.id === matchId);
     if (game == null) return;
+    hydratedMatchId.current = matchId;
     const slots = deriveInitialSlots(game);
     setTeam1(slots.team1);
     setTeam2(slots.team2);
@@ -254,10 +264,10 @@ export function useScoreGameScreen(
 
   const searchResults = useMemo(
     () =>
-      debouncedSearch.trim() === ""
+      debouncedSearch.trim() === "" || debouncedSearch.trim() !== search.trim()
         ? []
         : (searchQuery.data?.items ?? []).map(mapSearchItem),
-    [debouncedSearch, searchQuery.data?.items],
+    [debouncedSearch, search, searchQuery.data?.items],
   );
   const isSearching =
     search.trim() !== "" &&

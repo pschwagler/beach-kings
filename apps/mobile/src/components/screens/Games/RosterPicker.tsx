@@ -12,7 +12,7 @@
  * existing tests.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -92,7 +92,7 @@ interface SessionChipProps {
   readonly onPress: (player: RosterPlayer) => void;
 }
 
-function SessionChip({
+const SessionChip = React.memo(function SessionChip({
   player,
   badge,
   isCurrentUser,
@@ -168,7 +168,7 @@ function SessionChip({
       )}
     </Pressable>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Ranked row (with relevance pills)
@@ -194,7 +194,11 @@ function PillBadge({ tag }: { readonly tag: PlayerSearchTag }): React.ReactNode 
   );
 }
 
-function PlayerRow({ player, badge, onPress }: PlayerRowProps): React.ReactNode {
+const PlayerRow = React.memo(function PlayerRow({
+  player,
+  badge,
+  onPress,
+}: PlayerRowProps): React.ReactNode {
   const handlePress = useCallback(() => onPress(player), [onPress, player]);
   const isSeated = badge != null;
   const pills = orderedTags(player.tags);
@@ -238,7 +242,7 @@ function PlayerRow({ player, badge, onPress }: PlayerRowProps): React.ReactNode 
       </Pressable>
     </View>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Section label
@@ -358,8 +362,23 @@ export default function RosterPicker({
 
   // Single ranked list — session players lead as compact chips, everyone
   // else follows as rows. Order is preserved from the backend ranking.
-  const sessionPlayers = roster.filter((p) => p.isSession);
-  const rowPlayers = roster.filter((p) => !p.isSession);
+  const { sessionPlayers, rowPlayers } = useMemo(
+    () => ({
+      sessionPlayers: roster.filter((p) => p.isSession),
+      rowPlayers: roster.filter((p) => !p.isSession),
+    }),
+    [roster],
+  );
+  const renderPlayer = useCallback(
+    ({ item }: { item: RosterPlayer }) => (
+      <PlayerRow
+        player={item}
+        badge={teamBadge(item, team1, team2)}
+        onPress={onSelectPlayer}
+      />
+    ),
+    [onSelectPlayer, team1, team2],
+  );
   const hasSessionSection = sessionPlayers.length > 0;
 
   const seatedCount = sessionPlayers.filter(
@@ -427,13 +446,7 @@ export default function RosterPicker({
         // view. No-op on Android (window resizes via Expo's `resize` mode).
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-        renderItem={({ item }) => (
-          <PlayerRow
-            player={item}
-            badge={teamBadge(item, team1, team2)}
-            onPress={onSelectPlayer}
-          />
-        )}
+        renderItem={renderPlayer}
         ListHeaderComponent={
           hasSessionSection ? (
             <>
