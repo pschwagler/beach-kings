@@ -99,6 +99,7 @@ import SectionHeader from '@/components/home/SectionHeader';
 import SectionError from '@/components/home/SectionError';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
 import HomeLeadAction from '@/components/home/HomeLeadAction';
+import EarlyReleaseFeedback from '@/components/home/EarlyReleaseFeedback';
 
 const useWindowDimensionsSpy = jest.spyOn(
   require('react-native'),
@@ -402,5 +403,15 @@ describe('DashboardSkeleton', () => {
     expect(getAllByTestId('loading-skeleton').length).toBeGreaterThanOrEqual(
       5,
     );
+  });
+});
+
+
+describe('EarlyReleaseFeedback', () => {
+  it('opens the existing feedback form without a dashboard-data dependency', () => {
+    const { getByRole, getByText } = render(<EarlyReleaseFeedback />);
+    expect(getByText('New app. Help shape it.')).toBeTruthy();
+    fireEvent.press(getByRole('button', { name: 'Leave Feedback' }));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/settings/feedback');
   });
 });
