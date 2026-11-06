@@ -163,6 +163,7 @@ import MyGamesScreen from '../../../../app/(stack)/my-games';
 const MOCK_WIN_GAME = {
   id: 101,
   session_id: 42,
+  session_date: "2026-10-19",
   league_id: 1,
   league_name: 'QBK Open Men',
   court_label: 'QBK Sports',
@@ -178,6 +179,7 @@ const MOCK_WIN_GAME = {
 const MOCK_LOSS_GAME = {
   id: 102,
   session_id: 42,
+  session_date: "2026-10-19",
   league_id: 1,
   league_name: 'QBK Open Men',
   court_label: 'QBK Sports',
@@ -575,5 +577,32 @@ describe('MyGamesScreen — filter bar', () => {
       expect(screen.getByTestId('game-row-101')).toBeTruthy();
       expect(screen.getByTestId('game-row-102')).toBeTruthy();
     });
+  });
+});
+
+
+describe('My Games session context', () => {
+  it('groups matching games under a dated, collapsible session header', async () => {
+    mockGetMyGames.mockResolvedValue(BOTH_RESPONSE);
+    render(<MyGamesScreen />);
+    const header = await screen.findByTestId('history-session-42');
+    expect(header.props.accessibilityState).toEqual({ expanded: true });
+    expect(screen.getAllByText(/Oct 19, 2026/).length).toBeGreaterThan(0);
+    fireEvent.press(header);
+    expect(screen.queryByTestId('game-row-101')).toBeNull();
+    expect(screen.queryByTestId('game-row-102')).toBeNull();
+    fireEvent.press(screen.getByTestId('history-session-42'));
+    expect(screen.getByTestId('game-row-101')).toBeTruthy();
+    expect(screen.getByTestId('game-row-102')).toBeTruthy();
+  });
+
+  it('keeps different sessions distinct on the same day', async () => {
+    mockGetMyGames.mockResolvedValue({ games: [MOCK_WIN_GAME, { ...MOCK_LOSS_GAME, session_id: 43 }], total: 2 });
+    render(<MyGamesScreen />);
+    await screen.findByTestId('history-session-42');
+    expect(screen.getByTestId('history-session-43')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('history-session-42'));
+    expect(screen.getByTestId('game-row-102')).toBeTruthy();
+    expect(screen.queryByTestId('game-row-101')).toBeNull();
   });
 });
