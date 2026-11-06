@@ -14,16 +14,16 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
-    "postinstall": "patch-package",
+    "postinstall": "node scripts/apply-dependency-patches.cjs",
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "test:dependency-compatibility": "node --test scripts/dependency-compatibility.test.cjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
     "baseline-browser-mapping": "^2.10.0",
-    "patch-package": "^8.0.1",
     "prettier": "^3.2.5",
     "react-test-renderer": "19.2.3",
     "turbo": "^2.0.0",
@@ -38,10 +38,16 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-test-renderer": "19.2.3",
-    "uuid": "11.1.1"
+    "uuid": "11.1.1",
+    "shell-quote": "1.12.0",
+    "expo-router": {
+      "query-string": "$query-string"
+    }
   },
   "dependencies": {
-    "expo": "~57.0.24",
+    "expo": "~57.0.32",
+    "patch-package": "^8.0.1",
+    "query-string": "9.5.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",

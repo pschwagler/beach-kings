@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import type { MatchRecord } from '@beach-kings/shared';
 import { formatDate } from '@/lib/formatters';
 import { routes } from '@/lib/navigation';
+import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
 
 interface RecentGamesScrollProps {
   readonly matches: readonly MatchRecord[];
@@ -67,7 +68,8 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
 
   const content = (
     <>
-      <View className="flex-row items-center gap-xs mb-xs">
+      <View className="flex-row flex-wrap items-center gap-xs mb-xs">
+        <PlayTypeBadge type={match.league_id != null ? 'league' : 'pickup'} noun="game" />
         <View
           className={`${outcome === 'pending' ? 'bg-warning-tint' : isWin ? 'bg-success-tint' : 'bg-danger-tint'} px-sm py-[2px] rounded-chip`}
         >

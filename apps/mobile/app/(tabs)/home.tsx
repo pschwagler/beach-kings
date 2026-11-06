@@ -27,6 +27,7 @@ import CourtsScroll from '@/components/home/CourtsScroll';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
 import HomeSectionSkeleton from '@/components/home/HomeSectionSkeleton';
 import MyStatsWidget from '@/components/home/MyStatsWidget';
+import EarlyReleaseFeedback from '@/components/home/EarlyReleaseFeedback';
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
 
 function isActivelyPending(query: {
@@ -188,6 +189,7 @@ export default function HomeScreen(): React.ReactNode {
         refreshError={refresh.error}
         onRefresh={refresh.onRefresh}
       >
+        <EarlyReleaseFeedback />
         {isInitialLoading ? (
           <DashboardSkeleton />
         ) : (

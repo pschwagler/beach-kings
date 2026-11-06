@@ -15,6 +15,8 @@ import { View, Pressable } from 'react-native';
 import { hapticMedium } from '@/utils/haptics';
 import { formatGameScore } from '@/lib/formatters';
 import type { GameHistoryEntry } from '@beach-kings/shared';
+import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
+import { historySessionDate } from '@/features/matches/historyPresentation';
 
 interface GameRowProps {
   readonly game: GameHistoryEntry;
@@ -120,6 +122,8 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
     `score ${score}`,
     `${teammates} versus ${opponents}`,
     contextLabel,
+    historySessionDate(game.session_date),
+    `Session ${game.session_id}`,
     ratingLabel,
   ].join('. ');
   const handlePress = useCallback(() => {
@@ -138,7 +142,10 @@ export default function GameRow({ game, onPress }: GameRowProps): React.ReactNod
       {/* Top row: result badge */}
       <View className="flex-row justify-between items-center mb-2">
         <ResultBadge result={game.result} />
+        <PlayTypeBadge type={game.league_id != null ? 'league' : 'pickup'} noun="game" />
       </View>
+
+      <AppText className="text-[11px] text-muted mb-1">{historySessionDate(game.session_date)} · Session #{game.session_id}</AppText>
 
       {/* Score */}
       <AppText className="text-[20px] font-bold text-default mb-1">

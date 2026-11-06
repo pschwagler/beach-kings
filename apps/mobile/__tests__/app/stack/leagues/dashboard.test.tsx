@@ -267,13 +267,44 @@ describe('LeagueDashboardTab — standings', () => {
     });
   });
 
-  it('invokes onPressPlayer callback with player id on row press', async () => {
+  it('opens a player only from the deliberate identity target', async () => {
     const onPressPlayer = jest.fn();
     render(<LeagueDashboardTab leagueId={1} onPressPlayer={onPressPlayer} />, { wrapper: makeWrapper() });
 
     await waitFor(() => expect(screen.getByTestId('standings-row-10')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('standings-metrics-10'));
     fireEvent.press(screen.getByTestId('standings-row-10'));
+    expect(onPressPlayer).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('standings-player-10'));
 
+    expect(onPressPlayer).toHaveBeenCalledWith(10);
+  });
+
+  it('keeps identities outside the horizontal metrics scroll and exposes additional games totals', async () => {
+    const onPressPlayer = jest.fn();
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={onPressPlayer} />, { wrapper: makeWrapper() });
+    const scroll = await screen.findByTestId('standings-metrics-scroll');
+    expect(scroll.props.horizontal).toBe(true);
+    expect(screen.getByText('Games')).toBeTruthy();
+    let ancestor = screen.getByTestId('standings-player-10').parent;
+    while (ancestor != null) {
+      expect(ancestor.props.testID).not.toBe('standings-metrics-scroll');
+      ancestor = ancestor.parent;
+    }
+    fireEvent.scroll(scroll, { nativeEvent: { contentOffset: { x: 150, y: 0 } } });
+    expect(onPressPlayer).not.toHaveBeenCalled();
+  });
+
+  it('does not open a player after a drag across the identity target', async () => {
+    const onPressPlayer = jest.fn();
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={onPressPlayer} />, { wrapper: makeWrapper() });
+    const player = await screen.findByTestId('standings-player-10');
+    fireEvent(player, 'pressIn', { nativeEvent: { pageX: 20, pageY: 100 } });
+    fireEvent(player, 'touchMove', { nativeEvent: { pageX: 70, pageY: 100 } });
+    fireEvent.press(player);
+    expect(onPressPlayer).not.toHaveBeenCalled();
+    fireEvent(player, 'pressIn', { nativeEvent: { pageX: 20, pageY: 100 } });
+    fireEvent.press(player);
     expect(onPressPlayer).toHaveBeenCalledWith(10);
   });
 });
