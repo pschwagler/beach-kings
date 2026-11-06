@@ -225,6 +225,28 @@ function makeMockView(x: number, y: number, w: number, h: number) {
 }
 
 describe('useScoreBoardDrag', () => {
+  it('uses the latest swap handler without replacing the drop callback', async () => {
+    const firstSwap = jest.fn();
+    const latestSwap = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ onSwap }) => useScoreBoardDrag({ onSwap }),
+      { initialProps: { onSwap: firstSwap } },
+    );
+    act(() => {
+      result.current.setChipRef('t1s0', makeMockView(0, 0, 100, 50) as never);
+      result.current.setChipRef('t2s0', makeMockView(200, 0, 100, 50) as never);
+    });
+    const onDrop = result.current.onChipDragEnd;
+    rerender({ onSwap: latestSwap });
+    expect(result.current.onChipDragEnd).toBe(onDrop);
+
+    await act(async () => result.current.onChipDragStart(1, 0, 50, 25));
+    act(() => result.current.onChipDragEnd(250, 25));
+
+    expect(firstSwap).not.toHaveBeenCalled();
+    expect(latestSwap).toHaveBeenCalledWith({ team: 1, slot: 0 }, { team: 2, slot: 0 });
+  });
+
   it('sets dragFrom and clears dragTarget on drag start', async () => {
     const onSwap = jest.fn();
     const { result } = renderHook(() => useScoreBoardDrag({ onSwap }));

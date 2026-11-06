@@ -87,12 +87,15 @@ export function createPlayerMethods(api: AxiosInstance) {
         leagueId?: number | null;
         limit?: number;
       } = {},
+      options?: ReadRequestOptions,
     ): Promise<PlayerSearchResponse> {
       const params: Record<string, string | number> = { q };
       if (opts.sessionId != null) params.session_id = opts.sessionId;
       if (opts.leagueId != null) params.league_id = opts.leagueId;
       if (opts.limit != null) params.limit = opts.limit;
-      const response = await api.get<PlayerSearchResponse>('/api/players/search', { params });
+      const response = await getRead<PlayerSearchResponse>(
+        api, '/api/players/search', { params }, options,
+      );
       return response.data;
     },
 

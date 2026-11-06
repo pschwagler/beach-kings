@@ -4,7 +4,7 @@
  * Chip positions are measured once on drag-start via `measureInWindow`
  * and reused for the duration of that drag.
  */
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
@@ -50,6 +50,12 @@ function hitTest(absX: number, absY: number, layouts: Map<ChipKey, Layout>): Slo
 }
 
 export function useScoreBoardDrag({ onSwap }: UseDragDropOptions) {
+  // The form's swap handler captures team arrays. Keep gestures stable as
+  // players are added while still dispatching drops to the latest handler.
+  const onSwapRef = useRef(onSwap);
+  useLayoutEffect(() => {
+    onSwapRef.current = onSwap;
+  }, [onSwap]);
   const chipRefs = useRef<Map<ChipKey, View | null>>(new Map());
   const chipLayouts = useRef<Map<ChipKey, Layout>>(new Map());
   const boardRef = useRef<View>(null);
@@ -136,7 +142,7 @@ export function useScoreBoardDrag({ onSwap }: UseDragDropOptions) {
       if (hit != null && from != null) {
         const isSame = hit.team === from.team && hit.slot === from.slot;
         if (!isSame) {
-          onSwap(from, hit);
+          onSwapRef.current(from, hit);
           void hapticMedium();
         }
       }
@@ -145,7 +151,7 @@ export function useScoreBoardDrag({ onSwap }: UseDragDropOptions) {
       setDragFrom(null);
       setDragTarget(null);
     },
-    [onSwap],
+    [],
   );
 
   const onChipDragCancel = useCallback((): void => {

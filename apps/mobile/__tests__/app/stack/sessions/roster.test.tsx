@@ -407,7 +407,7 @@ describe('SessionRosterScreen — navigation', () => {
         sessionId: 42,
         leagueId: 1,
         limit: 50,
-      });
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });
   });
 

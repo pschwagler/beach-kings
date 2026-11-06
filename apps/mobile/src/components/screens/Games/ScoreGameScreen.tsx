@@ -359,6 +359,8 @@ export default function ScoreGameScreen({
   // When the roster search is focused, the scoreboard collapses to a single
   // strip so the on-screen keyboard doesn't hide the search results.
   const [searchFocused, setSearchFocused] = useState(false);
+  const [activeScoreTeam, setActiveScoreTeam] = useState<1 | 2 | null>(null);
+  const [digitBuffer, setDigitBuffer] = useState("");
 
   // Captured navigation action from a back-gesture / hardware-back that the
   // beforeRemove listener intercepted. Replayed on confirm to honor the user's
@@ -512,17 +514,29 @@ export default function ScoreGameScreen({
   }, [savedMatchId, lastSessionId, router]);
 
   const handleAddAnother = useCallback(() => {
+    if (isEditMode) {
+      // Start a create route so the next save cannot update the edited match.
+      router.replace(
+        routes.scoreGame({
+          sessionId: lastSessionId ?? sessionId,
+          leagueId,
+          seasonId,
+          sessionLabel,
+        }) as never,
+      );
+      return;
+    }
     hookOnAddAnother();
     setActiveSlot(null);
-  }, [hookOnAddAnother]);
+    setActiveScoreTeam(null);
+    setDigitBuffer("");
+    setSearchFocused(false);
+  }, [hookOnAddAnother, isEditMode, lastSessionId, leagueId, router, seasonId, sessionId, sessionLabel]);
 
   const handleSave = useCallback(() => {
     void hapticMedium();
     onSubmit();
   }, [onSubmit]);
-
-  const [activeScoreTeam, setActiveScoreTeam] = useState<1 | 2 | null>(null);
-  const [digitBuffer, setDigitBuffer] = useState("");
 
   // Default to team 1 the moment scoring mode begins — no useEffect needed.
   const effectiveActiveScoreTeam: 1 | 2 | null = isBuilding

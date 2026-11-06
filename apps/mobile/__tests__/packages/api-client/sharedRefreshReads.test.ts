@@ -23,11 +23,24 @@ const reads: Array<[string, (api: Methods, options: ReadRequestOptions) => Promi
   ['court photos', (api, options) => api.getCourtPhotos(1, options)],
   ['game history', (api, options) => api.getMyGames({}, options)],
   ['session detail', (api, options) => api.getSessionById(1, options)],
+  ['player search', (api, options) => api.searchPlayers('Alex', { sessionId: 7, leagueId: 3 }, options)],
 ];
 
 describe('all expanded refresh read transports', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
+  it('preserves player-search callers without read options and keeps context in query params', async () => {
+    const response = { items: [] };
+    const get = jest.fn().mockResolvedValue({ data: response });
+    const api = createApiMethods({ axiosInstance: { get } } as unknown as ApiClient);
+
+    await expect(api.searchPlayers('Alex', { sessionId: 7, leagueId: 3, limit: 50 })).resolves.toBe(response);
+    expect(get).toHaveBeenCalledWith('/api/players/search', {
+      params: { q: 'Alex', session_id: 7, league_id: 3, limit: 50 },
+    });
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   it.each(reads)('%s has a finite deadline that aborts actual transport', async (_label, read) => {
     const request = jest.fn(() => new Promise(() => undefined));
     const api = createApiMethods({ axiosInstance: { get: request, post: request } } as unknown as ApiClient);

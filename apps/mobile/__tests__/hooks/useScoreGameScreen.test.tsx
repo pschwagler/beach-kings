@@ -26,6 +26,7 @@ import {
   QueryClientProvider,
   notifyManager,
 } from '@tanstack/react-query';
+import { sessionKeys } from '@/features/sessions';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -636,6 +637,7 @@ describe('useScoreGameScreen — roster source', () => {
       expect(mockSearchPlayers).toHaveBeenCalledWith(
         '',
         expect.objectContaining({ sessionId: 7 }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
       expect(result.current.roster.length).toBe(
         MOCK_LEAGUE_DEFAULT_ROSTER.items.length,
@@ -652,7 +654,7 @@ describe('useScoreGameScreen — roster source', () => {
     // identical to league/session flows — NOT a friends-only list.
     const { result } = renderHook(() => useScoreGameScreen({}));
     await waitFor(() => {
-      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.any(Object));
+      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.any(Object), expect.objectContaining({ signal: expect.any(AbortSignal) }));
       expect(result.current.roster.length).toBe(
         MOCK_LEAGUE_DEFAULT_ROSTER.items.length,
       );
@@ -695,7 +697,7 @@ describe('useScoreGameScreen — roster source', () => {
 
     const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3 }));
     await waitFor(() => {
-      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.objectContaining({ leagueId: 3 }));
+      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.objectContaining({ leagueId: 3 }), expect.objectContaining({ signal: expect.any(AbortSignal) }));
       expect(result.current.roster.length).toBe(2);
     });
     // Pills come straight from the backend `tags`; the league context
@@ -725,6 +727,7 @@ describe('useScoreGameScreen — roster source', () => {
     expect(mockSearchPlayers).toHaveBeenCalledWith(
       '',
       expect.not.objectContaining({ cursor: expect.anything() }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     // loadMore / hasMore / isLoadingMore no longer exist on the result.
     expect('loadMore' in result.current).toBe(false);
@@ -736,7 +739,7 @@ describe('useScoreGameScreen — roster source', () => {
     // never special-cases the friends list as the primary roster source.
     const { result } = renderHook(() => useScoreGameScreen({}));
     await waitFor(() => {
-      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.any(Object));
+      expect(mockSearchPlayers).toHaveBeenCalledWith('', expect.any(Object), expect.objectContaining({ signal: expect.any(AbortSignal) }));
       expect(result.current.roster.length).toBe(
         MOCK_LEAGUE_DEFAULT_ROSTER.items.length,
       );
@@ -767,6 +770,7 @@ describe('useScoreGameScreen — roster source', () => {
     expect(mockSearchPlayers).toHaveBeenCalledWith(
       '',
       expect.objectContaining({ sessionId: 7, leagueId: 3 }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -780,6 +784,23 @@ describe('useScoreGameScreen — roster source', () => {
 
     expect(result.current.filteredRoster.length).toBe(1);
     expect(result.current.filteredRoster[0].display_name).toBe('Chris Gulla');
+  });
+
+  it('immediately filters locally when typing a new search after earlier results', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    mockSearchPlayers.mockImplementation((q: string) => Promise.resolve({
+      items: q === 'alex' ? [{
+        id: 60, full_name: 'Alex Backend', initials: 'AB', tags: [], in_session: false,
+      }] : [],
+    }));
+
+    act(() => result.current.setSearch('alex'));
+    await waitFor(() => expect(result.current.filteredRoster[0]?.player_id).toBe(60));
+    act(() => result.current.setSearch('chris'));
+
+    expect(result.current.filteredRoster.map((p) => p.display_name)).toEqual(['Chris Gulla']);
+    expect(result.current.isSearching).toBe(true);
   });
 
   it('league search past the debounce swaps to backend results scoped to the league (QA I2)', async () => {
@@ -813,6 +834,7 @@ describe('useScoreGameScreen — roster source', () => {
       expect(mockSearchPlayers).toHaveBeenCalledWith(
         'gulla',
         expect.objectContaining({ leagueId: 3 }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
 
@@ -1125,6 +1147,47 @@ describe('useScoreGameScreen — edit mode', () => {
     await waitFor(() => expect(result.current.score1).toBe(21));
     expect(result.current.score2).toBe(15);
     expect(result.current.isRanked).toBe(true);
+  });
+
+  it('preserves unsaved score and team edits when session data refreshes', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    const key = sessionKeys.detail(7, 7);
+    client.setQueryData(key, { id: 7, games: [MOCK_EDIT_GAME] });
+    const { result } = testingRenderHook(
+      () => useScoreGameScreen({ sessionId: 7, matchId: 555 }),
+      { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> },
+    );
+    await waitFor(() => expect(result.current.score1).toBe(21));
+    act(() => {
+      result.current.setScore1(23);
+      result.current.removePlayer(1, 1);
+    });
+    await act(async () => {
+      client.setQueryData(key, { id: 7, name: 'Updated session', games: [MOCK_EDIT_GAME] });
+      // Query delivers observer updates in its next notification batch.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(result.current.score1).toBe(23);
+    expect(result.current.team1[1].player_id).toBeNull();
+  });
+
+  it('hydrates a different game if the edit target changes', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    client.setQueryData(sessionKeys.detail(7, 7), {
+      id: 7,
+      games: [MOCK_EDIT_GAME, { ...MOCK_EDIT_GAME, id: 556, team1_score: 25 }],
+    });
+    const { result, rerender } = testingRenderHook(
+      ({ matchId }) => useScoreGameScreen({ sessionId: 7, matchId }),
+      {
+        initialProps: { matchId: 555 },
+        wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+      },
+    );
+    await waitFor(() => expect(result.current.score1).toBe(21));
+    rerender({ matchId: 556 });
+    expect(result.current.score1).toBe(25);
   });
 
   it('leaves form empty when matching game is not in session detail', async () => {
