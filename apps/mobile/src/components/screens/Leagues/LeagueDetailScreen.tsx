@@ -18,7 +18,7 @@
  * Wireframe ref: league-detail.html
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -28,7 +28,7 @@ import {
   Keyboard,
   BackHandler,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
 import { hapticLight } from '@/utils/haptics';
@@ -320,6 +320,7 @@ export default function LeagueDetailScreen({
   const resolvedId = leagueIdProp ?? params.id ?? '1';
   const initialTab = normalizeLeagueDetailTab(params.tab);
   const router = useRouter();
+  const navigation = useNavigation();
 
   const {
     detail,
@@ -348,14 +349,20 @@ export default function LeagueDetailScreen({
 
   // Track which player row was tapped in standings to push stats sub-view
   const [statsPlayerId, setStatsPlayerId] = useState<number | string | null>(null);
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (statsPlayerId == null) return;
+    // The stats view is local to this route. Native iOS pop gestures would
+    // otherwise remove the whole league instead of returning to standings.
+    navigation.setOptions({ gestureEnabled: false });
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       setStatsPlayerId(null);
       return true;
     });
-    return () => subscription.remove();
-  }, [statsPlayerId]);
+    return () => {
+      subscription.remove();
+      navigation.setOptions({ gestureEnabled: true });
+    };
+  }, [navigation, statsPlayerId]));
   // Preserve an unsent league-chat draft when the user visits another league
   // tab. Sending or explicitly editing the composer remains the only way this
   // text changes.

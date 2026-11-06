@@ -23,6 +23,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+const mockSetOptions = jest.fn();
+const mockNavigation = { setOptions: mockSetOptions };
 let mockSearchParams: { id: string; tab?: string } = { id: '1' };
 
 jest.mock('@/contexts/AuthContext', () => ({
@@ -33,6 +35,7 @@ jest.mock('expo-router', () => {
   const ReactModule = require('react');
   return {
     useSegments: () => [],
+    useNavigation: () => mockNavigation,
     useRouter: () => ({ canGoBack: () => true, push: mockPush, back: mockBack, replace: mockReplace }),
     useLocalSearchParams: () => mockSearchParams,
     // The standings tab refetches on focus (useRefreshOnFocus → useFocusEffect).
@@ -754,9 +757,11 @@ describe('LeagueDetailScreen — standings return navigation', () => {
     fireEvent.press(screen.getByTestId('standings-player-77'));
     await screen.findByTestId('player-stats-loading');
     expect(screen.getByText('Player Stats')).toBeTruthy();
+    expect(mockSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: false });
     fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
     await screen.findByTestId('standings-player-77');
     expect(screen.queryByTestId('player-stats-loading')).toBeNull();
+    expect(mockSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: true });
     expect(screen.getByTestId('season-pill-2').props.accessibilityState.selected).toBe(true);
     expect(screen.getByTestId('sort-by-rating').props.accessibilityState.selected).toBe(true);
     expect(mockBack).not.toHaveBeenCalled();
