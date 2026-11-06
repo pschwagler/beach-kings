@@ -378,14 +378,17 @@ export default function ScoreGameScreen({
   }, [effectiveActiveSlot]);
 
   // Navigation policy on close (matches MOBILE_ADD_GAMES_VALIDATION.md):
-  // - sessionId known (existing or post-save) → replace into SessionDetail.
+  // - sessionId known (existing or post-save) → pop to its existing detail,
+  //   or replace when entered directly. Never append duplicate session screens.
   // - otherwise → back to the Add Games tab.
   const navigateOnClose = useCallback(() => {
     const targetSessionId = lastSessionId ?? sessionId ?? null;
     if (targetSessionId != null) {
-      router.replace(routes.session(targetSessionId) as never);
-    } else {
+      router.dismissTo(routes.session(targetSessionId) as never);
+    } else if (router.canGoBack()) {
       router.back();
+    } else {
+      router.replace(routes.addGames());
     }
   }, [router, lastSessionId, sessionId]);
 
@@ -590,9 +593,9 @@ export default function ScoreGameScreen({
       // The pre-filled slots still count as "progress" to the close-guard, so
       // bypass it explicitly — the data we'd warn about is already gone.
       skipGuardRef.current = true;
-      router.back();
+      navigateOnClose();
     });
-  }, [onDelete, router]);
+  }, [onDelete, navigateOnClose]);
 
   // --- Three-dot menu wiring ---
   const handleOpenMenu = useCallback(() => {
