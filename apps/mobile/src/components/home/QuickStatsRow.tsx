@@ -35,13 +35,13 @@ export default function QuickStatsRow({
         {rating != null && (
           <View className="bg-info-tint px-sm py-xxs rounded-chip">
             <AppText className="text-caption font-semibold text-info">
-              <AppText className="font-bold">{formatElo(rating)}</AppText> Rating
+              <AppText className="font-bold text-info">{formatElo(rating)}</AppText> Rating
             </AppText>
           </View>
         )}
         <View className="bg-info-tint px-sm py-xxs rounded-chip">
           <AppText className="text-caption font-semibold text-info">
-            <AppText className="font-bold">{formatRecord(wins, losses)}</AppText>
+            <AppText className="font-bold text-info">{formatRecord(wins, losses)}</AppText>
           </AppText>
         </View>
       </View>
