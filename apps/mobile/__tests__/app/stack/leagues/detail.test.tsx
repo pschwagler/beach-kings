@@ -24,7 +24,9 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockSetOptions = jest.fn();
-const mockNavigation = { setOptions: mockSetOptions };
+const mockParentSetOptions = jest.fn();
+const mockParentNavigation = { setOptions: mockParentSetOptions };
+const mockNavigation = { setOptions: mockSetOptions, getParent: () => mockParentNavigation };
 let mockSearchParams: { id: string; tab?: string } = { id: '1' };
 
 jest.mock('@/contexts/AuthContext', () => ({
@@ -758,10 +760,12 @@ describe('LeagueDetailScreen — standings return navigation', () => {
     await screen.findByTestId('player-stats-loading');
     expect(screen.getByText('Player Stats')).toBeTruthy();
     expect(mockSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: false });
+    expect(mockParentSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: false });
     fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
     await screen.findByTestId('standings-player-77');
     expect(screen.queryByTestId('player-stats-loading')).toBeNull();
     expect(mockSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: true });
+    expect(mockParentSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: true });
     expect(screen.getByTestId('season-pill-2').props.accessibilityState.selected).toBe(true);
     expect(screen.getByTestId('sort-by-rating').props.accessibilityState.selected).toBe(true);
     expect(mockBack).not.toHaveBeenCalled();

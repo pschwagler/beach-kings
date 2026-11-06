@@ -354,6 +354,10 @@ export default function LeagueDetailScreen({
     // The stats view is local to this route. Native iOS pop gestures would
     // otherwise remove the whole league instead of returning to standings.
     navigation.setOptions({ gestureEnabled: false });
+    // A league entered from tabs can also be the first child of the root
+    // `(stack)` group. Its parent owns a separate native pop gesture.
+    const parentNavigation = navigation.getParent();
+    parentNavigation?.setOptions({ gestureEnabled: false });
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       setStatsPlayerId(null);
       return true;
@@ -361,6 +365,7 @@ export default function LeagueDetailScreen({
     return () => {
       subscription.remove();
       navigation.setOptions({ gestureEnabled: true });
+      parentNavigation?.setOptions({ gestureEnabled: true });
     };
   }, [navigation, statsPlayerId]));
   // Preserve an unsent league-chat draft when the user visits another league
