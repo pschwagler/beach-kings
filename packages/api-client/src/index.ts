@@ -58,3 +58,5 @@ export default function createDefaultApiClient() {
 }
 
 export * from './featureFlagMethods';
+
+export * from './photoMatchMethods';

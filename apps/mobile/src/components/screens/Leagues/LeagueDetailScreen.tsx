@@ -282,6 +282,7 @@ function TabContent({
     case 'games':
       return <LeagueMatchesTab
         leagueId={leagueId}
+        canUpload={userRole != null}
         onRecordGame={onRecordGame}
         liveSessionId={liveSessionId}
         isSessionActionReady={isSessionActionReady}

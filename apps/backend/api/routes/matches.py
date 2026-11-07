@@ -451,7 +451,7 @@ async def upload_match_photo(
     """
     Upload a photo of game scores for AI processing.
 
-    Validates the file, preprocesses the image (convert to JPEG, downscale to 400px height),
+    Validates the file, preprocesses the image (convert to JPEG, bound the longest edge to 2048px),
     creates a processing job, and returns job_id for polling.
     """
     try:
@@ -478,6 +478,7 @@ async def upload_match_photo(
             "user_id": current_user["id"],
             "player_id": player_id,
             "user_prompt": user_prompt,
+            "image_base64": image_base64,
             "parsed_matches": [],
             "partial_matches": [],
             "raw_response": None,

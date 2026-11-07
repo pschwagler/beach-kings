@@ -89,6 +89,9 @@ export const routes = {
       ? (`/(stack)/session/create?${qs.join('&')}` as const)
       : ('/(stack)/session/create' as const);
   },
+  scanScoresheet: (leagueId?: number | string) => leagueId != null
+    ? (`/(stack)/scan-scoresheet?leagueId=${leagueId}` as const)
+    : ('/(stack)/scan-scoresheet' as const),
   createLeague: () => '/(stack)/create-league' as const,
   createTournament: () => '/(stack)/tournament/create' as const,
 

@@ -36,6 +36,7 @@ import { routes } from '@/lib/navigation';
 import { formatSessionSubtitle } from '@/lib/formatters';
 import { hapticMedium } from '@/utils/haptics';
 import { TrophyIcon, VolleyballIcon } from '@/components/ui/icons';
+import Button from '@/components/ui/Button';
 import CourtLineMotif from '@/components/brand/CourtLineMotif';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { registerRootTabScroll } from '@/lib/rootTabScroll';
@@ -400,6 +401,15 @@ export default function AddGamesScreen(): React.ReactNode {
           onLeagueGame={handleLeagueGame}
           onPickupGame={handlePickupGame}
         />
+        <View className="mt-3 gap-2">
+          <Button
+            title="Scan scoresheet"
+            variant="outline"
+            testID="scan-scoresheet"
+            onPress={() => router.push(routes.scanScoresheet())}
+          />
+          <AppText className="text-caption text-muted text-center">Add league games from a photo of your scores.</AppText>
+        </View>
       </RefreshScrollView>
     </SafeAreaView>
   );

@@ -13,6 +13,7 @@ import { createCourtMethods } from './courtMethods';
 import { createLeagueMethods } from './leagueMethods';
 import { createLeagueInviteMethods } from './leagueInviteMethods';
 import { createMatchMethods } from './matchMethods';
+import { createPhotoMatchMethods } from './photoMatchMethods';
 import { createMessageMethods } from './messageMethods';
 import { createNotificationMethods } from './notificationMethods';
 import { createPlayerMethods } from './playerMethods';
@@ -38,6 +39,7 @@ export function createApiMethods(client: ApiClient) {
     ...createPlayerMethods(api),
     // Match
     ...createMatchMethods(api),
+    ...createPhotoMatchMethods(api),
     // Rankings
     ...createRankingMethods(api),
     // League + Season
