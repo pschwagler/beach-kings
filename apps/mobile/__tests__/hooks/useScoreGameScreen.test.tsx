@@ -1678,3 +1678,131 @@ describe('useScoreGameScreen — addNewPlayer formSheet', () => {
     expect(result.current.team1[0].is_guest).toBeUndefined();
   });
 });
+
+
+describe('useScoreGameScreen — immediate save continuation', () => {
+  it('captures a newly created session before starting the next draft', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ leagueId: 3, seasonId: 9 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    fillSlots(result);
+
+    await act(async () => {
+      expect(await result.current.onSaveAndAddAnother()).toBe(true);
+    });
+
+    expect(result.current.submitState).toBe('idle');
+    expect(result.current.filledCount).toBe(0);
+    expect(result.current.score1).toBe(0);
+    expect(result.current.score2).toBe(0);
+    expect(result.current.sessionId).toBe(42);
+    expect(result.current.roster.length).toBeGreaterThan(0);
+    expect(result.current.isRanked).toBe(true);
+    fillSlots(result);
+    await act(async () => {
+      await result.current.onSaveAndAddAnother();
+    });
+
+    expect(mockSubmitScoredGame).toHaveBeenCalledTimes(2);
+    expect(mockSubmitScoredGame.mock.calls[0][0]).toMatchObject({ session_id: null, league_id: 3, season_id: 9 });
+    expect(mockSubmitScoredGame.mock.calls[1][0]).toMatchObject({ session_id: 42, league_id: 3, season_id: 9 });
+    expect(mockSubmitScoredGame.mock.calls[1][0]).not.toHaveProperty('date');
+    expect(mockUpdateMatch).not.toHaveBeenCalled();
+  });
+
+  it('locks both save choices synchronously while the same draft is pending', async () => {
+    let resolveSave!: (value: { session_id: number; match_id: number }) => void;
+    mockSubmitScoredGame.mockReturnValueOnce(new Promise((resolve) => { resolveSave = resolve; }));
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    fillSlots(result);
+    let save!: Promise<boolean>;
+    act(() => {
+      save = result.current.onSaveAndAddAnother();
+      void result.current.onSaveAndAddAnother();
+      result.current.onSubmit();
+    });
+    await waitFor(() => expect(mockSubmitScoredGame).toHaveBeenCalledTimes(1));
+    expect(result.current.submitState).toBe('loading');
+    expect(result.current.filledCount).toBe(4);
+    await act(async () => {
+      resolveSave({ session_id: 7, match_id: 999 });
+      await save;
+    });
+    expect(result.current.filledCount).toBe(0);
+  });
+
+  it('rejects a queued callback for the old draft after continuation completes', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    fillSlots(result);
+    const oldDraftSave = result.current.onSaveAndAddAnother;
+    await act(async () => {
+      expect(await oldDraftSave()).toBe(true);
+      expect(await oldDraftSave()).toBe(false);
+    });
+    expect(mockSubmitScoredGame).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains the failed continuation draft and retries the same intent', async () => {
+    mockSubmitScoredGame.mockRejectedValueOnce(new Error('Network error'));
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    fillSlots(result);
+    await act(async () => {
+      expect(await result.current.onSaveAndAddAnother()).toBe(false);
+    });
+    expect(result.current.submitState).toBe('error');
+    expect(result.current.errorMessage).toBe('Network error');
+    expect(result.current.filledCount).toBe(4);
+    expect(result.current.score1).toBe(5);
+    expect(result.current.score2).toBe(3);
+    await act(async () => {
+      expect(await result.current.onRetry()).toBe(true);
+    });
+    expect(mockSubmitScoredGame).toHaveBeenCalledTimes(2);
+    expect(mockSubmitScoredGame.mock.calls[1][0]).toEqual(mockSubmitScoredGame.mock.calls[0][0]);
+    expect(result.current.submitState).toBe('idle');
+    expect(result.current.filledCount).toBe(0);
+  });
+
+  it('does not resave a normal successful draft without explicit Add Another', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    fillSlots(result);
+    act(() => { result.current.onSubmit(); });
+    await waitFor(() => expect(result.current.submitState).toBe('success'));
+    act(() => { result.current.onSubmit(); });
+    expect(mockSubmitScoredGame).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not expose the create continuation as a repeated edit mutation', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7, matchId: 555 }));
+    await waitFor(() => expect(result.current.roster.length).toBeGreaterThan(0));
+    fillSlots(result);
+    await act(async () => {
+      expect(await result.current.onSaveAndAddAnother()).toBe(false);
+    });
+    expect(mockUpdateMatch).not.toHaveBeenCalled();
+    expect(mockSubmitScoredGame).not.toHaveBeenCalled();
+  });
+
+  it('applies repeated score adjustments atomically to the chosen team and clamps bounds', async () => {
+    const { result } = renderHook(() => useScoreGameScreen({ sessionId: 7 }));
+    act(() => {
+      result.current.adjustScore(1, 1);
+      result.current.adjustScore(1, 1);
+      result.current.adjustScore(2, 1);
+    });
+    expect(result.current.score1).toBe(2);
+    expect(result.current.score2).toBe(1);
+    act(() => {
+      result.current.adjustScore(1, -1);
+      result.current.adjustScore(1, -1);
+      result.current.adjustScore(1, -1);
+      result.current.setScore2(99);
+      result.current.adjustScore(2, 1);
+    });
+    expect(result.current.score1).toBe(0);
+    expect(result.current.score2).toBe(99);
+  });
+});

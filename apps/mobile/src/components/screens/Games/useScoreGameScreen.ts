@@ -110,6 +110,12 @@ export function useScoreGameScreen(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastSessionId, setLastSessionId] = useState<number | null>(null);
   const [savedMatchId, setSavedMatchId] = useState<number | null>(null);
+  const sessionIdRef = useRef(sessionId);
+  const submitLocked = useRef(false);
+  const draftSaved = useRef(false);
+  const draftIdentity = useRef({});
+  const currentDraft = draftIdentity.current;
+  const submitIntent = useRef<"confirm" | "another">("confirm");
   const [deleteState, setDeleteState] = useState<DeleteState>("idle");
   const debouncedSearch = useDebounce(search, 250);
   // Release obsolete search observers immediately while the next term is
@@ -124,9 +130,21 @@ export function useScoreGameScreen(
   const participantsQuery = useQuery(
     sessionQueries.participants(userId, sessionId ?? 0, sessionId != null),
   );
-  const rosterQuery = useQuery(
-    sessionQueries.playerSearch(userId, sessionId, "", leagueId),
-  );
+  const initialRosterKey = sessionQueries.playerSearch(
+    userId, initialSessionId ?? null, "", leagueId,
+  ).queryKey;
+  const rosterQuery = useQuery({
+    ...sessionQueries.playerSearch(userId, sessionId, "", leagueId),
+    // Creating the first session changes this query key. Keep its original
+    // roster visible until the session-specific roster arrives, without
+    // carrying placeholder data across accounts or league contexts.
+    placeholderData: (previous, previousQuery) => {
+      const key = previousQuery?.queryKey;
+      return key?.length === initialRosterKey.length
+        && key.every((part, index) => part === initialRosterKey[index])
+        ? previous : undefined;
+    },
+  });
   const searchQuery = useQuery(
     sessionQueries.playerSearch(
       userId,
@@ -445,9 +463,35 @@ export function useScoreGameScreen(
     [team1, team2, scoreValidation.isValid],
   );
 
+  const adjustScore = useCallback((team: 1 | 2, delta: -1 | 1) => {
+    if (submitLocked.current) return;
+    const setScore = team === 1 ? setScore1 : setScore2;
+    setScore((previous) => Math.max(0, Math.min(99, previous + delta)));
+  }, []);
+
+  const clearGameDraft = useCallback(() => {
+    setTeam1([EMPTY_SLOT, EMPTY_SLOT]);
+    setTeam2([EMPTY_SLOT, EMPTY_SLOT]);
+    setScore1(0);
+    setScore2(0);
+    setSearch("");
+    setSavedMatchId(null);
+    setSubmitState("idle");
+    setErrorMessage(null);
+    draftSaved.current = false;
+    draftIdentity.current = {};
+    submitIntent.current = "confirm";
+    // The captured session, league, season and Query-owned roster remain.
+  }, []);
+
   // --- Submit (create OR update) ---
-  const onSubmit = useCallback(async () => {
-    if (!canSubmit) return;
+  const onSubmit = useCallback(async (intent: "confirm" | "another" = "confirm"): Promise<boolean> => {
+    if (!canSubmit || submitLocked.current || draftSaved.current
+      || currentDraft !== draftIdentity.current) return false;
+    // Continuing after an edit must use the existing explicit new-game route.
+    if (intent === "another" && matchId != null) return false;
+    submitLocked.current = true;
+    submitIntent.current = intent;
     setSubmitState("loading");
     setErrorMessage(null);
     try {
@@ -465,10 +509,10 @@ export function useScoreGameScreen(
         setLastSessionId(sessionId ?? null);
       } else {
         const response = await createMatch.mutateAsync({
-          session_id: sessionId ?? null,
+          session_id: sessionIdRef.current,
           league_id: leagueId ?? null,
           season_id: seasonId ?? null,
-          ...(sessionId == null ? { date: formatLocalCalendarDate() } : {}),
+          ...(sessionIdRef.current == null ? { date: formatLocalCalendarDate() } : {}),
           team1_player1_id: team1[0].player_id!,
           team1_player2_id: team1[1].player_id!,
           team2_player1_id: team2[0].player_id!,
@@ -483,7 +527,8 @@ export function useScoreGameScreen(
         // Capture the session id the backend returned — for a brand-new
         // session this is what unlocks Share in the three-dot menu and
         // routes the close button to SessionDetail instead of Add Games.
-        if (sessionId == null && response.session_id != null) {
+        if (sessionIdRef.current == null && response.session_id != null) {
+          sessionIdRef.current = response.session_id;
           setSessionId(response.session_id);
         }
       }
@@ -492,12 +537,18 @@ export function useScoreGameScreen(
         leagueId,
         statsJobs,
       });
-      setSubmitState("success");
+      draftSaved.current = true;
+      if (intent === "another") clearGameDraft();
+      else setSubmitState("success");
+      return true;
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unknown error occurred.";
       setErrorMessage(message);
       setSubmitState("error");
+      return false;
+    } finally {
+      submitLocked.current = false;
     }
   }, [
     canSubmit,
@@ -514,6 +565,8 @@ export function useScoreGameScreen(
     userId,
     createMatch,
     updateMatch,
+    clearGameDraft,
+    currentDraft,
   ]);
 
   // --- Delete (edit mode only) ---
@@ -562,21 +615,16 @@ export function useScoreGameScreen(
 
   // --- Add Another Game ---
   const onAddAnother = useCallback(() => {
-    setTeam1([EMPTY_SLOT, EMPTY_SLOT]);
-    setTeam2([EMPTY_SLOT, EMPTY_SLOT]);
-    setScore1(0);
-    setScore2(0);
-    setSearch("");
-    setSubmitState("idle");
-    setErrorMessage(null);
-    // lastSessionId is preserved — the next submit will use it
-  }, []);
+    if (!submitLocked.current) clearGameDraft();
+  }, [clearGameDraft]);
 
   // --- Retry / Dismiss ---
-  const onRetry = useCallback(() => {
+  const onRetry = useCallback(async (): Promise<boolean> => {
+    if (submitIntent.current === "another") return onSubmit("another");
     setSubmitState("idle");
     setErrorMessage(null);
-  }, []);
+    return false;
+  }, [onSubmit]);
 
   const onDismissError = useCallback(() => {
     setSubmitState("idle");
@@ -586,6 +634,8 @@ export function useScoreGameScreen(
   const onSubmitVoid = useCallback(() => {
     void onSubmit();
   }, [onSubmit]);
+
+  const onSaveAndAddAnother = useCallback(() => onSubmit("another"), [onSubmit]);
 
   // --- AddNewPlayer formSheet handlers ---
 
@@ -706,11 +756,13 @@ export function useScoreGameScreen(
     onShareSession,
     setScore1,
     setScore2,
+    adjustScore,
     assignPlayer,
     removePlayer,
     swapSlots,
     setSearch,
     onSubmit: onSubmitVoid,
+    onSaveAndAddAnother,
     onRetry,
     onDismissError,
     onAddAnother,

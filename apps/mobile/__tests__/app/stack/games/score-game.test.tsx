@@ -342,25 +342,55 @@ describe('ScoreGameScreen — scoreboard', () => {
     });
   });
 
-  it('enters team 2 score via numpad after pressing NEXT', async () => {
+  it('enters team 2 score via numpad after selecting its score', async () => {
     renderScoreGame();
     await fillAllSlots();
     await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('numpad-next')); // advance to team 2
+    fireEvent.press(screen.getByTestId('score-box-team2')); // advance to team 2
     fireEvent.press(screen.getByTestId('numpad-1'));
     await waitFor(() => {
       expect(screen.getByTestId('score-display-team2').props.children).toBe('01');
     });
   });
 
-  it('delete on empty buffer resets team 1 score to 00', async () => {
+  it('decrement at zero keeps team 1 score at 00', async () => {
     renderScoreGame();
     await fillAllSlots();
-    await waitFor(() => expect(screen.getByTestId('numpad-delete')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('numpad-delete'));
+    await waitFor(() => expect(screen.getByTestId('numpad-decrease')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('numpad-decrease'));
     await waitFor(() => {
       expect(screen.getByTestId('score-display-team1').props.children).toBe('00');
     });
+  });
+
+  it('adjusts only the selected team and clears a partially typed score', async () => {
+    renderScoreGame();
+    await fillAllSlots();
+    fireEvent.press(screen.getByTestId('numpad-1'));
+    fireEvent.press(screen.getByTestId('numpad-increase'));
+    expect(screen.getByTestId('score-display-team1')).toHaveTextContent('02');
+    fireEvent.press(screen.getByTestId('numpad-3'));
+    expect(screen.getByTestId('score-display-team1')).toHaveTextContent('03');
+    fireEvent.press(screen.getByTestId('score-box-team2'));
+    fireEvent.press(screen.getByTestId('numpad-increase'));
+    fireEvent.press(screen.getByTestId('numpad-increase'));
+    fireEvent.press(screen.getByTestId('numpad-decrease'));
+    expect(screen.getByTestId('score-display-team2')).toHaveTextContent('01');
+    expect(screen.getByTestId('score-display-team1')).toHaveTextContent('03');
+    expect(screen.queryByTestId('numpad-next')).toBeNull();
+    expect(screen.queryByTestId('numpad-delete')).toBeNull();
+  });
+
+  it('keeps score adjustment within the existing zero to 99 limits', async () => {
+    renderScoreGame();
+    await fillAllSlots();
+    expect(screen.getByTestId('numpad-decrease')).toBeDisabled();
+    fireEvent.press(screen.getByTestId('numpad-9'));
+    fireEvent.press(screen.getByTestId('numpad-9'));
+    fireEvent.press(screen.getByTestId('score-box-team1'));
+    expect(screen.getByTestId('numpad-increase')).toBeDisabled();
+    fireEvent.press(screen.getByTestId('numpad-increase'));
+    expect(screen.getByTestId('score-display-team1')).toHaveTextContent('99');
   });
 });
 
@@ -676,7 +706,7 @@ describe('ScoreGameScreen — score upper clamp', () => {
     renderScoreGame();
     await fillAllSlots();
     await waitFor(() => expect(screen.getByTestId('numpad-9')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('numpad-next')); // advance to team 2
+    fireEvent.press(screen.getByTestId('score-box-team2')); // advance to team 2
     fireEvent.press(screen.getByTestId('numpad-9'));
     fireEvent.press(screen.getByTestId('numpad-9'));
     await waitFor(() => {
@@ -727,7 +757,7 @@ describe('ScoreGameScreen — success view content', () => {
     await fillAllSlots();
     await waitFor(() => expect(screen.getByTestId('numpad-1')).toBeTruthy());
     fireEvent.press(screen.getByTestId('numpad-1')); // team 1 score = 1
-    fireEvent.press(screen.getByTestId('numpad-next')); // advance to team 2
+    fireEvent.press(screen.getByTestId('score-box-team2')); // advance to team 2
     fireEvent.press(screen.getByTestId('numpad-1')); // team 2 score = 1
 
     const saveButton = screen.getByTestId('save-game-btn');
@@ -1603,5 +1633,50 @@ describe('ScoreGameScreen — Add New Player flow', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('add-new-player-sheet')).toBeNull();
     });
+  });
+});
+
+
+describe('ScoreGameScreen — save and continue', () => {
+  it('saves once and immediately returns to a fresh game in the returned session', async () => {
+    mockSubmitScoredGame.mockResolvedValue({ match_id: 999, session_id: 42 });
+    renderScoreGame();
+    await fillAllSlots();
+    fireEvent.press(screen.getByTestId('numpad-1'));
+    fireEvent.press(screen.getByTestId('save-and-add-another-btn'));
+    await waitFor(() => expect(screen.getByTestId('roster-picker')).toBeTruthy());
+    expect(screen.queryByText('Game Saved!')).toBeNull();
+    expect(screen.queryByTestId('add-another-btn')).toBeNull();
+    expect(mockSubmitScoredGame).toHaveBeenCalledTimes(1);
+
+    await fillAllSlots();
+    fireEvent.press(screen.getByTestId('numpad-2'));
+    expect(screen.getByTestId('score-display-team1')).toHaveTextContent('02');
+    expect(screen.getByTestId('score-display-team2')).toHaveTextContent('00');
+    fireEvent.press(screen.getByTestId('save-and-add-another-btn'));
+    await waitFor(() => expect(mockSubmitScoredGame).toHaveBeenCalledTimes(2));
+    expect(mockSubmitScoredGame.mock.calls[1][0].session_id).toBe(42);
+  });
+
+  it('retries a failed continuation without losing its save-and-continue intent', async () => {
+    mockSubmitScoredGame.mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValue({ match_id: 999, session_id: 42 });
+    renderScoreGame();
+    await fillAllSlots();
+    fireEvent.press(screen.getByTestId('numpad-1'));
+    fireEvent.press(screen.getByTestId('save-and-add-another-btn'));
+    await screen.findByTestId('score-error-view');
+    fireEvent.press(screen.getByTestId('score-retry-btn'));
+    await waitFor(() => expect(screen.getByTestId('roster-picker')).toBeTruthy());
+    expect(mockSubmitScoredGame).toHaveBeenCalledTimes(2);
+    expect(mockSubmitScoredGame.mock.calls[1][0]).toEqual(mockSubmitScoredGame.mock.calls[0][0]);
+    expect(screen.queryByText('Game Saved!')).toBeNull();
+  });
+
+  it('does not offer save-and-continue while editing an existing match', async () => {
+    mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
+    renderScoreGame();
+    await fillAllSlots();
+    expect(screen.queryByTestId('save-and-add-another-btn')).toBeNull();
   });
 });

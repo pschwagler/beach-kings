@@ -72,6 +72,7 @@ export interface UseScoreGameScreenResult {
   readonly onShareSession: () => Promise<void>;
   readonly setScore1: (n: number) => void;
   readonly setScore2: (n: number) => void;
+  readonly adjustScore: (team: 1 | 2, delta: -1 | 1) => void;
   readonly assignPlayer: (
     team: 1 | 2,
     slot: 0 | 1,
@@ -84,7 +85,8 @@ export interface UseScoreGameScreenResult {
   ) => void;
   readonly setSearch: (q: string) => void;
   readonly onSubmit: () => void;
-  readonly onRetry: () => void;
+  readonly onSaveAndAddAnother: () => Promise<boolean>;
+  readonly onRetry: () => Promise<boolean>;
   readonly onDismissError: () => void;
   readonly onAddAnother: () => void;
   readonly onDelete: () => Promise<boolean>;
