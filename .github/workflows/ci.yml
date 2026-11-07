@@ -81,20 +81,78 @@ jobs:
         run: PYTHONPATH=apps python -m backend.scripts.sync_catalog --validate-only
 
   test-backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: beachkings
+          POSTGRES_PASSWORD: beachkings
+          POSTGRES_DB: beachkings_test
+          POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U beachkings -d beachkings_test"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s --health-timeout 2s --health-retries 15
+    env:
+      PYTHONPATH: apps
+      ENV: test
+      TEST_DATABASE_URL: postgresql+asyncpg://beachkings:beachkings@localhost:5432/beachkings_test
+      DATABASE_URL: postgresql+asyncpg://beachkings:beachkings@localhost:5432/beachkings_test
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: beachkings
+      POSTGRES_PASSWORD: beachkings
+      POSTGRES_DB: beachkings_test
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      ENABLE_SMS: "false"
+      ENABLE_EMAIL: "false"
+      JWT_SECRET_KEY: test-secret-key-for-testing-only-change-in-production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies
+        timeout-minutes: 5
+        run: python -m pip install -r requirements.txt
+
       - name: Run backend tests
         run: |
-          docker compose -f docker-compose.test.yml up --build test-runner --abort-on-container-exit --exit-code-from test-runner
-        env:
-          POSTGRES_USER: beachkings
-          POSTGRES_PASSWORD: beachkings
-          TEST_POSTGRES_DB: beachkings_test
-          JWT_SECRET_KEY: test-secret-key-for-testing-only-change-in-production
+          # Run the complete suite against isolated service databases. Leave
+          # time below the job limit to retain output after a stalled test.
+          timeout --signal=TERM --kill-after=60s 22m \
+            python -m pytest apps/backend/tests/ -v --tb=short \
+              --timeout=90 --timeout-method=signal \
+              --cov=backend --cov-report=xml:apps/backend/coverage.xml \
+              --cov-report=term --cov-fail-under=82 \
+            2>&1 | tee backend-ci.log
+
+      - name: Upload backend diagnostics
+        timeout-minutes: 1
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-diagnostics
+          path: backend-ci.log
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -111,10 +169,6 @@ jobs:
         with:
           files: apps/backend/coverage.xml
           fail_ci_if_error: false
-
-      - name: Clean up
-        if: always()
-        run: docker compose -f docker-compose.test.yml down -v
 
   test-frontend-unit:
     runs-on: ubuntu-latest

@@ -225,6 +225,12 @@ export interface LeagueStandingsResponse {
  * Includes membership context and current-season stats for the authenticated caller.
  * All user_* fields are null for non-members.
  */
+/** Private image returned only after checking current league membership. */
+export interface LeaguePicture {
+  readonly data_uri: string | null;
+  readonly revision: string | null;
+}
+
 export interface LeagueDetail {
   readonly id: number;
   readonly name: string;
