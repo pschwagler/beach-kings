@@ -1,5 +1,6 @@
 'use client';
 
+import { normalizeScoresheetResult } from '@beach-kings/api-client';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   editPhotoResults,
@@ -146,7 +147,7 @@ export function usePhotoMatchReview({
     ]);
 
     try {
-      const response = await editPhotoResults(leagueId, String(sessionId), editPrompt.trim());
+      const response = await editPhotoResults(leagueId, String(sessionId), editPrompt.trim(), normalizeScoresheetResult(result)?.matches);
       setJobId(response.job_id);
       setStatus(JOB_STATUS.PENDING);
       setResult(null);
@@ -162,7 +163,7 @@ export function usePhotoMatchReview({
     } finally {
       setIsSubmitting(false);
     }
-  }, [editPrompt, isSubmitting, leagueId, sessionId]);
+  }, [editPrompt, isSubmitting, leagueId, sessionId, result]);
 
   /**
    * Resolve an unrecognized player name to a known player.

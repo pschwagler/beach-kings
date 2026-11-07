@@ -56,7 +56,17 @@ def build_scoreboard_prompt(league_members: list[dict]) -> str:
 def build_clarification_prompt_for_array(league_members: list[dict]) -> str:
     return (
         f"Role: Scoreboard Data Extractor — correct the previous extraction.\n\n{_RULES}\n\n"
-        "Apply the user's correction to the relevant games and return ALL matches. "
-        "Keep unmentioned games unchanged. Use the original photo when available.\n\n"
+        "The CURRENT REVIEWED GAMES are the source of truth, including manually selected player IDs and previously corrected scores. "
+        "Start with that state and apply only the changes requested in the user's correction. "
+        "Return ALL games, keeping unmentioned games, teams, player IDs, and scores unchanged. "
+        "Do not turn a confirmed player ID back into an unresolved name or pick a different person unless the user requests an identity change. "
+        "An explicit requested identity change replaces the old selection. "
+        "Use the photo only to help with the requested correction; do not restart extraction or undo the current review to match the original photo.\n\n"
         + player_context(league_members)
+    )
+
+
+def build_correction_prompt(current_state: str, correction: str, candidates: list[dict]) -> str:
+    return build_clarification_prompt_for_array(candidates) + (
+        f"\nCurrent reviewed games (source of truth):\n{current_state}\n\nUser correction:\n{correction}"
     )

@@ -190,44 +190,111 @@ test("keeps the photo after upload fails and rejects unresolved players before c
   );
 });
 
-test("corrections replace the job and discard earlier manual resolutions", async () => {
+test("corrections start from the reviewed players and scores, and can replace a prior identity", async () => {
+  const sam = { id: null, name: "Sam", rawName: "Sam" };
+  const original = { ...match, players: [sam, ...match.players.slice(1)] };
+  jest
+    .mocked(api.getScoresheetJob)
+    .mockResolvedValue({
+      job_id: 30,
+      status: "COMPLETED",
+      result: {
+        status: "needs_clarification",
+        matches: [original],
+        clarification: "Who is Sam?",
+        error: null,
+      },
+    } as never);
   jest
     .mocked(api.editScoresheet)
-    .mockResolvedValue({ job_id: 31, session_id: "draft", status: "PENDING" });
+    .mockResolvedValueOnce({
+      job_id: 31,
+      session_id: "draft",
+      status: "PENDING",
+    });
   const { result } = setup();
-  await waitFor(() => expect(result.current.league).toBeDefined());
   await act(async () => {
     await result.current.choosePhoto(false);
   });
   await act(async () => {
     await result.current.upload();
   });
-  await waitFor(() => expect(result.current.matches).toHaveLength(1));
+  await waitFor(() => expect(result.current.unresolved).toEqual(["Sam"]));
   act(() => {
     result.current.resolve("Sam", 8, "Samuel");
     result.current.setEditPrompt("Game 1 finished 21 to 17");
   });
-  jest.mocked(api.getScoresheetJob).mockResolvedValue({
-    job_id: 31,
-    status: "COMPLETED",
-    result: {
-      status: "success",
-      matches: [{ ...match, scores: [21, 17] }],
-      clarification: null,
-      error: null,
-    },
-  } as never);
+  const reviewed = result.current.matches;
+  expect(reviewed[0]?.players[0]?.id).toBe(8);
+  const corrected = { ...reviewed[0], scores: [21, 17] };
+  jest
+    .mocked(api.getScoresheetJob)
+    .mockResolvedValue({
+      job_id: 31,
+      status: "COMPLETED",
+      result: {
+        status: "success",
+        matches: [corrected],
+        clarification: null,
+        error: null,
+      },
+    } as never);
   await act(async () => {
     await result.current.edit();
   });
-  await waitFor(() =>
-    expect(result.current.matches[0]?.scores).toEqual([21, 17]),
-  );
-  expect(api.editScoresheet).toHaveBeenCalledWith(
+  expect(api.editScoresheet).toHaveBeenLastCalledWith(
     10,
     "draft",
     "Game 1 finished 21 to 17",
+    reviewed,
   );
+  await waitFor(() =>
+    expect(result.current.matches[0]?.scores).toEqual([21, 17]),
+  );
+  expect(result.current.unresolved).toEqual([]);
+  expect(result.current.matches[0]?.players[0]?.id).toBe(8);
+
+  // A subsequent identity correction takes precedence over the old selection.
+  jest
+    .mocked(api.editScoresheet)
+    .mockResolvedValueOnce({
+      job_id: 32,
+      session_id: "draft",
+      status: "PENDING",
+    });
+  const replacement = {
+    ...corrected,
+    players: [
+      { id: 9, name: "Other Samuel", rawName: "Sam" },
+      ...match.players.slice(1),
+    ],
+  };
+  jest
+    .mocked(api.getScoresheetJob)
+    .mockResolvedValue({
+      job_id: 32,
+      status: "COMPLETED",
+      result: {
+        status: "success",
+        matches: [replacement],
+        clarification: null,
+        error: null,
+      },
+    } as never);
+  act(() => result.current.setEditPrompt("Sam is Other Samuel"));
+  await act(async () => {
+    await result.current.edit();
+  });
+  expect(api.editScoresheet).toHaveBeenLastCalledWith(
+    10,
+    "draft",
+    "Sam is Other Samuel",
+    [corrected],
+  );
+  await waitFor(() =>
+    expect(result.current.matches[0]?.players[0]?.id).toBe(9),
+  );
+  expect(result.current.matches[0]?.scores).toEqual([21, 17]);
   await act(async () => {
     await result.current.confirm();
   });

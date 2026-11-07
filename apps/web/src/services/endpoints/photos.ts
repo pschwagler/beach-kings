@@ -4,6 +4,7 @@
 
 import api, { getStoredTokens, API_BASE_URL } from '../api-client';
 import { createParser } from 'eventsource-parser';
+import type { ScoresheetMatch } from '@beach-kings/api-client';
 
 /**
  * Upload a photo of game scores for AI processing
@@ -124,10 +125,10 @@ export const subscribePhotoJobStream = (leagueId: number, jobId: number, callbac
  * @param {string} sessionId - Photo session ID
  * @param {string} editPrompt - Edit/clarification prompt
  */
-export const editPhotoResults = async (leagueId: number, sessionId: string, editPrompt: string) => {
+export const editPhotoResults = async (leagueId: number, sessionId: string, editPrompt: string, reviewedMatches?: readonly ScoresheetMatch[]) => {
   const response = await api.post(
     `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}/edit`,
-    { edit_prompt: editPrompt }
+    { edit_prompt: editPrompt, ...(reviewedMatches !== undefined ? { reviewed_matches: reviewedMatches } : {}) }
   );
   return response.data;
 };

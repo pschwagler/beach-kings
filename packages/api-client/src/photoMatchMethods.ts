@@ -126,11 +126,17 @@ export function createPhotoMatchMethods(api: AxiosInstance) {
       leagueId: number | null,
       sessionId: string,
       prompt: string,
+      reviewedMatches?: readonly ScoresheetMatch[],
     ): Promise<PhotoMatchJob> {
       return (
         await api.post<PhotoMatchJob>(
           `${base(leagueId)}/photo-sessions/${encodeURIComponent(sessionId)}/edit`,
-          { edit_prompt: prompt },
+          {
+            edit_prompt: prompt,
+            ...(reviewedMatches !== undefined
+              ? { reviewed_matches: reviewedMatches }
+              : {}),
+          },
           { timeout: 30_000 },
         )
       ).data;

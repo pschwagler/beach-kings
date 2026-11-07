@@ -1,6 +1,6 @@
 """Sessions models."""
 
-from typing import Optional, List
+from typing import Annotated, Optional, List
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -330,10 +330,25 @@ class UpdateSessionRequest(BaseModel):
         return self
 
 
+class ReviewedPhotoPlayer(BaseModel):
+    id: Annotated[int, Field(strict=True, gt=0)] | None = None
+    name: str
+    rawName: str = ""
+
+
+class ReviewedPhotoMatch(BaseModel):
+    players: list[ReviewedPhotoPlayer] = Field(min_length=4, max_length=4)
+    scores: tuple[
+        Annotated[int, Field(strict=True, ge=0)] | None,
+        Annotated[int, Field(strict=True, ge=0)] | None,
+    ]
+
+
 class EditPhotoResultsRequest(BaseModel):
     """Request to send an edit prompt for photo-match conversation refinement."""
 
     edit_prompt: str
+    reviewed_matches: list[ReviewedPhotoMatch] | None = None
 
 
 class ConfirmPhotoMatchesRequest(BaseModel):

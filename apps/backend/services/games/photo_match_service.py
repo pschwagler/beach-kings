@@ -34,8 +34,10 @@ from backend.services.games.match_validation import validate_match_score
 from backend.services.games import scoresheet_ai
 from backend.services.games.scoresheet_prompt import (
     build_scoreboard_prompt,
-    build_clarification_prompt_for_array,
+    build_clarification_prompt_for_array as build_clarification_prompt_for_array,
+    build_correction_prompt,
 )
+from backend.services.games.scoresheet_review import prompt_state
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
@@ -607,9 +609,7 @@ async def clarify_scores_chat(
     image_base64: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Apply corrections with the original photo when the session retains it."""
-    prompt = build_clarification_prompt_for_array(league_members) + (
-        f"\nPrevious extraction:\n{previous_response}\n\nUser correction:\n{user_prompt}"
-    )
+    prompt = build_correction_prompt(previous_response, user_prompt, league_members)
     try:
         image_bytes = base64.b64decode(image_base64) if image_base64 else None
         raw_text = await asyncio.to_thread(scoresheet_ai.generate, prompt, image_bytes)
@@ -998,7 +998,12 @@ async def process_clarification_job(
             if not session_data:
                 raise ValueError(f"Session {session_id} not found or expired")
 
-            previous_response = session_data.get("raw_response")
+            current_matches = session_data.get("parsed_matches", [])
+            previous_response = (
+                prompt_state(current_matches)
+                if current_matches
+                else session_data.get("raw_response")
+            )
             if not previous_response:
                 raise ValueError("No previous response found in session for clarification")
 
@@ -1009,6 +1014,21 @@ async def process_clarification_job(
                 league_members=league_members,
                 image_base64=session_data.get("image_base64"),
             )
+
+            if result.get("status") == "failed":
+                # The accepted manual review remains authoritative on provider errors.
+                # Return it in the completed job so clients can retry or save it.
+                result["matches"] = current_matches
+                result["error_message"] = (
+                    "Could not apply the correction. Your reviewed games are unchanged. Please try again."
+                )
+                await update_job_status(
+                    db_session,
+                    job_id,
+                    PhotoMatchJobStatus.COMPLETED,
+                    result_data=json.dumps(result, default=str),
+                )
+                return
 
             # Match player names to IDs (do this for any status with matches, not just "success")
             if result.get("matches"):

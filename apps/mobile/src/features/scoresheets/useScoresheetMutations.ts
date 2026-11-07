@@ -1,5 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PhotoPlayerOverride } from "@beach-kings/api-client";
+import type {
+  PhotoPlayerOverride,
+  ScoresheetMatch,
+} from "@beach-kings/api-client";
 import { api } from "@/lib/api";
 import { leagueKeys } from "@/features/leagues";
 import { sessionKeys } from "@/features/sessions";
@@ -35,12 +38,17 @@ export function useScoresheetMutations(userId: number, leagueId: number) {
   const edit = useMutation({
     retry: false,
     networkMode: "always",
-    mutationFn: (input: { sessionId: string; prompt: string }) => {
+    mutationFn: (input: {
+      sessionId: string;
+      prompt: string;
+      matches: readonly ScoresheetMatch[];
+    }) => {
       requireIdentity();
       return api.editScoresheet(
         leagueId || null,
         input.sessionId,
         input.prompt,
+        input.matches,
       );
     },
   });

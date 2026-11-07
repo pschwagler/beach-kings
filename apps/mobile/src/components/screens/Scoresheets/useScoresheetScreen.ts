@@ -191,6 +191,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
       const next = await mutations.edit.mutateAsync({
         sessionId: job.session_id,
         prompt: editPrompt.trim(),
+        matches,
       });
       setJob(next);
       setOverrides([]);

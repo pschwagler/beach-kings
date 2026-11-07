@@ -99,11 +99,9 @@ test("preserves an extracted name when no roster match was found", () => {
 });
 
 test("pickup requests use owner-scoped routes and return the saved session", async () => {
-  const post = jest
-    .fn()
-    .mockResolvedValue({
-      data: { match_ids: [10], matches_created: 1, session_id: 20 },
-    });
+  const post = jest.fn().mockResolvedValue({
+    data: { match_ids: [10], matches_created: 1, session_id: 20 },
+  });
   const methods = createPhotoMatchMethods({ post } as unknown as AxiosInstance);
   await methods.uploadScoresheet(
     null,
@@ -119,5 +117,31 @@ test("pickup requests use owner-scoped routes and return the saved session", asy
   ).toEqual({ match_ids: [10], matches_created: 1, session_id: 20 });
   expect(post.mock.calls[2][0]).toBe(
     "/api/matches/photo-sessions/draft/confirm",
+  );
+});
+
+test("corrections send the whole current review, including manual IDs and current scores", async () => {
+  const post = jest
+    .fn()
+    .mockResolvedValue({
+      data: { job_id: 5, session_id: "draft", status: "PENDING" },
+    });
+  const methods = createPhotoMatchMethods({ post } as unknown as AxiosInstance);
+  const review = [
+    {
+      number: 1,
+      players: [8, 2, 3, 4].map((id) => ({
+        id,
+        name: `Player ${id}`,
+        rawName: id === 8 ? "Sam" : `Player ${id}`,
+      })),
+      scores: [21, 17] as const,
+    },
+  ];
+  await methods.editScoresheet(null, "draft", "Game 1 finished 21-18", review);
+  expect(post).toHaveBeenCalledWith(
+    "/api/matches/photo-sessions/draft/edit",
+    { edit_prompt: "Game 1 finished 21-18", reviewed_matches: review },
+    { timeout: 30000 },
   );
 });

@@ -102,7 +102,7 @@ def summarize(rows, budget):
     return {
         "models": models,
         "budget": budget.summary(),
-        "metric_definition": "Exact games require both teams' player IDs and final scores to match production; teammate, team and row order are ignored. Score pairs alone do not verify player identity or winner. Unresolved names never count as correct IDs. Photo-grounded metrics separately accept annotated names/identity sets, credit appropriate abstention, and exclude pending transcription labels. An ambiguous identity selection is photo-compatible, not evidence that the identity was determined.",
+        "metric_definition": "Exact games require both teams' player IDs and final scores to match the reference games (recorded games or explicitly corrected review fixtures); teammate, team and row order are ignored. Score pairs alone do not verify player identity or winner. Unresolved names never count as correct IDs. Photo-grounded metrics separately accept annotated names/identity sets, credit appropriate abstention, and exclude pending transcription labels. An ambiguous identity selection is photo-compatible, not evidence that the identity was determined.",
     }
 
 
@@ -149,7 +149,15 @@ def run_comparison(args):
             raise ValueError("Reference games cannot be empty for a scoresheet benchmark")
     for case in manifest["cases"]:
         image_bytes, _ = service.preprocess_image(private_path(case["image"]).read_bytes())
-        prompt = service.build_scoreboard_prompt(case.get("members", []))
+        prompt = (
+            service.build_correction_prompt(
+                json.dumps(case["current_review"], ensure_ascii=False),
+                case["correction"],
+                case.get("members", []),
+            )
+            if "correction" in case
+            else service.build_scoreboard_prompt(case.get("members", []))
+        )
         if len(prompt.encode()) + 30_000 >= 272_000:
             raise ValueError("Prompt exceeds this evaluator's verified short-context pricing")
         for model in models:

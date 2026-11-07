@@ -29,14 +29,24 @@ Uploads snapshot the candidate list in their expiring Redis draft. Corrections
 reuse that snapshot, including when another league member edits the draft. Legacy
 drafts reconstruct context for their original uploader.
 
+Every correction also sends the current reviewed games, including manual player
+selections and the latest scores. The server validates selected IDs and adds any
+selected players outside the original candidate list. The model edits this state;
+the original photo is only a reference for the requested change. Earlier selections
+are incorporated into the returned review, rather than reapplied over a later
+explicit identity change. A failed model correction returns the unchanged review.
+
 ## Evaluation
 
 The evaluator uses the same prompt builders as the app. Each private manifest's
 `members` entries can include `is_league_member`, `is_uploader`, `shared_sessions`,
 and `last_shared_session`. The production snapshot command labels its league
 roster; richer fixtures can also supply shared-history candidates and guests.
-Request fingerprints include the full prompt, preventing reuse across changed
-candidate lists or instructions.
+For correction regressions, a case can supply `current_review` (the structured
+review state) and `correction` (the requested edit), with `expected` describing the
+resulting games. This uses the same correction prompt as the application. Request
+fingerprints include the full prompt, preventing reuse across changed candidate
+lists, reviewed states, or instructions.
 
 ```sh
 PYTHONPATH=apps:. python scripts/eval_scoresheets.py run \
