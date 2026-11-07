@@ -56,3 +56,5 @@ export default function createDefaultApiClient() {
     : '';
   return createApiClient(baseURL, new WebStorageAdapter());
 }
+
+export * from './featureFlagMethods';

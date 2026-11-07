@@ -1,3 +1,4 @@
+from .feature_flags import FeatureFlag, FeatureFlagChange
 from .enums import SessionStatus
 from .enums import OpenSignupsMode
 from .enums import SignupEventType
@@ -85,6 +86,8 @@ from .courts import CourtCheckIn
 from .push import PushNotificationPreference
 
 __all__ = [
+    "FeatureFlag",
+    "FeatureFlagChange",
     "SessionStatus",
     "OpenSignupsMode",
     "SignupEventType",

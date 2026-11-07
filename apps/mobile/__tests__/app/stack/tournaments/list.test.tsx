@@ -26,8 +26,18 @@ jest.mock('react-native-safe-area-context', () => {
 
 jest.mock('@/components/ui/icons', () => ({ ChevronLeftIcon: () => null }));
 
+jest.mock('@/features/feature-flags/queries', () => ({ useFeatureFlag: jest.fn(() => ({ enabled: true, isLoading: false })) }));
+
 it('renders an explicit unavailable state instead of tournament fixture data', () => {
   render(<TournamentsRoute />);
   expect(screen.getByText('Tournament browsing and management are coming soon.')).toBeTruthy();
   expect(screen.queryByText('Spring King of the Beach')).toBeNull();
+});
+
+
+it('shows unavailable when the server flag is disabled', () => {
+  const { useFeatureFlag } = require('@/features/feature-flags/queries');
+  useFeatureFlag.mockReturnValue({ enabled: false, isLoading: false });
+  render(<TournamentsRoute />);
+  expect(screen.getByText('Tournaments are currently unavailable for your account.')).toBeTruthy();
 });
