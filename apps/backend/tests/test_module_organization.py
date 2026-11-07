@@ -12,7 +12,8 @@ BACKEND_ROOT = Path(__file__).parents[1]
 
 
 def test_orm_models_are_registered_from_domain_package():
-    assert len(Base.metadata.tables) == 74
+    assert len(Base.metadata.tables) == 75
+    assert models.LeaguePicture.__tablename__ == "league_pictures"
     assert models.Player.__tablename__ == "players"
     assert models.KobTournament.__tablename__ == "kob_tournaments"
     assert models.ModerationCase.__tablename__ == "moderation_cases"
