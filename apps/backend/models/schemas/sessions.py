@@ -241,6 +241,7 @@ class SessionRosterDetailResponse(BaseModel):
     start_time: Optional[str] = None
     session_number: int = 1
     is_ranked: Optional[bool] = True
+    can_edit_metadata: bool = False
     players: List[SessionRosterPlayerResponse]
     games: List[SessionGameResponse] = []
     user_wins: int = 0

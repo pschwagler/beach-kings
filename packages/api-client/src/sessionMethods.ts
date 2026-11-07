@@ -99,7 +99,7 @@ export function createSessionMethods(api: AxiosInstance) {
       const normalized = (raw.status ?? '').toString().toLowerCase();
       const status: SessionDetail['status'] =
         normalized === 'active' ? 'active' : 'submitted';
-      return { ...raw, status };
+      return { ...raw, status, can_edit_metadata: raw.can_edit_metadata === true };
     },
 
     /**

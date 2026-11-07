@@ -32,6 +32,24 @@ describe('session API methods', () => {
     );
   });
 
+  it.each([
+    [true, true],
+    [false, false],
+    [undefined, false],
+    [null, false],
+    ['true', false],
+    [1, false],
+  ])('accepts only an explicit boolean metadata capability: %s', async (rawCapability, expected) => {
+    const client = makeClient(jest.fn(), jest.fn());
+    const get = client.axiosInstance.get as jest.Mock;
+    get.mockResolvedValue({ data: { id: 7, status: 'ACTIVE', can_edit_metadata: rawCapability } });
+    const methods = createApiMethods(client);
+
+    await expect(methods.getSessionById(7)).resolves.toEqual(
+      expect.objectContaining({ can_edit_metadata: expected }),
+    );
+  });
+
   it('posts create payloads with court_id and ranked intent', async () => {
     const post = jest.fn().mockResolvedValue({
       data: { status: 'ok', message: 'created', session: { id: 7 } },
