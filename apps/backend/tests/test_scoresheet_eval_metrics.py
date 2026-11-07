@@ -21,3 +21,10 @@ def test_wrong_winner_is_not_hidden_by_team_normalization():
     result = evaluate([{**expected[0], "s": "19-21"}], expected)
     assert result["exact_games"] == 0
     assert result["correct_teams"] == 1
+
+
+def test_unresolved_numeric_name_is_not_a_resolved_player_id():
+    expected = [{"t1": [1, 2], "t2": [3, 4], "s": "21-19"}]
+    actual = [{"t1": ["1", 2], "t2": [3, 4], "s": "21-19"}]
+    assert evaluate(actual, expected)["exact_games"] == 0
+    assert evaluate(actual, expected)["unresolved_player_slots"] == 1

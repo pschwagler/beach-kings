@@ -10,6 +10,7 @@
  */
 
 import React from "react";
+import { useFeatureFlag } from '@/features/feature-flags/queries';
 import Button from "@/components/ui/Button";
 import AppText from '@/components/ui/AppText';
 import {
@@ -531,6 +532,7 @@ export default function LeagueMatchesTab({
   canUpload = false,
 }: LeagueMatchesTabProps): React.ReactNode {
   const router = useRouter();
+  const scoresheetFlag = useFeatureFlag("scoresheet_parsing");
   const {
     mode,
     setMode,
@@ -556,9 +558,13 @@ export default function LeagueMatchesTab({
           />
         </View>
       )}
-      {canUpload && (
+      {canUpload && scoresheetFlag.enabled && (
         <View className="mx-4 mt-2">
-          <Button title="Scan scoresheet" variant="outline" onPress={() => router.push(routes.scanScoresheet(leagueId))} />
+          <Button
+            title="Scan scoresheet"
+            variant="outline"
+            onPress={() => router.push(routes.scanScoresheet(leagueId))}
+          />
         </View>
       )}
       <ModeToggle

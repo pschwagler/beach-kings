@@ -74,3 +74,14 @@ def test_stream_requires_successful_terminal_event(monkeypatch, terminal):
         else:
             with pytest.raises(ValueError):
                 list(ai.stream_text("Read", b"photo"))
+
+
+def test_ambiguous_roster_name_remains_unresolved():
+    from backend.services.games.photo_match_service import match_player_name
+
+    members = [
+        {"player_id": 1, "player_name": "Alex Example"},
+        {"player_id": 2, "player_name": "Alex Sample"},
+    ]
+    assert match_player_name("Alex", members) is None
+    assert match_player_name("Alex Example", members)["player_id"] == 1

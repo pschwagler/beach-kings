@@ -29,6 +29,7 @@ from backend.database.db import get_db_session
 from backend.database.models import Season, Session, SessionStatus, PhotoMatchJobStatus
 from backend.services import data_service, photo_match_service
 from backend.services.games.match_validation import validate_match_score
+from backend.api.routes.feature_flags import require_feature
 from backend.services.players.player_lifecycle import require_active_players
 from backend.api.auth_dependencies import (
     get_current_user,
@@ -447,6 +448,7 @@ async def upload_match_photo(
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
     _league_member=Depends(make_require_league_member()),
+    _scoresheet_flag=Depends(require_feature("scoresheet_parsing")),
 ):
     """
     Upload a photo of game scores for AI processing.
@@ -528,6 +530,7 @@ async def edit_photo_results(
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
     _league_member=Depends(make_require_league_member()),
+    _scoresheet_flag=Depends(require_feature("scoresheet_parsing")),
 ):
     """Send edit prompt for conversation refinement."""
     try:
@@ -576,6 +579,7 @@ async def stream_photo_job(
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
     _league_member=Depends(make_require_league_member()),
+    _scoresheet_flag=Depends(require_feature("scoresheet_parsing")),
 ):
     """
     Stream photo job progress via Server-Sent Events.
@@ -630,6 +634,7 @@ async def get_photo_job_status(
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
     _league_member=Depends(make_require_league_member()),
+    _scoresheet_flag=Depends(require_feature("scoresheet_parsing")),
 ):
     """Get status of a photo processing job."""
     try:
@@ -680,6 +685,7 @@ async def confirm_photo_matches(
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
     _league_member=Depends(make_require_league_member()),
+    _scoresheet_flag=Depends(require_feature("scoresheet_parsing")),
 ):
     """Confirm parsed matches and create them in the database."""
     try:
@@ -741,6 +747,7 @@ async def cancel_photo_session(
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
     _league_member=Depends(make_require_league_member()),
+    _scoresheet_flag=Depends(require_feature("scoresheet_parsing")),
 ):
     """Cancel session and cleanup Redis data."""
     try:

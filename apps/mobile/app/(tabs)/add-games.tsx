@@ -27,6 +27,7 @@ import type { League, Session } from '@beach-kings/shared';
 
 import TopNav from '@/components/ui/TopNav';
 import { GameTypeCard, LeagueSelectList } from '@/components/screens/AddGames';
+import { useFeatureFlag } from '@/features/feature-flags/queries';
 import { useAuth } from '@/contexts/AuthContext';
 import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
 import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
@@ -203,6 +204,7 @@ export default function AddGamesScreen(): React.ReactNode {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const { user } = useAuth();
+  const scoresheetFlag = useFeatureFlag('scoresheet_parsing');
   const userId = user?.id ?? 0;
 
   useEffect(
@@ -401,15 +403,19 @@ export default function AddGamesScreen(): React.ReactNode {
           onLeagueGame={handleLeagueGame}
           onPickupGame={handlePickupGame}
         />
-        <View className="mt-3 gap-2">
-          <Button
-            title="Scan scoresheet"
-            variant="outline"
-            testID="scan-scoresheet"
-            onPress={() => router.push(routes.scanScoresheet())}
-          />
-          <AppText className="text-caption text-muted text-center">Add league games from a photo of your scores.</AppText>
-        </View>
+        {scoresheetFlag.enabled && (
+          <View className="mt-3 gap-2">
+            <Button
+              title="Scan scoresheet"
+              variant="outline"
+              testID="scan-scoresheet"
+              onPress={() => router.push(routes.scanScoresheet())}
+            />
+            <AppText className="text-caption text-muted text-center">
+              Add league games from a photo of your scores.
+            </AppText>
+          </View>
+        )}
       </RefreshScrollView>
     </SafeAreaView>
   );

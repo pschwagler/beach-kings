@@ -298,6 +298,7 @@ def match_player_name(extracted_name: str, league_members: List[Dict]) -> Option
 
     best_match = None
     best_score = 0.0
+    runner_up_score = 0.0
 
     for member in league_members:
         player_name = member.get("player_name", "")
@@ -307,13 +308,19 @@ def match_player_name(extracted_name: str, league_members: List[Dict]) -> Option
             member.get("player_nickname", ""),
         )
         if score > best_score:
+            runner_up_score = best_score
             best_score = score
             best_match = {
                 "player_id": member.get("player_id"),
                 "confidence": score,
                 "matched_name": player_name,
             }
+        elif score > runner_up_score:
+            runner_up_score = score
 
+    # A shared first name is not enough evidence to choose a roster identity.
+    if best_score - runner_up_score < 0.025:
+        return None
     if best_match and best_match["confidence"] >= _MATCH_CONFIDENCE_THRESHOLD:
         return best_match
     return None

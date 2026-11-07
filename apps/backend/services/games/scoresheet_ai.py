@@ -7,7 +7,7 @@ from typing import Iterator
 
 import httpx
 
-DEFAULT_MODEL = "gpt-6.1-terra"
+DEFAULT_MODEL = "gpt-5.4-mini"
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 # Keep player IDs or literal names so uncertain handwriting remains reviewable.
@@ -115,10 +115,20 @@ def generate_with_usage(
     text = "".join(texts)
     if not text:
         raise ValueError("Scoresheet AI returned no results. Please try another photo.")
-    return {"text": text, "usage": data.get("usage", {}), "model": data.get("model", model or DEFAULT_MODEL)}
+    return {
+        "text": text,
+        "usage": data.get("usage", {}),
+        "model": data.get("model", model or DEFAULT_MODEL),
+    }
 
 
-def generate(prompt: str, image_bytes: bytes | None = None, *, model: str | None = None, structured: bool = True) -> str:
+def generate(
+    prompt: str,
+    image_bytes: bytes | None = None,
+    *,
+    model: str | None = None,
+    structured: bool = True,
+) -> str:
     return generate_with_usage(prompt, image_bytes, model=model, structured=structured)["text"]
 
 

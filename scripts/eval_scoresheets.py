@@ -8,8 +8,9 @@ A manifest outside the public repo contains:
  "members": [{"player_id": 1, "player_name": "Name"}],
  "expected": [{"t1": [1, 2], "t2": [3, 4], "s": "21-19"}]}]}
 
-Omit expected until ground truth has been reviewed; those runs report extraction
-and latency only, never an accuracy score. Use the same roster for all models.
+Review the private expected games before running; unreviewed cases are rejected.
+Use the same production roster and images for all models. Results and summaries
+include exact-game agreement, unresolved identities, latency and a spend ledger.
 """
 
 import argparse
@@ -17,11 +18,11 @@ import json
 import os
 from pathlib import Path
 import time
+import tempfile
+from dotenv import load_dotenv
 
 import httpx
 
-from backend.services.games import photo_match_service, scoresheet_ai
-from scripts.scoresheet_evals.metrics import evaluate
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -35,10 +36,15 @@ def private_path(value):
 
 def save_private(path, data):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with path.open("w") as file:
-        os.chmod(path, 0o600)
+    # Atomic replacement preserves the last complete report if interrupted.
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as file:
+        temporary = Path(file.name)
+        os.chmod(temporary, 0o600)
         json.dump(data, file, indent=2)
         file.write("\n")
+        file.flush()
+        os.fsync(file.fileno())
+    os.replace(temporary, path)
 
 
 def snapshot(args):
@@ -109,56 +115,14 @@ def snapshot(args):
     )
 
 
-def run(args):
-    manifest_path = private_path(args.manifest)
-    output = private_path(args.output)
-    manifest = json.loads(manifest_path.read_text())
-    results = []
-    for case in manifest["cases"]:
-        image = private_path(case["image"])
-        image_bytes, _ = photo_match_service.preprocess_image(image.read_bytes())
-        prompt = photo_match_service.build_scoreboard_prompt(case.get("members", []))
-        for model in args.model:
-            start = time.monotonic()
-            row = {"case_id": case["id"], "model": model}
-            try:
-                raw = scoresheet_ai.generate(prompt, image_bytes, model=model)
-                matches = photo_match_service._parse_extraction_array(raw)
-                row.update({"matches": matches, "extracted_games": len(matches)})
-                if "expected" in case and not case.get("label_review_required", False):
-                    row["metrics"] = evaluate(matches, case["expected"])
-                else:
-                    row["accuracy"] = "unscored: ground truth absent or awaiting review"
-            except Exception as error:
-                row["error"] = type(error).__name__  # Do not print provider/input data.
-                if isinstance(error, ValueError) and str(error).startswith("Scoresheet AI"):
-                    row["error_detail"] = str(error)
-            row["latency_seconds"] = round(time.monotonic() - start, 3)
-            results.append(row)
-            # Persist each result so interrupted comparisons can be inspected.
-            save_private(output, {"manifest": str(manifest_path), "results": results})
-            print(
-                json.dumps(
-                    {
-                        key: row[key]
-                        for key in (
-                            "case_id",
-                            "model",
-                            "latency_seconds",
-                            "metrics",
-                            "extracted_games",
-                            "accuracy",
-                            "error",
-                        )
-                        if key in row
-                    }
-                )
-            )
-
-
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--env-file",
+        default=str(REPO / ".env"),
+        help="Local server environment file; credentials never enter reports",
     )
     commands = parser.add_subparsers(dest="command", required=True)
     export = commands.add_parser(
@@ -176,8 +140,20 @@ def main():
     compare.add_argument("--manifest", required=True)
     compare.add_argument("--model", action="append", required=True)
     compare.add_argument("--output", required=True)
+    compare.add_argument("--budget-usd", type=float, default=3.0)
+    compare.add_argument("--prior-spend-usd", type=float, default=0.0)
+    compare.add_argument("--ledger", help="Private cumulative budget ledger shared across runs")
+    compare.add_argument(
+        "--reuse-results", action="append", help="Reuse outputs only when request hashes match"
+    )
     args = parser.parse_args()
-    snapshot(args) if args.command == "snapshot" else run(args)
+    load_dotenv(args.env_file)
+    if args.command == "snapshot":
+        snapshot(args)
+    else:
+        from scripts.scoresheet_evals.runner import run_comparison
+
+        run_comparison(args)
 
 
 if __name__ == "__main__":

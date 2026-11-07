@@ -4,7 +4,15 @@ from collections import Counter
 
 
 def game_key(match, *, scores=True):
-    teams = [tuple(sorted(str(player) for player in match[field])) for field in ("t1", "t2")]
+    teams = [
+        tuple(
+            sorted(
+                (0, player) if type(player) is int else (1, str(player).casefold())
+                for player in match[field]
+            )
+        )
+        for field in ("t1", "t2")
+    ]
     if any(len(team) != 2 for team in teams):
         raise ValueError("Each game must have exactly two players on each team")
     if not scores:
@@ -23,7 +31,24 @@ def evaluate(actual, expected):
     actual_teams = Counter(game_key(game, scores=False) for game in actual)
     expected_teams = Counter(game_key(game, scores=False) for game in expected)
     teams = sum((actual_teams & expected_teams).values())
+
+    def score_pairs(games):
+        return Counter(
+            tuple(sorted(int(s) for s in game["s"].split("-")))
+            for game in games
+            if len(game.get("s", "").split("-")) == 2
+            and all(s.strip().isdigit() for s in game["s"].split("-"))
+        )
+
+    score_matches = sum((score_pairs(actual) & score_pairs(expected)).values())
     return {
+        "score_pairs_recovered": score_matches,
+        "unresolved_player_slots": sum(
+            not isinstance(player, int)
+            for game in actual
+            for team in ("t1", "t2")
+            for player in game[team]
+        ),
         "expected_games": len(expected),
         "extracted_games": len(actual),
         "exact_games": exact,
