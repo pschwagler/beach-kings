@@ -788,17 +788,19 @@ describe('LeagueDetailScreen — prominent league recording action', () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     const record = await screen.findByRole('button', { name: 'Record a Game' });
     fireEvent.press(record);
+    await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
     const destination = mockPush.mock.calls[0]?.[0];
     expect(destination).toContain(`leagueId=${MOCK_DETAIL.id}`);
     expect(destination).toContain(`seasonId=${MOCK_DETAIL.current_season_id}`);
     fireEvent.press(screen.getByTestId('league-add-game-btn'));
-    expect(mockPush.mock.calls[1]?.[0]).toBe(destination);
+    await waitFor(() => expect(mockPush.mock.calls[1]?.[0]).toBe(destination));
   });
 
   it('supports leagues without a current season without inventing a season ID', async () => {
     mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, current_season_id: null });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     fireEvent.press(await screen.findByRole('button', { name: 'Record a Game' }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
     expect(mockPush.mock.calls[0]?.[0]).toContain(`leagueId=${MOCK_DETAIL.id}`);
     expect(mockPush.mock.calls[0]?.[0]).not.toContain('seasonId=');
   });
@@ -835,9 +837,9 @@ describe('League live action', () => {
     const action = await screen.findByTestId('league-record-game-action');
     await waitFor(() => expect(action.props.accessibilityState.disabled).toBe(false));
     fireEvent.press(screen.getByTestId('league-record-game-action'));
-    expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75');
+    await waitFor(() => expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75'));
     fireEvent.press(screen.getByTestId('league-add-game-btn'));
-    expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75');
+    await waitFor(() => expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75'));
   });
   it('offers retry without creating a session when availability fails', async () => {
     mockGetLeagueSessions.mockRejectedValue(new Error('unavailable'));

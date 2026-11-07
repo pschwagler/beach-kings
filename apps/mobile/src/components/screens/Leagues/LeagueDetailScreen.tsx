@@ -345,6 +345,7 @@ export default function LeagueDetailScreen({
     isSessionActionReady,
     isSessionActionError,
     onRetrySessionAction,
+    onResolveSessionAction,
     isLoading,
     isError,
     errorTitle,
@@ -435,11 +436,13 @@ export default function LeagueDetailScreen({
   const canAddGame =
     detail != null && (detail.user_role === 'admin' || detail.user_role === 'member');
 
-  const handleRecordGame = (): void => {
+  const handleRecordGame = async (): Promise<void> => {
     if (!canAddGame || !isSessionActionReady || detail == null) return;
+    const resolvedSessionId = await onResolveSessionAction();
+    if (resolvedSessionId === undefined) return;
     void hapticLight();
-    if (liveSessionId != null) {
-      router.push(routes.session(liveSessionId) as never);
+    if (resolvedSessionId != null) {
+      router.push(routes.session(resolvedSessionId) as never);
       return;
     }
     router.push(
