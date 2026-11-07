@@ -1,3 +1,4 @@
+import FeatureGate from "../../../src/components/ui/FeatureGate";
 import { Suspense } from "react";
 import KobLive from "../../../src/components/kob/KobLive";
 import RouteLoadingShell from "../../../src/components/ui/RouteLoadingShell";
@@ -14,7 +15,7 @@ export default async function KobLivePage({ params }: { params: Promise<{ code: 
   const { code } = await params;
   return (
     <Suspense fallback={<RouteLoadingShell />}>
-      <KobLive code={code} />
+      <FeatureGate flags={["kob_tournaments"]}><KobLive code={code} /></FeatureGate>
     </Suspense>
   );
 }

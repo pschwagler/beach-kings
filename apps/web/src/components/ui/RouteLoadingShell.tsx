@@ -10,7 +10,7 @@ import NavBar from '../layout/NavBar';
 import PageSkeleton from './PageSkeleton';
 
 /** Navbar-preserving fallback for route-level Suspense boundaries. */
-export default function RouteLoadingShell() {
+export default function RouteLoadingShell({ children }: { children?: React.ReactNode } = {}) {
   const router = useRouter();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -55,7 +55,7 @@ export default function RouteLoadingShell() {
         onSignUp={() => openAuthModal('sign-up')}
         onLeaguesMenuClick={handleLeaguesMenuClick}
       />
-      <PageSkeleton />
+      {children ?? <PageSkeleton />}
     </>
   );
 }

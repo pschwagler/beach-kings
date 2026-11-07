@@ -1,14 +1,14 @@
 """Add bounded member-only league pictures.
 
-Revision ID: 080_league_pictures
-Revises: 079
+Revision ID: 082
+Revises: 081
 """
 
 from alembic import op
 import sqlalchemy as sa
 
-revision = "080_league_pictures"
-down_revision = "079"
+revision = "082"
+down_revision = "081"
 branch_labels = None
 depends_on = None
 

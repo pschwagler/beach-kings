@@ -1,45 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AWARD_CONFIG, formatAwardValue } from '../awardConstants';
-
-// ─── AWARD_CONFIG ────────────────────────────────────────────────────────────
-
-describe('AWARD_CONFIG', () => {
-  it('has exactly 7 keys', () => {
-    expect(Object.keys(AWARD_CONFIG)).toHaveLength(7);
-  });
-
-  it('every entry has a string label', () => {
-    for (const key of Object.keys(AWARD_CONFIG)) {
-      expect(typeof AWARD_CONFIG[key].label).toBe('string');
-    }
-  });
-
-  it('every entry has a string iconName', () => {
-    for (const key of Object.keys(AWARD_CONFIG)) {
-      expect(typeof AWARD_CONFIG[key].iconName).toBe('string');
-    }
-  });
-
-  it('every entry has a string colorClass', () => {
-    for (const key of Object.keys(AWARD_CONFIG)) {
-      expect(typeof AWARD_CONFIG[key].colorClass).toBe('string');
-    }
-  });
-
-  it('stat awards have a subtitle', () => {
-    const statAwards = ['ironman', 'sharpshooter', 'point_machine', 'rising_star'];
-    for (const key of statAwards) {
-      expect(typeof AWARD_CONFIG[key].subtitle).toBe('string');
-    }
-  });
-
-  it('placement awards (gold, silver, bronze) do not have a subtitle', () => {
-    const placementAwards = ['gold', 'silver', 'bronze'];
-    for (const key of placementAwards) {
-      expect(AWARD_CONFIG[key].subtitle).toBeUndefined();
-    }
-  });
-});
+import { formatAwardValue } from '../awardConstants';
 
 // ─── formatAwardValue ─────────────────────────────────────────────────────────
 

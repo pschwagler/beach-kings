@@ -5,6 +5,7 @@
  * endpoints to the owning domain module, not here.
  */
 
+import { createFeatureFlagMethods } from './featureFlagMethods';
 import type { ApiClient } from './client';
 import { createAdminMethods } from './adminMethods';
 import { createAuthMethods } from './authMethods';
@@ -30,6 +31,7 @@ export function createApiMethods(client: ApiClient) {
   const api = client.axiosInstance;
 
   return {
+    ...createFeatureFlagMethods(api),
     // Auth
     ...createAuthMethods(api),
     // Player (incl. public invite claim)

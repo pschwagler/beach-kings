@@ -14,6 +14,7 @@
  * runtime mock-data fallback.
  */
 
+import { Platform } from 'react-native';
 import type { createApiClient } from '@beach-kings/api-client';
 import { API_ORIGIN } from '@/config/apiOrigin';
 
@@ -32,6 +33,7 @@ function getApi(): ApiClient {
     const SecureStore =
       require('expo-secure-store') as typeof import('expo-secure-store');
     instance = create(API_ORIGIN, new MobileStorageAdapter(SecureStore));
+    instance.client.axiosInstance.defaults.headers.common['X-Client-Platform'] = Platform.OS;
   }
   return instance;
 }

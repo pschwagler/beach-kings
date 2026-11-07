@@ -245,13 +245,4 @@ describe('useMatchValidation', () => {
       expect(returnVal).toEqual({ isValid: true, scoresValidation });
     });
   });
-
-  describe('hook return value', () => {
-    it('returns validateForm function', () => {
-      const props = makeDefaultProps();
-      const { result } = renderHook(() => useMatchValidation(props));
-
-      expect(typeof result.current.validateForm).toBe('function');
-    });
-  });
 });

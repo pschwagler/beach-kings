@@ -84,7 +84,7 @@ describe('iOS release preflight', () => {
           bundleIdentifier: 'com.beachleague.app',
           deviceFamily: 'iPhone',
           privacyCollectedDataTypeCount: 13,
-          version: '1.0.0 (1)',
+          version: '1.0.1 (1)',
           webOrigin: 'https://beachleaguevb.com',
         }),
       );

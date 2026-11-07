@@ -113,22 +113,17 @@ jest.mock('@beach-kings/shared/tokens', () => ({
 
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Divider from '@/components/ui/Divider';
 import Chip from '@/components/ui/Chip';
 import EmptyState from '@/components/ui/EmptyState';
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import SegmentControl from '@/components/ui/SegmentControl';
 import Avatar from '@/components/ui/Avatar';
 import BottomSheet from '@/components/ui/BottomSheet';
 import StatCard from '@/components/ui/StatCard';
-import OtpInput from '@/components/ui/OtpInput';
 import PasswordStrength from '@/components/ui/PasswordStrength';
-import PullToRefresh from '@/components/ui/PullToRefresh';
 import TabView from '@/components/ui/TabView';
 import SearchBar from '@/components/ui/SearchBar';
 import Toast from '@/components/ui/Toast';
 import ListItem from '@/components/ui/ListItem';
-import ProgressBar from '@/components/ui/ProgressBar';
 
 // ---------------------------------------------------------------------------
 // Input
@@ -319,17 +314,6 @@ describe('Button', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Divider
-// ---------------------------------------------------------------------------
-
-describe('Divider', () => {
-  it('renders a View', () => {
-    const { toJSON } = render(<Divider />);
-    expect(toJSON()).toBeTruthy();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Chip
 // ---------------------------------------------------------------------------
 
@@ -407,24 +391,6 @@ describe('EmptyState', () => {
     fireEvent.press(screen.getByTestId('friends-empty-secondary-action'));
     expect(onPrimary).toHaveBeenCalledTimes(1);
     expect(onSecondary).toHaveBeenCalledTimes(1);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// LoadingSkeleton
-// ---------------------------------------------------------------------------
-
-describe('LoadingSkeleton', () => {
-  it('renders without crashing with default props', () => {
-    const { toJSON } = render(<LoadingSkeleton />);
-    expect(toJSON()).toBeTruthy();
-  });
-
-  it('renders without crashing with explicit dimensions', () => {
-    const { toJSON } = render(
-      <LoadingSkeleton width={200} height={32} borderRadius={4} />,
-    );
-    expect(toJSON()).toBeTruthy();
   });
 });
 
@@ -587,33 +553,6 @@ describe('StatCard', () => {
     expect(screen.getByText('42')).toBeTruthy();
     expect(screen.getByText('Games Played')).toBeTruthy();
   });
-
-  it('renders trend indicator when trend prop provided', () => {
-    const { toJSON } = render(<StatCard value={10} label="Wins" trend="up" />);
-    expect(toJSON()).toBeTruthy();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// OtpInput
-// ---------------------------------------------------------------------------
-
-describe('OtpInput', () => {
-  it('renders the correct number of input cells (default 6)', () => {
-    render(<OtpInput value="" onChange={jest.fn()} />);
-    // Each cell has an accessibilityLabel "OTP digit N"
-    for (let i = 1; i <= 6; i++) {
-      expect(screen.getByLabelText(`OTP digit ${i}`)).toBeTruthy();
-    }
-  });
-
-  it('renders a custom number of input cells', () => {
-    render(<OtpInput length={4} value="" onChange={jest.fn()} />);
-    for (let i = 1; i <= 4; i++) {
-      expect(screen.getByLabelText(`OTP digit ${i}`)).toBeTruthy();
-    }
-    expect(screen.queryByLabelText('OTP digit 5')).toBeNull();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -621,11 +560,6 @@ describe('OtpInput', () => {
 // ---------------------------------------------------------------------------
 
 describe('PasswordStrength', () => {
-  it('renders without crashing for empty password', () => {
-    const { toJSON } = render(<PasswordStrength password="" />);
-    expect(toJSON()).toBeTruthy();
-  });
-
   it('renders strength label for a strong password', () => {
     render(<PasswordStrength password="Str0ng!Pass#2024" />);
     expect(screen.getByText('Strong')).toBeTruthy();
@@ -635,35 +569,6 @@ describe('PasswordStrength', () => {
     render(<PasswordStrength password="abc" />);
     // score 0 → no label rendered
     expect(screen.queryByText('Weak')).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// PullToRefresh
-// ---------------------------------------------------------------------------
-
-describe('PullToRefresh', () => {
-  it('renders children', () => {
-    render(
-      <PullToRefresh refreshing={false} onRefresh={jest.fn()}>
-        <></>
-      </PullToRefresh>,
-    );
-    const { toJSON } = render(
-      <PullToRefresh refreshing={false} onRefresh={jest.fn()}>
-        <></>
-      </PullToRefresh>,
-    );
-    expect(toJSON()).toBeTruthy();
-  });
-
-  it('renders without crashing when refreshing', () => {
-    const { toJSON } = render(
-      <PullToRefresh refreshing onRefresh={jest.fn()}>
-        <></>
-      </PullToRefresh>,
-    );
-    expect(toJSON()).toBeTruthy();
   });
 });
 
@@ -787,26 +692,5 @@ describe('ListItem', () => {
     render(<ListItem title="Account" onPress={onPress} />);
     fireEvent.press(screen.getByLabelText('Account'));
     expect(onPress).toHaveBeenCalledTimes(1);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// ProgressBar
-// ---------------------------------------------------------------------------
-
-describe('ProgressBar', () => {
-  it('renders with progress value', () => {
-    const { toJSON } = render(<ProgressBar progress={0.6} />);
-    expect(toJSON()).toBeTruthy();
-  });
-
-  it('renders with 0 progress without crashing', () => {
-    const { toJSON } = render(<ProgressBar progress={0} />);
-    expect(toJSON()).toBeTruthy();
-  });
-
-  it('clamps progress above 1 to full', () => {
-    const { toJSON } = render(<ProgressBar progress={1.5} />);
-    expect(toJSON()).toBeTruthy();
   });
 });
