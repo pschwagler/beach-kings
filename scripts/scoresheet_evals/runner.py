@@ -9,6 +9,7 @@ import time
 from backend.services.games import photo_match_service as service, scoresheet_ai
 from scripts.scoresheet_evals.budget import Budget, PRICES, reserve_cost, usage_cost
 from scripts.scoresheet_evals.metrics import evaluate
+from scripts.scoresheet_evals.photo_metrics import evaluate_photo
 
 
 def fingerprint(case, model, image_bytes, prompt):
@@ -78,10 +79,30 @@ def summarize(rows, budget):
                 sum(row.get("cost_estimate_usd", 0) or 0 for row in group), 6
             ),
         }
+        photo_rows = [row["photo_metrics"] for row in group if "photo_metrics" in row]
+        if photo_rows:
+            reviewed = sum(row["reviewed_reference_games"] for row in photo_rows)
+            consistent = sum(row["photo_consistent_games"] for row in photo_rows)
+            models[model].update(
+                {
+                    "photo_reviewed_games": reviewed,
+                    "photo_consistent_games": consistent,
+                    "photo_accuracy": consistent / reviewed if reviewed else None,
+                    "pending_photo_labels": sum(
+                        row["pending_label_review_games"] for row in photo_rows
+                    ),
+                    "appropriate_ambiguous_abstentions": sum(
+                        row["appropriate_ambiguous_abstentions"] for row in photo_rows
+                    ),
+                    "ambiguous_identity_selections": sum(
+                        row["ambiguous_identity_selections"] for row in photo_rows
+                    ),
+                }
+            )
     return {
         "models": models,
         "budget": budget.summary(),
-        "metric_definition": "Exact games require both teams' player IDs and final scores to match production; teammate, team and row order are ignored. Score pairs alone do not verify player identity or winner. Unresolved names never count as correct IDs.",
+        "metric_definition": "Exact games require both teams' player IDs and final scores to match production; teammate, team and row order are ignored. Score pairs alone do not verify player identity or winner. Unresolved names never count as correct IDs. Photo-grounded metrics separately accept annotated names/identity sets, credit appropriate abstention, and exclude pending transcription labels. An ambiguous identity selection is photo-compatible, not evidence that the identity was determined.",
     }
 
 
@@ -111,6 +132,7 @@ def run_comparison(args):
         Path(service.__file__),
         Path(scoresheet_ai.__file__),
         Path(__file__).with_name("metrics.py"),
+        Path(__file__).with_name("photo_metrics.py"),
     ]
     evaluator_hash = hashlib.sha256(
         b"".join(path.read_bytes() for path in source_paths)
@@ -167,11 +189,18 @@ def run_comparison(args):
                 row["resolved_matches"] = resolve(row["matches"], case.get("members", []))
                 row["raw_metrics"] = evaluate(row["matches"], case["expected"])
                 row["metrics"] = evaluate(row["resolved_matches"], case["expected"])
+                if "photo_reference" in case:
+                    row["photo_metrics"] = evaluate_photo(row["matches"], case["photo_reference"])
+                    row["resolved_photo_metrics"] = evaluate_photo(
+                        row["resolved_matches"], case["photo_reference"]
+                    )
             except Exception as error:
                 row["error"] = type(error).__name__
                 row["latency_seconds"] = round(time.monotonic() - started, 3)
                 # Failed calls count as zero correct games; excluding them inflates accuracy.
                 row["metrics"] = evaluate([], case["expected"])
+                if "photo_reference" in case:
+                    row["photo_metrics"] = evaluate_photo([], case["photo_reference"])
                 if isinstance(error, ValueError) and "budget" in str(error).lower():
                     row["error"] = "budget_exhausted"
             results.append(row)

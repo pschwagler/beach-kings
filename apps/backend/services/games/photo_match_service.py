@@ -296,6 +296,19 @@ def match_player_name(extracted_name: str, league_members: List[Dict]) -> Option
     if not extracted_name or not league_members:
         return None
 
+    # Do not turn a correctly extracted shared first name into a guessed ID.
+    # An exact nickname on one record does not disambiguate two roster members
+    # whose first names are both the literal name printed on the scoresheet.
+    literal = extracted_name.strip().casefold()
+    exact_first_names = [
+        member
+        for member in league_members
+        if (member.get("player_name") or "").split()
+        and member["player_name"].split()[0].casefold() == literal
+    ]
+    if len({member.get("player_id") for member in exact_first_names}) > 1:
+        return None
+
     best_match = None
     best_score = 0.0
     runner_up_score = 0.0

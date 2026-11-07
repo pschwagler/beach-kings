@@ -85,3 +85,14 @@ def test_ambiguous_roster_name_remains_unresolved():
     ]
     assert match_player_name("Alex", members) is None
     assert match_player_name("Alex Example", members)["player_id"] == 1
+
+
+def test_exact_nickname_does_not_override_shared_literal_first_name():
+    from backend.services.games.photo_match_service import match_player_name
+
+    members = [
+        {"player_id": 1, "player_name": "Kevin Example", "player_nickname": "Kevin"},
+        {"player_id": 2, "player_name": "Kevin Sample", "player_nickname": "KS"},
+    ]
+    assert match_player_name("Kevin", members) is None
+    assert match_player_name("Kevin Example", members)["player_id"] == 1
