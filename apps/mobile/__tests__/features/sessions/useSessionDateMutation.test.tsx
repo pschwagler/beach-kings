@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react
 import type { SessionDetail } from '@beach-kings/shared';
 import { useSessionDateMutation } from '@/features/sessions/useSessionDateMutation';
 import { sessionKeys } from '@/features/sessions';
+import { leagueKeys } from '@/features/leagues/keys';
 
 const mockUpdate = jest.fn();
 jest.mock('@/lib/api', () => ({ api: { updateSession: (...args: unknown[]) => mockUpdate(...args) } }));
@@ -33,6 +34,16 @@ it('never publishes a date that the server rejected', async () => {
   const { result } = renderHook(() => useSessionDateMutation(7, 1), { wrapper: Wrapper });
   await act(async () => { await result.current.mutateAsync('2026-11-08').catch(() => undefined); });
   expect(client.getQueryData(sessionKeys.detail(7, 1))).toEqual(session);
+});
+
+it('refreshes cached league summaries after a confirmed date edit without invalidating another viewer', async () => {
+  const summaries = [{ id: 1, date: session.date, status: 'ACTIVE', game_count: 0 }];
+  client.setQueryData(leagueKeys.sessions(7, 3), summaries);
+  client.setQueryData(leagueKeys.sessions(8, 3), summaries);
+  const { result } = renderHook(() => useSessionDateMutation(7, 1), { wrapper: Wrapper });
+  await act(async () => { await result.current.mutateAsync('2026-11-08'); });
+  expect(client.getQueryState(leagueKeys.sessions(7, 3))?.isInvalidated).toBe(true);
+  expect(client.getQueryState(leagueKeys.sessions(8, 3))?.isInvalidated).toBe(false);
 });
 
 it('does not recreate cleared private data after a late response', async () => {

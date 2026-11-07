@@ -4,6 +4,7 @@ import type { SessionDetail } from '@beach-kings/shared';
 import { sessionKeys } from './keys';
 import { sessionMutationOptions } from './mutations';
 import { reconcileGameMutation } from '@/features/matches';
+import { leagueKeys } from '@/features/leagues/keys';
 
 /** A confirmed date-only write; never recreates a cleared account cache. */
 export function useSessionDateMutation(userId: number, sessionId: number) {
@@ -36,7 +37,11 @@ export function useSessionDateMutation(userId: number, sessionId: number) {
           ? { ...current, date }
           : current,
       );
-      void reconcileGameMutation(client, { userId, leagueId: context.previous?.league_id });
+      const leagueId = context.previous?.league_id;
+      if (leagueId != null) {
+        void client.invalidateQueries({ queryKey: leagueKeys.sessions(userId, leagueId) });
+      }
+      void reconcileGameMutation(client, { userId, leagueId });
     },
   });
 }
