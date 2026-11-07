@@ -97,12 +97,21 @@ export function createLeagueMethods(api: AxiosInstance) {
       return response.data;
     },
 
-    async getLeagueStandings(leagueId: number, seasonId?: number) {
+    async getLeagueStandings(leagueId: number, seasonId?: number): Promise<LeagueStandingsResponse> {
       const params = seasonId != null ? `?season_id=${seasonId}` : '';
       const response = await api.get<LeagueStandingsResponse>(
         `/api/leagues/${leagueId}/standings${params}`,
       );
-      return response.data;
+      return {
+        ...response.data,
+        standings: response.data.standings.map((standing) => ({
+          ...standing,
+          // Older servers omit this field. Season points must never be used
+          // as a substitute for a missing current global rating.
+          global_rating: typeof standing.global_rating === 'number'
+            && Number.isFinite(standing.global_rating) ? standing.global_rating : null,
+        })),
+      };
     },
 
     /**

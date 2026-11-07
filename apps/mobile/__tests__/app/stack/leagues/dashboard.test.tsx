@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
@@ -94,6 +94,7 @@ const MOCK_STANDINGS_RESPONSE = {
       losses: 2,
       win_rate: 80,
       rating: 1520,
+      global_rating: 1642.5,
       rating_delta: 12,
       games_played: 10,
     },
@@ -107,6 +108,7 @@ const MOCK_STANDINGS_RESPONSE = {
       losses: 4,
       win_rate: 60,
       rating: 1480,
+      global_rating: null,
       rating_delta: -5,
       games_played: 10,
     },
@@ -346,6 +348,19 @@ describe('LeagueDashboardTab — season info card', () => {
 // ---------------------------------------------------------------------------
 
 describe('LeagueDashboardTab — column label', () => {
+  it('appends authoritative global rating after the season columns without replacing PTS', async () => {
+    render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
+    const header = await screen.findByTestId('standings-global-rating-header');
+    expect(header.parent?.children.at(-1)).toBe(header);
+    expect(screen.getByText('PTS')).toBeTruthy();
+    expect(within(screen.getByTestId('standings-global-rating-10')).getByText('1643')).toBeTruthy();
+    expect(within(screen.getByTestId('standings-global-rating-11')).getByText('—')).toBeTruthy();
+    expect(screen.getByTestId('standings-metrics-10').props.accessibilityLabel)
+      .toContain('points 1520, 10 games, global rating 1643');
+    expect(screen.getByTestId('standings-metrics-11').props.accessibilityLabel)
+      .toContain('global rating unavailable');
+  });
+
   it('shows "Rating" header when "All" is selected', async () => {
     render(<LeagueDashboardTab leagueId={1} onPressPlayer={() => {}} />, { wrapper: makeWrapper() });
 
@@ -355,6 +370,7 @@ describe('LeagueDashboardTab — column label', () => {
     await waitFor(() => {
       expect(screen.getByTestId('sort-by-rating')).toBeTruthy();
       expect(screen.getByText('Rating')).toBeTruthy();
+      expect(screen.queryByTestId('standings-global-rating-header')).toBeNull();
     });
   });
 

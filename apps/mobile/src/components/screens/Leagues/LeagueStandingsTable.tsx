@@ -94,9 +94,9 @@ function PlayerCell({ standing, height, onPressPlayer }: {
   );
 }
 
-function Metric({ value, width = 76 }: { value: string | number; width?: number }) {
+function Metric({ value, width = 76, testID }: { value: string | number; width?: number; testID?: string }) {
   return (
-    <View style={{ width }} className="items-center justify-center px-1">
+    <View testID={testID} style={{ width }} className="items-center justify-center px-1">
       <AppText className="text-[13px] text-default text-center">{value}</AppText>
     </View>
   );
@@ -141,11 +141,16 @@ export default function LeagueStandingsTable(props: Props): React.ReactNode {
                   <AppText className="text-[12px] font-semibold text-muted">Change</AppText>
                 </View>
               )}
+              {isSeasonView && (
+                <View testID="standings-global-rating-header" style={{ width: 112 }} className="items-center justify-center px-1">
+                  <AppText className="text-[12px] font-semibold text-muted text-center">Global rating</AppText>
+                </View>
+              )}
             </View>
             {standings.map((standing) => (
               <View key={standing.player_id} testID={`standings-metrics-${standing.player_id}`}
                 accessible
-                accessibilityLabel={`${standing.display_name}: ${standing.wins} wins, ${standing.losses} losses, ${standing.win_rate}% win rate, ${isSeasonView ? 'points' : 'rating'} ${standing.rating != null ? Math.round(standing.rating) : 'unavailable'}, ${standing.games_played} games${!isSeasonView && standing.rating_delta != null ? `, rating change ${Math.round(standing.rating_delta)}` : ''}`}
+                accessibilityLabel={`${standing.display_name}: ${standing.wins} wins, ${standing.losses} losses, ${standing.win_rate}% win rate, ${isSeasonView ? 'points' : 'rating'} ${standing.rating != null ? Math.round(standing.rating) : 'unavailable'}, ${standing.games_played} games${!isSeasonView && standing.rating_delta != null ? `, rating change ${Math.round(standing.rating_delta)}` : ''}${isSeasonView ? `, global rating ${standing.global_rating != null ? Math.round(standing.global_rating) : 'unavailable'}` : ''}`}
                 style={{ height: rowHeight }} className="flex-row bg-surface border-b border-divider">
                 <Metric value={`${standing.wins}-${standing.losses}`} />
                 <Metric value={`${standing.win_rate}%`} />
@@ -153,6 +158,8 @@ export default function LeagueStandingsTable(props: Props): React.ReactNode {
                 <Metric value={standing.games_played} />
                 {!isSeasonView && <Metric width={84} value={standing.rating_delta != null
                   ? `${standing.rating_delta >= 0 ? '+' : ''}${Math.round(standing.rating_delta)}` : '—'} />}
+                {isSeasonView && <Metric testID={`standings-global-rating-${standing.player_id}`} width={112}
+                  value={standing.global_rating != null ? Math.round(standing.global_rating) : '—'} />}
               </View>
             ))}
           </View>

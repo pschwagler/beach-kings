@@ -185,6 +185,8 @@ class LeagueStandingEntry(BaseModel):
     losses: int
     win_rate: float
     rating: Optional[float] = None
+    # Current cross-league rating, independent of season points/rating.
+    global_rating: float | None = None
     rating_delta: Optional[float] = None
     games_played: int
 
