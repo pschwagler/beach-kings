@@ -72,7 +72,8 @@ class PhotoMatchJob(Base):
     __tablename__ = "photo_match_jobs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     session_id = Column(String, nullable=False)  # Redis session key
     status = Column(
         Enum(PhotoMatchJobStatus, values_callable=lambda x: [e.value for e in x]),

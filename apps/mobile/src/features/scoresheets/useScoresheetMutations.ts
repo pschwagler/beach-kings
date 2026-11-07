@@ -12,8 +12,8 @@ export function useScoresheetMutations(userId: number, leagueId: number) {
   const client = useQueryClient();
   const { user } = useAuth();
   const requireIdentity = () => {
-    if (userId <= 0 || user?.id !== userId || leagueId <= 0)
-      throw new Error("Sign in and select a league to continue.");
+    if (userId <= 0 || user?.id !== userId)
+      throw new Error("Sign in to continue.");
   };
   const upload = useMutation({
     retry: false,
@@ -25,7 +25,7 @@ export function useScoresheetMutations(userId: number, leagueId: number) {
     }) => {
       requireIdentity();
       return api.uploadScoresheet(
-        leagueId,
+        leagueId || null,
         input.file,
         input.prompt,
         input.seasonId,
@@ -37,7 +37,11 @@ export function useScoresheetMutations(userId: number, leagueId: number) {
     networkMode: "always",
     mutationFn: (input: { sessionId: string; prompt: string }) => {
       requireIdentity();
-      return api.editScoresheet(leagueId, input.sessionId, input.prompt);
+      return api.editScoresheet(
+        leagueId || null,
+        input.sessionId,
+        input.prompt,
+      );
     },
   });
   const confirm = useMutation({
@@ -51,7 +55,7 @@ export function useScoresheetMutations(userId: number, leagueId: number) {
     }) => {
       requireIdentity();
       return api.confirmScoresheet(
-        leagueId,
+        leagueId || null,
         input.sessionId,
         input.seasonId,
         input.date,

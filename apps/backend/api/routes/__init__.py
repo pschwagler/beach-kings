@@ -47,6 +47,7 @@ from backend.api.routes.leagues import router as leagues_router
 from backend.api.routes.seasons import router as seasons_router
 from backend.api.routes.sessions import router as sessions_router
 from backend.api.routes.matches import router as matches_router
+from backend.api.routes.pickup_photos import router as pickup_photos_router
 from backend.api.routes.players import router as players_router
 from backend.api.routes.courts import router as courts_router
 from backend.api.routes.locations import router as locations_router
@@ -69,6 +70,7 @@ router.include_router(leagues_router)
 router.include_router(seasons_router)
 router.include_router(sessions_router)
 router.include_router(matches_router)
+router.include_router(pickup_photos_router)
 router.include_router(players_router)
 router.include_router(courts_router)
 router.include_router(locations_router)

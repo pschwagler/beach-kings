@@ -13,7 +13,7 @@ export default function ScoresheetPlayerPicker({
   onResolve,
   disabled,
 }: {
-  readonly leagueId: number;
+  readonly leagueId: number | null;
   readonly rawName: string;
   readonly onResolve: (raw: string, id: number, name: string) => void;
   readonly disabled: boolean;
@@ -71,7 +71,10 @@ export default function ScoresheetPlayerPicker({
       {!vm.isLoading && !vm.error && (
         <>
           {section("League players", vm.leaguePlayers)}
-          {section("Other players", vm.otherPlayers)}
+          {section(
+            leagueId == null ? "Players" : "Other players",
+            vm.otherPlayers,
+          )}
           {vm.leaguePlayers.length === 0 && vm.otherPlayers.length === 0 && (
             <AppText className="text-body text-muted">
               No matching players found.

@@ -412,7 +412,7 @@ export default function AddGamesScreen(): React.ReactNode {
               onPress={() => router.push(routes.scanScoresheet())}
             />
             <AppText className="text-caption text-muted text-center">
-              Add league games from a photo of your scores.
+              Add league or pickup games from a photo of your scores.
             </AppText>
           </View>
         )}

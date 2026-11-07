@@ -11,7 +11,7 @@ import useDebounce from "@/hooks/useDebounce";
 import { routes } from "@/lib/navigation";
 
 export function useScoresheetPlayerPicker(
-  leagueId: number,
+  leagueId: number | null,
   rawName: string,
   onResolve: (raw: string, id: number, name: string) => void,
 ) {
@@ -34,7 +34,7 @@ export function useScoresheetPlayerPicker(
       current,
     ),
   );
-  const league = useQuery(leagueQueries.detail(userId, leagueId));
+  const league = useQuery(leagueQueries.detail(userId, leagueId ?? 0));
   const players = current ? (query.data?.items ?? []) : [];
   const leaguePlayers = players.filter((player) =>
     player.tags.includes("in_league"),

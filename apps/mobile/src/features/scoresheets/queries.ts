@@ -27,8 +27,8 @@ export const scoresheetQueries = {
     queryOptions({
       queryKey: scoresheetKeys.job(userId, leagueId, jobId),
       queryFn: ({ signal }) =>
-        api.getScoresheetJob(leagueId, jobId!, { signal }),
-      enabled: userId > 0 && leagueId > 0 && jobId != null,
+        api.getScoresheetJob(leagueId || null, jobId!, { signal }),
+      enabled: userId > 0 && jobId != null,
       refetchInterval: (query) => {
         const status = query.state.data?.status;
         return status === "COMPLETED" ||

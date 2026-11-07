@@ -691,7 +691,12 @@ async def clarify_scores_chat(
 # ============================================================================
 
 
-async def create_photo_match_job(db_session: AsyncSession, league_id: int, session_id: str) -> int:
+async def create_photo_match_job(
+    db_session: AsyncSession,
+    league_id: Optional[int],
+    session_id: str,
+    user_id: Optional[int] = None,
+) -> int:
     """
     Create a new PhotoMatchJob in the database.
 
@@ -704,7 +709,10 @@ async def create_photo_match_job(db_session: AsyncSession, league_id: int, sessi
         Job ID
     """
     job = PhotoMatchJob(
-        league_id=league_id, session_id=session_id, status=PhotoMatchJobStatus.PENDING
+        league_id=league_id,
+        user_id=user_id,
+        session_id=session_id,
+        status=PhotoMatchJobStatus.PENDING,
     )
     db_session.add(job)
     await db_session.flush()
@@ -905,7 +913,11 @@ async def _describe_image_on_empty(image_bytes: bytes) -> Optional[str]:
 
 
 async def process_photo_job(
-    job_id: int, league_id: int, session_id: str, image_base64: str, league_members: List[Dict]
+    job_id: int,
+    league_id: Optional[int],
+    session_id: str,
+    image_base64: str,
+    league_members: List[Dict],
 ) -> None:
     """
     Process a photo match job asynchronously with OpenAI streaming.
@@ -1014,7 +1026,11 @@ async def process_photo_job(
 
 
 async def process_clarification_job(
-    job_id: int, league_id: int, session_id: str, league_members: List[Dict], user_prompt: str
+    job_id: int,
+    league_id: Optional[int],
+    session_id: str,
+    league_members: List[Dict],
+    user_prompt: str,
 ) -> None:
     """
     Process a clarification/edit request asynchronously.
@@ -1166,7 +1182,8 @@ async def create_matches_from_session(
     """
     Create matches from a confirmed photo session.
 
-    ``season_id`` is optional.  When ``None`` the session is created as a
+    ``season_id`` is optional. Without a league, creates one pickup session
+    owned by the uploader. With a league but no season, creates a
     *gap game* (league_id set, season_id NULL) via
     ``get_or_create_active_league_session``.  When provided the season is
     used directly and strict league-membership validation is applied by the
@@ -1219,10 +1236,20 @@ async def create_matches_from_session(
             validate_match_score(match["team1_score"], match["team2_score"])
         except (KeyError, TypeError, ValueError) as error:
             return False, [], f"Match {i + 1}: {error}"
+        ids = [match[f"team{team}_player{player}_id"] for team in (1, 2) for player in (1, 2)]
+        if len(set(ids)) != 4:
+            return False, [], f"Match {i + 1}: Choose four different players."
 
     # Create matches
     created_ids = []
     try:
+        pickup = None
+        if session_data.get("league_id") is None:
+            if not session_data.get("player_id"):
+                return False, [], "Player profile required"
+            pickup = await data_service.create_session(
+                db_session, date=match_date, created_by=session_data["player_id"], is_ranked=False
+            )
         for match in parsed_matches:
             from backend.models.schemas import CreateMatchRequest
 
@@ -1237,7 +1264,7 @@ async def create_matches_from_session(
             )
 
             # Get or create session for the season
-            session_obj = await data_service.get_or_create_active_league_session(
+            session_obj = pickup or await data_service.get_or_create_active_league_session(
                 db_session,
                 league_id=session_data.get("league_id"),
                 session_date=match_date,
@@ -1251,7 +1278,12 @@ async def create_matches_from_session(
 
         # Mark session as completed
         await update_session_data(
-            session_id, {"matches_created": True, "created_match_ids": created_ids}
+            session_id,
+            {
+                "matches_created": True,
+                "created_match_ids": created_ids,
+                "created_session_id": session_obj["id"],
+            },
         )
 
         logger.info(f"Created {len(created_ids)} matches from session {session_id}")

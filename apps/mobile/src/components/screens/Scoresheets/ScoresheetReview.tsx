@@ -14,7 +14,7 @@ export default function ScoresheetReview({
 }: {
   readonly matches: readonly ScoresheetMatch[];
   readonly unresolved: readonly string[];
-  readonly leagueId: number;
+  readonly leagueId: number | null;
   readonly onResolve: (raw: string, id: number, name: string) => void;
   readonly disabled: boolean;
 }): React.ReactNode {

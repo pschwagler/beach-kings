@@ -35,7 +35,7 @@ const match = {
   })),
 };
 const clients: QueryClient[] = [];
-function setup() {
+function setup(leagueId: number | null = 10) {
   const client = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: 0 },
@@ -50,7 +50,7 @@ function setup() {
     );
   }
   return {
-    ...renderHook(() => useScoresheetScreen(10), { wrapper: Wrapper }),
+    ...renderHook(() => useScoresheetScreen(leagueId), { wrapper: Wrapper }),
     client,
     invalidate,
   };
@@ -62,13 +62,11 @@ beforeEach(() => {
     .mockResolvedValue([
       { id: 10, name: "Test League", current_season_id: 20 },
     ] as never);
-  jest
-    .mocked(api.getLeague)
-    .mockResolvedValue({
-      id: 10,
-      name: "Test League",
-      current_season_id: 20,
-    } as never);
+  jest.mocked(api.getLeague).mockResolvedValue({
+    id: 10,
+    name: "Test League",
+    current_season_id: 20,
+  } as never);
   jest.mocked(api.getLeagueSeasons).mockResolvedValue([]);
   jest.mocked(api.getLeagueMembers).mockResolvedValue([]);
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({
@@ -277,15 +275,53 @@ test("a canceled picker preserves the previous image; oversized images never upl
 });
 
 test("uses the same authoritative current season as adding a game in league detail", async () => {
-  jest
-    .mocked(api.getLeague)
-    .mockResolvedValue({
-      id: 10,
-      name: "Test League",
-      current_season_id: 22,
-    } as never);
+  jest.mocked(api.getLeague).mockResolvedValue({
+    id: 10,
+    name: "Test League",
+    current_season_id: 22,
+  } as never);
   const { result } = setup();
   await waitFor(() => expect(result.current.seasonId).toBe(22));
   act(() => result.current.setSeasonId(null));
   expect(result.current.seasonId).toBeNull();
+});
+
+test("pickup parsing and saving work without loading leagues or seasons", async () => {
+  jest.mocked(api.getUserLeagues).mockRejectedValue(new Error("offline"));
+  jest.mocked(api.confirmScoresheet).mockResolvedValue({
+    match_ids: [100],
+    matches_created: 1,
+    session_id: 90,
+  });
+  const { result } = setup(null);
+  await act(async () => {
+    await result.current.choosePhoto(false);
+  });
+  await act(async () => {
+    await result.current.upload();
+  });
+  expect(api.uploadScoresheet).toHaveBeenCalledWith(
+    null,
+    expect.any(Object),
+    "",
+    null,
+  );
+  await waitFor(() => expect(result.current.matches).toHaveLength(1));
+  expect(api.getScoresheetJob).toHaveBeenCalledWith(
+    null,
+    30,
+    expect.any(Object),
+  );
+  expect(api.getLeagueSeasons).not.toHaveBeenCalled();
+  await act(async () => {
+    await result.current.confirm();
+  });
+  expect(api.confirmScoresheet).toHaveBeenCalledWith(
+    null,
+    "draft",
+    null,
+    expect.any(String),
+    [],
+  );
+  await waitFor(() => expect(result.current.savedSessionId).toBe(90));
 });

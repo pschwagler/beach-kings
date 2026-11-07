@@ -97,3 +97,27 @@ test("preserves an extracted name when no roster match was found", () => {
     rawName: "Sam",
   });
 });
+
+test("pickup requests use owner-scoped routes and return the saved session", async () => {
+  const post = jest
+    .fn()
+    .mockResolvedValue({
+      data: { match_ids: [10], matches_created: 1, session_id: 20 },
+    });
+  const methods = createPhotoMatchMethods({ post } as unknown as AxiosInstance);
+  await methods.uploadScoresheet(
+    null,
+    { uri: "file:///sheet.jpg", name: "sheet.jpg", type: "image/jpeg" },
+    "",
+    null,
+  );
+  expect(post.mock.calls[0][0]).toBe("/api/matches/upload-photo");
+  await methods.editScoresheet(null, "draft", "Fix game 1");
+  expect(post.mock.calls[1][0]).toBe("/api/matches/photo-sessions/draft/edit");
+  expect(
+    await methods.confirmScoresheet(null, "draft", null, "2026-11-07", []),
+  ).toEqual({ match_ids: [10], matches_created: 1, session_id: 20 });
+  expect(post.mock.calls[2][0]).toBe(
+    "/api/matches/photo-sessions/draft/confirm",
+  );
+});

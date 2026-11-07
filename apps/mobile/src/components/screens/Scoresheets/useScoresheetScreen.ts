@@ -143,7 +143,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     }
   };
   const upload = async () => {
-    if (photo == null || league == null || busy || actionLock.current) return;
+    if (photo == null || busy || actionLock.current) return;
     actionLock.current = true;
     setError(null);
     try {
@@ -207,7 +207,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     try {
       await mutations.confirm.mutateAsync({
         sessionId: job.session_id,
-        seasonId,
+        seasonId: leagueId > 0 ? seasonId : null,
         date,
         overrides,
       });
@@ -270,6 +270,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     uploaded: job != null,
     confirmed: mutations.confirm.isSuccess,
     savedCount: mutations.confirm.data?.matches_created ?? 0,
+    savedSessionId: mutations.confirm.data?.session_id ?? null,
     uploading: mutations.upload.isPending,
     confirming: mutations.confirm.isPending,
   };

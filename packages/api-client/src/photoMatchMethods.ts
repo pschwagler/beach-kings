@@ -90,10 +90,11 @@ export function normalizeScoresheetResult(
 }
 
 export function createPhotoMatchMethods(api: AxiosInstance) {
-  const base = (leagueId: number) => `/api/leagues/${leagueId}/matches`;
+  const base = (leagueId: number | null) =>
+    leagueId == null ? "/api/matches" : `/api/leagues/${leagueId}/matches`;
   return {
     async uploadScoresheet(
-      leagueId: number,
+      leagueId: number | null,
       file: { uri: string; name: string; type: string },
       prompt: string,
       seasonId: number | null,
@@ -110,7 +111,7 @@ export function createPhotoMatchMethods(api: AxiosInstance) {
       return response.data;
     },
     async getScoresheetJob(
-      leagueId: number,
+      leagueId: number | null,
       jobId: number,
       options?: ReadRequestOptions,
     ): Promise<PhotoMatchJobStatus> {
@@ -122,7 +123,7 @@ export function createPhotoMatchMethods(api: AxiosInstance) {
       return { ...data, result: normalizeScoresheetResult(data.result) };
     },
     async editScoresheet(
-      leagueId: number,
+      leagueId: number | null,
       sessionId: string,
       prompt: string,
     ): Promise<PhotoMatchJob> {
@@ -135,12 +136,16 @@ export function createPhotoMatchMethods(api: AxiosInstance) {
       ).data;
     },
     async confirmScoresheet(
-      leagueId: number,
+      leagueId: number | null,
       sessionId: string,
       seasonId: number | null,
       date: string,
       overrides: readonly PhotoPlayerOverride[],
-    ): Promise<{ match_ids: number[]; matches_created: number }> {
+    ): Promise<{
+      match_ids: number[];
+      matches_created: number;
+      session_id?: number | null;
+    }> {
       return (
         await api.post(
           `${base(leagueId)}/photo-sessions/${encodeURIComponent(sessionId)}/confirm`,

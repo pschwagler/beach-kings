@@ -29,6 +29,7 @@ from backend.database.db import get_db_session
 from backend.database.models import Season, Session, SessionStatus, PhotoMatchJobStatus
 from backend.services import data_service, photo_match_service
 from backend.services.games.match_validation import validate_match_score
+from backend.services.games import photo_draft_service
 from backend.api.routes.feature_flags import require_feature
 from backend.services.players.player_lifecycle import require_active_players
 from backend.api.auth_dependencies import (
@@ -48,7 +49,6 @@ from backend.models.schemas import (
     PhotoJobStatusResponse,
     ConfirmMatchesResponse,
 )
-from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -457,58 +457,14 @@ async def upload_match_photo(
     creates a processing job, and returns job_id for polling.
     """
     try:
-        file_content = await file.read()
-
-        is_valid, error_msg = photo_match_service.validate_image_file(
-            file_content, file.content_type or "", file.filename or ""
+        return await photo_draft_service.start_upload(
+            session,
+            current_user,
+            file,
+            league_id=league_id,
+            season_id=season_id,
+            prompt=user_prompt,
         )
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_msg)
-
-        _, image_base64 = photo_match_service.preprocess_image(file_content)
-
-        session_id = photo_match_service.generate_session_id()
-
-        members = await data_service.list_league_members(session, league_id)
-
-        player = await data_service.get_player_by_user_id(session, current_user["id"])
-        player_id = player["id"] if player else None
-
-        session_data = {
-            "league_id": league_id,
-            "season_id": season_id,
-            "user_id": current_user["id"],
-            "player_id": player_id,
-            "user_prompt": user_prompt,
-            "image_base64": image_base64,
-            "parsed_matches": [],
-            "partial_matches": [],
-            "raw_response": None,
-            "status": "PENDING",
-            "matches_created": False,
-            "created_match_ids": None,
-            "created_at": utcnow().isoformat(),
-            "last_updated": utcnow().isoformat(),
-        }
-
-        stored = await photo_match_service.store_session_data(session_id, session_data)
-        if not stored:
-            raise HTTPException(status_code=500, detail="Failed to initialize photo session")
-
-        job_id = await photo_match_service.create_photo_match_job(session, league_id, session_id)
-
-        _create_logged_task(
-            photo_match_service.process_photo_job(
-                job_id=job_id,
-                league_id=league_id,
-                session_id=session_id,
-                image_base64=image_base64,
-                league_members=members,
-            ),
-            name=f"process_photo_job_{job_id}",
-        )
-
-        return {"job_id": job_id, "session_id": session_id, "status": "PENDING"}
 
     except HTTPException:
         raise
