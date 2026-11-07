@@ -407,3 +407,27 @@ describe('LeagueMatchesTab — empty state', () => {
     expect(screen.getByTestId('session-card-300-player-count').props.children).toBe(3);
   });
 });
+
+
+describe('LeagueMatchesTab — primary recording action', () => {
+  it.each(['loading', 'error', 'empty', 'populated'] as const)(
+    'keeps Record a Game reachable in the %s games state',
+    async (state) => {
+      if (state === 'loading') mockGetMyGames.mockReturnValue(new Promise(() => {}));
+      if (state === 'error') mockGetMyGames.mockRejectedValue(new Error('Offline'));
+      if (state === 'populated') mockGetMyGames.mockResolvedValue({ games: [MY_GAME_ACTIVE], total: 1 });
+      const onRecordGame = jest.fn();
+      render(<LeagueMatchesTab leagueId={5} onRecordGame={onRecordGame} />, { wrapper: makeWrapper() });
+      const contentId = state === 'populated' ? 'matches-tab' : `matches-${state}`;
+      await screen.findByTestId(contentId);
+      fireEvent.press(screen.getByRole('button', { name: 'Record a Game' }));
+      expect(onRecordGame).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('omits recording when no authorized action is supplied', async () => {
+    render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    await screen.findByTestId('matches-empty');
+    expect(screen.queryByRole('button', { name: 'Record a Game' })).toBeNull();
+  });
+});

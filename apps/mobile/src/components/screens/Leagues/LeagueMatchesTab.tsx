@@ -1,8 +1,8 @@
 /**
  * LeagueMatchesTab — Games tab of the League Detail screen.
  *
- * Top: compact segmented toggle — My Games | All Games — mirroring the
- * pattern used inside Session Detail. Active sessions are visually
+ * Top: gold Record a Game action for authorized viewers, followed by the
+ * My Games | All Games toggle used inside Session Detail. Active sessions are visually
  * distinguished from submitted ones via a left accent stripe, a "Live" pill
  * in the card header, and a footer that hides finalized stats.
  *
@@ -34,6 +34,7 @@ import { usePaletteColors } from "@/theme/usePaletteColors";
 import { hapticLight } from "@/utils/haptics";
 import type { GameHistoryEntry, LeagueGameEntry } from "@beach-kings/shared";
 import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
+import RecordGameAction from '@/components/ui/RecordGameAction';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -510,10 +511,13 @@ function ModeToggle({
 
 interface LeagueMatchesTabProps {
   readonly leagueId: number | string;
+  /** Supplied only when the league viewer may record games. */
+  readonly onRecordGame?: () => void;
 }
 
 export default function LeagueMatchesTab({
   leagueId,
+  onRecordGame,
 }: LeagueMatchesTabProps): React.ReactNode {
   const {
     mode,
@@ -525,20 +529,32 @@ export default function LeagueMatchesTab({
     isError,
   } = useLeagueMatchesTab(leagueId);
 
-  // The toggle should stay visible even while data loads/errors.
-  const toggle = (
-    <ModeToggle
-      mode={mode}
-      myGameCount={myGameCount}
-      allGameCount={allGameCount}
-      onChange={setMode}
-    />
+  // Keep the primary action and filters reachable while games load or fail.
+  const controls = (
+    <>
+      {onRecordGame != null && (
+        <View className="mx-4 mt-4 mb-2">
+          <RecordGameAction
+            testID="league-record-game-action"
+            onPress={onRecordGame}
+            description="League game · Add your scores"
+            accessibilityHint="Record a game in this league"
+          />
+        </View>
+      )}
+      <ModeToggle
+        mode={mode}
+        myGameCount={myGameCount}
+        allGameCount={allGameCount}
+        onChange={setMode}
+      />
+    </>
   );
 
   if (isLoading) {
     return (
       <View className="flex-1 bg-page">
-        {toggle}
+        {controls}
         <View
           testID="matches-loading"
           className="flex-1 items-center justify-center"
@@ -552,7 +568,7 @@ export default function LeagueMatchesTab({
   if (isError) {
     return (
       <View className="flex-1 bg-page">
-        {toggle}
+        {controls}
         <View
           testID="matches-error"
           className="flex-1 items-center justify-center px-8"
@@ -568,7 +584,7 @@ export default function LeagueMatchesTab({
   if (sessions.length === 0) {
     return (
       <View className="flex-1 bg-page">
-        {toggle}
+        {controls}
         <View
           testID="matches-empty"
           className="flex-1 items-center justify-center px-8 py-16"
@@ -588,7 +604,7 @@ export default function LeagueMatchesTab({
 
   return (
     <View className="flex-1 bg-page">
-      {toggle}
+      {controls}
       <ScrollView
         testID="matches-tab"
         className="flex-1"

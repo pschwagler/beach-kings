@@ -774,3 +774,49 @@ describe('LeagueDetailScreen — standings return navigation', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });
+
+
+describe('LeagueDetailScreen — prominent league recording action', () => {
+  it.each(['admin', 'member'] as const)('gives a %s the same current-season destination as header Add Game', async (role) => {
+    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, user_role: role });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    const record = await screen.findByRole('button', { name: 'Record a Game' });
+    fireEvent.press(record);
+    const destination = mockPush.mock.calls[0]?.[0];
+    expect(destination).toContain(`leagueId=${MOCK_DETAIL.id}`);
+    expect(destination).toContain(`seasonId=${MOCK_DETAIL.current_season_id}`);
+    fireEvent.press(screen.getByTestId('league-add-game-btn'));
+    expect(mockPush.mock.calls[1]?.[0]).toBe(destination);
+  });
+
+  it('supports leagues without a current season without inventing a season ID', async () => {
+    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, current_season_id: null });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByRole('button', { name: 'Record a Game' }));
+    expect(mockPush.mock.calls[0]?.[0]).toContain(`leagueId=${MOCK_DETAIL.id}`);
+    expect(mockPush.mock.calls[0]?.[0]).not.toContain('seasonId=');
+  });
+
+  it('does not expose recording on a visitor Games deep link', async () => {
+    mockSearchParams = { id: '1', tab: 'games' };
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await screen.findByTestId('league-detail-screen');
+    expect(screen.queryByRole('button', { name: 'Record a Game' })).toBeNull();
+    expect(screen.queryByTestId('league-add-game-btn')).toBeNull();
+  });
+
+  it('keeps the prominent action scoped to the Games tab', async () => {
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await screen.findByRole('button', { name: 'Record a Game' });
+    fireEvent.press(screen.getByTestId('segment-tab-standings'));
+    expect(screen.queryByRole('button', { name: 'Record a Game' })).toBeNull();
+  });
+
+  it('does not expose recording while league permission data is unavailable', async () => {
+    mockGetLeague.mockReturnValue(new Promise(() => {}));
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    expect(screen.getByTestId('league-detail-loading')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Record a Game' })).toBeNull();
+  });
+});

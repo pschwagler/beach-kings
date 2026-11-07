@@ -257,6 +257,7 @@ interface TabContentProps {
   readonly onViewPlayerStats: (id: number | string) => void;
   readonly chatDraft: string;
   readonly onChatDraftChange: (value: string) => void;
+  readonly onRecordGame?: () => void;
 }
 
 function TabContent({
@@ -267,10 +268,11 @@ function TabContent({
   onViewPlayerStats,
   chatDraft,
   onChatDraftChange,
+  onRecordGame,
 }: TabContentProps): React.ReactNode {
   switch (activeTab) {
     case 'games':
-      return <LeagueMatchesTab leagueId={leagueId} />;
+      return <LeagueMatchesTab leagueId={leagueId} onRecordGame={onRecordGame} />;
     case 'standings':
       return (
         <View className="flex-1">
@@ -414,20 +416,23 @@ export default function LeagueDetailScreen({
   const canAddGame =
     detail != null && (detail.user_role === 'admin' || detail.user_role === 'member');
 
+  const handleRecordGame = (): void => {
+    if (!canAddGame || detail == null) return;
+    void hapticLight();
+    router.push(
+      routes.scoreGame({
+        leagueId: Number(resolvedId),
+        seasonId: detail.current_season_id ?? null,
+        headerTitle: 'Add Game',
+        sessionLabel: detail.name,
+      }) as never,
+    );
+  };
+
   const addGameAction = canAddGame ? (
     <Pressable
       testID="league-add-game-btn"
-      onPress={() => {
-        void hapticLight();
-        router.push(
-          routes.scoreGame({
-            leagueId: Number(resolvedId),
-            seasonId: detail?.current_season_id ?? null,
-            headerTitle: 'Add Game',
-            sessionLabel: detail?.name,
-          }) as never,
-        );
-      }}
+      onPress={handleRecordGame}
       accessibilityRole="button"
       accessibilityLabel="Add game"
       className="min-h-touch items-center justify-center px-2 active:opacity-70"
@@ -523,6 +528,7 @@ export default function LeagueDetailScreen({
             onViewPlayerStats={handlePressPlayer}
             chatDraft={chatDraft}
             onChatDraftChange={setChatDraft}
+            onRecordGame={canAddGame ? handleRecordGame : undefined}
           />
         </View>
       </View>
