@@ -29,6 +29,8 @@ ENV NEXT_PUBLIC_MAPBOX_TOKEN=$NEXT_PUBLIC_MAPBOX_TOKEN
 COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/turbo.json ./turbo.json
+COPY --from=pruner /app/scripts/apply-dependency-patches.cjs ./scripts/apply-dependency-patches.cjs
+COPY --from=pruner /app/patches/ ./patches/
 
 # Install dependencies (workspace-aware, only what's needed)
 RUN npm install

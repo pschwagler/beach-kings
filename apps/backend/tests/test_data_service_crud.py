@@ -1636,8 +1636,9 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
     utc = pytz.UTC
     now_utc = datetime.now(utc)
     today = date.today()
-    season_start = date(today.year, 1, 1).isoformat()
-    season_end = date(today.year, 12, 31).isoformat()
+    # Keep the entire schedule inside the season, including across year-end.
+    season_start = (today - timedelta(days=30)).isoformat()
+    season_end = (today + timedelta(days=120)).isoformat()
     schedule_end = (today + timedelta(days=90)).isoformat()
 
     # Create league and season
@@ -1797,8 +1798,9 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(
 ):
     """Test that deleting a weekly schedule calls recalculate_open_signups_for_season."""
     today = date.today()
-    season_start = date(today.year, 1, 1).isoformat()
-    season_end = date(today.year, 12, 31).isoformat()
+    # Keep the entire schedule inside the season, including across year-end.
+    season_start = (today - timedelta(days=30)).isoformat()
+    season_end = (today + timedelta(days=120)).isoformat()
     schedule_end = (today + timedelta(days=90)).isoformat()
 
     # Store original function

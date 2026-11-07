@@ -15,8 +15,8 @@ import RefreshFlatList from '@/components/refresh/RefreshFlatList';
  * Wireframe ref: my-games.html
  */
 
-import React, { useCallback } from 'react';
-import { FlatList, } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useRouter } from 'expo-router';
@@ -29,6 +29,13 @@ import GamesEmptyState from './GamesEmptyState';
 import GamesErrorState from './GamesErrorState';
 import GamesFilterBar from './GamesFilterBar';
 import type { GameHistoryEntry } from '@beach-kings/shared';
+import AppText from '@/components/ui/AppText';
+import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
+import { groupHistorySessions, historySessionDate, type HistorySession } from '@/features/matches/historyPresentation';
+
+type HistoryItem =
+  | { readonly kind: 'session'; readonly session: HistorySession }
+  | { readonly kind: 'game'; readonly game: GameHistoryEntry };
 
 export default function MyGamesScreen(): React.ReactNode {
   const router = useRouter();
@@ -50,6 +57,20 @@ export default function MyGamesScreen(): React.ReactNode {
     onRefresh,
     onRetry,
   } = useMyGamesScreen();
+  const [collapsedSessions, setCollapsedSessions] = useState<ReadonlySet<number>>(new Set());
+  const historyItems = useMemo((): HistoryItem[] => groupHistorySessions(games).flatMap((session) => [
+    { kind: 'session', session } as HistoryItem,
+    ...(collapsedSessions.has(session.sessionId) ? [] : session.games.map((game) => ({ kind: 'game', game } as HistoryItem))),
+  ]), [games, collapsedSessions]);
+
+  const toggleSession = (id: number): void => {
+    setCollapsedSessions((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleGamePress = useCallback(
     (game: GameHistoryEntry) => {
@@ -82,13 +103,36 @@ export default function MyGamesScreen(): React.ReactNode {
         {games.length === 0 ? (
           <><GamesEmptyState /><RefreshEmptyAction onRefresh={onRefresh} refreshScope={JSON.stringify([leagueFilter, resultFilter, selectedPartner, selectedOpponent])} refreshLabel="games" /></>
         ) : (
-          <RefreshFlatList<GameHistoryEntry>
+          <RefreshFlatList<HistoryItem>
             testID="games-list"
-            data={games as GameHistoryEntry[]}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
-              <GameRow game={item} onPress={handleGamePress} />
-            )}
+            data={historyItems}
+            keyExtractor={(item) => item.kind === 'session' ? `session-${item.session.sessionId}` : `game-${item.game.id}`}
+            renderItem={({ item }) => {
+              if (item.kind === 'game') return <GameRow game={item.game} onPress={handleGamePress} />;
+              const { session } = item;
+              const first = session.games[0]!;
+              const expanded = !collapsedSessions.has(session.sessionId);
+              const count = session.games.length;
+              return (
+                <Pressable
+                  testID={`history-session-${session.sessionId}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${historySessionDate(session.date)}. ${first.league_name ?? 'Pickup'}. Session ${session.sessionId}. ${count} ${count === 1 ? 'game' : 'games'} shown`}
+                  accessibilityHint={expanded ? 'Collapse session games' : 'Expand session games'}
+                  accessibilityState={{ expanded }}
+                  onPress={() => toggleSession(session.sessionId)}
+                  className="min-h-touch py-md active:opacity-70"
+                >
+                  <View className="flex-row flex-wrap items-center justify-between gap-2">
+                    <AppText className="text-callout font-bold text-default">{historySessionDate(session.date)}</AppText>
+                    <PlayTypeBadge type={first.league_id != null ? 'league' : 'pickup'} noun="session" />
+                  </View>
+                  <AppText className="mt-xs text-caption text-muted">
+                    {first.league_name != null ? `${first.league_name} · ` : ''}Session #{session.sessionId} · {count} {count === 1 ? 'game' : 'games'} shown · {expanded ? 'Collapse ↑' : 'Expand ↓'}
+                  </AppText>
+                </Pressable>
+              );
+            }}
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
             onRefresh={onRefresh}
           refreshScope={JSON.stringify([leagueFilter, resultFilter, selectedPartner, selectedOpponent])}

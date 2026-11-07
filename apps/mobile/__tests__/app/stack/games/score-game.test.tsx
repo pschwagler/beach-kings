@@ -25,6 +25,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
+const mockCanGoBack = jest.fn(() => true);
 const mockLocalSearchParams = jest.fn(() => ({}));
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
@@ -59,7 +61,7 @@ jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
-    useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
+    useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace, dismissTo: mockDismissTo, canGoBack: mockCanGoBack }),
     useNavigation: () => ({
       addListener: mockNavAddListener,
       dispatch: mockNavDispatch,
@@ -649,8 +651,8 @@ describe('ScoreGameScreen — success state after submit', () => {
       expect(screen.getByTestId('done-btn')).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('done-btn'));
-    // lastSessionId = 42 from the mock response → router.replace navigates to session detail
-    expect(mockReplace).toHaveBeenCalledWith('/(stack)/session/42');
+    // Reuse the existing session route; direct entry replaces as Expo Router fallback.
+    expect(mockDismissTo).toHaveBeenCalledWith('/(stack)/session/42');
   });
 });
 
@@ -752,6 +754,22 @@ describe('ScoreGameScreen — success view content', () => {
     expect(screen.queryByText('Team 1')).toBeNull();
     expect(screen.queryByText('Team 2')).toBeNull();
   });
+
+  it('starts the next game on team 1 with an empty digit buffer', async () => {
+    renderScoreGame();
+    await fillAllSlots();
+    fireEvent.press(screen.getByTestId('numpad-2'));
+    fireEvent.press(screen.getByTestId('numpad-1'));
+    fireEvent.press(screen.getByTestId('numpad-9'));
+    fireEvent.press(screen.getByTestId('save-game-btn'));
+    await waitFor(() => expect(screen.getByTestId('add-another-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('add-another-btn'));
+
+    await fillAllSlots();
+    fireEvent.press(screen.getByTestId('numpad-2'));
+    expect(screen.getByTestId('score-display-team1')).toHaveTextContent('02');
+    expect(screen.getByTestId('score-display-team2')).toHaveTextContent('00');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -812,6 +830,15 @@ describe('ScoreGameScreen — discard-on-close guard', () => {
     });
     // The destructive confirm button should NOT be in the tree.
     expect(screen.queryByTestId('discard-confirm-dialog-confirm')).toBeNull();
+  });
+
+  it('returns a directly opened empty score screen to Add Games', async () => {
+    mockCanGoBack.mockReturnValueOnce(false);
+    renderScoreGame();
+    await waitFor(() => expect(screen.getByTestId('modal-close-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('modal-close-btn'));
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/add-games');
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('shows the discard dialog when X is pressed after a player is added', async () => {
@@ -903,14 +930,14 @@ describe('ScoreGameScreen — discard-on-close guard', () => {
     expect(screen.queryByTestId('discard-confirm-dialog-confirm')).toBeNull();
   });
 
-  it('replaces to session detail on close when sessionId is present and no progress', async () => {
+  it('dismisses to existing session detail on close instead of duplicating its history', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '42' });
     renderScoreGame();
     await waitFor(() => expect(screen.getByTestId('modal-close-btn')).toBeTruthy());
     fireEvent.press(screen.getByTestId('modal-close-btn'));
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/(stack)/session/42');
+      expect(mockDismissTo).toHaveBeenCalledWith('/(stack)/session/42');
     });
     expect(mockBack).not.toHaveBeenCalled();
   });
@@ -1172,6 +1199,18 @@ describe('ScoreGameScreen — edit mode', () => {
     });
   });
 
+  it('opens a new game in the same session after saving an edit and choosing Add Another', async () => {
+    mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555', leagueId: '3', seasonId: '8' });
+    renderScoreGame();
+    await waitFor(() => expect(screen.getByTestId('save-game-btn').props.accessibilityState.disabled).toBe(false));
+    fireEvent.press(screen.getByTestId('save-game-btn'));
+    await waitFor(() => expect(screen.getByTestId('add-another-btn')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('add-another-btn'));
+
+    expect(mockUpdateMatch).toHaveBeenCalledWith(555, expect.any(Object));
+    expect(mockReplace).toHaveBeenCalledWith('/(stack)/score-game?sessionId=7&leagueId=3&seasonId=8');
+  });
+
   it('shows the Delete Game link only in edit mode', async () => {
     mockLocalSearchParams.mockReturnValue({ sessionId: '7', matchId: '555' });
     renderScoreGame();
@@ -1217,7 +1256,7 @@ describe('ScoreGameScreen — edit mode', () => {
     });
 
     await waitFor(() => expect(mockDeleteMatch).toHaveBeenCalledWith(555));
-    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/(stack)/session/7'));
   });
 
   it('cancelling Delete leaves the dialog and does not call deleteMatch', async () => {
@@ -1266,9 +1305,9 @@ describe('ScoreGameScreen — edit mode', () => {
 
     // No confirmation dialog — edit mode skips the guard.
     expect(screen.queryByTestId('discard-confirm-dialog-confirm')).toBeNull();
-    // Navigation should have fired.
+    // Return to the existing session without growing its history.
     await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalled(),
+      expect(mockDismissTo).toHaveBeenCalledWith('/(stack)/session/7'),
     );
   });
 

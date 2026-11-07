@@ -4,7 +4,7 @@ jest.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 }, 
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, within } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -234,9 +234,9 @@ describe('SessionDetailScreen — games filter toggle', () => {
   it('shows counts in toggle segments (My Games count / All Games count)', () => {
     render(<SessionDetailScreen sessionId={42} />);
     // My count = 2 (games 1 and 2), all count = 3.
-    // Use getAllByText since "3" also appears in the stats bar (total game count).
-    expect(screen.getByText('2')).toBeTruthy();
-    expect(screen.getAllByText('3').length).toBeGreaterThanOrEqual(1);
+    // The results table also contains counts; assert each toggle's own count.
+    expect(within(screen.getByTestId('games-filter-my')).getByText('2')).toBeTruthy();
+    expect(within(screen.getByTestId('games-filter-all')).getByText('3')).toBeTruthy();
   });
 
   it('hides toggle when currentPlayerId is null', () => {

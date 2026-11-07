@@ -51,6 +51,9 @@ jobs:
       - name: Block high-severity production dependency advisories
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Verify routing dependency compatibility
+        run: npm run test:dependency-compatibility
+
       - name: Lint (JavaScript/TypeScript)
         run: npm run lint
 

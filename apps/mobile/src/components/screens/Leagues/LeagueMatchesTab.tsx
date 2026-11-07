@@ -33,6 +33,7 @@ import { ChevronRightIcon } from "@/components/ui/icons";
 import { usePaletteColors } from "@/theme/usePaletteColors";
 import { hapticLight } from "@/utils/haptics";
 import type { GameHistoryEntry, LeagueGameEntry } from "@beach-kings/shared";
+import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -327,6 +328,7 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
           className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider"
         >
           <View className="flex-1">
+            <View className="mb-xs"><PlayTypeBadge type="league" noun="session" /></View>
             {/* Primary: the (user-editable) play date. Falls back to a stable
                 session identifier only for legacy rows with no date. */}
             <AppText className="text-[13px] font-bold text-default">

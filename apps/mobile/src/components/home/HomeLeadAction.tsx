@@ -1,5 +1,5 @@
 import React from 'react';
-import { useWindowDimensions, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { useRouter } from 'expo-router';
 import type { Session } from '@beach-kings/shared';
@@ -53,6 +53,22 @@ export default function HomeLeadAction({
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
   const usesAccessibilityLayout = fontScale >= 1.6;
+
+  if (state.kind === 'record-game') {
+    return (
+      <Pressable
+        testID="home-lead-record-game"
+        accessibilityRole="button"
+        accessibilityLabel="Record a Game"
+        accessibilityHint="Choose a league or pickup session"
+        onPress={() => router.push(routes.addGames())}
+        className="mb-lg min-h-touch rounded-card bg-brand-gold px-lg py-md active:opacity-80"
+      >
+        <AppText className="text-title3 font-bold text-on-brand-gold">Record a Game</AppText>
+        <AppText className="mt-xxs text-caption text-on-brand-gold">League or pickup · Add your scores</AppText>
+      </Pressable>
+    );
+  }
 
   let content: React.ReactNode;
   switch (state.kind) {
@@ -155,25 +171,6 @@ export default function HomeLeadAction({
             label="Complete Profile"
             onPress={() => router.push(routes.onboarding())}
             variant="teal"
-          />
-        </>
-      );
-      break;
-    case 'record-game':
-      content = (
-        <>
-          <AppText className="text-caption font-bold uppercase tracking-wide text-brand-teal">
-            Your next move
-          </AppText>
-          <AppText className="mt-xs text-title3 font-bold text-default">
-            Ready for another game?
-          </AppText>
-          <AppText className="mt-xxs max-w-[250px] text-caption text-muted">
-            Record a league or pickup game while the score is fresh.
-          </AppText>
-          <ActionButton
-            label="Record a Game"
-            onPress={() => router.push(routes.addGames())}
           />
         </>
       );

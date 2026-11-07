@@ -99,6 +99,8 @@ import SectionHeader from '@/components/home/SectionHeader';
 import SectionError from '@/components/home/SectionError';
 import DashboardSkeleton from '@/components/home/DashboardSkeleton';
 import HomeLeadAction from '@/components/home/HomeLeadAction';
+import EarlyReleaseFeedback from '@/components/home/EarlyReleaseFeedback';
+import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
 
 const useWindowDimensionsSpy = jest.spyOn(
   require('react-native'),
@@ -320,14 +322,13 @@ describe('SectionError', () => {
 // HomeLeadAction
 // ---------------------------------------------------------------------------
 describe('HomeLeadAction', () => {
-  it('renders the record-game fallback as one branded lead', () => {
-    const { getByLabelText, getByTestId } = render(
+  it('makes the whole record-game action tappable without decorative copy', () => {
+    const { getByLabelText, getByTestId, queryByTestId, queryByText } = render(
       <HomeLeadAction state={{ kind: 'record-game' }} onRetryActiveSession={() => {}} />,
     );
     expect(getByTestId('home-lead-record-game')).toBeTruthy();
-    expect(getByTestId('court-line-motif-home', {
-      includeHiddenElements: true,
-    })).toBeTruthy();
+    expect(queryByTestId('court-line-motif-home', { includeHiddenElements: true })).toBeNull();
+    expect(queryByText('Ready for another game?')).toBeNull();
     fireEvent.press(getByLabelText('Record a Game'));
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/add-games');
   });
@@ -403,5 +404,24 @@ describe('DashboardSkeleton', () => {
     expect(getAllByTestId('loading-skeleton').length).toBeGreaterThanOrEqual(
       5,
     );
+  });
+});
+
+
+describe('EarlyReleaseFeedback', () => {
+  it('opens the existing feedback form without a dashboard-data dependency', () => {
+    const { getByRole, getByText } = render(<EarlyReleaseFeedback />);
+    expect(getByText('New app. Help shape it.')).toBeTruthy();
+    fireEvent.press(getByRole('button', { name: 'Leave Feedback' }));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/settings/feedback');
+  });
+});
+
+describe('PlayTypeBadge', () => {
+  it('names league and pickup context in addition to color', () => {
+    const { getByText, rerender } = render(<PlayTypeBadge type="league" noun="session" />);
+    expect(getByText('League session').props.className).toContain('text-info');
+    rerender(<PlayTypeBadge type="pickup" noun="game" />);
+    expect(getByText('Pickup game').props.className).toContain('text-warning');
   });
 });

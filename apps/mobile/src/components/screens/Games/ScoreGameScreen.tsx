@@ -359,6 +359,8 @@ export default function ScoreGameScreen({
   // When the roster search is focused, the scoreboard collapses to a single
   // strip so the on-screen keyboard doesn't hide the search results.
   const [searchFocused, setSearchFocused] = useState(false);
+  const [activeScoreTeam, setActiveScoreTeam] = useState<1 | 2 | null>(null);
+  const [digitBuffer, setDigitBuffer] = useState("");
 
   // Captured navigation action from a back-gesture / hardware-back that the
   // beforeRemove listener intercepted. Replayed on confirm to honor the user's
@@ -378,14 +380,17 @@ export default function ScoreGameScreen({
   }, [effectiveActiveSlot]);
 
   // Navigation policy on close (matches MOBILE_ADD_GAMES_VALIDATION.md):
-  // - sessionId known (existing or post-save) → replace into SessionDetail.
+  // - sessionId known (existing or post-save) → pop to its existing detail,
+  //   or replace when entered directly. Never append duplicate session screens.
   // - otherwise → back to the Add Games tab.
   const navigateOnClose = useCallback(() => {
     const targetSessionId = lastSessionId ?? sessionId ?? null;
     if (targetSessionId != null) {
-      router.replace(routes.session(targetSessionId) as never);
-    } else {
+      router.dismissTo(routes.session(targetSessionId) as never);
+    } else if (router.canGoBack()) {
       router.back();
+    } else {
+      router.replace(routes.addGames());
     }
   }, [router, lastSessionId, sessionId]);
 
@@ -509,17 +514,29 @@ export default function ScoreGameScreen({
   }, [savedMatchId, lastSessionId, router]);
 
   const handleAddAnother = useCallback(() => {
+    if (isEditMode) {
+      // Start a create route so the next save cannot update the edited match.
+      router.replace(
+        routes.scoreGame({
+          sessionId: lastSessionId ?? sessionId,
+          leagueId,
+          seasonId,
+          sessionLabel,
+        }) as never,
+      );
+      return;
+    }
     hookOnAddAnother();
     setActiveSlot(null);
-  }, [hookOnAddAnother]);
+    setActiveScoreTeam(null);
+    setDigitBuffer("");
+    setSearchFocused(false);
+  }, [hookOnAddAnother, isEditMode, lastSessionId, leagueId, router, seasonId, sessionId, sessionLabel]);
 
   const handleSave = useCallback(() => {
     void hapticMedium();
     onSubmit();
   }, [onSubmit]);
-
-  const [activeScoreTeam, setActiveScoreTeam] = useState<1 | 2 | null>(null);
-  const [digitBuffer, setDigitBuffer] = useState("");
 
   // Default to team 1 the moment scoring mode begins — no useEffect needed.
   const effectiveActiveScoreTeam: 1 | 2 | null = isBuilding
@@ -590,9 +607,9 @@ export default function ScoreGameScreen({
       // The pre-filled slots still count as "progress" to the close-guard, so
       // bypass it explicitly — the data we'd warn about is already gone.
       skipGuardRef.current = true;
-      router.back();
+      navigateOnClose();
     });
-  }, [onDelete, router]);
+  }, [onDelete, navigateOnClose]);
 
   // --- Three-dot menu wiring ---
   const handleOpenMenu = useCallback(() => {

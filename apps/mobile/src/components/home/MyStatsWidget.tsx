@@ -26,7 +26,7 @@ export function formatStatsWinRate(overall: MyStatsOverall): string {
   return `${Math.round(overall.win_rate)}%`;
 }
 
-function Metric({ label, value, detail, valueClassName = 'text-heading' }: {
+function Metric({ label, value, detail, valueClassName = 'text-heading text-default' }: {
   readonly label: string;
   readonly value: string;
   readonly detail?: string;

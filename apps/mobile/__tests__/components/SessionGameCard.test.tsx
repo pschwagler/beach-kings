@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 
 jest.mock('@beach-kings/shared/tokens', () => ({
   colors: { primary: '#1a3a4a' },
@@ -163,5 +163,22 @@ describe('SessionGameCard — "You" substitution', () => {
     expect(screen.getByText('Patrick Schwagler / Alex Chen')).toBeTruthy();
     expect(screen.queryByText('WIN')).toBeNull();
     expect(screen.queryByText('LOSS')).toBeNull();
+  });
+});
+
+
+describe('SessionGameCard — scoreboard entry', () => {
+  it('opens editing from the whole game card', () => {
+    const onEdit = jest.fn();
+    render(<SessionGameCard game={baseGame} onEdit={onEdit} />);
+    fireEvent.press(screen.getByTestId(`session-game-card-${baseGame.id}`));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button').props.accessibilityHint).toBe('Opens the scoreboard to edit this game');
+  });
+
+  it('keeps submitted/read-only games noninteractive', () => {
+    render(<SessionGameCard game={baseGame} />);
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByText('Edit game ›')).toBeNull();
   });
 });
