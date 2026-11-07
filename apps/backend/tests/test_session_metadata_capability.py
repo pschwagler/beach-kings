@@ -10,6 +10,7 @@ from backend.api.routes import sessions
 from backend.models.schemas.sessions import SessionRosterDetailResponse
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("status", ["ACTIVE", "SUBMITTED", "EDITED"])
 @pytest.mark.parametrize(
     "league_id,system_admin,league_member,league_admin,pickup_collaborator,expected",
@@ -101,6 +102,7 @@ async def test_full_detail_capability_preserves_write_policy(
     assert serialized["date"] == "2026-11-07"
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("status", [403, 500])
 async def test_capability_does_not_hide_unexpected_authorization_errors(monkeypatch, status):
     error = HTTPException(status_code=status, detail="Unexpected permission service failure")
@@ -112,6 +114,7 @@ async def test_capability_does_not_hide_unexpected_authorization_errors(monkeypa
     assert raised.value is error
 
 
+@pytest.mark.asyncio
 async def test_capability_does_not_hide_internal_failures(monkeypatch):
     monkeypatch.setattr(
         sessions,
