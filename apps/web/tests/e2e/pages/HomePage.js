@@ -104,7 +104,7 @@ export class HomePage extends BasePage {
     if (modalVisible) {
       // Check if modal is already in sign-in mode
       const title = await this.page.locator('.auth-modal__header h2').textContent().catch(() => '');
-      const isSignInMode = title && title.toLowerCase().includes('log in');
+      const isSignInMode = title && (title.toLowerCase().includes('log in') || title.toLowerCase().includes('welcome back'));
       
       if (isSignInMode) {
         // Modal is already open in sign-in mode, no need to close and reopen

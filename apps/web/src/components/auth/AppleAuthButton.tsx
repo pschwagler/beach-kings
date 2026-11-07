@@ -23,12 +23,13 @@ export function providerErrorMessage(error: unknown): string {
 }
 
 /** Prepare before clicking so signIn remains inside the browser's user gesture. */
-export default function AppleAuthButton({ onSuccess, onError, onBusyChange, disabled = false, linking = false }: {
+export default function AppleAuthButton({ onSuccess, onError, onBusyChange, disabled = false, linking = false, hideUnavailable = false }: {
   onSuccess: (authorization: AppleAuthorization, signal: AbortSignal) => Promise<void>;
   onError: (message: string) => void;
   onBusyChange?: (busy: boolean) => void;
   disabled?: boolean;
   linking?: boolean;
+  hideUnavailable?: boolean;
 }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [config, setConfig] = useState<AppleConfig | null>(null);
@@ -89,11 +90,12 @@ export default function AppleAuthButton({ onSuccess, onError, onBusyChange, disa
     }
   };
 
+  if (enabled === false && hideUnavailable) return null;
   if (enabled === false) return <p className="profile-page__help-text">Apple sign-in on the web is not available yet. You can use another sign-in method or the iOS app.</p>;
   if (sdkFailed) return <p role="alert">Apple could not load. Check your connection, then <button type="button" className="auth-modal__footer-link" onClick={() => window.location.reload()}>reload this page</button> to try again.</p>;
   return <div className="auth-modal__google-wrapper">
     {enabled && <Script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js" onReady={() => setSdkReady(true)} onError={() => setSdkFailed(true)} />}
     {prepareFailed ? <button type="button" className="auth-modal__footer-link" onClick={() => { setConfig(null); setPrepareFailed(false); void prepare(); }}>Retry Apple sign-in</button>
-      : <button type="button" className="auth-modal__submit" onClick={() => void signIn()} disabled={disabled || busy || !config || !sdkReady}>{busy ? 'Connecting…' : linking ? 'Connect Apple' : 'Sign in with Apple'}</button>}
+      : <button type="button" className="auth-modal__submit auth-modal__provider-button" onClick={() => void signIn()} disabled={disabled || busy || !config || !sdkReady}>{busy ? 'Connecting…' : linking ? 'Connect Apple' : 'Sign in with Apple'}</button>}
   </div>;
 }
