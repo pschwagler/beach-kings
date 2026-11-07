@@ -16,6 +16,7 @@ jest.mock('@/features/leagues/useLeaguePicture', () => ({ useLeaguePicture: () =
 jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: (...args: unknown[]) => mockPick(...args),
   MediaTypeOptions: { Images: 'images' },
+  UIImagePickerPreferredAssetRepresentationMode: { Compatible: 'compatible' },
 }));
 beforeEach(() => {
   mockUserId = 1;
@@ -30,7 +31,9 @@ it('allows admins to choose a league picture without requesting broad library ac
   await waitFor(() => expect(mockChange).toHaveBeenCalledWith({ kind: 'upload', file: {
     uri: 'file:///picture.jpg', name: 'league-picture.jpg', type: 'image/jpeg',
   } }));
-  expect(mockPick).toHaveBeenCalledWith(expect.objectContaining({ allowsEditing: false }));
+  expect(mockPick).toHaveBeenCalledWith(expect.objectContaining({
+    allowsEditing: false, preferredAssetRepresentationMode: 'compatible',
+  }));
 });
 
 it('shows a member the picture without editing controls or persistent image caching', () => {

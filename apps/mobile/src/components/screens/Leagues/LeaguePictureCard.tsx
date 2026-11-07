@@ -50,6 +50,7 @@ export default function LeaguePictureCard({ leagueId, leagueName, canEdit }: Pro
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
         quality: 0.85,
       });
       if (!current.active || current !== scope.current || result.canceled) return;

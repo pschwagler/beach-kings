@@ -14,7 +14,7 @@ def process_picture(content: bytes, content_type: str | None) -> bytes:
     if not content or len(content) > MAX_UPLOAD_BYTES:
         raise ValueError("Choose a photo smaller than 5 MB.")
     if content_type not in ALLOWED_TYPES:
-        raise ValueError("Choose a JPEG, PNG, WebP, or HEIC photo.")
+        raise ValueError("Choose a JPEG, PNG, or WebP photo.")
     try:
         with Image.open(BytesIO(content)) as source:
             if source.width * source.height > MAX_PIXELS:
