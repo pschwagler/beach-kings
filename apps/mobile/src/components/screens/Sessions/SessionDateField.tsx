@@ -23,6 +23,8 @@ interface Props {
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly testID: string;
+  readonly disabled?: boolean;
+  readonly onPickerOpenChange?: (open: boolean) => void;
 }
 
 function atLocalNoon(date: Date): Date {
@@ -38,6 +40,8 @@ export default function SessionDateField({
   value,
   onChange,
   testID,
+  disabled = false,
+  onPickerOpenChange,
 }: Props): React.ReactNode {
   const palette = usePaletteColors();
   const { isDark } = useTheme();
@@ -50,26 +54,29 @@ export default function SessionDateField({
   const [draftDate, setDraftDate] = useState(selectedDate);
 
   const openPicker = useCallback(() => {
+    if (disabled) return;
+    onPickerOpenChange?.(true);
     setDraftDate(selectedDate);
     setPickerOpen(true);
-  }, [selectedDate]);
+  }, [disabled, onPickerOpenChange, selectedDate]);
 
   const closePicker = useCallback(() => {
     setPickerOpen(false);
-  }, []);
+    onPickerOpenChange?.(false);
+  }, [onPickerOpenChange]);
 
   const commitDate = useCallback(
     (date: Date) => {
       onChange(formatLocalCalendarDate(date));
-      setPickerOpen(false);
+      closePicker();
     },
-    [onChange],
+    [onChange, closePicker],
   );
 
   const handlePickerChange = useCallback(
     (event: DateTimePickerEvent, nextDate?: Date) => {
       if (Platform.OS === 'android') {
-        setPickerOpen(false);
+        closePicker();
         if (event.type === 'set' && nextDate != null) {
           onChange(formatLocalCalendarDate(nextDate));
         }
@@ -77,7 +84,7 @@ export default function SessionDateField({
       }
       if (nextDate != null) setDraftDate(atLocalNoon(nextDate));
     },
-    [onChange],
+    [onChange, closePicker],
   );
 
   const setQuickDate = useCallback(
@@ -98,6 +105,8 @@ export default function SessionDateField({
       <TouchableOpacity
         testID={testID}
         onPress={openPicker}
+        disabled={disabled}
+        accessibilityState={{ disabled }}
         accessibilityRole="button"
         accessibilityLabel="Session date"
         accessibilityValue={{ text: formatCalendarDateLabel(value, today) }}

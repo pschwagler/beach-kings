@@ -1,12 +1,11 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, View, type GestureResponderEvent } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { ActivityIndicator, Pressable, View, type GestureResponderEvent } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { usePaletteColors } from '@/theme/usePaletteColors';
-import { useTheme } from '@/contexts/ThemeContext';
-import { formatCalendarDateLabel, formatLocalCalendarDate, parseCalendarDate } from '@/lib/calendarDate';
+import { formatLocalCalendarDate, parseCalendarDate } from '@/lib/calendarDate';
 import { getApiResponseErrorMessage } from '@/lib/apiError';
 import InlineDateNavigationGuard from './InlineDateNavigationGuard';
+import SessionDateField from './SessionDateField';
 
 export interface InlineSessionDateHandle {
   readonly handleOutsideTouch: (event: GestureResponderEvent) => boolean;
@@ -21,18 +20,19 @@ interface Props {
   readonly onSave: (date: string) => Promise<boolean>;
 }
 
-/** Expands in place. A changed draft is committed once on Done or an outside touch. */
+/** First reveal the shared date row; its sheet confirms a date-only write. */
 export default forwardRef<InlineSessionDateHandle, Props>(function InlineSessionDate({
   sessionId, date, sessionNumber, canEdit, onSave,
 }, ref): React.ReactNode {
   const palette = usePaletteColors();
-  const { isDark } = useTheme();
   const bounds = useRef<View>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(date);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const draftRef = useRef(date);
+  const pickerOpen = useRef(false);
+  const errorRef = useRef<string | null>(null);
   const editingRef = useRef(false);
   const savingRef = useRef(false);
   const generation = useRef(0);
@@ -43,6 +43,8 @@ export default forwardRef<InlineSessionDateHandle, Props>(function InlineSession
     editingRef.current = false;
     savingRef.current = false;
     rectangle.current = null;
+    pickerOpen.current = false;
+    errorRef.current = null;
     setEditing(false);
     setPending(false);
     setError(null);
@@ -54,6 +56,8 @@ export default forwardRef<InlineSessionDateHandle, Props>(function InlineSession
     editingRef.current = false;
     savingRef.current = false;
     rectangle.current = null;
+    pickerOpen.current = false;
+    errorRef.current = null;
     setEditing(false);
     setPending(false);
     setError(null);
@@ -73,15 +77,22 @@ export default forwardRef<InlineSessionDateHandle, Props>(function InlineSession
     const revision = generation.current;
     savingRef.current = true;
     setPending(true);
+    errorRef.current = null;
     setError(null);
     try {
       const saved = await onSave(formatLocalCalendarDate(selected));
       if (revision !== generation.current) return;
       if (saved) close();
-      else setError('Date editing is no longer available. Refresh and try again.');
+      else {
+        errorRef.current = 'Date editing is no longer available. Refresh and try again.';
+        setError(errorRef.current);
+      }
     } catch (failure) {
-      if (revision === generation.current) setError(getApiResponseErrorMessage(failure,
-        'Could not save the date. Check your connection and try Done again.'));
+      if (revision === generation.current) {
+        errorRef.current = getApiResponseErrorMessage(failure,
+          'Could not save the date. Check your connection and try again.');
+        setError(errorRef.current);
+      }
     } finally {
       if (revision === generation.current) {
         savingRef.current = false;
@@ -104,18 +115,20 @@ export default forwardRef<InlineSessionDateHandle, Props>(function InlineSession
     refreshBounds,
     handleOutsideTouch: (event) => {
       if (!editingRef.current) return false;
-      // The first outside touch saves/dismisses; it must not also navigate
-      // away and hide a rejected draft. Pending writes consume all touches.
+      // Modal events belong to the shared picker, not the screen responder.
+      if (pickerOpen.current) return false;
+      // Consume the first outside touch without firing an underlying action.
+      // Rejected drafts stay visible until explicit Retry or Cancel.
       if (savingRef.current || rectangle.current == null) return true;
       const { pageX, pageY } = event.nativeEvent;
       const { x, y, width, height } = rectangle.current;
       if (pageX >= x && pageX <= x + width && pageY >= y && pageY <= y + height) return false;
-      void save();
+      if (errorRef.current == null) close();
       return true;
     },
   }));
 
-  const selectedDate = parseCalendarDate(draft) ?? new Date();
+  const fieldRevision = generation.current;
   const persistedDate = parseCalendarDate(date);
   const label = `${persistedDate?.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }) ?? date} · Session #${sessionNumber}`;
 
@@ -133,6 +146,8 @@ export default forwardRef<InlineSessionDateHandle, Props>(function InlineSession
             generation.current += 1;
             rectangle.current = null;
             savingRef.current = false;
+            pickerOpen.current = false;
+            errorRef.current = null;
             draftRef.current = date;
             setDraft(date);
             setError(null);
@@ -142,42 +157,44 @@ export default forwardRef<InlineSessionDateHandle, Props>(function InlineSession
           className={canEdit ? 'min-h-touch justify-center active:opacity-70' : ''}
         >
           <AppText className="text-[20px] font-bold text-default">{label}</AppText>
-          {canEdit && <AppText className="text-[12px] font-semibold text-brand-teal mt-1">Edit date</AppText>}
         </Pressable>
       ) : (
-        <View className="rounded-card border border-divider bg-surface p-3" testID="session-date-inline">
-          <InlineDateNavigationGuard onDismiss={() => { void save(); }} />
-          <View className="flex-row items-center justify-between gap-2">
-            <AppText className="flex-1 text-[15px] font-bold text-default">Session date · #{sessionNumber}</AppText>
-            <Pressable testID="session-date-cancel" accessibilityRole="button" accessibilityLabel="Cancel date edit"
-              disabled={pending} onPress={close} className="min-h-touch min-w-touch items-center justify-center">
-              <AppText className="text-[14px] font-semibold text-muted">Cancel</AppText>
-            </Pressable>
-            <Pressable testID="session-date-done" accessibilityRole="button" accessibilityLabel="Save session date"
-              disabled={pending} accessibilityState={{ disabled: pending, busy: pending }}
-              onPress={() => { void save(); }} className="min-h-touch min-w-touch items-center justify-center">
-              <AppText className="text-[15px] font-bold text-brand-teal">Done</AppText>
-            </Pressable>
-          </View>
-          <AppText className="text-[13px] text-muted mb-2">{formatCalendarDateLabel(draft)}</AppText>
-          {!pending && <DateTimePicker
-            testID="session-date-inline-picker"
-            value={selectedDate} mode="date" display={Platform.OS === 'ios' ? 'inline' : 'default'}
-            themeVariant={isDark ? 'dark' : 'light'} accentColor={palette.brandTeal}
-            onChange={(event, next) => {
-              if (Platform.OS === 'android' && event.type !== 'set') { close(); return; }
-              if (next == null) return;
-              const nextValue = formatLocalCalendarDate(next);
-              draftRef.current = nextValue;
-              setDraft(nextValue);
-              if (Platform.OS === 'android') void save(nextValue);
+        <View className="rounded-card border border-divider bg-surface" testID="session-date-inline">
+          <InlineDateNavigationGuard onDismiss={() => {
+            if (!pickerOpen.current && !savingRef.current && errorRef.current == null) close();
+          }} />
+          <SessionDateField
+            key={`${sessionId}:${canEdit}`}
+            testID="session-date-field"
+            value={draft}
+            disabled={pending}
+            onPickerOpenChange={(open) => {
+              if (fieldRevision === generation.current) pickerOpen.current = open;
             }}
-          />}
-          {pending ? <View className="flex-row items-center gap-2 py-3">
+            onChange={(value) => {
+              if (fieldRevision !== generation.current || !editingRef.current) return;
+              draftRef.current = value;
+              setDraft(value);
+              void save(value);
+            }}
+          />
+          {pending && <View className="flex-row items-center gap-2 px-4 pb-3">
             <ActivityIndicator size="small" color={palette.brandTeal} />
             <AppText className="text-[13px] text-muted" accessibilityLiveRegion="polite">Saving date…</AppText>
-          </View> : <AppText className="text-[12px] text-muted">Tap outside or Done to save.</AppText>}
-          {error != null && <AppText testID="session-date-error" accessibilityRole="alert" className="text-[13px] text-danger mt-2">{error}</AppText>}
+          </View>}
+          {error != null && <View className="px-4 pb-3">
+            <AppText testID="session-date-error" accessibilityRole="alert" className="text-[13px] text-danger">{error}</AppText>
+            <View className="flex-row justify-end gap-3 mt-2">
+              <Pressable testID="session-date-cancel" accessibilityRole="button" accessibilityLabel="Cancel date edit"
+                disabled={pending} onPress={close} className="min-h-touch min-w-touch items-center justify-center">
+                <AppText className="text-[14px] font-semibold text-muted">Cancel</AppText>
+              </Pressable>
+              <Pressable testID="session-date-retry" accessibilityRole="button" accessibilityLabel="Retry session date"
+                disabled={pending} onPress={() => { void save(); }} className="min-h-touch min-w-touch items-center justify-center">
+                <AppText className="text-[15px] font-bold text-brand-teal">Retry</AppText>
+              </Pressable>
+            </View>
+          </View>}
         </View>
       )}
     </View>
