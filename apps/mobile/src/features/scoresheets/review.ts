@@ -30,7 +30,7 @@ export function scoresheetReviewIssue(
       match.players.length !== 4 ||
       match.players.some((player) => player.id == null)
     ) {
-      return "Match each unrecognized name to a league player before adding games.";
+      return "Match each unrecognized name to a player before adding games.";
     }
     if (new Set(match.players.map((player) => player.id)).size !== 4) {
       return `Game ${match.number} has a player more than once. Request a correction below.`;

@@ -77,7 +77,8 @@ export function normalizeScoresheetResult(
             return {
               id: id(match[`${field}_id`]) ?? id(player.id),
               name:
-                (string(match[`${field}_matched`]) ?? rawName) ||
+                string(match[`${field}_matched`])?.trim() ||
+                rawName ||
                 "Unknown player",
               rawName,
             };

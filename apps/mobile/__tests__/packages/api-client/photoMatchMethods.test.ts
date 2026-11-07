@@ -48,11 +48,9 @@ test("normalizes resolved IDs, raw names, missing names and unreadable scores", 
 });
 
 test("uploads native multipart without a hardcoded boundary and supports gap games", async () => {
-  const post = jest
-    .fn()
-    .mockResolvedValue({
-      data: { job_id: 4, session_id: "draft", status: "PENDING" },
-    });
+  const post = jest.fn().mockResolvedValue({
+    data: { job_id: 4, session_id: "draft", status: "PENDING" },
+  });
   const methods = createPhotoMatchMethods({ post } as unknown as AxiosInstance);
   await methods.uploadScoresheet(
     7,
@@ -79,4 +77,23 @@ test("uploads native multipart without a hardcoded boundary and supports gap gam
     },
     { timeout: 30_000 },
   );
+});
+
+test("preserves an extracted name when no roster match was found", () => {
+  const result = normalizeScoresheetResult({
+    status: "needs_clarification",
+    matches: [
+      {
+        team1_player1: "Sam",
+        team1_player1_matched: "",
+        team1_score: 21,
+        team2_score: 19,
+      },
+    ],
+  });
+  expect(result?.matches[0]?.players[0]).toEqual({
+    id: null,
+    name: "Sam",
+    rawName: "Sam",
+  });
 });

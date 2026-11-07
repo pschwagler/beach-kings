@@ -18,8 +18,11 @@ import React, {
 } from 'react';
 import type { PlayerGender, SkillLevel } from '@beach-kings/shared';
 
-/** What the score screen hands the sheet when the user taps "Add New Player". */
+/** Route that owns the pending create-player result. */
+export type AddNewPlayerSource = 'scoreboard' | 'scoresheet';
+
 export interface AddNewPlayerRequest {
+  readonly source?: AddNewPlayerSource;
   readonly team: 1 | 2;
   readonly slot: 0 | 1;
   /** Raw search query captured at open time, e.g. "Brad K". */
@@ -31,6 +34,7 @@ export interface AddNewPlayerRequest {
 
 /** What the sheet hands back after successfully creating a placeholder. */
 export interface AddNewPlayerResult {
+  readonly source?: AddNewPlayerSource;
   readonly team: 1 | 2;
   readonly slot: 0 | 1;
   readonly name: string;
@@ -45,7 +49,7 @@ interface AddNewPlayerContextValue {
   readonly clearRequest: () => void;
   readonly setResult: (res: AddNewPlayerResult) => void;
   /** Returns the pending result and clears it in one step (idempotent). */
-  readonly consumeResult: () => AddNewPlayerResult | null;
+  readonly consumeResult: (source?: AddNewPlayerSource) => AddNewPlayerResult | null;
 }
 
 const AddNewPlayerContext = createContext<AddNewPlayerContextValue | null>(
@@ -94,12 +98,16 @@ export default function AddNewPlayerProvider({
     setResultState(res);
   }, []);
 
-  const consumeResult = useCallback((): AddNewPlayerResult | null => {
-    const current = resultRef.current;
-    resultRef.current = null;
-    setResultState(null);
-    return current;
-  }, []);
+  const consumeResult = useCallback(
+    (source: AddNewPlayerSource = 'scoreboard'): AddNewPlayerResult | null => {
+      const current = resultRef.current;
+      if (current != null && (current.source ?? 'scoreboard') !== source) return null;
+      resultRef.current = null;
+      setResultState(null);
+      return current;
+    },
+    [],
+  );
 
   const value: AddNewPlayerContextValue = {
     request,

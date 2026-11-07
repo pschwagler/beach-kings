@@ -215,6 +215,7 @@ export default function AddNewPlayerScreen(): React.ReactNode {
       // don't assign a player the user backed out of.
       if (!mountedRef.current) return;
       setResult({
+        ...(request.source != null ? { source: request.source } : {}),
         team: request.team,
         slot: request.slot,
         name,

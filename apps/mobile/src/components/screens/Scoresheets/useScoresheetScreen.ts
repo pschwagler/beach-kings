@@ -39,7 +39,6 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
   const league = leagues.data?.find((item) => item.id === leagueId);
   const leagueDetail = useQuery(leagueQueries.detail(userId, leagueId));
   const seasons = useQuery(scoresheetQueries.seasons(userId, leagueId));
-  const roster = useQuery(scoresheetQueries.roster(userId, leagueId));
   const seasonId =
     seasonChoice != null
       ? seasonChoice.id
@@ -244,7 +243,6 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     leagueId,
     chooseLeague,
     seasons,
-    roster,
     seasonId,
     setSeasonId: (id: number | null) => setSeasonChoice({ id }),
     date,

@@ -1,26 +1,24 @@
 import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import type { LeagueMemberApiRow } from "@beach-kings/shared";
+import { View } from "react-native";
 import type { ScoresheetMatch } from "@beach-kings/api-client";
 import AppText from "@/components/ui/AppText";
-import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import ScoresheetPlayerPicker from "./ScoresheetPlayerPicker";
 
 export default function ScoresheetReview({
   matches,
   unresolved,
-  members,
+  leagueId,
   onResolve,
   disabled,
 }: {
   readonly matches: readonly ScoresheetMatch[];
   readonly unresolved: readonly string[];
-  readonly members: readonly LeagueMemberApiRow[];
+  readonly leagueId: number;
   readonly onResolve: (raw: string, id: number, name: string) => void;
   readonly disabled: boolean;
 }): React.ReactNode {
   const [resolving, setResolving] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   return (
     <View className="gap-3">
       {matches.map((match) => (
@@ -68,47 +66,19 @@ export default function ScoresheetReview({
                 disabled={disabled}
                 onPress={() => {
                   setResolving(name);
-                  setSearch("");
                 }}
               />
               {resolving === name && (
-                <View className="bg-surface p-3 rounded-card gap-2 mt-2">
-                  <Input
-                    value={search}
-                    onChangeText={setSearch}
-                    placeholder="Search league players"
-                  />
-                  {members
-                    .filter((member) =>
-                      (member.player_name ?? "")
-                        .toLowerCase()
-                        .includes(search.toLowerCase()),
-                    )
-                    .map((member) => (
-                      <Pressable
-                        key={member.player_id}
-                        disabled={disabled}
-                        accessibilityRole="button"
-                        className="min-h-touch justify-center border-b border-divider"
-                        onPress={() => {
-                          onResolve(
-                            name,
-                            member.player_id,
-                            member.player_name ?? `Player ${member.player_id}`,
-                          );
-                          setResolving(null);
-                        }}
-                      >
-                        <AppText className="text-body text-brand-teal">
-                          {member.player_name ?? `Player ${member.player_id}`}
-                        </AppText>
-                      </Pressable>
-                    ))}
-                  <AppText className="text-caption text-muted">
-                    Player missing? Add them to the league, or describe the
-                    correct player in a correction.
-                  </AppText>
-                </View>
+                <ScoresheetPlayerPicker
+                  key={name}
+                  leagueId={leagueId}
+                  rawName={name}
+                  disabled={disabled}
+                  onResolve={(raw, id, fullName) => {
+                    onResolve(raw, id, fullName);
+                    setResolving(null);
+                  }}
+                />
               )}
             </View>
           ))}

@@ -298,19 +298,10 @@ export default function ScoresheetScreen({
                   <ScoresheetReview
                     matches={vm.matches}
                     unresolved={vm.unresolved}
-                    members={vm.roster.data ?? []}
+                    leagueId={vm.leagueId}
                     onResolve={vm.resolve}
                     disabled={vm.busy}
                   />
-                  {vm.unresolved.length > 0 && vm.roster.isError && (
-                    <Button
-                      title="Retry loading players"
-                      variant="outline"
-                      onPress={() => {
-                        void vm.roster.refetch();
-                      }}
-                    />
-                  )}
                   {vm.issue && (
                     <AppText
                       accessibilityLiveRegion="polite"

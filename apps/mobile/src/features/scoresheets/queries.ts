@@ -8,8 +8,6 @@ export const scoresheetKeys = {
     [...privateKeys.user(userId), "scoresheets"] as const,
   job: (userId: number, leagueId: number, jobId: number | null) =>
     [...scoresheetKeys.root(userId), leagueId, "job", jobId] as const,
-  roster: (userId: number, leagueId: number) =>
-    [...scoresheetKeys.root(userId), leagueId, "roster"] as const,
 };
 export const scoresheetQueries = {
   leagues: (userId: number) =>
@@ -23,12 +21,6 @@ export const scoresheetQueries = {
     queryOptions({
       queryKey: leagueKeys.seasons(userId, leagueId),
       queryFn: () => api.getLeagueSeasons(leagueId),
-      enabled: userId > 0 && leagueId > 0,
-    }),
-  roster: (userId: number, leagueId: number) =>
-    queryOptions({
-      queryKey: scoresheetKeys.roster(userId, leagueId),
-      queryFn: () => api.getLeagueMembers(leagueId),
       enabled: userId > 0 && leagueId > 0,
     }),
   job: (userId: number, leagueId: number, jobId: number | null) =>

@@ -491,3 +491,12 @@ describe('AddNewPlayerScreen — search context line', () => {
     expect(screen.queryByText(/No Beach League match/)).toBeNull();
   });
 });
+
+test('preserves the scoresheet destination when returning a created player', async () => {
+  mockRequest = makeRequest({ source: 'scoresheet', prefillName: 'Sam New', leagueId: 10 });
+  mockCreatePlaceholder.mockResolvedValue({ player_id: 123, invite_url: 'https://example.com/invite/test' });
+  render(<AddNewPlayerScreen />);
+  await waitFor(() => expect(screen.getByTestId('add-new-player-first').props.value).toBe('Sam'));
+  fireEvent.press(screen.getByTestId('add-new-player-submit'));
+  await waitFor(() => expect(mockSetResult).toHaveBeenCalledWith(expect.objectContaining({ source: 'scoresheet', player_id: 123 })));
+});
