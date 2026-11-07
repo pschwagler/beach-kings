@@ -268,3 +268,17 @@ describe('SessionBottomSheet — Delete Session', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });
+
+
+describe('SessionBottomSheet — available actions', () => {
+  it.each(['active', 'submitted'] as const)('omits unavailable duplication for %s sessions', (status) => {
+    const { queryByRole, queryByTestId, getByTestId } = render(<SessionBottomSheet {...baseProps} status={status} />);
+    expect(queryByRole('button', { name: 'Duplicate as New Session' })).toBeNull();
+    expect(queryByTestId('session-menu-duplicate')).toBeNull();
+    expect(getByTestId('session-menu-edit')).toBeTruthy();
+    expect(getByTestId('session-menu-roster')).toBeTruthy();
+    expect(getByTestId('session-menu-share')).toBeTruthy();
+    expect(getByTestId('session-menu-delete')).toBeTruthy();
+    expect(Boolean(queryByTestId('session-menu-copy-results'))).toBe(status === 'submitted');
+  });
+});
