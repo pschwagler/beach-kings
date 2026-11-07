@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { BarChart3, Settings, MapPin, MessageSquare, ShieldCheck, Users } from 'lucide-react';
+import { BarChart3, Settings, MapPin, MessageSquare, ShieldCheck, Users, Flag } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useApp } from '../../contexts/AppContext';
@@ -11,12 +11,14 @@ import AdminSettingsTab from './AdminSettingsTab';
 import AdminCourtsTab from './AdminCourtsTab';
 import AdminFeedbackTab from './AdminFeedbackTab';
 import AdminModerationTab from './AdminModerationTab';
+import AdminFeatureFlagsTab from './AdminFeatureFlagsTab';
 import AdminUsersTab from './AdminUsersTab';
 import './AdminView.css';
 
 const TABS = [
   { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { key: 'users', label: 'Users', icon: Users },
+  { key: 'feature-flags', label: 'Feature flags', icon: Flag },
   { key: 'settings', label: 'Settings', icon: Settings },
   { key: 'courts', label: 'Courts', icon: MapPin },
   { key: 'feedback', label: 'Feedback', icon: MessageSquare },
@@ -61,6 +63,7 @@ export default function AdminView() {
     switch (activeTab) {
       case 'dashboard': return <AdminDashboardTab />;
       case 'users': return <AdminUsersTab />;
+      case 'feature-flags': return <AdminFeatureFlagsTab />;
       case 'settings': return <AdminSettingsTab />;
       case 'courts': return <AdminCourtsTab />;
       case 'feedback': return <AdminFeedbackTab />;

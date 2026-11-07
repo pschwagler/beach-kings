@@ -5,27 +5,28 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.db import get_db_session
-from backend.api.auth_dependencies import require_verified_player, make_require_kob_director
-from backend.services import kob_service, kob_scheduler
+from backend.api.auth_dependencies import make_require_kob_director, require_verified_player
 from backend.api.routes import limiter
+from backend.api.routes.feature_flags import require_feature
+from backend.database.db import get_db_session
 from backend.models.schemas import (
-    KobTournamentCreate,
-    KobTournamentUpdate,
+    KobBracketUpdate,
+    KobDropPlayer,
+    KobFormatRecommendation,
+    KobMatchResponse,
+    KobPillRecommendation,
     KobPlayerAdd,
     KobScoreSubmit,
     KobSeedReorder,
-    KobDropPlayer,
-    KobBracketUpdate,
-    KobTournamentResponse,
+    KobTournamentCreate,
     KobTournamentDetailResponse,
-    KobMatchResponse,
-    KobFormatRecommendation,
-    KobPillRecommendation,
+    KobTournamentResponse,
+    KobTournamentUpdate,
 )
+from backend.services import kob_scheduler, kob_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_feature("kob_tournaments"))])
 
 # Shared auth dependency — fetches tournament + validates director ownership.
 # Returns user dict with "tournament" key.
@@ -48,7 +49,11 @@ async def _reload_detail(session: AsyncSession, tournament_id: int) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/api/kob/tournaments", response_model=KobTournamentDetailResponse)
+@router.post(
+    "/api/kob/tournaments",
+    response_model=KobTournamentDetailResponse,
+    dependencies=[Depends(require_feature("kob_tournament_creation"))],
+)
 async def create_tournament(
     payload: KobTournamentCreate,
     user: dict = Depends(require_verified_player),

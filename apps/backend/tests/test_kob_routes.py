@@ -117,6 +117,14 @@ def _make_fake_tournament():
 
 
 @pytest.fixture(autouse=True)
+def _enable_release_flags(monkeypatch):
+    """Exercise existing route behavior with releases enabled; gate cases live in test_feature_flags."""
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr("backend.api.routes.feature_flags.resolve", AsyncMock(return_value=True))
+
+
+@pytest.fixture(autouse=True)
 def _override_auth():
     """Override require_verified_player for all tests in this module."""
 

@@ -58,6 +58,7 @@ from backend.api.routes.messages import router as messages_router
 from backend.api.routes.notifications import router as notifications_router
 from backend.api.routes.signups import router as signups_router
 from backend.api.routes.admin import router as admin_router
+from backend.api.routes.feature_flags import router as feature_flags_router
 from backend.api.routes.calc import router as calc_router
 from backend.api.routes.kob import router as kob_router
 from backend.api.routes.push_tokens import router as push_tokens_router
@@ -83,3 +84,5 @@ router.include_router(signups_router)
 router.include_router(admin_router)
 router.include_router(calc_router)
 router.include_router(kob_router)
+
+router.include_router(feature_flags_router)
