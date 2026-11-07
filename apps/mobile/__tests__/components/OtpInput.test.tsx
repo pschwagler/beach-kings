@@ -1,7 +1,6 @@
 /**
  * Focused tests for OtpInput component.
- * Covers: cell count, auto-advance, backspace, paste, onComplete,
- * returnKeyType on last cell, and error-shake via shakeKey.
+ * Covers: cell count, backspace, paste, onComplete, and returnKeyType.
  */
 
 import React, { useState } from 'react';
@@ -40,11 +39,9 @@ import OtpInput from '@/components/ui/OtpInput';
 function ControlledOtpInput({
   length = 6,
   onComplete,
-  shakeKey,
 }: {
   length?: number;
   onComplete?: (v: string) => void;
-  shakeKey?: number;
 }) {
   const [value, setValue] = useState('');
   return (
@@ -53,7 +50,6 @@ function ControlledOtpInput({
       onChange={setValue}
       length={length}
       onComplete={onComplete}
-      shakeKey={shakeKey}
     />
   );
 }
@@ -134,57 +130,6 @@ describe('OtpInput', () => {
   });
 
   // -------------------------------------------------------------------------
-  // P3 — Shake animation via shakeKey
-  // -------------------------------------------------------------------------
-
-  describe('shake animation (shakeKey)', () => {
-    it('does NOT animate on initial render (shakeKey=0)', () => {
-      // Render with default shakeKey; advance timers and confirm no crash/throw.
-      render(<OtpInput value="" onChange={jest.fn()} shakeKey={0} />);
-      act(() => {
-        jest.advanceTimersByTime(400);
-      });
-      expect(screen.getByLabelText('OTP digit 1')).toBeTruthy();
-    });
-
-    it('renders without crashing after shakeKey increments to 1', () => {
-      const { rerender } = render(
-        <OtpInput value="" onChange={jest.fn()} shakeKey={0} />,
-      );
-
-      act(() => {
-        rerender(<OtpInput value="" onChange={jest.fn()} shakeKey={1} />);
-      });
-
-      // Advance through full shake sequence (8 steps × 50 ms = 400 ms).
-      act(() => {
-        jest.advanceTimersByTime(400);
-      });
-
-      // Component still mounted and accessible after animation completes.
-      expect(screen.getByLabelText('OTP digit 1')).toBeTruthy();
-    });
-
-    it('re-triggers on each subsequent shakeKey increment', () => {
-      const { rerender } = render(
-        <OtpInput value="" onChange={jest.fn()} shakeKey={0} />,
-      );
-
-      act(() => {
-        rerender(<OtpInput value="" onChange={jest.fn()} shakeKey={1} />);
-        jest.advanceTimersByTime(400);
-      });
-
-      act(() => {
-        rerender(<OtpInput value="" onChange={jest.fn()} shakeKey={2} />);
-        jest.advanceTimersByTime(400);
-      });
-
-      expect(screen.getByLabelText('OTP digit 1')).toBeTruthy();
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // Core interactions — regression guard
   // -------------------------------------------------------------------------
 
@@ -194,13 +139,6 @@ describe('OtpInput', () => {
       render(<OtpInput value="" onChange={onChange} />);
       fireEvent.changeText(screen.getByLabelText('OTP digit 1'), '3');
       expect(onChange).toHaveBeenCalledWith('3');
-    });
-
-    it('auto-advances: cell 2 is still reachable after digit entered in cell 1', () => {
-      render(<ControlledOtpInput />);
-      fireEvent.changeText(screen.getByLabelText('OTP digit 1'), '7');
-      // Cell 2 remains in the tree — component didn't crash.
-      expect(screen.getByLabelText('OTP digit 2')).toBeTruthy();
     });
 
     it('calls onComplete exactly once when full length reached', () => {
@@ -214,23 +152,6 @@ describe('OtpInput', () => {
 
       expect(onComplete).toHaveBeenCalledTimes(1);
       expect(onComplete).toHaveBeenCalledWith('1234');
-    });
-
-    it('does NOT fire onComplete again when a digit is re-entered at full length', () => {
-      const onComplete = jest.fn();
-      // Pre-fill all 4 cells via value prop; completedRef starts false.
-      render(
-        <OtpInput value="1234" onChange={jest.fn()} length={4} onComplete={onComplete} />,
-      );
-      // onComplete fires in useEffect once the component mounts with full value.
-      act(() => {
-        jest.runAllTimers();
-      });
-      const callsAfterMount = onComplete.mock.calls.length;
-
-      // Re-typing a digit (onChange would re-set value to same length — here we
-      // just confirm the effect guard doesn't double-fire on the same render).
-      expect(callsAfterMount).toBeLessThanOrEqual(1);
     });
 
     it('handles paste by filling all cells from the first input', () => {

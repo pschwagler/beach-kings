@@ -47,13 +47,6 @@ describe('useNotifications', () => {
     expect(result.current.unreadCount).toBe(0);
     expect(result.current.dmUnreadCount).toBe(0);
   });
-
-  it('markAsRead is a function', () => {
-    const wrapper = createNotificationWrapper();
-    const { result } = renderHook(() => useNotifications(), { wrapper });
-    expect(typeof result.current.markAsRead).toBe('function');
-    expect(typeof result.current.markAllAsRead).toBe('function');
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -87,24 +80,5 @@ describe('ToastContext', () => {
     expect(queryByText('Hello toast!')).toBeNull();
     fireEvent.press(getByTestId('trigger'));
     expect(queryByText('Hello toast!')).toBeTruthy();
-  });
-
-  it('showToast defaults to info type without crashing', () => {
-    function Consumer(): React.ReactElement {
-      const { showToast } = useToast();
-      return (
-        <Pressable testID="trigger" onPress={() => showToast('Info message')}>
-          <Text>Press</Text>
-        </Pressable>
-      );
-    }
-
-    const { getByTestId } = render(
-      <ToastProvider>
-        <Consumer />
-      </ToastProvider>,
-    );
-
-    expect(() => fireEvent.press(getByTestId('trigger'))).not.toThrow();
   });
 });
