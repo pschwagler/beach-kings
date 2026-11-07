@@ -21,6 +21,7 @@ import { leagueKeys } from "./leagueKeys";
 import {
   getPendingLeagueInvites,
   leagueQueries,
+  getLeagueLiveSessionId,
   useLeagueInviteResponses,
 } from "@/features/leagues";
 import { routes, type LeagueTab } from "@/lib/navigation";
@@ -67,6 +68,10 @@ const MEMBER_TABS: readonly LeagueDetailTab[] = [
 export interface UseLeagueDetailScreenResult {
   readonly leagueId: number | string;
   readonly detail: LeagueDetail | null;
+  readonly liveSessionId: number | null;
+  readonly isSessionActionReady: boolean;
+  readonly isSessionActionError: boolean;
+  readonly onRetrySessionAction: () => void;
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly errorTitle: string;
@@ -124,6 +129,9 @@ export function useLeagueDetailScreen(
   const inviteResponses = useLeagueInviteResponses(userId);
 
   const detail = detailQuery.data ?? null;
+  const sessionsQuery = useQuery(leagueQueries.sessions(userId, leagueId,
+    detail?.user_role === 'admin' || detail?.user_role === 'member'));
+  const liveSessionId = getLeagueLiveSessionId(sessionsQuery.data);
   const detailError = getQueryErrorPresentation(detailQuery.error, "League");
 
   useEffect(() => {
@@ -226,6 +234,10 @@ export function useLeagueDetailScreen(
   );
 
   return {
+    liveSessionId,
+    isSessionActionReady: sessionsQuery.isSuccess,
+    isSessionActionError: sessionsQuery.isError,
+    onRetrySessionAction: () => { void sessionsQuery.refetch(); },
     leagueId,
     detail,
     isLoading: detailQuery.isLoading,

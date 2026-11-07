@@ -462,26 +462,6 @@ function ModeToggle({
       className="flex-row bg-elevated border border-divider rounded-[10px] mx-4 mt-2 mb-2 p-[3px]"
     >
       <TouchableOpacity
-        testID="league-games-mode-mine"
-        onPress={() => {
-          handlePress("mine");
-        }}
-        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === "mine" ? "bg-brand-teal" : ""}`}
-      >
-        <AppText
-          className={`text-[12px] font-semibold ${mode === "mine" ? "text-on-brand-teal" : "text-muted"}`}
-        >
-          My Games
-        </AppText>
-        {myGameCount > 0 && (
-          <AppText
-            className={`text-[11px] font-bold ${mode === "mine" ? "text-on-brand-teal" : "text-muted"}`}
-          >
-            {myGameCount}
-          </AppText>
-        )}
-      </TouchableOpacity>
-      <TouchableOpacity
         testID="league-games-mode-all"
         onPress={() => {
           handlePress("all");
@@ -501,6 +481,26 @@ function ModeToggle({
           </AppText>
         )}
       </TouchableOpacity>
+      <TouchableOpacity
+        testID="league-games-mode-mine"
+        onPress={() => {
+          handlePress("mine");
+        }}
+        className={`flex-1 flex-row items-center justify-center gap-[6px] py-[6px] rounded-[8px] ${mode === "mine" ? "bg-brand-teal" : ""}`}
+      >
+        <AppText
+          className={`text-[12px] font-semibold ${mode === "mine" ? "text-on-brand-teal" : "text-muted"}`}
+        >
+          My Games
+        </AppText>
+        {myGameCount > 0 && (
+          <AppText
+            className={`text-[11px] font-bold ${mode === "mine" ? "text-on-brand-teal" : "text-muted"}`}
+          >
+            {myGameCount}
+          </AppText>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -512,12 +512,20 @@ function ModeToggle({
 interface LeagueMatchesTabProps {
   readonly leagueId: number | string;
   /** Supplied only when the league viewer may record games. */
+  readonly isSessionActionReady?: boolean;
+  readonly isSessionActionError?: boolean;
+  readonly onRetrySessionAction?: () => void;
+  readonly liveSessionId?: number | null;
   readonly onRecordGame?: () => void;
 }
 
 export default function LeagueMatchesTab({
   leagueId,
   onRecordGame,
+  liveSessionId,
+  isSessionActionReady = true,
+  isSessionActionError = false,
+  onRetrySessionAction,
 }: LeagueMatchesTabProps): React.ReactNode {
   const {
     mode,
@@ -536,9 +544,11 @@ export default function LeagueMatchesTab({
         <View className="mx-4 mt-4 mb-2">
           <RecordGameAction
             testID="league-record-game-action"
-            onPress={onRecordGame}
-            description="League game · Add your scores"
-            accessibilityHint="Record a game in this league"
+            disabled={!isSessionActionReady && !isSessionActionError}
+            label={isSessionActionError ? 'Retry session status' : liveSessionId != null ? 'Go to Live Session' : 'Record a Game'}
+            onPress={isSessionActionError ? onRetrySessionAction ?? onRecordGame : onRecordGame}
+            description={isSessionActionError ? 'Could not check live sessions · Tap to retry' : !isSessionActionReady ? 'Checking live session availability' : liveSessionId != null ? 'League session · Continue playing' : 'League game · Add your scores'}
+            accessibilityHint={isSessionActionError ? 'Check live session availability again' : liveSessionId != null ? 'Open the live session in this league' : 'Record a game in this league'}
           />
         </View>
       )}

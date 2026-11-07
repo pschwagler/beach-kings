@@ -165,30 +165,17 @@ describe('LeagueMatchesTab — toggle', () => {
     expect(screen.getByTestId('league-games-mode-all')).toBeTruthy();
   });
 
-  it('defaults to My Games mode and only fetches my games initially', async () => {
+  it('defaults to All Games and places All left of My Games', async () => {
     render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
-    await waitFor(() => {
-      expect(mockGetMyGames).toHaveBeenCalled();
-    });
-    // All-games endpoint should NOT have been hit yet.
-    expect(mockGetLeagueGames).not.toHaveBeenCalled();
-  });
-
-  it('fetches league-wide games only after switching to All Games', async () => {
-    render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(mockGetLeagueGames).toHaveBeenCalledWith(5, { limit: 500, offset: 0 }));
+    expect(mockGetLeagueSessions).toHaveBeenCalledWith(5);
+    const toggle = screen.getByTestId('league-games-mode-toggle');
+    expect(toggle.findAllByType(require('react-native').TouchableOpacity).map((node) => node.props.testID))
+      .toEqual(['league-games-mode-all', 'league-games-mode-mine']);
+    fireEvent.press(screen.getByTestId('league-games-mode-mine'));
     await waitFor(() => expect(mockGetMyGames).toHaveBeenCalled());
-    expect(mockGetLeagueGames).not.toHaveBeenCalled();
-
-    fireEvent.press(screen.getByTestId('league-games-mode-all'));
-
-    await waitFor(() => {
-      expect(mockGetLeagueGames).toHaveBeenCalledWith(5, {
-        limit: 500,
-        offset: 0,
-      });
-      expect(mockGetLeagueSessions).toHaveBeenCalledWith(5);
-    });
   });
+
 });
 
 // ---------------------------------------------------------------------------
@@ -200,6 +187,7 @@ describe('LeagueMatchesTab — active session styling (mine)', () => {
     mockGetMyGames.mockResolvedValue({ games: [MY_GAME_ACTIVE], total: 1 });
 
     render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    fireEvent.press(screen.getByTestId('league-games-mode-mine'));
 
     await waitFor(() => {
       expect(screen.getByTestId(`session-card-${MY_GAME_ACTIVE.session_id}`)).toBeTruthy();
@@ -216,6 +204,7 @@ describe('LeagueMatchesTab — active session styling (mine)', () => {
     mockGetMyGames.mockResolvedValue({ games: [MY_GAME_SUBMITTED], total: 1 });
 
     render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    fireEvent.press(screen.getByTestId('league-games-mode-mine'));
 
     await waitFor(() => {
       expect(screen.getByTestId(`session-card-${MY_GAME_SUBMITTED.session_id}`)).toBeTruthy();
@@ -236,6 +225,7 @@ describe('LeagueMatchesTab — active session styling (mine)', () => {
     });
 
     render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    fireEvent.press(screen.getByTestId('league-games-mode-mine'));
 
     await waitFor(() => {
       expect(screen.getByTestId(`session-card-${MY_GAME_ACTIVE.session_id}`)).toBeTruthy();
@@ -370,6 +360,7 @@ describe('LeagueMatchesTab — All Games rendering', () => {
 describe('LeagueMatchesTab — empty state', () => {
   it('shows "No Games Yet" empty message in My mode', async () => {
     render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    fireEvent.press(screen.getByTestId('league-games-mode-mine'));
     await waitFor(() => expect(screen.getByTestId('matches-empty')).toBeTruthy());
     expect(screen.getByText('No Games Yet')).toBeTruthy();
   });
@@ -413,9 +404,12 @@ describe('LeagueMatchesTab — primary recording action', () => {
   it.each(['loading', 'error', 'empty', 'populated'] as const)(
     'keeps Record a Game reachable in the %s games state',
     async (state) => {
-      if (state === 'loading') mockGetMyGames.mockReturnValue(new Promise(() => {}));
-      if (state === 'error') mockGetMyGames.mockRejectedValue(new Error('Offline'));
-      if (state === 'populated') mockGetMyGames.mockResolvedValue({ games: [MY_GAME_ACTIVE], total: 1 });
+      if (state === 'loading') mockGetLeagueGames.mockReturnValue(new Promise(() => {}));
+      if (state === 'error') mockGetLeagueGames.mockRejectedValue(new Error('Offline'));
+      if (state === 'populated') {
+        mockGetLeagueGames.mockResolvedValue({ games: [ALL_GAME_ACTIVE], total: 1 });
+        mockGetLeagueSessions.mockResolvedValue([LEAGUE_SESSIONS[0]]);
+      }
       const onRecordGame = jest.fn();
       render(<LeagueMatchesTab leagueId={5} onRecordGame={onRecordGame} />, { wrapper: makeWrapper() });
       const contentId = state === 'populated' ? 'matches-tab' : `matches-${state}`;

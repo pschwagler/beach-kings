@@ -15,6 +15,7 @@ jest.mock('@/contexts/AuthContext', () => ({
 jest.mock('@/lib/api', () => {
   const api = {
     getLeague: jest.fn(),
+    getLeagueSessions: jest.fn(),
     requestToJoinLeague: jest.fn(),
     joinLeague: jest.fn(),
     getReceivedLeagueInvites: jest.fn(),
@@ -34,6 +35,7 @@ import type { LeagueDetail } from '@beach-kings/shared';
 
 const mockApi = api as unknown as {
   getLeague: jest.Mock;
+  getLeagueSessions: jest.Mock;
   requestToJoinLeague: jest.Mock;
   joinLeague: jest.Mock;
   getReceivedLeagueInvites: jest.Mock;
@@ -109,6 +111,8 @@ const RECEIVED_INVITE = {
 
 beforeEach(() => {
   mockApi.getLeague.mockReset();
+  mockApi.getLeagueSessions.mockReset();
+  mockApi.getLeagueSessions.mockResolvedValue([]);
   mockApi.requestToJoinLeague.mockReset();
   mockApi.joinLeague.mockReset();
   mockApi.getReceivedLeagueInvites.mockReset();
@@ -447,3 +451,41 @@ describe('useLeagueDetailScreen', () => {
     });
   });
 });
+
+ describe('league live session selection', () => {
+  it('chooses the newest ACTIVE id, including an empty session, across seasons', async () => {
+    mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+    mockApi.getLeagueSessions.mockResolvedValue([
+      { id: 80, status: 'SUBMITTED' }, { id: 90, status: 'EDITED' },
+      { id: 40, status: 'ACTIVE', game_count: 4, season_id: 5 },
+      { id: 50, status: 'ACTIVE', game_count: 0, season_id: null },
+      { id: 100, status: null },
+    ]);
+    const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(result.current.isSessionActionReady).toBe(true));
+    expect(result.current.liveSessionId).toBe(50);
+    expect(mockApi.getLeagueSessions).toHaveBeenCalledWith(42);
+  });
+  it.each([{ sessions: [] }, { sessions: [{ id: 1, status: 'SUBMITTED' }, { id: 2, status: 'EDITED' }, { id: 3 }] }])(
+    'does not invent a live session for finalized/missing statuses (%j)', async ({ sessions }) => {
+      mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+      mockApi.getLeagueSessions.mockResolvedValue(sessions);
+      const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+      await waitFor(() => expect(result.current.isSessionActionReady).toBe(true));
+      expect(result.current.liveSessionId).toBeNull();
+    });
+  it('does not fetch member-only sessions for visitors', async () => {
+    mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
+    const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockApi.getLeagueSessions).not.toHaveBeenCalled();
+    expect(result.current.isSessionActionReady).toBe(false);
+  });
+  it('does not enable score creation while live-session availability is unknown', async () => {
+    mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+    mockApi.getLeagueSessions.mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(mockApi.getLeagueSessions).toHaveBeenCalled());
+    expect(result.current.isSessionActionReady).toBe(false);
+  });
+ });
