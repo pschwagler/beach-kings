@@ -69,5 +69,14 @@ export function useLeaguePicture(userId: number, leagueId: number, canEdit: bool
     try { await mutation.mutateAsync({ change, scope: currentOwner }); }
     finally { currentOwner.pending = false; }
   };
-  return { query, mutation, changePicture };
+  // Mutation observers retain their previous variables across option changes.
+  // Never offer another account/league's file as this screen's retry action.
+  const isCurrentMutation = mutation.variables?.scope === currentOwner && currentOwner.active;
+  return { query, changePicture, mutation: {
+    isPending: isCurrentMutation && mutation.isPending,
+    isPaused: isCurrentMutation && mutation.isPaused,
+    isError: isCurrentMutation && mutation.isError,
+    error: isCurrentMutation ? mutation.error : null,
+    variables: isCurrentMutation ? mutation.variables : undefined,
+  } };
 }

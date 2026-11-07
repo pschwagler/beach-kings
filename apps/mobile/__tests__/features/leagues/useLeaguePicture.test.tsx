@@ -103,6 +103,20 @@ it('does not resurrect a cleared picture cache after an upload', async () => {
   expect(client.getQueryData(leagueKeys.picture(7, 3))).toBeUndefined();
 });
 
+it('does not expose an old failed upload as a retry after an account or league change', async () => {
+  mockUpload.mockRejectedValue(new Error('Upload failed'));
+  const { result, rerender } = renderHook(({ id, league }) => useLeaguePicture(id, league, true),
+    { initialProps: { id: 7, league: 3 }, wrapper: Wrapper });
+  await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
+  await act(async () => { await result.current.changePicture({ kind: 'upload', file }).catch(() => undefined); });
+  expect(result.current.mutation.isError).toBe(true);
+  expect(result.current.mutation.variables?.change).toEqual({ kind: 'upload', file });
+  rerender({ id: 8, league: 4 });
+  expect(result.current.mutation.isError).toBe(false);
+  expect(result.current.mutation.error).toBeNull();
+  expect(result.current.mutation.variables).toBeUndefined();
+});
+
 it('preserves the old picture on failure and retries online without a paused mutation', async () => {
   const { result } = renderHook(() => useLeaguePicture(7, 3, true), { wrapper: Wrapper });
   await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
