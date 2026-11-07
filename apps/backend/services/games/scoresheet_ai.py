@@ -7,7 +7,7 @@ from typing import Iterator
 
 import httpx
 
-DEFAULT_MODEL = "gpt-5.4-mini"
+DEFAULT_MODEL = "gpt-6.1-terra"
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 # Keep player IDs or literal names so uncertain handwriting remains reviewable.

@@ -136,6 +136,12 @@ def main():
     )
     export.add_argument("--api-base", default="https://beachleaguevb.com")
     export.add_argument("--output", required=True)
+    deduplicate = commands.add_parser(
+        "unique-rosters",
+        help="Create a private one-player-per-first-name dataset; preserve all recorded game labels",
+    )
+    deduplicate.add_argument("--manifest", required=True)
+    deduplicate.add_argument("--output", required=True)
     compare = commands.add_parser("run", help="Compare OpenAI models without creating games")
     compare.add_argument("--manifest", required=True)
     compare.add_argument("--model", action="append", required=True)
@@ -150,6 +156,18 @@ def main():
     load_dotenv(args.env_file)
     if args.command == "snapshot":
         snapshot(args)
+    elif args.command == "unique-rosters":
+        from scripts.scoresheet_evals.rosters import unique_first_name_case
+
+        source = private_path(args.manifest)
+        output = private_path(args.output)
+        if source == output:
+            raise ValueError("Use a separate output path to retain the original benchmark")
+        data = json.loads(source.read_text())
+        data["cases"] = [unique_first_name_case(case) for case in data["cases"]]
+        data["derived_from"] = str(source)
+        save_private(output, data)
+        print(f"Prepared {len(data['cases'])} cases with unique first names.")
     else:
         from scripts.scoresheet_evals.runner import run_comparison
 
