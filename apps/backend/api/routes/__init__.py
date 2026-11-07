@@ -44,6 +44,7 @@ INVALID_VERIFICATION_CODE_RESPONSE = HTTPException(
 # Import sub-routers and combine
 # ---------------------------------------------------------------------------
 from backend.api.routes.leagues import router as leagues_router
+from backend.api.routes.league_pictures import router as league_pictures_router
 from backend.api.routes.seasons import router as seasons_router
 from backend.api.routes.sessions import router as sessions_router
 from backend.api.routes.matches import router as matches_router
@@ -65,6 +66,7 @@ from backend.api.routes.moderation import router as moderation_router
 
 router = APIRouter()
 router.include_router(leagues_router)
+router.include_router(league_pictures_router)
 router.include_router(seasons_router)
 router.include_router(sessions_router)
 router.include_router(matches_router)

@@ -5,6 +5,14 @@ import { leagueKeys } from './keys';
 const LEAGUE_GAMES_PAGE_SIZE = 500;
 
 export const leagueQueries = {
+  picture: (userId: number, leagueId: number | string) => queryOptions({
+    queryKey: leagueKeys.picture(userId, leagueId),
+    queryFn: ({ signal }) => api.getLeaguePicture(Number(leagueId), { signal }),
+    enabled: userId > 0 && Number(leagueId) > 0,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  }),
   receivedInvites: (userId: number, enabled = true) => queryOptions({
     queryKey: leagueKeys.receivedInvites(userId),
     queryFn: () => api.getReceivedLeagueInvites(),
