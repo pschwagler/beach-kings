@@ -89,12 +89,34 @@ jobs:
 
       - name: Run backend tests
         run: |
-          docker compose -f docker-compose.test.yml up --build test-runner --abort-on-container-exit --exit-code-from test-runner
+          # Leave time below the job limit to retain diagnostics after a stall.
+          timeout --signal=TERM --kill-after=60s 24m \
+            docker compose -f docker-compose.test.yml up --build test-runner --abort-on-container-exit --exit-code-from test-runner \
+            2>&1 | tee backend-ci.log
         env:
           POSTGRES_USER: beachkings
           POSTGRES_PASSWORD: beachkings
           TEST_POSTGRES_DB: beachkings_test
           JWT_SECRET_KEY: test-secret-key-for-testing-only-change-in-production
+
+      - name: Capture backend diagnostics
+        if: always()
+        run: |
+          timeout --kill-after=5s 30s docker compose -f docker-compose.test.yml ps -a > backend-container-state.log 2>&1 || true
+          timeout --kill-after=5s 30s docker compose -f docker-compose.test.yml logs --no-color --tail 300 >> backend-container-state.log 2>&1 || true
+          timeout --kill-after=5s 30s docker stats --no-stream >> backend-container-state.log 2>&1 || true
+
+      - name: Upload backend diagnostics
+        timeout-minutes: 1
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-diagnostics
+          path: |
+            backend-ci.log
+            backend-container-state.log
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -114,7 +136,7 @@ jobs:
 
       - name: Clean up
         if: always()
-        run: docker compose -f docker-compose.test.yml down -v
+        run: timeout --signal=TERM --kill-after=10s 60s docker compose -f docker-compose.test.yml down -v
 
   test-frontend-unit:
     runs-on: ubuntu-latest
