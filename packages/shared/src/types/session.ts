@@ -294,6 +294,8 @@ export interface SessionDetail {
   readonly session_type: SessionType;
   /** Whether this session counts toward rankings. Defaults to true (server default). */
   readonly is_ranked: boolean;
+  /** Server-authoritative metadata permission. Older servers omit this; treat as false. */
+  readonly can_edit_metadata?: boolean;
   readonly players: readonly SessionPlayer[];
   readonly games: readonly SessionGame[];
   /** Total wins for the calling user in this session. */

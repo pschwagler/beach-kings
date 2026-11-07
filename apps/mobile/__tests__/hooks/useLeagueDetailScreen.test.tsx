@@ -8,13 +8,15 @@ import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+let mockUserId = 7;
 jest.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+  useAuth: () => ({ user: { id: mockUserId }, isAuthenticated: true }),
 }));
 
 jest.mock('@/lib/api', () => {
   const api = {
     getLeague: jest.fn(),
+    getLeagueSessions: jest.fn(),
     requestToJoinLeague: jest.fn(),
     joinLeague: jest.fn(),
     getReceivedLeagueInvites: jest.fn(),
@@ -34,6 +36,7 @@ import type { LeagueDetail } from '@beach-kings/shared';
 
 const mockApi = api as unknown as {
   getLeague: jest.Mock;
+  getLeagueSessions: jest.Mock;
   requestToJoinLeague: jest.Mock;
   joinLeague: jest.Mock;
   getReceivedLeagueInvites: jest.Mock;
@@ -108,7 +111,10 @@ const RECEIVED_INVITE = {
 };
 
 beforeEach(() => {
+  mockUserId = 7;
   mockApi.getLeague.mockReset();
+  mockApi.getLeagueSessions.mockReset();
+  mockApi.getLeagueSessions.mockResolvedValue([]);
   mockApi.requestToJoinLeague.mockReset();
   mockApi.joinLeague.mockReset();
   mockApi.getReceivedLeagueInvites.mockReset();
@@ -445,5 +451,95 @@ describe('useLeagueDetailScreen', () => {
       await waitFor(() => expect(result.current.isVisitor).toBe(true));
       expect(result.current.visibleTabs).toEqual(['standings', 'info']);
     });
+  });
+});
+
+ describe('league live session selection', () => {
+  it('chooses the newest ACTIVE id, including an empty session, across seasons', async () => {
+    mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+    mockApi.getLeagueSessions.mockResolvedValue([
+      { id: 80, status: 'SUBMITTED' }, { id: 90, status: 'EDITED' },
+      { id: 40, status: 'ACTIVE', game_count: 4, season_id: 5 },
+      { id: 50, status: 'ACTIVE', game_count: 0, season_id: null },
+      { id: 100, status: null },
+    ]);
+    const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(result.current.isSessionActionReady).toBe(true));
+    expect(result.current.liveSessionId).toBe(50);
+    expect(mockApi.getLeagueSessions).toHaveBeenCalledWith(42);
+  });
+  it.each([{ sessions: [] }, { sessions: [{ id: 1, status: 'SUBMITTED' }, { id: 2, status: 'EDITED' }, { id: 3 }] }])(
+    'does not invent a live session for finalized/missing statuses (%j)', async ({ sessions }) => {
+      mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+      mockApi.getLeagueSessions.mockResolvedValue(sessions);
+      const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+      await waitFor(() => expect(result.current.isSessionActionReady).toBe(true));
+      expect(result.current.liveSessionId).toBeNull();
+    });
+  it('does not fetch member-only sessions for visitors', async () => {
+    mockApi.getLeague.mockResolvedValue(VISITOR_OPEN);
+    const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockApi.getLeagueSessions).not.toHaveBeenCalled();
+    expect(result.current.isSessionActionReady).toBe(false);
+  });
+  it('does not enable score creation while live-session availability is unknown', async () => {
+    mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+    mockApi.getLeagueSessions.mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(mockApi.getLeagueSessions).toHaveBeenCalled());
+    expect(result.current.isSessionActionReady).toBe(false);
+  });
+ });
+
+describe('fresh league session action', () => {
+  it('revalidates started and finalized sessions instead of routing from cached data', async () => {
+    mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+    const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(result.current.isSessionActionReady).toBe(true));
+    mockApi.getLeagueSessions.mockResolvedValue([{ id: 88, status: 'ACTIVE' }]);
+    let destination: number | null | undefined;
+    await act(async () => { destination = await result.current.onResolveSessionAction(); });
+    expect(destination).toBe(88);
+    mockApi.getLeagueSessions.mockResolvedValue([{ id: 88, status: 'SUBMITTED' }]);
+    await act(async () => { destination = await result.current.onResolveSessionAction(); });
+    expect(destination).toBeNull();
+    expect(mockApi.getLeagueSessions).toHaveBeenCalledTimes(3);
+  });
+  it('deduplicates synchronous taps and exposes retry after a failed fresh lookup', async () => {
+    mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+    const { result } = renderHook(() => useLeagueDetailScreen(42), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(result.current.isSessionActionReady).toBe(true));
+    let reject!: (error: Error) => void;
+    mockApi.getLeagueSessions.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+    let first!: Promise<number | null | undefined>;
+    let second!: Promise<number | null | undefined>;
+    act(() => { first = result.current.onResolveSessionAction(); second = result.current.onResolveSessionAction(); });
+    await expect(second).resolves.toBeUndefined();
+    expect(mockApi.getLeagueSessions).toHaveBeenCalledTimes(2);
+    await act(async () => { reject(new Error('offline')); await first; });
+    await waitFor(() => expect(result.current.isSessionActionError).toBe(true));
+    mockApi.getLeagueSessions.mockResolvedValue([{ id: 99, status: 'ACTIVE' }]);
+    act(() => result.current.onRetrySessionAction());
+    await waitFor(() => expect(result.current.isSessionActionReady).toBe(true));
+    let destination: number | null | undefined;
+    await act(async () => { destination = await result.current.onResolveSessionAction(); });
+    expect(destination).toBe(99);
+  });
+  it.each(['unmount', 'account', 'league'])('suppresses navigation after a late %s lookup', async (change) => {
+    mockApi.getLeague.mockResolvedValue(LEAGUE_DETAIL);
+    const { result, rerender, unmount } = renderHook(({ leagueId }) => useLeagueDetailScreen(leagueId), {
+      initialProps: { leagueId: 42 }, wrapper: makeWrapper(makeClient()),
+    });
+    await waitFor(() => expect(result.current.isSessionActionReady).toBe(true));
+    let resolve!: (sessions: unknown[]) => void;
+    mockApi.getLeagueSessions.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+    let lookup!: Promise<number | null | undefined>;
+    act(() => { lookup = result.current.onResolveSessionAction(); });
+    if (change === 'unmount') unmount();
+    else { if (change === 'account') mockUserId = 8; rerender({ leagueId: change === 'league' ? 43 : 42 }); }
+    let destination: number | null | undefined;
+    await act(async () => { resolve([{ id: 88, status: 'ACTIVE' }]); destination = await lookup; });
+    expect(destination).toBeUndefined();
   });
 });

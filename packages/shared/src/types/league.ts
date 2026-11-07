@@ -173,6 +173,8 @@ export interface LeagueStanding {
   readonly losses: number;
   readonly win_rate: number;
   readonly rating: number | null;
+  /** Authoritative current global rating; season `rating` remains season points. */
+  readonly global_rating: number | null;
   readonly rating_delta: number | null;
   readonly games_played: number;
 }

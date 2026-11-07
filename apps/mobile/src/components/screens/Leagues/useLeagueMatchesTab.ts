@@ -184,7 +184,7 @@ export function useLeagueMatchesTab(
 ): UseLeagueMatchesTabResult {
   const { user } = useAuth();
   const userId = user?.id ?? 0;
-  const [mode, setMode] = useState<LeagueMatchesMode>('mine');
+  const [mode, setMode] = useState<LeagueMatchesMode>('all');
 
   const myGamesQuery = useQuery({
     queryKey: leagueKeys.myGames(userId, leagueId),
@@ -195,7 +195,7 @@ export function useLeagueMatchesTab(
     enabled: userId > 0,
   });
 
-  // Only fetch league-wide data when the user has opened the All view.
+  // All Games is the default; pause paginated history when viewing My Games.
   const allModeEnabled = userId > 0 && mode === 'all';
   const leagueSessionsQuery = useQuery(
     leagueQueries.sessions(userId, leagueId, allModeEnabled),

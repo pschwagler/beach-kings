@@ -1,3 +1,4 @@
+jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ isDark: false }) }));
 /**
  * Behavior tests for the Session Detail screen.
  *
@@ -494,7 +495,7 @@ describe('SessionDetailScreen — menu', () => {
     expect(screen.getByTestId('session-menu-delete')).toBeTruthy();
   });
 
-  it('shows Copy Results and Duplicate once the session is submitted', async () => {
+  it('shows Copy Results without an unavailable duplicate action once submitted', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
     renderRoute();
     await waitFor(() => {
@@ -505,7 +506,7 @@ describe('SessionDetailScreen — menu', () => {
       expect(screen.getByTestId('session-bottom-sheet')).toBeTruthy();
     });
     expect(screen.getByTestId('session-menu-copy-results')).toBeTruthy();
-    expect(screen.getByTestId('session-menu-duplicate')).toBeTruthy();
+    expect(screen.queryByTestId('session-menu-duplicate')).toBeNull();
     expect(screen.getByTestId('session-menu-roster')).toHaveTextContent(
       'View Players',
     );

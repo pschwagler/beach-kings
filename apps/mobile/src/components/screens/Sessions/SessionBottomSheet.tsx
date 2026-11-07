@@ -7,9 +7,8 @@
  *   3. Share Session (clipboard)
  *   4. Delete Session (destructive)
  *
- * Submitted session also surfaces (results are stable enough to copy/duplicate):
+ * Submitted session also surfaces:
  *   5. Copy Results (clipboard)
- *   6. Duplicate as New Session
  *
  * Wireframe ref: session-menu.html
  */
@@ -43,8 +42,8 @@ interface Props {
   readonly gameCount: number;
   readonly playerCount: number;
   /**
-   * Session status. Copy Results + Duplicate are hidden while active —
-   * those actions only make sense once results are finalized.
+   * Session status. Copy Results is hidden while active because results
+   * are only finalized after submission.
    */
   readonly status: "active" | "submitted";
 }
@@ -190,12 +189,6 @@ export default function SessionBottomSheet({
     // TODO(backend): format and copy results to clipboard
   };
 
-  const handleDuplicate = async (): Promise<void> => {
-    await hapticLight();
-    onClose();
-    // TODO(backend): duplicate session
-  };
-
   const handleDelete = async (): Promise<void> => {
     await hapticMedium();
     Alert.alert(
@@ -289,22 +282,13 @@ export default function SessionBottomSheet({
           busy={isSharing}
         />
         {isSubmitted && (
-          <>
-            <MenuItem
-              label="Copy Results"
-              testID="session-menu-copy-results"
-              onPress={() => {
-                void handleCopyResults();
-              }}
-            />
-            <MenuItem
-              label="Duplicate as New Session"
-              testID="session-menu-duplicate"
-              onPress={() => {
-                void handleDuplicate();
-              }}
-            />
-          </>
+          <MenuItem
+            label="Copy Results"
+            testID="session-menu-copy-results"
+            onPress={() => {
+              void handleCopyResults();
+            }}
+          />
         )}
         <MenuItem
           label={isDeleting ? "Deleting..." : "Delete Session"}

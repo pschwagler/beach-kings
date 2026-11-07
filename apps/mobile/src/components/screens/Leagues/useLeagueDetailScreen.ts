@@ -12,7 +12,7 @@
  * a visitor never lands on a hidden tab.
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import type { LeagueDetail } from "@beach-kings/shared";
@@ -21,6 +21,7 @@ import { leagueKeys } from "./leagueKeys";
 import {
   getPendingLeagueInvites,
   leagueQueries,
+  getLeagueLiveSessionId,
   useLeagueInviteResponses,
 } from "@/features/leagues";
 import { routes, type LeagueTab } from "@/lib/navigation";
@@ -67,6 +68,12 @@ const MEMBER_TABS: readonly LeagueDetailTab[] = [
 export interface UseLeagueDetailScreenResult {
   readonly leagueId: number | string;
   readonly detail: LeagueDetail | null;
+  readonly liveSessionId: number | null;
+  readonly isSessionActionReady: boolean;
+  readonly isSessionActionError: boolean;
+  readonly onRetrySessionAction: () => void;
+  /** Undefined means failed, superseded, or already pending; null means create. */
+  readonly onResolveSessionAction: () => Promise<number | null | undefined>;
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly errorTitle: string;
@@ -124,6 +131,46 @@ export function useLeagueDetailScreen(
   const inviteResponses = useLeagueInviteResponses(userId);
 
   const detail = detailQuery.data ?? null;
+  const sessionsQuery = useQuery(leagueQueries.sessions(userId, leagueId,
+    detail?.user_role === 'admin' || detail?.user_role === 'member'));
+  const liveSessionId = getLeagueLiveSessionId(sessionsQuery.data);
+  const [isResolvingSessionAction, setIsResolvingSessionAction] = useState(false);
+  const actionOwner = useRef({ userId, leagueId, active: true, pending: false });
+  if (actionOwner.current.userId !== userId || actionOwner.current.leagueId !== leagueId) {
+    actionOwner.current.active = false;
+    actionOwner.current = { userId, leagueId, active: true, pending: false };
+  }
+  const canRecordRef = useRef(false);
+  canRecordRef.current = detail?.user_role === 'admin' || detail?.user_role === 'member';
+  useEffect(() => {
+    const owner = actionOwner.current;
+    owner.active = true;
+    setIsResolvingSessionAction(false);
+    return () => { owner.active = false; };
+  }, [userId, leagueId]);
+
+  const onResolveSessionAction = useCallback(async (): Promise<number | null | undefined> => {
+    const owner = actionOwner.current;
+    if (!owner.active || owner.pending || owner.userId !== userId || owner.leagueId !== leagueId
+      || !canRecordRef.current || userId <= 0) return undefined;
+    // staleTime is not a refresh timer: another member may have opened or
+    // submitted a session while this screen stayed mounted. Resolve at action time.
+    owner.pending = true;
+    setIsResolvingSessionAction(true);
+    try {
+      const sessions = await queryClient.fetchQuery({
+        ...leagueQueries.sessions(userId, leagueId), staleTime: 0,
+      });
+      if (!owner.active || owner !== actionOwner.current || !canRecordRef.current) return undefined;
+      return getLeagueLiveSessionId(sessions);
+    } catch {
+      // Query owns the error; the gold action exposes its explicit retry state.
+      return undefined;
+    } finally {
+      owner.pending = false;
+      if (owner.active && owner === actionOwner.current) setIsResolvingSessionAction(false);
+    }
+  }, [userId, leagueId, queryClient]);
   const detailError = getQueryErrorPresentation(detailQuery.error, "League");
 
   useEffect(() => {
@@ -226,6 +273,11 @@ export function useLeagueDetailScreen(
   );
 
   return {
+    liveSessionId,
+    isSessionActionReady: sessionsQuery.isSuccess && !isResolvingSessionAction,
+    isSessionActionError: sessionsQuery.isError && !isResolvingSessionAction,
+    onResolveSessionAction,
+    onRetrySessionAction: () => { void sessionsQuery.refetch(); },
     leagueId,
     detail,
     isLoading: detailQuery.isLoading,

@@ -2775,10 +2775,15 @@ async def get_league_standings(
 
     if season_id is not None:
         rows_result = await session.execute(
-            select(PlayerSeasonStats, Player)
+            select(PlayerSeasonStats, Player, PlayerGlobalStats)
             .join(Player, Player.id == PlayerSeasonStats.player_id)
+            .join(Season, Season.id == PlayerSeasonStats.season_id)
+            .outerjoin(
+                PlayerGlobalStats, PlayerGlobalStats.player_id == PlayerSeasonStats.player_id
+            )
             .where(
                 PlayerSeasonStats.season_id == season_id,
+                Season.league_id == league_id,
                 Player.deleted_at.is_(None),
             )
             .order_by(*_SEASON_RANK_ORDER)
@@ -2786,7 +2791,7 @@ async def get_league_standings(
         rows = rows_result.all()
 
         standings = []
-        for rank, (stats, player) in enumerate(rows, start=1):
+        for rank, (stats, player, global_stats) in enumerate(rows, start=1):
             losses = stats.games - stats.wins
             win_rate_pct = round(stats.win_rate * 100, 1)
             avatar_str = player.profile_picture_url or player.avatar or ""
@@ -2807,13 +2812,16 @@ async def get_league_standings(
                     "losses": losses,
                     "win_rate": win_rate_pct,
                     "rating": stats.points,
+                    "global_rating": global_stats.current_rating if global_stats else None,
                     "rating_delta": None,
                     "games_played": stats.games,
                 }
             )
 
         # Build season_info
-        season_result = await session.execute(select(Season).where(Season.id == season_id))
+        season_result = await session.execute(
+            select(Season).where(Season.id == season_id, Season.league_id == league_id)
+        )
         season = season_result.scalar_one_or_none()
         season_info = None
         if season:
@@ -2875,6 +2883,7 @@ async def get_league_standings(
                 "losses": losses,
                 "win_rate": win_rate_pct,
                 "rating": global_stats.current_rating if global_stats else None,
+                "global_rating": global_stats.current_rating if global_stats else None,
                 "rating_delta": None,
                 "games_played": stats.games,
             }

@@ -333,6 +333,21 @@ async def require_session_metadata_editor(
         raise _session_not_found(session_obj["id"])
 
 
+async def _can_edit_session_metadata(
+    db_session: AsyncSession,
+    session_obj: dict,
+    user: dict,
+) -> bool:
+    """Report the existing write permission without changing session access."""
+    try:
+        await require_session_metadata_editor(db_session, session_obj, user)
+    except HTTPException as error:
+        if error.status_code == 404:
+            return False
+        raise
+    return True
+
+
 async def require_session_manager(
     db_session: AsyncSession,
     session_obj: dict,
@@ -683,6 +698,7 @@ async def get_session_detail(
     games, user_wins, user_losses, user_rating_change = _build_games_and_user_stats(
         raw_games, player_id, rating_by_match
     )
+    can_edit_metadata = await _can_edit_session_metadata(session, sess, current_user)
 
     return {
         "id": sess["id"],
@@ -698,6 +714,7 @@ async def get_session_detail(
         "start_time": start_time,
         "session_number": session_number,
         "is_ranked": is_ranked,
+        "can_edit_metadata": can_edit_metadata,
         "players": players,
         "games": games,
         "user_wins": user_wins,

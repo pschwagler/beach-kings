@@ -1,9 +1,20 @@
-import { mutationOptions } from '@tanstack/react-query';
+import { mutationOptions, onlineManager } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { sessionKeys } from './keys';
 
 /** Shared session mutations keep API contracts out of rendering components. */
 export const sessionMutationOptions = {
+  updateDate: (userId: number, sessionId: number) =>
+    mutationOptions({
+      mutationKey: [...sessionKeys.detail(userId, sessionId), 'update-date'] as const,
+      // Date edits need a visible failure/retry, not an indefinitely paused queue.
+      networkMode: 'always',
+      retry: false,
+      mutationFn: (date: string) => {
+        if (!onlineManager.isOnline()) return Promise.reject(new Error('Offline'));
+        return api.updateSession(sessionId, { date });
+      },
+    }),
   invitePlayer: (userId: number, sessionId: number) =>
     mutationOptions({
       mutationKey: [

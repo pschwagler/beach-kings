@@ -1327,6 +1327,7 @@ _MOCK_STANDING = {
     "losses": 2,
     "win_rate": 90.0,
     "rating": 1520.0,
+    "global_rating": 1642.5,
     "rating_delta": None,
     "games_played": 20,
 }
@@ -1362,6 +1363,8 @@ class TestGetLeagueStandings:
         assert len(data["standings"]) == 1
         assert data["standings"][0]["rank"] == 1
         assert data["standings"][0]["player_id"] == 10
+        assert data["standings"][0]["rating"] == 1520.0
+        assert data["standings"][0]["global_rating"] == 1642.5
         assert data["season_info"]["name"] == "Season 4"
         assert data["season_info"]["session_count"] == 3
 

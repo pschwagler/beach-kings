@@ -106,6 +106,8 @@ const mockJoinSignup = jest.fn();
 const mockDropSignup = jest.fn();
 const mockGetLeaguePlayerStats = jest.fn();
 const mockGetMyGames = jest.fn();
+const mockGetLeagueSessions = jest.fn();
+const mockGetLeagueGames = jest.fn();
 const mockGetLeague = jest.fn();
 const mockGetLeagueMembers = jest.fn();
 const mockGetLeagueJoinRequests = jest.fn();
@@ -126,6 +128,8 @@ jest.mock('@/lib/api', () => ({
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
     leaveLeague: (...args: unknown[]) => mockLeaveLeague(...args),
     getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
+    getLeagueSessions: (...args: unknown[]) => mockGetLeagueSessions(...args),
+    getLeagueGames: (...args: unknown[]) => mockGetLeagueGames(...args),
     getLeague: (...args: unknown[]) => mockGetLeague(...args),
     getLeagueMembers: (...args: unknown[]) => mockGetLeagueMembers(...args),
     getLeagueJoinRequests: (...args: unknown[]) => mockGetLeagueJoinRequests(...args),
@@ -244,6 +248,8 @@ beforeEach(() => {
   mockDropSignup.mockResolvedValue(undefined);
   mockGetLeaguePlayerStats.mockResolvedValue({});
   mockGetMyGames.mockResolvedValue({ games: [], total: 0 });
+  mockGetLeagueSessions.mockResolvedValue([]);
+  mockGetLeagueGames.mockResolvedValue({ games: [], total: 0 });
   mockGetLeagueMembers.mockResolvedValue([]);
   mockGetLeagueJoinRequests.mockResolvedValue({ pending: [], rejected: [] });
   mockApproveJoinRequest.mockResolvedValue({ success: true });
@@ -772,5 +778,79 @@ describe('LeagueDetailScreen — standings return navigation', () => {
     expect(mockPush).not.toHaveBeenCalled();
     fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('LeagueDetailScreen — prominent league recording action', () => {
+  it.each(['admin', 'member'] as const)('gives a %s the same current-season destination as header Add Game', async (role) => {
+    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, user_role: role });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    const record = await screen.findByRole('button', { name: 'Record a Game' });
+    fireEvent.press(record);
+    await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
+    const destination = mockPush.mock.calls[0]?.[0];
+    expect(destination).toContain(`leagueId=${MOCK_DETAIL.id}`);
+    expect(destination).toContain(`seasonId=${MOCK_DETAIL.current_season_id}`);
+    fireEvent.press(screen.getByTestId('league-add-game-btn'));
+    await waitFor(() => expect(mockPush.mock.calls[1]?.[0]).toBe(destination));
+  });
+
+  it('supports leagues without a current season without inventing a season ID', async () => {
+    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, current_season_id: null });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByRole('button', { name: 'Record a Game' }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    expect(mockPush.mock.calls[0]?.[0]).toContain(`leagueId=${MOCK_DETAIL.id}`);
+    expect(mockPush.mock.calls[0]?.[0]).not.toContain('seasonId=');
+  });
+
+  it('does not expose recording on a visitor Games deep link', async () => {
+    mockSearchParams = { id: '1', tab: 'games' };
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await screen.findByTestId('league-detail-screen');
+    expect(screen.queryByRole('button', { name: 'Record a Game' })).toBeNull();
+    expect(screen.queryByTestId('league-add-game-btn')).toBeNull();
+  });
+
+  it('keeps the prominent action scoped to the Games tab', async () => {
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await screen.findByRole('button', { name: 'Record a Game' });
+    fireEvent.press(screen.getByTestId('segment-tab-standings'));
+    expect(screen.queryByRole('button', { name: 'Record a Game' })).toBeNull();
+  });
+
+  it('does not expose recording while league permission data is unavailable', async () => {
+    mockGetLeague.mockReturnValue(new Promise(() => {}));
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    expect(screen.getByTestId('league-detail-loading')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Record a Game' })).toBeNull();
+  });
+});
+
+describe('League live action', () => {
+  it.each(['member', 'admin'])('routes the %s gold and header actions to the actual live session', async (role) => {
+    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, user_role: role });
+    mockGetLeagueSessions.mockResolvedValue([{ id: 75, status: 'ACTIVE', date: '2026-11-07', game_count: 0, player_count: 0 }]);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    const action = await screen.findByTestId('league-record-game-action');
+    await waitFor(() => expect(action.props.accessibilityState.disabled).toBe(false));
+    fireEvent.press(screen.getByTestId('league-record-game-action'));
+    await waitFor(() => expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75'));
+    fireEvent.press(screen.getByTestId('league-add-game-btn'));
+    await waitFor(() => expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75'));
+  });
+  it('offers retry without creating a session when availability fails', async () => {
+    mockGetLeagueSessions.mockRejectedValue(new Error('unavailable'));
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    const action = await screen.findByTestId('league-record-game-action');
+    await screen.findByRole('button', { name: 'Retry session status' });
+    expect(screen.getByTestId('league-add-game-btn').props.accessibilityState.disabled).toBe(true);
+    mockGetLeagueSessions.mockResolvedValue([]);
+    fireEvent.press(action);
+    await screen.findByRole('button', { name: 'Record a Game' });
+    expect(mockGetLeagueSessions).toHaveBeenCalledTimes(2);
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

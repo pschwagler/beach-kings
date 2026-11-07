@@ -17,7 +17,7 @@ import React, {
   useState,
 } from "react";
 import AppText from '@/components/ui/AppText';
-import { View, Pressable, ActivityIndicator } from "react-native";
+import { View, Pressable, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRouter } from "expo-router";
 
@@ -28,6 +28,7 @@ import { formatGameScore, formatPlayerShort } from "@/lib/formatters";
 import { useScoreGameScreen } from "./useScoreGameScreen";
 import ScoreBoard from "./ScoreBoard";
 import ScoreNumpad from "./ScoreNumpad";
+import ScoreSaveActions from "./ScoreSaveActions";
 import RosterPicker from "./RosterPicker";
 import ScoreGameMenu from "./ScoreGameMenu";
 import ScoreboardToast from "./ScoreboardToast";
@@ -302,7 +303,6 @@ export default function ScoreGameScreen({
   sessionLabel,
   headerTitle,
 }: ScoreGameScreenProps = {}): React.ReactNode {
-  const palette = usePaletteColors();
   const router = useRouter();
   const {
     team1,
@@ -330,11 +330,13 @@ export default function ScoreGameScreen({
     onShareSession,
     setScore1,
     setScore2,
+    adjustScore,
     assignPlayer,
     removePlayer,
     swapSlots,
     setSearch,
     onSubmit,
+    onSaveAndAddAnother,
     onRetry,
     onAddAnother: hookOnAddAnother,
     onDelete,
@@ -513,6 +515,13 @@ export default function ScoreGameScreen({
     );
   }, [savedMatchId, lastSessionId, router]);
 
+  const resetEntryControls = useCallback(() => {
+    setActiveSlot(null);
+    setActiveScoreTeam(null);
+    setDigitBuffer("");
+    setSearchFocused(false);
+  }, []);
+
   const handleAddAnother = useCallback(() => {
     if (isEditMode) {
       // Start a create route so the next save cannot update the edited match.
@@ -527,16 +536,26 @@ export default function ScoreGameScreen({
       return;
     }
     hookOnAddAnother();
-    setActiveSlot(null);
-    setActiveScoreTeam(null);
-    setDigitBuffer("");
-    setSearchFocused(false);
-  }, [hookOnAddAnother, isEditMode, lastSessionId, leagueId, router, seasonId, sessionId, sessionLabel]);
+    resetEntryControls();
+  }, [hookOnAddAnother, isEditMode, lastSessionId, leagueId, router, resetEntryControls, seasonId, sessionId, sessionLabel]);
 
   const handleSave = useCallback(() => {
     void hapticMedium();
     onSubmit();
   }, [onSubmit]);
+
+  const handleSaveAndAddAnother = useCallback(() => {
+    void hapticMedium();
+    void onSaveAndAddAnother().then((saved) => {
+      if (saved) resetEntryControls();
+    });
+  }, [onSaveAndAddAnother, resetEntryControls]);
+
+  const handleRetry = useCallback(() => {
+    void onRetry().then((continued) => {
+      if (continued) resetEntryControls();
+    });
+  }, [onRetry, resetEntryControls]);
 
   // Default to team 1 the moment scoring mode begins — no useEffect needed.
   const effectiveActiveScoreTeam: 1 | 2 | null = isBuilding
@@ -566,25 +585,11 @@ export default function ScoreGameScreen({
     [effectiveActiveScoreTeam, digitBuffer, setScore1, setScore2],
   );
 
-  const handleDelete = useCallback(() => {
-    if (effectiveActiveScoreTeam === null) return;
-    if (digitBuffer.length === 0) {
-      if (effectiveActiveScoreTeam === 1) setScore1(0);
-      else setScore2(0);
-      return;
-    }
-    const newBuffer = digitBuffer.slice(0, -1);
-    const score = newBuffer.length > 0 ? parseInt(newBuffer, 10) : 0;
-    if (effectiveActiveScoreTeam === 1) setScore1(score);
-    else setScore2(score);
-    setDigitBuffer(newBuffer);
-  }, [effectiveActiveScoreTeam, digitBuffer, setScore1, setScore2]);
-
-  const handleNext = useCallback(() => {
-    if (effectiveActiveScoreTeam === null) return;
+  const handleAdjust = useCallback((delta: -1 | 1) => {
+    if (effectiveActiveScoreTeam == null) return;
     setDigitBuffer("");
-    setActiveScoreTeam(effectiveActiveScoreTeam === 1 ? 2 : null);
-  }, [effectiveActiveScoreTeam]);
+    adjustScore(effectiveActiveScoreTeam, delta);
+  }, [adjustScore, effectiveActiveScoreTeam]);
 
   const handleErrorDiscard = useCallback(() => {
     navigateOnClose();
@@ -661,6 +666,23 @@ export default function ScoreGameScreen({
         : "Add Game";
   const navSubtitle = buildNavSubtitle(gameNumber, sessionLabel, leagueId);
 
+  const scoreBoard = (
+    <ScoreBoard
+      team1Slots={team1}
+      team2Slots={team2}
+      score1={score1}
+      score2={score2}
+      isBuilding={isBuilding}
+      activeSlot={effectiveActiveSlot}
+      compact={searchFocused}
+      activeScoreTeam={effectiveActiveScoreTeam}
+      onScoreTeamPress={handleScoreTeamPress}
+      onSlotPress={handleSlotPress}
+      onRemovePlayer={handleRemovePlayer}
+      onSwapSlots={swapSlots}
+    />
+  );
+
   let content: React.ReactNode;
   if (submitState === "success") {
     content = (
@@ -677,7 +699,7 @@ export default function ScoreGameScreen({
     content = (
       <ErrorView
         message={errorMessage}
-        onRetry={onRetry}
+        onRetry={handleRetry}
         onDiscard={handleErrorDiscard}
       />
     );
@@ -686,20 +708,7 @@ export default function ScoreGameScreen({
       <>
         {/* Scoreboard — fixed at top. Collapses to a compact strip while the
             search is focused so the keyboard doesn't hide the results. */}
-        <ScoreBoard
-          team1Slots={team1}
-          team2Slots={team2}
-          score1={score1}
-          score2={score2}
-          isBuilding={isBuilding}
-          activeSlot={effectiveActiveSlot}
-          compact={searchFocused}
-          activeScoreTeam={effectiveActiveScoreTeam}
-          onScoreTeamPress={handleScoreTeamPress}
-          onSlotPress={handleSlotPress}
-          onRemovePlayer={handleRemovePlayer}
-          onSwapSlots={swapSlots}
-        />
+        {isBuilding && scoreBoard}
 
         {/* Roster picker — only visible in building mode */}
         {isBuilding && (
@@ -725,71 +734,29 @@ export default function ScoreGameScreen({
 
         {/* Numpad — only visible in scoring mode */}
         {!isBuilding && (
-          <ScoreNumpad
-            activeTeam={effectiveActiveScoreTeam}
-            onDigit={handleDigit}
-            onDelete={handleDelete}
-            onNext={handleNext}
-          />
+          <ScrollView testID="score-entry-scroll" className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
+            {scoreBoard}
+            <ScoreNumpad
+              activeTeam={effectiveActiveScoreTeam}
+              score={effectiveActiveScoreTeam === 2 ? score2 : score1}
+              disabled={isSaving}
+              onDigit={handleDigit}
+              onAdjust={handleAdjust}
+            />
+          </ScrollView>
         )}
 
-        {/* Bottom bar */}
-        <View className="bg-surface border-t border-divider px-4 pt-3 pb-8">
-          <Pressable
-            testID="save-game-btn"
-            onPress={handleSave}
-            disabled={!canSubmit || isSaving}
-            accessibilityRole="button"
-            accessibilityLabel={saveButtonLabel}
-            accessibilityState={{
-              disabled: !canSubmit || isSaving,
-              busy: isSaving,
-            }}
-            className={`w-full py-4 rounded-[12px] items-center flex-row justify-center gap-2 border ${
-              canSubmit ? 'bg-brand-gold border-brand-gold' : 'bg-warning-tint border-brand-gold opacity-disabled'
-            }`}
-          >
-            {isSaving && <ActivityIndicator size="small" color={palette.onBrandGold} />}
-            <AppText
-              className={`font-bold text-[16px] ${canSubmit ? 'text-on-brand-gold' : 'text-warning'}`}
-            >
-              {saveButtonLabel}
-            </AppText>
-          </Pressable>
-
-          {scoreWarning != null && (
-            <AppText
-              testID="score-warning"
-              accessibilityRole={scoreWarningKind === "error" ? "alert" : undefined}
-              accessibilityLiveRegion={
-                scoreWarningKind === "error" ? "polite" : "none"
-              }
-              className={`text-[12px] text-center mt-2 ${
-                scoreWarningKind === "error"
-                  ? "text-danger font-semibold"
-                  : "text-tertiary"
-              }`}
-            >
-              {scoreWarning}
-            </AppText>
-          )}
-
-          {isEditMode && (
-            <Pressable
-              testID="delete-game-link"
-              onPress={handleDeletePress}
-              disabled={isDeleting || isSaving}
-              accessibilityRole="button"
-              accessibilityLabel="Delete Game"
-              hitSlop={8}
-              className="mt-3 items-center"
-            >
-              <AppText className="text-[14px] font-semibold text-danger">
-                {isDeleting ? "Deleting…" : "Delete Game"}
-              </AppText>
-            </Pressable>
-          )}
-        </View>
+        <ScoreSaveActions
+          canSubmit={canSubmit}
+          isSaving={isSaving}
+          saveButtonLabel={saveButtonLabel}
+          onSave={handleSave}
+          onSaveAndAddAnother={!isBuilding && !isEditMode ? handleSaveAndAddAnother : undefined}
+          scoreWarning={scoreWarning}
+          scoreWarningKind={scoreWarningKind}
+          onDelete={isEditMode ? handleDeletePress : undefined}
+          isDeleting={isDeleting}
+        />
       </>
     );
   }

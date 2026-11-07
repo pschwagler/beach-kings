@@ -257,6 +257,11 @@ interface TabContentProps {
   readonly onViewPlayerStats: (id: number | string) => void;
   readonly chatDraft: string;
   readonly onChatDraftChange: (value: string) => void;
+  readonly isSessionActionReady?: boolean;
+  readonly isSessionActionError?: boolean;
+  readonly onRetrySessionAction?: () => void;
+  readonly liveSessionId?: number | null;
+  readonly onRecordGame?: () => void;
 }
 
 function TabContent({
@@ -267,10 +272,22 @@ function TabContent({
   onViewPlayerStats,
   chatDraft,
   onChatDraftChange,
+  onRecordGame,
+  liveSessionId,
+  isSessionActionReady,
+  isSessionActionError,
+  onRetrySessionAction,
 }: TabContentProps): React.ReactNode {
   switch (activeTab) {
     case 'games':
-      return <LeagueMatchesTab leagueId={leagueId} />;
+      return <LeagueMatchesTab
+        leagueId={leagueId}
+        onRecordGame={onRecordGame}
+        liveSessionId={liveSessionId}
+        isSessionActionReady={isSessionActionReady}
+        isSessionActionError={isSessionActionError}
+        onRetrySessionAction={onRetrySessionAction}
+      />;
     case 'standings':
       return (
         <View className="flex-1">
@@ -324,6 +341,11 @@ export default function LeagueDetailScreen({
 
   const {
     detail,
+    liveSessionId,
+    isSessionActionReady,
+    isSessionActionError,
+    onRetrySessionAction,
+    onResolveSessionAction,
     isLoading,
     isError,
     errorTitle,
@@ -414,25 +436,36 @@ export default function LeagueDetailScreen({
   const canAddGame =
     detail != null && (detail.user_role === 'admin' || detail.user_role === 'member');
 
+  const handleRecordGame = async (): Promise<void> => {
+    if (!canAddGame || !isSessionActionReady || detail == null) return;
+    const resolvedSessionId = await onResolveSessionAction();
+    if (resolvedSessionId === undefined) return;
+    void hapticLight();
+    if (resolvedSessionId != null) {
+      router.push(routes.session(resolvedSessionId) as never);
+      return;
+    }
+    router.push(
+      routes.scoreGame({
+        leagueId: Number(resolvedId),
+        seasonId: detail.current_season_id ?? null,
+        headerTitle: 'Add Game',
+        sessionLabel: detail.name,
+      }) as never,
+    );
+  };
+
   const addGameAction = canAddGame ? (
     <Pressable
       testID="league-add-game-btn"
-      onPress={() => {
-        void hapticLight();
-        router.push(
-          routes.scoreGame({
-            leagueId: Number(resolvedId),
-            seasonId: detail?.current_season_id ?? null,
-            headerTitle: 'Add Game',
-            sessionLabel: detail?.name,
-          }) as never,
-        );
-      }}
+      disabled={!isSessionActionReady}
+      accessibilityState={{ disabled: !isSessionActionReady }}
+      onPress={handleRecordGame}
       accessibilityRole="button"
-      accessibilityLabel="Add game"
+      accessibilityLabel={liveSessionId != null ? 'Go to Live Session' : 'Add game'}
       className="min-h-touch items-center justify-center px-2 active:opacity-70"
     >
-      <AppText className="text-[14px] font-semibold text-inverse">+ Add Game</AppText>
+      <AppText className="text-[14px] font-semibold text-inverse">{liveSessionId != null ? 'Live Session' : '+ Add Game'}</AppText>
     </Pressable>
   ) : undefined;
 
@@ -523,6 +556,11 @@ export default function LeagueDetailScreen({
             onViewPlayerStats={handlePressPlayer}
             chatDraft={chatDraft}
             onChatDraftChange={setChatDraft}
+            isSessionActionError={isSessionActionError}
+            onRetrySessionAction={onRetrySessionAction}
+            isSessionActionReady={isSessionActionReady}
+            liveSessionId={liveSessionId}
+            onRecordGame={canAddGame ? handleRecordGame : undefined}
           />
         </View>
       </View>

@@ -15,7 +15,7 @@ import RefreshScrollView from '@/components/refresh/RefreshScrollView';
  * Wireframe ref: session-active.html, session-detail.html
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -39,6 +39,7 @@ import SessionGameCard from './SessionGameCard';
 import { getViewerTeamForGame } from './sessionGameIdentity';
 import SessionBottomSheet from './SessionBottomSheet';
 import SessionCourtPicker from './SessionCourtPicker';
+import InlineSessionDate, { type InlineSessionDateHandle } from './InlineSessionDate';
 import { useSessionDetailScreen } from './useSessionDetailScreen';
 import { parseSessionDate } from '@/lib/formatters';
 import { routes } from '@/lib/navigation';
@@ -158,24 +159,15 @@ function InviteBanner({ onPress }: InviteBannerProps): React.ReactNode {
 
 interface SessionHeaderProps {
   readonly session: SessionDetail;
+  readonly dateEditorRef: React.RefObject<InlineSessionDateHandle | null>;
+  readonly onDateChange: (date: string) => Promise<boolean>;
 }
 
-function SessionHeader({ session }: SessionHeaderProps): React.ReactNode {
-  const dateLabel = (() => {
-    const d = parseSessionDate(session.date);
-    if (isNaN(d.getTime())) return session.date;
-    return d.toLocaleDateString('en-US', {
-      month: 'numeric',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  })();
-
+function SessionHeader({ session, dateEditorRef, onDateChange }: SessionHeaderProps): React.ReactNode {
   return (
     <View className="px-[16px] pt-[16px]">
-      <AppText className="text-[20px] font-bold text-default">
-        {dateLabel} · Session #{session.session_number}
-      </AppText>
+      <InlineSessionDate ref={dateEditorRef} sessionId={session.id} date={session.date}
+        sessionNumber={session.session_number} canEdit={session.can_edit_metadata === true} onSave={onDateChange} />
       <View className="flex-row items-center gap-[8px] mt-[6px] flex-wrap">
         <View
           className={`px-[8px] py-[3px] rounded-[10px] ${
@@ -279,11 +271,13 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
     onEditGame,
     onSubmitSession,
     onCourtChange,
+    onDateChange,
     onClearSubmitError,
   } = useSessionDetailScreen(sessionId);
 
   const [showMyGamesOverride, setShowMyGamesOverride] = useState<boolean | null>(null);
   const [submitConfirmVisible, setSubmitConfirmVisible] = useState(false);
+  const dateEditorRef = useRef<InlineSessionDateHandle>(null);
 
   const hasPlaceholders =
     session?.players.some((p) => p.is_placeholder) ?? false;
@@ -327,6 +321,7 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
       className="flex-1 bg-page"
       edges={['top']}
       testID="session-detail-screen"
+      onStartShouldSetResponderCapture={(event) => dateEditorRef.current?.handleOutsideTouch(event) ?? false}
     >
       <TopNav
         title={session?.league_name ?? 'Session'}
@@ -349,10 +344,12 @@ export default function SessionDetailScreen({ sessionId }: Props): React.ReactNo
           refreshScope={String(sessionId)}
         contentContainerStyle={{ paddingBottom: 120 }}
         testID="session-detail-scroll"
+        onScroll={() => dateEditorRef.current?.refreshBounds()}
+        scrollEventThrottle={16}
       >
         {session != null && (
           <>
-            <SessionHeader session={session} />
+            <SessionHeader session={session} dateEditorRef={dateEditorRef} onDateChange={onDateChange} />
             <StatsBar session={session} />
             {session.status === 'submitted' && (
               <View className="mx-4 mt-4">

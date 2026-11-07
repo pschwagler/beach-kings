@@ -1,11 +1,12 @@
 import React from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { useRouter } from 'expo-router';
 import type { Session } from '@beach-kings/shared';
 import CourtLineMotif from '@/components/brand/CourtLineMotif';
 import { routes } from '@/lib/navigation';
 import Button from '@/components/ui/Button';
+import RecordGameAction from '@/components/ui/RecordGameAction';
 
 export type HomeLeadState =
   | {
@@ -56,17 +57,13 @@ export default function HomeLeadAction({
 
   if (state.kind === 'record-game') {
     return (
-      <Pressable
+      <RecordGameAction
         testID="home-lead-record-game"
-        accessibilityRole="button"
-        accessibilityLabel="Record a Game"
         accessibilityHint="Choose a league or pickup session"
+        description="League or pickup · Add your scores"
         onPress={() => router.push(routes.addGames())}
-        className="mb-lg min-h-touch rounded-card bg-brand-gold px-lg py-md active:opacity-80"
-      >
-        <AppText className="text-title3 font-bold text-on-brand-gold">Record a Game</AppText>
-        <AppText className="mt-xxs text-caption text-on-brand-gold">League or pickup · Add your scores</AppText>
-      </Pressable>
+        className="mb-lg"
+      />
     );
   }
 
