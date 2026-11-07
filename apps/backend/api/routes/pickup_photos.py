@@ -16,6 +16,7 @@ from backend.models.schemas import (
 )
 from backend.services import photo_match_service
 from backend.services.games import photo_draft_service
+from backend.services.games.scoresheet_context import draft_context
 
 router = APIRouter(dependencies=[Depends(require_feature("scoresheet_parsing"))])
 
@@ -61,10 +62,10 @@ async def edit_pickup_photo(
     session=Depends(get_db_session),
     user=Depends(require_user),
 ):
-    await owned_draft(draft_id, user)
+    draft = await owned_draft(draft_id, user)
     if not body.edit_prompt.strip():
         raise HTTPException(400, "A correction is required")
-    members = await photo_draft_service.context_members(session, user, None)
+    members = await draft_context(session, draft_id, draft, user, None)
     job_id = await photo_match_service.create_photo_match_job(
         session, None, draft_id, user_id=user["id"]
     )

@@ -25,9 +25,15 @@ export default function ScoresheetActionBar({
     (vm.processing
       ? "Reading names and scores. You can review them before saving."
       : !vm.uploaded
-        ? vm.photo
-          ? "Ready to read. League is optional."
-          : "Choose a photo above to read its scores."
+        ? !vm.photo
+          ? "Choose a photo above to read its scores."
+          : !vm.contextReady
+            ? vm.gameType === "league"
+              ? "Choose a league above, or switch to Pickup."
+              : "Choose League or Pickup above to continue."
+            : vm.gameType === "pickup"
+              ? "Ready to read as pickup games. No league needed."
+              : "Ready to read with your league’s players and your session history."
         : (vm.issue ??
           (seasonPending
             ? "Load season options above before adding league games."
@@ -49,7 +55,7 @@ export default function ScoresheetActionBar({
           title="Read scoresheet"
           variant="secondary"
           loading={vm.uploading}
-          disabled={!vm.photo || vm.busy}
+          disabled={!vm.photo || !vm.contextReady || vm.busy}
           onPress={() => {
             void vm.upload();
           }}

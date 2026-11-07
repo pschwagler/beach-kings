@@ -21,6 +21,11 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const [leagueId, setLeagueId] = useState(initialLeagueId ?? 0);
+  const [gameType, setGameType] = useState<"league" | "pickup" | null>(
+    initialLeagueId != null ? "league" : null,
+  );
+  const contextReady =
+    gameType === "pickup" || (gameType === "league" && leagueId > 0);
   const [seasonChoice, setSeasonChoice] = useState<{
     id: number | null;
   } | null>(null);
@@ -79,8 +84,17 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
   );
 
   const chooseLeague = (id: number) => {
+    setGameType(id > 0 ? "league" : "pickup");
     setLeagueId(id);
     setSeasonChoice(null);
+  };
+  const chooseGameType = (type: "league" | "pickup") => {
+    if (job || busy) return;
+    setGameType(type);
+    if (type === "pickup") {
+      setLeagueId(0);
+      setSeasonChoice(null);
+    }
   };
   const choosePhoto = async (camera: boolean) => {
     if (busy || actionLock.current) return;
@@ -143,7 +157,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     }
   };
   const upload = async () => {
-    if (photo == null || busy || actionLock.current) return;
+    if (photo == null || !contextReady || busy || actionLock.current) return;
     actionLock.current = true;
     setError(null);
     try {
@@ -242,6 +256,9 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     league,
     leagueId,
     chooseLeague,
+    gameType,
+    chooseGameType,
+    contextReady,
     seasons,
     seasonId,
     setSeasonId: (id: number | null) => setSeasonChoice({ id }),

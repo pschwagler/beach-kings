@@ -98,7 +98,12 @@ def snapshot(args):
         "snapshot_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "label_review_required": True,
         "members": [
-            {key: member.get(key) for key in ("player_id", "player_name", "player_nickname")}
+            {
+                **{
+                    key: member.get(key) for key in ("player_id", "player_name", "player_nickname")
+                },
+                "is_league_member": True,
+            }
             for member in members
         ],
         "expected": expected,

@@ -10,6 +10,8 @@ jest.mock("@/utils/haptics", () => ({
 }));
 const base = {
   leagueId: 0,
+  gameType: null,
+  contextReady: false,
   photo: null,
   uploaded: false,
   confirmed: false,
@@ -36,9 +38,14 @@ test("explains why reading is disabled until a photo is chosen", () => {
   expect(screen.getByTestId("read-scoresheet")).toBeDisabled();
 });
 test.each([0, 10])(
-  "photo is enough to enable reading for league %s",
+  "photo and game type enable reading for league %s",
   (leagueId) => {
-    renderBar({ leagueId, photo: { uri: "file:///photo.jpg" } });
+    renderBar({
+      leagueId,
+      gameType: leagueId ? "league" : "pickup",
+      contextReady: true,
+      photo: { uri: "file:///photo.jpg" },
+    });
     expect(screen.getByTestId("read-scoresheet")).toBeEnabled();
   },
 );
@@ -50,4 +57,12 @@ test("pickup confirmation never waits for a league's seasons", () => {
     issue: null,
   });
   expect(screen.getByTestId("confirm-scoresheet")).toBeEnabled();
+});
+
+test("explains the game type choice after a photo is selected", () => {
+  renderBar({ photo: { uri: "file:///photo.jpg" } });
+  expect(
+    screen.getByText("Choose League or Pickup above to continue."),
+  ).toBeTruthy();
+  expect(screen.getByTestId("read-scoresheet")).toBeDisabled();
 });

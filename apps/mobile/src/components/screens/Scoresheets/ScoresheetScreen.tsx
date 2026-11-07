@@ -127,9 +127,11 @@ export default function ScoresheetScreen({
               <AppText className="text-caption font-bold uppercase tracking-wide text-brand-teal">
                 {vm.uploaded
                   ? vm.processing
-                    ? "2 / 3 · Reading scores"
+                    ? "3 / 3 · Reading scores"
                     : "3 / 3 · Review games"
-                  : "1 / 3 · Choose a photo"}
+                  : vm.photo
+                    ? "2 / 3 · Choose game type"
+                    : "1 / 3 · Choose a photo"}
               </AppText>
               <AppText
                 accessibilityRole="header"
@@ -137,12 +139,16 @@ export default function ScoresheetScreen({
               >
                 {vm.uploaded
                   ? "Check every game before adding"
-                  : "A whole scoresheet. One photo."}
+                  : vm.photo
+                    ? "Where do these games belong?"
+                    : "A whole scoresheet. One photo."}
               </AppText>
               <AppText className="text-body text-muted">
                 {vm.uploaded
                   ? "Compare names and scores with your photo. Nothing is recorded until you tap Add games."
-                  : "Scan 2v2 scores from paper or a whiteboard. Choose a photo to get started; a league is optional."}
+                  : vm.photo
+                    ? "Choose league or pickup so we can use the right players to help read your scores."
+                    : "Choose a photo of your 2v2 scores. Next, tell us whether they are league or pickup games."}
               </AppText>
               {vm.photo != null && (
                 <Pressable
@@ -193,8 +199,10 @@ export default function ScoresheetScreen({
                   </AppText>
                 </>
               )}
-              {!vm.processing && <ScoresheetContextFields vm={vm} />}
-              {!vm.uploaded && (
+              {vm.photo && !vm.processing && (
+                <ScoresheetContextFields vm={vm} />
+              )}
+              {!vm.uploaded && vm.photo && vm.contextReady && (
                 <View className="gap-3">
                   <AppText className="text-body font-semibold text-default">
                     Anything we should know? (optional)

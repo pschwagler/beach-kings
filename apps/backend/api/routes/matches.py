@@ -30,6 +30,7 @@ from backend.database.models import Season, Session, SessionStatus, PhotoMatchJo
 from backend.services import data_service, photo_match_service
 from backend.services.games.match_validation import validate_match_score
 from backend.services.games import photo_draft_service
+from backend.services.games.scoresheet_context import draft_context
 from backend.api.routes.feature_flags import require_feature
 from backend.services.players.player_lifecycle import require_active_players
 from backend.api.auth_dependencies import (
@@ -502,7 +503,7 @@ async def edit_photo_results(
         if session_data.get("league_id") != league_id:
             raise HTTPException(status_code=403, detail="Session does not belong to this league")
 
-        members = await data_service.list_league_members(session, league_id)
+        members = await draft_context(session, session_id, session_data, current_user, league_id)
 
         job_id = await photo_match_service.create_photo_match_job(session, league_id, session_id)
 

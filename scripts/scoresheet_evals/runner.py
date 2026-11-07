@@ -130,6 +130,8 @@ def run_comparison(args):
     source_paths = [
         Path(__file__),
         Path(service.__file__),
+        Path(service.__file__).with_name("scoresheet_prompt.py"),
+        Path(service.__file__).with_name("scoresheet_context.py"),
         Path(scoresheet_ai.__file__),
         Path(__file__).with_name("metrics.py"),
         Path(__file__).with_name("photo_metrics.py"),

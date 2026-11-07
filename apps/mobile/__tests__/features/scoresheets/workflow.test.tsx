@@ -297,6 +297,12 @@ test("pickup parsing and saving work without loading leagues or seasons", async 
   await act(async () => {
     await result.current.choosePhoto(false);
   });
+  expect(result.current.gameType).toBeNull();
+  await act(async () => {
+    await result.current.upload();
+  });
+  expect(api.uploadScoresheet).not.toHaveBeenCalled();
+  act(() => result.current.chooseGameType("pickup"));
   await act(async () => {
     await result.current.upload();
   });
@@ -324,4 +330,17 @@ test("pickup parsing and saving work without loading leagues or seasons", async 
     [],
   );
   await waitFor(() => expect(result.current.savedSessionId).toBe(90));
+});
+
+test("league choice needs a selected league; switching to pickup clears the league and season", async () => {
+  const { result } = setup(null);
+  act(() => result.current.chooseGameType("league"));
+  expect(result.current.contextReady).toBe(false);
+  act(() => result.current.chooseLeague(10));
+  await waitFor(() => expect(result.current.seasonId).toBe(20));
+  expect(result.current.contextReady).toBe(true);
+  act(() => result.current.chooseGameType("pickup"));
+  expect(result.current.leagueId).toBe(0);
+  expect(result.current.seasonId).toBeNull();
+  expect(result.current.contextReady).toBe(true);
 });

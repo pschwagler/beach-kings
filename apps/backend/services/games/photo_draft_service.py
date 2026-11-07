@@ -7,28 +7,11 @@ import logging
 from fastapi import HTTPException
 
 from backend.services import data_service, photo_match_service
-from backend.services.players.player_data import search_players_with_relevance
+from backend.services.games.scoresheet_context import context_members
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
 _tasks: set[asyncio.Task] = set()
-
-
-async def context_members(session, user, league_id):
-    if league_id is not None:
-        return await data_service.list_league_members(session, league_id)
-    player = await data_service.get_player_by_user_id(session, user["id"])
-    items = await search_players_with_relevance(
-        session, "", caller_player_id=player["id"] if player else None
-    )
-    return [
-        {
-            "player_id": item["id"],
-            "player_name": item["full_name"],
-            "player_nickname": item.get("nickname"),
-        }
-        for item in items
-    ]
 
 
 def spawn(coroutine):
@@ -63,6 +46,7 @@ async def start_upload(session, user, file, league_id=None, season_id=None, prom
         "player_id": player["id"],
         "user_prompt": prompt,
         "image_base64": image,
+        "player_context": members,
         "parsed_matches": [],
         "partial_matches": [],
         "raw_response": None,
