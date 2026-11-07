@@ -2,7 +2,7 @@
   "expo": {
     "name": "Beach League",
     "slug": "beach-league",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/brand/launcher/app-icon-1024.png",
     "scheme": "beach-league",

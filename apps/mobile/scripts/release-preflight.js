@@ -9,7 +9,7 @@ const EXPECTED = Object.freeze({
   bundleIdentifier: 'com.beachleague.app',
   appStoreUrl: 'https://apps.apple.com/app/id6801891670',
   displayName: 'Beach League',
-  version: '1.0.0',
+  version: '1.0.1',
   buildNumber: '1',
   googleRedirectScheme:
     'com.googleusercontent.apps.817191446075-ddkmr5ml8quamvf5258dp9tbuabfv4rc',
@@ -310,7 +310,7 @@ function verifyReleaseConfiguration({
   );
   assertOccurrences(
     project,
-    /MARKETING_VERSION = 1\.0\.0;/g,
+    /MARKETING_VERSION = 1\.0\.1;/g,
     2,
     'unexpected native marketing version',
   );

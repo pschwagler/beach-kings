@@ -5,7 +5,7 @@
   "release": {
     "environment": "production",
     "bundleIdentifier": "com.beachleague.app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "buildNumber": null,
     "apiOrigin": "https://beachleaguevb.com",
     "easBuildId": null
