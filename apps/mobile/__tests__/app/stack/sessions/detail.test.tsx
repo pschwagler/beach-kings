@@ -1,3 +1,4 @@
+jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ isDark: false }) }));
 /**
  * Behavior tests for the Session Detail screen.
  *

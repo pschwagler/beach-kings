@@ -20,6 +20,7 @@ import {
   sessionQueries,
 } from "@/features/sessions";
 import { reconcileGameMutation } from "@/features/matches";
+import { useSessionDateMutation } from '@/features/sessions/useSessionDateMutation';
 
 export interface UseSessionDetailScreenResult {
   readonly session: SessionDetail | null;
@@ -31,6 +32,7 @@ export interface UseSessionDetailScreenResult {
   readonly submitError: string | null;
   readonly isUpdatingCourt: boolean;
   readonly courtUpdateError: string | null;
+  readonly onDateChange: (date: string) => Promise<boolean>;
   /** Canonical player ID of the authenticated user. */
   readonly currentPlayerId: number | null;
   readonly onRefresh: () => void;
@@ -72,6 +74,12 @@ export function useSessionDetailScreen(
   const updateCourt = useMutation(
     sessionMutationOptions.updateCourt(userId, sessionId),
   );
+  const updateDate = useSessionDateMutation(userId, sessionId);
+  const onDateChange = useCallback(async (date: string): Promise<boolean> => {
+    if (!data?.can_edit_metadata) return false;
+    await updateDate.mutateAsync(date);
+    return true;
+  }, [data?.can_edit_metadata, updateDate]);
 
   // Refresh on focus so returning from score-game (after a save / edit /
   // delete) reflects the new game list without a manual pull-to-refresh.
@@ -228,6 +236,7 @@ export function useSessionDetailScreen(
     onEditGame,
     onSubmitSession,
     onCourtChange,
+    onDateChange,
     onClearSubmitError,
   };
 }
