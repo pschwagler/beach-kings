@@ -90,6 +90,7 @@ jobs:
           POSTGRES_USER: beachkings
           POSTGRES_PASSWORD: beachkings
           POSTGRES_DB: beachkings_test
+          POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
         ports:
           - 5432:5432
         options: >-
