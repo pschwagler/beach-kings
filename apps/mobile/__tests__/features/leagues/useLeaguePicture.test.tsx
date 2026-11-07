@@ -109,7 +109,7 @@ it('does not expose an old failed upload as a retry after an account or league c
     { initialProps: { id: 7, league: 3 }, wrapper: Wrapper });
   await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
   await act(async () => { await result.current.changePicture({ kind: 'upload', file }).catch(() => undefined); });
-  expect(result.current.mutation.isError).toBe(true);
+  await waitFor(() => expect(result.current.mutation.isError).toBe(true));
   expect(result.current.mutation.variables?.change).toEqual({ kind: 'upload', file });
   rerender({ id: 8, league: 4 });
   expect(result.current.mutation.isError).toBe(false);
