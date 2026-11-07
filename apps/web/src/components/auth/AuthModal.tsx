@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useId } from 'react';
 import Link from 'next/link';
-import { X, CheckCircle, AlertCircle, Check, X as XIcon } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Check, X as XIcon, Eye, EyeOff } from 'lucide-react';
 import GoogleAuthButton from './GoogleAuthButton';
 import AppleAuthButton from './AppleAuthButton';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,6 +11,9 @@ import PhoneInput from '../ui/PhoneInput';
 import VerificationCodeInput from './VerificationCodeInput';
 import api from '../../services/api';
 import { validatePassword } from '../../utils/passwordPolicy';
+import { authTheme } from './authTheme';
+import { useAuthDialog } from './useAuthDialog';
+import './AuthModal.css';
 
 const MODE_TITLES: Record<AuthMode, string> = {
   'sign-in': 'Log In',
@@ -59,6 +62,10 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     verifyPasswordReset,
     confirmPasswordReset,
   } = useAuth();
+  const titleId = useId();
+  const descriptionId = useId();
+  const passwordId = useId();
+  const [showPassword, setShowPassword] = useState(false);
   const [activeMode, setActiveMode] = useState<AuthMode>(mode);
   const [credentialKind, setCredentialKind] = useState<'phone' | 'email'>('phone');
   const [formData, setFormData] = useState(defaultFormState);
@@ -114,12 +121,9 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     setIsPhoneValid(isValid);
   }, []);
 
-  if (!isOpen) {
-    return null;
-  }
-
   const handleClose = () => {
     setIsSubmitting(false);
+    setShowPassword(false);
     setActiveMode('sign-in');
     setFormData(defaultFormState);
     setErrorMessage('');
@@ -137,6 +141,8 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     onClose?.();
   };
 
+  const dialogRef = useAuthDialog(isOpen, handleClose);
+
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setFormData((prev) => ({
@@ -151,6 +157,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
   };
 
   const handleSwitchMode = (newMode: AuthMode) => {
+    setShowPassword(false);
     setActiveMode(newMode);
     setErrorMessage('');
     setStatusMessage('');
@@ -321,7 +328,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       case 'reset-password-new':
         return 'Enter your new password.';
       default:
-        return 'Log in to access leagues, record games, and more.';
+        return 'Log in to your leagues, games, and stats.';
     }
   };
 
@@ -354,23 +361,28 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="auth-modal-overlay">
-      <div className="auth-modal">
+    <div className="auth-modal-overlay auth-modal-overlay--branded" style={authTheme}>
+      <div className="auth-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}>
         <div className="auth-modal__header">
           <div>
-            {/* <p className="auth-modal__eyebrow">Beach Volleyball Accounts</p> */}
-            <h2>{MODE_TITLES[activeMode]}</h2>
+            <picture className="auth-modal__brand">
+              <source media="(prefers-color-scheme: dark)" srcSet="/brand/lockup-on-dark-640.png" />
+              <img src="/brand/lockup-on-light-640.png" alt="Beach League" width="640" height="170" />
+            </picture>
+            <h2 id={titleId}>{activeMode === 'sign-in' ? 'Welcome back' : MODE_TITLES[activeMode]}</h2>
           </div>
           <button className="auth-modal__close" onClick={handleClose} aria-label="Close authentication modal">
             <X size={20} />
           </button>
         </div>
 
-        <p className="auth-modal__description">{renderDescription()}</p>
+        <p id={descriptionId} className="auth-modal__description">{renderDescription()}</p>
 
         {(activeMode === 'sign-in' || (activeMode === 'sign-up' && eligibilityToken)) && (
-          <AppleAuthButton disabled={isSubmitting} onBusyChange={setIsSubmitting} onError={setErrorMessage} onSuccess={async (authorization, signal) => {
+          <AppleAuthButton hideUnavailable disabled={isSubmitting} onBusyChange={setIsSubmitting} onError={setErrorMessage} onSuccess={async (authorization, signal) => {
             const result = await completeAppleLogin(authorization, eligibilityToken || undefined, signal);
             handleClose();
             if (!result.profile_complete) onVerifySuccess?.(false);
@@ -412,7 +424,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
         )}
 
         {(statusMessage || errorMessage) && (
-          <div className={`auth-modal__alert ${errorMessage ? 'error' : 'success'}`}>
+          <div className={`auth-modal__alert ${errorMessage ? 'error' : 'success'}`} role={errorMessage ? 'alert' : 'status'}>
             {errorMessage ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
             <span>{errorMessage || statusMessage}</span>
           </div>
@@ -452,10 +464,10 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
         ) : (
         <form className="auth-modal__form" onSubmit={handleSubmit} noValidate>
           {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password') && (
-            <fieldset className="auth-modal__name-row" disabled={isSubmitting}>
-              <legend>Use your</legend>
-              <label><input type="radio" name="credentialKind" checked={credentialKind === 'phone'} onChange={() => { setCredentialKind('phone'); setErrorMessage(''); }} /> Phone number</label>
-              <label><input type="radio" name="credentialKind" checked={credentialKind === 'email'} onChange={() => { setCredentialKind('email'); setErrorMessage(''); }} /> Email</label>
+            <fieldset className="auth-modal__credentials" disabled={isSubmitting}>
+              <legend>{activeMode === 'sign-in' ? 'Log in with' : 'Use your'}</legend>
+              <label><input type="radio" name="credentialKind" checked={credentialKind === 'phone'} onChange={() => { setCredentialKind('phone'); setShowPassword(false); setErrorMessage(''); }} /><span>Phone number</span></label>
+              <label><input type="radio" name="credentialKind" checked={credentialKind === 'email'} onChange={() => { setCredentialKind('email'); setShowPassword(false); setErrorMessage(''); }} /><span>Email</span></label>
             </fieldset>
           )}
           {activeMode === 'sign-up' && (
@@ -487,7 +499,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
           {!useEmail && (activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'sms-login' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
             <label className="auth-modal__label">
-              <span>Phone Number <span className="required-asterisk">*</span></span>
+              <span>Phone number</span>
               <PhoneInput
                 value={formData.phoneNumber}
                 onChange={handlePhoneChange}
@@ -500,7 +512,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
           {useEmail && (activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
             <label className="auth-modal__label">Email
-              <input type="email" name="email" autoComplete="email" className="auth-modal__input" value={formData.email} onChange={handleInputChange} required />
+              <input type="email" name="email" placeholder="you@example.com" autoComplete="email" className="auth-modal__input" value={formData.email} onChange={handleInputChange} required />
             </label>
           )}
 
@@ -517,16 +529,27 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           )}
 
           {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password-new') && (
-            <label className="auth-modal__label">
-              <span>Password <span className="required-asterisk">*</span></span>
-              <input
-                type="password"
-                name="password"
-                className="auth-modal__input"
-                placeholder=""
-                value={formData.password}
-                onChange={handleInputChange}
-              />
+            <div className="auth-modal__label">
+              <div className="auth-modal__password-label">
+                <label htmlFor={passwordId}>Password</label>
+                {activeMode === 'sign-in' && (
+                  <button type="button" className="auth-modal__footer-link" disabled={isSubmitting} onClick={() => handleSwitchMode('reset-password')}>Forgot password?</button>
+                )}
+              </div>
+              <div className="auth-modal__password-field">
+                <input
+                  id={passwordId}
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  autoComplete={activeMode === 'sign-in' ? 'current-password' : 'new-password'}
+                  className="auth-modal__input"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                />
+                <button type="button" className="auth-modal__password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
               {(activeMode === 'sign-up' || activeMode === 'reset-password-new') && (
                 <div className="auth-modal__password-requirements">
                   <div className={`auth-modal__requirement ${passwordRequirements.minLength ? 'valid' : ''}`}>
@@ -539,7 +562,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
                   </div>
                 </div>
               )}
-            </label>
+            </div>
           )}
 
           {activeMode === 'reset-password-code' && (
@@ -595,21 +618,13 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
           {activeMode === 'sign-in' && (
             <div className="auth-modal__footer">
-              <span className="auth-modal__footer-text">Don&apos;t have an account? </span>
+              <span className="auth-modal__footer-text">New to Beach League? </span>
               <button
                 type="button"
                 className="auth-modal__footer-link"
                 onClick={() => handleSwitchMode('sign-up')}
               >
                 Sign up
-              </button>
-              <span className="auth-modal__footer-text footer-bullet">• </span>
-              <button
-                type="button"
-                className="auth-modal__footer-link"
-                onClick={() => handleSwitchMode('reset-password')}
-              >
-                Forgot password?
               </button>
             </div>
           )}

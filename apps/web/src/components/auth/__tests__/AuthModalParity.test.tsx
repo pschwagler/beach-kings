@@ -20,7 +20,7 @@ it('allows email password login without requiring a phone number', async () => {
   render(<AuthModal isOpen onClose={close} />);
   fireEvent.click(screen.getByRole('radio', { name: 'Email' }));
   fireEvent.change(screen.getByRole('textbox', { name: 'Email' }), { target: { value: 'person@example.com' } });
-  fireEvent.change(screen.getByLabelText(/Password/), { target: { value: 'password' } });
+  fireEvent.change(screen.getByLabelText('Password', { exact: true }), { target: { value: 'password' } });
   fireEvent.click(screen.getByRole('button', { name: 'Log In' }));
   await waitFor(() => expect(methods.loginWithPassword).toHaveBeenCalledWith('person@example.com', 'password'));
   expect(close).toHaveBeenCalled();
@@ -55,7 +55,7 @@ it('completes email signup, resend and verification without any phone input', as
   fireEvent.change(screen.getByRole('textbox', { name: /First Name/ }), { target: { value: 'Test' } });
   fireEvent.change(screen.getByRole('textbox', { name: /Last Name/ }), { target: { value: 'Player' } });
   fireEvent.change(screen.getByRole('textbox', { name: 'Email' }), { target: { value: 'person@example.com' } });
-  fireEvent.change(screen.getByLabelText(/Password/), { target: { value: 'test-password' } });
+  fireEvent.change(screen.getByLabelText('Password', { exact: true }), { target: { value: 'test-password' } });
   fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
   await waitFor(() => expect(methods.signup).toHaveBeenCalledWith(expect.objectContaining({ phoneNumber: undefined, email: 'person@example.com', eligibilityToken: 'test-eligibility' })));
   fireEvent.click(await screen.findByRole('button', { name: 'Send Code' }));
@@ -78,7 +78,35 @@ it('completes email recovery through code verification and a new password', asyn
   fireEvent.change(await screen.findByRole('textbox', { name: /Verification Code/ }), { target: { value: '123456' } });
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
   await waitFor(() => expect(methods.verifyPasswordReset).toHaveBeenCalledWith('person@example.com', '123456'));
-  fireEvent.change(await screen.findByLabelText(/Password/), { target: { value: 'new-password' } });
+  fireEvent.change(await screen.findByLabelText('Password', { exact: true }), { target: { value: 'new-password' } });
   fireEvent.click(screen.getByRole('button', { name: 'Reset Password' }));
   await waitFor(() => expect(methods.confirmPasswordReset).toHaveBeenCalledWith('test-reset', 'new-password'));
+});
+
+
+it('toggles password visibility without losing the entered password', () => {
+  render(<AuthModal isOpen />);
+  const password = screen.getByLabelText('Password', { exact: true });
+  fireEvent.change(password, { target: { value: 'test-password' } });
+  expect(password).toHaveAttribute('type', 'password');
+  fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+  expect(password).toHaveAttribute('type', 'text');
+  expect(password).toHaveValue('test-password');
+  fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+  expect(password).toHaveAttribute('type', 'password');
+});
+
+it('names the dialog, dismisses with Escape and restores focus to its opener', () => {
+  const opener = document.createElement('button');
+  document.body.append(opener);
+  opener.focus();
+  const close = vi.fn();
+  const { unmount } = render(<AuthModal isOpen onClose={close} />);
+  const dialog = screen.getByRole('dialog', { name: 'Welcome back' });
+  expect(dialog).toHaveAttribute('aria-modal', 'true');
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+  expect(close).toHaveBeenCalledOnce();
+  unmount();
+  expect(opener).toHaveFocus();
+  opener.remove();
 });

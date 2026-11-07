@@ -180,4 +180,27 @@ test.describe('Login Flow', () => {
     expect(errorMessage.toLowerCase()).toContain('incorrect');
   });
 
+
+  test('should successfully login with an email and password', async ({ page }) => {
+    const email = `web-signin-${Date.now()}@example.com`;
+    await createTestUser({ phoneNumber: testPhoneNumber, password: testPassword, fullName: 'Test Player', email });
+    const code = await getVerificationCodeForPhone(testPhoneNumber);
+    expect(code).toBeTruthy();
+    const { verifyPhone } = await import('../fixtures/api.js');
+    await verifyPhone(testPhoneNumber, code);
+
+    const homePage = new HomePage(page);
+    await homePage.goto();
+    await homePage.clickSignIn();
+    const dialog = page.getByRole('dialog', { name: 'Welcome back' });
+    await dialog.getByRole('radio', { name: 'Email', exact: true }).check();
+    await dialog.getByRole('textbox', { name: 'Email', exact: true }).fill(email);
+    await dialog.getByLabel('Password', { exact: true }).fill(testPassword);
+    const loginResponse = page.waitForResponse(response => response.url().includes('/api/auth/login'));
+    await dialog.getByRole('button', { name: 'Log In', exact: true }).click();
+    expect((await loginResponse).status()).toBe(200);
+    await expect(dialog).not.toBeVisible();
+    expect(await page.evaluate(() => !!localStorage.getItem('beach_access_token'))).toBe(true);
+  });
+
 });
