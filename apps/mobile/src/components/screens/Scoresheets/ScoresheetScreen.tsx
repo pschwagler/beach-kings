@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   Alert,
+  ActivityIndicator,
+  findNodeHandle,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,6 +18,10 @@ import TopNav from "@/components/ui/TopNav";
 import { routes } from "@/lib/navigation";
 import useKeyboard from "@/hooks/useKeyboard";
 import ScoresheetPhoto from "./ScoresheetPhoto";
+import {
+  useScoresheetPhotoSource,
+  type ScoresheetPhotoSource,
+} from "./useScoresheetPhotoSource";
 import ScoresheetReviewDetails from "./ScoresheetReviewDetails";
 import ScoresheetReview from "./ScoresheetReview";
 import ScoresheetActionBar from "./ScoresheetActionBar";
@@ -24,15 +30,21 @@ import { useScoresheetScreen } from "./useScoresheetScreen";
 
 export default function ScoresheetScreen({
   leagueId,
+  initialSource,
 }: {
   readonly leagueId: number | null;
+  readonly initialSource?: ScoresheetPhotoSource;
 }): React.ReactNode {
   const vm = useScoresheetScreen(leagueId);
   const router = useRouter();
   const navigation = useNavigation();
+  const goBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace(routes.addGames());
+  }, [router]);
   const { isVisible: isKeyboardVisible } = useKeyboard();
   usePreventRemove(
-    (vm.photo != null && !vm.confirmed) || vm.busy,
+    (vm.photo != null && !vm.confirmed) || (vm.busy && !vm.picking),
     ({ data }) => {
       if (vm.busy) return;
       Alert.alert(
@@ -59,23 +71,78 @@ export default function ScoresheetScreen({
         "This photo could not be processed. Try another photo.")
       : null);
   const ready = vm.jobQuery.data?.status === "COMPLETED";
-  const replacePhoto = () =>
-    Alert.alert(
-      "Replace this review?",
-      "The games in this review have not been added.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Replace photo",
-          onPress: () => {
-            vm.restart();
-            void vm.choosePhoto(false);
-          },
-        },
-      ],
+  const anchor = useRef<View>(null);
+  const replace = useRef(false);
+  const chooser = useScoresheetPhotoSource(
+    (source) => {
+      const initial = vm.photo == null;
+      const replacing = replace.current;
+      replace.current = false;
+      void vm.choosePhoto(source === "camera").then((outcome) => {
+        if (outcome === "selected" && replacing) vm.restart();
+        if (outcome === "cancelled" && initial) goBack();
+      });
+    },
+    () => {
+      replace.current = false;
+      if (vm.photo == null) goBack();
+    },
+  );
+  const openSource = useCallback(
+    () => chooser.open({ anchor: findNodeHandle(anchor.current) ?? undefined }),
+    [chooser.open],
+  );
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    if (initialSource) {
+      void vm.choosePhoto(initialSource === "camera").then((outcome) => {
+        if (outcome === "cancelled") goBack();
+      });
+    } else openSource();
+  }, [initialSource, vm.choosePhoto, openSource, goBack]);
+  const replacePhoto = () => {
+    replace.current = true;
+    chooser.open({
+      anchor: findNodeHandle(anchor.current) ?? undefined,
+      title: "Replace scoresheet photo",
+      message: "Choose a new photo to start a fresh review.",
+    });
+  };
+  if (vm.photo == null)
+    return (
+      <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-page">
+        <TopNav title="Scan Scoresheet" showBack onBack={goBack} />
+        <View ref={anchor} className="flex-1 justify-center px-6 gap-4">
+          {vm.picking ? (
+            <ActivityIndicator accessibilityLabel="Opening photo picker" />
+          ) : (
+            <>
+              <AppText className="text-body text-muted">
+                Take a photo of your sheet with written scores and we'll load
+                the games from it. You'll get a chance to change anything that's
+                incorrect and choose where it was played and if it's part of a
+                league.
+              </AppText>
+              {vm.error && (
+                <AppText
+                  accessibilityRole="alert"
+                  className="text-body text-danger"
+                >
+                  {vm.error}
+                </AppText>
+              )}
+              <Button title="Choose photo" onPress={openSource} />
+            </>
+          )}
+        </View>
+        {chooser.sheet}
+      </SafeAreaView>
     );
   return (
     <SafeAreaView
+      ref={anchor}
       edges={["top", "bottom"]}
       className="flex-1 bg-page"
       testID="scoresheet-screen"
@@ -83,7 +150,7 @@ export default function ScoresheetScreen({
       <TopNav
         title={vm.confirmed ? "Games Added" : "Scan Scoresheet"}
         showBack
-        onBack={() => router.back()}
+        onBack={goBack}
       />
       <KeyboardAvoidingView
         className="flex-1"
@@ -167,26 +234,12 @@ export default function ScoresheetScreen({
               )}
               {!vm.uploaded && (
                 <>
-                  <View className="flex-row gap-3">
-                    <Button
-                      title="Take photo"
-                      variant="outline"
-                      className="flex-1"
-                      disabled={vm.busy}
-                      onPress={() => {
-                        void vm.choosePhoto(true);
-                      }}
-                    />
-                    <Button
-                      title={vm.photo ? "Change photo" : "Photo library"}
-                      variant="outline"
-                      className="flex-1"
-                      disabled={vm.busy}
-                      onPress={() => {
-                        void vm.choosePhoto(false);
-                      }}
-                    />
-                  </View>
+                  <Button
+                    title="Change photo"
+                    variant="outline"
+                    disabled={vm.busy}
+                    onPress={openSource}
+                  />
                   <AppText className="text-caption text-muted">
                     JPEG, PNG, or HEIC · Up to 10 MB
                   </AppText>
@@ -278,6 +331,7 @@ export default function ScoresheetScreen({
         </ScrollView>
         <ScoresheetActionBar vm={vm} error={error} onReplace={replacePhoto} />
       </KeyboardAvoidingView>
+      {chooser.sheet}
     </SafeAreaView>
   );
 }

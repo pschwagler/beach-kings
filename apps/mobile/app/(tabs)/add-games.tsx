@@ -405,7 +405,7 @@ export default function AddGamesScreen(): React.ReactNode {
         />
         {scoresheetFlag.enabled && (
           <View className="mt-4">
-            <ScanScoresheetAction onPress={() => router.push(routes.scanScoresheet())} />
+            <ScanScoresheetAction onPress={(source) => router.push(routes.scanScoresheet(undefined,source))} />
           </View>
         )}
       </RefreshScrollView>

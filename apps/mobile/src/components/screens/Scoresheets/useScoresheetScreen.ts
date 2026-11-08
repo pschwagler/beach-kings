@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Alert, Linking } from "react-native";
-import * as ImagePicker from "expo-image-picker";
+import type * as ImagePicker from "expo-image-picker";
 import { useQuery } from "@tanstack/react-query";
 import type {
   PhotoMatchJob,
@@ -17,6 +16,8 @@ import {
 } from "@/features/scoresheets/review";
 import { formatLocalCalendarDate } from "@/lib/calendarDate";
 import { getApiErrorMessage } from "@/lib/apiError";
+
+import { pickScoresheetPhoto } from "./pickScoresheetPhoto";
 
 export function useScoresheetScreen(initialLeagueId: number | null) {
   const { user } = useAuth();
@@ -113,54 +114,18 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
       setSeasonChoice(null);
     }
   };
-  const choosePhoto = async (camera: boolean) => {
-    if (busy || actionLock.current) return;
+  const choosePhoto = async (
+    camera: boolean,
+  ): Promise<"selected" | "cancelled" | "error"> => {
+    if (busy || actionLock.current) return "cancelled";
     actionLock.current = true;
     setPicking(true);
     setError(null);
     try {
-      if (camera) {
-        const permission = await ImagePicker.requestCameraPermissionsAsync();
-        if (!permission.granted) {
-          Alert.alert(
-            "Camera access needed",
-            "Allow camera access in Settings to photograph a scoresheet, or choose a photo from your library.",
-            [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Open Settings",
-                onPress: () => {
-                  void Linking.openSettings();
-                },
-              },
-            ],
-          );
-          return;
-        }
-      }
-      const options: ImagePicker.ImagePickerOptions = {
-        mediaTypes: ["images"],
-        quality: 1,
-        allowsEditing: false,
-      };
-      const picked = camera
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
-      if (picked.canceled) return;
-      const asset = picked.assets[0];
-      if (asset == null)
-        throw new Error("The photo could not be read. Please choose it again.");
-      if (asset.fileSize != null && asset.fileSize > 10 * 1024 * 1024)
-        throw new Error("Choose a photo smaller than 10 MB.");
-      if (
-        asset.mimeType &&
-        !["image/jpeg", "image/png", "image/heic", "image/heif"].includes(
-          asset.mimeType,
-        )
-      ) {
-        throw new Error("Choose a JPEG, PNG, or HEIC photo.");
-      }
+      const asset = await pickScoresheetPhoto(camera);
+      if (asset == null) return "cancelled";
       setPhoto(asset);
+      return "selected";
     } catch (error) {
       setError(
         getApiErrorMessage(
@@ -168,6 +133,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
           "Could not open the camera or photo library. Please try again.",
         ),
       );
+      return "error";
     } finally {
       actionLock.current = false;
       setPicking(false);
@@ -356,6 +322,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     resolve,
     issue,
     busy,
+    picking,
     processing,
     error,
     upload,

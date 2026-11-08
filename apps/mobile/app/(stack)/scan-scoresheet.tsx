@@ -5,7 +5,10 @@ import ComingSoon from "@/components/screens/ComingSoon";
 import ScoresheetScreen from "@/components/screens/Scoresheets/ScoresheetScreen";
 
 export default function ScanScoresheetRoute(): React.ReactNode {
-  const { leagueId } = useLocalSearchParams<{ leagueId?: string }>();
+  const { leagueId, source } = useLocalSearchParams<{
+    leagueId?: string;
+    source?: string;
+  }>();
   const id = Number(leagueId);
   const flag = useFeatureFlag("scoresheet_parsing");
   if (flag.isLoading || !flag.enabled) {
@@ -21,6 +24,11 @@ export default function ScanScoresheetRoute(): React.ReactNode {
     );
   }
   return (
-    <ScoresheetScreen leagueId={Number.isInteger(id) && id > 0 ? id : null} />
+    <ScoresheetScreen
+      leagueId={Number.isInteger(id) && id > 0 ? id : null}
+      initialSource={
+        source === "camera" || source === "library" ? source : undefined
+      }
+    />
   );
 }

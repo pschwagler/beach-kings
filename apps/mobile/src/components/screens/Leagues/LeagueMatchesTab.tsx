@@ -560,7 +560,7 @@ export default function LeagueMatchesTab({
       )}
       {canUpload && scoresheetFlag.enabled && (
         <View className="mx-4 mt-2">
-          <ScanScoresheetAction onPress={() => router.push(routes.scanScoresheet(leagueId))} />
+          <ScanScoresheetAction onPress={(source) => router.push(routes.scanScoresheet(leagueId,source))} />
         </View>
       )}
       <ModeToggle

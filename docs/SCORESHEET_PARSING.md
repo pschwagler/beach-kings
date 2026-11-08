@@ -1,6 +1,12 @@
 # Scoresheet parsing
 
-Mobile starts with a photo, then asks whether the games belong to a league or
+Scan scoresheet opens a native iOS action sheet (anchored popover on iPad)
+or an Android bottom sheet with Take photo, Choose from photos, and Cancel.
+The native camera or photo library opens before the preview and form. Canceling
+an initial selection returns to the previous screen; canceling a replacement
+preserves the existing photo and review. Change photo uses the same source menu.
+
+After selecting a photo, mobile asks whether the games belong to a league or
 pickup session. Reading starts after that choice so a single model request gets
 the relevant player context. League entry points preselect their league; seasons
 use the same current-season default as manual game entry. The action bar remains

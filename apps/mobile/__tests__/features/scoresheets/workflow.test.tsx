@@ -447,18 +447,16 @@ test("direct edits survive final save and are included in later AI correction re
 
 test("changing a globally selected player updates all matching games and keeps the choice marked", async () => {
   const unknown = { id: null, name: "Ken", rawName: "Ken" };
-  jest
-    .mocked(api.getScoresheetJob)
-    .mockResolvedValue({
-      job_id: 30,
-      status: "COMPLETED",
-      result: {
-        status: "needs_clarification",
-        matches: [{ ...match, players: [unknown, ...match.players.slice(1)] }],
-        clarification: "Who is Ken?",
-        error: null,
-      },
-    } as never);
+  jest.mocked(api.getScoresheetJob).mockResolvedValue({
+    job_id: 30,
+    status: "COMPLETED",
+    result: {
+      status: "needs_clarification",
+      matches: [{ ...match, players: [unknown, ...match.players.slice(1)] }],
+      clarification: "Who is Ken?",
+      error: null,
+    },
+  } as never);
   const { result } = setup();
   await act(async () => {
     await result.current.choosePhoto(false);
@@ -475,4 +473,47 @@ test("changing a globally selected player updates all matching games and keeps t
   expect(result.current.manualChoices).toEqual([
     { raw_name: "Ken", player_id: 9, player_name: "Ken Other" },
   ]);
+});
+
+test("camera selection opens the native camera without uploading", async () => {
+  jest
+    .mocked(ImagePicker.requestCameraPermissionsAsync)
+    .mockResolvedValueOnce({ granted: true } as never);
+  jest
+    .mocked(ImagePicker.launchCameraAsync)
+    .mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: "file:///camera.jpg", mimeType: "image/jpeg" }],
+    } as never);
+  const { result } = setup(null);
+  let outcome;
+  await act(async () => {
+    outcome = await result.current.choosePhoto(true);
+  });
+  expect(outcome).toBe("selected");
+  expect(result.current.photo?.uri).toBe("file:///camera.jpg");
+  expect(api.uploadScoresheet).not.toHaveBeenCalled();
+});
+
+test("canceling a replacement leaves the current photo and reviewed games intact", async () => {
+  const { result } = setup();
+  await act(async () => {
+    await result.current.choosePhoto(false);
+  });
+  await act(async () => {
+    await result.current.upload();
+  });
+  await waitFor(() => expect(result.current.matches).toHaveLength(1));
+  const before = result.current.matches;
+  jest
+    .mocked(ImagePicker.launchImageLibraryAsync)
+    .mockResolvedValueOnce({ canceled: true, assets: null });
+  let outcome;
+  await act(async () => {
+    outcome = await result.current.choosePhoto(false);
+  });
+  expect(outcome).toBe("cancelled");
+  expect(result.current.photo?.uri).toBe("file:///sheet.jpg");
+  expect(result.current.matches).toEqual(before);
+  expect(result.current.uploaded).toBe(true);
 });
