@@ -6,6 +6,18 @@ the relevant player context. League entry points preselect their league; seasons
 use the same current-season default as manual game entry. The action bar remains
 outside the scrolling content during selection and review.
 
+The scan entry uses a camera action. Review pins an independently zoomable,
+pannable photo above the game list; it can be enlarged, hidden, or opened full
+screen. Matching controls appear before the games and selected identities are
+shown in green with checkmarks. Compact game cards expose an inline editor for
+players and scores. Edits remain local until the batch is confirmed, and the
+current reviewed state is also sent to subsequent AI corrections.
+
+The date, optional court, and league/season context can be reviewed before saving.
+Pickup imports use the selected court. League imports honor it when creating a
+session; an existing league session at a different court is rejected before any
+games are added, so importing cannot silently reassign the session's other games.
+
 ## Player context
 
 League and pickup uploads share `services/games/scoresheet_context.py`:

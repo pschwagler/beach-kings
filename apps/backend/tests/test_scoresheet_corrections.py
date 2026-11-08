@@ -106,3 +106,36 @@ async def test_correction_uses_current_ids_and_preserves_review_on_failure(
     else:
         assert result["matches"][0]["team2_score"] == 18
         assert store.await_args.args[1]["parsed_matches"][0]["team1_player1_id"] == 8
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "league,court_exists,actual_court", [(None, True, 12), (1, True, 3), (None, False, None)]
+)
+async def test_batch_honors_selected_court_without_reassigning_existing_sessions(
+    monkeypatch, league, court_exists, actual_court
+):
+    from backend.services import data_service
+
+    db = AsyncMock()
+    db.scalar.return_value = 12 if court_exists else None
+    draft = {"league_id": league, "player_id": 1, "parsed_matches": [game(ids=(1, 2, 3, 4))]}
+    monkeypatch.setattr(service, "get_session_data", AsyncMock(return_value=draft))
+    monkeypatch.setattr(service, "check_idempotency", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "update_session_data", AsyncMock(return_value=True))
+    create_session = AsyncMock(return_value={"id": 100, "court_id": actual_court})
+    league_session = AsyncMock(return_value={"id": 100, "court_id": actual_court})
+    create_match = AsyncMock(return_value=200)
+    monkeypatch.setattr(data_service, "create_session", create_session)
+    monkeypatch.setattr(data_service, "get_or_create_active_league_session", league_session)
+    monkeypatch.setattr(data_service, "create_match_async", create_match)
+    success, ids, message = await service.create_matches_from_session(
+        db, "draft", None, "2026-11-08", court_id=12
+    )
+    if league is None and court_exists:
+        assert success and ids == [200]
+        assert create_session.await_args.kwargs["court_id"] == 12
+    else:
+        assert not success and ids == []
+        create_match.assert_not_awaited()
+        assert "court" in message.lower()

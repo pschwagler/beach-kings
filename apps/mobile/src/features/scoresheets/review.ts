@@ -33,19 +33,19 @@ export function scoresheetReviewIssue(
       return "Match each unrecognized name to a player before adding games.";
     }
     if (new Set(match.players.map((player) => player.id)).size !== 4) {
-      return `Game ${match.number} has a player more than once. Request a correction below.`;
+      return `Game ${match.number} has a player more than once. Tap Edit game to fix it.`;
     }
     const [a, b] = match.scores;
     if (
       a == null ||
       b == null ||
-      !Number.isInteger(a) ||
-      !Number.isInteger(b) ||
+      !Number.isSafeInteger(a) ||
+      !Number.isSafeInteger(b) ||
       a < 0 ||
       b < 0 ||
       a === b
     ) {
-      return `Check the scores for game ${match.number}. Request a correction below.`;
+      return `Check the scores for game ${match.number}. Tap Edit game to fix it.`;
     }
   }
   return null;

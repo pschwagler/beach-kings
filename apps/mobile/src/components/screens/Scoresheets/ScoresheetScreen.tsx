@@ -1,10 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   View,
 } from "react-native";
@@ -16,6 +14,9 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import TopNav from "@/components/ui/TopNav";
 import { routes } from "@/lib/navigation";
+import useKeyboard from "@/hooks/useKeyboard";
+import ScoresheetPhoto from "./ScoresheetPhoto";
+import ScoresheetReviewDetails from "./ScoresheetReviewDetails";
 import ScoresheetReview from "./ScoresheetReview";
 import ScoresheetActionBar from "./ScoresheetActionBar";
 import ScoresheetContextFields from "./ScoresheetContextFields";
@@ -29,7 +30,7 @@ export default function ScoresheetScreen({
   const vm = useScoresheetScreen(leagueId);
   const router = useRouter();
   const navigation = useNavigation();
-  const [expanded, setExpanded] = useState(false);
+  const { isVisible: isKeyboardVisible } = useKeyboard();
   usePreventRemove(
     (vm.photo != null && !vm.confirmed) || vm.busy,
     ({ data }) => {
@@ -88,6 +89,13 @@ export default function ScoresheetScreen({
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
+        {vm.uploaded && !vm.confirmed && vm.photo && (
+          <ScoresheetPhoto
+            uri={vm.photo.uri}
+            docked
+            compact={isKeyboardVisible}
+          />
+        )}
         <ScrollView
           testID="scoresheet-content"
           className="flex-1"
@@ -133,44 +141,29 @@ export default function ScoresheetScreen({
                     ? "2 / 3 · Choose game type"
                     : "1 / 3 · Choose a photo"}
               </AppText>
-              <AppText
-                accessibilityRole="header"
-                className="text-title2 font-bold text-default"
-              >
-                {vm.uploaded
-                  ? "Check every game before adding"
-                  : vm.photo
-                    ? "Where do these games belong?"
-                    : "A whole scoresheet. One photo."}
-              </AppText>
-              <AppText className="text-body text-muted">
-                {vm.uploaded
-                  ? "Compare names and scores with your photo. Nothing is recorded until you tap Add games."
-                  : vm.photo
-                    ? "Choose league or pickup so we can use the right players to help read your scores."
-                    : "Choose a photo of your 2v2 scores. Next, tell us whether they are league or pickup games."}
-              </AppText>
-              {vm.photo != null && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    expanded
-                      ? "Shrink scoresheet photo"
-                      : "Expand scoresheet photo"
-                  }
-                  onPress={() => setExpanded(!expanded)}
+              {!ready && (
+                <AppText
+                  accessibilityRole="header"
+                  className="text-title2 font-bold text-default"
                 >
-                  <Image
-                    source={{ uri: vm.photo.uri }}
-                    resizeMode="contain"
-                    accessibilityLabel="Selected scoresheet"
-                    style={{ height: expanded ? 480 : 180, width: "100%" }}
-                    className="rounded-card bg-elevated"
-                  />
-                  <AppText className="text-caption text-brand-teal mt-2">
-                    {expanded ? "Tap to shrink photo" : "Tap to enlarge photo"}
-                  </AppText>
-                </Pressable>
+                  {vm.uploaded
+                    ? "Check every game before adding"
+                    : vm.photo
+                      ? "Where do these games belong?"
+                      : "Add games from a scoresheet"}
+                </AppText>
+              )}
+              {!ready && (
+                <AppText className="text-body text-muted">
+                  {vm.uploaded
+                    ? "Compare names and scores with your photo. Nothing is recorded until you tap Add games."
+                    : vm.photo
+                      ? "Choose league or pickup so we can use the right players to help read your scores."
+                      : "Take a photo of your sheet with written scores and we'll load the games from it. You'll get a chance to change anything that's incorrect and choose where it was played and if it's part of a league."}
+                </AppText>
+              )}
+              {vm.photo != null && !vm.uploaded && (
+                <ScoresheetPhoto key={vm.photo.uri} uri={vm.photo.uri} />
               )}
               {!vm.uploaded && (
                 <>
@@ -199,7 +192,7 @@ export default function ScoresheetScreen({
                   </AppText>
                 </>
               )}
-              {vm.photo && !vm.processing && (
+              {vm.photo && !vm.processing && !ready && (
                 <ScoresheetContextFields vm={vm} />
               )}
               {!vm.uploaded && vm.photo && vm.contextReady && (
@@ -227,11 +220,14 @@ export default function ScoresheetScreen({
               )}
               {ready && (
                 <>
-                  {vm.result?.clarification && (
-                    <AppText className="text-body text-warning">
-                      {vm.result.clarification}
-                    </AppText>
-                  )}
+                  {vm.result?.clarification &&
+                    !vm.result.clarification.includes(
+                      "I couldn't match these player names:",
+                    ) && (
+                      <AppText className="text-body text-warning">
+                        {vm.result.clarification}
+                      </AppText>
+                    )}
                   {vm.result?.error && (
                     <AppText className="text-body text-warning">
                       {vm.result.error}
@@ -243,7 +239,12 @@ export default function ScoresheetScreen({
                     leagueId={vm.leagueId || null}
                     onResolve={vm.resolve}
                     disabled={vm.busy}
+                    onEdit={vm.editGame}
+                    selectedIds={vm.selectedIds}
+                    manualChoices={vm.manualChoices}
+                    onEditingChange={vm.setEditorOpen}
                   />
+                  <ScoresheetReviewDetails vm={vm} />
                   <View className="gap-3">
                     <AppText className="text-body font-bold text-default">
                       Need a correction?
@@ -256,7 +257,9 @@ export default function ScoresheetScreen({
                     <Button
                       title="Apply correction"
                       variant="outline"
-                      disabled={vm.busy || !vm.editPrompt.trim()}
+                      disabled={
+                        vm.busy || vm.editorOpen || !vm.editPrompt.trim()
+                      }
                       onPress={() => {
                         void vm.edit();
                       }}

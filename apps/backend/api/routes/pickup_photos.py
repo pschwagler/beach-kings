@@ -88,15 +88,19 @@ async def confirm_pickup_photo(
     session=Depends(get_db_session),
     user=Depends(require_user),
 ):
-    await owned_draft(draft_id, user)
+    draft = await owned_draft(draft_id, user)
     if body.season_id is not None:
         raise HTTPException(400, "Pickup games do not have a season")
     try:
         datetime.strptime(body.match_date, "%Y-%m-%d")
     except ValueError:
         raise HTTPException(422, "Choose a valid game date")
+    if body.reviewed_matches is not None:
+        members = await draft_context(session, draft_id, draft, user, None)
+        await prepare_review(session, draft_id, members, body.reviewed_matches, None)
+    context = {"court_id": body.court_id} if body.court_id is not None else {}
     success, ids, message = await photo_match_service.create_matches_from_session(
-        session, draft_id, None, body.match_date, player_overrides=body.player_overrides
+        session, draft_id, None, body.match_date, player_overrides=body.player_overrides, **context
     )
     if not success:
         raise HTTPException(400, message)

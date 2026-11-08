@@ -1139,6 +1139,7 @@ async def create_matches_from_session(
     season_id: Optional[int],
     match_date: str,
     player_overrides: Optional[List[Dict]] = None,
+    court_id: Optional[int] = None,
 ) -> Tuple[bool, List[int], str]:
     """
     Create matches from a confirmed photo session.
@@ -1201,6 +1202,12 @@ async def create_matches_from_session(
         if len(set(ids)) != 4:
             return False, [], f"Match {i + 1}: Choose four different players."
 
+    if court_id is not None:
+        from backend.database.models import Court
+
+        if not await db_session.scalar(select(Court.id).where(Court.id == court_id)):
+            return False, [], "Court not found. Choose another court."
+
     # Create matches
     created_ids = []
     try:
@@ -1209,7 +1216,24 @@ async def create_matches_from_session(
             if not session_data.get("player_id"):
                 return False, [], "Player profile required"
             pickup = await data_service.create_session(
-                db_session, date=match_date, created_by=session_data["player_id"], is_ranked=False
+                db_session,
+                date=match_date,
+                created_by=session_data["player_id"],
+                is_ranked=False,
+                **({"court_id": court_id} if court_id is not None else {}),
+            )
+        session_obj = pickup or await data_service.get_or_create_active_league_session(
+            db_session,
+            league_id=session_data.get("league_id"),
+            session_date=match_date,
+            season_id=season_id,
+            **({"court_id": court_id} if court_id is not None else {}),
+        )
+        if court_id is not None and session_obj.get("court_id") != court_id:
+            return (
+                False,
+                [],
+                "These games join an existing league session at a different court. Choose that session's court or update its court first.",
             )
         for match in parsed_matches:
             from backend.models.schemas import CreateMatchRequest
@@ -1222,14 +1246,6 @@ async def create_matches_from_session(
                 team2_player2_id=match["team2_player2_id"],
                 team1_score=match["team1_score"],
                 team2_score=match["team2_score"],
-            )
-
-            # Get or create session for the season
-            session_obj = pickup or await data_service.get_or_create_active_league_session(
-                db_session,
-                league_id=session_data.get("league_id"),
-                session_date=match_date,
-                season_id=season_id,
             )
 
             match_id = await data_service.create_match_async(

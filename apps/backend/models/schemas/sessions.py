@@ -362,3 +362,5 @@ class ConfirmPhotoMatchesRequest(BaseModel):
     season_id: Optional[int] = None
     match_date: str
     player_overrides: Optional[list] = None
+    reviewed_matches: list[ReviewedPhotoMatch] | None = None
+    court_id: Annotated[int, Field(strict=True, gt=0)] | None = None

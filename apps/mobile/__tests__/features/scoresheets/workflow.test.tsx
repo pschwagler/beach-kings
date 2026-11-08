@@ -126,6 +126,8 @@ test("photo selection and parsing never save games; confirmation sends reviewed 
     null,
     "2026-11-01",
     [],
+    result.current.matches,
+    null,
   );
   expect(invalidate).toHaveBeenCalledWith({
     queryKey: ["private", 7, "leagues"],
@@ -187,31 +189,29 @@ test("keeps the photo after upload fails and rejects unresolved players before c
     20,
     expect.any(String),
     [{ raw_name: "Sam", player_id: 8, player_name: "Samuel" }],
+    result.current.matches,
+    null,
   );
 });
 
 test("corrections start from the reviewed players and scores, and can replace a prior identity", async () => {
   const sam = { id: null, name: "Sam", rawName: "Sam" };
   const original = { ...match, players: [sam, ...match.players.slice(1)] };
-  jest
-    .mocked(api.getScoresheetJob)
-    .mockResolvedValue({
-      job_id: 30,
-      status: "COMPLETED",
-      result: {
-        status: "needs_clarification",
-        matches: [original],
-        clarification: "Who is Sam?",
-        error: null,
-      },
-    } as never);
-  jest
-    .mocked(api.editScoresheet)
-    .mockResolvedValueOnce({
-      job_id: 31,
-      session_id: "draft",
-      status: "PENDING",
-    });
+  jest.mocked(api.getScoresheetJob).mockResolvedValue({
+    job_id: 30,
+    status: "COMPLETED",
+    result: {
+      status: "needs_clarification",
+      matches: [original],
+      clarification: "Who is Sam?",
+      error: null,
+    },
+  } as never);
+  jest.mocked(api.editScoresheet).mockResolvedValueOnce({
+    job_id: 31,
+    session_id: "draft",
+    status: "PENDING",
+  });
   const { result } = setup();
   await act(async () => {
     await result.current.choosePhoto(false);
@@ -227,18 +227,16 @@ test("corrections start from the reviewed players and scores, and can replace a 
   const reviewed = result.current.matches;
   expect(reviewed[0]?.players[0]?.id).toBe(8);
   const corrected = { ...reviewed[0], scores: [21, 17] };
-  jest
-    .mocked(api.getScoresheetJob)
-    .mockResolvedValue({
-      job_id: 31,
-      status: "COMPLETED",
-      result: {
-        status: "success",
-        matches: [corrected],
-        clarification: null,
-        error: null,
-      },
-    } as never);
+  jest.mocked(api.getScoresheetJob).mockResolvedValue({
+    job_id: 31,
+    status: "COMPLETED",
+    result: {
+      status: "success",
+      matches: [corrected],
+      clarification: null,
+      error: null,
+    },
+  } as never);
   await act(async () => {
     await result.current.edit();
   });
@@ -255,13 +253,11 @@ test("corrections start from the reviewed players and scores, and can replace a 
   expect(result.current.matches[0]?.players[0]?.id).toBe(8);
 
   // A subsequent identity correction takes precedence over the old selection.
-  jest
-    .mocked(api.editScoresheet)
-    .mockResolvedValueOnce({
-      job_id: 32,
-      session_id: "draft",
-      status: "PENDING",
-    });
+  jest.mocked(api.editScoresheet).mockResolvedValueOnce({
+    job_id: 32,
+    session_id: "draft",
+    status: "PENDING",
+  });
   const replacement = {
     ...corrected,
     players: [
@@ -269,18 +265,16 @@ test("corrections start from the reviewed players and scores, and can replace a 
       ...match.players.slice(1),
     ],
   };
-  jest
-    .mocked(api.getScoresheetJob)
-    .mockResolvedValue({
-      job_id: 32,
-      status: "COMPLETED",
-      result: {
-        status: "success",
-        matches: [replacement],
-        clarification: null,
-        error: null,
-      },
-    } as never);
+  jest.mocked(api.getScoresheetJob).mockResolvedValue({
+    job_id: 32,
+    status: "COMPLETED",
+    result: {
+      status: "success",
+      matches: [replacement],
+      clarification: null,
+      error: null,
+    },
+  } as never);
   act(() => result.current.setEditPrompt("Sam is Other Samuel"));
   await act(async () => {
     await result.current.edit();
@@ -304,6 +298,8 @@ test("corrections start from the reviewed players and scores, and can replace a 
     20,
     expect.any(String),
     [],
+    result.current.matches,
+    null,
   );
 });
 
@@ -395,6 +391,8 @@ test("pickup parsing and saving work without loading leagues or seasons", async 
     null,
     expect.any(String),
     [],
+    result.current.matches,
+    null,
   );
   await waitFor(() => expect(result.current.savedSessionId).toBe(90));
 });
@@ -410,4 +408,71 @@ test("league choice needs a selected league; switching to pickup clears the leag
   expect(result.current.leagueId).toBe(0);
   expect(result.current.seasonId).toBeNull();
   expect(result.current.contextReady).toBe(true);
+});
+
+test("direct edits survive final save and are included in later AI correction requests", async () => {
+  const { result } = setup();
+  await act(async () => {
+    await result.current.choosePhoto(false);
+  });
+  await act(async () => {
+    await result.current.upload();
+  });
+  await waitFor(() => expect(result.current.matches).toHaveLength(1));
+  const edited = { ...result.current.matches[0]!, scores: [21, 17] as const };
+  act(() => {
+    result.current.editGame(edited, []);
+    result.current.setCourt(12, "Test court");
+  });
+  expect(result.current.matches[0]?.scores).toEqual([21, 17]);
+  act(() => result.current.setEditorOpen(true));
+  await act(async () => {
+    await result.current.confirm();
+  });
+  expect(api.confirmScoresheet).not.toHaveBeenCalled();
+  act(() => result.current.setEditorOpen(false));
+  await act(async () => {
+    await result.current.confirm();
+  });
+  expect(api.confirmScoresheet).toHaveBeenCalledWith(
+    10,
+    "draft",
+    20,
+    expect.any(String),
+    [],
+    [edited],
+    12,
+  );
+});
+
+test("changing a globally selected player updates all matching games and keeps the choice marked", async () => {
+  const unknown = { id: null, name: "Ken", rawName: "Ken" };
+  jest
+    .mocked(api.getScoresheetJob)
+    .mockResolvedValue({
+      job_id: 30,
+      status: "COMPLETED",
+      result: {
+        status: "needs_clarification",
+        matches: [{ ...match, players: [unknown, ...match.players.slice(1)] }],
+        clarification: "Who is Ken?",
+        error: null,
+      },
+    } as never);
+  const { result } = setup();
+  await act(async () => {
+    await result.current.choosePhoto(false);
+  });
+  await act(async () => {
+    await result.current.upload();
+  });
+  await waitFor(() => expect(result.current.unresolved).toEqual(["Ken"]));
+  act(() => result.current.resolve("Ken", 8, "Ken Example"));
+  expect(result.current.unresolved).toEqual([]);
+  expect(result.current.selectedIds).toContain(8);
+  act(() => result.current.resolve("Ken", 9, "Ken Other"));
+  expect(result.current.matches[0]?.players[0]?.id).toBe(9);
+  expect(result.current.manualChoices).toEqual([
+    { raw_name: "Ken", player_id: 9, player_name: "Ken Other" },
+  ]);
 });

@@ -121,11 +121,9 @@ test("pickup requests use owner-scoped routes and return the saved session", asy
 });
 
 test("corrections send the whole current review, including manual IDs and current scores", async () => {
-  const post = jest
-    .fn()
-    .mockResolvedValue({
-      data: { job_id: 5, session_id: "draft", status: "PENDING" },
-    });
+  const post = jest.fn().mockResolvedValue({
+    data: { job_id: 5, session_id: "draft", status: "PENDING" },
+  });
   const methods = createPhotoMatchMethods({ post } as unknown as AxiosInstance);
   const review = [
     {
@@ -142,6 +140,44 @@ test("corrections send the whole current review, including manual IDs and curren
   expect(post).toHaveBeenCalledWith(
     "/api/matches/photo-sessions/draft/edit",
     { edit_prompt: "Game 1 finished 21-18", reviewed_matches: review },
+    { timeout: 30000 },
+  );
+});
+
+test("confirmation includes reviewed game edits and the chosen court", async () => {
+  const post = jest
+    .fn()
+    .mockResolvedValue({ data: { matches_created: 1, match_ids: [10] } });
+  const methods = createPhotoMatchMethods({ post } as unknown as AxiosInstance);
+  const review = [
+    {
+      number: 1,
+      players: [1, 2, 3, 4].map((id) => ({
+        id,
+        name: `Player ${id}`,
+        rawName: `Player ${id}`,
+      })),
+      scores: [21, 17] as const,
+    },
+  ];
+  await methods.confirmScoresheet(
+    null,
+    "draft",
+    null,
+    "2026-11-08",
+    [],
+    review,
+    12,
+  );
+  expect(post).toHaveBeenCalledWith(
+    "/api/matches/photo-sessions/draft/confirm",
+    {
+      season_id: null,
+      match_date: "2026-11-08",
+      player_overrides: [],
+      reviewed_matches: review,
+      court_id: 12,
+    },
     { timeout: 30000 },
   );
 });

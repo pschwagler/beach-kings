@@ -1,3 +1,4 @@
+import ScanScoresheetAction from "@/components/screens/Scoresheets/ScanScoresheetAction";
 /**
  * LeagueMatchesTab — Games tab of the League Detail screen.
  *
@@ -11,7 +12,6 @@
 
 import React from "react";
 import { useFeatureFlag } from '@/features/feature-flags/queries';
-import Button from "@/components/ui/Button";
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -560,11 +560,7 @@ export default function LeagueMatchesTab({
       )}
       {canUpload && scoresheetFlag.enabled && (
         <View className="mx-4 mt-2">
-          <Button
-            title="Scan scoresheet"
-            variant="outline"
-            onPress={() => router.push(routes.scanScoresheet(leagueId))}
-          />
+          <ScanScoresheetAction onPress={() => router.push(routes.scanScoresheet(leagueId))} />
         </View>
       )}
       <ModeToggle

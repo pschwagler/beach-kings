@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useQuery } from "@tanstack/react-query";
 import type {
   PhotoMatchJob,
+  ScoresheetMatch,
   PhotoPlayerOverride,
 } from "@beach-kings/api-client";
 import { leagueQueries } from "@/features/leagues";
@@ -29,6 +30,16 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
   const [seasonChoice, setSeasonChoice] = useState<{
     id: number | null;
   } | null>(null);
+  const [courtId, setCourtId] = useState<number | null>(null);
+  const [courtName, setCourtName] = useState<string | null>(null);
+  const [gameEdits, setGameEdits] = useState<
+    Readonly<Record<number, ScoresheetMatch>>
+  >({});
+  const [selectedIds, setSelectedIds] = useState<readonly number[]>([]);
+  const [manualChoices, setManualChoices] = useState<
+    readonly PhotoPlayerOverride[]
+  >([]);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [date, setDate] = useState(() => formatLocalCalendarDate());
   const [photo, setPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -66,8 +77,14 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     jobQuery.data?.status !== "FAILED";
   const result = jobQuery.data?.result;
   const matches = useMemo(
-    () => resolveScoresheetMatches(result?.matches ?? [], overrides),
-    [result, overrides],
+    () =>
+      resolveScoresheetMatches(
+        (result?.matches ?? []).map(
+          (match) => gameEdits[match.number] ?? match,
+        ),
+        overrides,
+      ),
+    [result, overrides, gameEdits],
   );
   const issue = scoresheetReviewIssue(matches);
   const unresolved = useMemo(
@@ -183,7 +200,14 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     }
   };
   const edit = async () => {
-    if (!job || !editPrompt.trim() || busy || processing || actionLock.current)
+    if (
+      !job ||
+      !editPrompt.trim() ||
+      editorOpen ||
+      busy ||
+      processing ||
+      actionLock.current
+    )
       return;
     actionLock.current = true;
     setError(null);
@@ -195,6 +219,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
       });
       setJob(next);
       setOverrides([]);
+      setGameEdits({});
       setEditPrompt("");
     } catch (error) {
       setError(
@@ -210,6 +235,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
   const confirm = async () => {
     if (
       !job ||
+      editorOpen ||
       issue ||
       processing ||
       jobQuery.data?.status !== "COMPLETED" ||
@@ -225,6 +251,8 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
         seasonId: leagueId > 0 ? seasonId : null,
         date,
         overrides,
+        matches,
+        courtId,
       });
     } catch (error) {
       setError(
@@ -239,6 +267,36 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     player_id: number,
     player_name: string,
   ) => {
+    const previousChoice = manualChoices.find(
+      (item) => item.raw_name.toLowerCase() === raw_name.toLowerCase(),
+    );
+    setGameEdits((previous) => ({
+      ...previous,
+      ...Object.fromEntries(
+        matches.map((match) => [
+          match.number,
+          {
+            ...match,
+            players: match.players.map((player) => {
+              const sameName =
+                player.rawName.toLowerCase() === raw_name.toLowerCase() ||
+                (!player.rawName && player.id === previousChoice?.player_id);
+              return sameName &&
+                (player.id == null || player.id === previousChoice?.player_id)
+                ? { ...player, id: player_id, name: player_name }
+                : player;
+            }),
+          },
+        ]),
+      ),
+    }));
+    setManualChoices((previous) => [
+      ...previous.filter(
+        (item) => item.raw_name.toLowerCase() !== raw_name.toLowerCase(),
+      ),
+      { raw_name, player_id, player_name },
+    ]);
+    setSelectedIds((previous) => [...new Set([...previous, player_id])]);
     setOverrides((previous) => [
       ...previous.filter(
         (item) => item.raw_name.toLowerCase() !== raw_name.toLowerCase(),
@@ -246,9 +304,17 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
       { raw_name, player_id, player_name },
     ]);
   };
+  const editGame = (match: ScoresheetMatch, ids: readonly number[]) => {
+    setGameEdits((previous) => ({ ...previous, [match.number]: match }));
+    setSelectedIds((previous) => [...new Set([...previous, ...ids])]);
+  };
   const restart = () => {
     setJob(null);
     setOverrides([]);
+    setGameEdits({});
+    setSelectedIds([]);
+    setManualChoices([]);
+    setEditorOpen(false);
     setError(null);
     mutations.confirm.reset();
   };
@@ -265,6 +331,17 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     setSeasonId: (id: number | null) => setSeasonChoice({ id }),
     date,
     setDate,
+    courtId,
+    courtName,
+    setCourt: (id: number | null, name?: string | null) => {
+      setCourtId(id);
+      setCourtName(name ?? null);
+    },
+    editGame,
+    selectedIds,
+    manualChoices,
+    editorOpen,
+    setEditorOpen,
     photo,
     prompt,
     setPrompt,

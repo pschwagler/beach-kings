@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import type { useScoresheetScreen } from "./useScoresheetScreen";
 import AppText from "@/components/ui/AppText";
 import Button from "@/components/ui/Button";
+import SessionCourtPicker from "@/components/screens/Sessions/SessionCourtPicker";
 import SessionDateField from "@/components/screens/Sessions/SessionDateField";
 import SessionSeasonSelector from "@/components/screens/Sessions/SessionSeasonSelector";
 
@@ -122,6 +123,15 @@ export default function ScoresheetContextFields({
           value={vm.date}
           onChange={vm.setDate}
           testID="scoresheet-date"
+        />
+      )}
+      {vm.contextReady && (
+        <SessionCourtPicker
+          selectedCourtId={vm.courtId}
+          selectedCourtName={vm.courtName}
+          onChange={vm.setCourt}
+          isUpdating={vm.busy}
+          testIDPrefix="scoresheet"
         />
       )}
       {vm.leagueId > 0 && (

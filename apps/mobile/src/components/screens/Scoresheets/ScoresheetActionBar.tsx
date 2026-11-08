@@ -34,10 +34,12 @@ export default function ScoresheetActionBar({
             : vm.gameType === "pickup"
               ? "Ready to read as pickup games. No league needed."
               : "Ready to read with your league’s players and your session history."
-        : (vm.issue ??
-          (seasonPending
-            ? "Load season options above before adding league games."
-            : "Checked the names and scores? Add these games to save them.")));
+        : vm.editorOpen
+          ? "Save or cancel your game edits before adding the games."
+          : (vm.issue ??
+            (seasonPending
+              ? "Load season options above before adding league games."
+              : "Checked the names and scores? Add these games to save them.")));
   return (
     <View
       testID="scoresheet-action-bar"
@@ -73,7 +75,9 @@ export default function ScoresheetActionBar({
           title={`Add ${vm.matches.length} ${vm.matches.length === 1 ? "game" : "games"}`}
           variant="secondary"
           loading={vm.confirming}
-          disabled={vm.busy || vm.issue != null || seasonPending}
+          disabled={
+            vm.busy || vm.editorOpen || vm.issue != null || seasonPending
+          }
           onPress={() => {
             void vm.confirm();
           }}

@@ -676,8 +676,12 @@ async def confirm_photo_matches(
                     detail="Season not found or does not belong to this league",
                 )
 
+        if body.reviewed_matches is not None:
+            members = await draft_context(session, session_id, session_data, current_user, league_id)
+            await prepare_review(session, session_id, members, body.reviewed_matches, league_id)
+        context = {"court_id": body.court_id} if body.court_id is not None else {}
         success, match_ids, message = await photo_match_service.create_matches_from_session(
-            session, session_id, season_id, match_date, player_overrides=player_overrides
+            session, session_id, season_id, match_date, player_overrides=player_overrides, **context
         )
 
         if not success:

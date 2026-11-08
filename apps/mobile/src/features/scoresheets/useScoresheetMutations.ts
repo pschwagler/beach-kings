@@ -60,6 +60,8 @@ export function useScoresheetMutations(userId: number, leagueId: number) {
       seasonId: number | null;
       date: string;
       overrides: readonly PhotoPlayerOverride[];
+      matches: readonly ScoresheetMatch[];
+      courtId: number | null;
     }) => {
       requireIdentity();
       return api.confirmScoresheet(
@@ -68,6 +70,8 @@ export function useScoresheetMutations(userId: number, leagueId: number) {
         input.seasonId,
         input.date,
         input.overrides,
+        input.matches,
+        input.courtId,
       );
     },
     // A batch affects sessions, games, league counts, and personal stats.

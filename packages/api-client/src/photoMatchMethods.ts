@@ -147,6 +147,8 @@ export function createPhotoMatchMethods(api: AxiosInstance) {
       seasonId: number | null,
       date: string,
       overrides: readonly PhotoPlayerOverride[],
+      reviewedMatches?: readonly ScoresheetMatch[],
+      courtId?: number | null,
     ): Promise<{
       match_ids: number[];
       matches_created: number;
@@ -159,6 +161,10 @@ export function createPhotoMatchMethods(api: AxiosInstance) {
             season_id: seasonId,
             match_date: date,
             player_overrides: overrides,
+            ...(reviewedMatches !== undefined
+              ? { reviewed_matches: reviewedMatches }
+              : {}),
+            ...(courtId != null ? { court_id: courtId } : {}),
           },
           { timeout: 30_000 },
         )
