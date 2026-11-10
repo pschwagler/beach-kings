@@ -153,13 +153,14 @@ export function useLeagueDetailScreen(
     const owner = actionOwner.current;
     if (!owner.active || owner.pending || owner.userId !== userId || owner.leagueId !== leagueId
       || !canRecordRef.current || userId <= 0) return undefined;
-    // staleTime is not a refresh timer: another member may have opened or
-    // submitted a session while this screen stayed mounted. Resolve at action time.
+    // Use the same cached session state as the visible action. Refresh stale
+    // data in the background so opening score entry never waits on the network.
     owner.pending = true;
-    setIsResolvingSessionAction(true);
+    setIsResolvingSessionAction(sessionsQuery.data === undefined);
     try {
-      const sessions = await queryClient.fetchQuery({
-        ...leagueQueries.sessions(userId, leagueId), staleTime: 0,
+      const sessions = await queryClient.ensureQueryData({
+        ...leagueQueries.sessions(userId, leagueId),
+        revalidateIfStale: true,
       });
       if (!owner.active || owner !== actionOwner.current || !canRecordRef.current) return undefined;
       return getLeagueLiveSessionId(sessions);
@@ -170,7 +171,7 @@ export function useLeagueDetailScreen(
       owner.pending = false;
       if (owner.active && owner === actionOwner.current) setIsResolvingSessionAction(false);
     }
-  }, [userId, leagueId, queryClient]);
+  }, [userId, leagueId, queryClient, sessionsQuery.data]);
   const detailError = getQueryErrorPresentation(detailQuery.error, "League");
 
   useEffect(() => {
@@ -274,8 +275,8 @@ export function useLeagueDetailScreen(
 
   return {
     liveSessionId,
-    isSessionActionReady: sessionsQuery.isSuccess && !isResolvingSessionAction,
-    isSessionActionError: sessionsQuery.isError && !isResolvingSessionAction,
+    isSessionActionReady: sessionsQuery.data !== undefined && !isResolvingSessionAction,
+    isSessionActionError: sessionsQuery.data === undefined && sessionsQuery.isError && !isResolvingSessionAction,
     onResolveSessionAction,
     onRetrySessionAction: () => { void sessionsQuery.refetch(); },
     leagueId,

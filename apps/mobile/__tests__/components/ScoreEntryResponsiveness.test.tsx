@@ -134,3 +134,20 @@ it('updates roster badges and disabled state when a player joins a team', () => 
   fireEvent.press(screen.getByTestId('roster-chip-2'));
   expect(onSelectPlayer).toHaveBeenCalledWith(players[1]);
 });
+
+it('selects a player by tapping their name, row, or Add affordance exactly once', () => {
+  const onSelectPlayer = jest.fn();
+  render(<RosterPicker roster={players} team1={emptyTeam} team2={emptyTeam} search="" onSearch={jest.fn()} onSelectPlayer={onSelectPlayer} />);
+  fireEvent.press(screen.getByText('Casey Beach'));
+  expect(onSelectPlayer).toHaveBeenLastCalledWith(players[2]);
+  fireEvent.press(screen.getByTestId('roster-row-3'));
+  fireEvent.press(screen.getByTestId('roster-chip-3'));
+  expect(onSelectPlayer).toHaveBeenCalledTimes(3);
+});
+
+it('does not select an already seated player when their name is tapped', () => {
+  const onSelectPlayer = jest.fn();
+  render(<RosterPicker roster={players} team1={emptyTeam} team2={team2} search="" onSearch={jest.fn()} onSelectPlayer={onSelectPlayer} />);
+  fireEvent.press(screen.getByText('Casey Beach'));
+  expect(onSelectPlayer).not.toHaveBeenCalled();
+});

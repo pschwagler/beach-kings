@@ -5,7 +5,8 @@ import AppText from '@/components/ui/AppText';
 import Avatar from '@/components/ui/Avatar';
 import { hapticLight } from '@/utils/haptics';
 
-type SortField = 'rank' | 'name' | 'wins' | 'win_rate' | 'rating';
+export type StandingsSortField = 'rank' | 'name' | 'wins' | 'win_rate' | 'rating' | 'games_played' | 'global_rating';
+type SortField = StandingsSortField;
 type SortDir = 'asc' | 'desc';
 
 interface Props {
@@ -133,18 +134,14 @@ export default function LeagueStandingsTable(props: Props): React.ReactNode {
               <SortHeader {...headerProps} testID="sort-by-wins" field="wins" label="W-L" width={76} />
               <SortHeader {...headerProps} testID="sort-by-win-rate" field="win_rate" label="Win%" width={76} />
               <SortHeader {...headerProps} testID="sort-by-rating" field="rating" label={isSeasonView ? 'PTS' : 'Rating'} width={84} />
-              <View style={{ width: 76 }} className="items-center justify-center">
-                <AppText className="text-[12px] font-semibold text-muted">Games</AppText>
-              </View>
+              <SortHeader {...headerProps} testID="sort-by-games" field="games_played" label="Games" width={76} />
               {!isSeasonView && (
                 <View style={{ width: 84 }} className="items-center justify-center">
                   <AppText className="text-[12px] font-semibold text-muted">Change</AppText>
                 </View>
               )}
               {isSeasonView && (
-                <View testID="standings-global-rating-header" style={{ width: 112 }} className="items-center justify-center px-1">
-                  <AppText className="text-[12px] font-semibold text-muted text-center">Global rating</AppText>
-                </View>
+                <SortHeader {...headerProps} testID="standings-global-rating-header" field="global_rating" label="Global rating" width={112} />
               )}
             </View>
             {standings.map((standing) => (

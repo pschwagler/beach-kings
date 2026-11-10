@@ -5,7 +5,7 @@
  * in the context of a league/season.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { LeaguePlayerStats, Season } from '@beach-kings/shared';
 import { api } from '@/lib/api';
@@ -116,8 +116,16 @@ export function useLeagueStatsTab(
     setInnerTab(tab);
   }, []);
 
+  const stats = useMemo(() => {
+    const data = statsQuery.data;
+    return data == null ? null : {
+      ...data,
+      partners: [...data.partners].sort((a, b) => b.games_played - a.games_played),
+    };
+  }, [statsQuery.data]);
+
   return {
-    stats: statsQuery.data ?? null,
+    stats,
     isLoading: isUninitialised || statsQuery.isLoading || seasonsQuery.isLoading,
     isError: statsQuery.isError || seasonsQuery.isError,
     innerTab,

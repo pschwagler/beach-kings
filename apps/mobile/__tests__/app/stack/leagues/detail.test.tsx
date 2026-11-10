@@ -787,6 +787,9 @@ describe('LeagueDetailScreen — prominent league recording action', () => {
     mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, user_role: role });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     const record = await screen.findByRole('button', { name: 'Record a Game' });
+    await waitFor(() => expect(record.props.accessibilityState.disabled).toBe(false));
+    // A slow subsequent request must not hold either entry point on this page.
+    mockGetLeagueSessions.mockImplementation(() => new Promise(() => {}));
     fireEvent.press(record);
     await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
     const destination = mockPush.mock.calls[0]?.[0];
@@ -794,6 +797,7 @@ describe('LeagueDetailScreen — prominent league recording action', () => {
     expect(destination).toContain(`seasonId=${MOCK_DETAIL.current_season_id}`);
     fireEvent.press(screen.getByTestId('league-add-game-btn'));
     await waitFor(() => expect(mockPush.mock.calls[1]?.[0]).toBe(destination));
+    expect(mockGetLeagueSessions).toHaveBeenCalledTimes(1);
   });
 
   it('supports leagues without a current season without inventing a season ID', async () => {
@@ -836,10 +840,12 @@ describe('League live action', () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     const action = await screen.findByTestId('league-record-game-action');
     await waitFor(() => expect(action.props.accessibilityState.disabled).toBe(false));
+    mockGetLeagueSessions.mockImplementation(() => new Promise(() => {}));
     fireEvent.press(screen.getByTestId('league-record-game-action'));
     await waitFor(() => expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75'));
     fireEvent.press(screen.getByTestId('league-add-game-btn'));
     await waitFor(() => expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75'));
+    expect(mockGetLeagueSessions).toHaveBeenCalledTimes(1);
   });
   it('offers retry without creating a session when availability fails', async () => {
     mockGetLeagueSessions.mockRejectedValue(new Error('unavailable'));
@@ -852,5 +858,38 @@ describe('League live action', () => {
     await screen.findByRole('button', { name: 'Record a Game' });
     expect(mockGetLeagueSessions).toHaveBeenCalledTimes(2);
     expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('league standings column sorting', () => {
+  it.each([
+    { header: 'sort-by-games', season: false, descending: [3, 1, 2], ascending: [2, 1, 3] },
+    { header: 'sort-by-games', season: true, descending: [3, 1, 2], ascending: [2, 1, 3] },
+    { header: 'standings-global-rating-header', season: true, descending: [2, 1, 3], ascending: [1, 2, 3] },
+  ])('sorts $header descending first (season: $season)', async ({ header, season, descending, ascending }) => {
+    const base = ONE_STANDING.standings[0]!;
+    mockGetLeagueStandings.mockResolvedValue({
+      standings: [
+        { ...base, player_id: 1, rank: 1, rating: 100, games_played: 8, global_rating: 1400 },
+        { ...base, player_id: 2, rank: 2, rating: 50, games_played: 2, global_rating: 1800 },
+        { ...base, player_id: 3, rank: 3, rating: 200, games_played: 12, global_rating: null },
+      ],
+      season_info: null,
+    });
+    if (season) mockGetLeagueSeasons.mockResolvedValue([{ id: 3, name: 'Current season', is_active: true }]);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByTestId('segment-tab-standings'));
+    if (!season) fireEvent.press(await screen.findByTestId('season-pill-all'));
+    const column = await screen.findByTestId(header);
+    fireEvent.press(column);
+    const order = () => screen.getAllByTestId(/^standings-row-/).map((row) => Number(row.props.testID.replace('standings-row-', '')));
+    expect(order()).toEqual(descending);
+    expect(column.props.accessibilityHint).toContain('descending');
+    fireEvent.press(column);
+    expect(order()).toEqual(ascending);
+    expect(column.props.accessibilityHint).toContain('ascending');
+    fireEvent.press(column);
+    expect(order()).toEqual(descending);
   });
 });
