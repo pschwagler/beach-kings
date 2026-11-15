@@ -75,6 +75,10 @@ def _make_admin_client(
     monkeypatch.setattr(
         "backend.api.routes.feature_flags.resolve", AsyncMock(return_value=scoresheet_enabled)
     )
+    monkeypatch.setattr(
+        "backend.services.games.scoresheet_import_receipts.confirmed_import",
+        AsyncMock(return_value=None),
+    )
 
     async def fake_require_active_players(session, player_ids):
         return None
@@ -799,6 +803,7 @@ class TestEditPhotoSession:
     def test_edit_session_success(self, monkeypatch):
         """Happy path: edit prompt triggers a new clarification job."""
         client, headers = _make_admin_client(monkeypatch)
+        monkeypatch.setattr("backend.api.routes.matches.draft_context", AsyncMock(return_value=[]))
 
         async def fake_get_session_data(session_id: str):
             return {"league_id": 1, "status": "PENDING"}

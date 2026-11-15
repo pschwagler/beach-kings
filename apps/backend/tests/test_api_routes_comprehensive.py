@@ -1438,6 +1438,12 @@ class TestSettingsEndpoints:
 class TestPhotoJobStreamEndpoint:
     """Tests for GET .../photo-jobs/{job_id}/stream SSE endpoint."""
 
+    @pytest.fixture(autouse=True)
+    def _enable_scoresheets(self, monkeypatch):
+        monkeypatch.setattr(
+            "backend.api.routes.feature_flags.resolve", AsyncMock(return_value=True)
+        )
+
     def test_stream_requires_auth(self):
         """Stream endpoint returns 401 without auth (HTTPBearer auto_error)."""
         client = TestClient(app)
