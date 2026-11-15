@@ -44,6 +44,7 @@ import LeagueChatTab from './LeagueChatTab';
 import LeagueSignupsTab from './LeagueSignupsTab';
 import LeagueInfoTab from './LeagueInfoTab';
 import LeagueMatchesTab from './LeagueMatchesTab';
+import LeaguePictureCard from './LeaguePictureCard';
 import LeagueStatsTab from './LeagueStatsTab';
 import LeagueInvitationBanner from './LeagueInvitationBanner';
 
@@ -89,12 +90,14 @@ function SegmentBar({ items, activeTab, onSetTab }: SegmentBarProps): React.Reac
 // ---------------------------------------------------------------------------
 
 interface LeagueHeaderProps {
+  readonly picture?: React.ReactNode;
   readonly name: string;
   readonly locationName: string | null;
   readonly memberCount: number;
 }
 
 function LeagueHeader({
+  picture,
   name,
   locationName,
   memberCount,
@@ -104,6 +107,7 @@ function LeagueHeader({
       testID="league-header"
       className="bg-surface px-4 pt-3 pb-3 border-b border-divider"
     >
+      {picture}
       <AppText
         testID="league-header-name"
         family="display"
@@ -515,6 +519,9 @@ export default function LeagueDetailScreen({
         rightAction={statsPlayerId == null ? addGameAction : undefined} />
       <View testID="league-detail-screen" className="flex-1 bg-page">
         <LeagueHeader
+          picture={detail.user_role === 'admin' || detail.user_role === 'member' ? (
+            <LeaguePictureCard leagueId={detail.id} leagueName={detail.name} canEdit={detail.user_role === 'admin'} />
+          ) : undefined}
           name={detail.name}
           locationName={detail.location_name}
           memberCount={detail.member_count}
