@@ -15,6 +15,8 @@ export const leagueKeys = {
     [...leagueKeys.root(userId), 'league', String(id)] as const,
   detail: (userId: number, id: number | string) =>
     [...leagueKeys.league(userId, id), 'detail'] as const,
+  picture: (userId: number, id: number | string) =>
+    [...leagueKeys.league(userId, id), 'picture'] as const,
   standings: (
     userId: number,
     id: number | string,

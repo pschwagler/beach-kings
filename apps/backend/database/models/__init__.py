@@ -13,6 +13,7 @@ from .identity import PlatformRoleAssignment
 from .identity import Player
 from .identity import PlayerInvite
 from .leagues import League
+from .league_picture import LeaguePicture
 from .leagues import LeagueConfig
 from .leagues import LeagueMember
 from .leagues import Season
@@ -102,6 +103,7 @@ __all__ = [
     "Player",
     "PlayerInvite",
     "League",
+    "LeaguePicture",
     "LeagueConfig",
     "LeagueMember",
     "Season",
