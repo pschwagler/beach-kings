@@ -73,3 +73,19 @@ test("explains the game type choice after a photo is selected", () => {
   fireEvent.press(screen.getByTestId("read-scoresheet"));
   expect(read).toHaveBeenCalledTimes(1);
 });
+
+test("pending correction offers Apply instead of accidentally saving the old review", () => {
+  const edit = jest.fn(),
+    confirm = jest.fn();
+  renderBar({
+    uploaded: true,
+    jobQuery: { data: { status: "COMPLETED" } },
+    editPrompt: "Change game 2 to 21-18",
+    edit,
+    confirm,
+  });
+  expect(screen.queryByTestId("confirm-scoresheet")).toBeNull();
+  fireEvent.press(screen.getByTestId("apply-scoresheet-correction"));
+  expect(edit).toHaveBeenCalledTimes(1);
+  expect(confirm).not.toHaveBeenCalled();
+});

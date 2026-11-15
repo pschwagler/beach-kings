@@ -1,6 +1,11 @@
 import React from "react";
 import { ScrollView } from "react-native";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import ScoresheetScreen from "@/components/screens/Scoresheets/ScoresheetScreen";
 import { scoresheetInputIssue } from "@/components/screens/Scoresheets/scoresheetValidation";
 
@@ -8,7 +13,7 @@ jest.mock("@/components/screens/Scoresheets/useScoresheetScreen", () => ({
   useScoresheetScreen: () => mockVm,
 }));
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ canGoBack: () => true, back: jest.fn() }),
+  useRouter: () => ({ canGoBack: () => true, back: mockBack }),
   useNavigation: () => ({ dispatch: jest.fn() }),
 }));
 jest.mock("expo-router/react-navigation", () => ({
@@ -47,6 +52,7 @@ jest.mock(
 );
 
 const upload = jest.fn();
+const mockBack = jest.fn();
 let mockVm: Record<string, any>;
 beforeEach(() => {
   jest.clearAllMocks();
@@ -117,4 +123,38 @@ test("missing photo and invalid calendar dates identify their fields", () => {
       date: "2026-02-30",
     } as any)?.field,
   ).toBe("date");
+});
+
+test("camera denial keeps the screen open with a direct library fallback", async () => {
+  mockVm.photo = null;
+  mockVm.cameraAccessDenied = true;
+  mockVm.error = "Camera access is off.";
+  mockVm.choosePhoto.mockResolvedValue("error");
+  render(<ScoresheetScreen leagueId={null} initialSource="camera" />);
+  await waitFor(() => expect(mockVm.choosePhoto).toHaveBeenCalledWith(true));
+  expect(mockBack).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole("button", { name: "Choose from photos" }));
+  expect(mockVm.choosePhoto).toHaveBeenCalledWith(false);
+  expect(mockBack).not.toHaveBeenCalled();
+});
+
+test("correction instructions support multiple lines and use the fixed Apply action", () => {
+  mockVm.jobQuery = { data: { status: "COMPLETED" } };
+  mockVm.uploaded = true;
+  mockVm.editPrompt = "";
+  mockVm.matches = [];
+  mockVm.edit = jest.fn();
+  mockVm.confirm = jest.fn();
+  mockVm.setEditPrompt = jest.fn((text) => {
+    mockVm.editPrompt = text;
+  });
+  const page = render(<ScoresheetScreen leagueId={null} />);
+  const input = screen.getByLabelText("Scoresheet correction instructions");
+  expect(input.props.multiline).toBe(true);
+  fireEvent.changeText(input, "Game 1: 22-20\nGame 2: replace Sam with Alex");
+  page.rerender(<ScoresheetScreen leagueId={null} />);
+  expect(screen.queryByTestId("confirm-scoresheet")).toBeNull();
+  fireEvent.press(screen.getByTestId("apply-scoresheet-correction"));
+  expect(mockVm.edit).toHaveBeenCalledTimes(1);
+  expect(mockVm.confirm).not.toHaveBeenCalled();
 });

@@ -2,6 +2,7 @@ import React, { type PropsWithChildren } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
+import { Alert } from "react-native";
 import { api } from "@/lib/api";
 import { useScoresheetScreen } from "@/components/screens/Scoresheets/useScoresheetScreen";
 
@@ -13,6 +14,7 @@ jest.mock("expo-image-picker", () => ({
   launchImageLibraryAsync: jest.fn(),
   launchCameraAsync: jest.fn(),
   requestCameraPermissionsAsync: jest.fn(),
+  getCameraPermissionsAsync: jest.fn(),
 }));
 jest.mock("@/lib/api", () => ({
   api: {
@@ -58,6 +60,9 @@ function setup(leagueId: number | null = 10) {
 }
 beforeEach(() => {
   jest.clearAllMocks();
+  jest
+    .mocked(ImagePicker.getCameraPermissionsAsync)
+    .mockResolvedValue({ granted: false, canAskAgain: true } as never);
   jest
     .mocked(api.getUserLeagues)
     .mockResolvedValue([
@@ -480,12 +485,10 @@ test("camera selection opens the native camera without uploading", async () => {
   jest
     .mocked(ImagePicker.requestCameraPermissionsAsync)
     .mockResolvedValueOnce({ granted: true } as never);
-  jest
-    .mocked(ImagePicker.launchCameraAsync)
-    .mockResolvedValueOnce({
-      canceled: false,
-      assets: [{ uri: "file:///camera.jpg", mimeType: "image/jpeg" }],
-    } as never);
+  jest.mocked(ImagePicker.launchCameraAsync).mockResolvedValueOnce({
+    canceled: false,
+    assets: [{ uri: "file:///camera.jpg", mimeType: "image/jpeg" }],
+  } as never);
   const { result } = setup(null);
   let outcome;
   await act(async () => {
@@ -517,4 +520,36 @@ test("canceling a replacement leaves the current photo and reviewed games intact
   expect(result.current.photo?.uri).toBe("file:///sheet.jpg");
   expect(result.current.matches).toEqual(before);
   expect(result.current.uploaded).toBe(true);
+});
+
+test("denying camera access preserves the review and allows photo-library recovery", async () => {
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  jest
+    .mocked(ImagePicker.getCameraPermissionsAsync)
+    .mockResolvedValueOnce({ granted: false, canAskAgain: false } as never);
+  const { result } = setup();
+  await act(async () => {
+    await result.current.choosePhoto(false);
+  });
+  await act(async () => {
+    await result.current.upload();
+  });
+  await waitFor(() => expect(result.current.matches).toHaveLength(1));
+  const before = result.current.matches;
+  let outcome;
+  await act(async () => {
+    outcome = await result.current.choosePhoto(true);
+  });
+  expect(outcome).toBe("error");
+  expect(result.current.cameraAccessDenied).toBe(true);
+  expect(result.current.photo?.uri).toBe("file:///sheet.jpg");
+  expect(result.current.matches).toEqual(before);
+  expect(result.current.uploaded).toBe(true);
+  expect(ImagePicker.requestCameraPermissionsAsync).not.toHaveBeenCalled();
+  expect(ImagePicker.launchCameraAsync).not.toHaveBeenCalled();
+  await act(async () => {
+    await result.current.choosePhoto(false);
+  });
+  expect(result.current.cameraAccessDenied).toBe(false);
+  alert.mockRestore();
 });

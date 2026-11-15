@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 // ---------------------------------------------------------------------------
@@ -130,6 +130,24 @@ import ListItem from '@/components/ui/ListItem';
 // ---------------------------------------------------------------------------
 
 describe('Input', () => {
+  it.each([false, true])('resizes for large text without losing the draft (password toggle: %s)', (password) => {
+    const dimensions = jest.spyOn(require('react-native'), 'useWindowDimensions');
+    dimensions.mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
+    const change = jest.fn();
+    const input = () => <Input value="AgjpQ" onChangeText={change} placeholder="Scaled input" secureTextEntry={password} showPasswordToggle={password} />;
+    const view = render(input());
+    expect(StyleSheet.flatten(view.getByPlaceholderText('Scaled input').props.style).minHeight).toBe(48);
+    dimensions.mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 3.1 });
+    view.rerender(input());
+    const field = view.getByPlaceholderText('Scaled input');
+    expect(StyleSheet.flatten(field.props.style).minHeight).toBeGreaterThan(15 * 3.1 + 16);
+    expect(field.props.value).toBe('AgjpQ');
+    expect(field.props.allowFontScaling).not.toBe(false);
+    fireEvent.changeText(field, 'AgjpQ edit');
+    expect(change).toHaveBeenCalledWith('AgjpQ edit');
+    dimensions.mockRestore();
+  });
+
   it('renders without password toggle by default', () => {
     const { getByPlaceholderText, queryByLabelText } = render(
       <Input value="" onChangeText={jest.fn()} placeholder="Username" />,

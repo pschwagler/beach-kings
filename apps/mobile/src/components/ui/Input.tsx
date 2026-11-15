@@ -11,7 +11,7 @@
  */
 
 import React, { forwardRef, useState } from 'react';
-import { TextInput, TextInputProps, Pressable, View } from 'react-native';
+import { TextInput, TextInputProps, Pressable, View, useWindowDimensions } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { EyeIcon, EyeOffIcon } from '@/components/ui/icons';
@@ -56,6 +56,10 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
 ) {
   const { isDark } = useTheme();
   const palette = usePaletteColors();
+  const { fontScale } = useWindowDimensions();
+  // Reserve a scaled line plus vertical breathing room without capping the
+  // user's chosen text size. Keep the usual 48pt field at standard sizes.
+  const minHeight = Math.max(48, Math.ceil(20 * fontScale) + 16);
   const [passwordVisible, setPasswordVisible] = useState(false);
 
   const showToggle = showPasswordToggle && secureTextEntry;
@@ -66,7 +70,7 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
       <TextInput
         ref={ref}
         testID={testID}
-        className={`h-12 border border-strong rounded-lg px-md bg-elevated ${className}`}
+        className={`min-h-12 border border-strong rounded-lg px-md bg-elevated ${className}`}
         value={value}
         onChangeText={onChangeText}
         onBlur={onBlur}
@@ -76,6 +80,7 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
         style={{
           color: palette.textDefault,
           fontSize: 15,
+          minHeight,
           paddingVertical: 0,
         }}
         secureTextEntry={isSecure}
@@ -93,7 +98,8 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
 
   return (
     <View
-      className={`h-12 border border-strong rounded-lg flex-row items-center bg-elevated ${className}`}
+      className={`min-h-12 border border-strong rounded-lg flex-row items-center bg-elevated ${className}`}
+      style={{ minHeight }}
     >
       <TextInput
         ref={ref}
@@ -108,6 +114,7 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
         style={{
           color: palette.textDefault,
           fontSize: 15,
+          minHeight,
           paddingVertical: 0,
         }}
         secureTextEntry={isSecure}

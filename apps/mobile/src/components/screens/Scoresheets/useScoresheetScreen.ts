@@ -17,7 +17,10 @@ import {
 import { formatLocalCalendarDate } from "@/lib/calendarDate";
 import { getApiErrorMessage } from "@/lib/apiError";
 
-import { pickScoresheetPhoto } from "./pickScoresheetPhoto";
+import {
+  pickScoresheetPhoto,
+  ScoresheetCameraAccessError,
+} from "./pickScoresheetPhoto";
 
 export function useScoresheetScreen(initialLeagueId: number | null) {
   const { user } = useAuth();
@@ -51,6 +54,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
   );
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const [cameraAccessDenied, setCameraAccessDenied] = useState(false);
   const actionLock = useRef(false);
   const leagues = useQuery(scoresheetQueries.leagues(userId));
   const league = leagues.data?.find((item) => item.id === leagueId);
@@ -121,12 +125,14 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     actionLock.current = true;
     setPicking(true);
     setError(null);
+    setCameraAccessDenied(false);
     try {
       const asset = await pickScoresheetPhoto(camera);
       if (asset == null) return "cancelled";
       setPhoto(asset);
       return "selected";
     } catch (error) {
+      setCameraAccessDenied(error instanceof ScoresheetCameraAccessError);
       setError(
         getApiErrorMessage(
           error,
@@ -276,6 +282,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
   };
   const restart = () => {
     setJob(null);
+    setEditPrompt("");
     setOverrides([]);
     setGameEdits({});
     setSelectedIds([]);
@@ -323,6 +330,7 @@ export function useScoresheetScreen(initialLeagueId: number | null) {
     issue,
     busy,
     picking,
+    cameraAccessDenied,
     processing,
     error,
     upload,
