@@ -51,7 +51,7 @@ MAX_IMAGE_HEIGHT = 2048  # Also bounds width; preserve handwriting detail.
 MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/heic", "image/heif"}
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif"}
-SESSION_TTL_SECONDS = 900  # 15 minutes
+SESSION_TTL_SECONDS = 8 * 60 * 60  # 8 hours
 JOB_TIMEOUT = timedelta(minutes=5)
 
 # Redis key prefix for photo match sessions
@@ -160,7 +160,7 @@ async def store_session_data(
     Args:
         session_id: Unique session identifier
         data: Session data dictionary
-        expiry_seconds: TTL in seconds (default 15 minutes)
+        expiry_seconds: TTL in seconds (default 8 hours)
 
     Returns:
         True if successful, False otherwise
