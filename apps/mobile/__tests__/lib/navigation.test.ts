@@ -105,6 +105,7 @@ describe('resolveUp', () => {
   // Each case pins the Up target to the value the screen previously hardcoded
   // as `backFallback`, proving the centralized map preserves behavior.
   const staticCases: ReadonlyArray<readonly [string, string]> = [
+    ['(stack)/scan-scoresheet', routes.addGames()],
     ['(stack)/settings', routes.profile()],
     ['(stack)/settings/notifications', routes.settings()],
     ['(stack)/settings/appearance', routes.settings()],

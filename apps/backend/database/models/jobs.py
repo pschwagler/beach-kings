@@ -6,6 +6,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    JSON,
     DateTime,
     Enum,
     ForeignKey,
@@ -72,7 +73,8 @@ class PhotoMatchJob(Base):
     __tablename__ = "photo_match_jobs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     session_id = Column(String, nullable=False)  # Redis session key
     status = Column(
         Enum(PhotoMatchJobStatus, values_callable=lambda x: [e.value for e in x]),
@@ -84,6 +86,8 @@ class PhotoMatchJob(Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
     error_message = Column(Text, nullable=True)
     result_data = Column(Text, nullable=True)  # JSON string of parsed matches
+    # Written atomically with imported games on the first job for a draft.
+    import_result = Column(JSON, nullable=True)
 
     # Relationships
     league = relationship("League", foreign_keys=[league_id])

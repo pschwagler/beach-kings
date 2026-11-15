@@ -18,7 +18,8 @@ Three state model (background):
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -71,6 +72,11 @@ def _make_admin_client(monkeypatch, phone: str = _PHONE, user_id: int = _USER_ID
     monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
     monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
     monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+    monkeypatch.setattr("backend.api.routes.feature_flags.resolve", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        "backend.services.games.scoresheet_import_receipts.confirmed_import",
+        AsyncMock(return_value=None),
+    )
 
     return TestClient(app), {"Authorization": "Bearer dummy"}
 
@@ -335,7 +341,7 @@ class TestCreateMatchesFromSessionOptionalSeason:
             captured_calls.append({"league_id": league_id, "season_id": season_id})
             return {"id": 77}
 
-        async def fake_create_match(db_session, match_request, session_obj_id):
+        async def fake_create_match(db_session, match_request, session_obj_id, *, commit=True):
             return 999
 
         async def fake_update_session_data(session_id, updates):
@@ -361,7 +367,9 @@ class TestCreateMatchesFromSessionOptionalSeason:
         from backend.services.games.photo_match_service import create_matches_from_session
 
         success, match_ids, msg = await create_matches_from_session(
-            db_session=None,
+            db_session=AsyncMock(
+                scalar=AsyncMock(return_value=SimpleNamespace(import_result=None))
+            ),
             session_id="gap_svc_001",
             season_id=None,
             match_date="6/19/2026",
@@ -404,7 +412,9 @@ class TestCreateMatchesFromSessionOptionalSeason:
         monkeypatch.setattr(data_service, "create_match_async", create_match, raising=True)
 
         success, match_ids, message = await photo_match_service.create_matches_from_session(
-            db_session=None,
+            db_session=AsyncMock(
+                scalar=AsyncMock(return_value=SimpleNamespace(import_result=None))
+            ),
             session_id="tied-photo-session",
             season_id=None,
             match_date="7/25/2026",

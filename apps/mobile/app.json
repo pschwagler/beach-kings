@@ -25,6 +25,7 @@
         ]
       },
       "infoPlist": {
+        "NSCameraUsageDescription": "Beach League uses your camera to scan scoresheets and read game scores.",
         "NSLocationWhenInUseUsageDescription": "Beach League uses your location to suggest the nearest league location.",
         "CFBundleURLTypes": [
           {
@@ -52,6 +53,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Beach League uses your camera to scan scoresheets and read game scores.",
+          "microphonePermission": false
+        }
+      ],
       "expo-apple-authentication",
       "expo-secure-store",
       [

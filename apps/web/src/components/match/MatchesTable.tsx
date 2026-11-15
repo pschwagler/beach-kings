@@ -1,3 +1,4 @@
+import { useFeatureFlags } from "../../hooks/useFeatureFlags";
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trophy, Users, ChevronDown, Camera } from 'lucide-react';
 import type { Season, Match, Session } from '../../types';
@@ -193,6 +194,8 @@ export default function MatchesTable({
 }: MatchesTableProps) {
   const { isLeagueMember, members, league } = useLeague();
   const { openModal, closeModal } = useModal();
+  const { flags } = useFeatureFlags();
+
   // Photo upload state
   const [photoJobId, setPhotoJobId] = useState<string | null>(null);
   const [photoSessionId, setPhotoSessionId] = useState<number | null>(null);
@@ -576,7 +579,7 @@ export default function MatchesTable({
           </button>
           
           {/* Photo Upload Button - Show for all league members */}
-          {leagueId && (
+          {leagueId && flags.scoresheet_parsing === true && (
             <button 
               className="add-matches-card upload-photo-card"
               data-testid="upload-photo-card"

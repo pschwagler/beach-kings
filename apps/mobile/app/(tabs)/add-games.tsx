@@ -1,3 +1,4 @@
+import ScanScoresheetAction from "@/components/screens/Scoresheets/ScanScoresheetAction";
 import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 /**
  * Add Games tab — primary creation action.
@@ -27,6 +28,7 @@ import type { League, Session } from '@beach-kings/shared';
 
 import TopNav from '@/components/ui/TopNav';
 import { GameTypeCard, LeagueSelectList } from '@/components/screens/AddGames';
+import { useFeatureFlag } from '@/features/feature-flags/queries';
 import { useAuth } from '@/contexts/AuthContext';
 import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
 import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
@@ -202,6 +204,7 @@ export default function AddGamesScreen(): React.ReactNode {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const { user } = useAuth();
+  const scoresheetFlag = useFeatureFlag('scoresheet_parsing');
   const userId = user?.id ?? 0;
 
   useEffect(
@@ -400,6 +403,11 @@ export default function AddGamesScreen(): React.ReactNode {
           onLeagueGame={handleLeagueGame}
           onPickupGame={handlePickupGame}
         />
+        {scoresheetFlag.enabled && (
+          <View className="mt-4">
+            <ScanScoresheetAction onPress={(source) => router.push(routes.scanScoresheet(undefined,source))} />
+          </View>
+        )}
       </RefreshScrollView>
     </SafeAreaView>
   );

@@ -164,3 +164,20 @@ describe('AddNewPlayerProvider — children', () => {
     expect(getByText('child content')).toBeTruthy();
   });
 });
+
+it('keeps a scoresheet result out of the scoreboard consumer', () => {
+  const { result } = renderHook(() => useAddNewPlayer(), { wrapper });
+  const created = { ...RESULT, source: 'scoresheet' as const };
+  act(() => result.current.setResult(created));
+  act(() => { expect(result.current.consumeResult()).toBeNull(); });
+  expect(result.current.result).toEqual(created);
+  act(() => { expect(result.current.consumeResult('scoresheet')).toEqual(created); });
+  expect(result.current.result).toBeNull();
+});
+
+it('keeps a scoreboard result out of the scoresheet consumer', () => {
+  const { result } = renderHook(() => useAddNewPlayer(), { wrapper });
+  act(() => result.current.setResult(RESULT));
+  act(() => { expect(result.current.consumeResult('scoresheet')).toBeNull(); });
+  expect(result.current.result).toEqual(RESULT);
+});

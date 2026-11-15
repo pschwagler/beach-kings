@@ -1,3 +1,4 @@
+import ScanScoresheetAction from "@/components/screens/Scoresheets/ScanScoresheetAction";
 /**
  * LeagueMatchesTab — Games tab of the League Detail screen.
  *
@@ -10,6 +11,7 @@
  */
 
 import React from "react";
+import { useFeatureFlag } from '@/features/feature-flags/queries';
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -510,6 +512,7 @@ function ModeToggle({
 // ---------------------------------------------------------------------------
 
 interface LeagueMatchesTabProps {
+  readonly canUpload?: boolean;
   readonly leagueId: number | string;
   /** Supplied only when the league viewer may record games. */
   readonly isSessionActionReady?: boolean;
@@ -526,7 +529,10 @@ export default function LeagueMatchesTab({
   isSessionActionReady = true,
   isSessionActionError = false,
   onRetrySessionAction,
+  canUpload = false,
 }: LeagueMatchesTabProps): React.ReactNode {
+  const router = useRouter();
+  const scoresheetFlag = useFeatureFlag("scoresheet_parsing");
   const {
     mode,
     setMode,
@@ -550,6 +556,11 @@ export default function LeagueMatchesTab({
             description={isSessionActionError ? 'Could not check live sessions · Tap to retry' : !isSessionActionReady ? 'Checking live session availability' : liveSessionId != null ? 'League session · Continue playing' : 'League game · Add your scores'}
             accessibilityHint={isSessionActionError ? 'Check live session availability again' : liveSessionId != null ? 'Open the live session in this league' : 'Record a game in this league'}
           />
+        </View>
+      )}
+      {canUpload && scoresheetFlag.enabled && (
+        <View className="mx-4 mt-2">
+          <ScanScoresheetAction onPress={(source) => router.push(routes.scanScoresheet(leagueId,source))} />
         </View>
       )}
       <ModeToggle

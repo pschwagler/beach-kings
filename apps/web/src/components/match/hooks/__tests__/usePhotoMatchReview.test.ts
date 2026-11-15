@@ -380,3 +380,29 @@ describe('usePhotoMatchReview', () => {
     });
   });
 });
+
+it('sends manually reviewed identities and scores as the starting state for corrections', async () => {
+  let callbacks;
+  subscribePhotoJobStream.mockImplementation((_league, _job, handlers) => {
+    callbacks = handlers;
+    return vi.fn();
+  });
+  editPhotoResults.mockResolvedValue({job_id: 8});
+  const {result} = renderHook(() => usePhotoMatchReview({...defaultProps, isOpen:true, initialJobId:7}));
+  act(() => callbacks.onDone({status:'COMPLETED',result:{matches:[{
+    team1_player1:{id:null,name:'Sam'},team1_player2:{id:2,name:'Player 2'},
+    team2_player1:{id:3,name:'Player 3'},team2_player2:{id:4,name:'Player 4'},
+    team1_score:21,team2_score:17,
+  }]}}));
+  act(() => result.current.handleResolvePlayer('Sam',8,'Samuel'));
+  act(() => result.current.setEditPrompt('Game 1 finished 21-18'));
+  await act(async () => { await result.current.handleSendEdit(); });
+  expect(editPhotoResults).toHaveBeenCalledWith(1,'10','Game 1 finished 21-18',[
+    expect.objectContaining({scores:[21,17],players:[
+      {id:8,name:'Samuel',rawName:'Sam'},
+      {id:2,name:'Player 2',rawName:'Player 2'},
+      {id:3,name:'Player 3',rawName:'Player 3'},
+      {id:4,name:'Player 4',rawName:'Player 4'},
+    ]}),
+  ]);
+});

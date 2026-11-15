@@ -83,3 +83,10 @@ do not perform app-version compatibility checks.
 Test enabled/disabled behavior and direct API/deep-link access for each connected
 feature. Remove temporary release flags and their checks after the rollout and
 rollback window have ended. Keep operational pause switches deliberately.
+
+## Scoresheet parsing
+
+Migration `082` seeds `scoresheet_parsing` enabled at 100% for web, iOS, and
+Android. It controls the web upload action, mobile entry points and direct scan
+route, and all backend upload/review/confirm endpoints. Disabling the flag does
+not remove recorded games. Apply the migration before releasing the clients.

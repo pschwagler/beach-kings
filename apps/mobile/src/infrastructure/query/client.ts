@@ -4,7 +4,8 @@ import {
   onlineManager,
   QueryClient,
 } from '@tanstack/react-query';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
+import * as Device from 'expo-device';
 import { queryRetryDelay, shouldRetryQuery } from './retryPolicy';
 
 const QUERY_GC_TIME = process.env.NODE_ENV === 'test' ? Infinity : 5 * 60_000;
@@ -37,11 +38,17 @@ export function subscribeQueryLifecycle(): () => void {
   const appStateSubscription = AppState.addEventListener('change', (state) => {
     focusManager.setFocused(state === 'active');
   });
-  const unsubscribeNetwork = NetInfo.addEventListener((state) => {
-    onlineManager.setOnline(
-      state.isConnected === true && state.isInternetReachable !== false,
-    );
-  });
+  // iOS Simulator can report `none` while requests to the host API succeed.
+  // Let requests determine reachability there; physical devices keep offline gating.
+  const simulator = __DEV__ && Platform.OS === 'ios' && !Device.isDevice;
+  if (simulator) onlineManager.setOnline(true);
+  const unsubscribeNetwork = simulator
+    ? () => {}
+    : NetInfo.addEventListener((state) => {
+        onlineManager.setOnline(
+          state.isConnected === true && state.isInternetReachable !== false,
+        );
+      });
 
   return () => {
     appStateSubscription.remove();
