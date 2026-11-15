@@ -5,6 +5,8 @@ or an Android bottom sheet with Take photo, Choose from photos, and Cancel.
 The native camera or photo library opens before the preview and form. Canceling
 an initial selection returns to the previous screen; canceling a replacement
 preserves the existing photo and review. Change photo uses the same source menu.
+The checked-in iOS project declares camera use for scoresheet scanning; release
+preflight requires the native and Expo camera purpose text to stay in sync.
 
 After selecting a photo, mobile asks whether the games belong to a league or
 pickup session. Reading starts after that choice so a single model request gets

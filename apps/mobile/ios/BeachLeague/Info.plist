@@ -57,6 +57,8 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>Beach League uses your camera to scan scoresheets and read game scores.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Beach League uses your location to suggest the nearest league location.</string>
     <key>NSMotionUsageDescription</key>

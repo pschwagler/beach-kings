@@ -224,6 +224,12 @@ describe('iOS release preflight', () => {
 
   it.each([
     {
+      name: 'camera purpose declaration',
+      remove:
+        /\s*<key>NSCameraUsageDescription<\/key>\s*<string>[^<]+<\/string>/,
+      error: /native camera purpose declaration/,
+    },
+    {
       name: 'Google redirect scheme',
       remove:
         /\s*<string>com\.googleusercontent\.apps\.[^<]+<\/string>/,
