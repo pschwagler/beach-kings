@@ -368,6 +368,25 @@ describe('NativePushProvider', () => {
     expect(mockUpdatePreferences).toHaveBeenCalledTimes(1);
   });
 
+  it('recovers after a registration never settles and ignores its late response', async () => {
+    let resolveOld!: (value: typeof pushRegistrationResponse) => void;
+    jest.mocked(api.registerPushToken)
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }))
+      .mockResolvedValueOnce(pushRegistrationResponse);
+    renderProvider(true);
+    await waitFor(() => expect(capturedNativePush).not.toBeNull());
+    let first!: ReturnType<NativePushContextValue['enablePush']>;
+    act(() => { first = capturedNativePush!.enablePush(); });
+    await waitFor(() => expect(api.registerPushToken).toHaveBeenCalledTimes(1));
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    await expect(first).resolves.toBe('not_enabled');
+    await act(async () => { await expect(capturedNativePush!.enablePush()).resolves.toBe('enabled'); });
+    expect(api.registerPushToken).toHaveBeenCalledTimes(2);
+    expect(savePushRegistration).toHaveBeenCalledTimes(1);
+    await act(async () => { resolveOld(pushRegistrationResponse); await Promise.resolve(); });
+    expect(savePushRegistration).toHaveBeenCalledTimes(1);
+  });
+
   it('retries registration when the app becomes active', async () => {
     let onAppStateChange: ((state: string) => void) | undefined;
     jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
@@ -392,10 +411,10 @@ describe('NativePushProvider', () => {
       permissionGranted as never,
     );
     await act(async () => { onAppStateChange?.('active'); });
-    expect(mockShowToast).toHaveBeenCalledWith(
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith(
       'Notifications could not be registered. We will retry.',
       'error',
-    );
+    ));
     await act(async () => { onAppStateChange?.('active'); });
 
     expect(api.registerPushToken).toHaveBeenCalledTimes(2);
@@ -419,7 +438,7 @@ describe('NativePushProvider', () => {
     await act(async () => { onTokenChange?.(); });
 
     expect(api.registerPushToken).toHaveBeenCalledTimes(2);
-    expect(savePushRegistration).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(savePushRegistration).toHaveBeenCalledTimes(2));
   });
 
   it('handles a cold-start tap after auth/navigation readiness', async () => {

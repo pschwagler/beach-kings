@@ -21,6 +21,7 @@ import { openNotification } from './openNotification';
 import { claimNotificationPresentation } from './dedupe';
 import { useNotifications } from './useNotifications';
 import { usePushPreferences } from './usePushPreferences';
+import { withNotificationMutationDeadline } from './mutationDeadline';
 import {
   getPushInstallationState,
   getSoftAskChoice,
@@ -223,11 +224,11 @@ export default function NativePushProvider({
         })).data;
         if (!isCurrentAccount(expectedAccount)) return false;
         const platform = Platform.OS as PushPlatform;
-        const response = await api.registerPushToken({
+        const response = await withNotificationMutationDeadline(api.registerPushToken({
           token: expoToken,
           platform,
           installation_id: installation.installationId,
-        });
+        }));
         if (!isCurrentAccount(expectedAccount)) return false;
         if (response.unregister_secret == null) {
           throw new Error('Push registration did not return an unregister credential');

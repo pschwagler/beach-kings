@@ -84,6 +84,69 @@ describe('usePushPreferences mutation ownership', () => {
     ).toBe(true);
   });
 
+  it.each(['success', 'failure'])('preserves a newer authoritative cache write after older mutation %s', async (outcome) => {
+    const pending = deferred<typeof prefs>();
+    mockApi.updatePushNotificationPrefs.mockReturnValueOnce(pending.promise);
+    const { client, result } = setup();
+    await waitFor(() => expect(result.current.prefs).toEqual(prefs));
+    jest.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined);
+    let work!: Promise<unknown>;
+    act(() => { work = result.current.updatePreferences({ direct_messages: false }); });
+    const settled = work.catch(() => undefined);
+    await waitFor(() => expect(mockApi.updatePushNotificationPrefs).toHaveBeenCalledTimes(1));
+    const authoritative = { ...prefs, direct_messages: false, league_messages: false };
+    act(() => { client.setQueryData(notificationKeys.preferences(7), authoritative); });
+    if (outcome === 'success') pending.resolve(prefs);
+    else pending.reject(new Error('late failure'));
+    await act(async () => { await settled; });
+    expect(client.getQueryData(notificationKeys.preferences(7))).toEqual(authoritative);
+  });
+
+  it('rolls back a failed field while another field mutation is still pending', async () => {
+    const older = deferred<typeof prefs>();
+    const newer = deferred<typeof prefs>();
+    mockApi.updatePushNotificationPrefs.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+    const { client, result } = setup();
+    await waitFor(() => expect(result.current.prefs).toEqual(prefs));
+    jest.spyOn(client, 'invalidateQueries').mockReturnValue(new Promise(() => {}));
+    let first!: Promise<unknown>; let second!: Promise<unknown>;
+    act(() => { first = result.current.updatePreferences({ direct_messages: false }); });
+    const firstSettled = first.catch(() => undefined);
+    await waitFor(() => expect(mockApi.updatePushNotificationPrefs).toHaveBeenCalledTimes(1));
+    act(() => { second = result.current.updatePreferences({ league_messages: false }); });
+    await waitFor(() => expect(mockApi.updatePushNotificationPrefs).toHaveBeenCalledTimes(2));
+    older.reject(new Error('older field failed'));
+    await act(async () => { await firstSettled; });
+    expect(client.getQueryData(notificationKeys.preferences(7))).toMatchObject({ direct_messages: true, league_messages: false });
+    newer.resolve({ ...prefs, league_messages: false });
+    await act(async () => { await second; });
+    expect(client.getQueryData(notificationKeys.preferences(7))).toMatchObject({ direct_messages: true, league_messages: false });
+  });
+
+  it.each(['success', 'failure'])('ignores old mutation %s after the same account signs in again', async (outcome) => {
+    const pending = deferred<typeof prefs>();
+    mockApi.updatePushNotificationPrefs.mockReturnValueOnce(pending.promise);
+    const { client, result, rerender } = setup();
+    await waitFor(() => expect(result.current.prefs).toEqual(prefs));
+    jest.spyOn(client, 'invalidateQueries').mockReturnValue(new Promise(() => {}));
+    let work!: Promise<unknown>;
+    act(() => { work = result.current.updatePreferences({ direct_messages: false }); });
+    const settled = work.catch(() => undefined);
+    await waitFor(() => expect(mockApi.updatePushNotificationPrefs).toHaveBeenCalledTimes(1));
+    client.clear();
+    const currentLogin = { ...prefs, direct_messages: false, league_messages: false };
+    mockApi.getPushNotificationPrefs.mockResolvedValue(currentLogin);
+    rerender(undefined);
+    await waitFor(() => expect(result.current.prefs).toEqual(currentLogin));
+    // Deliberately collide with the old query's update counter.
+    act(() => { client.setQueryData(notificationKeys.preferences(7), currentLogin); });
+    if (outcome === 'success') pending.resolve(prefs);
+    else pending.reject(new Error('old login failed'));
+    await act(async () => { await settled; });
+    expect(client.getQueryData(notificationKeys.preferences(7))).toEqual(currentLogin);
+    expect(client.invalidateQueries).not.toHaveBeenCalled();
+  });
+
   it('settles the action when background invalidation never settles', async () => {
     mockApi.updatePushNotificationPrefs.mockResolvedValue({
       ...prefs,
