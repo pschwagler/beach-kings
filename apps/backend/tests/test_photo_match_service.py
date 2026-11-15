@@ -1045,6 +1045,7 @@ class TestRedisSessionManagement:
             mock_set.assert_called_once()
             key_used = mock_set.call_args[0][0]
             assert session_id in key_used
+            assert mock_set.call_args[0][2] == 8 * 60 * 60
 
             result = await photo_match_service.get_session_data(session_id)
             assert result == payload
@@ -1095,6 +1096,7 @@ class TestRedisSessionManagement:
             assert written["league_id"] == 1  # preserved
             assert written["status"] == "running"  # updated
             assert written["raw_response"] == "[]"  # new field
+            assert mock_set.call_args[0][2] == 8 * 60 * 60
 
     @pytest.mark.asyncio
     async def test_update_session_data_returns_false_when_session_missing(self):

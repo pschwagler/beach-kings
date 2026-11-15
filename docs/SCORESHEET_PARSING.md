@@ -49,6 +49,10 @@ Uploads snapshot the candidate list in their expiring Redis draft. Corrections
 reuse that snapshot, including when another league member edits the draft. Legacy
 drafts reconstruct context for their original uploader.
 
+New drafts expire after eight hours. Updating a draft renews that period;
+viewing the review alone does not. Already-expired drafts require selecting the
+photo again. Saved games and durable confirmation receipts are unaffected.
+
 Every correction also sends the current reviewed games, including manual player
 selections and the latest scores. The server validates selected IDs and adds any
 selected players outside the original candidate list. The model edits this state;
