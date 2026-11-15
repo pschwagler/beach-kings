@@ -90,19 +90,42 @@ function forbidden(url: string) {
 
 describe("ApiClient auth invalidation", () => {
   it('snapshots the old bearer credential for best-effort server logout', async () => {
-    const { client, api } = await makeClient();
+    const { client, api, refresh } = await makeClient();
     await client.setAuthTokens('old-access', 'old-refresh');
-    api.post.mockResolvedValue({ data: { status: 'ok' } });
+    refresh.post.mockResolvedValue({ data: { status: 'ok' } });
 
     const logout = client.logoutCurrentSession();
     await client.clearAuthTokens();
     await logout;
 
-    expect(api.post).toHaveBeenCalledWith(
+    expect(refresh.post).toHaveBeenCalledWith(
       '/api/auth/logout',
       undefined,
       { headers: { Authorization: 'Bearer old-access' } },
     );
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('cannot refresh or retire a new account after an old logout returns 401', async () => {
+    const { client, api, refresh } = await makeClient();
+    const invalidated = jest.fn();
+    client.onAuthInvalidated(invalidated);
+    await client.setAuthTokens('old-access', 'old-refresh');
+    let failLogout!: (error: unknown) => void;
+    refresh.post.mockReturnValue(new Promise((_resolve, reject) => { failLogout = reject; }));
+    const logout = client.logoutCurrentSession();
+    const rejection = expect(logout).rejects.toEqual(unauthorized('/api/auth/logout'));
+    await client.clearAuthTokens();
+    await client.setAuthTokens('new-access', 'new-refresh');
+    failLogout(unauthorized('/api/auth/logout'));
+    await rejection;
+    expect(await client.getStoredTokens()).toEqual({ accessToken: 'new-access', refreshToken: 'new-refresh' });
+    expect(invalidated).not.toHaveBeenCalled();
+    expect(refresh.post).toHaveBeenCalledTimes(1);
+    expect(refresh.post).toHaveBeenCalledWith('/api/auth/logout', undefined,
+      { headers: { Authorization: 'Bearer old-access' } });
+    expect(api).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
   });
 
   it('propagates native credential write failures to lifecycle coordination', async () => {

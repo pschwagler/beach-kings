@@ -291,7 +291,8 @@ export class ApiClient {
   /** Snapshot account A's bearer credential before local logout clears it. */
   async logoutCurrentSession(): Promise<{ status: string }> {
     const accessToken = this.authTokens.accessToken;
-    const response = await this.api.post<{ status: string }>(
+    // Retirement must never refresh or invalidate a subsequently signed-in account.
+    const response = await this.refreshClient.post<{ status: string }>(
       '/api/auth/logout',
       undefined,
       accessToken == null
