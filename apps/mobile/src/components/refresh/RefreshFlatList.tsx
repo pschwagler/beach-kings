@@ -12,13 +12,13 @@ type Props<T> = Omit<FlatListProps<T>, 'onRefresh'> & RefreshProps;
  * external action does not change content size (especially important in chat).
  * With no callback, no action or refresh gesture is installed.
  */
-function RefreshFlatListController<T>({ onRefresh, refreshScope = '', refreshLabel = 'content', forwardedRef, ...props }: Props<T> & { forwardedRef: React.ForwardedRef<FlatList<T>> }) {
+function RefreshFlatListController<T>({ onRefresh, refreshScope = '', refreshLabel = 'content', showRefreshAction = true, forwardedRef, ...props }: Props<T> & { forwardedRef: React.ForwardedRef<FlatList<T>> }) {
   const { user } = useAuth();
   const scope = `${user?.id ?? 0}:${refreshScope}`;
   const state = useExplicitRefresh(onRefresh ?? (() => undefined), scope, refreshLabel);
   const { scrollProps, pull } = useRefreshGesture(props, state.refreshing, onRefresh ? state.onRefresh : undefined, scope);
   return <View className="flex-1">
-    {onRefresh && <RefreshAction state={state} label={refreshLabel} />}
+    {onRefresh && showRefreshAction && <RefreshAction state={state} label={refreshLabel} />}
     <FlatList {...props} {...scrollProps} ref={forwardedRef} refreshing={undefined} onRefresh={undefined} />
     {onRefresh && <RefreshOverlay state={state} pull={pull} />}
   </View>;

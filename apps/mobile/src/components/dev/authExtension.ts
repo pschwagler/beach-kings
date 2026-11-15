@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
+import { activatePersistedAuth } from '@/features/auth/authRetirementStore';
 import type {
   DevelopmentAuthExtension,
   DevelopmentAuthTokens,
@@ -51,6 +52,7 @@ export function useDevelopmentAuthExtension({
         if (!isCurrentOperation(revision)) return false;
         clearQueryCache();
         await api.setAuthTokens(accessToken, refreshToken);
+        await activatePersistedAuth();
         return isCurrentOperation(revision);
       });
       if (!installed) return;

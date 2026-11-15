@@ -2,10 +2,12 @@ import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useNotifications } from '@/features/notifications/useNotifications';
+import { notificationKeys } from '@/features/notifications/keys';
 import { api } from '@/lib/api';
 
+let mockUserId = 7;
 jest.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
+  useAuth: () => ({ user: { id: mockUserId }, isAuthenticated: true }),
 }));
 
 jest.mock('@/lib/api', () => ({
@@ -20,13 +22,12 @@ jest.mock('@/lib/api', () => ({
 
 const mockApi = api as jest.Mocked<typeof api>;
 
-function createWrapper() {
-  const client = new QueryClient({
+function createWrapper(client = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
       mutations: { retry: false, gcTime: Infinity },
     },
-  });
+  })) {
   return function Wrapper({ children }: { readonly children: React.ReactNode }) {
     return React.createElement(QueryClientProvider, { client }, children);
   };
@@ -61,6 +62,7 @@ const dismissedNotification = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockUserId = 7;
   mockApi.getNotifications.mockResolvedValue([
     notification,
     readNotification,
@@ -126,5 +128,61 @@ describe('useNotifications', () => {
     expect(result.current.markAsRead).toBe(markAsRead);
     expect(result.current.markAllAsRead).toBe(markAllAsRead);
     expect(result.current.refetch).toBe(refetch);
+  });
+
+  it('settles Mark all when background invalidation never settles', async () => {
+    mockApi.markAllNotificationsRead.mockResolvedValue({ success: true, count: 9 });
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: Infinity },
+        mutations: { retry: false, gcTime: Infinity },
+      },
+    });
+    const { result } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.unreadCount).toBe(9));
+    jest.spyOn(client, 'invalidateQueries').mockReturnValue(new Promise(() => {}));
+
+    await act(async () => {
+      await expect(result.current.markAllAsReadAsync()).resolves.toMatchObject({
+        success: true,
+      });
+    });
+  });
+
+  it('keeps a late Mark all completion scoped to the account that started it', async () => {
+    let resolveAccountA!: (value: { success: boolean; count: number }) => void;
+    mockApi.markAllNotificationsRead.mockReturnValueOnce(new Promise((resolve) => {
+      resolveAccountA = resolve;
+    }));
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: Infinity },
+        mutations: { retry: false, gcTime: Infinity },
+      },
+    });
+    const { result, rerender } = renderHook(() => useNotifications(), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.unreadCount).toBe(9));
+
+    let accountAWork!: Promise<unknown>;
+    act(() => { accountAWork = result.current.markAllAsReadAsync(); });
+    await waitFor(() => expect(mockApi.markAllNotificationsRead).toHaveBeenCalledTimes(1));
+
+    client.clear();
+    mockUserId = 8;
+    const accountBNotification = { ...notification, id: 44, user_id: 8 };
+    mockApi.getNotifications.mockResolvedValue([accountBNotification]);
+    mockApi.getUnreadNotificationCount.mockResolvedValue({ count: 1 });
+    rerender(undefined);
+    await waitFor(() => expect(result.current.notifications).toEqual([accountBNotification]));
+
+    resolveAccountA({ success: true, count: 9 });
+    await act(async () => { await accountAWork; });
+
+    expect(result.current.notifications).toEqual([accountBNotification]);
+    expect(client.getQueryData(notificationKeys.feed(7))).toBeUndefined();
   });
 });

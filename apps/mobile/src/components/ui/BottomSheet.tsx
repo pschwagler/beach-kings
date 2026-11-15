@@ -4,7 +4,7 @@
  * Animated slide-in using react-native-reanimated.
  */
 
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Modal,
   Platform,
@@ -63,11 +63,34 @@ export default function BottomSheet({
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const translateY = useSharedValue(windowHeight);
-  const { modalRef, focusInitialElement } = useModalAccessibility({
+  const dismissalNotifiedRef = useRef(false);
+  const wasPresentedRef = useRef(visible);
+  const { modalRef, focusInitialElement, restoreFocusAfterDismissal } = useModalAccessibility({
     visible,
     initialFocusRef,
     returnFocusRef,
   });
+  const notifyDismissal = useCallback(() => {
+    if (!wasPresentedRef.current || dismissalNotifiedRef.current) return;
+    wasPresentedRef.current = false;
+    dismissalNotifiedRef.current = true;
+    onDismiss?.();
+  }, [onDismiss]);
+  const finishNativeDismissal = useCallback(() => {
+    restoreFocusAfterDismissal();
+    notifyDismissal();
+  }, [notifyDismissal, restoreFocusAfterDismissal]);
+
+  useEffect(() => {
+    if (visible) {
+      wasPresentedRef.current = true;
+      dismissalNotifiedRef.current = false;
+    } else if (Platform.OS !== 'ios') {
+      // Android does not emit Modal.onDismiss. The effect runs after the
+      // visible=false commit, when the native modal is no longer presented.
+      notifyDismissal();
+    }
+  }, [notifyDismissal, visible]);
 
   useEffect(() => {
     if (visible) {
@@ -93,7 +116,7 @@ export default function BottomSheet({
       transparent
       animationType="none"
       onRequestClose={onClose}
-      onDismiss={onDismiss}
+      onDismiss={finishNativeDismissal}
       onShow={focusInitialElement}
       accessibilityViewIsModal
     >

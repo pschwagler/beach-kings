@@ -95,7 +95,9 @@ function SessionCourtPickerContent({
         onPress={() => setIsOpen(true)}
         disabled={isUpdating}
         accessibilityRole="button"
-        accessibilityLabel="Select court"
+        accessibilityLabel="Court"
+        accessibilityValue={{ text: selectedName }}
+        accessibilityState={{ disabled: isUpdating, busy: isUpdating }}
         className="flex-row items-center py-[14px] border-b border-divider active:opacity-70"
       >
         <AppText className="text-[14px] font-semibold text-muted w-[100px]">
@@ -106,7 +108,6 @@ function SessionCourtPickerContent({
           className={`flex-1 text-[14px] ${
             selectedCourtId == null ? 'text-muted' : 'text-default'
           }`}
-          numberOfLines={1}
         >
           {selectedName}
         </AppText>

@@ -4,14 +4,15 @@ import React from 'react';
 import AppText from '@/components/ui/AppText';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ScrollView,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -20,6 +21,7 @@ import SessionCourtPicker from './SessionCourtPicker';
 import SessionSeasonSelector from './SessionSeasonSelector';
 import SessionDateField from './SessionDateField';
 import { useSessionEditScreen } from './useSessionEditScreen';
+import useKeyboard from '@/hooks/useKeyboard';
 
 interface FormRowProps {
   readonly label: string;
@@ -59,6 +61,8 @@ interface Props {
 
 export default function SessionEditScreen({ sessionId }: Props): React.ReactNode {
   const palette = usePaletteColors();
+  const insets = useSafeAreaInsets();
+  const { isVisible: keyboardVisible } = useKeyboard();
   const {
     session,
     date,
@@ -100,8 +104,20 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
         )}
       />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        behavior="padding"
+        automaticOffset
+        enabled={Platform.OS === 'ios'}
+        style={{ flex: 1 }}
+        testID="session-edit-keyboard-avoider"
+      >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={false}
+        >
           <AppText className="text-[15px] font-bold text-default mt-[20px] mb-[4px]">Date &amp; Time</AppText>
           <View className="mt-2 overflow-hidden rounded-[14px] border border-divider bg-surface">
             <SessionDateField
@@ -172,7 +188,21 @@ export default function SessionEditScreen({ sessionId }: Props): React.ReactNode
           )}
         </ScrollView>
 
-        <View className="absolute bottom-0 left-0 right-0 bg-surface border-t border-divider px-[16px] pt-[12px] pb-[34px] gap-[8px]">
+        <View
+          testID="session-edit-actions"
+          style={{ flexShrink: 0, paddingBottom: keyboardVisible ? 8 : Math.max(insets.bottom, 16) }}
+          className="bg-surface border-t border-divider px-[16px] pt-[8px] gap-[8px]"
+        >
+          {keyboardVisible && (
+            <TouchableOpacity
+              onPress={Keyboard.dismiss}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss keyboard"
+              className="min-h-touch self-end justify-center px-[8px]"
+            >
+              <AppText className="text-[14px] font-semibold text-brand-teal">Dismiss keyboard</AppText>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             testID="session-edit-save-btn"
             onPress={() => { void onSave(); }}

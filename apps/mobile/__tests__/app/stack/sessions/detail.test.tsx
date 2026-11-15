@@ -474,7 +474,7 @@ describe('SessionDetailScreen — menu', () => {
     });
   });
 
-  it('hides Copy Results and Duplicate while the session is active', async () => {
+  it('hides Copy Results while the session is active', async () => {
     mockGetSessionById.mockResolvedValue(MOCK_SESSION_ACTIVE);
     renderRoute();
     await waitFor(() => {

@@ -8,6 +8,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetInvitablePlayers = jest.fn();
 const mockAddLeagueMembersBatch = jest.fn();
+const mockGetLeague = jest.fn();
+const mockShareLink = jest.fn();
+
+jest.mock('@/utils/share', () => ({
+  shareLink: (...args: unknown[]) => mockShareLink(...args),
+}));
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7 }, isAuthenticated: true }),
@@ -17,6 +23,7 @@ jest.mock('@/lib/api', () => ({
   api: {
     getInvitablePlayers: (...args: unknown[]) => mockGetInvitablePlayers(...args),
     addLeagueMembersBatch: (...args: unknown[]) => mockAddLeagueMembersBatch(...args),
+    getLeague: (...args: unknown[]) => mockGetLeague(...args),
   },
 }));
 
@@ -62,6 +69,8 @@ function makeClient(): QueryClient {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetInvitablePlayers.mockResolvedValue(PLAYERS);
+  mockGetLeague.mockResolvedValue({ id: 7, name: 'Queens Open' });
+  mockShareLink.mockResolvedValue(undefined);
 });
 
 describe('useLeagueInviteScreen', () => {

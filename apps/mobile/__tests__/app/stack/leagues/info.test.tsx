@@ -520,6 +520,9 @@ describe('LeagueInfoTab — seasons', () => {
     fireEvent.press(screen.getByTestId('new-season-btn'));
 
     await waitFor(() => expect(screen.getByTestId('season-name-input')).toBeTruthy());
+    expect(screen.getByTestId('scoring-points_system').props.accessibilityRole).toBe('radio');
+    expect(screen.getByTestId('scoring-points_system').props.accessibilityState.checked).toBe(true);
+    expect(screen.getByTestId('scoring-points_system').props.className).toContain('min-h-touch');
     fireEvent.changeText(screen.getByTestId('season-name-input'), 'Fall 2026');
     fireEvent.changeText(screen.getByTestId('season-start-date-input'), '2026-09-01');
     fireEvent.changeText(screen.getByTestId('season-end-date-input'), '2026-11-10');
@@ -568,6 +571,8 @@ describe('LeagueInfoTab — seasons', () => {
     fireEvent.changeText(screen.getByTestId('season-start-date-input'), '2026-09-01');
     fireEvent.changeText(screen.getByTestId('season-end-date-input'), '2026-11-10');
     fireEvent.press(screen.getByTestId('scoring-season_rating'));
+    expect(screen.getByTestId('scoring-season_rating').props.accessibilityState.checked).toBe(true);
+    expect(screen.getByTestId('scoring-points_system').props.accessibilityState.checked).toBe(false);
     fireEvent.press(screen.getByTestId('season-submit-btn'));
 
     await waitFor(() => {

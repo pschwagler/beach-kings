@@ -454,6 +454,40 @@ describe('PlayerProfileScreen — action sheet', () => {
     expect(screen.getByText('Harassment or bullying')).toBeTruthy();
     // Action sheet closes after choosing report.
     expect(screen.queryByTestId('player-action-sheet')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Close report'));
+    const closingReportModal = screen.UNSAFE_getAllByType(RNModal).find(
+      (modal) => modal.props.visible === false && modal.props.onDismiss != null,
+    );
+    expect(closingReportModal).toBeDefined();
+    fireEvent(closingReportModal!, 'dismiss');
+    fireEvent.press(screen.getByTestId('player-more-btn'));
+    fireEvent.press(screen.getByTestId('action-sheet-report'));
+    const reopenedClosingModal = screen.UNSAFE_getAllByType(RNModal).find(
+      (modal) => modal.props.onDismiss != null,
+    );
+    expect(reopenedClosingModal?.props.visible).toBe(false);
+    fireEvent(reopenedClosingModal!, 'dismiss');
+    expect(screen.getByTestId('report-dialog')).toBeTruthy();
+  });
+
+  it('waits for the safety sheet to dismiss before opening block confirmation', async () => {
+    render(<PlayerProfileRoute />);
+    await waitFor(() => expect(screen.getByTestId('player-profile-screen')).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId('player-more-btn'));
+    fireEvent.press(screen.getByTestId('action-sheet-block'));
+
+    expect(screen.queryByTestId('block-player-dialog')).toBeNull();
+    const closingModal = screen.UNSAFE_getAllByType(RNModal).find(
+      (modal) => modal.props.onDismiss != null,
+    );
+    expect(closingModal?.props.visible).toBe(false);
+    fireEvent(closingModal!, 'dismiss');
+
+    expect(screen.getByTestId('block-player-dialog')).toHaveProp('role', 'dialog');
+    expect(screen.getByLabelText('Block player')).toBeTruthy();
+    expect(screen.getByLabelText('Cancel')).toBeTruthy();
   });
 
   it('closes action sheet when cancel is pressed', async () => {

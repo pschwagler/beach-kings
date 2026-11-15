@@ -115,4 +115,25 @@ describe('score setup accessibility', () => {
       'min-h-touch',
     );
   });
+
+  it('stacks compact team summaries so scaled labels retain usable width', () => {
+    render(
+      <ScoreBoard
+        team1Slots={EMPTY_TEAM}
+        team2Slots={EMPTY_TEAM}
+        score1={0}
+        score2={0}
+        isBuilding
+        compact
+        compactStacked
+        activeSlot={{ team: 1, slot: 0 }}
+      />,
+    );
+
+    expect(screen.getByTestId('compact-team-summaries').props.className).toBe(
+      'flex-col',
+    );
+    expect(screen.getByLabelText('Pick the first player for Team 1')).toBeTruthy();
+    expect(screen.getByLabelText('Pick the second player for Team 2')).toBeTruthy();
+  });
 });

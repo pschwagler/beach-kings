@@ -16,7 +16,7 @@ const EXPECTED = Object.freeze({
   cameraPurpose:
     'Beach League uses your camera to scan scoresheets and read game scores.',
   locationPurpose:
-    'Beach League uses your location to suggest the nearest league location.',
+    'Beach League uses your location to help you find nearby leagues, courts, and players. You can also browse without sharing your location.',
   motionPurpose:
     'Beach League uses motion activity to support location features when helping you find nearby courts.',
   easImage: 'macos-tahoe-26.5-xcode-26.6',
