@@ -12,6 +12,7 @@ import React, {
   useCallback,
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import * as Notifications from 'expo-notifications';
 import { useRouter, useRootNavigationState, useSegments } from 'expo-router';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
@@ -22,6 +23,12 @@ import { playerQueries } from '@/features/player/queries';
 import { useDevelopmentAuthExtension } from '@/components/dev/authExtension';
 import type { DevelopmentAuthExtension } from '@/components/dev/authExtension.types';
 import { retirePushInstallation } from '@/features/notifications/pushInstallationStore';
+import {
+  activatePersistedAuth,
+  isAuthRetired,
+  markAuthRetired,
+} from '@/features/auth/authRetirementStore';
+import { completesWithin, settleWithin } from '@/features/auth/deadline';
 import { setTelemetryUser } from '@/telemetry/sentry';
 
 // ---------------------------------------------------------------------------
@@ -238,6 +245,10 @@ const UNAUTHENTICATED_STATE: AuthState = {
   isNewUser: false,
 };
 
+/** Local privacy state is immediate; native and remote cleanup are bounded. */
+const LOCAL_CLEANUP_DEADLINE_MS = 2_000;
+const REMOTE_LOGOUT_DEADLINE_MS = 5_000;
+
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
@@ -259,7 +270,9 @@ export default function AuthProvider({
   const segments = useSegments() as string[];
   const stateRef = useRef(state);
   const operationRevisionRef = useRef(0);
+  const credentialOwnerRevisionRef = useRef(0);
   const transitionQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const logoutInFlightRef = useRef<Promise<void> | null>(null);
 
   const publishState = useCallback((nextState: AuthState) => {
     // Synchronize the pseudonymous diagnostic identity before publishing the
@@ -294,7 +307,7 @@ export default function AuthProvider({
   );
 
   const cancelQueryWork = useCallback(async (): Promise<void> => {
-    await queryClient.cancelQueries();
+    await settleWithin(queryClient.cancelQueries(), LOCAL_CLEANUP_DEADLINE_MS);
   }, [queryClient]);
 
   const fetchProfileComplete = useCallback(
@@ -322,64 +335,49 @@ export default function AuthProvider({
   );
 
   const commitUnauthenticated = useCallback(
-    async (revision: number, clearTokens: boolean): Promise<boolean> =>
-      enqueueTransition(async () => {
-        if (!isCurrentOperation(revision)) return false;
-        await cancelQueryWork();
-        if (!isCurrentOperation(revision)) return false;
-        if (clearTokens) {
-          try {
-            await api.clearAuthTokens();
-          } catch {
-            // Local state and private caches must still be retired even if the
-            // storage adapter fails to remove a credential.
-          }
-          if (!isCurrentOperation(revision)) return false;
-        }
-        clearCacheAndPublish(UNAUTHENTICATED_STATE);
-        return true;
-      }),
-    [
-      cancelQueryWork,
-      clearCacheAndPublish,
-      enqueueTransition,
-      isCurrentOperation,
-    ],
+    (revision: number, clearTokens: boolean): Promise<boolean> => {
+      if (!isCurrentOperation(revision)) return Promise.resolve(false);
+
+      // Invalidate every pending durable credential activation before any
+      // logout/account-switch cleanup can suspend.
+      credentialOwnerRevisionRef.current += 1;
+
+      // These operations retire in-memory state synchronously before their
+      // native adapters can suspend. They must not hold private UI onscreen.
+      void cancelQueryWork();
+      void settleWithin(markAuthRetired(), LOCAL_CLEANUP_DEADLINE_MS);
+      if (clearTokens) {
+        void settleWithin(api.clearAuthTokens(), LOCAL_CLEANUP_DEADLINE_MS);
+      }
+      void Notifications.setBadgeCountAsync(0).catch(() => undefined);
+      clearCacheAndPublish(UNAUTHENTICATED_STATE);
+      return Promise.resolve(true);
+    },
+    [cancelQueryWork, clearCacheAndPublish, isCurrentOperation],
   );
 
   const prepareAuthentication = useCallback(
-    async (revision: number): Promise<boolean> =>
-      enqueueTransition(async () => {
-        if (!isCurrentOperation(revision)) return false;
-        if (!stateRef.current.isAuthenticated) return true;
-
-        // Account replacement is explicitly two phase: fully retire the old
-        // identity and its cache before a new credential is installed.
-        await retirePushInstallation().catch(() => undefined);
-        if (!isCurrentOperation(revision)) return false;
-        await cancelQueryWork();
-        if (!isCurrentOperation(revision)) return false;
-        try {
-          await api.clearAuthTokens();
-        } catch {
-          // Continue the two-phase retirement. A subsequent successful login
-          // overwrites the credential before the new identity is published.
-        }
-        if (!isCurrentOperation(revision)) return false;
-        clearCacheAndPublish(UNAUTHENTICATED_STATE);
+    async (revision: number): Promise<boolean> => {
+      if (!isCurrentOperation(revision)) return false;
+      if (!stateRef.current.isAuthenticated) {
+        // Detached cleanup belongs to the prior identity, not the next one.
+        logoutInFlightRef.current = null;
         return true;
-      }),
-    [
-      cancelQueryWork,
-      clearCacheAndPublish,
-      enqueueTransition,
-      isCurrentOperation,
-    ],
+      }
+
+      // Start cleanup with account A's credentials, then retire its local
+      // identity and caches before account B can install credentials.
+      void settleWithin(retirePushInstallation(), REMOTE_LOGOUT_DEADLINE_MS);
+      void settleWithin(api.logoutCurrentSession(), REMOTE_LOGOUT_DEADLINE_MS);
+      return commitUnauthenticated(revision, true);
+    },
+    [commitUnauthenticated, isCurrentOperation],
   );
 
   const completeAuthentication = useCallback(
     async (revision: number, response: AuthResponse): Promise<void> => {
       const parsed = parseAuthResponse(response);
+      let credentialOwnerRevision: number | null = null;
       const installed = await enqueueTransition(async () => {
         if (!isCurrentOperation(revision)) return false;
         await cancelQueryWork();
@@ -387,7 +385,41 @@ export default function AuthProvider({
         // Retire every previous identity before installing the new credential.
         // The player request below then becomes the first entry for this user.
         queryClient.clear();
-        await api.setAuthTokens(response.access_token, response.refresh_token);
+        credentialOwnerRevisionRef.current += 1;
+        credentialOwnerRevision = credentialOwnerRevisionRef.current;
+        // In-memory credentials install before native persistence. Bound the
+        // latter so a stalled old storage mutation cannot block account B.
+        const persistence = api.setAuthTokens(
+          response.access_token,
+          response.refresh_token,
+        );
+        const activateIfCurrent = () => {
+          if (
+            credentialOwnerRevision == null ||
+            credentialOwnerRevisionRef.current !== credentialOwnerRevision
+          ) {
+            return;
+          }
+          void settleWithin(
+            activatePersistedAuth(),
+            LOCAL_CLEANUP_DEADLINE_MS,
+          );
+        };
+        const persisted = await completesWithin(
+          persistence,
+          LOCAL_CLEANUP_DEADLINE_MS,
+        );
+        if (persisted) {
+          activateIfCurrent();
+        } else {
+          // Native persistence may complete after the UI deadline. Activate
+          // its retirement marker only while this remains the current auth
+          // generation; an obsolete account must never undo a newer logout.
+          void persistence.then(
+            activateIfCurrent,
+            () => undefined,
+          );
+        }
         return isCurrentOperation(revision);
       });
       if (!installed) return;
@@ -434,9 +466,8 @@ export default function AuthProvider({
   useEffect(() => {
     return api.onAuthInvalidated(() => {
       const revision = beginAuthOperation();
-      void retirePushInstallation().finally(() => {
-        void commitUnauthenticated(revision, false);
-      });
+      void settleWithin(retirePushInstallation(), REMOTE_LOGOUT_DEADLINE_MS);
+      void commitUnauthenticated(revision, false);
     });
   }, [beginAuthOperation, commitUnauthenticated]);
 
@@ -447,8 +478,21 @@ export default function AuthProvider({
     async function loadSession() {
       const revision = beginAuthOperation();
       try {
-        const { accessToken } = await api.getStoredTokens();
+        const retired = await settleWithin(
+          isAuthRetired(),
+          LOCAL_CLEANUP_DEADLINE_MS,
+        );
         if (!isCurrentOperation(revision)) return;
+        if (retired !== false) {
+          await commitUnauthenticated(revision, true);
+          return;
+        }
+        const stored = await settleWithin(
+          api.getStoredTokens(),
+          LOCAL_CLEANUP_DEADLINE_MS,
+        );
+        if (!isCurrentOperation(revision)) return;
+        const accessToken = stored?.accessToken;
         if (!accessToken) {
           await commitUnauthenticated(revision, false);
           return;
@@ -648,19 +692,23 @@ export default function AuthProvider({
   );
 
   const logout = useCallback(async () => {
+    if (logoutInFlightRef.current != null) return;
+    if (!stateRef.current.isAuthenticated && !stateRef.current.isLoading) return;
+
     const revision = beginAuthOperation();
-    await retirePushInstallation().catch(() => undefined);
-    try {
-      await api.logout();
-    } catch {
-      // Ignore logout API errors — clear local state regardless
-    }
-    if (isCurrentOperation(revision)) {
-      await commitUnauthenticated(revision, true);
-    } else {
-      await transitionQueueRef.current;
-    }
-  }, [beginAuthOperation, commitUnauthenticated, isCurrentOperation]);
+    const remoteCleanup = Promise.all([
+      settleWithin(retirePushInstallation(), REMOTE_LOGOUT_DEADLINE_MS),
+      settleWithin(api.logoutCurrentSession(), REMOTE_LOGOUT_DEADLINE_MS),
+    ]).then(() => undefined);
+    logoutInFlightRef.current = remoteCleanup;
+
+    await commitUnauthenticated(revision, true);
+    void remoteCleanup.finally(() => {
+      if (logoutInFlightRef.current === remoteCleanup) {
+        logoutInFlightRef.current = null;
+      }
+    });
+  }, [beginAuthOperation, commitUnauthenticated]);
 
   const rotateSessionTokens = useCallback(
     async (accessToken: string, refreshToken: string): Promise<boolean> => {

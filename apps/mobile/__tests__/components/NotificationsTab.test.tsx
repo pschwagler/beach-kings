@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
+import { AccessibilityInfo, AppState, View } from 'react-native';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -179,6 +179,12 @@ function renderNotificationsTab(
       <NotificationsTab setHeaderAction={setHeaderAction} />
     </QueryClientProvider>,
   );
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => { resolve = res; });
+  return { promise, resolve };
 }
 
 beforeEach(() => {
@@ -473,7 +479,7 @@ describe('NotificationsTab — empty state', () => {
 describe('NotificationsTab — mark-all header action', () => {
   it('publishes a visible "Mark all read" action when unread notifications exist', async () => {
     const mockSetHeaderAction = jest.fn();
-    renderNotificationsTab(mockSetHeaderAction);
+    const tab = renderNotificationsTab(mockSetHeaderAction);
 
     await waitFor(() => {
       expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything());
@@ -514,5 +520,96 @@ describe('NotificationsTab — mark-all header action', () => {
       fireEvent.press(screen.getByTestId('mark-all-read-btn'));
     });
     expect(mockMarkAllNotificationsRead).toHaveBeenCalled();
+  });
+
+  it('announces a failure, restores the inbox, and retries successfully', async () => {
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    mockMarkAllNotificationsRead
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ success: true, count: 2 });
+    const mockSetHeaderAction = jest.fn();
+    const tab = renderNotificationsTab(mockSetHeaderAction);
+    await waitFor(() => expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything()));
+    const [publishedNode] = mockSetHeaderAction.mock.calls.find(
+      ([node]) => node != null,
+    ) as [React.ReactElement];
+    render(<View><View>{publishedNode}</View></View>);
+
+    fireEvent.press(screen.getByTestId('mark-all-read-btn'));
+    await waitFor(() => expect(tab.getByTestId('mark-all-read-error')).toBeTruthy());
+    expect(tab.getByText('Riley Chen sent you a friend request')).toBeTruthy();
+    expect(announce).toHaveBeenCalledWith(expect.stringContaining('Retry is available'));
+
+    const [retryNode] = [...mockSetHeaderAction.mock.calls].reverse().find(
+      ([node]) => node != null,
+    ) as [React.ReactElement];
+    const retryAction = render(<View><View>{retryNode}</View></View>);
+    await act(async () => {
+      fireEvent.press(retryAction.getByTestId('mark-all-read-btn'));
+      fireEvent.press(retryAction.getByTestId('mark-all-read-btn'));
+    });
+    await waitFor(() => expect(mockMarkAllNotificationsRead).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(tab.queryByTestId('mark-all-read-error')).toBeNull());
+    announce.mockRestore();
+  });
+
+  it('guards repeated Mark all activation', async () => {
+    const pending = deferred<{ success: boolean; count: number }>();
+    mockMarkAllNotificationsRead.mockReturnValue(pending.promise);
+    const mockSetHeaderAction = jest.fn();
+    renderNotificationsTab(mockSetHeaderAction);
+    await waitFor(() => expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything()));
+    const [publishedNode] = mockSetHeaderAction.mock.calls.find(
+      ([node]) => node != null,
+    ) as [React.ReactElement];
+    render(<View><View>{publishedNode}</View></View>);
+
+    fireEvent.press(screen.getByTestId('mark-all-read-btn'));
+    fireEvent.press(screen.getByTestId('mark-all-read-btn'));
+    await waitFor(() => expect(mockMarkAllNotificationsRead).toHaveBeenCalledTimes(1));
+    await act(async () => { pending.resolve({ success: true, count: 2 }); });
+  });
+
+  it('retires a never-settling Mark all action after the deadline', async () => {
+    jest.useFakeTimers();
+    mockMarkAllNotificationsRead.mockReturnValue(new Promise(() => {}));
+    const mockSetHeaderAction = jest.fn();
+    const tab = renderNotificationsTab(mockSetHeaderAction);
+    await waitFor(() => expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything()));
+    const [publishedNode] = mockSetHeaderAction.mock.calls.find(
+      ([node]) => node != null,
+    ) as [React.ReactElement];
+    render(<View><View>{publishedNode}</View></View>);
+    fireEvent.press(screen.getByTestId('mark-all-read-btn'));
+
+    await waitFor(() => expect(mockMarkAllNotificationsRead).toHaveBeenCalledTimes(1));
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    await waitFor(() => expect(tab.getByText(/could not confirm that all notifications/i)).toBeTruthy());
+    expect(tab.getByText('Riley Chen sent you a friend request')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  it('clears obsolete Mark all UI when the app backgrounds', async () => {
+    const appStateListeners: Array<(state: string) => void> = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
+      appStateListeners.push(listener as (state: string) => void);
+      return { remove: jest.fn() } as never;
+    });
+    const pending = deferred<{ success: boolean; count: number }>();
+    mockMarkAllNotificationsRead.mockReturnValue(pending.promise);
+    const mockSetHeaderAction = jest.fn();
+    renderNotificationsTab(mockSetHeaderAction);
+    await waitFor(() => expect(mockSetHeaderAction).toHaveBeenCalledWith(expect.anything()));
+    const [publishedNode] = mockSetHeaderAction.mock.calls.find(
+      ([node]) => node != null,
+    ) as [React.ReactElement];
+    render(<View><View>{publishedNode}</View></View>);
+    fireEvent.press(screen.getByTestId('mark-all-read-btn'));
+
+    await waitFor(() => expect(mockMarkAllNotificationsRead).toHaveBeenCalledTimes(1));
+    act(() => appStateListeners.forEach((listener) => listener('background')));
+    await waitFor(() => expect(mockSetHeaderAction).toHaveBeenLastCalledWith(null));
+    expect(screen.queryByTestId('mark-all-read-error')).toBeNull();
+    await act(async () => { pending.resolve({ success: true, count: 2 }); });
   });
 });

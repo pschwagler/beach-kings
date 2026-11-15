@@ -5,6 +5,8 @@ or an Android bottom sheet with Take photo, Choose from photos, and Cancel.
 The native camera or photo library opens before the preview and form. Canceling
 an initial selection returns to the previous screen; canceling a replacement
 preserves the existing photo and review. Change photo uses the same source menu.
+The checked-in iOS project declares camera use for scoresheet scanning; release
+preflight requires the native and Expo camera purpose text to stay in sync.
 
 Camera permission is checked only after choosing **Take photo**. The OS is
 asked only if access has not been granted and it can still present its prompt.
@@ -53,6 +55,10 @@ Uploads snapshot the candidate list in their expiring Redis draft. Corrections
 reuse that snapshot, including when another league member edits the draft. Legacy
 drafts reconstruct context for their original uploader.
 
+New drafts expire after eight hours. Updating a draft renews that period;
+viewing the review alone does not. Already-expired drafts require selecting the
+photo again. Saved games and durable confirmation receipts are unaffected.
+
 Every correction also sends the current reviewed games, including manual player
 selections and the latest scores. The server validates selected IDs and adds any
 selected players outside the original candidate list. The model edits this state;
@@ -76,7 +82,7 @@ using their original request bodies. Older mobile binaries do not contain the
 scanning screens; over-the-air updates are disabled, so an Apple release is
 required to expose them.
 
-Deploy migrations `082`–`084` with the backend. Migration `082` enables parsing
+Deploy migrations `083`–`085` with the backend. Migration `083` enables parsing
 at 100% by default, including web: the deployed web flow immediately uses the
 new OpenAI parser. Verify the production `OPENAI_API_KEY` has access to the
 configured `SCORESHEET_MODEL` (or its default), and smoke-test web scanning and
@@ -92,7 +98,7 @@ physical iPhone before submitting the new build.
 
 ### Atomic saves and interrupted jobs
 
-Apply migration `084` before deploying this backend. It adds a durable import
+Apply migration `085` before deploying this backend. It adds a durable import
 receipt to the first processing job for each draft. Session creation, all games,
 and the receipt commit together; failed batches roll back completely. Concurrent
 confirmations share the same database lock, and authorized retries return the

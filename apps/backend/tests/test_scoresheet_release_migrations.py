@@ -12,7 +12,7 @@ from backend.database.models import FeatureFlag
 
 
 @pytest.mark.asyncio
-async def test_scoresheet_migrations_upgrade_081_without_removing_existing_jobs(test_engine):
+async def test_scoresheet_migrations_upgrade_082_without_removing_existing_jobs(test_engine):
     schema = f"scoresheet_migration_{uuid4().hex}"
 
     def verify(connection):
@@ -28,9 +28,9 @@ async def test_scoresheet_migrations_upgrade_081_without_removing_existing_jobs(
         FeatureFlag.__table__.create(connection)
         with Operations.context(MigrationContext.configure(connection)):
             for revision in (
-                "082_enable_scoresheet_parsing",
-                "083_allow_pickup_photo_jobs",
-                "084_photo_import_receipts",
+                "083_enable_scoresheet_parsing",
+                "084_allow_pickup_photo_jobs",
+                "085_photo_import_receipts",
             ):
                 importlib.import_module(f"backend.alembic.versions.{revision}").upgrade()
         columns = {

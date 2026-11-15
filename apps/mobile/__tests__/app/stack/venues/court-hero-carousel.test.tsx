@@ -4,7 +4,7 @@
  * Covers:
  *   - Multiple photos: all slides render, dot count matches, court-hero-image present
  *   - Single photo: one slide renders, no dots shown, court-hero-image present
- *   - No photos: picsum placeholder slide renders, court-hero-image present
+ *   - No photos: neutral local empty state renders, court-hero-image present
  */
 
 import React from 'react';
@@ -193,9 +193,15 @@ describe('CourtHeroCarousel — no photos', () => {
     expect(screen.getByTestId('court-hero-image')).toBeTruthy();
   });
 
-  it('renders exactly one slide (picsum placeholder)', () => {
+  it('renders a local neutral empty state without a carousel slide', () => {
     render(<CourtHeroCarousel court={court} />);
-    expect(screen.getAllByTestId('carousel-slide').length).toBe(1);
+    expect(
+      screen.getByTestId('court-photo-placeholder', { includeHiddenElements: true }),
+    ).toBeTruthy();
+    expect(screen.getByText('No photos yet', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryAllByTestId('carousel-slide')).toHaveLength(0);
+    expect(screen.queryByLabelText('Court photo 1')).toBeNull();
+    expect(screen.getByLabelText('No court photos yet')).toBeTruthy();
   });
 
   it('does not render dot indicators when no photos', () => {
@@ -235,5 +241,22 @@ describe('CourtHeroCarousel — falls back to all_photos', () => {
   it('renders dot indicators for all_photos', () => {
     render(<CourtHeroCarousel court={court} />);
     expect(screen.getAllByTestId('carousel-dot').length).toBe(2);
+  });
+});
+
+describe('CourtHeroCarousel — empty court photos fall back to review photos', () => {
+  const photos = [makePhoto(20), makePhoto(21)];
+  const court = {
+    ...BASE_COURT,
+    photo_count: 2,
+    court_photos: [],
+    all_photos: photos,
+  };
+
+  it('keeps real uploaded photos visible when court_photos is empty', () => {
+    render(<CourtHeroCarousel court={court} />);
+    expect(screen.getAllByTestId('carousel-slide')).toHaveLength(2);
+    expect(screen.queryByLabelText('No court photos yet')).toBeNull();
+    expect(screen.getByText('2 photos')).toBeTruthy();
   });
 });

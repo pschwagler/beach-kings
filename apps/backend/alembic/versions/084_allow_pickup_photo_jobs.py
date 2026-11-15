@@ -1,14 +1,14 @@
 """Allow owner-scoped pickup photo processing jobs.
 
-Revision ID: 083
-Revises: 082
+Revision ID: 084
+Revises: 083
 """
 
 from alembic import op
 import sqlalchemy as sa
 
-revision = "083"
-down_revision = "082"
+revision = "084"
+down_revision = "083"
 branch_labels = None
 depends_on = None
 

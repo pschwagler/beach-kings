@@ -1211,7 +1211,7 @@ async def create_matches_from_session(
     if not session_data:
         return False, [], "Session not found or expired"
 
-    # A draft confirmed before migration 084 can still be retried during its
+    # A draft confirmed before migration 085 can still be retried during its
     # Redis lifetime. Adopt its old marker while holding the same row lock.
     if session_data.get("matches_created") and session_data.get("created_match_ids"):
         from backend.database.models import Match

@@ -39,6 +39,7 @@ interface MessagesSearchBarProps {
   readonly onChangeText: (text: string) => void;
   readonly showHiddenAction: boolean;
   readonly onHiddenPress: () => void;
+  readonly disabled?: boolean;
 }
 
 function MessagesSearchBar({
@@ -46,6 +47,7 @@ function MessagesSearchBar({
   onChangeText,
   showHiddenAction,
   onHiddenPress,
+  disabled = false,
 }: MessagesSearchBarProps): React.ReactNode {
   const palette = usePaletteColors();
   return (
@@ -71,6 +73,9 @@ function MessagesSearchBar({
           textContentType="none"
           returnKeyType="search"
           accessibilityLabel="Search messages"
+          editable={!disabled}
+          focusable={!disabled}
+          accessibilityState={{ disabled, busy: disabled }}
         />
         {value.length > 0 && (
           <Pressable
@@ -194,10 +199,11 @@ export default function MessagesBody({
       return (
         <>
           <MessagesSearchBar
-            value=""
-            onChangeText={() => undefined}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
             showHiddenAction={folder === 'inbox'}
             onHiddenPress={onHiddenPress}
+            disabled
           />
           <MessagesSkeleton />
         </>

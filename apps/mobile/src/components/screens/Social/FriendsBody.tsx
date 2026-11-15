@@ -49,11 +49,13 @@ import SuggestionRow from './SuggestionRow';
 interface FriendsSearchBarProps {
   readonly value: string;
   readonly onChangeText: (text: string) => void;
+  readonly disabled?: boolean;
 }
 
 function FriendsSearchBar({
   value,
   onChangeText,
+  disabled = false,
 }: FriendsSearchBarProps): React.ReactNode {
   const palette = usePaletteColors();
   return (
@@ -82,6 +84,9 @@ function FriendsSearchBar({
           textContentType="none"
           clearButtonMode="while-editing"
           accessibilityLabel="Search friends"
+          editable={!disabled}
+          focusable={!disabled}
+          accessibilityState={{ disabled, busy: disabled }}
         />
       </View>
     </View>
@@ -419,7 +424,7 @@ export default function FriendsBody({
     if (isLoadingFriends && !isRefreshingFriends) {
       return (
         <>
-          <FriendsSearchBar value="" onChangeText={() => undefined} />
+          <FriendsSearchBar value={searchQuery} onChangeText={setSearchQuery} disabled />
           <FriendsLoadingSkeleton />
         </>
       );
@@ -450,7 +455,7 @@ export default function FriendsBody({
       if (isLoadingSuggestions && !isSearching) {
         return (
           <>
-            <FriendsSearchBar value="" onChangeText={() => undefined} />
+            <FriendsSearchBar value={searchQuery} onChangeText={setSearchQuery} disabled />
             <FriendsLoadingSkeleton />
           </>
         );

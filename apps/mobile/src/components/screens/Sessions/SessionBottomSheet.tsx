@@ -7,13 +7,13 @@
  *   3. Share Session (clipboard)
  *   4. Delete Session (destructive)
  *
- * Submitted session also surfaces:
+ * Submitted session also surfaces (results are stable enough to copy):
  *   5. Copy Results (clipboard)
  *
  * Wireframe ref: session-menu.html
  */
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -30,7 +30,13 @@ import { pluralize } from "@/lib/formatters";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { reconcileGameMutation } from "@/features/matches";
-import { shareSessionInvitation } from "@/features/sessions";
+import {
+  formatSessionResults,
+  shareSessionInvitation,
+  type SessionResultsSummary,
+} from "@/features/sessions";
+import * as Clipboard from 'expo-clipboard';
+import { useModalAnimationType } from '@/hooks/useModalAnimationType';
 
 interface Props {
   readonly visible: boolean;
@@ -41,9 +47,10 @@ interface Props {
   readonly sessionLabel: string;
   readonly gameCount: number;
   readonly playerCount: number;
+  readonly resultsSummary: SessionResultsSummary;
   /**
-   * Session status. Copy Results is hidden while active because results
-   * are only finalized after submission.
+   * Copy Results is hidden while active because its output is only stable once
+   * the session is finalized.
    */
   readonly status: "active" | "submitted";
 }
@@ -142,8 +149,10 @@ export default function SessionBottomSheet({
   sessionLabel,
   gameCount,
   playerCount,
+  resultsSummary,
   status,
 }: Props): React.ReactNode {
+  const animationType = useModalAnimationType();
   const isSubmitted = status === "submitted";
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -151,6 +160,8 @@ export default function SessionBottomSheet({
   const userId = user?.id ?? 0;
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [isCopyingResults, setIsCopyingResults] = useState(false);
+  const copyingResultsRef = useRef(false);
 
   const handleEdit = async (): Promise<void> => {
     await hapticLight();
@@ -184,9 +195,24 @@ export default function SessionBottomSheet({
   };
 
   const handleCopyResults = async (): Promise<void> => {
+    if (copyingResultsRef.current) return;
+    copyingResultsRef.current = true;
+    setIsCopyingResults(true);
     await hapticLight();
-    onClose();
-    // TODO(backend): format and copy results to clipboard
+    try {
+      await Clipboard.setStringAsync(formatSessionResults(resultsSummary));
+      onClose();
+      Alert.alert('Results copied', 'The session results are ready to paste.');
+    } catch {
+      Alert.alert(
+        'Could not copy results',
+        'The clipboard could not be updated. Please try again.',
+        [{ text: 'OK' }],
+      );
+    } finally {
+      copyingResultsRef.current = false;
+      setIsCopyingResults(false);
+    }
   };
 
   const handleDelete = async (): Promise<void> => {
@@ -230,7 +256,7 @@ export default function SessionBottomSheet({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType={animationType}
       onRequestClose={onClose}
       testID="session-bottom-sheet-modal"
     >
@@ -282,13 +308,17 @@ export default function SessionBottomSheet({
           busy={isSharing}
         />
         {isSubmitted && (
-          <MenuItem
-            label="Copy Results"
-            testID="session-menu-copy-results"
-            onPress={() => {
-              void handleCopyResults();
-            }}
-          />
+          <>
+            <MenuItem
+              label={isCopyingResults ? "Copying Results..." : "Copy Results"}
+              testID="session-menu-copy-results"
+              onPress={() => {
+                void handleCopyResults();
+              }}
+              disabled={isCopyingResults}
+              busy={isCopyingResults}
+            />
+          </>
         )}
         <MenuItem
           label={isDeleting ? "Deleting..." : "Delete Session"}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import BottomSheet from '@/components/ui/BottomSheet';
+import type { AccessibilityFocusRef } from '@/components/ui/useModalAccessibility';
 
 interface Props {
   readonly visible: boolean;
@@ -14,20 +15,24 @@ interface Props {
   readonly onBlockChange: () => void;
   readonly onReport: () => void;
   readonly onClose: () => void;
+  readonly returnFocusRef?: AccessibilityFocusRef;
 }
 
 export default function PlayerSafetySheet(props: Props): React.ReactNode {
-  const [reportPending, setReportPending] = useState(false);
-  const openReport = () => {
+  const [pendingAction, setPendingAction] = useState<'report' | 'block' | null>(null);
+  const openAfterDismissal = (action: 'report' | 'block') => {
     // iOS must finish dismissing this native modal before presenting the form.
     // Replacing both in one render can hide the new modal's accessibility tree.
-    if (Platform.OS === 'ios') setReportPending(true);
-    else props.onReport();
+    if (Platform.OS === 'ios') setPendingAction(action);
+    else if (action === 'report') props.onReport();
+    else props.onBlockChange();
   };
   const finishDismissal = () => {
-    if (!reportPending) return;
-    setReportPending(false);
-    props.onReport();
+    const action = pendingAction;
+    if (action == null) return;
+    setPendingAction(null);
+    if (action === 'report') props.onReport();
+    else props.onBlockChange();
   };
   const action = (label: string, onPress: () => void, destructive = false, testID?: string) => (
     <Pressable
@@ -43,8 +48,16 @@ export default function PlayerSafetySheet(props: Props): React.ReactNode {
   );
 
   return (
-    <BottomSheet visible={props.visible && !reportPending} onClose={props.onClose} onDismiss={finishDismissal} className="pb-2xl" testID="player-action-sheet">
-      <View accessibilityViewIsModal onAccessibilityEscape={props.onClose}>
+    <BottomSheet
+      visible={props.visible && pendingAction == null}
+      onClose={props.onClose}
+      onDismiss={finishDismissal}
+      returnFocusRef={pendingAction == null ? props.returnFocusRef : undefined}
+      accessibilityLabel="Player safety actions"
+      className="pb-2xl"
+      testID="player-action-sheet"
+    >
+      <View onAccessibilityEscape={props.onClose}>
         <View className="items-center px-lg py-md border-b border-divider">
           <AppText accessibilityRole="header" className="text-sm font-bold text-default">
             {props.playerName}
@@ -58,8 +71,8 @@ export default function PlayerSafetySheet(props: Props): React.ReactNode {
           'action-sheet-conversation-visibility',
         )}
         {props.onRemoveFriend != null && action('Remove friend', props.onRemoveFriend, true, 'action-sheet-remove-friend')}
-        {action(props.blockedByViewer ? 'Unblock player' : 'Block player', props.onBlockChange, !props.blockedByViewer, 'action-sheet-block')}
-        {action('Report player', openReport, true, 'action-sheet-report')}
+        {action(props.blockedByViewer ? 'Unblock player' : 'Block player', () => openAfterDismissal('block'), !props.blockedByViewer, 'action-sheet-block')}
+        {action('Report player', () => openAfterDismissal('report'), true, 'action-sheet-report')}
         <Pressable
           testID="action-sheet-cancel"
           onPress={props.onClose}

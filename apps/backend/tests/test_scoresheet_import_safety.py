@@ -18,7 +18,7 @@ from backend.utils.datetime_utils import utcnow
 from backend.models.schemas.sessions import ConfirmPhotoMatchesRequest, ReviewedPhotoMatch
 
 
-async def setup_draft(db_session, monkeypatch):
+async def setup_draft(db_session, monkeypatch, league=False):
     players = [Player(full_name=f"Import Test {i}") for i in range(4)]
     db_session.add_all(players)
     await db_session.flush()
@@ -31,18 +31,31 @@ async def setup_draft(db_session, monkeypatch):
         "team1_score": 21,
         "team2_score": 19,
     }
-    job = PhotoMatchJob(session_id="safety-draft", status=PhotoMatchJobStatus.COMPLETED)
+    league_id = None
+    if league:
+        from backend.database.models import League
+
+        group = League(name="Import safety league")
+        db_session.add(group)
+        await db_session.flush()
+        league_id = group.id
+    job = PhotoMatchJob(
+        session_id="safety-draft", league_id=league_id, status=PhotoMatchJobStatus.COMPLETED
+    )
     db_session.add(job)
     await db_session.commit()
-    draft = {"league_id": None, "player_id": players[0].id, "parsed_matches": [match, match]}
+    draft = {"league_id": league_id, "player_id": players[0].id, "parsed_matches": [match, match]}
     monkeypatch.setattr(photos, "get_session_data", AsyncMock(return_value=draft))
     monkeypatch.setattr(photos, "update_session_data", AsyncMock(return_value=False))
     return job.id
 
 
 @pytest.mark.asyncio
-async def test_second_game_failure_rolls_back_session_and_all_games(db_session, monkeypatch):
-    job_id = await setup_draft(db_session, monkeypatch)
+@pytest.mark.parametrize("league", [False, True])
+async def test_second_game_failure_rolls_back_session_and_all_games(
+    db_session, monkeypatch, league
+):
+    job_id = await setup_draft(db_session, monkeypatch, league)
     original = data_service.create_match_async
     calls = 0
 
@@ -69,10 +82,11 @@ async def test_second_game_failure_rolls_back_session_and_all_games(db_session, 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("league", [False, True])
 async def test_concurrent_retries_share_durable_receipt_without_redis(
-    db_session, test_engine, monkeypatch
+    db_session, test_engine, monkeypatch, league
 ):
-    job_id = await setup_draft(db_session, monkeypatch)
+    job_id = await setup_draft(db_session, monkeypatch, league)
     sessions = async_sessionmaker(test_engine, expire_on_commit=False)
 
     async def confirm():

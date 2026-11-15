@@ -18,6 +18,7 @@ import {
   formatLocalCalendarDate,
   parseCalendarDate,
 } from '@/lib/calendarDate';
+import { useModalAnimationType } from '@/hooks/useModalAnimationType';
 
 interface Props {
   readonly value: string;
@@ -44,6 +45,7 @@ export default function SessionDateField({
   onPickerOpenChange,
 }: Props): React.ReactNode {
   const palette = usePaletteColors();
+  const animationType = useModalAnimationType();
   const { isDark } = useTheme();
   const today = useMemo(() => atLocalNoon(new Date()), []);
   const selectedDate = useMemo(
@@ -139,7 +141,7 @@ export default function SessionDateField({
         <Modal
           visible={pickerOpen}
           transparent
-          animationType="slide"
+          animationType={animationType}
           onRequestClose={closePicker}
           testID={`${testID}-modal`}
         >

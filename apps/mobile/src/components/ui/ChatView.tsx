@@ -95,6 +95,7 @@ export interface ChatViewProps<T> {
   readonly renderComposer: () => React.ReactNode;
   readonly onRefresh?: () => void;
   readonly refreshScope?: string;
+  readonly showRefreshAction?: boolean;
   readonly isRefreshing?: boolean;
   readonly emptyState?: React.ReactNode;
   readonly listTestID?: string;
@@ -122,6 +123,7 @@ export default function ChatView<T>({
   renderComposer,
   onRefresh,
   refreshScope,
+  showRefreshAction,
   emptyState,
   listTestID,
   testID,
@@ -197,6 +199,7 @@ export default function ChatView<T>({
         onRefresh={onRefresh}
         refreshScope={refreshScope}
         refreshLabel="messages"
+        showRefreshAction={showRefreshAction}
         ListEmptyComponent={
           emptyState != null ? (emptyState as React.ReactElement) : undefined
         }

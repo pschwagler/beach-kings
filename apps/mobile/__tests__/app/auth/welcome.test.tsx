@@ -13,6 +13,9 @@ jest.mock('@/lib/externalUrls', () => ({
 }));
 
 const mockPush = jest.fn();
+const mockTournamentFlag = jest.fn(() => ({ enabled: true, isLoading: false }));
+jest.mock('@/features/feature-flags/queries', () => ({ useFeatureFlag: () => mockTournamentFlag() }));
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
@@ -26,8 +29,20 @@ import { PUBLIC_URLS } from '@/lib/publicUrls';
 
 describe('WelcomeScreen', () => {
   beforeEach(() => {
+  mockTournamentFlag.mockReturnValue({ enabled: true, isLoading: false });
     mockPush.mockClear();
     mockOpenPublicWebUrl.mockClear();
+  });
+
+  it('hides tournament promotion while its feature flag is off', () => {
+    mockTournamentFlag.mockReturnValue({ enabled: false, isLoading: false });
+    const { queryByText, getByText } = render(<WelcomeScreen />);
+    expect(queryByText('Tournaments')).toBeNull();
+    expect(getByText('Track your games')).toBeTruthy();
+  });
+
+  it('shows tournament promotion when its feature flag is on', () => {
+    expect(render(<WelcomeScreen />).getByText('Tournaments')).toBeTruthy();
   });
 
   it('renders the accessible brand lockup', () => {
@@ -43,6 +58,16 @@ describe('WelcomeScreen', () => {
     });
     expect(motif.props.accessible).toBe(false);
     expect(motif.props.pointerEvents).toBe('none');
+  });
+
+  it('keeps all content in a scrollable container for scaled text', () => {
+    const { getByTestId } = render(<WelcomeScreen />);
+    const scrollView = getByTestId('welcome-scroll-view');
+
+    expect(scrollView.props.contentContainerStyle).toEqual(
+      expect.objectContaining({ flexGrow: 1 }),
+    );
+    expect(scrollView.props.scrollEnabled).not.toBe(false);
   });
 
   it('renders "Get Started" button', () => {

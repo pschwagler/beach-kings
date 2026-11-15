@@ -13,12 +13,12 @@ const EXPECTED = Object.freeze({
   buildNumber: '1',
   googleRedirectScheme:
     'com.googleusercontent.apps.817191446075-ddkmr5ml8quamvf5258dp9tbuabfv4rc',
-  locationPurpose:
-    'Beach League uses your location to suggest the nearest league location.',
-  motionPurpose:
-    'Beach League uses motion activity to support location features when helping you find nearby courts.',
   cameraPurpose:
     'Beach League uses your camera to scan scoresheets and read game scores.',
+  locationPurpose:
+    'Beach League uses your location to help you find nearby leagues, courts, and players. You can also browse without sharing your location.',
+  motionPurpose:
+    'Beach League uses motion activity to support location features when helping you find nearby courts.',
   easImage: 'macos-tahoe-26.5-xcode-26.6',
 });
 
@@ -298,6 +298,9 @@ function verifyReleaseConfiguration({
   if (appConfig.ios?.config?.usesNonExemptEncryption !== false) {
     fail('Expo must declare that the app does not use non-exempt encryption.');
   }
+  if (appConfig.ios?.infoPlist?.NSCameraUsageDescription !== EXPECTED.cameraPurpose) {
+    fail('Expo camera purpose declaration is missing or changed.');
+  }
   const expoUrlSchemes = (appConfig.ios?.infoPlist?.CFBundleURLTypes ?? [])
     .flatMap((entry) => entry.CFBundleURLSchemes ?? []);
   if (!expoUrlSchemes.includes(EXPECTED.googleRedirectScheme)) {
@@ -344,6 +347,9 @@ function verifyReleaseConfiguration({
   if (!infoPlist.includes(`<string>${EXPECTED.motionPurpose}</string>`)) {
     fail('motion purpose declaration is missing or changed.');
   }
+  if (plist.parse(infoPlist).NSCameraUsageDescription !== EXPECTED.cameraPurpose) {
+    fail('native camera purpose declaration is missing or changed.');
+  }
   if (
     !/<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\s*\/>/.test(
       infoPlist,
@@ -366,12 +372,6 @@ function verifyReleaseConfiguration({
     2,
     'privacy manifest must be included once in the app target resources',
   );
-  if (appConfig.ios?.infoPlist?.NSCameraUsageDescription !== EXPECTED.cameraPurpose) {
-    fail('Expo camera purpose declaration is missing or changed.');
-  }
-  if (plist.parse(infoPlist).NSCameraUsageDescription !== EXPECTED.cameraPurpose) {
-    fail('native camera purpose declaration is missing or differs from Expo configuration.');
-  }
   for (const forbiddenKey of [
     'NSFaceIDUsageDescription',
     'NSMicrophoneUsageDescription',

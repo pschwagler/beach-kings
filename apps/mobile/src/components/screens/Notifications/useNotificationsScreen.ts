@@ -9,10 +9,13 @@
  *   - Accept/decline friend request actions surfaced from notification items
  */
 
-import { useState, useCallback, useMemo } from "react";
-import { useRouter } from "expo-router";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { AccessibilityInfo, AppState } from 'react-native';
+import { useFocusEffect, useRouter } from "expo-router";
 import { hapticMedium } from "@/utils/haptics";
 import { useNotifications } from '@/features/notifications';
+import { useAuth } from '@/contexts/AuthContext';
+import { NotificationMutationTimeoutError } from '@/features/notifications/mutationDeadline';
 import { openNotification } from '@/features/notifications/openNotification';
 import { useFriendshipMutations } from '@/features/social';
 import type { Notification, NotificationType } from "@beach-kings/shared";
@@ -72,6 +75,9 @@ export interface UseNotificationsScreenResult {
   readonly onRetry: () => void;
   readonly onNotificationPress: (notification: Notification) => void;
   readonly onMarkAllRead: () => void;
+  readonly onRetryMarkAll: () => void;
+  readonly isMarkAllPending: boolean;
+  readonly markAllError: string | null;
   readonly onAcceptFriendRequest: (notification: Notification) => void;
   readonly onDeclineFriendRequest: (notification: Notification) => void;
 }
@@ -81,7 +87,14 @@ export interface UseNotificationsScreenResult {
  */
 export function useNotificationsScreen(): UseNotificationsScreenResult {
   const router = useRouter();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
+  const [isMarkAllPending, setIsMarkAllPending] = useState(false);
+  const [markAllError, setMarkAllError] = useState<string | null>(null);
+  const markAllPendingRef = useRef(false);
+  const markAllGenerationRef = useRef(0);
+  const userIdRef = useRef(userId);
   const {
     notifications: rawNotifications,
     isLoading,
@@ -90,7 +103,7 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
     isRefetching,
     unreadCount,
     markAsRead,
-    markAllAsRead,
+    markAllAsReadAsync,
   } = useNotifications();
   const friendshipMutations = useFriendshipMutations();
 
@@ -119,10 +132,62 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
     [markAsRead, router],
   );
 
+  const retireMarkAllUi = useCallback(() => {
+    markAllPendingRef.current = false;
+    setIsMarkAllPending(false);
+  }, []);
+
+  const resetMarkAllUi = useCallback(() => {
+    markAllGenerationRef.current += 1;
+    markAllPendingRef.current = false;
+    setIsMarkAllPending(false);
+    setMarkAllError(null);
+  }, []);
+
   const onMarkAllRead = useCallback(() => {
+    if (markAllPendingRef.current || userId <= 0) return;
     void hapticMedium();
-    markAllAsRead();
-  }, [markAllAsRead]);
+    const generation = markAllGenerationRef.current + 1;
+    markAllGenerationRef.current = generation;
+    markAllPendingRef.current = true;
+    setIsMarkAllPending(true);
+    setMarkAllError(null);
+
+    void markAllAsReadAsync().then(
+      () => {
+        if (userIdRef.current !== userId || markAllGenerationRef.current !== generation) return;
+        retireMarkAllUi();
+      },
+      (error: unknown) => {
+        if (userIdRef.current !== userId || markAllGenerationRef.current !== generation) return;
+        retireMarkAllUi();
+        const message = error instanceof NotificationMutationTimeoutError
+          ? 'Beach League could not confirm that all notifications were read in time.'
+          : 'Beach League could not mark all notifications as read. Your unread notifications were restored.';
+        setMarkAllError(message);
+        AccessibilityInfo.announceForAccessibility(`${message} Retry is available.`);
+      },
+    );
+  }, [markAllAsReadAsync, retireMarkAllUi, userId]);
+
+  const changeFilter = useCallback((filter: NotificationFilter) => {
+    resetMarkAllUi();
+    setActiveFilter(filter);
+  }, [resetMarkAllUi]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+    resetMarkAllUi();
+  }, [resetMarkAllUi, userId]);
+
+  useFocusEffect(useCallback(() => () => resetMarkAllUi(), [resetMarkAllUi]));
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') resetMarkAllUi();
+    });
+    return () => subscription.remove();
+  }, [resetMarkAllUi]);
 
   const onAcceptFriendRequest = useCallback(
     (notification: Notification) => {
@@ -156,12 +221,15 @@ export function useNotificationsScreen(): UseNotificationsScreenResult {
     error,
     isRefreshing: isRefetching,
     activeFilter,
-    setActiveFilter,
+    setActiveFilter: changeFilter,
     unreadCount,
     onRefresh,
     onRetry,
     onNotificationPress,
     onMarkAllRead,
+    onRetryMarkAll: onMarkAllRead,
+    isMarkAllPending,
+    markAllError,
     onAcceptFriendRequest,
     onDeclineFriendRequest,
   };

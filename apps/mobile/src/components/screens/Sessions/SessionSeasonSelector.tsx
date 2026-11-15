@@ -26,7 +26,9 @@ export default function SessionSeasonSelector({
       <TouchableOpacity
         testID={`${testIDPrefix}-season-none`}
         onPress={() => onChange(null)}
-        className={`rounded-[10px] border px-3 py-[12px] ${
+        accessibilityRole="radio"
+        accessibilityState={{ checked: selectedSeasonId == null }}
+        className={`min-h-touch flex-row items-center justify-between rounded-[10px] border px-3 py-[12px] ${
           selectedSeasonId == null
             ? 'border-brand-teal bg-info-tint'
             : 'border-divider bg-surface'
@@ -39,6 +41,11 @@ export default function SessionSeasonSelector({
         >
           No season
         </AppText>
+        {selectedSeasonId == null && (
+          <AppText accessibilityElementsHidden importantForAccessibility="no" className="text-brand-teal font-bold">
+            ✓
+          </AppText>
+        )}
       </TouchableOpacity>
 
       {seasons.map((season) => {
@@ -48,7 +55,9 @@ export default function SessionSeasonSelector({
             key={season.id}
             testID={`${testIDPrefix}-season-${season.id}`}
             onPress={() => onChange(season.id)}
-            className={`rounded-[10px] border px-3 py-[12px] ${
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            className={`min-h-touch rounded-[10px] border px-3 py-[12px] ${
               selected
                 ? 'border-brand-teal bg-info-tint'
                 : 'border-divider bg-surface'
@@ -59,13 +68,17 @@ export default function SessionSeasonSelector({
                 className={`text-[14px] font-semibold flex-1 ${
                   selected ? 'text-brand-teal' : 'text-default'
                 }`}
-                numberOfLines={1}
               >
                 {seasonLabel(season)}
               </AppText>
               {season.is_active === true && (
                 <AppText className="text-[11px] font-bold text-brand-teal">
                   Current
+                </AppText>
+              )}
+              {selected && (
+                <AppText accessibilityElementsHidden importantForAccessibility="no" className="text-brand-teal font-bold">
+                  ✓
                 </AppText>
               )}
             </View>

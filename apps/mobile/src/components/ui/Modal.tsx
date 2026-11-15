@@ -35,7 +35,7 @@ export default function Modal({
   testID,
 }: ModalProps): React.ReactNode {
   const reduceMotion = useReducedMotion();
-  const { modalRef, focusInitialElement } = useModalAccessibility({
+  const { modalRef, focusInitialElement, restoreFocusAfterDismissal } = useModalAccessibility({
     visible,
     initialFocusRef,
     returnFocusRef,
@@ -47,6 +47,7 @@ export default function Modal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
       onShow={focusInitialElement}
+      onDismiss={restoreFocusAfterDismissal}
       accessibilityViewIsModal
     >
       {/*
