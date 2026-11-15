@@ -28,6 +28,8 @@ export async function pickScoresheetPhoto(
     mediaTypes: ["images"],
     quality: 1,
     allowsEditing: false,
+    preferredAssetRepresentationMode:
+      ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
   };
   const picked = camera
     ? await ImagePicker.launchCameraAsync(options)

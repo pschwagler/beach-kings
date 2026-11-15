@@ -18,16 +18,19 @@ import queue
 
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from PIL import Image, ImageOps
+from pillow_heif import register_heif_opener
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import db
 from backend.database.models import PhotoMatchJob, PhotoMatchJobStatus
+from backend.models.schemas.sessions import ReviewedPhotoMatch
 from backend.services import data_service
 from backend.services import redis_service
 from backend.services.games.match_validation import validate_match_score
@@ -37,10 +40,11 @@ from backend.services.games.scoresheet_prompt import (
     build_clarification_prompt_for_array as build_clarification_prompt_for_array,
     build_correction_prompt,
 )
-from backend.services.games.scoresheet_review import prompt_state
+from backend.services.games.scoresheet_review import prompt_state, reviewed_games
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
+register_heif_opener()
 
 # Configuration
 MAX_IMAGE_HEIGHT = 2048  # Also bounds width; preserve handwriting detail.
@@ -48,6 +52,7 @@ MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/heic", "image/heif"}
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif"}
 SESSION_TTL_SECONDS = 900  # 15 minutes
+JOB_TIMEOUT = timedelta(minutes=5)
 
 # Redis key prefix for photo match sessions
 REDIS_KEY_PREFIX = "photo_match_session:"
@@ -676,7 +681,28 @@ async def get_photo_match_job(db_session: AsyncSession, job_id: int) -> Optional
         PhotoMatchJob or None
     """
     result = await db_session.execute(select(PhotoMatchJob).where(PhotoMatchJob.id == job_id))
-    return result.scalar_one_or_none()
+    job = result.scalar_one_or_none()
+    if job and job.status in (PhotoMatchJobStatus.PENDING, PhotoMatchJobStatus.RUNNING):
+        since = job.started_at or job.created_at
+        if (
+            isinstance(since, datetime)
+            and since.replace(tzinfo=timezone.utc) < utcnow() - JOB_TIMEOUT
+        ):
+            await db_session.execute(
+                update(PhotoMatchJob)
+                .where(
+                    PhotoMatchJob.id == job_id,
+                    PhotoMatchJob.status == job.status,
+                )
+                .values(
+                    status=PhotoMatchJobStatus.FAILED,
+                    completed_at=utcnow(),
+                    error_message="Reading took too long or was interrupted. Please retry this photo.",
+                )
+            )
+            await db_session.commit()
+            await db_session.refresh(job)
+    return job
 
 
 async def update_job_status(
@@ -709,7 +735,9 @@ async def update_job_status(
         updates["error_message"] = error_message
 
     await db_session.execute(
-        update(PhotoMatchJob).where(PhotoMatchJob.id == job_id).values(**updates)
+        update(PhotoMatchJob)
+        .where(PhotoMatchJob.id == job_id, PhotoMatchJob.status != PhotoMatchJobStatus.FAILED)
+        .values(**updates)
     )
     await db_session.commit()
 
@@ -1140,6 +1168,7 @@ async def create_matches_from_session(
     match_date: str,
     player_overrides: Optional[List[Dict]] = None,
     court_id: Optional[int] = None,
+    reviewed_matches: Optional[List[ReviewedPhotoMatch]] = None,
 ) -> Tuple[bool, List[int], str]:
     """
     Create matches from a confirmed photo session.
@@ -1162,17 +1191,44 @@ async def create_matches_from_session(
     Returns:
         Tuple of (success, match_ids, message)
     """
-    # Check idempotency
-    existing_ids = await check_idempotency(session_id)
-    if existing_ids:
-        return True, existing_ids, "Matches already created"
+    # Every confirmation of this draft locks the same first job row. The receipt
+    # commits with the games, surviving Redis failures and concurrent retries.
+    receipt_job = await db_session.scalar(
+        select(PhotoMatchJob)
+        .where(PhotoMatchJob.session_id == session_id)
+        .order_by(PhotoMatchJob.id)
+        .limit(1)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if receipt_job is None:
+        return False, [], "Scoresheet not found. Choose the photo again."
+    if receipt_job.import_result:
+        return True, receipt_job.import_result["match_ids"], "Matches already created"
 
     # Get session data
     session_data = await get_session_data(session_id)
     if not session_data:
         return False, [], "Session not found or expired"
 
+    # A draft confirmed before migration 085 can still be retried during its
+    # Redis lifetime. Adopt its old marker while holding the same row lock.
+    if session_data.get("matches_created") and session_data.get("created_match_ids"):
+        from backend.database.models import Match
+
+        existing_ids = session_data["created_match_ids"]
+        saved_session = session_data.get("created_session_id") or await db_session.scalar(
+            select(Match.session_id).where(Match.id == existing_ids[0])
+        )
+        receipt_job.import_result = {"match_ids": existing_ids, "session_id": saved_session}
+        await db_session.commit()
+        return True, existing_ids, "Matches already created"
+
     parsed_matches = session_data.get("parsed_matches", [])
+    if reviewed_matches is not None:
+        # Bind the winning confirmation to its own immutable request, without
+        # writing shared Redis state before acquiring the import lock.
+        parsed_matches = reviewed_games(reviewed_matches)
 
     # Apply player overrides before validation
     if player_overrides:
@@ -1220,6 +1276,7 @@ async def create_matches_from_session(
                 date=match_date,
                 created_by=session_data["player_id"],
                 is_ranked=False,
+                commit=False,
                 **({"court_id": court_id} if court_id is not None else {}),
             )
         session_obj = pickup or await data_service.get_or_create_active_league_session(
@@ -1230,6 +1287,7 @@ async def create_matches_from_session(
             **({"court_id": court_id} if court_id is not None else {}),
         )
         if court_id is not None and session_obj.get("court_id") != court_id:
+            await db_session.rollback()
             return (
                 False,
                 [],
@@ -1249,11 +1307,20 @@ async def create_matches_from_session(
             )
 
             match_id = await data_service.create_match_async(
-                db_session, match_request, session_obj["id"]
+                db_session, match_request, session_obj["id"], commit=False
             )
             created_ids.append(match_id)
 
-        # Mark session as completed
+        receipt_job.import_result = {"match_ids": created_ids, "session_id": session_obj["id"]}
+        await db_session.commit()
+
+    except Exception:
+        await db_session.rollback()
+        logger.exception("Scoresheet import rolled back")
+        return False, [], "Could not save the games. Please try again."
+
+    # Cache updates cannot turn a committed save into a failed response.
+    try:
         await update_session_data(
             session_id,
             {
@@ -1263,9 +1330,14 @@ async def create_matches_from_session(
             },
         )
 
-        logger.info(f"Created {len(created_ids)} matches from session {session_id}")
-        return True, created_ids, f"Created {len(created_ids)} matches"
+        from backend.services.games.session_data import _invalidate_picker_caches
 
-    except Exception as e:
-        logger.error(f"Error creating matches: {e}", exc_info=True)
-        return False, created_ids, f"Error creating matches: {str(e)}"
+        await _invalidate_picker_caches(
+            db_session,
+            player_ids={
+                m[f"team{t}_player{p}_id"] for m in parsed_matches for t in (1, 2) for p in (1, 2)
+            },
+        )
+    except Exception:
+        logger.warning("Scoresheet saved; cache update will be retried on refresh")
+    return True, created_ids, f"Created {len(created_ids)} matches"

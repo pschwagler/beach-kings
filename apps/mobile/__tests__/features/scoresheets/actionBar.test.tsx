@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import ScoresheetActionBar from "@/components/screens/Scoresheets/ScoresheetActionBar";
 import type { useScoresheetScreen } from "@/components/screens/Scoresheets/useScoresheetScreen";
 
@@ -8,6 +8,8 @@ jest.mock("@/utils/haptics", () => ({
   hapticLight: jest.fn(),
   hapticMedium: jest.fn(),
 }));
+const read = jest.fn();
+beforeEach(() => jest.clearAllMocks());
 const base = {
   leagueId: 0,
   gameType: null,
@@ -27,15 +29,18 @@ function renderBar(overrides: Record<string, unknown> = {}) {
       vm={{ ...base, ...overrides } as ReturnType<typeof useScoresheetScreen>}
       error={null}
       onReplace={jest.fn()}
+      onRead={read}
     />,
   );
 }
-test("explains why reading is disabled until a photo is chosen", () => {
+test("keeps reading enabled and routes taps to validation without a photo", () => {
   renderBar();
   expect(
     screen.getByText("Choose a photo above to read its scores."),
   ).toBeTruthy();
-  expect(screen.getByTestId("read-scoresheet")).toBeDisabled();
+  expect(screen.getByTestId("read-scoresheet")).toBeEnabled();
+  fireEvent.press(screen.getByTestId("read-scoresheet"));
+  expect(read).toHaveBeenCalledTimes(1);
 });
 test.each([0, 10])(
   "photo and game type enable reading for league %s",
@@ -64,5 +69,7 @@ test("explains the game type choice after a photo is selected", () => {
   expect(
     screen.getByText("Choose League or Pickup above to continue."),
   ).toBeTruthy();
-  expect(screen.getByTestId("read-scoresheet")).toBeDisabled();
+  expect(screen.getByTestId("read-scoresheet")).toBeEnabled();
+  fireEvent.press(screen.getByTestId("read-scoresheet"));
+  expect(read).toHaveBeenCalledTimes(1);
 });

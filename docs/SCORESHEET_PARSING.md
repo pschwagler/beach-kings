@@ -54,6 +54,26 @@ the original photo is only a reference for the requested change. Earlier selecti
 are incorporated into the returned review, rather than reapplied over a later
 explicit identity change. A failed model correction returns the unchanged review.
 
+## Import and recovery guarantees
+
+Apply migration `085` before deploying this backend. It adds a durable import
+receipt to the first processing job for each draft. Session creation, all games,
+and the receipt commit together; failed batches roll back completely. Concurrent
+confirmations share the same database lock, and authorized retries return the
+saved result even if the Redis draft has expired. Legacy Redis completion markers
+are adopted into receipts during the transition. Reviewed scores are taken from
+the winning request rather than another client's changes to shared draft state.
+
+Jobs pending or running for five minutes fail when their status is checked.
+**Retry this photo** returns to the existing photo and context without requiring
+another photo selection. A timed-out worker cannot change its job back to success.
+The backend requires `pillow-heif` to decode HEIC/HEIF uploads; iOS additionally
+requests compatible photo-library representations.
+
+**Read scoresheet** stays enabled for missing input. Tapping it scrolls to the
+first invalid field and displays its error inline. Uploads begin only after the
+photo, game type, league (for league games), and date are valid.
+
 ## Evaluation
 
 The evaluator uses the same prompt builders as the app. Each private manifest's

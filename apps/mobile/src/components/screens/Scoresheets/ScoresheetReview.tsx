@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import type {
   PhotoPlayerOverride,
   ScoresheetMatch,
@@ -148,9 +148,9 @@ export default function ScoresheetReview({
                   {match.players
                     .slice(team * 2, team * 2 + 2)
                     .map((player, index) => (
-                      <Text key={index}>
+                      <AppText key={`${team}-${player.id ?? player.rawName}`}>
                         {index > 0 ? " / " : ""}
-                        <Text
+                        <AppText
                           className={
                             player.id == null
                               ? "text-warning"
@@ -163,8 +163,8 @@ export default function ScoresheetReview({
                         >
                           {player.name}
                           {selectedIds.includes(player.id ?? 0) ? " ✓" : ""}
-                        </Text>
-                      </Text>
+                        </AppText>
+                      </AppText>
                     ))}
                 </AppText>
                 <AppText

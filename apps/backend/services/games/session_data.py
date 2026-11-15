@@ -772,6 +772,7 @@ async def create_session(
     longitude: Optional[float] = None,
     start_time: Optional[str] = None,
     is_ranked: bool | None = None,
+    commit: bool = True,
 ) -> Dict:
     """
     Create a new session. Generates a unique shareable code and optionally
@@ -856,7 +857,10 @@ async def create_session(
             session_id=new_session.id, player_id=created_by, invited_by=None
         )
         session.add(participant)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     await session.refresh(new_session)
 
     return {
@@ -1423,7 +1427,11 @@ async def _invalidate_picker_caches(
 
 
 async def create_match_async(
-    session: AsyncSession, match_request: "CreateMatchRequest", session_id: int
+    session: AsyncSession,
+    match_request: "CreateMatchRequest",
+    session_id: int,
+    *,
+    commit: bool = True,
 ) -> int:
     """
     Create a new match in a session - async version.
@@ -1513,18 +1521,20 @@ async def create_match_async(
             update(Session).where(Session.id == session_id).values(updated_at=func.now())
         )
 
-    await session.commit()
+    if commit:
+        await session.commit()
     await session.refresh(new_match)
 
-    await _invalidate_picker_caches(
-        session,
-        player_ids=(
-            match_request.team1_player1_id,
-            match_request.team1_player2_id,
-            match_request.team2_player1_id,
-            match_request.team2_player2_id,
-        ),
-    )
+    if commit:
+        await _invalidate_picker_caches(
+            session,
+            player_ids=(
+                match_request.team1_player1_id,
+                match_request.team1_player2_id,
+                match_request.team2_player1_id,
+                match_request.team2_player2_id,
+            ),
+        )
 
     return new_match.id
 

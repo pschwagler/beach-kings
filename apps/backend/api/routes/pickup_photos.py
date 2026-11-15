@@ -18,6 +18,7 @@ from backend.services import photo_match_service
 from backend.services.games import photo_draft_service
 from backend.services.games.scoresheet_context import draft_context
 from backend.services.games.scoresheet_review import prepare_review
+from backend.services.games.scoresheet_import_receipts import confirmed_import
 
 router = APIRouter(dependencies=[Depends(require_feature("scoresheet_parsing"))])
 
@@ -88,27 +89,29 @@ async def confirm_pickup_photo(
     session=Depends(get_db_session),
     user=Depends(require_user),
 ):
-    draft = await owned_draft(draft_id, user)
+    receipt = await confirmed_import(session, draft_id, user_id=user["id"])
+    if receipt:
+        return receipt
+    await owned_draft(draft_id, user)
     if body.season_id is not None:
         raise HTTPException(400, "Pickup games do not have a season")
     try:
         datetime.strptime(body.match_date, "%Y-%m-%d")
     except ValueError:
         raise HTTPException(422, "Choose a valid game date")
-    if body.reviewed_matches is not None:
-        members = await draft_context(session, draft_id, draft, user, None)
-        await prepare_review(session, draft_id, members, body.reviewed_matches, None)
     context = {"court_id": body.court_id} if body.court_id is not None else {}
+    if body.reviewed_matches is not None:
+        context["reviewed_matches"] = body.reviewed_matches
     success, ids, message = await photo_match_service.create_matches_from_session(
         session, draft_id, None, body.match_date, player_overrides=body.player_overrides, **context
     )
     if not success:
         raise HTTPException(400, message)
-    data = await owned_draft(draft_id, user)
+    receipt = await confirmed_import(session, draft_id, user_id=user["id"])
     return {
         "status": "success",
         "message": message,
         "match_ids": ids,
         "matches_created": len(ids),
-        "session_id": data.get("created_session_id"),
+        "session_id": receipt["session_id"],
     }

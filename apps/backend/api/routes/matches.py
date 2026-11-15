@@ -505,7 +505,9 @@ async def edit_photo_results(
             raise HTTPException(status_code=403, detail="Session does not belong to this league")
 
         members = await draft_context(session, session_id, session_data, current_user, league_id)
-        members = await prepare_review(session, session_id, members, body.reviewed_matches, league_id)
+        members = await prepare_review(
+            session, session_id, members, body.reviewed_matches, league_id
+        )
 
         job_id = await photo_match_service.create_photo_match_job(session, league_id, session_id)
 
@@ -648,6 +650,11 @@ async def confirm_photo_matches(
 ):
     """Confirm parsed matches and create them in the database."""
     try:
+        from backend.services.games.scoresheet_import_receipts import confirmed_import
+
+        receipt = await confirmed_import(session, session_id, league_id=league_id)
+        if receipt:
+            return receipt
         season_id = body.season_id
         match_date = body.match_date
         player_overrides = body.player_overrides
@@ -676,12 +683,16 @@ async def confirm_photo_matches(
                     detail="Season not found or does not belong to this league",
                 )
 
-        if body.reviewed_matches is not None:
-            members = await draft_context(session, session_id, session_data, current_user, league_id)
-            await prepare_review(session, session_id, members, body.reviewed_matches, league_id)
         context = {"court_id": body.court_id} if body.court_id is not None else {}
+        if body.reviewed_matches is not None:
+            context["reviewed_matches"] = body.reviewed_matches
         success, match_ids, message = await photo_match_service.create_matches_from_session(
-            session, session_id, season_id, match_date, player_overrides=player_overrides, **context
+            session,
+            session_id,
+            season_id,
+            match_date,
+            player_overrides=player_overrides,
+            **context,
         )
 
         if not success:

@@ -9,6 +9,7 @@ jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: { id: 7 } }),
 }));
 jest.mock("expo-image-picker", () => ({
+  UIImagePickerPreferredAssetRepresentationMode: { Compatible: "compatible" },
   launchImageLibraryAsync: jest.fn(),
   launchCameraAsync: jest.fn(),
   requestCameraPermissionsAsync: jest.fn(),

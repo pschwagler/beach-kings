@@ -11,10 +11,12 @@ export default function ScoresheetActionBar({
   vm,
   error,
   onReplace,
+  onRead,
 }: {
   readonly vm: ViewModel;
   readonly error: string | null;
   readonly onReplace: () => void;
+  readonly onRead: () => void;
 }): React.ReactNode {
   const palette = usePaletteColors();
   if (vm.confirmed) return null;
@@ -57,10 +59,7 @@ export default function ScoresheetActionBar({
           title="Read scoresheet"
           variant="secondary"
           loading={vm.uploading}
-          disabled={!vm.photo || !vm.contextReady || vm.busy}
-          onPress={() => {
-            void vm.upload();
-          }}
+          onPress={onRead}
         />
       )}
       {vm.processing && (
@@ -90,6 +89,13 @@ export default function ScoresheetActionBar({
           onPress={() => {
             void vm.jobQuery.refetch();
           }}
+        />
+      )}
+      {vm.uploaded && !vm.processing && !ready && !vm.jobQuery.isError && (
+        <Button
+          title="Retry this photo"
+          variant="secondary"
+          onPress={vm.restart}
         />
       )}
       {vm.uploaded && !vm.processing && !ready && !vm.jobQuery.isError && (

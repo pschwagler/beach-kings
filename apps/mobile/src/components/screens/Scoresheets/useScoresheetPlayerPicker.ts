@@ -85,7 +85,7 @@ export function useScoresheetPlayerPicker(
       queryKey: sessionKeys.playerSearchRoot(userId, null),
     });
     onResolve(name, result.player_id, result.name);
-  }, [bridge.consumeResult, client, userId, onResolve]);
+  }, [bridge, client, userId, onResolve]);
   useEffect(() => {
     if (bridge.result?.source === "scoresheet") consumeCreatedPlayer();
   }, [bridge.result, consumeCreatedPlayer]);

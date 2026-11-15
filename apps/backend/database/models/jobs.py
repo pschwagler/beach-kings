@@ -6,6 +6,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    JSON,
     DateTime,
     Enum,
     ForeignKey,
@@ -85,6 +86,8 @@ class PhotoMatchJob(Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
     error_message = Column(Text, nullable=True)
     result_data = Column(Text, nullable=True)  # JSON string of parsed matches
+    # Written atomically with imported games on the first job for a draft.
+    import_result = Column(JSON, nullable=True)
 
     # Relationships
     league = relationship("League", foreign_keys=[league_id])
