@@ -2,6 +2,7 @@ import ClientProviders from './ClientProviders';
 import '../src/index.css';
 import '../src/App.css';
 import '../src/components/ui/Forms.css';
+import '../src/BrandRefresh.css';
 
 export const metadata = {
   metadataBase: new URL('https://beachleaguevb.com'),
@@ -27,6 +28,7 @@ export const metadata = {
   //   google: 'GSC_VERIFICATION_CODE',
   // },
   other: {
+    'apple-itunes-app': 'app-id=6801891670',
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
   },

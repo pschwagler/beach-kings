@@ -165,6 +165,22 @@ class SessionParticipantItemResponse(BaseModel):
     is_placeholder: bool = False
 
 
+class SharedSessionParticipantResponse(BaseModel):
+    """Only the display roster is included in a shared preview."""
+
+    player_id: int
+    full_name: str
+    is_placeholder: bool = False
+
+
+class SharedSessionPreviewResponse(BaseModel):
+    """Read-only session contents accessible through possession of its code."""
+
+    session: SessionDetailResponse
+    matches: List[SessionMatchItemResponse]
+    participants: List[SharedSessionParticipantResponse]
+
+
 class BatchInviteFailItem(BaseModel):
     """Single failed invite in a batch invite response."""
 

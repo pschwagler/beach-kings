@@ -2,13 +2,14 @@
 
 .legal-page-container {
   min-height: 100vh;
+  padding-top: var(--navbar-height);
   background-color: var(--gray-50);
 }
 
 .legal-page-main {
   max-width: 900px;
   margin: 0 auto;
-  padding: 84px 48px;
+  padding: clamp(24px, 5vw, 48px);
   background-color: var(--bg-surface);
   min-height: calc(100vh - var(--navbar-height));
   box-shadow: var(--shadow-sm);

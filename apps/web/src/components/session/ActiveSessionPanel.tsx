@@ -14,6 +14,7 @@ export interface ActiveSession {
 }
 
 interface ActiveSessionPanelProps {
+  showPlayerInvites?: boolean;
   activeSession: ActiveSession;
   activeSessionMatches: DisplayMatch[];
   onPlayerClick?: (playerId: number | null, playerName: string, e: React.MouseEvent) => void;
@@ -52,6 +53,7 @@ import { useClickOutside } from '../../hooks/useClickOutside';
 import { getUniquePlayersCount } from '../league/utils/matchUtils';
 
 export default function ActiveSessionPanel({
+  showPlayerInvites = true,
   activeSession,
   activeSessionMatches,
   onPlayerClick,
@@ -222,11 +224,12 @@ export default function ActiveSessionPanel({
           <div className="session-empty-state">
             <Trophy size={40} className="session-empty-icon" />
             <div className="session-empty-text">
-              No games recorded. Start by adding your first game!
+              {onAddMatchClick ? 'No games recorded. Start by adding your first game!' : 'No games recorded yet.'}
             </div>
           </div>
         ) : contentVariant === 'clipboard' ? (
           <SessionMatchesClipboardTable
+            showPlayerInvites={showPlayerInvites}
             matches={activeSessionMatches}
             onPlayerClick={onPlayerClick ?? (() => {})}
             onEditMatch={onEditMatch}
@@ -240,6 +243,7 @@ export default function ActiveSessionPanel({
           <div className="match-cards">
             {activeSessionMatches.map((match, idx) => (
               <MatchCard
+                showPlayerInvites={showPlayerInvites}
                 key={idx}
                 match={match}
                 onPlayerClick={onPlayerClick ?? (() => {})}

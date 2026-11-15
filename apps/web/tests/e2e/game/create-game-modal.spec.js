@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/test-fixtures.js';
+import { test, expect, navigateWithAuth } from '../fixtures/test-fixtures.js';
 import { createTestLeague, createTestSeason, addPlayerToLeague } from '../utils/test-helpers.js';
 
 /**
@@ -72,6 +72,7 @@ test.describe('CreateGameModal', () => {
   test('single league — auto-selects and opens AddMatchModal', async ({ authedPage, testUser, leagueWithPlayers }) => {
     const page = authedPage;
     const { leagueId } = leagueWithPlayers;
+    await navigateWithAuth(page, '/home');
 
     // Open modal from navbar
     await page.click('button[aria-label="Add Games"]');
@@ -118,6 +119,9 @@ test.describe('CreateGameModal', () => {
     for (const name of playerNames2) {
       await addPlayerToLeague(token, league2.id, name);
     }
+
+    // API setup happens outside the browser; refresh its cached membership list.
+    await navigateWithAuth(page, '/home');
 
     // Open modal
     await page.click('button[aria-label="Add Games"]');
@@ -185,9 +189,10 @@ test.describe('CreateGameModal', () => {
     expect(page.url()).toContain(`/league/${league.id}`);
     expect(page.url()).toContain('tab=matches');
 
-    // Without a season, the matches tab should show the "No seasons found" empty state
-    // (AddMatchModal should NOT auto-open since there are no seasons)
-    await expect(page.locator('text=No seasons found')).toBeVisible({ timeout: 10000 });
+    // This empty league needs a roster before logging games, including gap games.
+    await expect(page.getByText('This league has less than 4 registered players. Invite more players to begin logging league games.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add Players', exact: true })).toBeVisible();
+    await expect(page.getByTestId('add-match-modal')).toHaveCount(0);
   });
 
   // ─── autoAddMatch URL — direct navigation & refresh ──────────────────

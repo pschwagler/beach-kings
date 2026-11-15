@@ -4,7 +4,7 @@ const navbar = (page) => page.getByRole('navigation', { name: 'Site navigation' 
 
 test.describe('Route and Navbar contract @smoke @p0', () => {
   const publicRoutes = [
-    ['/', /Beach League|Beach Kings/i],
+    ['/', /Your game.*Your people.*Your beach/i],
     ['/courts', /Find.*Court|Courts/i],
     ['/find-leagues', /Find New Leagues/i],
     ['/find-players', /Find Players/i],

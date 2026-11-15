@@ -3,6 +3,7 @@ import { Edit } from 'lucide-react';
 import ShareInviteIcon from '../player/ShareInviteIcon';
 
 interface MatchCardProps {
+  showPlayerInvites?: boolean;
   match: any;
   onPlayerClick: (playerId: any, playerName: string, e: React.MouseEvent) => void;
   onEdit?: (match: any) => void;
@@ -35,7 +36,7 @@ function buildPendingTooltip(match: any): string {
  * Shows two teams with players, scores, and winner highlight.
  * Displays ShareInviteIcon next to placeholder player names.
  */
-export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = false }: MatchCardProps) {
+export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = false, showPlayerInvites = true }: MatchCardProps) {
   const team1Won = match.winner === 'Team 1';
   const team2Won = match.winner === 'Team 2';
 
@@ -67,11 +68,11 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
         <div className="team-players">
           <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match.team_1_player_1_id, match.team_1_player_1, e); }}>
             {match.team_1_player_1}
-            {match.team_1_player_1_is_placeholder && <ShareInviteIcon playerId={match.team_1_player_1_id} playerName={match.team_1_player_1} />}
+            {showPlayerInvites && match.team_1_player_1_is_placeholder && <ShareInviteIcon playerId={match.team_1_player_1_id} playerName={match.team_1_player_1} />}
           </span>
           <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match.team_1_player_2_id, match.team_1_player_2, e); }}>
             {match.team_1_player_2}
-            {match.team_1_player_2_is_placeholder && <ShareInviteIcon playerId={match.team_1_player_2_id} playerName={match.team_1_player_2} />}
+            {showPlayerInvites && match.team_1_player_2_is_placeholder && <ShareInviteIcon playerId={match.team_1_player_2_id} playerName={match.team_1_player_2} />}
           </span>
         </div>
         <div className={`team-score ${team1Won ? 'winner-score' : 'loser-score'}`}>
@@ -84,11 +85,11 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
         <div className="team-players">
           <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match.team_2_player_1_id, match.team_2_player_1, e); }}>
             {match.team_2_player_1}
-            {match.team_2_player_1_is_placeholder && <ShareInviteIcon playerId={match.team_2_player_1_id} playerName={match.team_2_player_1} />}
+            {showPlayerInvites && match.team_2_player_1_is_placeholder && <ShareInviteIcon playerId={match.team_2_player_1_id} playerName={match.team_2_player_1} />}
           </span>
           <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match.team_2_player_2_id, match.team_2_player_2, e); }}>
             {match.team_2_player_2}
-            {match.team_2_player_2_is_placeholder && <ShareInviteIcon playerId={match.team_2_player_2_id} playerName={match.team_2_player_2} />}
+            {showPlayerInvites && match.team_2_player_2_is_placeholder && <ShareInviteIcon playerId={match.team_2_player_2_id} playerName={match.team_2_player_2} />}
           </span>
         </div>
         <div className={`team-score ${team2Won ? 'winner-score' : 'loser-score'}`}>

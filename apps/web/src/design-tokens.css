@@ -3,6 +3,8 @@
  * ============================
  * Single source of truth for all colors, shadows, spacing, and layout values.
  * Every component CSS file should reference these tokens via var(--token-name).
+ * Brand and surface values mirror packages/shared/src/tokens/colors.ts,
+ * which supplies the mobile app's palette.
  *
  * NEVER hard-code hex colors in component CSS — always use a token here.
  * If a new color is needed, add it here first, then reference it.
@@ -22,22 +24,22 @@
 
 :root {
   /* Surface backgrounds — semantic tokens for light/dark theming */
-  --bg-page: #f7f8f9;
-  --bg-surface: #ffffff;
-  --bg-surface-hover: #fafafa;
-  --bg-surface-raised: #ffffff;
-  --bg-input: #ffffff;
+  --bg-page: #f5f1e8;
+  --bg-surface: #fffdf8;
+  --bg-surface-hover: #f8f5ee;
+  --bg-surface-raised: #fffdf8;
+  --bg-input: #fffdf8;
 
   /* Brand — teal ocean */
-  --primary: #2c7a8f;
-  --primary-light: #5faec0;
-  --primary-lighter: #bfe1e7;
-  --primary-dark: #205e6f;
-  --primary-darker: #183f4a;
-  --primary-rgb: 44, 122, 143;
-  --primary-darker-rgb: 24, 63, 74;
-  --navbar-bg-dark: #0d2b33;
-  --navbar-bg-dark-rgb: 13, 43, 51;
+  --primary: #1a3a4a;
+  --primary-light: #2a5a6a;
+  --primary-lighter: #e8f4f8;
+  --primary-dark: #244e60;
+  --primary-darker: #1a3a4a;
+  --primary-rgb: 26, 58, 74;
+  --primary-darker-rgb: 26, 58, 74;
+  --navbar-bg-dark: #1a3a4a;
+  --navbar-bg-dark-rgb: 26, 58, 74;
 
   /* Internal operations workspace */
   --admin-ops-ink: var(--gray-900);
@@ -61,7 +63,7 @@
   --sand-light: #faf0d8;
   --cream: #fdf8f0;
   --sand-dark: #d6c19c;
-  --deep-ocean: #2c7a8f;
+  --deep-ocean: #1a3a4a;
   --warm-brown: #8b6f47;
   --warm-brown-light: #b89a6d;
   --warm-brown-lighter: #f5e6d0;
@@ -72,9 +74,9 @@
   --seafoam-rgb: 142, 212, 198;
   --seafoam-light: #c9eee6;
   --seafoam-dark: #5fa79b;
-  --sun-gold: #ffd78a;
-  --sun-gold-light: #ffebc2;
-  --sun-gold-dark: #e7b662;
+  --sun-gold: #d4a843;
+  --sun-gold-light: #fdf8ed;
+  --sun-gold-dark: #bd9235;
   --dusk-purple: #4c3a4d;
   --dusk-purple-light: #7a6780;
   --dusk-purple-dark: #342735;
@@ -97,17 +99,17 @@
   --gold-dark: #b68b34;
 
   /* Base */
-  --white: #ffffff;
+  --white: #fffdf8;
 
   /* Pure neutral grays */
-  --gray-50: #fafafa;
-  --gray-100: #f5f5f5;
-  --gray-200: #eeeeee;
-  --gray-300: #e0e0e0;
-  --gray-400: #9e9e9e;
-  --gray-600: #757575;
-  --gray-700: #616161;
-  --gray-900: #212121;
+  --gray-50: #f8f5ee;
+  --gray-100: #f0ece3;
+  --gray-200: #e8e3d9;
+  --gray-300: #ded8cc;
+  --gray-400: #8b918a;
+  --gray-600: #626d6f;
+  --gray-700: #596568;
+  --gray-900: #182326;
 
   /* Functional status */
   --success: #10b981;
@@ -138,7 +140,15 @@
   --shadow-xl: 0 20px 25px -5px rgb(150 110 80 / 0.15);
 
   /* Layout dimensions */
-  --navbar-height: 53px;
+  --nav-main-height: 60px;
+  --app-banner-height: 38px;
+  --navbar-height: calc(var(--nav-main-height) + var(--app-banner-height));
+  --brand-gold: #d4a843;
+  --brand-gold-hover: #e8c96a;
+  --on-gold: #182326;
+  --text-inverse: #fffdf8;
+  --on-primary: #fffdf8;
+  --border-strong: #ded8cc;
 
   /* Sidebar widths */
   --sidebar-width-home: 220px;
@@ -153,32 +163,37 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
+    --navbar-bg-dark: #102f38;
+    --brand-gold: #e0b44c;
+    --brand-gold-hover: #e8c96a;
+    --border-strong: #354245;
+    --on-primary: #0f1718;
 
     /* Surface backgrounds */
-    --bg-page: #111318;
-    --bg-surface: #1a1d24;
-    --bg-surface-hover: #1f2328;
-    --bg-surface-raised: #22262c;
-    --bg-input: #1a1e24;
+    --bg-page: #0f1718;
+    --bg-surface: #172224;
+    --bg-surface-hover: #202d2f;
+    --bg-surface-raised: #202d2f;
+    --bg-input: #172224;
 
     /* Gray scale — semantic inversion (50 = subtlest bg, 900 = strongest text) */
-    --gray-50: #1a1e24;
-    --gray-100: #1f2328;
-    --gray-200: #2d3340;
-    --gray-300: #3d4554;
+    --gray-50: #172224;
+    --gray-100: #202d2f;
+    --gray-200: #354245;
+    --gray-300: #455457;
     --gray-400: #6b7585;
-    --gray-600: #8b95a5;
-    --gray-700: #a8b0bc;
-    --gray-900: #e2e5ea;
+    --gray-600: #9faaa6;
+    --gray-700: #bac5bf;
+    --gray-900: #e8efec;
 
     /* Brand teal — slightly brighter for dark-bg contrast */
-    --primary: #3b9db5;
-    --primary-light: #65bdd2;
-    --primary-lighter: #162a32;
-    --primary-dark: #2c8a9e;
-    --primary-darker: #1e6878;
-    --primary-rgb: 59, 157, 181;
-    --primary-darker-rgb: 30, 104, 120;
+    --primary: #4daacc;
+    --primary-light: #79c0d7;
+    --primary-lighter: #18343c;
+    --primary-dark: #79c0d7;
+    --primary-darker: #96cfdf;
+    --primary-rgb: 77, 170, 204;
+    --primary-darker-rgb: 150, 207, 223;
 
     /* Internal operations workspace */
     --admin-ops-ink: var(--gray-900);
@@ -191,7 +206,7 @@
     --admin-ops-gold: var(--sun-gold);
 
     /* Warm accents — darker tints for backgrounds */
-    --cream: #1a1d24;
+    --cream: #172224;
     --sand: #2a2520;
     --sand-rgb: 42, 37, 32;
     --sand-light: #1f1e1a;
@@ -205,7 +220,7 @@
 
     /* Neutral cool grays */
     --ocean-gray: #6b7580;
-    --ocean-gray-light: #2d3340;
+    --ocean-gray-light: #354245;
     --ocean-gray-dark: #9ca3af;
     --ocean-gray-darker: #c0c7d0;
 

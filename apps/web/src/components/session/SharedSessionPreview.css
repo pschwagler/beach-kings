@@ -1,0 +1,53 @@
+.shared-session-preview {
+  max-width: 1040px;
+  margin: var(--navbar-height) auto 0;
+  padding: clamp(20px, 4vw, 48px);
+}
+
+.shared-session-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--gray-600);
+  font-size: 0.875rem;
+}
+
+.shared-session-preview-auth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.shared-session-preview-auth button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shared-session-preview-login {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--gray-900);
+}
+
+.shared-session-preview-signup {
+  border: 1px solid var(--brand-gold);
+  background: var(--brand-gold);
+  color: var(--on-gold);
+}
+
+.shared-session-preview-players { margin: 24px 0; }
+.shared-session-preview-players h2 { font-size: 1rem; margin-bottom: 8px; }
+
+@media (max-width: 480px) {
+  .shared-session-preview-toolbar { align-items: flex-start; }
+  .shared-session-preview-toolbar > span { max-width: 120px; }
+}

@@ -84,6 +84,11 @@ export default function NavBar({
 
   return (
     <nav className="navbar" aria-label="Site navigation" data-nextjs-scroll-focus-boundary>
+      <a className="app-download-banner" href="https://apps.apple.com/app/id6801891670" target="_blank" rel="noopener noreferrer">
+        <span>Beach League for iPhone</span>
+        <span className="app-download-detail">Your next game, in your pocket.</span>
+        <strong>Download on iOS <span aria-hidden="true">↗</span></strong>
+      </a>
       <div className="navbar-container">
         <div className="navbar-left">
           <button
