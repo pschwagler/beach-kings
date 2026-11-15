@@ -66,7 +66,6 @@ const baseProps = {
   resultsSummary: {
     contextLabel: 'QBK Open Men · Session #1',
     date: '2026-03-19',
-    viewerPlayerId: 1,
     games: [
       {
         id: 1001,
@@ -111,7 +110,7 @@ describe('SessionBottomSheet — submitted results', () => {
 
     await waitFor(() =>
       expect(mockSetStringAsync).toHaveBeenCalledWith(
-        'QBK Open Men · Session #1 · Mar 19, 2026\nYou / Kim 21 – 16 Alex / Chris',
+        'QBK Open Men · Session #1 · Mar 19, 2026\nPat / Kim 21 – 16 Alex / Chris',
       ),
     );
     expect(mockSetStringAsync).toHaveBeenCalledTimes(1);

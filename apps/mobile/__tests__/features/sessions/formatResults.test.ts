@@ -27,7 +27,6 @@ describe('formatSessionResults', () => {
     expect(formatSessionResults({
       contextLabel: 'Tuesday League · Session #4',
       date: '2026-09-20',
-      viewerPlayerId: 10,
       games: [
         game(),
         game({
@@ -40,8 +39,8 @@ describe('formatSessionResults', () => {
       ],
     })).toBe([
       'Tuesday League · Session #4 · Sep 20, 2026',
-      'You / Sam Kim 21 – 18 Alex Diaz / Morgan Wu',
-      'You / Sam Kim 19 – 21 Alex Diaz / Morgan Wu',
+      'Jordan Lee / Sam Kim 21 – 18 Alex Diaz / Morgan Wu',
+      'Jordan Lee / Sam Kim 19 – 21 Alex Diaz / Morgan Wu',
     ].join('\n'));
   });
 
@@ -49,7 +48,6 @@ describe('formatSessionResults', () => {
     expect(formatSessionResults({
       contextLabel: 'Pickup · Session #1',
       date: '2026-09-20',
-      viewerPlayerId: null,
       games: [
         game({ team1_score: 20, team2_score: 20, winner: null }),
         game({ id: 2, game_number: 2, team1_score: null, team2_score: null, winner: null }),
@@ -60,29 +58,27 @@ describe('formatSessionResults', () => {
     );
   });
 
-  it('uses player IDs so only the viewer slot becomes You when names match', () => {
+  it('keeps full player names when players share the same name', () => {
     const output = formatSessionResults({
       contextLabel: 'Pickup · Session #2',
       date: 'not-a-date',
-      viewerPlayerId: 10,
       games: [game({ team1_player2_name: 'Jordan Lee' })],
     });
 
     expect(output).toBe(
       'Pickup · Session #2 · not-a-date\n' +
-      'You / Jordan Lee 21 – 18 Alex Diaz / Morgan Wu',
+      'Jordan Lee / Jordan Lee 21 – 18 Alex Diaz / Morgan Wu',
     );
-    expect(output.match(/You/g)).toHaveLength(1);
+    expect(output).not.toContain('You');
   });
 
-  it('does not guess when a malformed game repeats the viewer ID', () => {
+  it('trims names and labels unavailable players without guessing', () => {
     const output = formatSessionResults({
       contextLabel: 'Pickup · Session #3',
       date: '2026-09-20',
-      viewerPlayerId: 10,
-      games: [game({ team1_player2_id: 10 })],
+      games: [game({ team1_player1_name: '  Jordan Lee  ', team1_player2_name: '   ' })],
     });
 
-    expect(output).not.toContain('You');
+    expect(output).toContain('Jordan Lee / Unknown player 21 – 18 Alex Diaz / Morgan Wu');
   });
 });
