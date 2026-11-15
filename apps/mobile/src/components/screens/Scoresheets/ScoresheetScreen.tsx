@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  AccessibilityInfo,
   ActivityIndicator,
   findNodeHandle,
   KeyboardAvoidingView,
@@ -26,7 +27,12 @@ import ScoresheetReviewDetails from "./ScoresheetReviewDetails";
 import ScoresheetReview from "./ScoresheetReview";
 import ScoresheetActionBar from "./ScoresheetActionBar";
 import ScoresheetContextFields from "./ScoresheetContextFields";
+import ScoresheetCorrectionForm from "./ScoresheetCorrectionForm";
 import { useScoresheetScreen } from "./useScoresheetScreen";
+import {
+  scoresheetInputIssue,
+  type ScoresheetField,
+} from "./scoresheetValidation";
 
 export default function ScoresheetScreen({
   leagueId,
@@ -36,6 +42,11 @@ export default function ScoresheetScreen({
   readonly initialSource?: ScoresheetPhotoSource;
 }): React.ReactNode {
   const vm = useScoresheetScreen(leagueId);
+  const scroll = useRef<ScrollView>(null);
+  const contextTop = useRef(0);
+  const fieldOffsets = useRef<Partial<Record<ScoresheetField, number>>>({});
+  const [validationAttempted, setValidationAttempted] = useState(false);
+  const validationIssue = validationAttempted ? scoresheetInputIssue(vm) : null;
   const router = useRouter();
   const navigation = useNavigation();
   const goBack = useCallback(() => {
@@ -90,7 +101,7 @@ export default function ScoresheetScreen({
   );
   const openSource = useCallback(
     () => chooser.open({ anchor: findNodeHandle(anchor.current) ?? undefined }),
-    [chooser.open],
+    [chooser],
   );
   const started = useRef(false);
   useEffect(() => {
@@ -101,7 +112,7 @@ export default function ScoresheetScreen({
         if (outcome === "cancelled") goBack();
       });
     } else openSource();
-  }, [initialSource, vm.choosePhoto, openSource, goBack]);
+  }, [initialSource, vm, openSource, goBack]);
   const replacePhoto = () => {
     replace.current = true;
     chooser.open({
@@ -109,6 +120,25 @@ export default function ScoresheetScreen({
       title: "Replace scoresheet photo",
       message: "Choose a new photo to start a fresh review.",
     });
+  };
+  const read = () => {
+    if (vm.busy) return;
+    setValidationAttempted(true);
+    const issue = scoresheetInputIssue(vm);
+    if (issue) {
+      AccessibilityInfo.announceForAccessibility(issue.message);
+      if (issue.field === "photo") openSource();
+      else
+        scroll.current?.scrollTo({
+          y: Math.max(
+            0,
+            contextTop.current + (fieldOffsets.current[issue.field] ?? 0) - 16,
+          ),
+          animated: true,
+        });
+      return;
+    }
+    void vm.upload();
   };
   if (vm.photo == null)
     return (
@@ -133,7 +163,21 @@ export default function ScoresheetScreen({
                   {vm.error}
                 </AppText>
               )}
-              <Button title="Choose photo" onPress={openSource} />
+              {vm.cameraAccessDenied && (
+                <Button
+                  title="Choose from photos"
+                  onPress={() => {
+                    void vm.choosePhoto(false);
+                  }}
+                />
+              )}
+              <Button
+                title={
+                  vm.cameraAccessDenied ? "Other photo options" : "Choose photo"
+                }
+                variant={vm.cameraAccessDenied ? "outline" : "primary"}
+                onPress={openSource}
+              />
             </>
           )}
         </View>
@@ -164,6 +208,7 @@ export default function ScoresheetScreen({
           />
         )}
         <ScrollView
+          ref={scroll}
           testID="scoresheet-content"
           className="flex-1"
           keyboardShouldPersistTaps="handled"
@@ -246,7 +291,20 @@ export default function ScoresheetScreen({
                 </>
               )}
               {vm.photo && !vm.processing && !ready && (
-                <ScoresheetContextFields vm={vm} />
+                <View
+                  testID="scoresheet-context"
+                  onLayout={(event) => {
+                    contextTop.current = event.nativeEvent.layout.y;
+                  }}
+                >
+                  <ScoresheetContextFields
+                    vm={vm}
+                    validationIssue={validationIssue}
+                    onFieldLayout={(field, y) => {
+                      fieldOffsets.current[field] = y;
+                    }}
+                  />
+                </View>
               )}
               {!vm.uploaded && vm.photo && vm.contextReady && (
                 <View className="gap-3">
@@ -298,26 +356,11 @@ export default function ScoresheetScreen({
                     onEditingChange={vm.setEditorOpen}
                   />
                   <ScoresheetReviewDetails vm={vm} />
-                  <View className="gap-3">
-                    <AppText className="text-body font-bold text-default">
-                      Need a correction?
-                    </AppText>
-                    <Input
-                      value={vm.editPrompt}
-                      onChangeText={vm.setEditPrompt}
-                      placeholder="E.g. game 2 finished 21–18"
-                    />
-                    <Button
-                      title="Apply correction"
-                      variant="outline"
-                      disabled={
-                        vm.busy || vm.editorOpen || !vm.editPrompt.trim()
-                      }
-                      onPress={() => {
-                        void vm.edit();
-                      }}
-                    />
-                  </View>
+                  <ScoresheetCorrectionForm
+                    value={vm.editPrompt}
+                    onChange={vm.setEditPrompt}
+                    disabled={vm.busy || vm.editorOpen}
+                  />
                   <Button
                     title="Try another photo"
                     variant="ghost"
@@ -329,7 +372,12 @@ export default function ScoresheetScreen({
             </>
           )}
         </ScrollView>
-        <ScoresheetActionBar vm={vm} error={error} onReplace={replacePhoto} />
+        <ScoresheetActionBar
+          vm={vm}
+          error={error}
+          onReplace={replacePhoto}
+          onRead={read}
+        />
       </KeyboardAvoidingView>
       {chooser.sheet}
     </SafeAreaView>

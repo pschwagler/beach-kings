@@ -10,6 +10,18 @@ from backend.database.models import LeagueMember, Player
 FIELDS = ("team1_player1", "team1_player2", "team2_player1", "team2_player2")
 
 
+def reviewed_games(reviewed_matches):
+    """Copy a confirmation payload without mutating a shared Redis draft."""
+    matches = []
+    for game in reviewed_matches:
+        match = {"team1_score": game.scores[0], "team2_score": game.scores[1]}
+        for field, player in zip(FIELDS, game.players):
+            match[field] = {"name": player.rawName or player.name}
+            match[field + "_id"] = player.id
+        matches.append(match)
+    return matches
+
+
 def prompt_state(matches):
     """Keep known IDs, display names, raw aliases, and even partially read scores."""
     games = []

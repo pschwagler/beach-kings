@@ -1,6 +1,7 @@
 """Corrections start from the user's current review, not the original photo read."""
 
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -118,7 +119,7 @@ async def test_batch_honors_selected_court_without_reassigning_existing_sessions
     from backend.services import data_service
 
     db = AsyncMock()
-    db.scalar.return_value = 12 if court_exists else None
+    db.scalar.side_effect = [SimpleNamespace(import_result=None), 12 if court_exists else None]
     draft = {"league_id": league, "player_id": 1, "parsed_matches": [game(ids=(1, 2, 3, 4))]}
     monkeypatch.setattr(service, "get_session_data", AsyncMock(return_value=draft))
     monkeypatch.setattr(service, "check_idempotency", AsyncMock(return_value=[]))

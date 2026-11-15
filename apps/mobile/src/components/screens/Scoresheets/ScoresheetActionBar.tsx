@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Keyboard, View } from "react-native";
 import AppText from "@/components/ui/AppText";
 import Button from "@/components/ui/Button";
 import { usePaletteColors } from "@/theme/usePaletteColors";
@@ -11,15 +11,18 @@ export default function ScoresheetActionBar({
   vm,
   error,
   onReplace,
+  onRead,
 }: {
   readonly vm: ViewModel;
   readonly error: string | null;
   readonly onReplace: () => void;
+  readonly onRead: () => void;
 }): React.ReactNode {
   const palette = usePaletteColors();
   if (vm.confirmed) return null;
   const ready = vm.jobQuery.data?.status === "COMPLETED";
   const seasonPending = vm.leagueId > 0 && !vm.seasons.isSuccess;
+  const hasCorrection = Boolean(vm.editPrompt?.trim());
   const hint =
     error ??
     (vm.processing
@@ -36,10 +39,12 @@ export default function ScoresheetActionBar({
               : "Ready to read with your league’s players and your session history."
         : vm.editorOpen
           ? "Save or cancel your game edits before adding the games."
-          : (vm.issue ??
-            (seasonPending
-              ? "Load season options above before adding league games."
-              : "Checked the names and scores? Add these games to save them.")));
+          : hasCorrection
+            ? "Apply your correction to update the review before adding games."
+            : (vm.issue ??
+              (seasonPending
+                ? "Load season options above before adding league games."
+                : "Checked the names and scores? Add these games to save them.")));
   return (
     <View
       testID="scoresheet-action-bar"
@@ -57,10 +62,7 @@ export default function ScoresheetActionBar({
           title="Read scoresheet"
           variant="secondary"
           loading={vm.uploading}
-          disabled={!vm.photo || !vm.contextReady || vm.busy}
-          onPress={() => {
-            void vm.upload();
-          }}
+          onPress={onRead}
         />
       )}
       {vm.processing && (
@@ -69,7 +71,19 @@ export default function ScoresheetActionBar({
           color={palette.brandTeal}
         />
       )}
-      {ready && (
+      {ready && hasCorrection && (
+        <Button
+          testID="apply-scoresheet-correction"
+          title="Apply correction"
+          variant="secondary"
+          disabled={vm.busy || vm.editorOpen}
+          onPress={() => {
+            Keyboard.dismiss();
+            void vm.edit();
+          }}
+        />
+      )}
+      {ready && !hasCorrection && (
         <Button
           testID="confirm-scoresheet"
           title={`Add ${vm.matches.length} ${vm.matches.length === 1 ? "game" : "games"}`}
@@ -90,6 +104,13 @@ export default function ScoresheetActionBar({
           onPress={() => {
             void vm.jobQuery.refetch();
           }}
+        />
+      )}
+      {vm.uploaded && !vm.processing && !ready && !vm.jobQuery.isError && (
+        <Button
+          title="Retry this photo"
+          variant="secondary"
+          onPress={vm.restart}
         />
       )}
       {vm.uploaded && !vm.processing && !ready && !vm.jobQuery.isError && (

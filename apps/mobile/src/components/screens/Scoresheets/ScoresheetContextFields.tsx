@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import type { useScoresheetScreen } from "./useScoresheetScreen";
 import AppText from "@/components/ui/AppText";
@@ -6,16 +6,34 @@ import Button from "@/components/ui/Button";
 import SessionCourtPicker from "@/components/screens/Sessions/SessionCourtPicker";
 import SessionDateField from "@/components/screens/Sessions/SessionDateField";
 import SessionSeasonSelector from "@/components/screens/Sessions/SessionSeasonSelector";
+import type {
+  ScoresheetField,
+  ScoresheetValidationIssue,
+} from "./scoresheetValidation";
 
 type ViewModel = ReturnType<typeof useScoresheetScreen>;
 
 export default function ScoresheetContextFields({
   vm,
+  validationIssue = null,
+  onFieldLayout,
 }: {
   readonly vm: ViewModel;
+  readonly validationIssue?: ScoresheetValidationIssue | null;
+  readonly onFieldLayout?: (field: ScoresheetField, y: number) => void;
 }): React.ReactNode {
   const [choosingLeague, setChoosingLeague] = useState(vm.leagueId === 0);
   const [choosingSeason, setChoosingSeason] = useState(false);
+  const invalidField = validationIssue?.field;
+  useEffect(() => {
+    if (invalidField === "league") setChoosingLeague(true);
+  }, [invalidField]);
+  const fieldError = (field: ScoresheetField) =>
+    validationIssue?.field === field ? (
+      <AppText accessibilityRole="alert" className="text-caption text-danger">
+        {validationIssue.message}
+      </AppText>
+    ) : null;
   const selectedSeason = vm.seasons.data?.find(
     (season) => season.id === vm.seasonId,
   );
@@ -27,7 +45,13 @@ export default function ScoresheetContextFields({
   return (
     <View className="rounded-card border border-divider bg-surface p-3 gap-3">
       {!vm.uploaded && (
-        <View className="gap-3">
+        <View
+          testID="scoresheet-game-type-field"
+          onLayout={(event) =>
+            onFieldLayout?.("gameType", event.nativeEvent.layout.y)
+          }
+          className="gap-3"
+        >
           <AppText className="text-body font-bold text-default">
             Are these league or pickup games?
           </AppText>
@@ -54,11 +78,16 @@ export default function ScoresheetContextFields({
               </Pressable>
             ))}
           </View>
+          {fieldError("gameType")}
         </View>
       )}
       {!vm.uploaded && vm.gameType === "league" ? (
         <>
           <Pressable
+            testID="scoresheet-league-field"
+            onLayout={(event) =>
+              onFieldLayout?.("league", event.nativeEvent.layout.y)
+            }
             accessibilityRole="button"
             onPress={() => setChoosingLeague(!choosingLeague)}
             disabled={vm.busy}
@@ -74,6 +103,7 @@ export default function ScoresheetContextFields({
               <AppText className="text-caption text-brand-teal">Change</AppText>
             </View>
           </Pressable>
+          {fieldError("league")}
           {choosingLeague && (
             <View className="gap-2">
               {(vm.leagues.data ?? []).map((league) => (
@@ -119,11 +149,18 @@ export default function ScoresheetContextFields({
         </AppText>
       ) : null}
       {vm.contextReady && (
-        <SessionDateField
-          value={vm.date}
-          onChange={vm.setDate}
-          testID="scoresheet-date"
-        />
+        <View
+          onLayout={(event) =>
+            onFieldLayout?.("date", event.nativeEvent.layout.y)
+          }
+        >
+          <SessionDateField
+            value={vm.date}
+            onChange={vm.setDate}
+            testID="scoresheet-date"
+          />
+          {fieldError("date")}
+        </View>
       )}
       {vm.contextReady && (
         <SessionCourtPicker

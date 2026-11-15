@@ -6,6 +6,12 @@ The native camera or photo library opens before the preview and form. Canceling
 an initial selection returns to the previous screen; canceling a replacement
 preserves the existing photo and review. Change photo uses the same source menu.
 
+Camera permission is checked only after choosing **Take photo**. The OS is
+asked only if access has not been granted and it can still present its prompt.
+Denial keeps the screen and existing review intact, offers Settings, and leaves
+a direct **Choose from photos** fallback when no photo is selected. Selecting
+from the system photo picker does not request camera or full-library access.
+
 After selecting a photo, mobile asks whether the games belong to a league or
 pickup session. Reading starts after that choice so a single model request gets
 the relevant player context. League entry points preselect their league; seasons
@@ -53,6 +59,56 @@ selected players outside the original candidate list. The model edits this state
 the original photo is only a reference for the requested change. Earlier selections
 are incorporated into the returned review, rather than reapplied over a later
 explicit identity change. A failed model correction returns the unchanged review.
+
+Correction instructions support multiple lines. While instructions are pending,
+the fixed bottom action becomes **Apply correction**, including above the
+keyboard. **Add games** returns after the correction is applied or the text is
+cleared, so an unapplied instruction cannot be mistaken for a saved change.
+
+## Import and recovery guarantees
+
+### Separate backend/web and mobile releases
+
+Backend and web can deploy before the new iOS binary. Existing league upload,
+status/stream, correction, and confirmation endpoints are retained. The new
+reviewed-game and court fields are optional, so existing clients can continue
+using their original request bodies. Older mobile binaries do not contain the
+scanning screens; over-the-air updates are disabled, so an Apple release is
+required to expose them.
+
+Deploy migrations `082`–`084` with the backend. Migration `082` enables parsing
+at 100% by default, including web: the deployed web flow immediately uses the
+new OpenAI parser. Verify the production `OPENAI_API_KEY` has access to the
+configured `SCORESHEET_MODEL` (or its default), and smoke-test web scanning and
+corrections before broadly releasing the new binary. Local model access does
+not prove production credential/model access. The scoresheet flag can pause
+parsing, or exclude native platforms while leaving web enabled.
+
+The checked-in production deployment workflow is manually triggered and deploys
+both web and backend; it does not publish an iOS binary. For the native release,
+the camera purpose text must match in `app.json` and the authoritative native
+`Info.plist`. Release preflight checks this; rebuild and test the camera on a
+physical iPhone before submitting the new build.
+
+### Atomic saves and interrupted jobs
+
+Apply migration `084` before deploying this backend. It adds a durable import
+receipt to the first processing job for each draft. Session creation, all games,
+and the receipt commit together; failed batches roll back completely. Concurrent
+confirmations share the same database lock, and authorized retries return the
+saved result even if the Redis draft has expired. Legacy Redis completion markers
+are adopted into receipts during the transition. Reviewed scores are taken from
+the winning request rather than another client's changes to shared draft state.
+
+Jobs pending or running for five minutes fail when their status is checked.
+**Retry this photo** returns to the existing photo and context without requiring
+another photo selection. A timed-out worker cannot change its job back to success.
+The backend requires `pillow-heif` to decode HEIC/HEIF uploads; iOS additionally
+requests compatible photo-library representations.
+
+**Read scoresheet** stays enabled for missing input. Tapping it scrolls to the
+first invalid field and displays its error inline. Uploads begin only after the
+photo, game type, league (for league games), and date are valid.
 
 ## Evaluation
 

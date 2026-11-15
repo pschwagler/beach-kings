@@ -17,6 +17,8 @@ const EXPECTED = Object.freeze({
     'Beach League uses your location to suggest the nearest league location.',
   motionPurpose:
     'Beach League uses motion activity to support location features when helping you find nearby courts.',
+  cameraPurpose:
+    'Beach League uses your camera to scan scoresheets and read game scores.',
   easImage: 'macos-tahoe-26.5-xcode-26.6',
 });
 
@@ -364,8 +366,13 @@ function verifyReleaseConfiguration({
     2,
     'privacy manifest must be included once in the app target resources',
   );
+  if (appConfig.ios?.infoPlist?.NSCameraUsageDescription !== EXPECTED.cameraPurpose) {
+    fail('Expo camera purpose declaration is missing or changed.');
+  }
+  if (plist.parse(infoPlist).NSCameraUsageDescription !== EXPECTED.cameraPurpose) {
+    fail('native camera purpose declaration is missing or differs from Expo configuration.');
+  }
   for (const forbiddenKey of [
-    'NSCameraUsageDescription',
     'NSFaceIDUsageDescription',
     'NSMicrophoneUsageDescription',
     'NSPhotoLibraryUsageDescription',

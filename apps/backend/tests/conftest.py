@@ -76,6 +76,8 @@ async def _patch_missing_columns(conn):
     Only runs ALTER if the table exists but the column does not.
     """
     patches = [
+        ("photo_match_jobs", "import_result", "JSON"),
+        ("photo_match_jobs", "user_id", "INTEGER REFERENCES users(id) ON DELETE SET NULL"),
         # Migration 019
         ("matches", "ranked_intent", "BOOLEAN NOT NULL DEFAULT TRUE"),
         # Migration 024 — Google SSO
@@ -185,6 +187,7 @@ async def _patch_missing_columns(conn):
     # Migration 024 — make phone_number and password_hash nullable for Google SSO
     # Migration 045 — make verification_codes.phone_number nullable for email flows
     nullable_patches = [
+        ("photo_match_jobs", "league_id"),
         ("users", "phone_number"),
         ("users", "password_hash"),
         ("verification_codes", "phone_number"),
