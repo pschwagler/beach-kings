@@ -27,6 +27,7 @@ import ScoresheetReviewDetails from "./ScoresheetReviewDetails";
 import ScoresheetReview from "./ScoresheetReview";
 import ScoresheetActionBar from "./ScoresheetActionBar";
 import ScoresheetContextFields from "./ScoresheetContextFields";
+import ScoresheetCorrectionForm from "./ScoresheetCorrectionForm";
 import { useScoresheetScreen } from "./useScoresheetScreen";
 import {
   scoresheetInputIssue,
@@ -162,7 +163,21 @@ export default function ScoresheetScreen({
                   {vm.error}
                 </AppText>
               )}
-              <Button title="Choose photo" onPress={openSource} />
+              {vm.cameraAccessDenied && (
+                <Button
+                  title="Choose from photos"
+                  onPress={() => {
+                    void vm.choosePhoto(false);
+                  }}
+                />
+              )}
+              <Button
+                title={
+                  vm.cameraAccessDenied ? "Other photo options" : "Choose photo"
+                }
+                variant={vm.cameraAccessDenied ? "outline" : "primary"}
+                onPress={openSource}
+              />
             </>
           )}
         </View>
@@ -341,26 +356,11 @@ export default function ScoresheetScreen({
                     onEditingChange={vm.setEditorOpen}
                   />
                   <ScoresheetReviewDetails vm={vm} />
-                  <View className="gap-3">
-                    <AppText className="text-body font-bold text-default">
-                      Need a correction?
-                    </AppText>
-                    <Input
-                      value={vm.editPrompt}
-                      onChangeText={vm.setEditPrompt}
-                      placeholder="E.g. game 2 finished 21–18"
-                    />
-                    <Button
-                      title="Apply correction"
-                      variant="outline"
-                      disabled={
-                        vm.busy || vm.editorOpen || !vm.editPrompt.trim()
-                      }
-                      onPress={() => {
-                        void vm.edit();
-                      }}
-                    />
-                  </View>
+                  <ScoresheetCorrectionForm
+                    value={vm.editPrompt}
+                    onChange={vm.setEditPrompt}
+                    disabled={vm.busy || vm.editorOpen}
+                  />
                   <Button
                     title="Try another photo"
                     variant="ghost"

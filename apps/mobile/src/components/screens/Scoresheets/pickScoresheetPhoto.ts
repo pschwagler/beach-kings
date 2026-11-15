@@ -1,12 +1,24 @@
 import { Alert, Linking } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
+export class ScoresheetCameraAccessError extends Error {
+  constructor() {
+    super(
+      "Camera access is off. Choose a photo from your library, or enable camera access in Settings.",
+    );
+    this.name = "ScoresheetCameraAccessError";
+  }
+}
+
 /** Photo selection is local UI input; no upload or model call happens here. */
 export async function pickScoresheetPhoto(
   camera: boolean,
 ): Promise<ImagePicker.ImagePickerAsset | null> {
   if (camera) {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    let permission = await ImagePicker.getCameraPermissionsAsync();
+    if (!permission.granted && permission.canAskAgain) {
+      permission = await ImagePicker.requestCameraPermissionsAsync();
+    }
     if (!permission.granted) {
       Alert.alert(
         "Camera access needed",
@@ -16,12 +28,19 @@ export async function pickScoresheetPhoto(
           {
             text: "Open Settings",
             onPress: () => {
-              void Linking.openSettings();
+              void Linking.openSettings().catch(() => {
+                Alert.alert(
+                  "Open Settings manually",
+                  "In your device settings, select Beach League and allow camera access.",
+                );
+              });
             },
           },
         ],
       );
-      return null;
+      // Permission denial must not behave like canceling the photo picker:
+      // keep the screen and any existing review available for recovery.
+      throw new ScoresheetCameraAccessError();
     }
   }
   const options: ImagePicker.ImagePickerOptions = {

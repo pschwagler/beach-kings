@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { privateKeys } from "@/infrastructure/query/keys";
-import { leagueKeys } from "@/features/leagues";
+import { leagueKeys } from "@/features/leagues/keys";
 
 export const scoresheetKeys = {
   root: (userId: number) =>

@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Keyboard, View } from "react-native";
 import AppText from "@/components/ui/AppText";
 import Button from "@/components/ui/Button";
 import { usePaletteColors } from "@/theme/usePaletteColors";
@@ -22,6 +22,7 @@ export default function ScoresheetActionBar({
   if (vm.confirmed) return null;
   const ready = vm.jobQuery.data?.status === "COMPLETED";
   const seasonPending = vm.leagueId > 0 && !vm.seasons.isSuccess;
+  const hasCorrection = Boolean(vm.editPrompt?.trim());
   const hint =
     error ??
     (vm.processing
@@ -38,10 +39,12 @@ export default function ScoresheetActionBar({
               : "Ready to read with your league’s players and your session history."
         : vm.editorOpen
           ? "Save or cancel your game edits before adding the games."
-          : (vm.issue ??
-            (seasonPending
-              ? "Load season options above before adding league games."
-              : "Checked the names and scores? Add these games to save them.")));
+          : hasCorrection
+            ? "Apply your correction to update the review before adding games."
+            : (vm.issue ??
+              (seasonPending
+                ? "Load season options above before adding league games."
+                : "Checked the names and scores? Add these games to save them.")));
   return (
     <View
       testID="scoresheet-action-bar"
@@ -68,7 +71,19 @@ export default function ScoresheetActionBar({
           color={palette.brandTeal}
         />
       )}
-      {ready && (
+      {ready && hasCorrection && (
+        <Button
+          testID="apply-scoresheet-correction"
+          title="Apply correction"
+          variant="secondary"
+          disabled={vm.busy || vm.editorOpen}
+          onPress={() => {
+            Keyboard.dismiss();
+            void vm.edit();
+          }}
+        />
+      )}
+      {ready && !hasCorrection && (
         <Button
           testID="confirm-scoresheet"
           title={`Add ${vm.matches.length} ${vm.matches.length === 1 ? "game" : "games"}`}
