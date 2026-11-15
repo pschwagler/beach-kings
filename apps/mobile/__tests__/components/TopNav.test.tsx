@@ -68,6 +68,17 @@ describe('TopNav', () => {
     expect(screen.getByText('Home')).toBeTruthy();
   });
 
+  it('lets the navigation bar and centered title grow with scaled text', () => {
+    const { toJSON } = render(<TopNav title="Reset Password" showBack />);
+    const tree = toJSON();
+
+    expect(tree).toMatchObject({
+      props: { className: expect.stringContaining('min-h-11') },
+    });
+    expect(screen.getByRole('header').props.className).toContain('text-center');
+    expect(screen.getByRole('header').props.numberOfLines).toBeUndefined();
+  });
+
   it('shows back button when showBack is true', () => {
     render(<TopNav title="Profile" showBack />);
     expect(screen.getByLabelText('Go back')).toBeTruthy();

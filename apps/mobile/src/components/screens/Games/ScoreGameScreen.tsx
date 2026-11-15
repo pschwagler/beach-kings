@@ -17,8 +17,17 @@ import React, {
   useState,
 } from "react";
 import AppText from '@/components/ui/AppText';
-import { View, Pressable, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import {
+  SafeAreaView,
+} from "react-native-safe-area-context";
 import { useNavigation, useRouter } from "expo-router";
 
 import { XIcon } from "@/components/ui/icons";
@@ -99,7 +108,7 @@ function ModalNav({
 }: ModalNavProps): React.ReactNode {
   const palette = usePaletteColors();
   return (
-    <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider bg-page">
+    <View className="flex-row items-center px-4 py-2 border-b border-divider bg-page">
       <Pressable
         testID="modal-close-btn"
         onPress={onClose}
@@ -113,10 +122,10 @@ function ModalNav({
         <XIcon size={20} color={palette.textMuted} />
       </Pressable>
 
-      <View className="absolute left-0 right-0 items-center pointer-events-none">
-        <AppText className="text-[15px] font-bold text-default">{title}</AppText>
+      <View className="flex-1 min-w-0 items-center px-2 pointer-events-none">
+        <AppText className="text-[15px] font-bold text-default text-center">{title}</AppText>
         {subtitle != null && (
-          <AppText className="text-[11px] text-muted mt-[1px]">{subtitle}</AppText>
+          <AppText className="text-[11px] text-muted text-center mt-[1px]">{subtitle}</AppText>
         )}
       </View>
 
@@ -303,6 +312,10 @@ export default function ScoreGameScreen({
   sessionLabel,
   headerTitle,
 }: ScoreGameScreenProps = {}): React.ReactNode {
+  const { fontScale } = useWindowDimensions();
+  // Match the app's established large-text breakpoint. At this scale, trade
+  // vertical chrome for roster space before the four-player task is blocked.
+  const usesAccessibilityLayout = fontScale >= 1.6;
   const router = useRouter();
   const {
     team1,
@@ -674,7 +687,8 @@ export default function ScoreGameScreen({
       score2={score2}
       isBuilding={isBuilding}
       activeSlot={effectiveActiveSlot}
-      compact={searchFocused}
+      compact={searchFocused || usesAccessibilityLayout}
+      compactStacked={usesAccessibilityLayout}
       activeScoreTeam={effectiveActiveScoreTeam}
       onScoreTeamPress={handleScoreTeamPress}
       onSlotPress={handleSlotPress}
@@ -704,7 +718,7 @@ export default function ScoreGameScreen({
       />
     );
   } else {
-    content = (
+    const scoreEntry = (
       <>
         {/* Scoreboard — fixed at top. Collapses to a compact strip while the
             search is focused so the keyboard doesn't hide the results. */}
@@ -759,6 +773,16 @@ export default function ScoreGameScreen({
         />
       </>
     );
+    content = usesAccessibilityLayout && !isBuilding ? (
+      <ScrollView
+        testID="accessibility-score-scroll"
+        className="flex-1"
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {scoreEntry}
+      </ScrollView>
+    ) : scoreEntry;
   }
 
   return (
@@ -776,7 +800,13 @@ export default function ScoreGameScreen({
         onOpenMenu={submitState === "idle" ? handleOpenMenu : undefined}
         disabled={isSaving}
       />
-      {content}
+      <KeyboardAvoidingView
+        testID="score-game-keyboard-layout"
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        {content}
+      </KeyboardAvoidingView>
       <ConfirmDialog
         testID="discard-confirm-dialog"
         visible={discardConfirmVisible}

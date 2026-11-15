@@ -28,23 +28,41 @@ export default function NotificationsTab({
   scrollRequest,
 }: NotificationsTabProps): React.ReactNode {
   const state = useNotificationsScreen();
-  const { unreadCount, isLoading, onMarkAllRead } = state;
+  const {
+    unreadCount,
+    isLoading,
+    onMarkAllRead,
+    onRetryMarkAll,
+    isMarkAllPending,
+    markAllError,
+  } = state;
 
   const markAllAction = useMemo(
     () =>
-      unreadCount > 0 && !isLoading ? (
+      (unreadCount > 0 || isMarkAllPending || markAllError != null) && !isLoading ? (
         <Pressable
           testID="mark-all-read-btn"
-          onPress={onMarkAllRead}
+          onPress={markAllError != null ? onRetryMarkAll : onMarkAllRead}
           accessibilityRole="button"
           accessibilityLabel="Mark all as read"
+          accessibilityState={{ disabled: isMarkAllPending }}
+          disabled={isMarkAllPending}
           className="min-h-touch items-center justify-center active:opacity-70"
           hitSlop={8}
         >
-          <AppText className="text-[12px] font-semibold text-inverse">Mark all read</AppText>
+          <AppText className="text-[12px] font-semibold text-inverse">
+            {isMarkAllPending ? 'Marking…' : markAllError != null ? 'Retry' : 'Mark all read'}
+          </AppText>
         </Pressable>
       ) : null,
-    [unreadCount, isLoading, onMarkAllRead],
+    [
+      unreadCount,
+      isLoading,
+      isMarkAllPending,
+      markAllError,
+      onMarkAllRead,
+      onRetryMarkAll,
+    ],
   );
 
   useHeaderAction(setHeaderAction, markAllAction);

@@ -13,6 +13,7 @@ import {
 import type { LeagueSeason } from '@beach-kings/shared';
 import type { SeasonFormPayload } from './useLeagueInfoTab';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { useModalAnimationType } from '@/hooks/useModalAnimationType';
 
 type ScoringSystem = 'points_system' | 'season_rating';
 
@@ -167,6 +168,7 @@ export default function SeasonFormSheet({
   onClose,
   onSubmit,
 }: SeasonFormSheetProps): React.ReactNode {
+  const animationType = useModalAnimationType();
   const [form, setForm] = useState<SeasonFormState>(() => getInitialState(mode, season));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,7 +238,7 @@ export default function SeasonFormSheet({
       testID="season-form-sheet"
       visible={visible}
       transparent
-      animationType="slide"
+      animationType={animationType}
       onRequestClose={onClose}
     >
       <View className="flex-1 justify-end bg-black/40">
@@ -302,10 +304,17 @@ export default function SeasonFormSheet({
                         key={option.value}
                         testID={`scoring-${option.value}`}
                         onPress={() => setField('scoring_system', option.value)}
-                        className={`flex-1 items-center rounded-[8px] border px-3 py-[10px] active:opacity-75 ${
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: selected }}
+                        className={`min-h-touch flex-1 flex-row items-center justify-center gap-2 rounded-[8px] border px-3 py-[10px] active:opacity-75 ${
                           selected ? 'border-brand-teal bg-info-tint' : 'border-divider bg-elevated'
                         }`}
                       >
+                        {selected && (
+                          <AppText accessibilityElementsHidden importantForAccessibility="no" className="text-[12px] font-bold text-brand-teal">
+                            ✓
+                          </AppText>
+                        )}
                         <AppText
                           className={`text-[12px] font-bold ${
                             selected ? 'text-brand-teal' : 'text-muted'

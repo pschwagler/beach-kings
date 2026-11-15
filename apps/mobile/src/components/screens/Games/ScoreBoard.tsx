@@ -306,6 +306,8 @@ interface BoardHalfProps {
   readonly onChipDragMove?: (absX: number, absY: number) => void;
   readonly onChipDragEnd?: (absX: number, absY: number) => void;
   readonly onChipDragCancel?: () => void;
+  /** Let intrinsic content height drive a vertically stacked team layout. */
+  readonly stacked?: boolean;
 }
 
 const BoardHalf = React.memo(function BoardHalf({
@@ -325,6 +327,7 @@ const BoardHalf = React.memo(function BoardHalf({
   onChipDragMove,
   onChipDragEnd,
   onChipDragCancel,
+  stacked = false,
 }: BoardHalfProps): React.ReactNode {
   const isTeal = team === 1;
 
@@ -351,7 +354,7 @@ const BoardHalf = React.memo(function BoardHalf({
 
   return (
     <View
-      className={`flex-1 items-center gap-3 px-3 py-5 ${
+      className={`${stacked ? 'w-full' : 'flex-1'} items-center gap-3 px-3 py-5 ${
         isTeal ? 'bg-info-tint' : 'bg-warning-tint'
       }`}
     >
@@ -425,6 +428,8 @@ interface ScoreBoardProps {
    * eat the search results. Only takes effect in building mode.
    */
   readonly compact?: boolean;
+  /** Stack team summaries vertically when scaled text needs more width. */
+  readonly compactStacked?: boolean;
   readonly activeScoreTeam?: 1 | 2 | null;
   readonly onScoreTeamPress?: (team: 1 | 2) => void;
   readonly onSlotPress?: (team: 1 | 2, slot: 0 | 1) => void;
@@ -581,6 +586,7 @@ function ScoreBoard({
   isBuilding,
   activeSlot,
   compact = false,
+  compactStacked = false,
   activeScoreTeam,
   onScoreTeamPress,
   onSlotPress,
@@ -667,14 +673,21 @@ function ScoreBoard({
             {activeSlotLabel}
           </AppText>
         )}
-        <View className="flex-row">
+        <View
+          testID="compact-team-summaries"
+          className={compactStacked ? 'flex-col' : 'flex-row'}
+        >
           <CompactBoardHalf
             team={1}
             slots={team1Slots}
             activeSlot={activeSlot ?? null}
             onSlotPress={handleSlot1Press}
           />
-          <View className="w-[1px] bg-divider" />
+          <View
+            className={
+              compactStacked ? 'h-[1px] bg-divider' : 'w-[1px] bg-divider'
+            }
+          />
           <CompactBoardHalf
             team={2}
             slots={team2Slots}
@@ -693,7 +706,11 @@ function ScoreBoard({
           {activeSlotLabel}
         </AppText>
       )}
-      <View ref={boardRef} className="flex-row">
+      <View
+        ref={boardRef}
+        testID="scoreboard-team-layout"
+        className={compactStacked ? 'flex-col' : 'flex-row'}
+      >
         <BoardHalf
         team={1}
         slots={team1Slots}
@@ -711,9 +728,14 @@ function ScoreBoard({
         onChipDragMove={onChipDragMove}
         onChipDragEnd={onChipDragEnd}
         onChipDragCancel={onChipDragCancel}
+        stacked={compactStacked}
       />
 
-        <View className="w-[2px] bg-divider" />
+        <View
+          className={
+            compactStacked ? 'h-[2px] bg-divider' : 'w-[2px] bg-divider'
+          }
+        />
 
         <BoardHalf
         team={2}
@@ -732,6 +754,7 @@ function ScoreBoard({
         onChipDragMove={onChipDragMove}
         onChipDragEnd={onChipDragEnd}
         onChipDragCancel={onChipDragCancel}
+        stacked={compactStacked}
       />
 
         <GhostChip

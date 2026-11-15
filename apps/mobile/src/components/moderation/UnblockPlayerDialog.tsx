@@ -1,5 +1,6 @@
 import React from 'react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import type { AccessibilityFocusRef } from '@/components/ui/useModalAccessibility';
 
 interface Props {
   readonly visible: boolean;
@@ -8,6 +9,7 @@ interface Props {
   readonly errorMessage?: string | null;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
+  readonly returnFocusRef?: AccessibilityFocusRef;
 }
 
 export default function UnblockPlayerDialog(props: Props): React.ReactNode {
@@ -22,6 +24,7 @@ export default function UnblockPlayerDialog(props: Props): React.ReactNode {
       errorMessage={props.errorMessage}
       onConfirm={props.onConfirm}
       onCancel={props.onCancel}
+      returnFocusRef={props.returnFocusRef}
       testID="unblock-player-dialog"
     />
   );

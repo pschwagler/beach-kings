@@ -11,7 +11,7 @@
  * error message without closing.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AppText from '@/components/ui/AppText';
 import {
@@ -20,7 +20,10 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
+  Keyboard,
+  Platform,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import Modal from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { usePaletteColors } from '@/theme/usePaletteColors';
@@ -30,6 +33,7 @@ import {
   type CourtReviewTag,
 } from '@/features/courts';
 import { useAuth } from '@/contexts/AuthContext';
+import useKeyboard from '@/hooks/useKeyboard';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -79,6 +83,9 @@ export default function WriteReviewModal({
   const palette = usePaletteColors();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isVisible: keyboardVisible } = useKeyboard();
+  const submittingRef = useRef(false);
+  const deletingRef = useRef(false);
 
   const isEdit = existingReview != null;
 
@@ -122,7 +129,9 @@ export default function WriteReviewModal({
       setError('Please select a star rating.');
       return;
     }
+    if (submittingRef.current) return;
 
+    submittingRef.current = true;
     setSubmitting(true);
     setError(null);
 
@@ -154,6 +163,7 @@ export default function WriteReviewModal({
           ?.detail ?? 'Failed to submit review. Please try again.';
       setError(detail);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }, [rating, text, selectedTagIds, isEdit, existingReview, courtId, queryClient, user?.id, onSuccess, onClose]);
@@ -167,8 +177,9 @@ export default function WriteReviewModal({
   }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (existingReview == null) return;
+    if (existingReview == null || deletingRef.current) return;
 
+    deletingRef.current = true;
     setDeleting(true);
     setError(null);
 
@@ -185,6 +196,7 @@ export default function WriteReviewModal({
       setError(detail);
       setConfirmingDelete(false);
     } finally {
+      deletingRef.current = false;
       setDeleting(false);
     }
   }, [existingReview, courtId, queryClient, user?.id, onSuccess, onClose]);
@@ -204,11 +216,21 @@ export default function WriteReviewModal({
       onClose={onClose}
       title={isEdit ? 'Edit Your Review' : 'Write a Review'}
     >
-      <ScrollView
-        testID="write-review-modal"
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        behavior="padding"
+        automaticOffset
+        enabled={Platform.OS === 'ios'}
+        style={{ flex: 1 }}
+        testID="write-review-keyboard-avoider"
       >
+        <ScrollView
+          testID="write-review-modal"
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={false}
+        >
         {/* Error message */}
         {error != null && (
           <View
@@ -316,26 +338,6 @@ export default function WriteReviewModal({
           </View>
         )}
 
-        {/* Submit button */}
-        <Pressable
-          testID="submit-review-btn"
-          onPress={() => void handleSubmit()}
-          disabled={submitDisabled}
-          accessibilityRole="button"
-          accessibilityLabel={isEdit ? 'Save review' : 'Submit review'}
-          accessibilityState={{ disabled: submitDisabled, busy: submitting }}
-          className="bg-brand-teal py-4 rounded-[10px] items-center mb-3 active:opacity-80"
-          style={{ opacity: submitDisabled ? 0.6 : 1 }}
-        >
-          {submitting ? (
-            <ActivityIndicator color={palette.onBrandTeal} />
-          ) : (
-            <AppText className="text-on-brand-teal font-bold text-[15px]">
-              {isEdit ? 'Save Review' : 'Submit Review'}
-            </AppText>
-          )}
-        </Pressable>
-
         {/* Delete section — edit mode only */}
         {isEdit && (
           confirmingDelete ? (
@@ -388,7 +390,48 @@ export default function WriteReviewModal({
             </Pressable>
           )
         )}
-      </ScrollView>
+        </ScrollView>
+
+        <View testID="review-actions" style={{ flexShrink: 0 }} className="border-t border-divider bg-surface px-4 pt-2 pb-3 gap-2">
+          {keyboardVisible && (
+            <Pressable
+              onPress={Keyboard.dismiss}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss keyboard"
+              className="min-h-touch self-end justify-center px-2"
+            >
+              <AppText className="text-[14px] font-semibold text-brand-teal">Dismiss keyboard</AppText>
+            </Pressable>
+          )}
+          <Pressable
+            testID="submit-review-btn"
+            onPress={() => void handleSubmit()}
+            disabled={submitDisabled}
+            accessibilityRole="button"
+            accessibilityLabel={isEdit ? 'Save review' : 'Submit review'}
+            accessibilityState={{ disabled: submitDisabled, busy: submitting }}
+            className="bg-brand-teal py-4 rounded-[10px] items-center active:opacity-80"
+            style={{ opacity: submitDisabled ? 0.6 : 1 }}
+          >
+            {submitting ? (
+              <ActivityIndicator color={palette.onBrandTeal} />
+            ) : (
+              <AppText className="text-on-brand-teal font-bold text-[15px]">
+                {isEdit ? 'Save Review' : 'Submit Review'}
+              </AppText>
+            )}
+          </Pressable>
+          <Pressable
+            testID="cancel-review-btn"
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel review"
+            className="min-h-touch rounded-[10px] border border-divider bg-elevated items-center justify-center"
+          >
+            <AppText className="text-[15px] font-semibold text-muted">Cancel</AppText>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -42,6 +42,7 @@ export function createApiClient(baseURL: string, storageAdapter?: any) {
       client.setAuthTokens(accessToken, refreshToken),
     clearAuthTokens: () => client.clearAuthTokens(),
     getStoredTokens: () => client.getStoredTokens(),
+    logoutCurrentSession: () => client.logoutCurrentSession(),
     onAuthInvalidated: (listener: () => void) => client.onAuthInvalidated(listener),
   };
 }

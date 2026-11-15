@@ -32,6 +32,7 @@ import {
   NativePushContext,
   type NativePushAuthorization,
   type NativePushContextValue,
+  type EnablePushResult,
 } from './nativePushContext';
 
 
@@ -77,6 +78,13 @@ function parsePushData(value: unknown): NativePushData | null {
   };
 }
 
+interface NativePushAccountGeneration {
+  readonly generation: number;
+  readonly userId: number;
+  readonly isAuthenticated: boolean;
+  readonly accountRestricted: boolean;
+}
+
 export default function NativePushProvider({
   children,
 }: {
@@ -97,40 +105,94 @@ export default function NativePushProvider({
     Device.isDevice ? 'not_determined' : 'unavailable',
   );
   const [isRegistering, setIsRegistering] = useState(false);
-  const registrationRef = useRef<Promise<boolean> | null>(null);
+  const accountGenerationRef = useRef<NativePushAccountGeneration>({
+    generation: 0,
+    userId,
+    isAuthenticated,
+    accountRestricted,
+  });
+  const renderedAccount = accountGenerationRef.current;
+  if (
+    renderedAccount.userId !== userId ||
+    renderedAccount.isAuthenticated !== isAuthenticated ||
+    renderedAccount.accountRestricted !== accountRestricted
+  ) {
+    accountGenerationRef.current = {
+      generation: renderedAccount.generation + 1,
+      userId,
+      isAuthenticated,
+      accountRestricted,
+    };
+  }
+  const registrationRef = useRef<{
+    readonly generation: number;
+    readonly promise: Promise<boolean>;
+  } | null>(null);
   const pendingResponseRef = useRef<Notifications.NotificationResponse | null>(null);
   const coldStartHandledUserRef = useRef<number | null>(null);
   const handledResponseIdsRef = useRef(new Set<string>());
 
+  const isCurrentAccount = useCallback((expected: NativePushAccountGeneration): boolean => {
+    const current = accountGenerationRef.current;
+    return current.generation === expected.generation &&
+      current.userId === expected.userId &&
+      current.isAuthenticated === expected.isAuthenticated &&
+      current.accountRestricted === expected.accountRestricted;
+  }, []);
+
   const refreshAuthorization = useCallback(async (): Promise<NativePushAuthorization> => {
+    const generation = accountGenerationRef.current.generation;
     if (!Device.isDevice) {
-      setAuthorization('unavailable');
+      if (accountGenerationRef.current.generation === generation) {
+        setAuthorization('unavailable');
+      }
       return 'unavailable';
     }
     try {
       const next = authorizationFrom(await Notifications.getPermissionsAsync());
-      setAuthorization(next);
+      if (accountGenerationRef.current.generation === generation) setAuthorization(next);
       return next;
     } catch {
-      setAuthorization('unavailable');
+      if (accountGenerationRef.current.generation === generation) {
+        setAuthorization('unavailable');
+      }
       return 'unavailable';
     }
   }, []);
 
-  const register = useCallback(async (requestPermission: boolean): Promise<boolean> => {
-    if (!isAuthenticated || accountRestricted || userId === 0 || !Device.isDevice) {
-      setAuthorization('unavailable');
+  const register = useCallback(async (
+    requestPermission: boolean,
+    expectedAccount = accountGenerationRef.current,
+  ): Promise<boolean> => {
+    if (
+      !isCurrentAccount(expectedAccount) ||
+      !expectedAccount.isAuthenticated ||
+      expectedAccount.accountRestricted ||
+      expectedAccount.userId === 0 ||
+      !Device.isDevice
+    ) {
+      if (isCurrentAccount(expectedAccount)) setAuthorization('unavailable');
       return false;
     }
-    if (registrationRef.current != null) return registrationRef.current;
-    const work = (async () => {
+    if (registrationRef.current?.generation === expectedAccount.generation) {
+      return registrationRef.current.promise;
+    }
+    const previousRegistration = registrationRef.current?.promise;
+    let work!: Promise<boolean>;
+    work = (async () => {
       setIsRegistering(true);
       try {
+        if (previousRegistration != null) {
+          await previousRegistration.catch(() => false);
+          if (!isCurrentAccount(expectedAccount)) return false;
+        }
         let permissions = await Notifications.getPermissionsAsync();
+        if (!isCurrentAccount(expectedAccount)) return false;
         if (!permissions.granted && requestPermission && permissions.status !== 'denied') {
           permissions = await Notifications.requestPermissionsAsync({
             ios: { allowAlert: true, allowBadge: true, allowSound: true },
           });
+          if (!isCurrentAccount(expectedAccount)) return false;
         }
         const nextAuthorization = authorizationFrom(permissions);
         setAuthorization(nextAuthorization);
@@ -142,24 +204,31 @@ export default function NativePushProvider({
           return false;
         }
         if (Platform.OS === 'android') {
+          if (!isCurrentAccount(expectedAccount)) return false;
           await Notifications.setNotificationChannelAsync('default', {
             name: 'Default',
             importance: Notifications.AndroidImportance.MAX,
             sound: 'default',
           });
+          if (!isCurrentAccount(expectedAccount)) return false;
         }
 
+        if (!isCurrentAccount(expectedAccount)) return false;
         await retryPendingPushUnregister();
+        if (!isCurrentAccount(expectedAccount)) return false;
         const installation = await getPushInstallationState();
+        if (!isCurrentAccount(expectedAccount)) return false;
         const expoToken = (await Notifications.getExpoPushTokenAsync({
           projectId: easProjectId,
         })).data;
+        if (!isCurrentAccount(expectedAccount)) return false;
         const platform = Platform.OS as PushPlatform;
         const response = await api.registerPushToken({
           token: expoToken,
           platform,
           installation_id: installation.installationId,
         });
+        if (!isCurrentAccount(expectedAccount)) return false;
         if (response.unregister_secret == null) {
           throw new Error('Push registration did not return an unregister credential');
         }
@@ -167,31 +236,51 @@ export default function NativePushProvider({
           token: expoToken,
           platform,
           projectId: easProjectId,
-          userId,
+          userId: expectedAccount.userId,
           unregisterSecret: response.unregister_secret,
         });
-        return true;
+        return isCurrentAccount(expectedAccount);
       } catch {
-        showToast('Notifications could not be registered. We will retry.', 'error');
+        if (isCurrentAccount(expectedAccount)) {
+          showToast('Notifications could not be registered. We will retry.', 'error');
+        }
         return false;
       } finally {
-        setIsRegistering(false);
-        registrationRef.current = null;
+        if (registrationRef.current?.promise === work) {
+          registrationRef.current = null;
+          if (isCurrentAccount(expectedAccount)) setIsRegistering(false);
+        }
       }
     })();
-    registrationRef.current = work;
+    registrationRef.current = { generation: expectedAccount.generation, promise: work };
     return work;
-  }, [accountRestricted, isAuthenticated, showToast, userId]);
+  }, [isCurrentAccount, showToast]);
 
-  const enablePush = useCallback(async (): Promise<boolean> => {
+  const enablePush = useCallback(async (): Promise<EnablePushResult> => {
+    const expectedAccount = accountGenerationRef.current;
     const current = await refreshAuthorization();
-    if (current === 'denied') return false;
-    const registered = await register(current === 'not_determined');
+    if (!isCurrentAccount(expectedAccount)) return 'not_enabled';
+    if (current === 'denied') return 'not_enabled';
+    const registered = await register(current === 'not_determined', expectedAccount);
+    if (!isCurrentAccount(expectedAccount)) return 'not_enabled';
     if (registered) {
-      await updatePreferences({ push_enabled: true });
+      try {
+        await updatePreferences({ push_enabled: true });
+        if (!isCurrentAccount(expectedAccount)) return 'not_enabled';
+      } catch {
+        if (!isCurrentAccount(expectedAccount)) return 'not_enabled';
+        return 'preference_failed';
+      }
     }
-    return registered;
-  }, [refreshAuthorization, register, updatePreferences]);
+    return registered ? 'enabled' : 'not_enabled';
+  }, [isCurrentAccount, refreshAuthorization, register, updatePreferences]);
+
+  useEffect(() => {
+    const currentGeneration = accountGenerationRef.current.generation;
+    if (registrationRef.current?.generation !== currentGeneration) {
+      setIsRegistering(false);
+    }
+  }, [accountRestricted, isAuthenticated, userId]);
 
   const openSettings = useCallback(() => Linking.openSettings(), []);
 

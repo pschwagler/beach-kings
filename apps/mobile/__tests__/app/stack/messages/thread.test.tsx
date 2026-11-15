@@ -15,7 +15,7 @@
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Modal as RNModal, StyleSheet } from 'react-native';
 import {
   render as testingRender,
   screen,
@@ -258,6 +258,7 @@ describe('MessageThreadScreen — empty state', () => {
     await waitFor(() => {
       expect(screen.getByTestId('thread-empty-state')).toBeTruthy();
     });
+    expect(screen.queryByLabelText('Refresh messages')).toBeNull();
   });
 });
 
@@ -347,6 +348,28 @@ describe('MessageThreadScreen — messages list', () => {
     await waitFor(() => {
       expect(screen.getByTestId('thread-screen')).toBeTruthy();
     });
+    expect(screen.queryByLabelText('Refresh messages')).toBeNull();
+  });
+
+  it('keeps pull-to-refresh available without persistent refresh chrome', async () => {
+    render(<MessageThreadRoute />);
+    await waitFor(() => expect(screen.getByTestId('msg-bubble-1')).toBeTruthy());
+    const initialCalls = mockGetThread.mock.calls.length;
+    const scrollEvent = (y: number) => ({
+      nativeEvent: {
+        contentOffset: { x: 0, y },
+        contentSize: { width: 300, height: 600 },
+        layoutMeasurement: { width: 300, height: 500 },
+      },
+    });
+
+    fireEvent(screen.getByTestId('messages-list'), 'scrollBeginDrag', scrollEvent(0));
+    fireEvent.scroll(screen.getByTestId('messages-list'), scrollEvent(-90));
+    fireEvent(screen.getByTestId('messages-list'), 'scrollEndDrag', scrollEvent(-90));
+
+    await waitFor(() => expect(mockGetThread.mock.calls.length).toBeGreaterThan(initialCalls));
+    expect(screen.queryByLabelText('Refresh messages')).toBeNull();
+    expect(screen.getByTestId('msg-bubble-1')).toBeTruthy();
   });
 
   it('renders a bubble for each message', async () => {
@@ -553,6 +576,12 @@ describe('MessageThreadScreen — player safety', () => {
 
     fireEvent.press(screen.getByTestId('thread-profile-btn'));
     fireEvent.press(screen.getByTestId('action-sheet-block'));
+    expect(screen.queryByTestId('block-player-dialog')).toBeNull();
+    const closingModal = screen.UNSAFE_getAllByType(RNModal).find(
+      (modal) => modal.props.onDismiss != null,
+    );
+    expect(closingModal?.props.visible).toBe(false);
+    fireEvent(closingModal!, 'dismiss');
     expect(screen.getByText("They won't be notified. Direct contact, friendship, discovery, and invites stop in both directions. Shared league facts remain visible. This conversation is hidden until you unblock them.")).toBeTruthy();
 
     await act(async () => {

@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Text } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { render, act, waitFor } from '@testing-library/react-native';
 import { renderHook } from '@testing-library/react-native';
 
@@ -38,6 +39,9 @@ const mockQueryClient = {
 const mockUnsubscribeAuthInvalidated = jest.fn();
 let mockAuthInvalidatedListener: (() => void) | null = null;
 const mockSetTelemetryUser = jest.fn();
+const mockMarkAuthRetired = jest.fn(() => Promise.resolve());
+const mockActivatePersistedAuth = jest.fn(() => Promise.resolve());
+const mockIsAuthRetired = jest.fn(() => Promise.resolve(false));
 
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
@@ -70,6 +74,7 @@ jest.mock('@/lib/api', () => ({
     verifyPhone: jest.fn(),
     verifyEmail: jest.fn(),
     logout: jest.fn(),
+    logoutCurrentSession: jest.fn(),
     onAuthInvalidated: jest.fn((listener: () => void) => {
       mockAuthInvalidatedListener = listener;
       return mockUnsubscribeAuthInvalidated;
@@ -81,8 +86,18 @@ jest.mock('@/features/notifications/pushInstallationStore', () => ({
   retirePushInstallation: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock('@/features/auth/authRetirementStore', () => ({
+  markAuthRetired: () => mockMarkAuthRetired(),
+  activatePersistedAuth: () => mockActivatePersistedAuth(),
+  isAuthRetired: () => mockIsAuthRetired(),
+}));
+
 jest.mock('@/telemetry/sentry', () => ({
   setTelemetryUser: (...args: unknown[]) => mockSetTelemetryUser(...args),
+}));
+
+jest.mock('expo-notifications', () => ({
+  setBadgeCountAsync: jest.fn(() => Promise.resolve(true)),
 }));
 
 // ---------------------------------------------------------------------------
@@ -114,7 +129,7 @@ const mockSignup = api.signup as jest.MockedFunction<any>;
 const mockGoogleAuth = api.googleAuth as jest.MockedFunction<any>;
 const mockAppleAuth = api.appleAuth as jest.MockedFunction<any>;
 const mockVerifyPhone = api.verifyPhone as jest.MockedFunction<any>;
-const mockLogout = api.logout as jest.MockedFunction<any>;
+const mockLogout = api.logoutCurrentSession as jest.MockedFunction<any>;
 const mockRetirePushInstallation = retirePushInstallation as jest.MockedFunction<
   typeof retirePushInstallation
 >;
@@ -212,6 +227,9 @@ beforeEach(() => {
   mockClearAuthTokens.mockResolvedValue(undefined);
   mockCancelQueries.mockResolvedValue(undefined);
   mockRetirePushInstallation.mockResolvedValue(undefined);
+  mockMarkAuthRetired.mockResolvedValue(undefined);
+  mockActivatePersistedAuth.mockResolvedValue(undefined);
+  mockIsAuthRetired.mockResolvedValue(false);
   mockAuthInvalidatedListener = null;
   mockSegments.splice(0, mockSegments.length);
   mockCanDismiss = jest.fn(() => true);
@@ -679,6 +697,8 @@ describe('AuthProvider — logout', () => {
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
     expect(mockSetTelemetryUser).toHaveBeenLastCalledWith(null);
+    expect(mockMarkAuthRetired).toHaveBeenCalled();
+    expect(Notifications.setBadgeCountAsync).toHaveBeenCalledWith(0);
 
     const credentialClearOrder =
       mockClearAuthTokens.mock.invocationCallOrder.at(-1)!;
@@ -737,9 +757,85 @@ describe('AuthProvider — logout', () => {
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
   });
+
+  it('retires local privacy state when every cleanup dependency remains pending', async () => {
+    mockGetStoredTokens.mockResolvedValue({ accessToken: 'valid', refreshToken: 'ref' });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+
+    mockRetirePushInstallation.mockReturnValue(new Promise(() => {}));
+    mockLogout.mockReturnValue(new Promise(() => {}));
+    mockClearAuthTokens.mockReturnValue(new Promise(() => {}));
+    mockCancelQueries.mockReturnValue(new Promise(() => {}));
+
+    await act(async () => {
+      void result.current.logout();
+      await Promise.resolve();
+    });
+
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.user).toBeNull();
+    expect(mockClearQueryClient).toHaveBeenCalled();
+    expect(mockSetTelemetryUser).toHaveBeenLastCalledWith(null);
+    expect(Notifications.setBadgeCountAsync).toHaveBeenCalledWith(0);
+  });
+
+  it('coalesces repeated logout activation under one cleanup owner', async () => {
+    mockGetStoredTokens.mockResolvedValue({ accessToken: 'valid', refreshToken: 'ref' });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    const remoteLogout = deferred<void>();
+    mockLogout.mockReturnValue(remoteLogout.promise);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+
+    await act(async () => {
+      await Promise.all([result.current.logout(), result.current.logout()]);
+    });
+
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+    expect(mockRetirePushInstallation).toHaveBeenCalledTimes(1);
+    expect(result.current.isAuthenticated).toBe(false);
+    remoteLogout.resolve(undefined);
+  });
+
+  it('lets account B log out while account A remote cleanup is still pending', async () => {
+    mockGetStoredTokens.mockResolvedValue({ accessToken: 'valid', refreshToken: 'ref' });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    const oldRemoteLogout = deferred<void>();
+    mockLogout.mockReturnValueOnce(oldRemoteLogout.promise).mockResolvedValue(undefined);
+    mockLogin.mockResolvedValue({ ...mockAuthResponse, user_id: 2 });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+    await act(async () => { await result.current.logout(); });
+
+    mockGetMe.mockResolvedValue({ ...mockMeResponse, id: 2, email: 'second@example.com' });
+    await act(async () => {
+      await result.current.login({ email: 'second@example.com', password: 'password123' });
+    });
+    expect(result.current.user?.id).toBe(2);
+    await act(async () => { await result.current.logout(); });
+    expect(mockLogout).toHaveBeenCalledTimes(2);
+    expect(result.current.isAuthenticated).toBe(false);
+    oldRemoteLogout.resolve(undefined);
+  });
 });
 
 describe('AuthProvider — transition races', () => {
+  it('does not restore stale credentials when a durable retirement marker exists', async () => {
+    mockIsAuthRetired.mockResolvedValue(true);
+    mockGetStoredTokens.mockResolvedValue({ accessToken: 'stale', refreshToken: 'stale-ref' });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockGetStoredTokens).not.toHaveBeenCalled();
+    expect(mockGetMe).not.toHaveBeenCalled();
+    expect(result.current.isAuthenticated).toBe(false);
+  });
+
   it('does not let deferred session restoration republish after logout', async () => {
     const storedTokens = deferred<{
       accessToken: string | null;
@@ -785,6 +881,7 @@ describe('AuthProvider — transition races', () => {
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
     expect(mockRetirePushInstallation).toHaveBeenCalledTimes(1);
     expect(mockSetAuthTokens).toHaveBeenCalledWith('acc', 'ref');
+    expect(mockActivatePersistedAuth).toHaveBeenCalled();
     expect(mockRetirePushInstallation.mock.invocationCallOrder[0]).toBeLessThan(
       mockSetAuthTokens.mock.invocationCallOrder[0],
     );
@@ -792,6 +889,116 @@ describe('AuthProvider — transition races', () => {
       mockSetAuthTokens.mock.invocationCallOrder[0],
     );
     expect(result.current.user?.id).toBe(2);
+  });
+
+  it('publishes account B while old account cleanup is stalled and ignores its late completion', async () => {
+    mockGetStoredTokens.mockResolvedValue({ accessToken: 'valid', refreshToken: 'ref' });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    mockLogin.mockResolvedValue({ ...mockAuthResponse, user_id: 2 });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.id).toBe(1));
+
+    const oldStorageClear = deferred<void>();
+    mockClearAuthTokens.mockReturnValue(oldStorageClear.promise);
+    mockRetirePushInstallation.mockReturnValue(new Promise(() => {}));
+    mockLogout.mockReturnValue(new Promise(() => {}));
+    mockGetMe.mockResolvedValue({ ...mockMeResponse, id: 2, email: 'second@example.com' });
+
+    await act(async () => {
+      await result.current.login({ email: 'second@example.com', password: 'password123' });
+    });
+    expect(result.current.user?.id).toBe(2);
+    expect(mockSetAuthTokens).toHaveBeenCalledWith('acc', 'ref');
+
+    await act(async () => {
+      oldStorageClear.resolve(undefined);
+      await Promise.resolve();
+    });
+    expect(result.current.user?.id).toBe(2);
+  });
+
+  it('activates account B when credential persistence succeeds after the UI deadline', async () => {
+    const persistence = deferred<void>();
+    mockLogin.mockResolvedValue(mockAuthResponse);
+    mockSetAuthTokens
+      .mockReturnValueOnce(persistence.promise)
+      .mockResolvedValue(undefined);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    jest.useFakeTimers();
+    try {
+      let login!: Promise<void>;
+      await act(async () => {
+        login = result.current.login({
+          email: 'test@example.com',
+          password: 'password123',
+        });
+        for (let attempt = 0; attempt < 4; attempt += 1) await Promise.resolve();
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(2_000);
+        await login;
+      });
+
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(mockActivatePersistedAuth).not.toHaveBeenCalled();
+
+      // A same-account token rotation changes the auth operation revision but
+      // must not make the account-B persistence completion obsolete.
+      await act(async () => {
+        await expect(
+          result.current.rotateSessionTokens('rotated-access', 'rotated-refresh'),
+        ).resolves.toBe(true);
+      });
+
+      await act(async () => {
+        persistence.resolve(undefined);
+        await Promise.resolve();
+      });
+      expect(mockActivatePersistedAuth).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not activate obsolete late credentials after a newer logout', async () => {
+    const persistence = deferred<void>();
+    mockLogin.mockResolvedValue(mockAuthResponse);
+    mockSetAuthTokens.mockReturnValue(persistence.promise);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    jest.useFakeTimers();
+    try {
+      let login!: Promise<void>;
+      await act(async () => {
+        login = result.current.login({
+          email: 'test@example.com',
+          password: 'password123',
+        });
+        for (let attempt = 0; attempt < 4; attempt += 1) await Promise.resolve();
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(2_000);
+        await login;
+      });
+      expect(result.current.isAuthenticated).toBe(true);
+
+      await act(async () => { await result.current.logout(); });
+      await act(async () => {
+        persistence.resolve(undefined);
+        await Promise.resolve();
+      });
+
+      expect(mockActivatePersistedAuth).not.toHaveBeenCalled();
+      expect(result.current.isAuthenticated).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('clears auth and cache when the API client invalidates credentials', async () => {
@@ -812,6 +1019,19 @@ describe('AuthProvider — transition races', () => {
     await waitFor(() => expect(result.current.isAuthenticated).toBe(false));
     expect(result.current.user).toBeNull();
     expect(mockClearQueryClient).toHaveBeenCalled();
+  });
+
+  it('does not wait for push retirement after auth invalidation', async () => {
+    mockGetStoredTokens.mockResolvedValue({ accessToken: 'valid', refreshToken: 'ref' });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    mockRetirePushInstallation.mockReturnValue(new Promise(() => {}));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+
+    act(() => mockAuthInvalidatedListener?.());
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.user).toBeNull();
   });
 });
 

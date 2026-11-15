@@ -37,6 +37,7 @@ import SeasonFormSheet from './SeasonFormSheet';
 import type { HomeCourtResponse, JoinRequest, LeagueMemberRow, LeagueSeason } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
 import { courtQueries } from '@/features/courts';
+import { useModalAnimationType } from '@/hooks/useModalAnimationType';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -371,11 +372,12 @@ function OptionPickerModal<T extends string>({
   onSelect,
   onClose,
 }: OptionPickerModalProps<T>): React.ReactNode {
+  const animationType = useModalAnimationType();
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType={animationType}
       onRequestClose={onClose}
     >
       <Pressable className="flex-1 bg-black/40" onPress={onClose} />

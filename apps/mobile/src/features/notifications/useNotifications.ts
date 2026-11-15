@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Notification } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,7 @@ import {
 import { notificationKeys } from './keys';
 import { notificationQueries } from './queries';
 import { messageQueries } from '@/features/messages';
+import { withNotificationMutationDeadline } from './mutationDeadline';
 
 let optimisticSequence = 0;
 const EMPTY_NOTIFICATIONS: readonly Notification[] = [];
@@ -28,6 +29,8 @@ export function useNotifications() {
   const { user, isAuthenticated } = useAuth();
   const userId = user?.id ?? 0;
   const enabled = isAuthenticated && userId > 0;
+  const currentAccountRef = useRef({ userId, enabled });
+  currentAccountRef.current = { userId, enabled };
   const queryClient = useQueryClient();
   const feed = useQuery(notificationQueries.feed(userId, enabled));
   const unreadCountQuery = useQuery(notificationQueries.unreadCount(userId, enabled));
@@ -62,28 +65,36 @@ export function useNotifications() {
   });
 
   const markAllAsReadMutation = useMutation({
-    mutationFn: () => api.markAllNotificationsRead(),
-    onMutate: async () => {
+    mutationFn: (mutationUserId: number) => {
+      const currentAccount = currentAccountRef.current;
+      if (!currentAccount.enabled || currentAccount.userId !== mutationUserId) {
+        throw new Error('Mark all action belongs to an obsolete account');
+      }
+      return withNotificationMutationDeadline(api.markAllNotificationsRead());
+    },
+    onMutate: async (mutationUserId) => {
       await Promise.all([
-        queryClient.cancelQueries({ queryKey: notificationKeys.feed(userId) }),
-        queryClient.cancelQueries({ queryKey: notificationKeys.unreadCount(userId) }),
+        queryClient.cancelQueries({ queryKey: notificationKeys.feed(mutationUserId) }),
+        queryClient.cancelQueries({ queryKey: notificationKeys.unreadCount(mutationUserId) }),
       ]);
       return applyMarkAllNotificationsRead(
         queryClient,
-        userId,
+        mutationUserId,
         nextOptimisticToken('mark-all-read'),
       );
     },
-    onError: (_error, _variables, patch) => {
-      if (patch != null) rollbackMarkAllNotificationsRead(queryClient, userId, patch);
+    onError: (_error, mutationUserId, patch) => {
+      if (patch != null) rollbackMarkAllNotificationsRead(queryClient, mutationUserId, patch);
     },
-    onSuccess: (_response, _variables, patch) => {
-      if (patch != null) commitMarkAllNotificationsRead(queryClient, userId, patch);
+    onSuccess: (_response, mutationUserId, patch) => {
+      if (patch != null) commitMarkAllNotificationsRead(queryClient, mutationUserId, patch);
     },
-    onSettled: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: notificationKeys.feed(userId) }),
-      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount(userId) }),
-    ]),
+    onSettled: (_data, _error, mutationUserId) => {
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.feed(mutationUserId) });
+      void queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(mutationUserId),
+      });
+    },
   });
 
   const notifications = feed.data ?? EMPTY_NOTIFICATIONS;
@@ -100,6 +111,7 @@ export function useNotifications() {
 
   const markAsReadMutate = markAsReadMutation.mutate;
   const markAllAsReadMutate = markAllAsReadMutation.mutate;
+  const markAllAsReadMutateAsync = markAllAsReadMutation.mutateAsync;
   const refetchFeed = feed.refetch;
   const refetchUnreadCount = unreadCountQuery.refetch;
   const refetchDmUnreadCount = dmUnreadCountQuery.refetch;
@@ -107,8 +119,12 @@ export function useNotifications() {
     markAsReadMutate(id);
   }, [markAsReadMutate]);
   const markAllAsRead = useCallback(() => {
-    markAllAsReadMutate();
-  }, [markAllAsReadMutate]);
+    markAllAsReadMutate(userId, { onError: () => {} });
+  }, [markAllAsReadMutate, userId]);
+  const markAllAsReadAsync = useCallback(
+    () => markAllAsReadMutateAsync(userId),
+    [markAllAsReadMutateAsync, userId],
+  );
   const refetch = useCallback(
     (_options?: { cancelRefetch?: boolean }) => Promise.all([
       refetchFeed({ cancelRefetch: false }),
@@ -130,5 +146,6 @@ export function useNotifications() {
     dmUnreadCount,
     markAsRead,
     markAllAsRead,
+    markAllAsReadAsync,
   };
 }

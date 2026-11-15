@@ -4,16 +4,23 @@ import { act, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import NativePushProvider from '@/features/notifications/NativePushProvider';
+import {
+  useNativePush,
+  type NativePushContextValue,
+} from '@/features/notifications/nativePushContext';
 import { resetNotificationDedupeForTests } from '@/features/notifications/dedupe';
 import { api } from '@/lib/api';
 import {
   getSoftAskChoice,
   savePushRegistration,
   setSoftAskChoice,
+  type PushInstallationState,
 } from '@/features/notifications/pushInstallationStore';
 
 const mockPush = jest.fn();
 const mockRefreshUser = jest.fn().mockResolvedValue(undefined);
+let mockUserId = 7;
+let mockIsAuthenticated = true;
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
   useSegments: () => ['(tabs)', 'home'],
@@ -28,9 +35,9 @@ jest.mock('expo-constants', () => ({
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
-    isAuthenticated: true,
+    isAuthenticated: mockIsAuthenticated,
     profileComplete: true,
-    user: { id: 7 },
+    user: mockIsAuthenticated ? { id: mockUserId } : null,
     refreshUser: mockRefreshUser,
   }),
 }));
@@ -82,15 +89,57 @@ const permissionGranted = {
   expires: 'never',
 };
 
-function renderProvider() {
+const pushRegistrationResponse = {
+  id: 1,
+  token: 'ExponentPushToken[native-test]',
+  platform: 'ios' as const,
+  installation_id: 'installation-uuid-0001',
+  unregister_secret: 'unregister-secret-value-000000000000',
+  created_at: '2026-08-05T12:00:00Z',
+};
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => { resolve = res; });
+  return { promise, resolve };
+}
+
+function savedPushState(userId: number): PushInstallationState {
+  return {
+    installationId: 'installation-uuid-0001',
+    token: 'ExponentPushToken[native-test]',
+    platform: 'ios',
+    projectId: 'eas-project-1',
+    registeredUserId: userId,
+    unregisterSecret: 'unregister-secret-value-000000000000',
+    registeredAt: '2026-08-05T12:00:00Z',
+  };
+}
+
+let capturedNativePush: NativePushContextValue | null = null;
+
+function NativePushCapture(): null {
+  capturedNativePush = useNativePush();
+  return null;
+}
+
+function renderProvider(capture = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const content = () => (
     <QueryClientProvider client={client}>
-      <NativePushProvider><View testID="child" /></NativePushProvider>
-    </QueryClientProvider>,
+      <NativePushProvider>
+        <View testID="child" />
+        {capture ? <NativePushCapture /> : null}
+      </NativePushProvider>
+    </QueryClientProvider>
   );
+  const rendered = render(content());
+  return {
+    ...rendered,
+    rerenderProvider: () => rendered.rerender(content()),
+  };
 }
 
 function alertButton(label: string): (() => void) {
@@ -104,6 +153,10 @@ describe('NativePushProvider', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockUserId = 7;
+    mockIsAuthenticated = true;
+    capturedNativePush = null;
+    mockUpdatePreferences.mockResolvedValue({});
     resetNotificationDedupeForTests();
     jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     Object.defineProperty(AppState, 'currentState', {
@@ -122,14 +175,7 @@ describe('NativePushProvider', () => {
       type: 'expo',
     } as never);
     jest.mocked(Notifications.getLastNotificationResponseAsync).mockResolvedValue(null);
-    jest.mocked(api.registerPushToken).mockResolvedValue({
-      id: 1,
-      token: 'ExponentPushToken[native-test]',
-      platform: 'ios',
-      installation_id: 'installation-uuid-0001',
-      unregister_secret: 'unregister-secret-value-000000000000',
-      created_at: '2026-08-05T12:00:00Z',
-    });
+    jest.mocked(api.registerPushToken).mockResolvedValue(pushRegistrationResponse);
   });
 
   afterEach(() => {
@@ -176,6 +222,150 @@ describe('NativePushProvider', () => {
       unregisterSecret: 'unregister-secret-value-000000000000',
     }));
     expect(mockUpdatePreferences).toHaveBeenCalledWith({ push_enabled: true });
+  });
+
+  it('reports native registration success when only the preference save fails', async () => {
+    mockUpdatePreferences.mockRejectedValueOnce(new Error('offline'));
+    renderProvider(true);
+    await waitFor(() => {
+      expect(capturedNativePush).not.toBeNull();
+      expect(Notifications.getPermissionsAsync).toHaveBeenCalled();
+    });
+
+    let result: Awaited<ReturnType<NativePushContextValue['enablePush']>> | undefined;
+    await act(async () => {
+      result = await capturedNativePush?.enablePush();
+    });
+
+    expect(result).toBe('preference_failed');
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(api.registerPushToken).toHaveBeenCalledTimes(1);
+    expect(savePushRegistration).toHaveBeenCalledTimes(1);
+  });
+
+  it('retires native enable work when the authenticated account changes', async () => {
+    let resolveExpoToken!: (value: { data: string; type: string }) => void;
+    jest.mocked(Notifications.getExpoPushTokenAsync).mockReturnValueOnce(
+      new Promise((resolve) => { resolveExpoToken = resolve; }) as never,
+    );
+    const rendered = renderProvider(true);
+    await waitFor(() => expect(capturedNativePush).not.toBeNull());
+
+    let enableWork!: ReturnType<NativePushContextValue['enablePush']>;
+    act(() => { enableWork = capturedNativePush?.enablePush() as typeof enableWork; });
+    await waitFor(() => expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledTimes(1));
+
+    mockUserId = 8;
+    rendered.rerenderProvider();
+    await act(async () => {
+      resolveExpoToken({ data: 'ExponentPushToken[stale-account]', type: 'expo' });
+      await expect(enableWork).resolves.toBe('not_enabled');
+    });
+
+    expect(api.registerPushToken).not.toHaveBeenCalled();
+    expect(savePushRegistration).not.toHaveBeenCalled();
+    expect(mockUpdatePreferences).not.toHaveBeenCalled();
+  });
+
+  it('queues the new account behind an in-flight remote registration', async () => {
+    const events: string[] = [];
+    const accountARegistration = deferred<typeof pushRegistrationResponse>();
+    jest.mocked(api.registerPushToken)
+      .mockImplementationOnce(() => {
+        events.push('register-a-start');
+        return accountARegistration.promise;
+      })
+      .mockImplementationOnce(async () => {
+        events.push('register-b');
+        return pushRegistrationResponse;
+      });
+    jest.mocked(savePushRegistration).mockImplementation(async (registration) => {
+      events.push(`save-${registration.userId}`);
+      return savedPushState(registration.userId);
+    });
+    const rendered = renderProvider(true);
+    await waitFor(() => expect(capturedNativePush).not.toBeNull());
+
+    let accountAWork!: ReturnType<NativePushContextValue['enablePush']>;
+    act(() => { accountAWork = capturedNativePush?.enablePush() as typeof accountAWork; });
+    await waitFor(() => expect(api.registerPushToken).toHaveBeenCalledTimes(1));
+
+    jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue(permissionGranted as never);
+    mockUserId = 8;
+    rendered.rerenderProvider();
+    let accountBWork!: ReturnType<NativePushContextValue['enablePush']>;
+    act(() => { accountBWork = capturedNativePush?.enablePush() as typeof accountBWork; });
+    await act(async () => { await Promise.resolve(); });
+    expect(api.registerPushToken).toHaveBeenCalledTimes(1);
+
+    events.push('register-a-resolve');
+    accountARegistration.resolve(pushRegistrationResponse);
+    await act(async () => {
+      await expect(accountAWork).resolves.toBe('not_enabled');
+      await expect(accountBWork).resolves.toBe('enabled');
+    });
+
+    expect(events).toEqual([
+      'register-a-start',
+      'register-a-resolve',
+      'register-b',
+      'save-8',
+    ]);
+    expect(mockUpdatePreferences).toHaveBeenCalledTimes(1);
+    expect(mockUpdatePreferences).toHaveBeenCalledWith({ push_enabled: true });
+  });
+
+  it('queues the new account behind an in-flight durable registration save', async () => {
+    const events: string[] = [];
+    const accountASave = deferred<PushInstallationState>();
+    jest.mocked(api.registerPushToken).mockImplementation(async () => {
+      const account = mockUserId;
+      events.push(`register-${account}`);
+      return pushRegistrationResponse;
+    });
+    jest.mocked(savePushRegistration)
+      .mockImplementationOnce(() => {
+        events.push('save-7-start');
+        return accountASave.promise;
+      })
+      .mockImplementationOnce(async (registration) => {
+        events.push(`save-${registration.userId}`);
+        return savedPushState(registration.userId);
+      });
+    const rendered = renderProvider(true);
+    await waitFor(() => expect(capturedNativePush).not.toBeNull());
+
+    let accountAWork!: ReturnType<NativePushContextValue['enablePush']>;
+    act(() => { accountAWork = capturedNativePush?.enablePush() as typeof accountAWork; });
+    await waitFor(() => expect(savePushRegistration).toHaveBeenCalledTimes(1));
+
+    jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue(permissionGranted as never);
+    mockUserId = 8;
+    rendered.rerenderProvider();
+    let accountBWork!: ReturnType<NativePushContextValue['enablePush']>;
+    act(() => { accountBWork = capturedNativePush?.enablePush() as typeof accountBWork; });
+    await act(async () => { await Promise.resolve(); });
+    expect(api.registerPushToken).toHaveBeenCalledTimes(1);
+    expect(savePushRegistration).toHaveBeenCalledTimes(1);
+
+    events.push('save-7-resolve');
+    accountASave.resolve(savedPushState(7));
+    await act(async () => {
+      await expect(accountAWork).resolves.toBe('not_enabled');
+      await expect(accountBWork).resolves.toBe('enabled');
+    });
+
+    expect(events).toEqual([
+      'register-7',
+      'save-7-start',
+      'save-7-resolve',
+      'register-8',
+      'save-8',
+    ]);
+    expect(savePushRegistration).toHaveBeenLastCalledWith(expect.objectContaining({
+      userId: 8,
+    }));
+    expect(mockUpdatePreferences).toHaveBeenCalledTimes(1);
   });
 
   it('retries registration when the app becomes active', async () => {

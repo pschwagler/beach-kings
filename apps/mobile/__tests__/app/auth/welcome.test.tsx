@@ -45,6 +45,16 @@ describe('WelcomeScreen', () => {
     expect(motif.props.pointerEvents).toBe('none');
   });
 
+  it('keeps all content in a scrollable container for scaled text', () => {
+    const { getByTestId } = render(<WelcomeScreen />);
+    const scrollView = getByTestId('welcome-scroll-view');
+
+    expect(scrollView.props.contentContainerStyle).toEqual(
+      expect.objectContaining({ flexGrow: 1 }),
+    );
+    expect(scrollView.props.scrollEnabled).not.toBe(false);
+  });
+
   it('renders "Get Started" button', () => {
     const { getByText } = render(<WelcomeScreen />);
     expect(getByText('Get Started')).toBeTruthy();
