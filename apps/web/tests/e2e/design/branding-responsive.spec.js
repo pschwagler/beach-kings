@@ -35,10 +35,10 @@ test('branded navigation and page layouts fit desktop and narrow phones in both 
           await expect(page.locator('.session-players-drawer-backdrop')).toHaveCount(0);
         }
         await expect(page.getByRole('navigation', { name: 'Site navigation' })).toBeVisible();
-        await expect(page.locator('.app-download-banner')).toHaveAttribute('href', /^https:\/\/apps\.apple\.com\//);
+        await expect(page.locator('.navbar:visible .app-download-banner')).toHaveAttribute('href', /^https:\/\/apps\.apple\.com\//);
         await expect(page.locator('h1:visible,h2:visible').first()).toBeVisible();
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), { message: `${name} overflows at ${width}px in ${colorScheme}` }).toBe(true);
-        const overlap = await page.locator('.navbar-container').evaluate((nav) => {
+        const overlap = await page.locator('.navbar:visible .navbar-container').evaluate((nav) => {
           const rects = [...nav.querySelectorAll('button, a')].filter(el => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden').map(el => ({ name: el.getAttribute('aria-label') || el.textContent, rect: el.getBoundingClientRect() }));
           return [
             ...rects.filter(a => a.rect.left < 0 || a.rect.right > innerWidth).map(a => `${a.name} clipped at viewport edge`),
@@ -63,7 +63,7 @@ test('landing and legal content remain below the banner across themes and phone 
         await page.goto(route);
         const heading = page.locator('h1:visible').first();
         await expect(heading).toBeVisible();
-        const nav = await page.locator('.navbar').boundingBox();
+        const nav = await page.locator('.navbar:visible').boundingBox();
         const title = await heading.boundingBox();
         expect(title.y, `${name} heading obscured by navbar`).toBeGreaterThanOrEqual(nav.y + nav.height);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

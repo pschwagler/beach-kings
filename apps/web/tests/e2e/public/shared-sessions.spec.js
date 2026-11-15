@@ -40,7 +40,7 @@ for (const kind of ['pickup', 'league']) {
     expect(writes).toEqual([]);
     await page.getByRole('button', { name: 'Log in', exact: true }).click();
     await expect(page.locator('.auth-modal')).toBeVisible();
-    await expect(page.locator('.auth-modal__header h2')).toContainText(/log in|sign in/i);
+    await expect(page.locator('.auth-modal button[type="submit"]')).toHaveText('Log In');
     await page.locator('.auth-modal__close').click();
     await page.getByRole('button', { name: 'Sign up', exact: true }).click();
     await expect(page.locator('.auth-modal')).toBeVisible();
