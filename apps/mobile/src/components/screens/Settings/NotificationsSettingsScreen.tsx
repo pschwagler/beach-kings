@@ -1,3 +1,4 @@
+import { useFeatureFlag } from '@/features/feature-flags/queries';
 /**
  * NotificationsSettingsScreen — push notification toggles.
  *
@@ -164,6 +165,8 @@ function ActionError({ error }: { readonly error?: PreferenceActionError }): Rea
 // ---------------------------------------------------------------------------
 
 export default function NotificationsSettingsScreen(): React.ReactNode {
+  const tournaments = useFeatureFlag('kob_tournaments');
+  const visibleRows = TOGGLE_ROWS.filter((row) => row.key !== 'tournament_updates' || tournaments.enabled);
   const {
     prefs,
     authorization,
@@ -245,7 +248,7 @@ export default function NotificationsSettingsScreen(): React.ReactNode {
 
         <SectionHeader title="Notification Types" />
         <View testID="notifications-types-section">
-          {TOGGLE_ROWS.map(({ key, label }) => (
+          {visibleRows.map(({ key, label }) => (
             <React.Fragment key={key}>
               <ToggleRow
                 testID={`toggle-${key}`}

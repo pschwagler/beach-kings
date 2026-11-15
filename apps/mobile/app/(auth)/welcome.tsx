@@ -1,3 +1,4 @@
+import { useFeatureFlag } from '@/features/feature-flags/queries';
 import React, { useCallback } from 'react';
 import { View, Pressable, ScrollView } from 'react-native';
 import AppText from '@/components/ui/AppText';
@@ -54,6 +55,8 @@ const FEATURES: readonly FeatureRow[] = [
 ];
 
 export default function WelcomeScreen(): React.ReactNode {
+  const tournaments = useFeatureFlag('kob_tournaments');
+  const visibleFeatures = FEATURES.filter((feature) => feature.title !== 'Tournaments' || tournaments.enabled);
   const router = useRouter();
   const palette = usePaletteColors();
 
@@ -103,7 +106,7 @@ export default function WelcomeScreen(): React.ReactNode {
               </View>
 
               <View className="gap-md mb-xl">
-                {FEATURES.map(({ title, description, Icon }) => (
+                {visibleFeatures.map(({ title, description, Icon }) => (
                   <View key={title} className="flex-row items-center gap-md">
                     <View className="w-11 h-11 items-center justify-center">
                       <Icon size={20} color={palette.textInverse} />

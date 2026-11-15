@@ -26,6 +26,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Mocks
 // ---------------------------------------------------------------------------
 
+const mockTournamentFlag = jest.fn(() => ({ enabled: true, isLoading: false }));
+jest.mock('@/features/feature-flags/queries', () => ({ useFeatureFlag: () => mockTournamentFlag() }));
+
 jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -168,6 +171,7 @@ const MIXED_PREFS = {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  mockTournamentFlag.mockReturnValue({ enabled: true, isLoading: false });
   jest.clearAllMocks();
   mockUserId = 7;
   mockAuthorization = 'authorized';
@@ -228,6 +232,13 @@ describe('NotificationsSettingsScreen — error state', () => {
 // ---------------------------------------------------------------------------
 
 describe('NotificationsSettingsScreen — toggles', () => {
+  it('hides tournament alerts while its feature flag is off', async () => {
+    mockTournamentFlag.mockReturnValue({ enabled: false, isLoading: false });
+    render(<NotificationsRoute />);
+    await waitFor(() => expect(screen.getByTestId('toggle-master')).toBeTruthy());
+    expect(screen.queryByTestId('toggle-tournament_updates')).toBeNull();
+  });
+
   it('renders master toggle', async () => {
     render(<NotificationsRoute />);
     await waitFor(() => {
