@@ -9,6 +9,7 @@ import {
   TrendingUpIcon,
   UsersIcon,
   MapPinIcon,
+  AwardIcon,
 } from '@/components/ui/icons';
 import { Button } from '@/components/ui';
 import CourtLineMotif from '@/components/brand/CourtLineMotif';
@@ -44,6 +45,11 @@ const FEATURES: readonly FeatureRow[] = [
     title: 'Discover Courts',
     description: 'Find beach volleyball courts across the country.',
     Icon: MapPinIcon,
+  },
+  {
+    title: 'Tournaments',
+    description: 'Create and manage tournaments with friends.',
+    Icon: AwardIcon,
   },
 ];
 
