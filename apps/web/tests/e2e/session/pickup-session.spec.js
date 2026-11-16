@@ -35,6 +35,7 @@ test.describe('Pickup Session (Non-League)', () => {
     await page.click('button:has-text("My Games"), [data-testid="my-games-tab"]');
     await page.waitForSelector('button:has-text("Create game")', { state: 'visible', timeout: 5000 });
     await page.click('button:has-text("Create game")');
+    await page.getByRole('button', { name: /Pickup Game Quick game/ }).click();
 
     // Wait for redirect to session page
     await page.waitForURL('**/session/**', { timeout: 15000 });
@@ -48,6 +49,10 @@ test.describe('Pickup Session (Non-League)', () => {
 
     // The modal should auto-open when < 4 players
     await page.waitForSelector('.session-players-drawer, .session-players-modal', { state: 'visible', timeout: 5000 });
+
+    // API-created players have no location; clear the default courtside filter.
+    const locationFilter = page.getByRole('button', { name: 'Remove CA - San Diego filter' });
+    await locationFilter.click();
 
     // Add each test player
     for (const player of playerIds) {
@@ -155,6 +160,7 @@ test.describe('Pickup Session (Non-League)', () => {
 
     // Open manage players modal
     await sessionPage.openManagePlayersModal();
+
 
     // Try to remove a player who has matches
     await sessionPage.removePlayerByName(playerIds[0].name);

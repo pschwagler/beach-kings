@@ -797,7 +797,7 @@
 @media (max-width: 576px) {
   /* League Dashboard Extra Small */
   .league-dashboard-container {
-    margin-top: 52px;
+    margin-top: var(--navbar-height);
     padding-bottom: 68px; /* Slightly less space for very small screens */
   }
 

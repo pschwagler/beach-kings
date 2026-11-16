@@ -57,12 +57,12 @@ test.describe('Pickup Session Edit Mode (Buffered)', () => {
     await expect(page.locator('.session-ended-label')).toBeVisible({ timeout: 5000 });
 
     // Click the edit pencil via SessionGroupHeader
-    const editButton = page.locator('button[title="Edit session"], button:has-text("Edit")').first();
+    const editButton = page.locator('button[title="Edit Session"], button:has-text("Edit")').first();
     await editButton.click();
 
     // Should now be in edit mode — Save and Cancel buttons visible
     await expect(page.locator('button:has-text("Save")')).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('button:has-text("Cancel")')).toBeVisible({ timeout: 3000 });
+    await expect(page.getByTestId('session-btn-cancel')).toBeVisible({ timeout: 3000 });
 
     // Cancel without making changes — should exit immediately (no confirmation)
     await page.locator('button:has-text("Cancel")').first().click();
@@ -80,7 +80,7 @@ test.describe('Pickup Session Edit Mode (Buffered)', () => {
     await sessionPage.waitForReady();
 
     // Enter edit mode
-    const editButton = page.locator('button[title="Edit session"], button:has-text("Edit")').first();
+    const editButton = page.locator('button[title="Edit Session"], button:has-text("Edit")').first();
     await editButton.click();
     await expect(page.locator('button:has-text("Save")')).toBeVisible({ timeout: 3000 });
 
@@ -127,18 +127,18 @@ test.describe('Pickup Session Edit Mode (Buffered)', () => {
     await sessionPage.waitForReady();
 
     // Enter edit mode
-    const editButton = page.locator('button[title="Edit session"], button:has-text("Edit")').first();
+    const editButton = page.locator('button[title="Edit Session"], button:has-text("Edit")').first();
     await editButton.click();
     await expect(page.locator('button:has-text("Save")')).toBeVisible({ timeout: 3000 });
 
     // Click edit on the first match card
     const firstMatchCard = page.locator('.match-card').first();
-    await firstMatchCard.locator('button:has-text("Edit"), .match-card-edit-btn').first().click();
+    await firstMatchCard.locator('.team-score').first().click();
     await page.waitForSelector('[data-testid="add-match-modal"]', { state: 'visible', timeout: 5000 });
 
-    // Change score
+    // Change the winning score without creating a forbidden 15–15 tie.
     await page.locator('[data-testid="team-1-score-digit-1"]').fill('1');
-    await page.locator('[data-testid="team-1-score-digit-2"]').fill('5');
+    await page.locator('[data-testid="team-1-score-digit-2"]').fill('8');
 
     // Submit edit
     await page.locator('[data-testid="add-match-modal"] button:has-text("Update Game")').click();
@@ -153,7 +153,7 @@ test.describe('Pickup Session Edit Mode (Buffered)', () => {
     await page.reload();
     await sessionPage.waitForReady();
     const matchText = await page.locator('.match-card').first().textContent();
-    expect(matchText).toContain('15');
+    expect(matchText).toContain('18');
   });
 
   test('edit mode (dirty) → cancel → confirmation appears → confirm → clean state', async ({ authedPage, testUser }) => {
@@ -165,7 +165,7 @@ test.describe('Pickup Session Edit Mode (Buffered)', () => {
     await sessionPage.waitForReady();
 
     // Enter edit mode
-    const editButton = page.locator('button[title="Edit session"], button:has-text("Edit")').first();
+    const editButton = page.locator('button[title="Edit Session"], button:has-text("Edit")').first();
     await editButton.click();
     await expect(page.locator('button:has-text("Save")')).toBeVisible({ timeout: 3000 });
 
@@ -226,13 +226,13 @@ test.describe('Pickup Session Edit Mode (Buffered)', () => {
     expect(initialCount).toBe(2);
 
     // Enter edit mode
-    const editButton = page.locator('button[title="Edit session"], button:has-text("Edit")').first();
+    const editButton = page.locator('button[title="Edit Session"], button:has-text("Edit")').first();
     await editButton.click();
     await expect(page.locator('button:has-text("Save")')).toBeVisible({ timeout: 3000 });
 
     // Edit the first match to open the modal, then delete it
     const firstMatchCard = page.locator('.match-card').first();
-    await firstMatchCard.locator('button:has-text("Edit"), .match-card-edit-btn').first().click();
+    await firstMatchCard.locator('.team-score').first().click();
     await page.waitForSelector('[data-testid="add-match-modal"]', { state: 'visible', timeout: 5000 });
 
     // Click delete

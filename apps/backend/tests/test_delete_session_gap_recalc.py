@@ -21,15 +21,19 @@ test_gap_game_stats_routing.py — no real queue workers are exercised.
 
 from __future__ import annotations
 
+import asyncio
 import pytest
 import pytest_asyncio
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.sql.dml import Delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
     League,
+    EloHistory,
     Match,
     Player,
     Season,
@@ -213,6 +217,124 @@ class _FakeQueue:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_delete_blocks_concurrent_rating_history_insert(
+    db_session: AsyncSession, delete_world: dict, monkeypatch
+):
+    """A worker cannot recreate history after deletion's history cleanup.
+
+    Attempt the worker's FK insert in a second transaction at the exact race
+    boundary. Without the match-row lock it commits and the match delete fails.
+    """
+    from backend.services import stats_queue
+    from backend.services.games.session_data import delete_session
+
+    monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: _FakeQueue())
+    match_id = delete_world["pickup_match"].id
+    player_id = delete_world["players"][0].id
+    session_id = delete_world["pickup_session"].id
+    execute = db_session.execute
+    insert_attempted = False
+
+    async def execute_with_concurrent_insert(statement, *args, **kwargs):
+        nonlocal insert_attempted
+        result = await execute(statement, *args, **kwargs)
+        if isinstance(statement, Delete) and statement.table.name == "elo_history":
+            insert_attempted = True
+            async with AsyncSession(bind=db_session.bind) as worker:
+                await worker.execute(text("SET LOCAL lock_timeout = '100ms'"))
+                worker.add(
+                    EloHistory(
+                        player_id=player_id,
+                        match_id=match_id,
+                        date="2024-06-01",
+                        elo_after=1210,
+                        elo_change=10,
+                    )
+                )
+                with pytest.raises(DBAPIError, match="lock timeout"):
+                    await worker.flush()
+                await worker.rollback()
+        return result
+
+    monkeypatch.setattr(db_session, "execute", execute_with_concurrent_insert)
+    result = await delete_session(db_session, session_id)
+
+    assert result["success"] is True
+    assert insert_attempted
+    assert (
+        await execute(select(Match.id).where(Match.id == match_id))
+    ).scalar_one_or_none() is None
+    assert (
+        await execute(select(EloHistory.match_id).where(EloHistory.match_id == match_id))
+    ).scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_delete_waits_for_history_writer_before_locking_matches(
+    db_session: AsyncSession, delete_world: dict, monkeypatch
+):
+    """A worker already rebuilding history can finish without a lock inversion."""
+    from backend.services import stats_queue
+    from backend.services.games.session_data import delete_session
+
+    monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: _FakeQueue())
+    match_id = delete_world["pickup_match"].id
+    player_id = delete_world["players"][0].id
+    session_id = delete_world["pickup_session"].id
+    deleting_pid = (await db_session.execute(text("SELECT pg_backend_pid()"))).scalar_one()
+
+    async with AsyncSession(bind=db_session.bind) as worker:
+        # This is the first write of a real stats rebuild, holding the history
+        # table's RowExclusiveLock while it prepares replacement history.
+        await worker.execute(
+            text("DELETE FROM elo_history WHERE match_id = :id"), {"id": match_id}
+        )
+        deletion = asyncio.create_task(delete_session(db_session, session_id))
+        try:
+            waiting = False
+            for _ in range(100):
+                waiting = (
+                    await worker.execute(
+                        text(
+                            "SELECT EXISTS (SELECT 1 FROM pg_locks "
+                            "WHERE pid = :pid AND mode = 'ShareRowExclusiveLock' AND NOT granted)"
+                        ),
+                        {"pid": deleting_pid},
+                    )
+                ).scalar_one()
+                if waiting or deletion.done():
+                    break
+                await asyncio.sleep(0.01)
+            assert waiting, "deletion must wait on history before locking match rows"
+            worker.add(
+                EloHistory(
+                    player_id=player_id,
+                    match_id=match_id,
+                    date="2024-06-01",
+                    elo_after=1210,
+                    elo_change=10,
+                )
+            )
+            await worker.commit()
+            result = await asyncio.wait_for(deletion, timeout=5)
+            assert result["success"] is True
+        finally:
+            await worker.rollback()
+            if not deletion.done():
+                deletion.cancel()
+                await asyncio.gather(deletion, return_exceptions=True)
+
+    assert (
+        await db_session.execute(select(Match.id).where(Match.id == match_id))
+    ).scalar_one_or_none() is None
+    assert (
+        await db_session.execute(
+            select(EloHistory.match_id).where(EloHistory.match_id == match_id)
+        )
+    ).scalar_one_or_none() is None
 
 
 @pytest.mark.asyncio

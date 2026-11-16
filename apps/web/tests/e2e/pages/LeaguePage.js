@@ -267,7 +267,7 @@ export class LeaguePage extends BasePage {
   async fillMatchForm({ team1Player1, team1Player2, team2Player1, team2Player2, team1Score, team2Score }) {
     // Player inputs use PlayerDropdown component - type to search and select from dropdown
     // Helper: fill a player dropdown input, wait for the option, and select it
-    const selectPlayer = async (inputSelector, playerName) => {
+    const selectPlayer = async (inputSelector, playerName, nextSelector) => {
       const input = this.page.locator(inputSelector).first();
       await input.waitFor({ state: 'visible', timeout: 5000 });
       await input.click();
@@ -276,14 +276,17 @@ export class LeaguePage extends BasePage {
       const option = this.page.locator(this.selectors.playerDropdownOption).filter({ hasText: playerName }).first();
       await option.waitFor({ state: 'visible', timeout: 5000 });
       await option.click();
+      const next = await this.page.locator(nextSelector).first().elementHandle();
+      await this.page.waitForFunction(element => document.activeElement === element, next);
+      await this.page.getByRole('dialog').getByRole('heading', { level: 2 }).first().click();
       // Wait for dropdown to close (option disappears)
       await option.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
     };
 
-    if (team1Player1) await selectPlayer(this.selectors.team1Player1Input, team1Player1);
-    if (team1Player2) await selectPlayer(this.selectors.team1Player2Input, team1Player2);
-    if (team2Player1) await selectPlayer(this.selectors.team2Player1Input, team2Player1);
-    if (team2Player2) await selectPlayer(this.selectors.team2Player2Input, team2Player2);
+    if (team1Player1) await selectPlayer(this.selectors.team1Player1Input, team1Player1, this.selectors.team1Player2Input);
+    if (team1Player2) await selectPlayer(this.selectors.team1Player2Input, team1Player2, this.selectors.team2Player1Input);
+    if (team2Player1) await selectPlayer(this.selectors.team2Player1Input, team2Player1, this.selectors.team2Player2Input);
+    if (team2Player2) await selectPlayer(this.selectors.team2Player2Input, team2Player2, this.selectors.team1ScoreDigit1);
     
     // Helper: fill a two-digit score
     const fillScore = async (digit1Selector, digit2Selector, score) => {
@@ -308,6 +311,9 @@ export class LeaguePage extends BasePage {
    * When editing a session, matches are stored locally and don't trigger API calls until session is saved
    */
   async submitMatchForm(isEditMode = false) {
+    // fill() changes values without a pointer event; finish the dropdown
+    // interaction as a user would before submitting the form.
+    await this.page.getByRole('dialog').getByRole('heading', { level: 2 }).first().click();
     const submitButton = this.page.locator(this.selectors.submitMatchButton).first();
     await submitButton.waitFor({ state: 'visible', timeout: 5000 });
     
@@ -342,7 +348,7 @@ export class LeaguePage extends BasePage {
       response => {
         const url = response.url();
         const method = response.request().method();
-        return (url.includes('/api/leagues') && url.includes('/sessions/')) &&
+        return url.includes('/sessions/') &&
                (method === 'PATCH' || method === 'POST');
       },
       { timeout: 20000 }
@@ -350,16 +356,9 @@ export class LeaguePage extends BasePage {
     
     await button.click();
     
-    // Check if a confirmation modal appears (it should for session submission)
-    const confirmationModal = this.page.locator(this.selectors.confirmationModal).first();
-    const hasConfirmation = await confirmationModal.isVisible({ timeout: 3000 }).catch(() => false);
-    
-    if (hasConfirmation) {
-      // Click the confirm button in the modal
-      const confirmButton = this.page.locator(this.selectors.confirmButton).first();
-      await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
-      await confirmButton.click();
-    }
+    const confirmationModal = this.page.getByRole('dialog', { name: 'Submit Scores' });
+    await confirmationModal.waitFor({ state: 'visible', timeout: 5000 });
+    await confirmationModal.getByRole('button', { name: 'Submit Scores', exact: true }).click();
     
     // Wait for the actual API response
     await responsePromise;
@@ -489,7 +488,7 @@ export class LeaguePage extends BasePage {
     const matchCards = this.page.locator(this.selectors.editableMatchCard);
     const matchCard = matchCards.nth(matchIndex);
     await matchCard.waitFor({ state: 'visible', timeout: 10000 });
-    await matchCard.click();
+    await matchCard.locator('.team-score').first().click();
     
     // Wait for edit modal to open
     await this.page.waitForSelector(this.selectors.matchModal, { state: 'visible', timeout: 10000 });

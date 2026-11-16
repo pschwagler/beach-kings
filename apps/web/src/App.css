@@ -9426,7 +9426,7 @@ button.session-stats-clickable:focus-visible {
   }
 
   .container {
-    margin-top: 52px; /* Even smaller navbar on very small screens */
+    margin-top: var(--navbar-height); /* Even smaller navbar on very small screens */
     border-width: 2px;
   }
 

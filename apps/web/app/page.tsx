@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import Link from "next/link";
 import "../src/App.css";
+import "../src/styles/LandingPage.css";
 import NavBar from "../src/components/layout/NavBar";
 import CreateLeagueModal from "../src/components/league/CreateLeagueModal";
 import PlayerProfileModal from "../src/components/player/PlayerProfileModal";
@@ -165,57 +166,60 @@ export default function Page() {
         userLeagues={userLeagues}
         onLeaguesMenuClick={handleLeaguesMenuClick}
       />
-      <div className="container">
-        <div className="homepage-video-container">
-          <video
-            ref={(el) => {
-              if (el && !el.dataset.initialized) {
-                el.dataset.initialized = "true";
-                setTimeout(() => el.play(), 1000);
-              }
-            }}
-            muted
-            playsInline
-            controls
-            className="homepage-video"
-          >
-            <source
-              src="/beach-league-promo.mp4"
-              type="video/mp4"
-            />
-          </video>
-        </div>
-        <div className="landing-content">
-          <div className="landing-message">
-            <h2 className="landing-welcome-title">
-              Welcome to{" "}
-              <Image
-                src="/brand/lockup-on-light-640.png"
-                alt="Beach League"
-                width={200}
-                height={53}
-                className="landing-brand-logo"
-                preload
-              />
-            </h2>
-            <p>Log in to get started</p>
-            <div className="flex-center-gap">
+      <main className="welcome-page">
+        <section className="welcome-hero" aria-labelledby="welcome-heading">
+          <div className="welcome-intro">
+            <p className="welcome-eyebrow">Beach League Volleyball</p>
+            <h1 id="welcome-heading">Your game.<br />Your people.<br /><span>Your beach.</span></h1>
+            <p className="welcome-description">
+              Find your next game, bring your league together, and make every match count.
+              Your beach volleyball community starts here.
+            </p>
+            <div className="welcome-actions">
               <button
-                className="btn btn-primary"
+                className="welcome-action-primary"
+                onClick={() => openAuthModal("sign-up", handleVerifySuccess)}
+              >
+                Sign Up <span aria-hidden="true">↗</span>
+              </button>
+              <button
+                className="welcome-action-secondary"
                 onClick={() => openAuthModal("sign-in", handleVerifySuccess)}
               >
                 Log In
               </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => openAuthModal("sign-up", handleVerifySuccess)}
-              >
-                Sign Up
-              </button>
             </div>
+            <p className="welcome-courts-link">
+              Looking for a place to play? <Link href="/courts">Find a court near you <span aria-hidden="true">→</span></Link>
+            </p>
           </div>
-        </div>
-      </div>
+          <figure className="welcome-film">
+            <div className="welcome-film-heading"><span>Meet Beach League</span><span aria-hidden="true">01 / PLAY</span></div>
+            <video
+              ref={(el) => {
+                if (el && !el.dataset.initialized) {
+                  el.dataset.initialized = "true";
+                  setTimeout(() => el.play()?.catch(() => {}), 1000);
+                }
+              }}
+              muted
+              playsInline
+              controls
+              preload="metadata"
+              className="welcome-video"
+              aria-label="Beach League introduction"
+            >
+              <source src="/beach-league-promo.mp4" type="video/mp4" />
+            </video>
+            <figcaption>More time on the sand. Everything else in one place.</figcaption>
+          </figure>
+        </section>
+        <section className="welcome-benefits" aria-label="What you can do with Beach League">
+          <div><span className="welcome-benefit-number" aria-hidden="true">01</span><h2>Find your crew</h2><p>Connect with players and discover leagues in your area.</p></div>
+          <div><span className="welcome-benefit-number" aria-hidden="true">02</span><h2>Get a game going</h2><p>Organize sessions and keep your matches together.</p></div>
+          <div><span className="welcome-benefit-number" aria-hidden="true">03</span><h2>See your progress</h2><p>Record scores, track your stats, and follow the standings.</p></div>
+        </section>
+      </main>
       <CreateLeagueModal
         isOpen={isCreateLeagueModalOpen}
         onClose={() => setIsCreateLeagueModalOpen(false)}
