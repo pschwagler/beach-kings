@@ -1,8 +1,8 @@
 # App Store Connect privacy answers
 
 > Source: `privacy-inventory.md`
-> Prepared: 2026-08-07
-> Apply to: the reviewed iOS 1.0 release candidate only
+> Updated: 2026-11-22
+> Apply to: the reviewed iOS 1.1.0 release candidate
 
 This is the copy-ready worksheet for App Store Connect. The Account Holder,
 Admin, or App Manager must compare it with the exact release candidate and
@@ -23,16 +23,16 @@ the purpose, **Yes** for linked to the user's identity, and **No** for tracking.
 
 | Category | Data type | Beach League basis |
 | --- | --- | --- |
-| Contact Info | Name | Account/profile identity, rosters, and social/gameplay display |
+| Contact Info | Name | Account/profile identity, rosters, social/gameplay display, and player-name context for requested scoresheet reading |
 | Contact Info | Email Address | Authentication and account/support communication |
 | Contact Info | Phone Number | SMS verification and authentication |
 | Location | Coarse Location | Stored city/state, league location, and home courts |
 | Sensitive Info | Sensitive Info | Junior/adult group, eligibility territory, assurance/declaration source, guardian-consent fact, assurance time, and profile gender; no exact birthdate is collected by the release candidate |
 | User Content | Emails or Text Messages | Direct messages and league chat, including non-SMS in-app messages |
-| User Content | Photos or Videos | Avatars, court photos, and review photos |
+| User Content | Photos or Videos | Avatars, court photos, review photos, member-only league photos, and submitted scoresheet images |
 | User Content | Gameplay Content | Leagues, sessions, rosters, matches, scores, rankings, and statistics |
 | User Content | Customer Support | Feedback and support/privacy requests |
-| User Content | Other User Content | Reviews, captions, reports, appeals, profile fields, suggestions, and notes |
+| User Content | Other User Content | Reviews, captions, reports, appeals, profile fields, suggestions, notes, and scoresheet correction instructions |
 | Identifiers | User ID | Internal account/player IDs and federated-login subject identifiers |
 | Identifiers | Device ID | Random installation identifier and Expo push token |
 | Diagnostics | Other Diagnostic Data | Sanitized operational request, security, and error logs |
