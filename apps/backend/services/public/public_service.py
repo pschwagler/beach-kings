@@ -507,7 +507,7 @@ async def get_public_player(
     - **Always visible**: name, avatar, level, city/state, current_rating,
       total_games, and league_memberships.
     - **game_history_visible** flag (``show_game_history=True`` OR viewer is
-      the owner): when True, W-L record (``total_wins``, ``win_rate``) are
+      the owner or an accepted friend): when True, W-L record (``total_wins``, ``win_rate``) are
       included in stats.  When False, those two fields are ``None``.
     - ``profile_is_private`` is stored but no longer gates any part of the
       response — it is a no-op for display purposes.
@@ -579,11 +579,11 @@ async def get_public_player(
     if total_games < 1 and relationship["status"] == "none":
         return None
 
-    # game_history_visible: owner always sees full record; others see it only
-    # when the player has opted in via show_game_history.
+    # Owners and accepted friends can see the record. Other viewers need
+    # the player's public game-history opt-in; pending requests do not grant access.
     # profile_is_private is preserved in the response for client use but no
     # longer gates any part of the server response.
-    game_history_visible = is_self or bool(show_game_history)
+    game_history_visible = is_self or relationship["status"] == "friend" or bool(show_game_history)
 
     # 2. Location dict (always included)
     location_dict = (

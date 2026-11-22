@@ -127,6 +127,7 @@ export default function LeagueMessagesTab({ leagueId }: LeagueMessagesTabProps) 
                 isMine={isOwnMessage}
                 authorName={playerName}
                 authorAvatar={msg.avatar_url}
+                authorPlayerId={msg.player_id}
                 showAuthorName
               />
             );

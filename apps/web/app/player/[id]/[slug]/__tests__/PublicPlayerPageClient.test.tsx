@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -24,13 +24,14 @@ vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/player/42/test-player'),
 }));
 
+const mockAuth = {
+  user: { id: 1, email: 'test@example.com' },
+  currentUserPlayer: { id: 1, full_name: 'Test User' },
+  isAuthenticated: true,
+  logout: vi.fn(),
+};
 vi.mock('../../../../../src/contexts/AuthContext', () => ({
-  useAuth: vi.fn(() => ({
-    user: { id: 1, email: 'test@example.com' },
-    currentUserPlayer: { id: 1, full_name: 'Test User' },
-    isAuthenticated: true,
-    logout: vi.fn(),
-  })),
+  useAuth: vi.fn(() => mockAuth),
 }));
 
 vi.mock('../../../../../src/contexts/AuthModalContext', () => ({
@@ -42,8 +43,10 @@ vi.mock('../../../../../src/contexts/ModalContext', () => ({
   MODAL_TYPES: { CREATE_LEAGUE: 'CREATE_LEAGUE' },
 }));
 
+const mockGetPublicPlayer = vi.fn();
 vi.mock('../../../../../src/services/api', () => ({
   createLeague: vi.fn(),
+  getPublicPlayer: (...args: unknown[]) => mockGetPublicPlayer(...args),
 }));
 
 vi.mock('../../../../../src/contexts/AppContext', () => ({
@@ -61,8 +64,8 @@ vi.mock('../../../../../src/components/home/HomeMenuBar', () => ({
 }));
 
 vi.mock('../../../../../src/components/player/PublicPlayerPage', () => ({
-  default: ({ isAuthenticated }: { player: unknown; isAuthenticated: boolean }) => (
-    <div data-testid="public-player-page" data-is-authenticated={String(isAuthenticated)} />
+  default: ({ player, isAuthenticated }: { player: { stats?: { total_wins: number | null } }; isAuthenticated: boolean }) => (
+    <div data-testid="public-player-page" data-is-authenticated={String(isAuthenticated)} data-wins={player.stats?.total_wins ?? 'hidden'} />
   ),
 }));
 
@@ -95,6 +98,58 @@ const testPlayer = {
 describe('PublicPlayerPageClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuth.isAuthenticated = true;
+    mockAuth.user = { id: 1, email: 'test@example.com' };
+    mockGetPublicPlayer.mockResolvedValue(testPlayer);
+  });
+
+  it('refreshes the anonymous profile with the signed-in viewer permissions', async () => {
+    mockGetPublicPlayer.mockResolvedValue({ ...testPlayer, stats: { total_wins: 50 } });
+    render(<PublicPlayerPageClient player={testPlayer} canonicalSlug="test-player" currentSlug="test-player" />);
+    await waitFor(() => expect(screen.getByTestId('public-player-page')).toHaveAttribute('data-wins', '50'));
+    expect(mockGetPublicPlayer).toHaveBeenCalledWith(42, { signal: expect.any(AbortSignal) });
+  });
+
+  it('uses the anonymous profile without fetching when signed out', () => {
+    mockAuth.isAuthenticated = false;
+    render(<PublicPlayerPageClient player={testPlayer} canonicalSlug="test-player" currentSlug="test-player" />);
+    expect(mockGetPublicPlayer).not.toHaveBeenCalled();
+    expect(screen.getByTestId('public-player-page')).toHaveAttribute('data-wins', 'hidden');
+  });
+
+  it('drops private stats immediately on logout and ignores the old response', async () => {
+    let resolveProfile!: (value: unknown) => void;
+    mockGetPublicPlayer.mockReturnValue(new Promise((resolve) => { resolveProfile = resolve; }));
+    const view = render(<PublicPlayerPageClient player={testPlayer} canonicalSlug="test-player" currentSlug="test-player" />);
+    const signal = mockGetPublicPlayer.mock.calls[0][1].signal;
+    mockAuth.isAuthenticated = false;
+    view.rerender(<PublicPlayerPageClient player={testPlayer} canonicalSlug="test-player" currentSlug="test-player" />);
+    expect(signal.aborted).toBe(true);
+    await act(async () => { resolveProfile({ ...testPlayer, stats: { total_wins: 50 } }); });
+    expect(screen.getByTestId('public-player-page')).toHaveAttribute('data-wins', 'hidden');
+  });
+
+  it('does not reuse a previous account\'s private stats', async () => {
+    mockGetPublicPlayer.mockResolvedValueOnce({ ...testPlayer, stats: { total_wins: 50 } });
+    const view = render(<PublicPlayerPageClient player={testPlayer} canonicalSlug="test-player" currentSlug="test-player" />);
+    await waitFor(() => expect(screen.getByTestId('public-player-page')).toHaveAttribute('data-wins', '50'));
+    mockGetPublicPlayer.mockReturnValue(new Promise(() => {}));
+    mockAuth.user = { id: 2, email: 'another@example.com' };
+    view.rerender(<PublicPlayerPageClient player={testPlayer} canonicalSlug="test-player" currentSlug="test-player" />);
+    expect(screen.getByTestId('public-player-page')).toHaveAttribute('data-wins', 'hidden');
+  });
+
+  it('does not restore old private stats when the same account signs in again', async () => {
+    mockGetPublicPlayer.mockResolvedValueOnce({ ...testPlayer, stats: { total_wins: 50 } });
+    const view = render(<PublicPlayerPageClient player={testPlayer} canonicalSlug="test-player" currentSlug="test-player" />);
+    await waitFor(() => expect(screen.getByTestId('public-player-page')).toHaveAttribute('data-wins', '50'));
+    mockAuth.isAuthenticated = false;
+    view.rerender(<PublicPlayerPageClient player={testPlayer} canonicalSlug="test-player" currentSlug="test-player" />);
+    expect(screen.getByTestId('public-player-page')).toHaveAttribute('data-wins', 'hidden');
+    mockGetPublicPlayer.mockReturnValue(new Promise(() => {}));
+    mockAuth.isAuthenticated = true;
+    view.rerender(<PublicPlayerPageClient player={testPlayer} canonicalSlug="test-player" currentSlug="test-player" />);
+    expect(screen.getByTestId('public-player-page')).toHaveAttribute('data-wins', 'hidden');
   });
 
   it('renders NavBar', () => {

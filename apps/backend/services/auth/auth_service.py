@@ -95,8 +95,8 @@ JWT_EXPIRATION_MINUTES = int(
     float(os.getenv("JWT_EXPIRATION_HOURS", "1")) * 60
 )  # Access token: read hours from env, convert to minutes (default 1 hour)
 REFRESH_TOKEN_EXPIRATION_DAYS = int(
-    os.getenv("REFRESH_TOKEN_EXPIRATION_DAYS", "30")
-)  # Refresh token: 30 days
+    os.getenv("REFRESH_TOKEN_EXPIRATION_DAYS", "120")
+)  # Rotating refresh token: 120 days since sign-in or last successful refresh
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")

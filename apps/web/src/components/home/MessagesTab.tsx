@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { MessageCircle, ArrowLeft, Loader2, PenSquare, Search } from 'lucide-react';
 import { Button } from '../ui/UI';
 import api, {
@@ -16,6 +17,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { isImageUrl } from '../../utils/avatar';
 import { formatRelativeTime } from '../../utils/dateUtils';
+import { slugify } from '../../utils/slugify';
 import MessageBubble from '../messages/MessageBubble';
 import MessageComposer from '../messages/MessageComposer';
 import './MessagesTab.css';
@@ -182,16 +184,24 @@ function ConversationList({ onOpenThread }: ConversationListProps) {
       <div className="messages-tab__conversation-list">
         {conversations.map((conv) => {
           const hasUnread = conv.unread_count > 0;
+          const profileHref = `/player/${conv.player_id}/${slugify(conv.full_name) || 'player'}`;
           return (
-            <button
+            <div
               key={conv.player_id}
               className={`messages-tab__conversation-card${hasUnread ? ' messages-tab__conversation-card--unread' : ''}`}
-              onClick={() => onOpenThread(conv.player_id, conv.full_name, conv.avatar, conv.is_friend)}
               data-testid={`conversation-${conv.player_id}`}
             >
-              <Avatar avatar={conv.avatar} name={conv.full_name} />
+              <button
+                type="button"
+                className="messages-tab__conversation-open"
+                aria-label={`Open conversation with ${conv.full_name}`}
+                onClick={() => onOpenThread(conv.player_id, conv.full_name, conv.avatar, conv.is_friend)}
+              />
+              <Link href={profileHref} className="messages-tab__profile-link" aria-label={`View ${conv.full_name}'s profile`}>
+                <Avatar avatar={conv.avatar} name={conv.full_name} />
+              </Link>
               <div className="messages-tab__conversation-info">
-                <p className="messages-tab__conversation-name">{conv.full_name}</p>
+                <Link href={profileHref} className="messages-tab__profile-link messages-tab__conversation-name">{conv.full_name}</Link>
                 <p className={`messages-tab__conversation-preview${hasUnread ? ' messages-tab__conversation-preview--unread' : ''}`}>
                   {conv.last_message_text}
                 </p>
@@ -202,7 +212,7 @@ function ConversationList({ onOpenThread }: ConversationListProps) {
                 </span>
                 {hasUnread && <div className="messages-tab__unread-dot" />}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -446,8 +456,14 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
         <button className="messages-tab__back-btn" onClick={onBack} title="Back" type="button">
           <ArrowLeft size={20} />
         </button>
-        <Avatar avatar={otherPlayerAvatar} name={otherPlayerName} />
-        <h3 className="messages-tab__thread-name">{otherPlayerName}</h3>
+        <Link
+          href={`/player/${otherPlayerId}/${slugify(otherPlayerName) || 'player'}`}
+          className="messages-tab__profile-link messages-tab__thread-profile"
+          aria-label={`View ${otherPlayerName}'s profile`}
+        >
+          <Avatar avatar={otherPlayerAvatar} name={otherPlayerName} />
+          <h3 className="messages-tab__thread-name">{otherPlayerName}</h3>
+        </Link>
         {!isFriend && (
           <span className="messages-tab__thread-readonly">Not friends</span>
         )}
@@ -482,6 +498,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
                 isMine={isMine}
                 authorName={otherPlayerName}
                 authorAvatar={otherPlayerAvatar}
+                authorPlayerId={msg.sender_player_id}
               />
             </div>
           );

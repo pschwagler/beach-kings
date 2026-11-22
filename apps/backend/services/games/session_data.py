@@ -69,7 +69,7 @@ from backend.database.models import (
     SessionStatus,
     Location,
 )
-from backend.utils.datetime_utils import format_session_date
+from backend.utils.datetime_utils import format_session_date, session_date_sort_key
 
 if TYPE_CHECKING:
     from backend.models.schemas import CreateMatchRequest, UpdateMatchRequest
@@ -263,12 +263,15 @@ async def get_open_sessions_for_user(
                 Session.id.in_(part_sess.scalar_subquery()),
             )
         )
-        .order_by(Session.date.desc(), Session.updated_at.desc())
+        .order_by(Session.updated_at.desc(), Session.id.desc())
     )
     if active_only:
         q = q.where(Session.status == SessionStatus.ACTIVE)
     result = await db_session.execute(q)
-    rows = result.all()
+    # Dates are stored as text in both ISO and legacy M/D/YYYY formats.
+    # This query is unpaginated, so sort by calendar date after fetching;
+    # stable sorting preserves updated_at/id ordering for sessions on the same day.
+    rows = sorted(result.all(), key=lambda row: session_date_sort_key(row.date), reverse=True)
 
     session_ids = [r.id for r in rows]
     if not session_ids:

@@ -3,9 +3,23 @@ Datetime utility functions.
 Provides replacements for deprecated datetime functions.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Union
 import pytz
+
+
+def session_date_sort_key(value: str | None) -> date:
+    """Sort ISO and legacy US session dates chronologically; unknown dates go last."""
+    if not value:
+        return date.min
+    value = value.strip()
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+    except ValueError:
+        try:
+            return datetime.strptime(value, "%m/%d/%Y").date()
+        except ValueError:
+            return date.min
 
 
 def utcnow() -> datetime:

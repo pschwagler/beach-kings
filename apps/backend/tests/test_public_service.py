@@ -774,6 +774,64 @@ async def test_get_public_player_show_game_history_false_hides_wl(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("relationship", "visible"),
+    [
+        ("anonymous", False),
+        ("owner", True),
+        ("friend", True),
+        ("pending_incoming", False),
+        ("pending_outgoing", False),
+        ("none", False),
+    ],
+)
+async def test_get_public_player_record_access(
+    db_session, test_player, test_user, relationship, visible
+):
+    """Only owners and accepted friends bypass a hidden game-history setting."""
+    owner = await db_session.get(User, test_user["id"])
+    owner.show_game_history = False
+    db_session.add(
+        PlayerGlobalStats(
+            player_id=test_player.id, total_games=87, total_wins=50, current_rating=1411.0
+        )
+    )
+    viewer = None
+    if relationship == "owner":
+        viewer = {"id": owner.id}
+    elif relationship != "anonymous":
+        viewer_user = User(phone_number="+15559990201", password_hash="hash", is_verified=True)
+        db_session.add(viewer_user)
+        await db_session.flush()
+        viewer_player = Player(full_name="Record Viewer", user_id=viewer_user.id)
+        db_session.add(viewer_player)
+        await db_session.flush()
+        viewer = {"id": viewer_user.id}
+        if relationship == "friend":
+            p1, p2 = sorted([viewer_player.id, test_player.id])
+            db_session.add(Friend(player1_id=p1, player2_id=p2, created_by=viewer_player.id))
+        elif relationship.startswith("pending_"):
+            sender, receiver = (
+                (test_player.id, viewer_player.id)
+                if relationship == "pending_incoming"
+                else (viewer_player.id, test_player.id)
+            )
+            db_session.add(
+                FriendRequest(
+                    sender_player_id=sender, receiver_player_id=receiver, status="pending"
+                )
+            )
+    await db_session.commit()
+
+    result = await public_service.get_public_player(db_session, test_player.id, viewer_user=viewer)
+
+    assert result["game_history_visible"] is visible
+    assert result["stats"]["total_games"] == 87
+    assert result["stats"]["total_wins"] == (50 if visible else None)
+    assert result["stats"]["win_rate"] == (0.5747 if visible else None)
+
+
+@pytest.mark.asyncio
 async def test_get_public_player_zero_games(db_session, test_player):
     """Player with 0 games returns None (not publicly visible)."""
     stats = PlayerGlobalStats(

@@ -16,6 +16,7 @@ import * as Notifications from 'expo-notifications';
 import { useRouter, useRootNavigationState, useSegments } from 'expo-router';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
+import SessionRestoreNotice from '@/features/auth/SessionRestoreNotice';
 // Import the leaf query module directly. The player feature barrel exports
 // mutations that consume AuthContext, so importing the barrel here creates a
 // runtime cycle during app bootstrap.
@@ -263,6 +264,8 @@ export default function AuthProvider({
     profileComplete: false,
     isNewUser: false,
   });
+  const [restoreAttempt, setRestoreAttempt] = useState(0);
+  const [restoreFailed, setRestoreFailed] = useState(false);
 
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -483,17 +486,19 @@ export default function AuthProvider({
           LOCAL_CLEANUP_DEADLINE_MS,
         );
         if (!isCurrentOperation(revision)) return;
-        if (retired !== false) {
+        if (retired === true) {
           await commitUnauthenticated(revision, true);
           return;
         }
+        if (retired !== false) throw new Error('Saved sign-in is temporarily unavailable');
         const stored = await settleWithin(
           api.getStoredTokens(),
           LOCAL_CLEANUP_DEADLINE_MS,
         );
         if (!isCurrentOperation(revision)) return;
+        if (!stored) throw new Error('Saved sign-in is temporarily unavailable');
         const accessToken = stored?.accessToken;
-        if (!accessToken) {
+        if (!accessToken && !stored.refreshToken) {
           await commitUnauthenticated(revision, false);
           return;
         }
@@ -526,9 +531,13 @@ export default function AuthProvider({
             isNewUser: false,
           });
         });
-      } catch {
+      } catch (error) {
         if (isCurrentOperation(revision)) {
-          await commitUnauthenticated(revision, true);
+          if ((error as { response?: { status?: number } })?.response?.status === 401) {
+            await commitUnauthenticated(revision, true);
+          } else {
+            setRestoreFailed(true);
+          }
         }
       }
     }
@@ -542,6 +551,7 @@ export default function AuthProvider({
     isCurrentOperation,
     publishState,
     queryClient,
+    restoreAttempt,
   ]);
 
   // -----------------------------------------------------------------------
@@ -820,5 +830,14 @@ export default function AuthProvider({
     refreshUser,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {restoreFailed && state.isLoading ? (
+        <SessionRestoreNotice
+          onRetry={() => { setRestoreFailed(false); setRestoreAttempt(attempt => attempt + 1); }}
+          onSignOut={() => { void logout(); }}
+        />
+      ) : children}
+    </AuthContext.Provider>
+  );
 }

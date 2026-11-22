@@ -73,5 +73,7 @@ describe('LeagueMessagesTab', () => {
     );
     expect(screen.getByText('Courts are open.').closest('.message-thread-row')).toHaveClass('message-thread-row--mine');
     expect(screen.getByText('See you there!').closest('.message-thread-row')).toHaveClass('message-thread-row--theirs');
+    expect(screen.getByRole('link', { name: 'Alex Setter' })).toHaveAttribute('href', '/player/9/alex-setter');
+    expect(screen.getByRole('link', { name: "View Alex Setter's profile" })).toHaveAttribute('href', '/player/9/alex-setter');
   });
 });
