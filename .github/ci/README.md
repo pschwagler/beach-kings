@@ -5,7 +5,8 @@ Its test runner adds visibility without changing the check's result:
 
 - A heartbeat every 30 seconds reports the active test and its setup/call/teardown
   phase, last completed test, counts, elapsed time, process RSS, and host available
-  memory.
+  memory. It includes the actual checkout revision and heartbeat timestamp, so a
+  stale snapshot or a PR merge revision is distinguishable from the branch head.
 - The same snapshot updates the backend check's **Details** summary through the
   Checks API. That server-side breadcrumb remains available if the runner dies
   before uploading its logs. Only `output` is updated; GitHub owns the check's

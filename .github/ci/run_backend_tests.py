@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -68,6 +69,22 @@ def read_progress(path):
         return {}
 
 
+def checkout_revision(env):
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=3,
+            env=env,
+        )
+        value = result.stdout.strip() if result.returncode == 0 else ""
+    except (OSError, subprocess.TimeoutExpired):
+        value = env.get("GITHUB_SHA", "")
+    return value if re.fullmatch(r"[0-9a-f]{40}", value) else "unknown"
+
+
 def resources(pid):
     result = {}
     for path, field, key in [
@@ -92,6 +109,8 @@ def summary(state):
         [
             "## Backend test progress",
             "",
+            f"Checkout: `{state.get('source_revision', 'unknown')}`",
+            f"Last heartbeat: {state.get('observed_at', 'unknown')}",
             f"Elapsed: {state['elapsed_seconds']}s · Phase: **{phase}**",
             f"Time in this phase: {state.get('phase_seconds', '?')}s",
             f"Current test: `{safe_test_name(state.get('current_test')) or 'none'}`",
@@ -211,6 +230,7 @@ def main(argv=None):
             ],
         )
     )
+    revision = checkout_revision(env)
     process = subprocess.Popen(
         command,
         stdin=subprocess.DEVNULL,
@@ -248,6 +268,8 @@ def main(argv=None):
                         state.update(
                             elapsed_seconds=round(elapsed),
                             dropped_console_chunks=console.dropped,
+                            source_revision=revision,
+                            observed_at=datetime.now(UTC).isoformat(timespec="seconds"),
                             **resources(process.pid),
                         )
                         if isinstance(state.get("phase_started_at"), (int, float)):
