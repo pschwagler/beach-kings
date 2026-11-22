@@ -116,6 +116,7 @@ def test_admin_upload_normalizes_and_replacement_has_new_identity(setup):
         (b"gif", "image/gif"),
         (b"x" * (MAX_UPLOAD_BYTES + 1), "image/jpeg"),
     ],
+    ids=["invalid-image", "unsupported-mime", "oversized-upload"],
 )
 def test_invalid_upload_does_not_replace_existing_picture(setup, content, mime):
     client, db = setup
