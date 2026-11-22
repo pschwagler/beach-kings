@@ -151,6 +151,8 @@ class RunnerTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 7)
         self.assertIn("diagnostic-output", (directory / "backend-ci.log").read_text())
+        self.assertNotIn("diagnostic-output", result.stdout)
+        self.assertIn("Backend test progress", result.stdout)
         self.assertIn("exit code: 7", (directory / "backend-ci-summary.md").read_text())
 
     def test_deadline_terminates_a_stuck_process_and_writes_a_summary(self):

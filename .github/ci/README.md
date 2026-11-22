@@ -21,7 +21,9 @@ Its test runner adds visibility without changing the check's result:
   limit. A child holding stdout open cannot keep the wrapper alive.
 
 The `backend-diagnostics` artifact includes the console log, latest progress JSON,
-resource history, final summary, and JUnit report. The job summary includes the
+resource history, final summary, and JUnit report. Verbose pytest output is
+written directly to the diagnostic file rather than streamed through the Actions
+runner log pipe; the console receives only progress heartbeats. The job summary includes the
 final snapshot. Raw test output stays in the log; live check summaries contain
 only sanitized identifiers and metrics.
 

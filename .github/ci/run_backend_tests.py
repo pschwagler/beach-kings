@@ -121,6 +121,7 @@ def summary(state):
                 f"Host available memory: {state.get('available_mib')} MiB"
             ),
             f"Console chunks dropped: {state.get('dropped_console_chunks', 0)}",
+            f"Test process exit code: {state.get('exit_code', 'running')}",
             "",
             "Live breadcrumbs only; the test step determines success or failure.",
         ]
@@ -249,8 +250,9 @@ def main(argv=None):
         def stream():
             try:
                 while data := os.read(process.stdout.fileno(), 65536):
+                    # Keep verbose test output out of the Actions runner log pipe.
+                    # A runner stuck draining logs cannot complete the test step.
                     log.write(data)
-                    console.write(data)
             except (OSError, ValueError):
                 pass
 
@@ -295,7 +297,10 @@ def main(argv=None):
             process.stdout.close()
             for sig, handler in previous_handlers.items():
                 signal.signal(sig, handler)
-            state.update(elapsed_seconds=round(time.monotonic() - started))
+            state.update(
+                elapsed_seconds=round(time.monotonic() - started),
+                exit_code=exit_code,
+            )
             state["phase"] = (
                 "timed_out"
                 if exit_code == 124
