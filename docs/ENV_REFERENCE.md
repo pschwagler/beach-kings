@@ -21,7 +21,7 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 |----------|---------|-------------|
 | `ENV` | `development` | `development`, `production`, or `test` |
 | `JWT_EXPIRATION_HOURS` | `1` | JWT access token TTL (hours) |
-| `REFRESH_TOKEN_EXPIRATION_DAYS` | `30` | Refresh token TTL (days). Tokens rotate on each use — old token is deleted and a new one issued |
+| `REFRESH_TOKEN_EXPIRATION_DAYS` | `120` | Refresh token TTL (days since login or last successful refresh). Tokens rotate on each use — old token is deleted and a new one issued. Set existing deployments to `120` as well; an explicit environment override takes precedence. |
 | `YOUTH_SAFETY_SIGNING_SECRET` | `JWT_SECRET_KEY` | Dedicated signing key for 30-minute, pre-registration youth eligibility proofs. Use an independently generated secret in production. |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins |
 | `DEBUG_BACKEND` | `0` | Enable debug mode |
