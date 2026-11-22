@@ -23,6 +23,7 @@ import { useAuth } from '../../../src/contexts/AuthContext';
 import NavBar from '../../../src/components/layout/NavBar';
 import HomeMenuBar from '../../../src/components/home/HomeMenuBar';
 import ActiveSessionPanel from '../../../src/components/session/ActiveSessionPanel';
+import SharedSessionPreview from '../../../src/components/session/SharedSessionPreview';
 import SessionPlayersModal from '../../../src/components/session/SessionPlayersModal';
 import { getUniquePlayersCount } from '../../../src/components/league/utils/matchUtils';
 import PlayerPopover from '../../../src/components/player/PlayerPopover';
@@ -82,12 +83,6 @@ export default function SessionByCodePage() {
     managePlayersAutoOpened: false,
   });
 
-  useEffect(() => {
-    if (!isInitializing && !isAuthenticated) {
-      router.push('/');
-    }
-  }, [isAuthenticated, isInitializing, router]);
-
   // Reset visit actions when navigating to a different session
   useEffect(() => {
     if (code !== visitActionsRef.current.sessionCode) {
@@ -99,9 +94,10 @@ export default function SessionByCodePage() {
     }
   }, [code]);
 
-  // Auto-join: when logged-in user opens session page and is not in participants, add them
+  // Pickup joining happens in usePickupSession before protected content reads.
+  // League collaborators retain their existing roster auto-join behavior here.
   useEffect(() => {
-    if (!session || !code || !isAuthenticated || !currentUserPlayer || session.status !== 'ACTIVE') return;
+    if (!session || session.league_id == null || !code || !isAuthenticated || !currentUserPlayer || session.status !== 'ACTIVE') return;
     if (visitActionsRef.current.autoJoinDone) return;
     const participantIds = new Set((participants || []).map((p) => p.player_id));
     if (participantIds.has(currentUserPlayer.id)) return;
@@ -144,11 +140,11 @@ export default function SessionByCodePage() {
 
   // Auto-open Manage Players when fewer than 4 players (once per visit, only after load completes)
   useEffect(() => {
-    if (!loading && session && isActive && hasLessThanFourPlayers && !visitActionsRef.current.managePlayersAutoOpened) {
+    if (isAuthenticated && !loading && session && isActive && hasLessThanFourPlayers && !visitActionsRef.current.managePlayersAutoOpened) {
       visitActionsRef.current.managePlayersAutoOpened = true;
       setShowPlayersModal(true);
     }
-  }, [loading, session, isActive, hasLessThanFourPlayers]);
+  }, [isAuthenticated, loading, session, isActive, hasLessThanFourPlayers]);
 
   const handleCopyLink = () => {
     if (typeof window === 'undefined' || !code) return;
@@ -390,7 +386,9 @@ export default function SessionByCodePage() {
     }
   };
 
-  if (isInitializing || !isAuthenticated) return null;
+  if (!isAuthenticated) {
+    return <SharedSessionPreview session={session} matches={transformedMatches} participants={participants} loading={isInitializing || loading} error={error} />;
+  }
 
   if (loading) {
     return (

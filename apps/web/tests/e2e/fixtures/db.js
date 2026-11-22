@@ -162,6 +162,17 @@ export async function cleanupTestUsers(phonePattern = E2E_PHONE_LIKE_PATTERN) {
     }
 
     // 2. Stats tables (reference players, seasons, leagues)
+    if (seasonIds.length > 0) {
+      await client.query(`DELETE FROM player_season_stats WHERE season_id = ANY($1)`, [seasonIds]);
+      await client.query(`DELETE FROM partnership_stats_season WHERE season_id = ANY($1)`, [seasonIds]);
+      await client.query(`DELETE FROM opponent_stats_season WHERE season_id = ANY($1)`, [seasonIds]);
+      await client.query(`DELETE FROM season_awards WHERE season_id = ANY($1)`, [seasonIds]);
+    }
+    if (leagueIds.length > 0) {
+      await client.query(`DELETE FROM player_league_stats WHERE league_id = ANY($1)`, [leagueIds]);
+      await client.query(`DELETE FROM partnership_stats_league WHERE league_id = ANY($1)`, [leagueIds]);
+      await client.query(`DELETE FROM opponent_stats_league WHERE league_id = ANY($1)`, [leagueIds]);
+    }
     if (playerIds.length > 0) {
       await client.query(`DELETE FROM player_global_stats WHERE player_id = ANY($1)`, [playerIds]);
       await client.query(`DELETE FROM player_season_stats WHERE player_id = ANY($1)`, [playerIds]);
@@ -216,6 +227,7 @@ export async function cleanupTestUsers(phonePattern = E2E_PHONE_LIKE_PATTERN) {
 
     // 8. League data
     if (leagueIds.length > 0) {
+      await client.query(`DELETE FROM league_invites WHERE league_id = ANY($1)`, [leagueIds]);
       await client.query(`DELETE FROM league_members WHERE league_id = ANY($1)`, [leagueIds]);
       await client.query(`DELETE FROM league_requests WHERE league_id = ANY($1)`, [leagueIds]);
       await client.query(`DELETE FROM league_messages WHERE league_id = ANY($1)`, [leagueIds]);

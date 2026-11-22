@@ -12,7 +12,7 @@ Covers:
 """
 
 import io
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
@@ -34,7 +34,9 @@ _PHONE = "+10000000000"
 _USER_ID = 1
 
 
-def _make_admin_client(monkeypatch, phone: str = _PHONE, user_id: int = _USER_ID):
+def _make_admin_client(
+    monkeypatch, phone: str = _PHONE, user_id: int = _USER_ID, *, scoresheet_enabled: bool = True
+):
     """
     Return a TestClient and auth headers for a system-admin user.
 
@@ -70,6 +72,13 @@ def _make_admin_client(monkeypatch, phone: str = _PHONE, user_id: int = _USER_ID
         return True
 
     monkeypatch.setattr(role_service, "is_system_admin", fake_is_system_admin, raising=True)
+    monkeypatch.setattr(
+        "backend.api.routes.feature_flags.resolve", AsyncMock(return_value=scoresheet_enabled)
+    )
+    monkeypatch.setattr(
+        "backend.services.games.scoresheet_import_receipts.confirmed_import",
+        AsyncMock(return_value=None),
+    )
 
     async def fake_require_active_players(session, player_ids):
         return None
@@ -641,6 +650,26 @@ class TestGetPhotoJob:
 class TestUploadMatchPhoto:
     """Functional tests for POST /api/leagues/{league_id}/matches/upload-photo."""
 
+    def test_paused_scoresheets_reject_upload_before_processing(self, monkeypatch):
+        client, headers = _make_admin_client(monkeypatch, scoresheet_enabled=False)
+        start_upload = AsyncMock()
+        monkeypatch.setattr(
+            "backend.services.games.photo_draft_service.start_upload", start_upload
+        )
+
+        response = client.post(
+            "/api/leagues/1/matches/upload-photo",
+            files={"file": ("scores.jpg", io.BytesIO(b"image"), "image/jpeg")},
+            headers=headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == {
+            "code": "FEATURE_DISABLED",
+            "feature": "scoresheet_parsing",
+        }
+        start_upload.assert_not_awaited()
+
     def test_upload_photo_success(self, monkeypatch):
         """Happy path: valid image upload returns job_id and session_id."""
         client, headers = _make_admin_client(monkeypatch)
@@ -658,15 +687,15 @@ class TestUploadMatchPhoto:
             return [{"id": 1, "full_name": "Player One"}]
 
         async def fake_get_player(session, user_id):
-            return {"id": 5}
+            return {"id": 5, "full_name": "Uploader"}
 
         async def fake_store_session(session_id, data):
             return True
 
-        async def fake_create_job(session, league_id, session_id):
+        async def fake_create_job(session, league_id, session_id, **kwargs):
             return 42
 
-        async def fake_process_photo_job(**kwargs):
+        async def fake_process_photo_job(*args, **kwargs):
             pass
 
         monkeypatch.setattr(photo_match_service, "validate_image_file", fake_validate)
@@ -677,6 +706,10 @@ class TestUploadMatchPhoto:
         monkeypatch.setattr(photo_match_service, "store_session_data", fake_store_session)
         monkeypatch.setattr(photo_match_service, "create_photo_match_job", fake_create_job)
         monkeypatch.setattr(photo_match_service, "process_photo_job", fake_process_photo_job)
+        monkeypatch.setattr(
+            "backend.services.games.photo_draft_service.context_members",
+            AsyncMock(return_value=[{"player_id": 1, "player_name": "Player One"}]),
+        )
 
         import io
 
@@ -714,8 +747,8 @@ class TestUploadMatchPhoto:
         assert response.status_code == 400
         assert "File type not supported" in response.json()["detail"]
 
-    def test_upload_photo_session_store_failure_returns_500(self, monkeypatch):
-        """Failure to store session data surfaces as 500."""
+    def test_upload_photo_session_store_failure_returns_503(self, monkeypatch):
+        """Temporary draft storage failures return a retryable service error."""
         client, headers = _make_admin_client(monkeypatch)
 
         def fake_validate(file_content, content_type, filename):
@@ -731,7 +764,7 @@ class TestUploadMatchPhoto:
             return []
 
         async def fake_get_player(session, user_id):
-            return None
+            return {"id": 5, "full_name": "Uploader"}
 
         async def fake_store_session(session_id, data):
             return False  # storage failure
@@ -742,6 +775,10 @@ class TestUploadMatchPhoto:
         monkeypatch.setattr(data_service, "list_league_members", fake_list_members, raising=True)
         monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
         monkeypatch.setattr(photo_match_service, "store_session_data", fake_store_session)
+        monkeypatch.setattr(
+            "backend.services.games.photo_draft_service.context_members",
+            AsyncMock(return_value=[]),
+        )
 
         import io
 
@@ -752,7 +789,7 @@ class TestUploadMatchPhoto:
             headers=headers,
         )
 
-        assert response.status_code == 500
+        assert response.status_code == 503
 
 
 # ---------------------------------------------------------------------------
@@ -766,6 +803,7 @@ class TestEditPhotoSession:
     def test_edit_session_success(self, monkeypatch):
         """Happy path: edit prompt triggers a new clarification job."""
         client, headers = _make_admin_client(monkeypatch)
+        monkeypatch.setattr("backend.api.routes.matches.draft_context", AsyncMock(return_value=[]))
 
         async def fake_get_session_data(session_id: str):
             return {"league_id": 1, "status": "PENDING"}

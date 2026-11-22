@@ -20,6 +20,7 @@ vi.mock('../../../components/player/ShareInviteIcon', () => ({
 }));
 
 import MatchCard from '../MatchCard';
+import SessionMatchesClipboardTable from '../SessionMatchesClipboardTable';
 
 const baseMatch = {
   winner: 'Team 1',
@@ -44,6 +45,14 @@ const baseMatch = {
 const noop = () => {};
 
 describe('MatchCard', () => {
+  it.each(['cards', 'table'])('does not mount authenticated invite controls in guest %s', (view) => {
+    const match = { ...baseMatch, team_1_player_1_is_placeholder: true };
+    render(view === 'cards'
+      ? <MatchCard match={match} onPlayerClick={noop} showPlayerInvites={false} />
+      : <SessionMatchesClipboardTable matches={[match]} onPlayerClick={noop} showPlayerInvites={false} />);
+    expect(screen.queryByTestId('share-invite')).not.toBeInTheDocument();
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+  });
   describe('ranked badge', () => {
     it('shows Ranked badge when match is ranked', () => {
       render(

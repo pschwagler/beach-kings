@@ -89,6 +89,12 @@ export const routes = {
       ? (`/(stack)/session/create?${qs.join('&')}` as const)
       : ('/(stack)/session/create' as const);
   },
+  scanScoresheet: (leagueId?: number | string, source?: 'camera' | 'library') => {
+    const params = [];
+    if (leagueId != null) params.push(`leagueId=${leagueId}`);
+    if (source != null) params.push(`source=${source}`);
+    return `/(stack)/scan-scoresheet${params.length ? `?${params.join('&')}` : ''}` as const;
+  },
   createLeague: () => '/(stack)/create-league' as const,
   createTournament: () => '/(stack)/tournament/create' as const,
 
@@ -252,6 +258,7 @@ export const routeUp: Record<string, UpTarget> = {
   '(stack)/session/[id]/edit': (p) => routes.session(firstParam(p.id)),
   '(stack)/session/[id]/roster': (p) => routes.session(firstParam(p.id)),
   '(stack)/session/create': routes.addGames(),
+  '(stack)/scan-scoresheet': routes.addGames(),
 
   // Tournaments
   '(stack)/tournaments': routes.home(),

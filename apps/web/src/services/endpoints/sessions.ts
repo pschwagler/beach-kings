@@ -54,6 +54,12 @@ export const getSessionByCode = async (code: string) => {
   return response.data;
 };
 
+/** Read-only shared contents. The code is required even for match/roster reads. */
+export const getSharedSessionPreview = async (code: string) => {
+  const response = await api.get(`/api/sessions/by-code/${encodeURIComponent(code)}/preview`);
+  return response.data;
+};
+
 /**
  * Get all matches for a session.
  * @param {number} sessionId - Session ID

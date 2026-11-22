@@ -17,6 +17,7 @@ import useDebounce from '@/hooks/useDebounce';
 import { sessionQueries, useSessionPlayerMutations } from '@/features/sessions';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import { useModalAnimationType } from '@/hooks/useModalAnimationType';
 
 interface Props {
   readonly sessionId: number;
@@ -57,6 +58,7 @@ export default function SessionAddPlayerModal({
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const palette = usePaletteColors();
+  const animationType = useModalAnimationType();
   const [search, setSearch] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
   const debouncedSearch = useDebounce(search, 250);
@@ -122,7 +124,7 @@ export default function SessionAddPlayerModal({
   return (
     <Modal
       visible
-      animationType="slide"
+      animationType={animationType}
       onRequestClose={onClose}
       testID="roster-add-player-modal"
     >

@@ -16,6 +16,8 @@
 // Mocks — declared before any import that reaches for these modules.
 // ---------------------------------------------------------------------------
 
+import { Platform } from 'react-native';
+
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn().mockResolvedValue(null),
   setItemAsync: jest.fn().mockResolvedValue(undefined),
@@ -23,6 +25,11 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 const mockApiObject = {
+  client: {
+    axiosInstance: {
+      defaults: { headers: { common: {} as Record<string, string> } },
+    },
+  },
   setAuthTokens: jest.fn(),
   clearAuthTokens: jest.fn(),
   getStoredTokens: jest.fn(),
@@ -109,6 +116,11 @@ describe('api singleton', () => {
     const { api } = loadApiModule();
     expect(api.setAuthTokens).toBe(mockApiObject.setAuthTokens);
     expect(api.login).toBe(mockApiObject.login);
+  });
+
+  it('sets the client platform header for backend feature evaluation', () => {
+    const { api } = loadApiModule();
+    expect(api.client.axiosInstance.defaults.headers.common['X-Client-Platform']).toBe(Platform.OS);
   });
 
   it('does not provide methods missing from the real API client', () => {

@@ -51,6 +51,7 @@ from backend.models.schemas import (
     StatusResponse,
     SubmitSessionResponse,
 )
+from backend.models.schemas.sessions import SharedSessionPreviewResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -593,6 +594,45 @@ async def get_open_sessions(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/api/sessions/by-code/{code}/preview", response_model=SharedSessionPreviewResponse)
+async def get_shared_session_preview(
+    code: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Preview a shared pickup or league session without granting write access.
+
+    The code is the bearer capability. Numeric-ID reads and all mutations
+    retain their existing authentication and collaborator checks.
+    """
+    sess = await data_service.get_session_by_code(session, code)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+    # Whitelist public display fields; never include private location coordinates.
+    public_fields = (
+        "id",
+        "code",
+        "date",
+        "name",
+        "status",
+        "league_id",
+        "court_name",
+        "court_slug",
+        "created_at",
+        "updated_at",
+        "created_by_name",
+        "updated_by_name",
+    )
+    preview = {key: sess.get(key) for key in public_fields}
+    if (sess.get("court_slug") or "").startswith("other-private-"):
+        preview["court_name"] = None
+        preview["court_slug"] = None
+    return {
+        "session": preview,
+        "matches": await data_service.get_session_matches(session, sess["id"]),
+        "participants": await data_service.get_session_participants(session, sess["id"]),
+    }
+
+
 @router.get("/api/sessions/by-code/{code}", response_model=SessionDetailResponse)
 async def get_session_by_code(
     code: str,
@@ -603,8 +643,9 @@ async def get_session_by_code(
     sess = await data_service.get_session_by_code(session, code)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
-    # A pickup code is a bearer capability used to preview and join the
-    # session. League sessions remain private even if their code is known.
+    # A pickup code permits joining and loading collaboration data. League
+    # collaboration data still requires membership; read-only shared contents
+    # are available separately through the code-scoped preview endpoint.
     if sess.get("league_id") is not None:
         await require_session_collaborator(session, sess, current_user)
     return sess

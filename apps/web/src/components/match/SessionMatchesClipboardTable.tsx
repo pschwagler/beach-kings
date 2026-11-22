@@ -7,6 +7,7 @@ import './SessionMatchesClipboardTable.css';
  * Winner names and scores use primary-dark; loser names and scores use gray-800.
  */
 interface SessionMatchesClipboardTableProps {
+  showPlayerInvites?: boolean;
   matches: any[];
   onPlayerClick: (playerId: any, playerName: string, e: React.MouseEvent) => void;
   onEditMatch?: (match: any) => void;
@@ -20,6 +21,7 @@ interface SessionMatchesClipboardTableProps {
 }
 
 export default function SessionMatchesClipboardTable({
+  showPlayerInvites = true,
   matches,
   onPlayerClick,
   onEditMatch,
@@ -88,14 +90,14 @@ export default function SessionMatchesClipboardTable({
                         <span className="player-name clickable" onClick={(e) => t1p1 && onPlayerClick(t1p1Id, t1p1, e)}>
                           {t1p1}
                         </span>
-                        {match.team_1_player_1_is_placeholder && <ShareInviteIcon playerId={t1p1Id} playerName={t1p1} />}
+                        {showPlayerInvites && match.team_1_player_1_is_placeholder && <ShareInviteIcon playerId={t1p1Id} playerName={t1p1} />}
                       </span>
                       {t1p2 && (
                         <span className="player-cell__entry">
                           <span className="player-name clickable" onClick={(e) => onPlayerClick(t1p2Id, t1p2, e)}>
                             {t1p2}
                           </span>
-                          {match.team_1_player_2_is_placeholder && <ShareInviteIcon playerId={t1p2Id} playerName={t1p2} />}
+                          {showPlayerInvites && match.team_1_player_2_is_placeholder && <ShareInviteIcon playerId={t1p2Id} playerName={t1p2} />}
                         </span>
                       )}
                     </div>
@@ -108,14 +110,14 @@ export default function SessionMatchesClipboardTable({
                         <span className="player-name clickable" onClick={(e) => t2p1 && onPlayerClick(t2p1Id, t2p1, e)}>
                           {t2p1}
                         </span>
-                        {match.team_2_player_1_is_placeholder && <ShareInviteIcon playerId={t2p1Id} playerName={t2p1} />}
+                        {showPlayerInvites && match.team_2_player_1_is_placeholder && <ShareInviteIcon playerId={t2p1Id} playerName={t2p1} />}
                       </span>
                       {t2p2 && (
                         <span className="player-cell__entry">
                           <span className="player-name clickable" onClick={(e) => onPlayerClick(t2p2Id, t2p2, e)}>
                             {t2p2}
                           </span>
-                          {match.team_2_player_2_is_placeholder && <ShareInviteIcon playerId={t2p2Id} playerName={t2p2} />}
+                          {showPlayerInvites && match.team_2_player_2_is_placeholder && <ShareInviteIcon playerId={t2p2Id} playerName={t2p2} />}
                         </span>
                       )}
                     </div>

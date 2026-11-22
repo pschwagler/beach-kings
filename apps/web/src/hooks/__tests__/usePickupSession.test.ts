@@ -5,6 +5,8 @@ vi.mock('../../services/api', () => ({
   getSessionByCode: vi.fn(),
   getSessionMatches: vi.fn(),
   getSessionParticipants: vi.fn(),
+  getSharedSessionPreview: vi.fn(),
+  joinSessionByCode: vi.fn(),
 }));
 
 vi.mock('../../components/league/utils/matchUtils', () => ({
@@ -25,10 +27,19 @@ import {
   getSessionByCode,
   getSessionMatches,
   getSessionParticipants,
+  getSharedSessionPreview,
+  joinSessionByCode,
 } from '../../services/api';
 import { sessionMatchToDisplayFormat } from '../../components/league/utils/matchUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../contexts/AppContext';
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
 
 describe('usePickupSession', () => {
   beforeEach(() => {
@@ -44,6 +55,118 @@ describe('usePickupSession', () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
       expect(getSessionByCode).not.toHaveBeenCalled();
     });
+  });
+
+  it('loads anonymous contents through the shared code without protected ID reads', async () => {
+    useAuth.mockReturnValue({ currentUserPlayer: null, isAuthenticated: false });
+    const session = { id: 10, code: 'ABC', league_id: 7, status: 'ACTIVE' };
+    getSharedSessionPreview.mockResolvedValue({ session, matches: [{ id: 1 }], participants: [{ player_id: 2, full_name: 'Test Player' }] });
+    const { result } = renderHook(() => usePickupSession('ABC'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.session).toEqual(session);
+    expect(result.current.matches).toEqual([{ id: 1 }]);
+    expect(result.current.isCreator).toBe(false);
+    expect(getSessionByCode).not.toHaveBeenCalled();
+    expect(getSessionMatches).not.toHaveBeenCalled();
+    expect(getSessionParticipants).not.toHaveBeenCalled();
+    expect(joinSessionByCode).not.toHaveBeenCalled();
+  });
+
+  it('waits for auth initialization before choosing the read endpoint', async () => {
+    useAuth.mockReturnValue({ currentUserPlayer: null, isAuthenticated: false, isInitializing: true });
+    renderHook(() => usePickupSession('ABC'));
+    expect(getSharedSessionPreview).not.toHaveBeenCalled();
+    expect(getSessionByCode).not.toHaveBeenCalled();
+  });
+
+  it('reloads authenticated contents after login on the same session', async () => {
+    useAuth.mockReturnValue({ currentUserPlayer: null, isAuthenticated: false });
+    getSharedSessionPreview.mockResolvedValue({ session: { id: 10, name: 'Shared' }, matches: [], participants: [] });
+    const { result, rerender } = renderHook(() => usePickupSession('ABC'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    getSessionByCode.mockResolvedValue({ id: 10, created_by: 7 });
+    getSessionMatches.mockResolvedValue([{ id: 101 }]);
+    getSessionParticipants.mockResolvedValue([{ player_id: 7, full_name: 'Test Player' }]);
+    useAuth.mockReturnValue({ currentUserPlayer: { id: 7 }, isAuthenticated: true });
+    rerender();
+    await waitFor(() => expect(result.current.isCreator).toBe(true));
+    expect(result.current.matches).toEqual([{ id: 101 }]);
+    expect(getSessionByCode).toHaveBeenCalledWith('ABC');
+    expect(getSessionMatches).toHaveBeenCalledWith(10);
+  });
+
+  it('ignores a guest preview that arrives after authenticated contents', async () => {
+    const guest = deferred<any>();
+    useAuth.mockReturnValue({ currentUserPlayer: null, isAuthenticated: false });
+    getSharedSessionPreview.mockReturnValue(guest.promise);
+    const { result, rerender } = renderHook(() => usePickupSession('ABC'));
+    const ownedSession = { id: 10, code: 'ABC', created_by: 7 };
+    getSessionByCode.mockResolvedValue(ownedSession);
+    getSessionMatches.mockResolvedValue([{ id: 101 }]);
+    getSessionParticipants.mockResolvedValue([{ player_id: 7, full_name: 'Test Player' }]);
+    useAuth.mockReturnValue({ currentUserPlayer: { id: 7 }, isAuthenticated: true });
+    rerender();
+    await waitFor(() => expect(result.current.isCreator).toBe(true));
+
+    await act(async () => guest.resolve({ session: { id: 10, code: 'ABC' }, matches: [], participants: [] }));
+
+    expect(result.current.session).toEqual(ownedSession);
+    expect(result.current.isCreator).toBe(true);
+    expect(result.current.matches).toEqual([{ id: 101 }]);
+  });
+
+  it('does not let a stale guest failure stop the authenticated loading state', async () => {
+    const guest = deferred<any>();
+    const authenticated = deferred<any>();
+    useAuth.mockReturnValue({ currentUserPlayer: null, isAuthenticated: false });
+    getSharedSessionPreview.mockReturnValue(guest.promise);
+    const { result, rerender } = renderHook(() => usePickupSession('ABC'));
+    getSessionByCode.mockReturnValue(authenticated.promise);
+    getSessionMatches.mockResolvedValue([]);
+    getSessionParticipants.mockResolvedValue([]);
+    useAuth.mockReturnValue({ currentUserPlayer: { id: 7 }, isAuthenticated: true });
+    rerender();
+
+    await act(async () => guest.reject(new Error('Old preview failed')));
+
+    expect(result.current.loading).toBe(true);
+    expect(result.current.error).toBeNull();
+    await act(async () => authenticated.resolve({ id: 10, created_by: 7 }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.isCreator).toBe(true);
+  });
+
+  it('does not join or load private contents after logout invalidates an old lookup', async () => {
+    const authenticated = deferred<any>();
+    getSessionByCode.mockReturnValue(authenticated.promise);
+    const { result, rerender } = renderHook(() => usePickupSession('ABC'));
+    useAuth.mockReturnValue({ currentUserPlayer: null, isAuthenticated: false });
+    const preview = { id: 10, code: 'ABC', status: 'ACTIVE' };
+    getSharedSessionPreview.mockResolvedValue({ session: preview, matches: [], participants: [] });
+    rerender();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => authenticated.resolve({ id: 10, created_by: 2, status: 'ACTIVE', league_id: null }));
+
+    expect(result.current.session).toEqual(preview);
+    expect(joinSessionByCode).not.toHaveBeenCalled();
+    expect(getSessionMatches).not.toHaveBeenCalled();
+    expect(getSessionParticipants).not.toHaveBeenCalled();
+  });
+
+  it('joins an active shared pickup before protected ID reads', async () => {
+    getSessionByCode.mockResolvedValue({ id: 10, code: 'ABC', status: 'ACTIVE', league_id: null, created_by: 2 });
+    joinSessionByCode.mockImplementation(async () => {
+      expect(getSessionMatches).not.toHaveBeenCalled();
+      expect(getSessionParticipants).not.toHaveBeenCalled();
+    });
+    getSessionMatches.mockResolvedValue([]);
+    getSessionParticipants.mockResolvedValue([{ player_id: 1, full_name: 'Test Player' }]);
+    const { result } = renderHook(() => usePickupSession('ABC'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(joinSessionByCode).toHaveBeenCalledWith('ABC');
+    expect(getSessionMatches).toHaveBeenCalledWith(10);
+    expect(result.current.error).toBeNull();
   });
 
   describe('pickup session (league_id = null)', () => {

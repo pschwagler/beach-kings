@@ -124,7 +124,11 @@ export class SessionPage extends BasePage {
   async openManagePlayersModal() {
     const isOpen = await this.page.locator(this.selectors.playersModal).isVisible().catch(() => false);
     if (!isOpen) {
-      await this.click(this.selectors.managePlayers);
+      // The roster can auto-open after session loading resolves. In that case
+      // its backdrop legitimately intercepts this concurrent manual click.
+      await this.page.locator(this.selectors.managePlayers).click({ timeout: 1500 }).catch(async (error) => {
+        if (!await this.page.locator(this.selectors.playersModal).isVisible()) throw error;
+      });
       await this.page.waitForSelector(this.selectors.playersModal, { state: 'visible', timeout: 5000 });
     }
     // Wait for slideUpMobile animation to complete (250ms) before interacting
@@ -179,12 +183,9 @@ export class SessionPage extends BasePage {
     // Find the player in the add list and click add
     const addListItem = this.page.locator(`.session-players-add-item:has-text("${name}")`);
     await addListItem.waitFor({ state: 'visible', timeout: 5000 });
-    const responsePromise = this.page.waitForResponse(
-      response => response.url().includes('/api/sessions/') && response.url().includes('/invite'),
-      { timeout: 10000 }
-    ).catch(() => {});
     await addListItem.locator(this.selectors.addPlayerButton).click();
-    await responsePromise;
+    // Roster additions are staged until Done sends invite_batch.
+    await addListItem.waitFor({ state: 'hidden', timeout: 5000 });
   }
 
   /**
@@ -200,19 +201,21 @@ export class SessionPage extends BasePage {
 
     const playerItem = this.page.locator(`.session-players-list-item:has-text("${name}")`);
     await playerItem.waitFor({ state: 'visible', timeout: 5000 });
-    await playerItem.locator(this.selectors.removePlayerButton).click();
-    // Wait for API response (remove or error)
-    await this.page.waitForResponse(
-      response => response.url().includes('/api/sessions/'),
-      { timeout: 10000 }
-    ).catch(() => {});
+    await Promise.all([
+      this.page.waitForResponse(
+        response => response.url().includes('/api/sessions/') && response.request().method() === 'DELETE',
+        { timeout: 10000 },
+      ),
+      playerItem.locator(this.selectors.removePlayerButton).click(),
+    ]);
   }
 
   /**
    * Check if modal has message/error
    */
   async getModalMessage() {
-    const message = this.page.locator('.session-players-message');
+    const message = this.page.locator('.session-players-message, .glass-toast').first();
+    await message.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     if (await message.isVisible().catch(() => false)) {
       return await message.textContent();
     }
@@ -243,6 +246,7 @@ export class SessionPage extends BasePage {
       // Click the matching dropdown option (portaled to body)
       const option = this.page.locator(`[data-testid="player-dropdown-option"]:has-text("${playerNames[i]}")`).first();
       await option.click();
+      await modal.getByRole('heading', { level: 2 }).click();
       await this.page.waitForTimeout(200);
     }
 

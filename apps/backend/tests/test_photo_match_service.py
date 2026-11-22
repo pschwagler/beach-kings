@@ -153,9 +153,9 @@ class TestPreprocessImage:
         assert img.format == "JPEG"
 
     def test_image_downscaling(self):
-        """Test that tall images are downscaled to max 400px height."""
+        """Test that tall images are downscaled to 2048px longest edge."""
         # Create a tall image (1200px height)
-        img = Image.new("RGB", (800, 1200), color="white")
+        img = Image.new("RGB", (1600, 3200), color="white")
         buffer = BytesIO()
         img.save(buffer, format="JPEG")
         tall_image_bytes = buffer.getvalue()
@@ -167,7 +167,7 @@ class TestPreprocessImage:
         max_height = photo_match_service.MAX_IMAGE_HEIGHT
         assert result_img.height <= max_height
         # Verify aspect ratio is maintained (approximately)
-        expected_width = int(800 * (max_height / 1200))
+        expected_width = int(1600 * (max_height / 3200))
         assert abs(result_img.width - expected_width) < 5
 
     def test_rgba_to_rgb_conversion(self, sample_rgba_image_bytes):
@@ -518,102 +518,72 @@ class TestCheckIdempotency:
 
 
 # ============================================================================
-# Integration Tests with Mocked Gemini (clarification flow)
+# Integration Tests with Mocked OpenAI (clarification flow)
 # ============================================================================
 
 
 class TestClarifyScoresChat:
-    """Integration tests for clarify_scores_chat with mocked Gemini."""
-
     @pytest.mark.asyncio
     async def test_clarification_returns_normalized_matches(self, sample_league_members):
-        """Test clarification returns normalized match format."""
-        raw_array = '[{"t1": [1, 2], "t2": [3, 4], "s": "21-19"}]'
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.candidates = [MagicMock()]
-        mock_response.candidates[0].content = MagicMock()
-        mock_response.candidates[0].content.parts = [MagicMock()]
-        mock_response.candidates[0].content.parts[0].text = raw_array
-        mock_client.models.generate_content.return_value = mock_response
-
-        mock_types = MagicMock()
-        with (
-            patch.object(photo_match_service, "get_gemini_client", return_value=mock_client),
-            patch.dict(
-                "sys.modules", {"google": MagicMock(), "google.genai": MagicMock(types=mock_types)}
-            ),
-        ):
+        raw = '{"matches":[{"t1":[1,2],"t2":[3,4],"s":"21-19"}]}'
+        with patch.object(
+            photo_match_service.scoresheet_ai, "generate", return_value=raw
+        ) as generate:
             result = await photo_match_service.clarify_scores_chat(
-                previous_response=raw_array,
-                user_prompt="Match 1 score is 21-19.",
-                league_members=sample_league_members,
+                "[]",
+                "Game 1 is 21-19",
+                sample_league_members,
+                image_base64=base64.b64encode(b"original-photo").decode(),
             )
         assert result["status"] == "success"
-        assert len(result["matches"]) == 1
         assert result["matches"][0]["team1_score"] == 21
         assert result["matches"][0]["team2_score"] == 19
-        assert result["raw_response"] == raw_array
+        assert generate.call_args.args[1] == b"original-photo"
 
     @pytest.mark.asyncio
     async def test_clarification_handles_api_error(self, sample_league_members):
-        """Test clarification handles Gemini API error."""
-        mock_client = MagicMock()
-        mock_client.models.generate_content.side_effect = Exception("API error")
-
-        mock_types = MagicMock()
-        with (
-            patch.object(photo_match_service, "get_gemini_client", return_value=mock_client),
-            patch.dict(
-                "sys.modules", {"google": MagicMock(), "google.genai": MagicMock(types=mock_types)}
-            ),
+        with patch.object(
+            photo_match_service.scoresheet_ai,
+            "generate",
+            side_effect=RuntimeError("private-provider-detail"),
         ):
             result = await photo_match_service.clarify_scores_chat(
-                previous_response="[]",
-                user_prompt="Fix the score.",
-                league_members=sample_league_members,
+                "[]", "Fix score", sample_league_members
             )
         assert result["status"] == "failed"
-        assert "error_message" in result
-        assert "API error" in result["error_message"]
+        assert "private-provider-detail" not in result["error_message"]
 
 
-# ============================================================================
-# Stream consumer: STREAM_MSG_ERROR on Gemini exception
-# ============================================================================
+class TestRunOpenAIStreamConsumer:
+    def test_emits_partial_games_and_final_response(self):
+        import queue
 
-
-class TestRunGeminiStreamConsumer:
-    """Tests for _run_gemini_stream_consumer error handling."""
-
-    def test_puts_stream_msg_error_when_gemini_raises(self):
-        """When Gemini thread raises, STREAM_MSG_ERROR is put on the queue with a safe message."""
-        import queue as queue_module
-
-        out_queue = queue_module.Queue()
-        mock_client = MagicMock()
-        mock_client.models.generate_content_stream.side_effect = RuntimeError("Gemini API failed")
-
-        mock_types = MagicMock()
-        with (
-            patch.object(photo_match_service, "get_gemini_client", return_value=mock_client),
-            patch.dict(
-                "sys.modules", {"google": MagicMock(), "google.genai": MagicMock(types=mock_types)}
-            ),
+        out = queue.Queue()
+        raw = '{"matches":[{"t1":[1,2],"t2":[3,4],"s":"21-19"}]}'
+        with patch.object(
+            photo_match_service.scoresheet_ai,
+            "stream_text",
+            return_value=iter([raw[:40], raw[40:]]),
         ):
-            import threading
+            photo_match_service._run_scoresheet_stream_consumer(out, b"photo", "read scores")
+        kind, matches = out.get_nowait()
+        assert kind == photo_match_service.STREAM_MSG_PARTIAL
+        assert matches[0]["team2_score"] == 19
+        assert out.get_nowait() == (photo_match_service.STREAM_MSG_DONE, raw)
 
-            t = threading.Thread(
-                target=photo_match_service._run_gemini_stream_consumer,
-                args=(out_queue, b"fake-image-bytes", "fake prompt"),
-            )
-            t.start()
-            msg_type, msg = out_queue.get(timeout=2)
-            t.join(timeout=1)
+    def test_puts_safe_error_on_provider_failure(self):
+        import queue
 
-        assert msg_type == photo_match_service.STREAM_MSG_ERROR
-        assert "Gemini API failed" in msg
-        assert "Traceback" not in msg and "RuntimeError" not in msg
+        out = queue.Queue()
+        with patch.object(
+            photo_match_service.scoresheet_ai,
+            "stream_text",
+            side_effect=RuntimeError("private-provider-detail"),
+        ):
+            photo_match_service._run_scoresheet_stream_consumer(out, b"photo", "read scores")
+        kind, message = out.get_nowait()
+        assert kind == photo_match_service.STREAM_MSG_ERROR
+        assert "private-provider-detail" not in message
 
 
 # ============================================================================
@@ -806,27 +776,6 @@ class TestResolvePlayerField:
         assert unmatched == "Unknown Person"
 
 
-class TestTruncateErrorMessage:
-    """Tests for _truncate_error_message helper."""
-
-    def test_short_message_unchanged(self):
-        """Short error messages should pass through unchanged."""
-        msg = photo_match_service._truncate_error_message(RuntimeError("oops"))
-        assert msg == "oops"
-
-    def test_long_message_truncated(self):
-        """Messages over 500 chars should be truncated with ellipsis."""
-        long_err = RuntimeError("x" * 600)
-        msg = photo_match_service._truncate_error_message(long_err)
-        assert len(msg) == 500
-        assert msg.endswith("...")
-
-    def test_empty_exception(self):
-        """Exception with empty string should return 'Unknown error'."""
-        msg = photo_match_service._truncate_error_message(RuntimeError(""))
-        assert msg == "Unknown error"
-
-
 # ============================================================================
 # apply_player_overrides Tests
 # ============================================================================
@@ -935,55 +884,8 @@ class TestApplyPlayerOverrides:
 
 
 # ============================================================================
-# get_gemini_client Tests
+# Provider transport coverage lives in test_scoresheet_ai.py
 # ============================================================================
-
-
-class TestGetGeminiClient:
-    """Tests for get_gemini_client singleton factory."""
-
-    def setup_method(self):
-        """Reset the module-level singleton before each test."""
-        photo_match_service._gemini_client = None
-
-    def teardown_method(self):
-        """Reset the module-level singleton after each test."""
-        photo_match_service._gemini_client = None
-
-    def test_missing_api_key_raises_value_error(self):
-        """get_gemini_client() must raise ValueError when no API key is set."""
-        with patch.object(photo_match_service, "GEMINI_API_KEY", None):
-            with pytest.raises(ValueError, match="GEMINI_API_KEY"):
-                photo_match_service.get_gemini_client()
-
-    def test_valid_api_key_returns_client(self):
-        """get_gemini_client() returns a client object when API key is present."""
-        mock_client = MagicMock()
-        mock_genai = MagicMock()
-        mock_genai.Client.return_value = mock_client
-
-        with patch.object(photo_match_service, "GEMINI_API_KEY", "test-key-123"):
-            with patch.dict("sys.modules", {"google": MagicMock(), "google.genai": mock_genai}):
-                # Force re-import path by patching the lazy import inside get_gemini_client
-                with patch("builtins.__import__", wraps=__import__) as mock_import:
-                    # Patch at module attribute level so the already-imported path works
-                    photo_match_service._gemini_client = None
-                    # Inject the mock client directly to simulate what genai.Client() returns
-                    photo_match_service._gemini_client = mock_client
-                    client = photo_match_service.get_gemini_client()
-
-        assert client is mock_client
-
-    def test_singleton_returns_same_instance(self):
-        """get_gemini_client() returns cached instance on second call."""
-        mock_client = MagicMock()
-        photo_match_service._gemini_client = mock_client
-
-        result1 = photo_match_service.get_gemini_client()
-        result2 = photo_match_service.get_gemini_client()
-
-        assert result1 is mock_client
-        assert result2 is mock_client
 
 
 # ============================================================================
@@ -1103,12 +1005,12 @@ class TestUpdateJobStatus:
             db_session,
             job_id,
             photo_match_service.PhotoMatchJobStatus.FAILED,
-            error_message="Gemini timed out",
+            error_message="OpenAI timed out",
         )
 
         job = await photo_match_service.get_photo_match_job(db_session, job_id)
         assert job.status == photo_match_service.PhotoMatchJobStatus.FAILED
-        assert job.error_message == "Gemini timed out"
+        assert job.error_message == "OpenAI timed out"
         assert job.completed_at is not None
 
 
@@ -1143,6 +1045,7 @@ class TestRedisSessionManagement:
             mock_set.assert_called_once()
             key_used = mock_set.call_args[0][0]
             assert session_id in key_used
+            assert mock_set.call_args[0][2] == 8 * 60 * 60
 
             result = await photo_match_service.get_session_data(session_id)
             assert result == payload
@@ -1193,6 +1096,7 @@ class TestRedisSessionManagement:
             assert written["league_id"] == 1  # preserved
             assert written["status"] == "running"  # updated
             assert written["raw_response"] == "[]"  # new field
+            assert mock_set.call_args[0][2] == 8 * 60 * 60
 
     @pytest.mark.asyncio
     async def test_update_session_data_returns_false_when_session_missing(self):
@@ -1222,7 +1126,7 @@ class TestRedisSessionManagement:
 
 
 class TestProcessPhotoJob:
-    """Integration tests for process_photo_job with mocked Gemini."""
+    """Integration tests for process_photo_job with mocked OpenAI."""
 
     def _make_valid_image_base64(self) -> str:
         """Return a base64-encoded minimal JPEG for use in tests."""
@@ -1250,7 +1154,7 @@ class TestProcessPhotoJob:
         # Seed session data that process_photo_job will update
         raw_extraction = '[{"t1": [1, 2], "t2": [3, 4], "s": "21-15"}]'
 
-        # Gemini stream consumer emits DONE with valid extraction
+        # OpenAI stream consumer emits DONE with valid extraction
         def fake_stream_consumer(out_q, image_bytes, prompt):
             out_q.put((photo_match_service.STREAM_MSG_DONE, raw_extraction))
 
@@ -1266,7 +1170,7 @@ class TestProcessPhotoJob:
         with (
             patch.object(
                 photo_match_service,
-                "_run_gemini_stream_consumer",
+                "_run_scoresheet_stream_consumer",
                 side_effect=fake_stream_consumer,
             ),
             patch.object(
@@ -1292,8 +1196,8 @@ class TestProcessPhotoJob:
         assert len(result["matches"]) == 1
 
     @pytest.mark.asyncio
-    async def test_job_transitions_to_failed_on_gemini_error(self, db_session):
-        """process_photo_job sets job to FAILED when Gemini stream raises an error."""
+    async def test_job_transitions_to_failed_on_openai_error(self, db_session):
+        """process_photo_job sets job to FAILED when OpenAI stream raises an error."""
         from backend.database.models import League
 
         league = League(name="Photo League 2")
@@ -1306,14 +1210,14 @@ class TestProcessPhotoJob:
         )
 
         def fake_stream_error(out_q, image_bytes, prompt):
-            out_q.put((photo_match_service.STREAM_MSG_ERROR, "Gemini unavailable"))
+            out_q.put((photo_match_service.STREAM_MSG_ERROR, "OpenAI unavailable"))
 
         image_b64 = self._make_valid_image_base64()
 
         with (
             patch.object(
                 photo_match_service,
-                "_run_gemini_stream_consumer",
+                "_run_scoresheet_stream_consumer",
                 side_effect=fake_stream_error,
             ),
             patch.object(
@@ -1337,7 +1241,7 @@ class TestProcessPhotoJob:
 
     @pytest.mark.asyncio
     async def test_job_completed_with_empty_matches_adds_note(self, db_session):
-        """process_photo_job calls _describe_image_on_empty when Gemini finds no matches."""
+        """process_photo_job calls _describe_image_on_empty when OpenAI finds no matches."""
         from backend.database.models import League
 
         league = League(name="Photo League 3")
@@ -1358,7 +1262,7 @@ class TestProcessPhotoJob:
         with (
             patch.object(
                 photo_match_service,
-                "_run_gemini_stream_consumer",
+                "_run_scoresheet_stream_consumer",
                 side_effect=fake_stream_empty,
             ),
             patch.object(
@@ -1398,7 +1302,7 @@ class TestProcessClarificationJob:
 
     @pytest.mark.asyncio
     async def test_clarification_job_completes_with_updated_matches(self, db_session):
-        """process_clarification_job reads session, calls Gemini, marks job COMPLETED."""
+        """process_clarification_job reads session, calls OpenAI, marks job COMPLETED."""
         from backend.database.models import League
 
         league = League(name="Clarify League 1")
@@ -1423,22 +1327,9 @@ class TestProcessClarificationJob:
             {"player_id": 4, "player_name": "Dave"},
         ]
 
-        mock_gemini_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.candidates = [MagicMock()]
-        mock_response.candidates[0].content = MagicMock()
-        mock_response.candidates[0].content.parts = [MagicMock()]
-        mock_response.candidates[0].content.parts[0].text = clarification_response
-        mock_gemini_client.models.generate_content.return_value = mock_response
-
-        mock_types = MagicMock()
         with (
             patch.object(
-                photo_match_service, "get_gemini_client", return_value=mock_gemini_client
-            ),
-            patch.dict(
-                "sys.modules",
-                {"google": MagicMock(), "google.genai": MagicMock(types=mock_types)},
+                photo_match_service.scoresheet_ai, "generate", return_value=clarification_response
             ),
             patch.object(
                 photo_match_service.redis_service,
@@ -1632,48 +1523,17 @@ class TestMatchAllPlayersEdgeCases:
 
 
 class TestDescribeImageOnEmpty:
-    """Tests for the _describe_image_on_empty fallback function."""
-
     @pytest.mark.asyncio
     async def test_returns_description_string_on_success(self):
-        """_describe_image_on_empty returns the model's description text."""
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.candidates = [MagicMock()]
-        mock_response.candidates[0].content = MagicMock()
-        mock_response.candidates[0].content.parts = [MagicMock()]
-        mock_response.candidates[0].content.parts[0].text = "A photo of a trophy."
-        mock_client.models.generate_content.return_value = mock_response
-
-        mock_types = MagicMock()
-        with (
-            patch.object(photo_match_service, "get_gemini_client", return_value=mock_client),
-            patch.dict(
-                "sys.modules",
-                {"google": MagicMock(), "google.genai": MagicMock(types=mock_types)},
-            ),
-        ):
-            result = await photo_match_service._describe_image_on_empty(b"fake-image")
-
-        assert result == "A photo of a trophy."
+        with patch.object(photo_match_service.scoresheet_ai, "generate", return_value="A trophy."):
+            assert await photo_match_service._describe_image_on_empty(b"image") == "A trophy."
 
     @pytest.mark.asyncio
-    async def test_returns_none_on_gemini_failure(self):
-        """_describe_image_on_empty returns None when Gemini raises."""
-        mock_client = MagicMock()
-        mock_client.models.generate_content.side_effect = Exception("API timeout")
-
-        mock_types = MagicMock()
-        with (
-            patch.object(photo_match_service, "get_gemini_client", return_value=mock_client),
-            patch.dict(
-                "sys.modules",
-                {"google": MagicMock(), "google.genai": MagicMock(types=mock_types)},
-            ),
+    async def test_returns_none_on_provider_failure(self):
+        with patch.object(
+            photo_match_service.scoresheet_ai, "generate", side_effect=RuntimeError("timeout")
         ):
-            result = await photo_match_service._describe_image_on_empty(b"fake-image")
-
-        assert result is None
+            assert await photo_match_service._describe_image_on_empty(b"image") is None
 
 
 # ============================================================================
@@ -1762,7 +1622,7 @@ class TestStreamPhotoJobEventsAdditional:
         job_failed.status = photo_match_service.PhotoMatchJobStatus.FAILED
         job_failed.league_id = 1
         job_failed.session_id = "s1"
-        job_failed.error_message = "Gemini error"
+        job_failed.error_message = "OpenAI error"
 
         class FakeCM:
             async def __aenter__(self):

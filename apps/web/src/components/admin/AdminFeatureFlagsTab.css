@@ -1,0 +1,98 @@
+.feature-flags-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.feature-flags p {
+  color: var(--gray-600);
+  margin: 0.5rem 0;
+}
+.feature-flag-list {
+  list-style: none;
+  padding: 0;
+}
+.feature-flag-list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--gray-300);
+}
+.feature-flag-list strong {
+  overflow-wrap: anywhere;
+}
+.feature-flag-editor {
+  display: grid;
+  gap: 1rem;
+  max-width: 48rem;
+}
+.feature-flag-editor label {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+.feature-flag-editor input:not([type="checkbox"]),
+.feature-flag-editor textarea {
+  width: 100%;
+  padding: 0.65rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  color: var(--gray-900);
+  background: var(--bg-surface);
+}
+.feature-flag-editor .feature-flag-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 1rem;
+}
+.feature-flag-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.feature-flag-editor pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .feature-flags-heading {
+    flex-direction: column;
+  }
+}
+.feature-flags button {
+  min-height: 40px;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--gray-900);
+  font-weight: 600;
+  cursor: pointer;
+}
+.feature-flags button.btn-primary {
+  background: var(--primary);
+  color: var(--white);
+  border-color: var(--primary);
+}
+.feature-flags button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.feature-flags button:focus-visible,
+.feature-flags input:focus-visible,
+.feature-flags textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+.feature-flag-editor fieldset {
+  padding: 0.75rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+}
+.feature-flag-editor input[type="checkbox"] {
+  accent-color: var(--primary);
+}

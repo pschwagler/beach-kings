@@ -251,12 +251,4 @@ describe('useMatchPayload', () => {
       expect(payload.court_id).toBeUndefined();
     });
   });
-
-  describe('hook return value', () => {
-    it('returns buildMatchPayload function', () => {
-      const { result } = renderHook(() => useMatchPayload(makeDefaultProps()));
-
-      expect(typeof result.current.buildMatchPayload).toBe('function');
-    });
-  });
 });

@@ -8,7 +8,16 @@ const monorepoRoot = path.resolve(projectRoot, '../..');
 const config = getSentryExpoConfig(projectRoot);
 
 // Monorepo support: retain Expo's defaults and add the workspace root.
-config.watchFolders = [...new Set([...(config.watchFolders ?? []), monorepoRoot])];
+config.watchFolders = [
+  ...new Set([
+    ...(config.watchFolders ?? []),
+    monorepoRoot,
+    // Optional dependency root for local previews in linked Git worktrees.
+    ...(process.env.EXPO_WORKSPACE_DEPENDENCIES_ROOT
+      ? [process.env.EXPO_WORKSPACE_DEPENDENCIES_ROOT]
+      : []),
+  ]),
+];
 
 // Resolve modules from both the project and the monorepo root
 config.resolver.nodeModulesPaths = [

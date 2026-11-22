@@ -10,6 +10,7 @@ import type {
   JoinRequestsResponse,
   LeagueStandingsResponse,
   LeagueDetail,
+  LeaguePicture,
   LeagueMemberApiRow,
   LeagueMemberAddResult,
   LeaguePlayerStats,
@@ -84,6 +85,27 @@ export function createLeagueMethods(api: AxiosInstance) {
 
     async createLeague(leagueData: Partial<League>) {
       const response = await api.post<League>('/api/leagues', leagueData);
+      return response.data;
+    },
+
+    async getLeaguePicture(leagueId: number, options?: ReadRequestOptions): Promise<LeaguePicture> {
+      const response = await getRead<LeaguePicture>(api, `/api/leagues/${leagueId}/picture`, undefined, options);
+      return response.data;
+    },
+
+    async uploadLeaguePicture(
+      leagueId: number,
+      file: File | Blob | { uri: string; name: string; type: string },
+    ): Promise<LeaguePicture> {
+      const form = new FormData();
+      form.append('file', file as unknown as Blob);
+      const response = await api.post<LeaguePicture>(`/api/leagues/${leagueId}/picture`, form,
+        { headers: { 'Content-Type': undefined } });
+      return response.data;
+    },
+
+    async removeLeaguePicture(leagueId: number): Promise<LeaguePicture> {
+      const response = await api.delete<LeaguePicture>(`/api/leagues/${leagueId}/picture`);
       return response.data;
     },
 

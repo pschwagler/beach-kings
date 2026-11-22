@@ -6,9 +6,14 @@ export type NativePushAuthorization =
   | 'not_determined'
   | 'unavailable';
 
+export type EnablePushResult =
+  | 'enabled'
+  | 'not_enabled'
+  | 'preference_failed';
+
 export interface NativePushContextValue {
   readonly authorization: NativePushAuthorization;
-  readonly enablePush: () => Promise<boolean>;
+  readonly enablePush: () => Promise<EnablePushResult>;
   readonly openSettings: () => Promise<void>;
   readonly isRegistering: boolean;
 }

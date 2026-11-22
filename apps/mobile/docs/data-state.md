@@ -52,7 +52,9 @@ must not become alternate homes for domain caches or query policy.
 - Compose cached values into view models in screen hooks. UI components render
   those view models and do not fetch, normalize, or reconcile server data.
 - Connect React Native `AppState` to Query focus handling and network
-  reachability to Query online handling.
+  reachability to Query online handling. Development iOS simulators bypass
+  NetInfo offline gating because the simulator can report no connection while
+  host API requests succeed; physical devices retain normal offline handling.
 
 ## Social, notification, and messaging domains
 

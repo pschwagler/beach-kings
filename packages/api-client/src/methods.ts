@@ -5,6 +5,7 @@
  * endpoints to the owning domain module, not here.
  */
 
+import { createFeatureFlagMethods } from './featureFlagMethods';
 import type { ApiClient } from './client';
 import { createAdminMethods } from './adminMethods';
 import { createAuthMethods } from './authMethods';
@@ -12,6 +13,7 @@ import { createCourtMethods } from './courtMethods';
 import { createLeagueMethods } from './leagueMethods';
 import { createLeagueInviteMethods } from './leagueInviteMethods';
 import { createMatchMethods } from './matchMethods';
+import { createPhotoMatchMethods } from './photoMatchMethods';
 import { createMessageMethods } from './messageMethods';
 import { createNotificationMethods } from './notificationMethods';
 import { createPlayerMethods } from './playerMethods';
@@ -30,12 +32,14 @@ export function createApiMethods(client: ApiClient) {
   const api = client.axiosInstance;
 
   return {
+    ...createFeatureFlagMethods(api),
     // Auth
     ...createAuthMethods(api),
     // Player (incl. public invite claim)
     ...createPlayerMethods(api),
     // Match
     ...createMatchMethods(api),
+    ...createPhotoMatchMethods(api),
     // Rankings
     ...createRankingMethods(api),
     // League + Season

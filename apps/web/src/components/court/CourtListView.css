@@ -35,7 +35,8 @@
 .court-result__details:hover { text-decoration: underline; }
 
 @media (max-width: 640px) {
-  .court-list__grid { grid-template-columns: 1fr; }
+  .court-list__grid { grid-template-columns: minmax(0, 1fr); }
+  .court-list__grid > * { min-width: 0; }
   .court-list__filters { align-items: stretch; flex-direction: column; }
   .court-list--rail > .court-list__toolbar { display: none; }
 }

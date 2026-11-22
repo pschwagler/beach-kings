@@ -44,9 +44,11 @@ INVALID_VERIFICATION_CODE_RESPONSE = HTTPException(
 # Import sub-routers and combine
 # ---------------------------------------------------------------------------
 from backend.api.routes.leagues import router as leagues_router
+from backend.api.routes.league_pictures import router as league_pictures_router
 from backend.api.routes.seasons import router as seasons_router
 from backend.api.routes.sessions import router as sessions_router
 from backend.api.routes.matches import router as matches_router
+from backend.api.routes.pickup_photos import router as pickup_photos_router
 from backend.api.routes.players import router as players_router
 from backend.api.routes.courts import router as courts_router
 from backend.api.routes.locations import router as locations_router
@@ -58,6 +60,7 @@ from backend.api.routes.messages import router as messages_router
 from backend.api.routes.notifications import router as notifications_router
 from backend.api.routes.signups import router as signups_router
 from backend.api.routes.admin import router as admin_router
+from backend.api.routes.feature_flags import router as feature_flags_router
 from backend.api.routes.calc import router as calc_router
 from backend.api.routes.kob import router as kob_router
 from backend.api.routes.push_tokens import router as push_tokens_router
@@ -65,9 +68,11 @@ from backend.api.routes.moderation import router as moderation_router
 
 router = APIRouter()
 router.include_router(leagues_router)
+router.include_router(league_pictures_router)
 router.include_router(seasons_router)
 router.include_router(sessions_router)
 router.include_router(matches_router)
+router.include_router(pickup_photos_router)
 router.include_router(players_router)
 router.include_router(courts_router)
 router.include_router(locations_router)
@@ -83,3 +88,5 @@ router.include_router(signups_router)
 router.include_router(admin_router)
 router.include_router(calc_router)
 router.include_router(kob_router)
+
+router.include_router(feature_flags_router)

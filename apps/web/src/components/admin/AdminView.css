@@ -65,7 +65,7 @@
   .admin-view-container { margin: .75rem auto; padding: .75rem; border-radius: 0; }
   .admin-tab-bar {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: 2px;
     width: 100%;
     overflow: visible;

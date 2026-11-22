@@ -51,20 +51,20 @@ export default function TopNav({
   transparent = false,
 }: TopNavProps): React.ReactNode {
   const containerClass = transparent
-    ? 'h-11 flex-row items-center px-lg'
-    : 'h-11 bg-nav flex-row items-center px-lg dark:border-b border-divider';
+    ? 'min-h-11 flex-row items-center px-lg py-xs'
+    : 'min-h-11 bg-nav flex-row items-center px-lg py-xs dark:border-b border-divider';
 
   return (
     <View className={containerClass}>
       {/* Left slot — custom leftAction overrides showBack */}
-      <View className="min-w-11 items-start justify-center">
+      <View className="min-w-11 self-stretch items-start justify-center">
         {leftAction != null
           ? leftAction
           : showBack && <BackButton onPress={onBack} />}
       </View>
 
       {/* Center — title or search input */}
-      <View className="flex-1 items-center justify-center">
+      <View className="flex-1 min-w-0 items-center justify-center">
         {searchMode ? (
           <SearchBar
             value={searchValue}
@@ -74,7 +74,7 @@ export default function TopNav({
           />
         ) : (
           <AppText
-            className="text-inverse font-semibold text-headline"
+            className="text-inverse font-semibold text-headline text-center"
             accessibilityRole="header"
           >
             {title}
@@ -83,7 +83,7 @@ export default function TopNav({
       </View>
 
       {/* Right slot */}
-      <View className="min-w-11 items-end justify-center">{rightAction}</View>
+      <View className="min-w-11 self-stretch items-end justify-center">{rightAction}</View>
     </View>
   );
 }

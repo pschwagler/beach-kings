@@ -1,0 +1,230 @@
+/* Shared web presentation. Colors mirror the mobile semantic palette. */
+:root {
+  --control-radius: 10px;
+}
+
+body { line-height: 1.5; }
+h1, h2, h3 { text-wrap: balance; }
+h1, h2 { letter-spacing: -0.035em; }
+a, button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.app-download-banner {
+  min-height: var(--app-banner-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 4px 16px;
+  background: var(--brand-gold);
+  color: var(--on-gold);
+  font-size: 12px;
+  text-decoration: none;
+  letter-spacing: 0.015em;
+}
+.app-download-banner > span:first-child { font-weight: 800; }
+.app-download-banner strong { font-weight: 800; }
+.app-download-banner:hover { background: var(--brand-gold-hover); }
+.app-download-banner:focus-visible { outline-offset: -4px; outline-color: var(--on-gold); }
+:root .navbar-container :focus-visible { outline-color: var(--text-inverse); }
+:root .navbar { box-shadow: none; border-bottom: 1px solid var(--border-strong); }
+:root .navbar-brand:hover { transform: none; }
+:root .navbar-menu-button { min-height: 44px; }
+:root .navbar-home-button { min-width: 40px; min-height: 44px; }
+:root .navbar-courts-button { min-height: 44px; font-weight: 600; }
+:root .navbar-plus-overlay {
+  background: var(--brand-gold);
+  color: var(--on-gold);
+  box-shadow: none;
+}
+:root .navbar .notification-bell-button,
+:root .navbar .notification-bell-button:hover { color: var(--text-inverse); }
+:root .navbar-dropdown { border-color: var(--border-strong); box-shadow: var(--shadow-lg); }
+
+/* Gold denotes the primary next action; teal is for navigation and links. */
+/* Legacy btn-success actions use this same primary treatment. */
+:root .btn-primary:not(:disabled),
+:root .session-page-btn.primary,
+:root .session-page-title-save,
+:root .league-text-button.primary,
+:root .button:not(.btn-danger):not(.save-success):not(.btn-ghost):not(.btn-outline):not(:disabled) {
+  background: var(--brand-gold);
+  color: var(--on-gold);
+  border-radius: var(--control-radius);
+  font-weight: 700;
+  box-shadow: none;
+  min-height: 44px;
+  border-color: transparent;
+}
+:root .btn-primary:hover:not(:disabled),
+:root .session-page-btn.primary:hover:not(:disabled),
+:root .session-page-title-save:hover:not(:disabled),
+:root .league-text-button.primary:hover:not(:disabled),
+:root .button:not(.btn-danger):not(.save-success):not(.btn-ghost):not(.btn-outline):hover:not(:disabled) {
+  background: var(--brand-gold-hover);
+  color: var(--on-gold);
+  transform: none;
+  box-shadow: none;
+}
+:root .btn-secondary, :root .button.btn-outline {
+  border-color: var(--border-strong);
+  border-radius: var(--control-radius);
+  color: var(--gray-900);
+  min-height: 44px;
+}
+:root .form-input {
+  color: var(--gray-900);
+  background-color: var(--bg-input);
+  border-color: var(--border-strong);
+  border-width: 1px;
+  border-radius: var(--control-radius);
+}
+:root .form-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.12);
+}
+:root .near-you-section__level-tab--active,
+:root .near-you-section__level-tab--active:hover,
+:root .toggle-option.active,
+:root .filterable-filter-button.active { color: var(--on-primary); }
+:root .toggle-option.active:hover:not(:disabled) { background: var(--primary); }
+
+/* Quiet surfaces keep match data and standings easy to scan. */
+:root .dashboard-widget,
+:root .league-card,
+:root .match-card,
+:root .home-stat-card,
+:root .overview-stat-card,
+:root .pending-invites__card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: none;
+}
+:root .league-card:hover, :root .match-card:not(.editable):hover,
+:root .home-stat-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+  transform: none;
+}
+:root .dashboard-widget-header { background: var(--bg-surface); }
+:root .rankings-table-modern thead,
+:root .player-details table thead {
+  background: var(--bg-surface-hover);
+}
+:root .rankings-table-modern th { color: var(--gray-700); font-weight: 700; }
+:root .rankings-table-wrapper { border: 1px solid var(--border-strong); box-shadow: none; }
+:root .sidebar { border-color: var(--border-strong); }
+:root .league-sidebar-nav-item { color: var(--gray-700); gap: 10px; }
+:root .league-sidebar-nav-item.active {
+  background: var(--primary-lighter) !important;
+  color: var(--primary);
+}
+:root .league-sidebar-nav-item.active::before { background: var(--brand-gold); }
+:root .league-content-header { text-align: left; }
+:root .league-content-header-title { justify-content: flex-start; }
+:root .league-content-header-text { font-size: clamp(1.5rem, 2.5vw, 2rem); }
+:root .season-selector-wrapper { min-width: 0; max-width: 48%; }
+:root .season-selector-dropdown { min-width: 0; }
+:root .modal-content { border: 1px solid var(--border-strong); box-shadow: var(--shadow-xl); }
+
+:root .auth-modal { border-color: var(--border-strong); box-shadow: var(--shadow-xl); }
+:root .auth-modal__input,
+:root .phone-input__wrapper,
+:root .auth-modal__ghost-button { border-color: var(--border-strong); }
+:root .auth-modal__input {
+  background: var(--bg-input);
+  color: var(--gray-900);
+  min-width: 0;
+}
+:root .phone-input__input { min-width: 0; width: 100%; color: var(--gray-900); }
+:root .phone-input__country-code {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-strong);
+}
+:root .auth-modal__input:focus,
+:root .phone-input__wrapper:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.12);
+}
+:root .phone-input__wrapper:has(.phone-input__input--error) { border-color: var(--danger); }
+:root fieldset.auth-modal__name-row {
+  border: 0;
+  padding: 0;
+  margin: 0 0 4px;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+:root fieldset.auth-modal__name-row legend {
+  margin-bottom: 8px;
+  color: var(--gray-700);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+:root fieldset.auth-modal__name-row label { display: flex; align-items: center; gap: 6px; }
+:root .auth-modal input[type="radio"] { accent-color: var(--primary); }
+:root .auth-modal__submit {
+  background: var(--brand-gold);
+  color: var(--on-gold);
+  box-shadow: none;
+}
+:root .auth-modal__submit:not(:disabled):hover {
+  background: var(--brand-gold-hover);
+  box-shadow: none;
+  transform: none;
+}
+:root .auth-modal__submit:disabled {
+  background: var(--gray-200);
+  color: var(--gray-600);
+}
+:root .profile-page { background: var(--bg-page); padding-top: calc(var(--navbar-height) + 32px); }
+
+@media (max-width: 768px) {
+  :root { --nav-main-height: 56px; }
+  .app-download-detail { display: none; }
+  .app-download-banner { justify-content: space-between; gap: 8px; }
+  :root .navbar-container { gap: 8px; }
+  :root .navbar-left { flex: 0; }
+  :root .navbar-center { flex: 1; justify-content: flex-start; }
+  :root .navbar-right { flex: 0; gap: 2px; }
+  :root .navbar-brand-logo { height: 26px; }
+  :root .navbar-courts-button { font-size: 12px; padding-inline: 6px; }
+  :root .navbar-menu-button { padding-inline: 6px; }
+  :root .rankings-filters-row { flex-wrap: wrap; }
+  :root .rankings-filters-row .player-search-wrapper { flex: 1 1 150px; }
+  :root .rankings-filters-row [data-testid="create-season-button"] {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-height: 44px;
+  }
+  :root .rankings-filters-row .season-selector-wrapper {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+  :root .rankings-filters-row .player-search-input,
+  :root .rankings-filters-row .season-selector-dropdown { height: 44px; }
+}
+@media (max-width: 380px) {
+  :root .navbar-container { padding-inline: 8px; gap: 4px; }
+  :root .navbar-brand-logo { height: 22px; }
+  :root .navbar-courts-button { max-width: 48px; line-height: 1.1; }
+}
+@media (max-width: 480px) {
+  /* The brand retains Home navigation; omit the duplicate icon on narrow phones. */
+  :root .navbar-home-button { display: none; }
+}
+@media (max-width: 576px) {
+  :root .home-stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

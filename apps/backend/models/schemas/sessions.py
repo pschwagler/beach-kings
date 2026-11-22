@@ -1,6 +1,6 @@
 """Sessions models."""
 
-from typing import Optional, List
+from typing import Annotated, Optional, List
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -163,6 +163,22 @@ class SessionParticipantItemResponse(BaseModel):
     gender: Optional[str] = None
     location_name: Optional[str] = None
     is_placeholder: bool = False
+
+
+class SharedSessionParticipantResponse(BaseModel):
+    """Only the display roster is included in a shared preview."""
+
+    player_id: int
+    full_name: str
+    is_placeholder: bool = False
+
+
+class SharedSessionPreviewResponse(BaseModel):
+    """Read-only session contents accessible through possession of its code."""
+
+    session: SessionDetailResponse
+    matches: List[SessionMatchItemResponse]
+    participants: List[SharedSessionParticipantResponse]
 
 
 class BatchInviteFailItem(BaseModel):
@@ -330,10 +346,25 @@ class UpdateSessionRequest(BaseModel):
         return self
 
 
+class ReviewedPhotoPlayer(BaseModel):
+    id: Annotated[int, Field(strict=True, gt=0)] | None = None
+    name: str
+    rawName: str = ""
+
+
+class ReviewedPhotoMatch(BaseModel):
+    players: list[ReviewedPhotoPlayer] = Field(min_length=4, max_length=4)
+    scores: tuple[
+        Annotated[int, Field(strict=True, ge=0)] | None,
+        Annotated[int, Field(strict=True, ge=0)] | None,
+    ]
+
+
 class EditPhotoResultsRequest(BaseModel):
     """Request to send an edit prompt for photo-match conversation refinement."""
 
     edit_prompt: str
+    reviewed_matches: list[ReviewedPhotoMatch] | None = None
 
 
 class ConfirmPhotoMatchesRequest(BaseModel):
@@ -347,3 +378,5 @@ class ConfirmPhotoMatchesRequest(BaseModel):
     season_id: Optional[int] = None
     match_date: str
     player_overrides: Optional[list] = None
+    reviewed_matches: list[ReviewedPhotoMatch] | None = None
+    court_id: Annotated[int, Field(strict=True, gt=0)] | None = None

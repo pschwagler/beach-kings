@@ -381,16 +381,10 @@ test.describe('Signup Flow', () => {
     const signupResponse = await responsePromise;
     const status = signupResponse.status();
     
-    // Should get 400 error for existing user
-    expect(status).toBe(400);
-    
-    // Wait for error message to appear in UI (error is set after API response)
-    await page.waitForSelector('.auth-modal__alert.error', { state: 'visible', timeout: 5000 });
-
-    // Verify error is shown (user already exists)
-    expect(await authPage.hasError()).toBeTruthy();
-    const errorMessage = await authPage.getAlertMessage();
-    expect(errorMessage).toBeTruthy();
-    expect(errorMessage.toLowerCase()).toMatch(/already|registered|exists/);
+    // Signup intentionally uses the same response for existing accounts to
+    // avoid disclosing whether a phone number is registered.
+    expect(status).toBe(200);
+    await expect(page.locator('.auth-modal__header h2')).toContainText(/verify/i);
+    await expect(page.locator('.auth-modal__alert.error')).toHaveCount(0);
   });
 });

@@ -1,3 +1,4 @@
+import FeatureGate from "../../../../src/components/ui/FeatureGate";
 import { Suspense } from "react";
 import KobSetup from "../../../../src/components/kob/KobSetup";
 import RouteLoadingShell from "../../../../src/components/ui/RouteLoadingShell";
@@ -11,7 +12,7 @@ export default async function KobManagePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   return (
     <Suspense fallback={<RouteLoadingShell />}>
-      <KobSetup tournamentId={parseInt(id, 10)} />
+      <FeatureGate flags={["kob_tournaments"]}><KobSetup tournamentId={parseInt(id, 10)} /></FeatureGate>
     </Suspense>
   );
 }

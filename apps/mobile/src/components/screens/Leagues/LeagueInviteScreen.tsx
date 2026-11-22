@@ -208,10 +208,12 @@ export default function LeagueInviteScreen({
     searchQuery,
     selectedIds,
     isSending,
+    isSharing,
     inviteError,
     onChangeSearch,
     onTogglePlayer,
     onSendInvites,
+    onShareLink,
     onClearInviteError,
   } = useLeagueInviteScreen(leagueId);
 
@@ -312,12 +314,16 @@ export default function LeagueInviteScreen({
           testID="share-link-button"
           onPress={() => {
             void hapticLight();
-            // TODO(backend): share league invite link
+            void onShareLink();
           }}
-          className="flex-1 rounded-[12px] py-[12px] items-center border border-brand-teal active:opacity-70"
+          disabled={isSharing}
+          accessibilityRole="button"
+          accessibilityLabel={isSharing ? 'Opening league share sheet' : 'Share league link'}
+          accessibilityState={{ disabled: isSharing, busy: isSharing }}
+          className={`flex-1 rounded-[12px] py-[12px] items-center border border-brand-teal ${isSharing ? 'opacity-60' : 'active:opacity-70'}`}
         >
           <AppText className="text-[14px] font-semibold text-brand-teal">
-            Share Link
+            {isSharing ? 'Opening...' : 'Share Link'}
           </AppText>
         </Pressable>
 

@@ -21,6 +21,8 @@ import { View, FlatList, } from 'react-native';
 import { hapticLight } from '@/utils/haptics';
 import TabView from '@/components/ui/TabView';
 import EmptyState from '@/components/ui/EmptyState';
+import Button from '@/components/ui/Button';
+import AppText from '@/components/ui/AppText';
 import NotificationItem from './NotificationItem';
 import NotificationsSkeleton from './NotificationsSkeleton';
 import NotificationsErrorState from './NotificationsErrorState';
@@ -117,6 +119,8 @@ export default function NotificationsBody({
   onNotificationPress,
   onAcceptFriendRequest,
   onDeclineFriendRequest,
+  markAllError,
+  onRetryMarkAll,
   scrollRequest = 0,
 }: NotificationsBodyProps): React.ReactNode {
   const listRef = useRef<FlatList<Notification>>(null);
@@ -165,6 +169,22 @@ export default function NotificationsBody({
         unreadCount={unreadCount}
         onFilterPress={setActiveFilter}
       />
+
+      {markAllError != null && (
+        <View
+          testID="mark-all-read-error"
+          accessibilityRole="alert"
+          className="px-lg py-sm bg-surface border-b border-divider"
+        >
+          <AppText className="text-[13px] text-danger mb-sm">{markAllError}</AppText>
+          <Button
+            testID="mark-all-read-retry"
+            title="Retry"
+            variant="outline"
+            onPress={onRetryMarkAll}
+          />
+        </View>
+      )}
 
       {renderContent()}
     </View>

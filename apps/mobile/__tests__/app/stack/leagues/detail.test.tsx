@@ -121,6 +121,7 @@ const mockDeclineLeagueInvite = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
+    getLeaguePicture: jest.fn().mockResolvedValue({ data_uri: null, revision: null }),
     getLeagueSeasons: (...args: unknown[]) => mockGetLeagueSeasons(...args),
     getLeagueStandings: (...args: unknown[]) => mockGetLeagueStandings(...args),
     getLeagueMessages: (...args: unknown[]) => mockGetLeagueMessages(...args),
@@ -555,6 +556,7 @@ describe('LeagueDetailScreen — non-member visitor', () => {
     expect(screen.getByLabelText('Accept invitation to Manhattan Open')).toBeTruthy();
     expect(screen.getByLabelText('Decline invitation to Manhattan Open')).toBeTruthy();
     expect(screen.queryByTestId('league-join-banner')).toBeNull();
+    expect(screen.queryByTestId('league-picture-card')).toBeNull();
   });
 
   it('accepts from the invitation banner and transitions to member detail', async () => {

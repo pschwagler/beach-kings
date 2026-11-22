@@ -17,6 +17,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ThemeProvider from '@/contexts/ThemeContext';
+import { PUBLIC_WEB_ORIGIN } from '@/lib/publicUrls';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -84,11 +85,18 @@ jest.mock('@/utils/haptics', () => ({
 
 const mockGetInvitablePlayers = jest.fn();
 const mockAddLeagueMembersBatch = jest.fn();
+const mockGetLeague = jest.fn();
+const mockShareLink = jest.fn();
+
+jest.mock('@/utils/share', () => ({
+  shareLink: (...args: unknown[]) => mockShareLink(...args),
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
     getInvitablePlayers: (...args: unknown[]) => mockGetInvitablePlayers(...args),
     addLeagueMembersBatch: (...args: unknown[]) => mockAddLeagueMembersBatch(...args),
+    getLeague: (...args: unknown[]) => mockGetLeague(...args),
   },
 }));
 
@@ -125,6 +133,8 @@ const MOCK_PLAYERS = [
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetInvitablePlayers.mockResolvedValue(MOCK_PLAYERS);
+  mockGetLeague.mockResolvedValue({ id: 1, name: 'Queens Open' });
+  mockShareLink.mockResolvedValue(undefined);
   // Default add request fails so error handling remains covered unless overridden.
   // Individual tests that need it to succeed will override with mockResolvedValue.
   mockAddLeagueMembersBatch.mockRejectedValue(new Error('Add failed'));
@@ -168,6 +178,62 @@ describe('LeagueInviteScreen — render', () => {
   it('renders Send Invites button', () => {
     render(<LeagueInviteRoute />, { wrapper: makeWrapper() });
     expect(screen.getByTestId('send-invites-button')).toBeTruthy();
+  });
+});
+
+describe('LeagueInviteScreen — share link', () => {
+  it('shares the canonical public league URL with league context', async () => {
+    render(<LeagueInviteRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(mockGetLeague).toHaveBeenCalledWith(1));
+
+    fireEvent.press(screen.getByTestId('share-link-button'));
+
+    await waitFor(() => {
+      expect(mockShareLink).toHaveBeenCalledWith(
+        `${PUBLIC_WEB_ORIGIN}/league/1`,
+        'Share Queens Open',
+        `Join Queens Open on Beach League: ${PUBLIC_WEB_ORIGIN}/league/1`,
+      );
+    });
+  });
+
+  it('surfaces an actionable error when the share sheet cannot open', async () => {
+    mockShareLink.mockRejectedValueOnce(new Error('native failure'));
+    render(<LeagueInviteRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(mockGetLeague).toHaveBeenCalledWith(1));
+
+    fireEvent.press(screen.getByTestId('share-link-button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Could not share this league. Please try again.')).toBeTruthy();
+    });
+  });
+
+  it('does not stack share sheets while one is opening', async () => {
+    let resolveShare: (() => void) | undefined;
+    mockShareLink.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolveShare = resolve; }),
+    );
+    render(<LeagueInviteRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(mockGetLeague).toHaveBeenCalledWith(1));
+
+    const button = screen.getByTestId('share-link-button');
+    fireEvent.press(button);
+    fireEvent.press(button);
+
+    await waitFor(() => expect(mockShareLink).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('share-link-button').props.accessibilityState).toEqual({
+      disabled: true,
+      busy: true,
+    });
+
+    resolveShare?.();
+    await waitFor(() => {
+      expect(screen.getByTestId('share-link-button').props.accessibilityState).toEqual({
+        disabled: false,
+        busy: false,
+      });
+    });
   });
 });
 

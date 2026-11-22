@@ -218,5 +218,18 @@ describe('native host adapters', () => {
     expect(refreshedList.props.onContentSizeChange).toEqual(expect.any(Function));
     expect(screen.getByText('Composer')).toBeTruthy();
     expect(screen.getByLabelText('Refresh messages')).toBeTruthy();
+
+    screen.rerender(
+      <ChatView
+        {...props}
+        onRefresh={() => Promise.resolve()}
+        refreshScope="peer-1"
+        showRefreshAction={false}
+      />,
+    );
+    expect(screen.queryByLabelText('Refresh messages')).toBeNull();
+    expect(screen.UNSAFE_getByType(FlatList).props.accessibilityActions).toEqual(
+      expect.arrayContaining([{ name: 'refresh', label: 'Refresh' }]),
+    );
   });
 });

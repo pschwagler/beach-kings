@@ -50,7 +50,7 @@ from backend.services.players.player_lifecycle import (
 from backend.utils.frontend_url import build_invite_url
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, func, and_, or_, cast, Integer
+from sqlalchemy import select, update, delete, func, and_, or_, cast, Integer, text
 from sqlalchemy.orm import aliased
 
 from backend.database.models import (
@@ -772,6 +772,7 @@ async def create_session(
     longitude: Optional[float] = None,
     start_time: Optional[str] = None,
     is_ranked: bool | None = None,
+    commit: bool = True,
 ) -> Dict:
     """
     Create a new session. Generates a unique shareable code and optionally
@@ -856,7 +857,10 @@ async def create_session(
             session_id=new_session.id, player_id=created_by, invited_by=None
         )
         session.add(participant)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     await session.refresh(new_session)
 
     return {
@@ -1150,8 +1154,19 @@ async def delete_session(session: AsyncSession, session_id: int) -> Optional[Dic
     # Season-subquery approach silently missed.
     league_id = session_obj.league_id
 
+    # A stats rebuild removes history before inserting its replacement. Let an
+    # in-flight writer finish before taking match locks, avoiding an inverted
+    # history-row/match-row lock order. New history writes wait until deletion
+    # commits; the durable follow-up calculation rebuilds from surviving games.
+    await session.execute(
+        text("LOCK TABLE elo_history, season_rating_history IN SHARE ROW EXCLUSIVE MODE")
+    )
+
     match_ids_result = await session.execute(
-        select(Match.id).where(Match.session_id == session_id)
+        # Rating-history inserts acquire a key-share lock on their match FK.
+        # Lock these rows before removing history so a stats worker cannot add
+        # new history between our history DELETE and the match DELETE.
+        select(Match.id).where(Match.session_id == session_id).order_by(Match.id).with_for_update()
     )
     match_ids = [row[0] for row in match_ids_result.fetchall()]
 
@@ -1423,7 +1438,11 @@ async def _invalidate_picker_caches(
 
 
 async def create_match_async(
-    session: AsyncSession, match_request: "CreateMatchRequest", session_id: int
+    session: AsyncSession,
+    match_request: "CreateMatchRequest",
+    session_id: int,
+    *,
+    commit: bool = True,
 ) -> int:
     """
     Create a new match in a session - async version.
@@ -1513,18 +1532,20 @@ async def create_match_async(
             update(Session).where(Session.id == session_id).values(updated_at=func.now())
         )
 
-    await session.commit()
+    if commit:
+        await session.commit()
     await session.refresh(new_match)
 
-    await _invalidate_picker_caches(
-        session,
-        player_ids=(
-            match_request.team1_player1_id,
-            match_request.team1_player2_id,
-            match_request.team2_player1_id,
-            match_request.team2_player2_id,
-        ),
-    )
+    if commit:
+        await _invalidate_picker_caches(
+            session,
+            player_ids=(
+                match_request.team1_player1_id,
+                match_request.team1_player2_id,
+                match_request.team2_player1_id,
+                match_request.team2_player2_id,
+            ),
+        )
 
     return new_match.id
 

@@ -1,3 +1,4 @@
+from .feature_flags import FeatureFlag, FeatureFlagChange
 from .enums import SessionStatus
 from .enums import OpenSignupsMode
 from .enums import SignupEventType
@@ -12,6 +13,7 @@ from .identity import PlatformRoleAssignment
 from .identity import Player
 from .identity import PlayerInvite
 from .leagues import League
+from .league_picture import LeaguePicture
 from .leagues import LeagueConfig
 from .leagues import LeagueMember
 from .leagues import Season
@@ -85,6 +87,8 @@ from .courts import CourtCheckIn
 from .push import PushNotificationPreference
 
 __all__ = [
+    "FeatureFlag",
+    "FeatureFlagChange",
     "SessionStatus",
     "OpenSignupsMode",
     "SignupEventType",
@@ -99,6 +103,7 @@ __all__ = [
     "Player",
     "PlayerInvite",
     "League",
+    "LeaguePicture",
     "LeagueConfig",
     "LeagueMember",
     "Season",

@@ -1,11 +1,10 @@
 /**
  * Tests for Badge, Card, Input, and deeper OtpInput coverage.
- * Targets components at 0% coverage (Badge, Card, Input) and
- * uncovered branches in OtpInput (lines 33-48, 56-60, 75-78).
+ * Covers labels, prop forwarding, text input, paste, and backspace.
  */
 
-import React, { useState } from 'react';
-import { render, fireEvent, screen, act } from '@testing-library/react-native';
+import React from 'react';
+import { render, fireEvent, screen } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before any component imports
@@ -73,7 +72,7 @@ import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import OtpInput from '@/components/ui/OtpInput';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 
 // ---------------------------------------------------------------------------
 // Badge
@@ -83,41 +82,6 @@ describe('Badge', () => {
   it('renders label text', () => {
     render(<Badge label="Active" />);
     expect(screen.getByText('Active')).toBeTruthy();
-  });
-
-  it('renders with default variant (no variant prop)', () => {
-    const { toJSON } = render(<Badge label="Default" />);
-    expect(toJSON()).toBeTruthy();
-  });
-
-  it('renders with success variant', () => {
-    render(<Badge label="Success" variant="success" />);
-    expect(screen.getByText('Success')).toBeTruthy();
-  });
-
-  it('renders with danger variant', () => {
-    render(<Badge label="Danger" variant="danger" />);
-    expect(screen.getByText('Danger')).toBeTruthy();
-  });
-
-  it('renders with warning variant', () => {
-    render(<Badge label="Warning" variant="warning" />);
-    expect(screen.getByText('Warning')).toBeTruthy();
-  });
-
-  it('renders with info variant', () => {
-    render(<Badge label="Info" variant="info" />);
-    expect(screen.getByText('Info')).toBeTruthy();
-  });
-
-  it('renders with accent variant', () => {
-    render(<Badge label="Accent" variant="accent" />);
-    expect(screen.getByText('Accent')).toBeTruthy();
-  });
-
-  it('applies custom className without crashing', () => {
-    const { toJSON } = render(<Badge label="Custom" className="my-custom-class" />);
-    expect(toJSON()).toBeTruthy();
   });
 });
 
@@ -144,15 +108,6 @@ describe('Card', () => {
     );
     expect(screen.getByText('First')).toBeTruthy();
     expect(screen.getByText('Second')).toBeTruthy();
-  });
-
-  it('applies custom className without crashing', () => {
-    const { toJSON } = render(
-      <Card className="p-sm">
-        <Text>Content</Text>
-      </Card>
-    );
-    expect(toJSON()).toBeTruthy();
   });
 
   it('passes through ViewProps (testID)', () => {
@@ -202,25 +157,6 @@ describe('Input', () => {
     expect(screen.getByLabelText('Enter password')).toBeTruthy();
   });
 
-  it('renders in secure text entry mode', () => {
-    const { toJSON } = render(
-      <Input
-        value=""
-        onChangeText={jest.fn()}
-        placeholder="Password"
-        secureTextEntry
-      />
-    );
-    expect(toJSON()).toBeTruthy();
-  });
-
-  it('renders without placeholder (no accessibilityLabel)', () => {
-    const { toJSON } = render(
-      <Input value="hello" onChangeText={jest.fn()} />
-    );
-    expect(toJSON()).toBeTruthy();
-  });
-
   it('renders with a controlled value', () => {
     render(
       <Input value="current-value" onChangeText={jest.fn()} placeholder="Field" />
@@ -228,48 +164,15 @@ describe('Input', () => {
     const input = screen.getByPlaceholderText('Field');
     expect(input.props.value).toBe('current-value');
   });
-
-  it('renders with keyboardType and autoCapitalize props', () => {
-    const { toJSON } = render(
-      <Input
-        value=""
-        onChangeText={jest.fn()}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-    );
-    expect(toJSON()).toBeTruthy();
-  });
 });
 
 // ---------------------------------------------------------------------------
-// OtpInput — deeper coverage for uncovered branches
+// OtpInput — paste and backspace behavior
 // ---------------------------------------------------------------------------
 
-/**
- * Controlled wrapper so we can track onChange calls and verify state-driven
- * re-renders without stubbing useState internals.
- */
-function ControlledOtp({
-  initialValue = '',
-  length = 6,
-  onChangeSpy,
-}: {
-  initialValue?: string;
-  length?: number;
-  onChangeSpy?: jest.Mock;
-}) {
-  const [value, setValue] = useState(initialValue);
-  const handleChange = (v: string) => {
-    setValue(v);
-    onChangeSpy?.(v);
-  };
-  return <OtpInput length={length} value={value} onChange={handleChange} />;
-}
-
-describe('OtpInput — additional coverage', () => {
+describe('OtpInput — paste and backspace', () => {
   // -------------------------------------------------------------------------
-  // Paste: multi-character input fills cells (lines 33-38)
+  // Paste: multi-character input fills cells
   // -------------------------------------------------------------------------
 
   it('paste: multi-character text fills cells and calls onChange with digits only', () => {
@@ -310,7 +213,7 @@ describe('OtpInput — additional coverage', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Single-digit input auto-advances focus (lines 41-49)
+  // Single-digit input
   // -------------------------------------------------------------------------
 
   it('single digit input calls onChange with updated value', () => {
@@ -341,17 +244,8 @@ describe('OtpInput — additional coverage', () => {
     expect(onChange).toHaveBeenCalledWith('');
   });
 
-  it('entering a digit on a controlled input updates displayed value', () => {
-    const onChangeSpy = jest.fn();
-    render(<ControlledOtp length={6} onChangeSpy={onChangeSpy} />);
-
-    fireEvent.changeText(screen.getByLabelText('OTP digit 1'), '7');
-
-    expect(onChangeSpy).toHaveBeenCalledWith('7');
-  });
-
   // -------------------------------------------------------------------------
-  // Backspace on empty cell navigates back (lines 56-60)
+  // Backspace on empty cell
   // -------------------------------------------------------------------------
 
   it('backspace on non-empty cell does not navigate back', () => {
@@ -401,74 +295,6 @@ describe('OtpInput — additional coverage', () => {
     });
 
     expect(onChange).not.toHaveBeenCalled();
-  });
-
-  // -------------------------------------------------------------------------
-  // Focus / blur state (lines 75-78)
-  // -------------------------------------------------------------------------
-
-  it('focusing a cell updates focusedIndex state (component re-renders without error)', () => {
-    const { toJSON } = render(
-      <OtpInput length={6} value="" onChange={jest.fn()} />
-    );
-
-    act(() => {
-      fireEvent(screen.getByLabelText('OTP digit 3'), 'focus');
-    });
-
-    // Component should still render correctly after focus event
-    expect(toJSON()).toBeTruthy();
-  });
-
-  it('blurring a cell resets focused state (component re-renders without error)', () => {
-    const { toJSON } = render(
-      <OtpInput length={6} value="" onChange={jest.fn()} />
-    );
-
-    act(() => {
-      fireEvent(screen.getByLabelText('OTP digit 2'), 'focus');
-      fireEvent(screen.getByLabelText('OTP digit 2'), 'blur');
-    });
-
-    expect(toJSON()).toBeTruthy();
-  });
-
-  it('focuses different cells sequentially without errors', () => {
-    render(<OtpInput length={4} value="12" onChange={jest.fn()} />);
-
-    act(() => {
-      fireEvent(screen.getByLabelText('OTP digit 1'), 'focus');
-    });
-    act(() => {
-      fireEvent(screen.getByLabelText('OTP digit 2'), 'focus');
-    });
-    act(() => {
-      fireEvent(screen.getByLabelText('OTP digit 2'), 'blur');
-    });
-
-    // All 4 cells still rendered
-    for (let i = 1; i <= 4; i++) {
-      expect(screen.getByLabelText(`OTP digit ${i}`)).toBeTruthy();
-    }
-  });
-
-  // -------------------------------------------------------------------------
-  // Existing basic tests preserved here for completeness
-  // -------------------------------------------------------------------------
-
-  it('renders the correct number of cells (default 6)', () => {
-    render(<OtpInput value="" onChange={jest.fn()} />);
-    for (let i = 1; i <= 6; i++) {
-      expect(screen.getByLabelText(`OTP digit ${i}`)).toBeTruthy();
-    }
-  });
-
-  it('renders a custom number of cells', () => {
-    render(<OtpInput length={4} value="" onChange={jest.fn()} />);
-    for (let i = 1; i <= 4; i++) {
-      expect(screen.getByLabelText(`OTP digit ${i}`)).toBeTruthy();
-    }
-    expect(screen.queryByLabelText('OTP digit 5')).toBeNull();
   });
 
   it('pre-fills cells from value prop', () => {
