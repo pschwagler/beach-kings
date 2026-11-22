@@ -18,15 +18,16 @@ interface LeaguePageClientProps {
   leagueId: number;
   publicLeagueData: any;
   initialTab: string;
+  initialRankingsSeasonId?: number;
 }
 
-export default function LeaguePageClient({ leagueId, publicLeagueData, initialTab }: LeaguePageClientProps) {
+export default function LeaguePageClient({ leagueId, publicLeagueData, initialTab, initialRankingsSeasonId }: LeaguePageClientProps) {
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
 
   if (isAuthenticated) {
     return (
-      <LeagueProvider leagueId={leagueId} initialTab={initialTab}>
+      <LeagueProvider leagueId={leagueId} initialTab={initialTab} initialRankingsSeasonId={initialRankingsSeasonId}>
         <Suspense fallback={<PageSkeleton />}>
           <LeagueDashboard leagueId={leagueId} publicLeagueData={publicLeagueData} />
         </Suspense>

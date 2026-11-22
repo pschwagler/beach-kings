@@ -79,6 +79,7 @@ function LeagueConsumer() {
       <span data-testid="loading">{String(ctx.loading)}</span>
       <span data-testid="error">{ctx.error ?? 'null'}</span>
       <span data-testid="league-name">{ctx.league?.name ?? 'null'}</span>
+      <span data-testid="rankings-season">{ctx.rankingsSeasonId}</span>
       <span data-testid="seasons-count">{ctx.seasons.length}</span>
     </div>
   );
@@ -88,6 +89,16 @@ describe('LeagueProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
+  });
+
+  it('restores a requested season instead of the most recent season', async () => {
+    render(<LeagueProvider leagueId={1} initialRankingsSeasonId={10}><LeagueConsumer /></LeagueProvider>);
+    await waitFor(() => expect(screen.getByTestId('rankings-season')).toHaveTextContent('10'));
+  });
+
+  it('ignores a requested season that does not belong to this league', async () => {
+    render(<LeagueProvider leagueId={1} initialRankingsSeasonId={999}><LeagueConsumer /></LeagueProvider>);
+    await waitFor(() => expect(screen.getByTestId('rankings-season')).toHaveTextContent('11'));
   });
 
   describe('loading state transitions', () => {

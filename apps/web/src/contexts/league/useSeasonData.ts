@@ -43,7 +43,7 @@ export interface SeasonDataEntry {
  * @param {Array} seasons - List of season objects from useLeagueCore.
  * @returns {object} Season data state and callbacks.
  */
-export function useSeasonData(leagueId: number, seasons: unknown[]) {
+export function useSeasonData(leagueId: number, seasons: unknown[], initialRankingsSeasonId?: number) {
   const [seasonData, setSeasonData] = useState<Record<string | number, SeasonDataEntry>>({}); // Maps season_id to data
   const [seasonDataLoading, setSeasonDataLoading] = useState<Record<string | number, boolean>>({}); // Maps season_id to loading state
 
@@ -66,6 +66,10 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
   useEffect(() => {
     if (hasAutoSelectedRef.current || !Array.isArray(seasons) || seasons.length === 0) return;
     hasAutoSelectedRef.current = true;
+    if (Number.isSafeInteger(initialRankingsSeasonId) && seasons.some(s => (s as { id: number }).id === initialRankingsSeasonId)) {
+      setRankingsSeasonId(initialRankingsSeasonId!);
+      return;
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const activeSeason = (seasons as Array<{ id: number; start_date?: string; end_date?: string }>).find(s => {
@@ -81,7 +85,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
       .filter(s => s.end_date)
       .sort((a, b) => new Date(b.end_date!).getTime() - new Date(a.end_date!).getTime());
     if (sorted.length > 0) { setRankingsSeasonId(sorted[0].id); }
-  }, [seasons]);
+  }, [seasons, initialRankingsSeasonId]);
 
   // Per-tab derived data
   const selectedSeasonData = useMemo(() => {

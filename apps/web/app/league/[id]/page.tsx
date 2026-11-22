@@ -74,6 +74,8 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
   const resolvedSearchParams = await searchParams;
   const tab = resolvedSearchParams?.tab;
   const initialTab = VALID_LEAGUE_TABS.includes(tab) ? tab : 'rankings';
+  const requestedSeasonId = Number(resolvedSearchParams?.season);
+  const initialRankingsSeasonId = Number.isSafeInteger(requestedSeasonId) && requestedSeasonId > 0 ? requestedSeasonId : undefined;
   const leagueId = parseInt(id);
 
   let publicLeagueData = null;
@@ -105,7 +107,7 @@ export default async function LeaguePage({ params, searchParams }: { params: Pro
   return (
     <>
       {jsonLd && <JsonLd data={jsonLd} />}
-      <LeaguePageClient leagueId={leagueId} publicLeagueData={publicLeagueData} initialTab={initialTab} />
+      <LeaguePageClient leagueId={leagueId} publicLeagueData={publicLeagueData} initialTab={initialTab} initialRankingsSeasonId={initialRankingsSeasonId} />
     </>
   );
 }
