@@ -59,6 +59,8 @@ export class ApiClient {
   private authGeneration = 0;
   private refreshController: AbortController | null = null;
   private storageMutation: Promise<void> = Promise.resolve();
+  private pendingAuthTokens: { accessToken: string | null; refreshToken: string | null } | null = null;
+  private credentialRevision = 0;
 
   constructor(baseURL: string, storage?: StorageAdapter) {
     this.storage = storage || new WebStorageAdapter();
@@ -87,10 +89,13 @@ export class ApiClient {
 
   private async loadStoredTokens(): Promise<void> {
     const generation = this.authGeneration;
+    const revision = this.credentialRevision;
     try {
       const accessToken = await this.storage.getItem(ACCESS_TOKEN_KEY);
       const refreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY);
-      if (generation === this.authGeneration) this.authTokens = { accessToken, refreshToken };
+      if (generation === this.authGeneration && revision === this.credentialRevision) {
+        this.authTokens = { accessToken, refreshToken };
+      }
     } catch (error) {
       console.error('Error loading stored tokens:', error);
     }
@@ -188,7 +193,9 @@ export class ApiClient {
               const assertCurrent = () => {
                 if (signal.aborted || generation !== this.authGeneration) throw readAbortError();
               };
-              const latestRefreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY) || this.authTokens.refreshToken;
+              const latestRefreshToken = this.pendingAuthTokens
+                ? this.pendingAuthTokens.refreshToken
+                : await this.storage.getItem(REFRESH_TOKEN_KEY) || this.authTokens.refreshToken;
               assertCurrent();
               if (!latestRefreshToken) {
                 missingRefreshToken = true;
@@ -331,9 +338,11 @@ export class ApiClient {
     this.refreshController = null;
     this.isRefreshing = false;
     this.processQueue(readAbortError(), null);
+    this.pendingAuthTokens = null;
   }
 
   private async persistAuthTokens(accessToken: string | null, refreshToken?: string | null): Promise<void> {
+    this.credentialRevision += 1;
     this.authTokens.accessToken = accessToken;
     if (typeof refreshToken !== 'undefined') {
       this.authTokens.refreshToken = refreshToken;
@@ -341,6 +350,8 @@ export class ApiClient {
     if (this.authTokens.accessToken || this.authTokens.refreshToken) {
       this.authInvalidationEmitted = false;
     }
+    const pending = { ...this.authTokens };
+    this.pendingAuthTokens = pending;
     await this.mutateStorage(async () => {
       // The old refresh credential is invalid after rotation. Store its
       // replacement first so an interrupted access-token write remains recoverable.
@@ -350,6 +361,7 @@ export class ApiClient {
       }
       if (accessToken) await this.storage.setItem(ACCESS_TOKEN_KEY, accessToken);
       else await this.storage.removeItem(ACCESS_TOKEN_KEY);
+      if (this.pendingAuthTokens === pending) this.pendingAuthTokens = null;
     });
   }
 
@@ -362,6 +374,7 @@ export class ApiClient {
 
   async clearAuthTokens(): Promise<void> {
     this.invalidatePendingRefresh();
+    this.credentialRevision += 1;
     this.authTokens.accessToken = null;
     this.authTokens.refreshToken = null;
     await this.mutateStorage(async () => {
@@ -377,11 +390,22 @@ export class ApiClient {
   }
 
   async getStoredTokens(): Promise<{ accessToken: string | null; refreshToken: string | null }> {
-    await this.storageMutation;
     const generation = this.authGeneration;
+    await this.storageMutation;
+    if (generation !== this.authGeneration) return { ...this.authTokens };
+    // A server rotation may succeed while native persistence fails. Repair
+    // that pair before reading disk, which may still contain a revoked token.
+    const pending = this.pendingAuthTokens;
+    if (pending) {
+      await this.persistAuthTokens(pending.accessToken, pending.refreshToken);
+      return { ...this.authTokens };
+    }
+    const revision = this.credentialRevision;
     const accessToken = await this.storage.getItem(ACCESS_TOKEN_KEY);
     const refreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY);
-    if (generation === this.authGeneration) this.authTokens = { accessToken, refreshToken };
+    if (generation === this.authGeneration && revision === this.credentialRevision) {
+      this.authTokens = { accessToken, refreshToken };
+    }
     return { ...this.authTokens };
   }
 

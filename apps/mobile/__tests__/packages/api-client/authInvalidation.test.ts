@@ -89,6 +89,59 @@ function forbidden(url: string) {
 }
 
 describe("ApiClient auth invalidation", () => {
+  it('cannot restore retired credentials when logout races a storage read', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    class DelayedRemovalStorage extends MemoryStorage {
+      async removeItem(key: string): Promise<void> {
+        await gate;
+        await super.removeItem(key);
+      }
+    }
+    const client = new ApiClient('https://example.test', new DelayedRemovalStorage());
+    await client.setAuthTokens('old-access', 'old-refresh');
+    const reading = client.getStoredTokens();
+    const clearing = client.clearAuthTokens();
+    expect(await reading).toEqual({ accessToken: null, refreshToken: null });
+    release();
+    await clearing;
+    expect(await client.getStoredTokens()).toEqual({ accessToken: null, refreshToken: null });
+  });
+  it.each(['request retry', 'session restore'])('recovers a failed rotated-refresh write through %s', async recovery => {
+    mockAxiosInstances.splice(0);
+    class FailOnceStorage extends MemoryStorage {
+      private failed = false;
+      async setItem(key: string, value: string): Promise<void> {
+        if (!this.failed && key === 'beach_refresh_token' && value === 'refresh-2') {
+          this.failed = true;
+          throw new Error('Keychain write failed');
+        }
+        await super.setItem(key, value);
+      }
+    }
+    const storage = new FailOnceStorage();
+    const client = new ApiClient('https://example.test', storage);
+    await client.setAuthTokens('expired', 'refresh-1');
+    const api = mockAxiosInstances[0] as unknown as FakeAxiosInstance;
+    const refresh = mockAxiosInstances[1] as unknown as FakeAxiosInstance;
+    const reject = api.interceptors.response.use.mock.calls[0][1] as RejectInterceptor;
+    const invalidated = jest.fn();
+    client.onAuthInvalidated(invalidated);
+    refresh.post.mockResolvedValue({ data: { access_token: 'access-2', refresh_token: 'refresh-2' } });
+    await expect(reject(unauthorized('/first'))).rejects.toThrow('Keychain write failed');
+    expect(await storage.getItem('beach_refresh_token')).toBe('refresh-1');
+
+    if (recovery === 'request retry') {
+      refresh.post.mockResolvedValue({ data: { access_token: 'access-3', refresh_token: 'refresh-3' } });
+      await reject(unauthorized('/retry'));
+      expect(refresh.post).toHaveBeenLastCalledWith('/api/auth/refresh', { refresh_token: 'refresh-2' }, expect.anything());
+      expect(await client.getStoredTokens()).toEqual({ accessToken: 'access-3', refreshToken: 'refresh-3' });
+    } else {
+      expect(await client.getStoredTokens()).toEqual({ accessToken: 'access-2', refreshToken: 'refresh-2' });
+      expect(refresh.post).toHaveBeenCalledTimes(1);
+    }
+    expect(invalidated).not.toHaveBeenCalled();
+  });
   it('surfaces keychain read failures instead of treating them as missing credentials', async () => {
     const error = new Error('Keychain temporarily locked');
     const adapter = new MobileStorageAdapter({ getItemAsync: jest.fn().mockRejectedValue(error) });

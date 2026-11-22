@@ -377,7 +377,7 @@ describe('AuthProvider — session restore', () => {
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
   });
 
-  it.each([new Error('Network unavailable'), { response: { status: 503 } }])(
+  it.each([new Error('Network unavailable'), new Error('Keychain write failed'), { response: { status: 503 } }])(
     'preserves saved login on temporary restore failure and retries successfully (%j)', async error => {
       mockGetStoredTokens.mockResolvedValue({ accessToken: 'saved-access', refreshToken: 'saved-refresh' });
       mockGetMe.mockRejectedValueOnce(error).mockResolvedValue(mockMeResponse);
