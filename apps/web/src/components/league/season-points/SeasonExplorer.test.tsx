@@ -28,3 +28,28 @@ it('supports minimum GP only, preserves multiselect, and selects a curve for the
  fireEvent.change(screen.getByLabelText('Minimum games played'),{target:{value:'100'}});
  expect(screen.getByText('No players in this GP range')).toBeInTheDocument();
 });
+
+it('toggles all matching players while preserving selections outside filters',()=>{
+ render(<SeasonExplorer season={data}/>);
+ const toggle = screen.getByRole('checkbox',{name:'Select all players'});
+ expect(toggle).toBePartiallyChecked();
+ fireEvent.click(toggle);
+ expect(toggle).toBeChecked();
+ expect(screen.getByTestId('curves').children).toHaveLength(2);
+ fireEvent.change(screen.getByLabelText('Find a player'),{target:{value:'Beta'}});
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select all matching players'}));
+ expect(screen.getByTestId('curves').children).toHaveLength(1);
+ expect(screen.getByLabelText('Plot Test Beta')).not.toBeChecked();
+ fireEvent.click(screen.getByLabelText('Clear player search'));
+ expect(toggle).toBePartiallyChecked();
+ fireEvent.change(screen.getByLabelText('Minimum games played'),{target:{value:'8'}});
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select all matching players'}));
+ expect(screen.getByTestId('curves').children).toHaveLength(0);
+ fireEvent.click(screen.getByLabelText('Reset games played filter'));
+ fireEvent.click(toggle);
+ expect(screen.getByTestId('curves').children).toHaveLength(2);
+ fireEvent.click(toggle);
+ expect(screen.getByTestId('curves').children).toHaveLength(0);
+ fireEvent.change(screen.getByLabelText('Find a player'),{target:{value:'Nobody'}});
+ expect(screen.getByRole('checkbox',{name:'Select all matching players'})).toBeDisabled();
+});

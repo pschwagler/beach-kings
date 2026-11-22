@@ -28,6 +28,14 @@ export default function SeasonExplorer({ season }: { season: SeasonPointsData })
     const diff = sort === 'name' ? a.name.localeCompare(b.name) : a[sort]-b[sort];
     return (ascending ? diff : -diff) || a.rank-b.rank;
   }), [search,sort,ascending,eligiblePlayers]);
+  const selectedRosterCount = roster.filter(p => checkedIds.includes(p.id)).length;
+  const allRosterSelected = roster.length > 0 && selectedRosterCount === roster.length;
+  function toggleRoster() {
+    const rosterIds = new Set(roster.map(p => p.id));
+    setCheckedIds(ids => allRosterSelected
+      ? ids.filter(id => !rosterIds.has(id))
+      : [...new Set([...ids, ...rosterIds])]);
+  }
   const peak = Math.max(season.baseline,...player.history.map(h=>h.points));
   const totalGames = season.sessions.reduce((n,s)=>n+s.games,0);
   const rate = player.games ? player.wins/player.games*100 : 0;
@@ -60,6 +68,7 @@ export default function SeasonExplorer({ season }: { season: SeasonPointsData })
             <label>Min GP<input type="number" inputMode="numeric" min="0" step="1" placeholder="0" aria-label="Minimum games played" aria-describedby="gp-filter-summary" aria-invalid={!!rangeError} value={minGp} onChange={e=>setMinGp(e.target.value)}/></label>
             {hasGpFilter && <button type="button" onClick={resetGp} aria-label="Reset games played filter">Reset</button>}
           </div><p id="gp-filter-summary" className={rangeError?'gp-filter-error':''} role={rangeError?'alert':'status'}>{rangeError ?? `${eligiblePlayers.length} of ${season.players.length} players${hiddenSelections ? ` · ${hiddenSelections} checked outside GP range` : ''}`}</p></fieldset>
+          <label className="select-all-players"><input type="checkbox" checked={allRosterSelected} ref={input => { if (input) input.indeterminate = selectedRosterCount > 0 && !allRosterSelected; }} onChange={toggleRoster} disabled={roster.length === 0}/><span>Select all{search.trim() || hasGpFilter ? ' matching players' : ' players'}</span></label>
           <div className="roster-head"><span>Plot / #</span><button onClick={()=>sortBy('name')}>Player {sort==='name' && (ascending ? <ArrowUp size={11}/> : <ArrowDown size={11}/>)}</button><button onClick={()=>sortBy('games')}>GP {sort==='games' && (ascending ? <ArrowUp size={11}/> : <ArrowDown size={11}/>)}</button><button onClick={()=>sortBy('points')}>PTS {sort==='points' && (ascending ? <ArrowUp size={11}/> : <ArrowDown size={11}/>)}</button></div>
           <div className="roster-list">{roster.map(p => <div className={`player-row ${p.id===player.id?'selected':''}`} key={p.id} data-player={p.id}>
             <label className="player-check-rank"><input type="checkbox" aria-label={`Plot ${p.name}`} checked={checkedIds.includes(p.id)} onChange={e=>{const checked=e.target.checked;setCheckedIds(ids => checked ? [...ids,p.id] : ids.filter(id=>id!==p.id));}} style={{accentColor:chartColor(p,player.id)}}/><span className="rank">{p.rank.toString().padStart(2,'0')}</span></label>

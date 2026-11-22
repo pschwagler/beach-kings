@@ -45,6 +45,9 @@
 .season-explorer .gp-filter-fields button { min-height: 40px; padding: 4px 8px; color: var(--primary); background: transparent; border: 0; font-size: 13px; }
 .season-explorer #gp-filter-summary { margin-top: 8px; font-size: 12px; color: var(--gray-600); }
 .season-explorer .gp-filter-error { color: var(--danger)!important; }
+.season-explorer .select-all-players { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; font-size: 13px; cursor: pointer; }
+.season-explorer .select-all-players input { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); }
+.season-explorer .select-all-players:has(input:disabled) { color: var(--gray-600); cursor: default; }
 .season-explorer .roster-head, .season-explorer .player-row { display: grid; grid-template-columns: 42px minmax(0,1fr) 32px 48px; gap: 8px; padding: 0 16px; align-items: center; }
 .season-explorer .roster-head { min-height: 36px; border-block: 1px solid var(--border-strong); background: var(--bg-surface-hover); color: var(--gray-600); font-size: 11px; }
 .season-explorer .roster-head button { display: flex; align-items: center; gap: 4px; padding: 0; min-height: 36px; font-size: 12px; color: inherit; background: transparent; border: 0; }
