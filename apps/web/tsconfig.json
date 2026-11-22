@@ -29,6 +29,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@beach-kings/shared": [
+        "../../packages/shared/src/index.ts"
       ]
     },
     "types": [

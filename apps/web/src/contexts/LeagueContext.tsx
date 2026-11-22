@@ -24,12 +24,12 @@ type LeagueContextValue = { leagueId: number } &
 
 const LeagueContext = createContext<LeagueContextValue | null>(null);
 
-export const LeagueProvider = ({ children, leagueId, initialTab }: { children: ReactNode; leagueId: number; initialTab?: string }) => {
+export const LeagueProvider = ({ children, leagueId, initialTab, initialRankingsSeasonId }: { children: ReactNode; leagueId: number; initialTab?: string; initialRankingsSeasonId?: number }) => {
   const { currentUserPlayer, isInitializing: isAuthInitializing } = useAuth();
   const [activeLeagueTab, setActiveLeagueTab] = useState<string>(initialTab || 'rankings');
 
   const core = useLeagueCore(leagueId, isAuthInitializing, currentUserPlayer);
-  const season = useSeasonData(leagueId, core.seasons);
+  const season = useSeasonData(leagueId, core.seasons, initialRankingsSeasonId);
 
   // Derive active-tab values for shared consumers (player drawer, sign-ups)
   const selectedSeasonId = activeLeagueTab === 'matches'

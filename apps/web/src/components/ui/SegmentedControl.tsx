@@ -1,5 +1,7 @@
 'use client';
 
+import './SegmentedControl.css';
+
 interface Segment<T extends string> {
   value: T;
   label: string;
