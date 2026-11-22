@@ -73,7 +73,7 @@ describe("iOS release record", () => {
         release: expect.objectContaining({
           environment: "production",
           bundleIdentifier: "com.beachleague.app",
-          version: "1.0.1",
+          version: "1.1.0",
           buildNumber: "42",
           apiOrigin: "https://beachleaguevb.com",
         }),
