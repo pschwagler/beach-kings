@@ -440,9 +440,6 @@ export default function RosterPicker({
         data={rowPlayers}
         keyExtractor={(item) => String(item.player_id)}
         keyboardShouldPersistTaps="always"
-        // Let selection respond immediately instead of iOS delaying touches
-        // while it decides whether the list will scroll.
-        delaysContentTouches={false}
         keyboardDismissMode="on-drag"
         // iOS floats the keyboard over content without resizing the window, so
         // the bottom rows + the Add-New-Player CTA would otherwise be trapped

@@ -205,7 +205,9 @@ export default function LeagueDashboardTab({
 
   const isSeasonView = typeof selectedSeasonId === 'number';
 
-  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [selectedSortField, setSortField] = useState<SortField | null>(null);
+  // Global rating belongs to season standings; never sort all-time rows by a hidden column.
+  const sortField = !isSeasonView && selectedSortField === 'global_rating' ? null : selectedSortField;
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const handleSort = (field: SortField) => {

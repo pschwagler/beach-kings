@@ -789,9 +789,6 @@ describe('LeagueDetailScreen — prominent league recording action', () => {
     mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, user_role: role });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     const record = await screen.findByRole('button', { name: 'Record a Game' });
-    await waitFor(() => expect(record.props.accessibilityState.disabled).toBe(false));
-    // A slow subsequent request must not hold either entry point on this page.
-    mockGetLeagueSessions.mockImplementation(() => new Promise(() => {}));
     fireEvent.press(record);
     await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
     const destination = mockPush.mock.calls[0]?.[0];
@@ -799,7 +796,6 @@ describe('LeagueDetailScreen — prominent league recording action', () => {
     expect(destination).toContain(`seasonId=${MOCK_DETAIL.current_season_id}`);
     fireEvent.press(screen.getByTestId('league-add-game-btn'));
     await waitFor(() => expect(mockPush.mock.calls[1]?.[0]).toBe(destination));
-    expect(mockGetLeagueSessions).toHaveBeenCalledTimes(1);
   });
 
   it('supports leagues without a current season without inventing a season ID', async () => {
@@ -842,12 +838,10 @@ describe('League live action', () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     const action = await screen.findByTestId('league-record-game-action');
     await waitFor(() => expect(action.props.accessibilityState.disabled).toBe(false));
-    mockGetLeagueSessions.mockImplementation(() => new Promise(() => {}));
     fireEvent.press(screen.getByTestId('league-record-game-action'));
     await waitFor(() => expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75'));
     fireEvent.press(screen.getByTestId('league-add-game-btn'));
     await waitFor(() => expect(mockPush).toHaveBeenLastCalledWith('/(stack)/session/75'));
-    expect(mockGetLeagueSessions).toHaveBeenCalledTimes(1);
   });
   it('offers retry without creating a session when availability fails', async () => {
     mockGetLeagueSessions.mockRejectedValue(new Error('unavailable'));
@@ -863,8 +857,27 @@ describe('League live action', () => {
   });
 });
 
-
 describe('league standings column sorting', () => {
+  it('does not apply a hidden global rating sort to all-time standings', async () => {
+    const base = ONE_STANDING.standings[0]!;
+    mockGetLeagueStandings.mockResolvedValue({
+      standings: [
+        { ...base, player_id: 1, rank: 1, global_rating: 1400 },
+        { ...base, player_id: 2, rank: 2, global_rating: 1800 },
+      ],
+      season_info: null,
+    });
+    mockGetLeagueSeasons.mockResolvedValue([{ id: 3, name: 'Current season', is_active: true }]);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByTestId('segment-tab-standings'));
+    fireEvent.press(await screen.findByTestId('standings-global-rating-header'));
+    const order = () => screen.getAllByTestId(/^standings-row-/).map((row) => row.props.testID);
+    expect(order()).toEqual(['standings-row-2', 'standings-row-1']);
+    fireEvent.press(screen.getByTestId('season-pill-all'));
+    await waitFor(() => expect(screen.queryByTestId('standings-global-rating-header')).toBeNull());
+    await waitFor(() => expect(order()).toEqual(['standings-row-1', 'standings-row-2']));
+  });
+
   it.each([
     { header: 'sort-by-games', season: false, descending: [3, 1, 2], ascending: [2, 1, 3] },
     { header: 'sort-by-games', season: true, descending: [3, 1, 2], ascending: [2, 1, 3] },
