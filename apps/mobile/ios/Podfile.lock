@@ -3,12 +3,12 @@ PODS:
   - DoubleConversion (1.1.6)
   - EXApplication (57.0.3):
     - ExpoModulesCore
-  - EXConstants (57.0.23):
+  - EXConstants (57.0.24):
     - ExpoModulesCore
   - EXJSONUtils (57.0.2)
   - EXManifests (57.0.2):
     - ExpoModulesCore
-  - Expo (57.0.32):
+  - Expo (57.0.33):
     - boost
     - DoubleConversion
     - ExpoModulesCore
@@ -251,13 +251,13 @@ PODS:
     - ExpoModulesCore
   - ExpoKeepAwake (57.0.2):
     - ExpoModulesCore
-  - ExpoLinking (57.0.13):
+  - ExpoLinking (57.0.14):
     - ExpoModulesCore
   - ExpoLocation (57.0.23):
     - ExpoModulesCore
   - ExpoLogBox (57.0.5):
     - React-Core
-  - ExpoModulesCore (57.0.25):
+  - ExpoModulesCore (57.0.26):
     - boost
     - DoubleConversion
     - ExpoModulesJSI
@@ -290,17 +290,17 @@ PODS:
   - ExpoModulesJSI (57.1.3):
     - React-Core
     - ReactCommon
-  - ExpoModulesWorklets (57.0.25):
+  - ExpoModulesWorklets (57.0.26):
     - ExpoModulesCore
     - ExpoModulesJSI
-  - ExpoModulesWorkletsAdapter (57.0.25):
+  - ExpoModulesWorkletsAdapter (57.0.26):
     - ExpoModulesCore
     - ExpoModulesJSI
     - ExpoModulesWorklets
     - RNWorklets
   - ExpoNotifications (57.0.25):
     - ExpoModulesCore
-  - ExpoRouter (57.0.30):
+  - ExpoRouter (57.0.31):
     - ExpoModulesCore
     - RNScreens
   - ExpoSecureStore (57.0.4):
@@ -3940,10 +3940,10 @@ SPEC CHECKSUMS:
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EXApplication: a727f05eb8592f0bc764f6ab8d51eacc158652ec
-  EXConstants: 6dae4529b5d2acfb7e81f4f2e1110e4cdd0c4df3
+  EXConstants: 3c072d540176acea8cf9b3c41730cc0d22a8b258
   EXJSONUtils: a49e3ef80dff762108e5690c7b2f360675dcf7f6
   EXManifests: 4c53b2602e03ccf44d0b4ff9c5d655b2c5acba3f
-  Expo: 5bab1f7b60cd08cb4b13bc7db0933592b5caf67b
+  Expo: bfed1dc163fee279f624f1337cc3bd34971c95e7
   expo-dev-client: 26b4494cc0477a78fbec2db24ec6418e18e16cee
   expo-dev-launcher: ebca0d49b26b41f7a8bb54c713b3cab2b56ebb84
   expo-dev-menu: 91f0c0726350a1d6b9a9a0a22fdfacc999747f55
@@ -3962,15 +3962,15 @@ SPEC CHECKSUMS:
   ExpoImage: abe60c6c68d08d837b2c51fb9e8b6c6e320b9125
   ExpoImagePicker: cd64953ddcfc7b4a2cbc6edd47e0bbdef88ae326
   ExpoKeepAwake: 72af0b3be3615e59bc819d26061ff4e06b155ee0
-  ExpoLinking: b2f2952392549ef78f9c4b37fad836e4180de4e4
+  ExpoLinking: 5c609b3f92582a1825bcd6ace633129b11fcaf5d
   ExpoLocation: 69af706a7c2382b9abf8a21dc0e32118890cd368
   ExpoLogBox: 1e498d9b63edb2895cacad690bd1848c0546cf01
-  ExpoModulesCore: adf40fdef145c116c0683b313cee9ec4fddabbca
+  ExpoModulesCore: bef18967b955242bdd7c3b3a6df0eee0c245c71e
   ExpoModulesJSI: ded9f4c72f35fc9400ad85506a94acdd87b2b23b
-  ExpoModulesWorklets: 8f4fc5a9ad92641e1fded703d491dce1ea77bbe2
-  ExpoModulesWorkletsAdapter: fcbc46dc8aa401cf166643d109094fb99af21372
+  ExpoModulesWorklets: a3021e8f3b01c5f9b989ce625782cd296eaaf68f
+  ExpoModulesWorkletsAdapter: bd90ed4c88f9893aa2de2caf30bf56d3b1e58715
   ExpoNotifications: f71076ad9c92d18814d432acc1e16eef27a91467
-  ExpoRouter: 615cd5f24c84b1f133575fb3223cf6813016d286
+  ExpoRouter: 142a3417aa4caaa5301e03a984b7e3453611a7ca
   ExpoSecureStore: ff1fd5e073957417ba8f9dec0bebcbd55a60e747
   ExpoSplashScreen: 57ae0e0f1c5bbbfd0af41f9ffcf18fed0abf738f
   ExpoStoreReview: a70a18f8ec77262d6c63a6578ce4de3b3ee8ddf0

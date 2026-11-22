@@ -470,6 +470,19 @@ describe('ScoreGameScreen — scoreboard', () => {
 // ---------------------------------------------------------------------------
 
 describe('ScoreGameScreen — roster picker', () => {
+  it('seats the first player on one Add tap and the next player with search focused', async () => {
+    renderScoreGame();
+    await screen.findByTestId('roster-chip-10');
+    // No slot tap or retry is needed for the first player.
+    fireEvent.press(screen.getByTestId('roster-chip-10'));
+    expect(screen.getByTestId('team1-slot0').props.accessibilityLabel).toContain('Gulla');
+    expect(screen.queryByTestId('roster-chip-10')).toBeNull();
+    fireEvent(screen.getByTestId('roster-search-input'), 'focus');
+    fireEvent.press(screen.getByTestId('roster-chip-11'));
+    expect(screen.getByTestId('compact-slot-team1-1').props.accessibilityLabel).toContain('Fawwar');
+    expect(screen.queryByTestId('roster-chip-11')).toBeNull();
+  });
+
   it('renders the roster picker', async () => {
     renderScoreGame();
     expect(screen.getByTestId('roster-picker')).toBeTruthy();

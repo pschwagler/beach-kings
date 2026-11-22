@@ -12,6 +12,7 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -390,7 +391,7 @@ export default function ScoreGameScreen({
 
   // Ref keeps handlePlayerSelect stable while always reading the latest slot
   const effectiveActiveSlotRef = useRef(effectiveActiveSlot);
-  useEffect(() => {
+  useLayoutEffect(() => {
     effectiveActiveSlotRef.current = effectiveActiveSlot;
   }, [effectiveActiveSlot]);
 

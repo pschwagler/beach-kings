@@ -204,9 +204,14 @@ const PlayerRow = React.memo(function PlayerRow({
   const pills = orderedTags(player.tags);
 
   return (
-    <View
+    <Pressable
       testID={`roster-row-${player.player_id}`}
-      className={`flex-row items-center gap-3 py-[10px] border-b border-divider min-h-[58px] ${
+      onPress={handlePress}
+      disabled={isSeated}
+      accessibilityRole="button"
+      accessibilityLabel={`Add ${player.display_name}`}
+      accessibilityState={{ disabled: isSeated }}
+      className={`flex-row items-center gap-3 py-[10px] border-b border-divider min-h-touch min-h-[58px] active:opacity-70 ${
         isSeated ? 'opacity-50' : ''
       }`}
     >
@@ -228,19 +233,15 @@ const PlayerRow = React.memo(function PlayerRow({
           </View>
         )}
       </View>
-      <Pressable
+      <View
         testID={`roster-chip-${player.player_id}`}
-        onPress={handlePress}
-        disabled={isSeated}
-        accessibilityRole="button"
-        accessibilityLabel={`Add ${player.display_name}`}
         className="px-4 py-2 rounded-[20px] border border-brand-teal min-h-touch items-center justify-center"
       >
         <AppText className="text-[13px] font-bold text-brand-teal">
           {badge != null ? badge : 'Add'}
         </AppText>
-      </Pressable>
-    </View>
+      </View>
+    </Pressable>
   );
 });
 
@@ -438,7 +439,7 @@ export default function RosterPicker({
         className="flex-1"
         data={rowPlayers}
         keyExtractor={(item) => String(item.player_id)}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         keyboardDismissMode="on-drag"
         // iOS floats the keyboard over content without resizing the window, so
         // the bottom rows + the Add-New-Player CTA would otherwise be trapped

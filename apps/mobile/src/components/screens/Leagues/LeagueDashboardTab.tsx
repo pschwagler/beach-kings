@@ -15,12 +15,11 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import LeagueStandingsTable from './LeagueStandingsTable';
+import LeagueStandingsTable, { type StandingsSortField as SortField } from './LeagueStandingsTable';
 import { hapticLight } from '@/utils/haptics';
 import { useLeagueDashboardTab } from './useLeagueDashboardTab';
 import type { LeagueStanding, LeagueSeasonInfo } from '@beach-kings/shared';
 
-type SortField = 'rank' | 'name' | 'wins' | 'win_rate' | 'rating';
 type SortDir = 'asc' | 'desc';
 
 function lastNameKey(displayName: string): string {
@@ -206,7 +205,9 @@ export default function LeagueDashboardTab({
 
   const isSeasonView = typeof selectedSeasonId === 'number';
 
-  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [selectedSortField, setSortField] = useState<SortField | null>(null);
+  // Global rating belongs to season standings; never sort all-time rows by a hidden column.
+  const sortField = !isSeasonView && selectedSortField === 'global_rating' ? null : selectedSortField;
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const handleSort = (field: SortField) => {
@@ -232,6 +233,13 @@ export default function LeagueDashboardTab({
         diff = a.wins - b.wins;
       } else if (sortField === 'win_rate') {
         diff = (a.win_rate ?? 0) - (b.win_rate ?? 0);
+      } else if (sortField === 'games_played') {
+        diff = a.games_played - b.games_played;
+      } else if (sortField === 'global_rating') {
+        // Unrated players stay below rated players in either direction.
+        if (a.global_rating == null) return b.global_rating == null ? 0 : 1;
+        if (b.global_rating == null) return -1;
+        diff = a.global_rating - b.global_rating;
       } else {
         diff = (a.rating ?? 0) - (b.rating ?? 0);
       }

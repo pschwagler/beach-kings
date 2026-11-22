@@ -162,3 +162,9 @@ gha-creds-*.json
 
 # Private TestFlight feedback, plans, reviews, and device evidence
 .testflight-triage/
+# Backend CI breadcrumbs and diagnostic artifacts.
+/backend-ci-progress.json
+/backend-ci-progress.tmp
+/backend-ci-resources.jsonl
+/backend-ci-summary.md
+/backend-ci-junit.xml

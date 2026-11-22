@@ -83,6 +83,9 @@ jobs:
   test-backend:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
     services:
       postgres:
         image: postgres:16-alpine
@@ -134,15 +137,13 @@ jobs:
         run: python -m pip install -r requirements.txt
 
       - name: Run backend tests
+        timeout-minutes: 24
+        env:
+          BACKEND_CI_CHECK_RUN_ID: ${{ job.check_run_id }}
+          BACKEND_CI_REPORT_TOKEN: ${{ github.token }}
         run: |
-          # Run the complete suite against isolated service databases. Leave
-          # time below the job limit to retain output after a stalled test.
-          timeout --signal=TERM --kill-after=60s 22m \
-            python -m pytest apps/backend/tests/ -v --tb=short \
-              --timeout=90 --timeout-method=signal \
-              --cov=backend --cov-report=xml:apps/backend/coverage.xml \
-              --cov-report=term --cov-fail-under=82 \
-            2>&1 | tee backend-ci.log
+          python -m unittest discover -s .github/ci -p 'test_*.py'
+          python .github/ci/run_backend_tests.py
 
       - name: Upload backend diagnostics
         timeout-minutes: 1
@@ -150,7 +151,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-diagnostics
-          path: backend-ci.log
+          path: |
+            backend-ci.log
+            backend-ci-progress.json
+            backend-ci-resources.jsonl
+            backend-ci-summary.md
+            backend-ci-junit.xml
           retention-days: 7
           if-no-files-found: warn
 

@@ -856,3 +856,55 @@ describe('League live action', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 });
+
+describe('league standings column sorting', () => {
+  it('does not apply a hidden global rating sort to all-time standings', async () => {
+    const base = ONE_STANDING.standings[0]!;
+    mockGetLeagueStandings.mockResolvedValue({
+      standings: [
+        { ...base, player_id: 1, rank: 1, global_rating: 1400 },
+        { ...base, player_id: 2, rank: 2, global_rating: 1800 },
+      ],
+      season_info: null,
+    });
+    mockGetLeagueSeasons.mockResolvedValue([{ id: 3, name: 'Current season', is_active: true }]);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByTestId('segment-tab-standings'));
+    fireEvent.press(await screen.findByTestId('standings-global-rating-header'));
+    const order = () => screen.getAllByTestId(/^standings-row-/).map((row) => row.props.testID);
+    expect(order()).toEqual(['standings-row-2', 'standings-row-1']);
+    fireEvent.press(screen.getByTestId('season-pill-all'));
+    await waitFor(() => expect(screen.queryByTestId('standings-global-rating-header')).toBeNull());
+    await waitFor(() => expect(order()).toEqual(['standings-row-1', 'standings-row-2']));
+  });
+
+  it.each([
+    { header: 'sort-by-games', season: false, descending: [3, 1, 2], ascending: [2, 1, 3] },
+    { header: 'sort-by-games', season: true, descending: [3, 1, 2], ascending: [2, 1, 3] },
+    { header: 'standings-global-rating-header', season: true, descending: [2, 1, 3], ascending: [1, 2, 3] },
+  ])('sorts $header descending first (season: $season)', async ({ header, season, descending, ascending }) => {
+    const base = ONE_STANDING.standings[0]!;
+    mockGetLeagueStandings.mockResolvedValue({
+      standings: [
+        { ...base, player_id: 1, rank: 1, rating: 100, games_played: 8, global_rating: 1400 },
+        { ...base, player_id: 2, rank: 2, rating: 50, games_played: 2, global_rating: 1800 },
+        { ...base, player_id: 3, rank: 3, rating: 200, games_played: 12, global_rating: null },
+      ],
+      season_info: null,
+    });
+    if (season) mockGetLeagueSeasons.mockResolvedValue([{ id: 3, name: 'Current season', is_active: true }]);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByTestId('segment-tab-standings'));
+    if (!season) fireEvent.press(await screen.findByTestId('season-pill-all'));
+    const column = await screen.findByTestId(header);
+    fireEvent.press(column);
+    const order = () => screen.getAllByTestId(/^standings-row-/).map((row) => Number(row.props.testID.replace('standings-row-', '')));
+    expect(order()).toEqual(descending);
+    expect(column.props.accessibilityHint).toContain('descending');
+    fireEvent.press(column);
+    expect(order()).toEqual(ascending);
+    expect(column.props.accessibilityHint).toContain('ascending');
+    fireEvent.press(column);
+    expect(order()).toEqual(descending);
+  });
+});

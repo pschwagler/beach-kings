@@ -182,3 +182,21 @@ describe('useLeagueStatsTab — non-empty seasons', () => {
     expect(result.current.selectedSeasonId).toBe(3);
   });
 });
+
+
+describe('league player partner order', () => {
+  it('shows partners by games played descending without mutating API data', async () => {
+    mockGetLeagueSeasons.mockResolvedValue([]);
+    const partner = { display_name: 'Test Partner', initials: 'TP', wins: 1, losses: 0, win_rate: 100 };
+    const partners = Object.freeze([
+      { ...partner, player_id: 1, games_played: 2 },
+      { ...partner, player_id: 2, games_played: 12 },
+      { ...partner, player_id: 3, games_played: 5 },
+    ]);
+    mockGetLeaguePlayerStats.mockResolvedValue({ ...MOCK_STATS, partners });
+    const { result } = renderHook(() => useLeagueStatsTab(1, 10), { wrapper: makeWrapper(makeClient()) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.stats?.partners.map((row) => row.player_id)).toEqual([2, 3, 1]);
+    expect(partners.map((row) => row.player_id)).toEqual([1, 2, 3]);
+  });
+});
