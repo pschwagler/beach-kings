@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -46,25 +46,38 @@ export default function LeagueDetailsTab() {
   const [memberToRemove, setMemberToRemove] = useState<{ memberId: number; playerName: string } | null>(null);
   const [joinRequests, setJoinRequests] = useState({ pending: [], rejected: [] });
 
+  const joinRequestsVersion = useRef(0);
+  const canReviewJoinRequests = isLeagueAdmin && league?.id === leagueId && league?.is_open === true;
+
   // Use custom hook for sorted members
   const sortedMembers = useSortedMembers(members, currentUserPlayer);
 
   const fetchJoinRequests = useCallback(async () => {
-    if (!leagueId || !isLeagueAdmin) return;
+    const version = ++joinRequestsVersion.current;
+    setJoinRequests({ pending: [], rejected: [] });
+    // Invite-only leagues have invitations, not join requests. Wait for the
+    // matching league's policy before asking the public-request endpoint.
+    if (!leagueId || !canReviewJoinRequests) return;
     try {
       const data = await getLeagueJoinRequests(leagueId);
+      if (version !== joinRequestsVersion.current) return;
       setJoinRequests({ pending: data.pending ?? [], rejected: data.rejected ?? [] });
     } catch (err: unknown) {
+      if (version !== joinRequestsVersion.current) return;
       setJoinRequests({ pending: [], rejected: [] });
       const e = err as { response?: { data?: { detail?: string } }; message?: string };
       const message = e.response?.data?.detail ?? e.message ?? 'Failed to load join requests';
       showToast(message, 'error');
     }
-  }, [leagueId, isLeagueAdmin, showToast]);
+  }, [leagueId, canReviewJoinRequests, showToast]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount
     fetchJoinRequests();
+    return () => {
+      // Ignore responses belonging to a previous league, policy, or mount.
+      joinRequestsVersion.current += 1;
+    };
   }, [fetchJoinRequests]);
 
   const handleJoinRequestProcessed = useCallback(async () => {
@@ -162,7 +175,7 @@ export default function LeagueDetailsTab() {
           onUpdate={updateLeagueInContext}
         />
 
-        {isLeagueAdmin && (
+        {canReviewJoinRequests && (
           <JoinRequestsSection
             pendingRequests={joinRequests.pending}
             rejectedRequests={joinRequests.rejected}
