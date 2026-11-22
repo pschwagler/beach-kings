@@ -1,8 +1,8 @@
 # Beach League privacy inventory
 
 > Status: approved repository baseline for IOS-005
-> Inventory date: 2026-08-07
-> Applies to: Beach League iOS 1.0 and the production API
+> Inventory date: 2026-11-22
+> Applies to: Beach League iOS 1.1.0 and the production API
 > Tracking: no advertising tracking, data-broker sharing, or cross-company
 > tracking
 
@@ -23,16 +23,16 @@ is linked to the user unless the row says otherwise.
 
 | Apple data type | Beach League data | Trigger and purpose | Storage / processors | Retention and deletion |
 | --- | --- | --- | --- | --- |
-| Name | Full name, first/last name, nickname | Account/profile creation, rosters, leagues, matches, and social features | PostgreSQL; hosting/database infrastructure | Active account lifetime; removed or replaced with `Deleted Player` on permanent deletion |
+| Name | Full name, first/last name, nickname | Account/profile creation, rosters, leagues, matches, social features, and matching names in user-requested scoresheet reading | PostgreSQL; hosting/database infrastructure; OpenAI receives relevant player names and nicknames for scoresheet reading | Active account lifetime; removed or replaced with `Deleted Player` on permanent deletion |
 | Email Address | Account email | Email/password or federated authentication, account notices, and support | PostgreSQL; Apple or Google for federated login; Resend for transactional email | Active account lifetime; deleted on permanent deletion |
 | Phone Number | Account phone number | SMS verification and account authentication | PostgreSQL; Twilio for SMS delivery | Active account lifetime; deleted on permanent deletion; short-lived verification records expire |
 | Coarse Location | Selected city/state, league location, and saved home courts | Nearby league/court defaults and regional features | PostgreSQL | Active account lifetime; profile location and home-court links are deleted on permanent deletion |
 | Sensitive Info | Junior/adult group, eligibility country and region, assurance/declaration source, guardian-consent fact, assurance time, and profile gender | Eligibility, junior safeguards, and player-profile functionality | PostgreSQL | Active account lifetime; deleted on permanent deletion. New clients do not collect or derive an exact birthdate. Pre-gate accounts are marked adult from the product owner's account-level attestation; clearing remaining live legacy DOB values is an operator task |
 | Emails or Text Messages | Direct messages and league chat | User-to-user and league communication, safety enforcement | PostgreSQL; OpenAI receives minimized content only when moderation is required | Deleted on permanent account deletion; restricted evidence may remain for 180 days after case closure or longer under legal hold |
-| Photos or Videos | Avatar, court photos, and review photos | Profile and court/review features, safety enforcement | Object storage and PostgreSQL metadata; OpenAI may receive restricted safety evidence | Deleted from primary storage on permanent deletion; restricted evidence follows the moderation retention rule |
-| Gameplay Content | Leagues, seasons, sessions, rosters, matches, scores, rankings, statistics, attendance, and invitations | Core league and gameplay operation | PostgreSQL; Redis may hold short-lived caches | Personal memberships/statistics are deleted. Narrow anonymous completed-match facts may remain indefinitely to preserve other players' records |
+| Photos or Videos | Avatar, court, review, member-only league, and scoresheet photos | Profile, court/review and league sharing features, requested scoresheet reading, safety enforcement | Object storage and PostgreSQL metadata; Redis holds expiring scoresheet drafts; OpenAI receives submitted scoresheet images and may receive restricted safety evidence | Ordinary photos follow account/content deletion; scoresheet drafts expire after eight hours without an update; restricted evidence follows the moderation retention rule; provider retention may apply separately |
+| Gameplay Content | Leagues, seasons, sessions, rosters, matches, scores, rankings, statistics, attendance, and invitations | Core league and gameplay operation | PostgreSQL; Redis holds short-lived caches and scoresheet drafts; OpenAI receives relevant league/shared-session context and reviewed games for requested scoresheet reading and correction | Personal memberships/statistics are deleted. Narrow anonymous completed-match facts may remain indefinitely to preserve other players' records |
 | Customer Support | Feedback and support/privacy requests submitted by the user | Responding to requests and operating support | PostgreSQL or the configured support mailbox; Resend for outbound replies | Retained while needed to resolve the request and meet legal/security obligations; account-linked product feedback is deleted where covered by permanent deletion |
-| Other User Content | Profile attributes, court reviews, captions, court edit suggestions, reports, report reasons, appeals, and session notes | User-requested features, community safety, and dispute handling | PostgreSQL and restricted evidence storage; OpenAI for minimized safety classification | Primary content is deleted with the account where promised; moderation evidence up to 180 days after closure and content-free audit metadata for one year |
+| Other User Content | Profile attributes, court reviews, captions, court edit suggestions, reports, report reasons, appeals, session notes, and scoresheet correction instructions | User-requested features, community safety, and dispute handling | PostgreSQL, expiring Redis scoresheet drafts, and restricted evidence storage; OpenAI for requested scoresheet corrections and minimized safety classification | Primary content is deleted with the account where promised; moderation evidence up to 180 days after closure and content-free audit metadata for one year |
 | User ID | Internal user/player IDs, Apple/Google subject identifiers, authentication-provider type | Authentication, authorization, account linking, security, and record ownership | PostgreSQL; Apple and Google during federated authentication | Provider and ordinary account identifiers are deleted on permanent deletion; deleted-player database row remains only for referential integrity and is not exposed through ordinary APIs |
 | Device ID | Random installation ID and Expo push token | Registering a specific installation for notifications and preventing delivery after logout/account switch | PostgreSQL; Expo Push Service and Apple Push Notification service | Removed or reassigned on logout/account switch, removed when invalid, and deleted with the account |
 | Other Diagnostic Data | Request time, route, response status, IP address, and sanitized error category in operational logs | Security, abuse prevention, uptime, and troubleshooting | Application/hosting logs | Up to 30 days. The release owner must verify this production-provider setting; do not intentionally log tokens, message bodies, contact details, exact coordinates, or photo URLs |
@@ -47,6 +47,17 @@ is linked to the user unless the row says otherwise.
 | Notification permission state | Read from iOS to present accurate settings. | On-device state is not collected; the user's server-side notification preferences are functional account settings. |
 | Query/cache state | TanStack Query and local preference storage cache app data and UI choices on device. | On-device processing is not collected. |
 
+## Scoresheet draft retention
+
+Scoresheet images, candidate-player context, extracted games, and corrections are
+held in an expiring Redis draft. Drafts expire after eight hours without an
+update; editing renews the period, while viewing does not. Confirmed games and
+durable confirmation receipts are separate from the expiring draft. Scoresheet
+requests send relevant names, nicknames, league membership, shared-session
+counts/dates, and reviewed games, rather than full player profiles or contact
+information. OpenAI response storage is disabled with `store: false`; this does
+not claim to disable provider abuse-monitoring or legally required retention.
+
 ## Processors and disclosures
 
 | Processor | Data and purpose | Restrictions |
@@ -57,7 +68,7 @@ is linked to the user unless the row says otherwise.
 | Twilio | Phone number and one-time verification message | SMS authentication only |
 | Resend | Recipient email and transactional message | Account, moderation, and support communication only |
 | Expo Push Service | Expo push token and privacy-conscious notification payload | Background/terminated-app delivery; enhanced access-token security is required before production enablement |
-| OpenAI | Minimized reported/flagged text or image evidence and pseudonymous safety identifiers | Safety classification and recommendation-only triage; response storage disabled where supported; no training opt-in; deployment-account controls still require owner verification |
+| OpenAI | Submitted scoresheet images; relevant player names/nicknames, league membership and shared-session counts/dates; current reviewed games and correction instructions; minimized reported/flagged safety evidence and pseudonymous safety identifiers | User-requested scoresheet extraction/correction, safety classification, and recommendation-only triage; scoresheet response storage explicitly disabled; no training opt-in; provider abuse-monitoring/legal retention and deployment-account controls still require owner verification |
 | Geocoding provider | User-entered city/place search text and, when supplied, transient coordinates | Return autocomplete/nearby results; do not build a user location history |
 | Sentry (deferred) | No data in v1. The SDK remains installed but runtime transmission and build-time symbol upload are disabled. | Do not configure or enable until the privacy manifest, App Store answers, public policy, and this inventory are updated together |
 

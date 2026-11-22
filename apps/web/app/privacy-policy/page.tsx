@@ -23,7 +23,7 @@ export default function PrivacyPolicyPageRoute() {
             Privacy Policy
           </h1>
           <p className="legal-page-date">
-            <strong>Last updated:</strong> August 11, 2026
+            <strong>Last updated:</strong> November 22, 2026
           </p>
         </div>
         
@@ -45,6 +45,7 @@ export default function PrivacyPolicyPageRoute() {
             <li><strong>Profile Information:</strong> Nickname, gender, skill level, height, playing position, preferred side, general location, and optional profile picture</li>
             <li><strong>Age and Consent Information:</strong> Whether the account is junior or adult, the country and state or province used for eligibility, how the age range was provided, whether guardian consent was confirmed, and when the check occurred. We do not ask for or derive an exact birthdate from an age-range response.</li>
             <li><strong>Game Data:</strong> Match results, team compositions, scores, and game statistics you enter or participate in</li>
+            <li><strong>Photos and Scoresheets:</strong> Photos you upload for profiles, courts, reviews, or league sharing, and scoresheet images and correction instructions you submit to read game results</li>
             <li><strong>Communications:</strong> Messages, feedback, or support requests you send to us</li>
           </ul>
 
@@ -77,6 +78,7 @@ export default function PrivacyPolicyPageRoute() {
             <li><strong>Service Delivery:</strong> Create and manage your account, provide access to features, and deliver requested services</li>
             <li><strong>Authentication:</strong> Verify your identity using SMS verification codes sent to your phone number</li>
             <li><strong>Game Management:</strong> Track game results, calculate player rankings and statistics, manage league memberships and schedules</li>
+            <li><strong>Scoresheet Reading:</strong> Extract player names and scores from a photo you choose to submit, match them using relevant player and league context, and apply your corrections before you confirm the games</li>
             <li><strong>Communication:</strong> Send account-related notifications, security alerts, and respond to your inquiries</li>
             <li><strong>Service Improvement:</strong> Troubleshoot operational issues and improve reliability without advertising or cross-company tracking</li>
             <li><strong>Security:</strong> Detect and prevent fraud, abuse, security incidents, and other harmful activity</li>
@@ -92,6 +94,7 @@ export default function PrivacyPolicyPageRoute() {
           <ul>
             <li>Your profile information (name, nickname, skill level, statistics) is visible to other members of leagues you join</li>
             <li>Game results and statistics are visible to league members</li>
+            <li>Member-only league photos are available to members of that league</li>
             <li>Player rankings and match history may be visible to league members</li>
           </ul>
 
@@ -104,9 +107,9 @@ export default function PrivacyPolicyPageRoute() {
             <li><strong>Email Service Provider (Resend):</strong> To send transactional account, moderation, and support email</li>
             <li><strong>Hosting and Infrastructure:</strong> To store data and host the Service</li>
             <li><strong>Database Services:</strong> To securely store and manage user data</li>
-            <li><strong>Object Storage:</strong> To store profile, court, and review photos and access-controlled moderation evidence</li>
+            <li><strong>Object Storage:</strong> To store profile, court, review, and member-only league photos and access-controlled moderation evidence</li>
             <li><strong>Geocoding Provider:</strong> To return city, place, and nearby-location results from search text or coordinates you submit for that request</li>
-            <li><strong>OpenAI:</strong> To provide automated text and image safety classification and recommendation-only case triage. We limit submissions to the content and pseudonymous identifiers needed for safety review, disable response storage where supported, and do not opt this data into model training. Provider abuse-monitoring and legally required safety retention may still apply.</li>
+            <li><strong>OpenAI:</strong> To read scoresheets you submit and apply corrections, and to provide automated text and image safety classification and recommendation-only case triage. Scoresheet requests include the selected image, relevant player names and nicknames, league membership and shared-session context, and, for corrections, your instructions and current reviewed games. We do not send full player profiles or contact information as scoresheet context. We limit safety submissions to the content and pseudonymous identifiers needed for safety review, disable response storage where supported, and do not opt this data into model training. Provider abuse-monitoring and legally required safety retention may still apply.</li>
             <li><strong>Sentry:</strong> To receive privacy-scrubbed mobile crash diagnostics when crash reporting is enabled. Beach League uses Sentry&apos;s United States hosted region and does not enable session replay, screenshots, attachments, product analytics, or advertising tracking.</li>
           </ul>
           <p>These service providers are contractually obligated to use your information only for the purposes we specify and to maintain appropriate security measures.</p>
@@ -139,6 +142,7 @@ export default function PrivacyPolicyPageRoute() {
           <p>Account deletion includes a 30-day recovery period. After permanent deletion, we erase account credentials, provider identifiers, profile details, social data, messages, photos, reviews, invitations, roster memberships, personal statistics, and rating history. The former player profile is no longer searchable, viewable, or usable for contact or interaction.</p>
           <p>We retain only the portions of completed match records needed to preserve other players&apos; histories and league records: the anonymous match position, score, winner, ranked and public flags, and the related session, league, season, and court context. The deleted participant is shown only as a non-clickable &quot;Deleted Player&quot;; public responses do not include their former player ID, profile link, avatar, or player attributes. These factual match records may be retained indefinitely because removing a participant would corrupt the records of everyone else in the match.</p>
           <p>When content is reported or restricted, a limited evidence copy may be stored in a separate access-controlled system for up to 180 days after the moderation case closes, unless a legal hold requires longer retention. Content-free moderation audit metadata may be retained for one year.</p>
+          <p>Unconfirmed scoresheet drafts, including the selected image and player context, expire after eight hours without an update. Editing a draft renews that period; viewing it does not. Games you confirm and import become ordinary game records. The provider retention described above may apply separately.</p>
 
           <h3>5. Data Security</h3>
           <p>We implement reasonable technical and organizational security measures to protect your personal information from unauthorized access, disclosure, alteration, and destruction, including:</p>
