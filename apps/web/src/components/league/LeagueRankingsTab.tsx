@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import { Trophy, Search, Plus, CalendarPlus } from 'lucide-react';
 import { useLeague, ALL_SEASONS_KEY } from '../../contexts/LeagueContext';
@@ -194,6 +195,7 @@ export default function LeagueRankingsTab() {
         </div>
       </div>
       
+      {selectedSeason && <Link className="league-text-button" href={`/league/${leagueId}/seasons/${selectedSeason.id}/points`}>Explore season points →</Link>}
       <RankingsTable
         rankings={rankings}
         onPlayerClick={handlePlayerClick}

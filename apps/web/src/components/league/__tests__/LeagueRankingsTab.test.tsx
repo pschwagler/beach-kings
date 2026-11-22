@@ -211,3 +211,14 @@ describe('LeagueRankingsTab — zero-season league (gap-game all-time view)', ()
     expect(select.querySelectorAll('option')).toHaveLength(2);
   });
 });
+
+it('links the selected season to points exploration and omits all-time exploration', () => {
+  (useLeague as ReturnType<typeof vi.fn>).mockReturnValue(makeLeagueContext({
+    rankingsSeasonId: 7, seasons: [{id:7,name:'Fall',scoring_system:'points_system'}],
+  }));
+  const {rerender}=render(<LeagueRankingsTab/>);
+  expect(screen.getByRole('link',{name:/Explore season points/})).toHaveAttribute('href','/league/1/seasons/7/points');
+  (useLeague as ReturnType<typeof vi.fn>).mockReturnValue(makeLeagueContext());
+  rerender(<LeagueRankingsTab/>);
+  expect(screen.queryByRole('link',{name:/Explore season points/})).toBeNull();
+});

@@ -27,6 +27,7 @@ from backend.models.schemas import (
     PartnershipOpponentStatsResponse,
     SeasonResponse,
 )
+from backend.models.schemas.season_points import SeasonPointsResponse
 from backend.services import (
     data_service,
     friend_service,
@@ -587,3 +588,19 @@ async def finalize_season_awards(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error finalizing season awards: {str(e)}")
+
+
+@router.get(
+    "/api/leagues/{league_id}/seasons/{season_id}/points-history",
+    response_model=SeasonPointsResponse,
+)
+async def season_points_history(
+    league_id: int,
+    season_id: int,
+    user: dict = Depends(make_require_league_member_or_public()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Explore official season points with the same access rules as standings."""
+    from backend.services.leagues.season_points_service import get_season_points
+
+    return await get_season_points(session, league_id, season_id)
