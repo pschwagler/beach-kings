@@ -88,7 +88,7 @@ jobs:
       checks: write
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16.16-alpine
         env:
           POSTGRES_USER: beachkings
           POSTGRES_PASSWORD: beachkings
@@ -100,7 +100,7 @@ jobs:
           --health-cmd "pg_isready -U beachkings -d beachkings_test"
           --health-interval 2s --health-timeout 3s --health-retries 15
       redis:
-        image: redis:7-alpine
+        image: redis:7.4.11-alpine
         ports:
           - 6379:6379
         options: >-
