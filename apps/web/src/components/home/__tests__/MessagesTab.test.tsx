@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -196,5 +196,26 @@ describe('MessagesTab — batchFriendStatus error path', () => {
       'src',
       'https://example.com/other.jpg',
     );
+    expect(screen.getAllByRole('link', { name: "View Other Player's profile" })).toHaveLength(2);
+    for (const link of screen.getAllByRole('link', { name: "View Other Player's profile" })) {
+      expect(link).toHaveAttribute('href', '/player/99/other-player');
+    }
+  });
+
+  it('links conversation names and avatars to profiles while keeping a separate thread action', async () => {
+    mockGetConversations.mockResolvedValue({ items: [{
+      player_id: 99, full_name: 'Other Player', avatar: null, is_friend: true,
+      unread_count: 1, last_message_text: 'Hello there',
+    }] });
+    await act(async () => { await renderMessagesTab(); });
+
+    const nameLink = await screen.findByRole('link', { name: 'Other Player' });
+    const avatarLink = screen.getByRole('link', { name: "View Other Player's profile" });
+    expect(nameLink).toHaveAttribute('href', '/player/99/other-player');
+    expect(avatarLink).toHaveAttribute('href', '/player/99/other-player');
+    expect(nameLink.closest('button')).toBeNull();
+    expect(avatarLink.closest('button')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open conversation with Other Player' }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('thread=99')));
   });
 });

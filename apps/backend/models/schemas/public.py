@@ -148,9 +148,10 @@ class PublicLeagueDetailResponse(BaseModel):
 class PublicPlayerStats(BaseModel):
     """Player stats in a public player profile.
 
-    ``current_rating``, ``total_wins``, and ``win_rate`` are ``Optional``
-    because the service returns ``None`` for private profiles (floor-only
-    visibility).  ``total_games`` is always present.
+    ``total_wins`` and ``win_rate`` are ``None`` when the viewer cannot see
+    the record. Owners and accepted friends can see it regardless of the
+    public game-history setting. ``total_games`` is always present;
+    ``current_rating`` remains optional for compatibility.
     """
 
     current_rating: Optional[float] = None
@@ -171,7 +172,7 @@ class PublicPlayerResponse(BaseModel):
 
     Privacy flags are always serialised so clients can gate UI accordingly:
     - ``profile_is_private``: True when the owner has hidden their full stats.
-    - ``game_history_visible``: True when the owner permits match-history views.
+    - ``game_history_visible``: True for owners, accepted friends, or public opt-in.
 
     ``city`` and ``state`` are top-level floor fields (always present when set;
     the nested ``location`` object carries the full location record).

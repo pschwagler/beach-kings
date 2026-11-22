@@ -1,10 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useAuthModal } from '../../../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../../../src/contexts/ModalContext';
-import { createLeague } from '../../../../src/services/api';
+import { createLeague, getPublicPlayer } from '../../../../src/services/api';
 import { useApp } from '../../../../src/contexts/AppContext';
 import NavBar from '../../../../src/components/layout/NavBar';
 import HomeMenuBar from '../../../../src/components/home/HomeMenuBar';
@@ -27,6 +28,39 @@ export default function PublicPlayerPageClient({ player, canonicalSlug, currentS
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
   const { userLeagues, refreshLeagues } = useApp();
+  const viewerId = isAuthenticated ? user?.id : undefined;
+  const [viewerProfile, setViewerProfile] = useState<{
+    viewerId: number;
+    playerId: number;
+    player: typeof player;
+    signal: AbortSignal;
+  } | null>(null);
+
+  // The server-rendered profile is anonymous and safe to cache for SEO.
+  // Fetch friend/owner visibility through the browser's authenticated API client.
+  useEffect(() => {
+    if (viewerId == null) return;
+    const controller = new AbortController();
+    getPublicPlayer(player.id, { signal: controller.signal })
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setViewerProfile({ viewerId, playerId: player.id, player: result, signal: controller.signal });
+        }
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) console.error('Error loading player profile:', error);
+      });
+    return () => controller.abort();
+  }, [player.id, viewerId]);
+
+  // Never retain another viewer's private data after logout, account changes,
+  // or navigation to a different player, even before effect cleanup runs.
+  const displayPlayer = viewerId != null
+    && viewerProfile?.viewerId === viewerId
+    && viewerProfile.playerId === player.id
+    && !viewerProfile.signal.aborted
+    ? viewerProfile.player
+    : player;
 
   const handleSignOut = async () => {
     try { await logout(); } catch (e) { console.error('Logout error:', e); }
@@ -64,7 +98,7 @@ export default function PublicPlayerPageClient({ player, canonicalSlug, currentS
           <HomeMenuBar activeTab="" />
           <main className="home-content">
             <PublicPlayerPage
-              player={player}
+              player={displayPlayer}
               isAuthenticated={isAuthenticated}
             />
           </main>
