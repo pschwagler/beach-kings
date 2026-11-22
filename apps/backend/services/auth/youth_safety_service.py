@@ -13,7 +13,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Literal
 
-from jose import JWTError, jwt
+from backend.services.auth import jwt_service as jwt
+from backend.services.auth.jwt_service import JWTError
 
 from backend.services.auth import auth_service
 from backend.utils.datetime_utils import utcnow

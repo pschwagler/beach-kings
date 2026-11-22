@@ -24,6 +24,8 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from PIL import Image, ImageOps
+
+from backend.utils.upload_image import open_upload_image
 from pillow_heif import register_heif_opener
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -90,7 +92,7 @@ def validate_image_file(file_content: bytes, content_type: str, filename: str) -
 
     # Try to open with PIL to validate it's a real image
     try:
-        img = Image.open(BytesIO(file_content))
+        img = open_upload_image(file_content)
         img.verify()  # Verify it's a valid image
     except Exception as e:
         return False, f"Invalid or corrupted image file: {str(e)}"
@@ -109,7 +111,7 @@ def preprocess_image(image_bytes: bytes) -> Tuple[bytes, str]:
         Tuple of (processed_bytes, base64_encoded_string)
     """
     # Open image
-    img = ImageOps.exif_transpose(Image.open(BytesIO(image_bytes)))
+    img = ImageOps.exif_transpose(open_upload_image(image_bytes))
 
     # Convert to RGB if necessary (handles RGBA, P mode, etc.)
     if img.mode in ("RGBA", "P", "LA"):
@@ -127,6 +129,7 @@ def preprocess_image(image_bytes: bytes) -> Tuple[bytes, str]:
 
     # Save as JPEG
     output = BytesIO()
+    img.info.clear()
     img.save(output, format="JPEG", quality=92, optimize=True)
     processed_bytes = output.getvalue()
 

@@ -1,8 +1,13 @@
 # Frontend Dockerfile for Next.js
 # Uses turbo prune to create a minimal monorepo subset for Docker builds
 
+# Apply distribution security fixes even when the upstream image tag is unchanged.
+FROM node:22.23.5-slim AS base
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 # Stage 1: Prune the monorepo
-FROM node:22.13-slim AS pruner
+FROM base AS pruner
 WORKDIR /app
 
 # Copy the entire monorepo so turbo prune can analyze the full graph
@@ -13,7 +18,7 @@ COPY . .
 RUN npx turbo prune --scope=@beach-kings/web --docker
 
 # Stage 2: Install dependencies and build
-FROM node:22.13-slim AS builder
+FROM base AS builder
 WORKDIR /app
 
 # Accept build arguments for NEXT_PUBLIC_* env vars (inlined at build time by Next.js)
@@ -33,7 +38,7 @@ COPY --from=pruner /app/scripts/apply-dependency-patches.cjs ./scripts/apply-dep
 COPY --from=pruner /app/patches/ ./patches/
 
 # Install dependencies (workspace-aware, only what's needed)
-RUN npm install
+RUN npm ci
 
 # Create empty .env file if it doesn't exist (Next.js tries to stat it during build)
 RUN touch apps/web/.env || true
@@ -47,7 +52,10 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build:docker --workspace @beach-kings/web
 
 # Stage 3: Production runtime
-FROM node:22.13-slim AS runner
+FROM base AS runner
+# Production starts Node directly; package-manager tooling is unnecessary here.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
 WORKDIR /app
 
 # Set production environment

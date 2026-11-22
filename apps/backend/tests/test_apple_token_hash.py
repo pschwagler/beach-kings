@@ -6,7 +6,9 @@ from unittest.mock import AsyncMock
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-from jose import jwt, jwk
+from jwt.algorithms import RSAAlgorithm
+
+from backend.services.auth import jwt_service as jwt
 
 from backend.api.routes.auth import _capture_apple_refresh_token
 from backend.services import auth_service, apple_token_service, user_service
@@ -19,10 +21,7 @@ def signed_exchange(monkeypatch):
     key = private.private_bytes(
         serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
     )
-    public = private.public_key().public_bytes(
-        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    public_jwk = {**jwk.construct(public, "RS256").to_dict(), "kid": "test-key"}
+    public_jwk = {**RSAAlgorithm.to_jwk(private.public_key(), as_dict=True), "kid": "test-key"}
     monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.example.app")
     monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
     monkeypatch.setattr(auth_service, "_fetch_apple_public_keys", lambda: {"keys": [public_jwk]})

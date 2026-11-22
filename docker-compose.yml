@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-beachkings}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/pschwagler/beach-kings/frontend:latest
+    image: ${FRONTEND_IMAGE:-ghcr.io/pschwagler/beach-kings/frontend:latest}
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -47,7 +47,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ghcr.io/pschwagler/beach-kings/backend:latest
+    image: ${BACKEND_IMAGE:-ghcr.io/pschwagler/beach-kings/backend:latest}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -103,7 +103,7 @@ services:
     restart: unless-stopped
 
   auth-delivery-worker:
-    image: ghcr.io/pschwagler/beach-kings/backend:latest
+    image: ${BACKEND_IMAGE:-ghcr.io/pschwagler/beach-kings/backend:latest}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -138,7 +138,7 @@ services:
     restart: unless-stopped
 
   moderation-worker:
-    image: ghcr.io/pschwagler/beach-kings/backend:latest
+    image: ${BACKEND_IMAGE:-ghcr.io/pschwagler/beach-kings/backend:latest}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -175,7 +175,7 @@ services:
     restart: unless-stopped
 
   push-worker:
-    image: ghcr.io/pschwagler/beach-kings/backend:latest
+    image: ${BACKEND_IMAGE:-ghcr.io/pschwagler/beach-kings/backend:latest}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -197,7 +197,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.11-alpine
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:

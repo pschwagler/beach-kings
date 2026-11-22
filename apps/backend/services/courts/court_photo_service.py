@@ -12,6 +12,8 @@ from io import BytesIO
 from fastapi import UploadFile
 from PIL import Image
 
+from backend.utils.upload_image import open_upload_image
+
 logger = logging.getLogger(__name__)
 
 # Validation constants
@@ -39,7 +41,7 @@ def _process_image_bytes(content: bytes, content_type: str) -> bytes:
         ValueError: If image is corrupted or invalid
     """
     try:
-        img = Image.open(BytesIO(content))
+        img = open_upload_image(content)
         img.load()  # Force full decode to catch corrupted files
     except Image.DecompressionBombError:
         raise ValueError("Image dimensions too large")
@@ -59,6 +61,7 @@ def _process_image_bytes(content: bytes, content_type: str) -> bytes:
 
     # Encode as JPEG
     buf = BytesIO()
+    img.info.clear()
     img.save(buf, format="JPEG", quality=JPEG_QUALITY)
     return buf.getvalue()
 

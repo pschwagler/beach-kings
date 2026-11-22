@@ -270,7 +270,7 @@ class TestAppleIdTokenVerification:
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
 
-        from jose import jwt as jose_jwt
+        from backend.services.auth import jwt_service as jose_jwt
 
         # Create a token without kid in header
         with patch.object(jose_jwt, "get_unverified_header", return_value={}):
@@ -284,7 +284,7 @@ class TestAppleIdTokenVerification:
         # Clear cache
         monkeypatch.setattr(auth_service, "_apple_jwks_cache", None)
 
-        from jose import jwt as jose_jwt
+        from backend.services.auth import jwt_service as jose_jwt
 
         with (
             patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "unknown_kid"}),
@@ -303,7 +303,7 @@ class TestAppleIdTokenVerification:
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
 
-        from jose import jwt as jose_jwt
+        from backend.services.auth import jwt_service as jose_jwt
 
         matching_key = {"kid": "test_kid", "kty": "RSA", "n": "abc", "e": "AQAB"}
 
@@ -337,7 +337,7 @@ class TestAppleIdTokenVerification:
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
 
-        from jose import jwt as jose_jwt
+        from backend.services.auth import jwt_service as jose_jwt
 
         matching_key = {"kid": "test_kid", "kty": "RSA"}
 
@@ -367,8 +367,8 @@ class TestAppleIdTokenVerification:
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", None)
 
-        from jose import jwt as jose_jwt
-        from jose import JWTError
+        from backend.services.auth import jwt_service as jose_jwt
+        from backend.services.auth.jwt_service import JWTError
 
         matching_key = {"kid": "test_kid", "kty": "RSA"}
 
@@ -389,7 +389,7 @@ class TestAppleIdTokenVerification:
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", "com.test.ios, com.test.web")
 
-        from jose import jwt as jose_jwt
+        from backend.services.auth import jwt_service as jose_jwt
 
         matching_key = {"kid": "test_kid", "kty": "RSA"}
         with (
@@ -420,7 +420,7 @@ class TestAppleIdTokenVerification:
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
         monkeypatch.setattr(auth_service, "APPLE_CLIENT_IDS", "com.test.ios")
 
-        from jose import jwt as jose_jwt
+        from backend.services.auth import jwt_service as jose_jwt
 
         with (
             patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}),

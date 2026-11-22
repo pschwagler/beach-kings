@@ -1,0 +1,60 @@
+name: Security checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.5'
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run test:dependency-compatibility
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/check_runtime_lock.py
+      - run: python -m pip install pip-audit
+      - name: Audit the pinned production Python graph
+        run: python -m pip_audit --no-deps --disable-pip -r requirements-runtime.lock
+
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [frontend, backend]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Build production image
+        run: docker build --pull -f Dockerfile.${{ matrix.service }} -t beach-kings/${{ matrix.service }}:security .
+      - name: Block fixable high and critical image vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: beach-kings/${{ matrix.service }}:security
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'

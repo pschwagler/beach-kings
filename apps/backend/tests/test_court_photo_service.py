@@ -169,6 +169,7 @@ class TestProcessImageBytes:
         """PIL.Image.DecompressionBombError should be re-raised as ValueError."""
         with patch("backend.services.courts.court_photo_service.Image.open") as mock_open:
             mock_img = MagicMock()
+            mock_img.size = (10, 10)
             mock_img.load.side_effect = Image.DecompressionBombError("Too large")
             mock_open.return_value = mock_img
             with pytest.raises(ValueError, match="Image dimensions too large"):
