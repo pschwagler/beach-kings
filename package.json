@@ -45,7 +45,7 @@
     }
   },
   "dependencies": {
-    "expo": "~57.0.32",
+    "expo": "~57.0.33",
     "patch-package": "^8.0.1",
     "query-string": "9.5.1",
     "react": "19.2.3",
