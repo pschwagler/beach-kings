@@ -89,6 +89,80 @@ function forbidden(url: string) {
 }
 
 describe("ApiClient auth invalidation", () => {
+  it('surfaces keychain read failures instead of treating them as missing credentials', async () => {
+    const error = new Error('Keychain temporarily locked');
+    const adapter = new MobileStorageAdapter({ getItemAsync: jest.fn().mockRejectedValue(error) });
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      await expect(adapter.getItem('beach_refresh_token')).rejects.toBe(error);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+  it('persists rotated refresh credentials across successive expiries and a cold restart', async () => {
+    mockAxiosInstances.splice(0);
+    const storage = new MemoryStorage();
+    const client = new ApiClient('https://example.test', storage);
+    await client.setAuthTokens('expired-access', 'refresh-1');
+    const api = mockAxiosInstances[0] as unknown as FakeAxiosInstance;
+    const refresh = mockAxiosInstances[1] as unknown as FakeAxiosInstance;
+    refresh.post.mockResolvedValue({ data: { access_token: 'access-2', refresh_token: 'refresh-2' } });
+    const reject = api.interceptors.response.use.mock.calls[0][1] as RejectInterceptor;
+    await reject(unauthorized('/first-day'));
+    expect(await client.getStoredTokens()).toEqual({ accessToken: 'access-2', refreshToken: 'refresh-2' });
+
+    const restarted = new ApiClient('https://example.test', storage);
+    await restarted.getStoredTokens();
+    const restartedApi = mockAxiosInstances[2] as unknown as FakeAxiosInstance;
+    const restartedRefresh = mockAxiosInstances[3] as unknown as FakeAxiosInstance;
+    restartedRefresh.post.mockResolvedValue({ data: { access_token: 'access-3', refresh_token: 'refresh-3' } });
+    const rejectAgain = restartedApi.interceptors.response.use.mock.calls[0][1] as RejectInterceptor;
+    await rejectAgain(unauthorized('/next-day'));
+    expect(restartedRefresh.post).toHaveBeenCalledWith('/api/auth/refresh', { refresh_token: 'refresh-2' }, expect.anything());
+    expect(await restarted.getStoredTokens()).toEqual({ accessToken: 'access-3', refreshToken: 'refresh-3' });
+  });
+
+  it('keeps the replacement refresh token if the access-token write fails during rotation', async () => {
+    mockAxiosInstances.splice(0);
+    class InterruptedStorage extends MemoryStorage {
+      async setItem(key: string, value: string): Promise<void> {
+        if (key === 'beach_access_token' && value === 'access-2') throw new Error('Write interrupted');
+        await super.setItem(key, value);
+      }
+    }
+    const storage = new InterruptedStorage();
+    const client = new ApiClient('https://example.test', storage);
+    await client.setAuthTokens('expired', 'refresh-1');
+    const api = mockAxiosInstances[0] as unknown as FakeAxiosInstance;
+    const refresh = mockAxiosInstances[1] as unknown as FakeAxiosInstance;
+    refresh.post.mockResolvedValue({ data: { access_token: 'access-2', refresh_token: 'refresh-2' } });
+    const reject = api.interceptors.response.use.mock.calls[0][1] as RejectInterceptor;
+    const invalidated = jest.fn();
+    client.onAuthInvalidated(invalidated);
+    await expect(reject(unauthorized('/private'))).rejects.toThrow('Write interrupted');
+    const restarted = new ApiClient('https://example.test', storage);
+    expect(await restarted.getStoredTokens()).toEqual({ accessToken: 'expired', refreshToken: 'refresh-2' });
+    expect(invalidated).not.toHaveBeenCalled();
+  });
+
+  it.each([new Error('offline'), { response: { status: 503 } }, { response: { status: 429 } }])(
+    'preserves login and releases concurrent requests on recoverable refresh failure (%j)', async error => {
+      const { client, refresh, rejectResponse } = await makeClient();
+      await client.setAuthTokens('expired', 'valid-refresh');
+      refresh.post.mockRejectedValue(error);
+      const listener = jest.fn();
+      client.onAuthInvalidated(listener);
+      const outcomes = await Promise.allSettled([
+        rejectResponse(unauthorized('/first')), rejectResponse(unauthorized('/queued')),
+      ]);
+      expect(outcomes.every(item => item.status === 'rejected')).toBe(true);
+      expect(listener).not.toHaveBeenCalled();
+      expect(await client.getStoredTokens()).toEqual({ accessToken: 'expired', refreshToken: 'valid-refresh' });
+      refresh.post.mockResolvedValue({ data: { access_token: 'new-access', refresh_token: 'new-refresh' } });
+      await rejectResponse(unauthorized('/retry'));
+      expect(await client.getStoredTokens()).toEqual({ accessToken: 'new-access', refreshToken: 'new-refresh' });
+    },
+  );
   it('snapshots the old bearer credential for best-effort server logout', async () => {
     const { client, api, refresh } = await makeClient();
     await client.setAuthTokens('old-access', 'old-refresh');
@@ -157,7 +231,7 @@ describe("ApiClient auth invalidation", () => {
       const refresh = mockAxiosInstances[1] as unknown as FakeAxiosInstance;
       const rejectResponse = api.interceptors.response.use.mock
         .calls[0][1] as RejectInterceptor;
-      refresh.post.mockRejectedValue(new Error('refresh rejected'));
+      refresh.post.mockRejectedValue(unauthorized('/api/auth/refresh'));
       const listener = jest.fn();
       client.onAuthInvalidated(listener);
 
@@ -243,7 +317,7 @@ describe("ApiClient auth invalidation", () => {
     const api = mockAxiosInstances[0] as unknown as FakeAxiosInstance;
     const refresh = mockAxiosInstances[1] as unknown as FakeAxiosInstance;
     const rejectResponse = api.interceptors.response.use.mock.calls[0][1] as RejectInterceptor;
-    refresh.post.mockRejectedValue(new Error('refresh rejected'));
+    refresh.post.mockRejectedValue(unauthorized('/api/auth/refresh'));
     const listener = jest.fn();
     client.onAuthInvalidated(listener);
     const first = rejectResponse(unauthorized('/old')).catch(() => undefined);
@@ -318,7 +392,7 @@ describe("ApiClient auth invalidation", () => {
     expect((await client.getStoredTokens()).accessToken).toBe('fresh');
   });
 
-  it('bounds a stalled shared refresh and releases every queued request with existing invalidation policy', async () => {
+  it('bounds a stalled shared refresh and preserves credentials for retry', async () => {
     jest.useFakeTimers();
     try {
       const { client, refresh, rejectResponse } = await makeClient();
@@ -335,7 +409,7 @@ describe("ApiClient auth invalidation", () => {
       jest.advanceTimersByTime(15_000);
       expect((await outcomes).every(result => result.status === 'rejected')).toBe(true);
       expect(config.signal.aborted).toBe(true);
-      expect(listener).toHaveBeenCalledTimes(1);
+      expect(listener).not.toHaveBeenCalled();
       expect((client as unknown as { failedQueue: unknown[] }).failedQueue).toHaveLength(0);
       expect(jest.getTimerCount()).toBe(0);
     } finally {
@@ -393,7 +467,7 @@ describe("ApiClient auth invalidation", () => {
   it("emits once after refresh failure and clears credentials", async () => {
     const { client, refresh, rejectResponse } = await makeClient();
     await client.setAuthTokens("expired", "bad-refresh");
-    refresh.post.mockRejectedValue(new Error("refresh rejected"));
+    refresh.post.mockRejectedValue(unauthorized('/api/auth/refresh'));
     const listener = jest.fn();
     client.onAuthInvalidated(listener);
 

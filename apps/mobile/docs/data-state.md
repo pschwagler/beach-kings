@@ -40,8 +40,11 @@ must not become alternate homes for domain caches or query policy.
 - Authentication transitions cancel active work and clear Query's query and
   mutation caches before publishing logout or a different account. The auth
   provider owns this ordering; a cache guard is defense-in-depth only.
-- Failed token refresh notifies authentication so it performs the same cleanup
-  and navigation transition as explicit logout.
+- A rejected refresh token (401) or missing refresh credential notifies authentication
+  so it performs the same cleanup and navigation transition as explicit logout.
+  Network/server/storage failures and timeouts preserve credentials and release
+  waiting requests for retry. During cold-start recovery, do not publish an
+  unverified identity or redirect to login; show retry recovery until verification succeeds.
 - Treat WebSocket events as cache inputs: update known Query values or invalidate
   affected keys. Do not maintain a separate WebSocket-backed domain store.
 - Put optimistic updates, rollback, and invalidation in shared domain mutations.

@@ -45,7 +45,7 @@ export class MobileStorageAdapter implements StorageAdapter {
       return await this.secureStore.getItemAsync(key);
     } catch (error) {
       console.error('Error reading from secure store:', error);
-      return null;
+      throw error;
     }
   }
 

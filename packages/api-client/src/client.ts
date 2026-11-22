@@ -181,6 +181,7 @@ export class ApiClient {
           const hadCredentials = Boolean(
             this.authTokens.accessToken || this.authTokens.refreshToken,
           );
+          let missingRefreshToken = false;
 
           try {
             const newAccessToken = await withRequestDeadline(async (signal, timeout) => {
@@ -189,7 +190,10 @@ export class ApiClient {
               };
               const latestRefreshToken = await this.storage.getItem(REFRESH_TOKEN_KEY) || this.authTokens.refreshToken;
               assertCurrent();
-              if (!latestRefreshToken) throw new Error('No refresh token available');
+              if (!latestRefreshToken) {
+                missingRefreshToken = true;
+                throw new Error('No refresh token available');
+              }
               const { data } = await this.refreshClient.post('/api/auth/refresh', {
                 refresh_token: latestRefreshToken,
               }, { signal, timeout });
@@ -198,7 +202,11 @@ export class ApiClient {
               if (typeof token !== 'string' || token.length === 0) {
                 throw new Error('Refresh response did not include an access token');
               }
-              await this.persistAuthTokens(token);
+              const rotatedRefreshToken = data.refresh_token;
+              if (rotatedRefreshToken != null && (typeof rotatedRefreshToken !== 'string' || !rotatedRefreshToken)) {
+                throw new Error('Refresh response included an invalid refresh token');
+              }
+              await this.persistAuthTokens(token, rotatedRefreshToken);
               assertCurrent();
               return token;
             },
@@ -223,6 +231,16 @@ export class ApiClient {
             if (!hadCredentials && !this.authTokens.accessToken && !this.authTokens.refreshToken) {
               this.invalidatePendingRefresh();
               return Promise.reject(error);
+            }
+            const status = (refreshError as { response?: { status?: number } })?.response?.status;
+            if (!missingRefreshToken && status !== 401) {
+              // Network errors, deadlines, server errors, and storage failures
+              // are recoverable. Release every waiting request, but preserve
+              // the session so a later request can retry with saved credentials.
+              this.isRefreshing = false;
+              this.refreshController = null;
+              this.processQueue(refreshError, null);
+              return Promise.reject(refreshError);
             }
             // Clearing immediately retires the logical refresh and queue. OS
             // storage may not be cancellable; its FIFO cleanup can finish later.
@@ -324,12 +342,14 @@ export class ApiClient {
       this.authInvalidationEmitted = false;
     }
     await this.mutateStorage(async () => {
-      if (accessToken) await this.storage.setItem(ACCESS_TOKEN_KEY, accessToken);
-      else await this.storage.removeItem(ACCESS_TOKEN_KEY);
+      // The old refresh credential is invalid after rotation. Store its
+      // replacement first so an interrupted access-token write remains recoverable.
       if (typeof refreshToken !== 'undefined') {
         if (refreshToken) await this.storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
         else await this.storage.removeItem(REFRESH_TOKEN_KEY);
       }
+      if (accessToken) await this.storage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      else await this.storage.removeItem(ACCESS_TOKEN_KEY);
     });
   }
 

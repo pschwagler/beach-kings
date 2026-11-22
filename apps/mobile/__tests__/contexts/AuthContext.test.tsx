@@ -7,7 +7,7 @@
 import React from 'react';
 import { Text } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { render, act, waitFor } from '@testing-library/react-native';
+import { render, act, waitFor, fireEvent } from '@testing-library/react-native';
 import { renderHook } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -95,6 +95,8 @@ jest.mock('@/features/auth/authRetirementStore', () => ({
 jest.mock('@/telemetry/sentry', () => ({
   setTelemetryUser: (...args: unknown[]) => mockSetTelemetryUser(...args),
 }));
+
+jest.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ isDark: false }) }));
 
 jest.mock('expo-notifications', () => ({
   setBadgeCountAsync: jest.fn(() => Promise.resolve(true)),
@@ -357,7 +359,7 @@ describe('AuthProvider — session restore', () => {
       accessToken: 'expired',
       refreshToken: null,
     });
-    mockGetMe.mockRejectedValue(new Error('401 Unauthorized'));
+    mockGetMe.mockRejectedValue({ response: { status: 401 } });
 
     const { getByTestId } = render(
       <AuthProvider>
@@ -373,6 +375,49 @@ describe('AuthProvider — session restore', () => {
     const parsed = JSON.parse(getByTestId('output').props.children);
     expect(parsed.isAuthenticated).toBe(false);
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([new Error('Network unavailable'), { response: { status: 503 } }])(
+    'preserves saved login on temporary restore failure and retries successfully (%j)', async error => {
+      mockGetStoredTokens.mockResolvedValue({ accessToken: 'saved-access', refreshToken: 'saved-refresh' });
+      mockGetMe.mockRejectedValueOnce(error).mockResolvedValue(mockMeResponse);
+      mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+      const view = render(<AuthProvider><TestConsumer /></AuthProvider>);
+      expect(await view.findByText("Couldn't reconnect")).toBeTruthy();
+      expect(view.queryByTestId('output')).toBeNull();
+      expect(mockClearAuthTokens).not.toHaveBeenCalled();
+      expect(mockMarkAuthRetired).not.toHaveBeenCalled();
+      fireEvent.press(view.getByTestId('retry-session-restore'));
+      await waitFor(() => expect(JSON.parse(view.getByTestId('output').props.children).isAuthenticated).toBe(true));
+    },
+  );
+
+  it('does not erase credentials when secure storage is temporarily unavailable', async () => {
+    mockGetStoredTokens.mockRejectedValueOnce(new Error('Keychain locked'));
+    const view = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    expect(await view.findByText("Couldn't reconnect")).toBeTruthy();
+    expect(mockClearAuthTokens).not.toHaveBeenCalled();
+    expect(mockMarkAuthRetired).not.toHaveBeenCalled();
+  });
+
+  it('allows explicitly signing out from restore recovery', async () => {
+    (api.logoutCurrentSession as jest.Mock).mockResolvedValue({ status: 'success' });
+    mockGetStoredTokens.mockResolvedValue({ accessToken: 'saved-access', refreshToken: 'saved-refresh' });
+    mockGetMe.mockRejectedValueOnce(new Error('Offline'));
+    const view = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    fireEvent.press(await view.findByText('Sign in with another account'));
+    await waitFor(() => expect(JSON.parse(view.getByTestId('output').props.children).isLoading).toBe(false));
+    expect(mockClearAuthTokens).toHaveBeenCalled();
+    expect(mockMarkAuthRetired).toHaveBeenCalled();
+  });
+
+  it('restores with a refresh token when the access token is missing', async () => {
+    mockGetStoredTokens.mockResolvedValue({ accessToken: null, refreshToken: 'saved-refresh' });
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    const view = render(<AuthProvider><TestConsumer /></AuthProvider>);
+    await waitFor(() => expect(JSON.parse(view.getByTestId('output').props.children).isAuthenticated).toBe(true));
+    expect(mockGetMe).toHaveBeenCalled();
+    expect(mockClearAuthTokens).not.toHaveBeenCalled();
   });
 });
 
