@@ -7,6 +7,7 @@ from PIL import Image, UnidentifiedImageError
 
 from backend.services import avatar_service, court_photo_service, photo_match_service
 from backend.utils import upload_image
+from backend.services.leagues import league_picture_service
 
 
 def image_bytes(fmt="PNG", size=(16, 12)):
@@ -15,7 +16,7 @@ def image_bytes(fmt="PNG", size=(16, 12)):
     return output.getvalue()
 
 
-@pytest.mark.parametrize("fmt", ["JPEG", "PNG", "WEBP"])
+@pytest.mark.parametrize("fmt", ["JPEG", "PNG", "WEBP", "HEIF"])
 def test_supported_photos_decode(fmt):
     with upload_image.open_upload_image(image_bytes(fmt)) as image:
         image.load()
@@ -31,6 +32,8 @@ def test_disallowed_decoders_are_never_selected_for_mislabeled_uploads(fmt):
     assert photo_match_service.validate_image_file(content, "image/jpeg", "photo.jpg")[0] is False
     with pytest.raises(ValueError):
         court_photo_service._process_image_bytes(content, "image/jpeg")
+    with pytest.raises(ValueError):
+        league_picture_service.process_picture(content, "image/jpeg")
     with pytest.raises(UnidentifiedImageError):
         avatar_service.process_avatar(content)
     with pytest.raises(UnidentifiedImageError):
@@ -50,6 +53,7 @@ def test_reencoded_photos_drop_private_metadata():
     Image.new("RGB", (16, 12), "red").save(output, format="JPEG", exif=exif)
     for result in [
         avatar_service.process_avatar(output.getvalue()),
+        league_picture_service.process_picture(output.getvalue(), "image/jpeg"),
         court_photo_service._process_image_bytes(output.getvalue(), "image/jpeg"),
         photo_match_service.preprocess_image(output.getvalue())[0],
     ]:
