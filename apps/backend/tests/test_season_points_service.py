@@ -56,6 +56,7 @@ async def test_points_history_matches_standings(rating, complete):
             dict(
                 player_id=1,
                 display_name="A. Player",
+                avatar_url="/test-avatar.png",
                 rank=1,
                 games_played=1,
                 wins=1,
@@ -74,6 +75,7 @@ async def test_points_history_matches_standings(rating, complete):
         ),
     ):
         response = SeasonPointsResponse.model_validate(await get_season_points(db, 1, 2))
+    assert response.players[0].avatar == "/test-avatar.png"
     assert response.players[0].complete == complete
     if not complete:
         assert response.players[0].history == []

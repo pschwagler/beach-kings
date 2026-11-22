@@ -2,7 +2,7 @@ export interface SeasonPointEvent {
   match: number; session: string; date: string; points: number; change: number; result: 'W' | 'L' | 'D';
 }
 export interface SeasonPointsPlayer {
-  id: string; name: string; rank: number; games: number; wins: number; points: number;
+  id: string; name: string; avatar?: string | null; rank: number; games: number; wins: number; points: number;
   complete: boolean; history: SeasonPointEvent[];
 }
 export interface SeasonPointsData {

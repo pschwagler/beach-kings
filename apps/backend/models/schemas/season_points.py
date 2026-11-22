@@ -16,6 +16,7 @@ class PointEvent(BaseModel):
 class PointsPlayer(BaseModel):
     id: str
     name: str
+    avatar: str | None = None
     rank: int
     games: int
     wins: int

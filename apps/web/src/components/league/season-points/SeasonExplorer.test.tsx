@@ -11,6 +11,11 @@ const data:SeasonPointsData={league:'Test league',season:'Spring',startDate:'202
 it('supports minimum GP only, preserves multiselect, and selects a curve for the heading',()=>{
  vi.stubGlobal('matchMedia',vi.fn(()=>({matches:false})));
  render(<SeasonExplorer season={data}/>);
+ expect(screen.queryByText('Points exploration')).toBeNull();
+ expect(screen.queryByText('THE DETAILS')).toBeNull();
+ expect(screen.queryByRole('table')).toBeNull();
+ expect(screen.getAllByLabelText('Test Alpha avatar')).toHaveLength(2);
+ expect(screen.getByRole('group',{name:'Chart timeline'})).toHaveClass('segmented-control');
  expect(screen.queryByLabelText('Maximum games played')).toBeNull();
  fireEvent.click(screen.getByLabelText('Plot Test Beta'));
  expect(screen.getByTestId('curves').children).toHaveLength(2);

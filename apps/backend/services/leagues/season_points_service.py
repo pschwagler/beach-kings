@@ -96,6 +96,7 @@ async def get_season_points(db, league_id: int, season_id: int):
             dict(
                 id=str(pid),
                 name=row["display_name"],
+                avatar=row.get("avatar_url") or row.get("initials"),
                 rank=row["rank"],
                 games=row["games_played"],
                 wins=row["wins"],
