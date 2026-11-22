@@ -28,10 +28,10 @@ import CourtSelector from '../court/CourtSelector';
 import './PublicPlayerPage.css';
 
 interface PublicPlayerStats {
-  current_rating: number;
+  current_rating: number | null;
   total_games: number;
-  total_wins: number;
-  win_rate: number;
+  total_wins: number | null;
+  win_rate: number | null;
 }
 
 interface PublicPlayerLocation {
@@ -55,6 +55,7 @@ interface PublicPlayer {
   is_placeholder: boolean;
   location: PublicPlayerLocation | null;
   stats: PublicPlayerStats | null;
+  game_history_visible?: boolean;
   league_memberships: PublicPlayerLeagueMembership[];
 }
 
@@ -181,6 +182,17 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
   };
 
   const { stats } = player;
+  const recordIsPrivate = player.game_history_visible === false;
+  const winLossRecord = recordIsPrivate
+    ? 'Private'
+    : stats?.total_wins != null
+      ? `${stats.total_wins}–${stats.total_games - stats.total_wins}`
+      : '—';
+  const winRate = recordIsPrivate
+    ? 'Private'
+    : stats?.win_rate != null && stats.total_games > 0
+      ? `${Math.round(stats.win_rate * 100)}%`
+      : '—';
 
   const renderFriendButton = () => {
     if (!isAuthenticated || friendStatus === null || friendStatus === 'self' || isPlaceholder) return null;
@@ -404,7 +416,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
           <div className="public-player__stats" data-testid="player-stats">
             <div className="public-player__stat">
               <span className="public-player__stat-value">
-                {Math.round(stats.current_rating || 0)}
+                {stats.current_rating != null ? Math.round(stats.current_rating) : '—'}
               </span>
               <span className="public-player__stat-label">Rating</span>
             </div>
@@ -414,13 +426,13 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
             </div>
             <div className="public-player__stat">
               <span className="public-player__stat-value">
-                {stats.total_wins || 0}–{(stats.total_games || 0) - (stats.total_wins || 0)}
+                {winLossRecord}
               </span>
               <span className="public-player__stat-label">W–L</span>
             </div>
             <div className="public-player__stat">
               <span className="public-player__stat-value">
-                {stats.total_games > 0 ? `${Math.round(stats.win_rate * 100)}%` : '—'}
+                {winRate}
               </span>
               <span className="public-player__stat-label">Win Rate</span>
             </div>

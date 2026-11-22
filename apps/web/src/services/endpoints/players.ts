@@ -179,6 +179,12 @@ export const getPublicPlayers = async (params: Record<string, any> = {}, options
   return response.data;
 };
 
+/** Get a profile with the current viewer's authenticated visibility. */
+export const getPublicPlayer = async (playerId: number, { signal }: { signal?: AbortSignal } = {}) => {
+  const response = await api.get(`/api/public/players/${playerId}`, { signal });
+  return response.data;
+};
+
 /**
  * Player Home Courts
  */

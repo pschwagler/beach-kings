@@ -33,6 +33,26 @@
   font-weight: 700;
 }
 
+.message-thread-profile-link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.message-thread-author[href] {
+  text-decoration: none;
+}
+
+.message-thread-author[href]:hover {
+  text-decoration: underline;
+}
+
+.message-thread-profile-link:focus-visible,
+.message-thread-author[href]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
 .message-thread-bubble {
   width: fit-content;
   min-width: 78px;

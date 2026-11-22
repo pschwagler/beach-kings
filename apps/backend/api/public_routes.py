@@ -205,9 +205,8 @@ async def get_public_player(
     Get public-facing player profile with privacy gating.
 
     Returns the floor (name, avatar, level, city/state, total games) for all
-    viewers.  Full detail (W-L, rank, win%, league memberships) is only
-    returned when the profile is public (``profile_is_private=False``) or the
-    request is authenticated as the player's own user.  Game history visibility
+    viewers. W-L and win percentage are returned to the owner, accepted friends,
+    and anyone when the player enables ``show_game_history``. Game history visibility
     is signalled by the ``game_history_visible`` flag in the response.
 
     Anonymous/unrelated viewers only see players with at least 1 game.

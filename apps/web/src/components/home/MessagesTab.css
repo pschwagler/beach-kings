@@ -52,6 +52,7 @@
 }
 
 .messages-tab__conversation-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -278,6 +279,40 @@
   padding: 12px 0;
   border-bottom: 1px solid var(--gray-200);
   margin-bottom: 12px;
+}
+
+.messages-tab__conversation-open {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.messages-tab__profile-link {
+  position: relative;
+  z-index: 1;
+  color: inherit;
+  text-decoration: none;
+}
+
+.messages-tab__profile-link:hover {
+  text-decoration: underline;
+}
+
+.messages-tab__thread-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.messages-tab__conversation-open:focus-visible,
+.messages-tab__profile-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
 }
 
 .messages-tab__back-btn {

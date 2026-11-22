@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -131,6 +131,40 @@ const mutualFriendsList = [
   { player_id: 7, full_name: 'Mutual One', avatar: null },
   { player_id: 8, full_name: 'Mutual Two', avatar: null },
 ];
+
+describe('PublicPlayerPage — stats visibility', () => {
+  it.each([
+    { name: 'private record', visible: false, wins: null, rate: null, record: 'Private', percentage: 'Private' },
+    { name: 'private record with cached values', visible: false, wins: 50, rate: 0.5747, record: 'Private', percentage: 'Private' },
+    { name: 'unavailable record', visible: true, wins: null, rate: null, record: '—', percentage: '—' },
+    { name: 'missing visibility flag and unavailable record', visible: undefined, wins: null, rate: null, record: '—', percentage: '—' },
+    { name: 'visible winning record', visible: true, wins: 50, rate: 0.5747, record: '50–37', percentage: '57%' },
+    { name: 'visible zero-win record', visible: true, wins: 0, rate: 0, record: '0–87', percentage: '0%' },
+  ])('renders $name accurately', ({ visible, wins, rate, record, percentage }) => {
+    render(<PublicPlayerPage player={{
+      ...basePlayer,
+      game_history_visible: visible,
+      stats: { current_rating: 1411, total_games: 87, total_wins: wins, win_rate: rate },
+    }} isAuthenticated={false} />);
+
+    expect(within(screen.getByText('W–L').parentElement!).getByText(record)).toBeInTheDocument();
+    expect(within(screen.getByText('Win Rate').parentElement!).getByText(percentage)).toBeInTheDocument();
+    expect(within(screen.getByText('Rating').parentElement!).getByText('1411')).toBeInTheDocument();
+    expect(within(screen.getByText('Games').parentElement!).getByText('87')).toBeInTheDocument();
+  });
+
+  it('does not invent a rating or win rate for a player without game stats', () => {
+    render(<PublicPlayerPage player={{
+      ...basePlayer,
+      game_history_visible: true,
+      stats: { current_rating: null, total_games: 0, total_wins: 0, win_rate: 0 },
+    }} isAuthenticated={false} />);
+
+    expect(within(screen.getByText('Rating').parentElement!).getByText('—')).toBeInTheDocument();
+    expect(within(screen.getByText('W–L').parentElement!).getByText('0–0')).toBeInTheDocument();
+    expect(within(screen.getByText('Win Rate').parentElement!).getByText('—')).toBeInTheDocument();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Tests
