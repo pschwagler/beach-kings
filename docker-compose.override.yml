@@ -2,5 +2,7 @@
 # Exposes debugpy port for remote debugging.
 services:
   backend:
+    build:
+      target: development
     ports:
       - "${DEBUGPY_PORT:-5678}:${DEBUGPY_PORT:-5678}"

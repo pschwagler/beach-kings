@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22.13"
+          node-version: "22.23.5"
           cache: npm
 
       - name: Install locked dependencies
@@ -61,11 +61,10 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Report Python dependency advisories
-        continue-on-error: true
+      - name: Block vulnerable production Python dependencies
         run: |
           python -m pip install pip-audit
-          python -m pip_audit -r requirements.txt
+          python -m pip_audit --no-deps --disable-pip -r requirements-runtime.lock
 
       - name: Record owner review checklist
         run: |

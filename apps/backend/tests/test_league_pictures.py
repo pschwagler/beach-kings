@@ -145,7 +145,9 @@ def test_decoder_rejects_excessive_dimensions_before_loading_pixels(monkeypatch)
         def __exit__(self, *args):
             return None
 
-    monkeypatch.setattr(Image, "open", lambda _: Source())
+    monkeypatch.setattr(
+        "backend.services.leagues.league_picture_service.open_upload_image", lambda _: Source()
+    )
     with pytest.raises(ValueError, match="25 megapixels"):
         process_picture(b"image", "image/jpeg")
 

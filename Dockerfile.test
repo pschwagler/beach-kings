@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy Python requirements and install
-COPY requirements.txt .
+COPY requirements*.txt requirements-runtime.lock ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code (from apps/backend to maintain backend.* import structure)

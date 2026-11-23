@@ -9,7 +9,7 @@ if [[ $# -ne 1 || "$1" != s3://*.dump ]]; then
 fi
 
 AWS_REGION="${BACKUP_AWS_REGION:-us-east-1}"
-POSTGRES_IMAGE="${BACKUP_DRILL_POSTGRES_IMAGE:-postgres:16-alpine}"
+POSTGRES_IMAGE="${BACKUP_DRILL_POSTGRES_IMAGE:-postgres:16.16-alpine}"
 source_uri="$1"
 drill_dir="$(mktemp -d)"
 container_name="beach-kings-restore-drill-${RANDOM}-$$"

@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
-from jose import jwt
+from backend.services.auth import jwt_service as jwt
 
 from backend.utils.datetime_utils import utcnow
 

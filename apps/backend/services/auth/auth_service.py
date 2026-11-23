@@ -14,8 +14,9 @@ from typing import Optional
 import bcrypt
 import phonenumbers
 from dotenv import load_dotenv
-from jose import JWTError, jwt
-from jose.exceptions import ExpiredSignatureError
+from backend.services.auth import jwt_service as jwt
+from backend.services.auth.jwt_service import JWTError
+from backend.services.auth.jwt_service import ExpiredSignatureError
 from phonenumbers import NumberParseException, PhoneNumberFormat
 from sqlalchemy.ext.asyncio import AsyncSession
 from twilio.rest import Client
@@ -484,7 +485,7 @@ def verify_apple_id_token(token: str, *, access_token: str | None = None) -> dic
     """
     Verify an Apple ID token and extract user info.
 
-    Uses python-jose to decode the RS256 JWT against Apple's public JWKS,
+    Uses PyJWT to decode the RS256 JWT against Apple's public JWKS,
     validating issuer and audience claims.
 
     Args:

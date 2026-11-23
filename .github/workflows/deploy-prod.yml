@@ -10,13 +10,9 @@ on:
         required: true
         default: "main"
         type: string
-      skip_build:
-        description: "Skip image build (use existing GHCR images)"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
+  contents: read
   packages: write
 
 concurrency:
@@ -24,8 +20,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    uses: ./.github/workflows/security.yml
+    with:
+      ref: ${{ inputs.branch }}
+
   build-and-push:
-    if: ${{ !inputs.skip_build }}
+    outputs:
+      frontend_digest: ${{ steps.frontend.outputs.digest }}
+      backend_digest: ${{ steps.backend.outputs.digest }}
+    needs: security
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -50,6 +54,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push frontend image
+        id: frontend
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -62,6 +67,7 @@ jobs:
             NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
 
       - name: Build and push backend image
+        id: backend
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -69,21 +75,39 @@ jobs:
           push: true
           tags: ghcr.io/pschwagler/beach-kings/backend:latest
 
+      - name: Scan the exact frontend image selected for deployment
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/pschwagler/beach-kings/frontend@${{ steps.frontend.outputs.digest }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Scan the exact backend image selected for deployment
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/pschwagler/beach-kings/backend@${{ steps.backend.outputs.digest }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
   deploy:
     runs-on: ubuntu-latest
-    needs: build-and-push
-    if: ${{ always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
+    needs: [security, build-and-push]
+    if: ${{ always() && needs.security.result == 'success' && needs.build-and-push.result == 'success' }}
     steps:
       - name: Deploy to prod EC2
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_BRANCH: ${{ inputs.branch }}
+          FRONTEND_IMAGE: ghcr.io/pschwagler/beach-kings/frontend@${{ needs.build-and-push.outputs.frontend_digest }}
+          BACKEND_IMAGE: ghcr.io/pschwagler/beach-kings/backend@${{ needs.build-and-push.outputs.backend_digest }}
         with:
           host: ${{ secrets.PROD_EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.PROD_EC2_SSH_KEY }}
           command_timeout: 20m
-          envs: DEPLOY_BRANCH
+          envs: DEPLOY_BRANCH,FRONTEND_IMAGE,BACKEND_IMAGE
           script: |
             set -e
             cd ~/beach-kings
@@ -117,10 +141,10 @@ jobs:
             # ENV here overrides docker-compose's development-friendly local
             # default for every production service.
             export ENV=production
-            docker-compose pull frontend backend
+            docker-compose -f docker-compose.yml pull frontend backend
 
             echo "=== Starting containers ==="
-            docker-compose up -d
+            docker-compose -f docker-compose.yml up -d
 
             echo "=== Waiting for services to start ==="
             sleep 15
@@ -163,7 +187,7 @@ jobs:
             fi
 
             echo "=== Applying committed court catalog ==="
-            docker-compose exec -T backend bash -c \
+            docker-compose -f docker-compose.yml exec -T backend bash -c \
               "cd /app && PYTHONPATH=/app python -m backend.scripts.sync_catalog --apply"
 
             # Frontend health check
@@ -187,7 +211,7 @@ jobs:
             bash deployment/verify-public-web-routes.sh https://beachleaguevb.com
 
             echo "=== Cleaning up old images ==="
-            docker system prune -af || true
+            docker image prune -f || true
 
             echo ""
             echo "=== Deploy complete ==="

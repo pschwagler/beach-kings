@@ -11,6 +11,8 @@ from typing import Tuple
 
 from PIL import Image
 
+from backend.utils.upload_image import open_upload_image
+
 logger = logging.getLogger(__name__)
 
 # Validation constants
@@ -45,7 +47,7 @@ def validate_avatar(file_bytes: bytes, content_type: str) -> Tuple[bool, str]:
         return False, f"Invalid file type '{content_type}'. Allowed: JPEG, PNG, WebP, HEIC"
 
     try:
-        img = Image.open(BytesIO(file_bytes))
+        img = open_upload_image(file_bytes)
         width, height = img.size
         pixel_count = width * height
         if pixel_count > MAX_IMAGE_PIXELS:
@@ -72,7 +74,7 @@ def process_avatar(image_bytes: bytes) -> bytes:
     Returns:
         Processed JPEG image bytes
     """
-    img = Image.open(BytesIO(image_bytes))
+    img = open_upload_image(image_bytes)
 
     # Convert to RGB (handles RGBA, P, LA, etc.)
     if img.mode in ("RGBA", "P", "LA"):
@@ -98,5 +100,6 @@ def process_avatar(image_bytes: bytes) -> bytes:
 
     # Compress as JPEG
     output = BytesIO()
+    img.info.clear()
     img.save(output, format="JPEG", quality=JPEG_QUALITY, optimize=True)
     return output.getvalue()

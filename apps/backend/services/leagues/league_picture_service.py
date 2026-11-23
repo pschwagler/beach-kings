@@ -4,6 +4,8 @@ from io import BytesIO
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from backend.utils.upload_image import open_upload_image
+
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_STORED_BYTES = 512 * 1024
 MAX_PIXELS = 25_000_000
@@ -16,7 +18,7 @@ def process_picture(content: bytes, content_type: str | None) -> bytes:
     if content_type not in ALLOWED_TYPES:
         raise ValueError("Choose a JPEG, PNG, or WebP photo.")
     try:
-        with Image.open(BytesIO(content)) as source:
+        with open_upload_image(content) as source:
             if source.width * source.height > MAX_PIXELS:
                 raise ValueError("Choose a photo smaller than 25 megapixels.")
             image = ImageOps.exif_transpose(source)
@@ -27,6 +29,7 @@ def process_picture(content: bytes, content_type: str | None) -> bytes:
             image.thumbnail((1024, 768), resample=Image.Resampling.LANCZOS)
             for quality in (82, 72, 62):
                 output = BytesIO()
+                image.info.clear()
                 image.save(output, format="JPEG", quality=quality, optimize=True)
                 result = output.getvalue()
                 if len(result) <= MAX_STORED_BYTES:

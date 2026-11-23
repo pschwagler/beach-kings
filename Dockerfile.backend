@@ -1,62 +1,24 @@
-# Backend Dockerfile for FastAPI
-FROM python:3.11-slim
+# Runtime-only image; the retired WhatsApp service no longer needs Node.js.
+FROM python:3.11-slim AS runtime
 
-# Install bash, PostgreSQL client, and Node.js
-# Chromium dependencies for WhatsApp Web.js are commented out (WhatsApp service is inactive)
-RUN apt-get update && apt-get install -y \
-    curl \
-    bash \
-    # chromium \
-    # chromium-sandbox \
-    # fonts-liberation \
-    # libappindicator3-1 \
-    # libasound2 \
-    # libatk-bridge2.0-0 \
-    # libatk1.0-0 \
-    # libcups2 \
-    # libdbus-1-3 \
-    # libnspr4 \
-    # libnss3 \
-    # libx11-xcb1 \
-    # libxcomposite1 \
-    # libxdamage1 \
-    # libxrandr2 \
-    # xdg-utils \
-    postgresql-client \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends \
+    bash postgresql-client \
     && rm -rf /var/lib/apt/lists/*
-
-# Set Puppeteer to use system Chromium (commented out - WhatsApp service is inactive)
-# ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-#     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
-# Set working directory
 WORKDIR /app
-
-# Copy Python requirements and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy WhatsApp service and install dependencies (commented out - WhatsApp service is inactive)
-# COPY services/whatsapp/package*.json ./services/whatsapp/
-# RUN cd services/whatsapp && npm install
-# 
-# COPY services/whatsapp ./services/whatsapp
-
-# Copy backend code (maintain backend.* import structure)
+COPY requirements-runtime.lock .
+RUN python -m pip install --no-cache-dir --require-hashes -r requirements-runtime.lock \
+    && python -m pip uninstall -y pip setuptools wheel
 COPY apps/backend ./backend
-
-# Copy entrypoint script
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
-
-# Environment variable to control WhatsApp service (commented out - WhatsApp service is inactive)
-# ENV ENABLE_WHATSAPP=true
-
-# Expose ports (8000 for backend, 3001 for WhatsApp - WhatsApp port commented out)
 EXPOSE 8000
-# EXPOSE 3001  # WhatsApp service is inactive
-
-# Use entrypoint script
 ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Local debugging remains available without shipping development tools.
+FROM runtime AS development
+COPY requirements*.txt requirements-runtime.lock ./
+RUN python -m ensurepip --upgrade \
+    && python -m pip install --no-cache-dir -r requirements-dev.txt
+
+FROM runtime AS production
