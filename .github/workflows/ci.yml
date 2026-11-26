@@ -280,7 +280,7 @@ jobs:
             --env HOSTNAME=0.0.0.0 beach-kings/frontend:ci)
           trap 'docker rm -f "$frontend_container" >/dev/null' EXIT
           frontend_origin="http://$(docker port "$frontend_container" 3000/tcp)"
-          if ! curl --fail --silent --show-error --retry 12 --retry-connrefused \
+          if ! curl --fail --silent --show-error --retry 12 --retry-all-errors \
             --retry-delay 1 --max-time 5 --output /dev/null "$frontend_origin/support"; then
             docker logs "$frontend_container"
             exit 1
