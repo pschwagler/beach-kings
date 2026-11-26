@@ -1,0 +1,15 @@
+```Calendar QA League · Session
+#4
+Nov 25, 2026
+
+Game  Pts  Players
+----  ---  -------------------
+  #1   21  Fixture Player
+           Sandy Brook
+       18  Cove Player
+           Reef Player
+----  ---  -------------------
+  #2   17  Fixture Player
+           Sandy Brook
+       21  Cove Player
+           Reef Player```
