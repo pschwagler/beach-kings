@@ -6,7 +6,6 @@ import type { MatchRecord } from '@beach-kings/shared';
 import { formatDate } from '@/lib/formatters';
 import { parseCalendarDate } from '@/lib/calendarDate';
 import { routes } from '@/lib/navigation';
-import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
 import HomePreviewRow from './HomePreviewRow';
 
 interface RecentGamesScrollProps {
@@ -23,7 +22,6 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
       : normalizedResult === 'l' || normalizedResult === 'loss'
         ? 'loss'
         : 'pending';
-  const isWin = outcome === 'win';
   const sessionIsOpen =
     match.session_status?.toLowerCase() === 'pending' ||
     match.session_status?.toLowerCase() === 'active';
@@ -31,11 +29,6 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
     match.partner_is_placeholder === true ||
     match.opponent_1_is_placeholder === true ||
     match.opponent_2_is_placeholder === true;
-  const secondaryStatus = sessionIsOpen
-    ? 'SESSION OPEN'
-    : ratingWaitsForAccount
-      ? 'RATING PENDING'
-      : null;
   const sessionId = match.session_id;
   const hasDestination =
     (typeof sessionId === 'number' &&
@@ -48,19 +41,27 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
     : '';
   const leagueLabel = match.league_name || match.session_code || '';
   const meta = [dateLabel, leagueLabel].filter(Boolean).join(' · ');
+  const showSessionStatusInMeta = sessionIsOpen && outcome !== 'pending';
 
   const outcomeLabel =
     outcome === 'win' ? 'Win' : outcome === 'loss' ? 'Loss' : 'Pending game';
   const partnerLabel = match.partner ? `You and ${match.partner}` : null;
   const opponents = [match.opponent_1, match.opponent_2].filter(Boolean).join(' and ');
   const opponentsLabel = opponents ? `versus ${opponents}` : null;
-  const statusLabel = secondaryStatus === 'SESSION OPEN'
+  const statusLabel = sessionIsOpen
     ? 'Session awaiting submission'
-    : secondaryStatus === 'RATING PENDING'
+    : ratingWaitsForAccount
       ? 'Rating pending until every player has an account'
       : null;
-  const playType = match.league_id != null ? 'league' : 'pickup';
-  const typeLabel = playType === 'league' ? 'League game' : 'Pickup game';
+  const typeLabel = match.league_id != null ? 'League game' : 'Pickup game';
+  const resultText = outcome === 'pending'
+    ? sessionIsOpen ? 'Session open' : 'Pending'
+    : outcomeLabel;
+  const resultColor = outcome === 'win'
+    ? 'text-success'
+    : outcome === 'loss'
+      ? 'text-danger'
+      : 'text-warning';
   const accessibilityLabel = [
     outcomeLabel, match.score, typeLabel, partnerLabel, opponentsLabel, statusLabel, meta,
   ]
@@ -69,27 +70,13 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
 
   const content = (
     <>
-      <View className="flex-row flex-wrap items-center gap-sm mb-xs">
+      <View className="mb-xs flex-row flex-wrap items-baseline gap-x-sm">
         {match.score != null && match.score !== '' && (
           <AppText className="text-title3 font-bold text-brand-teal">{match.score}</AppText>
         )}
-        <View
-          className={`${outcome === 'pending' ? 'bg-warning-tint' : isWin ? 'bg-success-tint' : 'bg-danger-tint'} px-sm py-[2px] rounded-chip`}
-        >
-          <AppText
-            className={`text-[11px] font-semibold ${outcome === 'pending' ? 'text-warning' : isWin ? 'text-success' : 'text-danger'}`}
-          >
-            {outcome === 'pending' ? 'PENDING' : isWin ? 'WIN' : 'LOSS'}
-          </AppText>
-        </View>
-        <PlayTypeBadge type={playType} noun="game" />
-        {secondaryStatus != null && outcome !== 'pending' && (
-          <View className="bg-warning-tint border border-warning px-[6px] py-[1px] rounded-lg">
-            <AppText className="text-[10px] font-bold text-warning">
-              {secondaryStatus}
-            </AppText>
-          </View>
-        )}
+        <AppText className={`text-caption font-semibold ${resultColor}`}>
+          {resultText}
+        </AppText>
       </View>
       <AppText className="text-caption text-muted">
         <AppText className="font-semibold text-default">You</AppText>
@@ -118,8 +105,14 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
           {match.opponent_2 ?? ''}
         </AppText>
       </AppText>
-      {meta !== '' && (
-        <AppText className="text-[11px] text-tertiary mt-xs">{meta}</AppText>
+      {(meta !== '' || showSessionStatusInMeta) && (
+        <AppText className="mt-xs text-[11px] text-tertiary">
+          {meta}
+          {meta !== '' && showSessionStatusInMeta ? ' · ' : null}
+          {showSessionStatusInMeta && (
+            <AppText className="text-muted">Session open</AppText>
+          )}
+        </AppText>
       )}
     </>
   );

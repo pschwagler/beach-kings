@@ -32,7 +32,7 @@ describe('RecentGamesScroll', () => {
     expect(getByText('No games yet')).toBeTruthy();
   });
 
-  it('renders a WIN card for result "W"', () => {
+  it('renders a win card for result "W"', () => {
     const match = {
       id: 1,
       result: 'W',
@@ -46,17 +46,17 @@ describe('RecentGamesScroll', () => {
     const { getByText } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
-    expect(getByText('WIN')).toBeTruthy();
+    expect(getByText('Win')).toBeTruthy();
     expect(getByText('21-18')).toBeTruthy();
     expect(getByText('Apr 1 · South Bay')).toBeTruthy();
   });
 
-  it('renders a LOSS card when result is not a win', () => {
+  it('renders a loss card when result is not a win', () => {
     const match = { id: 2, result: 'L', score: '15-21' };
     const { getByText } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
-    expect(getByText('LOSS')).toBeTruthy();
+    expect(getByText('Loss')).toBeTruthy();
   });
 
   it('renders an unknown result as pending instead of a loss', () => {
@@ -64,19 +64,27 @@ describe('RecentGamesScroll', () => {
     const { getByText, queryByText } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
-    expect(getByText('PENDING')).toBeTruthy();
-    expect(queryByText('LOSS')).toBeNull();
+    expect(getByText('Pending')).toBeTruthy();
+    expect(queryByText('Loss')).toBeNull();
   });
 
-  it('names an open session instead of showing a generic pending chip', () => {
+  it('shows an open session as understated text alongside a known result', () => {
     const match = { id: 3, result: 'W', session_status: 'pending' };
     const { getByText } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
-    expect(getByText('SESSION OPEN')).toBeTruthy();
+    expect(getByText('Win')).toBeTruthy();
+    expect(getByText('Session open')).toBeTruthy();
   });
 
-  it('explains when ratings wait for a placeholder player account', () => {
+  it('uses the open session status in place of a generic pending result', () => {
+    const match = { id: 3, session_status: 'active' };
+    const { getByText, queryByText } = render(<RecentGamesScroll matches={[match]} />);
+    expect(getByText('Session open')).toBeTruthy();
+    expect(queryByText('Pending')).toBeNull();
+  });
+
+  it('keeps play type and rating status in the card’s accessible name without visual badges', () => {
     const match = {
       id: 4,
       session_id: 44,
@@ -84,12 +92,12 @@ describe('RecentGamesScroll', () => {
       partner: 'Guest Player',
       partner_is_placeholder: true,
     };
-    const { getByText, getByLabelText } = render(
+    const { queryByText, getByLabelText } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
-    expect(getByText('RATING PENDING')).toBeTruthy();
+    expect(queryByText(/Rating pending|Pickup game|League game/i)).toBeNull();
     expect(
-      getByLabelText(/Rating pending until every player has an account/),
+      getByLabelText(/Pickup game.*Rating pending until every player has an account/),
     ).toBeTruthy();
   });
 
@@ -100,13 +108,17 @@ describe('RecentGamesScroll', () => {
       result: 'W',
       score: `21-${i}`,
     }));
-    const { getAllByLabelText } = render(
+    const { getAllByLabelText, getByTestId } = render(
       <RecentGamesScroll matches={matches as any} maxItems={3} />,
     );
-    expect(getAllByLabelText(/^Win/).length).toBe(3);
+    expect(getAllByLabelText(/^Win/)).toHaveLength(3);
+    expect(getByTestId('recent-games-row').props).toMatchObject({
+      horizontal: true,
+      snapToInterval: 184.5,
+    });
   });
 
-  it('defaults to two recent games', () => {
+  it('displays two recent games side by side without scrolling by default', () => {
     const matches = Array.from({ length: 3 }, (_, i) => ({
       id: i + 1,
       session_id: i + 1,
@@ -114,7 +126,7 @@ describe('RecentGamesScroll', () => {
       score: `21-${i}`,
     }));
     const { getAllByRole, getByTestId } = render(<RecentGamesScroll matches={matches} />);
-    expect(getByTestId('recent-games-row').props.horizontal).toBe(true);
+    expect(getByTestId('recent-games-row').props.horizontal).toBeUndefined();
     expect(getAllByRole('link').map((card) => card.props.accessibilityLabel)).toEqual([
       'Win, 21-0, Pickup game',
       'Win, 21-1, Pickup game',
@@ -156,13 +168,13 @@ describe('LeaguesScroll', () => {
     expect(queryByText('+ Join a League')).toBeNull();
   });
 
-  it('defaults to two league cards in a horizontal row', () => {
+  it('displays two league cards side by side without scrolling by default', () => {
     const leagues = Array.from({ length: 3 }, (_, index) => ({
       id: index + 1,
       name: `League ${index + 1}`,
     }));
     const { getAllByRole, getByTestId } = render(<LeaguesScroll leagues={leagues as any} />);
-    expect(getByTestId('my-leagues-row').props.horizontal).toBe(true);
+    expect(getByTestId('my-leagues-row').props.horizontal).toBeUndefined();
     expect(getAllByRole('link')).toHaveLength(2);
   });
 
@@ -226,18 +238,21 @@ describe('LeaguesScroll', () => {
   });
 });
 
-it('stacks both previews at accessibility text sizes so the content can reflow', () => {
-  useWindowDimensionsSpy.mockReturnValue({ ...defaultDimensions, fontScale: 2 });
-  const { queryByTestId, getAllByRole } = render(
-    <>
-      <RecentGamesScroll matches={[{ id: 1, session_id: 11 }, { id: 2, session_id: 12 }]} />
-      <LeaguesScroll leagues={[{ id: 1, name: 'Indoor' }, { id: 2, name: 'Beach' }] as any} />
-    </>,
-  );
-  expect(queryByTestId('recent-games-row')).toBeNull();
-  expect(queryByTestId('my-leagues-row')).toBeNull();
-  expect(getAllByRole('link')).toHaveLength(4);
-});
+it.each([{ fontScale: 2 }, { width: 320 }])(
+  'stacks both previews when the content needs more room (%j)',
+  (dimensions) => {
+    useWindowDimensionsSpy.mockReturnValue({ ...defaultDimensions, ...dimensions });
+    const { queryByTestId, getAllByRole } = render(
+      <>
+        <RecentGamesScroll matches={[{ id: 1, session_id: 11 }, { id: 2, session_id: 12 }]} />
+        <LeaguesScroll leagues={[{ id: 1, name: 'Indoor' }, { id: 2, name: 'Beach' }] as any} />
+      </>,
+    );
+    expect(queryByTestId('recent-games-row')).toBeNull();
+    expect(queryByTestId('my-leagues-row')).toBeNull();
+    expect(getAllByRole('link')).toHaveLength(4);
+  },
+);
 
 // ---------------------------------------------------------------------------
 // CourtsScroll
