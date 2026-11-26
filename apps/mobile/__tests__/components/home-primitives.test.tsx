@@ -257,7 +257,7 @@ describe('HomeHeader', () => {
 describe('QuickStatsRow', () => {
   it('renders greeting and win/loss pill even without a rating', () => {
     const { getByText, queryByText } = render(
-      <QuickStatsRow firstName="Ben" rating={null} wins={4} losses={2} />,
+      <QuickStatsRow firstName="Ben" rating={null} wins={4} losses={2} onStatsPress={jest.fn()} />,
     );
     expect(getByText('Hey Ben')).toBeTruthy();
     // No rating pill when rating is null.
@@ -267,7 +267,7 @@ describe('QuickStatsRow', () => {
 
   it('renders the rating pill when rating is a number', () => {
     const { getByText } = render(
-      <QuickStatsRow firstName="Ben" rating={1450} wins={0} losses={0} />,
+      <QuickStatsRow firstName="Ben" rating={1450} wins={0} losses={0} onStatsPress={jest.fn()} />,
     );
     expect(getByText('1450')).toBeTruthy();
   });

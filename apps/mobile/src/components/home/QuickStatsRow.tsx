@@ -4,15 +4,18 @@
  */
 
 import React from 'react';
-import { useWindowDimensions, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { formatElo, formatRecord } from '@/lib/formatters';
+
+const statButtonClass = 'min-h-touch min-w-touch items-center justify-center rounded-chip bg-info-tint px-sm py-xxs active:opacity-70 focus:opacity-70';
 
 interface QuickStatsRowProps {
   readonly firstName: string;
   readonly rating: number | null;
   readonly wins: number;
   readonly losses: number;
+  readonly onStatsPress: () => void;
 }
 
 export default function QuickStatsRow({
@@ -20,6 +23,7 @@ export default function QuickStatsRow({
   rating,
   wins,
   losses,
+  onStatsPress,
 }: QuickStatsRowProps): React.ReactNode {
   const { fontScale } = useWindowDimensions();
   const usesAccessibilityLayout = fontScale >= 1.6;
@@ -33,17 +37,29 @@ export default function QuickStatsRow({
       </AppText>
       <View className="flex-row flex-wrap items-center gap-3">
         {rating != null && (
-          <View className="bg-info-tint px-sm py-xxs rounded-chip">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Rating ${formatElo(rating)}`}
+            accessibilityHint="Opens My Stats"
+            className={statButtonClass}
+            onPress={onStatsPress}
+          >
             <AppText className="text-caption font-semibold text-info">
               <AppText className="font-bold text-info">{formatElo(rating)}</AppText> Rating
             </AppText>
-          </View>
+          </Pressable>
         )}
-        <View className="bg-info-tint px-sm py-xxs rounded-chip">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Record, ${wins} wins, ${losses} losses`}
+          accessibilityHint="Opens My Stats"
+          className={statButtonClass}
+          onPress={onStatsPress}
+        >
           <AppText className="text-caption font-semibold text-info">
             <AppText className="font-bold text-info">{formatRecord(wins, losses)}</AppText>
           </AppText>
-        </View>
+        </Pressable>
       </View>
     </View>
   );
