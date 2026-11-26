@@ -32,7 +32,7 @@ jobs:
       - run: npm run test:dependency-compatibility
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.15'
       - run: python scripts/check_runtime_lock.py
       - run: python -m pip install pip-audit
       - name: Audit the pinned production Python graph

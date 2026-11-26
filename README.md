@@ -59,7 +59,7 @@ The default branch is `develop`. Open PRs against `develop`; CI (lint + tests) a
 ### Tech Stack
 
 **Backend:**
-- **Python 3.11** - Core calculation engine
+- **Python 3.15** - Core calculation engine
 - **FastAPI** - REST API framework
 - **PostgreSQL** - Primary database
 - **SQLAlchemy** - ORM for database operations
@@ -124,7 +124,7 @@ Visit http://localhost:3000 to use the application.
 ### Option 2: Run Locally
 
 #### Prerequisites
-- Python 3.8+ (3.11 recommended)
+- Python 3.12+ (3.15 recommended)
 - Node.js 18+
 - PostgreSQL (or use Docker Compose which includes it)
 - Redis (or use Docker Compose which includes it)
@@ -284,7 +284,7 @@ routine releases and deployed-version verification, follow
 ### Deployment Details
 
 The app uses Docker for deployment:
-- **Backend**: Python 3.11 with FastAPI
+- **Backend**: Python 3.15 with FastAPI
 - **Frontend**: Next.js (version pinned in `apps/web/package.json`, built into the image)
 - **Database**: PostgreSQL
 - **Cache**: Redis
