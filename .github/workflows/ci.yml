@@ -1,9 +1,11 @@
-# CI — runs on PRs targeting main or develop: lint, test, and build.
+# CI — lint, test, and build for pull requests and post-merge main commits.
 name: CI
 
 on:
   pull_request:
     branches: [main, develop]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 defaults:
@@ -15,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate backup scripts and configuration
         run: |
@@ -28,7 +30,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run backup and restore integration test
         run: deployment/backups/tests/integration-test.sh
@@ -37,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -61,10 +63,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -124,10 +126,10 @@ jobs:
       JWT_SECRET_KEY: test-secret-key-for-testing-only-change-in-production
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -169,7 +171,7 @@ jobs:
 
       - name: Upload to Codecov (optional)
         if: success()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
@@ -180,7 +182,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -195,11 +197,13 @@ jobs:
         run: cd apps/web && npm run test:unit:coverage
 
   mobile-quality:
+    # Mobile release checks run on PRs and manual CI runs.
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -247,7 +251,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -259,7 +263,7 @@ jobs:
         run: npm ci
 
       - name: Build frontend
-        run: npm run build
+        run: npm run build --workspace @beach-kings/web
 
       - name: Build frontend production image
         run: |

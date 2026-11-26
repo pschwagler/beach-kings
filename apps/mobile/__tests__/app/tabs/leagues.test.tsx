@@ -158,6 +158,7 @@ const INVITE_FIXTURES = [1, 2, 3, 4].map((id) => ({
 // ---------------------------------------------------------------------------
 
 import LeaguesScreen from '../../../app/(tabs)/leagues';
+import { leagueKeys } from '@/features/leagues';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -280,27 +281,31 @@ describe('LeaguesScreen', () => {
     expect(queryByText('Invited League 3')).toBeNull();
   });
 
-  it('removes an accepted invitation from the shared cache immediately', async () => {
+  it('optimistically removes an invitation from the shared cache while acceptance is pending', async () => {
+    const [, remainingInvite] = INVITE_FIXTURES;
     mockGetReceivedLeagueInvites.mockResolvedValue(INVITE_FIXTURES.slice(0, 2));
     let resolveAccept!: (value: { status: string }) => void;
-    mockAcceptLeagueInvite.mockReturnValue(
-      new Promise((resolve) => {
-        resolveAccept = resolve;
-      }),
-    );
+    const pendingAcceptance = new Promise<{ status: string }>((resolve) => {
+      resolveAccept = resolve;
+    });
+    mockAcceptLeagueInvite.mockReturnValue(pendingAcceptance);
 
-    const { getByTestId, queryByTestId, getByText } = renderWithQuery(
+    const { client, getByTestId, queryByTestId, getByText } = renderWithQuery(
       <LeaguesScreen />,
     );
     await waitFor(() => expect(getByText('Invitations (2)')).toBeTruthy());
 
-    fireEvent.press(getByTestId('accept-invite-1'));
-
+    await act(async () => {
+      fireEvent.press(getByTestId('accept-invite-1'));
+    });
+    // The request starts after onMutate updates the cache. Its unresolved
+    // response makes this assertion independent of the server confirmation.
+    await waitFor(() => expect(mockAcceptLeagueInvite).toHaveBeenCalledWith(301));
+    expect(client.getQueryData(leagueKeys.receivedInvites(7))).toEqual([remainingInvite]);
     await waitFor(() => {
       expect(queryByTestId('received-invite-row-1')).toBeNull();
       expect(getByText('Invitations (1)')).toBeTruthy();
     });
-    expect(mockAcceptLeagueInvite).toHaveBeenCalledWith(301);
 
     await act(async () => {
       resolveAccept({ status: 'accepted' });

@@ -1,5 +1,10 @@
 # EC2 Deployment Checklist
 
+This guide covers host provisioning. Routine releases use
+[BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) and the **Deploy Prod** workflow.
+Use [release verification](deployment/release-verification.md) to establish what
+is running; local rebuilds bypass the production security and backup gates.
+
 ## Pre-Deployment
 
 - [ ] AWS account created
@@ -126,13 +131,11 @@ Edit `.env` with production values:
 
 ## 5. Deploy
 
-```bash
-# Build and start containers
-docker-compose up -d --build
-
-# Watch logs (Ctrl+C to exit)
-docker-compose logs -f
-```
+Complete the backup setup in [section 8](#8-setup-s3-backups-required) before the first release, then follow
+[BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md). For the initial release, manually run **Deploy Prod** against main.
+It builds and scans images in CI, verifies a pre-deployment backup, and starts
+the released containers. The API entrypoint applies migrations automatically.
+Do not manually rebuild containers or run migrations on the production host.
 
 - [ ] Containers started successfully
 - [ ] Database migrations completed
@@ -287,15 +290,8 @@ the bucket, least-privilege EC2 instance role, timer, alerts, and restore drill.
 # View logs
 docker-compose logs -f
 
-# Restart services
-docker-compose restart
-
-# Stop everything
-docker-compose down
-
-# Update to latest code
-git pull
-docker-compose up -d --build
+# Inspect running service status
+docker-compose ps
 
 # Run and inspect a manual backup
 sudo systemctl start beach-kings-db-backup.service

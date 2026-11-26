@@ -391,7 +391,7 @@ class ProviderConfigPreflightTests(unittest.TestCase):
 
         preflight_index = workflow.index("provider_config_preflight.py")
         backup_index = workflow.index("Pre-deployment database backup")
-        pull_index = workflow.index("docker-compose pull frontend backend")
+        pull_index = workflow.index("docker-compose -f docker-compose.yml pull frontend backend")
         self.assertIn("--production", workflow[preflight_index:backup_index])
         self.assertIn("command_timeout: 20m", workflow)
         self.assertIn(
