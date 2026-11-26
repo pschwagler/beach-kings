@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { Alert, Keyboard } from 'react-native';
+import { Alert, Keyboard, StyleSheet } from 'react-native';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -67,9 +67,11 @@ jest.mock('react-native-reanimated', () => {
     useAnimatedStyle: () => ({}),
     withRepeat: (v: unknown) => v,
     withTiming: (v: unknown) => v,
-    Easing: { inOut: () => ({}), ease: {} },
+    Easing: { in: () => ({}), out: () => ({}), cubic: {}, inOut: () => ({}), ease: {} },
   };
 });
+
+jest.mock('phosphor-react-native', () => ({ ArrowsOut: () => null }));
 
 jest.mock('react-native-svg', () => {
   const React = require('react');
@@ -401,7 +403,12 @@ describe('LeagueDetailScreen — segment tabs', () => {
     expect(screen.queryByLabelText('Change league picture')).toBeNull();
 
     fireEvent.press(avatar);
-    expect(screen.getByTestId('league-picture-preview').props.cachePolicy).toBe('none');
+    const preview = screen.getByTestId('league-picture-preview');
+    expect(preview.props.cachePolicy).toBe('none');
+    const initialHeight = StyleSheet.flatten(preview.props.style).height;
+    fireEvent(preview, 'load', { nativeEvent: { source: { width: 1200, height: 400 } } });
+    expect(StyleSheet.flatten(screen.getByTestId('league-picture-preview').props.style).height)
+      .toBeLessThan(initialHeight);
     fireEvent.press(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByTestId('league-picture-preview')).toBeNull();
 

@@ -193,6 +193,10 @@ describe('FindLeaguesScreen — render', () => {
     expect(screen.queryByTestId('league-avatar-photo-2', { includeHiddenElements: true })).toBeNull();
     expect(screen.queryByTestId('request-join-btn-1')).toBeNull();
     expect(screen.getByTestId('request-join-btn-2')).toBeTruthy();
+    expect(screen.getByText("You're a member")).toBeTruthy();
+    fireEvent.press(screen.getByText('View League'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/league/1');
+    expect(mockRequestToJoinLeague).not.toHaveBeenCalled();
     expect(mockQueryLeagues).toHaveBeenCalledWith(
       expect.objectContaining({ include_joined: true }), expect.anything(),
     );
@@ -332,7 +336,7 @@ describe('FindLeaguesScreen — request to join', () => {
         expectedCopy as string,
       );
       expect(screen.getByText('Try Again')).toBeTruthy();
-      expect(screen.queryByText("You're a Member")).toBeNull();
+      expect(screen.queryByText("You're a member")).toBeNull();
     });
   });
 
