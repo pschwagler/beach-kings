@@ -92,7 +92,7 @@ const baseProps = {
 describe('SessionBottomSheet — submitted results', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockSetStringAsync.mockResolvedValue(undefined);
+    mockSetStringAsync.mockResolvedValue(true);
   });
 
   it('copies deterministic submitted results once and closes after success', async () => {
@@ -110,7 +110,17 @@ describe('SessionBottomSheet — submitted results', () => {
 
     await waitFor(() =>
       expect(mockSetStringAsync).toHaveBeenCalledWith(
-        'QBK Open Men · Session #1 · Mar 19, 2026\nPat / Kim 21 – 16 Alex / Chris',
+        [
+          '```QBK Open Men · Session #1',
+          'Mar 19, 2026',
+          '',
+          'Game  Pts  Players',
+          '----  ---  -------------------',
+          '  #1   21  Pat',
+          '           Kim',
+          '       16  Alex',
+          '           Chris```',
+        ].join('\n'),
       ),
     );
     expect(mockSetStringAsync).toHaveBeenCalledTimes(1);
@@ -122,9 +132,9 @@ describe('SessionBottomSheet — submitted results', () => {
   });
 
   it('guards repeated copy activation while the clipboard request is pending', async () => {
-    let resolveClipboard: (() => void) | undefined;
+    let resolveClipboard: ((copied: boolean) => void) | undefined;
     mockSetStringAsync.mockReturnValueOnce(
-      new Promise<void>((resolve) => { resolveClipboard = resolve; }),
+      new Promise<boolean>((resolve) => { resolveClipboard = resolve; }),
     );
     const { getByTestId } = render(
       <SessionBottomSheet {...baseProps} status="submitted" />,
@@ -135,11 +145,15 @@ describe('SessionBottomSheet — submitted results', () => {
     fireEvent.press(getByTestId('session-menu-copy-results'));
     expect(mockSetStringAsync).toHaveBeenCalledTimes(1);
 
-    await act(async () => { resolveClipboard?.(); });
+    await act(async () => { resolveClipboard?.(true); });
   });
 
-  it('keeps the menu open and reports clipboard failure', async () => {
-    mockSetStringAsync.mockRejectedValueOnce(new Error('unavailable'));
+  it.each(['rejects', 'returns false'])('reports clipboard failure when it %s', async (failure) => {
+    if (failure === 'rejects') {
+      mockSetStringAsync.mockRejectedValueOnce(new Error('unavailable'));
+    } else {
+      mockSetStringAsync.mockResolvedValueOnce(false);
+    }
     const onClose = jest.fn();
     const { getByTestId } = render(
       <SessionBottomSheet
