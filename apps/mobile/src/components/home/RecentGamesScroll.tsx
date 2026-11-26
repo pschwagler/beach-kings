@@ -1,16 +1,13 @@
-/**
- * Compact recent-games list. Sequential history stays vertical so names and
- * scores have room and Home does not become a stack of carousels.
- */
-
 import React from 'react';
 import { View, Pressable } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { useRouter } from 'expo-router';
 import type { MatchRecord } from '@beach-kings/shared';
 import { formatDate } from '@/lib/formatters';
+import { parseCalendarDate } from '@/lib/calendarDate';
 import { routes } from '@/lib/navigation';
 import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
+import HomePreviewRow from './HomePreviewRow';
 
 interface RecentGamesScrollProps {
   readonly matches: readonly MatchRecord[];
@@ -46,30 +43,36 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
       sessionId > 0) ||
     (typeof sessionId === 'string' && sessionId.trim().length > 0);
 
-  const dateLabel = match.date ? formatDate(match.date, 'short') : '';
+  const dateLabel = match.date
+    ? formatDate(parseCalendarDate(match.date) ?? match.date, 'short')
+    : '';
   const leagueLabel = match.league_name || match.session_code || '';
   const meta = [dateLabel, leagueLabel].filter(Boolean).join(' · ');
 
   const outcomeLabel =
     outcome === 'win' ? 'Win' : outcome === 'loss' ? 'Loss' : 'Pending game';
-  const playersLabel = [match.partner, match.opponent_1, match.opponent_2]
-    .filter(
-      (name): name is string => typeof name === 'string' && name.length > 0,
-    )
-    .join(', ');
+  const partnerLabel = match.partner ? `You and ${match.partner}` : null;
+  const opponents = [match.opponent_1, match.opponent_2].filter(Boolean).join(' and ');
+  const opponentsLabel = opponents ? `versus ${opponents}` : null;
   const statusLabel = secondaryStatus === 'SESSION OPEN'
     ? 'Session awaiting submission'
     : secondaryStatus === 'RATING PENDING'
       ? 'Rating pending until every player has an account'
       : null;
-  const accessibilityLabel = [outcomeLabel, match.score, playersLabel, statusLabel, meta]
+  const playType = match.league_id != null ? 'league' : 'pickup';
+  const typeLabel = playType === 'league' ? 'League game' : 'Pickup game';
+  const accessibilityLabel = [
+    outcomeLabel, match.score, typeLabel, partnerLabel, opponentsLabel, statusLabel, meta,
+  ]
     .filter(Boolean)
     .join(', ');
 
   const content = (
     <>
-      <View className="flex-row flex-wrap items-center gap-xs mb-xs">
-        <PlayTypeBadge type={match.league_id != null ? 'league' : 'pickup'} noun="game" />
+      <View className="flex-row flex-wrap items-center gap-sm mb-xs">
+        {match.score != null && match.score !== '' && (
+          <AppText className="text-title3 font-bold text-brand-teal">{match.score}</AppText>
+        )}
         <View
           className={`${outcome === 'pending' ? 'bg-warning-tint' : isWin ? 'bg-success-tint' : 'bg-danger-tint'} px-sm py-[2px] rounded-chip`}
         >
@@ -79,6 +82,7 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
             {outcome === 'pending' ? 'PENDING' : isWin ? 'WIN' : 'LOSS'}
           </AppText>
         </View>
+        <PlayTypeBadge type={playType} noun="game" />
         {secondaryStatus != null && outcome !== 'pending' && (
           <View className="bg-warning-tint border border-warning px-[6px] py-[1px] rounded-lg">
             <AppText className="text-[10px] font-bold text-warning">
@@ -87,15 +91,7 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
           </View>
         )}
       </View>
-      {match.score != null && match.score !== '' && (
-        <AppText className="text-title3 font-bold text-brand-teal mb-0.5">
-          {match.score}
-        </AppText>
-      )}
-      <AppText
-        className="text-caption text-muted leading-[18px]"
-        numberOfLines={2}
-      >
+      <AppText className="text-caption text-muted">
         <AppText className="font-semibold text-default">You</AppText>
         {match.partner ? ' / ' : ''}
         <AppText
@@ -104,10 +100,7 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
           {match.partner ?? ''}
         </AppText>
       </AppText>
-      <AppText
-        className="text-caption text-muted leading-[18px]"
-        numberOfLines={2}
-      >
+      <AppText className="text-caption text-muted">
         vs{' '}
         <AppText
           className={
@@ -133,7 +126,7 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
 
   if (!hasDestination) {
     return (
-      <View className="bg-surface rounded-card p-md border border-divider">
+      <View className="grow min-h-touch bg-surface rounded-card p-sm border border-divider">
         {content}
       </View>
     );
@@ -144,7 +137,7 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
       onPress={() => router.push(routes.session(sessionId))}
       accessibilityRole="link"
       accessibilityLabel={accessibilityLabel}
-      className="bg-surface rounded-card p-md border border-divider"
+      className="grow min-h-touch bg-surface rounded-card p-sm border border-divider"
     >
       {content}
     </Pressable>
@@ -159,17 +152,17 @@ export default function RecentGamesScroll({
 
   if (visible.length === 0) {
     return (
-      <View className="bg-surface rounded-card p-xl items-center">
+      <View className="bg-surface rounded-card p-md items-center">
         <AppText className="text-footnote text-tertiary">No games yet</AppText>
       </View>
     );
   }
 
   return (
-    <View className="gap-2">
+    <HomePreviewRow testID="recent-games-row">
       {visible.map((match, idx) => (
         <GameCard key={(match.id as number | undefined) ?? idx} match={match} />
       ))}
-    </View>
+    </HomePreviewRow>
   );
 }

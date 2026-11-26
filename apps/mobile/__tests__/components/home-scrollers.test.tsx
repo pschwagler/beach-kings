@@ -13,9 +13,15 @@ import RecentGamesScroll from '@/components/home/RecentGamesScroll';
 import LeaguesScroll from '@/components/home/LeaguesScroll';
 import CourtsScroll from '@/components/home/CourtsScroll';
 
+const useWindowDimensionsSpy = jest.spyOn(require('react-native'), 'useWindowDimensions');
+const defaultDimensions = { width: 393, height: 852, scale: 3, fontScale: 1 };
+
 beforeEach(() => {
   mockPush.mockClear();
+  useWindowDimensionsSpy.mockReturnValue(defaultDimensions);
 });
+
+afterAll(() => useWindowDimensionsSpy.mockRestore());
 
 // ---------------------------------------------------------------------------
 // RecentGamesScroll
@@ -42,6 +48,7 @@ describe('RecentGamesScroll', () => {
     );
     expect(getByText('WIN')).toBeTruthy();
     expect(getByText('21-18')).toBeTruthy();
+    expect(getByText('Apr 1 · South Bay')).toBeTruthy();
   });
 
   it('renders a LOSS card when result is not a win', () => {
@@ -106,8 +113,12 @@ describe('RecentGamesScroll', () => {
       result: 'W',
       score: `21-${i}`,
     }));
-    const { getAllByRole } = render(<RecentGamesScroll matches={matches as any} />);
-    expect(getAllByRole('link')).toHaveLength(2);
+    const { getAllByRole, getByTestId } = render(<RecentGamesScroll matches={matches} />);
+    expect(getByTestId('recent-games-row').props.horizontal).toBe(true);
+    expect(getAllByRole('link').map((card) => card.props.accessibilityLabel)).toEqual([
+      'Win, 21-0, Pickup game',
+      'Win, 21-1, Pickup game',
+    ]);
   });
 
   it('navigates to session when a game card with a session_id is pressed', () => {
@@ -115,7 +126,7 @@ describe('RecentGamesScroll', () => {
     const { getByLabelText } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
-    fireEvent.press(getByLabelText('Win, 21-18'));
+    fireEvent.press(getByLabelText('Win, 21-18, Pickup game'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/session/42');
   });
 
@@ -145,12 +156,13 @@ describe('LeaguesScroll', () => {
     expect(queryByText('+ Join a League')).toBeNull();
   });
 
-  it('defaults to two league rows', () => {
+  it('defaults to two league cards in a horizontal row', () => {
     const leagues = Array.from({ length: 3 }, (_, index) => ({
       id: index + 1,
       name: `League ${index + 1}`,
     }));
-    const { getAllByRole } = render(<LeaguesScroll leagues={leagues as any} />);
+    const { getAllByRole, getByTestId } = render(<LeaguesScroll leagues={leagues as any} />);
+    expect(getByTestId('my-leagues-row').props.horizontal).toBe(true);
     expect(getAllByRole('link')).toHaveLength(2);
   });
 
@@ -176,10 +188,11 @@ describe('LeaguesScroll', () => {
         ],
       },
     ];
-    const { getByText } = render(
+    const { getByText, getByLabelText } = render(
       <LeaguesScroll leagues={leagues as any} currentUserPlayerId={42} />,
     );
     expect(getByText('3rd Ranked')).toBeTruthy();
+    expect(getByLabelText('League Pro, 20 players, 3rd Ranked')).toBeTruthy();
   });
 
   it('hides the rank pill when no standings row matches the user', () => {
@@ -202,7 +215,7 @@ describe('LeaguesScroll', () => {
     const { getByLabelText } = render(
       <LeaguesScroll leagues={leagues as any} />,
     );
-    fireEvent.press(getByLabelText('League Coastal'));
+    fireEvent.press(getByLabelText('League Coastal, 4 players'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/league/9');
   });
 
@@ -211,6 +224,19 @@ describe('LeaguesScroll', () => {
     fireEvent.press(getByLabelText('Join a league'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/find-leagues');
   });
+});
+
+it('stacks both previews at accessibility text sizes so the content can reflow', () => {
+  useWindowDimensionsSpy.mockReturnValue({ ...defaultDimensions, fontScale: 2 });
+  const { queryByTestId, getAllByRole } = render(
+    <>
+      <RecentGamesScroll matches={[{ id: 1, session_id: 11 }, { id: 2, session_id: 12 }]} />
+      <LeaguesScroll leagues={[{ id: 1, name: 'Indoor' }, { id: 2, name: 'Beach' }] as any} />
+    </>,
+  );
+  expect(queryByTestId('recent-games-row')).toBeNull();
+  expect(queryByTestId('my-leagues-row')).toBeNull();
+  expect(getAllByRole('link')).toHaveLength(4);
 });
 
 // ---------------------------------------------------------------------------
