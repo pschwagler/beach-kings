@@ -1,0 +1,118 @@
+diff --git a/node_modules/query-string/base.js b/node_modules/query-string/base.js
+index bb2a093..7404235 100644
+--- a/node_modules/query-string/base.js
++++ b/node_modules/query-string/base.js
+@@ -2,7 +2,7 @@ import {includeKeys} from 'filter-obj';
+ import splitOnFirst from 'split-on-first';
+ 
+ // eslint-disable-next-line unicorn/prefer-code-point
+-const strictUriEncode = string => encodeURIComponent(string).replaceAll(/[!'\(\)*]/gv, x => `%${x.charCodeAt(0).toString(16).toUpperCase()}`);
++const strictUriEncode = string => encodeURIComponent(string).replaceAll(/[!'\(\)*]/gu, x => `%${x.charCodeAt(0).toString(16).toUpperCase()}`);
+ 
+ // A value that is left out of the query string. `undefined` is always left out, and `skipNull` and `skipEmptyString` leave out the two others.
+ function isSkipped(value, options) {
+@@ -85,9 +85,9 @@ function parserForArrayFormat(options) {
+ 			const nextIndexes = new Map();
+ 
+ 			return (key, value, accumulator) => {
+-				const result = /\[(?<index>\d*)\]$/v.exec(key);
++				const result = /\[(?<index>\d*)\]$/u.exec(key);
+ 
+-				key = key.replace(/\[(?<index>\d*)\]$/v, '');
++				key = key.replace(/\[(?<index>\d*)\]$/u, '');
+ 
+ 				// A repeated key adds its value whether or not it has an index, like the other array formats, instead of silently dropping the earlier values. A plain entry after the first is appended like `foo[]`. A repeated index keeps the last value, like in PHP.
+ 				if (!result && accumulator[key] === undefined) {
+@@ -111,7 +111,7 @@ function parserForArrayFormat(options) {
+ 
+ 		case 'bracket':
+ 		case 'colon-list-separator': {
+-			const marker = options.arrayFormat === 'bracket' ? /\[\]$/v : /:list$/v;
++			const marker = options.arrayFormat === 'bracket' ? /\[\]$/u : /:list$/u;
+ 
+ 			return (key, value, accumulator) => {
+ 				const isArray = marker.test(key);
+@@ -158,8 +158,8 @@ function parserForArrayFormat(options) {
+ 
+ 		case 'bracket-separator': {
+ 			return (key, value, accumulator) => {
+-				const isArray = /\[\]$/v.test(key);
+-				key = key.replace(/\[\]$/v, '');
++				const isArray = /\[\]$/u.test(key);
++				key = key.replace(/\[\]$/u, '');
+ 
+ 				// Split the raw value before decoding, like `comma` and `separator`, so an item that contains the separator round-trips: `stringify({foo: ['a,b', 'c']})` gives `foo[]=a%2Cb,c`, which must parse back to `['a,b', 'c']`. Decoding first would make the separator ambiguous, which is also why swagger-js rejected encoding the separator (swagger-api/swagger-ui#9289). A value where the client percent-encoded everything, including the separators, is therefore a single item. See https://github.com/sindresorhus/query-string/issues/398
+ 				// A key without the marker is a single item. A repeated key adds its items either way, like `arrayFormat: 'none'`, instead of silently dropping the earlier values.
+@@ -215,7 +215,7 @@ function validateArrayFormatSeparator(value) {
+ 		throw new TypeError('arrayFormatSeparator must not be whitespace, since parse() ignores leading and trailing whitespace in the query');
+ 	}
+ 
+-	if (/\p{Surrogate}/v.test(value)) {
++	if (/\p{Surrogate}/u.test(value)) {
+ 		throw new TypeError('arrayFormatSeparator must not be a lone surrogate, since it cannot be percent-encoded');
+ 	}
+ }
+@@ -231,7 +231,7 @@ function encode(value, options) {
+ 			return options.strict ? strictUriEncode(value) : encodeURIComponent(value);
+ 		} catch {
+ 			// A lone surrogate cannot be encoded as UTF-8, so `encodeURIComponent` throws for it. It is replaced with U+FFFD, like `URLSearchParams` and the `URL` hash setter do. `\p{Surrogate}` matches only a surrogate that is not part of a pair, so a valid pair is left alone.
+-			return encode(String(value).replaceAll(/\p{Surrogate}/gv, '\u{FFFD}'), options);
++			return encode(String(value).replaceAll(/\p{Surrogate}/gu, '\u{FFFD}'), options);
+ 		}
+ 	}
+ 
+@@ -259,10 +259,10 @@ function encodeArrayItem(value, options) {
+ 
+ // One percent sign, anywhere. Text between two of these is copied in one go, so a value with no escapes in it costs a single native scan instead of a step per character. A value that holds no escape at all, which is the common case, is returned as it is.
+ // The `lastIndex` of this and `percentEscape` is shared state, which is only safe because nothing that a caller controls runs while `decodeComponent()` is on the stack. Every user callback, which is a `types` function, a `sort` comparator, a `pick()` filter, and a `replacer`, runs after the loop that decodes the parameters. A callback, a comparator, or an `await` inside `decodeComponent()` would corrupt the two regexes, so set `lastIndex` right before each `exec` and do not reach for a `matchAll` or a `String#replace` here.
+-const percentSign = /%/gv;
++const percentSign = /%/gu;
+ 
+ // One percent escape, like `%C3`. The `y` flag makes it match only where it is anchored, so a `%` that starts nothing is not skipped over. The hexadecimal digits may be in either case, like in `%c3`.
+-const percentEscape = /%[\da-f]{2}/ivy;
++const percentEscape = /%[\da-f]{2}/iuy;
+ 
+ // What a byte that cannot be decoded becomes, like the `URL` parser and `URLSearchParams` do.
+ const replacementCharacter = '�';
+@@ -526,9 +526,9 @@ export function parse(query, options) {
+ 		return returnValue;
+ 	}
+ 
+-	query = query.trim().replace(/^[#&?]/v, '');
++	query = query.trim().replace(/^[#&?]/u, '');
+ 
+-	if (!query || /^&+$/v.test(query)) {
++	if (!query || /^&+$/u.test(query)) {
+ 		return returnValue;
+ 	}
+ 
+@@ -756,7 +756,7 @@ export function stringifyUrl(object, options) {
+ 			// The fragment identifier is a decoded value, like the query values, so `parseUrl()` reads it back unchanged. That is what the `fragment` component of Go's `net/url`, Java's `URI`, and Swift's `URLComponents` does too. The `URL` hash setter instead expects an already-encoded fragment: it leaves `%` as-is, which would turn `100%` into an invalid URL and `%23top` into `#top` after parsing. So `%` is encoded here first. The URL parser also silently strips ASCII tab and newline from its input, so those are encoded first too. The setter then encodes the rest of the WHATWG fragment percent-encode set (controls, space, `"`, `<`, `>`, and backtick) and keeps `/`, `?`, and `#`, so hash routes like `#/users?id=1` stay readable. With `encode: false`, the fragment identifier is written as-is, like the query.
+ 			// The fragment percent-encode set does not depend on the scheme, so the caller's URL is deliberately not parsed here; it may not even be parseable.
+ 			const throwawayUrl = new URL('https://query-string.invalid');
+-			throwawayUrl.hash = hash.replaceAll(/[\t\n\r%]/gv, character => `%${character.codePointAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
++			throwawayUrl.hash = hash.replaceAll(/[\t\n\r%]/gu, character => `%${character.codePointAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
+ 			hash = throwawayUrl.hash;
+ 		}
+ 	}
+diff --git a/node_modules/query-string/index.d.ts b/node_modules/query-string/index.d.ts
+index 5385c47..d8eed9c 100644
+--- a/node_modules/query-string/index.d.ts
++++ b/node_modules/query-string/index.d.ts
+@@ -4,6 +4,7 @@
+ import * as queryString from './base.js';
+ 
+ export default queryString;
++export * from './base.js';
+ 
+ export {
+ 	type ParseOptions,
+diff --git a/node_modules/query-string/index.js b/node_modules/query-string/index.js
+index 0480a96..2843721 100644
+--- a/node_modules/query-string/index.js
++++ b/node_modules/query-string/index.js
+@@ -1,3 +1,4 @@
+ import * as queryString from './base.js';
+ 
+ export default queryString;
++export * from './base.js';
