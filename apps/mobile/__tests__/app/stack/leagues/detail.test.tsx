@@ -402,7 +402,7 @@ describe('LeagueDetailScreen — segment tabs', () => {
 
     fireEvent.press(avatar);
     expect(screen.getByTestId('league-picture-preview').props.cachePolicy).toBe('none');
-    fireEvent.press(screen.getByLabelText('Close league picture'));
+    fireEvent.press(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByTestId('league-picture-preview')).toBeNull();
 
     fireEvent.press(screen.getByTestId('segment-tab-info'));
