@@ -43,6 +43,8 @@ interface AvatarProps {
   /** Classes applied only to the initials fallback (for example, guest borders). */
   readonly fallbackClassName?: string;
   readonly testID?: string;
+  /** Caps scaling of decorative initials inside a fixed-size avatar. */
+  readonly initialsMaxFontSizeMultiplier?: number;
   /** Set false when the parent element already provides an accessibility label for this avatar. */
   readonly accessible?: boolean;
 }
@@ -156,6 +158,7 @@ export default function Avatar({
   className = '',
   fallbackClassName = '',
   testID,
+  initialsMaxFontSizeMultiplier,
   accessible = true,
 }: AvatarProps): React.ReactNode {
   const dimension = typeof size === 'number' ? size : sizeDimensions[size];
@@ -209,6 +212,7 @@ export default function Avatar({
       accessibilityLabel={accessible ? name : undefined}
     >
       <AppText
+        maxFontSizeMultiplier={initialsMaxFontSizeMultiplier}
         style={{
           ...(variety != null ? { color: variety.fg } : {}),
           ...(variety == null && variantFg != null ? { color: variantFg } : {}),

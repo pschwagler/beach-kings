@@ -97,6 +97,7 @@ export default function HomeHeader({
         </Pressable>
 
         <Pressable
+          className="w-11 h-11 rounded-full items-center justify-center active:opacity-70 focus:opacity-70"
           onPress={() => router.push(routes.profile())}
           accessibilityLabel="My profile"
           accessibilityRole="button"
@@ -105,6 +106,8 @@ export default function HomeHeader({
             name={userName}
             imageUrl={avatarUrl}
             size="sm"
+            accessible={false}
+            initialsMaxFontSizeMultiplier={1.25}
             colorSeed={playerId ?? undefined}
           />
         </Pressable>
