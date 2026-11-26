@@ -1,8 +1,12 @@
 # Deploy to production (beachleaguevb.com)
-# Manual trigger only — builds images in CI, pushes to GHCR, prod pulls pre-built images.
+# Deploy after successful main push CI, with a manual release path.
 name: Deploy Prod
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       branch:
@@ -13,29 +17,47 @@ on:
 
 permissions:
   contents: read
-  packages: write
-
-concurrency:
-  group: prod-deploy
-  cancel-in-progress: true
 
 jobs:
+  resolve:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.branch }}
+          persist-credentials: false
+      - name: Record source revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   security:
+    needs: resolve
     uses: ./.github/workflows/security.yml
     with:
-      ref: ${{ inputs.branch }}
+      ref: ${{ needs.resolve.outputs.sha }}
 
   build-and-push:
     outputs:
       frontend_digest: ${{ steps.frontend.outputs.digest }}
       backend_digest: ${{ steps.backend.outputs.digest }}
-    needs: security
+    needs: [resolve, security]
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.branch }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - name: Validate production frontend provider configuration
         env:
@@ -92,14 +114,17 @@ jobs:
           exit-code: '1'
 
   deploy:
+    concurrency:
+      group: prod-deploy
+      queue: max
     runs-on: ubuntu-latest
-    needs: [security, build-and-push]
-    if: ${{ always() && needs.security.result == 'success' && needs.build-and-push.result == 'success' }}
+    needs: [resolve, build-and-push]
     steps:
       - name: Deploy to prod EC2
         uses: appleboy/ssh-action@v1
         env:
-          DEPLOY_BRANCH: ${{ inputs.branch }}
+          DEPLOY_SHA: ${{ needs.resolve.outputs.sha }}
+          AUTOMATIC_DEPLOY: ${{ github.event_name == 'workflow_run' }}
           FRONTEND_IMAGE: ghcr.io/pschwagler/beach-kings/frontend@${{ needs.build-and-push.outputs.frontend_digest }}
           BACKEND_IMAGE: ghcr.io/pschwagler/beach-kings/backend@${{ needs.build-and-push.outputs.backend_digest }}
         with:
@@ -107,15 +132,27 @@ jobs:
           username: ubuntu
           key: ${{ secrets.PROD_EC2_SSH_KEY }}
           command_timeout: 20m
-          envs: DEPLOY_BRANCH,FRONTEND_IMAGE,BACKEND_IMAGE
+          envs: DEPLOY_SHA,AUTOMATIC_DEPLOY,FRONTEND_IMAGE,BACKEND_IMAGE
           script: |
             set -e
             cd ~/beach-kings
 
-            echo "=== Fetching branch: $DEPLOY_BRANCH ==="
-            git fetch --all
-            git checkout "$DEPLOY_BRANCH"
-            git pull origin "$DEPLOY_BRANCH"
+            if ! git diff --quiet HEAD --; then
+              echo "Production checkout has tracked changes. Review them on the host before deploying." >&2
+              exit 1
+            fi
+
+            echo "=== Checking out release: $DEPLOY_SHA ==="
+            if [ "$AUTOMATIC_DEPLOY" = "true" ]; then
+              git fetch origin refs/heads/main
+              if [ "$(git rev-parse FETCH_HEAD)" != "$DEPLOY_SHA" ]; then
+                echo "This release is no longer at the tip of main. Deploy the current revision instead."
+                exit 1
+              fi
+            else
+              git fetch origin "$DEPLOY_SHA"
+            fi
+            git checkout --detach "$DEPLOY_SHA"
             # Correlate API readiness with the worker from this exact checkout.
             export RELEASE_READINESS_GENERATION="$(git rev-parse HEAD)-$(openssl rand -hex 16)"
 
@@ -216,4 +253,31 @@ jobs:
             echo ""
             echo "=== Deploy complete ==="
             echo "https://beachleaguevb.com"
-            echo "Branch: $DEPLOY_BRANCH"
+            echo "Source revision: $DEPLOY_SHA"
+
+      - name: Record successful release
+        env:
+          RELEASE_SHA: ${{ needs.resolve.outputs.sha }}
+          FRONTEND_IMAGE: ghcr.io/pschwagler/beach-kings/frontend@${{ needs.build-and-push.outputs.frontend_digest }}
+          BACKEND_IMAGE: ghcr.io/pschwagler/beach-kings/backend@${{ needs.build-and-push.outputs.backend_digest }}
+        run: |
+          jq -n --arg sha "$RELEASE_SHA" --arg frontend "$FRONTEND_IMAGE" \
+            --arg backend "$BACKEND_IMAGE" \
+            --arg run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{source_sha: $sha, frontend_image: $frontend, backend_image: $backend, run_url: $run}' \
+            > release-manifest.json
+          {
+            echo '### Production release'
+            echo
+            echo '~~~json'
+            cat release-manifest.json
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-release
+          path: release-manifest.json
+          if-no-files-found: error
+          overwrite: true
