@@ -307,6 +307,31 @@ describe.each(['all', 'mine'] as const)('LeagueMatchesTab — %s order', (mode) 
 // ---------------------------------------------------------------------------
 
 describe('LeagueMatchesTab — All Games rendering', () => {
+  it('uses an edited session date even when game rows still have the old date', async () => {
+    mockGetLeagueSessions.mockResolvedValue([
+      { ...LEAGUE_SESSIONS[1], id: 100, date: '11/8/2024' },
+      { ...LEAGUE_SESSIONS[1], id: 200, date: 'invalid' },
+    ]);
+    mockGetLeagueGames.mockResolvedValue({
+      games: [
+        { ...ALL_GAME_SUBMITTED, id: 51, session_id: 100, session_date: '2024-06-01' },
+        { ...ALL_GAME_SUBMITTED, id: 52, session_id: 200, session_date: '2024-10-01' },
+      ],
+      total: 2,
+    });
+
+    render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId(/^session-card-\d+$/).map((card) => card.props.testID),
+      ).toEqual(['session-card-100', 'session-card-200']);
+    });
+    expect(screen.getByText('Fri, Nov 8')).toBeTruthy();
+    expect(screen.getByText('Tue, Oct 1')).toBeTruthy();
+    expect(screen.queryByText('Sat, Jun 1')).toBeNull();
+  });
+
   it('loads every page before rendering the complete session history', async () => {
     mockGetLeagueSessions.mockResolvedValue(LEAGUE_SESSIONS);
     mockGetLeagueGames.mockImplementation(

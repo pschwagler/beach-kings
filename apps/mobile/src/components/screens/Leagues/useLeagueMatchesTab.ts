@@ -163,20 +163,26 @@ function groupAllGamesBySessions(
   leagueSessions: readonly LeagueSessionSummary[],
 ): SessionGroup[] {
   const gamesBySession = groupBySessionId(games);
-  const groups: SessionGroup[] = leagueSessions.map((session) => ({
-    session_id: session.id,
-    session_date:
-      gamesBySession.get(session.id)?.[0]?.session_date ?? session.date,
-    session_status: session.status ?? 'SUBMITTED',
-    mode: 'all' as const,
-    myGames: [],
-    allGames: gamesBySession.get(session.id) ?? [],
-    userWins: 0,
-    userLosses: 0,
-    ratingChange: 0,
-    gameCount: session.game_count,
-    playerCount: session.player_count,
-  }));
+  const groups: SessionGroup[] = leagueSessions.map((session) => {
+    const sessionGames = gamesBySession.get(session.id) ?? [];
+    // The session summary can reflect a date edit before the game pages refresh.
+    const date = session.date != null && parseCalendarDate(session.date) != null
+      ? session.date
+      : sessionGames[0]?.session_date ?? null;
+    return {
+      session_id: session.id,
+      session_date: date,
+      session_status: session.status ?? 'SUBMITTED',
+      mode: 'all',
+      myGames: [],
+      allGames: sessionGames,
+      userWins: 0,
+      userLosses: 0,
+      ratingChange: 0,
+      gameCount: session.game_count,
+      playerCount: session.player_count,
+    };
+  });
 
   return sortSessionsActiveFirstThenNewest(groups);
 }
