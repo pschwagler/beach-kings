@@ -14,8 +14,8 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
-import type { LeagueDetail } from "@beach-kings/shared";
+import { useFocusEffect, useRouter } from "expo-router";
+import type { LeagueDetail, LeaguePicture } from "@beach-kings/shared";
 import { api } from "@/lib/api";
 import { leagueKeys } from "./leagueKeys";
 import {
@@ -24,6 +24,7 @@ import {
   getLeagueLiveSessionId,
   useLeagueInviteResponses,
 } from "@/features/leagues";
+import { useLeaguePicture } from "@/features/leagues/useLeaguePicture";
 import { routes, type LeagueTab } from "@/lib/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getQueryErrorPresentation } from "@/infrastructure/query/retryPolicy";
@@ -68,6 +69,8 @@ const MEMBER_TABS: readonly LeagueDetailTab[] = [
 export interface UseLeagueDetailScreenResult {
   readonly leagueId: number | string;
   readonly detail: LeagueDetail | null;
+  readonly picture: LeaguePicture | undefined;
+  readonly pictureManagement: ReturnType<typeof useLeaguePicture>;
   readonly liveSessionId: number | null;
   readonly isSessionActionReady: boolean;
   readonly isSessionActionError: boolean;
@@ -131,6 +134,20 @@ export function useLeagueDetailScreen(
   const inviteResponses = useLeagueInviteResponses(userId);
 
   const detail = detailQuery.data ?? null;
+  const canViewPicture = userId > 0 && !detailQuery.isError
+    && (detail?.user_role === "admin" || detail?.user_role === "member");
+  const pictureManagement = useLeaguePicture(
+    userId, Number(leagueId), canViewPicture && detail?.user_role === "admin", canViewPicture,
+  );
+  const pictureQuery = pictureManagement.query;
+  useFocusEffect(useCallback(() => {
+    if (canViewPicture) {
+      void queryClient.invalidateQueries(
+        { queryKey: leagueKeys.picture(userId, leagueId), exact: true },
+        { cancelRefetch: false },
+      );
+    }
+  }, [canViewPicture, leagueId, queryClient, userId]));
   const sessionsQuery = useQuery(leagueQueries.sessions(userId, leagueId,
     detail?.user_role === 'admin' || detail?.user_role === 'member'));
   const liveSessionId = getLeagueLiveSessionId(sessionsQuery.data);
@@ -280,6 +297,8 @@ export function useLeagueDetailScreen(
     onRetrySessionAction: () => { void sessionsQuery.refetch(); },
     leagueId,
     detail,
+    picture: canViewPicture && !pictureQuery.isError ? pictureQuery.data : undefined,
+    pictureManagement,
     isLoading: detailQuery.isLoading,
     isError: detailQuery.isError,
     errorTitle: detailError.title,

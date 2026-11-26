@@ -18,13 +18,12 @@ import RefreshScrollView from '@/components/refresh/RefreshScrollView';
 
 import React, { useCallback } from 'react';
 import AppText from '@/components/ui/AppText';
-import { View, Pressable, ScrollView, } from 'react-native';
-import type { League, Session } from '@beach-kings/shared';
+import { View, Pressable } from 'react-native';
+import type { League, LeaguePicture, LeaguePictureThumbnails, Session } from '@beach-kings/shared';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
-import { TrophyIcon } from '@/components/ui/icons';
+import LeagueAvatar from '@/components/screens/Leagues/LeagueAvatar';
 import { pluralize } from '@/lib/formatters';
 import { hapticMedium } from '@/utils/haptics';
-import { usePaletteColors } from '@/theme/usePaletteColors';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -45,12 +44,12 @@ function LeagueRowSkeleton(): React.ReactNode {
 
 interface LeagueRowProps {
   readonly league: League & { readonly activeSession?: Session | null };
+  readonly picture?: LeaguePicture;
   readonly onContinue: (session: Session) => void;
   readonly onStartNew: (league: League) => void;
 }
 
-function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.ReactNode {
-  const palette = usePaletteColors();
+function LeagueRow({ league, picture, onContinue, onStartNew }: LeagueRowProps): React.ReactNode {
   const handleContinue = useCallback(() => {
     if (league.activeSession != null) {
       void hapticMedium();
@@ -75,10 +74,7 @@ function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.Re
     >
       {/* Card header: icon + name + location + season */}
       <View className="flex-row items-center gap-[14px] mb-[14px]">
-        {/* Icon */}
-        <View className="w-11 h-11 rounded-[10px] bg-info-tint items-center justify-center flex-shrink-0">
-          <TrophyIcon size={22} color={palette.brandTeal} />
-        </View>
+        <LeagueAvatar leagueId={league.id} picture={picture} />
 
         {/* Info */}
         <View className="flex-1">
@@ -135,6 +131,7 @@ function LeagueRow({ league, onContinue, onStartNew }: LeagueRowProps): React.Re
 
 interface LeagueSelectListProps {
   readonly leagues: readonly (League & { readonly activeSession?: Session | null })[] | undefined;
+  readonly pictures: LeaguePictureThumbnails;
   readonly isLoading: boolean;
   readonly isRefreshing: boolean;
   readonly error: Error | null;
@@ -147,6 +144,7 @@ interface LeagueSelectListProps {
 
 export default function LeagueSelectList({
   leagues,
+  pictures,
   isLoading,
   isRefreshing,
   error,
@@ -227,6 +225,7 @@ export default function LeagueSelectList({
         <LeagueRow
           key={league.id}
           league={league}
+          picture={pictures[league.id]}
           onContinue={onContinueSession}
           onStartNew={onStartNewSession}
         />

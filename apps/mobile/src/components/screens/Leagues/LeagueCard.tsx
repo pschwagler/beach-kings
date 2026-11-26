@@ -9,14 +9,16 @@
 import React from 'react';
 import AppText from '@/components/ui/AppText';
 import { View, Pressable } from 'react-native';
-import type { League } from '@beach-kings/shared';
-import { TrophyIcon, ChevronRightIcon } from '@/components/ui/icons';
+import type { League, LeaguePicture } from '@beach-kings/shared';
+import { ChevronRightIcon } from '@/components/ui/icons';
 import { formatRecord, formatWinRate, formatOrdinal, pluralize } from '@/lib/formatters';
 import { usePaletteColors } from '@/theme/usePaletteColors';
+import LeagueAvatar from './LeagueAvatar';
 import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
 
 interface LeagueCardProps {
   readonly league: League;
+  readonly picture?: LeaguePicture;
   readonly userRank: number | null;
   readonly userWins: number;
   readonly userLosses: number;
@@ -44,6 +46,7 @@ function StatBlock({
 
 export default function LeagueCard({
   league,
+  picture,
   userRank,
   userWins,
   userLosses,
@@ -73,9 +76,7 @@ export default function LeagueCard({
     >
       {/* Top row */}
       <View className="flex-row items-start mb-sm">
-        <View className="w-11 h-11 rounded-[12px] bg-info-tint items-center justify-center flex-shrink-0">
-          <TrophyIcon size={20} color={palette.brandTeal} />
-        </View>
+        <LeagueAvatar leagueId={league.id} picture={picture} />
 
         <View className="flex-1 ml-md">
           <View className="mb-xs"><PlayTypeBadge type="league" /></View>

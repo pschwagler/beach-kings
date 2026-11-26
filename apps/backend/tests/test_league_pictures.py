@@ -51,6 +51,41 @@ def test_member_can_read_private_picture_with_no_public_cache(setup, role):
     }
 
 
+def test_private_thumbnail_batch_scales_normalized_jpegs(setup):
+    client, db = setup
+    color_photo = process_picture(image_bytes(), "image/png")
+    db.execute.return_value = SimpleNamespace(all=lambda: [(42, color_photo, "revision1")])
+    response = client.get("/api/leagues/pictures/thumbnails", params={"league_ids": [42, 61]})
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "private, no-store"
+    assert list(response.json()) == ["42"]
+    assert response.json()["42"]["revision"] == "revision1"
+    encoded = response.json()["42"]["data_uri"].split(",", 1)[1]
+    with Image.open(BytesIO(base64.b64decode(encoded))) as image:
+        assert image.format == "JPEG"
+        assert image.size == (144, 144)
+        assert not image.getexif()
+
+
+@pytest.mark.parametrize("ids", [[], [0], [2_147_483_648], list(range(1, 27))])
+def test_thumbnail_batch_rejects_invalid_input(setup, ids):
+    client, db = setup
+    assert (
+        client.get("/api/leagues/pictures/thumbnails", params={"league_ids": ids}).status_code
+        == 422
+    )
+    db.execute.assert_not_awaited()
+
+
+def test_anonymous_thumbnail_request_does_not_read_pictures(setup):
+    client, db = setup
+    client.app.dependency_overrides.pop(routes.require_user)
+    assert client.get(
+        "/api/leagues/pictures/thumbnails", params={"league_ids": [42]}
+    ).status_code in {401, 403}
+    db.execute.assert_not_awaited()
+
+
 @pytest.mark.parametrize("method", ["get", "post", "delete"])
 def test_nonmember_including_platform_admin_cannot_access_picture(setup, method):
     client, db = setup

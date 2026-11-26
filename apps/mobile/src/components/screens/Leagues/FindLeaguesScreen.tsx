@@ -28,7 +28,8 @@ import {
   useFindLeaguesScreen,
   type FindLeaguesFilter,
 } from './useFindLeaguesScreen';
-import type { FindLeagueResult } from '@beach-kings/shared';
+import LeagueAvatar from './LeagueAvatar';
+import type { FindLeagueResult, LeaguePicture } from '@beach-kings/shared';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import FilterChipBar from '@/components/ui/FilterChipBar';
 
@@ -90,6 +91,7 @@ const FILTER_OPTIONS = [
 
 interface LeagueResultCardProps {
   readonly league: FindLeagueResult;
+  readonly picture?: LeaguePicture;
   readonly onPress: (id: number) => void;
   readonly onJoinLeague: (id: number) => Promise<void>;
   readonly isRequesting: boolean;
@@ -104,6 +106,7 @@ function genderLabel(g: FindLeagueResult['gender']): string {
 
 function LeagueResultCard({
   league,
+  picture,
   onPress,
   onJoinLeague,
   isRequesting,
@@ -125,6 +128,9 @@ function LeagueResultCard({
       >
         {/* Top row */}
         <View className="flex-row items-start mb-2">
+          {league.user_status === 'member' && (
+            <View className="mr-3"><LeagueAvatar leagueId={league.id} picture={picture} /></View>
+          )}
           <View className="flex-1 min-w-0 mr-2">
             <AppText
               className="text-[15px] font-bold text-default"
@@ -348,6 +354,7 @@ export default function FindLeaguesScreen(): React.ReactNode {
     searchQuery,
     activeFilter,
     leagues,
+    pictures,
     isLoading,
     isRefreshing,
     isError,
@@ -387,6 +394,7 @@ export default function FindLeaguesScreen(): React.ReactNode {
         renderItem={({ item }) => (
           <LeagueResultCard
             league={item}
+            picture={pictures[item.id]}
             onPress={onPressLeague}
             onJoinLeague={onJoinLeague}
             isRequesting={requestingIds.has(item.id)}

@@ -39,3 +39,12 @@ def process_picture(content: bytes, content_type: str | None) -> bytes:
         raise ValueError("Choose a smaller photo.") from error
     except (UnidentifiedImageError, OSError) as error:
         raise ValueError("The selected photo could not be read.") from error
+
+
+def make_thumbnail(content: bytes) -> bytes:
+    """Crop an already normalized league picture for a small square display."""
+    with Image.open(BytesIO(content), formats=["JPEG"]) as source:
+        image = ImageOps.fit(source, (144, 144), method=Image.Resampling.LANCZOS)
+        output = BytesIO()
+        image.save(output, format="JPEG", quality=78, optimize=True)
+        return output.getvalue()

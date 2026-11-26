@@ -11,6 +11,7 @@ import type {
   LeagueStandingsResponse,
   LeagueDetail,
   LeaguePicture,
+  LeaguePictureThumbnails,
   LeagueMemberApiRow,
   LeagueMemberAddResult,
   LeaguePlayerStats,
@@ -90,6 +91,19 @@ export function createLeagueMethods(api: AxiosInstance) {
 
     async getLeaguePicture(leagueId: number, options?: ReadRequestOptions): Promise<LeaguePicture> {
       const response = await getRead<LeaguePicture>(api, `/api/leagues/${leagueId}/picture`, undefined, options);
+      return response.data;
+    },
+
+    async getLeaguePictureThumbnails(
+      leagueIds: readonly number[],
+      options?: ReadRequestOptions,
+    ): Promise<LeaguePictureThumbnails> {
+      const response = await getRead<LeaguePictureThumbnails>(
+        api,
+        '/api/leagues/pictures/thumbnails',
+        { params: { league_ids: leagueIds }, paramsSerializer: { indexes: null } },
+        options,
+      );
       return response.data;
     },
 

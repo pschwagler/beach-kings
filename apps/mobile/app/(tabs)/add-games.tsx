@@ -32,6 +32,7 @@ import { useFeatureFlag } from '@/features/feature-flags/queries';
 import { useAuth } from '@/contexts/AuthContext';
 import useRefreshOnFocus from '@/hooks/useRefreshOnFocus';
 import { leagueKeys } from '@/components/screens/Leagues/leagueKeys';
+import { useLeaguePictureThumbnails } from '@/features/leagues/useLeaguePictureThumbnails';
 import { sessionQueries } from '@/features/sessions';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
@@ -231,6 +232,10 @@ export default function AddGamesScreen(): React.ReactNode {
     enabled: userId > 0 && view === 'league-select',
   });
   const leagues = leaguesQuery.data;
+  const { pictures, refreshPictures } = useLeaguePictureThumbnails(
+    userId,
+    view === 'league-select' ? (leagues?.map(({ id }) => id) ?? []) : [],
+  );
   const leaguesLoading = leaguesQuery.isPending;
   const leaguesError = leaguesQuery.error;
   const refreshOpenSessions = openSessionsQuery.refetch;
@@ -264,8 +269,12 @@ export default function AddGamesScreen(): React.ReactNode {
   useRefreshOnFocus(refreshCriticalData, 0);
 
   const refreshLeagueSelection = useCallback(async () => {
-    return Promise.allSettled([refreshLeagues({ cancelRefetch: false }), refreshOpenSessions({ cancelRefetch: false })]);
-  }, [refreshLeagues, refreshOpenSessions]);
+    return Promise.allSettled([
+      refreshLeagues({ cancelRefetch: false }),
+      refreshOpenSessions({ cancelRefetch: false }),
+      refreshPictures(),
+    ]);
+  }, [refreshLeagues, refreshOpenSessions, refreshPictures]);
 
   const handleLeagueGame = useCallback(() => {
     setView('league-select');
@@ -360,6 +369,7 @@ export default function AddGamesScreen(): React.ReactNode {
           </AppText>
           <LeagueSelectList
             leagues={leaguesWithSessions}
+            pictures={pictures}
             isLoading={leaguesLoading || sessionLoading}
             isRefreshing={false}
             error={leaguesError}

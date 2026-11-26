@@ -102,10 +102,12 @@ jest.mock('@/utils/haptics', () => ({
 
 // API mock
 const mockGetUserLeagues = jest.fn();
+const mockGetPictureThumbnails = jest.fn();
 const mockGetSessions = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
+    getLeaguePictureThumbnails: (...args: unknown[]) => mockGetPictureThumbnails(...args),
     getUserLeagues: (...args: unknown[]) => mockGetUserLeagues(...args),
     getSessions: (...args: unknown[]) => mockGetSessions(...args),
   },
@@ -200,6 +202,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockHapticMedium.mockResolvedValue(undefined);
   mockGetUserLeagues.mockResolvedValue([]);
+  mockGetPictureThumbnails.mockResolvedValue({});
   mockGetSessions.mockResolvedValue([]);
 });
 
@@ -458,6 +461,17 @@ describe('AddGamesScreen — league select: leagues loaded', () => {
       expect(screen.getByText(LEAGUE_1.name)).toBeTruthy();
       expect(screen.getByText(LEAGUE_2.name)).toBeTruthy();
     });
+  });
+
+  it('displays league photos in the picker while keeping the no-photo fallback', async () => {
+    mockGetPictureThumbnails.mockResolvedValue({
+      [LEAGUE_1.id]: { data_uri: 'data:image/jpeg;base64,Zml4dHVyZQ==', revision: 'one' },
+    });
+    await openLeagueSelect();
+    await waitFor(() => expect(
+      screen.getByTestId(`league-avatar-photo-${LEAGUE_1.id}`, { includeHiddenElements: true }),
+    ).toBeTruthy());
+    expect(screen.getByTestId(`league-avatar-fallback-${LEAGUE_2.id}`, { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('renders the "Your Leagues" section label', async () => {

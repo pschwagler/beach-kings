@@ -109,6 +109,7 @@ const mockGetMyGames = jest.fn();
 const mockGetLeagueSessions = jest.fn();
 const mockGetLeagueGames = jest.fn();
 const mockGetLeague = jest.fn();
+const mockGetLeaguePicture = jest.fn();
 const mockGetLeagueMembers = jest.fn();
 const mockGetLeagueJoinRequests = jest.fn();
 const mockApproveJoinRequest = jest.fn();
@@ -121,7 +122,7 @@ const mockDeclineLeagueInvite = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getLeaguePicture: jest.fn().mockResolvedValue({ data_uri: null, revision: null }),
+    getLeaguePicture: (...args: unknown[]) => mockGetLeaguePicture(...args),
     getLeagueSeasons: (...args: unknown[]) => mockGetLeagueSeasons(...args),
     getLeagueStandings: (...args: unknown[]) => mockGetLeagueStandings(...args),
     getLeagueMessages: (...args: unknown[]) => mockGetLeagueMessages(...args),
@@ -238,6 +239,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockSearchParams = { id: '1' };
   mockGetLeague.mockResolvedValue(MOCK_DETAIL);
+  mockGetLeaguePicture.mockReset().mockResolvedValue({ data_uri: null, revision: null });
   mockGetLeagueStandings.mockResolvedValue({ standings: [], season_info: null });
   mockGetLeagueSeasons.mockResolvedValue([]);
   mockGetLeagueMessages.mockResolvedValue([]);
@@ -386,6 +388,35 @@ describe('LeagueDetailScreen — segment tabs', () => {
     await waitFor(() => {
       expect(screen.getByTestId('signups-tab')).toBeTruthy();
     });
+  });
+
+  it('opens the member photo preview and keeps admin actions in Info', async () => {
+    mockGetLeaguePicture.mockResolvedValue({
+      data_uri: 'data:image/jpeg;base64,Zml4dHVyZQ==',
+      revision: 'one',
+    });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    const avatar = await screen.findByLabelText('View picture for Manhattan Open');
+    expect(screen.queryByTestId('league-picture-preview')).toBeNull();
+    expect(screen.queryByLabelText('Change league picture')).toBeNull();
+
+    fireEvent.press(avatar);
+    expect(screen.getByTestId('league-picture-preview').props.cachePolicy).toBe('none');
+    fireEvent.press(screen.getByLabelText('Close league picture'));
+    expect(screen.queryByTestId('league-picture-preview')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('segment-tab-info'));
+    expect(await screen.findByLabelText('Change league picture')).toBeTruthy();
+    expect(screen.getByLabelText('Remove league picture')).toBeTruthy();
+  });
+
+  it('never requests or renders the picture for visitors', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await screen.findByTestId('league-header-name');
+    expect(mockGetLeaguePicture).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('View picture for Manhattan Open')).toBeNull();
+    expect(screen.queryByTestId('league-avatar-fallback-1', { includeHiddenElements: true })).toBeNull();
   });
 
   it('switches to info tab on press', async () => {

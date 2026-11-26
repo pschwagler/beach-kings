@@ -5,10 +5,18 @@ import { leagueKeys } from './keys';
 const LEAGUE_GAMES_PAGE_SIZE = 500;
 
 export const leagueQueries = {
-  picture: (userId: number, leagueId: number | string) => queryOptions({
+  picture: (userId: number, leagueId: number | string, enabled = true) => queryOptions({
     queryKey: leagueKeys.picture(userId, leagueId),
     queryFn: ({ signal }) => api.getLeaguePicture(Number(leagueId), { signal }),
-    enabled: userId > 0 && Number(leagueId) > 0,
+    enabled: enabled && userId > 0 && Number(leagueId) > 0,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  }),
+  pictureThumbnails: (userId: number, ids: readonly number[]) => queryOptions({
+    queryKey: leagueKeys.pictureThumbnails(userId, ids),
+    queryFn: ({ signal }) => api.getLeaguePictureThumbnails(ids, { signal }),
+    enabled: userId > 0 && ids.length > 0,
     staleTime: 0,
     gcTime: 0,
     retry: false,

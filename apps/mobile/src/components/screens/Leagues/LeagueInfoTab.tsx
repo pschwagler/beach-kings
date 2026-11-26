@@ -15,6 +15,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import LeaguePictureCard from './LeaguePictureCard';
+import type { useLeaguePicture } from '@/features/leagues/useLeaguePicture';
 import AppText from '@/components/ui/AppText';
 import {
   View,
@@ -454,11 +456,13 @@ function InfoRow({ label, value, isAdmin, onPress, testID }: InfoRowProps): Reac
 interface LeagueInfoTabProps {
   readonly leagueId: number | string;
   readonly userRole: 'admin' | 'member' | null;
+  readonly pictureManagement?: ReturnType<typeof useLeaguePicture>;
 }
 
 export default function LeagueInfoTab({
   leagueId,
   userRole,
+  pictureManagement,
 }: LeagueInfoTabProps): React.ReactNode {
   const router = useRouter();
   const { user } = useAuth();
@@ -623,6 +627,9 @@ export default function LeagueInfoTab({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: CONTENT_BOTTOM_SPACING }}
       >
+      {userRole != null && pictureManagement != null && (
+        <LeaguePictureCard leagueId={Number(leagueId)} canEdit={isAdmin} management={pictureManagement} />
+      )}
       {/* Description */}
       {(info.description != null || isAdmin) && (
         <>

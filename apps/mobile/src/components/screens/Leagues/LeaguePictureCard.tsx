@@ -1,25 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import AppText from '@/components/ui/AppText';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { useLeaguePicture } from '@/features/leagues/useLeaguePicture';
+import type { useLeaguePicture } from '@/features/leagues/useLeaguePicture';
+
+type Management = ReturnType<typeof useLeaguePicture>;
 
 interface Props {
   readonly leagueId: number;
-  readonly leagueName: string;
   readonly canEdit: boolean;
+  readonly management: {
+    readonly query: Pick<Management['query'], 'data' | 'isPending' | 'isError' | 'refetch'>;
+    readonly mutation: Pick<Management['mutation'], 'isPending' | 'isError' | 'error' | 'variables'>;
+    readonly changePicture: Management['changePicture'];
+  };
 }
 
-/** This surface is never mounted for visitors or on discovery/list cards. */
-export default function LeaguePictureCard({ leagueId, leagueName, canEdit }: Props) {
+/** Picture management and read recovery within the scrollable Info tab. */
+export default function LeaguePictureCard({ leagueId, canEdit, management }: Props) {
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const palette = usePaletteColors();
-  const { query, mutation, changePicture } = useLeaguePicture(userId, leagueId, canEdit);
+  const { query, mutation, changePicture } = management;
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
   const scope = useRef({ userId, leagueId, canEdit, active: true, choosing: false });
@@ -83,13 +88,10 @@ export default function LeaguePictureCard({ leagueId, leagueName, canEdit }: Pro
     ]);
   };
 
-  if (!picture && !canEdit && !query.isError) return null;
+  if (!canEdit && !query.isError) return null;
   return (
-    <View testID="league-picture-card" className="mb-2">
-      {picture != null && <Image testID="league-picture" source={{ uri: picture }} cachePolicy="none"
-        recyclingKey={`${userId}:${leagueId}:${query.data?.revision}`}
-        contentFit="contain" accessibilityLabel={`${leagueName} league picture`}
-        style={{ width: '100%', height: 112, borderRadius: 12, marginBottom: 4, backgroundColor: palette.bgInset }} />}
+    <View testID="league-picture-card" className="mx-4 my-3 px-4 py-2 bg-surface rounded-[12px] border border-divider">
+      {canEdit && <AppText className="text-[13px] font-bold text-default">League picture</AppText>}
       {canEdit && <View className="flex-row items-center gap-4">
         <Pressable testID="league-picture-upload" accessibilityRole="button"
           accessibilityLabel={picture ? 'Change league picture' : 'Add league picture'}
@@ -111,7 +113,7 @@ export default function LeaguePictureCard({ leagueId, leagueName, canEdit }: Pro
         onPress={() => { void query.refetch(); }} className="min-h-touch justify-center">
         <AppText className="text-[13px] text-muted">Could not load the league picture. Tap to retry.</AppText>
       </Pressable>}
-      {mutation.isError && mutation.variables != null && <Pressable accessibilityRole="button"
+      {canEdit && mutation.isError && mutation.variables != null && <Pressable accessibilityRole="button"
         accessibilityLabel="Retry picture update" disabled={busy} className="min-h-touch justify-center"
         onPress={() => {
           setPickerError(null);
