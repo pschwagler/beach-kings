@@ -5,9 +5,11 @@
 
 import React from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
+import { fontSizes } from '@beach-kings/shared/tokens/typography';
 import AppText from '@/components/ui/AppText';
 import { formatElo, formatRecord } from '@/lib/formatters';
 
+const statTextStyle = { fontSize: fontSizes.caption };
 const statButtonClass = 'min-h-touch min-w-touch items-center justify-center rounded-chip bg-info-tint px-sm py-xxs active:opacity-70 focus:opacity-70';
 
 interface QuickStatsRowProps {
@@ -46,8 +48,8 @@ export default function QuickStatsRow({
             className={statButtonClass}
             onPress={onStatsPress}
           >
-            <AppText className="text-caption font-semibold text-info">
-              <AppText className="font-bold text-info">{formatElo(rating)}</AppText> Rating
+            <AppText className="font-semibold text-info" style={statTextStyle}>
+              {formatElo(rating)} Rating
             </AppText>
           </Pressable>
         )}
@@ -58,8 +60,8 @@ export default function QuickStatsRow({
           className={statButtonClass}
           onPress={onStatsPress}
         >
-          <AppText className="text-caption font-semibold text-info">
-            <AppText className="font-bold text-info">{formatRecord(wins, losses)}</AppText>
+          <AppText className="font-bold text-info" style={statTextStyle}>
+            {formatRecord(wins, losses)}
           </AppText>
         </Pressable>
       </View>

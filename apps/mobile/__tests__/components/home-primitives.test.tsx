@@ -276,7 +276,7 @@ describe('QuickStatsRow', () => {
     const { getByText } = render(
       <QuickStatsRow firstName="Ben" rating={1450} wins={0} losses={0} onStatsPress={jest.fn()} />,
     );
-    expect(getByText('1450')).toBeTruthy();
+    expect(getByText('1450 Rating')).toBeTruthy();
   });
 });
 
