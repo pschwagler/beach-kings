@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
       - uses: actions/setup-node@v4
@@ -30,7 +30,7 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=high
       - run: npm run test:dependency-compatibility
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.15'
       - run: python scripts/check_runtime_lock.py
@@ -46,7 +46,7 @@ jobs:
       matrix:
         service: [frontend, backend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
       - name: Build production image
