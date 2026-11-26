@@ -16,7 +16,7 @@ jobs:
     environment: dev-provider-validation
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate protected provider configuration
         env:
@@ -77,7 +77,7 @@ jobs:
     environment: production-provider-config
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download encrypted provider configuration
         uses: actions/download-artifact@v4
