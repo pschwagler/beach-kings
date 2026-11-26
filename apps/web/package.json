@@ -59,7 +59,7 @@
     "@types/react-dom": "^19.1.9",
     "@vitest/coverage-v8": "^4.1.0",
     "axios": "^1.20.0",
-    "concurrently": "^9.1.0",
+    "concurrently": "^10.0.7",
     "eslint": "^10.15.0",
     "eslint-config-next": "16.4.6",
     "jsdom": "^20.0.3",
