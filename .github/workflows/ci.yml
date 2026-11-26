@@ -1,9 +1,11 @@
-# CI — runs on PRs targeting main or develop: lint, test, and build.
+# CI — lint, test, and build for pull requests and post-merge main commits.
 name: CI
 
 on:
   pull_request:
     branches: [main, develop]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 defaults:
