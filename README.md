@@ -270,19 +270,22 @@ Edit the relevant component that displays the Google Sheets link (if applicable)
 The application uses Docker for containerized deployment. See
 [BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) for the supported workflow.
 
-Production releases use the manual GitHub Actions **Deploy Prod** workflow.
+The **Deploy Prod** workflow runs after successful post-merge CI on main and
+supports manual releases.
 Local `make` and Docker Compose commands are development tools, not a production
 release path.
 
 ### EC2 Deployment
 
-For deploying to AWS EC2, see [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md) for step-by-step instructions.
+For initial host provisioning, see [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md). For
+routine releases and deployed-version verification, follow
+[BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md).
 
 ### Deployment Details
 
 The app uses Docker for deployment:
 - **Backend**: Python 3.11 with FastAPI
-- **Frontend**: Next.js 15 (built at container build time)
+- **Frontend**: Next.js (version pinned in `apps/web/package.json`, built into the image)
 - **Database**: PostgreSQL
 - **Cache**: Redis
 - Separate Dockerfiles for backend and frontend for optimized builds
