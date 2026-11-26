@@ -197,6 +197,8 @@ jobs:
         run: cd apps/web && npm run test:unit:coverage
 
   mobile-quality:
+    # Mobile release checks run on PRs and manual CI runs.
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -261,7 +263,7 @@ jobs:
         run: npm ci
 
       - name: Build frontend
-        run: npm run build
+        run: npm run build --workspace @beach-kings/web
 
       - name: Build frontend production image
         run: |

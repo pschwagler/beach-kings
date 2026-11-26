@@ -116,7 +116,7 @@ jobs:
   deploy:
     concurrency:
       group: prod-deploy
-      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     needs: [resolve, build-and-push]
     steps:
@@ -136,6 +136,11 @@ jobs:
           script: |
             set -e
             cd ~/beach-kings
+
+            if ! git diff --quiet HEAD --; then
+              echo "Production checkout has tracked changes. Review them on the host before deploying." >&2
+              exit 1
+            fi
 
             echo "=== Checking out release: $DEPLOY_SHA ==="
             if [ "$AUTOMATIC_DEPLOY" = "true" ]; then

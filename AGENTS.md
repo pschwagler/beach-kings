@@ -15,14 +15,10 @@ This is a public repo. Do not expose PII, secrets, tokens, credentials, or secur
 
 ## Deployment and Security Reviews
 
-- Before assessing dependency or deployment status, fetch `origin` and identify the current branch, HEAD, and `origin/main`. Base production recommendations on latest `origin/main`, and check whether fixes already landed there or on another branch. Do not infer main's state from an old working tree.
-- Preserve uncommitted work. Use an isolated worktree from `origin/main` when the active checkout is stale or contains unrelated changes.
-- Read [BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) and [deployment/release-verification.md](deployment/release-verification.md) before deployment work. Workflow files are the executable source of truth; update the docs with workflow changes.
-- Production web/API releases use **Deploy Prod** after successful push CI on main or by manual dispatch. Confirm the release completed after merging to main. Verify the workflow run, source commit, deployed image digests, and health/readiness separately.
-- Keep production changes within the user's authorized scope. A security review or documentation task does not authorize a deployment. Do not substitute manual host rebuilds or migrations for the workflow's security and backup gates.
-- Never reset or restore a remote database, including dev. The optional Deploy Dev database refresh replaces remote dev data and must not be used under these safety rules.
-- Audit the checked-in npm lockfile and `requirements-runtime.lock` for the reviewed revision; development requirements and freshly resolved ranges are not production evidence. Report dependency, container-scan, and live deployment results separately, including access failures.
-- Mobile releases are separate from EC2 releases. Follow [apps/mobile/docs/ios-release.md](apps/mobile/docs/ios-release.md); v1 ships code/assets through reviewed binaries, not OTA updates.
+- Fetch `origin` and record the reviewed SHA on `origin/main` before assessing production fixes. Use an isolated worktree when the active checkout has unrelated changes.
+- Follow [BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) for releases and [deployment/release-verification.md](deployment/release-verification.md) for evidence. Verify running images and health after the release completes.
+- Use **Deploy Prod** for production web/API releases so security, backup, and migration gates run. Never restore or reset a remote database, including through Deploy Dev's optional refresh.
+- Review the production lockfiles and report dependency audits, image scans, and live deployment status separately.
 
 ## Mobile Data State
 
