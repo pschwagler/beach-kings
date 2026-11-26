@@ -1,56 +1,32 @@
 # Build and release guide
 
-This file is the entry point for release documentation. Release requirements
-are intentionally kept in their domain-specific authoritative documents rather
-than duplicated here.
-
 ## Production web and API
 
-Production runs on EC2 with Docker Compose and is released through the manual
-GitHub Actions workflow **Deploy Prod**. Do not deploy production with local
-`docker compose up`, and do not run database migrations manually; the backend
-entrypoint applies migrations when the released container starts.
+Production runs on EC2 with Docker Compose. Install and verify the [off-host
+backup system](deployment/backups/README.md) before the first release on a new
+host. See [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md) for host provisioning.
 
-Before the first production deployment containing the S3 backup system,
-complete the one-time bucket, IAM role, notification, and systemd installation
-in [deployment/backups/README.md](deployment/backups/README.md). Once installed,
-every **Deploy Prod** run creates and verifies a new off-host database backup
-before pulling images or starting migration-capable containers. A failed or
-missing backup service blocks the deployment.
+1. Merge the reviewed change into `main` after the required checks pass.
+2. Follow the post-merge web/API **CI** run and the subsequent **Deploy Prod**
+   rollout. The workflow requires security checks, a fresh database backup,
+   successful startup and migrations, and readiness and public-route checks.
+3. Confirm the run succeeded and use its release manifest to verify the source
+   and images. Follow the [release verification guide](deployment/release-verification.md).
 
-Normal service release:
-
-1. Merge the reviewed commit to `main` after required CI succeeds.
-2. Confirm the latest scheduled database archive and checksum exist in S3.
-3. Manually run **Actions → Deploy Prod** with branch `main` and
-   `skip_build: false`.
-4. Confirm the pre-deployment backup step succeeds.
-5. Confirm the committed location, court-tag, and court catalog applies
-   successfully. Catalog records missing from the new commit are retired, never
-   deleted.
-6. Confirm `/api/health`, `/api/ready`, the frontend, and required public-route
-   checks succeed in the workflow.
-7. Record the deployed commit and workflow run. If verification fails, stop and
-   diagnose; do not restore over the live database or rerun destructive
-   migrations as an ad hoc rollback.
-
-The EC2 provisioning checklist is [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md). It is
-for creating or rebuilding the host, not for routine releases.
+For an on-demand release, use **Actions → Deploy Prod**, with `main` as the
+default branch input. Use the workflow for routine releases. The API entrypoint
+owns migrations. If a rollout fails, diagnose it before retrying and preserve
+the remote database.
 
 ## iOS
 
-The authoritative release configuration and evidence procedure is
-[apps/mobile/docs/ios-release.md](apps/mobile/docs/ios-release.md). The only v1
-launch checklist is
-[apps/mobile/docs/app-store-backlog.md](apps/mobile/docs/app-store-backlog.md).
-
-Production iOS builds use the checked-in EAS `production` profile. Version 1
-does not use EAS Update or any other over-the-air JavaScript delivery; every
-code or asset change ships in a reviewed TestFlight/App Store binary.
+Follow the [iOS release guide](apps/mobile/docs/ios-release.md) and the
+[App Store launch checklist](apps/mobile/docs/app-store-backlog.md). Production
+uses the EAS `production` profile. Version 1 ships code and assets in reviewed
+TestFlight and App Store builds.
 
 ## Development and preview builds
 
-The checked-in EAS profiles support an iOS simulator development client and an
-internal preview build. Dev EC2 releases use the manual **Deploy Dev** workflow.
-The optional production snapshot in that workflow exists only to seed dev; it
-is sanitized after restore and is not part of production disaster recovery.
+EAS provides an iOS simulator development client and an internal preview build.
+Use the manual [Deploy Dev workflow](.github/workflows/deploy-dev.yml) for dev
+EC2 releases, with `refresh_db: false` to preserve the remote dev database.
