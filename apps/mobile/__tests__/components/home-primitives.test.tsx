@@ -265,6 +265,13 @@ describe('QuickStatsRow', () => {
     expect(getByText('4-2')).toBeTruthy();
   });
 
+  it('announces a single win and loss using singular nouns', () => {
+    const { getByRole } = render(
+      <QuickStatsRow firstName="Ben" rating={null} wins={1} losses={1} onStatsPress={jest.fn()} />,
+    );
+    expect(getByRole('button', { name: 'Record, 1 win, 1 loss' })).toBeTruthy();
+  });
+
   it('renders the rating pill when rating is a number', () => {
     const { getByText } = render(
       <QuickStatsRow firstName="Ben" rating={1450} wins={0} losses={0} onStatsPress={jest.fn()} />,

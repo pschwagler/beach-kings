@@ -27,6 +27,8 @@ export default function QuickStatsRow({
 }: QuickStatsRowProps): React.ReactNode {
   const { fontScale } = useWindowDimensions();
   const usesAccessibilityLayout = fontScale >= 1.6;
+  const winsLabel = wins === 1 ? 'win' : 'wins';
+  const lossesLabel = losses === 1 ? 'loss' : 'losses';
 
   return (
     <View
@@ -51,7 +53,7 @@ export default function QuickStatsRow({
         )}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Record, ${wins} wins, ${losses} losses`}
+          accessibilityLabel={`Record, ${wins} ${winsLabel}, ${losses} ${lossesLabel}`}
           accessibilityHint="Opens My Stats"
           className={statButtonClass}
           onPress={onStatsPress}
