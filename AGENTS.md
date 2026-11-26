@@ -13,6 +13,13 @@ This is a public repo. Do not expose PII, secrets, tokens, credentials, or secur
 - Production domain: `beachleaguevb.com`.
 - Prefer immutable updates and small files; 200-400 lines is normal, 800 is a soft max.
 
+## Deployment and Security Reviews
+
+- Fetch `origin` and record the reviewed SHA on `origin/main` before assessing production fixes. Use an isolated worktree when the active checkout has unrelated changes.
+- Follow [BUILD_AND_DEPLOY.md](BUILD_AND_DEPLOY.md) for releases and [deployment/release-verification.md](deployment/release-verification.md) for evidence. Verify running images and health after the release completes.
+- Use **Deploy Prod** for production web/API releases so security, backup, and migration gates run. Never restore or reset a remote database, including through Deploy Dev's optional refresh.
+- Review the production lockfiles and report dependency audits, image scans, and live deployment status separately.
+
 ## Mobile Data State
 
 - TanStack Query owns all mobile server data; see `apps/mobile/AGENTS.md` and `apps/mobile/docs/data-state.md` before changing mobile fetching, caching, or auth transitions.
