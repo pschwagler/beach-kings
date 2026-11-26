@@ -27,6 +27,7 @@ import {
   type LeagueMatchesMode,
 } from "./useLeagueMatchesTab";
 import { routes } from "@/lib/navigation";
+import { parseCalendarDate } from "@/lib/calendarDate";
 import {
   formatGameScore,
   GAME_SCORE_SEPARATOR,
@@ -42,31 +43,12 @@ import RecordGameAction from '@/components/ui/RecordGameAction';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatSessionDate(isoDate: string): string | null {
-  const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(isoDate);
-  const legacyMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(isoDate);
-  const [year, month, day] =
-    isoMatch != null
-      ? [Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3])]
-      : legacyMatch != null
-        ? [
-            Number(legacyMatch[3]),
-            Number(legacyMatch[1]),
-            Number(legacyMatch[2]),
-          ]
-        : [Number.NaN, Number.NaN, Number.NaN];
-  const d = new Date(year, month - 1, day);
-  if (
-    Number.isNaN(d.getTime()) ||
-    d.getFullYear() !== year ||
-    d.getMonth() !== month - 1 ||
-    d.getDate() !== day
-  ) {
-    return null;
-  }
+function formatSessionDate(value: string): string | null {
+  const date = parseCalendarDate(value);
+  if (date == null) return null;
   // Weekday + month + day (e.g. "Sat, May 24") — this is now the card's primary
   // header, so the weekday adds useful context over a bare "May 24".
-  return d.toLocaleDateString("en-US", {
+  return date.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",

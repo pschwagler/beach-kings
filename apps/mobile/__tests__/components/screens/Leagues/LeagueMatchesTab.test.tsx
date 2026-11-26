@@ -253,6 +253,55 @@ describe('LeagueMatchesTab — active session styling (mine)', () => {
   });
 });
 
+describe.each(['all', 'mine'] as const)('LeagueMatchesTab — %s order', (mode) => {
+  it('pins active sessions and orders each group by play date across formats', async () => {
+    const sessions = [
+      { id: 400, date: '2024-12-31', isActive: false },
+      { id: 100, date: '1/9/2025', isActive: false },
+      { id: 500, date: '2025-02-30', isActive: false },
+      { id: 200, date: '2025-1-9', isActive: false },
+      { id: 600, date: null, isActive: false },
+      { id: 700, date: '2024-11-30', isActive: true },
+      { id: 50, date: '12/15/2024', isActive: true },
+    ];
+    mockGetLeagueSessions.mockResolvedValue(
+      sessions.map(({ id, date, isActive }) => ({
+        ...LEAGUE_SESSIONS[isActive ? 0 : 1], id, date,
+      })),
+    );
+    // League-wide games can have null dates, making the raw session dates
+    // the fallback. My Games takes its dates from the games endpoint.
+    mockGetLeagueGames.mockResolvedValue({
+      games: sessions.map(({ id, isActive }) => ({
+        ...(isActive ? ALL_GAME_ACTIVE : ALL_GAME_SUBMITTED),
+        id, session_id: id, session_date: null,
+      })),
+      total: sessions.length,
+    });
+    mockGetMyGames.mockResolvedValue({
+      games: sessions.map(({ id, date, isActive }) => ({
+        ...(isActive ? MY_GAME_ACTIVE : MY_GAME_SUBMITTED),
+        id, session_id: id, session_date: date,
+      })),
+      total: sessions.length,
+    });
+
+    render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    if (mode === 'mine') {
+      fireEvent.press(screen.getByTestId('league-games-mode-mine'));
+    }
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId(/^session-card-\d+$/).map((card) => card.props.testID),
+      ).toEqual(
+        // Same-day and undated sessions use descending IDs.
+        [50, 700, 200, 100, 400, 600, 500].map((id) => `session-card-${id}`),
+      );
+    });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // All Games rendering
 // ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { parseCalendarDate } from '@/lib/calendarDate';
 import type {
   GameHistoryEntry,
   LeagueGameEntry,
@@ -36,7 +37,7 @@ type MineSessionStatus = Extract<SessionStatus, 'ACTIVE' | 'SUBMITTED'>;
 /** Common per-session card data. `mode` selects how rows are rendered. */
 export interface SessionGroup {
   readonly session_id: number;
-  /** Play date (user-editable), ISO YYYY-MM-DD. Shown as the card header. */
+  /** Play date (user-editable), ISO or legacy US format. Shown as the card header. */
   readonly session_date: string | null;
   readonly session_status: SessionStatus;
   readonly mode: LeagueMatchesMode;
@@ -89,16 +90,25 @@ function groupBySessionId<T extends { readonly session_id: number }>(
   return map;
 }
 
-/** Active sessions first, then newest-first by session id within each group. */
+function sessionDateSortKey(date: string | null): number {
+  return (date != null ? parseCalendarDate(date)?.getTime() : undefined) ??
+    Number.NEGATIVE_INFINITY;
+}
+
+/** Active sessions first, then newest play date and descending ID. */
 function sortSessionsActiveFirstThenNewest(
   groups: readonly SessionGroup[],
 ): SessionGroup[] {
-  return [...groups].sort((a, b) => {
-    const aActive = a.session_status === 'ACTIVE';
-    const bActive = b.session_status === 'ACTIVE';
-    if (aActive !== bActive) return aActive ? -1 : 1;
-    return b.session_id - a.session_id;
-  });
+  return groups
+    .map((group) => ({ group, dateKey: sessionDateSortKey(group.session_date) }))
+    .sort((a, b) => {
+      const aActive = a.group.session_status === 'ACTIVE';
+      const bActive = b.group.session_status === 'ACTIVE';
+      if (aActive !== bActive) return aActive ? -1 : 1;
+      if (a.dateKey !== b.dateKey) return a.dateKey > b.dateKey ? -1 : 1;
+      return b.group.session_id - a.group.session_id;
+    })
+    .map(({ group }) => group);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import type { LeagueSessionSummary } from '@beach-kings/shared';
 
-/** Match the Games list: ACTIVE first, newest session id first. Includes empty sessions. */
+/** Choose the most recently created active session, including empty sessions. */
 export function getLeagueLiveSessionId(
   sessions: readonly LeagueSessionSummary[] | undefined,
 ): number | null {
