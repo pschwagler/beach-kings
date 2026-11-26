@@ -1,9 +1,8 @@
-import ScanScoresheetAction from "@/components/screens/Scoresheets/ScanScoresheetAction";
 /**
  * LeagueMatchesTab — Games tab of the League Detail screen.
  *
- * Top: gold Record a Game action for authorized viewers, followed by the
- * My Games | All Games toggle used inside Session Detail. Active sessions are visually
+ * The recording action scrolls away while the All Games | My Games toggle
+ * stays within reach. Active sessions are visually
  * distinguished from submitted ones via a left accent stripe, a "Live" pill
  * in the card header, and a footer that hides finalized stats.
  *
@@ -36,7 +35,7 @@ import { ChevronRightIcon } from "@/components/ui/icons";
 import { usePaletteColors } from "@/theme/usePaletteColors";
 import { hapticLight } from "@/utils/haptics";
 import type { GameHistoryEntry, LeagueGameEntry } from "@beach-kings/shared";
-import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
+import ScanScoresheetAction from '@/components/screens/Scoresheets/ScanScoresheetAction';
 import RecordGameAction from '@/components/ui/RecordGameAction';
 
 // ---------------------------------------------------------------------------
@@ -310,10 +309,9 @@ function SessionCard({ session }: SessionCardProps): React.ReactNode {
             router.push(routes.session(session.session_id));
           }}
           style={({ pressed }) => (pressed ? { opacity: 0.65 } : undefined)}
-          className="flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider"
+          className="min-h-touch flex-row items-center px-4 py-[12px] bg-elevated border-b border-divider"
         >
           <View className="flex-1">
-            <View className="mb-xs"><PlayTypeBadge type="league" noun="session" /></View>
             {/* Primary: the (user-editable) play date. Falls back to a stable
                 session identifier only for legacy rows with no date. */}
             <AppText className="text-[13px] font-bold text-default">
@@ -525,9 +523,8 @@ export default function LeagueMatchesTab({
     isError,
   } = useLeagueMatchesTab(leagueId);
 
-  // Keep the primary action and filters reachable while games load or fail.
-  const controls = (
-    <>
+  const actions = (
+    <View>
       {onRecordGame != null && (
         <View className="mx-4 mt-4 mb-2">
           <RecordGameAction
@@ -535,7 +532,7 @@ export default function LeagueMatchesTab({
             disabled={!isSessionActionReady && !isSessionActionError}
             label={isSessionActionError ? 'Retry session status' : liveSessionId != null ? 'Go to Live Session' : 'Record a Game'}
             onPress={isSessionActionError ? onRetrySessionAction ?? onRecordGame : onRecordGame}
-            description={isSessionActionError ? 'Could not check live sessions · Tap to retry' : !isSessionActionReady ? 'Checking live session availability' : liveSessionId != null ? 'League session · Continue playing' : 'League game · Add your scores'}
+            description={isSessionActionError ? 'Could not check live sessions · Tap to retry' : !isSessionActionReady ? 'Checking live session availability' : liveSessionId != null ? 'Continue playing' : 'Add your scores'}
             accessibilityHint={isSessionActionError ? 'Check live session availability again' : liveSessionId != null ? 'Open the live session in this league' : 'Record a game in this league'}
           />
         </View>
@@ -545,19 +542,24 @@ export default function LeagueMatchesTab({
           <ScanScoresheetAction onPress={(source) => router.push(routes.scanScoresheet(leagueId,source))} />
         </View>
       )}
+    </View>
+  );
+  const modeToggle = (
+    <View className="bg-page">
       <ModeToggle
         mode={mode}
         myGameCount={myGameCount}
         allGameCount={allGameCount}
         onChange={setMode}
       />
-    </>
+    </View>
   );
 
   if (isLoading) {
     return (
       <View className="flex-1 bg-page">
-        {controls}
+        {actions}
+        {modeToggle}
         <View
           testID="matches-loading"
           className="flex-1 items-center justify-center"
@@ -571,7 +573,8 @@ export default function LeagueMatchesTab({
   if (isError) {
     return (
       <View className="flex-1 bg-page">
-        {controls}
+        {actions}
+        {modeToggle}
         <View
           testID="matches-error"
           className="flex-1 items-center justify-center px-8"
@@ -587,7 +590,8 @@ export default function LeagueMatchesTab({
   if (sessions.length === 0) {
     return (
       <View className="flex-1 bg-page">
-        {controls}
+        {actions}
+        {modeToggle}
         <View
           testID="matches-empty"
           className="flex-1 items-center justify-center px-8 py-16"
@@ -606,18 +610,20 @@ export default function LeagueMatchesTab({
   }
 
   return (
-    <View className="flex-1 bg-page">
-      {controls}
-      <ScrollView
-        testID="matches-tab"
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 32 }}
-      >
+    <ScrollView
+      testID="matches-tab"
+      className="flex-1 bg-page"
+      showsVerticalScrollIndicator={false}
+      stickyHeaderIndices={[1]}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
+      {actions}
+      {modeToggle}
+      <View className="pt-1">
         {sessions.map((s) => (
           <SessionCard key={s.session_id} session={s} />
         ))}
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   );
 }

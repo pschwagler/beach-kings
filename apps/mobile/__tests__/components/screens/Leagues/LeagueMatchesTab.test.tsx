@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
@@ -488,10 +488,31 @@ describe('LeagueMatchesTab — primary recording action', () => {
       render(<LeagueMatchesTab leagueId={5} onRecordGame={onRecordGame} />, { wrapper: makeWrapper() });
       const contentId = state === 'populated' ? 'matches-tab' : `matches-${state}`;
       await screen.findByTestId(contentId);
+      expect(screen.getByText('Add your scores')).toBeTruthy();
       fireEvent.press(screen.getByRole('button', { name: 'Record a Game' }));
       expect(onRecordGame).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('places the live action and the filter in the same scroll view as the session cards', async () => {
+    mockGetLeagueGames.mockResolvedValue({ games: [ALL_GAME_ACTIVE], total: 1 });
+    mockGetLeagueSessions.mockResolvedValue([LEAGUE_SESSIONS[0]]);
+    const onRecordGame = jest.fn();
+
+    render(
+      <LeagueMatchesTab leagueId={5} liveSessionId={200} onRecordGame={onRecordGame} />,
+      { wrapper: makeWrapper() },
+    );
+
+    const matches = await screen.findByTestId('matches-tab');
+    const list = within(matches);
+    expect(list.getByTestId('league-games-mode-toggle')).toBeTruthy();
+    expect(list.getByTestId('session-card-200')).toBeTruthy();
+    expect(list.getByText('Continue playing')).toBeTruthy();
+    expect(list.queryByText('League session')).toBeNull();
+    fireEvent.press(list.getByRole('button', { name: 'Go to Live Session' }));
+    expect(onRecordGame).toHaveBeenCalledTimes(1);
+  });
 
   it('omits recording when no authorized action is supplied', async () => {
     render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
