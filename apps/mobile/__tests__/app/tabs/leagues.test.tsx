@@ -249,12 +249,13 @@ describe('LeaguesScreen', () => {
       SECOND_LEAGUE_FIXTURE,
     ]);
 
-    const { getByTestId } = renderWithQuery(<LeaguesScreen />);
+    const { getByTestId, queryByRole } = renderWithQuery(<LeaguesScreen />);
 
     await waitFor(() => {
       expect(getByTestId('league-card-101')).toBeTruthy();
       expect(getByTestId('league-card-202')).toBeTruthy();
     });
+    expect(queryByRole('button', { name: 'Archived leagues' })).toBeNull();
   });
 
   it('keeps archived leagues collapsed until the disclosure is opened', async () => {
@@ -272,6 +273,7 @@ describe('LeaguesScreen', () => {
     fireEvent.press(archiveToggle);
     const expandedToggle = ui.getByRole('button', { name: 'Archived leagues' });
     expect(expandedToggle.props.accessibilityState.expanded).toBe(true);
+    expect(ui.getByText(SECOND_LEAGUE_FIXTURE.name).props.className).toContain('text-muted');
     fireEvent.press(ui.getByTestId('league-card-202'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/league/202');
 

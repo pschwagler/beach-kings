@@ -115,7 +115,7 @@ function LeagueHeader({
           <AppText
             testID="league-header-name"
             family="display"
-            className="text-[20px] font-bold text-default"
+            className={`text-[20px] font-bold ${archived ? 'text-muted' : 'text-default'}`}
             numberOfLines={2}
             accessibilityLabel={name}
           >

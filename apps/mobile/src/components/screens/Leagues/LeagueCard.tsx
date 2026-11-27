@@ -80,7 +80,7 @@ export default function LeagueCard({
 
         <View className="flex-1 ml-md">
           <AppText
-            className="text-callout font-bold text-default"
+            className={`text-callout font-bold ${league.is_archived ? 'text-muted' : 'text-default'}`}
             numberOfLines={2}
           >
             {league.name}
