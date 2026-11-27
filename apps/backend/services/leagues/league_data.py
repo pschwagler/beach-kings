@@ -407,6 +407,17 @@ async def query_leagues(
     result = await session.execute(items_query)
     rows = result.all()
 
+    member_league_ids: set[int] = set()
+    if player_id is not None and include_joined and rows:
+        membership = await session.scalars(
+            select(LeagueMember.league_id).where(
+                LeagueMember.league_id.in_([league.id for league, *_ in rows]),
+                LeagueMember.player_id == player_id,
+                LeagueMember.role.in_(("admin", "member")),
+            )
+        )
+        member_league_ids = set(membership.all())
+
     # Check for pending join requests when player is authenticated.
     # This is a bulk lookup across every league on the page, so it stays a
     # single IN-query rather than calling has_pending_league_request() in a
@@ -487,6 +498,7 @@ async def query_leagues(
             "member_count": int(member_count) if member_count is not None else 0,
             "created_at": league.created_at.isoformat() if league.created_at else None,
             "updated_at": league.updated_at.isoformat() if league.updated_at else None,
+            "is_member": league.id in member_league_ids,
             "has_pending_request": request_status_by_league.get(league.id) == "pending",
             "join_request_status": request_status_by_league.get(league.id),
             "friend_count": len(friends_by_league.get(league.id, [])),

@@ -23,12 +23,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import TopNav from '@/components/ui/TopNav';
 import Avatar from '@/components/ui/Avatar';
+import { ChevronRightIcon } from '@/components/ui/icons';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import {
   useFindLeaguesScreen,
   type FindLeaguesFilter,
 } from './useFindLeaguesScreen';
-import type { FindLeagueResult } from '@beach-kings/shared';
+import LeagueAvatar from './LeagueAvatar';
+import type { FindLeagueResult, LeaguePicture } from '@beach-kings/shared';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import FilterChipBar from '@/components/ui/FilterChipBar';
 
@@ -90,6 +92,7 @@ const FILTER_OPTIONS = [
 
 interface LeagueResultCardProps {
   readonly league: FindLeagueResult;
+  readonly picture?: LeaguePicture;
   readonly onPress: (id: number) => void;
   readonly onJoinLeague: (id: number) => Promise<void>;
   readonly isRequesting: boolean;
@@ -104,12 +107,14 @@ function genderLabel(g: FindLeagueResult['gender']): string {
 
 function LeagueResultCard({
   league,
+  picture,
   onPress,
   onJoinLeague,
   isRequesting,
   joinError,
 }: LeagueResultCardProps): React.ReactNode {
   const palette = usePaletteColors();
+  const isMember = league.user_status === 'member';
   return (
     <View className="mx-4 mb-3 rounded-[12px] border border-divider bg-surface p-4">
       <Pressable
@@ -119,12 +124,15 @@ function LeagueResultCard({
           onPress(league.id);
         }}
         accessibilityRole="button"
-        accessibilityLabel={`View ${league.name}`}
+        accessibilityLabel={isMember ? `View ${league.name}, you're a member` : `View ${league.name}`}
         accessibilityHint="Opens league details"
         className="active:opacity-80"
       >
         {/* Top row */}
         <View className="flex-row items-start mb-2">
+          {isMember && (
+            <View className="mr-3"><LeagueAvatar leagueId={league.id} picture={picture} /></View>
+          )}
           <View className="flex-1 min-w-0 mr-2">
             <AppText
               className="text-[15px] font-bold text-default"
@@ -209,19 +217,19 @@ function LeagueResultCard({
             </AppText>
           </View>
         )}
+        {isMember && (
+          <View className="min-h-touch flex-row flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-divider pt-2">
+            <AppText className="text-[13px] text-muted">You're a member</AppText>
+            <View className="flex-row items-center gap-1">
+              <AppText className="text-[13px] font-bold text-brand-teal">View League</AppText>
+              <ChevronRightIcon size={14} color={palette.brandTeal} />
+            </View>
+          </View>
+        )}
       </Pressable>
 
-      {/* Action button */}
-      {league.user_status === 'member' ? (
-        <View
-          accessibilityLabel={`You are a member of ${league.name}`}
-          className="bg-info-tint rounded-[8px] py-[10px] items-center"
-        >
-          <AppText className="text-[13px] font-semibold text-info">
-            You're a Member
-          </AppText>
-        </View>
-      ) : league.user_status === 'requested' ? (
+      {/* Membership actions */}
+      {isMember ? null : league.user_status === 'requested' ? (
         <View
           accessibilityLabel={`Request to join ${league.name} pending`}
           className="bg-warning-tint rounded-[8px] py-[10px] items-center"
@@ -348,6 +356,7 @@ export default function FindLeaguesScreen(): React.ReactNode {
     searchQuery,
     activeFilter,
     leagues,
+    pictures,
     isLoading,
     isRefreshing,
     isError,
@@ -387,6 +396,7 @@ export default function FindLeaguesScreen(): React.ReactNode {
         renderItem={({ item }) => (
           <LeagueResultCard
             league={item}
+            picture={pictures[item.id]}
             onPress={onPressLeague}
             onJoinLeague={onJoinLeague}
             isRequesting={requestingIds.has(item.id)}

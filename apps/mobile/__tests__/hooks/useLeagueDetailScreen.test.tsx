@@ -16,6 +16,7 @@ jest.mock('@/contexts/AuthContext', () => ({
 jest.mock('@/lib/api', () => {
   const api = {
     getLeague: jest.fn(),
+    getLeaguePicture: jest.fn(),
     getLeagueSessions: jest.fn(),
     requestToJoinLeague: jest.fn(),
     joinLeague: jest.fn(),
@@ -27,6 +28,7 @@ jest.mock('@/lib/api', () => {
 });
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: jest.fn(),
   useRouter: jest.fn(() => ({ push: jest.fn() })),
 }));
 
@@ -36,6 +38,7 @@ import type { LeagueDetail } from '@beach-kings/shared';
 
 const mockApi = api as unknown as {
   getLeague: jest.Mock;
+  getLeaguePicture: jest.Mock;
   getLeagueSessions: jest.Mock;
   requestToJoinLeague: jest.Mock;
   joinLeague: jest.Mock;
@@ -113,6 +116,7 @@ const RECEIVED_INVITE = {
 beforeEach(() => {
   mockUserId = 7;
   mockApi.getLeague.mockReset();
+  mockApi.getLeaguePicture.mockReset().mockResolvedValue({ data_uri: null, revision: null });
   mockApi.getLeagueSessions.mockReset();
   mockApi.getLeagueSessions.mockResolvedValue([]);
   mockApi.requestToJoinLeague.mockReset();
