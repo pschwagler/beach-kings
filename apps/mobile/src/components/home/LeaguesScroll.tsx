@@ -17,9 +17,7 @@ function LeagueCard({ league }: { readonly league: League }): React.ReactNode {
   const memberCount = league.member_count ?? 0;
   const memberLabel = `${memberCount} ${memberCount === 1 ? 'player' : 'players'}`;
   const lastGameLabel = formatLastGameLabel(league.last_game_date);
-  const accessibilityLabel = [
-    league.name, memberLabel, lastGameLabel, league.is_archived ? 'Archived' : null,
-  ].filter(Boolean).join(', ');
+  const accessibilityLabel = `${league.name}, ${memberLabel}, ${lastGameLabel}`;
   const hasDestination = Number.isInteger(league.id) && league.id > 0;
 
   const content = (
@@ -30,9 +28,6 @@ function LeagueCard({ league }: { readonly league: League }): React.ReactNode {
       <View className="mt-xs flex-row flex-wrap items-center gap-sm">
         <AppText className="text-[11px] text-tertiary">{memberLabel}</AppText>
         <AppText className="text-[11px] text-muted">{lastGameLabel}</AppText>
-        {league.is_archived && (
-          <AppText className="text-[11px] text-muted">Archived</AppText>
-        )}
       </View>
     </>
   );
@@ -80,14 +75,14 @@ export default function LeaguesScroll({
   leagues,
   maxItems = 2,
 }: LeaguesScrollProps): React.ReactNode {
-  const visibleLeagues = leagues.slice(0, maxItems);
-  if (leagues.length === 0) {
+  const activeLeagues = leagues.filter((league) => !league.is_archived);
+  if (activeLeagues.length === 0) {
     return <JoinLeagueCard />;
   }
 
   return (
     <HomePreviewRow testID="my-leagues-row">
-      {visibleLeagues.map((league) => (
+      {activeLeagues.slice(0, maxItems).map((league) => (
         <LeagueCard
           key={league.id}
           league={league}

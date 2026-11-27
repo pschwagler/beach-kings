@@ -195,11 +195,21 @@ describe('LeaguesScroll', () => {
     expect(getByLabelText('Pro, 0 players, Last game Apr 1, 2026')).toBeTruthy();
   });
 
-  it('shows when an archived league has no games', () => {
-    const leagues = [{ id: 1, name: 'Pro', is_archived: true }];
-    const { getByText } = render(<LeaguesScroll leagues={leagues} />);
-    expect(getByText('Archived')).toBeTruthy();
-    expect(getByText('No games yet')).toBeTruthy();
+  it('filters archived leagues before applying the preview limit', () => {
+    const leagues = [
+      { id: 1, name: 'Archived League', is_archived: true },
+      { id: 2, name: 'Open League' },
+    ];
+    const { getByText, queryByText } = render(<LeaguesScroll leagues={leagues} maxItems={1} />);
+    expect(getByText('Open League')).toBeTruthy();
+    expect(queryByText('Archived League')).toBeNull();
+  });
+
+  it('offers Join a League when every membership is archived', () => {
+    const leagues = [{ id: 1, name: 'Archived League', is_archived: true }];
+    const { getByText, queryByText } = render(<LeaguesScroll leagues={leagues} />);
+    expect(getByText('+ Join a League')).toBeTruthy();
+    expect(queryByText('Archived League')).toBeNull();
   });
 
   it('navigates to the league route when a card is pressed', () => {

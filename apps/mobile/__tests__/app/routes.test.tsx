@@ -419,7 +419,8 @@ jest.mock('@/components/ui/AppText', () => {
 jest.mock('@/components/screens/Leagues/useLeaguesScreen', () => ({
   __esModule: true,
   useLeaguesScreen: () => ({
-    leagues: [],
+    activeLeagues: [],
+    archivedLeagues: [],
     isLoading: false,
     isError: false,
     isRefreshing: false,

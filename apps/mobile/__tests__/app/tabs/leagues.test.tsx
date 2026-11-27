@@ -243,7 +243,7 @@ describe('LeaguesScreen', () => {
     });
   });
 
-  it('renders a card for each league returned by the API', async () => {
+  it('renders a card for each active league', async () => {
     mockGetUserLeagues.mockResolvedValue([
       LEAGUE_FIXTURE,
       SECOND_LEAGUE_FIXTURE,
@@ -255,6 +255,35 @@ describe('LeaguesScreen', () => {
       expect(getByTestId('league-card-101')).toBeTruthy();
       expect(getByTestId('league-card-202')).toBeTruthy();
     });
+  });
+
+  it('keeps archived leagues collapsed until the disclosure is opened', async () => {
+    mockGetUserLeagues.mockResolvedValue([
+      LEAGUE_FIXTURE,
+      { ...SECOND_LEAGUE_FIXTURE, is_archived: true },
+    ]);
+    const ui = renderWithQuery(<LeaguesScreen />);
+
+    const archiveToggle = await ui.findByRole('button', { name: 'Archived leagues' });
+    expect(archiveToggle.props.accessibilityState.expanded).toBe(false);
+    expect(ui.getByTestId('league-card-101')).toBeTruthy();
+    expect(ui.queryByTestId('league-card-202')).toBeNull();
+
+    fireEvent.press(archiveToggle);
+    const expandedToggle = ui.getByRole('button', { name: 'Archived leagues' });
+    expect(expandedToggle.props.accessibilityState.expanded).toBe(true);
+    fireEvent.press(ui.getByTestId('league-card-202'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/league/202');
+
+    fireEvent.press(expandedToggle);
+    expect(ui.queryByTestId('league-card-202')).toBeNull();
+  });
+
+  it('offers the archive disclosure when all leagues are archived', async () => {
+    mockGetUserLeagues.mockResolvedValue([{ ...LEAGUE_FIXTURE, is_archived: true }]);
+    const ui = renderWithQuery(<LeaguesScreen />);
+    fireEvent.press(await ui.findByRole('button', { name: 'Archived leagues' }));
+    expect(ui.getByTestId('league-card-101')).toBeTruthy();
   });
 
   it('shows the "Join Another League" CTA below the league list when populated', async () => {

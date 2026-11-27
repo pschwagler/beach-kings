@@ -6,8 +6,8 @@ import RefreshScrollView from '@/components/refresh/RefreshScrollView';
  * States: loading (skeleton) → error → empty → populated list.
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
-import { ScrollView, View, Pressable, } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollView, View, Pressable } from 'react-native';
 import AppText from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import type { League } from '@beach-kings/shared';
 import { routes } from '@/lib/navigation';
 import { hapticLight } from '@/utils/haptics';
 import TopNav from '@/components/ui/TopNav';
+import { ChevronDownIcon, ChevronRightIcon } from '@/components/ui/icons';
 import { useLeaguesScreen } from '@/components/screens/Leagues/useLeaguesScreen';
 import LeaguesSkeleton from '@/components/screens/Leagues/LeaguesSkeleton';
 import LeagueCard from '@/components/screens/Leagues/LeagueCard';
@@ -46,12 +47,14 @@ export default function LeaguesScreen(): React.ReactNode {
   const router = useRouter();
   const palette = usePaletteColors();
   const scrollRef = useRef<ScrollView>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const ArchiveChevron = showArchived ? ChevronDownIcon : ChevronRightIcon;
   const {
-    leagues,
+    activeLeagues,
+    archivedLeagues,
     pictures,
     player,
     isLoading,
-    isRefreshing,
     isError,
     onRefresh,
     onRetry,
@@ -90,6 +93,20 @@ export default function LeaguesScreen(): React.ReactNode {
     router.push(routes.receivedInvites());
   }, [router]);
 
+  const renderLeagueCard = (league: League) => {
+    const standing = getUserStandingRow(league, playerId);
+    return (
+      <LeagueCard
+        key={league.id}
+        league={league}
+        picture={pictures[league.id]}
+        userWins={standing?.wins ?? 0}
+        userLosses={standing?.losses ?? 0}
+        onPress={() => handleLeaguePress(league)}
+      />
+    );
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-page" edges={['top']}>
       <TopNav title="Leagues" />
@@ -112,7 +129,7 @@ export default function LeaguesScreen(): React.ReactNode {
           <LeaguesSkeleton />
         ) : isError ? (
           <LeaguesErrorState onRetry={onRetry} />
-        ) : leagues.length === 0 ? (
+        ) : activeLeagues.length === 0 && archivedLeagues.length === 0 ? (
           <LeaguesEmptyState
             onFindLeagues={handleFindLeagues}
             onCreateLeague={handleCreateLeague}
@@ -123,19 +140,27 @@ export default function LeaguesScreen(): React.ReactNode {
               My Leagues
             </AppText>
 
-            {leagues.map((league) => {
-              const standing = getUserStandingRow(league, playerId);
-              return (
-                <LeagueCard
-                  key={league.id}
-                  league={league}
-                  picture={pictures[league.id]}
-                  userWins={standing?.wins ?? 0}
-                  userLosses={standing?.losses ?? 0}
-                  onPress={() => handleLeaguePress(league)}
-                />
-              );
-            })}
+            {activeLeagues.map(renderLeagueCard)}
+
+            {archivedLeagues.length > 0 && (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: showArchived }}
+                  onPress={() => {
+                    void hapticLight();
+                    setShowArchived((current) => !current);
+                  }}
+                  className="min-h-touch flex-row items-center justify-between gap-sm border-t border-divider active:opacity-70"
+                >
+                  <AppText className="flex-1 text-footnote font-semibold text-muted">
+                    Archived leagues
+                  </AppText>
+                  <ArchiveChevron size={16} color={palette.textTertiary} />
+                </Pressable>
+                {showArchived && archivedLeagues.map(renderLeagueCard)}
+              </>
+            )}
 
             <JoinAnotherLeagueCta onPress={handleFindLeagues} />
           </View>
