@@ -151,6 +151,7 @@ export default function HomeScreen(): React.ReactNode {
   const { rating, wins: winsRaw, losses: lossesRaw } = normalizePlayerStats(playerData);
   const wins = winsRaw ?? 0;
   const losses = lossesRaw ?? 0;
+  const openMyStats = () => router.push(routes.myStats());
   const profilePercent = computeProfilePercent(playerData);
   const leadState = resolveHomeLeadState({
     activeSession: activeSessionData,
@@ -178,6 +179,7 @@ export default function HomeScreen(): React.ReactNode {
         rating={rating}
         wins={wins}
         losses={losses}
+        onStatsPress={openMyStats}
       />
 
       <HomeRefreshScrollView
@@ -259,7 +261,7 @@ export default function HomeScreen(): React.ReactNode {
               <SectionHeader
                 title="My Stats"
                 linkLabel="View All"
-                onLinkPress={() => router.push(routes.myStats())}
+                onLinkPress={openMyStats}
               />
               {isActivelyPending(stats) ? (
                 <HomeSectionSkeleton label="my stats" />
@@ -277,7 +279,7 @@ export default function HomeScreen(): React.ReactNode {
                 <>
                   <MyStatsWidget
                     stats={statsData}
-                    onPress={() => router.push(routes.myStats())}
+                    onPress={openMyStats}
                   />
                   {stats.isError ? (
                     <View className="mt-sm">

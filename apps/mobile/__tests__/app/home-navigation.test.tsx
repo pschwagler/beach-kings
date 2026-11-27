@@ -1,6 +1,5 @@
 /**
  * Tests for HomeScreen navigation behavior.
- * Focuses on the "View All" link in the Recent Games section.
  */
 
 import React from 'react';
@@ -137,7 +136,6 @@ jest.mock('@/components/home/HomeHeader', () => {
   const { Text } = require('react-native');
   return { __esModule: true, default: () => <Text testID="home-header">Beach League</Text> };
 });
-jest.mock('@/components/home/QuickStatsRow', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/RecentGamesScroll', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/LeaguesScroll', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/components/home/CourtsScroll', () => ({ __esModule: true, default: () => null }));
@@ -251,6 +249,29 @@ describe('HomeScreen navigation', () => {
     const { getByTestId } = render(<HomeScreen />);
     fireEvent.press(getByTestId('view-all-Recent Games'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/my-games');
+  });
+
+  it.each(['Rating 1450', 'Record, 8 wins, 2 losses'])(
+    'opens My Stats from the %s quick stat',
+    (name) => {
+      mockDashboardState.player = mockMakeQuery({
+        id: 42, name: 'Ready Player', profile_picture_url: null,
+        stats: { current_rating: 1450, total_wins: 8, total_games: 10 },
+      });
+      const screen = render(<HomeScreen />);
+      const button = screen.getByRole('button', { name });
+      expect(button.props.accessibilityHint).toBe('Opens My Stats');
+      fireEvent.press(button);
+      expect(mockPush).toHaveBeenCalledTimes(1);
+      expect(mockPush).toHaveBeenCalledWith('/(stack)/my-stats');
+    },
+  );
+
+  it('opens My Stats from the record when a rating is unavailable', () => {
+    const screen = render(<HomeScreen />);
+    expect(screen.queryByRole('button', { name: /^Rating \d/ })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Record, 0 wins, 0 losses' }));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/my-stats');
   });
 
   it('opens My Stats from the Home widget before Courts', () => {
