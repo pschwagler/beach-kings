@@ -365,7 +365,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh ../node_modules/@sentry/react-native/scripts/sentry-xcode-debug-files.sh";
+			shellScript = "set -e\n. \"$PROJECT_DIR/.xcode.env\"\nif [ -f \"$PROJECT_DIR/.xcode.env.local\" ]; then\n  . \"$PROJECT_DIR/.xcode.env.local\"\nfi\nSENTRY_PACKAGE_DIR=\"$(\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json'))\")\"\n/bin/sh \"$SENTRY_PACKAGE_DIR/scripts/sentry-xcode-debug-files.sh\"\n";
 		};
 		F73B05EC1F8E5DC2569D8ED2 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
