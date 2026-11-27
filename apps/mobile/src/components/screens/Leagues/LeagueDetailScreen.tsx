@@ -94,6 +94,7 @@ interface LeagueHeaderProps {
   readonly name: string;
   readonly locationName: string | null;
   readonly memberCount: number;
+  readonly archived: boolean;
 }
 
 function LeagueHeader({
@@ -101,6 +102,7 @@ function LeagueHeader({
   name,
   locationName,
   memberCount,
+  archived,
 }: LeagueHeaderProps): React.ReactNode {
   return (
     <View
@@ -113,7 +115,7 @@ function LeagueHeader({
           <AppText
             testID="league-header-name"
             family="display"
-            className="text-[20px] font-bold text-default"
+            className={`text-[20px] font-bold ${archived ? 'text-muted' : 'text-default'}`}
             numberOfLines={2}
             accessibilityLabel={name}
           >
@@ -130,6 +132,9 @@ function LeagueHeader({
             <AppText className="text-[12px] text-muted">
               {memberCount} {memberCount === 1 ? 'member' : 'members'}
             </AppText>
+            {archived && (
+              <AppText className="text-[12px] font-semibold text-muted">· Archived</AppText>
+            )}
           </View>
         </View>
       </View>
@@ -260,6 +265,7 @@ function VisitorJoinBanner({
 interface TabContentProps {
   readonly leagueId: number | string;
   readonly userRole: 'admin' | 'member' | null;
+  readonly canUpload: boolean;
   readonly activeTab: LeagueDetailTab;
   readonly statsPlayerId: number | string | null;
   readonly onViewPlayerStats: (id: number | string) => void;
@@ -275,6 +281,7 @@ interface TabContentProps {
 function TabContent({
   leagueId,
   userRole,
+  canUpload,
   activeTab,
   statsPlayerId,
   onViewPlayerStats,
@@ -290,7 +297,7 @@ function TabContent({
     case 'games':
       return <LeagueMatchesTab
         leagueId={leagueId}
-        canUpload={userRole != null}
+        canUpload={canUpload}
         onRecordGame={onRecordGame}
         liveSessionId={liveSessionId}
         isSessionActionReady={isSessionActionReady}
@@ -445,7 +452,8 @@ export default function LeagueDetailScreen({
   };
 
   const canAddGame =
-    detail != null && (detail.user_role === 'admin' || detail.user_role === 'member');
+    detail != null && !detail.is_archived &&
+    (detail.user_role === 'admin' || detail.user_role === 'member');
 
   const handleRecordGame = async (): Promise<void> => {
     if (!canAddGame || !isSessionActionReady || detail == null) return;
@@ -539,9 +547,10 @@ export default function LeagueDetailScreen({
           name={detail.name}
           locationName={detail.location_name}
           memberCount={detail.member_count}
+          archived={detail.is_archived === true}
         />
 
-        {hasLeagueInvitation ? (
+        {detail.is_archived ? null : hasLeagueInvitation ? (
           <LeagueInvitationBanner
             leagueName={detail.name}
             isResponding={isRespondingToInvitation}
@@ -572,6 +581,7 @@ export default function LeagueDetailScreen({
           <TabContent
             leagueId={resolvedId}
             userRole={detail.user_role}
+            canUpload={canAddGame}
             activeTab={activeTab}
             statsPlayerId={statsPlayerId}
             onViewPlayerStats={handlePressPlayer}

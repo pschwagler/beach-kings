@@ -2,8 +2,7 @@
  * Full-width league card for the Leagues tab.
  * Mirrors `.league-card` in leagues-tab.html wireframe.
  *
- * Shows: name, location, active-season badge, games/W-L/win-rate stats,
- * rank badge, member count, and chevron affordance.
+ * Shows season stats, the league's last game date, and member count.
  */
 
 import React from 'react';
@@ -11,15 +10,14 @@ import AppText from '@/components/ui/AppText';
 import { View, Pressable } from 'react-native';
 import type { League, LeaguePicture } from '@beach-kings/shared';
 import { ChevronRightIcon } from '@/components/ui/icons';
-import { formatRecord, formatWinRate, formatOrdinal, pluralize } from '@/lib/formatters';
+import { formatRecord, formatWinRate, pluralize } from '@/lib/formatters';
 import { usePaletteColors } from '@/theme/usePaletteColors';
 import LeagueAvatar from './LeagueAvatar';
-import PlayTypeBadge from '@/components/ui/PlayTypeBadge';
+import { formatLastGameLabel } from '@/features/leagues/presentation';
 
 interface LeagueCardProps {
   readonly league: League;
   readonly picture?: LeaguePicture;
-  readonly userRank: number | null;
   readonly userWins: number;
   readonly userLosses: number;
   readonly onPress: () => void;
@@ -47,7 +45,6 @@ function StatBlock({
 export default function LeagueCard({
   league,
   picture,
-  userRank,
   userWins,
   userLosses,
   onPress,
@@ -62,6 +59,7 @@ export default function LeagueCard({
   const hasSeasonActivity = gamesPlayed > 0;
   const locationDisplay =
     league.location_name ?? league.region_name ?? null;
+  const lastGameLabel = formatLastGameLabel(league.last_game_date);
   const isActive =
     league.current_season != null &&
     (league.current_season as { is_active?: boolean }).is_active !== false;
@@ -71,7 +69,9 @@ export default function LeagueCard({
       testID={`league-card-${league.id}`}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${league.name} league`}
+      accessibilityLabel={[league.name, league.is_archived ? 'Archived' : null, lastGameLabel]
+        .filter(Boolean)
+        .join(', ')}
       className="bg-surface rounded-card p-md mb-sm border border-divider active:opacity-80"
     >
       {/* Top row */}
@@ -79,9 +79,8 @@ export default function LeagueCard({
         <LeagueAvatar leagueId={league.id} picture={picture} />
 
         <View className="flex-1 ml-md">
-          <View className="mb-xs"><PlayTypeBadge type="league" /></View>
           <AppText
-            className="text-callout font-bold text-default"
+            className={`text-callout font-bold ${league.is_archived ? 'text-muted' : 'text-default'}`}
             numberOfLines={2}
           >
             {league.name}
@@ -93,13 +92,17 @@ export default function LeagueCard({
           )}
         </View>
 
-        {isActive && (
+        {league.is_archived ? (
+          <View className="bg-elevated rounded-[10px] px-sm py-[2px] ml-sm">
+            <AppText className="text-[11px] font-semibold text-muted">Archived</AppText>
+          </View>
+        ) : isActive ? (
           <View className="bg-success-tint rounded-[10px] px-sm py-[2px] ml-sm">
             <AppText className="text-[11px] font-semibold text-success">
               Active
             </AppText>
           </View>
-        )}
+        ) : null}
       </View>
 
       {/* Stats row — current-season scoped */}
@@ -139,19 +142,9 @@ export default function LeagueCard({
         </View>
       )}
 
-      {/* Rank bar */}
-      <View className="flex-row items-center justify-between mt-md pt-md border-t border-divider">
-        {userRank != null ? (
-          <View className="bg-info-tint rounded-[10px] px-sm py-[4px]">
-            <AppText className="text-[12px] font-semibold text-info">
-              {formatOrdinal(userRank)} Ranked
-            </AppText>
-          </View>
-        ) : (
-          <View />
-        )}
-
-        <AppText className="text-[12px] text-tertiary">
+      <View className="flex-row items-center gap-sm mt-md pt-md border-t border-divider">
+        <AppText className="flex-1 text-[12px] text-muted">{lastGameLabel}</AppText>
+        <AppText className="text-[12px] text-tertiary shrink-0">
           {memberCount} {memberCount === 1 ? 'member' : 'members'}
         </AppText>
 

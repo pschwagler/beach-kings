@@ -251,7 +251,6 @@ export default function HomeScreen(): React.ReactNode {
               ) : (
                 <LeaguesScroll
                   leagues={leaguesData}
-                  currentUserPlayerId={playerData?.id ?? null}
                   maxItems={2}
                 />
               )}

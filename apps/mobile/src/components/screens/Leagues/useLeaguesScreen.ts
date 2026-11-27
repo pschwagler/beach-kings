@@ -4,7 +4,7 @@ import { isAccessRevokedError } from '@/lib/apiError';
  * Fetches the current user's player profile and league membership list.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { League, LeaguePictureThumbnails, Player } from '@beach-kings/shared';
 import { api } from '@/lib/api';
@@ -14,7 +14,8 @@ import { useLeaguePictureThumbnails } from '@/features/leagues/useLeaguePictureT
 import { leagueKeys } from './leagueKeys';
 
 export interface UseLeaguesScreenResult {
-  readonly leagues: readonly League[];
+  readonly activeLeagues: readonly League[];
+  readonly archivedLeagues: readonly League[];
   readonly pictures: LeaguePictureThumbnails;
   readonly player: Player | null;
   readonly isLoading: boolean;
@@ -66,7 +67,8 @@ export function useLeaguesScreen(): UseLeaguesScreenResult {
       || (leaguesQuery.isError && (leaguesQuery.data === undefined || isAccessRevokedError(leaguesQuery.error)))) && !isLoading;
 
   return {
-    leagues,
+    activeLeagues: leagues.filter((league) => !league.is_archived),
+    archivedLeagues: leagues.filter((league) => league.is_archived),
     pictures,
     player: playerQuery.data ?? null,
     isLoading,

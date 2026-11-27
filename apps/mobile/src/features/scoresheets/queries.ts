@@ -14,6 +14,7 @@ export const scoresheetQueries = {
     queryOptions({
       queryKey: leagueKeys.userLeagues(userId),
       queryFn: ({ signal }) => api.getUserLeagues({ signal }),
+      select: (leagues) => leagues.filter((league) => !league.is_archived),
       enabled: userId > 0,
       staleTime: 30_000,
     }),

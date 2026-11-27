@@ -295,6 +295,17 @@ describe('LeagueDetailScreen — header', () => {
     expect(screen.getAllByText(MOCK_DETAIL.name)).toHaveLength(1);
   });
 
+  it.each([
+    [false, 'text-default'],
+    [true, 'text-muted'],
+  ])('styles the league name for archived=%s', async (isArchived, textColor) => {
+    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, is_archived: isArchived });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+
+    const title = await screen.findByTestId('league-header-name');
+    expect(title.props.className.split(' ')).toContain(textColor);
+  });
+
   it('renders the league header container', async () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => {

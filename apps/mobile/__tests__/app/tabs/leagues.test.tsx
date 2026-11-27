@@ -104,6 +104,7 @@ const LEAGUE_FIXTURE = {
   location_name: 'Queens, NY',
   member_count: 27,
   games_played: 47,
+  last_game_date: '2026-11-21',
   current_season: { name: 'Spring 2025', is_active: true },
   standings: [
     {
@@ -232,26 +233,59 @@ describe('LeaguesScreen', () => {
     });
   });
 
-  it('shows rank badge when user has a ranking in the league', async () => {
-    const { getByText } = renderWithQuery(<LeaguesScreen />);
+  it('shows the latest game date and omits the League and rank badges', async () => {
+    const { getByText, queryByText } = renderWithQuery(<LeaguesScreen />);
 
     await waitFor(() => {
-      expect(getByText('1st Ranked')).toBeTruthy();
+      expect(getByText('Last game Nov 21, 2026')).toBeTruthy();
+      expect(queryByText('1st Ranked')).toBeNull();
+      expect(queryByText('League')).toBeNull();
     });
   });
 
-  it('renders a card for each league returned by the API', async () => {
+  it('renders a card for each active league', async () => {
     mockGetUserLeagues.mockResolvedValue([
       LEAGUE_FIXTURE,
       SECOND_LEAGUE_FIXTURE,
     ]);
 
-    const { getByTestId } = renderWithQuery(<LeaguesScreen />);
+    const { getByTestId, queryByRole } = renderWithQuery(<LeaguesScreen />);
 
     await waitFor(() => {
       expect(getByTestId('league-card-101')).toBeTruthy();
       expect(getByTestId('league-card-202')).toBeTruthy();
     });
+    expect(queryByRole('button', { name: 'Archived leagues' })).toBeNull();
+  });
+
+  it('keeps archived leagues collapsed until the disclosure is opened', async () => {
+    mockGetUserLeagues.mockResolvedValue([
+      LEAGUE_FIXTURE,
+      { ...SECOND_LEAGUE_FIXTURE, is_archived: true },
+    ]);
+    const ui = renderWithQuery(<LeaguesScreen />);
+
+    const archiveToggle = await ui.findByRole('button', { name: 'Archived leagues' });
+    expect(archiveToggle.props.accessibilityState.expanded).toBe(false);
+    expect(ui.getByTestId('league-card-101')).toBeTruthy();
+    expect(ui.queryByTestId('league-card-202')).toBeNull();
+
+    fireEvent.press(archiveToggle);
+    const expandedToggle = ui.getByRole('button', { name: 'Archived leagues' });
+    expect(expandedToggle.props.accessibilityState.expanded).toBe(true);
+    expect(ui.getByText(SECOND_LEAGUE_FIXTURE.name).props.className).toContain('text-muted');
+    fireEvent.press(ui.getByTestId('league-card-202'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/league/202');
+
+    fireEvent.press(expandedToggle);
+    expect(ui.queryByTestId('league-card-202')).toBeNull();
+  });
+
+  it('offers the archive disclosure when all leagues are archived', async () => {
+    mockGetUserLeagues.mockResolvedValue([{ ...LEAGUE_FIXTURE, is_archived: true }]);
+    const ui = renderWithQuery(<LeaguesScreen />);
+    fireEvent.press(await ui.findByRole('button', { name: 'Archived leagues' }));
+    expect(ui.getByTestId('league-card-101')).toBeTruthy();
   });
 
   it('shows the "Join Another League" CTA below the league list when populated', async () => {

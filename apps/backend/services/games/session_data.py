@@ -69,6 +69,10 @@ from backend.database.models import (
     SessionStatus,
     Location,
 )
+from backend.services.leagues.league_lifecycle import (
+    LeagueArchivedError,
+    require_unarchived_league,
+)
 from backend.utils.datetime_utils import format_session_date, session_date_sort_key
 
 if TYPE_CHECKING:
@@ -448,10 +452,14 @@ async def get_or_create_active_league_session(
     from backend.services.leagues.league_data import resolve_active_season
 
     # Verify league exists
-    result = await session.execute(select(League).where(League.id == league_id))
+    result = await session.execute(
+        select(League).where(League.id == league_id).with_for_update(read=True)
+    )
     league = result.scalar_one_or_none()
     if not league:
         raise ValueError(f"League {league_id} not found")
+    if league.is_archived:
+        raise LeagueArchivedError()
 
     # Resolve the season_id to use for this session.
     # Explicit season_id → strict validation (raises on miss/mismatch).
@@ -648,10 +656,14 @@ async def create_league_session(
     """
     from backend.services.leagues.league_data import resolve_active_season
 
-    result = await session.execute(select(League).where(League.id == league_id))
+    result = await session.execute(
+        select(League).where(League.id == league_id).with_for_update(read=True)
+    )
     league = result.scalar_one_or_none()
     if not league:
         raise ValueError(f"League {league_id} not found")
+    if league.is_archived:
+        raise LeagueArchivedError()
 
     # Soft resolve: None means no active season → gap game.
     active = await resolve_active_season(session, league_id)
@@ -804,6 +816,8 @@ async def create_session(
     Raises:
         ValueError: If code generation fails after retries
     """
+    if league_id is not None:
+        await require_unarchived_league(session, league_id)
     effective_session_type = "league" if league_id is not None else "pickup"
     result = await session.execute(
         select(func.count(Session.id)).where(
@@ -1020,6 +1034,8 @@ async def update_session(
                     f"Season {season_id} belongs to league {season_obj.league_id}, "
                     f"not this session's league {session_obj.league_id}"
                 )
+            if session_obj.league_id is None:
+                await require_unarchived_league(session, season_obj.league_id)
             update_values["league_id"] = season_obj.league_id
             # TODO: inherit this from the future season/league ranking policy.
             update_values["is_ranked"] = True
@@ -1496,9 +1512,14 @@ async def create_match_async(
 
     # Inherit ranked_intent from the parent session's is_ranked field.
     # Fall back to True if the session row cannot be read (should not happen).
-    session_row = await session.execute(select(Session.is_ranked).where(Session.id == session_id))
-    session_is_ranked = session_row.scalar_one_or_none()
-    ranked_intent: bool = session_is_ranked if session_is_ranked is not None else True
+    session_row = (
+        await session.execute(
+            select(Session.is_ranked, Session.league_id).where(Session.id == session_id)
+        )
+    ).one_or_none()
+    if session_row is not None and session_row.league_id is not None:
+        await require_unarchived_league(session, session_row.league_id)
+    ranked_intent: bool = session_row.is_ranked if session_row is not None else True
 
     has_placeholders = await placeholder_service.check_match_has_placeholders(
         session,

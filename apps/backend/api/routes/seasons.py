@@ -35,6 +35,8 @@ from backend.services import (
     season_awards_service,
 )
 
+from backend.services.leagues.league_lifecycle import LeagueArchivedError
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -86,6 +88,8 @@ async def create_season(
         )
 
         return season
+    except LeagueArchivedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
     except HTTPException:

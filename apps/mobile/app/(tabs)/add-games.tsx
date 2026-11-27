@@ -221,7 +221,7 @@ export default function AddGamesScreen(): React.ReactNode {
 
   const openSessionsQuery = useQuery(sessionQueries.open(userId));
   const allSessions = openSessionsQuery.data;
-  const pickupSession = allSessions?.[0] ?? null;
+  const pickupSession = allSessions?.find((session) => session.league_id == null) ?? null;
   const sessionLoading = openSessionsQuery.isPending;
 
   // User leagues fetch — only needed when league-select view is open
@@ -245,7 +245,7 @@ export default function AddGamesScreen(): React.ReactNode {
   const leaguesWithSessions = React.useMemo(() => {
     if (!leagues || !allSessions) return undefined;
 
-    return leagues.map((league) => {
+    return leagues.filter((league) => !league.is_archived).map((league) => {
       const activeSession = allSessions.find(
         (session) =>
           session.league_id === league.id && session.status === 'ACTIVE',

@@ -880,6 +880,39 @@ describe('LeagueInfoTab — join requests', () => {
 // Leave league
 // ---------------------------------------------------------------------------
 
+describe('LeagueInfoTab — archive league', () => {
+  it('lets an admin archive and reopen a league after confirmation', async () => {
+    mockUpdateLeague.mockImplementation(async (_id, data) => {
+      const updated = { ...MOCK_LEAGUE, ...data };
+      mockGetLeague.mockResolvedValue(updated);
+      return updated;
+    });
+    render(<LeagueInfoTab leagueId={1} userRole="admin" />, { wrapper: makeWrapper() });
+
+    for (const [action, isArchived] of [
+      ['Archive league', true],
+      ['Reopen league', false],
+    ] as const) {
+      fireEvent.press(await screen.findByRole('button', { name: action }));
+      expect(await screen.findByTestId('archive-league-dialog')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('archive-league-dialog-confirm'));
+      await waitFor(() => {
+        expect(mockUpdateLeague).toHaveBeenLastCalledWith(1, { is_archived: isArchived });
+        expect(screen.queryByTestId('archive-league-dialog')).toBeNull();
+      });
+    }
+
+    expect(await screen.findByRole('button', { name: 'Archive league' })).toBeTruthy();
+  });
+
+  it('keeps archive controls limited to league admins', async () => {
+    render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });
+
+    await screen.findByTestId('info-tab');
+    expect(screen.queryByRole('button', { name: 'Archive league' })).toBeNull();
+  });
+});
+
 describe('LeagueInfoTab — leave league', () => {
   it('shows Leave League button for member role', async () => {
     render(<LeagueInfoTab leagueId={1} userRole="member" />, { wrapper: makeWrapper() });

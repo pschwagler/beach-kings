@@ -33,6 +33,7 @@ import { routes } from '@/lib/navigation';
 import CourtPickerModal from '@/components/ui/CourtPickerModal';
 import Avatar from '@/components/ui/Avatar';
 import { useLeagueInfoTab } from './useLeagueInfoTab';
+import LeagueArchiveAction from './LeagueArchiveAction';
 import SeasonFormSheet from './SeasonFormSheet';
 import type { HomeCourtResponse, JoinRequest, LeagueMemberRow, LeagueSeason } from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
@@ -611,6 +612,7 @@ export default function LeagueInfoTab({
       ? null
       : info.members.find((member) => member.player_id === currentPlayerId) ?? null;
   const isAdmin = userRole === 'admin' && currentMember?.role !== 'member';
+  const canAddActivity = isAdmin && !info.is_archived;
   const leagueAdmins = info.members.filter((member) => member.role === 'admin');
 
   const levelOptions = LEVEL_OPTIONS.map((l) => ({ label: l, value: l }));
@@ -710,7 +712,7 @@ export default function LeagueInfoTab({
       )}
 
       {/* Join Requests (admin only) */}
-      {isAdmin && pendingRequests.length > 0 && (
+      {canAddActivity && pendingRequests.length > 0 && (
         <>
           <SectionLabel title={`Join Requests (${pendingRequests.length})`} />
           <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
@@ -746,11 +748,11 @@ export default function LeagueInfoTab({
       )}
 
       {/* Seasons */}
-      {(info.seasons.length > 0 || isAdmin) && (
+      {(info.seasons.length > 0 || canAddActivity) && (
         <>
           <View className="flex-row items-center justify-between pr-4">
             <SectionLabel title="Seasons" />
-            {isAdmin && (
+            {canAddActivity && (
               <Pressable
                 testID="new-season-btn"
                 onPress={handleNewSeason}
@@ -834,7 +836,7 @@ export default function LeagueInfoTab({
 
       {/* Player invites are supported today; payment settings are intentionally
           omitted until the app has a real backend contract for them. */}
-      {isAdmin && (
+      {canAddActivity && (
         <>
           <SectionLabel title="Add players" />
           <Pressable
@@ -860,6 +862,10 @@ export default function LeagueInfoTab({
             </AppText>
           </Pressable>
         </>
+      )}
+
+      {isAdmin && (
+        <LeagueArchiveAction leagueId={leagueId} archived={info.is_archived === true} />
       )}
 
       {/* Leave League */}

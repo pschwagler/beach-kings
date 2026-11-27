@@ -52,6 +52,11 @@ from backend.models.schemas import (
     ConfirmMatchesResponse,
 )
 
+from backend.services.leagues.league_lifecycle import (
+    LeagueArchivedError,
+    require_unarchived_league,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -299,6 +304,8 @@ async def create_match(
         }
     except HTTPException:
         raise
+    except LeagueArchivedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -459,6 +466,7 @@ async def upload_match_photo(
     creates a processing job, and returns job_id for polling.
     """
     try:
+        await require_unarchived_league(session, league_id)
         return await photo_draft_service.start_upload(
             session,
             current_user,
@@ -468,6 +476,8 @@ async def upload_match_photo(
             prompt=user_prompt,
         )
 
+    except LeagueArchivedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:

@@ -37,6 +37,7 @@ export function createLeagueMethods(api: AxiosInstance) {
         description: string | null;
         is_open: boolean;
         is_public?: boolean;
+        is_archived?: boolean;
         gender: string | null;
         level: string | null;
         location_id: string | null;
@@ -63,6 +64,7 @@ export function createLeagueMethods(api: AxiosInstance) {
         description: raw.description,
         access_type: raw.is_open ? 'open' : 'invite_only',
         is_public: raw.is_public ?? false,
+        is_archived: raw.is_archived ?? false,
         gender: raw.gender as 'mens' | 'womens' | 'coed' | null,
         level: raw.level,
         location_id: raw.location_id ?? null,
