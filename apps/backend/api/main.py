@@ -20,6 +20,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.api.routes import router, limiter as routes_limiter
 from backend.api.public_routes import public_router
+from backend.api.public_cache import PublicApiCacheMiddleware
 from backend.services.stats.stats_queue import get_stats_queue
 from backend.services.games.session_cleanup_service import get_session_cleanup_service
 from backend.services.auth.account_deletion_service import get_account_deletion_service
@@ -217,6 +218,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+app.add_middleware(PublicApiCacheMiddleware)
 
 # Include API routes
 app.include_router(router)

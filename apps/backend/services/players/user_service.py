@@ -1425,10 +1425,14 @@ async def _delete_user_data(session: AsyncSession, user: User, deleted_at: datet
     await session.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id))
     await session.execute(delete(Feedback).where(Feedback.user_id == user_id))
 
+    verification_identifiers = []
     if user.phone_number:
-        await session.execute(
-            delete(VerificationCode).where(VerificationCode.phone_number == user.phone_number)
-        )
+        verification_identifiers.append(VerificationCode.phone_number == user.phone_number)
+    email = user.email.strip().lower() if user.email else ""
+    if email:
+        verification_identifiers.append(VerificationCode.email == email)
+    if verification_identifiers:
+        await session.execute(delete(VerificationCode).where(or_(*verification_identifiers)))
 
     user.phone_number = None
     user.email = None
