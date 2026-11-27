@@ -19,8 +19,8 @@ interface Props {
   };
 }
 
-/** Picture management and read recovery within the scrollable Info tab. */
-export default function LeaguePictureCard({ leagueId, canEdit, management }: Props) {
+/** Picture actions and read recovery inside the league header sheet. */
+export default function LeaguePictureActions({ leagueId, canEdit, management }: Props) {
   const { user } = useAuth();
   const userId = user?.id ?? 0;
   const palette = usePaletteColors();
@@ -53,7 +53,7 @@ export default function LeaguePictureCard({ leagueId, canEdit, management }: Pro
     setPickerError(null);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: false,
         preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
         quality: 0.85,
@@ -78,42 +78,46 @@ export default function LeaguePictureCard({ leagueId, canEdit, management }: Pro
   };
   const remove = () => {
     const requestedBy = scope.current;
-    Alert.alert('Remove league picture?', 'Members will see the league name without a picture.', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Remove', style: 'destructive', onPress: () => {
-      if (!requestedBy.active || requestedBy !== scope.current || !requestedBy.canEdit || mutation.isPending) return;
-      setPickerError(null);
-      void changePicture({ kind: 'remove' }).catch(() => undefined);
-    } },
+    Alert.alert('Remove league photo?', 'The league will show its default icon.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => {
+        if (!requestedBy.active || requestedBy !== scope.current || !requestedBy.canEdit || mutation.isPending) return;
+        setPickerError(null);
+        void changePicture({ kind: 'remove' }).catch(() => undefined);
+      } },
     ]);
   };
 
   if (!canEdit && !query.isError) return null;
+  if (query.isPending) {
+    return <AppText className="py-4 text-center text-muted">Loading photo…</AppText>;
+  }
+  if (query.isError) {
+    return (
+      <Pressable accessibilityRole="button" onPress={() => { void query.refetch(); }}
+        className="min-h-touch justify-center">
+        <AppText className="text-center text-brand-teal">Retry loading photo</AppText>
+      </Pressable>
+    );
+  }
+
   return (
-    <View testID="league-picture-card" className="mx-4 my-3 px-4 py-2 bg-surface rounded-[12px] border border-divider">
-      {canEdit && <AppText className="text-[13px] font-bold text-default">League picture</AppText>}
-      {canEdit && <View className="flex-row items-center gap-4">
-        <Pressable testID="league-picture-upload" accessibilityRole="button"
-          accessibilityLabel={picture ? 'Change league picture' : 'Add league picture'}
-          accessibilityState={{ disabled: busy || query.isPending, busy }} disabled={busy || query.isPending}
-          onPress={() => { void choose(); }} className="min-h-touch flex-row items-center gap-2 active:opacity-70">
-          {busy && <ActivityIndicator size="small" color={palette.brandTeal} />}
-          <AppText className="text-[13px] font-semibold text-brand-teal">
-            {busy ? 'Updating picture…' : picture ? 'Change picture' : 'Add league picture'}
-          </AppText>
-        </Pressable>
-        {picture != null && <Pressable testID="league-picture-remove" accessibilityRole="button"
-          accessibilityLabel="Remove league picture" disabled={busy} onPress={remove}
-          className="min-h-touch justify-center active:opacity-70">
-          <AppText className="text-[13px] font-semibold text-muted">Remove</AppText>
-        </Pressable>}
-      </View>}
-      {error != null && <AppText accessibilityRole="alert" className="text-[13px] text-danger">{error}</AppText>}
-      {query.isError && <Pressable accessibilityRole="button" accessibilityLabel="Retry league picture"
-        onPress={() => { void query.refetch(); }} className="min-h-touch justify-center">
-        <AppText className="text-[13px] text-muted">Could not load the league picture. Tap to retry.</AppText>
+    <View testID="league-picture-actions" className="gap-sm">
+      <Pressable testID="league-picture-upload" accessibilityRole="button"
+        accessibilityState={{ disabled: busy, busy }} disabled={busy}
+        onPress={() => { void choose(); }}
+        className="min-h-touch flex-row items-center justify-center gap-2 rounded-button bg-brand-teal px-md py-sm active:opacity-80 disabled:opacity-60">
+        {busy && <ActivityIndicator size="small" color={palette.textInverse} />}
+        <AppText className="shrink text-center text-subhead font-semibold text-inverse">
+          {busy ? 'Updating photo…' : picture ? 'Replace photo' : 'Choose photo'}
+        </AppText>
+      </Pressable>
+      {picture != null && <Pressable testID="league-picture-remove" accessibilityRole="button"
+        disabled={busy} onPress={remove} className="min-h-touch items-center justify-center active:opacity-70">
+        <AppText className="text-subhead font-semibold text-danger">Remove photo</AppText>
       </Pressable>}
-      {canEdit && mutation.isError && mutation.variables != null && <Pressable accessibilityRole="button"
+      {error != null && <AppText accessibilityRole="alert" className="text-[13px] text-danger">{error}</AppText>}
+      {mutation.isError && mutation.variables != null && <Pressable accessibilityRole="button"
         accessibilityLabel="Retry picture update" disabled={busy} className="min-h-touch justify-center"
         onPress={() => {
           setPickerError(null);

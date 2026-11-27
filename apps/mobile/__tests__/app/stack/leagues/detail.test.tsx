@@ -392,19 +392,21 @@ describe('LeagueDetailScreen — segment tabs', () => {
     });
   });
 
-  it('opens the member photo preview and keeps admin actions in Info', async () => {
+  it('opens the photo preview and admin actions together from the header', async () => {
     mockGetLeaguePicture.mockResolvedValue({
       data_uri: 'data:image/jpeg;base64,Zml4dHVyZQ==',
       revision: 'one',
     });
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
-    const avatar = await screen.findByLabelText('View picture for Manhattan Open');
+    const avatar = await screen.findByLabelText('View photo for Manhattan Open');
     expect(screen.queryByTestId('league-picture-preview')).toBeNull();
-    expect(screen.queryByLabelText('Change league picture')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Replace photo' })).toBeNull();
 
     fireEvent.press(avatar);
     const preview = screen.getByTestId('league-picture-preview');
     expect(preview.props.cachePolicy).toBe('none');
+    expect(screen.getByRole('button', { name: 'Replace photo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove photo' })).toBeTruthy();
     const initialHeight = StyleSheet.flatten(preview.props.style).height;
     fireEvent(preview, 'load', { nativeEvent: { source: { width: 1200, height: 400 } } });
     expect(StyleSheet.flatten(screen.getByTestId('league-picture-preview').props.style).height)
@@ -413,8 +415,28 @@ describe('LeagueDetailScreen — segment tabs', () => {
     expect(screen.queryByTestId('league-picture-preview')).toBeNull();
 
     fireEvent.press(screen.getByTestId('segment-tab-info'));
-    expect(await screen.findByLabelText('Change league picture')).toBeTruthy();
-    expect(screen.getByLabelText('Remove league picture')).toBeTruthy();
+    expect(await screen.findByTestId('info-tab')).toBeTruthy();
+    expect(screen.queryByTestId('league-picture-actions')).toBeNull();
+  });
+
+  it('lets an admin add a photo from the default header icon', async () => {
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByRole('button', { name: 'Add photo for Manhattan Open' }));
+    expect(screen.getByRole('header', { name: 'Add league photo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choose photo' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove photo' })).toBeNull();
+  });
+
+  it('shows the preview without editing controls to a regular member', async () => {
+    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, user_role: 'member' });
+    mockGetLeaguePicture.mockResolvedValue({
+      data_uri: 'data:image/jpeg;base64,Zml4dHVyZQ==',
+      revision: 'one',
+    });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByRole('button', { name: 'View photo for Manhattan Open' }));
+    expect(screen.getByTestId('league-picture-preview')).toBeTruthy();
+    expect(screen.queryByTestId('league-picture-actions')).toBeNull();
   });
 
   it('never requests or renders the picture for visitors', async () => {
@@ -422,7 +444,7 @@ describe('LeagueDetailScreen — segment tabs', () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await screen.findByTestId('league-header-name');
     expect(mockGetLeaguePicture).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText('View picture for Manhattan Open')).toBeNull();
+    expect(screen.queryByLabelText('View photo for Manhattan Open')).toBeNull();
     expect(screen.queryByTestId('league-avatar-fallback-1', { includeHiddenElements: true })).toBeNull();
   });
 
@@ -594,7 +616,7 @@ describe('LeagueDetailScreen — non-member visitor', () => {
     expect(screen.getByLabelText('Accept invitation to Manhattan Open')).toBeTruthy();
     expect(screen.getByLabelText('Decline invitation to Manhattan Open')).toBeTruthy();
     expect(screen.queryByTestId('league-join-banner')).toBeNull();
-    expect(screen.queryByTestId('league-picture-card')).toBeNull();
+    expect(screen.queryByTestId('league-picture-actions')).toBeNull();
   });
 
   it('accepts from the invitation banner and transitions to member detail', async () => {

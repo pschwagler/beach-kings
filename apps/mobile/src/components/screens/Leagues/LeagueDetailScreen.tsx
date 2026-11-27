@@ -259,7 +259,6 @@ function VisitorJoinBanner({
 
 interface TabContentProps {
   readonly leagueId: number | string;
-  readonly pictureManagement: ReturnType<typeof useLeagueDetailScreen>['pictureManagement'];
   readonly userRole: 'admin' | 'member' | null;
   readonly activeTab: LeagueDetailTab;
   readonly statsPlayerId: number | string | null;
@@ -275,7 +274,6 @@ interface TabContentProps {
 
 function TabContent({
   leagueId,
-  pictureManagement,
   userRole,
   activeTab,
   statsPlayerId,
@@ -327,7 +325,7 @@ function TabContent({
     case 'signups':
       return <LeagueSignupsTab leagueId={leagueId} />;
     case 'info':
-      return <LeagueInfoTab leagueId={leagueId} userRole={userRole} pictureManagement={pictureManagement} />;
+      return <LeagueInfoTab leagueId={leagueId} userRole={userRole} />;
     default:
       return null;
   }
@@ -530,10 +528,12 @@ export default function LeagueDetailScreen({
         <LeagueHeader
           picture={detail.user_role === 'admin' || detail.user_role === 'member' ? (
             <LeagueHeaderPicture
-              key={`${detail.id}:${picture?.revision}`}
+              key={`${detail.id}:${detail.user_role}`}
               leagueId={detail.id}
               name={detail.name}
               picture={picture}
+              canEdit={detail.user_role === 'admin'}
+              management={pictureManagement}
             />
           ) : undefined}
           name={detail.name}
@@ -571,7 +571,6 @@ export default function LeagueDetailScreen({
         <View className="flex-1">
           <TabContent
             leagueId={resolvedId}
-            pictureManagement={pictureManagement}
             userRole={detail.user_role}
             activeTab={activeTab}
             statsPlayerId={statsPlayerId}
