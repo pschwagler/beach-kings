@@ -220,17 +220,20 @@ export interface LeagueStandingsResponse {
 // League Detail (GET /api/leagues/:id)
 // ---------------------------------------------------------------------------
 
-/**
- * Enriched league detail returned by GET /api/leagues/:id.
- * Includes membership context and current-season stats for the authenticated caller.
- * All user_* fields are null for non-members.
- */
 /** Private image returned only after checking current league membership. */
 export interface LeaguePicture {
   readonly data_uri: string | null;
   readonly revision: string | null;
 }
 
+/** Thumbnails keyed by league ID. Missing entries have no image available to the viewer. */
+export type LeaguePictureThumbnails = Readonly<Partial<Record<number, LeaguePicture>>>;
+
+/**
+ * Enriched league detail returned by GET /api/leagues/:id.
+ * Includes membership context and current-season stats for the authenticated caller.
+ * All user_* fields are null for non-members.
+ */
 export interface LeagueDetail {
   readonly id: number;
   readonly name: string;

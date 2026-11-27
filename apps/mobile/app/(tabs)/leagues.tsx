@@ -48,6 +48,7 @@ export default function LeaguesScreen(): React.ReactNode {
   const scrollRef = useRef<ScrollView>(null);
   const {
     leagues,
+    pictures,
     player,
     isLoading,
     isRefreshing,
@@ -128,6 +129,7 @@ export default function LeaguesScreen(): React.ReactNode {
                 <LeagueCard
                   key={league.id}
                   league={league}
+                  picture={pictures[league.id]}
                   userRank={standing?.season_rank ?? null}
                   userWins={standing?.wins ?? 0}
                   userLosses={standing?.losses ?? 0}

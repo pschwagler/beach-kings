@@ -17,6 +17,10 @@ export const leagueKeys = {
     [...leagueKeys.league(userId, id), 'detail'] as const,
   picture: (userId: number, id: number | string) =>
     [...leagueKeys.league(userId, id), 'picture'] as const,
+  pictureThumbnailsRoot: (userId: number) =>
+    [...leagueKeys.root(userId), 'picture-thumbnails'] as const,
+  pictureThumbnails: (userId: number, ids: readonly number[]) =>
+    [...leagueKeys.pictureThumbnailsRoot(userId), ids] as const,
   standings: (
     userId: number,
     id: number | string,

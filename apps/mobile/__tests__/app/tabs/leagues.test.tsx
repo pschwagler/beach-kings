@@ -44,6 +44,7 @@ jest.mock('@/contexts/ThemeContext', () => ({
 // ---------------------------------------------------------------------------
 
 const mockGetUserLeagues = jest.fn();
+const mockGetPictureThumbnails = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();
 const mockGetReceivedLeagueInvites = jest.fn();
 const mockAcceptLeagueInvite = jest.fn();
@@ -51,6 +52,7 @@ const mockDeclineLeagueInvite = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
+    getLeaguePictureThumbnails: (...args: unknown[]) => mockGetPictureThumbnails(...args),
     getUserLeagues: (...args: unknown[]) => mockGetUserLeagues(...args),
     getCurrentUserPlayer: (...args: unknown[]) =>
       mockGetCurrentUserPlayer(...args),
@@ -170,6 +172,7 @@ describe('LeaguesScreen', () => {
     // Default: instant resolution
     mockGetCurrentUserPlayer.mockResolvedValue(PLAYER_FIXTURE);
     mockGetUserLeagues.mockResolvedValue([LEAGUE_FIXTURE]);
+    mockGetPictureThumbnails.mockResolvedValue({});
     mockGetReceivedLeagueInvites.mockResolvedValue([]);
     mockAcceptLeagueInvite.mockResolvedValue({ status: 'accepted' });
     mockDeclineLeagueInvite.mockResolvedValue({ status: 'declined' });
@@ -206,6 +209,18 @@ describe('LeaguesScreen', () => {
     });
 
     expect(getByText('QBK Open Men - Mornings')).toBeTruthy();
+  });
+
+  it('shows uploaded thumbnails and falls back for leagues without them', async () => {
+    mockGetUserLeagues.mockResolvedValue([LEAGUE_FIXTURE, SECOND_LEAGUE_FIXTURE]);
+    mockGetPictureThumbnails.mockResolvedValue({
+      101: { data_uri: 'data:image/jpeg;base64,Zml4dHVyZQ==', revision: 'one' },
+    });
+    const ui = renderWithQuery(<LeaguesScreen />);
+    await waitFor(() => expect(ui.getByTestId('league-avatar-photo-101', { includeHiddenElements: true })).toBeTruthy());
+    expect(ui.getByTestId('league-avatar-fallback-202', { includeHiddenElements: true })).toBeTruthy();
+    expect(mockGetPictureThumbnails).toHaveBeenCalledTimes(1);
+    expect(mockGetPictureThumbnails).toHaveBeenCalledWith([101, 202], { signal: expect.any(AbortSignal) });
   });
 
   it('shows W-L record and win rate for the user in each league', async () => {

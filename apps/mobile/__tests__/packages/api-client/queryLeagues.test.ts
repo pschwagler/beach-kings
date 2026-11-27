@@ -62,6 +62,14 @@ describe('queryLeagues — access_type mapping', () => {
 // ---------------------------------------------------------------------------
 
 describe('queryLeagues — user_status mapping', () => {
+  it('opts into joined leagues and maps membership ahead of request flags', async () => {
+    const client = makeMockClient([makeRawItem({ is_member: true, has_pending_request: true })]);
+    const methods = createApiMethods(client);
+    const result = await methods.queryLeagues({ include_joined: true });
+    expect(client.axiosInstance.post).toHaveBeenCalledWith('/api/leagues/query', { include_joined: true });
+    expect(result.items[0].user_status).toBe('member');
+  });
+
   it('maps has_pending_request: true to user_status: requested', async () => {
     const client = makeMockClient([makeRawItem({ has_pending_request: true })]);
     const methods = createApiMethods(client);

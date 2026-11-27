@@ -100,7 +100,7 @@ export function createSignupMethods(api: AxiosInstance) {
      * Maps to POST /api/leagues/query.
      * Adapts the raw backend response to the UI-ready FindLeagueResult shape:
      *   - is_open → access_type ('open' | 'invite_only')
-     *   - has_pending_request → user_status ('requested' | 'none')
+     *   - membership and join request flags → user_status
      *   - friends_preview[].first_name → friends_in_league[].initials
      */
     async queryLeagues(params: {
@@ -110,6 +110,7 @@ export function createSignupMethods(api: AxiosInstance) {
       is_open?: boolean | null;
       page?: number;
       page_size?: number;
+      include_joined?: boolean;
     }, options?: ReadRequestOptions): Promise<LeagueQueryResponse> {
       const body: Record<string, unknown> = {};
       if (params.q) body.q = params.q;
@@ -118,6 +119,7 @@ export function createSignupMethods(api: AxiosInstance) {
       if (params.is_open != null) body.is_open = params.is_open;
       if (params.page != null) body.page = params.page;
       if (params.page_size != null) body.page_size = params.page_size;
+      if (params.include_joined != null) body.include_joined = params.include_joined;
 
       const request = (signal?: AbortSignal, timeout?: number) => api.post<{
         items: Array<{
@@ -128,6 +130,7 @@ export function createSignupMethods(api: AxiosInstance) {
           is_open: boolean;
           location_name: string | null;
           member_count: number;
+          is_member?: boolean;
           has_pending_request: boolean;
           join_request_status?: 'pending' | 'approved' | 'rejected' | null;
           friends_preview: Array<{ player_id: number; first_name: string; last_name: string | null; avatar: string | null }>;
@@ -152,11 +155,13 @@ export function createSignupMethods(api: AxiosInstance) {
           initials: (f.first_name.charAt(0) + (f.last_name?.charAt(0) ?? '')).toUpperCase(),
           avatar_url: f.avatar,
         })),
-        user_status: item.has_pending_request
-          ? 'requested'
-          : item.join_request_status === 'rejected'
-            ? 'rejected'
-            : 'none',
+        user_status: item.is_member
+          ? 'member'
+          : item.has_pending_request
+            ? 'requested'
+            : item.join_request_status === 'rejected'
+              ? 'rejected'
+              : 'none',
       }));
 
       return { items, page: data.page, page_size: data.page_size, total_count: data.total_count };

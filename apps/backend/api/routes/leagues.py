@@ -125,6 +125,7 @@ async def query_leagues(
         order?: string,   # e.g., "name:asc", "created_at:desc", "member_count:desc"
         page?: number,    # 1-based page index, default 1
         page_size?: number  # page size, default 25
+        include_joined?: bool  # include public leagues the viewer has joined
     }
 
     Returns:

@@ -10,7 +10,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { routes } from "@/lib/navigation";
 import { api } from "@/lib/api";
-import type { FindLeagueResult } from "@beach-kings/shared";
+import type { FindLeagueResult, LeaguePictureThumbnails } from "@beach-kings/shared";
+import { useLeaguePictureThumbnails } from "@/features/leagues/useLeaguePictureThumbnails";
 import useDebounce from "@/hooks/useDebounce";
 import { leagueKeys } from "./leagueKeys";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +33,7 @@ export interface UseFindLeaguesScreenResult {
   readonly searchQuery: string;
   readonly activeFilter: FindLeaguesFilter;
   readonly leagues: readonly FindLeagueResult[];
+  readonly pictures: LeaguePictureThumbnails;
   readonly isLoading: boolean;
   readonly isRefreshing: boolean;
   readonly isError: boolean;
@@ -91,6 +93,7 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   const debouncedSearch = useDebounce(searchQuery, 350);
   const queryParams = {
     q: debouncedSearch || null,
+    include_joined: true,
     ...filterToParams(activeFilter),
   };
 
@@ -99,6 +102,12 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
     queryFn: ({ signal }) => api.queryLeagues(queryParams, { signal }),
     enabled: userId > 0,
   });
+
+  const leagues = leaguesQuery.data?.items ?? [];
+  const { pictures, refreshPictures } = useLeaguePictureThumbnails(
+    userId,
+    leagues.filter(({ user_status }) => user_status === "member").map(({ id }) => id),
+  );
 
   const onChangeSearch = useCallback((v: string) => {
     setJoinError(null);
@@ -110,10 +119,10 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
     setActiveFilter(f);
   }, []);
 
-  const onRefresh = useCallback(() => {
-
-    return leaguesQuery.refetch({ cancelRefetch: false });
-  }, [leaguesQuery]);
+  const onRefresh = useCallback(() => Promise.all([
+    leaguesQuery.refetch({ cancelRefetch: false }),
+    refreshPictures(),
+  ]), [leaguesQuery, refreshPictures]);
 
   const onRetry = useCallback(() => {
     void leaguesQuery.refetch({ cancelRefetch: false });
@@ -160,7 +169,8 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   return {
     searchQuery,
     activeFilter,
-    leagues: leaguesQuery.data?.items ?? [],
+    leagues,
+    pictures,
     isLoading,
     isRefreshing: false,
     isError,
