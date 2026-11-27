@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { onlineManager, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useFocusEffect } from 'expo-router';
 import { api } from '@/lib/api';
 import { leagueQueries } from './queries';
 import { leagueKeys } from './keys';
@@ -10,10 +9,10 @@ type PictureChange = { kind: 'upload'; file: LeaguePictureFile } | { kind: 'remo
 type PictureOwner = { userId: number; leagueId: number; canEdit: boolean; active: boolean; pending: boolean };
 
 /** Mount only inside a member's league; image bytes stay in this private, ephemeral query. */
-export function useLeaguePicture(userId: number, leagueId: number, canEdit: boolean) {
+export function useLeaguePicture(userId: number, leagueId: number, canEdit: boolean, enabled = true) {
   const client = useQueryClient();
   const key = leagueKeys.picture(userId, leagueId);
-  const query = useQuery(leagueQueries.picture(userId, leagueId));
+  const query = useQuery(leagueQueries.picture(userId, leagueId, enabled));
   const owner = useRef<PictureOwner>({ userId, leagueId, canEdit, active: true, pending: false });
   if (owner.current.userId !== userId || owner.current.leagueId !== leagueId
     || owner.current.canEdit !== canEdit) {
@@ -25,10 +24,6 @@ export function useLeaguePicture(userId: number, leagueId: number, canEdit: bool
     scope.active = true;
     return () => { scope.active = false; };
   }, [userId, leagueId, canEdit]);
-  useFocusEffect(useCallback(() => {
-    // Navigation focus also rechecks membership after another admin removes it.
-    void client.invalidateQueries({ queryKey: leagueKeys.picture(userId, leagueId), exact: true });
-  }, [client, userId, leagueId]));
 
   const mutation = useMutation({
     networkMode: 'always',
@@ -57,6 +52,7 @@ export function useLeaguePicture(userId: number, leagueId: number, canEdit: bool
       await client.cancelQueries({ queryKey: key, exact: true });
       if (!isCurrent()) return;
       client.setQueryData(key, picture);
+      void client.invalidateQueries({ queryKey: leagueKeys.pictureThumbnailsRoot(userId) });
     },
   });
   const currentOwner = owner.current;

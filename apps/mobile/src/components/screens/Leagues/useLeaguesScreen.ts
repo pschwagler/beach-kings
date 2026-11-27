@@ -6,14 +6,16 @@ import { isAccessRevokedError } from '@/lib/apiError';
 
 import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { League, Player } from '@beach-kings/shared';
+import type { League, LeaguePictureThumbnails, Player } from '@beach-kings/shared';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentPlayer } from '@/hooks/useCurrentPlayer';
+import { useLeaguePictureThumbnails } from '@/features/leagues/useLeaguePictureThumbnails';
 import { leagueKeys } from './leagueKeys';
 
 export interface UseLeaguesScreenResult {
   readonly leagues: readonly League[];
+  readonly pictures: LeaguePictureThumbnails;
   readonly player: Player | null;
   readonly isLoading: boolean;
   readonly isRefreshing: boolean;
@@ -40,11 +42,16 @@ export function useLeaguesScreen(): UseLeaguesScreenResult {
     enabled: userId > 0,
   });
 
-  const onRefresh = useCallback(() => {
-
-    return Promise.all([playerQuery.refetch({ cancelRefetch: false }), leaguesQuery.refetch({ cancelRefetch: false })])
-      ;
-  }, [playerQuery, leaguesQuery]);
+  const leagues = leaguesQuery.data ?? [];
+  const { pictures, refreshPictures } = useLeaguePictureThumbnails(
+    userId,
+    leagues.map(({ id }) => id),
+  );
+  const onRefresh = useCallback(() => Promise.all([
+    playerQuery.refetch({ cancelRefetch: false }),
+    leaguesQuery.refetch({ cancelRefetch: false }),
+    refreshPictures(),
+  ]), [playerQuery, leaguesQuery, refreshPictures]);
 
   const onRetry = useCallback(() => {
     void playerQuery.refetch({ cancelRefetch: false });
@@ -59,7 +66,8 @@ export function useLeaguesScreen(): UseLeaguesScreenResult {
       || (leaguesQuery.isError && (leaguesQuery.data === undefined || isAccessRevokedError(leaguesQuery.error)))) && !isLoading;
 
   return {
-    leagues: leaguesQuery.data ?? [],
+    leagues,
+    pictures,
     player: playerQuery.data ?? null,
     isLoading,
     isRefreshing: false,

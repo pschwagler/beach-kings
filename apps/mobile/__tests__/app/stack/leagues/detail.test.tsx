@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { Alert, Keyboard } from 'react-native';
+import { Alert, Keyboard, StyleSheet } from 'react-native';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -67,9 +67,11 @@ jest.mock('react-native-reanimated', () => {
     useAnimatedStyle: () => ({}),
     withRepeat: (v: unknown) => v,
     withTiming: (v: unknown) => v,
-    Easing: { inOut: () => ({}), ease: {} },
+    Easing: { in: () => ({}), out: () => ({}), cubic: {}, inOut: () => ({}), ease: {} },
   };
 });
+
+jest.mock('phosphor-react-native', () => ({ ArrowsOut: () => null }));
 
 jest.mock('react-native-svg', () => {
   const React = require('react');
@@ -109,6 +111,7 @@ const mockGetMyGames = jest.fn();
 const mockGetLeagueSessions = jest.fn();
 const mockGetLeagueGames = jest.fn();
 const mockGetLeague = jest.fn();
+const mockGetLeaguePicture = jest.fn();
 const mockGetLeagueMembers = jest.fn();
 const mockGetLeagueJoinRequests = jest.fn();
 const mockApproveJoinRequest = jest.fn();
@@ -121,7 +124,7 @@ const mockDeclineLeagueInvite = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getLeaguePicture: jest.fn().mockResolvedValue({ data_uri: null, revision: null }),
+    getLeaguePicture: (...args: unknown[]) => mockGetLeaguePicture(...args),
     getLeagueSeasons: (...args: unknown[]) => mockGetLeagueSeasons(...args),
     getLeagueStandings: (...args: unknown[]) => mockGetLeagueStandings(...args),
     getLeagueMessages: (...args: unknown[]) => mockGetLeagueMessages(...args),
@@ -238,6 +241,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockSearchParams = { id: '1' };
   mockGetLeague.mockResolvedValue(MOCK_DETAIL);
+  mockGetLeaguePicture.mockReset().mockResolvedValue({ data_uri: null, revision: null });
   mockGetLeagueStandings.mockResolvedValue({ standings: [], season_info: null });
   mockGetLeagueSeasons.mockResolvedValue([]);
   mockGetLeagueMessages.mockResolvedValue([]);
@@ -386,6 +390,62 @@ describe('LeagueDetailScreen — segment tabs', () => {
     await waitFor(() => {
       expect(screen.getByTestId('signups-tab')).toBeTruthy();
     });
+  });
+
+  it('opens the photo preview and admin actions together from the header', async () => {
+    mockGetLeaguePicture.mockResolvedValue({
+      data_uri: 'data:image/jpeg;base64,Zml4dHVyZQ==',
+      revision: 'one',
+    });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    const avatar = await screen.findByLabelText('View photo for Manhattan Open');
+    expect(screen.queryByTestId('league-picture-preview')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Replace photo' })).toBeNull();
+
+    fireEvent.press(avatar);
+    const preview = screen.getByTestId('league-picture-preview');
+    expect(preview.props.cachePolicy).toBe('none');
+    expect(screen.getByRole('button', { name: 'Replace photo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove photo' })).toBeTruthy();
+    const initialHeight = StyleSheet.flatten(preview.props.style).height;
+    fireEvent(preview, 'load', { nativeEvent: { source: { width: 1200, height: 400 } } });
+    expect(StyleSheet.flatten(screen.getByTestId('league-picture-preview').props.style).height)
+      .toBeLessThan(initialHeight);
+    fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByTestId('league-picture-preview')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('segment-tab-info'));
+    expect(await screen.findByTestId('info-tab')).toBeTruthy();
+    expect(screen.queryByTestId('league-picture-actions')).toBeNull();
+  });
+
+  it('lets an admin add a photo from the default header icon', async () => {
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByRole('button', { name: 'Add photo for Manhattan Open' }));
+    expect(screen.getByRole('header', { name: 'Add league photo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choose photo' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove photo' })).toBeNull();
+  });
+
+  it('shows the preview without editing controls to a regular member', async () => {
+    mockGetLeague.mockResolvedValue({ ...MOCK_DETAIL, user_role: 'member' });
+    mockGetLeaguePicture.mockResolvedValue({
+      data_uri: 'data:image/jpeg;base64,Zml4dHVyZQ==',
+      revision: 'one',
+    });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    fireEvent.press(await screen.findByRole('button', { name: 'View photo for Manhattan Open' }));
+    expect(screen.getByTestId('league-picture-preview')).toBeTruthy();
+    expect(screen.queryByTestId('league-picture-actions')).toBeNull();
+  });
+
+  it('never requests or renders the picture for visitors', async () => {
+    mockGetLeague.mockResolvedValue(VISITOR_DETAIL);
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await screen.findByTestId('league-header-name');
+    expect(mockGetLeaguePicture).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('View photo for Manhattan Open')).toBeNull();
+    expect(screen.queryByTestId('league-avatar-fallback-1', { includeHiddenElements: true })).toBeNull();
   });
 
   it('switches to info tab on press', async () => {
@@ -556,7 +616,7 @@ describe('LeagueDetailScreen — non-member visitor', () => {
     expect(screen.getByLabelText('Accept invitation to Manhattan Open')).toBeTruthy();
     expect(screen.getByLabelText('Decline invitation to Manhattan Open')).toBeTruthy();
     expect(screen.queryByTestId('league-join-banner')).toBeNull();
-    expect(screen.queryByTestId('league-picture-card')).toBeNull();
+    expect(screen.queryByTestId('league-picture-actions')).toBeNull();
   });
 
   it('accepts from the invitation banner and transitions to member detail', async () => {

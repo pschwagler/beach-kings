@@ -78,11 +78,13 @@ jest.mock('@/theme/usePaletteColors', () => ({
 }));
 
 const mockQueryLeagues = jest.fn();
+const mockGetPictureThumbnails = jest.fn();
 const mockJoinLeague = jest.fn();
 const mockRequestToJoinLeague = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
+    getLeaguePictureThumbnails: (...args: unknown[]) => mockGetPictureThumbnails(...args),
     queryLeagues: (...args: unknown[]) => mockQueryLeagues(...args),
     joinLeague: (...args: unknown[]) => mockJoinLeague(...args),
     requestToJoinLeague: (...args: unknown[]) => mockRequestToJoinLeague(...args),
@@ -141,6 +143,7 @@ const MOCK_RESPONSE = { items: MOCK_LEAGUES, page: 1, page_size: 25, total_count
 beforeEach(() => {
   jest.clearAllMocks();
   mockQueryLeagues.mockResolvedValue(MOCK_RESPONSE);
+  mockGetPictureThumbnails.mockResolvedValue({});
   mockJoinLeague.mockResolvedValue({ success: true, message: 'Joined' });
 });
 
@@ -173,6 +176,31 @@ describe('FindLeaguesScreen — render', () => {
       expect(screen.getByTestId('league-result-card-1')).toBeTruthy();
       expect(screen.getByTestId('league-result-card-2')).toBeTruthy();
     });
+  });
+
+  it('requests member thumbnails only and keeps the existing nonmember action', async () => {
+    mockQueryLeagues.mockResolvedValue({
+      ...MOCK_RESPONSE,
+      items: [
+        { ...MOCK_LEAGUES[0], user_status: 'member' },
+        { ...MOCK_LEAGUES[1], access_type: 'open' },
+      ],
+    });
+    const photo = { data_uri: 'data:image/jpeg;base64,Zml4dHVyZQ==', revision: 'one' };
+    mockGetPictureThumbnails.mockResolvedValue({ 1: photo, 2: photo });
+    render(<FindLeaguesRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('league-avatar-photo-1', { includeHiddenElements: true })).toBeTruthy());
+    expect(screen.queryByTestId('league-avatar-photo-2', { includeHiddenElements: true })).toBeNull();
+    expect(screen.queryByTestId('request-join-btn-1')).toBeNull();
+    expect(screen.getByTestId('request-join-btn-2')).toBeTruthy();
+    expect(screen.getByText("You're a member")).toBeTruthy();
+    fireEvent.press(screen.getByText('View League'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/league/1');
+    expect(mockRequestToJoinLeague).not.toHaveBeenCalled();
+    expect(mockQueryLeagues).toHaveBeenCalledWith(
+      expect.objectContaining({ include_joined: true }), expect.anything(),
+    );
+    expect(mockGetPictureThumbnails).toHaveBeenCalledWith([1], { signal: expect.any(AbortSignal) });
   });
 
   it('renders the league list container', async () => {
@@ -308,7 +336,7 @@ describe('FindLeaguesScreen — request to join', () => {
         expectedCopy as string,
       );
       expect(screen.getByText('Try Again')).toBeTruthy();
-      expect(screen.queryByText("You're a Member")).toBeNull();
+      expect(screen.queryByText("You're a member")).toBeNull();
     });
   });
 

@@ -5,8 +5,8 @@ import base64
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,9 +17,15 @@ from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.database.models import LeagueMember, LeaguePicture, Player
 from backend.services import interaction_policy
-from backend.services.leagues.league_picture_service import MAX_UPLOAD_BYTES, process_picture
+from backend.services.leagues.league_picture_service import (
+    MAX_UPLOAD_BYTES,
+    make_thumbnail,
+    process_picture,
+)
 
 router = APIRouter()
+PICTURE_MEMBER_ROLES = ("admin", "member")
+LeagueId = Annotated[int, Field(gt=0, le=2_147_483_647)]
 
 
 class LeaguePictureResponse(BaseModel):
@@ -36,7 +42,7 @@ async def require_picture_member(
         .join(Player, Player.id == LeagueMember.player_id)
         .where(LeagueMember.league_id == league_id, Player.user_id == user_id)
     )
-    if role not in {"admin", "member"}:
+    if role not in PICTURE_MEMBER_ROLES:
         raise HTTPException(403, "League membership required")
     if admin and role != "admin":
         raise HTTPException(403, "League admin access required")
@@ -48,6 +54,38 @@ def picture_response(image: bytes | None, revision: str | None) -> LeaguePicture
         if image
         else None,
         revision=revision,
+    )
+
+
+@router.get("/api/leagues/pictures/thumbnails", response_model=dict[int, LeaguePictureResponse])
+@limiter.limit("60/minute")
+async def get_picture_thumbnails(
+    request: Request,
+    response: Response,
+    user: Annotated[dict, Depends(require_user)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    league_ids: Annotated[list[LeagueId], Query(min_length=1, max_length=25)],
+):
+    member_league_ids = (
+        select(LeagueMember.league_id)
+        .join(Player, Player.id == LeagueMember.player_id)
+        .where(Player.user_id == user["id"], LeagueMember.role.in_(PICTURE_MEMBER_ROLES))
+    )
+    pictures = await session.execute(
+        select(LeaguePicture.league_id, LeaguePicture.image_bytes, LeaguePicture.revision).where(
+            LeaguePicture.league_id.in_(league_ids),
+            LeaguePicture.league_id.in_(member_league_ids),
+        )
+    )
+    rows = pictures.all()
+    response.headers["Cache-Control"] = "private, no-store"
+    if not rows:
+        return {}
+    return await asyncio.to_thread(
+        lambda: {
+            league_id: picture_response(make_thumbnail(image), revision)
+            for league_id, image, revision in rows
+        }
     )
 
 

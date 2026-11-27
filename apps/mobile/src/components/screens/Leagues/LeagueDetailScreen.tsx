@@ -44,7 +44,7 @@ import LeagueChatTab from './LeagueChatTab';
 import LeagueSignupsTab from './LeagueSignupsTab';
 import LeagueInfoTab from './LeagueInfoTab';
 import LeagueMatchesTab from './LeagueMatchesTab';
-import LeaguePictureCard from './LeaguePictureCard';
+import LeagueHeaderPicture from './LeagueHeaderPicture';
 import LeagueStatsTab from './LeagueStatsTab';
 import LeagueInvitationBanner from './LeagueInvitationBanner';
 
@@ -107,27 +107,31 @@ function LeagueHeader({
       testID="league-header"
       className="bg-surface px-4 pt-3 pb-3 border-b border-divider"
     >
-      {picture}
-      <AppText
-        testID="league-header-name"
-        family="display"
-        className="text-[20px] font-bold text-default"
-        numberOfLines={2}
-        accessibilityLabel={name}
-      >
-        {name}
-      </AppText>
+      <View className="flex-row items-center gap-3">
+        {picture}
+        <View className="flex-1 min-w-0">
+          <AppText
+            testID="league-header-name"
+            family="display"
+            className="text-[20px] font-bold text-default"
+            numberOfLines={2}
+            accessibilityLabel={name}
+          >
+            {name}
+          </AppText>
 
-      <View className="flex-row flex-wrap items-center gap-x-2 mt-[2px]">
-        {locationName != null && (
-          <AppText className="text-[12px] text-muted">{locationName}</AppText>
-        )}
-        {locationName != null && (
-          <AppText className="text-[12px] text-muted">·</AppText>
-        )}
-        <AppText className="text-[12px] text-muted">
-          {memberCount} {memberCount === 1 ? 'member' : 'members'}
-        </AppText>
+          <View className="flex-row flex-wrap items-center gap-x-2 mt-[2px]">
+            {locationName != null && (
+              <>
+                <AppText className="text-[12px] text-muted">{locationName}</AppText>
+                <AppText className="text-[12px] text-muted">·</AppText>
+              </>
+            )}
+            <AppText className="text-[12px] text-muted">
+              {memberCount} {memberCount === 1 ? 'member' : 'members'}
+            </AppText>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -346,6 +350,8 @@ export default function LeagueDetailScreen({
 
   const {
     detail,
+    picture,
+    pictureManagement,
     liveSessionId,
     isSessionActionReady,
     isSessionActionError,
@@ -521,7 +527,14 @@ export default function LeagueDetailScreen({
       <View testID="league-detail-screen" className="flex-1 bg-page">
         <LeagueHeader
           picture={detail.user_role === 'admin' || detail.user_role === 'member' ? (
-            <LeaguePictureCard leagueId={detail.id} leagueName={detail.name} canEdit={detail.user_role === 'admin'} />
+            <LeagueHeaderPicture
+              key={`${detail.id}:${detail.user_role}`}
+              leagueId={detail.id}
+              name={detail.name}
+              picture={picture}
+              canEdit={detail.user_role === 'admin'}
+              management={pictureManagement}
+            />
           ) : undefined}
           name={detail.name}
           locationName={detail.location_name}
