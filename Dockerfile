@@ -1,5 +1,5 @@
 # Runtime-only image; the retired WhatsApp service no longer needs Node.js.
-FROM python:3.11-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 RUN apt-get update && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \

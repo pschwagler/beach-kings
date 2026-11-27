@@ -1,5 +1,5 @@
 # Lightweight Dockerfile for running tests
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 # Install PostgreSQL client for connection testing
 RUN apt-get update && apt-get install -y \
