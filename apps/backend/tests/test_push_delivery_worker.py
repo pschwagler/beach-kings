@@ -107,6 +107,7 @@ async def test_worker_processes_recipient_scope(db_session, test_engine, monkeyp
     monkeypatch.setenv("PUSH_DELIVERY_ENABLED", "false" if test_mode else "true")
     monkeypatch.setenv("PUSH_DELIVERY_TEST_USER_ID", str(test_user.id) if test_mode else "")
     monkeypatch.setenv("EXPO_ACCESS_TOKEN", "synthetic")
+    monkeypatch.setenv("PUSH_DELIVERY_START_AT", (now - timedelta(days=1)).isoformat())
     clock = now + timedelta(seconds=1)
 
     async def advance_clock(_seconds):
@@ -157,3 +158,93 @@ async def test_worker_processes_recipient_scope(db_session, test_engine, monkeyp
             assert [row.status for row in (await verify_session.execute(unrelated)).all()] == [
                 "delivered"
             ] * 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("test_mode", [True, False])
+async def test_worker_uses_fixed_job_creation_cutoff_across_restarts(
+    db_session, test_engine, monkeypatch, test_mode
+):
+    cutoff = utcnow() - timedelta(minutes=1)
+    before_cutoff = cutoff - timedelta(microseconds=1)
+    after_cutoff = cutoff + timedelta(microseconds=1)
+    test_user, other_user = User(), User()
+    db_session.add_all([test_user, other_user])
+    await db_session.flush()
+    for name, user in (("test", test_user), ("other", other_user)):
+        token, _ = await push_service.register_installation(
+            db_session, user.id, f"ExpoPushToken[{name}]", "ios", f"{name}-installation"
+        )
+        for point, created_at in (
+            ("before", before_cutoff),
+            ("exact", cutoff),
+            ("after", after_cutoff),
+            ("receipt", before_cutoff),
+        ):
+            key = f"{name}-{point}"
+            db_session.add(
+                PushDeliveryJob(
+                    user_id=user.id,
+                    device_token_id=token.id,
+                    idempotency_key=key,
+                    payload={
+                        "title": key,
+                        "data": {"type": NotificationType.FRIEND_REQUEST.value},
+                    },
+                    created_at=created_at,
+                    # Creation time is independent of when a job is ready to claim.
+                    available_at=after_cutoff,
+                    status="ticketed" if point == "receipt" else "pending",
+                    expo_ticket_id=key if point == "receipt" else None,
+                )
+            )
+    await db_session.commit()
+
+    async def send(messages, _access_token):
+        return [{"status": "ok", "id": message["title"]} for message in messages]
+
+    async def receipts(ticket_ids, _access_token):
+        return {ticket: {"status": "ok"} for ticket in ticket_ids}
+
+    provider_send = AsyncMock(side_effect=send)
+    provider_receipts = AsyncMock(side_effect=receipts)
+    monkeypatch.setattr(push_worker, "send_expo_batch", provider_send)
+    monkeypatch.setattr(push_worker, "get_expo_receipts", provider_receipts)
+    monkeypatch.setattr(push_worker.asyncio, "sleep", AsyncMock(side_effect=StopAsyncIteration))
+    monkeypatch.setenv("PUSH_DELIVERY_ENABLED", "false" if test_mode else "true")
+    monkeypatch.setenv("PUSH_DELIVERY_TEST_USER_ID", str(test_user.id) if test_mode else "")
+    monkeypatch.setenv("EXPO_ACCESS_TOKEN", "synthetic")
+    monkeypatch.setenv("PUSH_DELIVERY_START_AT", cutoff.isoformat())
+
+    session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
+    monkeypatch.setattr(push_worker, "utcnow", lambda: cutoff)
+    with pytest.raises(StopAsyncIteration):
+        await push_worker.run_forever(session_factory)
+    provider_send.assert_not_awaited()
+    provider_receipts.assert_not_awaited()
+
+    monkeypatch.setattr(push_worker, "utcnow", lambda: cutoff + timedelta(minutes=2))
+    with pytest.raises(StopAsyncIteration):
+        await push_worker.run_forever(session_factory)
+
+    active = {"test"} if test_mode else {"test", "other"}
+    expected_sends = {f"{name}-{point}" for name in active for point in ("exact", "after")}
+    provider_send.assert_awaited_once()
+    messages, _ = provider_send.await_args.args
+    assert {message["title"] for message in messages} == expected_sends
+    assert len(messages) == len(expected_sends)
+
+    expected_receipts = {f"{name}-receipt" for name in active}
+    provider_receipts.assert_awaited_once()
+    assert set(provider_receipts.await_args.args[0]) == expected_receipts
+
+    async with session_factory() as session:
+        jobs = (await session.scalars(select(PushDeliveryJob))).all()
+    for job in jobs:
+        if job.idempotency_key in expected_sends:
+            assert (job.status, job.attempts) == ("ticketed", 1)
+        elif job.idempotency_key in expected_receipts:
+            assert (job.status, job.attempts) == ("delivered", 1)
+        else:
+            assert job.attempts == 0
+            assert job.status == ("ticketed" if job.expo_ticket_id else "pending")
