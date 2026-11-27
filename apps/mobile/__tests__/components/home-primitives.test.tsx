@@ -300,6 +300,21 @@ describe('SectionHeader', () => {
     fireEvent.press(getByRole('link'));
     expect(onLinkPress).toHaveBeenCalled();
   });
+
+  it('places the link below the section title at accessibility text sizes', () => {
+    useWindowDimensionsSpy.mockReturnValue({ width: 320, height: 667, scale: 2, fontScale: 2 });
+    const onLinkPress = jest.fn();
+    const { getByRole, getByTestId } = render(
+      <SectionHeader title="Recent Games" linkLabel="View All" onLinkPress={onLinkPress} />,
+    );
+
+    expect(getByTestId('home-section-header-Recent Games').props.style).toMatchObject({
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+    });
+    fireEvent.press(getByRole('link', { name: 'View All, Recent Games' }));
+    expect(onLinkPress).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
