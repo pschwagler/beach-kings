@@ -11,8 +11,19 @@ they never wait for Expo. WebSockets remain the foreground cache transport.
 2. Configure production APNs credentials in EAS and enable enhanced push
    security.
 3. Store `EXPO_ACCESS_TOKEN` in the deployment secret store.
-4. Set `PUSH_DELIVERY_ENABLED=true` for `push-worker` only. Startup fails with a
-   clear error if delivery is enabled without the token.
+4. Immediately before starting either rollout, set `PUSH_DELIVERY_START_AT` for
+   `push-worker` to the current time as an ISO 8601 timestamp with a UTC offset
+   (for example, `2026-01-01T12:00:00Z`). For a scoped TestFlight rollout, keep
+   `PUSH_DELIVERY_ENABLED=false` and set `PUSH_DELIVERY_TEST_USER_ID` to the
+   dedicated account's numeric ID. For public launch, choose a fresh timestamp,
+   clear `PUSH_DELIVERY_TEST_USER_ID`, and set `PUSH_DELIVERY_ENABLED=true`.
+5. Recreate the worker to apply the rollout configuration. Keep its timestamp
+   fixed across restarts. Both active modes require a valid timestamp and the
+   Expo access token at startup.
+
+The cutoff includes jobs created at the configured instant. Earlier pending
+jobs stay queued and are ineligible for Expo sends. The worker can still
+check receipts for earlier jobs that already have Expo tickets.
 
 Never print an Expo device token, unregister secret, message body, or full push
 payload while diagnosing delivery.

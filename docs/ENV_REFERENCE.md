@@ -25,9 +25,11 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `YOUTH_SAFETY_SIGNING_SECRET` | `JWT_SECRET_KEY` | Dedicated signing key for 30-minute, pre-registration youth eligibility proofs. Use an independently generated secret in production. |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins |
 | `DEBUG_BACKEND` | `0` | Enable debug mode |
-| `PUSH_DELIVERY_ENABLED` | `false` | Enables the separate durable Expo push worker. Requires `EXPO_ACCESS_TOKEN` to be configured securely |
+| `PUSH_DELIVERY_ENABLED` | `false` | Enables the separate durable Expo push worker. Requires `EXPO_ACCESS_TOKEN` and `PUSH_DELIVERY_START_AT` |
+| `PUSH_DELIVERY_TEST_USER_ID` | (empty) | Limits delivery to one account while global delivery is disabled. Requires `EXPO_ACCESS_TOKEN` and `PUSH_DELIVERY_START_AT` |
+| `PUSH_DELIVERY_START_AT` | (empty) | Fixed ISO 8601 timestamp with a UTC offset, such as `2026-01-01T12:00:00Z`. Both active modes require it. New sends require job creation at or after this timestamp. Set it at rollout and retain it on worker restarts |
 | `PUSH_MAX_ATTEMPTS` | `5` | Maximum durable delivery attempts for transient Expo failures |
-| `EXPO_ACCESS_TOKEN` | (empty) | Protected server-only Expo enhanced-security access token; required when push delivery is enabled |
+| `EXPO_ACCESS_TOKEN` | (empty) | Protected server-only Expo enhanced-security access token; required for either active push delivery mode |
 
 ### Ports
 
