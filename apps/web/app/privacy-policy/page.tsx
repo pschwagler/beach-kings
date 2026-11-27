@@ -23,7 +23,7 @@ export default function PrivacyPolicyPageRoute() {
             Privacy Policy
           </h1>
           <p className="legal-page-date">
-            <strong>Last updated:</strong> November 22, 2026
+            <strong>Last updated:</strong> November 27, 2026
           </p>
         </div>
         
@@ -139,7 +139,10 @@ export default function PrivacyPolicyPageRoute() {
             <li>Comply with legal obligations (such as tax or accounting requirements)</li>
             <li>Resolve disputes and enforce our agreements</li>
           </ul>
-          <p>Account deletion includes a 30-day recovery period. After permanent deletion, we erase account credentials, provider identifiers, profile details, social data, messages, photos, reviews, invitations, roster memberships, personal statistics, and rating history. The former player profile is no longer searchable, viewable, or usable for contact or interaction.</p>
+          <h4 id="account-deletion">Delete your Beach League account</h4>
+          <p>To request deletion from the web, <a href="mailto:beachleaguevb@gmail.com?subject=Beach%20League%20account%20deletion">email Beach League to delete your account</a>. Include the email address or phone number you use to sign in so we can locate your account and verify the request. Keep your password and sign-in codes private.</p>
+          <p>In the Beach League app, open Settings and choose Delete Account. You can schedule deletion with a 30-day recovery period or choose immediate, permanent deletion.</p>
+          <p>After permanent deletion, we erase account credentials, provider identifiers, profile details, social data, messages, photos, reviews, invitations, roster memberships, personal statistics, and rating history. The former player profile is no longer searchable, viewable, or usable for contact or interaction.</p>
           <p>We retain only the portions of completed match records needed to preserve other players&apos; histories and league records: the anonymous match position, score, winner, ranked and public flags, and the related session, league, season, and court context. The deleted participant is shown only as a non-clickable &quot;Deleted Player&quot;; public responses do not include their former player ID, profile link, avatar, or player attributes. These factual match records may be retained indefinitely because removing a participant would corrupt the records of everyone else in the match.</p>
           <p>When content is reported or restricted, a limited evidence copy may be stored in a separate access-controlled system for up to 180 days after the moderation case closes, unless a legal hold requires longer retention. Content-free moderation audit metadata may be retained for one year.</p>
           <p>Unconfirmed scoresheet drafts, including the selected image and player context, expire after eight hours without an update. Editing a draft renews that period; viewing it does not. Games you confirm and import become ordinary game records. The provider retention described above may apply separately.</p>
