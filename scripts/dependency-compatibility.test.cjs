@@ -37,6 +37,12 @@ test('malformed URI values remain readable without breaking navigation', () => {
   }
 });
 
+test('query-string preserves emoji and replaces lone Unicode surrogates', () => {
+  assert.equal(queryString.stringify({ q: '🏐' }), 'q=%F0%9F%8F%90');
+  assert.equal(queryString.stringify({ q: '\uD800' }), 'q=%EF%BF%BD');
+  assert.equal(queryString.stringify({ q: '\uDC00' }), 'q=%EF%BF%BD');
+});
+
 test('the installed Expo Router serializes query parameters through named exports', () => {
   const path = getPathFromState({ routes: [{ name: 'Session', params: { id: '42', tab: 'games', label: 'Beach League' } }] },
     { screens: { Session: 'session/:id' } });

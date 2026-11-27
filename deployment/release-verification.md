@@ -52,6 +52,13 @@ Record the run URL, source SHA, digest comparison, and live check results.
 If host access is unavailable, report what the deployment record establishes
 and leave running image identity unverified.
 
+## Verify iOS push delivery for one account
+
+1. Sign in to a dedicated test account on a physical iPhone using the signed build. Enable notifications in Beach League. Confirm that the account has only the intended installation registered and no outstanding push jobs.
+2. In protected deployment configuration, keep `PUSH_DELIVERY_ENABLED=false`, set `PUSH_DELIVERY_TEST_USER_ID` to the dedicated account's numeric ID, and configure the Expo push credential. Recreate the push worker through the deployment process to apply the configuration. Only the test account's jobs are eligible in this mode.
+3. With the app in the background, trigger a new direct message to the test account through the normal app flow. Confirm that a notification appears on the phone and tapping it opens the conversation. Check the worker outcome and complete the [signed-device notification matrix](../apps/mobile/docs/ios-release.md#ios-006--testflight-release-candidate). A successful [Expo receipt](https://docs.expo.dev/push-notifications/sending-notifications/#check-push-receipts-for-errors) confirms the handoff to APNs. The phone confirms display and tap routing.
+4. Clear `PUSH_DELIVERY_TEST_USER_ID` and recreate the worker to return to disabled mode. Keep account IDs, credentials, tokens, and raw delivery records in private test notes.
+
 ## Release and audit scope
 
 Push CI on main gates automatic web/API rollout. Mobile checks run on PRs and
