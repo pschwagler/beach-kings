@@ -25,7 +25,7 @@
     "ajv": "^8.17.1",
     "baseline-browser-mapping": "^2.10.0",
     "prettier": "^3.2.5",
-    "react-test-renderer": "19.2.3",
+    "react-test-renderer": "19.3.0",
     "turbo": "^2.0.0",
     "typescript": "^5.3.3"
   },
@@ -35,9 +35,9 @@
   },
   "overrides": {
     "image-size": "npm:probe-image-size@7.3.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-test-renderer": "19.2.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-test-renderer": "19.3.0",
     "uuid": "11.1.1",
     "shell-quote": "1.12.0",
     "@expo/fingerprint": {
@@ -46,12 +46,12 @@
     "query-string": "$query-string"
   },
   "dependencies": {
-    "expo": "~57.0.33",
+    "expo": "~58.1.0",
     "patch-package": "^8.0.1",
     "query-string": "10.0.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.86.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
     "react-native-web": "^0.21.0"
   }
 }
