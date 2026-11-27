@@ -52,13 +52,14 @@ class LeagueUpdate(BaseModel):
     location_id: Optional[str] = None
     is_open: Optional[bool] = None
     is_public: Optional[bool] = None
+    is_archived: Optional[bool] = None
     whatsapp_group_id: Optional[str] = None
     gender: Optional[str] = None
     level: Optional[str] = None
 
     @model_validator(mode="after")
     def reject_null_required_fields(self):
-        for field_name in ("name", "is_open", "is_public"):
+        for field_name in ("name", "is_open", "is_public", "is_archived"):
             if field_name in self.model_fields_set and getattr(self, field_name) is None:
                 raise ValueError(f"{field_name} cannot be null")
         return self
@@ -92,6 +93,7 @@ class LeagueResponse(LeagueBase):
     """League response."""
 
     id: int
+    is_archived: bool = False
     location_name: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

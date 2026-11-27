@@ -104,6 +104,7 @@ const LEAGUE_FIXTURE = {
   location_name: 'Queens, NY',
   member_count: 27,
   games_played: 47,
+  last_game_date: '2026-11-21',
   current_season: { name: 'Spring 2025', is_active: true },
   standings: [
     {
@@ -232,11 +233,13 @@ describe('LeaguesScreen', () => {
     });
   });
 
-  it('shows rank badge when user has a ranking in the league', async () => {
-    const { getByText } = renderWithQuery(<LeaguesScreen />);
+  it('shows the latest game date and omits the League and rank badges', async () => {
+    const { getByText, queryByText } = renderWithQuery(<LeaguesScreen />);
 
     await waitFor(() => {
-      expect(getByText('1st Ranked')).toBeTruthy();
+      expect(getByText('Last game Nov 21, 2026')).toBeTruthy();
+      expect(queryByText('1st Ranked')).toBeNull();
+      expect(queryByText('League')).toBeNull();
     });
   });
 

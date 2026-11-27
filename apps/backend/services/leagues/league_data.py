@@ -75,7 +75,7 @@ __all__ = [
 ]
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, func, and_, or_
+from sqlalchemy import select, update, delete, func, and_, or_, case
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.sql import func as sql_func
 
@@ -102,6 +102,8 @@ from backend.database.models import (
     ScoringSystem,
     Friend,
 )
+
+from backend.services.leagues.league_lifecycle import require_unarchived_league
 
 logger = logging.getLogger(__name__)
 _UNSET = object()
@@ -168,6 +170,7 @@ async def create_league(
         "description": league.description,
         "location_id": league.location_id,
         "is_open": league.is_open,
+        "is_archived": league.is_archived,
         "is_public": league.is_public,
         "created_by_player_id": league.created_by,
         "whatsapp_group_id": league.whatsapp_group_id,
@@ -216,7 +219,7 @@ async def list_leagues(
     )
 
     # Apply filters
-    conditions = [League.is_public.is_(True)]
+    conditions = [League.is_public.is_(True), League.is_archived.is_(False)]
     if location_id is not None:
         conditions.append(League.location_id == location_id)
     if region_id is not None:
@@ -342,7 +345,7 @@ async def query_leagues(
     )
 
     # Build filter conditions (shared between count and items)
-    conditions = [League.is_public.is_(True)]
+    conditions = [League.is_public.is_(True), League.is_archived.is_(False)]
     if location_id is not None:
         conditions.append(League.location_id == location_id)
     if region_id is not None:
@@ -537,6 +540,7 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
         "location_id": league.location_id,
         "location_name": location_name,
         "is_open": league.is_open,
+        "is_archived": league.is_archived,
         "is_public": league.is_public,
         "created_by_player_id": league.created_by,
         "whatsapp_group_id": league.whatsapp_group_id,
@@ -678,6 +682,7 @@ async def get_league_detail(session: AsyncSession, league_id: int, user_id: int)
         "location_id": league.location_id,
         "location_name": location_name,
         "is_open": league.is_open,
+        "is_archived": league.is_archived,
         "created_by_player_id": league.created_by,
         "is_public": getattr(league, "is_public", False),
         "whatsapp_group_id": league.whatsapp_group_id,
@@ -730,23 +735,49 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
       that had no active season.
     (Phases 2a/2b together = 2 queries; subsequent stats/ranks are also batched.)
     """
-    from backend.database.models import Session as SessionModel
-
     member_count_subq = (
         select(LeagueMember.league_id, func.count(LeagueMember.id).label("member_count"))
         .group_by(LeagueMember.league_id)
         .subquery()
     )
 
+    viewer_league_ids = (
+        select(LeagueMember.league_id)
+        .join(Player, Player.id == LeagueMember.player_id)
+        .where(Player.user_id == user_id, Player.is_placeholder.is_(False))
+    )
+
     # Derive league from Session.league_id directly so that gap sessions
     # (season_id=NULL, league_id set) contribute to a league's latest_session_date
     # ordering.  The previous Season join excluded all gap sessions.
+    # Session dates are stored as either YYYY-MM-DD or M/D/YYYY. Compare a
+    # normalized value to find the last scored game, including gap sessions.
+    raw_date = func.trim(SessionModel.date)
+    game_date = case(
+        (raw_date.op("~")(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"), raw_date),
+        (
+            raw_date.op("~")(r"^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$"),
+            func.concat(
+                func.split_part(raw_date, "/", 3),
+                "-",
+                func.lpad(func.split_part(raw_date, "/", 1), 2, "0"),
+                "-",
+                func.lpad(func.split_part(raw_date, "/", 2), 2, "0"),
+            ),
+        ),
+    )
     latest_session_subq = (
         select(
             SessionModel.league_id,
             func.max(SessionModel.date).label("latest_session_date"),
+            func.max(game_date)
+            .filter(
+                SessionModel.matches.any(Match.winner != 0),
+                func.pg_input_is_valid(game_date, "date"),
+            )
+            .label("last_game_date"),
         )
-        .where(SessionModel.league_id.isnot(None))
+        .where(SessionModel.league_id.in_(viewer_league_ids))
         .group_by(SessionModel.league_id)
         .subquery()
     )
@@ -764,6 +795,7 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
             func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
             Location.name.label("location_name"),
             latest_session_subq.c.latest_session_date,
+            latest_session_subq.c.last_game_date,
         )
         .join(LeagueMember, LeagueMember.league_id == League.id)
         .join(Player, Player.id == LeagueMember.player_id)
@@ -978,6 +1010,8 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
                 "location_id": league_obj.location_id,
                 "location_name": r.location_name,
                 "is_open": league_obj.is_open,
+                "is_archived": league_obj.is_archived,
+                "last_game_date": r.last_game_date,
                 "whatsapp_group_id": league_obj.whatsapp_group_id,
                 "gender": league_obj.gender,
                 "level": league_obj.level,
@@ -1176,6 +1210,7 @@ async def update_league(
     gender: object = _UNSET,
     level: object = _UNSET,
     is_public: object = _UNSET,
+    is_archived: object = _UNSET,
 ) -> Optional[Dict]:
     """Update only explicitly provided league fields."""
     requested_values = {
@@ -1184,6 +1219,7 @@ async def update_league(
         "location_id": location_id,
         "is_open": is_open,
         "is_public": is_public,
+        "is_archived": is_archived,
         "whatsapp_group_id": whatsapp_group_id,
         "gender": gender,
         "level": level,
@@ -1356,6 +1392,8 @@ async def create_season(
         points_per_win: Points per win (for Points System, default 3)
         points_per_loss: Points per loss (for Points System, default 1, can be 0 or negative)
     """
+    await require_unarchived_league(session, league_id)
+
     # If no name provided, generate default name based on season count for this league
     if not name or name.strip() == "":
         # Count existing seasons for this league
@@ -2130,6 +2168,8 @@ async def add_league_member(
     """Add a league member."""
     from backend.services.players.player_lifecycle import require_active_players
 
+    await require_unarchived_league(session, league_id)
+
     await require_active_players(session, [player_id])
     member = LeagueMember(
         league_id=league_id,
@@ -2186,6 +2226,8 @@ async def add_league_members_batch(
 
     if not valid_entries:
         return {"added": added, "failed": failed}
+
+    await require_unarchived_league(session, league_id)
 
     # Pre-fetch all existing member player_ids for this league in one query
     valid_pids = [pid for pid, _ in valid_entries]
@@ -2285,6 +2327,8 @@ async def admin_add_league_members(
 
     if not entries:
         return {"added": added, "invited": invited, "failed": failed}
+
+    await require_unarchived_league(session, league_id)
 
     player_ids = [player_id for player_id, _ in entries]
     active_ids = set(
@@ -2588,6 +2632,8 @@ async def has_pending_league_request(
 async def create_league_request(session: AsyncSession, league_id: int, player_id: int) -> Dict:
     """Create a join request for a public-access league."""
     from backend.services.players.player_lifecycle import require_active_players
+
+    await require_unarchived_league(session, league_id)
 
     await require_active_players(session, [player_id])
     existing = (
@@ -3082,6 +3128,8 @@ async def create_league_invites(
 
     from backend.services.players.player_lifecycle import require_active_players
 
+    await require_unarchived_league(session, league_id)
+
     await require_active_players(session, player_ids)
 
     if invited_by_player_id is not None:
@@ -3295,6 +3343,9 @@ async def respond_to_league_invite(
             f"No pending league invite found for player {player_id} in league {league_id}"
         )
 
+    if action == "accept":
+        await require_unarchived_league(session, league_id)
+
     new_status = "accepted" if action == "accept" else "declined"
 
     # Update invite status (immutable pattern — we update the row in-place via
@@ -3419,6 +3470,7 @@ async def list_my_received_invites(session: AsyncSession, player_id: int) -> Lis
             and_(
                 LeagueInvite.player_id == player_id,
                 LeagueInvite.status == "pending",
+                League.is_archived.is_(False),
                 Player.deleted_at.is_(None),
             )
         )

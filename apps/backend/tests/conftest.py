@@ -78,6 +78,8 @@ async def _patch_missing_columns(conn):
     patches = [
         ("photo_match_jobs", "import_result", "JSON"),
         ("photo_match_jobs", "user_id", "INTEGER REFERENCES users(id) ON DELETE SET NULL"),
+        # Migration 086 — league archival
+        ("leagues", "is_archived", "BOOLEAN NOT NULL DEFAULT FALSE"),
         # Migration 019
         ("matches", "ranked_intent", "BOOLEAN NOT NULL DEFAULT TRUE"),
         # Migration 024 — Google SSO

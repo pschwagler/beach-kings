@@ -188,38 +188,18 @@ describe('LeaguesScroll', () => {
     expect(getByText('7 players')).toBeTruthy();
   });
 
-  it('shows the rank pill for the current user when a matching standings row exists', () => {
-    const leagues = [
-      {
-        id: 1,
-        name: 'Pro',
-        member_count: 20,
-        standings: [
-          { player_id: 42, season_rank: 3 },
-          { player_id: 77, season_rank: 1 },
-        ],
-      },
-    ];
-    const { getByText, getByLabelText } = render(
-      <LeaguesScroll leagues={leagues as any} currentUserPlayerId={42} />,
-    );
-    expect(getByText('3rd Ranked')).toBeTruthy();
-    expect(getByLabelText('League Pro, 20 players, 3rd Ranked')).toBeTruthy();
+  it('shows the date of the latest league game', () => {
+    const leagues = [{ id: 1, name: 'Pro', last_game_date: '2026-04-01' }];
+    const { getByText, getByLabelText } = render(<LeaguesScroll leagues={leagues} />);
+    expect(getByText('Last game Apr 1, 2026')).toBeTruthy();
+    expect(getByLabelText('Pro, 0 players, Last game Apr 1, 2026')).toBeTruthy();
   });
 
-  it('hides the rank pill when no standings row matches the user', () => {
-    const leagues = [
-      {
-        id: 1,
-        name: 'Pro',
-        member_count: 20,
-        standings: [{ player_id: 77, season_rank: 1 }],
-      },
-    ];
-    const { queryByText } = render(
-      <LeaguesScroll leagues={leagues as any} currentUserPlayerId={42} />,
-    );
-    expect(queryByText(/Ranked$/)).toBeNull();
+  it('shows when an archived league has no games', () => {
+    const leagues = [{ id: 1, name: 'Pro', is_archived: true }];
+    const { getByText } = render(<LeaguesScroll leagues={leagues} />);
+    expect(getByText('Archived')).toBeTruthy();
+    expect(getByText('No games yet')).toBeTruthy();
   });
 
   it('navigates to the league route when a card is pressed', () => {
@@ -227,7 +207,7 @@ describe('LeaguesScroll', () => {
     const { getByLabelText } = render(
       <LeaguesScroll leagues={leagues as any} />,
     );
-    fireEvent.press(getByLabelText('League Coastal, 4 players'));
+    fireEvent.press(getByLabelText('Coastal, 4 players, No games yet'));
     expect(mockPush).toHaveBeenCalledWith('/(stack)/league/9');
   });
 

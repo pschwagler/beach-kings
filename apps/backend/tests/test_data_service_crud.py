@@ -25,9 +25,11 @@ from backend.database.models import (
     OpenSignupsMode,
     SessionParticipant,
 )
+from backend.models.schemas import CreateMatchRequest
 from backend.services import data_service
 from backend.services import signup_data
 from backend.services import user_service
+from backend.services.leagues.league_lifecycle import LeagueArchivedError
 import bcrypt
 
 # db_session fixture is provided by conftest.py
@@ -635,6 +637,88 @@ async def test_get_user_leagues_includes_current_season_and_user_standing(
     assert user_row["wins"] == 7
     assert user_row["losses"] == 3
     assert user_row["season_rank"] == 2  # other_player has more points
+
+
+@pytest.mark.asyncio
+async def test_archive_league_preserves_last_game_and_allows_reopening(
+    db_session, test_player, test_user, four_players
+):
+    league = await data_service.create_league(
+        session=db_session,
+        name="Archive League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_user["id"],
+    )
+    league_id = league["id"]
+    assert league["is_archived"] is False
+    player_ids = [player.id for player in four_players]
+
+    for game_date, winner in [
+        ("12/31/2025", 1),
+        ("2026-01-21", 1),
+        ("2/3/2026", 1),
+        ("2026-02-05", 0),
+        ("2026-02-06", None),
+        ("2026-02-31", 1),
+    ]:
+        game_session = Session(date=game_date, name="Games", league_id=league_id)
+        db_session.add(game_session)
+        await db_session.flush()
+        if winner is not None:
+            db_session.add(
+                Match(
+                    session_id=game_session.id,
+                    team1_player1_id=player_ids[0],
+                    team1_player2_id=player_ids[1],
+                    team2_player1_id=player_ids[2],
+                    team2_player2_id=player_ids[3],
+                    team1_score=21,
+                    team2_score=15,
+                    winner=winner,
+                )
+            )
+    await db_session.commit()
+
+    assert (await data_service.update_league(db_session, league_id, is_archived=True))[
+        "is_archived"
+    ]
+    (entry,) = await data_service.get_user_leagues(db_session, test_user["id"])
+    assert entry["last_game_date"] == "2026-02-03"
+    assert entry["is_archived"] is True
+    assert all(item["id"] != league_id for item in await data_service.list_leagues(db_session))
+
+    with pytest.raises(LeagueArchivedError):
+        await data_service.get_or_create_active_league_session(db_session, league_id, "2026-02-07")
+    with pytest.raises(LeagueArchivedError):
+        await data_service.create_league_request(db_session, league_id, player_ids[0])
+    scored_game = CreateMatchRequest(
+        team1_player1_id=player_ids[0],
+        team1_player2_id=player_ids[1],
+        team2_player1_id=player_ids[2],
+        team2_player2_id=player_ids[3],
+        team1_score=21,
+        team2_score=15,
+    )
+    with pytest.raises(LeagueArchivedError):
+        await data_service.create_match_async(db_session, scored_game, game_session.id)
+
+    reopened = await data_service.update_league(db_session, league_id, is_archived=False)
+    assert reopened["is_archived"] is False
+    assert reopened["is_open"] is True
+    assert any(item["id"] == league_id for item in await data_service.list_leagues(db_session))
+    new_session = await data_service.get_or_create_active_league_session(
+        db_session, league_id, "2026-02-07"
+    )
+    assert new_session["league_id"] == league_id
+    (entry,) = await data_service.get_user_leagues(db_session, test_user["id"])
+    assert entry["last_game_date"] == "2026-02-03"
+
+    await data_service.create_match_async(db_session, scored_game, new_session["id"])
+    (entry,) = await data_service.get_user_leagues(db_session, test_user["id"])
+    assert entry["last_game_date"] == "2026-02-07"
 
 
 @pytest.mark.asyncio

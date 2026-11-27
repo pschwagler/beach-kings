@@ -47,6 +47,8 @@ from backend.services import (
     notification_service,
 )
 
+from backend.services.leagues.league_lifecycle import LeagueArchivedError
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -312,6 +314,8 @@ async def add_league_member(
         return result
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
+    except LeagueArchivedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:
@@ -382,6 +386,8 @@ async def add_league_members_batch(
             except Exception as e:
                 logger.warning(f"Failed to notify invited player: {e}")
         return result
+    except LeagueArchivedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:
@@ -552,9 +558,13 @@ async def request_to_join_league(
                 "message": "Join request submitted. League admins will be notified.",
                 "request_id": request["id"],
             }
+        except LeagueArchivedError:
+            raise
         except ValueError as e:
             # Handle case where request already exists
             raise HTTPException(status_code=400, detail=str(e))
+    except LeagueArchivedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:
@@ -674,6 +684,8 @@ async def approve_league_join_request(
                 logger.warning(f"Failed to send join-approval notifications: {e}")
 
         return {"success": True, "message": "Join request approved", "member": member}
+    except LeagueArchivedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:
@@ -1084,6 +1096,8 @@ async def send_league_invites(
         return {"success": True, "message": "Invites sent"}
     except interaction_policy.InteractionUnavailable:
         raise HTTPException(status_code=409, detail="Interaction unavailable")
+    except LeagueArchivedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:
@@ -1156,6 +1170,8 @@ async def respond_to_league_invite(
             action=body.action,
         )
         return result
+    except LeagueArchivedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except HTTPException:
         raise
     except ValueError as exc:

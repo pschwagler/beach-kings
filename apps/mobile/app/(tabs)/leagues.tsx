@@ -130,7 +130,6 @@ export default function LeaguesScreen(): React.ReactNode {
                   key={league.id}
                   league={league}
                   picture={pictures[league.id]}
-                  userRank={standing?.season_rank ?? null}
                   userWins={standing?.wins ?? 0}
                   userLosses={standing?.losses ?? 0}
                   onPress={() => handleLeaguePress(league)}

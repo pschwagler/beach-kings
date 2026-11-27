@@ -54,6 +54,7 @@ const EMPTY_SEASON_LEAGUE = {
   ...BASE_LEAGUE,
   games_played: 0,
   league_games_played: 6,
+  last_game_date: '2026-04-01',
   standings: [],
 } as unknown as League;
 
@@ -67,7 +68,6 @@ describe('LeagueCard', () => {
       const { getByText } = render(
         <LeagueCard
           league={ACTIVE_LEAGUE}
-          userRank={1}
           userWins={9}
           userLosses={2}
           onPress={jest.fn()}
@@ -80,7 +80,6 @@ describe('LeagueCard', () => {
       const { getByText } = render(
         <LeagueCard
           league={ACTIVE_LEAGUE}
-          userRank={1}
           userWins={9}
           userLosses={2}
           onPress={jest.fn()}
@@ -95,7 +94,6 @@ describe('LeagueCard', () => {
       const { queryByText } = render(
         <LeagueCard
           league={ACTIVE_LEAGUE}
-          userRank={1}
           userWins={9}
           userLosses={2}
           onPress={jest.fn()}
@@ -110,7 +108,6 @@ describe('LeagueCard', () => {
       const { getByText, queryByText } = render(
         <LeagueCard
           league={EMPTY_SEASON_LEAGUE}
-          userRank={null}
           userWins={0}
           userLosses={0}
           onPress={jest.fn()}
@@ -126,7 +123,6 @@ describe('LeagueCard', () => {
       const { getByText } = render(
         <LeagueCard
           league={EMPTY_SEASON_LEAGUE}
-          userRank={null}
           userWins={0}
           userLosses={0}
           onPress={jest.fn()}
@@ -139,7 +135,6 @@ describe('LeagueCard', () => {
       const { getByText } = render(
         <LeagueCard
           league={EMPTY_SEASON_LEAGUE}
-          userRank={null}
           userWins={0}
           userLosses={0}
           onPress={jest.fn()}
@@ -152,13 +147,13 @@ describe('LeagueCard', () => {
       const { getByText } = render(
         <LeagueCard
           league={EMPTY_SEASON_LEAGUE}
-          userRank={null}
           userWins={0}
           userLosses={0}
           onPress={jest.fn()}
         />,
       );
       expect(getByText('27 members')).toBeTruthy();
+      expect(getByText('Last game Apr 1, 2026')).toBeTruthy();
     });
   });
 
@@ -167,7 +162,6 @@ describe('LeagueCard', () => {
     const { getByTestId } = render(
       <LeagueCard
         league={EMPTY_SEASON_LEAGUE}
-        userRank={null}
         userWins={0}
         userLosses={0}
         onPress={onPress}

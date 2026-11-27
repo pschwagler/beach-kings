@@ -30,6 +30,7 @@ class League(Base):
     description = Column(Text, nullable=True)
     location_id = Column(String, ForeignKey("locations.id"), nullable=True)
     is_open = Column(Boolean, default=True, nullable=False)
+    is_archived = Column(Boolean, server_default=text("false"), nullable=False)
     is_public = Column(
         Boolean, default=True, nullable=False
     )  # Whether league is visible on public pages

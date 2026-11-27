@@ -144,6 +144,7 @@ export function useLeagueInfoTab(
 
       return {
         id: league.id,
+        is_archived: league.is_archived,
         description: league.description ?? null,
         access_type: league.access_type,
         level: league.level ?? null,

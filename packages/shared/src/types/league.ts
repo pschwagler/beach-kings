@@ -246,6 +246,7 @@ export interface LeagueDetail {
    * visitor can self-serve join or must request to join.
    */
   readonly is_public: boolean;
+  readonly is_archived?: boolean;
   readonly gender: 'mens' | 'womens' | 'coed' | null;
   readonly level: string | null;
   readonly location_id: string | null;
@@ -322,6 +323,7 @@ export interface LeagueMemberAddResult {
 /** Full info tab payload composed from multiple parallel API calls. */
 export interface LeagueInfoDetail {
   readonly id: number;
+  readonly is_archived?: boolean;
   readonly description: string | null;
   readonly access_type: 'open' | 'invite_only';
   readonly level: string | null;
@@ -345,6 +347,9 @@ export interface League {
   description?: string | null;
   is_open?: boolean | null;
   is_public?: boolean | null;
+  is_archived?: boolean;
+  /** Calendar date of the league's latest recorded game, across all seasons. */
+  last_game_date?: string | null;
   member_count?: number | null;
   /** League-wide games in the displayed current season. */
   league_games_played?: number | null;
